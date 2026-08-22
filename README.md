@@ -1,6 +1,6 @@
 # Spark
 
-> 本地优先的 AI Agent 工作台 —— 引擎跑在本地，Web 前端消费事件流，后期加 Electron 桌面壳。
+> AI Agent 工作台 —— 引擎 + 事件流驱动的 Web 前端，后期加 Electron 桌面壳。
 > 核心体验：流式对话 + 工具调用可视化 + 人工审批（human-in-the-loop）。
 
 ## 项目状态
@@ -41,3 +41,4 @@
 | v1.0 | 2026-08-22 | 晚风（Wanfeng1028，创建仓库） | 仓库初始化 |
 | v1.1 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`；会话内部标识 ox-alpha，model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`） | 重写 README：项目介绍/技术栈/文档导航/核心理念 |
 | v1.2 | 2026-08-22 | 同上 | 文档导航新增 doc/04 前端约束规则 |
+| v1.3 | 2026-08-22 | 同上（决策：晚风 Wanfeng1028） | 移除"本地优先"定位措辞（事实不变，不再作为明面标签；技术细节保留在 DESIGN D5 等处） |

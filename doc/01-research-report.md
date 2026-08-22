@@ -8,6 +8,7 @@
 | v1.1 | 2026-08-22 | 同上 | 扩充至源码细节级（补入真实代码片段与调用链） |
 | v1.2 | 2026-08-22 | 同上 | **补全全程调研内容**：新增第 0 章前期会话范式调研（含 20+ 仓库统计与许可证陷阱）；六家各补"产品形态总览（首轮调研）"；前端生态补组件库完整细节（x-card/x-skill 子包、assistant-ui 包矩阵、shadcn chat blocks 等）；后端生态补 AI SDK v7 全量 breaking、SSE/JSONL 库现状、Go eino ADK/genkit 全清单；新增"语言边界与混合架构""逆向的边界"两章；新增本版本记录表 |
 | v1.3 | 2026-08-22 | 同上 | 修正版本记录：作者模型信息补全 GLM-5.3（此前仅写会话内部标识 ox-alpha，未写底层模型，属记录不完整） |
+| v1.4 | 2026-08-22 | 同上（决策：晚风 Wanfeng1028） | 全文移除"本地优先"定位措辞两处（§0.1 目标、§4.1 表注）——事实不变，不作明面标签 |
 
 > 调研周期：2026-08-21 ~ 2026-08-22（本会话）+ 前期会话（sess_20abb8d8，GeoWork/Agent 前端架构调研）
 > 调研方式：全部在线（GitHub API `gh api` / npm registry / raw 文件直读 / 官方文档 / 本机安装目录观测），未本地克隆。六大项目完成**源码级精读**（3 个并行调研代理 + 3 个精读代理 + 补交续读，共 10 次代理任务；另有主对话直接核查若干）。
@@ -19,7 +20,7 @@
 
 ## 0.1 目标
 
-自研 Agent 产品（本地优先，Web 前端 + 引擎后端，后期 Electron 桌面壳）。确定：前后端技术栈、参考哪些开源项目、能复用什么组件。
+自研 Agent 产品（Web 前端 + 引擎后端，后期 Electron 桌面壳）。确定：前后端技术栈、参考哪些开源项目、能复用什么组件。
 
 ## 0.2 前期会话（旧会话）已确立的范式结论
 
@@ -697,7 +698,7 @@ SessionV2.prompt [session.ts L360] → SessionInput.admit [input.ts L41]（落 s
 | chatscope | 2.1.1（2025-05-15 后停更 15 月），1.8k★ | MIT | @chatscope/chat-ui-kit-styles SCSS | 经典 IM：MainContainer/ChatContainer/MessageList/Message/MessageInput/MessageSeparator/Sidebar/ConversationList/Conversation/ConversationHeader/Avatar/TypingIndicator… —— **不推荐** |
 | NLUX | 2.17.1（2024-08 后停更 2 年），1.4k★ | **MPL-2.0（npm）** | 自有（Nova/Jupiter 主题） | 单 AiChat 组件+@nlux/core+adapters —— **不推荐（React peer 仅 ^18）** |
 | llm-ui | 0.13.3（2024-06 起休眠） | MIT | — | — **不推荐** |
-| Stream Chat React（GetStream） | 商业 SaaS | SDK 开源但绑 Stream 云 | — | 绑定云服务，不适合本地优先自托管 |
+| Stream Chat React（GetStream） | 商业 SaaS | SDK 开源但绑 Stream 云 | — | 绑定云服务，不适合自托管 |
 | botframework-webchat（微软） | 活跃 | MIT | — | 绑 Azure Bot Service/Direct Line —— 不适用 |
 | MUI / Mantine / PrimeReact / Fluent UI / Chakra UI | 活跃 | — | — | **五家均无 AI/chat 组件**（官方 all-components 页/源码 components 目录逐一核实；微软聊天 UI 在独立包 @azure/communication-react） |
 | react-virtuoso | 4.18.12（2026-08-17），6.4k★，周下载 279 万 | MIT | 无样式 | followOutput/firstItemIndex 反向无限加载 —— 长会话一等选择 |
