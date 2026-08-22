@@ -9,12 +9,13 @@
 |------|------|------|----------|
 | v1.0 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`；会话内部标识 ox-alpha，model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；人作者：晚风（Wanfeng1028，发起与审核） | 初稿：项目上下文/硬性约定/任务指引/红线 |
 | v1.1 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；人作者：晚风（Wanfeng1028，提出与审核） | 硬性约定 §2.6 扩充：禁止一切"AI 生成风"外观（暖棕/米色暖调配色、实线细描边+内部 backdrop-blur 毛玻璃按钮），与 DESIGN.md D2 同步 |
+| v1.2 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | 必读索引挂接 **doc/04 前端约束规则**（目标"Codex/ZCode 桌面感"：布局/密度/颜色 token/键盘优先/动效/反网站化黑名单/组件 DoD/Electron 预留） |
 
 ## 1. 项目上下文（30 秒版）
 
 Spark 是**本地优先的 Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端，通过 HTTP+SSE 单一事件流协议通信；后期加 Electron 壳。当前处于**阶段零（设计期）**——只有文档，代码未开工。完整规格见 `doc/02-development-plan.md`。
 
-**必读文档索引**：设计总览 → `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`。
+**必读文档索引**：设计总览 → `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；**前端约束规则（桌面应用感/反网站化黑名单/组件 DoD）→ `doc/04`**；调研依据 → `doc/01`。
 
 ## 2. 硬性约定（违反即返工）
 
