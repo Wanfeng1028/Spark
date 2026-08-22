@@ -8,6 +8,7 @@
 | 版本 | 日期 | 作者 | 变更内容 |
 |------|------|------|----------|
 | v1.0 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`；会话内部标识 ox-alpha，model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；人作者：晚风（Wanfeng1028，发起与审核） | 初稿：定位/总体架构/五条铁律/六大核心抽象/八项关键决策记录（ADR）/模块速览/演进路线 |
+| v1.1 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；人作者：晚风（Wanfeng1028，提出与审核） | D2 补充"AI 生成风"禁止特征清单与判例（暖棕/米色暖调配色、实线细描边+内部毛玻璃按钮） |
 
 ---
 
@@ -64,7 +65,7 @@
 备选否决：Go（失类型共享与 TS 构建块，eino 尚 v0.x alpha）；Python（本地个人工具无一选用，类型断裂）；Rust（性能非瓶颈，开发效率低）。行业佐证：同类产品 Claude Code/dsh/pi/opencode 全 TS。
 
 ### D2 前端 = Vite + React 19 + Tailwind v4 + shadcn/ui + AI Elements
-理由：AI Elements 48 个工作台组件（confirmation 审批卡/terminal/file-tree/plan/task/checkpoint）是最全的 Agent UI 零件库且 copy-in 源码归我们；shadcn 生态最大。"蓝玻璃 AI 风"与 Tailwind 无关（那是 v0/Lovable 审美），我们用默认黑白中性极简。
+理由：AI Elements 48 个工作台组件（confirmation 审批卡/terminal/file-tree/plan/task/checkpoint）是最全的 Agent UI 零件库且 copy-in 源码归我们；shadcn 生态最大。"蓝玻璃 AI 风"与 Tailwind 无关（那是 v0/Lovable 审美），我们用默认黑白中性极简。**"AI 生成风"特征一律禁止**（判例：2026-08-22 评审一张刷课工具面板截图——暖棕/米色配色、按钮实线细描边 + 内部毛玻璃模糊，定性为典型 AI 审美、不可取）：蓝紫渐变玻璃拟态；暖棕/米色等暖调配色；实线细描边 + 内部 backdrop-blur 毛玻璃的按钮/卡片。
 备选否决：Semi（AI 三件套优秀但 Vite 主题插件社区化）；antdx（组件较少且绑 antd6）；assistant-ui 作主库（0.x）。Semi/antdx/lobehub 保留为备案（doc/02 §2.1.1 有链接对比表）。
 
 ### D3 LLM 抽象 = @earendil-works/pi-ai（MIT）
