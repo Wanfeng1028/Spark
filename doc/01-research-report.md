@@ -1,102 +1,109 @@
-# Agent 产品与技术生态调研报告（详细版）
+# Agent 产品与技术生态调研报告
 
-> 调研周期：2026-08-21 ~ 2026-08-22
-> 调研方式：全部在线进行（GitHub API `gh api` / npm registry / raw 文件直读 / 官方文档 / 本机安装目录观测），**未在本地克隆任何仓库**。六个核心项目完成源码级精读（函数级调用链 + 真实代码片段，文中所有路径为仓库内相对路径、行号为精读当日快照）。
-> 目的：为自研 Agent 产品（本地优先，Web 前端 + 引擎后端，后期 Electron 桌面）确定技术栈与架构参考体系。
-> 配套文档：`02-development-plan.md`（完整开发方案）。
+## 版本记录
 
----
+| 版本 | 日期 | 作者 | 变更内容 |
+|------|------|------|----------|
+| v1.0 | 2026-08-22 | AI 编写：ZCode CLI · 模型 ox-alpha（model id：`57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；人作者：晚风（Wanfeng1028，发起与审核） | 初稿：六大参考项目源码级调研 + 前后端生态选型结论 |
+| v1.1 | 2026-08-22 | 同上 | 扩充至源码细节级（补入真实代码片段与调用链） |
+| v1.2 | 2026-08-22 | 同上 | **补全全程调研内容**：新增第 0 章前期会话范式调研（含 20+ 仓库统计与许可证陷阱）；六家各补"产品形态总览（首轮调研）"；前端生态补组件库完整细节（x-card/x-skill 子包、assistant-ui 包矩阵、shadcn chat blocks 等）；后端生态补 AI SDK v7 全量 breaking、SSE/JSONL 库现状、Go eino ADK/genkit 全清单；新增"语言边界与混合架构""逆向的边界"两章；新增本版本记录表 |
 
-## 目录
-
-- 一、六大参考产品源码级调研
-- 二、六家横向对比
-- 三、行业语言与架构盘点
-- 四、前端生态调研
-- 五、后端生态调研
-- 六、其他产品调查（ZCode / Qoder / Trae）
-- 七、参考资料资产盘点
-- 八、参考体系定稿与法律边界
+> 调研周期：2026-08-21 ~ 2026-08-22（本会话）+ 前期会话（sess_20abb8d8，GeoWork/Agent 前端架构调研）
+> 调研方式：全部在线（GitHub API `gh api` / npm registry / raw 文件直读 / 官方文档 / 本机安装目录观测），未本地克隆。六大项目完成**源码级精读**（3 个并行调研代理 + 3 个精读代理 + 补交续读，共 10 次代理任务；另有主对话直接核查若干）。
+> 配套文档：`02-development-plan.md`（完整开发方案，含前端完整规格）。
 
 ---
 
-# 一、六大参考产品源码级调研
+# 0. 调研背景与前期会话结论
+
+## 0.1 目标
+
+自研 Agent 产品（本地优先，Web 前端 + 引擎后端，后期 Electron 桌面壳）。确定：前后端技术栈、参考哪些开源项目、能复用什么组件。
+
+## 0.2 前期会话（旧会话）已确立的范式结论
+
+**现代 Agent 前端六要素**：从"渲染页面"变为"渲染一个正在自主运行的过程"——①双栏范式（会话流 + 工作区）；②流式渲染；③human-in-the-loop 审批；④会话是一等对象；⑤Generative UI；⑥可观测性。
+
+**20+ 开源仓库统计结论**（两代理核验）：几乎清一色 React；桌面壳 Electron 主流、Tauri 崛起（Jan 已迁移）；新项目主流是 shadcn/Radix+Tailwind 而非 antd（Cherry Studio 是自研 shadcn 风格库，**不是 antd**）；状态管理收敛为 zustand + TanStack Query/SWR；流式用 SSE/WebSocket + 新一代流式 Markdown（streamdown、x-markdown）。
+
+**许可证陷阱表**（重要，选型时避雷）：
+
+| 项目 | 许可 | 陷阱 |
+|---|---|---|
+| LobeChat / Open WebUI / Dify | 自定义许可 | 已从开源许可改为自定义条款，商用需逐条审 |
+| Cherry Studio | AGPL | 传染性 |
+| pi / DeepSeek harness / opencode / Codex / Grok Build | MIT / Apache-2.0 | 干净，可复用 |
+
+**编码 Agent 共同范式**（Claude Code/Codex/opencode/DeepSeek harness/pi 精读前总览）：Headless 核心 + 瘦客户端；UI = 一条持久事件流的投影；无传统页面/首页概念；Claude Code = React+Ink TUI + stream-json over stdio；opencode = SolidJS+OpenTUI，client/server（HTTP REST+OpenAPI+SSE）；DeepSeek harness = React18+Vite 本地 SPA（127.0.0.1:3080，MIT）；Codex 有桌面版 `codex app`（2026-02 起，macOS/Windows），桌面/移动端是同一 Rust 核心经 JSON-RPC 2.0 的 remote clients——GUI 有"视图"（侧栏会话+任务列表+主对话区）但无页面体系。
+
+**Codex 式前端五层架构蓝图**（旧会话产出，本方案直接继承）：`protocol → transport → stores → components → mock engine`；`protocol/types.ts` 用可辨识联合定义 Op/AgentEvent 作为全项目合同；`sessionStore.applyEvent()` 是心脏；mockTransport 支持无后端开发。
+
+**旧会话最终建议**（后被本会话深化修正）：先写 Web 再 Electron 打包（前提是 Web 连"本地 Agent 引擎协议"而非网站后端）；引擎选 TypeScript；HTTP+SSE；pnpm monorepo；引擎核心是 runTurn 循环（流式 emit → 工具调用 → 审批挂起 → 会话 JSONL 追加日志）。
+
+# 1. 六大参考产品调研
+
+> 每家分两节：**A 产品形态与技术栈总览**（首轮调研）+ **B 源码精读**（函数级调用链与真实代码片段；路径为仓库内相对路径，行号为精读当日快照）。
 
 ## 1.1 OpenAI Codex（openai/codex）
 
-### 1.1.1 基本盘
+### A. 产品形态总览
 
-- 仓库：https://github.com/openai/codex ，描述 "Lightweight coding agent that runs in your terminal"，**Apache-2.0**，约 11 万 stars，main 分支日更（当时稳定版 0.149.0）。
-- 顶层结构：`codex-rs/`（Rust workspace，100+ crate）、`codex-cli/`（npm 壳 `@openai/codex`，bin 脚本下载平台二进制）、`sdk/typescript` + `sdk/python`（官方 SDK）、`third_party/`、Bazel + pnpm 混合构建。
-- **开源范围**：Rust 核心、TUI（Ratatui）、TS/Python SDK。**桌面 app（Electron+Node.js，2026-02 起）、VS Code 扩展（openai.chatgpt，约 1333 万安装）、Web 云端（chatgpt.com/codex，服务端容器跑同一 harness，参考镜像 ghcr.io/openai/codex-universal）均闭源**。
+- 四种使用形态：CLI（本仓库）、IDE 扩展（VS Code/Cursor/Windsurf，publisher `openai`，扩展 ID `openai.chatgpt`，约 1333 万安装，闭源）、桌面 app（`codex app` 或 DMG/MS Store 分发，Electron+Node.js，闭源）、Codex Web（chatgpt.com/codex，2025-12-31 由 "Codex cloud" 更名；任务在服务端容器执行，开源参考镜像 `ghcr.io/openai/codex-universal`，生产只跑 linux/amd64）。
+- 本地 CLI 与云端交互：`codex cloud` 子命令（cloud-tasks crate 含 TUI 浏览云端任务/查看 diff/apply 到本地）；backend API 由 OpenAPI 规范生成（codex-backend-openapi-models）。
+- 编程接口：TS SDK `@openai/codex-sdk`（README 原话："wraps the codex CLI … spawns the CLI and exchanges JSONL events over stdin/stdout"；`startThread()/runStreamed()`；`outputSchema` 结构化输出可配 Zod；`resumeThread(id)`；`env` 完全控制——README 专门提到 "sandboxed hosts like Electron apps"；`config` 透传 `--config key=value`；**`baseUrl` 可覆盖**接 OpenAI 兼容端点）+ Python SDK。
+- 生态仓库：openai/skills（Skills 目录）、openai/codex-plugin-cc（在 Claude Code 里用 Codex 审查/委派）、openai/tunnel-client（Secure MCP Tunnel）。
+- 历史接口演进：早期 `codex proto`（protocol v1 的 SQ/EQ over stdio）→ 已移除，被 `codex app-server`（JSON-RPC）与 `codex mcp-server` 取代。
+- 官方理念："everything is controlled by code"（2026-02 Codex app 公告）；Model + Harness + Surfaces 三层心智（Gabriel Chua，二手）；"自 GPT-5.2-Codex 十二月发布以来用量翻倍、月活开发者超百万"。
 
-### 1.1.2 分层架构
+### B. 源码精读
+
+#### B.1 基本盘
+
+Rust workspace 100+ crate（`codex-rs/`），Apache-2.0，main 日更（当时稳定版 0.149.0）。顶层：`protocol/`（SQ/EQ 内部协议）、`history/`（RolloutItem/RolloutLine 领域类型，**不在 rollout crate**）、`rollout/`（JSONL IO：recorder/reverse_jsonl_scanner/compression/state_db）、`core/`（引擎：codex_thread/thread_manager/tasks/session/tools/unified_exec/exec_policy/safety/client）、`app-server(-protocol)(-client)/`、`sandboxing/`（+ linux-sandbox/windows-sandbox-rs/execpolicy/network-proxy）、`tui/`、`exec/`。
+
+#### B.2 分层架构
 
 ```
 Rust core（唯一引擎）
-  ├─ 内部协议 protocol v1：SQ/EQ 双队列（进程内/任意双向流，JSONL 序列化）
-  ├─ app-server（JSON-RPC 2.0' ：stdio JSONL / Unix socket / 实验性 WebSocket）
-  └─ mcp-server（把引擎暴露为 MCP server，MCP over stdio）
-客户端（全部是协议客户端，连官方 TUI 都是）：
-  TUI（Ratatui，经 app-server-client 连接）· codex exec（InProcessAppServerClient）
-  · 桌面 app · IDE 扩展 · TS SDK（spawn CLI 换 JSONL）· 云端 Web
+  ├─ protocol v1：SQ/EQ 双队列（进程内/任意双向流，newline-delimited JSON 序列化）
+  ├─ app-server：JSON-RPC 2.0'（stdio JSONL / UDS / 实验性 WS；省略 jsonrpc 字段）
+  └─ mcp-server：把引擎暴露为 MCP server（stdio）
+客户端（全是协议客户端）：TUI（Ratatui，经 app-server-client 连接，不直接依赖 core）
+  · codex exec（InProcessAppServerClient，stdout 只出最终消息/--json 出 JSONL）
+  · 桌面 app · IDE 扩展 · TS/Python SDK（spawn CLI 换 JSONL）· 云端 Web
 ```
 
-关键事实：**TUI 的 Cargo.toml 依赖 `codex-app-server-client`，不直接依赖 core**——`tui/src/app_server_session.rs` 使用 `AppServerClient`（区分 `InProcess(_)` 与 `Remote(client)` 两种传输）。
+#### B.3 SQ/EQ 协议（protocol/src/protocol.rs）
 
-### 1.1.3 SQ/EQ 协议（`codex-rs/protocol/src/protocol.rs`）
-
-文件头注释：*"Defines the protocol for a Codex session between a client and an agent. Uses a SQ (Submission Queue) / EQ (Event Queue) pattern to asynchronously communicate between user and agent."*
+文件头注释：*"Defines the protocol for a Codex session between a client and an agent. Uses a SQ (Submission Queue) / EQ (Event Queue) pattern."*
 
 ```rust
 pub struct Submission {
-    pub id: String,                       // 与 Event 关联的 correlation id
+    pub id: String,                       // correlation id
     pub op: Op,
     pub trace: Option<W3cTraceContext>,
     pub parent_turn_id: Option<String>,   // inter-agent 通信
     pub root_turn_id: Option<String>,
 }
-
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum EventMsg {
-    Error(..), Warning(..), GuardianWarning(..), ContextCompacted(..), ThreadRolledBack(..),
-    #[serde(rename = "task_started", alias = "turn_started")]       // v1 wire 兼容
-    TurnStarted(..),
-    #[serde(rename = "task_complete", alias = "turn_complete")]
-    TurnComplete(..),
-    TokenCount(..), AgentMessage(..), UserMessage(..), AgentReasoning(..),
-    SessionConfigured(..), McpToolCallBegin/End(..), WebSearchBegin/End(..),
-    ExecCommandBegin(..), ExecCommandOutputDelta(..), ExecCommandEnd(..),
-    ExecApprovalRequest(..), ApplyPatchApprovalRequest(..), RequestPermissions(..),
-    RequestUserInput(..), ElicitationRequest(..), PatchApplyBegin/Updated/End(..),
-    TurnDiff(..), PlanUpdate(..), TurnAborted(..), ShutdownComplete,
-    ItemStarted(..), ItemCompleted(..), AgentMessageContentDelta(..), PlanDelta(..),
-    ReasoningContentDelta(..), CollabAgentSpawnBegin/End(..), SubAgentActivity(..), ...
-}
 ```
 
-`Op` 变体（`#[non_exhaustive]`，实测枚举）：`Interrupt`、`TurnInput{request, mode, reply: oneshot}`、`ExecApproval{id, turn_id, decision}`、`PatchApproval`、`UserInputAnswer`、`RequestPermissionsResponse`、`DynamicToolResponse`、`InterAgentCommunication`、`Compact`、`ThreadRollback{num_turns}`、`Review`、`Shutdown`、`RunUserShellCommand`、`RealtimeConversation*`（语音）等约 25 个。**两个要点：审批"答复"本身也是一条 Submission（同一队列保证因果顺序）；多个 Op 内嵌 `oneshot::Sender` 直接回执通道。**
+`Op` 约 25 变体（`#[non_exhaustive]`）：`Interrupt`、`TurnInput{request, mode, reply: oneshot::Sender}`、`ExecApproval{id, turn_id, decision: ReviewDecision}`、`PatchApproval`、`UserInputAnswer`、`RequestPermissionsResponse`、`DynamicToolResponse`、`InterAgentCommunication`、`Compact`、`ThreadRollback{num_turns}`、`Review`、`Shutdown`、`RunUserShellCommand`、`RealtimeConversation*`（语音）等。**审批"答复"也是一条 Submission（同一队列保证因果顺序）；多个 Op 内嵌 oneshot 直接回执。**
 
-### 1.1.4 Steering 一等公民（`protocol/src/turn_input.rs`）
+`EventMsg`（`#[serde(tag="type", rename_all="snake_case")]`，节选）：`TurnStarted`（wire 名兼容 `task_started`，alias 双收）、`TurnComplete`、`TokenCount`、`AgentMessage`/`UserMessage`、`AgentReasoning*`、`SessionConfigured`、`McpToolCallBegin/End`、`WebSearchBegin/End`、`ExecCommandBegin/OutputDelta/End`、`ExecApprovalRequest`、`ApplyPatchApprovalRequest`、`RequestPermissions`、`RequestUserInput`、`ElicitationRequest`、`PatchApplyBegin/Updated/End`、`TurnDiff`、`PlanUpdate`/`PlanDelta`、`TurnAborted`、`ItemStarted`/`ItemCompleted`、`AgentMessageContentDelta`、`ReasoningContentDelta`、`CollabAgentSpawnBegin/End`、`SubAgentActivity` 等。
+
+#### B.4 Steering 一等公民（protocol/src/turn_input.rs）
 
 ```rust
-pub enum TurnInputMode {
-    StartOrSteer,                        // 空闲开新 turn，忙则注入活跃 turn
-    StartIfIdle,                         // 仅空闲时开 turn
-    Steer { expected_turn_id: String },  // 仅当指定 turn 活跃时注入
-}
-// 提交结果三态：
-// TurnInputSubmission::{Started{turn_id}, Steered{turn_id},
-//                       NotSubmitted{reason: NotIdle|PendingTriggerTurn|PlanMode|
-//                                    NoActiveTurn|ExpectedTurnMismatch|ActiveTurnNotSteerable}}
+pub enum TurnInputMode { StartOrSteer, StartIfIdle, Steer { expected_turn_id: String } }
+// 提交三态：TurnInputSubmission::{Started{turn_id}, Steered{turn_id},
+//   NotSubmitted{reason: NotIdle|PendingTriggerTurn|PlanMode|NoActiveTurn|
+//                          ExpectedTurnMismatch|ActiveTurnNotSteerable}}
 ```
 
-### 1.1.5 app-server v2 协议
+#### B.5 app-server v2
 
-- `rpc.rs`：*"We do not do true JSON-RPC 2.0, as we neither send nor expect the 'jsonrpc': '2.0' field."* 四种传输：stdio（JSONL，默认）/ Unix domain socket（`$CODEX_HOME/app-server-control/*.sock`，HTTP Upgrade）/ WebSocket（实验）/ 进程内。
-- 方法表宏集中生成（`app-server-protocol/src/protocol/common.rs`），三个宏生成 ClientRequest/ClientResponse、ServerRequest/ServerResponse、ServerNotification。
-- Client→Server：`initialize`、`thread/start|resume|fork|archive|delete|list|read|search|rollback|revert|compact/start`、`thread/turns/list`、`thread/items/list`、`turn/start|steer|interrupt`、`review/start`、`model/list`、`fs/readFile|writeFile|watch`、`command/exec(+write/terminate/resize)`、`process/spawn(+writeStdin/kill/resizePty)`、`mcpServer/tool/call`、`remoteControl/pairing/start`（手机配对遥控）等。
-- **Server→Client 审批请求**（v2，带 item 语义）：
+- 方法表宏集中生成（app-server-protocol/src/protocol/common.rs 三个宏）。Client→Server：`initialize`、`thread/start|resume|fork|archive|delete|list|read|search|rollback|revert|compact/start`、`turn/start|steer|interrupt`、`review/start`、`model/list`、`fs/readFile|writeFile|watch`、`command/exec(+write/terminate/resize)`、`process/spawn(+writeStdin/kill/resizePty)`、`account/login/start...`、`mcpServer/tool/call`、`remoteControl/*`（pairing 配对手机/网页遥控）等。
+- Server→Client 审批请求（v2 item 语义；v1 的 `execCommandApproval`/`applyPatchApproval` 已标 DEPRECATED）：
 
 ```rust
 server_request_definitions! {
@@ -105,583 +112,527 @@ server_request_definitions! {
     ToolRequestUserInput => "item/tool/requestUserInput" { .. },
     McpServerElicitationRequest => "mcpServer/elicitation/request" { .. },
     PermissionsRequestApproval => "item/permissions/requestApproval" { .. },
-    DynamicToolCall => "item/tool/call" { .. },        // 客户端动态工具
-    /// DEPRECATED（legacy）：ApplyPatchApproval / ExecCommandApproval
+    DynamicToolCall => "item/tool/call" { .. },
 }
 ```
 
-- Server→Client 通知：`thread/started`、`turn/started|completed`、`item/started|completed`、`item/agentMessage/delta`、`item/reasoning/summaryTextDelta`、`item/commandExecution/outputDelta`、`turn/diff/updated`、`thread/tokenUsage/updated` 等。
-- 三个原语：**Thread（会话）/ Turn（一次交换）/ Item（单条输入输出）**；`ThreadItem` tagged enum 约 15 类（agentMessage/reasoning/commandExecution/fileChange/mcpToolCall/webSearch/todoList/contextCompaction/dynamicToolCall/collaborationAgentToolCall/subAgentActivity...）。
-- 工具：`codex app-server generate-ts / generate-json-schema` 给客户端生成类型绑定。背压：入站饱和返回 `-32001` Server overloaded。
+- 通知：`thread/started`、`turn/started|completed`、`item/started|completed`、`item/agentMessage/delta`、`item/reasoning/summaryTextDelta`、`item/commandExecution/outputDelta`、`turn/diff/updated`、`thread/tokenUsage/updated` 等。三原语 Thread/Turn/Item；`ThreadItem` ~15 类 tagged enum。
+- 背压：入站饱和 `-32001` Server overloaded；工具 `generate-ts`/`generate-json-schema` 生成客户端绑定。
 
-### 1.1.6 Turn 完整调用链（函数名级）
+#### B.6 Turn 调用链（函数名级）
 
 ```
-CodexThread::start_or_steer_turn()            core/src/codex_thread.rs L262
- └─ submit(Op::TurnInput{request, mode}) → SQ 入队
-Session::spawn_task::<RegularTask>()          core/src/tasks/mod.rs L279
- └─ RegularTask::run()                        core/src/tasks/regular.rs
-     ├─ 发 EventMsg::TurnStarted
-     ├─ consume_startup_prewarm_for_regular_turn()      // MCP 预热
+CodexThread::start_or_steer_turn() [codex_thread.rs L262] → submit(Op::TurnInput) → SQ
+Session::spawn_task::<RegularTask>() [tasks/mod.rs L279]
+ └─ RegularTask::run() [tasks/regular.rs]
+     ├─ 发 TurnStarted；consume_startup_prewarm_for_regular_turn()（MCP 预热）
      └─ 外层 loop（吃排队输入）
-         run_turn(sess, ctx, input)           core/src/session/turn.rs L153
+         run_turn() [session/turn.rs L153]
            ├─ drain_async_hook_results(before_user_prompt=true)
-           ├─ model_client.new_session()                 // turn 级对象，缓存 WebSocket+sticky routing
-           ├─ run_pre_sampling_compact()                 // 预压缩防上下文爆
-           ├─ capture_step_context_with_required_mcp_servers()
-           │    → StepContext（一次性冻结：历史+工具表+模型信息）
+           ├─ model_client.new_session()  // turn 级，缓存 WebSocket+sticky routing
+           ├─ run_pre_sampling_compact()  // 预压缩
+           ├─ capture_step_context_with_required_mcp_servers() → StepContext（冻结 历史+工具表+模型信息）
            ├─ build_skills_and_plugins(); run_hooks(TurnStart)
            └─ 内层 loop（采样⇄工具）
-               pending_input = input_queue.get_pending_input()   // steering 在此并入
-               sampling_input = sess.clone_history().for_prompt(modalities)
-               run_sampling_request()         同文件 L1340
-                 └─ try_run_sampling_request() L2179
-                     └─ client_session.stream(prompt) → 逐条处理：
-                         · OutputItemAdded → emit ItemStarted
-                         · AgentMessage/Reasoning delta → emit_*_delta
-                         · FunctionCall/CustomToolCall → ToolRouter::build_tool_call()
-                           → ToolCallRuntime::handle_tool_call() → in_flight.push_back(future)
-                         · drain_in_flight()：并发收割工具 future 回填 history
-                         · handle_retryable_response_stream_error(max_retries/backoff)
-               needs_follow_up = 有新 tool call || 有 pending input
+               pending = input_queue.get_pending_input()        // steering 并入
+               run_sampling_request() [L1340] → try_run_sampling_request() [L2179]
+                 → client_session.stream() 逐条：
+                   OutputItemAdded → emit ItemStarted；delta → emit_*_delta
+                   FunctionCall/CustomToolCall → ToolRouter::build_tool_call()
+                     → ToolCallRuntime::handle_tool_call() → in_flight.push_back(future)
+                   drain_in_flight() 并发收割；handle_retryable_response_stream_error()
+               needs_follow_up = 新 tool call || pending input
          发 TurnDiff / TokenCount / TurnComplete
 ```
 
-### 1.1.7 工具系统三层
+#### B.7 工具系统
 
 ```rust
-// codex-rs/tools/src/tool_executor.rs（最底层 trait）
+// codex-rs/tools/src/tool_executor.rs
 pub trait ToolExecutor<Invocation>: Send + Sync {
-    fn tool_name(&self) -> ToolName;
-    fn spec(&self) -> ToolSpec;
+    fn tool_name(&self) -> ToolName;  fn spec(&self) -> ToolSpec;
     fn exposure(&self) -> ToolExposure { ToolExposure::Direct }
     fn supports_parallel_tool_calls(&self) -> bool { false }
     fn handle(&self, invocation: Invocation) -> ToolExecutorFuture<'_>;
 }
-// ToolExposure: Direct / Deferred / DeferredModelOnly / DirectModelOnly / CodeModeOnly / Hidden
-// + bitflags ToolExposures{DIRECT, DEFERRED, CODE_MODE}（初始可见/tool_search 可发现/code-mode 可嵌套）
+// ToolExposure: Direct/Deferred/DeferredModelOnly/DirectModelOnly/CodeModeOnly/Hidden
+// + bitflags ToolExposures{DIRECT,DEFERRED,CODE_MODE}
 ```
 
-- `core/src/tools/registry.rs`：`CoreToolRuntime` trait + `ToolRegistry{entries, register_trusted(), register_external(), remove()}`，分发入口 `dispatch_any_with_terminal_outcome()`（L479）。
-- `core/src/tools/router.rs`：`ToolRouter{registry, model_visible_specs}`，`build_tool_call(ResponseItem)` 解析模型的 FunctionCall/CustomToolCall/ToolSearchCall。
-- 内置 handler（`handlers/mod.rs` 实测）：`unified_exec`（常驻 shell，`process_manager.rs` 管理会话）、`apply_patch`、`view_image`、`sleep`、`tool_search`、`multi_agents(_v2)`（spawn_agent/send_message/wait/close_agent）、`McpHandler`、`PlanHandler`、`RequestUserInputHandler`、`DynamicToolHandler`、`GetContextRemainingHandler`、`new_context_window`、`send_user_message_async` 等。
-- **并行门控**（`core/src/tools/parallel.rs` L49-205）：
+- `core/src/tools/registry.rs`：CoreToolRuntime + ToolRegistry{register_trusted/external/remove}，分发 `dispatch_any_with_terminal_outcome()`（L479）。`router.rs`：ToolRouter{registry, model_visible_specs}，build_tool_call 解析 FunctionCall/CustomToolCall/ToolSearchCall。
+- 内置 handler（handlers/mod.rs）：unified_exec（常驻 shell，process_manager 复用进程）、apply_patch、view_image、sleep、tool_search、multi_agents(_v2)（spawn_agent/send_message/wait/close_agent）、McpHandler、PlanHandler、RequestUserInputHandler、DynamicToolHandler、GetContextRemaining、new_context_window、send_user_message_async 等。
+- **并行门控**（tools/parallel.rs L49-205）：一把 `RwLock<()>`——可并行工具读锁共享、串行工具写锁独占；`tokio::spawn + AbortOnDropHandle + select!(cancellation)`：取消时要么终态要么合成 aborted 回填——**上下文永不悬挂 tool_call**。
+
+#### B.8 持久化 rollout
 
 ```rust
-let supports_parallel = router.tool_supports_parallel(&call);
-let _guard = if supports_parallel {
-    Either::Left(lock.read().await)      // 可并行工具：读锁共享
-} else {
-    Either::Right(lock.write().await)    // 串行工具：写锁独占
-};
-router.dispatch_tool_call_with_terminal_outcome(...).await
-// 外层 tokio::spawn + AbortOnDropHandle + select!(cancellation)：
-// 取消时要么拿到终态、要么合成 aborted 响应回填模型——上下文永不悬挂 tool_call
-```
-
-### 1.1.8 持久化 rollout
-
-```rust
-// codex-rs/history/src/lib.rs（注意：类型在 history crate，rollout crate 只做 IO）
-pub enum RolloutItem {
-    SessionMeta(SessionMetaLine),
-    ResponseItem(ResponseItemEnvelope),    // Responses API 原始 item + harness 元数据
-    InterAgentCommunication(..),
-    Compacted(CompactedItem),              // 压缩摘要 + replacement_history + window 链
-    TurnContext(TurnContextItem),          // cwd/model/approval/sandbox 快照（每 turn 记录）
-    WorldState(WorldStateItem),
-    EventMsg(EventMsg),                    // 事件也落盘
-    ...
+// history/src/lib.rs
+pub enum RolloutItem { SessionMeta(..), ResponseItem(ResponseItemEnvelope),
+    InterAgentCommunication(..), Compacted(CompactedItem),     // 摘要+replacement_history+window 链
+    TurnContext(TurnContextItem),                              // cwd/model/approval/sandbox 每 turn 快照
+    WorldState(..), SecurityRiskScore(..), EventMsg(EventMsg)  // 事件也落盘
 }
-pub struct RolloutLine { pub timestamp: String, pub ordinal: Option<u64>,
-                         #[serde(flatten)] pub item: RolloutItem }
+pub struct RolloutLine { timestamp: String, ordinal: Option<u64>, #[serde(flatten)] item }
 ```
 
-- 写侧：`RolloutRecorder` 经 `mpsc::Sender<RolloutCmd>`（AddItems/Persist/Flush）发给独立 writer task；失败 `terminal_failure()` 缓存错误保留内存缓冲可重试；`persist()` 幂等；`flush()` 带 oneshot ack。
-- 读侧：`ReverseJsonlScanner`（`rollout/src/reverse_jsonl_scanner.rs`）从 EOF 按 64KB chunk 回退 seek，字节级反转拼行再解析；`with_max_record_bytes` 超大记录跳过；坏行返回 `ScanOutcome::Rejected` 不中断。**resume 成本 O(尾部) 而非 O(全量)**。
-- 配套：`compression.rs`（压缩 rollout + 后台 materialize worker）、`state_db.rs`（SQLite 索引）、`session_index.rs`。
+- 写：RolloutRecorder 经 mpsc（AddItems/Persist/Flush）→ 单 writer task；失败 terminal_failure 缓冲可重试；persist 幂等；flush oneshot ack。
+- 读：`ReverseJsonlScanner`（rollout/src/reverse_jsonl_scanner.rs）从 EOF 按 64KB chunk 反向 seek，字节反转拼行，`with_max_record_bytes` 跳超大记录，坏行 `ScanOutcome::Rejected` 不中断——**resume O(尾部)**。配套 compression.rs（后台 materialize）、state_db.rs（SQLite 索引）、session_index.rs。
+- `decode_rollout_line()` 手工拆 envelope 绕 serde arbitrary_precision+flatten bug（serde-rs/json#721）。
 
-### 1.1.9 审批与沙箱
+#### B.9 审批与沙箱
 
 ```rust
-pub enum ReviewDecision {                       // protocol.rs L3871
+pub enum ReviewDecision {                       // protocol.rs L3871（Default = Denied，fail-safe）
     Approved, ApprovedForSession,
     ApprovedExecpolicyAmendment { proposed_execpolicy_amendment },  // 批准并固化前缀规则
     ApprovedMcpPolicyAmendment, NetworkPolicyAmendment { .. },
-    Denied { rejection: String }, TimedOut, Abort,
-}   // Default = Denied（fail-safe）
+    Denied { rejection: String }, TimedOut, Abort }
 pub enum AskForApproval { UnlessTrusted, OnRequest(default),
                           Granular(GranularApprovalConfig), Never }
 ```
 
-- 审批请求载荷 `ExecApprovalRequestEvent`（`approvals.rs` L226）：`call_id/approval_id/turn_id/command/cwd/reason/network_approval_context/proposed_execpolicy_amendment/proposed_network_policy_amendments/additional_permissions/available_decisions/parsed_cmd`。
-- 策略评估：`core/src/exec_policy.rs` 的 `create_exec_approval_requirement_for_command()` → Starlark 规则（`execpolicy` crate：`prefix_rule(pattern=..., decision="allow|prompt|forbidden")`）→ `ExecApprovalRequirement{Allow|Prompt|Deny}`。
-- 编排层 `core/src/tools/approvals.rs`：guardian 自动审批复核（可超时/取消）+ permission hooks + MCP 工具审批 + 会话内审批缓存。
-- 沙箱：`sandboxing/` crate 统一导出 `SandboxManager`；平台后端 macOS Seatbelt（3 个 .sbpl 策略文件）/ Linux Landlock+bwrap / Windows `windows-sandbox-rs`；网络隔离 network-proxy。
-
-### 1.1.10 MCP 双向
-
-- 作为 server：`codex mcp-server`（MCP over stdio, JSON-RPC 2.0），复用 app-server-protocol 类型；审批是 server→client 请求（applyPatchApproval/execCommandApproval）。
-- 作为 client：`rmcp-client` crate（官方 Rust MCP SDK rmcp）+ config.toml `[mcp_servers]`；core 内 McpManager/mcp_tool_call.rs，MCP 工具调用纳入审批体系。
-
----
+- 请求载荷 ExecApprovalRequestEvent（approvals.rs L226）：call_id/approval_id/turn_id/command/cwd/reason/network_approval_context/proposed_execpolicy_amendment/proposed_network_policy_amendments/additional_permissions/available_decisions/parsed_cmd。
+- 策略：exec_policy.rs `create_exec_approval_requirement_for_command()` → Starlark `prefix_rule(pattern, decision="allow|prompt|forbidden")` → Allow/Prompt/Deny；编排 tools/approvals.rs：guardian 自动审（可超时）+ permission hooks + MCP 审批 + 会话缓存。
+- 沙箱：sandboxing crate 统一 `SandboxManager`；macOS Seatbelt（3 个 .sbpl）/ Linux Landlock+bwrap / Windows windows-sandbox-rs；network-proxy 隔离。
+- MCP 双向：`codex mcp-server`（MCP over stdio，审批 server→client 请求；可用 `npx @modelcontextprotocol/inspector` 调试）；作为 client 用 rmcp + config.toml `[mcp_servers]`。
 
 ## 1.2 Claude Code（anthropics）
 
-### 1.2.1 基本盘与分发演进
+### A. 产品形态总览
 
-- npm 包 `@anthropic-ai/claude-code`（2.1.238 时点）：**主包仅 172KB 安装器**（`install.cjs` 从 8 个平台 optionalDependencies 复制原生二进制覆盖 bin、`cli-wrapper.cjs` Node 兜底启动器），真实逻辑在 `@anthropic-ai/claude-code-<platform>` 原生二进制（**Bun 编译单文件**，JS bundle 内嵌于 `.bun` 段）。engines 要求 node>=22，npm 安装方式已弃用（推荐 native installer / brew / winget）。
-- 逆向规模：sourcemap 学习笔记称 **512K+ 行 TypeScript**、约 1900 文件、40+ 工具。
-- **闭源**（Commercial ToS，但条款明确允许用 SDK 做"power products and services that you make available to your own customers"）。
+- README 自述 "an agentic coding tool that lives in your terminal"，用于 terminal/IDE/`@claude` on GitHub（anthropics/claude-code-action，TS，8.7k★）。
+- 安装转型：npm 安装已 deprecated → native installer（curl claude.ai/install.sh）/ brew cask / winget。npm 包 2.1.238：bin 为 cli.js，Node>=18，ESM，解包 ~31-35MB。
+- 分发形态（HitCC 对 v2.1.197 逆向）：wrapper 包 + 平台原生二进制包 + 从原生可执行文件 `.bun` 段提取的 JS bundle——**Bun 编译原生二进制**。
+- IDE：VS Code 扩展（CHANGELOG 多条 `[VSCode]`，如 2.1.236 transcript 读屏支持）；JetBrains 在官方文档列出（网络不可达未直接核实）。
+- Web/Desktop/iOS：CHANGELOG 2.1.238 提及 "Remote Control messages sent from the web or Desktop…"——存在 web/Desktop 入口与 Remote Control 机制；另有 macOS 桌面 agent 产品 Claude Cowork（support 文档 + `anthropics/knowledge-work-plugins`，插件"主要面向知识工作者在 Cowork 使用"）。
+- 引擎观察（minusx 网络拦截，2025-08 时点）：单一主循环 + 平铺消息历史；Task 工具生成的子代理"不能再生子代"（最多一级分支）；系统提示 ~2800 tokens + 工具定义 ~9400 tokens；周期性 side-prompt 压缩历史；Haiku 处理读文件/摘要等辅助调用。
+- 社区逆向（sourcemap 笔记）：512K+ 行 TS、~1900 文件、50+ 依赖、40+ 工具；`buildTool()` 工厂、Zod schema 兼 prompt、18+ feature flags 门控、三层 AbortController 取消级联、子代理星型拓扑。
+- 工具清单（minusx 观测）：Task/Bash/Glob/Grep/LS/ExitPlanMode/Read/Edit/MultiEdit/Write/NotebookEdit/WebFetch/TodoWrite/WebSearch + IDE 注入 `mcp__ide__getDiagnostics`/`mcp__ide__executeCode`。
+- AgentDefinition 字段（官方 Python SDK types.py）：description/prompt/tools(deprecated→skills)/disallowedTools/model/skills/memory(user|project|local)/mcpServers/initialPrompt/maxTurns/background/effort/permissionMode。
+- Checkpoint：SDK 连接设 `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true`；CHANGELOG 有 `/rewind`。
 
-### 1.2.2 可用的参考材料（四层）
+### B. 源码级材料与协议（SDK 视角实测）
 
-1. **官方 SDK 类型**：`@anthropic-ai/claude-agent-sdk` npm 包内 `sdk.d.ts`（388,912 字节，全量类型 + 极详尽 TSDoc）+ `sdk.mjs`（1.37MB 压缩 bundle）+ `sdk-tools.d.ts`（156KB 工具 schema）。GitHub 仓库 `claude-agent-sdk-typescript` 只有 examples（三个 SessionStore 参考实现：Postgres/Redis/S3 + conformance 测试），**无 src**。
-2. **泄露源码**：2026-03-31 事件（安全研究者 Chaofan Shou 发现 npm 包未删 source map），1902 文件/513,237 行完整 TS 源码。本地留存 `Wanfeng1028/claude-code-analysis`：`src/` 1332 个 .ts + `src.zip` + 19 章中文静态分析（`analysis/01-architecture-overview.md` ~ `11-hidden-features-and-easter-eggs.md` + components/ 函数级走读 7 篇）。**法律状态不变：只读学思想，不可复制代码。**
-3. **官方插件**：anthropics/claude-code 仓库 `plugins/` 16 个真开源插件（见 §7.2）。
-4. **行为观测**：minusx 网络抓包分析、HitCC 逆向（v2.1.197）。
+#### B.1 可用参考材料四层
 
-### 1.2.3 协议（SDK 视角，全部来自 sdk.d.ts/bundle 实测）
+1. **官方 SDK 类型**：`@anthropic-ai/claude-agent-sdk`（0.3.238，日更）npm 包：`sdk.d.ts`（388,912 B 全量类型+TSDoc）、`sdk.mjs`（1.37MB 压缩 bundle）、`sdk-tools.d.ts`（156KB）、`bridge.mjs`（远程 bridge ~1.33MB）、`browser-sdk.js`、`extractFromBunfs.js`；peerDeps：@anthropic-ai/sdk>=0.93、@modelcontextprotocol/sdk ^1.29、zod ^4；optionalDependencies 8 个平台二进制包（claude-agent-sdk-{linux,darwin,win32}-{x64,arm64}[-musl]）；claudeCodeVersion 2.1.238 严格对版。GitHub 仓库 claude-agent-sdk-typescript **只含 examples**（Postgres/Redis/S3 SessionStore + conformance），无 src。
+2. **泄露源码**：2026-03-31 事件（npm 包未删 sourcemap，Chaofan Shou 发现）：1902 文件 / 513,237 行。本地留存 `Wanfeng1028/claude-code-analysis`：`src/`（1332 个 .ts，含 QueryEngine.ts/Task.ts/Tool.ts/assistant/bootstrap/bridge/buddy/cli/commands/components/constants/context/coordinator/cost-tracker/hooks/ink/keybindings/main.tsx/memdir/migrations/native-ts…）+ `src.zip` + 19 章中文分析（01-architecture…11-hidden-features + components/ 函数级走读 7 篇）。**法律状态不变：只读学思想，一行不抄。**
+3. **官方插件**：anthropics/claude-code 仓库 plugins/ 16 个（见 §9.2）。
+4. **行为观测**：minusx / HitCC。
 
-- **基础传输**：SDK spawn CLI 固定附加 `--output-format stream-json --verbose --input-format stream-json`——stdin/stdout 双向 JSON 行流。
-- **消息类型**：`SDKMessage` 是 **38 成员大联合**：assistant / user(replay) / result(success|error) / system / stream_event / compact_boundary / status / api_retry / control_request_progress / model_refusal_* / hook_{started,progress,response} / plugin_install / tool_progress / auth_status / task_* / background_tasks_changed / thinking_tokens / session_state_changed / commands_changed / notification / files_persisted / tool_use_summary / memory_recall / rate_limit / elicitation_complete / permission_denied / prompt_suggestion / mirror_error / conversation_reset / active_goal 等。
-- 关键成员字段：
+#### B.2 协议
+
+- 基础：spawn 固定 `--output-format stream-json --verbose --input-format stream-json`；另有 ~40 个 flag（--system-prompt/-file、--append-system-prompt、--tools、--allowedTools/--disallowedTools、--permission-mode、--permission-prompt-tool、--continue、--resume=、--session-id=、--resume-session-at=、--resume-drops-turn、--fork-session、--max-turns、--max-budget-usd、--task-budget、--model/--fallback-model、--effort、--thinking adaptive|disabled、--settings、--add-dir、--setting-sources=、--plugin-dir、--json-schema、--include-hook-events、--strict-mcp-config、--mcp-config、--session-mirror、--no-session-persistence…）；env 注入 CLAUDE_CODE_ENTRYPOINT="sdk-ts"、删除 NODE_OPTIONS。
+- `SDKMessage` **38 成员联合**：assistant / user(replay) / result(success|error) / system / stream_event / compact_boundary / status / api_retry / control_request_progress / model_refusal_(fallback|no_fallback) / local_command_output / hook_{started,progress,response} / plugin_install / tool_progress / auth_status / task_{notification,started,updated,progress} / background_tasks_changed / thinking_tokens / session_state_changed / worker_shutting_down / commands_changed / notification / files_persisted / tool_use_summary / memory_recall / rate_limit / elicitation_complete / permission_denied / prompt_suggestion / mirror_error / informational / conversation_reset / active_goal。
+- 关键成员：
 
 ```ts
 export type SDKAssistantMessage = {
-  type: 'assistant'; message: BetaMessage;       // Anthropic Messages API 原生 Message
-  parent_tool_use_id: string | null;             // 非 null = 子代理(sidechain)消息
+  type: 'assistant'; message: BetaMessage;       // 原生 Messages API Message
+  parent_tool_use_id: string | null;             // 非 null = 子代理(sidechain)
   error?: 'rate_limit'|'overloaded'|'max_output_tokens'|...;
-  supersedes?: UUID[];                            // refusal-fallback 取代旧消息（幂等驱逐）
+  supersedes?: UUID[];                            // refusal-fallback 幂等驱逐
   aborted?: true;                                 // interrupt 截断、可能断在半词
-  uuid: UUID; session_id: string; ...
-};
-export type SDKPartialAssistantMessage = {       // --include-partial-messages 增量流
-  type: 'stream_event'; event: BetaRawMessageStreamEvent;   // 原生流事件透传
-  parent_tool_use_id: string | null; ttft_ms?: number; ...
-};
-export type SDKResultMessage = ...;               // 每回合恰好一条 = turn-complete 信号
-// Success: duration_ms/duration_api_ms/num_turns/result/structured_output?/
-//          total_cost_usd + usage(仅主循环) + modelUsage(含 Task/compaction 全部调用，计费正确口径)
+  uuid; session_id; request_id?; subagent_type?; context_usage? };
+export type SDKPartialAssistantMessage = {       // --include-partial-messages
+  type: 'stream_event'; event: BetaRawMessageStreamEvent;  // 原生流事件透传
+  parent_tool_use_id; uuid; session_id; ttft_ms? };
+export type SDKResultMessage = SDKResultSuccess | SDKResultError;  // 每回合恰好一条
+// Success: duration_ms/duration_api_ms/ttft_ms/num_turns/result/structured_output?/
+//   total_cost_usd + usage(仅主循环) + modelUsage(含 Task/compaction 全部，计费正确口径)/
+//   permission_denials[]/deferred_tool_use?/terminal_reason?(16 种)/fast_mode_state?
+// Error subtype: error_during_execution|error_max_turns|error_max_budget_usd|
+//   error_max_structured_output_retries
 ```
 
-- **单管道多路复用控制协议**（精华）：stdout 每行是 `StdoutMessage = SDKMessage | SDKActiveGoalMessage | SDKControlResponse | SDKControlRequest | SDKControlCancelRequest | SDKKeepAliveMessage`（sdk.d.ts:7872）。SDK demux：`control_response` 按 request_id 匹配 pending 表（早到应答容忍存 `unmatchedControlResponses`）；SDK→CLI 有 **34 个控制子类型**（interrupt/initialize/set_permission_mode/set_model/rename_session/mcp_call/rewind_files/read_file/stop_task/background_tasks/...）；CLI→SDK 反向请求（can_use_tool/hook_callback/mcp_message/elicitation/request_user_dialog/oauth_token_refresh）；initialize 应答可带回 `pending_permission_requests`（中途加入者重新武装在途提示）。abort 时补发 `control_cancel_request`。
-- **canUseTool 回调参数**（sdk.d.ts:209）：`signal/suggestions(PermissionUpdate[])/blockedPath/decisionReason/title/displayName/description/toolUseID/agentID/requestId(允许带外应答)/matchedAskRule`——权限提示可识别"ask 规则强制"。
-- **进程管理细节**：默认 executable 是 bun（Bun 下）否则 node；`spawnClaudeCodeProcess` 可替换整个进程层；优雅关闭 stdin EOF → `GRACEFUL_EXIT_TIMEOUT_MS`(~2s) 宽限 → abort signal（Windows 避免 TerminateProcess 抢跑）。
+- **单管道多路复用控制协议**：stdout 每行 `StdoutMessage = SDKMessage | SDKActiveGoalMessage | SDKControlResponse | SDKControlRequest | SDKControlCancelRequest | SDKKeepAliveMessage`（sdk.d.ts:7872）。demux：control_response 按 request_id 匹配 pending 表（早到容忍 unmatchedControlResponses）；SDK→CLI **34 个控制子类型**（interrupt/initialize/set_permission_mode/set_model/set_max_thinking_tokens/rename_session/set_color/mcp_status/get_context_usage/get_session_cost/list_models/mcp_call/file_suggestions/mcp_set_servers/register_repo_root/reload_plugins/reload_skills/mcp_reconnect/mcp_toggle/stop_task/background_tasks/apply_flag_settings/get_settings/elicitation/request_user_dialog/rewind_files/cancel_async_message/read_file/seed_read_state/mcp_message/hook_callback…）；CLI→SDK 反向（can_use_tool/hook_callback/mcp_message/elicitation/request_user_dialog/oauth_token_refresh/host_auth_token_refresh）；initialize 请求携带 hooks(matcher+回调 id)/sdkMcpServers/jsonSchema/agents/skills/toolAliases/title/supportedDialogKinds；initialize 应答回带 pending_permission_requests（中途加入重新武装）。abort 补 control_cancel_request。
+- **canUseTool 参数**（sdk.d.ts:209）：signal/suggestions(PermissionUpdate[])/blockedPath/decisionReason/title/displayName/description/toolUseID/agentID/requestId（带外应答）/matchedAskRule。`PermissionUpdateDestination = userSettings|projectSettings|localSettings|session|cliArg`。
+- 进程细节：默认 executable bun（Bun 下）否则 node；pathToClaudeCodeExecutable 原生二进制直 exec；spawnClaudeCodeProcess 可替换进程层（容器/VM）；优雅关闭 stdin EOF → GRACEFUL_EXIT_TIMEOUT_MS(~2s) → abort（Windows 避免 TerminateProcess 抢跑 gracefulShutdown）；stderr tail ring buffer。
 
-### 1.2.4 权限 / hooks / 会话
+#### B.3 权限 / hooks / 会话 / SessionStore
 
-- `PermissionMode = 'default'|'acceptEdits'|'bypassPermissions'|'plan'|'dontAsk'|'auto'`。
-- `HOOK_EVENTS` 31 种（PreToolUse/PostToolUse/PostToolUseFailure/UserPromptSubmit/Stop/SubagentStop/PreCompact/Notification/SubagentStart/PermissionRequest/PostToolBatch/UserPromptExpansion/TaskCreated/TaskCompleted/Elicitation*/ConfigChange/WorktreeCreate/Remove/InstructionsLoaded/CwdChanged/FileChanged/DirectoryAdded/MessageDisplay/Setup...）。hooks 注册在 initialize：只传 matcher+回调 id，命中时 CLI 发 `control_request{subtype:"hook_callback", callback_id, input, tool_use_id}`。
-- 会话存储（SDK session_store.py 文档字符串）：主会话 `<projects_dir>/<project_key>/<session_id>.jsonl`；子代理 `<session_id>/subagents/agent-<id>.jsonl`；resume 家族：`--continue`/`--resume=<id>`/`--session-id=`/`--resume-session-at=<uuid>`+`--resume-drops-turn`/`--fork-session`/`--session-mirror`。
-- **SessionStore 镜像架构**：`append(key, entries[])` 本地落盘成功后镜像（批次约 100ms，uuid 幂等）、失败重试 3 次后丢批发 `mirror_error` 系统消息**不影响子进程**；store-backed resume = `store.load()` → 写临时 `CLAUDE_CONFIG_DIR`（隔离 credentials/.claude.json）→ 子进程照常 `--resume`。
+- PermissionMode 六值：default/acceptEdits/plan/bypassPermissions/dontAsk/auto；五层防御（社区逆向）：permission rules → mode → tool checks → path safety → macOS Seatbelt；bypass 仍保护 .git/.claude。
+- HOOK_EVENTS **31 种**（比 Grok 多 PostToolBatch/UserPromptExpansion/TeammateIdle/TaskCreated/TaskCompleted/Elicitation*/ConfigChange/WorktreeCreate/Remove/InstructionsLoaded/CwdChanged/FileChanged/DirectoryAdded/MessageDisplay/Setup 等）。hooks wire 只传 matcher+id；命中发 hook_callback 带 input/tool_use_id。
+- 会话：主 `<projects_dir>/<project_key>/<session_id>.jsonl`；子代理 `<session_id>/subagents/agent-<id>.jsonl`；project_key 跨盘符告警、`/` 连接保证可移植。
+- **SessionStore 镜像架构**：`append(key, entries[])` 本地成功后镜像（~100ms 批，uuid 幂等）；`load/listSessions/(可选 listSessionSummaries+纯函数 foldSessionSummary)/delete(可选,WORM 可省)/listSubkeys`；Flush='batched'|'eager'；失败重试 3 次丢批发 mirror_error 不伤子进程；store resume = 物化到临时 CLAUDE_CONFIG_DIR（拷 credentials/.claude.json/settings.json）+ listSubkeys 物化子代理 transcript + .meta.json（防路径穿越）。模块级高阶 API：forkSession/getSessionInfo/getSessionMessages/getSubagentMessages/listSessions/renameSession/importSessionToStore/deleteSession/startup(WarmQuery 预热)；InMemorySessionStore 参考实现。
+- CLI 包结构（@anthropic-ai/claude-code@2.1.238 tarball）：主包 172KB（bin/claude.exe 500B 占位 + install.cjs + cli-wrapper.cjs("—ignore-scripts 兜底 Node 启动器") + sdk-tools.d.ts）；真实逻辑在 8 个平台二进制包；engines node>=22。**Claude Code CLI 已完成 Bun/native 单文件化，npm 包只是安装器。**
 
-### 1.2.5 引擎内部（来自泄露源码分析文档）
+#### B.4 引擎内部（泄露源码分析文档摘要）
 
-- 入口链：`entrypoints/cli.tsx → main.tsx → init.ts/setup.ts → commands.ts → replLauncher.tsx/REPL`；六层分层：CLI 引导 → 初始化 → 控制面/TUI → Query/Agent 执行内核 → Tool/Permission → Memory/Persistence → MCP/Remote 扩展。
-- 核心文件：`QueryEngine.ts`（agent 主循环）、`Tool.ts`（工具基座）、`Task.ts`（子代理）、`memdir/`（分层 Memory）、`hooks/`、`coordinator/`、`components/`（Ink TUI 组件）。
-- 设计哲学（Latent Space 访谈，Boris Cherny）："不是产品而是 Unix 工具"、"模型的最薄包裹"、放弃 RAG 改 agentic search（glob/grep）、压缩=让模型自己总结、代码库每 3-4 周由 Claude 重写一遍。
-
----
+- 入口链：entrypoints/cli.tsx → main.tsx → init.ts/setup.ts → commands.ts → replLauncher.tsx/REPL.tsx；六层：CLI 引导 → 初始化 → 控制面/TUI → Query/Agent 内核 → Tool/Permission → Memory/Persistence → MCP/Remote 扩展。
+- 核心文件：QueryEngine.ts（主循环）/Tool.ts（工具基座）/Task.ts（子代理）/memdir/（分层 Memory）/hooks//coordinator//components/（Ink TUI 组件）。
+- 设计哲学（Latent Space 访谈）："Claude Code is not a product as much as it's a Unix utility"；"thinnest possible wrapper over the model"；"do the simple thing first"；放弃 RAG（曾试 Voyage 索引）改 agentic search；80-90% 代码由 Claude 自己写、人类重度 review；每 3-4 周 from-scratch 重写。
 
 ## 1.3 Grok Build（xai-org/grok-build）
 
-### 1.3.1 基本盘
+### A. 产品形态总览
 
-- xAI 官方（仓库自称 SpaceXAI），2026-07-14 开源，**Apache-2.0**，Rust 99.6%，约 90 个 workspace 成员（crates/codegen ~70 + crates/common + crates/build + third_party vendored Mermaid 栈）。
-- 治理：根目录 `SOURCE_REV` 记录从内部 monorepo 单向同步的 commit SHA；**不接受外部 PR**；rust-toolchain.toml 固定工具链；release 用 thin-LTO + jemalloc。
-- **THIRD-PARTY-NOTICES 列明包含 openai/codex 与 sst/opencode 的 in-tree source ports**。
-- 无官方 Web/桌面端（社区壳 rimusz/grok-build-desktop SwiftUI、jason920612/grokbuild_web 存在）。
+- 时间线：2026-05 早期 Beta → 2026-07-14 Apache-2.0 开源，9 天 2.1 万 star。官方仓库描述 "SpaceXAI's coding agent harness and TUI. Fullscreen, mouse interactive, extensible."；产品页 x.ai/cli，文档 docs.x.ai/build/overview。
+- 配套仓库：xai-org/grok-build-plugin-cc（"Claude Code plugin that delegates reviews, rescue tasks, and session transfer to the Grok Build CLI"——shell 出真实 grok CLI，无 broker，"Run status, results, and stop are owned by the plugin (PID + log files)"）；xai-org/plugin-marketplace（官方插件市场）。
+- 身份甄别：`grokbuild.cloud`（"Cloud AI Coding Agents Powered by Grok"）是**第三方**（自述 "Access Pending Partnership Approval"、署名 Tyler's AI Company，页脚 "Built by XAI" 属夸大）；GitHub 大量 `*grokbuild*` 仓库均为第三方生态。背景：2026-05 有报道称 Musk 宣布 xAI 解散、算力租予 Anthropic，之后 Grok 产品线继续更新（解释 "SpaceXAI" 命名；未获官方证实）。
+- 三种运行模式：interactive（全屏 TUI）/ headless（脚本/CI，`grok -p "..." --output-format streaming-json`；官方插件用法 `--agent explore --permission-mode plan --sandbox read-only --cwd <ws> --output-format plain`，长任务 `--background` 记 bridgePid+agentPid，可选 `--model` 与 `--effort low|medium|high`）/ 编辑器嵌入（**ACP**，Agent Client Protocol——类比 LSP 的编辑器↔agent 标准协议，本地 JSON-RPC over stdio，远程 HTTP/WS WIP）。
+- 模型接入：浏览器 OAuth（需 SuperGrok 或 X Premium Plus）；无头/CI 用 `XAI_API_KEY`；默认 grok-4.5；`~/.grok/config.toml` 可自定义 model/base_url/env_key 接任意 OpenAI 兼容端点。
+- 会话跨工具迁移：`grok import --source <path>/session.jsonl`（可导入 Claude transcript 继续）；恢复 `grok -r <id>`。
+- 权限：`--permission-mode plan`、`--sandbox read-only`、`--write`（默认只读，显式给写）、`/yolo` 自动批准。
+- 云端/web：官方暂无（第三方见上）。社区壳：rimusz/grok-build-desktop（SwiftUI）、jason920612/grokbuild_web。
 
-### 1.3.2 三入口一核心
+### B. 源码精读
 
-composition root `crates/codegen/xai-grok-pager-bin/src/main.rs` L40 分派 `xai_grok_shell::agent::app::{run_headless, run_leader, run_stdio_agent}`：
+#### B.1 基本盘
 
-- **run_stdio_agent**（L250）：ACP over stdio。`spawn_stdin_line_reader()` → `simplex()` 内存管道 → `spawn_agent_local()` 驱动 MvpAgent actor；parent-death 绑定；skills 文件 watcher（变更注入 ACP reload 请求）；退出前 `pty_session::close_all()` + 2s 宽限。
-- **run_headless**（L325）：无 TUI，经 websocket relay 连 grok.com（`spawn_relay_connection_with_callback`），需登录态；首连打印 URL 可开浏览器。
-- **run_leader**（L749）：`LeaderLock::try_acquire()`（flock+pidfile+socket `~/.grok/leader.sock`）；抢锁失败且 socket 就绪则退出让 client 连现有 leader；成功则起 IPC server + MvpAgent，mpsc 桥接 IPC↔agent↔relay。
+Rust 99.6%（62.36MB/62.60MB），约 90 workspace 成员（根 Cargo.toml 自动生成标注 read-only）：crates/codegen 主体 ~70（xai-grok-pager-bin 组合根→二进制安装名 grok；xai-grok-pager TUI；-render；xai-grok-shell 运行时；-tools(-api)；-workspace{,-client,-daemon,-types}；-sandbox；-session-events；xai-sqlite-journal；xai-acp-lib；-subagent-resolution；-hooks；-mcp；-plugin-marketplace；xai-ratatui-inline/-textarea；另有 bundle/voice/foreign-sessions/fast-worktree/hunk-tracker/token-estimation 等）、crates/common（xai-tool-protocol/-runtime/-types）、crates/build（xai-proto-build）、third_party（vendored Mermaid 栈）。SOURCE_REV 单向同步；不接受外部 PR；THIRD-PARTY-NOTICES 含 **openai/codex 与 sst/opencode 的 in-tree source ports**。
 
-Leader 协议（`xai-grok-shell/src/leader/protocol.rs`）：4 字节大端长度前缀帧（`MAX_MESSAGE_SIZE = 64MB`）；`ClientMode{Headless, Stdio}`；`LEADER_PROTOCOL_VERSION = 1`；**驱逐策略 `should_evict`：只有"严格更旧"的 leader 才会被新 client evict（anti-thrash）**；zombie 检测 30s。
+#### B.2 三入口一核心
 
-### 1.3.3 TUI 工程
+- `run_stdio_agent`（app.rs L250）：ACP over stdio；stdin 行读取 → simplex 管道 → spawn_agent_local 驱动 MvpAgent actor；parent-death 绑定；skills watcher；退出 close_all+2s 宽限。
+- `run_headless`（L325）：websocket relay 连 grok.com；首连打印 URL 可开浏览器。
+- `run_leader`（L749）：LeaderLock::try_acquire()（flock+pidfile+socket `~/.grok/leader.sock`，socket path 由 ws_url 后缀派生）；失败且 socket 就绪 → 退出连现有 leader；成功起 IPC server+MvpAgent，mpsc 桥接。Leader 协议：4 字节大端长度前缀（MAX_MESSAGE_SIZE 64MB）；ClientMode{Headless(经 relay), Stdio(直接 IPC 透传 ACP)}；LEADER_PROTOCOL_VERSION=1；**should_evict：只有严格更旧的 leader 才可被驱逐（anti-thrash）**；zombie 30s。
+- 主循环位置：会话级 acp_session_impl/run_loop.rs；MvpAgent 是 LocalRef actor（agent/mvp_agent/mod.rs）；leader IPC server 做 request-id 命名空间化与 session 归属路由。
 
-- 依赖上游 `ratatui 0.29`（features: crossterm/unstable-widget-ref）+ 自研 `xai-ratatui-inline`（inline viewport：emit_to_scrollback/resize_purge_rerender/synchronized output/segment 差分重绘）与 `xai-ratatui-textarea`（composer）。
-- `xai-grok-pager/src/`：scrollback/（20 余种内容块：agent/thinking/tool/{edit,execute,read,search,web_fetch}/subagent/workflow/quote_bar）+ views/（60+ 视图）+ input/（key/mouse/bracketed paste/kitty keyboard 归一化）。
-- **主循环调度纪律**（`app/event_loop.rs`）：
+#### B.3 TUI
+
+- 依赖上游 ratatui 0.29 + 自研 xai-ratatui-inline（inline viewport/emit_to_scrollback/resize_purge_rerender/synchronized output/segment 差分）与 xai-ratatui-textarea（composer：wrap/editor_keys/planning）。
+- pager/src/：scrollback/（blocks 20 余种：agent/thinking/tool{edit,execute,read,search,web_fetch}/subagent/workflow/quote_bar + state/ + sticky 吸顶 + render scratch buffer + search）、views/ 60+（modals/dashboard/permission_view/question_view/welcome/settings_modal/todo_pane/subagent_catalog_pane…）、input/（key/mouse/bracketed paste/macOS modifiers/kitty keyboard 归一化）、slash/registry.rs 90+ 命令各一文件。
+- **主循环**（app/event_loop.rs）：
 
 ```rust
 tokio::select! {
-    biased;                                          // 固定优先级：cancel > quit > writer ack > ACP > input > render > voice
+    biased;                                            // cancel > quit > writer ack > ACP > input > render > voice
     _ = connection_cancel.cancelled() => break,
     writer_event = writer_event_rx.recv() => presenter.acknowledge(sequence),
-    msg = async {...}, if input_rx.is_empty() => {   // ACP 臂以输入队列空为门
+    msg = async {...}, if input_rx.is_empty() => {     // ACP 臂以输入队列空为门
         let mut changed = acp_handler::handle(msg, &mut app);
-        while drained < ACP_DRAIN_BATCH_MAX && input_rx.is_empty() { ...try_recv... }  // 有界批量 drain
-        ...
-    }
+        while drained < ACP_DRAIN_BATCH_MAX && input_rx.is_empty() { ...try_recv... }  // 有界 drain
+        ... }
 }
 ```
 
-### 1.3.4 工具系统
+#### B.4 工具系统
 
 ```rust
 // crates/common/xai-tool-runtime/src/tool.rs
 pub trait Tool: Send + Sync {
     type Args: for<'de> Deserialize<'de> + JsonSchema + Send + 'static;
     type Output: Serialize + ToolOutput + Send + 'static;
-    fn id(&self) -> ToolId;                          // Namespace:tool 如 GrokBuild:grep
-    fn description(&self, ctx: &ListToolsContext) -> ToolDescription;  // 可按 turn 上下文变化
-    fn should_list(&self, ctx: &ListToolsContext) -> bool;             // 每 turn 清单过滤
+    fn id(&self) -> ToolId;                            // Namespace:tool 如 GrokBuild:grep
+    fn description(&self, _ctx: &ListToolsContext) -> ToolDescription;
+    fn capabilities(&self) -> ToolCapabilities;         // StreamingSpec{subkind:"bash_output_chunk"} 等
+    fn should_list(&self, _ctx: &ListToolsContext) -> bool;
     fn execute(&self, ctx, args) -> impl Future<Output = ToolStream<Self::Output>> + Send;
 }
 // 不变量："at most arbitrarily many Progress items, ending in exactly one Terminal"
 ```
 
-内置工具（`xai-grok-tools/src/implementations/grok_build/mod.rs` register_all）：bash(run_terminal_cmd)/read_file/search_replace/grep(ripgrep)/list_dir/web_search/web_fetch/task(+task_output/wait_tasks/kill_task)/todo/enter|exit_plan_mode/ask_user_question/monitor/scheduler/update_goal/workflow/image_gen/image_edit/video_gen/lsp/deploy_app(stub)；codex 风格 apply_patch 等并存于 implementations/codex/。要点：bash 用"捕获并重放"模拟 cwd/env/alias 持久化；输出流式 delta 上限 16KB/帧；grep 在 release 构建把 ripgrep `include_bytes!` 内嵌、首调释放到 `~/.grok/vendor/`；`xai-grok-tools-api` 是 protobuf/gRPC 面（ExecuteToolRequest/ToolStreamChunk/SpawnSubagentRequest...）供独立 tool server 复用。
+内置（implementations/grok_build/mod.rs register_all）：bash(run_terminal_cmd)/read_file/search_replace/grep(ripgrep)/list_dir/web_search/web_fetch/task(+task_output/wait_tasks/kill_task)/todo(TodoWrite)/enter|exit_plan_mode/ask_user_question/monitor/scheduler(create/list/delete)/update_goal/workflow/image_gen/image_edit/video_gen/lsp/deploy_app(stub)；codex 风格 apply_patch/grep_files/read_file/list_dir 并存于 implementations/codex/。要点：bash 本地后端"捕获并重放"模拟 cwd/env/alias 持久化；前台/后台（返回 task_id）；输出 delta 上限 16KB/帧；可选 find→bfs、grep→ugrep shadow；grep release 把 ripgrep include_bytes! 释放到 ~/.grok/vendor/rg-<ver>-<target>；**xai-grok-tools-api 是 protobuf 面**（ExecuteToolRequest/ListToolsResponse/ToolStreamChunk/SpawnSubagentRequest…include!(OUT_DIR)），进程内走 xai-tool-protocol。
 
-### 1.3.5 工作区 / checkpoint / 沙箱
+#### B.5 工作区 / checkpoint / 沙箱
 
-- `xai-grok-workspace`：lib.rs 自述 "Core workspace library: FS, VCS, permissions, tool config, subsystem wiring"；`permission/` 完整子系统（policy/rules/bash_command_splitting/exec_risk/auto_mode 分类器）；`file_system/`（local/mock/acp/git_status/jj_status/file_tree）。
-- daemon-client 分工：`-daemon` 只管进程生命周期（Unix double-fork+setsid；daemon 文件 O_NOFOLLOW+0600；preview_supervisor 监管沙箱内代理）；`-client` 是 typed RPC 客户端（wire 类型在 `-types/src/rpc/` 约 17 组）；K8s 友好 two-phase drain（45s SIGTERM 预算 + draining 标记 + prometheus）。
-- **checkpoint**（`workspace/src/session/checkpoint.rs`）：
+- workspace：FS/VCS/permissions/tool config/subsystem wiring；permission/ 完整子系统（policy/rules/bash_command_splitting/exec_risk/auto_mode 分类器/manager/grants）；file_system/（local/mock/acp/git_status/jj_status/file_tree/walk）；bin/workspace_server.rs 独立 server。
+- daemon-client：-daemon 只管进程生命周期（Unix double-fork+setsid/Windows stdio 重定向+单实例 pidfile；daemon 文件 O_NOFOLLOW+0600；preview_supervisor 监管沙箱 preview-proxy），刻意不依赖 workspace 库；-client 是 hub-proxied typed RPC（wire 在 -types/src/rpc/ 约 17 组：fs/git/hunks/search/session/skills/worktree/hooks/export_github…）；旧 WorkspaceChannel trait 已删（local=WorkspaceHandle，proxy=ToolHarness RPC）；K8s two-phase drain（45s SIGTERM 预算、/tmp/workspace-server.draining、prometheus 全套）。
+- **checkpoint**（workspace/src/session/checkpoint.rs）：以 prompt_index 为键，FS RewindPoint + hunk delta + git HEAD/index 三域捆绑原子恢复；TurnBoundary{Start,End} 与 turn hook 共用 on_turn_boundary 入口；与 compaction 正交（有 cross-compaction rewind 测试）。
+- 沙箱（-sandbox/src/lib.rs）：基于 nono（Landlock/Seatbelt）启动一次性 apply，覆盖 in-process tokio::fs 与子进程；网络进程层放开、**子进程网络按个 seccomp 封禁**（child_net.rs；bwrap 检测 __GROK_INSIDE_BWRAP）；profiles（Workspace/Devbox/Custom extends）；非 devbox enforcing 要求 hook-write-deny 且 fail-closed；network_policy 版本化快照。
 
-```rust
-/// A rewind checkpoint is keyed by `prompt_index` and bundles per-domain state
-/// (filesystem RewindPoint, optional hunk delta, optional git HEAD/index);
-/// restore reverts all enabled domains together.
-pub(crate) enum TurnBoundary { Start{prompt_index, turn_number},
-                               End{..., outcome, written: Vec<String>} }
-```
+#### B.6 会话 / 子代理 / 扩展
 
-- 沙箱（`xai-grok-sandbox/src/lib.rs`）：基于 nono（Linux Landlock / macOS Seatbelt）启动时一次性 apply，覆盖 in-process tokio::fs 与子进程；网络进程层放开（要调 LLM）、**子进程网络按个 seccomp 封禁**（child_net.rs）；profiles（Workspace/Devbox/Custom extends）；非 devbox enforcing 要求 hook-write-deny 且 fail-closed。
-
-### 1.3.6 会话 / 子代理 / 扩展
-
-- 会话三套互补：①chat JSONL（`xai-grok-shell/src/session/persistence.rs`，CHAT_FORMAT_VERSION v1 ConversationItem；标题清洗 C0/C1+bidi 黑名单；disk-full 通知；RewindPoint 进 session 文件；fork 支持）②遥测 events.jsonl（`xai-grok-session-events/src/types.rs`：TurnStarted/PhaseChanged/FirstToken/ToolStarted|Completed{outcome,duration_ms}/PermissionRequested|Resolved/TurnEnded{cancellation_category}/Interjected/YoloToggled...）③SQLite journal（`xai-sqlite-journal`：**NFS 上 WAL 的 -shm mmap 会被对端 rebuild 打爆（SIGBUS），故 statfs 判网络文件系统 → TRUNCATE + 每主机独立 DB；本机 WAL；BUSY_TIMEOUT 5s**）。
-- 子代理三层：解析层 `xai-grok-subagent-resolution`（纯逻辑：explicit override > role > persona > parent；定义发现 project/builtin/user/plugin → session CLI 兜底；resume identity 校验）；协调层 coordinator actor（Task 工具共享）；shell 侧 ShellChildRunner：**继承父 MCP 池与 client hooks，但子代理工具集去掉 ask_user_question（不许反问用户）**；attempt_store 七模块持久化管线；父端 usage 折叠。
-- hooks：`xai-grok-hooks` 宏单表生成 HookEventName（session_start...subagent_stop/pre_compact/post_compact/session_end，SubagentStop/SubagentEnd 双别名兼容）；runner 支持 command 与 http；payload 上限 128KB；trust 门。
-- MCP：官方 rmcp SDK（StreamableHttpClientTransport + stdio BufReader）；OAuth；ACP transport 变体供编辑器场景。
-- plugin-marketplace：官方源硬编码 `https://github.com/xai-org/plugin-marketplace.git` 首启自动注册；支持 pinned sha。
-- ACP 集成（`xai-acp-lib`）：官方 `agent-client-protocol 0.10.4` crate + x.ai/* 扩展（yoloMode/autoMode/runningPromptId）；`AcpSide` marker trait 让 Client/Agent 两侧类型成对绑定；TUI 场景 pager 作为 client 经 Unix socket 连 leader。
-
----
+- 会话：①chat JSONL（CHAT_FORMAT_VERSION=1；v0 legacy ChatRequestMessage→v1 ConversationItem/openAI responses 风格；标题清洗 C0/C1+bidi 黑名单+100 scalar 上限（persist/display 共用谓词防 drift）；disk-full 通知；RewindPoint 进 session 文件；fork）②events.jsonl 遥测（TurnStarted{yolo_mode,redirect_kind}/PhaseChanged/FirstToken/LoopStarted/ToolStarted|Completed{outcome,source(shell|workspace),duration_ms}/PermissionRequested|Resolved/TurnEnded{outcome,cancellation_category}/Interjected/YoloToggled/goal/laziness/TodoGate）③SQLite journal（NFS statfs 检测→TRUNCATE+每主机独立 DB；本机 WAL；GROK_SQLITE_JOURNAL_MODE kill-switch；BUSY_TIMEOUT 5s/RETRY_BUDGET 10s）。
+- 子代理三层：resolution（纯逻辑：explicit>role>persona>parent；发现 project/builtin/user/plugin→session CLI 兜底；生成子 system prompt/初始 user message；resume identity 校验 type/persona 必须匹配、model 软忽略；零依赖可复用于 remote spawn）；coordinator actor（Task 工具共享）；ShellChildRunner：**ctx.parent_mcp_pool=handle.snapshot_mcp_pool()（继承父 MCP 池）、client_hooks= snapshot（继承钩子）、definitions 去掉 ask_user_question（子代理不许反问）**；attempt_store 七模块（intent/codec/accounting/completion/recovery/rewind/decoder）；SubagentResult{success,subagent_id,child_session_id,snapshot_ref}；父端 usage 折叠。
+- hooks：宏单表 HookEventName（session_start/user_prompt_submit/pre|post_tool_use/post_tool_use_failure/permission_denied/stop/stop_failure/notification/subagent_start/subagent_stop|end(双别名)/pre|post_compact/session_end）；(gate,matcher,hub) 三元 dispatch；command 与 http 两种 runner；payload ≤128KB；trust 门；client hooks（编辑器注入）。
+- MCP：官方 rmcp（StreamableHttpClientTransport+stdio BufReader）；OAuth/oauth_config；liveness 探活；credentials 存储；acp_transport 变体。
+- plugin-marketplace：catalog/scanner/index/installer/install_resolve/matcher；官方源硬编码 xai-org/plugin-marketplace.git 首启注册；settings 注入额外 sources（可 pinned sha：env_require_sha）。
+- ACP（xai-acp-lib）：官方 agent-client-protocol 0.10.4(unstable) + x.ai/* 扩展 meta（yoloMode/autoMode/runningPromptId）；AcpSide marker trait（InMessage/OutMessage/OtherSide/NAME）；AcpRequest{type Request, type Response} 成对绑定；AcpArgsGeneric 每请求挂 oneshot；line_reader/stdin_reader 分帧 → message → gateway → channel；normalize.rs 跨版本字段归一、version_mismatch.rs 版本处理。
 
 ## 1.4 DeepSeek Harness（deepseek-ai/deepseek-harness）
 
-### 1.4.1 基本盘
+### A. 产品形态总览
 
-- `deepseek-ai/deepseek-harness`，**MIT**，pnpm monorepo 约 200 包；2026-08-13 创建，一周 17.8k stars（当时）；developer preview，README 警告 "THERE WILL BE COMPATIBILITY-BREAKING CHANGES"。
-- CLI 名 `dsh`（npm `@deepseek-ai/dsh`）；README：`npx @deepseek-ai/dsh web` 启动 Web UI（http://127.0.0.1:3080 默认）。
-- 形态：profile 组合插件树——dsh-base 必选（model adapters/tools/persistence/sandbox/approval/settings/credentials/telemetry）+ dsh-web-app（浏览器）或 dsh-headless（一次性无服务器）；docs 提及 Electron 变体（IPC 替代 HTTP）。
-- 插件框架：vendored **Cordis**——Context 是 Proxy（属性读取走服务解析器）、Service 基类构造即 provide、`inject` 声明依赖、五种事件分发（emit/parallel/serial/bail/waterfall）、注册可逆（fiber 卸载自动注销）。
+- `dsh`（npm @anthropic… 即 @deepseek-ai/dsh），描述 "dsh CLI: profile boot, plugin management, and the browser UI alias"——CLI 是启动器/profile 管理器和 Web UI 入口，而非终端 REPL 式 agent UI。README：`npx @deepseek-ai/dsh web` 启动 Web UI（默认 http://127.0.0.1:3080）。
+- **三种 profile**："A running dsh is a plugin tree composed at boot from ordered layers"——dsh-base 必选（model adapters/tools/persistence/sandbox and approval policy/settings/credentials/telemetry）+ dsh-web-app（浏览器应用）/ dsh-headless（**无服务器的一次性 runner**）。
+- 桌面端：web-server 文档 "Electron loads the built files over file:// and sends fetch requests through an IPC bridge instead of this server"——存在 Electron 壳变体（不在仓库）。
+- Cordis 插件框架（vendored）：五概念（Plugin=Service 实现/Context=服务仓库（稳定 key 如 ctx.tools、ctx.llm、ctx.sessions）/inject 声明依赖/四种分发模式类型化事件（emit/waterfall/parallel/serial）/可逆注册 disposer）；来自 cordiverse 开源组织。
+- LLM：provider 中立——LlmRuntime（ctx.llm）= "adapter registry plus a single streaming call API, interceptable via a waterfall"；按 provider 注册 adapter、可配置 provider 目录、模型发现、重试策略（normal 五次/always）。
+- 沙箱：sandbox 包进程隔离 seam，后端 bwrap/Landlock/Seatbelt；另有 E2B 云沙箱 POC 包。
+- 持久化细节：SESSION_FORMAT_VERSION=0（预发布不承诺兼容）；JSONL "checksummed concatenated Zstandard frames by default"（可配原始行）；SQLite "opt-in node:sqlite backend using schema 17"（拒绝旧 schema 不迁移）；fork/replay 用 'session/end-seed' 种子边界（取最后一个）；血缘记 SessionHeader（parentSession/seedLength/delegationDepth/origin:'subagent'）。storage 子系统（非会话）：storage-json（每 unit 原子整文件）/storage-sqlite（一行一文档），zod DomainSpec。
+- 官方论文：《A Programming Paradigm for Spatiotemporal Composability》（README 提及）。社区：GitHub Discussions+Discord；插件生态约定 dsh-plugin topic。双语文档（README.zh/BRAND_GUIDELINES.zh）。
 
-### 1.4.2 事件模型与"Model-visible means logged"
+### B. 源码精读
+
+#### B.1 基本盘
+
+pnpm monorepo 约 200 包（core/session/interaction/host/api/client/typert/llm/fs/shell/web/lsp/mcp/skill/subagent/jobs/goal/plan/compaction/sandbox/spill/workflow…），apps/{cli,web}，vendor/{cordis,cosmokit,schemastery,loader,hmr,logger-console,timer}，.agents/notes 架构决策笔记（中英双语，CI 强制文档同步）。2026-08-13 创建。
+
+#### B.2 事件模型与"Model-visible means logged"
 
 ```ts
-// packages/core/session/src/types.ts —— merge-extensible 词表
+// packages/core/session/src/types.ts（merge-extensible）
 export interface SessionEventMap {
-  'turn/start': { turn: number }
-  'turn/end':   { turn: number; reason: TurnEndReason }
-  'step/start': { turn: number; step: number }
+  'turn/start': { turn: number }; 'turn/end': { turn: number; reason: TurnEndReason }
+  'step/start': { turn: number; step: number }; 'step/end': { turn: number; step: number }
   'user/message': UserMessage
   'assistant/chunk': { turn: number; step: number; chunk: StreamChunk }
-  'assistant/message': { turn: number; step: number; message: AssistantMessage;
-                         usage?: TokenUsage; interrupted?: true }
-  'tool/call':  { turn: number; step: number; callId: CallId; name: string; arguments: string }
-  'tool/result': { turn: number; step: number; message: ToolResultMessage; error?; meta? }
+  'assistant/message': { turn; step; message: AssistantMessage; usage?; interrupted?: true }
+  'tool/call': { turn; step; callId: CallId; name: string; arguments: string }
+  'tool/result': { turn; step; message: ToolResultMessage; error?; meta? }
   'todo/write': { todos: TodoItem[] }
   'request/header': { header: EpochHeader; reason: 'initial'|'resume'|'change' }
-  ...
+  'request/context': RequestContext; 'session/end-seed': Record<string, never>
 }
-// 信封（mapped type，编译期条件强制）
 export type SessionEvent<T> = { [K in SessionEventType]: {
-    type: K; seq: number /* 单调，恒等于 log.length */; time: number; data: SessionEventMap[K];
+    type: K; seq: number /* 恒等于 log.length */; time: number; data: SessionEventMap[K];
     ignorable?: true;
-} & (K extends SurfaceEventType /* user/message | assistant/message | tool/result */ ?
-    { sourceEventSeqs?: number[]; surfaceOp?: 'append' | { op:'replace'; start; end } } : object) }[T]
+} & (K extends SurfaceEventType /* user/message|assistant/message|tool/result */ ?
+    { sourceEventSeqs?: number[]; surfaceOp?: 'append' | {op:'replace';start;end} } : object) }[T]
 ```
 
-三道强制机制：① `Session.append` 签名要求 surface 事件必须传 `SurfaceIntent`（编译错误）；② 模型历史只从 `deriveMessages()`（SurfaceManager 投影）派生，无 surfaceOp 的事件天然不在模型历史；③ append 前 `snapshotJsonValue`（lossless JSON：拒绝 BigInt/function/undefined/循环引用）失败**当场抛错**（"a bad event fails at the append site rather than later during a backend flush"），入 log 即 deepFreeze。
-读端 fail-closed：脚本生成的 `KNOWN_SESSION_EVENT_TYPES`（48 种，含 approval/*、hook/*、team/*）——持久化读路径遇表外类型且无 ignorable 标记**拒绝解释该日志**（"silently skipping a required event would reconstruct a wrong session"）。
+三道强制：①append 签名要求 surface 事件传 SurfaceIntent（编译错误）；②deriveMessages() 只遍历 SurfaceManager 有序节点投影（无 surfaceOp 天然不进模型历史；缓存增量、replaceGeneration 才重建）；③append 前 snapshotJsonValue（拒 BigInt/function/undefined/循环引用）当场抛错（"fails at the append site rather than later during a backend flush"），入 log 即 deepFreeze。
+读端 fail-closed：KNOWN_SESSION_EVENT_TYPES 生成词表（48 种，含 approval/*、hook/*、team/*、tool-workflow/*）——表外且无 ignorable **拒绝解释日志**。
 
-### 1.4.3 Run loop 与工具管线
+#### B.3 Run loop 与工具管线
 
-- `ReactLoopAgent`（`packages/core/agent-loop/src/agent.ts`）：send/steer/followUp/inject → Inbox.splice（目标 next-turn/next-step）→ while(turn())：turn/start → preStep waterfall（systemPrompt.assemble + RuntimeContextProjection + 'agent/pre-step' 可改写/拒绝）→ step/start → user/message(surface append) → buildRequest（'agent/request' waterfall + canonicalHeader 变化时 request/header）→ llm.stream 逐 chunk append assistant/chunk → BlockAssembler → assistant/message(surface, sourceEventSeqs=chunkSeqs) → executeToolCalls → step/end → 'agent/turn-stopping' → turn/end。**中止的流把已交付前缀 finalize 成 interrupted:true 的完整消息**。
-- 工具三段（`tool-calls.ts` + `core/tools/index.ts`）：按 executionMode 分组，exclusive 单个成 barrier、parallel 滚动池上限 10；
-  - **prepare（串行保序）**：createExecution（参数 lossless 快照+冻结；code-mode 直呼路由判定在策略管线前确定性拒绝）→ 'tools/pre-execute'（allow/deny/ask）→ ask 交 ApprovalService → **monotonic guards**（"no guard can force-allow a call another guard denied"）；
-  - **dispatch（并发）**：'tools/execute' around-wrappers（可替换 signal）→ dispatchToolBody → render/presentationMeta 投影；`bodyInvoked` 区分 ABORTED / ABORTED_BEFORE_DISPATCH；
-  - **finalize（按 model order 提交）**：commitReady 只沿连续 slot 前进；fillPool 每次重新分类下一个 call（运行中注销工具即时形成新 barrier）；abort 时未启动的 `appendSkippedToolCall` 补合成 call/result 对（**重放永远合法**）。
+- ReactLoopAgent（core/agent-loop/src/agent.ts）：send/steer/followUp/inject → Inbox.splice（next-turn/next-step）→ wakeDriver → while(turn())：turn/start → preStep（inbox.claim→systemPrompt.assemble→RuntimeContextProjection.project→waterfall 'agent/pre-step' 可改写/拒绝）→ step/start → 逐条 user/message(surface) → buildRequest（waterfall 'agent/request' + canonicalHeader 对比 baseline，首/变更时 request/header|context）→ llm.stream 逐 chunk append assistant/chunk（记 chunkSeqs）→ BlockAssembler → assistant/message(surface, sourceEventSeqs=chunkSeqs) → finish error/aborted 走 waterfall 'agent/request-error' 决定 retry/throw → 有 tool-call 则 executeToolCalls → finally step/end → serial 'agent/turn-stopping' → finally turn/end（max-tokens sticky）。**中止流 finalize 已交付前缀为 interrupted:true 完整消息。**
+- 工具三段（tool-calls.ts + core/tools/index.ts）：调度器按 executionMode 分组——exclusive 单个成 barrier、parallel 滚动池 DEFAULT_MAX_PARALLEL_TOOL_CALLS=10；三阶段拆成 scheduler 视图（symbol 键 TOOL_RUNTIME_SCHEDULER）保 pre/post 保序而 body 并发：
+  - prepare（串行）：createExecution（lossless 快照+冻结；mode:'code' 直呼 native 工具在策略管线**之前**确定性拒绝并给正确路由文案）→ caller-cancelled 检查 → waterfall 'tools/pre-execute'（allow/deny/ask）→ ask 交 ApprovalService → monotonic guards（guardReason 全局层+agent scope 链，"no guard can force-allow a call another guard denied"）；
+  - dispatch（并发）：waterfall 'tools/execute' around-wrappers（可替换 signal，fuseToolSignals）→ dispatchToolBody → tool.execute → render/presentationMeta；bodyInvoked 区分 ABORTED/ABORTED_BEFORE_DISPATCH；
+  - finalize（model order）：commitReady 只沿连续 slot 前进；fillPool 每次重新分类下一 call（运行中注销工具即时新 barrier）；调度器失败 drain 已启动不伪造结果；abort 时未启动 appendSkippedToolCall 补合成 call/result 对。
+- 注册表 ToolRuntime extends Service（tools/index.ts L787）：scope-chain（global+各 agent 层近者 shadow 远者）；restriction 只过滤继承面、scope 自注册免疫（delegation 曾被误伤的 bug 注释）；presentCall/presentResult 纯函数投影（live 流与 replay 共用）；Code Mode run_code 子派发记 tool/code-dispatch-start/-dispatch（log-only，deriveMessages 忽略）。
 
-### 1.4.4 审批（fail-closed 教科书）
+#### B.4 审批（fail-closed）
 
 ```ts
 // packages/interaction/user-approval/src/index.ts
-'approval/asked':   { id, toolName, callId?, reason? }   // log-only，永不进模型 transcript
-'approval/decided': { id, outcome: 'allowed-once'|'rejected'|'cancelled'|'unavailable' }
-'approval/policy':  { policy: 'ask'|'never', source? }
-
-if (!hasOpenTurn(session.events)) throw new Error('approval.request() outside an open turn: ...crash-tail garbage...')
-session.append('approval/asked', {...})
-const outcome = await this.decide(req, session)     // ↓ 全路径 fail-closed：
-// signal abort → 'cancelled'；policy 'never' 在 dispatch 前本地判 'rejected'（防后注册 listener 破坏确定性）；
-// waterfall('approval/request', req, () => 'unavailable')——无 answerer 即 fail-closed；
-// 词表外返回值归一化 'unavailable'；answerer 抛错（同步/异步）→ 'unavailable'
-session.append('approval/decided', { id, outcome })
+'approval/asked':  { id; toolName; callId?; reason? }
+'approval/decided':{ id; outcome: 'allowed-once'|'rejected'|'cancelled'|'unavailable' }
+'approval/policy': { policy: 'ask'|'never'; source?: 'delegation' }
+request(req) {
+  if (!hasOpenTurn(session.events)) throw new Error('approval.request() outside an open turn: '
+    + 'the approval/asked + approval/decided audit pair must be turn-enclosed …')
+  session.append('approval/asked', {...})
+  const outcome = await this.decide(req, session)   // ↓ 全路径 fail-closed
+  session.append('approval/decided', { id, outcome })
+}
+// decide()：signal abort→'cancelled'；policy 'never' 在 dispatch 之前本地判 'rejected'（防后注册 listener 破坏
+// 确定性）；waterfall('approval/request', req, ()=>'unavailable')——fallback 即 fail-closed；词表外→'unavailable'；
+// answerer 抛错（同步/异步）→'unavailable'（"fail the QUESTION closed, not the caller's tool call open"）
 ```
 
-### 1.4.5 Web 层与前端
+#### B.5 Web 层
 
-- `packages/host/webserver`：裸 node:http，四张表 exact/prefixes/upgrades/fallback（fallback 唯一席位二次注册抛错）；SSE=handler 持住响应；WSS=registerUpgrade；index.html 注入经 emit 事件收集 IndexInjection（global 行渲染为 `<script>globalThis["__DSH_BOOT__"]={...}</script>`，`<` 转义防 breakout）。
-- `packages/api/gateway`：TypertGatewayService，`connection.rpc.intercept('/api', ...)`；分发 `POST /api/<ns>/<method>`，payload 恰含一个 args 对象；strict 生成定义优先（撤回后禁 SRC 兜底）；响应 `{ok:true,value}`。
-- 前端：apps/web React 18+Vite SPA（main.ts 10 行）；`packages/client/modules` 扫描 package.json `dsh.client` 字段 → WebBootGraph（sha1 前 12 位 rev，拓扑排序，环检测）→ `__DSH_BOOT__`；浏览器 lazy CJS 模块表（`window.__ModuleLoader__.load({id,factory})` 注册 factory，首次 require 才物化）。
-- 持久化：SessionHeader（format version/id/createdAt/cwd/parentSession/seedLength/delegationDepth）+ SessionEvent[]（seq===index 逐条断言）；订阅 session/event 的观察者 fire-and-forget；session/flush 是 awaited-parallel checkpoint；后端 JSONL（默认 zstd 校验帧）或 node:sqlite（schema 17）；fork/resume 用 'session/end-seed' 标记种子边界。
-
----
+- webserver（host/webserver）：裸 node:http 四张表 exact/prefixes/upgrades/fallback（fallback 唯一席位二次注册抛错）；host 只接受 127.0.0.1（默认）/0.0.0.0（显式）；**无 TLS/auth/origin policy**；registerUpgrade 每 path 唯一协议所有者；IndexInjection 收集（global|script|script-src|style|html），global 渲染 `<script>globalThis["__DSH_BOOT__"]={...}</script>`（`<` 转义 \u003c 防 breakout）。
+- api-gateway（api/gateway）：TypertGatewayService（static inject=['typert']）——connection.rpc.intercept('/api', claimsEndpoint, dispatchRpc, {authority:'trusted-host'})；endpoint `<ns>/<method>`；resolveDescriptor：strict ctx.typert.local.get 优先（曾见过但撤回→definition-unavailable 禁 SRC 兜底）→ 反射 typertRemote 宽松 descriptor → assertExactArguments → 逐参 resolve（context provider 注入+末尾 AbortSignal）→ Reflect.apply → strict 模式 decode(schema)；envelope 恰含一个 args；响应 {ok:true,value}（void 省 value）。
+- client/connection：API_PATH='/api'；MUX_EVENTS_PATH='/api/events.mux'、HOST_EVENTS_PATH='/api/events.host'（WS mux 下行）；http-bridge：node:http↔WHATWG fetch 桥，断连检测挂 **response** 的 close（Node16 起 request close 在 body 读完即触发会误杀 SSE），背压 write()===false→await drain，请求体上限 300MB。
+- 前端 boot：client/modules 扫描 Loader entries 中 package.json **dsh.client** 字段（parseDshClient 校验 platform(必填)/inject/external/immediately；clientExportOf 解析 exports["./client"]）→ sha1 前 12 位 rev → WebBootGraph（orderByModuleGraph 拓扑+环检测）→ __DSH_BOOT__ 注入；浏览器 lazy CJS 表：bundle 只 register factory（window.__ModuleLoader__.load({id,factory})），首次 require 才 materialize；引导两级 dsh-client-modules→dsh-client-runtime 先于 Vite shell。
 
 ## 1.5 pi（earendil-works/pi）
 
-### 1.5.1 基本盘与包矩阵
+### A. 产品形态总览
 
-- 作者 Mario Zechner（badlogic，libGDX 作者），现属 Earendil Inc.；MIT；npm workspaces 10 包：`agent`/`ai`/`client`/`coding-agent`/`evals`/`protocol`/`server`/`session-backends`/`telemetry`/`tui`。
-- npm（全部 0.84.x 同步发版，MIT）：`@earendil-works/pi-ai`（30+ provider：OpenAI/Anthropic/Google/Vertex/Bedrock/Azure/DeepSeek/Groq/Cerebras/OpenRouter/ZAI/MiniMax/Moonshot/Kimi/Qwen/GitHub Copilot OAuth/Fireworks/NVIDIA NIM/HF + 任意 OpenAI-compatible：Ollama/vLLM/LM Studio；token/cost 统计；跨模型 handoff；browser usage；faux 测试 provider）、`pi-agent-core`（"Stateful agent with tool execution and event streaming"）、`pi-coding-agent`（CLI bin: pi）、`pi-protocol`（CBOR）、`pi-client`（ByteTransport）、`pi-tui`、`pi-session-backend-sqlite-node`。旧 scope `@mariozechner/*` 已 deprecated 迁移。
-- 设计哲学（作者博客）：四工具 <1000 tokens system prompt；"权限即安全剧场"（隔离外包 Docker/micro-VM）；反 MCP（context 开销，替代=CLI 工具+README）；反子代理；透明性（JSONL+HTML 导出+headless）。
+- 作者 Mario Zechner（badlogic，libGDX 作者；X @badlogicgames），现属 Earendil Inc.；MIT；10.3 万 star 量级仓库（94.8k★ 时点）；官网 pi.dev；自我定义 "Pi is a minimal terminal coding harness"。
+- **四种运行形态 + SDK**：interactive TUI（默认）/ print 模式 `-p`（"Print response and exit"，可管道 stdin）/ `--mode json`（全部事件 JSON lines）/ `--mode rpc`（stdin/stdout JSONL 协议）/ "embed pi in Node.js applications" SDK。
+- 实验性 remote：pi-server 是 transport 无关 session server（PiServer，自带 Unix domain socket listener /tmp/pi/server.sock，"Experimental…may change"；不做 HTTP、不服务 web UI，认证委托传输层）；pi-client transport-neutral（ByteTransport 交换 length-prefixed CBOR，WebSocket/Unix socket 皆可）。
+- **无官方图形 Web/桌面端**；pi-chat 不是 web UI，是"pi extension that bridges Discord and Telegram channels to a sandboxed pi session"（每频道一个 Gondolin QEMU micro-VM 沙箱）。
+- 扩展系统："Extensions are TypeScript modules that extend pi with custom tools, commands, keyboard shortcuts, event handlers, and UI components" + Skills（Agent Skills）+ prompt templates（slash 展开）+ themes + 可分发 "Pi packages"（npm/git）。
+- 供应链硬化："We treat npm dependency changes as reviewed code changes"——精确 pin、lockfile 为准、transitive shrinkwrap、安装命令自带 --ignore-scripts。
+- 安全哲学："pi runs in full YOLO mode"；推荐外置隔离：Gondolin（Linux micro-VM）/ Docker / OpenShell 策略沙箱；project trust 一级（/trust 写 ~/.pi/agent/trust.json；-a/--approve、-na 覆盖）。
+- 作者博客：《What I learned building an opinionated and minimal coding agent》（保留模式组件树+差分渲染+同步输出转义、写原生 scrollback）、《What if you don't need MCP at all?》（"MCP servers are overkill…significant context overhead"→替代 "build CLI tools with README files"）、《Prompts are code, .json/.md files are state》。
+- 分享：pi-share-hf 把 session 发布到 Hugging Face（"sessions capture real-world tasks…instead of toy benchmarks"）。
 
-### 1.5.2 事件模型（全部 10 种）
+### B. 源码精读
+
+#### B.1 包与核心类型
+
+npm workspaces 10 包（agent/ai/client/coding-agent/evals/protocol/server/session-backends/telemetry/tui）。npm 包矩阵（全 MIT、0.84.2 周更）：pi-ai（30+ provider + 任意 OpenAI 兼容 + token/cost + 跨模型 handoff + context serialization + browser usage + faux 测试 provider；依赖=各 provider 官方 SDK + typebox）、pi-agent-core、pi-coding-agent（bin: pi）、pi-protocol、pi-client、pi-tui、pi-session-backend-sqlite-node；旧 @mariozechner/* 已 deprecated（0.73.1，2026-05-07，消息指向新 scope）。第三方生态直接建其上（@shiit/coding-agent、@hyperspaceng/neural-web-ui、@justram/pie）。
 
 ```ts
-// packages/agent/src/types.ts L428
+// packages/agent/src/types.ts L428 —— 全生命周期 10 种事件
 export type AgentEvent =
-  | { type: "agent_start" } | { type: "agent_end"; messages: AgentMessage[] }
-  | { type: "turn_start" } | { type: "turn_end"; message: AgentMessage; toolResults: ToolResultMessage[] }
-  | { type: "message_start"; message: AgentMessage }
-  | { type: "message_update"; message: AgentMessage; assistantMessageEvent: AssistantMessageEvent }  // 流式
-  | { type: "message_end"; message: AgentMessage }
-  | { type: "tool_execution_start"; toolCallId; toolName; args }
-  | { type: "tool_execution_update"; toolCallId; toolName; args; partialResult }
-  | { type: "tool_execution_end"; toolCallId; toolName; result; isError };
-
-// packages/ai/src/types.ts L528 —— 12 变体流事件，每个都带 partial 快照 + contentIndex
-export type AssistantMessageEvent =
-  | { type: "start"; partial } | { type: "text_start"|"text_delta"|"text_end"; contentIndex; delta?; partial }
-  | { type: "thinking_start"|"thinking_delta"|"thinking_end"; ... }
-  | { type: "toolcall_start"|"toolcall_delta"; ... } | { type: "toolcall_end"; toolCall; partial }
-  | { type: "done"; reason: "stop"|"length"|"toolUse"|"deferred"; message }
-  | { type: "error"; reason: "aborted"|"error"; error: AssistantMessage };
-// StreamFunction 契约（types.ts L327 注释）："Once invoked, request/model/runtime failures
-// should be encoded in the returned stream, not thrown" —— 错误进流不抛出
+  | { type:"agent_start" } | { type:"agent_end"; messages: AgentMessage[] }
+  | { type:"turn_start" } | { type:"turn_end"; message: AgentMessage; toolResults: ToolResultMessage[] }
+  | { type:"message_start"; message } | { type:"message_update"; message; assistantMessageEvent }
+  | { type:"message_end"; message }
+  | { type:"tool_execution_start"; toolCallId; toolName; args }
+  | { type:"tool_execution_update"; toolCallId; toolName; args; partialResult }
+  | { type:"tool_execution_end"; toolCallId; toolName; result; isError }
+// packages/ai/src/types.ts L528 —— 12 变体流事件（每个带 partial 快照 + contentIndex）
+AssistantMessageEvent = start | text_start|delta|end | thinking_start|delta|end
+                      | toolcall_start|delta | toolcall_end{toolCall} | done{reason: stop|length|
+                        toolUse|deferred} | error{reason: aborted|error, error: AssistantMessage}
+// StreamFunction 契约（L327 注释）："request/model/runtime failures should be encoded in
+// the returned stream, not thrown"；Provider 接口 ProviderStreams{stream,streamSimple,
+// fetchDeferred?,cancelDeferred?}；OpenAICompat 布尔开关矩阵 + thinkingFormat 12 枚举
 ```
 
-### 1.5.3 Run loop（两级结构）
+#### B.2 Run loop
 
 ```
-Agent.prompt(input) [agent.ts L350] → runWithLifecycle → runAgentLoop(prompts, ctx, config, emit, signal, streamFn)
-runAgentLoop [agent-loop.ts L95]: emit agent_start → turn_start → prompts 各发 message_start/end → runLoop
-runLoop [L155-275]（外层 followUp / 内层 steering+工具）:
-  pendingMessages = await getSteeringMessages?.()          // 开局先取
+Agent.prompt [agent.ts L350] → runWithLifecycle → runAgentLoop [agent-loop.ts L95-118]
+runAgentLoop: agent_start → turn_start → prompts message_start/end → runLoop [L155-275]
+runLoop（外层 followUp / 内层 steering+工具）:
+  pending = await getSteeringMessages?.()
   while(true):
     while (hasMoreToolCalls || pending.length):
-      注入 pending（message_start/end + push context）      // steering 在 assistant 响应前生效
-      message = await streamAssistantResponse(context, config, signal, emit, streamFn) [L281-372]
-        messages = await config.transformContext(messages)  // AgentMessage[] → AgentMessage[]
-        llmMessages = await config.convertToLlm(messages)   // 默认 filter(user|assistant|toolResult)
-        resolvedApiKey = await config.getApiKey(provider)   // 每轮刷新（OAuth 过期）
-        for await (event of streamFunction(model, llmContext, options)):
-          start → push partial; emit message_start
-          text_*/thinking_*/toolcall_* → 替换末尾 partial; emit message_update
-          done/error → final 替换末尾; emit message_end; return
-      stopReason error/aborted → emit turn_end + agent_end → return
+      注入 pending（message_start/end+push）           // steering 在 assistant 响应前生效
+      message = await streamAssistantResponse [L281-372]:
+        messages = await transformContext(messages)      // 裁剪/压缩
+        llmMessages = await convertToLlm(messages)       // 默认 filter(user|assistant|toolResult)
+        resolvedApiKey = await getApiKey(provider)       // 每轮刷新（OAuth 过期）
+        for await (ev of streamFunction(model, llmContext, options)):
+          start→push partial+message_start；增量→替换末尾 partial+message_update
+          done/error→final 替换+message_end
+      stopReason error/aborted → turn_end + agent_end → return
       toolCalls = content.filter(toolCall)
-      stopReason "length" → failToolCallsFromTruncatedMessage [L381-406]
-                          // 截断参数不可执行：全部不发执行，逐个 start/end + 合成错误结果
+      stopReason 'length' → failToolCallsFromTruncatedMessage [L381-406]
+        // 截断参数不可执行：全部不发执行，逐个 start/end+合成错误结果
       否则 executeToolCalls [L411-426]:
-        sequential（或任一工具 sequential）→ 逐个执行
-        parallel [L489-554] → 第一遍 model order：start + prepareToolCall（找不到工具→错误；
-          validateToolArguments；beforeToolCall block→错误结果）推入 thunk；
-          await Promise.all(thunks)；第二遍按原顺序 end + toolResult —— 结果顺序= model order
-      prepareNextTurn?.({message, toolResults, context})     // compaction 挂点，可整体替换 context
-      shouldStopAfterTurn?.() === true → agent_end → return
-      pendingMessages = await getSteeringMessages?.()
+        sequential（或任一工具 sequential）→ 逐个
+        parallel [L489-554]: 第一遍 model order：start+prepare（找不到工具→错误；
+          validateToolArguments；beforeToolCall block→错误结果(可带 terminate)）→thunk
+          await Promise.all(thunks)；第二遍按原顺序 end+toolResult   // 结果= model order
+      prepareNextTurn?.({message,toolResults,context,newMessages})   // compaction 挂点
+      shouldStopAfterTurn?.()===true → agent_end → return
+      pending = await getSteeringMessages?.()
     followUps = await getFollowUpMessages?.(); 无 → break
-  emit agent_end{messages}
-// 失败闭合（Agent.handleRunFailure, agent.ts L511-527）：异常时合成 stopReason error/aborted 空消息，
+  agent_end{messages}
+// 失败闭合 handleRunFailure [agent.ts L511-527]：异常合成 stopReason error/aborted 空消息，
 // 补发 message_start/end/turn_end/agent_end —— 事件序列永远闭合
+// processEvents [L544-591]：先 reduce 状态（streamingMessage/messages/pendingToolCalls/
+// errorMessage）再按订阅顺序 await listener
 ```
 
-### 1.5.4 会话：JSONL 树
+#### B.3 会话 JSONL 树
 
 ```ts
-// packages/coding-agent/src/core/session-manager.ts（1715 行）
-export interface SessionHeader { type:"session"; version?; id:string /*uuidv7*/; timestamp;
-                                  cwd:string; parentSession?:string }
-export interface SessionEntryBase { type:string; id:string /*8hex*/; parentId:string|null; timestamp }
-// entry 类型：message / thinking_level_change / model_change / compaction{summary, firstKeptEntryId,
-//   tokensBefore, usage?} / branch_summary{fromId,summary} / custom(不进上下文) / custom_message(进上下文)
-//   / label{targetId,label} / session_info{name}
-getBranch(fromId?) {              // leaf → root 回溯后反转 [L1260-1274]
-  const current = this.byId.get(fromId ?? this.leafId);
-  while (current) { path.push(current); current = byId.get(current.parentId) ?? undefined; }
-  path.reverse(); return path;
-}
-branch(branchFromId) { this.leafId = branchFromId; }   // 分叉=只移指针 [L1390-1396]
-buildContextEntries(entries, leafId, byId) {           // [L415-456] compaction 感知重建
-  const path = buildSessionPath(entries, leafId, byId);
-  let compaction = null; for (const e of path) if (e.type==="compaction") compaction = e; // 取最新
-  if (!compaction) return path;
-  const ctx = [compaction];                              // 压缩摘要开头
-  let found=false; for (i<compactionIdx) { if (path[i].id===compaction.firstKeptEntryId) found=true;
-                                           if (found) ctx.push(path[i]); }   // 锚点后保留
-  ctx.push(...path.slice(compactionIdx+1)); return ctx;
-}
-// 磁盘：~/.pi/agent/sessions/--<cwd munged>--/<id>.jsonl；版本迁移 v1线性→v2树→v3 hookMessage→custom
+// coding-agent/src/core/session-manager.ts（1715 行）
+SessionHeader{type:"session";version?;id/*uuidv7*/;timestamp;cwd;parentSession?}
+SessionEntryBase{type;id/*8hex*/;parentId;timestamp}
+// entry：message/thinking_level_change/model_change/compaction{summary,firstKeptEntryId,
+// tokensBefore,details?,usage?}/branch_summary{fromId,summary}/custom(不进上下文)/
+// custom_message(进上下文)/label{targetId,label}/session_info{name}
+getBranch(fromId?) [L1260-1274]      // leaf→root 回溯反转
+branch(branchFromId) [L1390-1396]    // 分叉=只移 leafId 指针，旧行不改
+buildContextEntries [L415-456]       // 最新 compaction 开头 + firstKeptEntryId 锚点后保留 + 之后全部
+buildSessionContext = 路径设置折叠（最近 thinking_level_change/model_change）
+  + buildContextEntries().flatMap(sessionEntryToContextMessages)   // message 直出、
+  // custom_message→user、branch_summary/compaction→合成消息、其余忽略
+// 磁盘 ~/.pi/agent/sessions/--<cwd munged>--/<id>.jsonl；迁移 v1线性→v2树→v3 hookMessage→custom
+// harness/session/jsonl 已现 v4（JsonlV4Header{kind:"header",version:4,parentSessionId?}）——
+// 正被抽成可换后端 repo/storage 抽象
 ```
 
-### 1.5.5 RPC / CBOR / 类型桥
+#### B.4 RPC / CBOR / 类型桥
 
-- rpc mode（`coding-agent/src/modes/rpc/`）：`rpc-types.ts`（289 行）stdin 上行 RpcCommand 约 35 变体（prompt/steer/follow_up/abort/new_session/get_state/set_model/set_thinking_level/compact/bash/fork/clone/switch_session/get_entries(since)/get_tree/get_messages...）；stdout 下行 `RpcResponse{id?,command,success,data?}` + 事件流 + extension_ui_request/response 双向 UI 通道（select/confirm/input/editor/notify/setWidget）；`runRpcMode` 薄 switch；**stdout 背压反压到 agent 订阅回调**。LF 为唯一记录分隔符（连 readline 都不合规：U+2028/U+2029）。
-- CBOR（server/client）：`ByteTransport{send(chunk):Promise<void>; close()}`（18 行接口，默认 Unix socket）；`framing.ts` 4 字节大端 u32 长度前缀，增量 FrameDecoder（64KB block 累积，maxFrameLength 16MiB，截断检测）；PiServer 握手 ServerHello/ClientHello（PROTOCOL_VERSION=1，5s 超时）；LiveSession 多连接共享 runtime；`WriterLease`（sqlite 后端 fenced 租约：owner_id+fence 双匹配、单调递增防脑裂）。
-- 类型桥：`protocol/src/schemas.ts`（450 行 TypeBox StrictObject DTO）+ codec（Check → encodeCbor → encodeFrame）；`server/src/protocol.ts` 的编译期断言：
-
-```ts
-type Assert<T extends true> = T;
-type ExactKeys<T, Keys extends keyof T> = keyof T extends Keys ? true : false;
-type _AiUsageFieldsAccountedFor = Assert<ExactKeys<AiUsage,
-  "input"|"output"|"cacheRead"|"cacheWrite"|"cacheWrite1h"|"reasoning"|"totalTokens"|"cost">>;
-// 给领域类型加字段不同步 wire DTO → 编译失败
-```
-
-- TUI：自研 `pi-tui`（`Component{render(width)=>string[]; handleInput?; invalidate()}` + Container 递归拼行）；`TuiMainScreen.doRender` 整屏渲染 → overlay 合成 → 与 previousLines 逐行全等比较求 [firstChanged,lastChanged] → 五种 fullRender 特例否则增量写（synchronized output `\x1b[?2026h` 包裹）。
-
----
+- rpc mode：rpc-types.ts（289 行）stdin RpcCommand ~35 变体（prompt/steer/follow_up/abort/new_session/get_state/get_messages/set_model/set_thinking_level/set_steering_mode/compact/bash/fork/clone/switch_session/get_entries(since)/get_tree/get_commands…）；stdout RpcResponse{id?,command,success,data?|error} + 事件 + extension_ui_request/response（select/confirm/input/editor/notify/setStatus/setWidget/setTitle）；runRpcMode 薄 switch；**stdout 背压反压 agent**；LF 唯一分隔（U+2028/U+2029 问题）。
+- CBOR：ByteTransport{send/close}（18 行）默认 Unix socket；framing.ts 4 字节大端 u32 前缀，增量 FrameDecoder（64KB block、maxFrameLength 16MiB、截断检测）；PiServer 握手 ServerHello/ClientHello（PROTOCOL_VERSION=1，5s）；LiveSessionManager（openingSessions 去重；LiveSession 多连接共享 runtime 扇出）；ServerSnapshotPublisher；**WriterLease**（session-backends/sqlite-node/writer-leases.ts：`INSERT…ON CONFLICT DO UPDATE SET fence=writer_leases.fence+1 WHERE expires_at_ms<=now RETURNING`——fenced 租约防脑裂；注：main 分支无 "SessionLease" 同名物）。
+- 类型桥：protocol/schemas.ts（450 行 TypeBox StrictObject）+ codec（Check→encodeCbor→encodeFrame）；server/protocol.ts 编译期断言 Assert<ExactKeys<AiUsage,…>>（字段全枚举，加字段不同步 wire DTO 即编译失败）。
+- TUI：pi-tui 自研（Component{render(width)=>string[];handleInput?;invalidate()} + Container）；TuiMainScreen.doRender 整屏→overlay→与 previousLines 逐行比较求 [firstChanged,lastChanged]→五种 fullRender 特例否则增量（\x1b[?2026h 同步输出、\r\x1b[2K 清行重写区间）；无虚拟 DOM。
 
 ## 1.6 opencode（sst/opencode）
 
-### 1.6.1 基本盘
+### A. 产品形态总览
 
-- "The open source coding agent"，**MIT**，约 20 万 stars（六家最高），纯 TS 26.7MB，默认分支 **dev**，日更。
-- 31 包：引擎层 `core`/`llm`/`schema`（约 60 个共享 Effect Schema）/`protocol`；服务层 `server`/`client`（codegen）/`sdk-next`（进程内 SDK）/`sdk`（旧）/`httpapi-codegen`；终端层 `tui`（**SolidJS + @opentui/core + @opentui/solid**，bun 运行时）/`desktop`（**Electron 42 + electron-vite，main 进程 drizzle+自编 @lydell/node-pty，renderer SolidJS + 共享 app 包**）/`app`+`ui`+`session-ui`/`web`（Astro 文档站）；辅助 `effect-sqlite-node`（node:sqlite DatabaseSync 包装成 Effect SqlClient，WAL+Semaphore 串行）/`effect-drizzle-sqlite`/`plugin`/`containers`/`enterprise`/`slack` 等。
-- **V1（legacy，core/src/v1/）→ V2（event-sourced 重写）迁移中，当前主引擎 V2**，Effect 框架全面深入（Layer/Service/Fiber/Stream/Schema）。
+- "The open source coding agent"，MIT，~20 万 stars（六家最高），纯 TS 26.7MB，默认分支 dev，日更；homepage opencode.ai；npm 包 opencode-ai（bin: opencode，bun 运行时，#db import 按 bun/node 条件映射）。
+- 形态：TUI + **桌面应用（Electron 42，releases/opencode.ai/download）** + Web 文档站 + SDK（旧 openapi json SDK 与新进程内 sdk-next）+ 企业/Slack 等外围包。
+- 首轮总览（旧会话+首轮调研）：SolidJS+OpenTUI、client/server（HTTP REST+OpenAPI+SSE）。
 
-### 1.6.2 核心类型
+### B. 源码精读
+
+#### B.1 包结构（31 包）
+
+core（Effect 全面重写：agent.ts/session//tool//permission.ts/event.ts/database//aisdk.ts/catalog.ts/snapshot.ts/pty//credential//integration//skill//command.ts/config/）、llm（@opencode-ai/llm 自研）、schema（@opencode-ai/schema，~60 个共享 Effect Schema）、protocol（HttpApi 契约 17 组）、server（routes+17 handlers+auth+pty-environment）、client（codegen：generated/+generated-effect/+contract.ts）、sdk-next（进程内嵌入式）、sdk（旧 JS SDK：openapi.json+js/）、httpapi-codegen、tui（@opentui/core+@opentui/solid+@opentui/keymap+opentui-spinner+solid-js，bun）、desktop（Electron 42：electron-vite+electron-builder；main：electron-updater/store/window-state+drizzle-orm+native/ 自编 @lydell/node-pty；renderer：SolidJS+@opencode-ai/app+@sentry/solid+@solidjs/router）、app+ui+session-ui（共享 SolidJS UI）、web（Astro/Starlight 文档站）、opencode（CLI）、effect-sqlite-node（node:sqlite DatabaseSync→Effect SqlClient：loadExtension/WAL/Semaphore 串行）、effect-drizzle-sqlite、plugin、containers/enterprise/slack/stats/function/identity/codemode/console。**V1（core/src/v1/ legacy）→ V2（event-sourced）迁移中，当前主引擎 V2。**
+
+#### B.2 核心类型
 
 ```ts
 // schema/src/session.ts
-export const Info = Schema.Struct({
-  id: ID, parentID: ID.pipe(optional),           // fork/subagent 父会话
-  projectID: Project.ID, agent: Agent.ID.pipe(optional), model: Model.Ref.pipe(optional),
-  cost: Schema.Finite,
-  tokens: Schema.Struct({ input, output, reasoning, cache:{read,write} }),
-  time: { created, updated, archived }, title: Schema.String,
-  location: Location.Ref,                        // directory + workspaceID
-  revert: Revert.State.pipe(optional), ...
-})
+Info = { id; parentID?(fork/subagent 父); projectID; agent?; model?; cost; tokens{input,output,
+        reasoning,cache{read,write}}; time{created,updated,archived}; title; location(目录+workspaceID);
+        subpath?; revert?(Revert.State) }
 // schema/src/session-message.ts
-export const Message = Schema.Union([AgentSwitched, ModelSwitched, User, Synthetic, System,
-  Shell, Assistant, Compaction]).pipe(Schema.toTaggedUnion("type"))
-// Assistant.content: AssistantText | AssistantReasoning | AssistantTool（tagged by type）
-// AssistantTool 的状态机：
-export const ToolState = Schema.Union([
-  ToolStatePending,    // { status:"pending", input }               输入还在流式生成
-  ToolStateRunning,    // { status:"running", input, structured, content }
-  ToolStateCompleted,  // { status:"completed", input, attachments, content, outputPaths, structured, result }
-  ToolStateError,      // { status:"error", input, content, structured, error }
-]).pipe(Schema.toTaggedUnion("status"))
-// outputPaths 配合 core/src/tool-output-store.ts：超大工具输出溢写文件、消息里只留路径
-// Compaction: { reason:"auto"|"manual", summary, recent } —— 压缩结果本身是一条消息进历史
+Message = Union([AgentSwitched, ModelSwitched, User{text,files,agents}, Synthetic, System, Shell,
+                 Assistant, Compaction]).toTaggedUnion("type")
+// Assistant.content: AssistantText|AssistantReasoning|AssistantTool（tagged）
+ToolState = Union([Pending{status:"pending",input}, Running{status:"running",input,structured,content},
+  Completed{status:"completed",input,attachments,content,outputPaths,structured,result},
+  Error{status:"error",input,content,structured,error}]).toTaggedUnion("status")
+// outputPaths 配合 core/tool-output-store.ts：超大输出溢写文件、消息留路径
+// Compaction{reason:"auto"|"manual",summary,recent} —— 压缩结果本身是消息进历史
+// ID branded：ses_+64hex（runner /^ses_[0-9a-f]{64}$/ 提取 promptCacheKey）、msg_/evt_ + ascending()
 ```
 
-ID 均 branded：session `ses_`+64hex（runner 用其提取 promptCacheKey）、message `msg_`+ascending、event `evt_`+ascending。
-
-### 1.6.3 事件：durable/live 二分（整个设计的支点）
+#### B.3 事件 durable/live 二分
 
 ```ts
 // schema/src/event.ts
-export function define(input: { readonly type: Type
-  readonly durable?: { readonly version: number; readonly aggregate: string }
-  readonly schema: Fields }) { ... }
+define({ type, durable?: { version: number; aggregate: string }, schema })
 // Payload = { id, type, data, durable?: { aggregateID, seq, version }, location?, metadata? }
 ```
 
-- session-event.ts 全部前缀 `session.next.*`：Prompted/PromptAdmitted/ContextUpdated/Shell.Started|Ended/Step.Started|Ended|Failed/Text.Started|Delta|Ended/Reasoning.*/Tool.Input.Started|Delta|Ended/Tool.Called/Tool.Progress/Tool.Success/Tool.Failed/Retried/Compaction.*/RevertEvent.Staged|Cleared|Committed。
-- **28 个 DurableDefinitions（带版本落库可回放）与 4 个 live-only delta（Text.Delta/Reasoning.Delta/Tool.Input.Delta/Compaction.Delta）分开导出**。注释原话："Stream fragments are live-only; Input.Ended is the replayable raw-input boundary"；Tool.Progress 要求"checkpoint semantic transitions or at a bounded cadence, not persist every stdout chunk"。
+session.next.* 全词表：Prompted/PromptAdmitted/ContextUpdated/Shell.Started|Ended/Step.Started|Ended|Failed/Text.Started|Delta|Ended/Reasoning.*/Tool.Input.Started|Delta|Ended/Tool.Called/Tool.Progress/Tool.Success/Tool.Failed/Retried/Compaction.*/RevertEvent.Staged|Cleared|Committed。**28 个 DurableDefinitions（带版本落库）与 4 个 live-only delta（Text.Delta/Reasoning.Delta/Tool.Input.Delta/Compaction.Delta）分开导出**；注释："Stream fragments are live-only; Input.Ended is the replayable raw-input boundary"；Tool.Progress "checkpoint semantic transitions or at a bounded cadence, not persist every stdout chunk"。
 
-### 1.6.4 权限系统（`core/src/permission.ts`，310 行）
+#### B.4 权限
 
 ```ts
-export function evaluate(action, resource, ...rulesets): Permission.Rule {
-  return rulesets.flat().findLast((rule) =>
-    Wildcard.match(action, rule.action) && Wildcard.match(resource, rule.resource))
-    ?? { action, resource: "*", effect: "ask" }              // 无规则命中 → 默认 ask
-}
-const missingAgentPermissions = [{ action: "*", resource: "*", effect: "deny" }]  // 未声明=全禁
+// core/src/permission.ts（310 行）
+evaluate(action, resource, ...rulesets) = rulesets.flat().findLast(rule =>
+  Wildcard.match(action,rule.action) && Wildcard.match(resource,rule.resource))
+  ?? { action, resource:"*", effect:"ask" }
+missingAgentPermissions = [{action:"*",resource:"*",effect:"deny"}]   // 未声明=全禁
 ```
 
-- 决策顺序：agent permissions ruleset → PermissionSaved（用户点过 always 持久化到 SQLite）→ findLast 胜出（数组顺序即优先级）。
-- `assert(input)`：deny → BlockedError；allow → 通过；ask → create(request) + **publish durable `permission.v2.asked` 事件 → Deferred.await 挂起工具 fiber**。
-- `reply`：once → Deferred 成功；**always → PermissionSaved.add 且自动放行同 session 其他此刻 pending 且新规则下全 allow 的请求**；reject → DeclinedError（或带 feedback 的 CorrectedError，**反馈文本注入回模型**），并**级联 reject 同 session 全部 pending**。
-- 与 loop 耦合：DeclinedError 以 Effect defect 冒泡，runner isUserDeclied 捕获后 failUnsettledTools + interrupt（"declining a user prompt halts the loop instead of becoming model-facing tool output"）。
-- 工具级裁剪：`ToolRegistry.materialize(permissions)` 把被 `*` 全量 deny 的工具从 definitions 整个剔除（模型看不到）。
+- 顺序：agent permissions → PermissionSaved（always 持久化 SQLite）→ findLast。assert：deny→BlockedError；allow→过；ask→create(request)+**publish durable permission.v2.asked → Deferred.await 挂起工具 fiber**。reply：once→Deferred 成功；**always→PermissionSaved.add 且自动放行同 session 其他此刻 pending 且新规则全 allow 的请求**；reject→DeclinedError（或 CorrectedError 带 feedback **注入回模型**）并**级联 reject 全部 pending**。loop 耦合：isUserDeclied→failUnsettledTools+interrupt（"declining a user prompt halts the loop instead of becoming model-facing tool output"）。工具裁剪：materialize(permissions) 把 `*` 全 deny 的工具从 definitions 剔除。
 
-### 1.6.5 Run loop（`core/src/session/runner/llm.ts`，439 行）
+#### B.5 Run loop（core/src/session/runner/llm.ts，439 行）
 
 ```
-SessionV2.prompt(input) [core/src/session.ts L360]
- → SessionInput.admit(...) [session/input.ts L41]        // 落 session_input 表 + PromptAdmitted
- → execution.wake(sessionID)
-SessionExecution.Service [session/execution/local.ts]     // "Future remote placement belongs here"
- → SessionRunCoordinator.make({ drain }) [session/run-coordinator.ts, 104 行]
-    // per-key 串行、跨 key 并发；run(key) 无活跃则启动；wake 设 pendingWake（合并重复唤醒）；
-    // settle 且 pendingWake → successor fiber；interrupt 中断 owner
- → drain → SessionRunner.run({ sessionID, force })
-    1. hasPending(db, id, "steer"|"queue") 无积压且非 force → return
-    2. failInterruptedTools(sessionID)                    // 上轮中断遗留工具全部 Tool.Failed
-    3. 外层 while(shouldRun) queue 逐条；内层 while(needsContinuation) step 逐步：
-       runTurn → runTurnAttempt(sessionID, promotion, step, recoverOverflow?):
-         a. agents.select(session.agent)
-         b. SessionContextEpoch.initialize/prepare(db, loadSystemContext(agent), ...)
-            // system context = SystemContextRegistry + SkillGuidance + ReferenceGuidance 三路并发合并
-         c. promotion：promoteSteers / promoteNextQueued+promoteSteers（promoted>0 则 step 重置 1）
-         d. models.resolve(session) [runner/model.ts] catalog+variant+credential → 原生 route
-         e. SessionHistory.entriesForRunner(db, id, system.baselineSeq)
-         f. isLastStep = step >= agent.info.steps：最后步不广告工具 + toolChoice:"none"
-            + 尾部追加合成 assistant(MAX_STEPS_PROMPT)
-         g. LLM.request + compaction.compactIfNeeded → 命中则 die(ContinueAfterCompaction)
-         h. snapshots.capture()（git 快照）+ createLLMEventPublisher
-         i. llm.stream(request).pipe(Stream.runForEach(event => ...)):
-              普通事件 → publisher.publish（Semaphore(1) 串行化，保证顺序）
-              providerError 且 isContextOverflowFailure 且 assistant 未开始 → 暂存 overflowFailure
-              tool-call 且 !providerExecuted → needsContinuation=true
-                toolMaterialization.settle(...) → publish(toolResult)   // Effect.uninterruptibleMask
-                ★ "Start each recorded local call eagerly"：事件一到即 FiberSet.run —— 天然并行
-         j. 收尾：overflow 恢复（compactAfterOverflow → die(ContinueAfterOverflowCompaction) 只恢复一次）
-              awaitToolFibers = raceFirst(FiberSet.join, FiberSet.awaitEmpty)
-              isUserDeclied → failUnsettledTools + interrupt
-              snapshots.capture() + files({from,to}) → publish(Step.Ended{finish, tokens, snapshot, files})
-// Turn 过渡特殊手法：compaction/overflow 用 Effect.die(TurnTransitionError) 抛 defect，
-// 由 runTurn 的 catchDefect 捕获递归重试
+SessionV2.prompt [session.ts L360] → SessionInput.admit [input.ts L41]（落 session_input+PromptAdmitted）
+ → execution.wake → SessionRunCoordinator [run-coordinator.ts 104 行]
+   （per-key 串行跨 key 并发；run 无活跃则启动；wake 设 pendingWake 合并；settle+pendingWake→
+     successor fiber；interrupt 中断 owner）→ drain → SessionRunner.run:
+ 1. hasPending(steer|queue) 无且非 force → return
+ 2. failInterruptedTools（上轮遗留全 Tool.Failed）
+ 3. 外层 while(shouldRun) queue 逐条；内层 while(needsContinuation) step：
+    runTurnAttempt(sessionID, promotion, step, recoverOverflow?):
+      a. agents.select
+      b. SessionContextEpoch.initialize/prepare(loadSystemContext=SystemContextRegistry
+         +SkillGuidance+ReferenceGuidance 三路并发合并)
+      c. promoteSteers / promoteNextQueued+promoteSteers（promoted>0 → step 重置 1）
+      d. models.resolve [runner/model.ts] catalog+variant+credential→原生 route
+      e. SessionHistory.entriesForRunner(db,id,system.baselineSeq)
+      f. isLastStep：不广告工具+toolChoice:"none"+尾部合成 assistant(MAX_STEPS_PROMPT)
+      g. LLM.request+compactIfNeeded→die(ContinueAfterCompaction)
+      h. snapshots.capture()+createLLMEventPublisher
+      i. llm.stream.forEach：普通→publish（Semaphore(1) 串行保序）；providerError 且
+         isContextOverflow 且 assistant 未开始→暂存；tool-call→needsContinuation=true
+         toolMaterialization.settle→publish(toolResult)（uninterruptibleMask+FiberSet）
+         ★ "Start each recorded local call eagerly" 事件一到即 fiber——天然并行
+      j. 收尾：overflow 恢复 compactAfterOverflow→die（只一次防循环）；awaitToolFibers=
+         raceFirst(join,awaitEmpty)；isUserDeclied→failUnsettledTools+interrupt；
+         snapshots.capture()+files→Step.Ended{finish,tokens,snapshot,files}
+// compaction/overflow 过渡：Effect.die(TurnTransitionError{_tag:ContinueAfterCompaction|
+// ContinueAfterOverflowCompaction,step})，runTurn catchDefect 递归重试
 ```
 
-### 1.6.6 协议 / server / 持久化
+#### B.6 协议 / server / 持久化
 
-- protocol：`api.ts` 用 Effect unstable httpapi DSL，`HttpApi.make("server").add(HealthGroup).add(LocationGroup.middleware(...))...` 共 17 组（health/location/agent/session/message/model/provider/integration/credential/permission/fs/command/skill/event/pty/question/reference/project-copy）；`groups/event.ts`：`HttpApiEndpoint.get("event.subscribe", "/api/event", { success: HttpApiSchema.StreamSse({ data: EventSchema }) })`——**SSE 纳入类型系统**；分页 base64url cursor。
-- server SSE（`handlers/event.ts`，52 行）：`EventV2.allBounded(events, 256)` 有界订阅 → `Stream.make(connected).pipe(concat(live), map(eventData), pipeThroughChannel(Sse.encode()))` + 15s 心跳 merge；响应头 Cache-Control:no-cache / X-Accel-Buffering:no。**单一 GET /api/event 推全部事件**（session/permission/question/pty...）。
-- PTY：`pty.connectToken` 自定义 header（强制 CORS preflight 防浏览器偷铸 ticket）+ origin 校验签发 PtyTicket；`pty.connect` WebSocket 升级，query 带 ticket+cursor 回放游标；出站帧单一 unbounded Queue 单 writer 排空（replay chunk/live output/close 全局有序）。
-- client：`export * from "./generated/index"` 完全 codegen；sdk-next `OpenCode.create()`：进程内 AppNodeBuilder 起 core → createEmbeddedRoutes → HttpRouter.toWebHandler → 伪 fetch（http://opencode.local）→ 标准生成 client。**同一契约驱动独立 server 与进程内 SDK**。
-- 持久化 SQLite（drizzle）：`event{id, aggregate_id, seq, type, data}` uniqueIndex(aggregate_id,seq) + `EventSequence{aggregate_id PK, seq, owner_id}` 水位 + `SessionTable` + `SessionMessageTable{id, session_id, type, seq, data}` 投影 + `SessionInputTable{id, session_id, prompt, delivery, admitted_seq, promoted_seq}` + `SessionContextEpoch{baseline, snapshot, baseline_seq}`。写路径 EventV2.publish（durable 校验落库+进程内广播）→ SessionProjector（455 行）物化；读路径 SessionHistory.load = baseline_seq + 最新 compaction seq 起按序读。**崩溃恢复=重跑 runner 从投影重建**（tool 中途断点续跑明确标注未做）。
+- protocol：`HttpApi.make("server")` unstable httpapi DSL；17 组（health/location/agent/session/message/model/provider/integration/credential/permission/fs/command/skill/event/pty/question/reference/project-copy）；groups/event.ts：`HttpApiEndpoint.get("event.subscribe","/api/event",{success:HttpApiSchema.StreamSse({data:EventSchema})})`——**SSE 进类型系统**；session 组 base64url branded cursor（anchor{id,time,direction}），limit≤100；errors.ts 集中 tagged error。
+- server SSE（handlers/event.ts 52 行）：`EventV2.allBounded(events,256)`（先装监听再宣布就绪）→ `Stream.make(connected).pipe(concat(live),map(eventData),pipeThroughChannel(Sse.encode()))`；心跳 `Stream.tick("15 seconds").map(()=>": heartbeat\n\n")` merge（haltStrategy left）；headers Cache-Control:no-cache,no-transform / X-Accel-Buffering:no / X-Content-Type-Options:nosniff。**单一 GET /api/event 推全部事件**。
+- auth：Basic（用户名 opencode，密码 OPENCODE_SERVER_PASSWORD；未设无鉴权；嵌入式 createEmbeddedRoutes 密码 none）。
+- PTY：handlers/pty.ts list/create/update/remove/connectToken/connect；connectToken 自定义 header（强制 CORS preflight 防浏览器偷铸）+origin 校验签 PtyTicket；connect=handleRaw+request.upgrade WebSocket（query 带 ticket+cursor 回放游标）；出站单一 unbounded Queue 单 writer 排空（replay/live/close 全局有序）；帧协议 core/pty/protocol.ts（metaFrame(cursor)）；pty-environment.ts 空壳注入点；真实现 pty.bun.ts/pty.node.ts（@lydell/node-pty）。
+- client：`export * from "./generated/index"` 全 codegen；sdk-next OpenCode.create()：进程内 AppNodeBuilder.build→createEmbeddedRoutes→HttpRouter.toWebHandler→伪 fetch(http://opencode.local)→标准生成 client，返回 {...client, tools:{register}}。**同一契约驱动独立 server 与进程内 SDK**。
+- routes.ts：HttpApiBuilder.layer(Api,{openapiPath:"/openapi.json"}) 逐层 provide handlers（Layer.mergeAll 17 个）+中间件+auth+core services（AppNodeBuilder.build(LayerNode.group([Database.node,EventV2.node,SessionV2.node…]))）；webHandler() 转 Web 标准 handler（嵌入式挂点）。
+- 持久化 SQLite（drizzle）：`event{id,aggregate_id,seq,type,data}` uniqueIndex(aggregate_id,seq)+`EventSequence{aggregate_id PK,seq,owner_id}` 水位+`SessionTable`+`SessionMessageTable{id,session_id,type,seq,data}` uniqueIndex(session_id,seq) 投影+`SessionInputTable{id,session_id,prompt,delivery,admitted_seq,promoted_seq}`+`SessionContextEpoch{session_id PK,baseline,snapshot,baseline_seq}`+V1 兼容 message/part/todo 投影。写：EventV2.publish（durable 校验落库+进程内广播）→SessionProjector（455 行）物化；读：SessionHistory.load=baseline_seq+最新 compaction seq 起按序读。**崩溃恢复=重跑 runner 从投影重建**（tool 断点续跑明确未做：failInterruptedTools 兜底）。
 
-### 1.6.7 LLM 层
+#### B.7 LLM 层
 
-- 自研 `@opencode-ai/llm`（依赖无任何 ai/@ai-sdk/*）：protocols（anthropic-messages/openai-chat/openai-compatible-chat/openai-responses/gemini/bedrock-converse/bedrock-event-stream）+ providers（anthropic/openai/openai-compatible/google/amazon-bedrock/azure/cloudflare/github-copilot/openrouter/xai）+ route 可组合（protocol+endpoint+auth+headers+limits）。
-- 流式事件模型与 AI SDK v5 同构；**Usage 契约**：inclusive totals（inputTokens 含 cache）+ non-overlapping breakdown（nonCachedInput+cacheRead+cacheWrite=inputTokens 不变式），逐协议注释谁原生谁推算，visibleOutputTokens 带 clamp。
-- `generateObject` = 强制合成 tool call（名 generate_object），不用厂商 JSON mode。
-- 与 Vercel ai 关系（核实）：web 包的 `ai` 属 Astro 文档站；core 的 @ai-sdk/* 是 V1 长尾路径（aisdk.ts 包装 LanguageModelV3 + SSE chunkTimeout 看门狗）；**V2 runner 只映射三种 aisdk 类型到原生 route，其余 UnsupportedApiError——ai-sdk 退化为 models.dev catalog 描述格式**。
+- 自研 @opencode-ai/llm（deps 无 ai/@ai-sdk/*，仅 @smithy/eventstream-codec/aws4fetch/effect/@opencode-ai/schema）：protocols（anthropic-messages/openai-chat/openai-compatible-chat/openai-responses/gemini/bedrock-converse/bedrock-event-stream）+providers（anthropic/openai/openai-compatible/google/amazon-bedrock/azure/cloudflare/github-copilot/openrouter/xai）+route/（auth/endpoint/client/executor/framing/transport 可组合）。DESIGN.md："Preserve one provider turn as an explicit primitive for durable runtimes"。
+- 流事件与 AI SDK v5 同构；**Usage 契约**：inclusive totals（inputTokens 含 cache）+non-overlapping breakdown（nonCachedInput+cacheRead+cacheWrite=inputTokens 不变式）逐协议注释谁原生谁推算；visibleOutputTokens 唯一做减法且带 clamp。generateObject=强制合成 tool call（名 generate_object）不用厂商 JSON mode。
+- 与 Vercel ai 关系：web 的 `ai` 属 Astro 文档站；core 的 @ai-sdk/* 是 V1 长尾（aisdk.ts 包装 LanguageModelV3+sdk/language hooks+custom fetch SSE chunkTimeout 看门狗+openai/azure/bedrock body 修补）；**V2 runner fromCatalogModel 只映射三种 aisdk 类型（openai→OpenAIResponses.route/Auth.bearer、anthropic→AnthropicMessages.route/x-api-key、openai-compatible→OpenAICompatibleChat.route），其余 UnsupportedApiError——ai-sdk 退化为 models.dev catalog 描述格式**。
 
-### 1.6.8 插件
+#### B.8 TUI / 桌面 / 插件
 
-`plugin/src/v2/effect/plugin.ts`：`Plugin.define({ id, effect: (ctx: PluginContext) => Effect<void> })` 长驻 Effect；PluginContext 提供 agent/aisdk/catalog/command/integration/reference/skill 六类 hooks（各带 Reload）+ plugin 域；KeyedMutex+scope 生命周期、加载环检测、热替换 Scope.close 旧实例。
+- TUI：OpenTUI+SolidJS（keymap.tsx/theme/routes/component/prompt/feature-plugins），经 @opencode-ai/sdk 连 server。
+- Desktop：Electron 42（electron-vite+electron-builder；main 进程 electron-updater/store/window-state、drizzle-orm、native 自编 node-pty；renderer SolidJS+共享 app 包+@solidjs/router）——"Electron 侧边栏+内嵌终端（PTY WebSocket）+共享 Web UI"。
+- 插件：`Plugin.define({id, effect:(ctx:PluginContext)=>Effect<void>})` 长驻 Effect；PluginContext 六类 hooks（agent/aisdk/catalog/command/integration/reference 各带 Reload）+plugin 域；KeyedMutex+scope 生命周期、加载环检测、热替换 Scope.close。
 
----
-
-# 二、六家横向对比
+# 2. 六家横向对比
 
 | 维度 | Codex | Claude Code | Grok Build | dsh | pi | opencode |
 |---|---|---|---|---|---|---|
@@ -694,146 +645,178 @@ SessionExecution.Service [session/execution/local.ts]     // "Future remote plac
 | steering | 三态协议 | priority now/next/later | Interjected | Inbox.splice | 双队列 | **durable steer/queue** |
 | 工具并行 | RwLock 门控 | 受限并行 | eager+Terminal 收口 | 三段 waterfall 滚动池 | Promise.all thunk | eager FiberSet+awaitEmpty |
 | 审批 | 结构化提案+guardian | 富回调 6 模式 | permission-mode+sandbox | **fail-closed 决策槽** | 无 | wildcard+事件化 Deferred |
-| 压缩 | pre-sampling+auto | 总结式+PreCompact hook | compaction-transcript crate | compaction replace surface | 树上 entry 检查点 | Compaction 消息进历史 |
+| 压缩 | pre-sampling+auto | 总结式+PreCompact hook | compaction-transcript | compaction replace surface | 树上 entry 检查点 | Compaction 消息进历史 |
+| 沙箱 | Seatbelt/Landlock/bwrap/Win | Seatbelt | nono+seccomp 子网封禁 | bwrap/Landlock/Seatbelt+E2B POC | 无（外包容器） | —（未见专项） |
 | 独门绝活 | 反向扫描 resume | 控制协议多路复用 | 三域 checkpoint | 编译期 surface 强制 | JSONL 树分叉 | durable/live 二分 |
 
----
-
-# 三、行业语言与架构盘点
+# 3. 行业语言与架构盘点
 
 | 产品 | 核心语言（GitHub languages 实测） | 形态 | 架构要点 |
 |---|---|---|---|
 | Codex / Grok Build | Rust | CLI/桌面/IDE/云 | Rust 核心多客户端 |
 | Claude Code / dsh / pi / opencode | TypeScript | CLI/Web/桌面 | 单进程或 client/server |
-| Cline / Roo Code | ~100% TS（Roo 是 Cline fork） | VS Code 插件 | 循环跑扩展宿主内，无独立引擎 |
-| Continue.dev | TS 8.9M + Kotlin 壳 + Python 遗留 | IDE 插件/CLI | 共享 TS core，JetBrains 端 JCEF 复用 |
-| Aider | Python | CLI | 单进程，tree-sitter repo-map |
-| OpenHands | 主仓 TS + agent-sdk Python | Web/桌面/SDK | client/server，Docker 沙箱执行，REST+WS |
-| Dify | 前端 TS + 后端 Python(Flask) | Web | 前后端分离+Celery+多容器 |
-| LobeChat / LibreChat / AnythingLLM | Node 全栈 TS/JS | Web/桌面 | 一套 TS 通吃 |
-| Cherry Studio | TS | Electron | 纯客户端 BYOK 无后端 |
-| Jan | TS + Rust(Tauri+llama.cpp) | 桌面 | 2025 弃 C++ cortex.cpp 转 Rust |
-| Bolt.new | TS（WebContainers） | Web | 浏览器内 Node 运行时 |
-| trae-agent（字节） | Python | CLI | MIT 12k stars，与 Trae IDE 无直接关系 |
-| Cursor / Windsurf / Trae / 灵码 / Qoder | 客户端 VS Code fork(TS)；后端未公开 | IDE | — |
+| Cline / Roo Code | ~100% TS（Roo 是 Cline fork） | VS Code 插件 | 循环跑扩展宿主内，无独立引擎；云端服务闭源 |
+| Continue.dev | TS 8.9M+Kotlin 壳 407K+Python 遗留 | 插件+CLI | 共享 TS core；JetBrains JCEF 复用；补全本地 ONNX/tree-sitter |
+| Aider | Python 1.33M | CLI | 单进程；tree-sitter repo-map；git 深度集成 |
+| OpenHands | 主仓 TS 8.6M+agent-sdk Python 12.3M | Web/桌面(Electron)/SDK | client/server；Docker 沙箱执行；REST+WebSocket |
+| Dify | 前端 TS 38.2M+后端 Python 35.7M(Flask) | Web | Next.js+Flask+Celery+多容器 |
+| LobeChat | ~100% TS 69MB（Next.js 全栈） | Web/桌面 | DB 模式 API Routes+Prisma 兼任后端 |
+| Open WebUI | 后端 Python 4.1M(FastAPI)+前端 Svelte 3.6M | Web | 单进程 FastAPI 服务 API+静态资源；直连 Ollama |
+| LibreChat | TS 29M+JS 6.7M+少量 Go | Web | Node(Express)+React+MongoDB；RAG 可选 Python API |
+| AnythingLLM | JS 9.2M(Node)+TS 166K | 桌面+Docker | 一套 Node 后端双形态；内嵌 LanceDB；BYOK |
+| Cherry Studio | TS 50M | Electron | 纯客户端 BYOK 无自有后端 |
+| Jan | TS 4.5M+Rust 1.25M(src-tauri)+Swift/MLX | 桌面(Tauri 2) | 2025-07 cortex.cpp(C++)归档→Rust(llama.cpp)+macOS MLX server |
+| Bolt.new | 官方仓 TS 233K（主体闭源） | Web | WebContainers（TS 写的浏览器内 Node 运行时）；社区版 bolt.diy |
+| GitHub Copilot | VS Code agent mode=TS（microsoft/vscode 内）；云端未公开；**开源 copilot-sdk 多语言：Java 5.1M/Rust 4.3M/TS 2.7M/C# 1.7M/Go 1.6M/Python 1.5M** | 插件+云 | agent host 核心或为 Java（仅推测） |
+| Cursor | 客户端 Code-OSS fork(TS，据报道) | IDE | 后端未公开 |
+| Windsurf | VS Code fork(TS，据报道)；2025-07 被 Cognition 收购 | IDE | 后端无可靠公开信息 |
+| 字节 Trae | Code-OSS fork（据报道）+插件形态 | IDE | SOLO 模式；月活超百万（2025-06）；服务端未公开 |
+| 通义灵码 | 全 IDE 插件+Lingma IDE | 插件+IDE | 阿里后端据报道以 Java 为主（未证实） |
+| trae-agent（字节开源） | Python | CLI | MIT 12k★；与 Trae IDE 无直接关系（issue #273 争议） |
 
-**规律**：①"agent 即核心资产"的新一代工具只用 Rust 或 TS；②Python 是 Web 平台/研究系领地，本地个人工具无一选它；③IDE 插件清一色 TS；④client/server 拆分只在沙箱/多用户时出现。**我们的定位与 Claude Code/dsh/pi/opencode 同型 → TS 是被最多同类验证的路线**。
+**规律**：①"agent 即核心资产"的新一代工具只用 Rust 或 TS——Rust 用于性能/OS 层重的（Codex/Grok/Jan 推理层），TS 用于产品一致性与分发优先的；②Python 是 Web 平台/研究系领地，本地个人工具无一选它；③IDE 插件清一色 TS（宿主 API 即 TS）；④client/server 拆分只在沙箱/多用户时出现；⑤本地优先桌面倾向"TS UI+系统语言引擎"。
 
----
+# 4. 前端生态调研（2026-08-21/22 npm/GitHub 实测）
 
-# 四、前端生态调研（2026-08-21/22 npm/GitHub 实测）
-
-## 4.1 AI/chat 组件库全景
+## 4.1 AI/chat 组件库全景（16 家）
 
 | 库 | 版本/活跃度 | 许可 | 样式 | 组件清单（实测源码/官方索引） |
 |---|---|---|---|---|
-| **Vercel AI Elements** | 仓库日更；CLI ai-elements 1.9.0 | Apache-2.0 | shadcn+Tailwind（CSS Variables 模式，纯 copy-in） | **48 个**：agent/artifact/attachments/audio-player/canvas/chain-of-thought/**checkpoint**/code-block/commit/**confirmation**/connection/context/controls/conversation/edge/environment-variables/**file-tree**/image/inline-citation/jsx-preview/message/mic-selector/model-selector/node/open-in-chat/package-info/panel/persona/**plan**/prompt-input/queue/reasoning/sandbox/schema-display/shimmer/snippet/sources/speech-input/stack-trace/suggestion/**task**/**terminal**/test-results/**tool**/toolbar/transcription/voice-selector/web-preview |
-| **assistant-ui** | 0.15.16（前日发版），11.8k★，周下载 137 万 | MIT | headless + Tailwind 预设（Radix/Base UI 双风味 shadcn copy-in） | primitives 16（Thread/Composer/Message/MessagePart/ActionBar/AssistantModal/Attachment/BranchPicker/ChainOfThought/SelectionToolbar/Suggestion/ThreadList...）+ 预制 26（Markdown/Mermaid/Reasoning/Streamdown/Sources/ToolFallback/DiffViewer...）+ runtimes（AI SDK/LangGraph/AG-UI/LocalRuntime/ExternalStoreRuntime/DataStream）+ react-ink 终端版 |
-| **@ant-design/x** | 2.9.0（2026-07-28），4.7k★ | MIT | cssinjs（**2.x 需 antd ^6.1.1**） | 18 个：Actions/Attachments/Bubble(+BubbleList)/CodeHighlighter/Conversations/FileCard/Folder/Mermaid/notification/Prompts/Sender/SenderSwitch/Sources/Suggestion/Think/ThoughtChain/Welcome/XProvider；useXChat/XStream/XRequest/x-mcp-client 移至 @ant-design/x-sdk 2.9.0 |
-| **Semi Design** | 2.102.0（2026-07-31），10.3k★，日更 | MIT | 自研 scss 主题 + DSM 平台 | **AIChatDialogue**（roleConfig/三种气泡模式/消息操作 copy-edit-delete-reset-share-good-bad/hints/引用标注/dialogueRenderConfig 全套插槽）/ **AIChatInput**（richTextInput/skillItem/suggestionItem/extensions）/ **Chat**/MarkdownRender/CodeHighlight/JsonViewer；**Message.ContentItem 原生含 ToolCallContentItem（FileSearch/WebSearch/Function/Custom/ImageGeneration）+ MCPToolCall + Reasoning + Refusal**；适配器 chatCompletionToMessage/streamingResponseToMessage 等；react19-adapter.ts |
-| **@lobehub/ui** | 5.32.4（当日发版），2.2k★，920 版 | MIT | antd ^6.1.1 + React ^19 | chat 零件：BackBottom/Bubble/ChatHeader/ChatInputArea/ChatItem/ChatList/EditableMessage/EditableMessageList/LoadingDots/MessageInput/MessageModal/TokenTag + Markdown/Highlighter(Shiki)/Mermaid/CodeDiff/DraggablePanel/NeuralNetworkLoading |
-| shadcn 官方 chat | 2026-06 发布 | MIT | Tailwind | MessageScroller（另有 headless @shadcn/react 双 Radix/Base UI）/Message/Bubble/Attachment/Marker + createChat helpers |
-| CopilotKit | 1.68.3，36.9k★ | MIT | Tailwind | ~20 chat 组件 + 框架包最广（react/vue/angular/web-components/rn + channels Slack/Teams/TG/Discord/WhatsApp）；AG-UI 协议 |
-| streamdown | 2.5.0，周下载 496 万 | Apache-2.0 | **需 Tailwind+shadcn token** | react-markdown drop-in；remend 未闭合块补全；GFM/KaTeX/Mermaid/Shiki/rehype-harden |
-| @ant-design/x-markdown | 2.9.0 | MIT | **自包含 css（无 Tailwind）** | marked+DOMPurify 路线；插件 Latex/KaTeX |
-| markstream-react | 2.0.1（当日） | MIT | 自带 | 流式 diff 代码块 |
-| chatscope | 2.1.1（2025-05 后停更 15 月） | MIT | 自有 SCSS | 经典 IM 14 组件 —— 不推荐 |
-| NLUX | 2.17.1（2024-08 后停更 2 年） | MPL-2.0 | 自有 | 单 AiChat 封装 —— 不推荐 |
-| llm-ui | 0.13.3（2024-06 起休眠） | MIT | — | — 不推荐 |
-| deep-chat | 2.5.0 活跃 | MIT | 内置 | Web Component 嵌入式 chatbot，非工作台零件 |
-| MUI/Mantine/PrimeReact/Fluent UI/Chakra | 活跃 | — | — | **均无 AI/chat 组件**（逐一核实组件清单/源码目录） |
-| react-virtuoso | 4.18.12（2026-08-17） | MIT | 无样式 | followOutput/firstItemIndex 反向加载，长会话一等选择 |
+| **Vercel AI Elements** | vercel/ai-elements 日更；CLI ai-elements 1.9.0；repo 2.3k★ | Apache-2.0 | shadcn+Tailwind（CSS Variables；纯 copy-in：`npx ai-elements@latest` 或 `npx shadcn add https://elements.ai-sdk.dev/api/registry/all.json`；文档前置 Next.js+AI SDK+shadcn+Tailwind） | **48 个**：agent/artifact/attachments/audio-player/canvas/chain-of-thought/**checkpoint**/code-block/commit/**confirmation**/connection/context/controls/conversation/edge/environment-variables/**file-tree**/image/inline-citation/jsx-preview/message/mic-selector/model-selector/node/open-in-chat/package-info/panel/persona/**plan**/prompt-input/queue/reasoning/sandbox/schema-display/shimmer/snippet/sources/speech-input/stack-trace/suggestion/**task**/**terminal**/test-results/**tool**/toolbar/transcription/voice-selector/web-preview；message 由 streamdown 驱动 |
+| **assistant-ui** | 0.15.16（前日发版），11.8k★，周下载 137 万 | MIT | headless primitives + Tailwind 预设（CLI create/init；registry 提供 **Radix 与 Base UI 两种风味、每种 shadcn 主题**） | 三层：**headless primitives 16**（Thread/Composer/Message/MessagePart/ActionBar/ActionBarMore/AssistantModal/Attachment/BranchPicker/ChainOfThought/Error/SelectionToolbar/Suggestion/ThreadList/ThreadListItem/QueueItem/AuiIf）+**预制 UI 26**（Thread/ThreadList/AssistantModal/AssistantSidebar/Attachment/ComposerTriggerPopover/ContextDisplay/DirectiveText/File/FollowUpSuggestions/Image/Markdown/MCPConfigDialog/Mermaid/MessageTiming/ModelSelector/PartGrouping/Quote/Reasoning/Scrollbar/Sources/Streamdown/SyntaxHighlighting/ToolFallback/ToolGroup/Voice）+**独立组件 7**（Accordion/Badge/**DiffViewer**/DotMatrix/NumberRoll/Select/Tabs）；**runtimes**：AI SDK/LangGraph(LangChain)/AG-UI/A2A/Google ADK/Cloudflare Agents/Mastra/Assistant Cloud/LocalRuntime/ExternalStoreRuntime/DataStream；包矩阵：react/react-native/**react-ink（终端）**/react-ai-sdk/react-data-stream/react-mcp + tool-ui 子仓（772★）；YC 背书 |
+| **@ant-design/x** | 2.9.0（2026-07-28），4.7k★，周下载 83.7k | MIT | cssinjs（**2.x 需 antd ^6.1.1**；1.6.1 需 antd ^5.20.3，1.x 已终更） | 主包 18：Actions/Attachments/Bubble(+BubbleList)/CodeHighlighter/Conversations/FileCard/Folder/Mermaid/notification/Prompts/Sender/SenderSwitch/Sources/Suggestion/Think/ThoughtChain/Welcome/XProvider；monorepo 子包：**@ant-design/x-markdown**（流式 MD）、**@ant-design/x-sdk**（useXChat/useXConversations/XRequest/XStream/chat-providers/**x-mcp-client**）、**@ant-design/x-card**（AI 动态卡片/A2UI，useCardLoader）、**@ant-design/x-skill**；1.x 的 useXAgent 已移除 |
+| **Semi Design** | @douyinfe/semi-ui 2.102.0（2026-07-31），10.3k★，625 版，日更 | MIT | 自研 scss 主题（DSM 平台/本地 scss 变量/插件 variables 三级；Vite 插件社区版 vite-plugin-semi-theme 0.6.0）；固定 .semi-* 类名与 CSS Modules 共存 | **AIChatDialogue**（props 实测：align 左右/左对齐、mode bubble/noBubble/userBubble、roleConfig、hints、showReference 引用、onAnnotationClick 标注、消息操作 onMessageCopy/Edit/Delete/Reset/Share/GoodFeedback/BadFeedback、dialogueRenderConfig{renderFullDialogue/Content/Action/Avatar/Title}、renderDialogueContentItem、markdownRenderProps、escapeHtml、selecting 多选）+**AIChatInput**（richTextInput/skillItem/suggestionItem/extensions/configure/horizontalScroller）+**Chat**（chatBox/chatContent/inputBox/attachment/hint）+MarkdownRender/CodeHighlight/Highlight/JsonViewer；**数据适配器**：chatCompletionToMessage/streamingChatCompletionToMessage/streamingResponseToMessage/responseToMessage/chatInputToMessage/chatInputToChatCompletion；**Message.ContentItem 原生含 ToolCall（FileSearch/WebSearch/Function/Custom/ImageGeneration/CustomObject）+MCPToolCall+Reasoning+Refusal，输入侧 text/image/file/audio**；react19-adapter.ts；无独立 @douyinfe/semi-ai 包（404 已验证） |
+| **@lobehub/ui** | 5.32.4（当日发版），2.2k★，920 版 | MIT | antd ^6.1.1+**react ^19.0.0 严格**+motion+@lobehub/icons | chat/：BackBottom/Bubble/ChatHeader/ChatInputArea/ChatItem/ChatList/EditableMessage/EditableMessageList/LoadingDots/MessageInput/MessageModal/TokenTag；外围：Markdown/Highlighter(Shiki)/Mermaid/CodeDiff/CodeEditor/DraggablePanel/DraggableSideNav/NeuralNetworkLoading/SearchBar/Toc/Snippet/EmojiPicker 等 |
+| shadcn 官方 chat | 2026-06 发布 | MIT | Tailwind | **MessageScroller/Message/Bubble/Attachment/Marker 五件套**+scroll-fade/shimmer CSS utilities；MessageScroller 另有 headless 版 **@shadcn/react/message-scroller（Radix 与 Base UI 双支持）**；安装 npx shadcn add …；demo 用 useChat；官方明确"不替代 AI Elements"可混用；2026-08 "Human in the Loop" 更新（@shadcn/helpers/ai-sdk 的 createChat） |
+| CopilotKit | 1.68.3，36.9k★ | MIT | Tailwind | react-ui v1：Chat/Sidebar/Popup/Window/Header/Input/Textarea/Messages/Markdown/CodeBlock/Suggestions/AttachmentQueue/Button/Icons/PoweredByTag+dev-console/help-modal；v2：CopilotThreadsDrawer/useComponent（generative UI）；框架包最广（react/vue/angular/web-components/rn+channels Slack/Teams/TG/Discord/WhatsApp+a2ui-renderer+web-inspector）；AG-UI 协议（可接 LangGraph/Mastra/CrewAI/Claude Agent SDK/Google ADK/AWS Strands）；不绑自家云（OSS 核心+可选企业版） |
+| streamdown | 2.5.0，5.5k★，周下载 496 万 | Apache-2.0 | **需 Tailwind+shadcn token（globals.css @source）** | react-markdown drop-in；**remend 未闭合块补全**；GFM/KaTeX/Mermaid/**Shiki**/rehype-harden 加固/memoized；插件 @streamdown/{code,cjk,math,mermaid} |
+| @ant-design/x-markdown | 2.9.0，周下载 28.8k | MIT | **自包含 css（light/dark.css），无 Tailwind** | marked+DOMPurify+html-react-parser（默认安全无 dangerouslySetInnerHTML）；插件 Latex/KaTeX；100% CommonMark+GFM；**"x-markdown" 独立仓库（ondas/ant-hq）确认不存在** |
+| markstream-react | 2.0.1（当日），2.9k★（monorepo） | MIT | 自带 | 多框架（Vue/Nuxt/React/Next/Svelte）；不完整 MD；Mermaid/KaTeX；**stream-diffs 流式 diff 代码块** |
+| deep-chat | 2.5.0，3.7k★ | MIT | 内置 | **Web Component** 一行嵌入；直连 20+ API（OpenAI/Claude/liteLLM/Dify/Requesty）；文件/摄像头/麦克风/STS；intro panel/focus mode/hiddenMessages；独立 @deep-chat/react 不存在（以自定义元素用于 React） |
+| chatscope | 2.1.1（2025-05-15 后停更 15 月），1.8k★ | MIT | @chatscope/chat-ui-kit-styles SCSS | 经典 IM：MainContainer/ChatContainer/MessageList/Message/MessageInput/MessageSeparator/Sidebar/ConversationList/Conversation/ConversationHeader/Avatar/TypingIndicator… —— **不推荐** |
+| NLUX | 2.17.1（2024-08 后停更 2 年），1.4k★ | **MPL-2.0（npm）** | 自有（Nova/Jupiter 主题） | 单 AiChat 组件+@nlux/core+adapters —— **不推荐（React peer 仅 ^18）** |
+| llm-ui | 0.13.3（2024-06 起休眠） | MIT | — | — **不推荐** |
+| Stream Chat React（GetStream） | 商业 SaaS | SDK 开源但绑 Stream 云 | — | 绑定云服务，不适合本地优先自托管 |
+| botframework-webchat（微软） | 活跃 | MIT | — | 绑 Azure Bot Service/Direct Line —— 不适用 |
+| MUI / Mantine / PrimeReact / Fluent UI / Chakra UI | 活跃 | — | — | **五家均无 AI/chat 组件**（官方 all-components 页/源码 components 目录逐一核实；微软聊天 UI 在独立包 @azure/communication-react） |
+| react-virtuoso | 4.18.12（2026-08-17），6.4k★，周下载 279 万 | MIT | 无样式 | followOutput/firstItemIndex 反向无限加载 —— 长会话一等选择 |
 
 **结论**：Tailwind 线 = shadcn/ui + AI Elements + streamdown（+assistant-ui 状态层可选）；非 Tailwind 备选 Semi（消息模型最 AI 原生）或 antdx（ThoughtChain）。**"蓝色渐变玻璃 AI 风"与 Tailwind 无关**——那是 v0/Lovable 默认审美；shadcn 默认黑白中性极简。
 
-## 4.2 CSS 方案
+## 4.2 CSS 方案盘点
 
-- CSS Modules：Vite 原生支持 `*.module.css/.scss/.less`（装 sass/less 即用），`css.modules.localsConvention` 可配。
-- antd 6.6.1：全面 cssinjs（@ant-design/cssinjs ^2），**无需 less**；默认开启 CSS variables；ConfigProvider Seed/Map/Alias 三层 token；零运行时模式可选。React 19 免补丁（UMD 构建仅 React19 可用，Vite ESM 不受影响）。
-- Semi：主题=编译期 scss 变量注入（DSM 平台/本地 scss/插件 variables 三级）；**Vite 无官方插件**（社区 vite-plugin-semi-theme 0.6.0）；固定 .semi-* 类名与 CSS Modules 共存无冲突（官方 FAQ）。
-- 运行时 CSS-in-JS（emotion 11.14/styled-components 6.5）与零运行时（vanilla-extract 1.21/panda 1.12）在组件库自带样式前提下收益有限。
+- **CSS Modules**：Vite 原生支持 `*.module.css/.scss/.less`（装 sass/sass-embedded 或 less 即用，零插件）；`css.modules.localsConvention` 可配 camelCase。纯构建期，与 React 19 无耦合。
+- **Sass/SCSS**（1.103.1）：全局变量层/reset/组件库覆写；与 CSS Modules 组合（.module.scss 局部+BEM 全局）最稳。
+- **Less**：antd 6 已全面 cssinjs（@ant-design/cssinjs ^2.1.2，无 less 依赖）——**不再需要 less 定制主题**；less 仅可选旁路（getDesignToken 导出经 less-loader 注入静态样式）。antd 6.6.1：默认开启 cssVar、放弃 IE、零运行时模式（import antd/dist/antd.css）；React 19 免 @ant-design/v5-patch；已知坑：#55889（UMD 构建仅 React19 可用——Vite ESM 不受影响）、#54310（StyleProvider layer 与 icons 冲突已修）；v6 DOM 结构有调整需回归内部选择器覆写。
+- **antdx 样式**：2.9.0 自带（cssinjs ^2.0.1+cssinjs-utils），无 less/tailwind/sass；**官方 @layer antd, antdx 降权机制**（业务选择器恒高于 antdx；与 Tailwind v3/v4 layer 官方共存配置）；layer 模式下子元素必须包 XProvider。
+- **Semi 主题**：编译期 scss 变量注入（官方 webpack/rspack 插件 2.102.0；Vite 社区版）；官方 FAQ："不使用 CSS Module 是因为我们希望有固定的 className，为业务方保留修改/覆盖 Semi 样式的能力"——与业务 CSS Modules 互不干扰，官网自身用 .module.scss。
+- **vanilla-extract**（1.21.2）：零运行时 TS 类型安全 CSS-in-TS；主题 themes API 与组件库 token 重叠——锦上添花。
+- **panda-css**（1.12.0）：零运行时 utility/recipe 引擎；codegen 步骤+心智负担；组件库自带样式时收益有限。
+- **emotion**（11.14.0）/ **styled-components**（6.5.3）：运行时 CSS-in-JS；与 antd cssinjs/Semi scss 叠加=两套运行时，冗余——不推荐默认。
 
----
+# 5. 后端生态调研
 
-# 五、后端生态调研
+## 5.1 TypeScript 构建块
 
-## 5.1 TypeScript 构建块（最终选择）
-
-| 包 | 版本/状态 | 许可 | 结论 |
+| 包 | 版本/状态（实测） | 许可 | 结论 |
 |---|---|---|---|
-| **@earendil-works/pi-ai** | 0.84.2 周更（2026-05 首发 41 版） | MIT | 30+ provider + 本地模型；dsh 源码 llm-pi-ai 复用验证；**选它** |
-| **@earendil-works/pi-agent-core** | 同上 | MIT | 有状态 agent + subscribe 事件流 + 工具执行；**选它** |
-| Vercel AI SDK（ai） | v7（2026-06-25，约 5 月一个大版本） | Apache-2.0 | Agent/ToolLoopAgent/HarnessAgent；ESM-only/Node22+；备选 |
-| @mastra/core | 1.61.0 日更 | Apache-2.0 + ee 商业 | 重型全家桶，接管架构，不选 |
-| @anthropic-ai/claude-agent-sdk | 0.3.238 日更 | 专有（Commercial ToS） | 锁 Claude；条款允许做产品但可单方变更 |
-| @openai/codex-sdk | 0.149.0 | Apache-2.0 | spawn CLI；行为由 Codex harness 定义 |
-| llamaindex | 0.12.1（2025-12 后零发布） | MIT | 实质停更，不选 |
-| zod / typebox | 4.4.3 / 1.3.16（新包名，sinclairzx81/typebox） | MIT | 协议校验；typebox 直接产 JSON Schema、pi 全家用它 |
+| **@earendil-works/pi-ai** | 0.84.2 周更（2026-05-07 首发 41 版） | MIT | 30+ provider+本地模型；dsh 源码 llm-pi-ai 复用验证；**选它** |
+| **@earendil-works/pi-agent-core** | 同上 | MIT | 有状态 agent+事件流+工具执行；**选它** |
+| Vercel AI SDK（ai） | **v7**：latest 7.0.73（2026-08-21）；v5.0.0=2025-07-31、v6.0.0=2025-12-22、v7.0.0=2026-06-25（约 5 月一个 major）；v6/v5 独立维护线（6.0.261/5.0.242）；1456 版、2026 年 1292 release | Apache-2.0 | Core：generateText/streamText/generateObject 统一 20+ provider；**内置 agent 循环**：Agent.generate()/stream()/ToolLoopAgent/WorkflowAgent，stopWhen=isStepCount；UIMessage 流保留但 toUIMessageStreamResponse 弃用→顶层 toUIMessageStream+createUIMessageStreamResponse；v7 breaking：**ESM-only、Node 22+**、system→instructions、onFinish→onEnd、fullStream→stream、telemetry→@ai-sdk/otel；**新增 HarnessAgent 统一驱动 Claude Code/Codex/Pi**；子代理/tool approvals/memory 文档齐 —— 备选 |
+| @mastra/core | 1.61.0 日更（1503 版）；@mastra/memory 1.27/rag 2.6/mcp 1.17；27.4k★ | Apache-2.0+**ee/ 目录商业许可**（开发测试免费生产付费） | server-first 全家桶（agent+workflow+memory+RAG+MCP server+evals+observability+deployers+A2A）；model 层 alias 依赖 @ai-sdk/provider-v5/v6/v7 三版本（建于 AI SDK provider 抽象）；standard-schema（zod/TypeBox 均可）—— 重型框架接管架构，不选 |
+| @anthropic-ai/claude-agent-sdk | 0.3.238 日更（271 版） | **专有（Commercial ToS）**——明确允许用于面向自己客户的产品 | 零依赖包 spawn 平台原生二进制（8 平台包）；pathToClaudeCodeExecutable/bun extractFromBunfs/spawnClaudeCodeProcess 可替换进程层；**锁 Claude**（可 Bedrock/Vertex 但模型仍 Claude） |
+| @openai/codex-sdk | 0.149.0 日更（821 版） | Apache-2.0 | spawn codex CLI 换 JSONL；startThread/resumeThread/outputSchema(Zod)/env（Electron sandboxed hosts）/config 透传/**baseUrl 可覆盖**；模型默认 OpenAI（OSS 模式/config.toml model_providers 文档未能一手核实） |
+| llamaindex | 0.12.1（2025-12-02 后零发布） | MIT | 实质停更 —— 不选 |
+| @langchain/langgraph | 1.4.12（1.0=2025-10-18） | MIT | 图编排，重型 —— 不作主干 |
+| zod | **4.4.3**（v4 stable=2025-07-09，v3.25 起同包分发） | MIT | 内部校验默认；v3→v4 有迁移成本 |
+| typebox | **1.3.16（新包名无 scope；1.0=2025-09-09；repo sinclairzx81/typebox）**；旧 @sinclair/typebox 0.34.52 双线并存 | MIT | 直接产标准 JSON Schema、零运行时、pi 全家用 —— wire schema 值得 |
+| **SSE 库现状** | eventsource 5.1.1（MIT，2026-08-20，WHATWG 合规免 flag）；eventsource-parser 4.1.0（纯解析器）；@microsoft/fetch-event-source 已死（2.0.1，2021 后无更新） | — | 服务端生成：手写 ~50 行（text/event-stream+ReadableStream）；Node 原生 EventSource 到 v26 仍 experimental 需 flag |
+| **JSONL 库现状** | 无事实标准：@alcalzone/jsonl-db 4.0.2（KV 型）/jsonl-stream 2.0.0（流 parser）/@discoveryjs/json-ext | — | **自写 ~50 行**（fs appendFile+单写者）；dsh 自己发了 @deepseek-ai/dsh-session-persistence-jsonl（0.0.1-rc.1，BSD-3）——大家都自写 |
 
 ## 5.2 Go 生态（曾深入评估，最终未选）
 
-- **eino**（cloudwego）：v0.9.15 稳定线 + v0.10.0-alpha 日更，12.8k★，Apache-2.0；ADK（ChatModelAgent ReAct 循环/Runner `iter.Next()` 事件迭代器/Plan-Execute/DeepAgent/interrupt-resume/failover）+ eino-ext（16 个 model provider：openai/claude/deepseek/gemini/qwen/ark/ollama/openrouter/qianfan + tools：mcp/commandline/bingsearch... + callbacks：langfuse/langsmith）。
-- Genkit Go（firebase/genkit go/v1.12.0 月更）：providers 覆盖比 eino 广（含 DeepSeek/Qwen/Moonshot/Z.ai/Ollama）；Flows 偏 GCP。
-- langchaingo：v0.1.14（2025-10），**2026-01 后停滞 7 个月**，168 PR 无人合——不作主干。
-- 官方 SDK 均健康：openai/openai-go v3.52、anthropics/anthropic-sdk-go v1.66（ssestream.MessageStreamEventUnion 完整）、googleapis/go-genai v1.69（pin <2.0）、sashabaranov/go-openai v1.42（万能 OpenAI 兼容客户端）；**MCP 官方 go-sdk v1.7 production-ready**（modelcontextprotocol/go-sdk，Google 合作维护）；DeepSeek 无官方 Go SDK（走 OpenAI 兼容或 eino-ext）。
-- 基础设施：SSE 用标准库 http.Flusher/NewResponseController 自写 ~50 行；JSONL 标准库；WebSocket 选 coder/websocket（gorilla 17 个月无提交）。
-- **结论**：Go 可行但失去协议类型共享与 TS 构建块直接复用；语言边界在进程而非语言——Go 网关+TS 引擎 sidecar 也是合法架构（业界先例：Claude Agent SDK 驱动二进制、Codex TS SDK spawn Rust、ACP 跨语言标准）。
+- **cloudwego/eino**：稳定线 v0.9.15（2026-08-18）+ v0.10.0-alpha.19（2026-08-21，几乎日更）；12,790★；Apache-2.0。components/{model,tool,prompt,retriever,indexer,embedding,document}；compose/{Chain,Graph,Workflow}；flow/ 预置模板；**adk/**：ChatModelAgent（内置 ReAct 工具循环）、**Runner（iter.Next() 逐个吐 AgentEvent 的事件迭代器）**、Plan-Execute、DeepAgent（子 agent 委派）、multi-agent transfer（deterministic_transfer）、**interrupt/resume（HITL）**、failover ChatModel、filesystem middleware；Callback 五切面（OnStart/OnEnd/OnError/OnStartWithStreamInput/OnEndWithStreamOutput）；部分 Agentic* 标 [Beta]。生产：字节内部实践（未点名产品）。
+- **eino-ext**（803★，Apache-2.0，日更）：model 16 家（openai/claude/deepseek/gemini/ollama/qwen(DashScope)/ark(火山/Doubao)/arkbot/openrouter/qianfan + agentic 系列 Beta）；tools（bingsearch/browseruse/commandline/duckduckgo/googlesearch/httprequest/**mcp**/searxng/sequentialthinking/wikipedia）；callbacks/{langfuse,langsmith,apmplus,cozeloop}；libs/acl/{openai,langfuse,opentelemetry}；devops 可视化调试；skills/acp。
+- **Firebase Genkit Go**（genkit-ai/genkit，6,352★，Apache-2.0）：go/v1.12.0（2026-08-17，月更+）；provider 覆盖最广（Google AI/Vertex、Anthropic、OpenAI、xAI、DeepSeek、DashScope、Moonshot、**Z.ai(GLM)**、Vertex Model Garden、Ollama、任意 OpenAI 兼容）；Flows（可部署单元）/tool calling/structured output/agentic workflows+interrupts/multi-agent/durable streaming/chat session/evals/本地 observability/部署 Cloud Run 等；文档语言选择器 Go 未标 Preview（推断按 GA 对待）；Flows 运行时偏 GCP。
+- **tmc/langchaingo**：9,630★，MIT；**2026-01-11 后停滞 ~7 个月**，v0.1.14（2025-10-20），168 open PR 无人合 —— 不作主干。
+- 官方 SDK：**openai/openai-go v3.52.0**（Stainless 生成，日更，官方优先）；**anthropics/anthropic-sdk-go v1.66.0**（一周数版；NewStreaming 返回 ssestream.Stream[MessageStreamEventUnion] 完整事件族；examples 含 agents/mcp-tool-runner/managed-agents/multimodal；Bedrock/Vertex 认证变体）；**googleapis/go-genai v1.69.0**（周更；GenerateContentStream；**v2.0 将对 GenerateVideos breaking，pin <2.0.0**）；sashabaranov/go-openai v1.42.0（事实标准第三方；chat_stream/response_stream 均有——已跟进 Responses API）；DeepSeek 无官方 Go SDK（走 OpenAI 兼容或 eino-ext；社区 cohesion-org/deepseek-go 343★ 2026-05 后不活跃）。
+- **modelcontextprotocol/go-sdk**：**v1.7.0（2026-07-28），v1 稳定 semver，production-ready 无悬念**；5,004★；MIT→Apache-2.0 过渡声明；包 mcp/jsonrpc/auth/oauthex；支持最新 spec 2026-07-28 及历史四版。
+- trpc-group/trpc-a2a-go：242★；v2.0.0-alpha.3（2026-07-22）——A2A 最完整 Go 实现，体量小，"以后再接"。
+- 其他：swarmgo（362★，2025-04 后停更）不推荐；lingoose（834★，v0.3.0，2026-03）设计干净但规模小。
+- 基础设施：SSE 用标准库（http.Flusher + http.NewResponseController，~50 行自写；r3labs/sse 2024-06 停更、tmaxmax/go-sse 2025-05 后无 push 均不强势）；JSONL 标准库（O_APPEND+encoding/json+bufio.Scanner，自保单写者与 fsync）；WebSocket：**coder/websocket**（5,420★，ISC，2026-06 活跃；nhooyr 迁移）> gorilla/websocket（24,848★ 但 2025-03 后 17 个月无提交）；golang.org/x/net/websocket 老旧勿用。
 
----
+# 6. 语言边界与混合架构
 
-# 六、其他产品调查
+**语言只是语言，边界在进程而不在语言。** Go 后端完全可以驱动 TS 开源引擎——spawn 子进程+stdio/HTTP 桥接。业界先例：Claude Agent SDK（TS 包驱动原生二进制）、Codex TS SDK（TS spawn Rust 二进制）、Grok leader/follower（IPC 复用 ACP）、ACP（跨语言标准）。我方"不能用"的准确含义仅是：Go 进程内不能直接 import TS 库、不能共享类型（协议需 JSON Schema/OpenAPI 双侧生成）。代价：进程管理/两跳延迟/打包双运行时/上游协议版本对齐。
 
-## 6.1 ZCode（Z.ai/智谱，闭源）
+三条可行路线对比：
 
-- 身份：GLM-5.3 官方 Harness，"Agentic Development Environment"，桌面应用（Win/macOS/Linux）；https://zcode.z.ai ；无官方开源仓库。
-- **本机安装目录实测**（行为观测，非源码）：
-  - `~/.zcode/cli/rollout/`：`model-io-sess_<会话id>.jsonl` + 子代理分文件 `model-io-sess_subagent_agent_<id>.jsonl`——**目录名 rollout 与 Codex 同源**；内容为模型 I/O 日志（completedAt/durationMs/requestId/attempt/model{modelId,providerId}/request.body…）。
-  - 插件体系：`plugins/cache/<org>/<name>/<version>/{package.json,dist,skills,scripts,docs}` npm 风格；实测 `@zcode/browser-use-plugin` 依赖 `@modelcontextprotocol/server`、`@zcode/contracts`、`@zcode/core`、`@zcode/shared`、`zod`——**插件层纯 TS + zod + MCP SDK**。
-  - 能力面（目录反推）：skills/commands/hooks、MCP（http 型 server）、子代理（bundled-agents）、cron、checkpoints、crash 恢复、credentials；v2 目录有 bot-config/bot-state/bots-runtime-locks。
-- 结论：Codex 架构范式追随者；不可作源码参考，可观察其行为设计。
+| 路线 | 复用度 | 可控性 | 主要成本 |
+|---|---|---|---|
+| a) 纯 TS 一体 | ★★★★★（pi 包直接 import+类型共享） | ★★★ | 无 |
+| b) Go 网关+pi 引擎 sidecar | ★★★★（引擎白拿） | ★★★ | 双运行时+桥接层+协议同步 |
+| c) 纯 Go 自写（eino/官方 SDK） | ★★ | ★★★★★ | provider 适配层 2-4 人周+失去 pi/dsh 直抄 |
 
-## 6.2 Qoder / TraeWork / trae-agent
+**最终选择 a**：与 Claude Code/dsh/pi/opencode 同路线；协议零成本共享；参照源码同语言可直译。
 
-- Qoder（阿里 agentic IDE，qoder.com）：**闭源**（阿里 GitHub 仅 open-code-review 等周边）。
-- TraeWork（字节 AI 办公平台）：**闭源**。
-- **bytedance/trae-agent**：MIT，12k★，纯 Python，通用软件工程任务 agent CLI；与 Trae IDE 关系有社区争议（issue #273）；最后推送 2026-02。可作 Python 侧对照参考。
+# 7. 其他产品调查
 
----
+## 7.1 ZCode（Z.ai/智谱，闭源）
 
-# 七、参考资料资产盘点
+- 身份：GLM-5.3 官方 Harness，"Agentic Development Environment"；https://zcode.z.ai（中英）；桌面应用（Linux x64/Win/macOS）；DevOps.com 报道定位与 Copilot/Cursor/Anthropic 竞争；**无官方开源仓库**（社区只有 obra/superpowers 中文适配等把 ZCode 列为支持目标；Paseo #1670/RTK #2898 均在推动支持）。
+- **本机实测**（~/.zcode）：cli/{agents,bundled-agents,cache,config.json,db,exec,image-cache,log,plugins,rollout}；v2/{bot-config,bot-state.v2,bots-model-cache,bots-runtime-locks,certs,checkpoints,coding-plan-cache,config,crash,credentials}；export-log-stage/feedback/plugin-workspace/projects/tmp/workspace。
+  - **rollout/**：model-io-sess_<会话id>.jsonl + model-io-sess_subagent_agent_<id>.jsonl——**目录名与 Codex 同源**；首行实测 `{"completedAt","durationMs","requestId","attempt","model":{modelId,providerId,role,source},"request":{body:{model,max_...`——模型 I/O 日志。
+  - **插件**：plugins/cache/<org>/<name>/<version>/{package.json,dist,docs,scripts,skills}；清单：android-emulator/browser-use/document-skills/ios-simulator/restore-legacy-sessions/skill-creator/superpowers/zcode-guide；实测 @zcode/browser-use-plugin deps=**@modelcontextprotocol/server、@zcode/contracts、@zcode/core、@zcode/shared、zod**——插件层纯 TS+zod+MCP SDK。
+  - config.json 含 mcp.servers（http 型，headers X-Goog-Api…）。
+- 结论：Codex 架构范式追随者（rollout/插件/skills），不可作源码参考，可观察行为设计。
 
-## 7.1 用户 GitHub（Wanfeng1028）fork 资产
+## 7.2 Qoder / TraeWork / trae-agent
+
+- Qoder（阿里 agentic 编程平台，qoder.com/zh）：多智能体协同/长时委派/记忆知识引擎；前身关联通义灵码（VS Code Marketplace Alibaba-Cloud.tongyi-lingma）；**闭源**（阿里 GitHub 539 仓无本体；周边 alibaba/open-code-review）。
+- TraeWork（trae.cn，"复杂工作就用 TraeWork"）：AI 办公平台，Work/Code/Design 三模式，飞书/微信/钉钉插件；**闭源**；无 trae-work 官方开源仓（GitHub trae-suite/trae-ide 相关多为第三方）。
+- **bytedance/trae-agent**：MIT，12,048★，Python 0.5MB；"基于 LLM 的通用软件工程任务智能体 CLI"；与 Trae IDE 关系社区争议（issue #273）；2026-02-05 最后 push。
+
+# 8. 逆向的边界（三层）
+
+1. **官方接口定义（甚至不算逆向）**：Claude Code 的 sdk.d.ts（38.9 万字节类型+TSDoc：38 成员消息联合/34 控制子类型/31 hooks/每字段语义）是官方主动发布的接口规格——本次调研大量结论直接来自它，零成本。
+2. **压缩产物可"推断"什么**：bundle 保留字符串与结构（类型名/子类型名/flag 名无法混淆），丢失变量名/注释/组织——可精确定位协议形状与执行流程，读不出优雅源码；专有许可下**不可复制代码**。
+3. **运行时行为观测**：minusx 网络抓包（主循环/提示词规模/子代理行为）；我方对 ZCode 的磁盘观测（rollout 格式/插件依赖）——观察行为非还原代码。
+
+一句话：**接口可逆向、源码不可逆向、思路随便学**——接口规格与思想不受版权保护，代码受。
+
+# 9. 参考资料资产盘点
+
+## 9.1 用户 GitHub（Wanfeng1028）fork 资产
 
 | 仓库 | 性质 | 用途 |
 |---|---|---|
-| codex / deepseek-harness / pi / grok-build | 真源码 fork | 四大 Tier1 参考的本地阅读副本 |
-| claude-code | 官方仓库 fork | plugins/ 16 官方插件 + CHANGELOG + examples（hooks/settings）；**无 CLI 源码** |
-| claude-code-analysis | 泄露源码 + 19 章中文分析 | **只读学思想，不可复制代码**；1332 个 .ts + src.zip |
-| chrome-devtools-mcp / react-bits / better-harness / ui-ux-pro-max-skill / awesome-human-distillation / skillhub-desktop / CodexPlusPlus / PaiSwitch | 生态 | 前端动效/agent 评测/skills 生态参考 |
+| codex / deepseek-harness / pi / grok-build | 真源码 fork | 四大 Tier1 参考 |
+| claude-code | 官方仓 fork（2026-03-30 后未同步） | plugins/ 16 官方插件 + CHANGELOG + examples/{hooks,settings} + scripts（issue 自动化，参考价值低）；**无 CLI 源码**；建议 Sync fork |
+| claude-code-analysis | 泄露源码+19 章中文分析 | **只读学思想** |
+| chrome-devtools-mcp / react-bits / better-harness / ui-ux-pro-max-skill / awesome-human-distillation / skillhub-desktop / CodexPlusPlus / PaiSwitch / twenty / neko-master / hello-agents 等 | 生态 | 前端动效/评测/技能生态 |
+| 自有项目：GeoWork（TS，GIS 桌面工作台）/ SpaceLab / PlanningGo / ParrotSound / aichat_export_tools | — | 背景 |
 
-## 7.2 claude-code 官方插件清单（真开源，学工作流设计）
+## 9.2 claude-code 官方插件清单（16 个，真开源）
 
-code-review（代码审查工作流）/ commit-commands / feature-dev（特性开发流程）/ pr-review-toolkit / frontend-design / security-guidance / hookify / plugin-dev / agent-sdk-dev / explanatory-output-style / learning-output-style / ralph-wiggum / claude-opus-4-5-migration 等 16 个——每个是"系统提示词+斜杠命令+hooks+脚本"组合。
+agent-sdk-dev / claude-opus-4-5-migration / code-review / commit-commands / explanatory-output-style / feature-dev / frontend-design / hookify / learning-output-style / plugin-dev / pr-review-toolkit / ralph-wiggum / security-guidance（README 列表实测）——每个 = 系统提示词+斜杠命令+hooks+脚本的组合，学工作流设计的一手材料。
 
-## 7.3 张汉东《Grok Build 源码分析》
+## 9.3 张汉东《Grok Build 源码分析》
 
-https://zhanghandong.github.io/grok-build/ ——19 章中文专著（全景/75 crate 工程哲学/Actor 会话引擎/agentic 循环/上下文压缩/持久化/leader-follower/两层工具抽象/文件编辑/checkpoint/沙箱/拿来主义归一层/TUI 事件循环/增量渲染/流式 Markdown/终端工程学/MCP-Hooks-插件/治理与记忆/韧性工程）；**论断附 file:line 引用且自动校验**，以 Codex 和 opencode 为对照系。
+https://zhanghandong.github.io/grok-build/ ——19 章六部（全景[时代/75-crate 工程哲学]、代理运行时[Actor 会话引擎/agentic 循环/上下文压缩/持久化/leader-follower]、工具系统[两层抽象/文件编辑/checkpoint-worktree/沙箱/拿来主义归一层]、TUI[事件循环/增量渲染/流式 Markdown/终端工程学]、扩展与治理[MCP-Hooks-插件/治理与记忆]、工程纪律[韧性工程]）；**论断附 file:line 引用+自动化校验**+版本基准（SOURCE_REV）+与 Codex 实现对比小节；以 openai/codex 与 sst/opencode 为对照系；四条阅读路径。
 
----
-
-# 八、参考体系定稿与法律边界
+# 10. 参考体系定稿与法律边界
 
 | # | 项目 | 抄什么 | 关键文件 |
 |---|---|---|---|
 | 1 | pi | 引擎最简骨架、JSONL 树会话、可直接 import 的包 | agent/src/agent-loop.ts、coding-agent/src/core/session-manager.ts |
-| 2 | dsh | 事件日志纪律（编译期 surface 强制）、fail-closed 审批、Web UI 组织 | core/session/src/types.ts、interaction/user-approval/src/index.ts、apps/web |
-| 3 | opencode | durable/live 二分、steer/queue 队列、权限规则引擎、单契约多客户端 | schema/src/event.ts、core/src/session/input.ts、core/src/permission.ts、server/src/handlers/event.ts |
-| 4 | Codex | 协议形状、审批结构化提案、反向扫描 resume、并行门控 | protocol/src/turn_input.rs、app-server-protocol、rollout/src/reverse_jsonl_scanner.rs、core/src/tools/parallel.rs |
-| 5 | Grok Build | leader 单实例、多域 checkpoint、TUI 调度纪律 | xai-grok-shell/src/leader/、xai-grok-workspace/src/session/checkpoint.rs |
-| 6 | Claude Code | 实现细节答案之书（只读）+ 官方 plugins 学工作流 | claude-code-analysis/src + analysis/、官方 plugins/ |
+| 2 | dsh | 事件日志纪律（编译期 surface 强制+读端 fail-closed）、fail-closed 审批、Web UI 组织、插件化 | core/session/src/types.ts、interaction/user-approval/src/index.ts、apps/web |
+| 3 | opencode | durable/live 二分、steer/queue 队列、权限规则引擎、单契约多客户端、SSE 单端点 | schema/src/event.ts、core/src/session/input.ts、core/src/permission.ts、server/src/handlers/event.ts |
+| 4 | Codex | 协议形状（thread/turn/item）、审批结构化提案、反向扫描 resume、并行门控、steering 三态 | protocol/src/turn_input.rs、app-server-protocol、rollout/src/reverse_jsonl_scanner.rs、core/src/tools/parallel.rs |
+| 5 | Grok Build | leader 单实例、多域 checkpoint、TUI 调度纪律、NFS SQLite 教训 | xai-grok-shell/src/leader/、workspace/src/session/checkpoint.rs |
+| 6 | Claude Code | 实现细节答案之书（**只读不抄**）+官方 plugins 学工作流+SDK 类型学接口 | claude-code-analysis/src+analysis/、官方 plugins/、sdk.d.ts |
 
-**法律边界**：Apache-2.0/MIT 可复用代码（保留版权声明）；Rust→TS 必须重写（抄设计）；Claude Code 专有——接口规格（sdk.d.ts 官方发布）与思想可学，泄露源码**一行不抄**（接口与思想不受版权保护，代码受）。
+**法律边界**：Apache-2.0/MIT 可复用代码（保留版权声明，Rust→TS 仍需重写）；Claude Code 专有——sdk.d.ts 接口规格与思想可学，泄露源码**一行不抄**；"grokbuild.cloud"等第三方与官方无关。
 
 ---
 
-*报告完。实施细节见 `02-development-plan.md`。*
+*报告完（v1.2）。实施细节见 `02-development-plan.md`。*
