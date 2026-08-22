@@ -4,9 +4,10 @@
 
 | 版本 | 日期 | 作者 | 变更内容 |
 |------|------|------|----------|
-| v1.0 | 2026-08-22 | AI 编写：ZCode CLI · 模型 ox-alpha（model id：`57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；人作者：晚风（Wanfeng1028，发起与审核） | 初稿：技术栈定稿+协议/引擎/前端概要+五阶段路线图 |
+| v1.0 | 2026-08-22 | AI 编写：ZCode CLI · **GLM-5.3**（`builtin:zai-start-plan/GLM-5.3`；会话内部标识 ox-alpha，model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；人作者：晚风（Wanfeng1028，发起与审核） | 初稿：技术栈定稿+协议/引擎/前端概要+五阶段路线图 |
 | v1.1 | 2026-08-22 | 同上 | 扩至实现级：协议完整 TS 类型、引擎伪代码、会话文件格式、五阶段任务清单 |
-| v1.2 | 2026-08-22 | 同上 | **前端章节扩为完整规格**（信息架构/路由/逐屏视图规格/逐组件 props/状态层代码结构/样式系统/Transport 实现/AI Elements 改造清单/性能优化/工程化配置）；阶段二任务清单细化；新增本版本记录表 |
+| v1.2 | 2026-08-22 | 同上 | 前端章节扩为完整规格（信息架构/路由/逐屏视图规格/逐组件 props/状态层代码结构/样式系统/Transport 实现/AI Elements 改造清单/性能优化/工程化配置）；新增版本记录表 |
+| v1.3 | 2026-08-22 | 同上 | **后端章节扩为完整规格**：新增引擎模块总览与依赖图、配置体系（目录/文件 schema）、事件总线实现规格（顺序保证/背压/订阅隔离）、输入队列状态机、Run Loop 函数签名级伪代码、工具系统全规格（注册表/materialize/管线算法/四工具 schema 与错误码表/输出溢写）、审批时序图与规则文件格式、会话持久化算法（投影五步/压缩流程/恢复/分叉/坏行策略）、LLM 网关与重试、错误分类与可观测性、服务端完整规格（路由 zod/SSE 实现代码/错误映射表/优雅退出序列）；版本记录模型信息补全 GLM-5.3 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -19,9 +20,9 @@
 - 2. 技术栈定稿
 - 3. Monorepo 结构（文件级）
 - 4. 协议设计（packages/protocol）
-- 5. 引擎设计（packages/engine）
-- 6. **前端设计（apps/web）——完整规格**
-- 7. 服务端（apps/server）
+- 5. **引擎设计（packages/engine）——完整规格**
+- 6. 前端设计（apps/web）——完整规格
+- 7. **服务端（apps/server）——完整规格**
 - 8. 分阶段路线图（任务清单级）
 - 9. 参考速查表
 - 10. 风险与对策
@@ -98,6 +99,7 @@
 | HTTP | Fastify | TS 友好、SSE 简单 | Hono |
 | 校验 | zod 4 + zod-to-json-schema | 单一 schema 双用途 | typebox |
 | 持久化 | 自写 append-only JSONL（~50 行） | 六家全自写 | node:sqlite（阶段四索引） |
+| 日志 | pino | Fastify 原生搭配 | — |
 | MCP | @modelcontextprotocol/sdk（阶段五） | 官方 TS SDK | — |
 
 ## 2.3 工程组织
@@ -117,31 +119,37 @@ spark/
 │   │   └── src/{ids,primitives,events,api,transport,schema,index}.ts
 │   ├── engine/
 │   │   └── src/
-│   │       ├── index.ts / engine.ts / bus.ts / input-queue.ts / run-loop.ts / llm-gateway.ts
-│   │       ├── tools/{types,registry,pipeline,read,write,edit,bash,output-store}.ts
-│   │       ├── permission/{rules,service}.ts
-│   │       └── session/{manager,store,tree,projector,compaction}.ts
+│   │       ├── index.ts            # createEngine()
+│   │       ├── engine.ts           # Engine 门面与生命周期
+│   │       ├── config.ts           # 配置加载（~/.spark）
+│   │       ├── bus.ts              # 事件总线
+│   │       ├── input-queue.ts      # 三通道输入队列
+│   │       ├── run-loop.ts         # turn 主循环
+│   │       ├── llm-gateway.ts      # pi-ai 适配
+│   │       ├── errors.ts           # 错误分类
+│   │       ├── tools/
+│   │       │   ├── types.ts        # ToolDefinition
+│   │       │   ├── registry.ts     # 注册表 + materialize
+│   │       │   ├── pipeline.ts     # 执行管线
+│   │       │   ├── builtin/{read,write,edit,bash}.ts
+│   │       │   └── output-store.ts # 超大输出截断/溢写
+│   │       ├── permission/
+│   │       │   ├── rules.ts        # 规则类型 + evaluate + 文件读写
+│   │       │   └── service.ts      # asked/resolved + 挂起表
+│   │       └── session/
+│   │           ├── manager.ts      # SessionManager
+│   │           ├── runtime.ts      # SessionRuntime（队列+循环+中断）
+│   │           ├── store.ts        # JSONL 单写者
+│   │           ├── tree.ts         # id/parentId 树
+│   │           ├── projector.ts    # surface → 模型上下文
+│   │           └── compaction.ts
+│   │       └── observability/{logger,metrics}.ts
 │   └── shared/                     # （可选）
 ├── apps/
-│   ├── server/src/{index,routes/,sse,static}.ts
-│   ├── web/
-│   │   ├── vite.config.ts / tailwind 配置 / css/
-│   │   ├── components/ui/          # shadcn + AI Elements copy-in 产物
-│   │   └── src/
-│   │       ├── main.tsx / App.tsx / router.tsx
-│   │       ├── transports/{context.tsx,http.ts,mock.ts}
-│   │       ├── stores/{session-store,connection-store,settings-store}.ts
-│   │       ├── features/
-│   │       │   ├── chat/{ChatView,MessageItem,AssistantBlock,ReasoningCollapsible,
-│   │       │   │         ToolCard,ApprovalCard,TurnStatusBar}.tsx
-│   │       │   ├── composer/{Composer,PromptInput,DeliveryBar}.tsx
-│   │       │   ├── sidebar/{SessionSidebar,SessionItem,NewSessionButton}.tsx
-│   │       │   └── settings/{SettingsDialog,ModelSelector,PermissionRules}.tsx
-│   │       ├── components/         # 通用 UI（Button/Dialog…来自 shadcn）
-│   │       ├── lib/{api,format,keys,cn}.ts
-│   │       └── styles/{globals.css,tokens.css}
+│   ├── server/src/{index,routes/{sessions,messages,permissions},sse.ts,static.ts,errors.ts}
+│   ├── web/（结构见 §6）
 │   └── desktop/                    # （阶段五）
-└── examples/mock-sessions/         # MockTransport 素材（*.json）
+└── examples/mock-sessions/
 ```
 
 ---
@@ -229,7 +237,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 } & (T extends SurfaceEventType ? { surface: true } : unknown)   // 编译期强制（dsh）
 ```
 
-**durable/live/surface 规则表**（评审核对）：
+**durable/live/surface 规则表**：
 
 | 事件 | durable | surface |
 |---|---|---|
@@ -268,7 +276,7 @@ GET /api/event?sessionId=ses_...&since=42
 event: message\ndata: {"id":"evt_...","type":"assistant.delta","sessionId":"ses_...","time":...,"data":{...}}\n\n
 ```
 
-`since` = durable seq 水位：连接先补发 `seq > since` 的 durable 事件（回放）再直播——断线重连语义。统一 `event: message`，type 在 payload。
+`since` = durable seq 水位：连接先补发 `seq > since` 的 durable 事件（回放）再直播。统一 `event: message`，type 在 payload。
 
 ## 4.7 Transport 接口 + MockTransport 规格
 
@@ -276,7 +284,7 @@ event: message\ndata: {"id":"evt_...","type":"assistant.delta","sessionId":"ses_
 export interface Transport {
   onEvent(handler: (e: SparkEventEnvelope) => void): () => void
   sendMessage(text: string, opts?: { delivery?: Delivery; attachments?: string[] }):
-    Promise<{ result: 'started'|'steered'|'queued'; turnId?: TurnId }>
+    Promise<{ result: 'started'|'steered'|'queued'; turnId? }>
   interrupt(): Promise<void>
   replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void>
   listSessions(): Promise<SessionDto[]>
@@ -285,139 +293,416 @@ export interface Transport {
 }
 ```
 
-**MockTransport 行为规格**：预录事件数组（examples/mock-sessions/*.json）或脚本模式；sendMessage 触发延迟回放（delta 30~80ms/次）；审批场景吐 permission.asked 并等待 replyPermission；支持 steer 演示；`speed`/`scenario` 开关（normal/long-output/reject/error-finish）。
+MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（delta 30~80ms/次）；审批场景挂起等待 reply；支持 steer 演示；`speed`/`scenario`（normal/long-output/reject/error-finish）开关。
 
 ---
 
-# 5. 引擎设计（packages/engine）
+# 5. 引擎设计（packages/engine）——完整规格
 
-## 5.1 Engine 门面
+## 5.0 模块总览与依赖关系
+
+```
+createEngine(config)
+   ├─ config.ts ──── 加载 ~/.spark/{spark.json, models.json, permissions.json}
+   ├─ SessionManager（session/manager.ts）
+   │    ├─ SessionStore（store.ts）──── JSONL 单写者追加
+   │    ├─ EventTree（tree.ts）──────── id/parentId 树 + leaf 指针
+   │    └─ SessionRuntime（runtime.ts）─ 每会话：InputQueue + RunLoop + AbortController
+   ├─ EventBus（bus.ts）────────—————— durable/live 双路广播（server SSE 的数据源）
+   ├─ ToolRegistry（tools/registry.ts）→ ToolPipeline（pipeline.ts）→ ToolOutputStore
+   ├─ PermissionService（permission/）─ 挂起表 + 规则评估
+   └─ LlmGateway（llm-gateway.ts）──── pi-ai 封装 + 重试
+依赖方向：runtime → {input-queue, run-loop}；run-loop → {projector, registry, permission,
+   llm-gateway, bus, store}；全部单向，无环。
+```
+
+## 5.1 配置体系
+
+```
+~/.spark/
+├── spark.json            # 引擎行为配置
+├── models.json           # provider 与默认模型
+├── permissions.json      # 用户级审批规则
+├── sessions/<cwd-munged>/<ses_id>.jsonl
+├── tool-outputs/<callId> # 超大工具输出溢写
+└── logs/engine.log       # pino 日志（按天滚动）
+```
+
+```jsonc
+// spark.json
+{
+  "version": 1,
+  "server": { "port": 4318, "host": "127.0.0.1" },     // 仅本地（dsh 姿态）
+  "engine": {
+    "maxStepsPerTurn": 40,              // 单 turn 采样⇄工具上限
+    "maxToolParallel": 8,               // 并行 read 上限
+    "toolTimeoutMs": 120000,
+    "permissionTimeoutMs": 300000,      // 审批 5min fail-closed
+    "progressThrottleMs": 200,          // tool.progress 节流
+    "toolOutputLimitKB": 32,            // 超限溢写
+    "compactionThreshold": 0.8          // 上下文占用率触发
+  }
+}
+// models.json
+{
+  "providers": {
+    "deepseek": { "apiKeyEnv": "DEEPSEEK_API_KEY" },
+    "anthropic": { "apiKeyEnv": "ANTHROPIC_API_KEY" },
+    "ollama":   { "baseUrl": "http://127.0.0.1:11434/v1", "apiKeyEnv": null }
+  },
+  "defaultModel": { "provider": "deepseek", "model": "deepseek-chat" },
+  "compactionModel": { "provider": "deepseek", "model": "deepseek-chat" }
+}
+```
+
+## 5.2 Engine 门面与生命周期
 
 ```ts
 export interface Engine {
-  createSession(opts): Promise<SessionHandle>
+  createSession(opts?: { title?: string; model?: string; cwd?: string }): Promise<SessionHandle>
   resumeSession(id: SessionId): Promise<SessionHandle>
   listSessions(): Promise<SessionMeta[]>
-  subscribe(handler, filter?: { sessionId?: SessionId }): () => void
+  getSession(id: SessionId): SessionHandle | undefined
+  subscribe(handler: (e: SparkEventEnvelope) => void, filter?: { sessionId?: SessionId }): () => void
   shutdown(): Promise<void>
 }
 export interface SessionHandle {
   readonly id: SessionId; readonly meta: SessionMeta
-  send(text, delivery?): Promise<{ result; turnId? }>
+  send(text: string, delivery?: Delivery): Promise<SubmitResult>
   interrupt(): Promise<void>
-  replyPermission(reqId, reply, feedback?): Promise<void>
+  replyPermission(reqId: RequestId, reply: PermissionReply, feedback?: string): Promise<void>
   forkFrom(eventId: EventId): Promise<SessionHandle>     // 阶段四
+}
+// shutdown 序列：1) 拒绝新请求 2) 逐会话 interrupt 当前 turn（发 turn.completed{aborted}）
+//   3) flush 全部 SessionStore（fsync）4) 关闭日志
+```
+
+## 5.3 事件总线（bus.ts）实现规格
+
+```ts
+interface EventBus {
+  /** durable：校验 → 赋 seq → store.append → 广播（await 落盘后才广播，保证订阅者
+      看到 durable 事件时它已持久化——崩溃后 UI 与磁盘一致） */
+  emit<T extends DurableEventType>(sid: SessionId, type: T, data: SparkEventMap[T]): Promise<void>
+  /** live：校验 → 直接广播（不落盘不计数） */
+  emitLive<T extends LiveOnlyEventType>(sid: SessionId, type: T, data: SparkEventMap[T]): void
+  subscribe(handler: (e: SparkEventEnvelope) => void, filter?): () => void
 }
 ```
 
-## 5.2 事件总线（bus.ts）
+- **顺序保证**：per-session 串行——seq 分配与 store.append 在同一互斥队列；live 事件在产生它的 durable 事件之前广播（delta 先于 message 定稿），RunLoop 内天然满足。
+- **订阅者隔离**：每个 handler 独立 try/catch，异常记 warn 不影响其他订阅者与其他事件（dsh）。
+- **背压接口**：`subscribe` 的 handler 返回 `false | Promise<false>` 时暂停该订阅者（server SSE 用 `raw.write()===false` 触发），恢复由订阅者调用返回的 `resume()`。环形缓冲不丢 durable（可由 since 回放补），live 可丢。
+- emit 的 zod 校验失败 = 编程错误，直接 throw（fail-fast 在写入点——dsh"append site"思想）。
 
-durable：`emit(event)` → zod 校验 → 赋 seq → SessionStore.append（单写者队列，可选 fsync）→ 广播。live：`emitLive(event)` → 校验 → 直接广播。订阅者异常隔离（try/catch 逐个记 warn——dsh）。
-
-## 5.3 输入队列（input-queue.ts）三通道
-
-```
-send(text, delivery='now'):
-  now   → 空闲？占锁返回 started；忙→降级 steer（可插话）否则 queue
-  steer → 有活跃 turn？入 steerQueue 返回 steered；否则入主队列返回 started
-  queue → 入 queue 返回 queued（turn 结束后依序消费）
-唤醒合并（opencode pendingWake）：runLoop 结束前查积压，有则续跑不退出
-```
-
-## 5.4 Run Loop（run-loop.ts）
+## 5.4 输入队列（input-queue.ts）状态机
 
 ```
-runLoop(session):                       // 每会话一个 async 执行体（per-key 串行）
-  while (queue 有积压 || pendingWake):
-    input = queue.shift()
-    emit turn.started {turnId, delivery, userEventId}
-    loop:                                             // 采样⇄工具内循环
-      step += 1
-      while (steerQueue.length) 注入为 user.message(surface)   // steering 在 assistant 前生效
-      messages = Projector.modelContext(tree.leaf)   // surface 投影+最新 compaction 截断
-      tools = ToolRegistry.materialize(agent)         // zod→json schema
-      stream = LlmGateway.stream(model, messages, tools)
-      for await (ev of stream):
-        text_delta→emitLive assistant.delta 累积；thinking_delta→reasoning.delta
-        toolcall_end→content.push(toolCall)；done/error→break
-      emit assistant.message {content, usage}         // durable+surface
-      // 截断保护（pi）：stopReason==='length' 时截断 toolCall 全部不执行，
-      // 逐个补 tool.started/completed{isError, output:'truncated'} —— 上下文永不悬挂
-      toolCalls = content.filter(toolCall)
-      if (!toolCalls.length && steerQueue 空) break
-      results = await ToolPipeline.runAll(toolCalls, {turnId})
-      emit assistant.message {content: toolResults}   // durable（单独成条便于投影）
-    emit turn.completed {turnId, finish, usage 累计}
-  // 失败闭合（pi handleRunFailure）：最外层 catch 补 turn.completed{finish:'error'} 后继续消费
+SessionRuntime 状态：idle ──submit(now)──▶ running ──turn 结束且无积压──▶ idle
+                        ▲                     │  │
+                        └──wake(有积压)────────┘  │ interrupt → running(收尾) → idle
+提交路由 send(text, delivery)：
+  now   : idle → 占用 runner，入队并启动 → {result:'started'}
+          running → 可 steer？入 steerQueue → 'steered'；否则入 queue → 'queued'
+  steer : running → 入 steerQueue（下一 step 前注入）→ 'steered'
+          idle → 入主队列启动 → 'started'
+  queue : 入 queue（当前 turn 完成后依序作为后续 turn 输入）→ 'queued'
+唤醒合并（opencode pendingWake）：runLoop 在 turn 结束前检查 steer/queue 积压，
+  有则不清除 running 标志直接续跑（避免 空转一轮 + 竞态）
 ```
 
-## 5.5 工具系统（tools/）
+数据结构：`queue: InputItem[]`（FIFO）、`steerQueue: InputItem[]`、`InputItem = {id, text, attachments?, delivery, admittedAt}`。
+
+## 5.5 Run Loop（run-loop.ts）——函数签名级
+
+```ts
+// 每会话一个常驻 async 循环体（per-key 串行，跨会话并发——opencode RunCoordinator 思想）
+async function runSessionLoop(rt: SessionRuntime): Promise<void>
+async function runTurn(rt: SessionRuntime, input: InputItem): Promise<void>
+async function runStep(rt: SessionRuntime, turn: TurnCtx): Promise<{ continue_: boolean }>
+
+interface TurnCtx {
+  turnId: TurnId; delivery: Delivery
+  abort: AbortController          // interrupt 入口；级联到 LLM 流与工具 signal
+  step: number; usage: Usage      // 累计
+  toolCalls: ToolCallPending[]    // 本 step 的工具调用
+}
+```
+
+```
+runSessionLoop:
+  while (true):
+    input = await rt.queue.take()                 // 阻塞等待
+    try await runTurn(rt, input)
+    catch e → emit error{scope:'engine'}          // 失败闭合兜底（runTurn 内部已保证补事件）
+    检查 pendingWake（steer/queue 积压）→ 继续循环；无 → idle
+
+runTurn(rt, input):
+  turnId = newTurnId()
+  userEvent = emit user.message{text}(durable+surface)
+  emit turn.started{turnId, delivery, userEventId}
+  turn = {turnId, abort: new AbortController(), step: 0, usage: empty}
+  try:
+    while true:
+      turn.step += 1
+      // ① steering 注入（pi：在 assistant 响应前生效）
+      while (item = rt.steerQueue.shift())
+        emit user.message{item.text}(durable+surface)   // delivery:'steer'
+      // ② 上下文组装（StepContext 快照语义，Codex）
+      messages = Projector.modelContext(rt.tree.leaf)   // 见 5.8
+      if (messages.tokens > threshold) → await compact(rt) // 可能 emit compaction.* 并重投影
+      tools = ToolRegistry.materialize(turn)            // spec 清单（见 5.6）
+      // ③ 流式采样
+      result = await LlmGateway.stream({
+        model: resolveModel(rt), messages, tools,
+        signal: turn.abort.signal,
+        onDelta: t => bus.emitLive assistant.delta,
+        onThinking: t => bus.emitLive reasoning.delta,
+      })
+      if (result.stopReason === 'error') → finish='error'; break
+      emit assistant.message{content: [reasoning?, text, ...toolCalls], usage}(durable+surface)
+      // ④ 截断保护（pi）：stopReason 'length' 时截断的 toolCall 全部不执行，
+      //    逐个补 tool.started + tool.completed{isError, output:{code:'E_TRUNCATED'}} 事件对
+      // ⑤ 工具执行
+      calls = result.toolCalls
+      if (calls.length === 0 && rt.steerQueue.isEmpty()) → finish='stop'; break
+      if (turn.step >= config.maxStepsPerTurn) →
+        注入 MAX_STEPS 提示词后强制最后一轮无工具（opencode max-steps 模式）或 finish='length'; break
+      toolResults = await ToolPipeline.runAll(rt, turn, calls)
+      emit assistant.message{content: toolResults.map(→toolResult)}(durable+surface)
+      // continue_ = calls.length>0 || !steerQueue.isEmpty()
+    // ⑥ 收尾
+  finally:
+    emit turn.completed{turnId, finish, usage: turn.usage}(durable)
+
+interrupt():
+  turn.abort.abort() → LLM 流抛 AbortError（已交付前缀 finalize 为截断的 assistant.message，
+  标注 interrupted——dsh）；工具 signal 级联（见 5.6 管线第 ③ 步）；finish='aborted'
+```
+
+## 5.6 工具系统（tools/）——完整规格
+
+### 5.6.1 定义与注册表
 
 ```ts
 export interface ToolDefinition<I = unknown> {
-  name: string; description: string
-  inputSchema: z.ZodType<I>
-  permission?: { action: string; resourceOf: (input: I) => string }
-  parallelizable: boolean               // read=true, bash/edit/write=false
+  name: string                                    // 'read'|'write'|'edit'|'bash'
+  description: string                             // 给模型的说明（含使用纪律）
+  inputSchema: z.ZodType<I>                       // zod → jsonSchema 给模型
+  permission: { action: string                    // 默认 = name
+                resourceOf: (input: I, ctx: {cwd: string}) => string }  // 如 'file:E:\...\src\index.ts'
+  parallelizable: boolean                         // read=true；bash/edit/write=false
   execute(ctx: ToolContext, input: I): Promise<ToolOutput>
 }
 export interface ToolContext {
-  sessionId; turnId; callId; signal: AbortSignal
-  onProgress: (chunk: string) => void   // → tool.progress（引擎 200ms 节流）
+  sessionId: SessionId; turnId: TurnId; callId: CallId
+  signal: AbortSignal                             // interrupt 级联
+  onProgress: (chunk: string) => void             // 引擎 200ms 节流后 emitLive tool.progress
   cwd: string
 }
 export interface ToolOutput { output: unknown; isError: boolean; display?: string }
+
+export interface ToolRegistry {
+  register(def: ToolDefinition): void             // 重复名抛错
+  materialize(turn: TurnCtx): { name, description, jsonSchema }[]   // 广告给模型的清单
+  resolve(name: string): ToolDefinition | undefined
+}
 ```
 
-管线：`tool.started → beforeToolCall hook → permission.assert(allow/ask/deny) → execute(AbortSignal 级联) → afterToolCall → OutputStore.bound(>32KB 截断+溢写 ~/.spark/tool-outputs/<callId>) → tool.completed`。分组：serial 工具独占逐个、parallel 工具 Promise.all（Codex RwLock 思想的简化）。中断时（dsh）：已启动跑到静默、未启动补 started+completed{output:'aborted'} 事件对。
+### 5.6.2 执行管线（pipeline.ts）
 
-四工具 schema：
+```
+runAll(rt, turn, calls):
+  分组：扫描 calls，把连续的 parallelizable 段归为一组（Promise.all），
+       遇 serial 工具（bash/edit/write）单独成 barrier（dsh exclusive 语义）
+  for 每组:
+    if 组是 serial → 逐个 await runOne()
+    else → Promise.all(calls.map(runOne))          // 并发上限 config.maxToolParallel
+  收集结果按 model order 返回（pi：结果顺序与完成顺序无关）
 
-| 工具 | input | 说明 |
-|---|---|---|
-| read | `{ path, offset?, limit? }` | 默认 2000 行/次 |
-| write | `{ path, content }` | 整文件写 |
-| edit | `{ path, oldString, newString, replaceAll? }` | oldString 唯一性校验（Claude Code 同款） |
-| bash | `{ command, timeoutMs?, cwd? }` | 独立 shell（v1 不做常驻），输出 16KB/帧截断（Grok） |
+runOne(call):
+  emit tool.started{callId, name, input}(durable)
+  t0 = now
+  try:
+    ① beforeToolCall hook（v1 预留插件点）
+    ② verdict = PermissionService.assert(call)     // 见 5.7；ask → 挂起等待，超时 fail-closed
+       verdict denied → return {output:{code:'E_PERMISSION'}, isError:true}
+    ③ def.execute(ctx, input)——ctx.signal 级联 turn.abort：
+       已启动的工具"跑到静默"（等待自然结束或工具自身响应 abort）；
+       未启动的（分组排队中）→ 补 emit tool.started+tool.completed{isError, output:{code:'E_ABORTED'}}
+       （dsh 重放合法原则：每个 started 必有 completed）
+    ④ afterToolCall hook（可改写 output）
+    ⑤ bounded = ToolOutputStore.bound(output, callId)   // >32KB 截断+溢写文件，消息留路径
+    emit tool.completed{callId, output: bounded, isError, durationMs}(durable)
+  catch e:
+    emit tool.completed{callId, output:{code:mapError(e)}, isError:true, durationMs}
+```
 
-## 5.6 审批（permission/）
+### 5.6.3 内置四工具规格
+
+| 工具 | input（zod） | permission | 行为细则 | 错误码 |
+|---|---|---|---|---|
+| read | `{path, offset?≥0, limit?≤2000 默认2000}` | action='fs.read'，resource='file:<abs>' | 相对路径基于 cwd 解析；二进制检测（NUL 采样）→ 拒读；行号前缀输出；超大返回尾部+头部提示 | E_PATH_OUTSIDE（越出允许根）、E_NOT_FOUND、E_BINARY、E_TOO_LARGE |
+| write | `{path, content}` | action='fs.write'，resource='file:<abs>' | 自动建父目录；返回写入字节数 | E_PATH_OUTSIDE、E_WRITE_DENIED（只读挂载/权限） |
+| edit | `{path, oldString, newString, replaceAll?=false}` | action='fs.write'，resource='file:<abs>' | **oldString 唯一性校验**（0 命中→E_NOT_FOUND；>1 且未 replaceAll→E_AMBIGUOUS）；返回 unified diff（供前端 DiffViewer） | E_NOT_FOUND、E_AMBIGUOUS、E_PATH_OUTSIDE |
+| bash | `{command, timeoutMs?≤120000, cwd?}` | action='shell.exec'，resource='cmd:<前 80 字符>' | 每次独立 shell（v1 不做常驻）；stdout+stderr 合流 progress 流式（16KB/帧截断，Grok）；退出码非 0 → isError 但 output 保留；超时 SIGTERM→5s→SIGKILL | E_TIMEOUT、E_EXIT_CODE（附 code）、E_SPAWN |
+
+路径安全：v1 允许根 = cwd + 用户显式 addDir（v2）；越界直接 E_PATH_OUTSIDE（不需要审批兜底——硬边界优先于审批）。
+
+### 5.6.4 输出限界（output-store.ts）
+
+`bound(output, callId)`：序列化后 ≤32KB 原样返回；超限 → 截断至 32KB + 尾注 `"…truncated, full output: ~/.spark/tool-outputs/<callId>"`，全文写该文件（异步写、会话关闭前 flush）。
+
+## 5.7 审批（permission/）——完整规格
+
+### 5.7.1 规则与评估
 
 ```ts
 export interface PermissionRule { action: string; resource: string; effect: 'allow'|'deny'|'ask' }
-// wildcard（* 与 **）findLast 胜出，无命中默认 'ask'（opencode evaluate 原样）
+// 匹配：wildcard（* 单段、** 跨段）；多条命中 findLast 胜出；无命中默认 'ask'（opencode）
+export function evaluate(action: string, resource: string, ...rulesets: PermissionRule[][]): Effect
 ```
 
-- 规则优先级：会话临时 > 项目 `.spark/permissions.json` > 用户 `~/.spark/permissions.json`。
-- `always` → 持久化+**自动放行同批匹配 pending**（opencode）；`reject+feedback` → feedback 注入为 user.message 回喂模型；**fail-closed**：超时 5min/答非所问/异常 → reject（dsh）。
-- v2 预留：asked 携带 `proposedRule`（Codex 审批即学习）。
-
-## 5.7 会话持久化（session/）
-
-文件：`~/.spark/sessions/--<cwd munged>--/<ses_id>.jsonl`，首行 header + 每行 durable 事件（带 `parentId` 树链，pi）：
+规则文件（用户级 `~/.spark/permissions.json`，项目级 `<cwd>/.spark/permissions.json`）：
 
 ```jsonc
-{"kind":"header","version":1,"id":"ses_01J8...","createdAt":...,"cwd":"E:\\code\\...","parentSession":null,"model":"deepseek-chat"}
-{"id":"evt_01...","type":"session.created","sessionId":"ses_...","seq":0,"time":...,"data":{...},"parentId":null}
-{"id":"evt_02...","type":"user.message","sessionId":"ses_...","seq":1,"time":...,"data":{"text":"..."},"surface":true,"parentId":"evt_01..."}
-{"id":"evt_0a...","type":"compaction.completed","sessionId":"ses_...","seq":9,"data":{"summary":"...","keptFromSeq":1,"tokensBefore":98000},"parentId":"evt_08..."}
+{ "version": 1, "rules": [
+  { "action": "fs.read",  "resource": "file:**",        "effect": "allow" },
+  { "action": "fs.write", "resource": "file:**/src/**", "effect": "allow" },
+  { "action": "shell.exec", "resource": "cmd:git *",    "effect": "allow" },
+  { "action": "shell.exec", "resource": "cmd:**",       "effect": "ask" }
+] }
 ```
 
-- 单写者 mpsc 串行 append；flush 带 fsync（切换/退出）。
-- **Projector**：`modelContext(leafId)` = leaf→root 回溯 → 最新 compaction → 摘要注入 + keptFromSeq 后 surface 投影（pi buildContextEntries + dsh deriveMessages 合体）。
-- resume 全量读（v1）；fork 复制到 fromEventId（阶段四）。
+优先级合并：会话临时（always 写入）> 项目级 > 用户级 > 默认 ask。
 
-## 5.8 LLM 适配（llm-gateway.ts）：pi 事件 → Spark 事件映射
+### 5.7.2 流程时序
 
-| pi 事件 | Spark 事件 |
-|---|---|
-| message_update(text_delta) | assistant.delta (live) |
-| message_update(thinking_delta) | reasoning.delta (live) |
-| message_end(assistant) | assistant.message (durable+surface) |
-| tool_execution_start/update/end | tool.started / tool.progress(live 节流) / tool.completed |
-| turn_end | turn.completed（usage 汇总） |
-| stopReason error/aborted | turn.completed{finish:'error'/'aborted'}——**错误进流不抛**（pi 契约） |
+```
+ToolPipeline ──assert(action,resource)──▶ PermissionService
+  evaluate → allow ──▶ 直接放行
+  evaluate → deny  ──▶ 返回 denied（不发事件）
+  evaluate → ask   ──▶ requestId=req_<ulid>
+       emit permission.asked{requestId, callId, action, resource, reason, detail}(durable)
+       new Promise 挂入 pending 表（key=requestId；5min 定时器）
+                            │
+UI 收到 asked → ApprovalCard → POST /api/permissions/:requestId
+                            ▼
+       reply(requestId, reply, feedback?):
+         once   → resolve(allow)   → emit permission.resolved{once}
+         always → 规则写入对应层文件 + resolve(allow)
+                   + 扫描 pending 表：同 action/resource 现在 evaluate=allow 的其他挂起项
+                     一并 resolve（opencode 自动放行）
+         reject → resolve(deny) → emit permission.resolved{reject, feedback?}
+                   feedback 非空 → 注入 user.message（surface）回喂模型（opencode CorrectedError 思想）
+       超时/引擎异常/turn 中断 → 一律 resolve(deny) + permission.resolved{reject}
+                   （fail-closed，dsh："宁可错杀"）
+```
 
-模型配置 `~/.spark/models.json`（provider/apiKey/env/默认模型）；provider 可重试错误指数退避 3 次（pi-ai normal 档）。
+挂起期间工具的 AbortSignal 仍有效：interrupt → 级联取消挂起（判 rejected）。
+
+## 5.8 会话持久化（session/）——完整规格
+
+### 5.8.1 Store（单写者 JSONL）
+
+```ts
+class SessionStore {
+  private queue: Promise<void> = Promise.resolve()      // 串行链（单写者）
+  append(line: string): Promise<void>                   // queue = queue.then(() => fs.appendFile)
+  flush(): Promise<void>                                // fsync（会话切换/引擎退出）
+  static read(path): { header; events }                 // 全量读（v1；坏行策略见 5.8.4）
+}
+```
+
+文件：`~/.spark/sessions/--<cwd munged>--/<ses_id>.jsonl`；首行 header + 每行 durable 事件（带 `parentId`）。
+
+### 5.8.2 EventTree（树操作）
+
+```ts
+class EventTree {
+  append(event, parentId = this.leafId): EventId        // 落 leaf；v1 线性追加
+  branch(fromEventId: EventId): void                    // 只移 leafId 指针（pi：分叉零拷贝）
+  pathToRoot(eventId?): SparkEventEnvelope[]            // leaf→root 回溯反转
+  latestOf(type, path?): EventEnvelope | undefined      // 路径上最新某类事件（compaction 用）
+}
+```
+
+### 5.8.3 Projector（surface → 模型上下文）算法
+
+```
+modelContext(leafId):
+  1. path = tree.pathToRoot(leafId)                      // 全部 durable 事件
+  2. c = path 上最新 compaction.completed（无则跳到 4）
+  3. 上下文 = [system: c.summary] + path 中 seq ≥ c.keptFromSeq 的 surface 事件
+  4. （无 compaction）上下文 = path 全部 surface 事件
+  5. 投影：user.message→user 消息；assistant.message→assistant 消息
+     （content 内 toolCall/toolResult 转为 provider 对应的消息结构）；
+     reasoning.ended 按 provider 配置决定是否包含（Anthropic thinking 块 / 其他丢弃）
+  6. 估算 tokens（字符近似）返回 {messages, tokens}
+```
+
+### 5.8.4 坏行与恢复策略
+
+- 读取时行 JSON 解析失败：**尾行**（EOF 前最后一行）→ 视为崩溃半写，丢弃并 warn（JSONL 追加写崩溃的典型形态）；**非尾行**坏行 → 拒绝加载该会话（fail-closed，dsh 读端纪律）。
+- 未知事件 type 且无 `ignorable:true` → 拒绝加载（协议演进保护）。
+- resume：全量读 → 重建 EventTree → 若历史显示 turn.started 无对应 turn.completed → 合成 `turn.completed{finish:'aborted'}` 补闭合（Codex 崩溃恢复的 interrupted 语义）。
+
+### 5.8.5 压缩（compaction.ts）
+
+```
+compact(rt):
+  emit compaction.started
+  summary = await LlmGateway.generateOnce(compactionModel,
+      prompt=压缩提示词 + 旧上下文（Projector 输出）, maxTokens=2000)
+  keptFromSeq = 当前上下文中"最近 N 条 surface 事件"的首 seq（N 由 token 预算反推）
+  emit compaction.completed{summary, keptFromSeq, tokensBefore}(durable)
+  （此后 Projector 自动按 5.8.3 生效；旧事件不删——append-only）
+触发：runStep ② 中 tokens/contextWindow > compactionThreshold；手动 /compact
+（压缩调用本身的 usage 不计入会话 usage——与 Claude Code modelUsage 口径一致的做法，v1 简化为不计）
+```
+
+### 5.8.6 fork（阶段四）
+
+`forkFrom(eventId)`：新文件 header（parentSession=原 id）+ 复制原文件到该事件的行（或引用+seed 标记——采用复制，简单优先）。
+
+## 5.9 LLM 网关（llm-gateway.ts）
+
+```ts
+// pi-ai 集成（唯一 import 点——pi 依赖被隔离在此文件与 run-loop 对 pi 类型的引用）
+import { createModels } from '@earendil-works/pi-ai'
+
+export interface LlmGateway {
+  stream(req: StreamRequest): Promise<StreamResult>
+    // StreamRequest = { model: ResolvedModel; messages: LlmMessage[]; tools: ToolSpec[]
+    //                   signal: AbortSignal
+    //                   onDelta(t: string): void; onThinking(t: string): void }
+    // StreamResult = { content: ContentItem[]; stopReason: 'stop'|'length'|'error'|'aborted'
+    //                  usage: Usage }                    // 错误进结果不抛（pi 契约）
+  generateOnce(req): Promise<string>                      // 压缩/起标题用
+}
+// 模型解析优先级：turn 显式指定 > session.meta.model > config.defaultModel
+// 重试：provider 429/5xx/网络错误 → 指数退避 1s/2s/4s（±20% jitter）重试 3 次；
+//       重试期间 emitLive 不需要（无输出），失败结果记 stopReason:'error' + error 事件
+// 事件映射：pi message_update(text_delta/thinking_delta)→assistant.delta/reasoning.delta；
+//           message_end(assistant)→由 run-loop emit assistant.message（网关只回调不落协议）
+```
+
+## 5.10 错误分类与可观测性
+
+```
+错误码前缀（output/事件共用）：
+  E_ENGINE_*   循环/状态错误        E_LLM_*     provider/网络
+  E_TOOL_*     工具执行             E_PERM_*    审批
+  E_IO_*       磁盘/日志
+
+日志（pino → ~/.spark/logs/engine.log，按天滚动，级别 info）：
+  固定脱敏：messages.json 中的 apiKey 字段、环境变量值；工具 input 中的密钥样式串（启发式）
+
+metrics（进程内计数器，阶段四经 /api/metrics 暴露）：
+  spark_turns_total{finish} / spark_tool_calls_total{name,is_error}
+  spark_llm_tokens_total{direction} / spark_permission_decisions{reply}
+  spark_sessions_active / spark_events_durable_total
+```
 
 ---
 
@@ -429,23 +714,18 @@ export interface PermissionRule { action: string; resource: string; effect: 'all
 /                       → 重定向到最近会话或 /welcome
 /welcome                → 欢迎页（无会话时）：新建/选择会话/快捷提示词
 /session/:sessionId     → 工作台主视图（ChatView + Sidebar 常驻）
-/settings               → 设置弹窗（路由态 ?settings=1 或独立路由，v1 用 Dialog 不换路由）
+/settings               → 设置弹窗（v1 用 Dialog 不换路由）
 ```
 
-- 路由：React Router v7（library 模式）。
-- 布局层级：`<App>` → `<TransportProvider>` → `<AppShell>{Sidebar}{<Outlet/>}{StatusBar}</AppShell>`。
+路由：React Router v7（library 模式）。布局：`<App>` → `<TransportProvider>` → `<AppShell>{Sidebar}{<Outlet/>}{StatusBar}</AppShell>`。
 
 ## 6.2 逐屏视图规格
 
 ### 6.2.1 欢迎页 `/welcome`
 
-- **空态**：居中大 Logo + "新建会话" 主按钮 + 最近会话卡片（≤6 个）+ 3 条快捷提示词 chip（点击即建会话并发送）。
-- **加载态**： skeletons。
-- **错误态**：transport 连接失败 → 重试按钮 + 错误信息。
+空态：居中 Logo + "新建会话"主按钮 + 最近会话卡片（≤6）+ 3 条快捷提示词 chip。加载态：skeletons。错误态：连接失败重试。
 
 ### 6.2.2 工作台 `/session/:id`
-
-布局（左 260px 可折叠侧栏 + 主区 + 底部状态条）：
 
 ```
 ┌────────────┬──────────────────────────────────────────────┐
@@ -453,8 +733,8 @@ export interface PermissionRule { action: string; resource: string; effect: 'all
 │  新建按钮    │  …消息流…                                     │
 │  搜索框     │  [ApprovalCard 悬浮在对应位置]                 │
 │  会话列表    │  [TurnStatusBar 进行中指示]                   │
-│  （分组:今天/ │───────────────────────────────────────────│
-│   更早）     │ Composer（输入区 + DeliveryBar）              │
+│ （今天/更早） │───────────────────────────────────────────│
+│             │ Composer（输入区 + DeliveryBar）              │
 ├────────────┴──────────────────────────────────────────────┤
 │ StatusBar：连接状态● │ 模型名 │ seq 水位 │ token 累计         │
 └───────────────────────────────────────────────────────────┘
@@ -465,82 +745,58 @@ export interface PermissionRule { action: string; resource: string; effect: 'all
 | 状态 | 表现 |
 |---|---|
 | 空（新会话） | 居中欢迎语 + 提示词 chips |
-| 流式中 | assistant 气泡底部闪烁光标；TurnStatusBar 显示 step 数/工具运行中徽标；自动跟随底部（用户上滚则暂停跟随并出现 BackBottom 悬浮按钮——lobehub 同款交互） |
+| 流式中 | assistant 气泡底部闪烁光标；TurnStatusBar 显示 step 数/工具运行徽标；自动跟随底部（用户上滚则暂停跟随 + BackBottom 悬浮按钮） |
 | 审批挂起 | 对应 ToolCard 位置展开 ApprovalCard；TurnStatusBar 黄色"等待审批" |
-| turn 完成 | 光标消失；usage 徽标（tokens/cost）淡显在 assistant 消息尾 |
-| error finish | 顶部黄条提示 + 重试按钮（重发最后一条 user.message） |
-| 断线 | StatusBar 红点 + 顶部条"已断线，重连中…"（自动重连，重连后 since 回放无缝续播） |
+| turn 完成 | 光标消失；usage 徽标淡显在 assistant 消息尾 |
+| error finish | 顶部黄条 + 重试按钮（重发最后一条 user.message） |
+| 断线 | StatusBar 红点 + "已断线，重连中…"（自动重连，since 回放无缝续播） |
 
 **Composer 交互规格**：
 
 | 状态 | 可用操作 |
 |---|---|
 | 空闲 | Enter 发送（Shift+Enter 换行）；附件按钮（v1 只收路径文本） |
-| turn 进行中 | 三个按钮：**[停止]**（interrupt）/ **[排队]**（queue）/ **[插话]**（steer，高亮为本次默认）；输入文字后 Enter = steer（提示"将注入当前轮"） |
-| 审批挂起 | 输入区禁用（焦点引导到 ApprovalCard） |
+| turn 进行中 | [停止]（interrupt）/ [排队]（queue）/ [插话]（steer，默认高亮）；输入后 Enter = steer（提示"将注入当前轮"） |
+| 审批挂起 | 输入区禁用（焦点引导 ApprovalCard） |
 
 ## 6.3 组件规格（props 与行为）
 
 ```tsx
-// features/chat/ChatView.tsx —— 虚拟化容器
 interface ChatViewProps { sessionId: string }
-// react-virtuoso：<Virtuoso followOutput={'smooth'} firstItemIndex={...}
-//   itemSizeCache 估算高度；items 来自 sessionStore 选择器（UiItem[] 扁平化）
+// react-virtuoso：<Virtuoso followOutput={'smooth'} firstItemIndex={...} />
 
-// MessageItem：按 UiItem.kind 分发
-interface MessageItemProps { item: UiItem }
+interface MessageItemProps { item: UiItem }        // 按 kind 分发
 
-// AssistantBlock：一条 assistant.message 的渲染序列
 interface AssistantBlockProps {
-  content: ContentItem[]
-  streaming?: { textBuf: string }      // 流式追加缓冲（streamdown 直接吃）
-  usage?: Usage                        // 尾部徽标
+  content: ContentItem[]; streaming?: { textBuf: string }; usage?: Usage
 }
+interface ReasoningCollapsibleProps { text: string; streaming?: boolean; durationMs?: number }
+// 流式自动展开、结束自动折叠（可手动）
 
-// ReasoningCollapsible
-interface ReasoningCollapsibleProps {
-  text: string; streaming?: boolean    // 流式时自动展开、结束自动折叠（可手动）
-  durationMs?: number
-}
-
-// ToolCard：工具统一卡片（状态机视觉）
 interface ToolCardProps {
   name: string; input: unknown
   status: 'running' | 'completed' | 'error'
-  progressBuf?: string                 // running 时 Terminal/进度区
-  output?: unknown; isError: boolean; durationMs?: number
+  progressBuf?: string; output?: unknown; isError: boolean; durationMs?: number
 }
-// 分发：bash→Terminal（自动滚底、超长截头 500 行）；edit/write→DiffViewer
-//（读 output.diff）；read→CodeBlock（path+行数）；其他→JSON 折叠
+// 分发：bash→Terminal（自动滚底、>2000 行截头）；edit/write→DiffViewer（output.diff）；
+//       read→CodeBlock（path+行数）；其他→JSON 折叠
 
-// ApprovalCard：审批交互（AI Elements confirmation 改造）
 interface ApprovalCardProps {
   action: string; resource: string; reason: string; detail?: unknown
   status: 'pending' | 'resolved'
   onReply: (reply: PermissionReply, feedback?: string) => void
 }
-// pending：三按钮 [允许一次][总是允许][拒绝]；拒绝展开 feedback 文本框（可选填）
-// resolved：显示结果徽标 2s 后折叠为一行
+// pending：[允许一次][总是允许][拒绝]；拒绝展开 feedback 文本框；resolved：结果徽标 2s 后折叠
 
-// TurnStatusBar：turn 进行中指示
-interface TurnStatusBarProps { turn: { turnId: string; stepCount: number; runningTools: string[] } | null }
-
-// Composer
-interface ComposerProps {
-  busy: boolean                        // turn 进行中
-  onSend: (text: string, delivery: Delivery) => void
-  onInterrupt: () => void
-}
-
-// SessionSidebar / SessionItem（标题/相对时间/状态点：idle|running|waiting-approval）
-// SettingsDialog：模型选择（transport.listModels 扩展点）、默认 delivery、主题切换、
-//   权限规则表（v2：增删查 PermissionRule）
+interface TurnStatusBarProps { turn: { turnId; stepCount; runningTools: string[] } | null }
+interface ComposerProps { busy: boolean; onSend(text, delivery): void; onInterrupt(): void }
+// SessionSidebar / SessionItem（标题/相对时间/状态点 idle|running|waiting-approval）
+// SettingsDialog：模型选择/默认 delivery/主题/权限规则表（v2）
 ```
 
 ## 6.4 状态层（stores/）
 
 ```ts
-// session-store.ts —— 核心模式：UI 是事件流的投影
 interface UiItemBase { eventId: EventId; parentId?: EventId }
 type UiItem =
   | { kind: 'user'; text: string } & UiItemBase
@@ -554,97 +810,82 @@ type UiItem =
 interface SessionSlice {
   meta: SessionMeta; items: UiItem[]
   activeTurn: { turnId; stepCount; runningTools: Set<CallId> } | null
-  lastSeq: number          // durable 水位（重连 since）
-  usageTotal: Usage        // 累计
+  lastSeq: number; usageTotal: Usage
 }
-// zustand store：{ byId: Record<SessionId, SessionSlice>, activeId: SessionId | null }
-// 动作只有两个入口：applyEvent(e)（唯一写路径）与 reset()
-// 选择器：selectItems(activeId)、selectActiveTurn(activeId)、selectLastSeq(activeId)
+// zustand：{ byId: Record<SessionId, SessionSlice>, activeId }
+// 唯一写入口 applyEvent(e) 与 reset()；选择器 selectItems/selectActiveTurn/selectLastSeq
 ```
 
 **applyEvent 处理表（21 种全覆盖）**：
 
 | 事件 | 状态变更 |
 |---|---|
-| session.created | 初始化 slice，若 activeId 空则激活 |
-| session.resumed | 重放模式下批量 apply |
-| session.title | meta.title 更新（Sidebar 联动） |
+| session.created | 初始化 slice；activeId 空则激活 |
+| session.resumed | 回放模式批量 apply |
+| session.title | meta.title（Sidebar 联动） |
 | turn.started | activeTurn={…}；composer 切 busy |
 | turn.completed | activeTurn=null；finish==='error' 设 topBanner；usage 累计 |
 | user.message | push {kind:'user'} |
-| assistant.delta | 末尾 assistant item（无则建）streaming.textBuf += text |
-| assistant.message | 定稿 content，清 streaming；按 content 展开子 item（text→流式 MD 定稿；toolCall→push tool item running） |
-| reasoning.delta / ended | 同 assistant 模式（ended 定稿 text） |
-| tool.started | push {kind:'tool',status:'running'}；activeTurn.runningTools.add |
+| assistant.delta | 末尾 assistant（无则建）streaming.textBuf += text |
+| assistant.message | 定稿 content 清 streaming；按 content 展开（text 定稿；toolCall→push tool running） |
+| reasoning.delta / ended | 同 assistant 模式 |
+| tool.started | push tool running；runningTools.add |
 | tool.progress | progressBuf += chunk（>2000 行截头） |
 | tool.completed | status 定稿 + output；runningTools.delete |
-| permission.asked | push {kind:'approval',status:'pending'}；activeTurn 标 waiting-approval |
-| permission.resolved | 对应 approval→resolved |
-| compaction.started/completed | 顶部细条"上下文已压缩"（轻提示） |
-| checkpoint.created | StatusBar 短暂徽标（v1 仅记录） |
+| permission.asked | push approval pending；activeTurn 标 waiting |
+| permission.resolved | approval→resolved |
+| compaction.started/completed | 顶部细条轻提示 |
+| checkpoint.created | StatusBar 短暂徽标 |
 | error | toast；fatal→全屏错误态 |
 
 ```ts
-// connection-store.ts：{ status:'connecting'|'open'|'reconnecting'|'closed', lastSeq, retryCount }
-// settings-store.ts：{ theme:'light'|'dark'|'system', defaultDelivery, model }（localStorage 持久化）
+// connection-store：{ status:'connecting'|'open'|'reconnecting'|'closed', lastSeq, retryCount }
+// settings-store：{ theme, defaultDelivery, model }（localStorage）
 ```
 
 ## 6.5 样式系统
 
-- **Token 层**（styles/tokens.css，CSS variables）：`--background/--foreground/--primary/--muted/--border/--radius` 等 shadcn 标准 token + 扩展 `--spark-accent`（运行中）/`--spark-warn`（审批）/`--spark-ok`（完成）。
-- **主题**：`light/dark` 二态（class 策略）；ThemeProvider 20 行（localStorage+`document.documentElement.classList`+`prefers-color-scheme` 监听）；**视觉基调：黑白中性极简（shadcn 默认），禁止蓝紫渐变玻璃**。
-- **Tailwind v4 配置**：`@source` 引 streamdown 所需 token；`content` 覆盖 components/ui（copy-in 组件）。
-- 字体：UI 用系统栈；代码/终端 `IBM Plex Mono`（@fontsource 本地打包，不请求 CDN）。
-- 组件库样式覆写：copy-in 组件直接改源码（不写全局覆写）。
+- Token 层（styles/tokens.css）：shadcn 标准 token + `--spark-accent/--spark-warn/--spark-ok`。
+- 主题：light/dark 二态（class 策略）；ThemeProvider 20 行；**基调黑白中性极简，禁止蓝紫渐变玻璃**。
+- Tailwind v4：`@source` 引 streamdown token；content 覆盖 components/ui。
+- 字体：UI 系统栈；代码 IBM Plex Mono（@fontsource 本地打包）。
+- 覆写：copy-in 组件直接改源码，不写全局覆写。
 
 ## 6.6 Transport 层实现
 
 ```tsx
 // transports/context.tsx
-const TransportContext = createContext<Transport>()
 export function TransportProvider({ mock, children }) {
   const t = useMemo(() => mock ? createMockTransport(scenario) : createHttpTransport(), [])
-  // onEvent → sessionStore.applyEvent（批量：50ms 合并帧或 rAF 对齐，见 6.8）
-  useEffect(() => () => t.dispose(), [t])
+  // onEvent → sessionStore.applyEvent（rAF 批量对齐）
 }
 
-// transports/http.ts —— 实现要点
-export function createHttpTransport(): Transport {
-  // 1) SSE：fetch('/api/event?...&since='+lastSeq, {signal}) + ReadableStream 手解析
-  //    （不用原生 EventSource：无法自定义重连参数与 header；解析器可引 eventsource-parser 4.1.0）
-  // 2) 断线：指数退避重连（1s/2s/5s/10s 封顶），重连带最新 lastSeq → 服务端先回放再直播
-  // 3) REST：fetch POST；sendMessage 三态结果原样返回
-  // 4) dispose：AbortController.abort + 退订
-}
+// transports/http.ts 要点
+// 1) SSE：fetch('/api/event?...&since='+lastSeq, {signal}) + ReadableStream 手解析
+//    （不用原生 EventSource：无法自定义重连参数；可引 eventsource-parser）
+// 2) 断线指数退避（1/2/5/10s 封顶），重连带最新 lastSeq → 回放+直播
+// 3) REST fetch；sendMessage 三态原样返回；4) dispose：abort+退订
 
-// transports/mock.ts —— 实现要点
-export function createMockTransport(scenario: 'normal'|'long-output'|'reject'|'error-finish'): Transport
-// sendMessage → setTimeout 序列吐事件（复用 protocol 的工厂函数构造合法事件）
-// permission.asked 后挂起，等 replyPermission 继续；speed 倍率；scenario 分支决定 finish 与工具形态
+// transports/mock.ts 要点
+// sendMessage → setTimeout 序列吐事件；审批挂起等 reply；speed 倍率；scenario 分支
 ```
 
-## 6.7 AI Elements 组件改造清单（copy-in 与适配）
+## 6.7 AI Elements 组件改造清单
 
 | 取用组件 | 改造点 |
 |---|---|
-| conversation / message / prompt-input | 删 `"use client"`；数据源从 useChat 换 `useSessionItems()`（我们的 selector hook）；事件回调改派发 store 动作 |
+| conversation / message / prompt-input | 删 "use client"；数据源换 useSessionItems()；回调改派发 store |
 | confirmation → ApprovalCard | 三按钮语义重映射（once/always/reject+feedback）；resolved 态自绘 |
-| terminal | 接 progressBuf；自动滚底；16KB 行截头 |
-| file-tree / code-block / diff | diff 数据来自 edit/write 工具 output（引擎侧生成 unified diff 字符串） |
-| plan / task | 阶段四接 todo 事件扩展（预留：事件词表 declaration merging 加 'todo/write'——dsh 手法） |
-| reasoning | 接 reasoning.delta/ended 折叠逻辑 |
-| checkpoint | 阶段四接 checkpoint.created |
-| 不取用 | sandbox/web-preview/canvas/audio 等重前端组件（按需后补） |
+| terminal | 接 progressBuf；自动滚底；截头 |
+| file-tree / code-block / diff | diff 来自 edit/write 工具 output |
+| plan / task | 阶段四接 todo 事件扩展（declaration merging 加 'todo/write'） |
+| reasoning | 接 reasoning.delta/ended |
+| checkpoint | 阶段四 |
+| 不取用 | sandbox/web-preview/canvas/audio 等（按需后补） |
 
 ## 6.8 性能与体验优化
 
-1. **流式渲染节流**：assistant.delta 高频到达 → 存入缓冲，`requestAnimationFrame` 对齐批量 flush 到 streamdown（避免每 token 全量重渲染）。
-2. **虚拟化**：react-virtuoso followOutput + firstItemIndex 反向加载（历史回滚）；item 高度估算缓存。
-3. **消息组件 memo**：UiItem 定稿后引用不再变 → React.memo + zustand 浅比较选择器；只有流式中的 item 重渲染。
-4. **代码高亮**：Shiki 懒加载（动态 import）+ 语法按需注册；长输出截断渲染。
-5. **图片/附件**：懒加载（loading="lazy"）。
-6. **重连体验**：durable 回放期间顶部细进度条（"同步历史中 x/y"）。
-7. **键盘**：Enter 发送/Shift+Enter 换行/Esc 关闭弹窗/Ctrl+K 会话搜索（阶段二后补）。
+1. 流式 rAF 批量 flush（避免每 token 全量重渲染）；2. react-virtuoso followOutput+firstItemIndex；3. UiItem memo+浅比较选择器（仅流式项重渲染）；4. Shiki 懒加载+按需语法；5. 图片 lazy；6. 重连回放进度细条；7. 键盘：Enter/Shift+Enter/Esc/Ctrl+K。
 
 ## 6.9 工程化配置
 
@@ -653,30 +894,83 @@ export function createMockTransport(scenario: 'normal'|'long-output'|'reject'|'e
 export default defineConfig({
   plugins: [react()],
   resolve: { alias: { '@': '/src', '@spark/protocol': '../../packages/protocol/src' } },
-  server: { proxy: { '/api': 'http://127.0.0.1:4318' } },   // dev 联调
+  server: { proxy: { '/api': 'http://127.0.0.1:4318' } },
   build: { target: 'es2022', sourcemap: true },
 })
 ```
 
-- 代码规范：ESLint(flat config, typescript-eslint strict) + Prettier + oxlint 可选；CI：typecheck+lint+build+test（vitest）。
-- 测试：protocol 包类型级测试（expectTypeOf）+ applyEvent reducer 单测（21 种事件全覆盖——**这是前端最重要的测试资产**）；组件测试 vitest+testing-library（审批卡交互/流式缓冲）。
-- 环境变量：`VITE_SPARK_MOCK=1`（Mock 模式）/`VITE_SPARK_API`（默认 127.0.0.1:4318）。
+规范：ESLint(flat+typescript-eslint strict)+Prettier；CI=typecheck+lint+build+test(vitest)。测试重点：protocol 类型级 + **applyEvent 21 事件单测全覆盖** + 审批卡交互。环境变量：`VITE_SPARK_MOCK=1` / `VITE_SPARK_API`。
 
 ---
 
-# 7. 服务端（apps/server）
+# 7. 服务端（apps/server）——完整规格
+
+## 7.1 组装与生命周期
 
 ```ts
+export interface ServerOptions { engine: Engine; staticDir?: string; port?: number; host?: string }
+
 const engine = await createEngine({ root: '~/.spark' })
-const app = Fastify({ logger: true })
-app.register(routes, { engine })        // REST 薄壳：zod 校验 → engine
-app.register(sse, { engine })           // GET /api/event
-if (staticDir) app.register(fastifyStatic, { root: staticDir })
-await app.listen({ port: 4318, host: '127.0.0.1' })   // 仅本地（dsh 姿态：无 TLS/auth 刻意）
+const app = Fastify({ logger: pino({ level: 'info' }) })
+await app.register(routes, { engine })      // REST
+await app.register(ssePlugin, { engine })   // GET /api/event
+if (opts.staticDir) await app.register(fastifyStatic, { root: opts.staticDir })
+await app.listen({ port: 4318, host: '127.0.0.1' })   // 仅本地（无 TLS/auth 刻意，dsh 姿态）
+
+// 优雅退出序列：
+// SIGINT/SIGTERM → 1) server.close()（停止接新连接，SSE 连接发 bye 帧后断）
+//   2) engine.shutdown()（interrupt 收尾 + flush 全部会话 fsync）3) 进程退出
 ```
 
-- SSE writer：`reply.raw.writeHead(200,…)` 后逐 `data: …\n\n`；15s 心跳 interval；连接关闭退订；**背压：raw.write()===false 时暂停订阅**（pi 思想）。
-- 优雅退出：SIGINT → engine.shutdown()（flush 会话日志）→ close。
+## 7.2 路由实现规格（routes/）
+
+```ts
+// 通用模式：zod 解析 body/params → engine 调用 → DTO 序列化；错误经 errors.ts 映射
+// POST /api/sessions/:id/messages
+const Body = z.object({ text: z.string().min(1), delivery: z.enum(['now','steer','queue']).default('now') })
+app.post('/api/sessions/:id/messages', async (req, reply) => {
+  const { id } = z.object({ id: SessionIdSchema }).parse(req.params)
+  const body = Body.parse(req.body)
+  const handle = engine.getSession(id) ?? throw new SessionNotFound()
+  return handle.send(body.text, body.delivery)    // { result, turnId } 三态直通
+})
+```
+
+- `GET /api/sessions/:id`：`events` 字段 = 该会话全部 durable 事件（按 seq）——前端冷启动回放。
+- 校验失败 400（zod flatten）；未知会话 404；turn 不存在时 interrupt 幂等成功（200）。
+
+## 7.3 SSE 实现（sse.ts）
+
+```ts
+app.get('/api/event', async (req, reply) => {
+  const { sessionId, since } = req.query as { sessionId?: string; since?: string }
+  reply.raw.writeHead(200, {
+    'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform',
+    'X-Accel-Buffering': 'no', 'X-Content-Type-Options': 'nosniff',
+  })
+  const write = (chunk: string) => reply.raw.write(chunk)
+  // 1) 回放：sessionId+since 时，先按序 write 该会话 seq>since 的 durable 事件（opencode 语义）
+  // 2) 直播：engine.subscribe(e => write(`event: message\ndata: ${JSON.stringify(e)}\n\n`), { sessionId })
+  //    背压：write 返回 false → 暂停订阅（bus 的 resume 机制），'drain' 事件恢复
+  // 3) 心跳：setInterval(15s) write(': heartbeat\n\n')（合并进同一 chunk 定时器）
+  // 4) 清理：req.raw.on('close') → clearInterval + 退订
+  // 注：不设请求超时（Fastify 默认 connectionTimeout 需调大或 0）
+})
+```
+
+## 7.4 错误映射表（errors.ts）
+
+| 引擎/校验错误 | HTTP |
+|---|---|
+| zod 校验失败 | 400 `{code:'E_VALIDATION', message, issues}` |
+| 会话/请求不存在 | 404 `E_NOT_FOUND` |
+| 审批请求已答复过 | 409 `E_ALREADY_RESOLVED` |
+| 引擎已 shutdown | 503 `E_SHUTTING_DOWN` |
+| 内部异常 | 500 `E_INTERNAL`（详情只进日志，不透出） |
+
+## 7.5 静态托管
+
+生产模式 `fastifyStatic` 托管 apps/web 构建产物；SPA fallback（`setNotFoundHandler` → 回 index.html，排除 `/api` 前缀）。开发模式前端走 Vite dev server + `/api` 代理（见 §6.9）。
 
 ---
 
@@ -694,12 +988,12 @@ await app.listen({ port: 4318, host: '127.0.0.1' })   // 仅本地（dsh 姿态�
 ## 阶段二：前端全量（对 Mock 开发）
 
 - [ ] 路由与 AppShell（/welcome、/session/:id、Sidebar/StatusBar 布局）
-- [ ] session-store + **applyEvent 21 种事件单测全覆盖**
+- [ ] session-store + applyEvent 21 种事件单测全覆盖
 - [ ] ChatView 虚拟化 + MessageItem/AssistantBlock/ReasoningCollapsible
 - [ ] streamdown 流式渲染 + rAF 批量 flush
 - [ ] ToolCard 三态 + Terminal/DiffViewer/CodeBlock 分发
-- [ ] ApprovalCard（confirmation 改造）+ feedback 输入 + resolved 动效
-- [ ] Composer 三模式（空闲/进行中三按钮/审批禁用）+ 三态反馈
+- [ ] ApprovalCard（confirmation 改造）+ feedback + resolved 动效
+- [ ] Composer 三模式 + 三态反馈
 - [ ] SessionSidebar 列表/分组/状态点 + 新建/切换
 - [ ] 深色模式 + 空态/加载态/错误态/断线重连条 + BackBottom
 - [ ] SettingsDialog（主题/默认 delivery）
@@ -707,23 +1001,27 @@ await app.listen({ port: 4318, host: '127.0.0.1' })   // 仅本地（dsh 姿态�
 
 ## 阶段三：引擎跑通
 
-- [ ] engine 骨架：EventBus/SessionStore(JSONL)/SessionManager
-- [ ] LlmGateway 接 pi-ai + 事件映射 + models.json
-- [ ] RunLoop（§5.4 全逻辑，含失败闭合与截断保护）
-- [ ] ToolRegistry + pipeline + 四工具
-- [ ] Permission 引擎 + 挂起表 + 规则文件
-- [ ] server REST+SSE 全端点 + HttpTransport 切换（前端零改动）
-- [ ] Projector（surface → modelContext）
-- **验收**：真实模型完成"读文件→改文件→跑命令→汇报"全闭环；断线重连回放正确
+- [ ] config 体系（spark.json/models.json 加载校验）
+- [ ] EventBus（durable 落盘后广播 + live 直播 + 订阅隔离 + 背压接口）
+- [ ] SessionStore（单写者 append/flush/fsync）+ EventTree + 坏行策略
+- [ ] SessionRuntime + InputQueue（三通道 + 唤醒合并 + interrupt 级联）
+- [ ] RunLoop（§5.5 全逻辑：steering 注入/StepContext/截断保护/maxSteps/失败闭合）
+- [ ] ToolRegistry + Pipeline（分组并行/权限门/进度节流/溢写）+ 四工具
+- [ ] PermissionService（evaluate/挂起表/超时/always 级联/规则文件）
+- [ ] LlmGateway（pi-ai 集成 + 事件回调 + 重试）
+- [ ] Projector（投影六步）+ compaction
+- [ ] server REST+SSE 全端点（§7 规格）+ HttpTransport 切换（前端零改动）
+- [ ] pino 日志 + 脱敏
+- **验收**：真实模型完成"读文件→改文件→跑命令→汇报"全闭环；断线重连回放正确；中断无悬挂事件
 
 ## 阶段四：深度体验
 
-- [ ] steer/queue 完整语义 + 唤醒合并
-- [ ] compaction（自动阈值 + 手动 /compact）+ 轻提示 UI
+- [ ] steer/queue 完整语义验证（turn 中插话/排队消费）
+- [ ] compaction（自动阈值+手动 /compact）+ 前端轻提示
 - [ ] 会话恢复/列表/自动标题；fork 与树视图
-- [ ] checkpoint（turn 边界 git 快照，Grok 三域简化两域）+ UI
+- [ ] checkpoint（turn 边界 git 快照，两域简化）+ UI
 - [ ] permission always 持久化 + 同批放行 + 规则管理 UI
-- [ ] node:sqlite 会话索引（列表/搜索，不动 JSONL 权威）
+- [ ] node:sqlite 会话索引（列表/搜索，不动 JSONL 权威）+ metrics 端点
 - **验收**：长会话（>100 turn）稳定；压缩后上下文正确；规则跨会话生效
 
 ## 阶段五：产品化
@@ -771,11 +1069,11 @@ await app.listen({ port: 4318, host: '127.0.0.1' })   // 仅本地（dsh 姿态�
 
 | 风险 | 概率 | 对策 |
 |---|---|---|
-| pi 包 0.x breaking（团队主导无社区 PR） | 中 | 锁版本 + engine 只在 LlmGateway/RunLoop 两处 import；必要时 vendor |
+| pi 包 0.x breaking（团队主导无社区 PR） | 中 | 锁版本 + pi 依赖隔离在 LlmGateway 单点（§5.9）；必要时 vendor |
 | AI Elements 面向 Next.js | 中 | copy-in 删 "use client"+换数据源（§6.7 清单） |
 | assistant-ui 0.x | 低 | 仅按需引入状态层，核心不依赖 |
 | pi-agent-core 循环与事件模型不完全匹配 | 中 | 只用其 stream/工具原语，RunLoop 自写 |
-| 本地安全（bash） | 高（产品层） | 阶段三默认全审批；阶段五沙箱；never 策略 dispatch 前判定 |
+| 本地安全（bash） | 高（产品层） | 阶段三默认全审批；路径硬边界优先于审批；阶段五沙箱；never 策略 dispatch 前判定 |
 | 事件协议演进 | 中 | durable 带 version 预留；未知类型 fail-closed；ignorable 逃生 |
 | 范围蔓延 | 高 | MVP=四工具+对话+审批；MCP/子代理/技能在阶段五后 |
 | 长会话性能 | 中 | live delta 不落盘；虚拟化；rAF 节流；阶段四 SQLite 索引 |
@@ -801,4 +1099,4 @@ await app.listen({ port: 4318, host: '127.0.0.1' })   // 仅本地（dsh 姿态�
 
 ---
 
-*方案完（v1.2）。开工顺序：阶段一任务清单自上而下；每次完成按版本记录表追加记录并 push。*
+*方案完（v1.3）。前后端均为完整规格；开工顺序：阶段一任务清单自上而下；每次完成按版本记录表追加记录并 push。*
