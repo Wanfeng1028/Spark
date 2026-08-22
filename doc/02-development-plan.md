@@ -8,6 +8,7 @@
 | v1.1 | 2026-08-22 | 同上 | 扩至实现级：协议完整 TS 类型、引擎伪代码、会话文件格式、五阶段任务清单 |
 | v1.2 | 2026-08-22 | 同上 | 前端章节扩为完整规格（信息架构/路由/逐屏视图规格/逐组件 props/状态层代码结构/样式系统/Transport 实现/AI Elements 改造清单/性能优化/工程化配置）；新增版本记录表 |
 | v1.3 | 2026-08-22 | 同上 | **后端章节扩为完整规格**：新增引擎模块总览与依赖图、配置体系（目录/文件 schema）、事件总线实现规格（顺序保证/背压/订阅隔离）、输入队列状态机、Run Loop 函数签名级伪代码、工具系统全规格（注册表/materialize/管线算法/四工具 schema 与错误码表/输出溢写）、审批时序图与规则文件格式、会话持久化算法（投影五步/压缩流程/恢复/分叉/坏行策略）、LLM 网关与重试、错误分类与可观测性、服务端完整规格（路由 zod/SSE 实现代码/错误映射表/优雅退出序列）；版本记录模型信息补全 GLM-5.3 |
+| v1.4 | 2026-08-22 | 同上 | §2.1.1 新增**前端组件库清单表（库/定位/链接/看点）**——选型时直接点链接预览长相用（此前仅在会话中给出，未写入文档，属遗漏） |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -87,7 +88,22 @@
 | 状态 | zustand + TanStack Query | 事件流 store 与服务端状态分离 | — |
 | 动效 | react-bits（可选） | 用户已 fork | — |
 
-链接备查：https://ui.shadcn.com · https://elements.ai-sdk.dev · https://www.assistant-ui.com · https://github.com/vercel/streamdown · 备选线 https://semi.design / https://x.ant.design / https://ui.lobehub.com
+### 2.1.1 前端组件库清单（含链接，预览长相用）
+
+> 完整版本数据/组件枚举/许可细节见 `01-research-report.md` §4.1；本表用于选型时快速对比与点开预览。
+
+| 库 | 定位 | 链接 | 看点 |
+|---|---|---|---|
+| **shadcn/ui** | 基础组件底座（Tailwind） | https://ui.shadcn.com | 默认黑白中性极简风，不是蓝玻璃那种 AI 味；copy-in 模式代码全归你 |
+| **Vercel AI Elements** | Agent 工作台专用组件，48 个 | https://elements.ai-sdk.dev （源码 https://github.com/vercel/ai-elements） | confirmation（审批卡）、terminal、sandbox、file-tree、plan/task、checkpoint、tool——就是 Claude-Code 式界面的零件库 |
+| **assistant-ui** | 对话 UI 状态层 + 预制组件 | https://www.assistant-ui.com | headless primitives（Thread/Composer/MessagePart），runtime 抽象可接自研后端 |
+| shadcn 官方 chat 五件套 | 轻量聊天组件 | https://ui.shadcn.com/docs/changelog/2026-06-chat-components | MessageScroller/Message/Bubble，可和 AI Elements 混用 |
+| **streamdown** | 流式 Markdown 渲染 | https://github.com/vercel/streamdown | 流式不完整语法自动补全，周下载 496 万的事实标准 |
+| react-virtuoso | 长列表虚拟化 | https://virtuoso.dev | followOutput 是 chat 场景标配 |
+| CopilotKit | 多框架 AI 组件全家桶 | https://www.copilotkit.ai | 组件多但 runtime 偏重，走 AG-UI 协议时再考虑 |
+| Semi Design（非 Tailwind 备选） | 字节组件库，AI 三件套 | https://semi.design | AIChatDialogue/AIChatInput，消息模型原生含工具调用/思考链；对比长相用 |
+| @ant-design/x（非 Tailwind 备选） | 蚂蚁 AI 组件 | https://x.ant.design | ThoughtChain 工具调用展示是亮点（2.x 需 antd 6） |
+| @lobehub/ui（非 Tailwind，antd 系） | LobeChat 同款零件库 | https://ui.lobehub.com | ChatList/Bubble/TokenTag，LobeChat 那种长相（需 antd 6 + React 19） |
 
 ## 2.2 后端（packages/engine + apps/server）
 
