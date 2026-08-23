@@ -17,6 +17,7 @@
 | v1.10 | 2026-08-23 | 同上（发起：晚风，Qwen Code 入参考体系） | §9 速查表 28→29 条：新增 Qwen Code 行（多协议 provider 运行时切换/daemon+IM 多客户端形态；GUI 生态 gemini-cli-desktop）——与 01 v1.7 同步 |
 | v2.0 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"像 Codex/ZCode 一样的自己的 agent"） | （+0.1 数值进位，非大重构）**新增 §5.11 提示词规格**（system prompt 组装与草案/四工具 description/compaction 与标题提示词；含"禁删文件"纪律对齐 AGENTS §2.10）；§4.4 信封补 version/ignorable 演进预留；§4.5/§4.6/§7.3 SSE 订阅语义（全局直播+按需回放）；§5.1 配置 zod schema 表；§5.6.3 跨平台规则（bash 执行器/超时 kill/路径，默认决策可推翻）；§5.8.1 mungeDir 算法；§6.3 CommandPalette 规格；§6.4 store 骨架与 rAF 接线；§6.6 全局单订阅改写；§8 阶段二/三 checklist 补项（CommandPalette/ScriptedLlm）；新增 §8.6 测试矩阵 |
 | v2.1 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，继续迭代至"照文档开发完"） | 新增 §3.1 工程基础配置（pnpm-workspace/tsconfig.base/scripts 表/pi 精确 pin）、§4.3.1 zod schema 骨架（idOf/EventSchemas satisfies/EnvelopeSchema）、§5.10 错误码总注册表（15 码×载体）、§6.10 核心端到端时序四图（冷启动/turn/审批/断线重连）；§4.4 信封补 **parentId**（修复与 §5.8.1 落盘行的规格矛盾）+ 磁盘/wire 同构声明；§4.7 Mock 锚点语义表；§6.4 **回放×直播 seq 去重规则**（修复全局订阅+REST 回放的重复应用隐患）；尾注版本同步 |
+| v2.2 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，同前目标第四轮） | 新增 §1.4 安全模型表（7 威胁×对策×落点：提示词注入/路径逃逸/密钥泄漏等）、§3.2 各包 manifest 依赖表（含"web 不依赖 engine"约束）、§4.8 协议一致性样例（normal 场景逐行 JSONL，兼测试夹具）、§5.2.1 SessionManager 职责规格、§6.11 全局键位表；§5.10 pino 字段表与脱敏正则；**§8 阶段一工单化**（6 工单×产出×验收×依赖）；尾注 v2.2 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -78,6 +79,18 @@ Agent 工作台：引擎（Node 进程）+ 事件流驱动的 Web 前端，后�
 3. **模型可见的必须被记录**（dsh）："Model-visible means logged"。
 4. **失败闭合**（pi）：任何异常路径补齐事件序列，事件流永不悬空。
 5. **审批 fail-closed**（dsh）：答复缺失/超时/异常一律判拒绝。
+
+## 1.4 安全模型（威胁 → 对策；Codex 级 agent 的必备维度）
+
+| 威胁 | 对策 | 规格落点 |
+|---|---|---|
+| 提示词注入（恶意仓库的 AGENTS.md / 文件内容诱导危险行为） | 基座提示词声明系统规则优先于项目指引（§5.11 第 6 条 "unless conflicting"）；shell/写操作默认 ask——注入骗不过审批层 | §5.11 + §5.7 |
+| 路径逃逸（`../`、绝对路径、符号链接读敏感文件） | `path.resolve` + 允许根前缀比较的**硬边界**，越界 E_PATH_OUTSIDE 直接拒绝、不经审批兜底 | §5.6.3 |
+| 危险命令（`rm -rf`、`curl … \| sh`、git clean） | 提示词禁删纪律 + shell.exec 默认 ask + deny 规则可永久封禁模式 | §5.7 + §5.11 |
+| 密钥泄漏（apiKey 进日志/事件/模型上下文） | apiKey 只在 ResolvedModel 注入；不进事件/DTO/日志；日志启发式脱敏兜底 | §5.9 + §5.10 |
+| 公网暴露/端口扫描 | 绑定 127.0.0.1；无 TLS/auth 是**刻意取舍**（本地单用户，dsh 姿态） | §7.1 |
+| 工具输出轰炸（超大/二进制输出撑爆上下文与 UI） | 32KB 限界+溢写文件；progress 200ms 节流；前端 Terminal 缓冲截头 | §5.6.4 |
+| 会话文件损坏/篡改 | 读端 fail-closed（非尾坏行拒绝加载）；未知事件 type 拒绝；尾行半写丢弃 | §5.8.4 |
 
 ---
 
@@ -200,6 +213,17 @@ packages: ['apps/*', 'packages/*']
 | `test` / `typecheck` / `lint` | `vitest run` / 各包 `tsc --noEmit`（引用串联）/ `eslint .`（flat + typescript-eslint strict） |
 
 依赖纪律：`@earendil-works/pi-ai` 与 `pi-agent-core` **精确 pin**（版本号不带 `^`——§10 风险对策的落地）；CI（GitHub Actions）= typecheck + lint + build + test 四关。
+
+### 3.2 各包 manifest（依赖与脚本表；阶段一照此建包）
+
+| 包 | 关键 deps | scripts（build/dev/test） | 入口 |
+|---|---|---|---|
+| `@spark/protocol` | zod、zod-to-json-schema（仅此两个；零其他运行时依赖） | tsc / — / vitest | `src/index.ts`（re-export 全部） |
+| `@spark/engine` | `@spark/protocol`（workspace:\*）、`@earendil-works/pi-ai`（精确 pin）、pino | tsc / tsx watch / vitest | `src/index.ts`（`createEngine`） |
+| `apps/server` | `@spark/engine`、fastify、@fastify/static、pino、zod | tsc / tsx watch / vitest | `src/index.ts` |
+| `apps/web` | `@spark/protocol`、react 19、react-router v7、zustand、@tanstack/react-query、react-virtuoso、streamdown、tailwindcss v4 | vite build / vite / vitest | `index.html` + `src/main.tsx` |
+
+约束：**web 不依赖 engine/server**（只经 HTTP + protocol 类型）；engine 不依赖 server；依赖方向与 §5.0 一致（单向无环）。跨包版本引用一律 `workspace:*`。
 
 ---
 
@@ -408,6 +432,21 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 | `{"@delay":500}` | 其后事件间隔改为该 ms 值（覆盖默认 30~80ms 抖动） |
 | `{"@speed":2}` | 全局倍率（debug 快进用） |
 
+## 4.8 协议一致性样例（normal 场景头部；兼作 §8.6 测试夹具基线）
+
+```jsonl
+{"sparkVersion":"0.1.0","cwd":"E:/code/demo","createdAt":1761280000000,"model":"deepseek/deepseek-chat"}
+{"id":"evt_01HXA0…","type":"session.created","sessionId":"ses_9f21…","seq":1,"version":1,"time":1761280000100,"parentId":null,"data":{"cwd":"E:/code/demo","model":"deepseek/deepseek-chat"}}
+{"id":"evt_01HXA1…","type":"user.message","sessionId":"ses_9f21…","seq":2,"version":1,"time":1761280005400,"parentId":"evt_01HXA0…","surface":true,"data":{"text":"读一下 src/index.ts 并总结"}}
+{"id":"evt_01HXA2…","type":"turn.started","sessionId":"ses_9f21…","seq":3,"version":1,"time":1761280005410,"parentId":"evt_01HXA1…","data":{"turnId":"trn_01HXB…","delivery":"now","userEventId":"evt_01HXA1…"}}
+{"id":"evt_01HXA3…","type":"tool.started","sessionId":"ses_9f21…","seq":4,"version":1,"time":1761280005600,"parentId":"evt_01HXA2…","data":{"turnId":"trn_01HXB…","callId":"cal_01HXC…","name":"read","input":{"path":"src/index.ts"}}}
+{"id":"evt_01HXA4…","type":"tool.completed","sessionId":"ses_9f21…","seq":5,"version":1,"time":1761280005612,"parentId":"evt_01HXA3…","data":{"turnId":"trn_01HXB…","callId":"cal_01HXC…","output":{"path":"src/index.ts","lines":42,"truncated":false},"isError":false,"durationMs":12}}
+{"id":"evt_01HXA5…","type":"assistant.message","sessionId":"ses_9f21…","seq":6,"version":1,"time":1761280011000,"parentId":"evt_01HXA4…","surface":true,"data":{"turnId":"trn_01HXB…","content":[{"type":"reasoning","text":"用户要总结……"},{"type":"text","text":"该文件是一个 42 行的入口模块……"}],"usage":{"inputTokens":1210,"outputTokens":86}}}
+{"id":"evt_01HXA6…","type":"turn.completed","sessionId":"ses_9f21…","seq":7,"version":1,"time":1761280011010,"parentId":"evt_01HXA5…","data":{"turnId":"trn_01HXB…","finish":"stop","usage":{"inputTokens":1210,"outputTokens":86}}}
+```
+
+说明：id/ULID 此处截断示意，真实文件为完整值；完整场景按 §4.7 表继续展开（edit 含 diff output、bash 含 progress 流、审批含 asked/resolved 对）。本样例是协议的**可执行定义**——round-trip 测试、MockTransport、前端回放共用此形状。
+
 ---
 
 # 5. 引擎设计（packages/engine）——完整规格
@@ -497,6 +536,17 @@ export interface SessionHandle {
 // shutdown 序列：1) 拒绝新请求 2) 逐会话 interrupt 当前 turn（发 turn.completed{aborted}）
 //   3) flush 全部 SessionStore（fsync）4) 关闭日志
 ```
+
+### 5.2.1 SessionManager（session/manager.ts）职责规格
+
+| 职责 | 算法要点 |
+|---|---|
+| `createSession` | `mungeDir(cwd)` 建目录 → 写新 JSONL 首行 header `{sparkVersion, cwd, createdAt, model}`（样例见 §4.8）→ 创建 SessionRuntime（idle）→ emit `session.created` |
+| `resumeSession(id)` | 遍历 `sessions/*/<id>.jsonl` 定位 → `SessionStore.read`（坏行策略 §5.8.4）→ 重建 EventTree → turn 补闭合 → Runtime idle 启动 → emit `session.resumed{fromSeq}` |
+| `listSessions()` | 扫描全部 munged 目录：v1 逐文件读 header + 扫尾行 meta（单用户本地量级可接受）；阶段四换 SQLite 索引 |
+| 会话缓存 | v1 全部已加载会话常驻内存（Map<SessionId, Runtime>）；不做 LRU 淘汰 |
+| 并发防护 | 同 id 并发 create/resume 只初始化一次——in-flight Promise 表去重 |
+| `shutdown` | 按 §5.2 序列编排：拒新 → 逐会话 interrupt → 全量 flush → 关日志 |
 
 ## 5.3 事件总线（bus.ts）实现规格
 
@@ -860,7 +910,15 @@ export interface ResolvedModel {
 | E_LLM_RATELIMIT / E_LLM_PROVIDER / E_LLM_NETWORK | 429/5xx 重试穷尽 / provider 错误 / 网络错误 | error 事件 + stopReason:'error' |
 
 日志（pino → ~/.spark/logs/engine.log，按天滚动，级别 info）：
-  固定脱敏：messages.json 中的 apiKey 字段、环境变量值；工具 input 中的密钥样式串（启发式）
+
+| 字段 | 约定 |
+|---|---|
+| `sid` / `turnId` / `callId` | 关联 ID（上下文有则必带——日志可按会话串起全链路） |
+| `code` | E_* 错误码（与 §5.10 总注册表一致） |
+| `durMs` | 耗时（工具执行/LLM 调用/compaction） |
+| `msg` | 固定英文短语（可 grep：`tool.completed`、`llm.stream.retry` 等） |
+
+固定脱敏（写入前过一遍正则替换为 `***`）：`/sk-[A-Za-z0-9]{20,}/`、`/Bearer\s+\S+/`、`process.env` 值域匹配（环境变量值为非空字符串时替换其出现处）；工具 input 中的密钥样式串（同启发式）
 
 metrics（进程内计数器，阶段四经 /api/metrics 暴露）：
   spark_turns_total{finish} / spark_tool_calls_total{name,is_error}
@@ -1245,6 +1303,18 @@ SSE 断 → connection-store 'reconnecting'（StatusBar 红）→ 指数退避 1
 （一致性来自重放而非增量 diff——乐观更新不存在，DESIGN.md §7.8）
 ```
 
+## 6.11 全局键位表（行为 → 组件的实现映射；视觉呈现规则单一来源在 DESIGN.md §5）
+
+| 键 | 行为 | 生效组件 |
+|---|---|---|
+| `Enter` | 发送（空闲）/ steer（turn 中，提示"将注入当前轮"） | Composer |
+| `Shift+Enter` | 换行 | Composer |
+| `Ctrl+Enter` | 强制 queue（turn 中） | Composer |
+| `Esc` | 逐层退出：关 CommandPalette/Dialog 浮层 → 取消输入框编辑态 → 无操作 | 全局 |
+| `Cmd/Ctrl+K` | 打开命令面板 | 全局（useKeyboard 挂 AppShell） |
+| `Cmd/Ctrl+,` | 打开设置 | 全局 |
+| `↑`（输入框空时） | v1 不做"编辑上一条消息"（阶段四再议，勿自行加） | Composer |
+
 ---
 
 # 7. 服务端（apps/server）——完整规格
@@ -1334,14 +1404,17 @@ app.get('/api/event', async (req, reply) => {
 
 # 8. 分阶段路线图（任务清单级）
 
-## 阶段一：骨架（协议先行）
+## 阶段一：骨架（协议先行）——工单级
 
-- [ ] pnpm workspace + tsconfig.base + eslint/prettier
-- [ ] protocol：§4 全部类型 + zod schema + jsonSchema 导出 + Transport 接口
-- [ ] examples/mock-sessions：4 个预录场景（§4.7 场景表：normal/long-output/reject/error-finish）
-- [ ] web 空壳（Vite+React+Tailwind+shadcn init）+ MockTransport + TransportProvider
-- [ ] server 空壳（Fastify hello + 静态托管）
-- **验收**：web 用 Mock 跑通"发送→流式回复"假对话
+| # | 工单 | 产出 | 验收标准 | 依赖 |
+|---|---|---|---|---|
+| 1.1 | workspace 骨架 | pnpm-workspace.yaml、tsconfig.base.json、根 package.json、eslint(flat)/prettier、CI workflow | `pnpm i` 通过；`pnpm lint/typecheck` 空仓通过；CI 绿 | — |
+| 1.2 | protocol 包 | `src/{ids,primitives,events,api,transport,schema,index}.ts`（§4 全部，含 §4.3.1 骨架） | tsc strict 零错；21 事件 zod round-trip 单测绿；jsonSchemas 导出可 JSON.stringify | 1.1 |
+| 1.3 | mock 场景 | `examples/mock-sessions/{normal,long-output,reject,error-finish}.jsonl`（§4.7 表 + §4.8 样例形状） | 四文件逐行过 EnvelopeSchema 校验（单测断言） | 1.2 |
+| 1.4 | MockTransport | web `src/transports/{mock.ts,context.tsx}` + anchors 解析 | `VITE_SPARK_MOCK=1` 下 onEvent 按 @delay/@wait 吐事件；审批挂起可 reply | 1.2 |
+| 1.5 | web 空壳 | Vite+React+Tailwind+shadcn init；AppShell 三区骨架（Sidebar/主区/StatusBar） | `/welcome` 渲染引导块；主题 token 生效 | 1.1 |
+| 1.6 | server 空壳 | Fastify hello + 静态托管 + 优雅退出钩子 | `curl 127.0.0.1:4318/api/healthz` 200（临时健康检查端点，仅阶段一调试用） | 1.1 |
+| — | **阶段验收** | — | **web + mock 跑通"发送→流式回复"假对话**（1.3+1.4+1.5 串联） | 全部 |
 
 ## 阶段二：前端全量（对 Mock 开发）
 
@@ -1481,4 +1554,4 @@ app.get('/api/event', async (req, reply) => {
 
 ---
 
-*方案完（v2.1）。前后端均为完整规格；开工顺序：阶段一任务清单自上而下；每次完成按版本记录表追加记录并 push。*
+*方案完（v2.2）。前后端均为完整规格；开工顺序：阶段一工单表自上而下；每次完成按版本记录表追加记录并 push。*
