@@ -19,6 +19,7 @@
 | v2.1 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，继续迭代至"照文档开发完"） | 新增 §3.1 工程基础配置（pnpm-workspace/tsconfig.base/scripts 表/pi 精确 pin）、§4.3.1 zod schema 骨架（idOf/EventSchemas satisfies/EnvelopeSchema）、§5.10 错误码总注册表（15 码×载体）、§6.10 核心端到端时序四图（冷启动/turn/审批/断线重连）；§4.4 信封补 **parentId**（修复与 §5.8.1 落盘行的规格矛盾）+ 磁盘/wire 同构声明；§4.7 Mock 锚点语义表；§6.4 **回放×直播 seq 去重规则**（修复全局订阅+REST 回放的重复应用隐患）；尾注版本同步 |
 | v2.2 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，同前目标第四轮） | 新增 §1.4 安全模型表（7 威胁×对策×落点：提示词注入/路径逃逸/密钥泄漏等）、§3.2 各包 manifest 依赖表（含"web 不依赖 engine"约束）、§4.8 协议一致性样例（normal 场景逐行 JSONL，兼测试夹具）、§5.2.1 SessionManager 职责规格、§6.11 全局键位表；§5.10 pino 字段表与脱敏正则；**§8 阶段一工单化**（6 工单×产出×验收×依赖）；尾注 v2.2 |
 | v2.3 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | **阶段一开工**：工单 1.1（workspace 骨架，0c135ca）与 1.2（@spark/protocol 唯一合同，2b289cb）完成并勾选——schema-first 实现：19 事件 zod registry、SparkEventMap 由 infer 派生、parseEnvelope 两步 fail-closed、26 单测全绿。**事实修正：事件词表 21→19 种**（实现时逐条核对，全文 6 处；AGENTS v1.11/ARCHITECTURE v1.6/doc/03 v1.1 同步） |
+| v2.4 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"参考项目源码摆在那里，要主动对照找缺口"） | **参考源码在线对照补强**（依据：pi `packages/agent/src/agent-loop.ts`、opencode `packages/opencode/src/permission/index.ts` 全文研读）：§5.5 截断保护定为 **continue 回喂**（pi terminate=false，此前未定义）+ max-steps 对照决策注记（pi 无计数器，我们保留兜底）+ abort 双检点；§5.6.3 前**进度门控队列**（updateEvents 链+acceptingUpdates 标志，防 progress 晚于 completed 乱序）；§5.7 **七条审批补强**（多 pattern 评估、reject 级联、alwaysPatterns ask 时声明、优先级=扁平化 findLast 实锤、deny 工具不广告、~/\$HOME 展开、shutdown 清 pending）；§5.9 pi 事件映射取舍表（toolcall 流式 v1 不做） |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -633,8 +634,9 @@ runTurn(rt, input):
       })
       if (result.stopReason === 'error') → finish='error'; break
       emit assistant.message{content: [reasoning?, text, ...toolCalls], usage}(durable+surface)
-      // ④ 截断保护（pi）：stopReason 'length' 时截断的 toolCall 全部不执行，
-      //    逐个补 tool.started + tool.completed{isError, output:{code:'E_TRUNCATED'}} 事件对
+      // ④ 截断保护（pi failToolCallsFromTruncatedMessage）：stopReason 'length' 时截断的
+      //    toolCall 全部不执行，逐个补 tool.started + tool.completed{isError,E_TRUNCATED} 事件对；
+      //    **之后 continue 而非 break**——错误结果回喂模型，下一 step 重发完整调用（pi: terminate=false）
       // ⑤ 工具执行
       calls = result.toolCalls
       if (calls.length === 0 && rt.steerQueue.isEmpty()) → finish='stop'; break
@@ -651,6 +653,12 @@ interrupt():
   turn.abort.abort() → LLM 流抛 AbortError（已交付前缀 finalize 为截断的 assistant.message，
   标注 interrupted——dsh）；工具 signal 级联（见 5.6 管线第 ③ 步）；finish='aborted'
 ```
+
+**与 pi（`packages/agent/src/agent-loop.ts`）的对照决策**（v2.4 在线核对）：
+
+- pi **没有 max-steps 计数器**——终止靠 `shouldTerminateToolBatch` / `shouldStopAfterTurn` 钩子；我们**保留** maxStepsPerTurn=40 兜底（本地单用户产品的防御线），v2 可改钩子式。
+- `beforeToolCall` 钩子可置 `terminate: true` 提前终止循环（pi block 语义）——v2 插件点预留。
+- **abort 双检点**（pi `prepareToolCall`）：每个工具执行前/后各查一次 `signal.aborted`；串行链每项之间 break，并行组等待已启动者自然结束——与 5.6.2 ③"跑到静默"一致，补充"每工具启动前再检一次"。
 
 ## 5.6 工具系统（tools/）——完整规格
 
@@ -711,6 +719,8 @@ runOne(call):
 ```
 
 ### 5.6.3 内置四工具规格
+
+**进度更新的门控队列**（pi `tool_execution_update` 模式，v2.4 补）：`onProgress` 回调先进 updateEvents promise 链缓冲、`acceptingUpdates` 标志门控；工具结束后关门并 `await` 排水——保证 progress 永不晚于 tool.completed 乱序到达（单纯定时节流做不到）。
 
 | 工具 | input（zod） | permission | 行为细则 | 错误码 |
 |---|---|---|---|---|
@@ -779,6 +789,16 @@ UI 收到 asked → ApprovalCard → POST /api/permissions/:requestId
 ```
 
 挂起期间工具的 AbortSignal 仍有效：interrupt → 级联取消挂起（判 rejected）。
+
+**与 opencode（`packages/opencode/src/permission/index.ts`）的对照补强**（v2.4 在线核对，7 条）：
+
+1. **多 pattern 评估**：一次工具调用可声明多个 resource pattern（如复合 bash 命令）；逐 pattern evaluate——任一 deny → 立即拒绝；全部 allow → 放行；否则**一次 ask 携带全部 patterns**。词表扩展：`permission.asked` 增 `patterns?[]` / `alwaysPatterns?[]`，按 AGENTS §2.5 从 protocol 改起随下次提交落地。
+2. **reject 也级联**：用户 reject 后，同会话其余挂起审批一并自动 reject 并发 resolved 事件（fail-closed 收敛；此前只定义了 always 级联放行）。
+3. **always 的持久化范围在 ask 时声明**：`alwaysPatterns` 与展示用 patterns 解耦（opencode `request.always`）——决定"总是允许"到底固化哪几条规则。
+4. **优先级实现机制实锤**：evaluate 对 [用户级, 项目级, 会话临时] **依序扁平化后 findLast**——会话临时层排最后即最高优先（5.7.1 声明的机制路径确认）。
+5. **deny 工具不广告**：`materialize` 时被全域 deny 的工具直接不进模型清单（opencode `disabled()`：deny pattern `*` = 从工具列表移除）。
+6. **~ / $HOME 展开**：规则文件 resource 支持家目录前缀展开（opencode `expand()`）。
+7. **shutdown 收尾**：引擎关闭时 pending 表非空 → 全部 resolve(deny)（补充 5.2 shutdown 序列第 2 步细节）。
 
 ## 5.8 会话持久化（session/）——完整规格
 
@@ -864,8 +884,11 @@ export interface LlmGateway {
 // 模型解析优先级：turn 显式指定 > session.meta.model > config.defaultModel
 // 重试：provider 429/5xx/网络错误 → 指数退避 1s/2s/4s（±20% jitter）重试 3 次；
 //       重试期间 emitLive 不需要（无输出），失败结果记 stopReason:'error' + error 事件
-// 事件映射：pi message_update(text_delta/thinking_delta)→assistant.delta/reasoning.delta；
-//           message_end(assistant)→由 run-loop emit assistant.message（网关只回调不落协议）
+// 事件映射（pi assistantMessageEvent → Spark，v2.4 明确取舍）：
+//   text_delta → assistant.delta；thinking_delta → reasoning.delta
+//   text_start/end、thinking_start/end → v1 不映射（起止语义由定稿事件承担）
+//   toolcall_start/delta/end → v1 不做工具输入流式（省一条 live 通道；需要时按 §2.5 扩词表）
+//   message_end(assistant) → 由 run-loop emit assistant.message（网关只回调不落协议）
 ```
 
 ```ts
@@ -1555,4 +1578,4 @@ app.get('/api/event', async (req, reply) => {
 
 ---
 
-*方案完（v2.3）。前后端均为完整规格；开工顺序：阶段一工单表自上而下；每次完成按版本记录表追加记录并 push。*
+*方案完（v2.4）。前后端均为完整规格；开工顺序：阶段一工单表自上而下；每次完成按版本记录表追加记录并 push。*
