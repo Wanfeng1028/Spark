@@ -14,6 +14,7 @@
 | v1.4 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | §5 参考速查更新：参考体系扩至 9 项（+Gemini CLI/OpenClaw/Hermes Agent，速查表 28 条）；新增闭源不可参考清单（Antigravity/ZCode/Qoder/Trae IDE，原因见 01 §7.3） |
 | v1.5 | 2026-08-23 | 同上；依据：晚风提供的《AI 编程项目需要哪些文档？4 类约束一次讲清》 | **按四类约束框架重组文档体系**：新增 §8 规则放置规范（AGENTS 管项目/DESIGN 管视觉/SKILL 管流程/专属文件管工具差异+四条纪律）；必读索引更新（架构→ARCHITECTURE.md、视觉→DESIGN.md、skills）；§2.6 判例引用改指 DESIGN.md §4 + ARCHITECTURE.md D2 |
 | v1.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起与决策：晚风（Wanfeng1028） | §2 新增第 10 条硬性约定**文件删除保护**：AI 编程助手无权删除任何文件，任何删除须经五层级确认（意图/对象/影响/替代/终确认）；§8 及 CLAUDE.md、copilot-instructions.md 中"九条硬性约定"同步改为"十条" |
+| v1.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"参考的助手都要有适配文件"） | §8 新增 **8.1 编程助手适配对照表**（覆盖全部参考工具：ZCode/Codex/opencode/pi 原生读 AGENTS.md 零配置；Grok/dsh/Hermes/Trae/Qoder/Qwen 标待验证）；新增 `.cursor/rules/spark.mdc` 与 `.windsurf/rules/spark.md` 摘要 shim（以 AGENTS.md 为权威） |
 
 ## 1. 项目上下文（30 秒版）
 
@@ -85,3 +86,24 @@ pnpm test / pnpm typecheck / pnpm lint
 
 四条纪律：**一条规则只有一个来源**（其他文件引用不复制）；**常驻规则与按需流程分开**（都适用→AGENTS，某类任务才触发→SKILL）；**视觉与代码规则分开**；**软指令与硬检查分开**（md 提醒 AI，typecheck/lint/test/CI 才是强制层）。
 大型化后可在子目录继续放 AGENTS.md（越靠近目标文件越具体）。判断是否写成 SKILL 的三条件：任务重复出现 / 顺序影响结果 / 一句提示容易漏步。
+
+### 8.1 编程助手适配对照表（含全部参考工具）
+
+> AGENTS.md 是跨工具开放标准——**原生读取它的工具不需要任何额外文件**；只有约定不同的工具才需要 shim。shim 文件是配置而非文档（不设版本记录表，git 追踪变更）；摘要型 shim（Cursor/Windsurf/Copilot）以 AGENTS.md 为唯一权威。
+
+| 助手/工具 | 读取的文件 | 本仓库状态 |
+|---|---|---|
+| **ZCode**（主力） | `AGENTS.md` 原生 + `.agents/skills/` | ✅ 零配置命中 |
+| **Codex**（OpenAI） | `AGENTS.md` 原生 | ✅ 零配置 |
+| **opencode** | `AGENTS.md` 原生 | ✅ 零配置 |
+| **pi** | `AGENTS.md` 原生 | ✅ 零配置 |
+| **Claude Code** | `CLAUDE.md`（官方） | ✅ `@AGENTS.md` 导入 + Plan Mode 差异 |
+| **Gemini CLI** | `GEMINI.md`（官方） | ✅ `@AGENTS.md` 导入 + 上下文分层差异 |
+| **GitHub Copilot** | `.github/copilot-instructions.md` | ✅ 纯指针 |
+| **Cursor** | `.cursor/rules/*.mdc` | ✅ `spark.mdc`（alwaysApply 摘要版，以 AGENTS.md 为准） |
+| **Windsurf** | `.windsurf/rules/*.md` | ✅ `spark.md`（trigger: always 摘要版） |
+| Grok Build / dsh / Hermes | AGENTS.md 兼容性**待验证**（以官方文档为准） | ⚠️ 团队启用时补 |
+| Trae / Qoder | 原生 AGENTS.md 或 `.trae/rules`（约定**待验证**） | ⚠️ 团队启用时补 |
+| Qwen Code | Gemini CLI fork，读 `GEMINI.md`（**待验证**） | ⚠️ 顺带被 GEMINI.md 覆盖 |
+
+原则：**团队实际启用某工具时才建它的 shim**；摘要 shim 只在工具无法读 AGENTS.md 时才存在，且必须声明"冲突以 AGENTS.md 为准"。
