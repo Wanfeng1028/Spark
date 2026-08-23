@@ -16,6 +16,7 @@
 | v1.9 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，目标"照文档能直接开发完全"） | 前后端规格补全：新增 §4.5.1 DTO 定义（SessionMetaDto 含 status）、§4.7 Mock 四场景脚本表（§8 阶段一同步 3→4）、§5.9 ResolvedModel 与消息/工具投影（models.json 补 contextWindow）、§6.1 apps/web 文件级结构、§6.2.1 欢迎页完整规格、新增 §6.2.3 SettingsDialog 规格、§6.3 结构布局细则、§7.2 逐路由实现要点表、§7.5 静态托管展开 |
 | v1.10 | 2026-08-23 | 同上（发起：晚风，Qwen Code 入参考体系） | §9 速查表 28→29 条：新增 Qwen Code 行（多协议 provider 运行时切换/daemon+IM 多客户端形态；GUI 生态 gemini-cli-desktop）——与 01 v1.7 同步 |
 | v2.0 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"像 Codex/ZCode 一样的自己的 agent"） | （+0.1 数值进位，非大重构）**新增 §5.11 提示词规格**（system prompt 组装与草案/四工具 description/compaction 与标题提示词；含"禁删文件"纪律对齐 AGENTS §2.10）；§4.4 信封补 version/ignorable 演进预留；§4.5/§4.6/§7.3 SSE 订阅语义（全局直播+按需回放）；§5.1 配置 zod schema 表；§5.6.3 跨平台规则（bash 执行器/超时 kill/路径，默认决策可推翻）；§5.8.1 mungeDir 算法；§6.3 CommandPalette 规格；§6.4 store 骨架与 rAF 接线；§6.6 全局单订阅改写；§8 阶段二/三 checklist 补项（CommandPalette/ScriptedLlm）；新增 §8.6 测试矩阵 |
+| v2.1 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，继续迭代至"照文档开发完"） | 新增 §3.1 工程基础配置（pnpm-workspace/tsconfig.base/scripts 表/pi 精确 pin）、§4.3.1 zod schema 骨架（idOf/EventSchemas satisfies/EnvelopeSchema）、§5.10 错误码总注册表（15 码×载体）、§6.10 核心端到端时序四图（冷启动/turn/审批/断线重连）；§4.4 信封补 **parentId**（修复与 §5.8.1 落盘行的规格矛盾）+ 磁盘/wire 同构声明；§4.7 Mock 锚点语义表；§6.4 **回放×直播 seq 去重规则**（修复全局订阅+REST 回放的重复应用隐患）；尾注版本同步 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -175,6 +176,31 @@ spark/
 └── examples/mock-sessions/
 ```
 
+### 3.1 工程基础配置（阶段一照抄）
+
+```yaml
+# pnpm-workspace.yaml
+packages: ['apps/*', 'packages/*']
+```
+
+```jsonc
+// tsconfig.base.json 要点（各包 extends；project references 串联依赖顺序）
+{ "compilerOptions": {
+    "target": "ES2022", "module": "ESNext", "moduleResolution": "bundler",
+    "strict": true, "noUncheckedIndexedAccess": true, "exactOptionalPropertyTypes": true,
+    "isolatedModules": true, "skipLibCheck": true } }
+```
+
+根 package.json scripts（阶段一回填实际命令）：
+
+| 脚本 | 内容 |
+|---|---|
+| `dev` | 并行 `--filter @spark/web`（Vite）+ `--filter @spark/server`（tsx watch） |
+| `build` | protocol/engine 走 tsc 项目引用，web 走 vite build，server 走 tsc |
+| `test` / `typecheck` / `lint` | `vitest run` / 各包 `tsc --noEmit`（引用串联）/ `eslint .`（flat + typescript-eslint strict） |
+
+依赖纪律：`@earendil-works/pi-ai` 与 `pi-agent-core` **精确 pin**（版本号不带 `^`——§10 风险对策的落地）；CI（GitHub Actions）= typecheck + lint + build + test 四关。
+
 ---
 
 # 4. 协议设计（packages/protocol）
@@ -246,6 +272,29 @@ export interface SparkEventMap {
 }
 ```
 
+### 4.3.1 zod schema 骨架（protocol/src/{ids,events,schema}.ts）
+
+```ts
+// ids.ts —— Brand 类型的运行时校验（zod 4）
+const idOf = (prefix: string) => z.string().regex(new RegExp(`^${prefix}_[0-9a-z]+$`))
+export const SessionIdSchema = idOf('ses') as z.ZodType<SessionId>   // Turn/Event/Call/Request/Checkpoint 同构
+
+// events.ts —— schema registry：与词表一一对应（satisfies 强制，漏一种 = 编译错）
+export const EventSchemas = {
+  'session.created': z.object({ title: z.string().optional(), cwd: z.string(), model: z.string() }),
+  'user.message':    z.object({ text: z.string().min(1), attachments: z.array(z.string()).optional() }),
+  // …21 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
+} satisfies { [T in SparkEventType]: z.ZodType<SparkEventMap[T]> }
+
+// schema.ts —— 信封 schema + jsonSchema 导出（工具参数与 DTO 用）
+export const EnvelopeSchema = z.object({
+  id: EventIdSchema, type: z.string(), sessionId: SessionIdSchema,
+  seq: z.number().int().optional(), version: z.literal(1).optional(),
+  ignorable: z.boolean().optional(), parentId: EventIdSchema.optional(), time: z.number(),
+})
+export const jsonSchemas = { envelope: zodToJsonSchema(EnvelopeSchema) /* + DTO schemas */ }
+```
+
 ## 4.4 信封与 durable/live
 
 ```ts
@@ -255,6 +304,7 @@ export type LiveOnlyEventType = 'assistant.delta' | 'reasoning.delta' | 'tool.pr
 export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
   id: EventId; type: T; sessionId: SessionId
   seq?: number            // durable 单调序号（== 会话日志行号）；live 无 seq
+  parentId?: EventId      // 树父事件（durable 落盘时由 store 填 tree.leafId；live 恒缺省）
   version?: 1             // 协议演进预留（§10 风险表）：写入时恒为当前大版本；读端见 §5.8.4
   ignorable?: boolean     // 读端遇未知 type 时：true → 跳过继续加载；缺省 false → 拒绝加载（fail-closed）
   time: number            // epoch ms
@@ -275,6 +325,8 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | permission.asked / resolved | ✅（审计） | ❌ 永不进模型历史 |
 | compaction.* / checkpoint.created | ✅ | compaction 影响 projection |
 | error | ✅ | ❌ |
+
+**磁盘行与 wire 同构**：落盘 JSONL 行 = 信封原样（含 parentId）——单一格式，序列化零转换，前端 UiItem 的 parentId 即来源于此。
 
 **读端 fail-closed**（dsh）：磁盘重建遇未知 type 且无 `ignorable: true` → 拒绝加载并报错。
 
@@ -346,6 +398,15 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 | long-output.jsonl | bash 输出 3000+ 行（验证 progressBuf 截头与 Terminal 缓冲上限） | 长输出/滚动/BackBottom |
 | reject.jsonl | write 审批被拒 + feedback 注入（下一条 assistant 响应 feedback 内容） | 审批拒绝/E_PERMISSION 徽标/feedback 回喂 |
 | error-finish.jsonl | 第 2 step 模拟 LLM 错误（turn.completed{error} + error 事件） | 顶部黄条/重试按钮 |
+
+**锚点行语义**（脚本内控制行，非真实事件；以 `@` 键区分）：
+
+| 锚点 | 语义 |
+|---|---|
+| `{"@wait":"approval"}` | 回放至此挂起，直到 `replyPermission`（requestId 取脚本内预置值） |
+| `{"@wait":"message"}` | 挂起直到下一次 `sendMessage`（steer 演示：注入后继续回放） |
+| `{"@delay":500}` | 其后事件间隔改为该 ms 值（覆盖默认 30~80ms 抖动） |
+| `{"@speed":2}` | 全局倍率（debug 快进用） |
 
 ---
 
@@ -776,6 +837,27 @@ export interface ResolvedModel {
   E_ENGINE_*   循环/状态错误        E_LLM_*     provider/网络
   E_TOOL_*     工具执行             E_PERM_*    审批
   E_IO_*       磁盘/日志
+```
+
+**错误码总注册表**（新增码必须在此登记——与 AGENTS §3"错误码进 02 表"闭环）：
+
+| 码 | 场景 | 载体 |
+|---|---|---|
+| E_CONFIG | 配置文件缺失/zod 校验失败（启动即败） | 进程退出 + stderr |
+| E_VALIDATION | HTTP 请求 zod 失败 | HTTP 400 `{code, message, issues}` |
+| E_NOT_FOUND | 会话/审批请求/文件路径不存在 | HTTP 404 / tool output |
+| E_ALREADY_RESOLVED | 审批重复答复 | HTTP 409 |
+| E_SHUTTING_DOWN | 引擎关闭中拒新请求 | HTTP 503 |
+| E_INTERNAL | 未分类内部异常（详情只进日志） | HTTP 500 |
+| E_PATH_OUTSIDE | 路径越出允许根（硬边界，先于审批） | tool output |
+| E_BINARY / E_TOO_LARGE | read 遇二进制 / 超大文件 | tool output |
+| E_WRITE_DENIED | 只读挂载/OS 权限拒绝写 | tool output |
+| E_AMBIGUOUS | edit 的 oldString 多命中且未 replaceAll | tool output |
+| E_TIMEOUT / E_EXIT_CODE / E_SPAWN | bash 超时 / 非零退出（附 code）/ spawn 失败 | tool output |
+| E_PERMISSION | 工具调用被审批拒绝（denied/超时 fail-closed） | tool output |
+| E_TRUNCATED | stopReason 'length' 时截断 toolCall 的补事件 | tool.completed |
+| E_ABORTED | 分组排队中未启动即被 interrupt | tool.completed |
+| E_LLM_RATELIMIT / E_LLM_PROVIDER / E_LLM_NETWORK | 429/5xx 重试穷尽 / provider 错误 / 网络错误 | error 事件 + stopReason:'error' |
 
 日志（pino → ~/.spark/logs/engine.log，按天滚动，级别 info）：
   固定脱敏：messages.json 中的 apiKey 字段、环境变量值；工具 input 中的密钥样式串（启发式）
@@ -1022,6 +1104,8 @@ interface SessionSlice {
 // 唯一写入口 applyEvent(e) 与 reset()；选择器 selectItems/selectActiveTurn/selectLastSeq
 ```
 
+**去重规则（回放×直播重叠）**：apply 入口先判 `e.seq !== undefined && e.seq <= slice.lastSeq` → 跳过（全局直播先到、REST 回放后到时不重复应用；重放期间乱序到达的直播同理被吸附）；live 事件无 seq，无条件应用。resetSlice 将 lastSeq 归 0 后重放从空重建。
+
 **applyEvent 处理表（21 种全覆盖）**：
 
 | 事件 | 状态变更 |
@@ -1095,8 +1179,9 @@ export function TransportProvider({ mock, children }) {
 // 1) SSE：全局单连接 fetch('/api/event', {signal})（省略 sessionId——直播全部会话，
 //    Sidebar 状态点/欢迎页实时；订阅语义见 §4.6）+ ReadableStream 手解析
 //    （不用原生 EventSource：无法自定义重连参数；可引 eventsource-parser）
-// 2) 打开/重连会话：GET /api/sessions/:id 全量 durable → resetSlice 后批量 apply（幂等；
-//    冷启动与断线重连同一路径）；断线指数退避（1/2/5/10s 封顶）重连后自动执行
+// 2) 打开/重连会话：GET /api/sessions/:id 全量 durable → **先 resetSlice 后批量 apply**
+//    （与全局直播的重叠按 seq 去重，见 §6.4；冷启动与断线重连同一路径）；
+//    断线指数退避（1/2/5/10s 封顶）重连后自动执行
 // 3) REST fetch；sendMessage 三态原样返回；4) dispose：abort+退订
 
 // transports/mock.ts 要点
@@ -1133,6 +1218,32 @@ export default defineConfig({
 ```
 
 规范：ESLint(flat+typescript-eslint strict)+Prettier；CI=typecheck+lint+build+test(vitest)。测试重点：protocol 类型级 + **applyEvent 21 事件单测全覆盖** + 审批卡交互。环境变量：`VITE_SPARK_MOCK=1` / `VITE_SPARK_API`。
+
+## 6.10 核心端到端时序（四条主链路）
+
+```
+① 冷启动（打开 /session/:id）
+UI mount → GET /api/sessions/:id ──▶ server（按需 engine.resume）──▶ 全量 durable（seq 升序）
+        ◀── SessionDto{events} ──  先 resetSlice 后逐条 applyEvent
+（全局 SSE 在 App 挂载时已连接；回放前后到达的直播事件按 §6.4 去重规则落位）
+
+② 发送消息（turn 全程）
+Composer Enter → POST /:id/messages{now} → {result:'started'}（三态直通，不等 turn）
+engine：user.message(durable) → turn.started → assistant.delta…(live) → assistant.message(durable)
+      → [tool.started → tool.completed]* → turn.completed(durable)
+UI：每事件 applyEvent 增量渲染（rAF 批量 flush）
+
+③ 审批往返
+ToolPipeline.assert → ask → permission.asked(durable) → UI ApprovalCard（Composer 禁用）
+用户点[允许一次] → POST /api/permissions/:reqId{once} → permission.resolved(durable)
+      → pipeline 放行 → tool.started/completed → …
+（5min 超时：引擎侧 resolve(deny) + permission.resolved{reject}——UI 闭合靠事件而非本地计时）
+
+④ 断线重连
+SSE 断 → connection-store 'reconnecting'（StatusBar 红）→ 指数退避 1/2/5/10s
+重连成功 → GET /:id 全量 durable → resetSlice 重放（幂等）→ 'open'
+（一致性来自重放而非增量 diff——乐观更新不存在，DESIGN.md §7.8）
+```
 
 ---
 
@@ -1370,4 +1481,4 @@ app.get('/api/event', async (req, reply) => {
 
 ---
 
-*方案完（v1.3）。前后端均为完整规格；开工顺序：阶段一任务清单自上而下；每次完成按版本记录表追加记录并 push。*
+*方案完（v2.1）。前后端均为完整规格；开工顺序：阶段一任务清单自上而下；每次完成按版本记录表追加记录并 push。*
