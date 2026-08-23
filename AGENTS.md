@@ -1,7 +1,7 @@
 # AGENTS.md — AI 编码代理工作规范
 
 > 本文件面向**任何在本仓库工作的 AI 编码代理**（ZCode / Claude Code / Codex / opencode 等）。
-> 进入本仓库后请先完整阅读本文件与 [DESIGN.md](./DESIGN.md)，再做任何修改。
+> 进入本仓库后请先完整阅读本文件与 [ARCHITECTURE.md](./ARCHITECTURE.md)（架构）/ [DESIGN.md](./DESIGN.md)（视觉），再做任何修改。
 
 ## 版本记录
 
@@ -12,12 +12,13 @@
 | v1.2 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | 必读索引挂接 **doc/04 前端约束规则**（目标"Codex/ZCode 桌面感"：布局/密度/颜色 token/键盘优先/动效/反网站化黑名单/组件 DoD/Electron 预留） |
 | v1.3 | 2026-08-22 | 同上（决策：晚风 Wanfeng1028） | 项目上下文移除"本地优先"定位措辞（事实不变，不作明面标签） |
 | v1.4 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | §5 参考速查更新：参考体系扩至 9 项（+Gemini CLI/OpenClaw/Hermes Agent，速查表 28 条）；新增闭源不可参考清单（Antigravity/ZCode/Qoder/Trae IDE，原因见 01 §7.3） |
+| v1.5 | 2026-08-23 | 同上；依据：晚风提供的《AI 编程项目需要哪些文档？4 类约束一次讲清》 | **按四类约束框架重组文档体系**：新增 §8 规则放置规范（AGENTS 管项目/DESIGN 管视觉/SKILL 管流程/专属文件管工具差异+四条纪律）；必读索引更新（架构→ARCHITECTURE.md、视觉→DESIGN.md、skills）；§2.6 判例引用改指 DESIGN.md §4 + ARCHITECTURE.md D2 |
 
 ## 1. 项目上下文（30 秒版）
 
 Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端，通过 HTTP+SSE 单一事件流协议通信；后期加 Electron 壳。当前处于**阶段零（设计期）**——只有文档，代码未开工。完整规格见 `doc/02-development-plan.md`。
 
-**必读文档索引**：设计总览 → `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；**前端约束规则（桌面应用感/反网站化黑名单/组件 DoD）→ `doc/04`**；调研依据 → `doc/01`。
+**必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
 
 ## 2. 硬性约定（违反即返工）
 
@@ -26,7 +27,7 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 3. **语言**：文档与注释用中文；代码标识符、commit type 用英文。
 4. **TypeScript strict**，禁止 `any`（确需时 `unknown` + 收窄）。跨包导入只允许依赖 `@spark/protocol` 的导出，不得深路径引用。
 5. **协议改动从 `packages/protocol` 开始**：改事件词表/API 类型 → 两端同步适配 → 跑双侧类型检查。禁止在前端或引擎里私自定义 wire 类型。
-6. **前端样式**：Tailwind + shadcn token 体系；视觉基调：黑白中性极简。**禁止一切"AI 生成风"外观**：蓝紫渐变玻璃拟态、暖棕/米色等暖调配色、实线细描边 + 内部 backdrop-blur 毛玻璃的按钮/卡片——均为 AI 生成界面的典型套路，一律不得出现（判例与特征清单见 DESIGN.md D2）；组件改造走 copy-in（源码进 `components/ui/`），不引黑盒运行时依赖。
+6. **前端样式**：Tailwind + shadcn token 体系；视觉基调：黑白中性极简。**禁止一切"AI 生成风"外观**：蓝紫渐变玻璃拟态、暖棕/米色等暖调配色、实线细描边 + 内部 backdrop-blur 毛玻璃的按钮/卡片——均为 AI 生成界面的典型套路，一律不得出现（特征清单见 DESIGN.md §4，判例与决策记录见 ARCHITECTURE.md D2）；组件改造走 copy-in（源码进 `components/ui/`），不引黑盒运行时依赖。
 7. **引擎铁律**（写代码时时刻对照）：durable/live 二分（delta 不落盘）；surface 纪律（模型可见必被记录）；失败闭合（事件流永不悬空）；审批 fail-closed（超时/异常一律拒绝）；单写者 JSONL（会话文件只经 SessionStore 写）。
 8. **测试**：`applyEvent` reducer 对全部事件类型逐一单测（21 种）；新增事件类型必须同步新增单测，否则 PR 不完整。
 9. **不做的事**：不加多用户/登录/公网暴露（本地 127.0.0.1 是刻意的）；不上 Effect/RxJS 等响应式框架（抄设计不抄框架）；MVP 边界外（MCP/子代理/skills/沙箱）的功能一律排到阶段五之后，即使"顺手"。
@@ -67,4 +68,18 @@ pnpm test / pnpm typecheck / pnpm lint
 
 - 接到任务先对照 `doc/02` 的阶段任务清单（checklist），完成一项勾一项（更新文档 checklist 也是任务的一部分）。
 - 每完成一个任务单元：代码/文档 → 单测 → typecheck/lint → commit + push → 版本记录表追加。
-- 不确定的设计决策：先查 DESIGN.md 的 ADR 表；仍无答案则提出并让人类决策，**不要自行发明与文档冲突的机制**。
+- 不确定的设计决策：先查 ARCHITECTURE.md 的 ADR 表；仍无答案则提出并让人类决策，**不要自行发明与文档冲突的机制**。
+
+## 8. 规则放置规范（四类约束——新规则先问放哪）
+
+> 口诀：**AGENTS 管项目，DESIGN 管视觉，SKILL 管流程，专属文件管工具差异。**
+
+| 约束类型 | 放哪 | 本仓库实例 |
+|---|---|---|
+| 项目级工作规则（每次进入项目都适用，常驻） | `AGENTS.md` | 本文件九条硬性约定 |
+| 视觉/交互决策（页面应该什么风格、新场景怎么选） | `DESIGN.md` | token/密度/黑名单/组件 DoD |
+| 可重复多步骤流程（只在某类任务触发，按需） | `.agents/skills/<name>/SKILL.md`（可带 scripts/references） | docs-update / new-event-type / new-tool / frontend-component |
+| 工具平台差异（某 AI 工具独有行为） | `CLAUDE.md` / `GEMINI.md`（@AGENTS.md 导入+差异）/ `.github/copilot-instructions.md`（指针） | Plan Mode 触发条件等 |
+
+四条纪律：**一条规则只有一个来源**（其他文件引用不复制）；**常驻规则与按需流程分开**（都适用→AGENTS，某类任务才触发→SKILL）；**视觉与代码规则分开**；**软指令与硬检查分开**（md 提醒 AI，typecheck/lint/test/CI 才是强制层）。
+大型化后可在子目录继续放 AGENTS.md（越靠近目标文件越具体）。判断是否写成 SKILL 的三条件：任务重复出现 / 顺序影响结果 / 一句提示容易漏步。
