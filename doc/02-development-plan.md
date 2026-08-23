@@ -12,6 +12,7 @@
 | v1.5 | 2026-08-22 | 同上 | §6 开头新增交叉引用：**`03-frontend-approach.md`**（前端专题：六大参考项目前端实现逐一分析、我方八条设计原则、与传统 Web 前端的十二维对比） |
 | v1.6 | 2026-08-22 | 同上（决策：晚风 Wanfeng1028） | §1.1 定位移除"本地优先"措辞（事实不变，不作明面标签；127.0.0.1 绑定等实现细节保留在 §7/D5） |
 | v1.7 | 2026-08-23 | 同上 | §9 速查表新增三行：Gemini CLI（core/ui 分包+confirmation-bus）、OpenClaw（gateway-protocol+插件合同）、Hermes Agent（多渠道/子代理/沙箱后端）——与 01 §7.3/§10 同步 |
+| v1.8 | 2026-08-23 | 同上 | §9 再补两行 Gemini CLI 细化借鉴点（TOML 策略引擎分层规则带、上下文压缩双层管道），表头计数修正为 28 条；与 01 v1.5 的 7.3.1 细化同步 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -1056,7 +1057,7 @@ app.get('/api/event', async (req, reply) => {
 
 ---
 
-# 9. 参考速查表（23 条）
+# 9. 参考速查表（28 条）
 
 | 问题 | 项目 | 文件 |
 |---|---|---|
@@ -1084,6 +1085,8 @@ app.get('/api/event', async (req, reply) => {
 | Grok 深度中文讲解 | 书 | https://zhanghandong.github.io/grok-build/ |
 | 前端范式与许可证陷阱 | 前期会话 | 01-research-report.md §0 |
 | TS 的引擎/UI 分包与审批总线 | Gemini CLI | packages/core（core/cli/sdk/a2a-server 分包）、packages/core/src/confirmation-bus；⚠️ pin 版本（Google 迁闭源 Antigravity 风险） |
+| 审批做成策略引擎（TOML 分层规则带） | Gemini CLI | core/src/policy/policy-engine.ts + policy/policies/*.toml（Admin 5.x>User 4.x>Workspace 3.x>Extension 2.x>Default 1.x；YOLO=998/ask_user=999） |
+| 上下文压缩双层（历史压缩/工具输出蒸馏） | Gemini CLI | core/src/context/{chatCompressionService,toolDistillationService}.ts |
 | 网关协议包与插件合同 | OpenClaw | packages/gateway-protocol（独立协议包范本）、packages/plugin-sdk + plugin-package-contract |
 | 多渠道/子代理 RPC/沙箱后端抽象 | Hermes Agent | NousResearch/hermes-agent（Python 为主——抄思路不抄代码） |
 

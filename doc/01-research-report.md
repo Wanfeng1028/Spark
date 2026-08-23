@@ -9,6 +9,7 @@
 | v1.2 | 2026-08-22 | 同上 | **补全全程调研内容**：新增第 0 章前期会话范式调研（含 20+ 仓库统计与许可证陷阱）；六家各补"产品形态总览（首轮调研）"；前端生态补组件库完整细节（x-card/x-skill 子包、assistant-ui 包矩阵、shadcn chat blocks 等）；后端生态补 AI SDK v7 全量 breaking、SSE/JSONL 库现状、Go eino ADK/genkit 全清单；新增"语言边界与混合架构""逆向的边界"两章；新增本版本记录表 |
 | v1.3 | 2026-08-22 | 同上 | 修正版本记录：作者模型信息补全 GLM-5.3（此前仅写会话内部标识 ox-alpha，未写底层模型，属记录不完整） |
 | v1.4 | 2026-08-22 | 同上（决策：晚风 Wanfeng1028） | 全文移除"本地优先"定位措辞两处（§0.1 目标、§4.1 表注）——事实不变，不作明面标签 |
+| v1.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | 整合并行会话新增的 §7.3（Gemini/Antigravity/Hermes/OpenClaw/ZCode/Qoder/Trae 参考性评估，hermes-agent 仓库已复核真实）并修正其位置（原误插于 §8 之后）；据二轮调研细化：新增 7.3.1 Gemini CLI 文件级借鉴点（调度状态机/TOML 策略引擎/事件流三端/压缩双层/装饰器链）、7.3.2 Antigravity 四个可移植交互范式、7.3.3 OpenClaw Gateway 协议要点；§10 参考体系扩至 9 项 |
 | v1.5 | 2026-08-23 | 同上 | 新增 §7.3 候选参考性评估（Gemini CLI/Antigravity/Hermes Agent/OpenClaw/ZCode/Qoder/Trae，含不可参考原因）；§10 参考体系新增 #7 Gemini CLI、#8 OpenClaw、#9 Hermes Agent（+附 trae-agent）。核验：Gemini CLI Apache-2.0 106k★、OpenClaw MIT 387k★、Hermes MIT 234k★、Antigravity 闭源 |
 
 > 调研周期：2026-08-21 ~ 2026-08-22（本会话）+ 前期会话（sess_20abb8d8，GeoWork/Agent 前端架构调研）
@@ -779,14 +780,6 @@ SessionV2.prompt [session.ts L360] → SessionInput.admit [input.ts L41]（落 s
 - TraeWork（trae.cn，"复杂工作就用 TraeWork"）：AI 办公平台，Work/Code/Design 三模式，飞书/微信/钉钉插件；**闭源**；无 trae-work 官方开源仓（GitHub trae-suite/trae-ide 相关多为第三方）。
 - **bytedance/trae-agent**：MIT，12,048★，Python 0.5MB；"基于 LLM 的通用软件工程任务智能体 CLI"；与 Trae IDE 关系社区争议（issue #273）；2026-02-05 最后 push。
 
-# 8. 逆向的边界（三层）
-
-1. **官方接口定义（甚至不算逆向）**：Claude Code 的 sdk.d.ts（38.9 万字节类型+TSDoc：38 成员消息联合/34 控制子类型/31 hooks/每字段语义）是官方主动发布的接口规格——本次调研大量结论直接来自它，零成本。
-2. **压缩产物可"推断"什么**：bundle 保留字符串与结构（类型名/子类型名/flag 名无法混淆），丢失变量名/注释/组织——可精确定位协议形状与执行流程，读不出优雅源码；专有许可下**不可复制代码**。
-3. **运行时行为观测**：minusx 网络抓包（主循环/提示词规模/子代理行为）；我方对 ZCode 的磁盘观测（rollout 格式/插件依赖）——观察行为非还原代码。
-
-一句话：**接口可逆向、源码不可逆向、思路随便学**——接口规格与思想不受版权保护，代码受。
-
 ## 7.3 新一轮候选参考性评估（2026-08-23 补充：Gemini/Antigravity/Hermes/OpenClaw/ZCode/Qoder/Trae）
 
 | 产品 | 开源/许可 | 核验事实 | 前端可参考 | 后端可参考 | 结论与原因 |
@@ -800,6 +793,36 @@ SessionV2.prompt [session.ts L360] → SessionInput.admit [input.ts L41]（落 s
 | **Trae IDE / TraeWork（字节）** | ❌ 闭源（IDE/平台）；✅ trae-agent MIT | 详见 §7.2 | ❌ | 部分（trae-agent，Python，工作流/工具组织思路） | **❌ IDE 本体不可参考；✅ trae-agent 轻参考**（与 Trae IDE 无直接关系） |
 
 **本轮要点**：①Gemini CLI 与 OpenClaw 是新增的高价值 TS 参考（前者补"TS 引擎/UI 分包+审批总线"，后者补"网关协议+插件合同+多端"）；②Hermes 补"多渠道+子代理+沙箱后端"思想；③Antigravity/ZCode/Qoder/Trae IDE 全部因闭源出局，只留 UX 观察；④Gemini CLI→Antigravity 迁移争议再次验证"参考开源快照要 pin 版本"的纪律。
+
+
+### 7.3.1 Gemini CLI 借鉴点细化（文件级，2026-08-23 二轮调研）
+
+1. **工具调度 + 审批总线**：`packages/core/src/scheduler/`（scheduler/state-manager/tool-executor/tool-modifier/policy/confirmation 六文件）——工具调用是状态机（Scheduled → Validating → Executing → Successful/Errored，类型在 scheduler/types.ts）；调度器不直接碰 UI，确认请求经 `confirmation-bus/message-bus.ts` 发布、CLI 侧订阅应答——**core 与 UI 彻底解耦，headless/交互/多 agent 共用同一调度器**。
+2. **审批即策略（TOML Policy Engine）**：`policy/policy-engine.ts` + `policy/policies/*.toml`（内置 yolo/plan/read-only/write/non-interactive/sandbox-default/agents 七套）；规则带分层优先带 **Admin 5.x > User 4.x > Workspace 3.x > Extension 2.x > Default 1.x**；UI 的 "Always Allow"（4.95）、`--allowed-tools`（4.3）、MCP trust（4.2）都是动态注入的规则；YOLO=998 优先级 allow-all，但 ask_user=999 在任何模式下强制交互。
+3. **单一事件流三端复用**：`utils/events.ts`（CoreEventEmitter）→ `agent/event-translator.ts` → `output/stream-json-formatter.ts`——一套事件同时驱动 TUI、stream-json 输出、telemetry。
+4. **上下文压缩双层管道**：`context/{contextManager,chatCompressionService,toolDistillationService,toolOutputMaskingService,truncation}.ts`——区分"历史对话压缩"与"工具输出蒸馏"两层，配 pipeline/ 组织。
+5. **LLM 客户端装饰器链**：`core/contentGenerator.ts`（logging/model-mapping/recording/fallback 中间件式包装）。
+
+附加：`gemini-extension.json` manifest（context 文件+MCP server+斜杠命令+hooks+TOML 策略打包分发、从 GitHub 安装）值得作为扩展打包格式参考；GEMINI.md 分层（全局→项目→子目录，`@file` import 模块化）+ auto-memory；npm `@google/gemini-cli` 累计 717 版（nightly 日更）。治理注意（§7.3 表）：Google 正推动用户向闭源 Antigravity CLI 迁移（2026-08 社区争议），**pin 版本当快照用，不追新**。
+
+### 7.3.2 Antigravity 可移植的四个交互范式（源码闭源，UX 层面参考）
+
+①**Manager Surface 式多 agent 并行总览**——任务级 "mission control"，跨多 workspace 异步 spawn/编排/观察；②**Artifacts 一等公民 + 异步评论反馈**——task lists / implementation plans / walkthroughs（带截图的逐步指南）/ browser recordings，用户以 Google-doc 式评论 + 截图圈选批注，agent 后续消费反馈而**不中断执行**（异步反馈回路）；③**终端 + 浏览器双通道 Verify**（配套 Chrome 扩展接管浏览器做测试验证）；④**knowledge base 持久沉淀**复用。时间线：2025-11-20 与 Gemini 3 同发（public preview 免费，自带 Gemini 3 Pro/Claude Sonnet 4.5/GPT-OSS）；2026-08 已迭代至 2.0 并新增 `agy` CLI（与 GUI 共享同一 Core Agent Engine）；官方 GitHub org 仅 2 仓（antigravity-cli：NO-LICENSE 无源码，二进制经 install.sh 分发；antigravity-sdk-python：Apache-2.0 API 封装）。
+
+### 7.3.3 OpenClaw Gateway 协议要点（细节补充）
+
+- **Gateway 单守护进程**监听 `ws://127.0.0.1:18789`；线协议 = WS 文本帧 JSON，首帧必须 `connect`；**req/res/event 三类消息 + JSON Schema 校验 + 副作用方法（send/agent）强制幂等键**；事件含 agent/chat/presence/health/heartbeat/cron，`event:agent` 携带 runId 流式输出。
+- 客户端拓扑：Control UI（Web）/CLI/TUI/macOS app 均为 WS 客户端；**Nodes**（macOS/iOS/Android/headless 设备）以 `role:node` 接入并声明 caps（camera.*/screen.record/canvas.*）；本地信任模型 = 共享密钥 + 设备配对（`openclaw pairing approve`）。
+- **ACP 双向桥**：`/acp spawn` 可把 Claude Code/Cursor/Gemini CLI/OpenCode 等外部 coding harness 作为频道会话后端（`sessions_spawn({runtime:"acp"})`）；Gateway 也可暴露为 ACP server 供 IDE 连——证明"助理外壳 + coding agent 后端"解耦路线可行（Spark 后期挂接外部 agent 时直接借鉴）。
+- 工程组织：23 个核心包中 `gateway-protocol/gateway-client/plugin-sdk/plugin-package-contract/session-url-contract/workboard-contract` **契约独立成包**（与我们 protocol 包同思路）；150+ extensions（30+ 消息频道、LLM 提供商、工具、记忆 lancedb/wiki/active-memory）+ ClawHub 插件市场；作者 Peter Steinberger（steipete），OpenClaw Foundation（非营利）持有版权；致谢 Mario Zechner（pi 作者——生态互认又一例）。
+
+# 8. 逆向的边界（三层）
+
+1. **官方接口定义（甚至不算逆向）**：Claude Code 的 sdk.d.ts（38.9 万字节类型+TSDoc：38 成员消息联合/34 控制子类型/31 hooks/每字段语义）是官方主动发布的接口规格——本次调研大量结论直接来自它，零成本。
+2. **压缩产物可"推断"什么**：bundle 保留字符串与结构（类型名/子类型名/flag 名无法混淆），丢失变量名/注释/组织——可精确定位协议形状与执行流程，读不出优雅源码；专有许可下**不可复制代码**。
+3. **运行时行为观测**：minusx 网络抓包（主循环/提示词规模/子代理行为）；我方对 ZCode 的磁盘观测（rollout 格式/插件依赖）——观察行为非还原代码。
+
+一句话：**接口可逆向、源码不可逆向、思路随便学**——接口规格与思想不受版权保护，代码受。
 
 # 9. 参考资料资产盘点
 
@@ -831,6 +854,9 @@ https://zhanghandong.github.io/grok-build/ ——19 章六部（全景[时代/75
 | 4 | Codex | 协议形状（thread/turn/item）、审批结构化提案、反向扫描 resume、并行门控、steering 三态 | protocol/src/turn_input.rs、app-server-protocol、rollout/src/reverse_jsonl_scanner.rs、core/src/tools/parallel.rs |
 | 5 | Grok Build | leader 单实例、多域 checkpoint、TUI 调度纪律、NFS SQLite 教训 | xai-grok-shell/src/leader/、workspace/src/session/checkpoint.rs |
 | 6 | Claude Code | 实现细节答案之书（**只读不抄**）+官方 plugins 学工作流+SDK 类型学接口 | claude-code-analysis/src+analysis/、官方 plugins/、sdk.d.ts |
+| 7 | Gemini CLI | TS 引擎/UI 分包范本、审批即策略（TOML 分层规则带）、调度状态机+审批总线、事件流三端复用、压缩双层管道（**pin 版本快照参考**） | scheduler/、confirmation-bus/message-bus.ts、policy/policy-engine.ts、utils/events.ts、context/ |
+| 8 | OpenClaw | Gateway 控制平面（req/res/event+幂等键+JSON Schema）、契约独立成包、频道即扩展、ACP 双向桥 | packages/gateway-protocol、plugin-package-contract、docs/concepts/architecture.md |
+| 9 | Hermes Agent | 多渠道接入模型（one agent, one memory, every surface）、子代理 RPC 隔离、沙箱后端抽象（Python，抄思路不抄代码） | （Python 为主，按需精读） |
 | 7 | **Gemini CLI**（2026-08-23 增） | TS 同语言的 core/UI 分包范本、**confirmation-bus 审批总线**、policy/safety/sandbox、a2a-server；⚠️ pin 版本（Google 迁移闭源 Antigravity 风险） | packages/core/src/confirmation-bus、packages/core、packages/a2a-server |
 | 8 | **OpenClaw**（2026-08-23 增） | gateway-protocol 独立协议包、插件合同（plugin-sdk + plugin-package-contract）、net-policy、多端原生 apps 组织 | packages/gateway-protocol、packages/plugin-sdk、apps/ |
 | 9 | **Hermes Agent**（2026-08-23 增，Python 为主） | 多渠道接入（one agent one memory every surface）、子代理 RPC 隔离、沙箱后端抽象（五种）、acp_adapter——抄思路不抄代码 | repo: NousResearch/hermes-agent（agent/、acp_adapter/） |
@@ -840,4 +866,4 @@ https://zhanghandong.github.io/grok-build/ ——19 章六部（全景[时代/75
 
 ---
 
-*报告完（v1.2）。实施细节见 `02-development-plan.md`。*
+*报告完（v1.5）。实施细节见 `02-development-plan.md`。*
