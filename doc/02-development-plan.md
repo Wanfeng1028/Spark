@@ -13,6 +13,7 @@
 | v1.6 | 2026-08-22 | 同上（决策：晚风 Wanfeng1028） | §1.1 定位移除"本地优先"措辞（事实不变，不作明面标签；127.0.0.1 绑定等实现细节保留在 §7/D5） |
 | v1.7 | 2026-08-23 | 同上 | §9 速查表新增三行：Gemini CLI（core/ui 分包+confirmation-bus）、OpenClaw（gateway-protocol+插件合同）、Hermes Agent（多渠道/子代理/沙箱后端）——与 01 §7.3/§10 同步 |
 | v1.8 | 2026-08-23 | 同上 | §9 再补两行 Gemini CLI 细化借鉴点（TOML 策略引擎分层规则带、上下文压缩双层管道），表头计数修正为 28 条；与 01 v1.5 的 7.3.1 细化同步 |
+| v1.9 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，目标"照文档能直接开发完全"） | 前后端规格补全：新增 §4.5.1 DTO 定义（SessionMetaDto 含 status）、§4.7 Mock 四场景脚本表（§8 阶段一同步 3→4）、§5.9 ResolvedModel 与消息/工具投影（models.json 补 contextWindow）、§6.1 apps/web 文件级结构、§6.2.1 欢迎页完整规格、新增 §6.2.3 SettingsDialog 规格、§6.3 结构布局细则、§7.2 逐路由实现要点表、§7.5 静态托管展开 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -287,6 +288,22 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | POST | /api/sessions/:id/fork | `{ fromEventId }` | SessionDto（阶段四） |
 | GET | /api/event | `?sessionId&since` | SSE 流 |
 
+### 4.5.1 DTO 定义（protocol/src/api.ts）
+
+```ts
+/** 引擎 SessionMeta 的线上形状（列表/详情共用；字段一一对应 §5.2） */
+export interface SessionMetaDto {
+  id: SessionId; title: string; model: string; cwd: string
+  createdAt: number; updatedAt: number; lastSeq: number   // updatedAt=最近 durable 事件 time（列表排序键）
+  status: 'idle' | 'running' | 'waiting-approval'          // 引擎从 SessionRuntime 实时填充（Sidebar/欢迎页状态点）
+}
+export interface SessionDto extends SessionMetaDto {
+  events?: SparkEventEnvelope[]   // 仅 GET /api/sessions/:id 返回：全部 durable 事件按 seq 升序（冷启动回放）
+}
+```
+
+约定：`title` 为空字符串时前端显示"新会话"（自动标题阶段四）；`model` 为该会话解析后的默认模型字符串（`provider/model` 形式）。
+
 ## 4.6 SSE 帧格式
 
 ```
@@ -313,7 +330,16 @@ export interface Transport {
 }
 ```
 
-MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（delta 30~80ms/次）；审批场景挂起等待 reply；支持 steer 演示；`speed`/`scenario`（normal/long-output/reject/error-finish）开关。
+MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（delta 30~80ms/次）；审批场景挂起等待 reply；支持 steer 演示；`speed`/`scenario` 开关。
+
+**四个预录场景（examples/mock-sessions/，阶段一交付）**——脚本与引擎 JSONL 同构（durable 事件按行存放），脚本锚点行（如 `{"@wait":"approval"}`）控制挂起与分支：
+
+| 场景 | 脚本要点 | 覆盖的 UI 状态 |
+|---|---|---|
+| normal.jsonl | 读文件→edit（含 diff）→bash 跑测试→总结；含一段 reasoning 流与一次审批（once 放行） | 流式/工具三态/审批通过/turn 完成 |
+| long-output.jsonl | bash 输出 3000+ 行（验证 progressBuf 截头与 Terminal 缓冲上限） | 长输出/滚动/BackBottom |
+| reject.jsonl | write 审批被拒 + feedback 注入（下一条 assistant 响应 feedback 内容） | 审批拒绝/E_PERMISSION 徽标/feedback 回喂 |
+| error-finish.jsonl | 第 2 step 模拟 LLM 错误（turn.completed{error} + error 事件） | 顶部黄条/重试按钮 |
 
 ---
 
@@ -370,7 +396,7 @@ createEngine(config)
     "anthropic": { "apiKeyEnv": "ANTHROPIC_API_KEY" },
     "ollama":   { "baseUrl": "http://127.0.0.1:11434/v1", "apiKeyEnv": null }
   },
-  "defaultModel": { "provider": "deepseek", "model": "deepseek-chat" },
+  "defaultModel": { "provider": "deepseek", "model": "deepseek-chat", "contextWindow": 128000 },
   "compactionModel": { "provider": "deepseek", "model": "deepseek-chat" }
 }
 ```
@@ -707,6 +733,19 @@ export interface LlmGateway {
 //           message_end(assistant)→由 run-loop emit assistant.message（网关只回调不落协议）
 ```
 
+```ts
+export interface ResolvedModel {
+  provider: string; model: string; contextWindow: number
+  apiKey?: string; baseUrl?: string
+}
+// 解析时由 models.json + 环境变量合成（resolveModel）；apiKey 只在此注入，
+// 不进事件、不进日志、不进任何 DTO（§5.10 脱敏的根因消除）。
+```
+
+- **消息投影**：Projector 输出的 `{role, content}` 直接对应 pi-ai 消息结构；`toolCall/toolResult` 到 provider 消息形状的转换（Anthropic tool_use/tool_result 块、OpenAI tool_calls/tool 角色）由 pi-ai 内建映射完成，网关不做逐 provider 分支。
+- **工具清单转换**：`registry.materialize()` 产出的 jsonSchema（zod-to-json-schema）直接作为 pi-ai tools 的参数 schema；网关侧零适配。
+- **contextWindow 用途**：runStep ② 的 `tokens/contextWindow > compactionThreshold` 触发压缩（§5.8.5）；turn 显式指定模型的 contextWindow 未知时按 128000 兜底并 warn。
+
 ## 5.10 错误分类与可观测性
 
 ```
@@ -741,11 +780,58 @@ metrics（进程内计数器，阶段四经 /api/metrics 暴露）：
 
 路由：React Router v7（library 模式）。布局：`<App>` → `<TransportProvider>` → `<AppShell>{Sidebar}{<Outlet/>}{StatusBar}</AppShell>`。
 
+**apps/web 文件级结构**（§3 只列到包级，此处到文件级——阶段一直接照此建）：
+
+```
+apps/web/
+├── index.html / vite.config.ts
+├── src/
+│   ├── main.tsx / App.tsx               # 入口 + 路由与 AppShell 组装
+│   ├── routes/{WelcomePage,SessionPage}.tsx
+│   ├── components/
+│   │   ├── layout/{AppShell,Sidebar,StatusBar,Titlebar}.tsx
+│   │   └── ui/                          # shadcn + AI Elements copy-in（改造清单见 §6.7）
+│   ├── features/chat/                   # 会话流业务组件收敛于此（opencode session-ui 思想：整目录可迁移）
+│   │   └── {ChatView,MessageItem,AssistantBlock,ReasoningCollapsible,
+│   │       ToolCard,ApprovalCard,TurnStatusBar,Composer,BackBottom}.tsx
+│   ├── stores/{session,connection,settings}.ts
+│   ├── transports/{context.tsx,http.ts,mock.ts}
+│   ├── hooks/{useSessionItems,useKeyboard}.ts
+│   └── styles/{tokens.css,theme.css}
+└── tests/applyEvent.test.ts 等
+```
+
 ## 6.2 逐屏视图规格
 
 ### 6.2.1 欢迎页 `/welcome`
 
-空态：居中 Logo + "新建会话"主按钮 + 最近会话卡片（≤6）+ 3 条快捷提示词 chip。加载态：skeletons。错误态：连接失败重试。
+布局（紧凑引导块，禁止 hero/落地页式——DESIGN.md §7.1；视觉值见其 §3）：
+
+```
+┌──────────────────────────────────────────────┐
+│  Spark（产品名，页面级标题）                    │
+│  一段话说明（12px muted，≤2 行）               │
+│  [ 新建会话 ]（主按钮，每屏唯一）               │
+│  提示词 chip ×3（边框 chip，12px）             │
+│                                              │
+│  最近会话（区块标题 + 列表，≤6 张卡片）          │
+│  ┌ 标题 · 相对时间 · 状态点 ┐                  │
+└──────────────────────────────────────────────┘
+```
+
+- **新建会话**：`transport.createSession()` → 跳转 `/session/:id`；失败 toast + [重试]。
+- **提示词 chip**：点击 = 新建会话 + 立即 `sendMessage(chip 文本)`，成功后跳转；sendMessage 失败则仍跳转并把文本回填 Composer（不丢用户输入）。
+- **会话卡片**：标题（空显示"新会话"）/相对时间（updatedAt）/状态点（SessionMetaDto.status，色规 DESIGN.md §8"状态点"）；点击切换路由；右键菜单：重命名（v2）。
+- **状态矩阵**：
+
+| 状态 | 表现 |
+|---|---|
+| 加载中 | 列表区 6 行 skeleton |
+| 空（无历史会话） | 隐藏"最近会话"区块，仅引导块 + chips |
+| 加载失败 | 内联错误块 + [重试]；连接状态与 StatusBar 联动 |
+
+- 键盘：Tab 序 = 新建按钮 → chips → 会话卡片，Enter 激活；Cmd/Ctrl+K 命令面板可用。
+- 数据源：`transport.listSessions()`（经 Query 缓存；组件不直接 fetch——DESIGN.md §9）；断线显示缓存 + 陈旧标记。
 
 ### 6.2.2 工作台 `/session/:id`
 
@@ -781,6 +867,19 @@ metrics（进程内计数器，阶段四经 /api/metrics 暴露）：
 | turn 进行中 | [停止]（interrupt）/ [排队]（queue）/ [插话]（steer，默认高亮）；输入后 Enter = steer（提示"将注入当前轮"） |
 | 审批挂起 | 输入区禁用（焦点引导 ApprovalCard） |
 
+### 6.2.3 设置弹窗 SettingsDialog（v1 用 Dialog，不换路由）
+
+触发：`Cmd/Ctrl+,` 或 StatusBar 齿轮。Radix Dialog（portal），宽 480px；Esc/遮罩关闭，关闭后焦点归还触发元素（DESIGN.md §5）。
+
+| 分区 | 字段 | 控件 | 持久化 | 说明 |
+|---|---|---|---|---|
+| 通用 | 主题 | light/dark 二态切换 | settings-store（localStorage） | 立即生效（document class 切换）；v1 无"跟随系统" |
+| 通用 | 默认 delivery | now/steer/queue 单选 | 同上 | Composer 初始模式（§6.2.2） |
+| 模型 | 新建会话默认模型 | 文本输入（`provider/model`） | 同上 | v1 手输直传 createSession，非空校验；模型枚举 API 不在 §4.5 表内，阶段四再议 |
+| 会话 | 权限规则表 | —（v2） | — | 阶段四"规则管理 UI"（§8） |
+
+行为：全部即存即生效（无保存按钮，桌面应用惯例）；默认模型只影响新建会话，不改已有会话。空/错误态：字段为本地态无加载；唯一校验为非空。
+
 ## 6.3 组件规格（props 与行为）
 
 ```tsx
@@ -813,8 +912,19 @@ interface ApprovalCardProps {
 interface TurnStatusBarProps { turn: { turnId; stepCount; runningTools: string[] } | null }
 interface ComposerProps { busy: boolean; onSend(text, delivery): void; onInterrupt(): void }
 // SessionSidebar / SessionItem（标题/相对时间/状态点 idle|running|waiting-approval）
-// SettingsDialog：模型选择/默认 delivery/主题/权限规则表（v2）
+// SettingsDialog：完整规格见 §6.2.3
 ```
+
+**结构布局细则**（此处定结构与分发，尺寸/颜色 token 以 DESIGN.md §3/§8 为唯一来源）：
+
+- **MessageItem**：全宽行 = 角色标签行（12px 灰标签 `YOU`/模型名）+ 内容区。user = 浅背景块（4px 圆角、全宽）；assistant = 无背景，纵向排内容块序列（text→streamdown、reasoning→折叠面板、toolCall→ToolCard、approval 定位见下）。
+- **AssistantBlock**：内容块纵向排列；streaming 时 text 末尾 `▮` 光标；usage 徽标右对齐淡显（turn 完成）。
+- **ToolCard**：折叠摘要行 `[lucide 图标] 工具名 · 资源路径（mono、截断）· 状态 · 耗时`；展开区按工具分发（bash→Terminal / edit|write→DiffViewer / read→CodeBlock / 其他→JSON 折叠）；running 时摘要行尾滚动显示 progressBuf 最后片段（折叠态也可见）。
+- **ApprovalCard**：内联在对应 tool.started 的紧后位置（事件序即 UI 序——Claude Code 内联审批）；结构 = warn 左边框容器 + `action / resource`（mono）+ reason 段 + 三按钮行；resolved 后 2s 收为摘要行（DESIGN.md §8）。
+- **TurnStatusBar**：ChatView 顶部悬浮细条：`step N` · 运行中工具徽标（工具名×并发数）· 等待审批时 amber 文案；idle 时隐藏。
+- **Composer**：底部固定区 = 多行 textarea（自适应 1-8 行）+ 右下按钮组（空闲 `[发送]`；进行中 `[插话(主)] [排队] [停止]`）；DeliveryBar 即按钮组本身，三态行为见 §6.2.2 表。
+- **SessionSidebar**：顶部 `[新建]` + 搜索框（标题子串过滤，前端本地）；列表分组头"今天/更早"；会话项 36px：状态点 + 标题（截断）+ 相对时间；无 footer（DESIGN.md §7.6）。
+- **StatusBar**：左起：连接状态点+文案 · 当前会话模型名 · seq 水位（lastSeq）· token 累计；右起：主题切换 · 设置齿轮。
 
 ## 6.4 状态层（stores/）
 
@@ -958,8 +1068,19 @@ app.post('/api/sessions/:id/messages', async (req, reply) => {
 })
 ```
 
-- `GET /api/sessions/:id`：`events` 字段 = 该会话全部 durable 事件（按 seq）——前端冷启动回放。
-- 校验失败 400（zod flatten）；未知会话 404；turn 不存在时 interrupt 幂等成功（200）。
+**逐路由实现要点**（端点清单见 §4.5；通用模式 = zod 解析 → engine 调用 → DTO 序列化，错误经 §7.4 映射）：
+
+| 路由 | 实现要点 |
+|---|---|
+| POST /api/sessions | body `{title?, model?, cwd?}`（model 缺省用引擎 defaultModel；cwd 缺省 = server 进程 cwd）→ `createSession` → 201 + SessionMetaDto |
+| GET /api/sessions | `listSessions()` 按 updatedAt 倒序；`?limit`（默认 50）+ `?cursor`（= 最后一条的 id，倒序遍历）——v1 内存全量切片即可，无索引 |
+| GET /api/sessions/:id | 会话未加载先 `resumeSession`；meta + 全量 durable 事件（按 seq 升序）→ SessionDto（`events` = 前端冷启动回放数据源） |
+| POST /api/sessions/:id/messages | 见上例代码；**submit 三态直通**（不等待 turn 结果——HTTP 只表达"已受理"） |
+| POST /api/sessions/:id/interrupt | `handle.interrupt()`；会话 idle 时同样返回 200 `{ok:true}`（幂等，无 turn 也成功） |
+| POST /api/permissions/:requestId | `PermissionService.reply`；已答复 → 409 E_ALREADY_RESOLVED；requestId 不存在 → 404 |
+| GET /:id/tree · POST /:id/fork | 阶段四实现；v1 不注册路由（§4.5 表已标注） |
+
+校验失败 400（zod flatten）；未知会话 404。并发安全由引擎单写者与 per-session 串行保证，路由层无锁。
 
 ## 7.3 SSE 实现（sse.ts）
 
@@ -990,9 +1111,11 @@ app.get('/api/event', async (req, reply) => {
 | 引擎已 shutdown | 503 `E_SHUTTING_DOWN` |
 | 内部异常 | 500 `E_INTERNAL`（详情只进日志，不透出） |
 
-## 7.5 静态托管
+## 7.5 静态托管与运行形态
 
-生产模式 `fastifyStatic` 托管 apps/web 构建产物；SPA fallback（`setNotFoundHandler` → 回 index.html，排除 `/api` 前缀）。开发模式前端走 Vite dev server + `/api` 代理（见 §6.9）。
+- **生产模式**：`fastifyStatic` 托管 `apps/web/dist`；SPA fallback——`setNotFoundHandler` 回 `index.html`（**排除 `/api` 前缀**：API 404 仍返回 JSON，不回 HTML）；Vite 内容哈希文件 `Cache-Control: public, max-age=31536000, immutable`，`index.html` 一律 `no-cache`（保证发版即生效）。
+- **开发模式**：前端 Vite dev server（5173）+ `server.proxy['/api'] → 127.0.0.1:4318`（§6.9）；引擎独立进程 `pnpm --filter server dev`（tsx watch）。
+- **命令**（阶段一回填 package.json scripts）：`pnpm dev` = 并行 web+server；`pnpm build` = web 构建产物供 server 托管；`pnpm start` = build + `node apps/server/dist/index.js`。无 Docker/CDN/域名（本地产品，§4.5 host=127.0.0.1）。
 
 ---
 
@@ -1002,7 +1125,7 @@ app.get('/api/event', async (req, reply) => {
 
 - [ ] pnpm workspace + tsconfig.base + eslint/prettier
 - [ ] protocol：§4 全部类型 + zod schema + jsonSchema 导出 + Transport 接口
-- [ ] examples/mock-sessions：3 个预录场景
+- [ ] examples/mock-sessions：4 个预录场景（§4.7 场景表：normal/long-output/reject/error-finish）
 - [ ] web 空壳（Vite+React+Tailwind+shadcn init）+ MockTransport + TransportProvider
 - [ ] server 空壳（Fastify hello + 静态托管）
 - **验收**：web 用 Mock 跑通"发送→流式回复"假对话
