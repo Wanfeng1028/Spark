@@ -12,6 +12,7 @@
 | v1.2 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；决策：晚风（Wanfeng1028） | §1 定位移除"本地优先"标签（架构事实不变；MVP 范围收窄的表述保留，绑定细节归 D5） |
 | v1.3 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；决策：晚风（Wanfeng1028） | **文件更名 DESIGN.md → ARCHITECTURE.md**：按"四类约束"文档框架（AGENTS 管项目 / DESIGN 管视觉 / SKILL 管流程 / 专属文件管工具差异），本文件职责为架构与决策记录；视觉规则由原 doc/04-frontend-rules.md 迁入新的根 DESIGN.md |
 | v1.4 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | D2"AI 生成风"特征清单收拢为单一来源：本文件保留判例与决策，完整六类清单改指 DESIGN.md §12 |
+| v1.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"后端的 AI 规范也要写好"） | 新增 **§9 代码"AI 生成味"黑名单（后端与通用代码）**：六类（过度设计/防御式噪音/注释与死代码/命名结构/类型依赖/硬检查），boring code 总原则，与引擎铁律挂钩（吞异常=违反失败闭合）；依据 arXiv 实证 + 社区案例 6 源 |
 
 ---
 
@@ -110,3 +111,69 @@
 ## 8. 已知风险（摘要）
 
 pi 包 0.x（隔离单点+锁版本）；AI Elements 面向 Next.js（copy-in 适配）；本地安全（默认全审批+路径硬边界，沙箱后置）；协议演进（durable version 预留+fail-closed 读端）。完整表见 doc/02 §10。
+
+## 9. 代码"AI 生成味"黑名单（后端与通用代码，硬约束）
+
+> 本节是引擎/服务端/协议包代码的"AI 味"**唯一完整清单**（AGENTS.md §2.11 引用此处；前端外观黑名单在 DESIGN.md §12）。适用于 `packages/*` 与 `apps/server`。
+> **依据**（2026-08-23 外部调研）：arXiv 对 AI 生成代码的大规模实证——坏味道占全部问题的 **89.3%**；Microsoft 内部数据——AI 代码比人写的**冗长 20-30%**；社区共识：AI 会生成"看起来很企业级"的 plausible structure（貌似架构合理，实为模板惯性）。
+> **总原则：boring code**。无聊、可读、只做好一件事的代码是目标；"看起来专业"是负分。删掉一层抽象若不破坏功能，就删——每次都删（社区 litmus test：如果这是你独自维护的代码，你还会这么写吗？不会 = 过度设计）。
+
+### 9.1 过度设计（AI 最高频代码味）
+
+- **无据设计模式**：工厂/DI 容器/抽象基类/Strategy 策略族——两数相加不配拥有 Factory；只有一种实现的接口（Speculative Generality）。
+- **自定义异常层级税**：为内部工具建 Exception 继承树。我们用协议错误码（doc/02 §5.6.3）+ `Error` 携带 code，不建层级。
+- **配置化膨胀**：YAML/JSON 配置加载器、options 对象爆炸——参数只有一种现实取值却做成可配置（`models.json` 之外不新增配置文件，除非 ADR 立项）。
+- **多余分层**：service→manager→helper 套娃；单文件 80 行能说清的事拆五个文件。模块边界以 §6 职责表为准。
+- **预留扩展点**：MVP 边界外的接口预埋（AGENTS §2.9 已禁 MCP/子代理/skills/沙箱预埋）。
+- **一次性代码的企业级包装**：给内部脚本配 README/CLI 参数解析/JSDoc。
+
+### 9.2 防御式噪音（多数直接违反引擎铁律）
+
+- **空 catch / 吞异常 / catch 后 log 一下返回假值**——违反"失败闭合"（事件流永不悬空）：错误必须转为显式失败事件或向上抛，禁止静默吞掉。【P0】
+- **mock/占位实现混入生产路径**（返回假成功、TODO stub 假装完成）——违反"禁止假状态"；未实现的路径必须显式报错。
+- **无意义 try-catch**：包裹不可能抛的代码、把错误转成 `null`/`undefined` 返回。
+- **到处重试**：网络调用一律 retry×3+指数退避。审批是 fail-closed：超时即拒，不用重试遮丑；LLM 网关重试策略集中在 LlmGateway 一处。
+- **幻觉防御**：类型上不可能为 null 却写满 `?.` 与 `??`；zod schema 已是唯一输入校验层（协议铁律），再手写 if 校验链。
+- **floating promise**：async 调用不 await 不处理——引擎内一律 await，错误沿事件流闭合。
+
+### 9.3 注释与死代码
+
+- 解释一眼能懂的注释（`// 调用工具执行`）；"提高稳定性""保证安全运行"式空泛注释（中文社区点名的高频 AI 注释味）。
+- JSDoc 包裹 trivial 函数；getter/setter 式样板。
+- AI 对话/生成痕迹：`TODO(ai)`、"以下是实现"、分割线注释块、大段被注释掉的旧代码。
+- 写给 reviewer 的"本次变更说明"注释（应写进 commit message，不进代码）。
+- 未被引用的导出、永不可达分支、复制粘贴微改的重复块（≥3 处相同逻辑应提取）。
+
+### 9.4 命名与结构
+
+- 泛化命名当类名/文件名：`data` `info` `manager` `helper` `utils` `handler` `processor`。
+- 术语漂移：同一概念一处叫 session 一处叫 conversation（以 protocol 词表为准）。
+- 300+ 行 god file（模块职责见 §6；超限先拆职责而不是加注释）。
+
+### 9.5 类型与依赖
+
+- `any` / `as any` / `@ts-ignore` 逃逸（AGENTS §2.4 已禁 any；确需 `unknown` + 收窄）。
+- **幻觉依赖**：不存在的包/版本、编造的 API 方法——import 必须能过 typecheck；引新依赖前先查 ARCHITECTURE ADR 是否允许（如响应式框架已被 D8 否决）。
+- 重量级依赖解一行代码问题（又引一个校验库/日期库——zod 与现有工具优先）。
+- 引擎内裸 `console.log`——日志走结构化脱敏通道（红线 §6.3），裸打印不脱敏即违规。
+
+### 9.6 硬检查（阶段一接入 CI；当前 PR 人工自查）
+
+| 检查 | 手段 |
+|---|---|
+| `catch\s*\([^)]*\)\s*\{\s*\}`（空 catch） | grep / ESLint `no-empty-catch` |
+| `as any` / `@ts-ignore` / `: any` | grep / `@typescript-eslint/no-explicit-any`（strict） |
+| floating promise | `@typescript-eslint/no-floating-promises` |
+| 未引用导出/依赖 | knip 或 depcheck |
+| `TODO(ai)`、被注释的代码块 | grep 评审项 |
+| 裸 `console.*`（engine/server 内） | ESLint `no-console`（白名单：CLI 入口） |
+| 注释密度异常（函数体注释行占比过高） | 评审项 |
+
+**调研来源**：
+
+- [A Large-Scale Empirical Study of AI-Generated Code — arXiv](https://arxiv.org/html/2603.28592v2)：484,366 个问题中坏味道占 89.3%。
+- [AI-Generated Smells: An Analysis of Code and Architecture — arXiv](https://arxiv.org/html/2605.02741v1)：单代理/多代理 AI 产出的代码与架构级坏味道。
+- [AI Loves to Over-Engineer Your Code — dev.to](https://dev.to/tyson_cung/ai-loves-to-over-engineer-your-code-and-youre-letting-it-4p9m)：工厂/DI/抽象类/YAML 配置等具体案例；Microsoft 冗长度 20-30% 数据；boring code 与 litmus test。
+- [AI Broke Your Code Review — Bryan Finster](https://bryanfinster.substack.com/p/ai-broke-your-code-review-heres-how)："AI-specific bloat"：貌似合理的unnecessary abstractions、single-use factories。
+- [Debloating the AI-Grown Codebase — dev.to](https://dev.to/maximsaplin/debloating-the-ai-grown-codebase-2om)：plausible structure 比 real design 累积更快，主动删除未用抽象。
+- [别让 AI 把你的代码注释成废话 — 电子工程专辑](https://www.eet-china.com/mp/a500732.html)：空泛注释（"提高稳定性"）与逐句注释问题。
