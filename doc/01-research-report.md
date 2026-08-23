@@ -9,8 +9,8 @@
 | v1.2 | 2026-08-22 | 同上 | **补全全程调研内容**：新增第 0 章前期会话范式调研（含 20+ 仓库统计与许可证陷阱）；六家各补"产品形态总览（首轮调研）"；前端生态补组件库完整细节（x-card/x-skill 子包、assistant-ui 包矩阵、shadcn chat blocks 等）；后端生态补 AI SDK v7 全量 breaking、SSE/JSONL 库现状、Go eino ADK/genkit 全清单；新增"语言边界与混合架构""逆向的边界"两章；新增本版本记录表 |
 | v1.3 | 2026-08-22 | 同上 | 修正版本记录：作者模型信息补全 GLM-5.3（此前仅写会话内部标识 ox-alpha，未写底层模型，属记录不完整） |
 | v1.4 | 2026-08-22 | 同上（决策：晚风 Wanfeng1028） | 全文移除"本地优先"定位措辞两处（§0.1 目标、§4.1 表注）——事实不变，不作明面标签 |
-| v1.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | 整合并行会话新增的 §7.3（Gemini/Antigravity/Hermes/OpenClaw/ZCode/Qoder/Trae 参考性评估，hermes-agent 仓库已复核真实）并修正其位置（原误插于 §8 之后）；据二轮调研细化：新增 7.3.1 Gemini CLI 文件级借鉴点（调度状态机/TOML 策略引擎/事件流三端/压缩双层/装饰器链）、7.3.2 Antigravity 四个可移植交互范式、7.3.3 OpenClaw Gateway 协议要点；§10 参考体系扩至 9 项 |
-| v1.5 | 2026-08-23 | 同上 | 新增 §7.3 候选参考性评估（Gemini CLI/Antigravity/Hermes Agent/OpenClaw/ZCode/Qoder/Trae，含不可参考原因）；§10 参考体系新增 #7 Gemini CLI、#8 OpenClaw、#9 Hermes Agent（+附 trae-agent）。核验：Gemini CLI Apache-2.0 106k★、OpenClaw MIT 387k★、Hermes MIT 234k★、Antigravity 闭源 |
+| v1.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | 新增 §7.3 候选参考性评估（Gemini CLI/Antigravity/Hermes Agent/OpenClaw/ZCode/Qoder/Trae，含不可参考原因）；§10 参考体系新增 #7 Gemini CLI、#8 OpenClaw、#9 Hermes Agent（+附 trae-agent）。核验：Gemini CLI Apache-2.0 106k★、OpenClaw MIT 387k★、Hermes MIT 234k★、Antigravity 闭源 |
+| v1.6 | 2026-08-23 | 同上 | 整合并行会话的 §7.3 并修正其位置（原误插于 §8 之后）；据二轮调研细化：新增 7.3.1 Gemini CLI 文件级借鉴点（调度状态机/TOML 策略引擎/事件流三端/压缩双层/装饰器链）、7.3.2 Antigravity 四个可移植交互范式、7.3.3 OpenClaw Gateway 协议要点；§10 参考体系扩至 9 项 |
 
 > 调研周期：2026-08-21 ~ 2026-08-22（本会话）+ 前期会话（sess_20abb8d8，GeoWork/Agent 前端架构调研）
 > 调研方式：全部在线（GitHub API `gh api` / npm registry / raw 文件直读 / 官方文档 / 本机安装目录观测），未本地克隆。六大项目完成**源码级精读**（3 个并行调研代理 + 3 个精读代理 + 补交续读，共 10 次代理任务；另有主对话直接核查若干）。
@@ -866,4 +866,4 @@ https://zhanghandong.github.io/grok-build/ ——19 章六部（全景[时代/75
 
 ---
 
-*报告完（v1.5）。实施细节见 `02-development-plan.md`。*
+*报告完（v1.6）。实施细节见 `02-development-plan.md`。*
