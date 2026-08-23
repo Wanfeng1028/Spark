@@ -11,6 +11,7 @@
 | v1.4 | 2026-08-22 | 同上（决策：晚风 Wanfeng1028） | 全文移除"本地优先"定位措辞两处（§0.1 目标、§4.1 表注）——事实不变，不作明面标签 |
 | v1.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | 新增 §7.3 候选参考性评估（Gemini CLI/Antigravity/Hermes Agent/OpenClaw/ZCode/Qoder/Trae，含不可参考原因）；§10 参考体系新增 #7 Gemini CLI、#8 OpenClaw、#9 Hermes Agent（+附 trae-agent）。核验：Gemini CLI Apache-2.0 106k★、OpenClaw MIT 387k★、Hermes MIT 234k★、Antigravity 闭源 |
 | v1.6 | 2026-08-23 | 同上 | 整合并行会话的 §7.3 并修正其位置（原误插于 §8 之后）；据二轮调研细化：新增 7.3.1 Gemini CLI 文件级借鉴点（调度状态机/TOML 策略引擎/事件流三端/压缩双层/装饰器链）、7.3.2 Antigravity 四个可移植交互范式、7.3.3 OpenClaw Gateway 协议要点；§10 参考体系扩至 9 项 |
+| v1.7 | 2026-08-23 | 同上（发起：晚风，"Qwen Code 开源，能参考的尽量参考"） | §7.3 表新增 **Qwen Code** 行（Apache-2.0 27.3k★；Gemini CLI v0.8.2 血统独立发展；多协议运行时切换/Auto-Memory-Auto-Skills/SubAgents-Agent Teams/daemon+IM bots 多形态；指令文件 QWEN.md 主+AGENTS.md 兼容——已核实；生态 Piebald-AI/gemini-cli-desktop GUI 客户端）；§10 参考体系扩至 **10 项**（分支差异参考档） |
 
 > 调研周期：2026-08-21 ~ 2026-08-22（本会话）+ 前期会话（sess_20abb8d8，GeoWork/Agent 前端架构调研）
 > 调研方式：全部在线（GitHub API `gh api` / npm registry / raw 文件直读 / 官方文档 / 本机安装目录观测），未本地克隆。六大项目完成**源码级精读**（3 个并行调研代理 + 3 个精读代理 + 补交续读，共 10 次代理任务；另有主对话直接核查若干）。
@@ -788,6 +789,7 @@ SessionV2.prompt [session.ts L360] → SessionInput.admit [input.ts L41]（落 s
 | **Google Antigravity（反重力）** | ❌ 闭源 | agent-first IDE：VS Code fork（MIT 底座）+ Google 专有 agent 层（企业许可头）；不支持自托管；即 Antigravity CLI 本身也闭源 | ❌ 仅可观察 UX（浏览器界面/任务面板设计） | ❌ | **❌ 不可参考源码**。原因：闭源专有；与 ZCode 同归"行为观察"类 |
 | **Hermes Agent**（NousResearch/hermes-agent） | ✅ MIT | 234,494★，Python 72.3MB + TS 20.1MB，日更；v0.20.5；多渠道（TG/Discord/Slack/WhatsApp/Signal/Email/CLI）+ 持久记忆 + 技能自动生成 + cron + 子代理（Python RPC）+ 五种沙箱后端（local/Docker/SSH/Singularity/Modal）；桌面端+CLI | 部分（apps 为多渠道客户端） | ✅ **多渠道接入模型（"one agent, one memory, every surface"）、子代理隔离与 RPC、沙箱后端抽象、acp_adapter** | **✅ 纳入参考（Tier 2，Python 为主）**。抄思路不抄代码（Python→TS 需重写）；TS 部分可直接读 |
 | **OpenClaw**（openclaw/openclaw，原 Clawdbot） | ✅ MIT（OpenClaw Foundation） | 387,185★（本表最高），TS 277.7MB + Swift 14.8 + Kotlin 5.6；apps 全平台原生（android/ios/macos/linux/shared）；packages 23 个：**acp-core/agent-core/gateway-client/gateway-protocol**/llm-core/markdown-core/memory-host-sdk/model-catalog-core/net-policy/**plugin-package-contract/plugin-sdk**/session-url-contract/terminal-core/tool-call-repair 等 | ✅ **多端客户端组织（原生 apps + shared）、ACP 集成** | ✅ **gateway-protocol 独立协议包（与我们的 protocol 包同思路）、插件合同双包（plugin-sdk + plugin-package-contract）、net-policy、terminal-core** | **✅ 纳入参考（Tier 2）**。定位是个人助理非 coding agent，但网关/插件/多端架构层完全同构；MIT 可复用 |
+| **Qwen Code**（QwenLM/qwen-code） | ✅ Apache-2.0 | 27,310★，TS，日更；**基于 Gemini CLI v0.8.2 起家、v0.1 起停止同步独立发展**（README 自述）；多协议运行时切换（OpenAI/Anthropic/Gemini/Qwen API + Ollama/vLLM）；Auto-Memory/Auto-Skills/SubAgents/**Agent Teams**/MCP 开箱；多形态：IDE 插件/Desktop app/**daemon mode**/SDKs/IM bots（Telegram/钉钉/微信/飞书）；框架与模型开源协同（"用自己开发自己"）；指令文件 **QWEN.md**（主，代码 114 处）+ AGENTS.md（兼容，61 处）；生态 Piebald-AI/gemini-cli-desktop（MIT 488★，桌面/Web/移动 GUI 客户端） | 部分（gemini-cli-desktop 的 GUI 客户端组织） | ✅ 多协议 provider 运行时切换（与 pi-ai 选型同问题的另一种解法）、Auto-Memory/Auto-Skills、SubAgents/Agent Teams（阶段五参考）、daemon+多客户端多形态（headless 多客户端第二实证） | **✅ 纳入参考（分支差异参考档）**：架构本体=Gemini CLI（#7 已列），只查增改；生态 gemini-cli-desktop 作 GUI 前端补充参考 |
 | **ZCode**（Z.ai） | ❌ 闭源 | 详见 §7.1 | ❌（仅行为观察） | ❌ | **❌ 不可参考源码**。原因：闭源无官方仓库；本机只能观察 rollout/插件行为 |
 | **Qoder**（阿里） | ❌ 闭源 | 详见 §7.2 | ❌ | ❌ | **❌ 不可参考源码**。原因：闭源，阿里 GitHub 无本体 |
 | **Trae IDE / TraeWork（字节）** | ❌ 闭源（IDE/平台）；✅ trae-agent MIT | 详见 §7.2 | ❌ | 部分（trae-agent，Python，工作流/工具组织思路） | **❌ IDE 本体不可参考；✅ trae-agent 轻参考**（与 Trae IDE 无直接关系） |
@@ -857,6 +859,7 @@ https://zhanghandong.github.io/grok-build/ ——19 章六部（全景[时代/75
 | 7 | Gemini CLI | TS 引擎/UI 分包范本、审批即策略（TOML 分层规则带）、调度状态机+审批总线、事件流三端复用、压缩双层管道（**pin 版本快照参考**） | scheduler/、confirmation-bus/message-bus.ts、policy/policy-engine.ts、utils/events.ts、context/ |
 | 8 | OpenClaw | Gateway 控制平面（req/res/event+幂等键+JSON Schema）、契约独立成包、频道即扩展、ACP 双向桥 | packages/gateway-protocol、plugin-package-contract、docs/concepts/architecture.md |
 | 9 | Hermes Agent | 多渠道接入模型（one agent, one memory, every surface）、子代理 RPC 隔离、沙箱后端抽象（Python，抄思路不抄代码） | （Python 为主，按需精读） |
+| 10 | Qwen Code | 多协议 provider 运行时切换、Auto-Memory/Auto-Skills、SubAgents/Agent Teams、daemon+Desktop+IM bots 多形态（Gemini CLI 血统分支，只查增改）；生态 gemini-cli-desktop（GUI 客户端，前端补充参考） | README + docs（分支差异按需精读） |
 | 7 | **Gemini CLI**（2026-08-23 增） | TS 同语言的 core/UI 分包范本、**confirmation-bus 审批总线**、policy/safety/sandbox、a2a-server；⚠️ pin 版本（Google 迁移闭源 Antigravity 风险） | packages/core/src/confirmation-bus、packages/core、packages/a2a-server |
 | 8 | **OpenClaw**（2026-08-23 增） | gateway-protocol 独立协议包、插件合同（plugin-sdk + plugin-package-contract）、net-policy、多端原生 apps 组织 | packages/gateway-protocol、packages/plugin-sdk、apps/ |
 | 9 | **Hermes Agent**（2026-08-23 增，Python 为主） | 多渠道接入（one agent one memory every surface）、子代理 RPC 隔离、沙箱后端抽象（五种）、acp_adapter——抄思路不抄代码 | repo: NousResearch/hermes-agent（agent/、acp_adapter/） |
@@ -866,4 +869,4 @@ https://zhanghandong.github.io/grok-build/ ——19 章六部（全景[时代/75
 
 ---
 
-*报告完（v1.6）。实施细节见 `02-development-plan.md`。*
+*报告完（v1.7）。实施细节见 `02-development-plan.md`。*

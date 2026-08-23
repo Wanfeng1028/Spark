@@ -16,6 +16,7 @@
 | v1.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起与决策：晚风（Wanfeng1028） | §2 新增第 10 条硬性约定**文件删除保护**：AI 编程助手无权删除任何文件，任何删除须经五层级确认（意图/对象/影响/替代/终确认）；§8 及 CLAUDE.md、copilot-instructions.md 中"九条硬性约定"同步改为"十条" |
 | v1.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"参考的助手都要有适配文件"） | §8 新增 **8.1 编程助手适配对照表**（覆盖全部参考工具：ZCode/Codex/opencode/pi 原生读 AGENTS.md 零配置；Grok/dsh/Hermes/Trae/Qoder/Qwen 标待验证）；新增 `.cursor/rules/spark.mdc` 与 `.windsurf/rules/spark.md` 摘要 shim（以 AGENTS.md 为权威） |
 | v1.8 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | §2.6 摘要扩充（+超大标题字体/emoji 装饰/bento 模板布局）；特征清单引用由 DESIGN.md §4 改指新 **§12 完整黑名单**（六类，依据外部调研扩充，含成因考证与来源） |
+| v1.9 | 2026-08-23 | 同上（发起：晚风，"Grok/dsh/Hermes/Trae/Qoder/Qwen 都要有适配文件"） | §8.1 六工具约定**全部核实并补齐**：Grok（代码 81 处）/dsh/Hermes/Qoder 原生 AGENTS.md ✅ 零配置；Trae 建 `.trae/rules/project_rules.md`、Qoder 另建 `.qoder/rules/spark.md`、Qwen Code 建 `QWEN.md`（@AGENTS.md 导入）。**Qwen Code 入参考体系第 10 项**（01 §7.3/§10：分支差异参考档——多协议运行时切换/Auto-Skills/SubAgents-Agent Teams/daemon+IM 多形态；生态 gemini-cli-desktop 作 GUI 前端补充参考） |
 
 ## 1. 项目上下文（30 秒版）
 
@@ -103,8 +104,10 @@ pnpm test / pnpm typecheck / pnpm lint
 | **GitHub Copilot** | `.github/copilot-instructions.md` | ✅ 纯指针 |
 | **Cursor** | `.cursor/rules/*.mdc` | ✅ `spark.mdc`（alwaysApply 摘要版，以 AGENTS.md 为准） |
 | **Windsurf** | `.windsurf/rules/*.md` | ✅ `spark.md`（trigger: always 摘要版） |
-| Grok Build / dsh / Hermes | AGENTS.md 兼容性**待验证**（以官方文档为准） | ⚠️ 团队启用时补 |
-| Trae / Qoder | 原生 AGENTS.md 或 `.trae/rules`（约定**待验证**） | ⚠️ 团队启用时补 |
-| Qwen Code | Gemini CLI fork，读 `GEMINI.md`（**待验证**） | ⚠️ 顺带被 GEMINI.md 覆盖 |
+| Grok Build | `AGENTS.md` 原生（仓库代码 81 处引用，**已核实**） | ✅ 零配置 |
+| DeepSeek harness / Hermes Agent | `AGENTS.md`（README 明示支持，**已核实**） | ✅ 零配置 |
+| Qoder | `AGENTS.md` 原生（官方文档：`/init` 生成）+ `.qoder/rules/` 规则目录（**已核实**） | ✅ 零配置；另建 `.qoder/rules/spark.md` 摘要（`@rule` 可引用） |
+| Trae | `.trae/rules/project_rules.md`（官方文档，**已核实**） | ✅ 已建摘要 shim |
+| Qwen Code | `QWEN.md`（主，仓库代码 114 处）+ `AGENTS.md`（兼容，61 处，**已核实**） | ✅ 已建 `QWEN.md`（@AGENTS.md 导入+差异） |
 
 原则：**团队实际启用某工具时才建它的 shim**；摘要 shim 只在工具无法读 AGENTS.md 时才存在，且必须声明"冲突以 AGENTS.md 为准"。

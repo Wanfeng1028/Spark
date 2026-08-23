@@ -14,6 +14,7 @@
 | v1.7 | 2026-08-23 | 同上 | §9 速查表新增三行：Gemini CLI（core/ui 分包+confirmation-bus）、OpenClaw（gateway-protocol+插件合同）、Hermes Agent（多渠道/子代理/沙箱后端）——与 01 §7.3/§10 同步 |
 | v1.8 | 2026-08-23 | 同上 | §9 再补两行 Gemini CLI 细化借鉴点（TOML 策略引擎分层规则带、上下文压缩双层管道），表头计数修正为 28 条；与 01 v1.5 的 7.3.1 细化同步 |
 | v1.9 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，目标"照文档能直接开发完全"） | 前后端规格补全：新增 §4.5.1 DTO 定义（SessionMetaDto 含 status）、§4.7 Mock 四场景脚本表（§8 阶段一同步 3→4）、§5.9 ResolvedModel 与消息/工具投影（models.json 补 contextWindow）、§6.1 apps/web 文件级结构、§6.2.1 欢迎页完整规格、新增 §6.2.3 SettingsDialog 规格、§6.3 结构布局细则、§7.2 逐路由实现要点表、§7.5 静态托管展开 |
+| v1.10 | 2026-08-23 | 同上（发起：晚风，Qwen Code 入参考体系） | §9 速查表 28→29 条：新增 Qwen Code 行（多协议 provider 运行时切换/daemon+IM 多客户端形态；GUI 生态 gemini-cli-desktop）——与 01 v1.7 同步 |
 | v2.0 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"像 Codex/ZCode 一样的自己的 agent"） | （+0.1 数值进位，非大重构）**新增 §5.11 提示词规格**（system prompt 组装与草案/四工具 description/compaction 与标题提示词；含"禁删文件"纪律对齐 AGENTS §2.10）；§4.4 信封补 version/ignorable 演进预留；§4.5/§4.6/§7.3 SSE 订阅语义（全局直播+按需回放）；§5.1 配置 zod schema 表；§5.6.3 跨平台规则（bash 执行器/超时 kill/路径，默认决策可推翻）；§5.8.1 mungeDir 算法；§6.3 CommandPalette 规格；§6.4 store 骨架与 rAF 接线；§6.6 全局单订阅改写；§8 阶段二/三 checklist 补项（CommandPalette/ScriptedLlm）；新增 §8.6 测试矩阵 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
@@ -1299,7 +1300,7 @@ app.get('/api/event', async (req, reply) => {
 
 ---
 
-# 9. 参考速查表（28 条）
+# 9. 参考速查表（29 条）
 
 | 问题 | 项目 | 文件 |
 |---|---|---|
@@ -1331,6 +1332,7 @@ app.get('/api/event', async (req, reply) => {
 | 上下文压缩双层（历史压缩/工具输出蒸馏） | Gemini CLI | core/src/context/{chatCompressionService,toolDistillationService}.ts |
 | 网关协议包与插件合同 | OpenClaw | packages/gateway-protocol（独立协议包范本）、packages/plugin-sdk + plugin-package-contract |
 | 多渠道/子代理 RPC/沙箱后端抽象 | Hermes Agent | NousResearch/hermes-agent（Python 为主——抄思路不抄代码） |
+| 多协议 provider 运行时切换 / daemon+IM 多客户端形态 | Qwen Code | QwenLM/qwen-code（Gemini CLI 血统分支，只查增改）；GUI 生态 Piebald-AI/gemini-cli-desktop |
 
 ---
 
