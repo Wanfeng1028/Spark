@@ -14,6 +14,7 @@
 | v1.7 | 2026-08-23 | 同上 | §9 速查表新增三行：Gemini CLI（core/ui 分包+confirmation-bus）、OpenClaw（gateway-protocol+插件合同）、Hermes Agent（多渠道/子代理/沙箱后端）——与 01 §7.3/§10 同步 |
 | v1.8 | 2026-08-23 | 同上 | §9 再补两行 Gemini CLI 细化借鉴点（TOML 策略引擎分层规则带、上下文压缩双层管道），表头计数修正为 28 条；与 01 v1.5 的 7.3.1 细化同步 |
 | v1.9 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，目标"照文档能直接开发完全"） | 前后端规格补全：新增 §4.5.1 DTO 定义（SessionMetaDto 含 status）、§4.7 Mock 四场景脚本表（§8 阶段一同步 3→4）、§5.9 ResolvedModel 与消息/工具投影（models.json 补 contextWindow）、§6.1 apps/web 文件级结构、§6.2.1 欢迎页完整规格、新增 §6.2.3 SettingsDialog 规格、§6.3 结构布局细则、§7.2 逐路由实现要点表、§7.5 静态托管展开 |
+| v2.0 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"像 Codex/ZCode 一样的自己的 agent"） | （+0.1 数值进位，非大重构）**新增 §5.11 提示词规格**（system prompt 组装与草案/四工具 description/compaction 与标题提示词；含"禁删文件"纪律对齐 AGENTS §2.10）；§4.4 信封补 version/ignorable 演进预留；§4.5/§4.6/§7.3 SSE 订阅语义（全局直播+按需回放）；§5.1 配置 zod schema 表；§5.6.3 跨平台规则（bash 执行器/超时 kill/路径，默认决策可推翻）；§5.8.1 mungeDir 算法；§6.3 CommandPalette 规格；§6.4 store 骨架与 rAF 接线；§6.6 全局单订阅改写；§8 阶段二/三 checklist 补项（CommandPalette/ScriptedLlm）；新增 §8.6 测试矩阵 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -253,6 +254,8 @@ export type LiveOnlyEventType = 'assistant.delta' | 'reasoning.delta' | 'tool.pr
 export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
   id: EventId; type: T; sessionId: SessionId
   seq?: number            // durable 单调序号（== 会话日志行号）；live 无 seq
+  version?: 1             // 协议演进预留（§10 风险表）：写入时恒为当前大版本；读端见 §5.8.4
+  ignorable?: boolean     // 读端遇未知 type 时：true → 跳过继续加载；缺省 false → 拒绝加载（fail-closed）
   time: number            // epoch ms
   data: SparkEventMap[T]
 } & (T extends SurfaceEventType ? { surface: true } : unknown)   // 编译期强制（dsh）
@@ -286,7 +289,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | POST | /api/permissions/:requestId | `{ reply, feedback? }` | `{ ok:true }` |
 | GET | /api/sessions/:id/tree | — | TreeNode[]（阶段四） |
 | POST | /api/sessions/:id/fork | `{ fromEventId }` | SessionDto（阶段四） |
-| GET | /api/event | `?sessionId&since` | SSE 流 |
+| GET | /api/event | `?sessionId&since`（均可省略，语义见 §4.6 订阅语义） | SSE 流 |
 
 ### 4.5.1 DTO 定义（protocol/src/api.ts）
 
@@ -314,6 +317,8 @@ event: message\ndata: {"id":"evt_...","type":"assistant.delta","sessionId":"ses_
 ```
 
 `since` = durable seq 水位：连接先补发 `seq > since` 的 durable 事件（回放）再直播。统一 `event: message`，type 在 payload。
+
+**订阅语义**：`sessionId` **省略 → 订阅全部会话的直播**（不回放——供 Sidebar 状态点/欢迎页实时更新，无需轮询）；带 `sessionId&since` → 该会话回放+直播。前端 v1 用法据此定型：**全局单连接**（省略 sessionId）+ 打开/重连会话时 `GET /api/sessions/:id` 全量 durable 回放（store reset 该会话 slice 后批量 apply，幂等，冷启动与断线重连同一路径）。
 
 ## 4.7 Transport 接口 + MockTransport 规格
 
@@ -400,6 +405,14 @@ createEngine(config)
   "compactionModel": { "provider": "deepseek", "model": "deepseek-chat" }
 }
 ```
+
+**配置文件 zod 校验 schema**（加载即校验；失败 = 启动即败——配置错误不带病运行）：
+
+| 文件 | 字段 → 类型/约束 | 缺省 |
+|---|---|---|
+| spark.json | `server.port`: int(1-65535)；`server.host`: string；`engine.maxStepsPerTurn/maxToolParallel`: int≥1；`toolTimeoutMs/permissionTimeoutMs/progressThrottleMs/toolOutputLimitKB`: int>0；`compactionThreshold`: number(0,1) | 全部可缺省（取 §5.1 默认值）；文件本身可不存在 |
+| models.json | `providers`: record<string, {apiKeyEnv: string\|null, baseUrl?: url}>；`defaultModel/compactionModel`: {provider, model, contextWindow: int>0} | **无缺省——defaultModel 必填**（缺失/校验失败 → `E_CONFIG` 启动失败） |
+| permissions.json | `version`: 1；`rules`: {action, resource, effect: 'allow'\|'deny'\|'ask'}[] | 空规则表（全部落默认 ask） |
 
 ## 5.2 Engine 门面与生命周期
 
@@ -595,6 +608,13 @@ runOne(call):
 
 路径安全：v1 允许根 = cwd + 用户显式 addDir（v2）；越界直接 E_PATH_OUTSIDE（不需要审批兜底——硬边界优先于审批）。
 
+**跨平台规则**（默认决策，可推翻——推翻时在 ARCHITECTURE.md 记 ADR）：
+
+- **bash 执行器**：Windows 优先 PATH 中的 `bash.exe`（Git Bash；探测顺序 `where bash`），缺失则 `powershell -NoProfile -Command`；Unix 一律 `/bin/bash -c`。命令字符串原样传递，不做翻译。
+- **超时 kill**：Unix `SIGTERM` → 5s → `SIGKILL`；Windows `taskkill /PID <pid> /T /F`（树杀——子进程不悬挂）。
+- **路径**：协议与事件内路径一律**正斜杠**展示；fs 操作经 `node:path` 自动适配；`resource` 字符串 `file:<abs>` 用平台原生分隔符（与审批规则文件书写一致）。
+- **E_PATH_OUTSIDE 判定**：`path.resolve` 归一后做允许根前缀比较；Windows 下大小写不敏感比较。
+
 ### 5.6.4 输出限界（output-store.ts）
 
 `bound(output, callId)`：序列化后 ≤32KB 原样返回；超限 → 截断至 32KB + 尾注 `"…truncated, full output: ~/.spark/tool-outputs/<callId>"`，全文写该文件（异步写、会话关闭前 flush）。
@@ -661,6 +681,8 @@ class SessionStore {
 ```
 
 文件：`~/.spark/sessions/--<cwd munged>--/<ses_id>.jsonl`；首行 header + 每行 durable 事件（带 `parentId`）。
+
+`mungeDir(cwd)` 算法（确定性、防碰撞）：非 `[A-Za-z0-9]` 连续段 → `-`，截断 48 字符，尾部追加 `sha1(cwd)` 前 8 位 hex——例：`E:\code\javascript\project\Spark` → `E-code-javascript-project-Spark-<hash8>`。无需可逆（列表遍历读 meta 重建 cwd 映射）。
 
 ### 5.8.2 EventTree（树操作）
 
@@ -762,6 +784,53 @@ metrics（进程内计数器，阶段四经 /api/metrics 暴露）：
   spark_llm_tokens_total{direction} / spark_permission_decisions{reply}
   spark_sessions_active / spark_events_durable_total
 ```
+
+## 5.11 提示词规格（system prompt 与工具 description）
+
+> 这是 agent 行为的"灵魂件"——Codex/Claude Code 的能力一半来自这层。提示词是代码的一部分：进 git、进版本评审、不进事件不进日志。
+
+**system 消息组装**（Projector 输出 messages 的第 0 条，compaction 摘要消息紧随其后）：
+
+1. **基座提示词**：代码常量（`prompts/base.ts`），随仓库版本演进；
+2. **环境块**：OS/platform、cwd、日期、shell（运行时注入）；
+3. **项目指引**：cwd 下存在 `AGENTS.md` 则原文注入（截断至 8K 字符并注明 `[truncated]`）——与 Codex/Claude Code/Grok Build 同一约定；
+4. 无 cwd 级指引文件时跳过第 3 条，不报错。
+
+**基座提示词草案 v1**（英文——提示词工程惯例；占位符运行时填充）：
+
+```text
+You are Spark, a coding agent working in the user's repository.
+
+# Environment
+- OS: {platform} {release} | cwd: {cwd} | date: {date} | shell: {shell}
+
+# Working rules
+1. Tools: read / write / edit / bash. Prefer `edit` for existing files; use `write` only for new files or full rewrites.
+2. NEVER delete files or directories (no rm, del, git clean, or moving files out of the working directory). If deletion is required, explain why and ask the user to do it or confirm explicitly.
+3. Some actions require user approval. If an action is denied, do not retry it unchanged — change your approach or ask.
+4. Stay inside the working directory; paths outside it are rejected by the system.
+5. Before editing a file you have not seen in this session, read it first.
+6. Keep responses concise. Match the user's language.
+
+# Project instructions (user-provided; follow unless conflicting with the rules above)
+{AGENTS.md content or "none"}
+```
+
+注：第 2 条与 AGENTS.md §2.10（文件删除保护）同源——产品级落实"AI 无权删文件"。
+
+**四工具 description 草案**（`ToolDefinition.description`，随 jsonSchema 一起广告给模型）：
+
+| 工具 | description（英文草案） |
+|---|---|
+| read | Read a UTF-8 text file; returns content with 1-based line-number prefixes. Binary files and paths outside the working directory are rejected. |
+| write | Create or fully rewrite a file with the given content. Prefer `edit` for existing files. Parent directories are created automatically. Never use this to blank out a file you intend to delete. |
+| edit | Replace `oldString` with `newString` in a file. `oldString` must match exactly once unless `replaceAll` is true. Returns a unified diff of the change. |
+| bash | Run a one-shot shell command in the working directory; output streams while it runs; non-zero exit returns output with an error flag. NEVER use this tool to delete files or directories. |
+
+**辅助提示词**：
+
+- **compaction**（§5.8.5 用，`generateOnce`）："Summarize the conversation so far so work can continue with this summary alone. Keep: goals, key decisions, current task state, open TODOs, important file paths. Reply with the summary only."（maxTokens 2000）
+- **会话标题**（阶段四，首 turn 完成后异步触发）："Generate a 3-6 word title for this conversation. Reply with the title only."
 
 ---
 
@@ -913,6 +982,9 @@ interface TurnStatusBarProps { turn: { turnId; stepCount; runningTools: string[]
 interface ComposerProps { busy: boolean; onSend(text, delivery): void; onInterrupt(): void }
 // SessionSidebar / SessionItem（标题/相对时间/状态点 idle|running|waiting-approval）
 // SettingsDialog：完整规格见 §6.2.3
+interface CommandPaletteProps { open: boolean; onOpenChange(b: boolean): void }
+// cmdk copy-in：命令=新建会话/切换会话（内嵌搜索列表）/切换主题/打开设置/打断当前轮；
+// Cmd/Ctrl+K 开、Esc 关、↑↓ 选择、Enter 执行；fuzzy 过滤命中高亮；空态"无匹配命令"
 ```
 
 **结构布局细则**（此处定结构与分发，尺寸/颜色 token 以 DESIGN.md §3/§8 为唯一来源）：
@@ -925,6 +997,7 @@ interface ComposerProps { busy: boolean; onSend(text, delivery): void; onInterru
 - **Composer**：底部固定区 = 多行 textarea（自适应 1-8 行）+ 右下按钮组（空闲 `[发送]`；进行中 `[插话(主)] [排队] [停止]`）；DeliveryBar 即按钮组本身，三态行为见 §6.2.2 表。
 - **SessionSidebar**：顶部 `[新建]` + 搜索框（标题子串过滤，前端本地）；列表分组头"今天/更早"；会话项 36px：状态点 + 标题（截断）+ 相对时间；无 footer（DESIGN.md §7.6）。
 - **StatusBar**：左起：连接状态点+文案 · 当前会话模型名 · seq 水位（lastSeq）· token 累计；右起：主题切换 · 设置齿轮。
+- **CommandPalette**：cmdk 样式浮层（顶部 25% 下拉，宽 560px）；命令分组"会话/操作/设置"；列表行 32px；输入即过滤（fuzzy，命中段高亮）；无结果空态文案；Esc 关闭且焦点归还。
 
 ## 6.4 状态层（stores/）
 
@@ -975,6 +1048,31 @@ interface SessionSlice {
 // settings-store：{ theme, defaultDelivery, model }（localStorage）
 ```
 
+**store 创建骨架**（`reduce` 为纯函数即单测对象；create 只做绑定）：
+
+```ts
+const reduce = (s: SessionStoreState, e: SparkEventEnvelope): SessionStoreState => { /* §6.4 处理表 */ }
+export const useSessionStore = create<SessionStoreState & Actions>()((set) => ({
+  ...initialState,
+  applyEvent: (e) => set(s => reduce(s, e)),          // 唯一写入口
+  resetSlice: (sid: SessionId) => set(s => ({ byId: { ...s.byId, [sid]: emptySlice(sid) } })),
+}))
+// 组件侧选择器（shallow 比较——只有引用变化的 slice 重渲染）：
+export const useSessionItems = (sid: SessionId) =>
+  useSessionStore(s => s.byId[sid]?.items ?? EMPTY_ARRAY, shallow)
+export const useActiveTurn = (sid: SessionId) => useSessionStore(s => s.byId[sid]?.activeTurn ?? null)
+export const useLastSeq = (sid: SessionId) => useSessionStore(s => s.byId[sid]?.lastSeq ?? 0)
+```
+
+**TransportProvider 的 rAF 批量接线**（缓冲按到达序 flush——live/durable 相对顺序不乱）：
+
+```tsx
+const buf: SparkEventEnvelope[] = []; let raf = 0
+t.onEvent(e => { buf.push(e); if (!raf) raf = requestAnimationFrame(flush) })
+function flush() { raf = 0; buf.splice(0).forEach(e => useSessionStore.getState().applyEvent(e)) }
+// dispose：cancelAnimationFrame(raf) + buf 清空（防卸载后写 store）
+```
+
 ## 6.5 样式系统
 
 - Token 层（styles/tokens.css）：shadcn 标准 token + `--spark-accent/--spark-warn/--spark-ok`。
@@ -993,9 +1091,11 @@ export function TransportProvider({ mock, children }) {
 }
 
 // transports/http.ts 要点
-// 1) SSE：fetch('/api/event?...&since='+lastSeq, {signal}) + ReadableStream 手解析
+// 1) SSE：全局单连接 fetch('/api/event', {signal})（省略 sessionId——直播全部会话，
+//    Sidebar 状态点/欢迎页实时；订阅语义见 §4.6）+ ReadableStream 手解析
 //    （不用原生 EventSource：无法自定义重连参数；可引 eventsource-parser）
-// 2) 断线指数退避（1/2/5/10s 封顶），重连带最新 lastSeq → 回放+直播
+// 2) 打开/重连会话：GET /api/sessions/:id 全量 durable → resetSlice 后批量 apply（幂等；
+//    冷启动与断线重连同一路径）；断线指数退避（1/2/5/10s 封顶）重连后自动执行
 // 3) REST fetch；sendMessage 三态原样返回；4) dispose：abort+退订
 
 // transports/mock.ts 要点
@@ -1092,7 +1192,8 @@ app.get('/api/event', async (req, reply) => {
     'X-Accel-Buffering': 'no', 'X-Content-Type-Options': 'nosniff',
   })
   const write = (chunk: string) => reply.raw.write(chunk)
-  // 1) 回放：sessionId+since 时，先按序 write 该会话 seq>since 的 durable 事件（opencode 语义）
+  // 1) 回放：sessionId+since 时，先按序 write 该会话 seq>since 的 durable 事件（opencode 语义）；
+  //    sessionId 省略 → 仅直播全部会话、不回放（全局订阅，语义见 §4.6）
   // 2) 直播：engine.subscribe(e => write(`event: message\ndata: ${JSON.stringify(e)}\n\n`), { sessionId })
   //    背压：write 返回 false → 暂停订阅（bus 的 resume 机制），'drain' 事件恢复
   // 3) 心跳：setInterval(15s) write(': heartbeat\n\n')（合并进同一 chunk 定时器）
@@ -1142,6 +1243,7 @@ app.get('/api/event', async (req, reply) => {
 - [ ] SessionSidebar 列表/分组/状态点 + 新建/切换
 - [ ] 深色模式 + 空态/加载态/错误态/断线重连条 + BackBottom
 - [ ] SettingsDialog（主题/默认 delivery）
+- [ ] CommandPalette（cmdk copy-in：新建/切换会话/主题/设置/打断；§6.3 规格）
 - **验收**：全部 UI 交互在 mock 下无死角（含审批挂起/拒绝/error/long-output 场景）
 
 ## 阶段三：引擎跑通
@@ -1157,6 +1259,7 @@ app.get('/api/event', async (req, reply) => {
 - [ ] Projector（投影六步）+ compaction
 - [ ] server REST+SSE 全端点（§7 规格）+ HttpTransport 切换（前端零改动）
 - [ ] pino 日志 + 脱敏
+- [ ] ScriptedLlm 假 provider（预录响应序列注入 LlmGateway）——run-loop/工具/审批全链路 CI 可测，不依赖真实 API key
 - **验收**：真实模型完成"读文件→改文件→跑命令→汇报"全闭环；断线重连回放正确；中断无悬挂事件
 
 ## 阶段四：深度体验
@@ -1177,6 +1280,22 @@ app.get('/api/event', async (req, reply) => {
 - [ ] 子代理（Task 工具 + parentSession 子会话）
 - [ ] skills/插件（目录扫描 + declaration merging 扩展事件）
 - **验收**：桌面安装包 + 首个外部 MCP 工具可用
+
+## 8.6 测试矩阵（各阶段验收的测试面；框架 vitest）
+
+| 模块 | 用例要点 |
+|---|---|
+| protocol | 21 种事件样例逐一过 zod schema（round-trip）；信封 surface 标记的编译期断言；DTO/配置 schema |
+| engine/config | 三配置文件 zod：合法 / 缺字段 / 越界值 → 启动失败（E_CONFIG） |
+| engine/bus | durable seq 单调且**落盘后**才广播；live 不计数；订阅者异常隔离；背压 pause/resume |
+| engine/input-queue | now/steer/queue × idle/running 全矩阵的三态返回；唤醒合并不空转 |
+| engine/run-loop | steering 注入时序（下一 step 前生效）；stopReason 'length' 截断补事件对；maxSteps 强制收尾；error 失败闭合；interrupt 级联（LLM 流/工具/挂起审批） |
+| engine/tools | 四工具 × {成功、越界 E_PATH_OUTSIDE、超时/abort、错误码路径}（AGENTS §3 单测四路径）；edit 唯一性（0 命中/>1 命中）；输出限界截断+溢写文件 |
+| engine/permission | evaluate 优先级（临时>项目>用户>默认 ask）；always 写入 + 同批放行；超时/中断 fail-closed；reject feedback 注入 user.message |
+| engine/session | 单写者 append/flush；坏行（尾行丢弃/非尾拒绝加载）；resume 补 turn.completed{aborted}；Projector 投影（无/有 compaction 分支 × reasoning 配置）；mungeDir 确定性 |
+| server | 路由 zod 400/404/409/503 映射；SSE 回放+直播边界、心跳、全局订阅；SPA fallback 排除 /api |
+| web | **applyEvent 21 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染） |
+| 集成 | MockTransport 四场景全跑（§4.7 表）；阶段三：ScriptedLlm 全闭环 + 崩溃恢复（kill -9 后 resume 无悬挂事件） |
 
 ---
 
