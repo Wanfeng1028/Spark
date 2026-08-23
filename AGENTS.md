@@ -18,10 +18,11 @@
 | v1.8 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | §2.6 摘要扩充（+超大标题字体/emoji 装饰/bento 模板布局）；特征清单引用由 DESIGN.md §4 改指新 **§12 完整黑名单**（六类，依据外部调研扩充，含成因考证与来源） |
 | v1.9 | 2026-08-23 | 同上（发起：晚风，"Grok/dsh/Hermes/Trae/Qoder/Qwen 都要有适配文件"） | §8.1 六工具约定**全部核实并补齐**：Grok（代码 81 处）/dsh/Hermes/Qoder 原生 AGENTS.md ✅ 零配置；Trae 建 `.trae/rules/project_rules.md`、Qoder 另建 `.qoder/rules/spark.md`、Qwen Code 建 `QWEN.md`（@AGENTS.md 导入）。**Qwen Code 入参考体系第 10 项**（01 §7.3/§10：分支差异参考档——多协议运行时切换/Auto-Skills/SubAgents-Agent Teams/daemon+IM 多形态；生态 gemini-cli-desktop 作 GUI 前端补充参考） |
 | v1.10 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"后端的 AI 规范也要写好"） | §2 新增第 11 条硬性约定**禁止"AI 生成味"代码**（前端 → DESIGN §12 深化：P0/P1/P2 分级、§12.7 文案语气、§12.8 grep 硬检查；后端/通用 → ARCHITECTURE §9 六类清单，boring code 总原则）；§8 及各专属文件/shim 中"十条硬性约定"同步改为"十一条"（版本因并行会话 v1.9 顺延为 v1.10） |
+| v1.11 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | §2.8 事实修正：事件词表 **21→19 种**（阶段一工单 1.2 实现 @spark/protocol 时逐条核对词表实数；与 doc/02 v2.3、ARCHITECTURE v1.6、doc/03 v1.1 同步）；§1 项目上下文"代码未开工"更新为"阶段一已开工（工单 1.1/1.2 完成）" |
 
 ## 1. 项目上下文（30 秒版）
 
-Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端，通过 HTTP+SSE 单一事件流协议通信；后期加 Electron 壳。当前处于**阶段零（设计期）**——只有文档，代码未开工。完整规格见 `doc/02-development-plan.md`。
+Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端，通过 HTTP+SSE 单一事件流协议通信；后期加 Electron 壳。当前处于**阶段一（骨架期，已开工：工单 1.1 workspace 骨架、1.2 @spark/protocol 已完成）**。完整规格见 `doc/02-development-plan.md`。
 
 **必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
 
@@ -34,7 +35,7 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 5. **协议改动从 `packages/protocol` 开始**：改事件词表/API 类型 → 两端同步适配 → 跑双侧类型检查。禁止在前端或引擎里私自定义 wire 类型。
 6. **前端样式**：Tailwind + shadcn token 体系；视觉基调：黑白中性极简。**禁止一切"AI 生成风"外观**：蓝紫渐变玻璃拟态、暖棕/米色等暖调配色、实线细描边 + 内部 backdrop-blur 毛玻璃的按钮/卡片、超大标题字体、emoji 装饰、bento/三卡模板布局等——完整六类特征清单见 DESIGN.md §12（判例与决策记录见 ARCHITECTURE.md D2）；组件改造走 copy-in（源码进 `components/ui/`），不引黑盒运行时依赖。
 7. **引擎铁律**（写代码时时刻对照）：durable/live 二分（delta 不落盘）；surface 纪律（模型可见必被记录）；失败闭合（事件流永不悬空）；审批 fail-closed（超时/异常一律拒绝）；单写者 JSONL（会话文件只经 SessionStore 写）。
-8. **测试**：`applyEvent` reducer 对全部事件类型逐一单测（21 种）；新增事件类型必须同步新增单测，否则 PR 不完整。
+8. **测试**：`applyEvent` reducer 对全部事件类型逐一单测（19 种）；新增事件类型必须同步新增单测，否则 PR 不完整。
 9. **不做的事**：不加多用户/登录/公网暴露（本地 127.0.0.1 是刻意的）；不上 Effect/RxJS 等响应式框架（抄设计不抄框架）；MVP 边界外（MCP/子代理/skills/沙箱）的功能一律排到阶段五之后，即使"顺手"。
 10. **文件删除保护**：AI 编程助手**无权删除任何文件**——不得直接或间接执行删除（`rm`/`del`/`git rm`/`git clean`/移动出仓库/清空目录等），提交中也不得夹带删除。任何文件（含临时文件、生成物）的删除都必须由人类发起或确认，并完成**五层级确认**（逐级明示确认，缺一不可）：① 意图确认（为何删）→ ② 对象确认（逐个列出精确路径）→ ③ 影响确认（全仓引用与构建影响）→ ④ 替代确认（归档/移动/改名能否替代删除）→ ⑤ 终确认（人类明示"确认删除"）。五级全部通过后，方可由人类执行或明确授权 AI 执行；重命名/移动不在此列，但移动出仓库视同删除。
 11. **禁止"AI 生成味"代码**（前端与后端都算）：前端外观六类黑名单 + 文案语气 + 代码级 grep 硬检查见 DESIGN.md §12；后端/通用代码六类黑名单（无据设计模式、吞异常/空 catch、幻觉防御、冗余注释、泛化命名、any 逃逸/幻觉依赖）见 ARCHITECTURE.md §9——其中吞异常与假实现直接违反引擎铁律（失败闭合/禁止假状态）。总原则 **boring code**：无聊、可读、只做好一件事；删掉一层抽象若不破坏功能，就删。

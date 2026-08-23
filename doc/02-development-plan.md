@@ -18,6 +18,7 @@
 | v2.0 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"像 Codex/ZCode 一样的自己的 agent"） | （+0.1 数值进位，非大重构）**新增 §5.11 提示词规格**（system prompt 组装与草案/四工具 description/compaction 与标题提示词；含"禁删文件"纪律对齐 AGENTS §2.10）；§4.4 信封补 version/ignorable 演进预留；§4.5/§4.6/§7.3 SSE 订阅语义（全局直播+按需回放）；§5.1 配置 zod schema 表；§5.6.3 跨平台规则（bash 执行器/超时 kill/路径，默认决策可推翻）；§5.8.1 mungeDir 算法；§6.3 CommandPalette 规格；§6.4 store 骨架与 rAF 接线；§6.6 全局单订阅改写；§8 阶段二/三 checklist 补项（CommandPalette/ScriptedLlm）；新增 §8.6 测试矩阵 |
 | v2.1 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，继续迭代至"照文档开发完"） | 新增 §3.1 工程基础配置（pnpm-workspace/tsconfig.base/scripts 表/pi 精确 pin）、§4.3.1 zod schema 骨架（idOf/EventSchemas satisfies/EnvelopeSchema）、§5.10 错误码总注册表（15 码×载体）、§6.10 核心端到端时序四图（冷启动/turn/审批/断线重连）；§4.4 信封补 **parentId**（修复与 §5.8.1 落盘行的规格矛盾）+ 磁盘/wire 同构声明；§4.7 Mock 锚点语义表；§6.4 **回放×直播 seq 去重规则**（修复全局订阅+REST 回放的重复应用隐患）；尾注版本同步 |
 | v2.2 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，同前目标第四轮） | 新增 §1.4 安全模型表（7 威胁×对策×落点：提示词注入/路径逃逸/密钥泄漏等）、§3.2 各包 manifest 依赖表（含"web 不依赖 engine"约束）、§4.8 协议一致性样例（normal 场景逐行 JSONL，兼测试夹具）、§5.2.1 SessionManager 职责规格、§6.11 全局键位表；§5.10 pino 字段表与脱敏正则；**§8 阶段一工单化**（6 工单×产出×验收×依赖）；尾注 v2.2 |
+| v2.3 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | **阶段一开工**：工单 1.1（workspace 骨架，0c135ca）与 1.2（@spark/protocol 唯一合同，2b289cb）完成并勾选——schema-first 实现：19 事件 zod registry、SparkEventMap 由 infer 派生、parseEnvelope 两步 fail-closed、26 单测全绿。**事实修正：事件词表 21→19 种**（实现时逐条核对，全文 6 处；AGENTS v1.11/ARCHITECTURE v1.6/doc/03 v1.1 同步） |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -261,7 +262,7 @@ export type TurnFinish = 'stop' | 'length' | 'aborted' | 'permission-rejected' |
 export type PermissionReply = 'once' | 'always' | 'reject'
 ```
 
-## 4.3 事件词表（21 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
+## 4.3 事件词表（19 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
 
 ```ts
 export interface SparkEventMap {
@@ -307,7 +308,7 @@ export const SessionIdSchema = idOf('ses') as z.ZodType<SessionId>   // Turn/Eve
 export const EventSchemas = {
   'session.created': z.object({ title: z.string().optional(), cwd: z.string(), model: z.string() }),
   'user.message':    z.object({ text: z.string().min(1), attachments: z.array(z.string()).optional() }),
-  // …21 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
+  // …19 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
 } satisfies { [T in SparkEventType]: z.ZodType<SparkEventMap[T]> }
 
 // schema.ts —— 信封 schema + jsonSchema 导出（工具参数与 DTO 用）
@@ -1164,7 +1165,7 @@ interface SessionSlice {
 
 **去重规则（回放×直播重叠）**：apply 入口先判 `e.seq !== undefined && e.seq <= slice.lastSeq` → 跳过（全局直播先到、REST 回放后到时不重复应用；重放期间乱序到达的直播同理被吸附）；live 事件无 seq，无条件应用。resetSlice 将 lastSeq 归 0 后重放从空重建。
 
-**applyEvent 处理表（21 种全覆盖）**：
+**applyEvent 处理表（19 种全覆盖）**：
 
 | 事件 | 状态变更 |
 |---|---|
@@ -1408,8 +1409,8 @@ app.get('/api/event', async (req, reply) => {
 
 | # | 工单 | 产出 | 验收标准 | 依赖 |
 |---|---|---|---|---|
-| 1.1 | workspace 骨架 | pnpm-workspace.yaml、tsconfig.base.json、根 package.json、eslint(flat)/prettier、CI workflow | `pnpm i` 通过；`pnpm lint/typecheck` 空仓通过；CI 绿 | — |
-| 1.2 | protocol 包 | `src/{ids,primitives,events,api,transport,schema,index}.ts`（§4 全部，含 §4.3.1 骨架） | tsc strict 零错；21 事件 zod round-trip 单测绿；jsonSchemas 导出可 JSON.stringify | 1.1 |
+| 1.1 | ✅ workspace 骨架（提交 0c135ca） | pnpm-workspace.yaml、tsconfig.base.json、根 package.json、eslint(flat)/prettier、CI workflow | `pnpm i` 通过；`pnpm lint/typecheck` 空仓通过；CI 绿 | — |
+| 1.2 | ✅ protocol 包（提交 2b289cb） | `src/{ids,primitives,events,api,transport,schema,index}.ts`（§4 全部，含 §4.3.1 骨架） | tsc strict 零错；**19 事件** zod round-trip 单测绿（26 例）；jsonSchemas 导出可 JSON.stringify | 1.1 |
 | 1.3 | mock 场景 | `examples/mock-sessions/{normal,long-output,reject,error-finish}.jsonl`（§4.7 表 + §4.8 样例形状） | 四文件逐行过 EnvelopeSchema 校验（单测断言） | 1.2 |
 | 1.4 | MockTransport | web `src/transports/{mock.ts,context.tsx}` + anchors 解析 | `VITE_SPARK_MOCK=1` 下 onEvent 按 @delay/@wait 吐事件；审批挂起可 reply | 1.2 |
 | 1.5 | web 空壳 | Vite+React+Tailwind+shadcn init；AppShell 三区骨架（Sidebar/主区/StatusBar） | `/welcome` 渲染引导块；主题 token 生效 | 1.1 |
@@ -1419,7 +1420,7 @@ app.get('/api/event', async (req, reply) => {
 ## 阶段二：前端全量（对 Mock 开发）
 
 - [ ] 路由与 AppShell（/welcome、/session/:id、Sidebar/StatusBar 布局）
-- [ ] session-store + applyEvent 21 种事件单测全覆盖
+- [ ] session-store + applyEvent 19 种事件单测全覆盖
 - [ ] ChatView 虚拟化 + MessageItem/AssistantBlock/ReasoningCollapsible
 - [ ] streamdown 流式渲染 + rAF 批量 flush
 - [ ] ToolCard 三态 + Terminal/DiffViewer/CodeBlock 分发
@@ -1470,7 +1471,7 @@ app.get('/api/event', async (req, reply) => {
 
 | 模块 | 用例要点 |
 |---|---|
-| protocol | 21 种事件样例逐一过 zod schema（round-trip）；信封 surface 标记的编译期断言；DTO/配置 schema |
+| protocol | 19 种事件样例逐一过 zod schema（round-trip）；信封 surface 标记的编译期断言；DTO/配置 schema |
 | engine/config | 三配置文件 zod：合法 / 缺字段 / 越界值 → 启动失败（E_CONFIG） |
 | engine/bus | durable seq 单调且**落盘后**才广播；live 不计数；订阅者异常隔离；背压 pause/resume |
 | engine/input-queue | now/steer/queue × idle/running 全矩阵的三态返回；唤醒合并不空转 |
@@ -1479,7 +1480,7 @@ app.get('/api/event', async (req, reply) => {
 | engine/permission | evaluate 优先级（临时>项目>用户>默认 ask）；always 写入 + 同批放行；超时/中断 fail-closed；reject feedback 注入 user.message |
 | engine/session | 单写者 append/flush；坏行（尾行丢弃/非尾拒绝加载）；resume 补 turn.completed{aborted}；Projector 投影（无/有 compaction 分支 × reasoning 配置）；mungeDir 确定性 |
 | server | 路由 zod 400/404/409/503 映射；SSE 回放+直播边界、心跳、全局订阅；SPA fallback 排除 /api |
-| web | **applyEvent 21 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染） |
+| web | **applyEvent 19 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染） |
 | 集成 | MockTransport 四场景全跑（§4.7 表）；阶段三：ScriptedLlm 全闭环 + 崩溃恢复（kill -9 后 resume 无悬挂事件） |
 
 ---
@@ -1554,4 +1555,4 @@ app.get('/api/event', async (req, reply) => {
 
 ---
 
-*方案完（v2.2）。前后端均为完整规格；开工顺序：阶段一工单表自上而下；每次完成按版本记录表追加记录并 push。*
+*方案完（v2.3）。前后端均为完整规格；开工顺序：阶段一工单表自上而下；每次完成按版本记录表追加记录并 push。*
