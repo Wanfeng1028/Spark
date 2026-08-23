@@ -20,6 +20,7 @@
 | v2.2 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，同前目标第四轮） | 新增 §1.4 安全模型表（7 威胁×对策×落点：提示词注入/路径逃逸/密钥泄漏等）、§3.2 各包 manifest 依赖表（含"web 不依赖 engine"约束）、§4.8 协议一致性样例（normal 场景逐行 JSONL，兼测试夹具）、§5.2.1 SessionManager 职责规格、§6.11 全局键位表；§5.10 pino 字段表与脱敏正则；**§8 阶段一工单化**（6 工单×产出×验收×依赖）；尾注 v2.2 |
 | v2.3 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | **阶段一开工**：工单 1.1（workspace 骨架，0c135ca）与 1.2（@spark/protocol 唯一合同，2b289cb）完成并勾选——schema-first 实现：19 事件 zod registry、SparkEventMap 由 infer 派生、parseEnvelope 两步 fail-closed、26 单测全绿。**事实修正：事件词表 21→19 种**（实现时逐条核对，全文 6 处；AGENTS v1.11/ARCHITECTURE v1.6/doc/03 v1.1 同步） |
 | v2.4 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"参考项目源码摆在那里，要主动对照找缺口"） | **参考源码在线对照补强**（依据：pi `packages/agent/src/agent-loop.ts`、opencode `packages/opencode/src/permission/index.ts` 全文研读）：§5.5 截断保护定为 **continue 回喂**（pi terminate=false，此前未定义）+ max-steps 对照决策注记（pi 无计数器，我们保留兜底）+ abort 双检点；§5.6.3 前**进度门控队列**（updateEvents 链+acceptingUpdates 标志，防 progress 晚于 completed 乱序）；§5.7 **七条审批补强**（多 pattern 评估、reject 级联、alwaysPatterns ask 时声明、优先级=扁平化 findLast 实锤、deny 工具不广告、~/\$HOME 展开、shutdown 清 pending）；§5.9 pi 事件映射取舍表（toolcall 流式 v1 不做） |
+| v2.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续"——第二批源码对照） | **第二批对照**（依据：pi `packages/coding-agent/src/core/session-manager.ts` 全文、Codex `codex-rs/protocol/src/turn_input.rs`、opencode-ai/schema `packages/schema/src/event.ts`）：§5.4 补 **steerQueue 残留转入 queue**（插话不丢失，此前未定义的边界）+ 提交无拒绝态的宽容决策注记（对照 Codex NotSubmittedReason 八种）；§5.8.1 采纳**文件名时间戳前缀**与**会话文件版本迁移链**（pi migrateV1→V2→V3 就地重写），否决"空会话不落盘"（与落盘后广播不变式冲突），记录孤儿条目分歧（pi 宽容/我 fail-closed）；§5.8.5 **compaction 锚点分支隐患**（fork 后 seq≠路径序，阶段四须改 keptFromEventId——pi firstKeptEntryId 实证）；§5.8.6 fork 补 parentSession 源路径 + branch_summary（阶段四+可选）；§4.4 记 opencode metadata 通道与事件级版本共存为 v2 选项 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -354,6 +355,8 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 
 **磁盘行与 wire 同构**：落盘 JSONL 行 = 信封原样（含 parentId）——单一格式，序列化零转换，前端 UiItem 的 parentId 即来源于此。
 
+**与 opencode-ai/schema（`packages/schema/src/event.ts`）对照**（v2.5）：其信封 Payload 含 `metadata?: Record<string,unknown>` 自由扩展通道（trace id 等），且支持**事件级版本共存**（`versionedType = type.version` 注册表 + `latest()` 取最高版）——两者均记为协议演进 v2 选项；v1 的单一 `version` + `ignorable` 逃生已够（更简，读端 fail-closed 更严）。
+
 **读端 fail-closed**（dsh）：磁盘重建遇未知 type 且无 `ignorable: true` → 拒绝加载并报错。
 
 ## 4.5 HTTP API
@@ -586,6 +589,12 @@ SessionRuntime 状态：idle ──submit(now)──▶ running ──turn 结�
 
 数据结构：`queue: InputItem[]`（FIFO）、`steerQueue: InputItem[]`、`InputItem = {id, text, attachments?, delivery, admittedAt}`。
 
+**与 Codex（`codex-rs/protocol/src/turn_input.rs`）对照**（v2.5）：
+
+- **steerQueue 残留处理（补漏）**：turn 收尾时未消费的 steer 项**转入 queue 作为后续 turn 输入**（pendingWake 续跑消费）——防止"turn 在注入前结束导致插话凭空丢失"。此前规格未定义此边界。
+- **提交无拒绝态是刻意宽容**：Codex 的 `NotSubmittedReason` 有八种拒绝（NoActiveTurn / NotIdle / ExpectedTurnMismatch{期望 turn id 校验} / ActiveTurnNotSteerable / EmptyInput / 输出 schema 不匹配…）；我们三态之外不设拒绝——steer 遇 idle 自动升级为 started、EmptyInput 已由 zod `min(1)` 拒。v2 出现不可插话的 turn 类型（如 plan-mode turn）时再引入 `NotSubmitted`。
+- `Steer{expected_turn_id}` 的目标 turn 校验：v1 单 turn 运行无需；多 turn 并发（阶段五子代理）时必须加。
+
 ## 5.5 Run Loop（run-loop.ts）——函数签名级
 
 ```ts
@@ -817,6 +826,13 @@ class SessionStore {
 
 `mungeDir(cwd)` 算法（确定性、防碰撞）：非 `[A-Za-z0-9]` 连续段 → `-`，截断 48 字符，尾部追加 `sha1(cwd)` 前 8 位 hex——例：`E:\code\javascript\project\Spark` → `E-code-javascript-project-Spark-<hash8>`。无需可逆（列表遍历读 meta 重建 cwd 映射）。
 
+**与 pi（`packages/coding-agent/src/core/session-manager.ts`）对照**（v2.5，四条）：
+
+- **文件名加时间戳前缀**：`<ISO 时间戳(冒号转-)>_<ses_id>.jsonl`——同目录列表排序免读 header（pi 实测做法）；采纳。
+- **会话文件版本迁移链**（pi CURRENT_SESSION_VERSION=3 + migrateV1ToV2/V2ToV3，读时就地迁移并重写文件）：我们 header 的 `sparkVersion` 同样需要——读时 `version < 当前` 走迁移函数链后重写；`version > 当前`（未来文件）→ 拒绝加载（fail-closed）。
+- **"空会话不落盘"已评估并否决**：pi 延迟到首个 assistant 消息才写文件（避免垃圾空会话）——与我们"durable 落盘后广播"不变式冲突（崩溃时已广播事件丢失，UI 与磁盘不一致）。替代：接受少量 header-only 文件，`listSessions` 过滤零事件会话不展示。
+- **孤儿条目分歧**：pi 树重建把 parentId 缺失的条目当根（宽容）；我们保持 fail-closed 拒绝加载（dsh 读端纪律，§5.8.4）——记录分歧不跟随。
+
 ### 5.8.2 EventTree（树操作）
 
 ```ts
@@ -862,9 +878,13 @@ compact(rt):
 （压缩调用本身的 usage 不计入会话 usage——与 Claude Code modelUsage 口径一致的做法，v1 简化为不计）
 ```
 
+**compaction 锚点的分支隐患**（v2.5，pi `firstKeptEntryId` 实证）：pi 的 compaction 条目锚定 **entry id**，我们在词表里用 `keptFromSeq`（文件行号）。v1 线性会话下 seq==路径序没问题；**阶段四 fork 后路径序≠文件行序**，seq 比较会保留错误的条目——届时按 §2.5 从 protocol 改为 `keptFromEventId`（Projector 语义同 pi buildContextEntries：摘要消息 + [锚点事件..compaction 前全部] + compaction 后全部）。另：compaction 条目本身参与上下文（作为摘要消息）——与我们"system: summary"等价，互证。
+
 ### 5.8.6 fork（阶段四）
 
-`forkFrom(eventId)`：新文件 header（parentSession=原 id）+ 复制原文件到该事件的行（或引用+seed 标记——采用复制，简单优先）。
+`forkFrom(eventId)`：新文件 header（parentSession=原 id + 源文件 path——pi 同款）+ 复制 root→目标事件的路径行（重链 parentId；或引用+seed 标记——采用复制，简单优先）。
+
+**branch_summary（阶段四+ 可选，pi branchWithSummary）**：分叉时对**被放弃的路径**生成摘要条目注入新分支——回退不丢上下文。同款思路也可用于 /rewind（checkpoint 回滚后补一条被放弃未来的摘要）。
 
 ## 5.9 LLM 网关（llm-gateway.ts）
 
@@ -1578,4 +1598,4 @@ app.get('/api/event', async (req, reply) => {
 
 ---
 
-*方案完（v2.4）。前后端均为完整规格；开工顺序：阶段一工单表自上而下；每次完成按版本记录表追加记录并 push。*
+*方案完（v2.5）。前后端均为完整规格；开工顺序：阶段一工单表自上而下；每次完成按版本记录表追加记录并 push。*
