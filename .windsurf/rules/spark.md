@@ -11,7 +11,7 @@ description: Spark 项目规范（指针摘要版，冲突以根目录 AGENTS.md
 
 - **TypeScript strict**，禁 `any`（确需时 `unknown` + 收窄）；跨包导入只依赖 `@spark/protocol` 导出。
 - **协议改动从 `packages/protocol` 开始**：改事件词表/API 类型 → 前端 applyEvent + 单测 → 引擎 emit 点 → 文档六处同步；禁止私自定义 wire 类型。
-- **前端**：Tailwind + shadcn token；视觉遵循 `DESIGN.md`（桌面应用感、13px 密度、转录式会话流）；**禁止一切"AI 生成风"**：蓝紫渐变玻璃、暖棕/米色暖调、细描边+内部毛玻璃按钮；组件 copy-in 进 `components/ui/` 改造，不引黑盒依赖。
+- **前端**：Tailwind + shadcn token；视觉遵循 `DESIGN.md`（桌面应用感、13px 密度、转录式会话流）；**禁止一切"AI 生成风"**：蓝紫渐变玻璃、暖棕/米色暖调、细描边+内部毛玻璃按钮、超大标题、emoji 装饰（完整六类清单 DESIGN.md §12）；组件 copy-in 进 `components/ui/` 改造，不引黑盒依赖。
 - **UI 状态只来自事件流**（applyEvent reducer）；组件禁止直接 fetch；禁止乐观更新/假状态。
 - **引擎铁律**：durable/live 二分（delta 不落盘）；surface 纪律；失败闭合；审批 fail-closed；单写者 JSONL。
 - **文档纪律**：修改任何 .md 必须更新其开头版本记录表（AI 编写注明软件+模型）；`doc/01` 为历史档案只追加。

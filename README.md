@@ -21,7 +21,7 @@
 |---|---|
 | [AGENTS.md](./AGENTS.md) | AI 编码代理工作规范（任何 AI 进入本仓库先读；含四类约束的规则放置规范） |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 架构总览与关键设计决策记录（ADR） |
-| [DESIGN.md](./DESIGN.md) | 视觉与交互规则：桌面应用感（对标 Codex/ZCode）、token/密度/反网站化黑名单、组件 DoD |
+| [DESIGN.md](./DESIGN.md) | 视觉与交互规则：桌面应用感（对标 Codex/ZCode）、token/密度/反网站化与 AI 生成风黑名单（§12）、组件 DoD |
 | [.agents/skills/](./.agents/skills/) | 可重复任务流程：docs-update / new-event-type / new-tool / frontend-component |
 | [doc/01-research-report.md](./doc/01-research-report.md) | 调研档案：参考项目（Codex/Claude Code/Grok Build/DeepSeek harness/pi/opencode/Gemini CLI/OpenClaw/Hermes）源码级调研 + 前后端生态选型 |
 | [doc/02-development-plan.md](./doc/02-development-plan.md) | 完整开发方案：协议/引擎/前端/服务端实现级规格 + 五阶段路线图 |
@@ -44,3 +44,4 @@
 | v1.2 | 2026-08-22 | 同上 | 文档导航新增 doc/04 前端约束规则 |
 | v1.3 | 2026-08-22 | 同上（决策：晚风 Wanfeng1028） | 移除"本地优先"定位措辞（事实不变，不再作为明面标签；技术细节保留在 ARCHITECTURE D5 等处） |
 | v1.4 | 2026-08-23 | 同上；依据：晚风提供的四类约束框架文章 | 文档体系按"AGENTS 管项目 / DESIGN 管视觉 / SKILL 管流程 / 专属文件管工具差异"重组：导航表更新（+ARCHITECTURE.md/+skills，doc/04 并入 DESIGN.md） |
+| v1.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | DESIGN.md 导航行补"AI 生成风黑名单（§12）"（DESIGN v1.2 依外部调研扩充六类清单） |

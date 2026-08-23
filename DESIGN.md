@@ -6,6 +6,7 @@
 |------|------|------|----------|
 | v1.0 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`；会话内部标识 ox-alpha，model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；人作者：晚风（Wanfeng1028，发起与审核） | 初稿（时为 doc/04-frontend-rules.md）：目标定义（对标 Codex/ZCode 桌面端）、布局/密度排版/颜色/交互/动效规范、反网站化黑名单、AI Elements 桌面化改造规范、组件 DoD、Electron 预留 |
 | v1.1 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；决策：晚风（Wanfeng1028） | **由 doc/04-frontend-rules.md 迁移为根 DESIGN.md**（按四类约束框架：视觉规则归 DESIGN.md，单一来源）；"AI 生成风"判例引用改指 ARCHITECTURE.md D2 |
+| v1.2 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | 新增 **§12"AI 生成风"黑名单完整版**（六类：颜色/玻璃特效/字体排版/卡片边框/布局/图像动效；依据外部调研 5 源，附成因考证与来源链接）；§4 禁止条目收窄为配色项并指向 §12；补"暗色默认"辨析 |
 
 > 本文件是**视觉决策文档**：回答"页面应该保持什么风格，遇到新场景怎么选"，让不同页面看起来仍属于同一个产品。
 > 架构与设计决策见 `ARCHITECTURE.md`；实现规格（做什么）见 `doc/02-development-plan.md` §6——本文件管"做成什么感觉、什么不许做"。所有前端 PR 以本文为验收依据之一。
@@ -81,7 +82,7 @@
 - accent 只用于：运行中指示、焦点环、链接、选中态——**不做大面积强调**。
 - 语义色只表达状态，不做装饰。
 - 文本对比度 ≥ 4.5:1（两主题都查）。
-- **绝对禁止（"AI 生成风"特征清单，判例与决策记录见 ARCHITECTURE.md D2）**：蓝紫渐变玻璃拟态；**暖棕/米色等暖调配色**；**实线细描边 + 内部 backdrop-blur 毛玻璃**的按钮/卡片；渐变；大面积彩色块；多层阴影（浮层至多一层 subtle shadow）；发光边框。
+- **绝对禁止"AI 生成风"配色**（完整六类黑名单见 §12，判例与决策记录见 ARCHITECTURE.md D2）：蓝紫渐变玻璃拟态；**暖棕/米色等暖调配色**；渐变文字/渐变数字；大面积彩色块；发光边框；多层阴影（浮层至多一层 subtle shadow）。
 
 ## 5. 交互规范
 
@@ -151,6 +152,65 @@
 - 字体/图标本地打包（§7.5）保证离线可用。
 - window-state 持久化、系统菜单、托盘：阶段五再接。
 
+## 12. "AI 生成风"黑名单（完整清单，硬约束——PR 审查逐条对照）
+
+> 本节是全仓库"AI 生成风"特征的**唯一完整清单**（AGENTS.md §2.6 / ARCHITECTURE.md D2 / 工具 shim 均引用此处，不复制）。与 §7 反"网站化"黑名单互补：§7 挡"营销网站味"，本节挡"AI 模板味"。
+> **成因**（2026-08-23 外部调研考证）：主流模型的训练语料被 v0/Lovable 时代模板与 Tailwind 早期默认审美污染——Tailwind 早期文档所有按钮示例默认 `indigo-500`，作者 Adam Wathan 已公开致歉；"做界面"于是被学成了"套默认模板"。
+> 辨析：社区另把"默认永久暗色"列为 AI 特征——那是针对营销落地页的；我们的**深色优先是刻意的开发者工具选择**（§1，对标 VS Code/Linear），不在此列。
+
+### 12.1 颜色
+
+- **蓝紫渐变**（紫→蓝、indigo/violet 系渐变按钮/背景/标题文字）——出现频率最高的 AI 特征。
+- "vibecode 紫"：淡紫/薰衣草色作主色调。
+- Tailwind 默认蓝 + shadcn 默认灰的"没调过"配色。
+- 暖棕/米色等暖调配色（判例：2026-08-22 评审的刷课工具截图）。
+- 渐变文字、渐变大数字（"为了冲击力"给数字上渐变）。
+- 渐变光球（purple orb）漂浮在内容区后面。
+
+### 12.2 玻璃与特效
+
+- 毛玻璃/backdrop-blur 用在按钮、卡片、导航栏（glassmorphism-on-everything）。
+- **实线细描边 + 内部模糊**的组合按钮/卡片（判例特征）。
+- 发光边框（glowing border）、暗色霓虹（neon cyan/violet）、accent-glow 动画光晕。
+- 多层阴影堆叠、装饰性大阴影（shadcn 默认卡 `rounded-2xl`+`shadow-lg` 原样出现）。
+
+### 12.3 字体与排版
+
+- **超大标题字体**（hero 式 text-5xl/6xl/7xl 粗体大标题）——§3 封顶：UI 13px、页面级标题 15px。
+- Inter / Poppins / Space Grotesk / Geist 等被当成"不用想"的默认主字体。
+- 全大写 section 小标签滥用；正文中孤立的衬线斜体"强调词"。
+- 装饰性等宽字体（"hacker vibe"）——mono 只用于代码/路径/工具输出（§3）。
+
+### 12.4 卡片与边框
+
+- "卡片灾难"（cardocalypse）：每个块都包卡片、卡片套卡片、用嵌套卡片表达层级。
+- 千篇一律的模板圆角（所有卡片一律 16px/`rounded-2xl`）——§3 圆角封顶：控件 6px、卡片 8px、最大 12px。
+- 纯装饰的彩色 3-4px 左边框条（社区称"最可靠的 AI 味信号"）——左边框只允许表达语义状态（如 §8 ApprovalCard 的 warn 左边框）。
+
+### 12.5 布局
+
+- 居中 hero + 徽章 pill + 大标题 + CTA 的落地页骨架（应用内无落地页，§7.1）。
+- 恰好三张特性卡一行、"1·2·3"编号步骤行、横向统计数字条。
+- bento 网格默认化（信息本可线性呈现却硬切成大小格子）。
+- 假仪表盘/装饰性统计卡（与真实数据无关的 mock 数字块——同时违反 §5"禁止假状态"）。
+
+### 12.6 图像与动效
+
+- 3D 抽象漂浮物、塑料质感插画、通用库存图。
+- 标题上方居中的巨大圆角图标（Lucide 放大到 48px+ 当主视觉）。
+- **emoji 当装饰或主视觉**（✨🚀 等）——中文社区总结的"AI 四大通病"之一。
+- 所有元素同一个 fade-in 入场编排、按钮 hover 无过渡或瞬移——动效规则见 §6（只允许微动效）。
+
+**正面表述**：我们是 13px 密度、zinc 中性基调、单一 accent、转录式会话流的开发者工作台（§1-§6 已定义）；凡"看起来像 v0/Lovable 直出"的界面一律打回。社区反向建议中可取者已吸收进本文件：调色板 ≤3 色相（§4 token）、真实字体配对（我们用系统栈 + IBM Plex Mono）、8pt 间距网格（§3）、边框只做分隔不做装饰（§3）。
+
+**调研来源**（2026-08-23，外部开发者对"AI 前端味"的约束总结）：
+
+- [AI Slop Design — Vibe Code Kit](https://vibecodekit.dev/ai-slop-design)：六类特征全清单（颜色/卡片边框/字体/布局/暗色特效/图像动效）与 anti-slop 规则，本节分类框架的主要依据。
+- [优设《AI 生成的网页总爱用蓝紫渐变？真相藏在5年前！》](https://www.uisdc.com/ai-design-bias)：蓝紫渐变成因考证（Tailwind 默认 indigo 污染训练语料；Adam Wathan 致歉）。
+- [Beyond "Make it Beautiful": The Anti-Slop Framework — Medium](https://moelkholy1995.medium.com/beyond-make-it-beautiful-the-anti-slop-framework-for-ai-frontend-craftsmanship-c99bbee6c994)：紫蓝渐变背景 / 居中徽章+大标题+三卡 / 假仪表盘。
+- [Hallmark — dev.to](https://dev.to/rams901/hallmark-stop-ai-generated-ui-slop-in-one-command-in-2026-3p9n) 与 [avoid-ai-design — GitHub](https://github.com/funboy322/avoid-ai-design)：社区反 AI 味 skill（Inter 字体 / 紫色渐变 / 嵌套卡片）。
+- 中文社区总结（腾讯云开发者 / 优网科技）：AI 前端"四大通病"——蓝紫渐变、滥用 emoji、圆角泛滥、布局雷同。
+
 ---
 
-*本文完（v1.1）。前端开发中与本文冲突的实现一律以本文为准；需要突破规则时先改本文（附版本记录）再写代码。*
+*本文完（v1.2）。前端开发中与本文冲突的实现一律以本文为准；需要突破规则时先改本文（附版本记录）再写代码。*
