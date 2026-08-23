@@ -11,8 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
+        # 版本以 package.json 的 packageManager 为唯一来源（此处不写 version，
+        # 避免与 packageManager 双重声明触发 ERR_PNPM_BAD_PM_VERSION）
       - uses: actions/setup-node@v4
         with:
           node-version: 24
