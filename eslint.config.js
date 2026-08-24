@@ -3,7 +3,11 @@ import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '**/*.min.js'] },
+  {
+    // examples/spike-pi-ai 独立安装依赖、不进主构建（其 package.json 自述），
+    // CI 只装根 workspace 依赖，类型解析不到会误报 unsafe-* —— 整目录排除
+    ignores: ['**/dist/**', '**/node_modules/**', '**/*.min.js', 'examples/spike-pi-ai/**'],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
