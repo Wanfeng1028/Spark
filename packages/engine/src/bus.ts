@@ -81,11 +81,12 @@ export class EventBus {
     this.sessions.set(sid, { seq: lastSeq, tail: Promise.resolve() })
   }
 
+  /** durable 发射：落盘并广播；返回最终信封（run-loop 需 userEventId 引用，§5.5） */
   async emit<T extends DurableEventType>(
     sid: SessionId,
     type: T,
     data: SparkEventMap[T],
-  ): Promise<void> {
+  ): Promise<SparkEventEnvelope<T>> {
     const parsed = this.validate(type, data)
     const st = this.stateOf(sid)
     const task = st.tail.then(() =>
@@ -93,7 +94,7 @@ export class EventBus {
     )
     // 队列不断：单个 emit 失败不阻塞同会话后续 emit（失败由调用方处理——失败闭合）
     st.tail = task.catch(() => undefined)
-    await task
+    return task
   }
 
   emitLive<T extends LiveOnlyEventType>(
@@ -160,7 +161,7 @@ export class EventBus {
     sid: SessionId,
     type: T,
     data: SparkEventMap[T],
-  ): Promise<void> {
+  ): Promise<SparkEventEnvelope<T>> {
     const st = this.sessions.get(sid)
     if (st === undefined) {
       throw new Error(`E_BUS_NO_STATE: 会话 ${sid} 状态缺失`) // 不可达：stateOf 已保证
@@ -180,6 +181,7 @@ export class EventBus {
     const final = await this.opts.sink.append(draft)
     st.seq = seq
     this.broadcast(final)
+    return final as SparkEventEnvelope<T>
   }
 
   private broadcast(e: SparkEventEnvelope): void {

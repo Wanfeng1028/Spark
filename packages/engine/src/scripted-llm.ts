@@ -20,6 +20,7 @@ import type {
   StopReason,
   ToolSpec,
 } from './llm-gateway.js'
+import { ZERO_USAGE } from './llm-gateway.js'
 
 export interface ScriptedDelta {
   kind: 'text' | 'thinking'
@@ -39,8 +40,6 @@ export interface ScriptedStep {
   /** 回放完 deltas 后挂起的毫秒数（挂起期间 abort → aborted 前缀） */
   hangMs?: number
 }
-
-const ZERO_USAGE: Usage = { inputTokens: 0, outputTokens: 0 }
 
 function abortableSleep(signal: AbortSignal, ms: number): Promise<void> {
   return new Promise((resolve) => {

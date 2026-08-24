@@ -13,6 +13,23 @@
  */
 import type { ContentItem, Usage } from '@spark/protocol'
 
+/** 零用量（usage 字段必填，流前初始值） */
+export const ZERO_USAGE: Usage = { inputTokens: 0, outputTokens: 0 }
+
+/** 用量累加（turn 级累计，§5.5 TurnCtx.usage）；可选字段双方皆缺省时保持缺省 */
+export function addUsage(a: Usage, b: Usage): Usage {
+  const sum = (x: number | undefined, y: number | undefined): number | undefined =>
+    x === undefined && y === undefined ? undefined : (x ?? 0) + (y ?? 0)
+  return {
+    inputTokens: a.inputTokens + b.inputTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+    reasoningTokens: sum(a.reasoningTokens, b.reasoningTokens),
+    cacheRead: sum(a.cacheRead, b.cacheRead),
+    cacheWrite: sum(a.cacheWrite, b.cacheWrite),
+    costUsd: sum(a.costUsd, b.costUsd),
+  }
+}
+
 /** models.json + 环境变量合成的已解析模型；apiKey 只在此注入，不进事件/日志/DTO */
 export interface ResolvedModel {
   provider: string

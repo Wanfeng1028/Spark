@@ -26,22 +26,44 @@ export interface SubmitResult {
 
 export class InputQueue {
   private readonly items: InputItem[] = []
-  private readonly waiters: Array<(item: InputItem) => void> = []
+  private readonly waiters: Array<{
+    resolve: (item: InputItem) => void
+    reject: (err: Error) => void
+  }> = []
+  private closed = false
 
   /** 阻塞取（run-loop 唯一消费者；有积压立即兑现） */
   take(): Promise<InputItem> {
     const head = this.items.shift()
     if (head !== undefined) return Promise.resolve(head)
-    return new Promise<InputItem>((resolve) => {
-      this.waiters.push(resolve)
+    if (this.closed) {
+      return Promise.reject(new Error('E_QUEUE_CLOSED: 输入队列已关闭（引擎 shutdown）'))
+    }
+    return new Promise<InputItem>((resolve, reject) => {
+      this.waiters.push({ resolve, reject })
     })
   }
 
   /** 入队并唤醒等待的消费者 */
   push(item: InputItem): void {
+    if (this.closed) {
+      throw new Error('E_QUEUE_CLOSED: 输入队列已关闭，拒绝入队（引擎 shutdown）')
+    }
     const wake = this.waiters.shift()
-    if (wake !== undefined) wake(item)
+    if (wake !== undefined) wake.resolve(item)
     else this.items.push(item)
+  }
+
+  /** 关闭：挂起的 take 全部 reject（run-loop 退出常驻循环）；幂等 */
+  close(): void {
+    if (this.closed) return
+    this.closed = true
+    const err = new Error('E_QUEUE_CLOSED: 输入队列已关闭（引擎 shutdown）')
+    for (const w of this.waiters.splice(0)) w.reject(err)
+  }
+
+  get isClosed(): boolean {
+    return this.closed
   }
 
   get length(): number {
