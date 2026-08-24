@@ -79,6 +79,8 @@ export interface OnceRequest {
   model: ResolvedModel
   system?: string
   prompt: string
+  /** 输出上限（§5.8.5 压缩 maxTokens=2000；缺省用 provider 默认） */
+  maxTokens?: number
   signal?: AbortSignal
 }
 

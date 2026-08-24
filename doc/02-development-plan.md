@@ -1632,7 +1632,7 @@ app.get('/api/event', async (req, reply) => {
 - [x] ToolRegistry + Pipeline（分组并行/权限门/进度节流/溢写）+ 四工具
 - [x] PermissionService（evaluate/挂起表/超时/always 级联/规则文件）
 - [ ] LlmGateway（pi-ai 集成 + 事件回调 + 重试）
-- [ ] Projector（投影六步）+ compaction
+- [x] Projector（投影六步）+ compaction
 - [ ] server REST+SSE 全端点（§7 规格）+ HttpTransport 切换（前端零改动）
 - [ ] pino 日志 + 脱敏
 - [x] ScriptedLlm 假 provider（预录响应序列注入 LlmGateway）——run-loop/工具/审批全链路 CI 可测，不依赖真实 API key

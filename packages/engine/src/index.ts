@@ -96,3 +96,13 @@ export {
   PermissionServiceImpl,
   type PermissionServiceDeps,
 } from './permission/service.js'
+export {
+  ProjectorImpl,
+  reasoningIncluded,
+  estimateTokens,
+  projectSurface,
+  type ProjectorDeps,
+  type SurfaceEntry,
+  type Projection,
+} from './projector.js'
+export { CompactorImpl, COMPACTION_PROMPT, type CompactorDeps } from './compaction.js'

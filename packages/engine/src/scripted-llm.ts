@@ -74,7 +74,7 @@ export class ScriptedLlm implements LlmGateway {
   /** 每次 stream 调用的请求快照（断言投影/工具清单用） */
   readonly calls: Array<{ system: string; messages: LlmMessage[]; tools: ToolSpec[] }> = []
   /** 每次 generateOnce 调用的请求快照（断言压缩/标题提示词用） */
-  readonly onceCalls: Array<{ system: string | undefined; prompt: string }> = []
+  readonly onceCalls: Array<{ system: string | undefined; prompt: string; maxTokens: number | undefined }> = []
 
   scriptStep(step: ScriptedStep): void {
     this.steps.push(step)
@@ -126,7 +126,7 @@ export class ScriptedLlm implements LlmGateway {
   }
 
   generateOnce(req: OnceRequest): Promise<string> {
-    this.onceCalls.push({ system: req.system, prompt: req.prompt })
+    this.onceCalls.push({ system: req.system, prompt: req.prompt, maxTokens: req.maxTokens })
     const reply = this.onceReplies.shift()
     if (reply === undefined) {
       return Promise.reject(
