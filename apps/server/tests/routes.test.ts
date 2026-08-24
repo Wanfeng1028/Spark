@@ -1,0 +1,407 @@
+/**
+ * REST 路由单测（doc/02 §8.6 server 行）：zod 400 / 404 / 409 / 503 映射；
+ * 列表分页 cursor；详情含 durable 回放；messages 三态直通；interrupt 幂等。
+ */
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import Fastify from 'fastify'
+import { ids } from '@spark/protocol'
+import type { SparkEventEnvelope } from '@spark/protocol'
+import { Engine, ScriptedLlm } from '@spark/engine'
+import { registerRoutes } from '../src/routes.js'
+import { makeConfig, makeServer } from './helpers.js'
+import type { ServerFixture } from './helpers.js'
+
+type Json = Record<string, unknown>
+
+let fixtures: ServerFixture[] = []
+
+async function setup(): Promise<ServerFixture> {
+  const f = await makeServer()
+  fixtures.push(f)
+  return f
+}
+
+beforeEach(() => {
+  fixtures = []
+})
+
+afterEach(async () => {
+  for (const f of fixtures) {
+    await f.app.close()
+    await f.engine.shutdown()
+  }
+})
+
+/** 收集引擎事件（审批流拿 requestId、steer 时序用） */
+function collectEvents(f: ServerFixture): SparkEventEnvelope[] {
+  const events: SparkEventEnvelope[] = []
+  f.engine.subscribe((e) => {
+    events.push(e)
+  })
+  return events
+}
+
+async function waitFor<T>(pred: () => T | undefined, timeoutMs = 2000): Promise<T> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const v = pred()
+    if (v !== undefined) return v
+    if (Date.now() > deadline) throw new Error('waitFor 超时')
+    await new Promise((r) => setTimeout(r, 10))
+  }
+}
+
+describe('POST /api/sessions', () => {
+  test('201 + SessionMetaDto（status 实时填充；session.created 已落盘）', async () => {
+    const f = await setup()
+    const res = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: { title: '测试会话' },
+    })
+    expect(res.statusCode).toBe(201)
+    const dto: Json = res.json()
+    expect(typeof dto['id']).toBe('string')
+    expect((dto['id'] as string).startsWith('ses_')).toBe(true)
+    expect(dto['title']).toBe('测试会话')
+    expect(dto['model']).toBe('fake/fake-chat')
+    expect(dto['cwd']).toBe(process.cwd())
+    expect(dto['status']).toBe('idle')
+    expect(dto['lastSeq']).toBe(1) // session.created
+  })
+
+  test('未知字段 → 400 E_VALIDATION + issues', async () => {
+    const f = await setup()
+    const res = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: { unexpected: true },
+    })
+    expect(res.statusCode).toBe(400)
+    const body: Json = res.json()
+    expect(body['code']).toBe('E_VALIDATION')
+    expect(Array.isArray(body['issues'])).toBe(true)
+  })
+
+  test('model 指向未配置 provider → 500 E_INTERNAL（详情不透出）', async () => {
+    const f = await setup()
+    const res = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: { model: 'nope/model' },
+    })
+    expect(res.statusCode).toBe(500)
+    const body: Json = res.json()
+    expect(body['code']).toBe('E_INTERNAL')
+    expect(body['message']).toBe('internal error')
+  })
+})
+
+describe('GET /api/sessions', () => {
+  test('空列表 → []', async () => {
+    const f = await setup()
+    const res = await f.app.inject({ method: 'GET', url: '/api/sessions' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual([])
+  })
+
+  test('按 updatedAt 倒序；limit 切片；cursor 翻页；cursor 不存在 404', async () => {
+    const f = await setup()
+    const ids: string[] = []
+    for (let i = 0; i < 3; i++) {
+      const r = await f.app.inject({
+        method: 'POST',
+        url: '/api/sessions',
+        payload: { title: `s${i}` },
+      })
+      const dto: Json = r.json()
+      ids.push(dto['id'] as string)
+      await new Promise((r2) => setTimeout(r2, 5)) // updatedAt 时间差
+    }
+
+    const all = await f.app.inject({ method: 'GET', url: '/api/sessions' })
+    const list: Json[] = all.json()
+    expect(list.map((m) => m['title'])).toEqual(['s2', 's1', 's0'])
+
+    const limited = await f.app.inject({ method: 'GET', url: '/api/sessions?limit=1' })
+    const onePage: Json[] = limited.json()
+    expect(onePage.map((m) => m['title'])).toEqual(['s2'])
+
+    const paged = await f.app.inject({
+      method: 'GET',
+      url: `/api/sessions?cursor=${ids[2]}`,
+    })
+    const secondPage: Json[] = paged.json()
+    expect(secondPage.map((m) => m['title'])).toEqual(['s1', 's0'])
+
+    const missing = await f.app.inject({
+      method: 'GET',
+      url: '/api/sessions?cursor=ses_nonexistent0000000000000000',
+    })
+    expect(missing.statusCode).toBe(404)
+    const body: Json = missing.json()
+    expect(body['code']).toBe('E_NOT_FOUND')
+  })
+
+  test('limit 非法 → 400', async () => {
+    const f = await setup()
+    const res = await f.app.inject({ method: 'GET', url: '/api/sessions?limit=abc' })
+    expect(res.statusCode).toBe(400)
+    const body: Json = res.json()
+    expect(body['code']).toBe('E_VALIDATION')
+  })
+})
+
+describe('GET /api/sessions/:id', () => {
+  test('返回 meta + events（durable 按 seq 升序）', async () => {
+    const f = await setup()
+    const created = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: {},
+    })
+    const dto: Json = created.json()
+    const id = dto['id'] as string
+    const res = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}` })
+    expect(res.statusCode).toBe(200)
+    const detail: Json = res.json()
+    expect(detail['id']).toBe(id)
+    const events = detail['events'] as Json[]
+    expect(events.map((e) => e['type'])).toEqual(['session.created'])
+    expect(events[0]?.['seq']).toBe(1)
+  })
+
+  test('未加载会话走 resume 路径（磁盘扫描）', async () => {
+    const f = await setup()
+    const created = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: {},
+    })
+    const dto: Json = created.json()
+    const id = dto['id'] as string
+    // 换引擎实例（进程重启语义）：同一 root，会话只在磁盘
+    const engine2 = new Engine({ root: f.root, gateway: new ScriptedLlm(), config: makeConfig() })
+    const app2 = Fastify({ logger: false })
+    await app2.register(registerRoutes, { engine: engine2 })
+    const res = await app2.inject({ method: 'GET', url: `/api/sessions/${id}` })
+    expect(res.statusCode).toBe(200)
+    // resume 路径补发 session.resumed durable 事件（§5.2.1）
+    const detail: Json = res.json()
+    const events = detail['events'] as Json[]
+    expect(events.map((e) => e['type'])).toEqual(['session.created', 'session.resumed'])
+    await app2.close()
+    await engine2.shutdown()
+  })
+
+  test('未知 id → 404；格式非法 → 400', async () => {
+    const f = await setup()
+    const missing = await f.app.inject({
+      method: 'GET',
+      url: '/api/sessions/ses_notexist00000000000000000',
+    })
+    expect(missing.statusCode).toBe(404)
+    const missingBody: Json = missing.json()
+    expect(missingBody['code']).toBe('E_NOT_FOUND')
+
+    const bad = await f.app.inject({ method: 'GET', url: '/api/sessions/not-an-id' })
+    expect(bad.statusCode).toBe(400)
+    const badBody: Json = bad.json()
+    expect(badBody['code']).toBe('E_VALIDATION')
+  })
+})
+
+describe('POST /api/sessions/:id/messages', () => {
+  test('三态直通 started（不等 turn 结果）', async () => {
+    const f = await setup()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '收到' }] })
+    const created = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: {},
+    })
+    const dto: Json = created.json()
+    const id = dto['id'] as string
+    const res = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '你好' },
+    })
+    expect(res.statusCode).toBe(200)
+    const body: Json = res.json()
+    expect(body['result']).toBe('started')
+    expect(typeof body['turnId']).toBe('string')
+  })
+
+  test('turn 中 steer → steered', async () => {
+    const f = await setup()
+    const events = collectEvents(f)
+    f.gateway.scriptStep({
+      deltas: [{ kind: 'text', text: '长' }],
+      hangMs: 300, // 挂起期间注入 steer
+    })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '尾' }] })
+    const created = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: {},
+    })
+    const dto: Json = created.json()
+    const id = dto['id'] as string
+    const r1 = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '第一条' },
+    })
+    const b1: Json = r1.json()
+    expect(b1['result']).toBe('started')
+    await waitFor(() => (events.some((e) => e.type === 'turn.started') ? true : undefined))
+    const r2 = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '插一句', delivery: 'steer' },
+    })
+    const b2: Json = r2.json()
+    expect(b2['result']).toBe('steered')
+  })
+
+  test('text 空 → 400；delivery 非法 → 400；未知会话 → 404', async () => {
+    const f = await setup()
+    const created = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: {},
+    })
+    const dto: Json = created.json()
+    const id = dto['id'] as string
+    const empty = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '' },
+    })
+    expect(empty.statusCode).toBe(400)
+    const badDelivery = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: 'x', delivery: 'whenever' },
+    })
+    expect(badDelivery.statusCode).toBe(400)
+    const missing = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions/ses_notexist00000000000000000/messages',
+      payload: { text: 'x' },
+    })
+    expect(missing.statusCode).toBe(404)
+  })
+})
+
+describe('POST /api/sessions/:id/interrupt', () => {
+  test('idle 幂等 → 200 {ok:true}；未知会话 → 404', async () => {
+    const f = await setup()
+    const created = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: {},
+    })
+    const dto: Json = created.json()
+    const id = dto['id'] as string
+    const res = await f.app.inject({ method: 'POST', url: `/api/sessions/${id}/interrupt` })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ ok: true })
+
+    const missing = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions/ses_notexist00000000000000000/interrupt',
+    })
+    expect(missing.statusCode).toBe(404)
+  })
+})
+
+describe('POST /api/permissions/:requestId', () => {
+  test('审批流：asked → reply 200；重复 → 409；未知 → 404', async () => {
+    const f = await setup()
+    const events = collectEvents(f)
+    f.gateway.scriptStep({
+      content: [
+        {
+          type: 'toolCall',
+          callId: ids.call('cal_sroutes01'),
+          name: 'bash',
+          input: { command: 'echo hi' },
+        },
+      ],
+    })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '完成' }] })
+    const created = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: {},
+    })
+    const dto: Json = created.json()
+    const id = dto['id'] as string
+    await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '跑命令' },
+    })
+
+    const asked = await waitFor(() =>
+      events.find(
+        (e): e is SparkEventEnvelope<'permission.asked'> =>
+          e.type === 'permission.asked',
+      ),
+    )
+    const requestId = asked.data.requestId
+
+    const ok = await f.app.inject({
+      method: 'POST',
+      url: `/api/permissions/${requestId}`,
+      payload: { reply: 'once' },
+    })
+    expect(ok.statusCode).toBe(200)
+    expect(ok.json()).toEqual({ ok: true })
+
+    const again = await f.app.inject({
+      method: 'POST',
+      url: `/api/permissions/${requestId}`,
+      payload: { reply: 'reject' },
+    })
+    expect(again.statusCode).toBe(409)
+    const againBody: Json = again.json()
+    expect(againBody['code']).toBe('E_ALREADY_RESOLVED')
+
+    const unknown = await f.app.inject({
+      method: 'POST',
+      url: '/api/permissions/req_notexist0000000000000000',
+      payload: { reply: 'once' },
+    })
+    expect(unknown.statusCode).toBe(404)
+  })
+
+  test('reply 非法值 → 400', async () => {
+    const f = await setup()
+    const res = await f.app.inject({
+      method: 'POST',
+      url: '/api/permissions/req_anything000000000000000000',
+      payload: { reply: 'maybe' },
+    })
+    expect(res.statusCode).toBe(400)
+    const body: Json = res.json()
+    expect(body['code']).toBe('E_VALIDATION')
+  })
+})
+
+describe('引擎 shutdown 后', () => {
+  test('POST /api/sessions → 503 E_SHUTTING_DOWN', async () => {
+    const f = await setup()
+    await f.engine.shutdown()
+    const res = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: {},
+    })
+    expect(res.statusCode).toBe(503)
+    const body: Json = res.json()
+    expect(body['code']).toBe('E_SHUTTING_DOWN')
+  })
+})

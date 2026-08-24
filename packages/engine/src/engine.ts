@@ -23,7 +23,7 @@ import type {
 } from '@spark/protocol'
 import type { SessionStatus } from '@spark/protocol'
 import { EventBus } from './bus.js'
-import type { EventSink } from './bus.js'
+import type { EventSink, SubscribeHandle } from './bus.js'
 import { CompactorImpl } from './compaction.js'
 import { loadConfig, loadProjectRules } from './config.js'
 import type { EngineConfig, ModelRef } from './config.js'
@@ -157,13 +157,12 @@ export class Engine {
     })
   }
 
-  /** §5.3 订阅透传（server SSE 的数据源） */
+  /** §5.3 订阅透传（server SSE 的数据源；resume 供 SSE 背压 drain 恢复） */
   subscribe(
     handler: (e: SparkEventEnvelope) => void | false | Promise<void | false>,
     filter?: { sessionId?: SessionId },
-  ): () => void {
-    const handle = this.bus.subscribe(handler, filter)
-    return () => handle.unsubscribe()
+  ): SubscribeHandle {
+    return this.bus.subscribe(handler, filter)
   }
 
   async createSession(
