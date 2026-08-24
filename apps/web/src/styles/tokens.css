@@ -1,0 +1,99 @@
+/**
+ * Token 层（doc/02 §6.5 / DESIGN.md §4）：shadcn 标准 token + spark 语义色。
+ * Tailwind v4 CSS-first：@theme inline 把 CSS 变量映射为工具类；无 tailwind.config.js。
+ * 基调 zinc 中性、dark 默认（index.html 根类 + Titlebar 切换）；禁止组件内硬编码 hex。
+ */
+@import 'tailwindcss';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
+/* class 策略二态主题（dark 为默认一级公民） */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #ffffff;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #b91c1c;
+  --destructive-foreground: #fafafa;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #a1a1aa;
+  /* spark 语义色（DESIGN.md §4：accent 单一，语义色只表达状态） */
+  --spark-accent: #4f46e5;
+  --spark-warn: #b45309;
+  --spark-ok: #047857;
+  --spark-err: #b91c1c;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #09090b;
+  --card-foreground: #fafafa;
+  --popover: #09090b;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --destructive: #f87171;
+  --destructive-foreground: #18181b;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #a1a1aa;
+  --spark-accent: #818cf8;
+  --spark-warn: #fbbf24;
+  --spark-ok: #34d399;
+  --spark-err: #f87171;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-spark-accent: var(--spark-accent);
+  --color-spark-warn: var(--spark-warn);
+  --color-spark-ok: var(--spark-ok);
+  --color-spark-err: var(--spark-err);
+
+  /* 密度（DESIGN.md §3）：UI 基础字号 13px；12px 辅助走 text-xs */
+  --text-base: 13px;
+  --text-base--line-height: 1.5;
+
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

@@ -1,0 +1,42 @@
+/**
+ * 主题基础（doc/02 §6.5）：页面级布局锁定与全局交互基线。
+ * 桌面应用感（DESIGN.md §2）：html/body 锁 100%，页面级禁止滚动，只有内容区内部滚动。
+ */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  min-height: 100dvh; /* Electron 预留（DESIGN.md §11） */
+  overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 键盘可达基线（DESIGN.md §5）：全部可交互元素 2px accent 焦点环 */
+:focus-visible {
+  outline: 2px solid var(--spark-accent);
+  outline-offset: 1px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* 动效纪律（DESIGN.md §6）：reduced-motion 下全部动效禁用 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
