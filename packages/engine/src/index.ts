@@ -37,3 +37,18 @@ export {
   type SubmitResultKind,
 } from './session/input-queue.js'
 export { SessionRuntime, type RuntimeStatus } from './session/runtime.js'
+export {
+  type LlmGateway,
+  type ResolvedModel,
+  type LlmMessage,
+  type ToolSpec,
+  type StreamRequest,
+  type StreamResult,
+  type StopReason,
+  type OnceRequest,
+} from './llm-gateway.js'
+export {
+  ScriptedLlm,
+  type ScriptedStep,
+  type ScriptedDelta,
+} from './scripted-llm.js'
