@@ -76,21 +76,29 @@ export class SessionStore implements EventSink {
   private constructor(
     readonly path: string,
     readonly header: SessionHeader,
+    private readonly onTailTorn?: (reason: string) => void,
   ) {}
 
   /** 新会话：建目录、写 header 行 */
-  static async create(path: string, header: SessionHeader): Promise<SessionStore> {
+  static async create(
+    path: string,
+    header: SessionHeader,
+    opts: { onTailTorn?: (reason: string) => void } = {},
+  ): Promise<SessionStore> {
     await mkdir(dirname(path), { recursive: true })
-    const store = new SessionStore(path, header)
+    const store = new SessionStore(path, header, opts.onTailTorn)
     store.fh = await open(path, 'a')
     await store.writeLine(JSON.stringify(header))
     return store
   }
 
   /** resume：全量读（坏行策略 §5.8.4）→ 重建 EventTree */
-  static async resume(path: string): Promise<SessionStore> {
-    const file = await SessionStore.read(path)
-    const store = new SessionStore(path, file.header)
+  static async resume(
+    path: string,
+    opts: { onTailTorn?: (reason: string) => void } = {},
+  ): Promise<SessionStore> {
+    const file = await SessionStore.read(path, opts.onTailTorn)
+    const store = new SessionStore(path, file.header, opts.onTailTorn)
     store.fh = await open(path, 'a')
     for (const e of file.events) {
       store.tree.append(e, e.parentId ?? null)
@@ -99,7 +107,10 @@ export class SessionStore implements EventSink {
   }
 
   /** 全量读（v1 文件小，不做反向扫描优化） */
-  static async read(path: string): Promise<SessionFile> {
+  static async read(
+    path: string,
+    onTailTorn?: (reason: string) => void,
+  ): Promise<SessionFile> {
     const content = await readFile(path, 'utf8')
     const rawLines = content.split('\n')
     if (rawLines[rawLines.length - 1] === '') rawLines.pop() // 文件以 \n 收尾的空尾串
@@ -119,8 +130,10 @@ export class SessionStore implements EventSink {
         parsed = JSON.parse(line)
       } catch {
         if (isLast) {
-          // 尾行半写 = 崩溃残留，丢弃并 warn（§5.8.4；pino 工单接入后换 logger）
-          console.warn(`E_SESSION_TAIL_TORN: 尾行（第 ${lineNo} 行）半写，丢弃`)
+          const reason = `尾行（第 ${lineNo} 行）半写，丢弃`
+          onTailTorn?.(reason)
+          // stderr 直打（避免循环依赖 logger；engine create/resume 会通过 onTailTorn 同时落日志）
+          process.stderr.write(`E_SESSION_TAIL_TORN: ${reason}\n`)
           break
         }
         throw new Error(`E_SESSION_BAD_LINE: 第 ${lineNo} 事件行损坏（fail-closed）`)
