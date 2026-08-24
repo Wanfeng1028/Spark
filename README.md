@@ -2,7 +2,7 @@
 
 > 引擎 headless，UI 是事件流的投影。
 
-![status](https://img.shields.io/badge/status-阶段一_骨架期-blue) ![node](https://img.shields.io/badge/node-%E2%89%A5_22-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
+![status](https://img.shields.io/badge/status-阶段一_完成-blue) ![node](https://img.shields.io/badge/node-%E2%89%A5_22-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
 
 Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行循环、工具执行与审批，Web 前端（后期加 Electron 壳）只做一件事——把事件流投影成界面。核心体验三件事：
 
@@ -12,7 +12,7 @@ Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行�
 
 刻意不做：多用户、登录、公网部署（绑定 127.0.0.1 是设计而非缺省）。
 
-**当前状态**：阶段一（骨架期）——工单 1.1 workspace 骨架、1.2 `@spark/protocol` 唯一合同（19 种事件 · 26 单测全绿）已完成；下一步 = 工单 1.3~1.6（mock 场景 / MockTransport / web 空壳 / server 空壳）。
+**当前状态**：阶段一（骨架期）**完成**——工单 1.1 workspace 骨架、1.2 `@spark/protocol` 唯一合同（19 种事件）、1.3 mock 四场景、1.4 MockTransport、1.5 web 空壳（/welcome）、1.6 server 空壳（healthz）全部落地，mock「发送→流式回复」假对话全链路验收通过；下一步 = 阶段二（前端全量，对 Mock 开发）。
 
 ## 架构一览
 
@@ -82,3 +82,4 @@ pnpm test / typecheck / lint
 | v1.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | ARCHITECTURE.md 导航行补"代码 AI 生成味黑名单（§9）"（ARCHITECTURE v1.5 新增后端/通用六类清单；DESIGN v1.3 前端 §12 深化 P0-P2 分级+文案语气+grep 硬检查） |
 | v1.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"README 写得太丑"） | 排版重做：状态 badges（zinc 中性色）；导语改散文段+核心体验三件事；新增"架构一览"ASCII 分层图与"开发"命令节；文档导航/技术栈描述收紧；设计原则补第 6 条"无聊的代码，克制的界面" |
 | v1.8 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审指出事实漂移） | **四处漂移修复**：状态徽章与"当前状态"阶段零→阶段一（工单 1.1/1.2 完成）；架构图事件词表 21→19 种；开发命令注释对齐现状。新增 `scripts/check_doc_links.py` 防复发（CI 已接） |
+| v1.9 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段一开工指令） | **当前状态与状态徽章更新为阶段一完成**（工单 1.3~1.6 + 阶段验收勾选，doc/02 §8 v2.9 同步） |

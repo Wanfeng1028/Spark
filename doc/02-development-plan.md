@@ -24,6 +24,7 @@
 | v2.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续"——第三批源码对照） | **第三批对照**（依据：Codex `reverse_jsonl_scanner.rs` 全文、dsh `deepseek-ai/deepseek-harness` master `surface.ts`+index.ts deriveMessages）：§5.8.3 三条（空 assistant 消息不进转录、逐字直通硬规则、**surfaceOp replace 语义**=模型可见面≠人类转录面，工具结果蒸馏的词表前置研究）；§5.8.4 两条（**seq 连续性校验**补漏、反向扫描恢复模式——冻结前缀/超大行跳过/坏行可继续，阶段四引入）；§5.8.6 fork 边界校验三拒绝码（INVALID_BOUNDARY/OPEN_TURN/ALREADY_EXISTS）。勘误：dsh 仓库名实为 deepseek-ai/deepseek-harness（master 分支），非 deepseek-ai/dsh |
 | v2.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续把文档完善"） | **第四批对照**（依据：pi-ai `packages/ai/src/{index,types}.ts`、opencode `session/overflow.ts`）：§5.9 **勘误两处**——pi-ai Tool.parameters 要求 typebox TSchema（推翻 v2.0"jsonSchema 零适配"，改 zod→jsonSchema→Type.Unsafe 薄桥集中网关）；Context.systemPrompt 为独立字段（StreamRequest 增 system，入口拆出直传）。§5.5/§5.8.5 压缩触发升级为 **reserve 扣减公式**（usable = input ?? context−maxOutputTokens − min(20k, maxOutput)；threshold 降为手动覆盖）。架构级决策 D9-D13 补录 ARCHITECTURE v1.7 |
 | v2.8 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审指出 §6.9 漏改） | §6.9 测试重点 "applyEvent 21 事件"→**19 事件**（v2.3 批量替换漏网——该处无"种"字未被正则命中，同文内部矛盾的最后一处）；CI 描述补 `check_doc_links.py` 文档一致性检查 |
+| v2.9 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段一开工指令） | **阶段一完成**：§8 工单 1.3 mock 四场景（afcd5bf）、1.5 web 空壳（ee58c83）、1.4 MockTransport（2f13bf7）、1.6 server 空壳（e45c99a）勾选；阶段验收（mock 假对话全链路）通过 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -1474,11 +1475,11 @@ app.get('/api/event', async (req, reply) => {
 |---|---|---|---|---|
 | 1.1 | ✅ workspace 骨架（提交 0c135ca） | pnpm-workspace.yaml、tsconfig.base.json、根 package.json、eslint(flat)/prettier、CI workflow | `pnpm i` 通过；`pnpm lint/typecheck` 空仓通过；CI 绿 | — |
 | 1.2 | ✅ protocol 包（提交 2b289cb） | `src/{ids,primitives,events,api,transport,schema,index}.ts`（§4 全部，含 §4.3.1 骨架） | tsc strict 零错；**19 事件** zod round-trip 单测绿（26 例）；jsonSchemas 导出可 JSON.stringify | 1.1 |
-| 1.3 | mock 场景 | `examples/mock-sessions/{normal,long-output,reject,error-finish}.jsonl`（§4.7 表 + §4.8 样例形状） | 四文件逐行过 EnvelopeSchema 校验（单测断言） | 1.2 |
-| 1.4 | MockTransport | web `src/transports/{mock.ts,context.tsx}` + anchors 解析 | `VITE_SPARK_MOCK=1` 下 onEvent 按 @delay/@wait 吐事件；审批挂起可 reply | 1.2 |
-| 1.5 | web 空壳 | Vite+React+Tailwind+shadcn init；AppShell 三区骨架（Sidebar/主区/StatusBar） | `/welcome` 渲染引导块；主题 token 生效 | 1.1 |
-| 1.6 | server 空壳 | Fastify hello + 静态托管 + 优雅退出钩子 | `curl 127.0.0.1:4318/api/healthz` 200（临时健康检查端点，仅阶段一调试用） | 1.1 |
-| — | **阶段验收** | — | **web + mock 跑通"发送→流式回复"假对话**（1.3+1.4+1.5 串联） | 全部 |
+| 1.3 | ✅ mock 场景（提交 afcd5bf） | `examples/mock-sessions/{normal,long-output,reject,error-finish}.jsonl`（§4.7 表 + §4.8 样例形状） | 四文件逐行过 EnvelopeSchema 校验（单测断言） | 1.2 |
+| 1.4 | ✅ MockTransport（提交 2f13bf7） | web `src/transports/{mock.ts,context.tsx}` + anchors 解析 | `VITE_SPARK_MOCK=1` 下 onEvent 按 @delay/@wait 吐事件；审批挂起可 reply | 1.2 |
+| 1.5 | ✅ web 空壳（提交 ee58c83） | Vite+React+Tailwind+shadcn init；AppShell 三区骨架（Sidebar/主区/StatusBar） | `/welcome` 渲染引导块；主题 token 生效 | 1.1 |
+| 1.6 | ✅ server 空壳（提交 e45c99a） | Fastify hello + 静态托管 + 优雅退出钩子 | `curl 127.0.0.1:4318/api/healthz` 200（临时健康检查端点，仅阶段一调试用） | 1.1 |
+| — | ✅ **阶段验收** | — | ✅ **web + mock 跑通"发送→流式回复"假对话**（1.3+1.4+1.5 串联） | 全部 |
 
 ## 阶段二：前端全量（对 Mock 开发）
 

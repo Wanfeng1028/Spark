@@ -1,0 +1,355 @@
+/**
+ * MockTransport（doc/02 §4.7 / §6.6）：预录场景脚本驱动的事件流回放——后端未就绪时的假数据通道。
+ * 脚本 = examples/mock-sessions/*.jsonl（首行会话元数据，其后事件行与锚点行混排）。
+ * 锚点行语义（§4.7 表）：
+ *   {"@wait":"approval"} 回放至此挂起，直到 replyPermission（requestId 取脚本内预置值）
+ *   {"@wait":"message"}  挂起直到下一次 sendMessage（steer 演示：注入后继续回放）
+ *   {"@delay":N}         其后事件间隔固定 N ms（覆盖默认 30~80ms 随机抖动）
+ *   {"@speed":N}         全局倍率（实际间隔 = delay / speed）
+ * sendMessage 不合成事件——脚本预录的 user.message 原样回放（假对话：文本以脚本为准）。
+ */
+import { ids, parseEnvelope } from '@spark/protocol'
+import type {
+  PermissionReply,
+  RequestId,
+  SessionDto,
+  SessionId,
+  SessionStatus,
+  SparkEventEnvelope,
+  SparkEventType,
+  SubmitOutcome,
+  Transport,
+  TurnId,
+} from '@spark/protocol'
+import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
+import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
+import rawReject from '../../../../examples/mock-sessions/reject.jsonl?raw'
+import rawErrorFinish from '../../../../examples/mock-sessions/error-finish.jsonl?raw'
+
+export type MockScenario = 'normal' | 'long-output' | 'reject' | 'error-finish'
+
+export const MOCK_SCENARIOS: readonly MockScenario[] = ['normal', 'long-output', 'reject', 'error-finish']
+
+const SCRIPTS: Record<MockScenario, string> = {
+  normal: rawNormal,
+  'long-output': rawLongOutput,
+  reject: rawReject,
+  'error-finish': rawErrorFinish,
+}
+
+/** 脚本首行：会话元数据（非事件） */
+export interface ScenarioMeta {
+  sparkVersion: string
+  cwd: string
+  createdAt: number
+  model: string
+}
+
+type ScriptLine =
+  | { kind: 'event'; envelope: SparkEventEnvelope }
+  | { kind: 'wait'; target: 'approval' | 'message' }
+  | { kind: 'delay'; ms: number }
+  | { kind: 'speed'; factor: number }
+
+export interface ScenarioScript {
+  meta: ScenarioMeta
+  lines: ScriptLine[]
+  /** 脚本 sessionId（取首事件信封；全脚本一致） */
+  sessionId: SessionId
+  /** 脚本内 session.created 事件（createSession 吐它） */
+  created: SparkEventEnvelope<'session.created'>
+}
+
+const ANCHOR_KEYS = { '@wait': 1, '@delay': 1, '@speed': 1 } as const
+
+function isAnchorKey(k: string): k is keyof typeof ANCHOR_KEYS {
+  return k in ANCHOR_KEYS
+}
+
+/** 解析场景脚本：行形状错误直接抛（脚本随产物打包，坏行 = 开发期错误，fail loudly） */
+export function parseScenarioScript(raw: string): ScenarioScript {
+  const rows = raw.split('\n').filter((l) => l.trim().length > 0)
+  const first = rows[0]
+  if (first === undefined) throw new Error('E_MOCK_EMPTY_SCRIPT: 场景脚本为空')
+
+  const metaRow = JSON.parse(first) as unknown
+  if (typeof metaRow !== 'object' || metaRow === null || !('sparkVersion' in metaRow)) {
+    throw new Error('E_MOCK_BAD_META: 脚本首行缺 sparkVersion 元数据')
+  }
+  const meta = metaRow as ScenarioMeta
+
+  const lines: ScriptLine[] = []
+  for (const row of rows.slice(1)) {
+    const parsed = JSON.parse(row) as unknown
+    if (typeof parsed === 'object' && parsed !== null) {
+      const head = Object.keys(parsed)[0]
+      if (head !== undefined && isAnchorKey(head)) {
+        const anchor = parsed as Record<string, unknown>
+        if (head === '@wait' && (anchor['@wait'] === 'approval' || anchor['@wait'] === 'message')) {
+          lines.push({ kind: 'wait', target: anchor['@wait'] })
+        } else if (head === '@delay' && typeof anchor['@delay'] === 'number') {
+          lines.push({ kind: 'delay', ms: anchor['@delay'] })
+        } else if (head === '@speed' && typeof anchor['@speed'] === 'number') {
+          lines.push({ kind: 'speed', factor: anchor['@speed'] })
+        } else {
+          throw new Error(`E_MOCK_BAD_ANCHOR: 未知锚点 ${row}`)
+        }
+        continue
+      }
+    }
+    lines.push({ kind: 'event', envelope: parseEnvelope(parsed) })
+  }
+
+  const firstEvent = lines.find((l): l is { kind: 'event'; envelope: SparkEventEnvelope } => l.kind === 'event')
+  if (!firstEvent) throw new Error('E_MOCK_NO_EVENTS: 脚本无事件行')
+  const created = lines.find(
+    (l): l is { kind: 'event'; envelope: SparkEventEnvelope<'session.created'> } =>
+      l.kind === 'event' && l.envelope.type === 'session.created',
+  )
+  if (!created) throw new Error('E_MOCK_NO_SESSION_CREATED: 脚本缺 session.created 事件')
+  return { meta, lines, sessionId: firstEvent.envelope.sessionId, created: created.envelope }
+}
+
+const jitter = () => 30 + Math.floor(Math.random() * 51) // 30~80ms（§4.7）
+
+/** 按词表窄化事件类型（SparkEventEnvelope 是接口非联合，TS 不做判别收窄） */
+function ofType<T extends SparkEventType>(e: SparkEventEnvelope, t: T): e is SparkEventEnvelope<T> {
+  return e.type === t
+}
+
+export class MockTransport implements Transport {
+  private readonly handlers = new Set<(e: SparkEventEnvelope) => void>()
+  private script: ScenarioScript
+  private scenario: MockScenario
+  private cursor = 0 // 下一待处理行
+  private delayMs: number | null = null // null = 抖动
+  private speedFactor = 1
+  private timer: ReturnType<typeof setTimeout> | null = null
+  private suspended: 'approval' | 'message' | null = null
+  private sessionStarted = false
+  private disposed = false
+  private currentTurnId: TurnId | null = null
+  private lastAskedRequestId: RequestId | null = null
+
+  constructor(scenario: MockScenario = 'normal') {
+    this.scenario = scenario
+    this.script = parseScenarioScript(SCRIPTS[scenario])
+  }
+
+  get currentScenario(): MockScenario {
+    return this.scenario
+  }
+
+  /** 场景切换：重置回放状态（不吐事件——新会话由 createSession 发起） */
+  setScenario(scenario: MockScenario): void {
+    if (scenario === this.scenario) return
+    this.stopTimer()
+    this.scenario = scenario
+    this.script = parseScenarioScript(SCRIPTS[scenario])
+    this.cursor = 0
+    this.delayMs = null
+    this.speedFactor = 1
+    this.suspended = null
+    this.sessionStarted = false
+    this.currentTurnId = null
+  }
+
+  onEvent(handler: (e: SparkEventEnvelope) => void): () => void {
+    this.handlers.add(handler)
+    return () => this.handlers.delete(handler)
+  }
+
+  private emit(e: SparkEventEnvelope): void {
+    // 跟踪未闭合 turn 与最近审批请求（interrupt 合成闭合事件用）
+    if (ofType(e, 'turn.started')) this.currentTurnId = e.data.turnId
+    else if (ofType(e, 'turn.completed')) this.currentTurnId = null
+    else if (ofType(e, 'permission.asked')) this.lastAskedRequestId = e.data.requestId
+    for (const h of [...this.handlers]) h(e)
+  }
+
+  private stopTimer(): void {
+    if (this.timer !== null) {
+      clearTimeout(this.timer)
+      this.timer = null
+    }
+  }
+
+  /** 下一事件的实际间隔：@delay 固定值或 30~80ms 抖动，除以 @speed 倍率 */
+  private nextInterval(): number {
+    const base = this.delayMs ?? jitter()
+    return Math.max(1, Math.round(base / this.speedFactor))
+  }
+
+  /** 回放循环：处理锚点后吐下一事件；遇 @wait 挂起，脚本尾自然停止 */
+  private advance(): void {
+    // 消化连续锚点（delay/speed 即刻生效，wait 挂起返回）
+    while (this.cursor < this.script.lines.length) {
+      const line = this.script.lines[this.cursor]
+      if (line === undefined) return // 索引收窄（noUncheckedIndexedAccess）；循环条件保证不可达
+      if (line.kind === 'delay') {
+        this.delayMs = line.ms
+        this.cursor++
+        continue
+      }
+      if (line.kind === 'speed') {
+        this.speedFactor = line.factor
+        this.cursor++
+        continue
+      }
+      if (line.kind === 'wait') {
+        this.suspended = line.target
+        this.cursor++
+        return
+      }
+      this.cursor++
+      this.timer = setTimeout(() => {
+        this.timer = null
+        this.emit(line.envelope)
+        this.advance()
+      }, this.nextInterval())
+      return
+    }
+    // 脚本耗尽：回放自然结束（等待切场景或耗尽后的 sendMessage 语义见下）
+  }
+
+  sendMessage(): Promise<SubmitOutcome> {
+    return Promise.resolve(this.submit())
+  }
+
+  /** 同步受理逻辑（假对话：text 不改变回放内容） */
+  private submit(): SubmitOutcome {
+    this.assertNotDisposed()
+    if (this.suspended === 'message') {
+      this.suspended = null
+      this.advance()
+      return { result: 'steered' }
+    }
+    if (this.suspended === 'approval') {
+      // 审批挂起中 sendMessage = steer/queue 受理，但不解除审批挂起（须 replyPermission）
+      return { result: 'queued' }
+    }
+    if (this.timer !== null) return { result: 'steered' } // 回放进行中：受理为插话（脚本固定，不真正注入）
+    if (this.cursor >= this.script.lines.length) return { result: 'queued' } // 场景已播完
+    this.startSession()
+    this.advance()
+    return { result: 'started' }
+  }
+
+  /** 首次交互补吐 session.created（若未吐） */
+  private startSession(): void {
+    if (this.sessionStarted) return
+    this.sessionStarted = true
+    this.emit(this.script.created)
+    const idx = this.script.lines.findIndex(
+      (l) => l.kind === 'event' && l.envelope.id === this.script.created.id,
+    )
+    this.cursor = Math.max(this.cursor, idx + 1)
+  }
+
+  interrupt(): Promise<void> {
+    this.stopTimer()
+    const rand = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    // 失败闭合（引擎铁律）：挂起中的审批合成拒绝、进行中的 turn 合成 aborted——事件流不悬空
+    if (this.suspended === 'approval') {
+      const req = this.lastAskedRequestId
+      if (req !== null) {
+        this.emit({
+          id: ids.event(`evt_mock_interrupt_reject_${rand()}`),
+          sessionId: this.script.sessionId,
+          type: 'permission.resolved',
+          time: Date.now(),
+          data: { requestId: req, reply: 'reject' },
+        })
+      }
+    }
+    const turnId = this.currentTurnId
+    if (turnId !== null) {
+      this.emit({
+        id: ids.event(`evt_mock_aborted_${rand()}`),
+        sessionId: this.script.sessionId,
+        type: 'turn.completed',
+        time: Date.now(),
+        data: { turnId, finish: 'aborted' },
+      })
+    }
+    this.suspended = null
+    // 跳过本 turn 剩余脚本：cursor 快进到下一个 user.message（或脚本尾），会话回到空闲
+    let target = -1
+    for (let i = this.cursor; i < this.script.lines.length; i++) {
+      const l = this.script.lines[i]
+      if (l !== undefined && l.kind === 'event' && l.envelope.type === 'user.message') {
+        target = i
+        break
+      }
+    }
+    this.cursor = target === -1 ? this.script.lines.length : target
+    return Promise.resolve()
+  }
+
+  replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void> {
+    this.assertNotDisposed()
+    if (this.suspended !== 'approval') {
+      console.warn(`[mock] replyPermission 在无审批挂起时被调用（requestId=${requestId}）——已忽略`)
+      return Promise.resolve()
+    }
+    // 覆写脚本中紧随的 permission.resolved，使 UI 呈现与用户实际选择一致
+    const next = this.script.lines
+      .slice(this.cursor)
+      .find(
+        (l): l is { kind: 'event'; envelope: SparkEventEnvelope<'permission.resolved'> } =>
+          l.kind === 'event' && l.envelope.type === 'permission.resolved',
+      )
+    if (next) {
+      next.envelope.data = { requestId, reply, ...(feedback !== undefined ? { feedback } : {}) }
+    }
+    this.suspended = null
+    this.advance()
+    return Promise.resolve()
+  }
+
+  /** 由脚本静态构造 SessionDto（listSessions / createSession 共用） */
+  private static dtoOf(script: ScenarioScript, status: SessionStatus): SessionDto {
+    const durable = script.lines.flatMap((l) => (l.kind === 'event' && l.envelope.seq !== undefined ? [l.envelope] : []))
+    const last = durable[durable.length - 1]
+    return {
+      id: script.sessionId,
+      title: script.created.data.title ?? '',
+      model: script.meta.model,
+      cwd: script.meta.cwd,
+      createdAt: script.meta.createdAt,
+      updatedAt: last?.time ?? script.meta.createdAt,
+      lastSeq: last?.seq ?? 0,
+      status,
+    }
+  }
+
+  listSessions(): Promise<SessionDto[]> {
+    return Promise.resolve(
+      MOCK_SCENARIOS.map((s) =>
+        MockTransport.dtoOf(s === this.scenario ? this.script : parseScenarioScript(SCRIPTS[s]), 'idle'),
+      ),
+    )
+  }
+
+  createSession(): Promise<SessionDto> {
+    this.assertNotDisposed()
+    this.startSession()
+    return Promise.resolve(MockTransport.dtoOf(this.script, this.status()))
+  }
+
+  status(): SessionStatus {
+    if (this.suspended === 'approval') return 'waiting-approval'
+    if (this.timer !== null) return 'running'
+    return 'idle'
+  }
+
+  dispose(): void {
+    this.disposed = true
+    this.stopTimer()
+    this.handlers.clear()
+  }
+
+  private assertNotDisposed(): void {
+    if (this.disposed) throw new Error('E_MOCK_DISPOSED: MockTransport 已 dispose')
+  }
+}
