@@ -65,3 +65,28 @@ export {
   type TurnCtx,
   type RunLoopDeps,
 } from './run-loop.js'
+export {
+  resolveInRoot,
+  type ToolContext,
+  type ToolOutput,
+  type ToolDefinition,
+} from './tools/definition.js'
+export { ToolRegistry, type AdvertisedTool } from './tools/registry.js'
+export {
+  ToolPipelineImpl,
+  type PipelineDeps,
+} from './tools/pipeline.js'
+export {
+  ToolOutputStore,
+} from './tools/output-store.js'
+export {
+  type PermissionCheck,
+  type PermissionService,
+} from './tools/permission-port.js'
+export {
+  registerBuiltinTools,
+  readTool,
+  writeTool,
+  editTool,
+  bashTool,
+} from './tools/builtin/index.js'
