@@ -21,6 +21,7 @@
 | v2.3 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | **阶段一开工**：工单 1.1（workspace 骨架，0c135ca）与 1.2（@spark/protocol 唯一合同，2b289cb）完成并勾选——schema-first 实现：19 事件 zod registry、SparkEventMap 由 infer 派生、parseEnvelope 两步 fail-closed、26 单测全绿。**事实修正：事件词表 21→19 种**（实现时逐条核对，全文 6 处；AGENTS v1.11/ARCHITECTURE v1.6/doc/03 v1.1 同步） |
 | v2.4 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"参考项目源码摆在那里，要主动对照找缺口"） | **参考源码在线对照补强**（依据：pi `packages/agent/src/agent-loop.ts`、opencode `packages/opencode/src/permission/index.ts` 全文研读）：§5.5 截断保护定为 **continue 回喂**（pi terminate=false，此前未定义）+ max-steps 对照决策注记（pi 无计数器，我们保留兜底）+ abort 双检点；§5.6.3 前**进度门控队列**（updateEvents 链+acceptingUpdates 标志，防 progress 晚于 completed 乱序）；§5.7 **七条审批补强**（多 pattern 评估、reject 级联、alwaysPatterns ask 时声明、优先级=扁平化 findLast 实锤、deny 工具不广告、~/\$HOME 展开、shutdown 清 pending）；§5.9 pi 事件映射取舍表（toolcall 流式 v1 不做） |
 | v2.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续"——第二批源码对照） | **第二批对照**（依据：pi `packages/coding-agent/src/core/session-manager.ts` 全文、Codex `codex-rs/protocol/src/turn_input.rs`、opencode-ai/schema `packages/schema/src/event.ts`）：§5.4 补 **steerQueue 残留转入 queue**（插话不丢失，此前未定义的边界）+ 提交无拒绝态的宽容决策注记（对照 Codex NotSubmittedReason 八种）；§5.8.1 采纳**文件名时间戳前缀**与**会话文件版本迁移链**（pi migrateV1→V2→V3 就地重写），否决"空会话不落盘"（与落盘后广播不变式冲突），记录孤儿条目分歧（pi 宽容/我 fail-closed）；§5.8.5 **compaction 锚点分支隐患**（fork 后 seq≠路径序，阶段四须改 keptFromEventId——pi firstKeptEntryId 实证）；§5.8.6 fork 补 parentSession 源路径 + branch_summary（阶段四+可选）；§4.4 记 opencode metadata 通道与事件级版本共存为 v2 选项 |
+| v2.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续"——第三批源码对照） | **第三批对照**（依据：Codex `reverse_jsonl_scanner.rs` 全文、dsh `deepseek-ai/deepseek-harness` master `surface.ts`+index.ts deriveMessages）：§5.8.3 三条（空 assistant 消息不进转录、逐字直通硬规则、**surfaceOp replace 语义**=模型可见面≠人类转录面，工具结果蒸馏的词表前置研究）；§5.8.4 两条（**seq 连续性校验**补漏、反向扫描恢复模式——冻结前缀/超大行跳过/坏行可继续，阶段四引入）；§5.8.6 fork 边界校验三拒绝码（INVALID_BOUNDARY/OPEN_TURN/ALREADY_EXISTS）。勘误：dsh 仓库名实为 deepseek-ai/deepseek-harness（master 分支），非 deepseek-ai/dsh |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -858,11 +859,19 @@ modelContext(leafId):
   6. 估算 tokens（字符近似）返回 {messages, tokens}
 ```
 
+**与 dsh（`deepseek-ai/deepseek-harness` master `packages/core/session/src/surface.ts` 460 行全文核对，v2.6）**：
+
+- **空内容 assistant.message 不进转录**：仅承载 usage 的 max-tokens step（content 空数组）投影为 null——补入第 5 步投影规则。
+- **逐字直通硬规则**：投影不加任何 per-type 包装框（dsh："framing is caller-owned"——包装由生产者写进 content 本体）；user.message 原样进入历史，禁止投影层二次加工。
+- **surfaceOp replace 语义（v2 词表候选）**：dsh 表面事件携带 `surfaceOp: 'append' | {op:'replace',start,end}`——后发事件可**位置替换**早先表面区间，且有严格纪律（replace 须引用全部被遮蔽 seq；tool/result 替换只许改 content）。关键推论：**模型可见面 ≠ 人类转录面**（UI 显示 append-origin 原文，模型吃替换后版本）——这正是"工具结果事后蒸馏/重写"（Gemini CLI 双层压缩的第二层）的机制基础。v1 无此需求（compaction 用 completed+本节规则等价实现）；做蒸馏时按 AGENTS §2.5 扩词表。
+
 ### 5.8.4 坏行与恢复策略
 
 - 读取时行 JSON 解析失败：**尾行**（EOF 前最后一行）→ 视为崩溃半写，丢弃并 warn（JSONL 追加写崩溃的典型形态）；**非尾行**坏行 → 拒绝加载该会话（fail-closed，dsh 读端纪律）。
 - 未知事件 type 且无 `ignorable:true` → 拒绝加载（协议演进保护）。
 - resume：全量读 → 重建 EventTree → 若历史显示 turn.started 无对应 turn.completed → 合成 `turn.completed{finish:'aborted'}` 补闭合（Codex 崩溃恢复的 interrupted 语义）。
+- **seq 连续性校验**（dsh contiguity contract："seq = log.length"）：resume 时断言 durable 序号 1..N 无洞——不连续即文件损坏，fail-closed 拒绝加载（v2.6 补）。
+- **反向扫描恢复（阶段四大文件优化；Codex `codex-rs/rollout/src/reverse_jsonl_scanner.rs` 全文核对，151 行）**：从文件尾按 64KB 块倒序找行界（`rposition('\n')`），O(记录大小)内存定位最近状态。三个可抄细节：`new_at(end_offset)` **冻结前缀扫描**（文件仍被追加时安全 resume）；`with_max_record_bytes` 整条跳过超大损坏行（防一行坏数据卡死恢复）；坏记录 `Rejected` 后继续扫（宽容恢复路径）。v1 文件小全量读即可，不提前实现。
 
 ### 5.8.5 压缩（compaction.ts）
 
@@ -885,6 +894,8 @@ compact(rt):
 `forkFrom(eventId)`：新文件 header（parentSession=原 id + 源文件 path——pi 同款）+ 复制 root→目标事件的路径行（重链 parentId；或引用+seed 标记——采用复制，简单优先）。
 
 **branch_summary（阶段四+ 可选，pi branchWithSummary）**：分叉时对**被放弃的路径**生成摘要条目注入新分支——回退不丢上下文。同款思路也可用于 /rewind（checkpoint 回滚后补一条被放弃未来的摘要）。
+
+**fork 边界校验**（dsh `SessionForkErrorCode` 对照，v2.6）：forkFrom 必须拒绝三类请求——边界事件不存在（INVALID_BOUNDARY）、边界落在 open turn 中间（OPEN_TURN：turn 未闭合不可分叉）、目标会话 id 已存在（ALREADY_EXISTS）。
 
 ## 5.9 LLM 网关（llm-gateway.ts）
 
@@ -1598,4 +1609,4 @@ app.get('/api/event', async (req, reply) => {
 
 ---
 
-*方案完（v2.5）。前后端均为完整规格；开工顺序：阶段一工单表自上而下；每次完成按版本记录表追加记录并 push。*
+*方案完（v2.6）。前后端均为完整规格；开工顺序：阶段一工单表自上而下；每次完成按版本记录表追加记录并 push。*
