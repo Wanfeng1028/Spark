@@ -23,6 +23,7 @@
 | v2.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续"——第二批源码对照） | **第二批对照**（依据：pi `packages/coding-agent/src/core/session-manager.ts` 全文、Codex `codex-rs/protocol/src/turn_input.rs`、opencode-ai/schema `packages/schema/src/event.ts`）：§5.4 补 **steerQueue 残留转入 queue**（插话不丢失，此前未定义的边界）+ 提交无拒绝态的宽容决策注记（对照 Codex NotSubmittedReason 八种）；§5.8.1 采纳**文件名时间戳前缀**与**会话文件版本迁移链**（pi migrateV1→V2→V3 就地重写），否决"空会话不落盘"（与落盘后广播不变式冲突），记录孤儿条目分歧（pi 宽容/我 fail-closed）；§5.8.5 **compaction 锚点分支隐患**（fork 后 seq≠路径序，阶段四须改 keptFromEventId——pi firstKeptEntryId 实证）；§5.8.6 fork 补 parentSession 源路径 + branch_summary（阶段四+可选）；§4.4 记 opencode metadata 通道与事件级版本共存为 v2 选项 |
 | v2.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续"——第三批源码对照） | **第三批对照**（依据：Codex `reverse_jsonl_scanner.rs` 全文、dsh `deepseek-ai/deepseek-harness` master `surface.ts`+index.ts deriveMessages）：§5.8.3 三条（空 assistant 消息不进转录、逐字直通硬规则、**surfaceOp replace 语义**=模型可见面≠人类转录面，工具结果蒸馏的词表前置研究）；§5.8.4 两条（**seq 连续性校验**补漏、反向扫描恢复模式——冻结前缀/超大行跳过/坏行可继续，阶段四引入）；§5.8.6 fork 边界校验三拒绝码（INVALID_BOUNDARY/OPEN_TURN/ALREADY_EXISTS）。勘误：dsh 仓库名实为 deepseek-ai/deepseek-harness（master 分支），非 deepseek-ai/dsh |
 | v2.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续把文档完善"） | **第四批对照**（依据：pi-ai `packages/ai/src/{index,types}.ts`、opencode `session/overflow.ts`）：§5.9 **勘误两处**——pi-ai Tool.parameters 要求 typebox TSchema（推翻 v2.0"jsonSchema 零适配"，改 zod→jsonSchema→Type.Unsafe 薄桥集中网关）；Context.systemPrompt 为独立字段（StreamRequest 增 system，入口拆出直传）。§5.5/§5.8.5 压缩触发升级为 **reserve 扣减公式**（usable = input ?? context−maxOutputTokens − min(20k, maxOutput)；threshold 降为手动覆盖）。架构级决策 D9-D13 补录 ARCHITECTURE v1.7 |
+| v2.8 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审指出 §6.9 漏改） | §6.9 测试重点 "applyEvent 21 事件"→**19 事件**（v2.3 批量替换漏网——该处无"种"字未被正则命中，同文内部矛盾的最后一处）；CI 描述补 `check_doc_links.py` 文档一致性检查 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -1338,7 +1339,7 @@ export default defineConfig({
 })
 ```
 
-规范：ESLint(flat+typescript-eslint strict)+Prettier；CI=typecheck+lint+build+test(vitest)。测试重点：protocol 类型级 + **applyEvent 21 事件单测全覆盖** + 审批卡交互。环境变量：`VITE_SPARK_MOCK=1` / `VITE_SPARK_API`。
+规范：ESLint(flat+typescript-eslint strict)+Prettier；CI=typecheck+lint+build+test(vitest)+`python scripts/check_doc_links.py`。测试重点：protocol 类型级 + **applyEvent 19 事件单测全覆盖** + 审批卡交互。环境变量：`VITE_SPARK_MOCK=1` / `VITE_SPARK_API`。
 
 ## 6.10 核心端到端时序（四条主链路）
 

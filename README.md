@@ -2,7 +2,7 @@
 
 > 引擎 headless，UI 是事件流的投影。
 
-![status](https://img.shields.io/badge/status-阶段零_设计期-3f3f46) ![node](https://img.shields.io/badge/node-%E2%89%A5_22-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
+![status](https://img.shields.io/badge/status-阶段一_骨架期-blue) ![node](https://img.shields.io/badge/node-%E2%89%A5_22-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
 
 Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行循环、工具执行与审批，Web 前端（后期加 Electron 壳）只做一件事——把事件流投影成界面。核心体验三件事：
 
@@ -12,7 +12,7 @@ Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行�
 
 刻意不做：多用户、登录、公网部署（绑定 127.0.0.1 是设计而非缺省）。
 
-**当前状态**：阶段零（设计期）——调研与设计文档已完成，代码未开工。下一步 = 开发方案阶段一（monorepo 骨架 + 协议包 + MockTransport）。
+**当前状态**：阶段一（骨架期）——工单 1.1 workspace 骨架、1.2 `@spark/protocol` 唯一合同（19 种事件 · 26 单测全绿）已完成；下一步 = 工单 1.3~1.6（mock 场景 / MockTransport / web 空壳 / server 空壳）。
 
 ## 架构一览
 
@@ -20,7 +20,7 @@ Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行�
 apps/web            React 19 SPA —— 只消费事件流（applyEvent reducer）
    │  HttpTransport：REST 命令 + GET /api/event（SSE 单端点，since=seq 断线续播）
    ▼
-packages/protocol   前后端唯一合同：21 种事件词表 · zod schema · Transport 接口
+packages/protocol   前后端唯一合同：19 种事件词表 · zod schema · Transport 接口
    ▼
 apps/server         Fastify 薄壳：REST + SSE + 静态托管（127.0.0.1，无鉴权）
    ▼
@@ -53,9 +53,9 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 ## 开发
 
 ```bash
-# 阶段零：代码未开工。以下为阶段一骨架落地后的规划命令
+# 阶段一骨架进行中：install / typecheck / test / lint 已生效；dev 待工单 1.5/1.6 落地后启用
 pnpm install
-pnpm dev                    # server + web 并行
+pnpm dev                    # server + web 并行（待 apps/web、apps/server 就位）
 pnpm --filter web dev       # 仅前端（VITE_SPARK_MOCK=1 可脱离后端跑 Mock）
 pnpm test / typecheck / lint
 ```
@@ -81,3 +81,4 @@ pnpm test / typecheck / lint
 | v1.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | DESIGN.md 导航行补"AI 生成风黑名单（§12）"（DESIGN v1.2 依外部调研扩充六类清单） |
 | v1.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | ARCHITECTURE.md 导航行补"代码 AI 生成味黑名单（§9）"（ARCHITECTURE v1.5 新增后端/通用六类清单；DESIGN v1.3 前端 §12 深化 P0-P2 分级+文案语气+grep 硬检查） |
 | v1.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"README 写得太丑"） | 排版重做：状态 badges（zinc 中性色）；导语改散文段+核心体验三件事；新增"架构一览"ASCII 分层图与"开发"命令节；文档导航/技术栈描述收紧；设计原则补第 6 条"无聊的代码，克制的界面" |
+| v1.8 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审指出事实漂移） | **四处漂移修复**：状态徽章与"当前状态"阶段零→阶段一（工单 1.1/1.2 完成）；架构图事件词表 21→19 种；开发命令注释对齐现状。新增 `scripts/check_doc_links.py` 防复发（CI 已接） |
