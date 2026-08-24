@@ -1,14 +1,15 @@
 /**
  * 状态条 28px（DESIGN.md §2 / doc/02 §6.3）：
  * 左起：连接状态点+文案 · 当前会话模型名 · seq 水位 · token 累计（含 checkpoint 短暂徽标）；
- * 右起：主题切换（设置齿轮是工单 6 SettingsDialog 的触发器）。
+ * 右起：主题切换 · 设置齿轮（SettingsDialog 触发器，doc/02 §6.2.3）。
  * 数据源：connection-store / session-store 选择器（组件不直接 fetch，DESIGN §9）。
  */
 import { useEffect, useState } from 'react'
-import { Moon, Sun } from 'lucide-react'
+import { Moon, Settings, Sun } from 'lucide-react'
 import { useConnectionStore } from '@/stores/connection'
 import { useSettingsStore } from '@/stores/settings'
 import { useActiveSlice } from '@/stores/session'
+import { useUiStore } from '@/stores/ui'
 import { cn } from '@/lib/utils'
 
 const CONNECTION_TEXT = {
@@ -84,14 +85,25 @@ export function StatusBar() {
         )}
         {checkpoint != null && <CheckpointBadge checkpointId={checkpoint.checkpointId} />}
       </div>
-      <button
-        type="button"
-        aria-label="切换主题"
-        onClick={toggleTheme}
-        className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-      >
-        {theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
-      </button>
+      <div className="flex shrink-0 items-center gap-0.5">
+        <button
+          type="button"
+          aria-label="切换主题"
+          onClick={toggleTheme}
+          className="flex size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          {theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+        </button>
+        <button
+          type="button"
+          aria-label="打开设置"
+          title="设置 (Cmd/Ctrl+,)"
+          onClick={() => useUiStore.getState().setSettingsOpen(true)}
+          className="flex size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          <Settings className="size-3.5" />
+        </button>
+      </div>
     </footer>
   )
 }

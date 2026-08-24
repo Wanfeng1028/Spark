@@ -1,0 +1,124 @@
+/**
+ * CommandPalette（doc/02 §6.3）：cmdk 浮层，顶部 25% 下拉、宽 560px。
+ * 分组"会话/操作/设置"；命令 = 新建会话 / 切换会话（内嵌列表）/ 打断当前轮 /
+ * 切换主题 / 打开设置。↑↓ 选择、Enter 执行、Esc 关闭并归还焦点（Radix 默认）。
+ * 命中段高亮：substring 前景色高亮（命令过滤交给 cmdk 内建 fuzzy）。
+ */
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
+import type { SessionDto } from '@spark/protocol'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { useSessionList } from '@/hooks/useSessionList'
+import { useSettingsStore } from '@/stores/settings'
+import { useUiStore } from '@/stores/ui'
+import { useTransport } from '@/transports/context'
+
+export interface CommandPaletteProps {
+  open: boolean
+  onOpenChange: (b: boolean) => void
+}
+
+/** 命中段高亮：query 非空且 substring 命中时，命中段提亮（未命中段淡显） */
+function Mark({ label, query }: { label: string; query: string }) {
+  if (query === '') return <span className="truncate">{label}</span>
+  const i = label.toLowerCase().indexOf(query.toLowerCase())
+  if (i === -1) return <span className="truncate">{label}</span>
+  return (
+    <span className="truncate">
+      <span className="text-muted-foreground">{label.slice(0, i)}</span>
+      <span className="text-foreground">{label.slice(i, i + query.length)}</span>
+      <span className="text-muted-foreground">{label.slice(i + query.length)}</span>
+    </span>
+  )
+}
+
+export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
+  const navigate = useNavigate()
+  const { transport } = useTransport()
+  const { sessions } = useSessionList()
+  const toggleTheme = useSettingsStore((s) => s.toggleTheme)
+  const setSettingsOpen = useUiStore((s) => s.setSettingsOpen)
+  const [query, setQuery] = useState('')
+
+  // 打开时重置过滤词——上次会话的残留不该带进来
+  useEffect(() => {
+    if (open) setQuery('')
+  }, [open])
+
+  const close = (): void => onOpenChange(false)
+
+  async function createSession(): Promise<void> {
+    const dto = await transport.createSession({})
+    close()
+    void navigate(`/session/${dto.id}`)
+  }
+
+  function switchSession(dto: SessionDto): void {
+    close()
+    void navigate(`/session/${dto.id}`)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
+        className="top-1/4 w-[560px] max-w-[calc(100vw-2rem)] -translate-y-0 gap-0 overflow-hidden p-0"
+      >
+        <DialogTitle className="sr-only">命令面板</DialogTitle>
+        <Command>
+          <CommandInput placeholder="输入命令或会话名…" value={query} onValueChange={setQuery} />
+          <CommandList>
+            <CommandEmpty>无匹配命令</CommandEmpty>
+
+            <CommandGroup heading="会话">
+              <CommandItem value="新建会话" onSelect={() => void createSession()}>
+                <Mark label="新建会话" query={query} />
+              </CommandItem>
+              {sessions?.map((s) => (
+                <CommandItem key={s.id} value={s.title === '' ? '新会话' : s.title} onSelect={() => switchSession(s)}>
+                  <Mark label={s.title === '' ? '新会话' : s.title} query={query} />
+                  <span className="ml-auto font-mono text-[11px] text-muted-foreground/70">{s.id.slice(-6)}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+
+            <CommandGroup heading="操作">
+              <CommandItem
+                value="打断当前轮"
+                onSelect={() => {
+                  void transport.interrupt()
+                  close()
+                }}
+              >
+                <Mark label="打断当前轮" query={query} />
+              </CommandItem>
+            </CommandGroup>
+
+            <CommandGroup heading="设置">
+              <CommandItem
+                value="切换主题"
+                onSelect={() => {
+                  toggleTheme()
+                  close()
+                }}
+              >
+                <Mark label="切换主题" query={query} />
+              </CommandItem>
+              <CommandItem
+                value="打开设置"
+                onSelect={() => {
+                  close()
+                  setSettingsOpen(true)
+                }}
+              >
+                <Mark label="打开设置" query={query} />
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </DialogContent>
+    </Dialog>
+  )
+}
