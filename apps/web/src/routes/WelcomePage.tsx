@@ -6,11 +6,7 @@
 import { useNavigate } from 'react-router'
 import { useTransport } from '@/transports/context'
 
-const PROMPTS = [
-  '总结这个项目的架构',
-  '跑一遍测试并修复失败项',
-  '把 src 里的 any 清理掉',
-]
+const PROMPTS = ['总结这个项目的架构', '跑一遍测试并修复失败项', '把 src 里的 any 清理掉']
 
 export function WelcomePage() {
   const navigate = useNavigate()

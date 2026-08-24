@@ -28,7 +28,12 @@ import rawErrorFinish from '../../../../examples/mock-sessions/error-finish.json
 
 export type MockScenario = 'normal' | 'long-output' | 'reject' | 'error-finish'
 
-export const MOCK_SCENARIOS: readonly MockScenario[] = ['normal', 'long-output', 'reject', 'error-finish']
+export const MOCK_SCENARIOS: readonly MockScenario[] = [
+  'normal',
+  'long-output',
+  'reject',
+  'error-finish',
+]
 
 const SCRIPTS: Record<MockScenario, string> = {
   normal: rawNormal,
@@ -100,7 +105,9 @@ export function parseScenarioScript(raw: string): ScenarioScript {
     lines.push({ kind: 'event', envelope: parseEnvelope(parsed) })
   }
 
-  const firstEvent = lines.find((l): l is { kind: 'event'; envelope: SparkEventEnvelope } => l.kind === 'event')
+  const firstEvent = lines.find(
+    (l): l is { kind: 'event'; envelope: SparkEventEnvelope } => l.kind === 'event',
+  )
   if (!firstEvent) throw new Error('E_MOCK_NO_EVENTS: 脚本无事件行')
   const created = lines.find(
     (l): l is { kind: 'event'; envelope: SparkEventEnvelope<'session.created'> } =>
@@ -309,7 +316,9 @@ export class MockTransport implements Transport {
 
   /** 由脚本静态构造 SessionDto（listSessions / createSession 共用） */
   private static dtoOf(script: ScenarioScript, status: SessionStatus): SessionDto {
-    const durable = script.lines.flatMap((l) => (l.kind === 'event' && l.envelope.seq !== undefined ? [l.envelope] : []))
+    const durable = script.lines.flatMap((l) =>
+      l.kind === 'event' && l.envelope.seq !== undefined ? [l.envelope] : [],
+    )
     const last = durable[durable.length - 1]
     return {
       id: script.sessionId,
@@ -326,7 +335,10 @@ export class MockTransport implements Transport {
   listSessions(): Promise<SessionDto[]> {
     return Promise.resolve(
       MOCK_SCENARIOS.map((s) =>
-        MockTransport.dtoOf(s === this.scenario ? this.script : parseScenarioScript(SCRIPTS[s]), 'idle'),
+        MockTransport.dtoOf(
+          s === this.scenario ? this.script : parseScenarioScript(SCRIPTS[s]),
+          'idle',
+        ),
       ),
     )
   }

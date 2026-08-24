@@ -118,7 +118,10 @@ function project(prev: FlowItem[], e: SparkEventEnvelope): FlowItem[] {
     if (cur !== undefined && cur.kind === 'approval') {
       items[i] = {
         ...cur,
-        resolved: { reply: e.data.reply, ...(e.data.feedback !== undefined ? { feedback: e.data.feedback } : {}) },
+        resolved: {
+          reply: e.data.reply,
+          ...(e.data.feedback !== undefined ? { feedback: e.data.feedback } : {}),
+        },
       }
     }
     return items
@@ -199,7 +202,11 @@ export function SessionPage() {
   }
 
   async function reply(requestId: string, answer: PermissionReply) {
-    await transport.replyPermission(ids.request(requestId), answer, answer === 'reject' ? feedbackDraft || undefined : undefined)
+    await transport.replyPermission(
+      ids.request(requestId),
+      answer,
+      answer === 'reject' ? feedbackDraft || undefined : undefined,
+    )
     setFeedbackDraft('')
   }
 
@@ -295,11 +302,17 @@ function FlowRow({
     case 'user':
       return (
         <div className="flex justify-end">
-          <p className="max-w-[85%] rounded-lg bg-accent px-3 py-1.5 text-[13px] leading-relaxed">{item.text}</p>
+          <p className="max-w-[85%] rounded-lg bg-accent px-3 py-1.5 text-[13px] leading-relaxed">
+            {item.text}
+          </p>
         </div>
       )
     case 'reasoning':
-      return <p className="border-l-2 border-border pl-3 text-xs italic leading-relaxed text-muted-foreground">{item.text}</p>
+      return (
+        <p className="border-l-2 border-border pl-3 text-xs italic leading-relaxed text-muted-foreground">
+          {item.text}
+        </p>
+      )
     case 'text':
       return <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{item.text}</p>
     case 'tool':
@@ -313,7 +326,11 @@ function FlowRow({
             <span
               className={
                 'font-mono text-xs ' +
-                (item.status === 'running' ? 'text-muted-foreground' : item.status === 'error' ? 'text-destructive' : 'text-muted-foreground')
+                (item.status === 'running'
+                  ? 'text-muted-foreground'
+                  : item.status === 'error'
+                    ? 'text-destructive'
+                    : 'text-muted-foreground')
               }
             >
               {item.status === 'running' ? '运行中…' : item.status === 'error' ? '失败' : '完成'}
@@ -327,7 +344,9 @@ function FlowRow({
         </div>
       )
     case 'approval':
-      return <ApprovalRow item={item} feedback={feedback} onFeedback={onFeedback} onReply={onReply} />
+      return (
+        <ApprovalRow item={item} feedback={feedback} onFeedback={onFeedback} onReply={onReply} />
+      )
     case 'turn':
       return (
         <p className="font-mono text-xs text-muted-foreground/70">
