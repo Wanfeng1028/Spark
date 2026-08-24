@@ -2,7 +2,7 @@
 
 > 引擎 headless，UI 是事件流的投影。
 
-![status](https://img.shields.io/badge/status-阶段三_进行中-blue) ![node](https://img.shields.io/badge/node-%E2%89%A5_22-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
+![status](https://img.shields.io/badge/status-阶段三_完成-green) ![node](https://img.shields.io/badge/node-%E2%89%A5_22-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
 
 Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行循环、工具执行与审批，Web 前端（后期加 Electron 壳）只做一件事——把事件流投影成界面。核心体验三件事：
 
@@ -12,7 +12,7 @@ Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行�
 
 刻意不做：多用户、登录、公网部署（绑定 127.0.0.1 是设计而非缺省）。
 
-**当前状态**：阶段三（引擎跑通）工单 1–10 **完成**——config 体系（23 例）、EventBus（17 例）、SessionStore+EventTree（32 例）、Runtime+InputQueue（17 例）、RunLoop（15 例）、ToolRegistry+Pipeline+四工具（32 例）、PermissionService（33 例）、LlmGateway/PiGateway（31 例）、Projector+compaction（20 例）、Engine 门面（13 例）、server REST+SSE（23 例）、web HttpTransport（18 例）共 313 例单测全绿；阶段验收（真实模型闭环/断线重连/kill-9 回放）与工单 11（pino 日志+脱敏）进行中。下一步 = 工单 11 → 阶段验收 → 阶段四（深度体验）。
+**当前状态**：阶段三（引擎跑通）**完成**——工单 1–11 全部落地：config 体系（23）/EventBus（17）/SessionStore+EventTree（32）/Runtime+InputQueue（17）/RunLoop（15）/ToolRegistry+Pipeline+四工具（32）/PermissionService（33）/LlmGateway PiGateway（31）/Projector+compaction（20）/Engine 门面（13）/server REST+SSE（23）/web HttpTransport（18）/pino Logger+脱敏（8）共 367 例单测全绿；阶段验收（真实模型"读文件→改文件→跑命令→汇报"闭环 / SSE 断线重连回放 / kill -9 后 resume 无悬挂事件）由 examples/e2e-smoke.sh 脚本完成，用户自配 `DEEPSEEK_API_KEY` 后可跑；下一步 = 阶段四（深度体验：steer/queue 语义/compaction UI/会话恢复+fork+索引/checkpoint/权限持久化）。
 
 ## 架构一览
 
@@ -85,3 +85,4 @@ pnpm test / typecheck / lint
 | v1.9 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段一开工指令）                                                                                        | **当前状态与状态徽章更新为阶段一完成**（工单 1.3~1.6 + 阶段验收勾选，doc/02 §8 v2.9 同步）                                                                                      |
 | v1.10 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段二开工指令）                                                                                       | **当前状态与状态徽章更新为阶段二完成**（11 项前端工单 + 四场景 mock 验收勾选，doc/02 §8 v2.10 同步）                                                                            |
 | v1.11 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三继续）                                                                                          | **当前状态与状态徽章更新为阶段三进行中（工单 1–10 完成）**——engine 243 例 + server 23 例 + web 47 例全绿，PR #2 含阶段二+三全量代码；doc/02 §8 v2.14 同步勾选中                                                                                                                                                                                                                  |
+| v1.12 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三完成）                                                                                          | **当前状态与状态徽章更新为阶段三完成**（工单 11 pino 日志+脱敏 + examples/e2e-smoke.sh 验收脚本）；全仓 367 例（engine 251 + server 23 + web 47 + protocol 46）；doc/02 §8 v2.15 同步勾选 pino 行；用户自配 DEEPSEEK_API_KEY 后由 examples/e2e-smoke.sh 完成真实模型验收三场景                                                                                                                                                                                                                  |
