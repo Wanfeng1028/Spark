@@ -28,10 +28,14 @@ class MemSink implements EventSink {
 
 class StubPerm implements PermissionService {
   decision = true
+  deniedActions: string[] = []
   readonly checks: PermissionCheck[] = []
   assert(check: PermissionCheck): Promise<boolean> {
     this.checks.push(check)
     return Promise.resolve(this.decision)
+  }
+  isDenied(action: string): boolean {
+    return this.deniedActions.includes(action)
   }
 }
 
@@ -143,6 +147,15 @@ describe('ToolRegistry（§5.6.1）', () => {
     expect(list[0]?.parameters).toMatchObject({ type: 'object' })
     expect(f.registry.resolve('read')).toBeDefined()
     expect(f.registry.resolve('nope')).toBeUndefined()
+  })
+
+  test('deny 工具不广告：isDenied 的 action 过滤出清单（§5.7 补强 5）', async () => {
+    const f = await makeFixture()
+    f.registry.register(fakeTool('read', { parallelizable: true }))
+    f.registry.register(fakeTool('bash', { parallelizable: false }))
+    expect(f.pipeline.materialize().map((t) => t.name)).toEqual(['read', 'bash'])
+    f.perm.deniedActions = ['fake.bash']
+    expect(f.pipeline.materialize().map((t) => t.name)).toEqual(['read'])
   })
 })
 

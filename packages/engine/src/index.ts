@@ -5,6 +5,7 @@
  */
 export {
   loadConfig,
+  loadProjectRules,
   ConfigError,
   type EngineConfig,
   type SparkConfig,
@@ -90,3 +91,8 @@ export {
   editTool,
   bashTool,
 } from './tools/builtin/index.js'
+export { evaluate, type Effect } from './permission/rules.js'
+export {
+  PermissionServiceImpl,
+  type PermissionServiceDeps,
+} from './permission/service.js'
