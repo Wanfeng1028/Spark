@@ -6,6 +6,7 @@
 @import 'tailwindcss';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
+@import 'streamdown/styles.css';
 
 /* class 策略二态主题（dark 为默认一级公民） */
 @custom-variant dark (&:where(.dark, .dark *));
