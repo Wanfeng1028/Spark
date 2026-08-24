@@ -117,3 +117,12 @@ export {
   type PiGatewayDeps,
   type LlmErrorKind,
 } from './pi-gateway.js'
+export {
+  Engine,
+  SPARK_VERSION,
+  type SessionMeta,
+  type SessionHandle,
+  type EngineDeps,
+  type ReplyOutcome,
+} from './engine.js'
+export { buildSystemPrompt } from './prompts.js'
