@@ -30,3 +30,10 @@ export {
   type SessionFile,
 } from './session/store.js'
 export { EventTree } from './session/tree.js'
+export {
+  InputQueue,
+  type InputItem,
+  type SubmitResult,
+  type SubmitResultKind,
+} from './session/input-queue.js'
+export { SessionRuntime, type RuntimeStatus } from './session/runtime.js'
