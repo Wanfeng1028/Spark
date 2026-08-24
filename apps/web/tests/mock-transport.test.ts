@@ -43,7 +43,9 @@ describe('parseScenarioScript 锚点解析', () => {
 
   it('首行非元数据 / 坏锚点值 → 抛错（fail loudly）', () => {
     expect(() => parseScenarioScript('{"id":"evt_x"}\n')).toThrow(/E_MOCK_BAD_META/)
-    expect(() => parseScenarioScript('{"sparkVersion":"0.1.0"}\n{"@wait":"forever"}\n')).toThrow(/E_MOCK_BAD_ANCHOR/)
+    expect(() => parseScenarioScript('{"sparkVersion":"0.1.0"}\n{"@wait":"forever"}\n')).toThrow(
+      /E_MOCK_BAD_ANCHOR/,
+    )
   })
 })
 
