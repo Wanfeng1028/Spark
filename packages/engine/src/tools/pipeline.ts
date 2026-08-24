@@ -89,9 +89,12 @@ class ProgressGate {
 export class ToolPipelineImpl implements ToolPipeline {
   constructor(private readonly deps: PipelineDeps) {}
 
-  /** 广告清单（deny 工具不广告由 PermissionService 接入后过滤，§5.7 对照 5） */
+  /** 广告清单：全域 deny 的工具不进模型可见面（§5.7 补强 5） */
   materialize(): ToolSpec[] {
-    return this.deps.registry.materialize()
+    return this.deps.registry.materialize().filter((spec) => {
+      const def = this.deps.registry.resolve(spec.name)
+      return def === undefined || !this.deps.permission.isDenied(def.permission.action)
+    })
   }
 
   async runAll(
@@ -174,12 +177,14 @@ export class ToolPipelineImpl implements ToolPipeline {
     try {
       // ② 权限门（ask → 挂起等待；超时/中断一律 deny——fail-closed 在 service 内）
       const allowed = await this.deps.permission.assert({
+        sessionId: sid,
         callId: call.callId,
         turnId: turn.turnId,
         name: call.name,
         action: def.permission.action,
         resource: def.permission.resourceOf(call.input, { cwd: this.deps.cwd }),
         input: call.input,
+        signal: turn.abort.signal,
       })
       if (!allowed) {
         await gate.close()

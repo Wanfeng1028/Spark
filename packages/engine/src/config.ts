@@ -217,3 +217,10 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
 
   return { spark, models, permissions }
 }
+
+/** 项目级规则文件 <cwd>/.spark/permissions.json（§5.7.1）：不存在 → 空表 */
+export function loadProjectRules(cwd: string): PermissionRule[] {
+  const raw = readJsonFile(join(cwd, '.spark'), 'permissions.json')
+  if (raw === undefined) return []
+  return parseOrThrow(permissionsSchema, raw, 'permissions.json').rules
+}
