@@ -4,10 +4,11 @@
  * 空态 = 居中欢迎语 + 提示词 chips（紧凑引导块，非 hero——DESIGN §7.1）。
  * 数据源：useSessionItems 选择器（组件不直接 fetch，DESIGN §9）。
  */
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import type { Components, VirtuosoHandle } from 'react-virtuoso'
 import { ids } from '@spark/protocol'
+import type { SessionId } from '@spark/protocol'
 import { useSessionItems, useSessionMeta } from '@/stores/session'
 import type { UiItem } from '@/stores/session'
 import { useTransport } from '@/transports/context'
@@ -28,7 +29,10 @@ export function ChatView({ sessionId }: ChatViewProps) {
   const [atBottom, setAtBottom] = useState(true)
   const ref = useRef<VirtuosoHandle>(null)
 
-  const components: Components<UiItem> = { EmptyPlaceholder: EmptyChat }
+  const components: Components<UiItem> = useMemo(
+    () => ({ EmptyPlaceholder: () => <EmptyChat sid={sid} /> }),
+    [sid],
+  )
 
   return (
     <div className="relative h-full">
@@ -50,7 +54,7 @@ export function ChatView({ sessionId }: ChatViewProps) {
 }
 
 /** 空会话引导块（§6.2.2 状态矩阵「空」） */
-function EmptyChat() {
+function EmptyChat({ sid }: { sid: SessionId }) {
   const { transport } = useTransport()
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-6">
@@ -60,7 +64,7 @@ function EmptyChat() {
           <li key={p}>
             <button
               type="button"
-              onClick={() => void transport.sendMessage(p)}
+              onClick={() => void transport.sendMessage(sid, p)}
               className="h-6 rounded-md border border-border px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             >
               {p}
