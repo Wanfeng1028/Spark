@@ -2,7 +2,7 @@
 
 > 引擎 headless，UI 是事件流的投影。
 
-![status](https://img.shields.io/badge/status-阶段一_完成-blue) ![node](https://img.shields.io/badge/node-%E2%89%A5_22-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
+![status](https://img.shields.io/badge/status-阶段三_进行中-blue) ![node](https://img.shields.io/badge/node-%E2%89%A5_22-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
 
 Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行循环、工具执行与审批，Web 前端（后期加 Electron 壳）只做一件事——把事件流投影成界面。核心体验三件事：
 
@@ -12,7 +12,7 @@ Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行�
 
 刻意不做：多用户、登录、公网部署（绑定 127.0.0.1 是设计而非缺省）。
 
-**当前状态**：阶段二（前端全量，对 Mock 开发）**完成**——session-store + applyEvent reducer（19 种事件、24 例单测）、ChatView 虚拟化、streamdown 流式渲染 + rAF 批量 flush、ToolCard 三态分发、ApprovalCard 审批卡（confirmation 改造）、Composer 三模式、SessionSidebar、主题二态与空态/加载态/错误态/断线重连条、SettingsDialog、CommandPalette（cmdk）全部落地；四场景（normal / long-output / reject / error-finish）mock 浏览器走查验收通过。下一步 = 阶段三（引擎跑通）。
+**当前状态**：阶段三（引擎跑通）工单 1–10 **完成**——config 体系（23 例）、EventBus（17 例）、SessionStore+EventTree（32 例）、Runtime+InputQueue（17 例）、RunLoop（15 例）、ToolRegistry+Pipeline+四工具（32 例）、PermissionService（33 例）、LlmGateway/PiGateway（31 例）、Projector+compaction（20 例）、Engine 门面（13 例）、server REST+SSE（23 例）、web HttpTransport（18 例）共 313 例单测全绿；阶段验收（真实模型闭环/断线重连/kill-9 回放）与工单 11（pino 日志+脱敏）进行中。下一步 = 工单 11 → 阶段验收 → 阶段四（深度体验）。
 
 ## 架构一览
 
@@ -84,3 +84,4 @@ pnpm test / typecheck / lint
 | v1.8 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审指出事实漂移）                                         | **四处漂移修复**：状态徽章与"当前状态"阶段零→阶段一（工单 1.1/1.2 完成）；架构图事件词表 21→19 种；开发命令注释对齐现状。新增 `scripts/check_doc_links.py` 防复发（CI 已接）    |
 | v1.9 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段一开工指令）                                                                                        | **当前状态与状态徽章更新为阶段一完成**（工单 1.3~1.6 + 阶段验收勾选，doc/02 §8 v2.9 同步）                                                                                      |
 | v1.10 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段二开工指令）                                                                                       | **当前状态与状态徽章更新为阶段二完成**（11 项前端工单 + 四场景 mock 验收勾选，doc/02 §8 v2.10 同步）                                                                            |
+| v1.11 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三继续）                                                                                          | **当前状态与状态徽章更新为阶段三进行中（工单 1–10 完成）**——engine 243 例 + server 23 例 + web 47 例全绿，PR #2 含阶段二+三全量代码；doc/02 §8 v2.14 同步勾选中                                                                                                                                                                                                                  |
