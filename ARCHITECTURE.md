@@ -5,16 +5,16 @@
 
 ## 版本记录
 
-| 版本 | 日期 | 作者 | 变更内容 |
-|------|------|------|----------|
-| v1.0 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`；会话内部标识 ox-alpha，model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；人作者：晚风（Wanfeng1028，发起与审核） | 初稿：定位/总体架构/五条铁律/六大核心抽象/八项关键决策记录（ADR）/模块速览/演进路线 |
-| v1.1 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；人作者：晚风（Wanfeng1028，提出与审核） | D2 补充"AI 生成风"禁止特征清单与判例（暖棕/米色暖调配色、实线细描边+内部毛玻璃按钮） |
-| v1.2 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；决策：晚风（Wanfeng1028） | §1 定位移除"本地优先"标签（架构事实不变；MVP 范围收窄的表述保留，绑定细节归 D5） |
-| v1.3 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；决策：晚风（Wanfeng1028） | **文件更名 DESIGN.md → ARCHITECTURE.md**：按"四类约束"文档框架（AGENTS 管项目 / DESIGN 管视觉 / SKILL 管流程 / 专属文件管工具差异），本文件职责为架构与决策记录；视觉规则由原 doc/04-frontend-rules.md 迁入新的根 DESIGN.md |
-| v1.4 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | D2"AI 生成风"特征清单收拢为单一来源：本文件保留判例与决策，完整六类清单改指 DESIGN.md §12 |
-| v1.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"后端的 AI 规范也要写好"） | 新增 **§9 代码"AI 生成味"黑名单（后端与通用代码）**：六类（过度设计/防御式噪音/注释与死代码/命名结构/类型依赖/硬检查），boring code 总原则，与引擎铁律挂钩（吞异常=违反失败闭合）；依据 arXiv 实证 + 社区案例 6 源 |
-| v1.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | §4 核心抽象表事件模型 **21→19 种**（@spark/protocol 实现时核对词表实数；与 doc/02 v2.3、AGENTS v1.11、doc/03 v1.1 同步） |
-| v1.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续把文档完善"） | **ADR 补录 D9-D13**（源码对照三轮产生的架构级决策收拢归档，此前散落 doc/02 注记）：D9 跨平台 bash 执行器、D10 SSE 全局订阅语义、D11 reject 级联、D12 会话文件演进与 fail-closed 四条、D13 maxSteps 防御线；与 doc/02 v2.7 同步 |
+| 版本 | 日期       | 作者                                                                                                                                                                                               | 变更内容                                                                                                                                                                                                                       |
+| ---- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| v1.0 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`；会话内部标识 ox-alpha，model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；人作者：晚风（Wanfeng1028，发起与审核） | 初稿：定位/总体架构/五条铁律/六大核心抽象/八项关键决策记录（ADR）/模块速览/演进路线                                                                                                                                            |
+| v1.1 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；人作者：晚风（Wanfeng1028，提出与审核）                                                                                          | D2 补充"AI 生成风"禁止特征清单与判例（暖棕/米色暖调配色、实线细描边+内部毛玻璃按钮）                                                                                                                                           |
+| v1.2 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；决策：晚风（Wanfeng1028）                                                                                                        | §1 定位移除"本地优先"标签（架构事实不变；MVP 范围收窄的表述保留，绑定细节归 D5）                                                                                                                                               |
+| v1.3 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；决策：晚风（Wanfeng1028）                                                                                                        | **文件更名 DESIGN.md → ARCHITECTURE.md**：按"四类约束"文档框架（AGENTS 管项目 / DESIGN 管视觉 / SKILL 管流程 / 专属文件管工具差异），本文件职责为架构与决策记录；视觉规则由原 doc/04-frontend-rules.md 迁入新的根 DESIGN.md    |
+| v1.4 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028）                                                                                                        | D2"AI 生成风"特征清单收拢为单一来源：本文件保留判例与决策，完整六类清单改指 DESIGN.md §12                                                                                                                                      |
+| v1.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"后端的 AI 规范也要写好"）                                                                              | 新增 **§9 代码"AI 生成味"黑名单（后端与通用代码）**：六类（过度设计/防御式噪音/注释与死代码/命名结构/类型依赖/硬检查），boring code 总原则，与引擎铁律挂钩（吞异常=违反失败闭合）；依据 arXiv 实证 + 社区案例 6 源             |
+| v1.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）                                                                                                                                   | §4 核心抽象表事件模型 **21→19 种**（@spark/protocol 实现时核对词表实数；与 doc/02 v2.3、AGENTS v1.11、doc/03 v1.1 同步）                                                                                                       |
+| v1.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续把文档完善"）                                                                                      | **ADR 补录 D9-D13**（源码对照三轮产生的架构级决策收拢归档，此前散落 doc/02 注记）：D9 跨平台 bash 执行器、D10 SSE 全局订阅语义、D11 reject 级联、D12 会话文件演进与 fail-closed 四条、D13 maxSteps 防御线；与 doc/02 v2.7 同步 |
 
 ---
 
@@ -53,73 +53,86 @@
 
 ## 4. 核心抽象
 
-| 抽象 | 设计 | 来源 |
-|---|---|---|
-| **事件模型** | 19 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分 | opencode durable/live + dsh surface |
-| **会话** | append-only JSONL 树（条目 `id/parentId`）；分叉=只移 leaf 指针；compaction 是树上的普通 entry（summary+keptFromSeq 锚点）；模型上下文=Projector 从 surface 事件投影 | pi session-manager + dsh projector |
-| **输入三通道** | `now`（空闲即开 turn）/ `steer`（进行中，下一 step 前注入）/ `queue`（turn 间依序）；提交三态 `started/steered/queued`；唤醒合并防空转 | Codex TurnInputMode + opencode pendingWake |
-| **工具管线** | zod schema-first；before→permission→execute→after；serial 工具 barrier / parallel 工具并发（read 并行，bash/edit/write 独占）；输出 >32KB 溢写文件；中断补合成事件对 | Codex RwLock 门控 + dsh 三段 waterfall + opencode output-store |
-| **审批** | wildcard 规则 `findLast` 胜出、无命中默认 ask、agent 未声明全 deny；ask 时工具 Promise 挂起在事件上（任何客户端可接单）；always 持久化并自动放行同批；reject+feedback 回喂模型 | opencode permission.ts + dsh fail-closed |
-| **传输** | REST 命令 + SSE 单端点事件流（15s 心跳，`since=seq` durable 回放断线续播）；本地 127.0.0.1 无鉴权（刻意） | opencode event.subscribe + dsh 绑定姿态 |
+| 抽象           | 设计                                                                                                                                                                           | 来源                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| **事件模型**   | 19 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分    | opencode durable/live + dsh surface                            |
+| **会话**       | append-only JSONL 树（条目 `id/parentId`）；分叉=只移 leaf 指针；compaction 是树上的普通 entry（summary+keptFromSeq 锚点）；模型上下文=Projector 从 surface 事件投影           | pi session-manager + dsh projector                             |
+| **输入三通道** | `now`（空闲即开 turn）/ `steer`（进行中，下一 step 前注入）/ `queue`（turn 间依序）；提交三态 `started/steered/queued`；唤醒合并防空转                                         | Codex TurnInputMode + opencode pendingWake                     |
+| **工具管线**   | zod schema-first；before→permission→execute→after；serial 工具 barrier / parallel 工具并发（read 并行，bash/edit/write 独占）；输出 >32KB 溢写文件；中断补合成事件对           | Codex RwLock 门控 + dsh 三段 waterfall + opencode output-store |
+| **审批**       | wildcard 规则 `findLast` 胜出、无命中默认 ask、agent 未声明全 deny；ask 时工具 Promise 挂起在事件上（任何客户端可接单）；always 持久化并自动放行同批；reject+feedback 回喂模型 | opencode permission.ts + dsh fail-closed                       |
+| **传输**       | REST 命令 + SSE 单端点事件流（15s 心跳，`since=seq` durable 回放断线续播）；本地 127.0.0.1 无鉴权（刻意）                                                                      | opencode event.subscribe + dsh 绑定姿态                        |
 
 ## 5. 关键设计决策记录（ADR）
 
 > 格式：决策 / 理由 / 被否备选 / 依据。日期均为 2026-08-22，调研依据见 doc/01。
 
 ### D1 后端语言 = TypeScript（Node 22+）
+
 理由：与 React 前端**共享协议类型**（改一处两端编译报错）；pi 的构建块可直接 import（dsh 源码复用验证）；参照源码（pi/dsh/opencode）同语言可直译；Electron 期可嵌入同运行时。
 备选否决：Go（失类型共享与 TS 构建块，eino 尚 v0.x alpha）；Python（本地个人工具无一选用，类型断裂）；Rust（性能非瓶颈，开发效率低）。行业佐证：同类产品 Claude Code/dsh/pi/opencode 全 TS。
 
 ### D2 前端 = Vite + React 19 + Tailwind v4 + shadcn/ui + AI Elements
+
 理由：AI Elements 48 个工作台组件（confirmation 审批卡/terminal/file-tree/plan/task/checkpoint）是最全的 Agent UI 零件库且 copy-in 源码归我们；shadcn 生态最大。"蓝玻璃 AI 风"与 Tailwind 无关（那是 v0/Lovable 审美），我们用默认黑白中性极简。**"AI 生成风"特征一律禁止**（判例：2026-08-22 评审一张刷课工具面板截图——暖棕/米色配色、按钮实线细描边 + 内部毛玻璃模糊，定性为典型 AI 审美、不可取；完整六类特征清单见 DESIGN.md §12——2026-08-23 依外部调研扩充，单一来源在彼处）。
 备选否决：Semi（AI 三件套优秀但 Vite 主题插件社区化）；antdx（组件较少且绑 antd6）；assistant-ui 作主库（0.x）。Semi/antdx/lobehub 保留为备案（doc/02 §2.1.1 有链接对比表）。
 
 ### D3 LLM 抽象 = @earendil-works/pi-ai（MIT）
+
 理由：30+ provider 含本地 Ollama/vLLM；token/cost 统计；**被 DeepSeek harness 源码实际复用**（llm-pi-ai 包）——两家产品验证。依赖隔离在 LlmGateway 单文件，出问题可整体替换。
 备选否决：Vercel AI SDK v7（生态最大但约 5 个月一个 major、ESM-only/Node22 约束、opencode V2 已"去 ai-sdk 化"佐证可控性风险）；各家官方 SDK 直连（要自抹 provider 方言，2-4 人周）。
 
 ### D4 会话存储 = append-only JSONL 树 + durable/live 二分（而非 SQLite 事件溯源）
+
 理由：pi 的 JSONL 树最简（分叉零拷贝、人类可读可手编、~50 行自写）；吸收 opencode 的 durable/live 二分使日志小而干净、重放确定。六家中四家用 JSONL。
 备选否决：opencode 式 SQLite 事件溯源（优雅但 v1 复杂度高）；**阶段四引入 node:sqlite 做索引/列表加速，不动 JSONL 权威**——迁移路径已预留。
 
 ### D5 传输 = HTTP REST + SSE 单端点（而非 WebSocket/JSON-RPC）
+
 理由：命令低频且请求-响应天然匹配 REST；事件流单向（引擎→UI），SSE 足够且过代理友好；opencode 单端点 `GET /api/event` + `since` 回放已验证；审批"反向请求"用 REST POST 而非协议层反向调用（v1 简化，客户端轮询/长连接不需要）。
 备选否决：WebSocket 双向（v1 无浏览器→引擎高频推送需求；PTY 类需求到桌面期再上，届时参考 opencode PTY ticket 机制）；JSON-RPC（方法面小，收益不抵复杂度）。
 
 ### D6 引擎循环 = 自写 RunLoop，pi 只用原语
+
 理由：RunLoop 是产品差异点（事件协议/steering/审批全自定义）；pi-agent-core 的 stream/工具执行原语成熟可引，但其消息模型与我们事件模型不完全对齐——自写循环层保证协议主权。
 备选否决：整体用 pi-agent-core 驱动（受制其抽象）；eino ADK（Go 线已否）；照 Codex 翻译（Rust→TS 成本高于按 pi 抄）。
 
 ### D7 审批 = wildcard 规则 + 事件化挂起 + fail-closed
+
 理由：三家的最优组合——opencode 的规则引擎（findLast/未声明全 deny/always 级联/feedback 回喂）+ dsh 的 fail-closed（超时即拒）+ Codex 的"审批即学习"（v2 预留 proposedRule）。
 备选否决：模式档位制（default/acceptEdits/bypass…）——v1 规则更细且可渐进演化出档位；pi 的无审批 YOLO——与我们产品定位冲突。
 
 ### D8 不引入 Effect/RxJS 等响应式框架
+
 理由：opencode 的挂起/急切并行/唤醒合并用普通 async/await + Promise 表即可实现；框架学习成本与招聘成本远超收益。**抄设计，不抄框架。**
 
 ### D9 跨平台 bash 执行器 = Windows Git Bash 优先、PowerShell 兜底
+
 理由：本机与目标用户以 Windows 为主（开发环境 win32）；Git Bash 命令语法与 Unix 一致，提示词与工具描述可移植。备选否决：一律 PowerShell（语法方言伤害提示词可移植性与参考项目对齐性）；一律要求 WSL（安装门槛高）。依据：doc/02 §5.6.3（2026-08-23 源码对照轮补全超时树杀 taskkill /T /F 等细节）。
 
 ### D10 SSE 订阅 = 全局单连接直播 + REST 全量回放幂等恢复
+
 理由：一条连接直播全部会话（侧栏状态点免轮询）；打开/重连会话走 `GET /:id` 全量快照 reset+apply（幂等，冷启动与断线同路径），重叠事件靠 seq 去重。备选否决：per-session 连接（多连接管理复杂）、`since` 增量重连（per-session 水位状态复杂，v1 会话快照足够小）。依据：doc/02 §4.6/§6.4/§6.6。
 
 ### D11 审批 reject 同会话级联拒绝
+
 理由：用户 reject 表达的是对当前 turn 方向的纠偏，同会话其余挂起审批一并拒绝是 fail-closed 收敛（opencode permission/index.ts 实证）；feedback 仅随用户显式输入注入。依据：doc/02 §5.7 对照补强第 2 条。
 
 ### D12 会话文件演进 = header 版本迁移链 + 读端 fail-closed 四条
+
 理由：格式演进走"读时旧版本→迁移函数链→就地重写"（pi migrateV1→V2→V3 实证），未来版本拒绝加载；损坏纪律四条 fail-closed——非尾坏行、未知事件 type（无 ignorable）、孤儿条目（parentId 缺失）、seq 断裂，一律拒绝加载。刻意分歧记录：pi 对坏行宽容跳过、孤儿当根——不跟随（一致性优先于可恢复性，本地产品可承受拒载后人工介入）。依据：doc/02 §5.8.1/§5.8.4。
 
 ### D13 RunLoop 防御线 maxStepsPerTurn=40 保留
+
 理由：pi 无步数计数器（终止靠 terminate 钩子），但其场景有上层产品兜底；我们是本地长驻进程，保留硬上限防模型死循环烧 token。v2 可演化出 shouldStopAfterTurn 式钩子。依据：doc/02 §5.5 对照决策注记。
 
 ## 6. 模块速览（职责边界）
 
-| 模块 | 职责 | 不许做 |
-|---|---|---|
-| `packages/protocol` | 事件词表/API 类型/Transport 接口/zod schema | 任何业务逻辑、运行时依赖（除 zod） |
-| `packages/engine` | 输入队列/RunLoop/工具/审批/会话/LLM 网关 | 不感知 HTTP；不 import 前端代码 |
-| `apps/server` | REST 薄壳 + SSE + 静态托管 | 不写业务（全部委托 engine） |
-| `apps/web` | UI 渲染与交互 | 不做协议外的数据加工；不改写事件（只投影） |
+| 模块                | 职责                                        | 不许做                                     |
+| ------------------- | ------------------------------------------- | ------------------------------------------ |
+| `packages/protocol` | 事件词表/API 类型/Transport 接口/zod schema | 任何业务逻辑、运行时依赖（除 zod）         |
+| `packages/engine`   | 输入队列/RunLoop/工具/审批/会话/LLM 网关    | 不感知 HTTP；不 import 前端代码            |
+| `apps/server`       | REST 薄壳 + SSE + 静态托管                  | 不写业务（全部委托 engine）                |
+| `apps/web`          | UI 渲染与交互                               | 不做协议外的数据加工；不改写事件（只投影） |
 
 ## 7. 演进路线（摘要）
 
@@ -176,15 +189,15 @@ pi 包 0.x（隔离单点+锁版本）；AI Elements 面向 Next.js（copy-in �
 
 ### 9.6 硬检查（阶段一接入 CI；当前 PR 人工自查）
 
-| 检查 | 手段 |
-|---|---|
-| `catch\s*\([^)]*\)\s*\{\s*\}`（空 catch） | grep / ESLint `no-empty-catch` |
-| `as any` / `@ts-ignore` / `: any` | grep / `@typescript-eslint/no-explicit-any`（strict） |
-| floating promise | `@typescript-eslint/no-floating-promises` |
-| 未引用导出/依赖 | knip 或 depcheck |
-| `TODO(ai)`、被注释的代码块 | grep 评审项 |
-| 裸 `console.*`（engine/server 内） | ESLint `no-console`（白名单：CLI 入口） |
-| 注释密度异常（函数体注释行占比过高） | 评审项 |
+| 检查                                      | 手段                                                  |
+| ----------------------------------------- | ----------------------------------------------------- |
+| `catch\s*\([^)]*\)\s*\{\s*\}`（空 catch） | grep / ESLint `no-empty-catch`                        |
+| `as any` / `@ts-ignore` / `: any`         | grep / `@typescript-eslint/no-explicit-any`（strict） |
+| floating promise                          | `@typescript-eslint/no-floating-promises`             |
+| 未引用导出/依赖                           | knip 或 depcheck                                      |
+| `TODO(ai)`、被注释的代码块                | grep 评审项                                           |
+| 裸 `console.*`（engine/server 内）        | ESLint `no-console`（白名单：CLI 入口）               |
+| 注释密度异常（函数体注释行占比过高）      | 评审项                                                |
 
 **调研来源**：
 
