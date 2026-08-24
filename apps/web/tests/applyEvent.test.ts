@@ -34,7 +34,7 @@ function ev<T extends SparkEventType>(
 }
 
 function fresh(): SessionStoreState {
-  return { byId: {}, activeId: null, applyEvent: () => {}, resetSlice: () => {} }
+  return { byId: {}, activeId: null, applyEvent: () => {}, resetSlice: () => {}, setActiveId: () => {} }
 }
 
 /** 从 session.created 起步的常规状态 */

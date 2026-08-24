@@ -1,16 +1,18 @@
 /**
  * ChatView（doc/02 §6.2.2 / §6.3）：虚拟化会话流（react-virtuoso）。
- * followOutput='smooth' 自动跟随底部；用户上滚即暂停跟随（virtuoso 原生：仅 at-bottom 生效），
- * 滚回底部自动恢复。空态 = 居中欢迎语 + 提示词 chips（紧凑引导块，非 hero——DESIGN §7.1）。
+ * followOutput='smooth' 自动跟随底部；用户上滚即暂停跟随，BackBottom 悬浮按钮回底。
+ * 空态 = 居中欢迎语 + 提示词 chips（紧凑引导块，非 hero——DESIGN §7.1）。
  * 数据源：useSessionItems 选择器（组件不直接 fetch，DESIGN §9）。
  */
+import { useRef, useState } from 'react'
 import { Virtuoso } from 'react-virtuoso'
-import type { Components } from 'react-virtuoso'
+import type { Components, VirtuosoHandle } from 'react-virtuoso'
 import { ids } from '@spark/protocol'
 import { useSessionItems, useSessionMeta } from '@/stores/session'
 import type { UiItem } from '@/stores/session'
 import { useTransport } from '@/transports/context'
 import { MessageItem } from './MessageItem'
+import { BackBottom } from './BackBottom'
 
 export interface ChatViewProps {
   sessionId: string
@@ -23,17 +25,27 @@ export function ChatView({ sessionId }: ChatViewProps) {
   const items = useSessionItems(sid)
   const meta = useSessionMeta(sid)
   const model = meta.model === '' ? 'assistant' : meta.model
+  const [atBottom, setAtBottom] = useState(true)
+  const ref = useRef<VirtuosoHandle>(null)
 
   const components: Components<UiItem> = { EmptyPlaceholder: EmptyChat }
 
   return (
-    <Virtuoso
-      className="h-full"
-      data={items}
-      itemContent={(_, item) => <MessageItem item={item} model={model} />}
-      followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
-      components={components}
-    />
+    <div className="relative h-full">
+      <Virtuoso
+        ref={ref}
+        className="h-full"
+        data={items}
+        itemContent={(_, item) => <MessageItem item={item} model={model} />}
+        followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
+        atBottomStateChange={setAtBottom}
+        components={components}
+      />
+      <BackBottom
+        show={!atBottom && items.length > 0}
+        onClick={() => ref.current?.scrollToIndex({ index: 'LAST' })}
+      />
+    </div>
   )
 }
 
