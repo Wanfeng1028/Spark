@@ -22,10 +22,7 @@ interface Header {
 }
 
 /** §4.7 锚点行语义：@wait 挂起 / @delay 固定间隔 / @speed 全局倍率 */
-type Anchor =
-  | { '@wait': 'approval' | 'message' }
-  | { '@delay': number }
-  | { '@speed': number }
+type Anchor = { '@wait': 'approval' | 'message' } | { '@delay': number } | { '@speed': number }
 
 type Line =
   | { kind: 'header'; header: Header }
@@ -74,7 +71,10 @@ function loadScene(scene: Scene): Line[] {
 }
 
 /** 按 type 窄化取出事件（parseEnvelope 返回全联合，data 访问需先窄化） */
-function ofType<K extends SparkEventType>(events: SparkEventEnvelope[], type: K): SparkEventEnvelope<K>[] {
+function ofType<K extends SparkEventType>(
+  events: SparkEventEnvelope[],
+  type: K,
+): SparkEventEnvelope<K>[] {
   return events.filter((e) => e.type === type) as SparkEventEnvelope<K>[]
 }
 
@@ -160,7 +160,9 @@ const scenarioChecks: Record<Scene, ((ctx: CheckCtx) => void) | undefined> = {
     expect(resolved?.data.reply).toBe('once')
     for (const name of ['read', 'edit', 'bash']) {
       const started = ofType(events, 'tool.started').find((e) => e.data.name === name)
-      const completed = ofType(events, 'tool.completed').find((e) => e.data.callId === started?.data.callId)
+      const completed = ofType(events, 'tool.completed').find(
+        (e) => e.data.callId === started?.data.callId,
+      )
       expect(started, `normal 应含 ${name} 工具调用`).toBeDefined()
       expect(completed?.data.isError).toBe(false)
     }
@@ -203,7 +205,8 @@ const scenarioChecks: Record<Scene, ((ctx: CheckCtx) => void) | undefined> = {
     // 拒绝结果回喂：isError toolResult 携带 E_PERMISSION
     const fed = ofType(events, 'assistant.message').find((e) =>
       e.data.content.some(
-        (c) => c.type === 'toolResult' && c.isError && JSON.stringify(c.output).includes('E_PERMISSION'),
+        (c) =>
+          c.type === 'toolResult' && c.isError && JSON.stringify(c.output).includes('E_PERMISSION'),
       ),
     )
     expect(fed).toBeDefined()

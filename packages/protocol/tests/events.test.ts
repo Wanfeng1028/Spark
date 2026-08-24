@@ -71,7 +71,8 @@ function envelopeOf<K extends SparkEventType>(
   n: number,
 ): SparkEventEnvelope<K> {
   const surface = type === 'user.message' || type === 'assistant.message'
-  const isLive = type === 'assistant.delta' || type === 'reasoning.delta' || type === 'tool.progress'
+  const isLive =
+    type === 'assistant.delta' || type === 'reasoning.delta' || type === 'tool.progress'
   const base = {
     id: evt(n),
     sessionId: sid,

@@ -38,7 +38,10 @@ export function ReasoningCollapsible({ text, streaming, durationMs }: ReasoningC
         className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left"
       >
         <ChevronRight
-          className={'size-3.5 shrink-0 text-muted-foreground transition-transform ' + (open ? 'rotate-90' : '')}
+          className={
+            'size-3.5 shrink-0 text-muted-foreground transition-transform ' +
+            (open ? 'rotate-90' : '')
+          }
         />
         <span className="shrink-0 font-mono text-xs text-muted-foreground">
           {streaming ? '思考中…' : '思考过程'}

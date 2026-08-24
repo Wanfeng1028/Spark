@@ -37,7 +37,13 @@ export type ContentItem = z.infer<typeof ContentItemSchema>
 export const DeliverySchema = z.enum(['now', 'steer', 'queue'])
 export type Delivery = z.infer<typeof DeliverySchema>
 
-export const TurnFinishSchema = z.enum(['stop', 'length', 'aborted', 'permission-rejected', 'error'])
+export const TurnFinishSchema = z.enum([
+  'stop',
+  'length',
+  'aborted',
+  'permission-rejected',
+  'error',
+])
 export type TurnFinish = z.infer<typeof TurnFinishSchema>
 
 export const PermissionReplySchema = z.enum(['once', 'always', 'reject'])

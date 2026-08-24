@@ -4,7 +4,13 @@
  */
 import { z } from 'zod'
 import type { EventId, SessionId } from './ids.js'
-import { CallIdSchema, CheckpointIdSchema, EventIdSchema, RequestIdSchema, TurnIdSchema } from './ids.js'
+import {
+  CallIdSchema,
+  CheckpointIdSchema,
+  EventIdSchema,
+  RequestIdSchema,
+  TurnIdSchema,
+} from './ids.js'
 import {
   ContentItemSchema,
   DeliverySchema,
@@ -15,7 +21,11 @@ import {
 
 export const EventSchemas = {
   // 会话
-  'session.created': z.strictObject({ title: z.string().optional(), cwd: z.string(), model: z.string() }),
+  'session.created': z.strictObject({
+    title: z.string().optional(),
+    cwd: z.string(),
+    model: z.string(),
+  }),
   'session.resumed': z.strictObject({ fromSeq: z.number().int().nonnegative() }),
   'session.title': z.strictObject({ title: z.string() }),
   // turn
@@ -24,7 +34,11 @@ export const EventSchemas = {
     delivery: DeliverySchema,
     userEventId: EventIdSchema,
   }),
-  'turn.completed': z.strictObject({ turnId: TurnIdSchema, finish: TurnFinishSchema, usage: UsageSchema.optional() }),
+  'turn.completed': z.strictObject({
+    turnId: TurnIdSchema,
+    finish: TurnFinishSchema,
+    usage: UsageSchema.optional(),
+  }),
   // 输入/输出（surface = 进模型历史）
   'user.message': z.strictObject({
     text: z.string().min(1),
@@ -45,7 +59,11 @@ export const EventSchemas = {
     name: z.string(),
     input: z.unknown(),
   }),
-  'tool.progress': z.strictObject({ turnId: TurnIdSchema, callId: CallIdSchema, chunk: z.string() }), // live-only
+  'tool.progress': z.strictObject({
+    turnId: TurnIdSchema,
+    callId: CallIdSchema,
+    chunk: z.string(),
+  }), // live-only
   'tool.completed': z.strictObject({
     turnId: TurnIdSchema,
     callId: CallIdSchema,
@@ -105,7 +123,9 @@ interface BaseEnvelope {
   time: number // epoch ms
 }
 
-export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> extends BaseEnvelope {
+export interface SparkEventEnvelope<
+  T extends SparkEventType = SparkEventType,
+> extends BaseEnvelope {
   type: T
   data: SparkEventMap[T]
 }

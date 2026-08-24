@@ -5,22 +5,22 @@
 
 ## 版本记录
 
-| 版本 | 日期 | 作者 | 变更内容 |
-|------|------|------|----------|
-| v1.0 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`；会话内部标识 ox-alpha，model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；人作者：晚风（Wanfeng1028，发起与审核） | 初稿：项目上下文/硬性约定/任务指引/红线 |
-| v1.1 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；人作者：晚风（Wanfeng1028，提出与审核） | 硬性约定 §2.6 扩充：禁止一切"AI 生成风"外观（暖棕/米色暖调配色、实线细描边+内部 backdrop-blur 毛玻璃按钮），与 DESIGN.md D2 同步 |
-| v1.2 | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | 必读索引挂接 **doc/04 前端约束规则**（目标"Codex/ZCode 桌面感"：布局/密度/颜色 token/键盘优先/动效/反网站化黑名单/组件 DoD/Electron 预留） |
-| v1.3 | 2026-08-22 | 同上（决策：晚风 Wanfeng1028） | 项目上下文移除"本地优先"定位措辞（事实不变，不作明面标签） |
-| v1.4 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | §5 参考速查更新：参考体系扩至 9 项（+Gemini CLI/OpenClaw/Hermes Agent，速查表 28 条）；新增闭源不可参考清单（Antigravity/ZCode/Qoder/Trae IDE，原因见 01 §7.3） |
-| v1.5 | 2026-08-23 | 同上；依据：晚风提供的《AI 编程项目需要哪些文档？4 类约束一次讲清》 | **按四类约束框架重组文档体系**：新增 §8 规则放置规范（AGENTS 管项目/DESIGN 管视觉/SKILL 管流程/专属文件管工具差异+四条纪律）；必读索引更新（架构→ARCHITECTURE.md、视觉→DESIGN.md、skills）；§2.6 判例引用改指 DESIGN.md §4 + ARCHITECTURE.md D2 |
-| v1.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起与决策：晚风（Wanfeng1028） | §2 新增第 10 条硬性约定**文件删除保护**：AI 编程助手无权删除任何文件，任何删除须经五层级确认（意图/对象/影响/替代/终确认）；§8 及 CLAUDE.md、copilot-instructions.md 中"九条硬性约定"同步改为"十条" |
-| v1.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"参考的助手都要有适配文件"） | §8 新增 **8.1 编程助手适配对照表**（覆盖全部参考工具：ZCode/Codex/opencode/pi 原生读 AGENTS.md 零配置；Grok/dsh/Hermes/Trae/Qoder/Qwen 标待验证）；新增 `.cursor/rules/spark.mdc` 与 `.windsurf/rules/spark.md` 摘要 shim（以 AGENTS.md 为权威） |
-| v1.8 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | §2.6 摘要扩充（+超大标题字体/emoji 装饰/bento 模板布局）；特征清单引用由 DESIGN.md §4 改指新 **§12 完整黑名单**（六类，依据外部调研扩充，含成因考证与来源） |
-| v1.9 | 2026-08-23 | 同上（发起：晚风，"Grok/dsh/Hermes/Trae/Qoder/Qwen 都要有适配文件"） | §8.1 六工具约定**全部核实并补齐**：Grok（代码 81 处）/dsh/Hermes/Qoder 原生 AGENTS.md ✅ 零配置；Trae 建 `.trae/rules/project_rules.md`、Qoder 另建 `.qoder/rules/spark.md`、Qwen Code 建 `QWEN.md`（@AGENTS.md 导入）。**Qwen Code 入参考体系第 10 项**（01 §7.3/§10：分支差异参考档——多协议运行时切换/Auto-Skills/SubAgents-Agent Teams/daemon+IM 多形态；生态 gemini-cli-desktop 作 GUI 前端补充参考） |
-| v1.10 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"后端的 AI 规范也要写好"） | §2 新增第 11 条硬性约定**禁止"AI 生成味"代码**（前端 → DESIGN §12 深化：P0/P1/P2 分级、§12.7 文案语气、§12.8 grep 硬检查；后端/通用 → ARCHITECTURE §9 六类清单，boring code 总原则）；§8 及各专属文件/shim 中"十条硬性约定"同步改为"十一条"（版本因并行会话 v1.9 顺延为 v1.10） |
-| v1.11 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | §2.8 事实修正：事件词表 **21→19 种**（阶段一工单 1.2 实现 @spark/protocol 时逐条核对词表实数；与 doc/02 v2.3、ARCHITECTURE v1.6、doc/03 v1.1 同步）；§1 项目上下文"代码未开工"更新为"阶段一已开工（工单 1.1/1.2 完成）" |
-| v1.12 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | §2 新增第 12 条硬性约定**参考项目禁止克隆到本地**（一律在线访问：gh api/raw 直读/npm registry/官方文档；禁 git clone 与整仓压缩包；派调研子代理时提示词必须写明本条）；§8 表"十一条"改"十二条" |
-| v1.13 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审指出事实漂移） | §5 参考速查计数修正 **28→29 条**（v1.9 并行会话加 Qwen 行时漏改本文件）；采纳评审建议新增 `scripts/check_doc_links.py` 文档一致性检查器（链接可解析/事实计数一致/仓库路径存在性），接入 CI——防"一处改动六处更新"类漂移复发 |
+| 版本  | 日期       | 作者                                                                                                                                                                                               | 变更内容                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v1.0  | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`；会话内部标识 ox-alpha，model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；人作者：晚风（Wanfeng1028，发起与审核） | 初稿：项目上下文/硬性约定/任务指引/红线                                                                                                                                                                                                                                                                                                                                                                   |
+| v1.1  | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；人作者：晚风（Wanfeng1028，提出与审核）                                                                                          | 硬性约定 §2.6 扩充：禁止一切"AI 生成风"外观（暖棕/米色暖调配色、实线细描边+内部 backdrop-blur 毛玻璃按钮），与 DESIGN.md D2 同步                                                                                                                                                                                                                                                                          |
+| v1.2  | 2026-08-22 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）                                                                                                                                   | 必读索引挂接 **doc/04 前端约束规则**（目标"Codex/ZCode 桌面感"：布局/密度/颜色 token/键盘优先/动效/反网站化黑名单/组件 DoD/Electron 预留）                                                                                                                                                                                                                                                                |
+| v1.3  | 2026-08-22 | 同上（决策：晚风 Wanfeng1028）                                                                                                                                                                     | 项目上下文移除"本地优先"定位措辞（事实不变，不作明面标签）                                                                                                                                                                                                                                                                                                                                                |
+| v1.4  | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）                                                                                                                                   | §5 参考速查更新：参考体系扩至 9 项（+Gemini CLI/OpenClaw/Hermes Agent，速查表 28 条）；新增闭源不可参考清单（Antigravity/ZCode/Qoder/Trae IDE，原因见 01 §7.3）                                                                                                                                                                                                                                           |
+| v1.5  | 2026-08-23 | 同上；依据：晚风提供的《AI 编程项目需要哪些文档？4 类约束一次讲清》                                                                                                                                | **按四类约束框架重组文档体系**：新增 §8 规则放置规范（AGENTS 管项目/DESIGN 管视觉/SKILL 管流程/专属文件管工具差异+四条纪律）；必读索引更新（架构→ARCHITECTURE.md、视觉→DESIGN.md、skills）；§2.6 判例引用改指 DESIGN.md §4 + ARCHITECTURE.md D2                                                                                                                                                           |
+| v1.6  | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起与决策：晚风（Wanfeng1028）                                                                                                  | §2 新增第 10 条硬性约定**文件删除保护**：AI 编程助手无权删除任何文件，任何删除须经五层级确认（意图/对象/影响/替代/终确认）；§8 及 CLAUDE.md、copilot-instructions.md 中"九条硬性约定"同步改为"十条"                                                                                                                                                                                                       |
+| v1.7  | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"参考的助手都要有适配文件"）                                                                            | §8 新增 **8.1 编程助手适配对照表**（覆盖全部参考工具：ZCode/Codex/opencode/pi 原生读 AGENTS.md 零配置；Grok/dsh/Hermes/Trae/Qoder/Qwen 标待验证）；新增 `.cursor/rules/spark.mdc` 与 `.windsurf/rules/spark.md` 摘要 shim（以 AGENTS.md 为权威）                                                                                                                                                          |
+| v1.8  | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028）                                                                                                        | §2.6 摘要扩充（+超大标题字体/emoji 装饰/bento 模板布局）；特征清单引用由 DESIGN.md §4 改指新 **§12 完整黑名单**（六类，依据外部调研扩充，含成因考证与来源）                                                                                                                                                                                                                                               |
+| v1.9  | 2026-08-23 | 同上（发起：晚风，"Grok/dsh/Hermes/Trae/Qoder/Qwen 都要有适配文件"）                                                                                                                               | §8.1 六工具约定**全部核实并补齐**：Grok（代码 81 处）/dsh/Hermes/Qoder 原生 AGENTS.md ✅ 零配置；Trae 建 `.trae/rules/project_rules.md`、Qoder 另建 `.qoder/rules/spark.md`、Qwen Code 建 `QWEN.md`（@AGENTS.md 导入）。**Qwen Code 入参考体系第 10 项**（01 §7.3/§10：分支差异参考档——多协议运行时切换/Auto-Skills/SubAgents-Agent Teams/daemon+IM 多形态；生态 gemini-cli-desktop 作 GUI 前端补充参考） |
+| v1.10 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"后端的 AI 规范也要写好"）                                                                              | §2 新增第 11 条硬性约定**禁止"AI 生成味"代码**（前端 → DESIGN §12 深化：P0/P1/P2 分级、§12.7 文案语气、§12.8 grep 硬检查；后端/通用 → ARCHITECTURE §9 六类清单，boring code 总原则）；§8 及各专属文件/shim 中"十条硬性约定"同步改为"十一条"（版本因并行会话 v1.9 顺延为 v1.10）                                                                                                                           |
+| v1.11 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）                                                                                                                                   | §2.8 事实修正：事件词表 **21→19 种**（阶段一工单 1.2 实现 @spark/protocol 时逐条核对词表实数；与 doc/02 v2.3、ARCHITECTURE v1.6、doc/03 v1.1 同步）；§1 项目上下文"代码未开工"更新为"阶段一已开工（工单 1.1/1.2 完成）"                                                                                                                                                                                   |
+| v1.12 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028）                                                                                                        | §2 新增第 12 条硬性约定**参考项目禁止克隆到本地**（一律在线访问：gh api/raw 直读/npm registry/官方文档；禁 git clone 与整仓压缩包；派调研子代理时提示词必须写明本条）；§8 表"十一条"改"十二条"                                                                                                                                                                                                            |
+| v1.13 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审指出事实漂移）                                                                                  | §5 参考速查计数修正 **28→29 条**（v1.9 并行会话加 Qwen 行时漏改本文件）；采纳评审建议新增 `scripts/check_doc_links.py` 文档一致性检查器（链接可解析/事实计数一致/仓库路径存在性），接入 CI——防"一处改动六处更新"类漂移复发                                                                                                                                                                                |
 
 ## 1. 项目上下文（30 秒版）
 
@@ -45,14 +45,14 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 
 ## 3. 常见任务指引（改哪里）
 
-| 任务 | 步骤 |
-|---|---|
-| 新增事件类型 | `protocol/src/events.ts` 词表 + zod schema → 前端 `applyEvent` 表 + 单测 → 引擎 emit 点 → 文档 02 §4.3 表同步 |
-| 新增工具 | `engine/src/tools/builtin/` 新文件（ToolDefinition：zod input/permission/resourceOf/execute）→ registry 注册 → 错误码进 02 §5.6.3 表 |
-| 新增审批规则语义 | `permission/rules.ts` evaluate → service 挂起/级联逻辑 → 前端 ApprovalCard 适配 |
-| 新增/改造前端组件 | AI Elements copy-in 到 `components/ui/` → 删 `"use client"` → 数据源换 `useSessionItems()` selector → 样式走 token |
-| 改 SSE/API | `protocol/src/api.ts` DTO → server 路由 + zod → 前端 Transport → 02 §4.5 表同步 |
-| 会话持久化变更 | `session/` 对应文件 → 02 §5.8 算法描述同步 → 坏行/迁移策略评估 |
+| 任务              | 步骤                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 新增事件类型      | `protocol/src/events.ts` 词表 + zod schema → 前端 `applyEvent` 表 + 单测 → 引擎 emit 点 → 文档 02 §4.3 表同步                        |
+| 新增工具          | `engine/src/tools/builtin/` 新文件（ToolDefinition：zod input/permission/resourceOf/execute）→ registry 注册 → 错误码进 02 §5.6.3 表 |
+| 新增审批规则语义  | `permission/rules.ts` evaluate → service 挂起/级联逻辑 → 前端 ApprovalCard 适配                                                      |
+| 新增/改造前端组件 | AI Elements copy-in 到 `components/ui/` → 删 `"use client"` → 数据源换 `useSessionItems()` selector → 样式走 token                   |
+| 改 SSE/API        | `protocol/src/api.ts` DTO → server 路由 + zod → 前端 Transport → 02 §4.5 表同步                                                      |
+| 会话持久化变更    | `session/` 对应文件 → 02 §5.8 算法描述同步 → 坏行/迁移策略评估                                                                       |
 
 ## 4. 开发命令（阶段一搭好后更新本节）
 
@@ -85,12 +85,12 @@ pnpm test / pnpm typecheck / pnpm lint
 
 > 口诀：**AGENTS 管项目，DESIGN 管视觉，SKILL 管流程，专属文件管工具差异。**
 
-| 约束类型 | 放哪 | 本仓库实例 |
-|---|---|---|
-| 项目级工作规则（每次进入项目都适用，常驻） | `AGENTS.md` | 本文件十二条硬性约定 |
-| 视觉/交互决策（页面应该什么风格、新场景怎么选） | `DESIGN.md` | token/密度/黑名单/组件 DoD |
-| 可重复多步骤流程（只在某类任务触发，按需） | `.agents/skills/<name>/SKILL.md`（可带 scripts/references） | docs-update / new-event-type / new-tool / frontend-component |
-| 工具平台差异（某 AI 工具独有行为） | `CLAUDE.md` / `GEMINI.md`（@AGENTS.md 导入+差异）/ `.github/copilot-instructions.md`（指针） | Plan Mode 触发条件等 |
+| 约束类型                                        | 放哪                                                                                         | 本仓库实例                                                   |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| 项目级工作规则（每次进入项目都适用，常驻）      | `AGENTS.md`                                                                                  | 本文件十二条硬性约定                                         |
+| 视觉/交互决策（页面应该什么风格、新场景怎么选） | `DESIGN.md`                                                                                  | token/密度/黑名单/组件 DoD                                   |
+| 可重复多步骤流程（只在某类任务触发，按需）      | `.agents/skills/<name>/SKILL.md`（可带 scripts/references）                                  | docs-update / new-event-type / new-tool / frontend-component |
+| 工具平台差异（某 AI 工具独有行为）              | `CLAUDE.md` / `GEMINI.md`（@AGENTS.md 导入+差异）/ `.github/copilot-instructions.md`（指针） | Plan Mode 触发条件等                                         |
 
 四条纪律：**一条规则只有一个来源**（其他文件引用不复制）；**常驻规则与按需流程分开**（都适用→AGENTS，某类任务才触发→SKILL）；**视觉与代码规则分开**；**软指令与硬检查分开**（md 提醒 AI，typecheck/lint/test/CI 才是强制层）。
 大型化后可在子目录继续放 AGENTS.md（越靠近目标文件越具体）。判断是否写成 SKILL 的三条件：任务重复出现 / 顺序影响结果 / 一句提示容易漏步。
@@ -99,21 +99,21 @@ pnpm test / pnpm typecheck / pnpm lint
 
 > AGENTS.md 是跨工具开放标准——**原生读取它的工具不需要任何额外文件**；只有约定不同的工具才需要 shim。shim 文件是配置而非文档（不设版本记录表，git 追踪变更）；摘要型 shim（Cursor/Windsurf/Copilot）以 AGENTS.md 为唯一权威。
 
-| 助手/工具 | 读取的文件 | 本仓库状态 |
-|---|---|---|
-| **ZCode**（主力） | `AGENTS.md` 原生 + `.agents/skills/` | ✅ 零配置命中 |
-| **Codex**（OpenAI） | `AGENTS.md` 原生 | ✅ 零配置 |
-| **opencode** | `AGENTS.md` 原生 | ✅ 零配置 |
-| **pi** | `AGENTS.md` 原生 | ✅ 零配置 |
-| **Claude Code** | `CLAUDE.md`（官方） | ✅ `@AGENTS.md` 导入 + Plan Mode 差异 |
-| **Gemini CLI** | `GEMINI.md`（官方） | ✅ `@AGENTS.md` 导入 + 上下文分层差异 |
-| **GitHub Copilot** | `.github/copilot-instructions.md` | ✅ 纯指针 |
-| **Cursor** | `.cursor/rules/*.mdc` | ✅ `spark.mdc`（alwaysApply 摘要版，以 AGENTS.md 为准） |
-| **Windsurf** | `.windsurf/rules/*.md` | ✅ `spark.md`（trigger: always 摘要版） |
-| Grok Build | `AGENTS.md` 原生（仓库代码 81 处引用，**已核实**） | ✅ 零配置 |
-| DeepSeek harness / Hermes Agent | `AGENTS.md`（README 明示支持，**已核实**） | ✅ 零配置 |
-| Qoder | `AGENTS.md` 原生（官方文档：`/init` 生成）+ `.qoder/rules/` 规则目录（**已核实**） | ✅ 零配置；另建 `.qoder/rules/spark.md` 摘要（`@rule` 可引用） |
-| Trae | `.trae/rules/project_rules.md`（官方文档，**已核实**） | ✅ 已建摘要 shim |
-| Qwen Code | `QWEN.md`（主，仓库代码 114 处）+ `AGENTS.md`（兼容，61 处，**已核实**） | ✅ 已建 `QWEN.md`（@AGENTS.md 导入+差异） |
+| 助手/工具                       | 读取的文件                                                                         | 本仓库状态                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **ZCode**（主力）               | `AGENTS.md` 原生 + `.agents/skills/`                                               | ✅ 零配置命中                                                  |
+| **Codex**（OpenAI）             | `AGENTS.md` 原生                                                                   | ✅ 零配置                                                      |
+| **opencode**                    | `AGENTS.md` 原生                                                                   | ✅ 零配置                                                      |
+| **pi**                          | `AGENTS.md` 原生                                                                   | ✅ 零配置                                                      |
+| **Claude Code**                 | `CLAUDE.md`（官方）                                                                | ✅ `@AGENTS.md` 导入 + Plan Mode 差异                          |
+| **Gemini CLI**                  | `GEMINI.md`（官方）                                                                | ✅ `@AGENTS.md` 导入 + 上下文分层差异                          |
+| **GitHub Copilot**              | `.github/copilot-instructions.md`                                                  | ✅ 纯指针                                                      |
+| **Cursor**                      | `.cursor/rules/*.mdc`                                                              | ✅ `spark.mdc`（alwaysApply 摘要版，以 AGENTS.md 为准）        |
+| **Windsurf**                    | `.windsurf/rules/*.md`                                                             | ✅ `spark.md`（trigger: always 摘要版）                        |
+| Grok Build                      | `AGENTS.md` 原生（仓库代码 81 处引用，**已核实**）                                 | ✅ 零配置                                                      |
+| DeepSeek harness / Hermes Agent | `AGENTS.md`（README 明示支持，**已核实**）                                         | ✅ 零配置                                                      |
+| Qoder                           | `AGENTS.md` 原生（官方文档：`/init` 生成）+ `.qoder/rules/` 规则目录（**已核实**） | ✅ 零配置；另建 `.qoder/rules/spark.md` 摘要（`@rule` 可引用） |
+| Trae                            | `.trae/rules/project_rules.md`（官方文档，**已核实**）                             | ✅ 已建摘要 shim                                               |
+| Qwen Code                       | `QWEN.md`（主，仓库代码 114 处）+ `AGENTS.md`（兼容，61 处，**已核实**）           | ✅ 已建 `QWEN.md`（@AGENTS.md 导入+差异）                      |
 
 原则：**团队实际启用某工具时才建它的 shim**；摘要 shim 只在工具无法读 AGENTS.md 时才存在，且必须声明"冲突以 AGENTS.md 为准"。

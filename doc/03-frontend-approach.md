@@ -2,10 +2,10 @@
 
 ## 版本记录
 
-| 版本 | 日期 | 作者 | 变更内容 |
-|------|------|------|----------|
+| 版本 | 日期       | 作者                                                                                                                                                                                                   | 变更内容                                                                                                                                            |
+| ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | v1.0 | 2026-08-22 | AI 编写：ZCode CLI · **GLM-5.3**（`builtin:zai-start-plan/GLM-5.3`；会话内部标识 ox-alpha，model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；人作者：晚风（Wanfeng1028，发起与审核） | 初稿：六大参考项目前端实现逐一分析（怎么写的）；我方前端八条设计思路（每条注明借鉴来源）；与传统 Web 前端的十二维对比；参考项目前端细节抄什么速查表 |
-| v1.1 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | §4 对比表"21 种事件逐一断言"修正为 **19 种**（与 doc/02 v2.3、AGENTS v1.11 同步） |
+| v1.1 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）                                                                                                                                       | §4 对比表"21 种事件逐一断言"修正为 **19 种**（与 doc/02 v2.3、AGENTS v1.11 同步）                                                                   |
 
 > 本文回答三个问题：**①参考项目的前端都是怎么写的？②我们的前端思路是什么？③它和传统 Web 前端有什么本质区别？**
 > 事实来源：`01-research-report.md` 的源码级调研（dsh/opencode 为开源 Web/桌面端一手源码；Codex/pi/Grok 为 TUI 源码——交互思想同样适用于 Web）。
@@ -41,12 +41,12 @@ Agent 产品的前端**不是"又一个聊天页面"**。它渲染的是一个**
 
 **技术栈**（package.json 实测）：
 
-| 端 | 实现 |
-|---|---|
-| TUI | `@opentui/core` + `@opentui/solid` + `@opentui/keymap`（SolidJS 组件模型跑在终端渲染器上）+ solid-js，bun 运行时，经 `@opencode-ai/sdk` 连 server |
-| 桌面 | **Electron 42**（electron-vite + electron-builder）：main 进程管 updater/store/window-state + drizzle + 自编 node-pty；**renderer 是 SolidJS + 共享 UI 包 `@opencode-ai/app` + @solidjs/router** |
-| 共享 UI | `packages/app` + `packages/ui` + `packages/session-ui`——桌面 renderer 与未来 Web 复用同一套组件 |
-| web 包 | 注意：`packages/web` 是 **Astro/Starlight 文档站**，不是应用 UI |
+| 端      | 实现                                                                                                                                                                                             |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TUI     | `@opentui/core` + `@opentui/solid` + `@opentui/keymap`（SolidJS 组件模型跑在终端渲染器上）+ solid-js，bun 运行时，经 `@opencode-ai/sdk` 连 server                                                |
+| 桌面    | **Electron 42**（electron-vite + electron-builder）：main 进程管 updater/store/window-state + drizzle + 自编 node-pty；**renderer 是 SolidJS + 共享 UI 包 `@opencode-ai/app` + @solidjs/router** |
+| 共享 UI | `packages/app` + `packages/ui` + `packages/session-ui`——桌面 renderer 与未来 Web 复用同一套组件                                                                                                  |
+| web 包  | 注意：`packages/web` 是 **Astro/Starlight 文档站**，不是应用 UI                                                                                                                                  |
 
 **它是怎么写的**：严格 client/server——TUI 和桌面 renderer 都是 HTTP+SSE 协议客户端；桌面形态 = "Electron 侧边栏 + 内嵌终端（PTY WebSocket + ticket 鉴权 + cursor 回放）+ 共享 Web UI"；`session-ui` 把"会话流渲染"抽成独立可复用包，**一份 UI 代码服务多个宿主**。
 
@@ -117,20 +117,20 @@ Agent 产品的前端**不是"又一个聊天页面"**。它渲染的是一个**
 
 # 4. 与传统 Web 前端的本质区别（十二维对比）
 
-| 维度 | 传统 Web 前端 | Spark 前端（Agent 前端） |
-|---|---|---|
-| **信息架构** | 多页面/菜单导航/列表-详情-表单层级 | 会话流单视图（2 条路由）；"页面"概念消失，取而代之的是**会话+内容块** |
-| **数据获取** | REST 资源拉取 + TanStack Query 缓存失效 | **订阅一条事件流**（SSE 单端点）；请求只有 4 个"命令"（send/interrupt/reply/create） |
-| **状态模型** | 服务器状态缓存 + 本地表单状态，两套心智 | **单一投影 store**：`applyEvent` 纯函数归约，没有"表单状态"这回事 |
-| **更新粒度** | 资源级/组件级刷新 | **token 级 delta 增量**（assistant.delta 高频到达） |
-| **一致性策略** | 乐观更新 + 失败回滚 | **durable 回放**：断线/刷新后按 seq 补发事件即恢复原状，乐观更新没有存在必要 |
-| **核心交互** | 表单校验、CRUD、分页排序 | **审批卡（挂起/恢复）、插话/排队/中断、流式跟随滚动** |
-| **实时性** | WebSocket 可选（聊天室才需要） | SSE 必选：心跳、重连、背压是基础设施 |
-| **前后端关系** | API 文档对齐，类型靠手动同步 | **protocol 包类型直接共享**——改协议两端同时编译报错 |
-| **测试重心** | 组件交互 + E2E 页面流 | **reducer 事件表单测**（19 种事件逐一断言）+ mock 场景回放；UI 测试反而轻 |
-| **渲染性能关注点** | 首屏、包体积 | **token 洪流下的主线程稳定**（rAF 批量、虚拟化、memo、增量渲染） |
-| **失败处理** | 错误边界 + 请求重试 | **失败闭合**（事件流永不悬空，引擎保证）+ 断线条 + 回放进度 |
-| **部署形态** | 公网网站，多用户，登录态 | **本地 127.0.0.1 引擎**：无登录/无多租户/无 CDN，静态资源由引擎进程托管 |
+| 维度               | 传统 Web 前端                           | Spark 前端（Agent 前端）                                                             |
+| ------------------ | --------------------------------------- | ------------------------------------------------------------------------------------ |
+| **信息架构**       | 多页面/菜单导航/列表-详情-表单层级      | 会话流单视图（2 条路由）；"页面"概念消失，取而代之的是**会话+内容块**                |
+| **数据获取**       | REST 资源拉取 + TanStack Query 缓存失效 | **订阅一条事件流**（SSE 单端点）；请求只有 4 个"命令"（send/interrupt/reply/create） |
+| **状态模型**       | 服务器状态缓存 + 本地表单状态，两套心智 | **单一投影 store**：`applyEvent` 纯函数归约，没有"表单状态"这回事                    |
+| **更新粒度**       | 资源级/组件级刷新                       | **token 级 delta 增量**（assistant.delta 高频到达）                                  |
+| **一致性策略**     | 乐观更新 + 失败回滚                     | **durable 回放**：断线/刷新后按 seq 补发事件即恢复原状，乐观更新没有存在必要         |
+| **核心交互**       | 表单校验、CRUD、分页排序                | **审批卡（挂起/恢复）、插话/排队/中断、流式跟随滚动**                                |
+| **实时性**         | WebSocket 可选（聊天室才需要）          | SSE 必选：心跳、重连、背压是基础设施                                                 |
+| **前后端关系**     | API 文档对齐，类型靠手动同步            | **protocol 包类型直接共享**——改协议两端同时编译报错                                  |
+| **测试重心**       | 组件交互 + E2E 页面流                   | **reducer 事件表单测**（19 种事件逐一断言）+ mock 场景回放；UI 测试反而轻            |
+| **渲染性能关注点** | 首屏、包体积                            | **token 洪流下的主线程稳定**（rAF 批量、虚拟化、memo、增量渲染）                     |
+| **失败处理**       | 错误边界 + 请求重试                     | **失败闭合**（事件流永不悬空，引擎保证）+ 断线条 + 回放进度                          |
+| **部署形态**       | 公网网站，多用户，登录态                | **本地 127.0.0.1 引擎**：无登录/无多租户/无 CDN，静态资源由引擎进程托管              |
 
 **一句话**：传统前端是"渲染数据"，Agent 前端是"**渲染一个进程的执行历史与正在进行时**"——所以事件流是一等公民、审批是核心交互、增量渲染是生命线。
 
@@ -138,37 +138,37 @@ Agent 产品的前端**不是"又一个聊天页面"**。它渲染的是一个**
 
 # 5. 各参考项目前端细节抄什么（速查）
 
-| 想解决的问题 | 去抄谁 | 具体细节 |
-|---|---|---|
-| 事件 → UI 状态的映射怎么组织 | Codex TUI / Grok | `app_server_events.rs` 的 match 分派；Grok 的 ACP→Action→Effect 单向流 → 我们的 applyEvent 表 |
-| token 洪流不卡 UI | Codex TUI / Grok | `run_commit_tick` 定时批量刷屏；biased select + 有界 drain → 我们的 rAF 批量 flush |
-| 只有变化的部分重渲染 | pi TUI | 逐行 diff [firstChanged,lastChanged] + 缓存失效 → 我们的 memo + 浅比较选择器 |
-| 滚动交互（流式跟随/回看） | pi TUI | 写原生 scrollback 语义 → virtuoso followOutput + 上滚暂停 + BackBottom |
-| 审批的内联呈现 | Claude Code | 权限提示内联在对话流对应位置（非弹窗）→ ApprovalCard 位置设计 |
-| 消息流的内容块化 | Grok TUI | 20+ scrollback block 类型 → UiItem 五 kind + 按工具类型分发渲染器 |
-| 断连检测与背压 | dsh web | http-bridge：检测挂 response close；write()===false → drain |
-| SSE 消费与重连 | opencode | 单端点 + 心跳 + since 回放；sdk 客户端模式 |
-| 多端复用一套 UI | opencode | session-ui 共享包 → 我们的 features/chat 收敛可迁移 |
-| 前端插件化（后期） | dsh web | dsh.client 字段扫描 + __DSH_BOOT__ 注入 + lazy CJS 表 |
-| 斜杠命令体系（后期） | Claude Code / Grok | 注册表模式（Grok：90+ 命令一文件一命令） |
-| 工作区双栏（后期） | 前期会话范式 | 会话流 + 工作区（diff/文件树/预览）双栏布局 |
+| 想解决的问题                 | 去抄谁             | 具体细节                                                                                      |
+| ---------------------------- | ------------------ | --------------------------------------------------------------------------------------------- |
+| 事件 → UI 状态的映射怎么组织 | Codex TUI / Grok   | `app_server_events.rs` 的 match 分派；Grok 的 ACP→Action→Effect 单向流 → 我们的 applyEvent 表 |
+| token 洪流不卡 UI            | Codex TUI / Grok   | `run_commit_tick` 定时批量刷屏；biased select + 有界 drain → 我们的 rAF 批量 flush            |
+| 只有变化的部分重渲染         | pi TUI             | 逐行 diff [firstChanged,lastChanged] + 缓存失效 → 我们的 memo + 浅比较选择器                  |
+| 滚动交互（流式跟随/回看）    | pi TUI             | 写原生 scrollback 语义 → virtuoso followOutput + 上滚暂停 + BackBottom                        |
+| 审批的内联呈现               | Claude Code        | 权限提示内联在对话流对应位置（非弹窗）→ ApprovalCard 位置设计                                 |
+| 消息流的内容块化             | Grok TUI           | 20+ scrollback block 类型 → UiItem 五 kind + 按工具类型分发渲染器                             |
+| 断连检测与背压               | dsh web            | http-bridge：检测挂 response close；write()===false → drain                                   |
+| SSE 消费与重连               | opencode           | 单端点 + 心跳 + since 回放；sdk 客户端模式                                                    |
+| 多端复用一套 UI              | opencode           | session-ui 共享包 → 我们的 features/chat 收敛可迁移                                           |
+| 前端插件化（后期）           | dsh web            | dsh.client 字段扫描 + **DSH_BOOT** 注入 + lazy CJS 表                                         |
+| 斜杠命令体系（后期）         | Claude Code / Grok | 注册表模式（Grok：90+ 命令一文件一命令）                                                      |
+| 工作区双栏（后期）           | 前期会话范式       | 会话流 + 工作区（diff/文件树/预览）双栏布局                                                   |
 
 ---
 
 # 6. 与 `02-development-plan.md` 的对应关系
 
-| 本文（思路） | 02 方案（实施） |
-|---|---|
-| §3.1 UI 是事件流投影 | 02 §6.4 session-store + applyEvent 表 |
-| §3.2 协议先行/Mock | 02 §4.7 Transport + MockTransport 规格 |
-| §3.3 单一事件流通道 | 02 §4.6 SSE 帧格式 + §7.3 SSE 实现 |
-| §3.4 流式优先渲染 | 02 §6.8 性能优化（rAF 批量等 7 条） |
-| §3.5 无页面体系 | 02 §6.1 信息架构与路由 |
-| §3.6 审批一等交互 | 02 §6.3 ApprovalCard + §5.7 审批规格 |
-| §3.7 三态输入 | 02 §6.2 Composer 交互规格 |
-| §3.8 copy-in 改造 | 02 §6.7 AI Elements 改造清单 |
-| §4 与传统 Web 差异 | （本表即差异的工程化落点索引） |
+| 本文（思路）         | 02 方案（实施）                        |
+| -------------------- | -------------------------------------- |
+| §3.1 UI 是事件流投影 | 02 §6.4 session-store + applyEvent 表  |
+| §3.2 协议先行/Mock   | 02 §4.7 Transport + MockTransport 规格 |
+| §3.3 单一事件流通道  | 02 §4.6 SSE 帧格式 + §7.3 SSE 实现     |
+| §3.4 流式优先渲染    | 02 §6.8 性能优化（rAF 批量等 7 条）    |
+| §3.5 无页面体系      | 02 §6.1 信息架构与路由                 |
+| §3.6 审批一等交互    | 02 §6.3 ApprovalCard + §5.7 审批规格   |
+| §3.7 三态输入        | 02 §6.2 Composer 交互规格              |
+| §3.8 copy-in 改造    | 02 §6.7 AI Elements 改造清单           |
+| §4 与传统 Web 差异   | （本表即差异的工程化落点索引）         |
 
 ---
 
-*本文完（v1.0）。随方案演进更新，并在版本记录表追加。*
+_本文完（v1.0）。随方案演进更新，并在版本记录表追加。_

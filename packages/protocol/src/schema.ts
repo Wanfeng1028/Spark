@@ -25,7 +25,9 @@ export function parseEnvelope(raw: unknown): SparkEventEnvelope {
   const env = EnvelopeSchema.parse(raw)
   const schema: z.ZodType | undefined = EventSchemas[env.type as SparkEventType]
   if (!schema) {
-    throw new Error(`E_PROTOCOL_UNKNOWN_EVENT: 未知事件 type "${env.type}"（fail-closed，doc/02 §4.4）`)
+    throw new Error(
+      `E_PROTOCOL_UNKNOWN_EVENT: 未知事件 type "${env.type}"（fail-closed，doc/02 §4.4）`,
+    )
   }
   const data = schema.parse(env.data)
   return { ...env, data } as SparkEventEnvelope
