@@ -106,3 +106,14 @@ export {
   type Projection,
 } from './projector.js'
 export { CompactorImpl, COMPACTION_PROMPT, type CompactorDeps } from './compaction.js'
+export {
+  PiGateway,
+  classifyLlmError,
+  backoffDelayMs,
+  toPiMessages,
+  toSparkContent,
+  toSparkUsage,
+  type PiStreamFn,
+  type PiGatewayDeps,
+  type LlmErrorKind,
+} from './pi-gateway.js'
