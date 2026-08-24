@@ -14,6 +14,7 @@
 | v1.4 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028） | D2"AI 生成风"特征清单收拢为单一来源：本文件保留判例与决策，完整六类清单改指 DESIGN.md §12 |
 | v1.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"后端的 AI 规范也要写好"） | 新增 **§9 代码"AI 生成味"黑名单（后端与通用代码）**：六类（过度设计/防御式噪音/注释与死代码/命名结构/类型依赖/硬检查），boring code 总原则，与引擎铁律挂钩（吞异常=违反失败闭合）；依据 arXiv 实证 + 社区案例 6 源 |
 | v1.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`） | §4 核心抽象表事件模型 **21→19 种**（@spark/protocol 实现时核对词表实数；与 doc/02 v2.3、AGENTS v1.11、doc/03 v1.1 同步） |
+| v1.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续把文档完善"） | **ADR 补录 D9-D13**（源码对照三轮产生的架构级决策收拢归档，此前散落 doc/02 注记）：D9 跨平台 bash 执行器、D10 SSE 全局订阅语义、D11 reject 级联、D12 会话文件演进与 fail-closed 四条、D13 maxSteps 防御线；与 doc/02 v2.7 同步 |
 
 ---
 
@@ -95,6 +96,21 @@
 
 ### D8 不引入 Effect/RxJS 等响应式框架
 理由：opencode 的挂起/急切并行/唤醒合并用普通 async/await + Promise 表即可实现；框架学习成本与招聘成本远超收益。**抄设计，不抄框架。**
+
+### D9 跨平台 bash 执行器 = Windows Git Bash 优先、PowerShell 兜底
+理由：本机与目标用户以 Windows 为主（开发环境 win32）；Git Bash 命令语法与 Unix 一致，提示词与工具描述可移植。备选否决：一律 PowerShell（语法方言伤害提示词可移植性与参考项目对齐性）；一律要求 WSL（安装门槛高）。依据：doc/02 §5.6.3（2026-08-23 源码对照轮补全超时树杀 taskkill /T /F 等细节）。
+
+### D10 SSE 订阅 = 全局单连接直播 + REST 全量回放幂等恢复
+理由：一条连接直播全部会话（侧栏状态点免轮询）；打开/重连会话走 `GET /:id` 全量快照 reset+apply（幂等，冷启动与断线同路径），重叠事件靠 seq 去重。备选否决：per-session 连接（多连接管理复杂）、`since` 增量重连（per-session 水位状态复杂，v1 会话快照足够小）。依据：doc/02 §4.6/§6.4/§6.6。
+
+### D11 审批 reject 同会话级联拒绝
+理由：用户 reject 表达的是对当前 turn 方向的纠偏，同会话其余挂起审批一并拒绝是 fail-closed 收敛（opencode permission/index.ts 实证）；feedback 仅随用户显式输入注入。依据：doc/02 §5.7 对照补强第 2 条。
+
+### D12 会话文件演进 = header 版本迁移链 + 读端 fail-closed 四条
+理由：格式演进走"读时旧版本→迁移函数链→就地重写"（pi migrateV1→V2→V3 实证），未来版本拒绝加载；损坏纪律四条 fail-closed——非尾坏行、未知事件 type（无 ignorable）、孤儿条目（parentId 缺失）、seq 断裂，一律拒绝加载。刻意分歧记录：pi 对坏行宽容跳过、孤儿当根——不跟随（一致性优先于可恢复性，本地产品可承受拒载后人工介入）。依据：doc/02 §5.8.1/§5.8.4。
+
+### D13 RunLoop 防御线 maxStepsPerTurn=40 保留
+理由：pi 无步数计数器（终止靠 terminate 钩子），但其场景有上层产品兜底；我们是本地长驻进程，保留硬上限防模型死循环烧 token。v2 可演化出 shouldStopAfterTurn 式钩子。依据：doc/02 §5.5 对照决策注记。
 
 ## 6. 模块速览（职责边界）
 

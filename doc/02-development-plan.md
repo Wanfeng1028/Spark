@@ -22,6 +22,7 @@
 | v2.4 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"参考项目源码摆在那里，要主动对照找缺口"） | **参考源码在线对照补强**（依据：pi `packages/agent/src/agent-loop.ts`、opencode `packages/opencode/src/permission/index.ts` 全文研读）：§5.5 截断保护定为 **continue 回喂**（pi terminate=false，此前未定义）+ max-steps 对照决策注记（pi 无计数器，我们保留兜底）+ abort 双检点；§5.6.3 前**进度门控队列**（updateEvents 链+acceptingUpdates 标志，防 progress 晚于 completed 乱序）；§5.7 **七条审批补强**（多 pattern 评估、reject 级联、alwaysPatterns ask 时声明、优先级=扁平化 findLast 实锤、deny 工具不广告、~/\$HOME 展开、shutdown 清 pending）；§5.9 pi 事件映射取舍表（toolcall 流式 v1 不做） |
 | v2.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续"——第二批源码对照） | **第二批对照**（依据：pi `packages/coding-agent/src/core/session-manager.ts` 全文、Codex `codex-rs/protocol/src/turn_input.rs`、opencode-ai/schema `packages/schema/src/event.ts`）：§5.4 补 **steerQueue 残留转入 queue**（插话不丢失，此前未定义的边界）+ 提交无拒绝态的宽容决策注记（对照 Codex NotSubmittedReason 八种）；§5.8.1 采纳**文件名时间戳前缀**与**会话文件版本迁移链**（pi migrateV1→V2→V3 就地重写），否决"空会话不落盘"（与落盘后广播不变式冲突），记录孤儿条目分歧（pi 宽容/我 fail-closed）；§5.8.5 **compaction 锚点分支隐患**（fork 后 seq≠路径序，阶段四须改 keptFromEventId——pi firstKeptEntryId 实证）；§5.8.6 fork 补 parentSession 源路径 + branch_summary（阶段四+可选）；§4.4 记 opencode metadata 通道与事件级版本共存为 v2 选项 |
 | v2.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续"——第三批源码对照） | **第三批对照**（依据：Codex `reverse_jsonl_scanner.rs` 全文、dsh `deepseek-ai/deepseek-harness` master `surface.ts`+index.ts deriveMessages）：§5.8.3 三条（空 assistant 消息不进转录、逐字直通硬规则、**surfaceOp replace 语义**=模型可见面≠人类转录面，工具结果蒸馏的词表前置研究）；§5.8.4 两条（**seq 连续性校验**补漏、反向扫描恢复模式——冻结前缀/超大行跳过/坏行可继续，阶段四引入）；§5.8.6 fork 边界校验三拒绝码（INVALID_BOUNDARY/OPEN_TURN/ALREADY_EXISTS）。勘误：dsh 仓库名实为 deepseek-ai/deepseek-harness（master 分支），非 deepseek-ai/dsh |
+| v2.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续把文档完善"） | **第四批对照**（依据：pi-ai `packages/ai/src/{index,types}.ts`、opencode `session/overflow.ts`）：§5.9 **勘误两处**——pi-ai Tool.parameters 要求 typebox TSchema（推翻 v2.0"jsonSchema 零适配"，改 zod→jsonSchema→Type.Unsafe 薄桥集中网关）；Context.systemPrompt 为独立字段（StreamRequest 增 system，入口拆出直传）。§5.5/§5.8.5 压缩触发升级为 **reserve 扣减公式**（usable = input ?? context−maxOutputTokens − min(20k, maxOutput)；threshold 降为手动覆盖）。架构级决策 D9-D13 补录 ARCHITECTURE v1.7 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -883,7 +884,13 @@ compact(rt):
   keptFromSeq = 当前上下文中"最近 N 条 surface 事件"的首 seq（N 由 token 预算反推）
   emit compaction.completed{summary, keptFromSeq, tokensBefore}(durable)
   （此后 Projector 自动按 5.8.3 生效；旧事件不删——append-only）
-触发：runStep ② 中 tokens/contextWindow > compactionThreshold；手动 /compact
+触发（v2.7 升级为 opencode `session/overflow.ts` 的 **reserve 扣减公式**）：
+  usable = (model.limit.input ?? context − maxOutputTokens(model)) − reserved
+           （reserved 默认 = min(20_000, maxOutputTokens(model))；cfg.compaction.reserved 可覆盖）
+  tokens ≥ usable 即压缩——比阈值法精确：给输出预留了空间，避免"0.8×context 时仍装不下输出"
+  limit.context 未知（=0）：我们按 128k 兜底估算并 warn（opencode 选择不触发自动压缩；
+    取舍：本地误压缩代价低于漏压缩）。spark.json 的 compactionThreshold 降为手动覆盖项
+    （设置后改用 tokens > threshold × context 简化式）。手动 /compact 不变
 （压缩调用本身的 usage 不计入会话 usage——与 Claude Code modelUsage 口径一致的做法，v1 简化为不计）
 ```
 
@@ -932,7 +939,8 @@ export interface ResolvedModel {
 ```
 
 - **消息投影**：Projector 输出的 `{role, content}` 直接对应 pi-ai 消息结构；`toolCall/toolResult` 到 provider 消息形状的转换（Anthropic tool_use/tool_result 块、OpenAI tool_calls/tool 角色）由 pi-ai 内建映射完成，网关不做逐 provider 分支。
-- **工具清单转换**：`registry.materialize()` 产出的 jsonSchema（zod-to-json-schema）直接作为 pi-ai tools 的参数 schema；网关侧零适配。
+- **system 提示词传递（v2.7 修正）**：pi-ai 的 `Context.systemPrompt` 是**独立字段而非 messages[0]**（`types.ts` Context 定义）——StreamRequest 增 `system: string`，由网关在入口把 Projector 输出的第 0 条 system 拆出直传（§5.11 的组装位置不变）。
+- **工具清单转换（v2.7 勘误，推翻 v2.0"零适配"断言）**：pi-ai 的 `Tool.parameters` 要求 **typebox TSchema**（`types.ts:514`），不是裸 JSON Schema——网关做一层薄桥：zod → JSON Schema（zod4 内建 toJSONSchema）→ `Type.Unsafe(jsonSchema)` 包成 TSchema，集中在 LlmGateway 单文件。constrainedSampling（json_schema strict / grammar 变体）v1 不启用。
 - **contextWindow 用途**：runStep ② 的 `tokens/contextWindow > compactionThreshold` 触发压缩（§5.8.5）；turn 显式指定模型的 contextWindow 未知时按 128000 兜底并 warn。
 
 ## 5.10 错误分类与可观测性
@@ -1609,4 +1617,4 @@ app.get('/api/event', async (req, reply) => {
 
 ---
 
-*方案完（v2.6）。前后端均为完整规格；开工顺序：阶段一工单表自上而下；每次完成按版本记录表追加记录并 push。*
+*方案完（v2.7）。前后端均为完整规格；开工顺序：阶段一工单表自上而下；每次完成按版本记录表追加记录并 push。*
