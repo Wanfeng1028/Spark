@@ -96,6 +96,14 @@ export class PermissionServiceImpl implements PermissionService {
     return evaluate(action, '**', this.deps.userRules, this.deps.projectRules) === 'deny'
   }
 
+  /** 会话是否有挂起审批（SessionMetaDto.status 的 'waiting-approval' 数据源） */
+  isWaitingApproval(sessionId: SessionId): boolean {
+    for (const entry of this.pending.values()) {
+      if (entry.sessionId === sessionId) return true
+    }
+    return false
+  }
+
   /**
    * UI 审批回复（POST /api/permissions/:requestId 的引擎侧入口）。
    * 返回 false = 未知/已决 requestId（server 层映射 404）。
