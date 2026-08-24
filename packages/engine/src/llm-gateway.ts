@@ -61,6 +61,8 @@ export interface StreamRequest {
   signal: AbortSignal
   onDelta: (text: string) => void
   onThinking: (text: string) => void
+  /** 输出上限（generateOnce 压缩路径透传；缺省用 provider 默认） */
+  maxTokens?: number
 }
 
 export type StopReason = 'stop' | 'length' | 'error' | 'aborted'
