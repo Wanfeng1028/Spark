@@ -117,4 +117,9 @@ export class SessionRuntime {
   hasBacklog(): boolean {
     return !this.queue.isEmpty() || this.steerQueue.length > 0
   }
+
+  /** 引擎 shutdown：关闭输入队列（挂起的 run-loop take reject 退出；幂等） */
+  shutdown(): void {
+    this.queue.close()
+  }
 }

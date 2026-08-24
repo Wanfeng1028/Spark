@@ -38,6 +38,8 @@ export {
 } from './session/input-queue.js'
 export { SessionRuntime, type RuntimeStatus } from './session/runtime.js'
 export {
+  ZERO_USAGE,
+  addUsage,
   type LlmGateway,
   type ResolvedModel,
   type LlmMessage,
@@ -52,3 +54,14 @@ export {
   type ScriptedStep,
   type ScriptedDelta,
 } from './scripted-llm.js'
+export {
+  runSessionLoop,
+  runTurn,
+  type Projector,
+  type Compactor,
+  type ToolCallPending,
+  type ToolPipelineResult,
+  type ToolPipeline,
+  type TurnCtx,
+  type RunLoopDeps,
+} from './run-loop.js'
