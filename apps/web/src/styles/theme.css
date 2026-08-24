@@ -31,6 +31,23 @@ body {
   color: var(--accent-foreground);
 }
 
+/* 流式光标（DESIGN §6）：▮ 1s 硬切闪烁；reduced-motion 由下方全局规则禁用 */
+@keyframes spark-cursor-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.spark-cursor-blink {
+  animation: spark-cursor-blink 1s step-end infinite;
+  color: var(--muted-foreground);
+}
+
 /* 动效纪律（DESIGN.md §6）：reduced-motion 下全部动效禁用 */
 @media (prefers-reduced-motion: reduce) {
   *,

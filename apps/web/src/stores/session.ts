@@ -14,6 +14,7 @@ import type {
   TurnId,
   Usage,
 } from '@spark/protocol'
+import { ids } from '@spark/protocol'
 import type { SparkEventEnvelope } from '@spark/protocol'
 
 // ---------- UiItem（§6.4 类型表） ----------
@@ -111,6 +112,14 @@ function emptySlice(sid: SessionId): SessionSlice {
 }
 
 const EMPTY_ARRAY: UiItem[] = []
+const EMPTY_META: SessionMeta = {
+  id: ids.session(''),
+  title: '',
+  model: '',
+  cwd: '',
+  createdAt: 0,
+  updatedAt: 0,
+}
 
 // ---------- reduce：§6.4 处理表（19 种全覆盖） ----------
 
@@ -409,6 +418,9 @@ export const useSessionItems = (sid: SessionId): UiItem[] =>
 
 export const useActiveTurn = (sid: SessionId): ActiveTurn | null =>
   useSessionStore((s) => s.byId[sid]?.activeTurn ?? null)
+
+export const useSessionMeta = (sid: SessionId): SessionMeta =>
+  useSessionStore((s) => s.byId[sid]?.meta ?? EMPTY_META)
 
 export const useLastSeq = (sid: SessionId): number =>
   useSessionStore((s) => s.byId[sid]?.lastSeq ?? 0)
