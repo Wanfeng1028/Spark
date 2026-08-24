@@ -42,6 +42,8 @@ export type UiItem =
       requestId: RequestId
       action: string
       resource: string
+      reason: string
+      detail?: unknown
       reply?: 'once' | 'always' | 'reject'
       status: 'pending' | 'resolved'
     } & UiItemBase)
@@ -356,6 +358,8 @@ export function reduce(s: SessionStoreState, e: SparkEventEnvelope): SessionStor
         requestId: e.data.requestId,
         action: e.data.action,
         resource: e.data.resource,
+        reason: e.data.reason,
+        ...(e.data.detail !== undefined ? { detail: e.data.detail } : {}),
         status: 'pending',
       },
     ]
