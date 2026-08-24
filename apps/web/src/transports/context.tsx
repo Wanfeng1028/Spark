@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { SparkEventEnvelope, Transport } from '@spark/protocol'
 import { useSessionStore } from '@/stores/session'
+import { useConnectionStore } from '@/stores/connection'
 import { MockTransport } from './mock.js'
 import type { MockScenario } from './mock.js'
 
@@ -38,12 +39,17 @@ export function TransportProvider({ children }: { children: ReactNode }) {
   // 事件流 → session-store（§6.4）：rAF 批量 flush——同帧多事件只触发一次渲染提交，
   // 缓冲按到达序 flush（live/durable 相对顺序不乱）；卸载时取消挂起的 rAF 并清缓冲（防卸载后写 store）
   useEffect(() => {
+    // mock 通道即挂即用；HttpTransport（阶段三）由其重连状态机另行驱动
+    if (mock) useConnectionStore.getState().setStatus('open')
     const buf: SparkEventEnvelope[] = []
     let raf = 0
     const flush = () => {
       raf = 0
       const batch = buf.splice(0)
-      for (const e of batch) useSessionStore.getState().applyEvent(e)
+      for (const e of batch) {
+        useSessionStore.getState().applyEvent(e)
+        if (e.seq !== undefined) useConnectionStore.getState().noteSeq(e.seq)
+      }
     }
     const off = transport.onEvent((e) => {
       buf.push(e)

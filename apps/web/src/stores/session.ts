@@ -88,6 +88,8 @@ export interface SessionStoreState {
   activeId: SessionId | null
   applyEvent: (e: SparkEventEnvelope) => void
   resetSlice: (sid: SessionId) => void
+  /** 路由激活（SessionPage 挂载即设；StatusBar/Sidebar 的「当前会话」数据源） */
+  setActiveId: (sid: SessionId) => void
 }
 
 const ZERO_USAGE: Usage = {
@@ -413,6 +415,7 @@ export const useSessionStore = create<SessionStoreState>()((set) => ({
   activeId: null,
   applyEvent: (e) => set((s) => reduce(s, e)),
   resetSlice: (sid) => set((s) => ({ byId: { ...s.byId, [sid]: emptySlice(sid) } })),
+  setActiveId: (sid) => set({ activeId: sid }),
 }))
 
 // ---------- 选择器（shallow 比较——只有引用变化的 slice 重渲染） ----------
@@ -428,3 +431,7 @@ export const useSessionMeta = (sid: SessionId): SessionMeta =>
 
 export const useLastSeq = (sid: SessionId): number =>
   useSessionStore((s) => s.byId[sid]?.lastSeq ?? 0)
+
+/** StatusBar：当前激活会话 slice（无会话时 null——如实显示，不造假） */
+export const useActiveSlice = (): SessionSlice | null =>
+  useSessionStore((s) => (s.activeId === null ? null : (s.byId[s.activeId] ?? null)))
