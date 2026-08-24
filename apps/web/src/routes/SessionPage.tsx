@@ -56,6 +56,9 @@ export function SessionPage() {
     if (s === scenario) return
     setScenario(s)
     const dto = await transport.createSession()
+    // 场景脚本的 sessionId 固定——切回同场景会命中旧 slice（含上次挂起的审批）。
+    // 切场景即重放开端：清掉旧 slice，UI 不残留僵尸审批卡（transport 已重置）。
+    useSessionStore.getState().resetSlice(ids.session(dto.id))
     void navigate(`/session/${dto.id}`, { replace: true })
   }
 
