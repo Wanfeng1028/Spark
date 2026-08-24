@@ -21,3 +21,12 @@ export {
   type EventBusOptions,
 } from './bus.js'
 export { ulid, newIds } from './ulid.js'
+export {
+  SessionStore,
+  mungeDir,
+  sessionFileName,
+  danglingTurnIds,
+  type SessionHeader,
+  type SessionFile,
+} from './session/store.js'
+export { EventTree } from './session/tree.js'
