@@ -8,6 +8,8 @@ import { writeTool } from './write.js'
 import { editTool } from './edit.js'
 import { bashTool } from './bash.js'
 
+export { readTool, writeTool, editTool, bashTool }
+
 export function registerBuiltinTools(registry: ToolRegistry): void {
   registry.register(readTool)
   registry.register(writeTool)

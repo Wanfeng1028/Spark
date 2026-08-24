@@ -27,7 +27,7 @@ export class ToolRegistry {
     return [...this.defs.values()].map((def) => ({
       name: def.name,
       description: def.description,
-      parameters: z.toJSONSchema(def.inputSchema, { io: 'input' }) as Record<string, unknown>,
+      parameters: z.toJSONSchema(def.inputSchema, { io: 'input' }),
     }))
   }
 

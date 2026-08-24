@@ -25,7 +25,8 @@
 | v2.7  | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续把文档完善"）                                                                                          | **第四批对照**（依据：pi-ai `packages/ai/src/{index,types}.ts`、opencode `session/overflow.ts`）：§5.9 **勘误两处**——pi-ai Tool.parameters 要求 typebox TSchema（推翻 v2.0"jsonSchema 零适配"，改 zod→jsonSchema→Type.Unsafe 薄桥集中网关）；Context.systemPrompt 为独立字段（StreamRequest 增 system，入口拆出直传）。§5.5/§5.8.5 压缩触发升级为 **reserve 扣减公式**（usable = input ?? context−maxOutputTokens − min(20k, maxOutput)；threshold 降为手动覆盖）。架构级决策 D9-D13 补录 ARCHITECTURE v1.7                                                                                                                                                                                                                                                   |
 | v2.8  | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审指出 §6.9 漏改）                                                                                    | §6.9 测试重点 "applyEvent 21 事件"→**19 事件**（v2.3 批量替换漏网——该处无"种"字未被正则命中，同文内部矛盾的最后一处）；CI 描述补 `check_doc_links.py` 文档一致性检查                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | v2.9 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段一开工指令）                                                                                                                                     | **阶段一完成**：§8 工单 1.3 mock 四场景（afcd5bf）、1.5 web 空壳（ee58c83）、1.4 MockTransport（2f13bf7）、1.6 server 空壳（e45c99a）勾选；阶段验收（mock 假对话全链路）通过                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| v2.10 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段二开工指令）                                                                                                                                    | **阶段二完成**：§8 阶段二清单 11 项全勾（session-store+applyEvent 24 例单测/ChatView 虚拟化/streamdown+rAF flush/ToolCard 三态/ApprovalCard/Composer 三模式/SessionSidebar/主题与状态条/SettingsDialog/CommandPalette）；阶段验收（四场景 mock 浏览器走查：流式渲染/工具三态/审批挂起拒绝/error 重试/长输出/断线重连）通过                                                                                                                                                                                                                                                                                                                                                                                                               |
+| v2.10 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段二开工指令）                                                                                                                                    | **阶段二完成**：§8 阶段二清单 11 项全勾（session-store+applyEvent 24 例单测/ChatView 虚拟化/streamdown+rAF flush/ToolCard 三态/ApprovalCard/Composer 三模式/SessionSidebar/主题与状态条/SettingsDialog/CommandPalette）；阶段验收（四场景 mock 浏览器走查：流式渲染/工具三态/审批挂起拒绝/error 重试/长输出/断线重连）通过                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| v2.11 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三开工指令）                                                                                                                                    | **阶段三前六工单完成**：§8 阶段三清单勾选 7 项（config 23 例/EventBus 17 例/SessionStore+EventTree 32 例/Runtime+InputQueue 17 例/RunLoop 15 例/ToolRegistry+Pipeline+四工具 32 例/ScriptedLlm 9 例，engine 145 例全绿）；ScriptedLlm 按依赖关系提前至 RunLoop 前完成（run-loop 单测的假 provider）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -1622,18 +1623,18 @@ app.get('/api/event', async (req, reply) => {
 
 ## 阶段三：引擎跑通
 
-- [ ] config 体系（spark.json/models.json 加载校验）
-- [ ] EventBus（durable 落盘后广播 + live 直播 + 订阅隔离 + 背压接口）
-- [ ] SessionStore（单写者 append/flush/fsync）+ EventTree + 坏行策略
-- [ ] SessionRuntime + InputQueue（三通道 + 唤醒合并 + interrupt 级联）
-- [ ] RunLoop（§5.5 全逻辑：steering 注入/StepContext/截断保护/maxSteps/失败闭合）
-- [ ] ToolRegistry + Pipeline（分组并行/权限门/进度节流/溢写）+ 四工具
+- [x] config 体系（spark.json/models.json 加载校验）
+- [x] EventBus（durable 落盘后广播 + live 直播 + 订阅隔离 + 背压接口）
+- [x] SessionStore（单写者 append/flush/fsync）+ EventTree + 坏行策略
+- [x] SessionRuntime + InputQueue（三通道 + 唤醒合并 + interrupt 级联）
+- [x] RunLoop（§5.5 全逻辑：steering 注入/StepContext/截断保护/maxSteps/失败闭合）
+- [x] ToolRegistry + Pipeline（分组并行/权限门/进度节流/溢写）+ 四工具
 - [ ] PermissionService（evaluate/挂起表/超时/always 级联/规则文件）
 - [ ] LlmGateway（pi-ai 集成 + 事件回调 + 重试）
 - [ ] Projector（投影六步）+ compaction
 - [ ] server REST+SSE 全端点（§7 规格）+ HttpTransport 切换（前端零改动）
 - [ ] pino 日志 + 脱敏
-- [ ] ScriptedLlm 假 provider（预录响应序列注入 LlmGateway）——run-loop/工具/审批全链路 CI 可测，不依赖真实 API key
+- [x] ScriptedLlm 假 provider（预录响应序列注入 LlmGateway）——run-loop/工具/审批全链路 CI 可测，不依赖真实 API key
 - **验收**：真实模型完成"读文件→改文件→跑命令→汇报"全闭环；断线重连回放正确；中断无悬挂事件
 
 ## 阶段四：深度体验
