@@ -24,7 +24,8 @@
 | v2.6  | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续"——第三批源码对照）                                                                                    | **第三批对照**（依据：Codex `reverse_jsonl_scanner.rs` 全文、dsh `deepseek-ai/deepseek-harness` master `surface.ts`+index.ts deriveMessages）：§5.8.3 三条（空 assistant 消息不进转录、逐字直通硬规则、**surfaceOp replace 语义**=模型可见面≠人类转录面，工具结果蒸馏的词表前置研究）；§5.8.4 两条（**seq 连续性校验**补漏、反向扫描恢复模式——冻结前缀/超大行跳过/坏行可继续，阶段四引入）；§5.8.6 fork 边界校验三拒绝码（INVALID_BOUNDARY/OPEN_TURN/ALREADY_EXISTS）。勘误：dsh 仓库名实为 deepseek-ai/deepseek-harness（master 分支），非 deepseek-ai/dsh                                                                                                                                                                                                   |
 | v2.7  | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续把文档完善"）                                                                                          | **第四批对照**（依据：pi-ai `packages/ai/src/{index,types}.ts`、opencode `session/overflow.ts`）：§5.9 **勘误两处**——pi-ai Tool.parameters 要求 typebox TSchema（推翻 v2.0"jsonSchema 零适配"，改 zod→jsonSchema→Type.Unsafe 薄桥集中网关）；Context.systemPrompt 为独立字段（StreamRequest 增 system，入口拆出直传）。§5.5/§5.8.5 压缩触发升级为 **reserve 扣减公式**（usable = input ?? context−maxOutputTokens − min(20k, maxOutput)；threshold 降为手动覆盖）。架构级决策 D9-D13 补录 ARCHITECTURE v1.7                                                                                                                                                                                                                                                   |
 | v2.8  | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审指出 §6.9 漏改）                                                                                    | §6.9 测试重点 "applyEvent 21 事件"→**19 事件**（v2.3 批量替换漏网——该处无"种"字未被正则命中，同文内部矛盾的最后一处）；CI 描述补 `check_doc_links.py` 文档一致性检查                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| v2.9  | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段一开工指令）                                                                                                                                     | **阶段一完成**：§8 工单 1.3 mock 四场景（afcd5bf）、1.5 web 空壳（ee58c83）、1.4 MockTransport（2f13bf7）、1.6 server 空壳（e45c99a）勾选；阶段验收（mock 假对话全链路）通过                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| v2.9 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段一开工指令）                                                                                                                                     | **阶段一完成**：§8 工单 1.3 mock 四场景（afcd5bf）、1.5 web 空壳（ee58c83）、1.4 MockTransport（2f13bf7）、1.6 server 空壳（e45c99a）勾选；阶段验收（mock 假对话全链路）通过                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| v2.10 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段二开工指令）                                                                                                                                    | **阶段二完成**：§8 阶段二清单 11 项全勾（session-store+applyEvent 24 例单测/ChatView 虚拟化/streamdown+rAF flush/ToolCard 三态/ApprovalCard/Composer 三模式/SessionSidebar/主题与状态条/SettingsDialog/CommandPalette）；阶段验收（四场景 mock 浏览器走查：流式渲染/工具三态/审批挂起拒绝/error 重试/长输出/断线重连）通过                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -1606,18 +1607,18 @@ app.get('/api/event', async (req, reply) => {
 
 ## 阶段二：前端全量（对 Mock 开发）
 
-- [ ] 路由与 AppShell（/welcome、/session/:id、Sidebar/StatusBar 布局）
-- [ ] session-store + applyEvent 19 种事件单测全覆盖
-- [ ] ChatView 虚拟化 + MessageItem/AssistantBlock/ReasoningCollapsible
-- [ ] streamdown 流式渲染 + rAF 批量 flush
-- [ ] ToolCard 三态 + Terminal/DiffViewer/CodeBlock 分发
-- [ ] ApprovalCard（confirmation 改造）+ feedback + resolved 动效
-- [ ] Composer 三模式 + 三态反馈
-- [ ] SessionSidebar 列表/分组/状态点 + 新建/切换
-- [ ] 深色模式 + 空态/加载态/错误态/断线重连条 + BackBottom
-- [ ] SettingsDialog（主题/默认 delivery）
-- [ ] CommandPalette（cmdk copy-in：新建/切换会话/主题/设置/打断；§6.3 规格）
-- **验收**：全部 UI 交互在 mock 下无死角（含审批挂起/拒绝/error/long-output 场景）
+- [x] 路由与 AppShell（/welcome、/session/:id、Sidebar/StatusBar 布局）（ee58c83/5b4b61e）
+- [x] session-store + applyEvent 19 种事件单测全覆盖（ee382ef，24 例）
+- [x] ChatView 虚拟化 + MessageItem/AssistantBlock/ReasoningCollapsible（600779b）
+- [x] streamdown 流式渲染 + rAF 批量 flush（13dfc33）
+- [x] ToolCard 三态 + Terminal/DiffViewer/CodeBlock 分发（a1acf99）
+- [x] ApprovalCard（confirmation 改造）+ feedback + resolved 动效（a1acf99）
+- [x] Composer 三模式 + 三态反馈（5b4b61e）
+- [x] SessionSidebar 列表/分组/状态点 + 新建/切换（5b4b61e）
+- [x] 深色模式 + 空态/加载态/错误态/断线重连条 + BackBottom（5b4b61e）
+- [x] SettingsDialog（主题/默认 delivery）（ca27c91）
+- [x] CommandPalette（cmdk copy-in：新建/切换会话/主题/设置/打断；§6.3 规格）（ca27c91）
+- **验收**：✅ 全部 UI 交互在 mock 下无死角——四场景（normal/long-output/reject/error-finish）浏览器走查通过：流式渲染、工具三态、审批挂起/拒绝（feedback 落库）、error 重试、长输出滚动截头、断线重连条、命令面板与设置弹窗、主题二态
 
 ## 阶段三：引擎跑通
 
