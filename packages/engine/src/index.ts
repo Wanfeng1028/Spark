@@ -13,3 +13,11 @@ export {
   type PermissionsConfig,
   type PermissionRule,
 } from './config.js'
+export {
+  EventBus,
+  type EventSink,
+  type EventHandler,
+  type SubscribeHandle,
+  type EventBusOptions,
+} from './bus.js'
+export { ulid, newIds } from './ulid.js'
