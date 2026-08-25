@@ -13,6 +13,7 @@ import {
   PermissionRuleDtoSchema,
   RequestIdSchema,
   SessionIdSchema,
+  TurnIdSchema,
 } from '@spark/protocol'
 import type { CheckpointDto, SessionId, SparkEventEnvelope, TreeNodeDto } from '@spark/protocol'
 import type {
@@ -71,6 +72,7 @@ const ListSessionsQuery = z.object({
 const SendMessageBody = z.strictObject({
   text: z.string().min(1),
   delivery: DeliverySchema.default('now'),
+  expectedTurnId: TurnIdSchema.optional(),
 })
 
 const ReplyBody = z.strictObject({
@@ -176,7 +178,9 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
       const body = parseOr400(SendMessageBody, req.body)
       const handle = await requireHandle(engine, id)
       // 三态直通：HTTP 只表达"已受理"，不等 turn 结果（§7.2）
-      return reply.send(await handle.send(body.text, body.delivery))
+      return reply.send(
+        await handle.send(body.text, body.delivery, body.expectedTurnId),
+      )
     } catch (err) {
       return sendError(req, reply, err)
     }

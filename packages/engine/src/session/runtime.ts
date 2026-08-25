@@ -11,7 +11,7 @@
  * 可 steer = 有活动 turn 且未在收尾（interrupt 后收尾中，now 降级 queued）。
  * 三态之外不设拒绝态（刻意宽容，对照 Codex NotSubmittedReason 八种——v2 再引入）。
  */
-import type { Delivery, SessionId } from '@spark/protocol'
+import type { Delivery, SessionId, TurnId } from '@spark/protocol'
 import { newIds } from '../ulid.js'
 import { InputQueue } from './input-queue.js'
 import type { InputItem, SubmitResult } from './input-queue.js'
@@ -27,6 +27,8 @@ export class SessionRuntime {
   private finalizing = false
   /** 当前 turn 的 abort 入口（null = 无活动 turn：idle 或 turn 间隙） */
   private turnAbort: AbortController | null = null
+  /** 当前活动 turn id（steer expected_turn_id 校验目标；阶段五工单 5.4 / Codex 对照） */
+  private activeTurnId: TurnId | null = null
 
   constructor(readonly sessionId: SessionId) {}
 
@@ -34,10 +36,29 @@ export class SessionRuntime {
     return this.status
   }
 
-  /** 三通道提交路由（同步受理；HTTP 层 zod 已拒空文本，此处兜底 fail-fast） */
-  submit(text: string, delivery: Delivery = 'now', attachments?: string[]): SubmitResult {
+  /**
+   * 三通道提交路由（同步受理；HTTP 层 zod 已拒空文本，此处兜底 fail-fast）。
+   * expectedTurnId 非空时须匹配当前活动 turn（多 turn 并发防串台，§5.4）；
+   * 无活动 turn 或不匹配 → E_TURN_MISMATCH。
+   */
+  submit(
+    text: string,
+    delivery: Delivery = 'now',
+    attachments?: string[],
+    expectedTurnId?: TurnId,
+  ): SubmitResult {
     if (text.length === 0) {
       throw new Error('E_INPUT_EMPTY: 输入为空（与 user.message zod min(1) 同源）')
+    }
+    if (
+      expectedTurnId !== undefined &&
+      (this.activeTurnId === null || this.activeTurnId !== expectedTurnId)
+    ) {
+      throw new Error(
+        `E_TURN_MISMATCH: 期望 turn ${expectedTurnId} 与活动 turn ${
+          this.activeTurnId ?? '(无)'
+        } 不符`,
+      )
     }
     const item: InputItem = {
       id: newIds.event(),
@@ -79,13 +100,14 @@ export class SessionRuntime {
     return this.queue.take()
   }
 
-  /** RunLoop：turn 开始——登记 abort 入口；已有活动 turn = 编程错误（fail-fast） */
-  beginTurn(): AbortController {
+  /** RunLoop：turn 开始——登记 abort 入口与 turn id；已有活动 turn = 编程错误（fail-fast） */
+  beginTurn(turnId?: TurnId): AbortController {
     if (this.turnAbort !== null) {
       throw new Error('E_RUNTIME_TURN_ACTIVE: 上一 turn 未结束（beginTurn 重入）')
     }
     const controller = new AbortController()
     this.turnAbort = controller
+    this.activeTurnId = turnId ?? null
     this.finalizing = false
     this.status = 'running'
     return controller
@@ -100,6 +122,7 @@ export class SessionRuntime {
       this.queue.push(item)
     }
     this.turnAbort = null
+    this.activeTurnId = null
     this.finalizing = false
     if (this.queue.isEmpty()) {
       this.status = 'idle'

@@ -7,11 +7,13 @@
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply } from './primitives.js'
 import type { CheckpointDto, PermissionRuleDto, SessionDto, TreeNodeDto } from './api.js'
-import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
+import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
 export interface SendMessageOptions {
   delivery?: Delivery
   attachments?: string[]
+  /** steer 目标 turn 校验（§5.4，阶段五工单 5.4）：与活动 turn 不符 → E_TURN_MISMATCH */
+  expectedTurnId?: TurnId
 }
 
 export interface SubmitOutcome {

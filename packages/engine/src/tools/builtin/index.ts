@@ -10,9 +10,11 @@ import { writeTool } from './write.js'
 import { editTool } from './edit.js'
 import { makeBashTool, bashTool } from './bash.js'
 import type { BashToolOptions } from './bash.js'
+import { makeTaskTool } from './task.js'
+import type { TaskInput, TaskRunner } from './task.js'
 
-export { readTool, writeTool, editTool, makeBashTool, bashTool }
-export type { BashToolOptions }
+export { readTool, writeTool, editTool, makeBashTool, bashTool, makeTaskTool }
+export type { BashToolOptions, TaskInput, TaskRunner }
 
 export interface BuiltinToolsOptions {
   /** bash 沙箱开关（spark.json engine.bashSandbox；缺省 off = 现行为） */

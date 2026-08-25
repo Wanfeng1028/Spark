@@ -146,7 +146,7 @@ export async function runTurn(
   let finish: TurnFinish = 'stop'
   let usage = ZERO_USAGE
   let started = false
-  const abort = rt.beginTurn()
+  const abort = rt.beginTurn(input.turnId)
   const turn: TurnCtx = {
     turnId,
     delivery: input.delivery,

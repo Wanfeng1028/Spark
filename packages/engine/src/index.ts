@@ -92,7 +92,10 @@ export {
   editTool,
   bashTool,
   makeBashTool,
+  makeTaskTool,
   type BashToolOptions,
+  type TaskInput,
+  type TaskRunner,
 } from './tools/builtin/index.js'
 export {
   bwrapArgs,
