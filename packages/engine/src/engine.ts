@@ -39,6 +39,7 @@ import { PermissionServiceImpl } from './permission/service.js'
 import { SessionRuntime } from './session/runtime.js'
 import { SessionStore, danglingTurnIds, mungeDir, sessionFileName } from './session/store.js'
 import type { SubmitResult } from './session/input-queue.js'
+import { TitleGenerator } from './title.js'
 import { ToolOutputStore } from './tools/output-store.js'
 import { ToolPipelineImpl } from './tools/pipeline.js'
 import { ToolRegistry } from './tools/registry.js'
@@ -97,6 +98,10 @@ interface SessionEntry {
   meta: SessionMeta
   /** 手动压缩入口（§5.8.5；自动触发在 run-loop step ②） */
   compactor: Compactor
+  /** 会话自动标题入口（§5.11；turn.completed 后由 meta 订阅器触发） */
+  titler: TitleGenerator
+  /** 在途标题任务（null=无；触发去重 + shutdown 收尾） */
+  titleTask: Promise<void> | null
   /** run-loop 后台循环体（shutdown 等待用） */
   loop: Promise<void>
 }
@@ -182,6 +187,23 @@ export class Engine {
       }
       if (e.type === 'session.title') {
         entry.meta.title = (e.data as { title: string }).title
+      }
+      // 会话自动标题（§5.11 / 工单 4.4）：turn 完成后异步触发（无标题且无在途任务；
+      // 失败不 emit error——空标题不悬空 UI，下一 turn.completed 重触发）
+      if (
+        e.type === 'turn.completed' &&
+        entry.meta.title === '' &&
+        entry.titleTask === null &&
+        !this.shuttingDown
+      ) {
+        entry.titleTask = entry.titler
+          .generate()
+          .catch((err) => {
+            this.logger.warn('session.title.error', { sid: e.sessionId, err })
+          })
+          .finally(() => {
+            entry.titleTask = null
+          })
       }
     })
   }
@@ -397,6 +419,8 @@ export class Engine {
       }
       // 3) 等待 run-loop 退出（turn 收尾事件闭合）
       await Promise.all([...this.sessions.values()].map((e) => e.loop))
+      // 3.5) 自动标题后台任务收尾（fire-and-forget 的 generateOnce；防 append-after-close）
+      await Promise.all([...this.sessions.values()].map((e) => e.titleTask ?? Promise.resolve()))
       // 4) 审批 pending 全部 fail-closed（§5.7 补强 7）
       await this.permission.dispose()
       // 5) 全量 flush + close（fsync）
@@ -434,6 +458,13 @@ export class Engine {
         (this.config.spark.engine.compactionThreshold * model.contextWindow) / 2,
       ),
     })
+    const titler = new TitleGenerator({
+      sessionId: meta.id,
+      bus: this.bus,
+      gateway: this.gateway,
+      projector,
+      model: compactionModel, // §5.11 辅助提示词同一廉价通道
+    })
     const tools = new ToolPipelineImpl({
       sessionId: meta.id,
       bus: this.bus,
@@ -457,7 +488,7 @@ export class Engine {
       compactionThreshold: this.config.spark.engine.compactionThreshold,
     }
     const loop = runSessionLoop(runtime, deps)
-    return { store, runtime, meta, compactor, loop }
+    return { store, runtime, meta, compactor, titler, titleTask: null, loop }
   }
 
   private handleOf(entry: SessionEntry): SessionHandle {

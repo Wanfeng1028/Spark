@@ -43,8 +43,8 @@ export interface CompactorDeps {
   keepTokens: number
 }
 
-/** 投影消息 → 纯文本转录（generateOnce 单 prompt；结构项 JSON 序列化） */
-function serializeTranscript(messages: readonly LlmMessage[]): string {
+/** 投影消息 → 纯文本转录（generateOnce 单 prompt；结构项 JSON 序列化；标题生成复用） */
+export function serializeTranscript(messages: readonly LlmMessage[]): string {
   return messages
     .map((m) => {
       const parts = m.content.map((item) =>

@@ -163,7 +163,8 @@ describe('MockTransport 回放状态机', () => {
     await t.interrupt(SID)
     const countAfterStop = events.length
     await vi.advanceTimersByTimeAsync(60_000)
-    expect(events.length).toBe(countAfterStop)
+    // 中止后脚本不再推进——仅可能追加合成的自动标题（工单 4.4：aborted turn 同样触发，引擎语义对等）
+    expect(events.filter((e) => e.type !== 'session.title')).toHaveLength(countAfterStop)
     // 中止合成：最后的 turn.completed finish=aborted（事件流不悬空）
     const last = events[countAfterStop - 1]
     expect(last?.type).toBe('turn.completed')
@@ -233,5 +234,26 @@ describe('MockTransport 回放状态机', () => {
         'ses_01HXMOCKRJCT0000000000',
       ].sort(),
     )
+  })
+
+  it('自动标题（工单 4.4）：首个 turn.completed 后 400ms 合成 session.title，且仅一次', async () => {
+    const t = new MockTransport('normal')
+    const { events } = recorder(t)
+    await t.sendMessage(SID)
+    await vi.advanceTimersByTimeAsync(10_000)
+    await t.replyPermission(ids.request('req_01HXMOCKNRMLPERM00000000000'), 'once')
+    // 第一 turn 闭合（@wait message 挂起前）：标题事件在其后 400ms 到达
+    await vi.advanceTimersByTimeAsync(60_000)
+    const titles = events.filter((e) => e.type === 'session.title')
+    expect(titles).toHaveLength(1)
+    expect(titles[0]?.data).toEqual({ title: '（mock）自动生成的会话标题' })
+    expect(
+      events.findIndex((e) => e.type === 'session.title'),
+    ).toBeGreaterThan(events.findIndex((e) => e.type === 'turn.completed'))
+
+    // 第二 turn（解除 @wait message 继续回放）后不再重复合成
+    await t.sendMessage(SID)
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(events.filter((e) => e.type === 'session.title')).toHaveLength(1)
   })
 })

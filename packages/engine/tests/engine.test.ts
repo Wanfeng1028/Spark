@@ -13,6 +13,7 @@ import type { EngineConfig } from '../src/config.js'
 import type { SubscribeHandle } from '../src/bus.js'
 import { Engine } from '../src/engine.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
+import { TITLE_PROMPT } from '../src/title.js'
 
 function makeConfig(): EngineConfig {
   return {
@@ -68,6 +69,16 @@ async function waitForTurnDone(f: Fixture): Promise<void> {
   for (;;) {
     if (f.events.some((e) => e.type === 'turn.completed')) return
     if (Date.now() > deadline) throw new Error('等待 turn.completed 超时')
+    await new Promise((r) => setTimeout(r, 10))
+  }
+}
+
+/** 轮询断言谓词成立（上限 2s；自动标题等异步事件到达用） */
+async function waitFor(pred: () => boolean, what: string): Promise<void> {
+  const deadline = Date.now() + 2000
+  for (;;) {
+    if (pred()) return
+    if (Date.now() > deadline) throw new Error(`等待 ${what} 超时`)
     await new Promise((r) => setTimeout(r, 10))
   }
 }
@@ -397,5 +408,99 @@ describe('shutdown', () => {
       .filter((e): e is SparkEventEnvelope<'permission.resolved'> => e.type === 'permission.resolved')
       .find((e) => e.data.requestId === asked.data.requestId)
     expect(resolved?.data.reply).toBe('reject')
+  })
+})
+
+describe('会话自动标题（§5.11 / 工单 4.4）', () => {
+  test('首 turn 完成后异步生成：emit session.title、meta 更新、提示词含转录', async () => {
+    const f = await makeEngine()
+    const handle = await f.engine.createSession()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '已修复' }] })
+    f.gateway.scriptOnce('修复登录超时')
+    await handle.send('帮我修登录超时')
+    await waitForTurnDone(f)
+    await waitFor(() => f.events.some((e) => e.type === 'session.title'), 'session.title')
+
+    const ev = f.events.find((e) => e.type === 'session.title')
+    expect(ev?.data).toEqual({ title: '修复登录超时' })
+    expect(handle.meta.title).toBe('修复登录超时')
+    const once = f.gateway.onceCalls[0]
+    expect(once?.prompt.startsWith(TITLE_PROMPT)).toBe(true)
+    expect(once?.prompt).toContain('user: 帮我修登录超时')
+    expect(once?.maxTokens).toBe(50)
+  })
+
+  test('显式标题的会话不自动生成（无 generateOnce 调用）', async () => {
+    const f = await makeEngine()
+    const handle = await f.engine.createSession({ title: '命名会话' })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '回答' }] })
+    await handle.send('问题')
+    await waitForTurnDone(f)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(f.events.some((e) => e.type === 'session.title')).toBe(false)
+    expect(f.gateway.onceCalls).toHaveLength(0)
+  })
+
+  test('生成失败不 emit、不杀会话；下一 turn.completed 重触发成功', async () => {
+    const f = await makeEngine()
+    const handle = await f.engine.createSession()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '回答一' }] })
+    // 不 scriptOnce → E_SCRIPTED_EXHAUSTED（标题任务 catch 记日志）
+    await handle.send('问题一')
+    await waitForTurnDone(f)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(f.events.some((e) => e.type === 'session.title')).toBe(false)
+    expect(handle.meta.title).toBe('')
+    expect(handle.status()).toBe('idle')
+
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '回答二' }] })
+    f.gateway.scriptOnce('迟来的标题')
+    await handle.send('问题二')
+    await waitForTurnDone(f)
+    await waitFor(() => f.events.some((e) => e.type === 'session.title'), 'session.title')
+    expect(handle.meta.title).toBe('迟来的标题')
+  })
+
+  test('成功后不重复生成：第二个 turn 不再触发', async () => {
+    const f = await makeEngine()
+    const handle = await f.engine.createSession()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '回答一' }] })
+    f.gateway.scriptOnce('首个标题')
+    await handle.send('问题一')
+    await waitForTurnDone(f)
+    await waitFor(() => f.events.some((e) => e.type === 'session.title'), 'session.title')
+
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '回答二' }] })
+    await handle.send('问题二')
+    await waitForTurnDone(f)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(f.events.filter((e) => e.type === 'session.title')).toHaveLength(1)
+    expect(f.gateway.onceCalls).toHaveLength(1)
+  })
+
+  test('重启恢复：resumeSession meta.title 正确、状态 idle；listSessions 含标题', async () => {
+    const f = await makeEngine()
+    const handle = await f.engine.createSession()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '回答' }] })
+    f.gateway.scriptOnce('重启前的标题')
+    await handle.send('问题')
+    await waitForTurnDone(f)
+    await waitFor(() => f.events.some((e) => e.type === 'session.title'), 'session.title')
+    const sid = handle.id
+    await f.engine.shutdown()
+
+    // 新引擎同 root 冷启动：标题从磁盘事件路径恢复（titleOf）
+    const gateway2 = new ScriptedLlm()
+    const engine2 = new Engine({ root: f.root, gateway: gateway2, config: makeConfig() })
+    try {
+      const h2 = await engine2.resumeSession(sid)
+      expect(h2.meta.title).toBe('重启前的标题')
+      expect(h2.status()).toBe('idle')
+      expect(gateway2.onceCalls).toHaveLength(0) // 恢复不触发新一轮标题生成
+      const list = await engine2.listSessions()
+      expect(list.find((s) => s.id === sid)?.title).toBe('重启前的标题')
+    } finally {
+      await engine2.shutdown()
+    }
   })
 })

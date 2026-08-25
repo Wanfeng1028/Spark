@@ -34,6 +34,7 @@
 | v2.16 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.1 协议演进落地**：`compaction.completed` 锚点 `keptFromSeq` → `keptFromEventId`（§5.8.5 分支隐患——fork 后路径序≠文件行序；Projector/Compactor 改按锚点事件在路径中的位置过滤，含边界；锚点 id 不在路径时退化"摘要+全量"不丢数据）；`permission.asked` 增 `patterns?[]`/`alwaysPatterns?[]`（§5.7 补强 1/3，前端 approval item 透传）；protocol zod + 引擎 + mock 场景（normal/reject）+ 前端 applyEvent + 四端单测同步；全仓 368 例 + typecheck/lint 全绿 |
 | v2.17 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.2 完成**：steer/queue 完整语义端到端时序单测 3 例（queue 依序消费 FIFO 三 turn 严格配对交替 / 多 steer 下一 step 前按提交序注入采样上下文 / interrupt 后残留 steer 依序转主队列续跑两 turn——§5.4 补漏语义实证）；UI 走查确认 Composer 插话/排队按钮链路真实生效（三态提示→HttpTransport delivery 透传→路由 zod→engine 三态路由，mock @wait:message 演示路径可用）；§8 阶段四 steer/queue 行勾选；engine 255 例全绿 |
 | v2.18 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.3 完成**：手动 /compact 全链路（Composer 本地拦截 `/compact` → Transport.compact → POST /api/sessions/:id/compact → SessionHandle.compact——引擎仅 idle 受理，turn 进行中 409 E_TURN_ACTIVE；错误码/§4.5 路由表/§7.2 要点表/§6.3 ComposerProps 同步登记）；前端细条轻提示（压缩中→已完成 2.5s）；MockTransport.compact 合成 started→600ms→completed 事件对（锚点=最近 surface 事件）；Projector 正确性四象限补全（有 compaction × reasoning=true）+ Compactor×reasoning=true 重投影 + engine 手动压缩 2 例 + 路由 2 例；全仓 379 例（engine 259/server 25/web 49/protocol 46）+ typecheck/lint 全绿；§8 阶段四 compaction 行勾选 |
+| v2.19 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.4 完成**：会话自动标题——`engine/src/title.ts` TitleGenerator（§5.11 标题提示词 + serializeTranscript 转录 / maxTokens 50 / trim+截 80 字符空串不发）；engine meta 订阅器在 turn.completed 且无标题时 fire-and-forget 触发（titleTask 在途去重；失败仅 logger.warn 不 emit error，下一 turn 重触发；shutdown 序列增 3.5 步 await 标题任务防 append-after-close）；重启恢复实证（titleOf 路径恢复 meta.title/status idle/listSessions 含标题/恢复不重复触发）；前端 Sidebar 激活会话标题走事件流实时值（liveTitle 覆盖 DTO 静态值，与 liveStatus 同模式）；MockTransport 对等演示（首个 turn.completed 后 400ms 合成 session.title 一次）；新增 title 单测 4 例 + engine 集成 5 例 + mock 1 例；全仓 389 例（engine 268/server 25/web 50/protocol 46）+ typecheck/lint 全绿；§8 阶段四自动标题行勾选 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -1117,7 +1118,7 @@ You are Spark, a coding agent working in the user's repository.
 **辅助提示词**：
 
 - **compaction**（§5.8.5 用，`generateOnce`）："Summarize the conversation so far so work can continue with this summary alone. Keep: goals, key decisions, current task state, open TODOs, important file paths. Reply with the summary only."（maxTokens 2000）
-- **会话标题**（阶段四，首 turn 完成后异步触发）："Generate a 3-6 word title for this conversation. Reply with the title only."
+- **会话标题**（阶段四工单 4.4 已落地，首 turn 完成后异步触发）："Generate a 3-6 word title for this conversation. Reply with the title only."（maxTokens 50；复用 compactionModel 廉价通道，`engine/src/title.ts`——turn.completed 且无标题时经 meta 订阅器 fire-and-forget 触发，在途任务去重、失败只记日志不 emit error、shutdown 3.5 步收尾防 append-after-close；回串 trim+截 80 字符，空串不发）
 
 ---
 
@@ -1659,7 +1660,8 @@ app.get('/api/event', async (req, reply) => {
 
 - [x] steer/queue 完整语义验证（turn 中插话/排队消费）
 - [x] compaction（自动阈值+手动 /compact）+ 前端轻提示
-- [ ] 会话恢复/列表/自动标题；fork 与树视图
+- [x] 会话自动标题（§5.11 标题提示词；工单 4.4）+ 重启恢复/列表/状态点
+- [ ] fork 与树视图
 - [ ] checkpoint（turn 边界 git 快照，两域简化）+ UI
 - [ ] permission always 持久化 + 同批放行 + 规则管理 UI
 - [ ] node:sqlite 会话索引（列表/搜索，不动 JSONL 权威）+ metrics 端点

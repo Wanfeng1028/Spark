@@ -138,6 +138,8 @@ export class MockTransport implements Transport {
   private disposed = false
   private currentTurnId: TurnId | null = null
   private lastAskedRequestId: RequestId | null = null
+  /** 自动标题已合成（首个 turn.completed 后一次性；引擎语义对等演示） */
+  private titleEmitted = false
   /** 已 emit 事件（compact 合成 keptFromEventId/tokensBefore 的数据源） */
   private readonly emitted: SparkEventEnvelope[] = []
 
@@ -162,6 +164,7 @@ export class MockTransport implements Transport {
     this.suspended = null
     this.sessionStarted = false
     this.currentTurnId = null
+    this.titleEmitted = false
   }
 
   onEvent(handler: (e: SparkEventEnvelope) => void): () => void {
@@ -172,10 +175,29 @@ export class MockTransport implements Transport {
   private emit(e: SparkEventEnvelope): void {
     // 跟踪未闭合 turn 与最近审批请求（interrupt 合成闭合事件用）
     if (ofType(e, 'turn.started')) this.currentTurnId = e.data.turnId
-    else if (ofType(e, 'turn.completed')) this.currentTurnId = null
-    else if (ofType(e, 'permission.asked')) this.lastAskedRequestId = e.data.requestId
+    else if (ofType(e, 'turn.completed')) {
+      this.currentTurnId = null
+      this.scheduleAutoTitle()
+    } else if (ofType(e, 'permission.asked')) this.lastAskedRequestId = e.data.requestId
     this.emitted.push(e)
     for (const h of [...this.handlers]) h(e)
+  }
+
+  /** 会话自动标题（工单 4.4 引擎语义对等演示）：首个 turn.completed 后延迟合成 session.title */
+  private scheduleAutoTitle(): void {
+    if (this.titleEmitted) return
+    this.titleEmitted = true
+    const rand = `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    setTimeout(() => {
+      if (this.disposed) return
+      this.emit({
+        id: ids.event(`evt_mock_title_${rand}`),
+        sessionId: this.script.sessionId,
+        type: 'session.title',
+        time: Date.now(),
+        data: { title: '（mock）自动生成的会话标题' },
+      })
+    }, 400)
   }
 
   private stopTimer(): void {
