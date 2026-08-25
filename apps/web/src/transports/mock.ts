@@ -10,6 +10,7 @@
  */
 import { ids, parseEnvelope } from '@spark/protocol'
 import type {
+  EventId,
   PermissionReply,
   RequestId,
   SessionDto,
@@ -137,6 +138,8 @@ export class MockTransport implements Transport {
   private disposed = false
   private currentTurnId: TurnId | null = null
   private lastAskedRequestId: RequestId | null = null
+  /** 已 emit 事件（compact 合成 keptFromEventId/tokensBefore 的数据源） */
+  private readonly emitted: SparkEventEnvelope[] = []
 
   constructor(scenario: MockScenario = 'normal') {
     this.scenario = scenario
@@ -171,6 +174,7 @@ export class MockTransport implements Transport {
     if (ofType(e, 'turn.started')) this.currentTurnId = e.data.turnId
     else if (ofType(e, 'turn.completed')) this.currentTurnId = null
     else if (ofType(e, 'permission.asked')) this.lastAskedRequestId = e.data.requestId
+    this.emitted.push(e)
     for (const h of [...this.handlers]) h(e)
   }
 
@@ -292,6 +296,48 @@ export class MockTransport implements Transport {
     }
     this.cursor = target === -1 ? this.script.lines.length : target
     return Promise.resolve()
+  }
+
+  /** 手动压缩（工单 4.3）：合成 started → 600ms → completed 事件对（假摘要） */
+  compact(_sessionId: SessionId): Promise<void> {
+    this.assertNotDisposed()
+    const rand = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    this.emit({
+      id: ids.event(`evt_mock_compact_start_${rand()}`),
+      sessionId: this.script.sessionId,
+      type: 'compaction.started',
+      time: Date.now(),
+      data: {},
+    })
+    // 锚点 = 最近回放的 surface 事件（尚无 → session.created 首事件）；tokensBefore 字符近似
+    const surfaces = this.emitted.filter(
+      (e) => e.type === 'user.message' || e.type === 'assistant.message',
+    )
+    const lastSurface = surfaces[surfaces.length - 1]
+    const keptFromEventId: EventId = lastSurface !== undefined ? lastSurface.id : this.script.created.id
+    const tokensBefore = Math.ceil(
+      surfaces.reduce((acc, e) => acc + JSON.stringify(e.data).length, 0) / 4,
+    )
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        if (this.disposed) {
+          resolve()
+          return
+        }
+        this.emit({
+          id: ids.event(`evt_mock_compact_done_${rand()}`),
+          sessionId: this.script.sessionId,
+          type: 'compaction.completed',
+          time: Date.now(),
+          data: {
+            summary: '（mock）已压缩此前的对话：保留了目标与当前任务状态。',
+            keptFromEventId,
+            tokensBefore,
+          },
+        })
+        resolve()
+      }, 600)
+    })
   }
 
   replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void> {

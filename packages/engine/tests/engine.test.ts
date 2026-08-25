@@ -184,6 +184,57 @@ describe('send 全链路（ScriptedLlm）', () => {
   })
 })
 
+describe('手动压缩（§5.8.5 手动 /compact）', () => {
+  test('idle 时 compact：emit started→completed 落盘并广播；摘要进 generateOnce', async () => {
+    const f = await makeEngine()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const handle = await f.engine.createSession()
+    await handle.send('讨论内容')
+    await waitForTurnDone(f)
+
+    f.gateway.scriptOnce('手动摘要')
+    await handle.compact()
+
+    const types = durableTypes(f)
+    expect(types).toContain('compaction.started')
+    expect(types.indexOf('compaction.started')).toBeLessThan(types.indexOf('compaction.completed'))
+    const completed = f.events.find((e) => e.type === 'compaction.completed')
+    expect(completed?.data).toMatchObject({ summary: '手动摘要' })
+    // 压缩后的下一 turn 上下文以摘要开头（Projector 锚点分支生效）
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '续答' }] })
+    await handle.send('继续')
+    // 等第二个 turn 闭合（waitForTurnDone 只认首个 completed）
+    const deadline2 = Date.now() + 2000
+    while (f.events.filter((e) => e.type === 'turn.completed').length < 2) {
+      if (Date.now() > deadline2) throw new Error('等待第二个 turn 完成超时')
+      await new Promise((r) => setTimeout(r, 10))
+    }
+    const firstMessage = f.gateway.calls.at(-1)?.messages[0]
+    expect(firstMessage).toMatchObject({
+      role: 'user',
+      content: [{ type: 'text', text: '手动摘要' }],
+    })
+  })
+
+  test('turn 进行中 compact → E_TURN_ACTIVE 拒绝；不产生 compaction 事件', async () => {
+    const f = await makeEngine()
+    f.gateway.scriptStep({
+      deltas: [{ kind: 'text', text: '长回复' }],
+      hangMs: 300,
+    })
+    const handle = await f.engine.createSession()
+    await handle.send('第一句')
+    const deadline = Date.now() + 2000
+    while (!f.events.some((e) => e.type === 'turn.started')) {
+      if (Date.now() > deadline) throw new Error('等待 turn.started 超时')
+      await new Promise((r) => setTimeout(r, 5))
+    }
+    await expect(handle.compact()).rejects.toThrow('E_TURN_ACTIVE')
+    expect(f.events.filter((e) => e.type.startsWith('compaction.'))).toHaveLength(0)
+    await waitForTurnDone(f)
+  })
+})
+
 describe('resumeSession', () => {
   test('重启后恢复 meta 与历史；emit session.resumed{fromSeq}', async () => {
     const f = await makeEngine()

@@ -24,6 +24,8 @@ export interface Transport {
   onEvent(handler: (e: SparkEventEnvelope) => void): () => void
   sendMessage(sessionId: SessionId, text: string, opts?: SendMessageOptions): Promise<SubmitOutcome>
   interrupt(sessionId: SessionId): Promise<void>
+  /** 手动压缩（doc/02 §5.8.5）：触发 compaction.* 事件对（SSE 推送；turn 进行中拒绝） */
+  compact(sessionId: SessionId): Promise<void>
   replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void>
   /** GET /api/sessions/:id：meta + 全部 durable 事件（seq 升序——冷启动回放数据源） */
   getSession(sessionId: SessionId): Promise<SessionDto>

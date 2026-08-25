@@ -200,6 +200,28 @@ describe('MockTransport 回放状态机', () => {
     expect(t.status()).toBe('idle')
   })
 
+  it('compact（工单 4.3）：合成 started → 600ms → completed 事件对；锚点=最近 surface 事件', async () => {
+    const t = new MockTransport('normal')
+    const { events } = recorder(t)
+    await t.sendMessage(SID)
+    await vi.advanceTimersByTimeAsync(10_000)
+    const before = events.length
+
+    const p = t.compact(SID)
+    // started 立即吐；completed 在 600ms 摘要延迟后
+    expect(events[before]?.type).toBe('compaction.started')
+    await vi.advanceTimersByTimeAsync(700)
+    await p
+
+    const compactEvents = events.slice(before)
+    expect(compactEvents.map((e) => e.type)).toEqual(['compaction.started', 'compaction.completed'])
+    const surfaces = events.filter(
+      (e) => e.type === 'user.message' || e.type === 'assistant.message',
+    )
+    const lastSurface = surfaces[surfaces.length - 1]
+    expect(compactEvents[1]?.data).toMatchObject({ keptFromEventId: lastSurface?.id })
+  })
+
   it('listSessions：四场景各一条 SessionDto', async () => {
     const t = new MockTransport('normal')
     const list = await t.listSessions()

@@ -139,6 +139,18 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
     }
   })
 
+  app.post('/api/sessions/:id/compact', async (req, reply) => {
+    try {
+      const { id } = parseOr400(IdParams, req.params)
+      const handle = await requireHandle(engine, id)
+      // 等压缩完成再返回：started/completed 经 SSE 直播（§5.8.5 手动 /compact）
+      await handle.compact()
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
   app.post('/api/permissions/:requestId', async (req, reply) => {
     try {
       const { requestId } = parseOr400(RequestIdParams, req.params)

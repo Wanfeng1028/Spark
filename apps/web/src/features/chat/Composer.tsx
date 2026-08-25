@@ -20,6 +20,8 @@ export interface ComposerProps {
   initialDraft?: string
   onSend: (text: string, delivery: Delivery, attachments?: string[]) => Promise<SubmitOutcome>
   onInterrupt: () => void
+  /** 手动压缩命令入口（/compact，doc/02 §5.8.5；turn 进行中由引擎拒绝） */
+  onCompact: () => Promise<void>
 }
 
 const MAX_HEIGHT = 176 // 8 行 × 21px 行高 + padding（§6.2.2「自适应 1-8 行」）
@@ -30,7 +32,7 @@ const OUTCOME_TEXT: Record<SubmitOutcome['result'], string> = {
   queued: '已排队（下一轮执行）',
 }
 
-export function Composer({ busy, waiting, initialDraft = '', onSend, onInterrupt }: ComposerProps) {
+export function Composer({ busy, waiting, initialDraft = '', onSend, onInterrupt, onCompact }: ComposerProps) {
   const defaultDelivery = useSettingsStore((s) => s.defaultDelivery)
   const [draft, setDraft] = useState(initialDraft)
   const [attachments, setAttachments] = useState<string[]>([])
@@ -65,6 +67,19 @@ export function Composer({ busy, waiting, initialDraft = '', onSend, onInterrupt
   async function send(delivery: Delivery): Promise<void> {
     if (!hasText || waiting) return
     const text = draft.trim()
+    if (text === '/compact') {
+      // 手动压缩命令（doc/02 §5.8.5）：本地拦截，不进消息通道
+      setDraft('')
+      setAttachments([])
+      setAttachOpen(false)
+      try {
+        await onCompact()
+        showHint('已触发上下文压缩')
+      } catch (err) {
+        showHint(err instanceof Error ? err.message : String(err))
+      }
+      return
+    }
     setDraft('')
     const outcome = await onSend(text, delivery, attachments.length > 0 ? attachments : undefined)
     setAttachments([])
@@ -161,7 +176,11 @@ export function Composer({ busy, waiting, initialDraft = '', onSend, onInterrupt
           disabled={waiting}
           rows={1}
           placeholder={
-            waiting ? '等待审批中——请先处理上方审批卡' : busy ? '插话将注入当前轮…' : '发送消息'
+            waiting
+              ? '等待审批中——请先处理上方审批卡'
+              : busy
+                ? '插话将注入当前轮…'
+                : '发送消息，或输入 /compact 手动压缩上下文'
           }
           className="min-h-8 min-w-0 flex-1 resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] leading-relaxed outline-none placeholder:text-muted-foreground/60 focus:border-ring disabled:cursor-not-allowed disabled:opacity-60"
         />

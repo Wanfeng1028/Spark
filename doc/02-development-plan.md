@@ -33,6 +33,7 @@
 | v2.15 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三继续）                                                                                                                                       | **阶段三工单 11 完成**：Logger 封装（pino v10 stdout + `<root>/logs/engine.log` 双路，info 级别，字段约定 sid/turnId/callId/code/durMs）；写入前脱敏三层正则（sk-xxx 20+ 字母数字 / Bearer + token / process.env ≥6 字符值出现处 → ***），递归遍历对象数组 Error；bus subscriber 异常与 SessionStore 尾行半写接入 logger；Engine 生命周期 4 条日志（start/shutdown.start/shutdown.done/shutdown.error + ownsLogger close await flush）；8 例单测；§8 阶段三工单 pino 行勾；全仓 367 例（engine 251/server 23/web 47/protocol 46）+ typecheck/lint 全绿；阶段验收（真实模型闭环/断线重连/kill-9 resume）待 DEEPSEEK_API_KEY 用户自配后由 e2e-smoke 脚本执行                                                                                                                                                                                                                                                                |
 | v2.16 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.1 协议演进落地**：`compaction.completed` 锚点 `keptFromSeq` → `keptFromEventId`（§5.8.5 分支隐患——fork 后路径序≠文件行序；Projector/Compactor 改按锚点事件在路径中的位置过滤，含边界；锚点 id 不在路径时退化"摘要+全量"不丢数据）；`permission.asked` 增 `patterns?[]`/`alwaysPatterns?[]`（§5.7 补强 1/3，前端 approval item 透传）；protocol zod + 引擎 + mock 场景（normal/reject）+ 前端 applyEvent + 四端单测同步；全仓 368 例 + typecheck/lint 全绿 |
 | v2.17 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.2 完成**：steer/queue 完整语义端到端时序单测 3 例（queue 依序消费 FIFO 三 turn 严格配对交替 / 多 steer 下一 step 前按提交序注入采样上下文 / interrupt 后残留 steer 依序转主队列续跑两 turn——§5.4 补漏语义实证）；UI 走查确认 Composer 插话/排队按钮链路真实生效（三态提示→HttpTransport delivery 透传→路由 zod→engine 三态路由，mock @wait:message 演示路径可用）；§8 阶段四 steer/queue 行勾选；engine 255 例全绿 |
+| v2.18 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.3 完成**：手动 /compact 全链路（Composer 本地拦截 `/compact` → Transport.compact → POST /api/sessions/:id/compact → SessionHandle.compact——引擎仅 idle 受理，turn 进行中 409 E_TURN_ACTIVE；错误码/§4.5 路由表/§7.2 要点表/§6.3 ComposerProps 同步登记）；前端细条轻提示（压缩中→已完成 2.5s）；MockTransport.compact 合成 started→600ms→completed 事件对（锚点=最近 surface 事件）；Projector 正确性四象限补全（有 compaction × reasoning=true）+ Compactor×reasoning=true 重投影 + engine 手动压缩 2 例 + 路由 2 例；全仓 379 例（engine 259/server 25/web 49/protocol 46）+ typecheck/lint 全绿；§8 阶段四 compaction 行勾选 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -413,6 +414,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | GET  | /api/sessions/:id           | —                                                    | SessionDto（含 `events: SparkEvent[]` durable 回放） |
 | POST | /api/sessions/:id/messages  | `{ text, delivery? }`                                | `{ result:'started'\|'steered'\|'queued', turnId? }` |
 | POST | /api/sessions/:id/interrupt | —                                                    | `{ ok:true }`                                        |
+| POST | /api/sessions/:id/compact   | —                                                    | `{ ok:true }`（turn 进行中 → 409 `E_TURN_ACTIVE`）    |
 | POST | /api/permissions/:requestId | `{ reply, feedback? }`                               | `{ ok:true }`                                        |
 | GET  | /api/sessions/:id/tree      | —                                                    | TreeNode[]（阶段四）                                 |
 | POST | /api/sessions/:id/fork      | `{ fromEventId }`                                    | SessionDto（阶段四）                                 |
@@ -963,6 +965,11 @@ compact(rt):
     取舍：本地误压缩代价低于漏压缩）。spark.json 的 compactionThreshold 降为手动覆盖项
     （设置后改用 tokens > threshold × context 简化式）。手动 /compact 不变
 （压缩调用本身的 usage 不计入会话 usage——与 Claude Code modelUsage 口径一致的做法，v1 简化为不计）
+手动 /compact（阶段四工单 4.3 落地）：Composer 本地拦截 `/compact` 文本 →
+  Transport.compact → POST /api/sessions/:id/compact → handle.compact()。
+  引擎仅在 idle 受理（turn 进行中 → 409 E_TURN_ACTIVE：压缩读全路径，避开运行竞态）；
+  HTTP 等压缩完成再返回（本地单用户，摘要生成秒级），started/completed 经 SSE 直播——
+  前端顶部细条「上下文压缩中…」→ 完成后轻提示「上下文已压缩」（2.5s）。
 ```
 
 **compaction 锚点的分支隐患**（v2.5，pi `firstKeptEntryId` 实证；**阶段四工单 4.1 已落地**）：pi 的 compaction 条目锚定 **entry id**，词表原用 `keptFromSeq`（文件行号）。v1 线性会话下 seq==路径序没问题；**阶段四 fork 后路径序≠文件行序**，seq 比较会保留错误的条目——已按 §2.5 从 protocol 改为 `keptFromEventId`（Projector 语义同 pi buildContextEntries：摘要消息 + [锚点事件..compaction 前全部] + compaction 后全部）。锚点 id 不在路径（数据损坏）时退化为"摘要+全量事件"投影（不丢数据，超限自愈再压缩）。另：compaction 条目本身参与上下文（作为摘要消息）——与我们"system: summary"等价，互证。
@@ -1034,6 +1041,7 @@ export interface ResolvedModel {
 | E_VALIDATION                                     | HTTP 请求 zod 失败                            | HTTP 400 `{code, message, issues}` |
 | E_NOT_FOUND                                      | 会话/审批请求/文件路径不存在                  | HTTP 404 / tool output             |
 | E_ALREADY_RESOLVED                               | 审批重复答复                                  | HTTP 409                           |
+| E_TURN_ACTIVE                                    | 手动 /compact 时 turn 进行中（idle 才受理）   | HTTP 409                           |
 | E_SHUTTING_DOWN                                  | 引擎关闭中拒新请求                            | HTTP 503                           |
 | E_INTERNAL                                       | 未分类内部异常（详情只进日志）                | HTTP 500                           |
 | E_PATH_OUTSIDE                                   | 路径越出允许根（硬边界，先于审批）            | tool output                        |
@@ -1281,6 +1289,7 @@ interface ComposerProps {
   busy: boolean
   onSend(text, delivery): void
   onInterrupt(): void
+  onCompact(): Promise<void> // /compact 命令（§5.8.5 手动压缩；本地拦截不进消息通道）
 }
 // SessionSidebar / SessionItem（标题/相对时间/状态点 idle|running|waiting-approval）
 // SettingsDialog：完整规格见 §6.2.3
@@ -1555,6 +1564,7 @@ app.post('/api/sessions/:id/messages', async (req, reply) => {
 | GET /api/sessions/:id            | 会话未加载先 `resumeSession`；meta + 全量 durable 事件（按 seq 升序）→ SessionDto（`events` = 前端冷启动回放数据源）               |
 | POST /api/sessions/:id/messages  | 见上例代码；**submit 三态直通**（不等待 turn 结果——HTTP 只表达"已受理"）                                                           |
 | POST /api/sessions/:id/interrupt | `handle.interrupt()`；会话 idle 时同样返回 200 `{ok:true}`（幂等，无 turn 也成功）                                                 |
+| POST /api/sessions/:id/compact   | `handle.compact()`（§5.8.5 手动压缩）；等 compaction.completed 落盘再返回（started/completed 经 SSE 直播）；turn 进行中 → 409 E_TURN_ACTIVE |
 | POST /api/permissions/:requestId | `PermissionService.reply`；已答复 → 409 E_ALREADY_RESOLVED；requestId 不存在 → 404                                                 |
 | GET /:id/tree · POST /:id/fork   | 阶段四实现；v1 不注册路由（§4.5 表已标注）                                                                                         |
 
@@ -1648,7 +1658,7 @@ app.get('/api/event', async (req, reply) => {
 ## 阶段四：深度体验
 
 - [x] steer/queue 完整语义验证（turn 中插话/排队消费）
-- [ ] compaction（自动阈值+手动 /compact）+ 前端轻提示
+- [x] compaction（自动阈值+手动 /compact）+ 前端轻提示
 - [ ] 会话恢复/列表/自动标题；fork 与树视图
 - [ ] checkpoint（turn 边界 git 快照，两域简化）+ UI
 - [ ] permission always 持久化 + 同批放行 + 规则管理 UI

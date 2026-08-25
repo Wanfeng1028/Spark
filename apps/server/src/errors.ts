@@ -48,6 +48,9 @@ export function toApiError(err: unknown): ApiError {
   if (msg.startsWith('E_SHUTTING_DOWN')) {
     return new ApiError(503, 'E_SHUTTING_DOWN', '引擎正在关闭，拒绝新请求')
   }
+  if (msg.startsWith('E_TURN_ACTIVE')) {
+    return new ApiError(409, 'E_TURN_ACTIVE', 'turn 进行中，暂不能手动压缩')
+  }
   return new ApiError(500, 'E_INTERNAL', 'internal error')
 }
 

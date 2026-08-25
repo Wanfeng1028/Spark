@@ -5,7 +5,7 @@
  * 最后一条 user.message）。右下 ErrorToast（error 事件；fatal 全屏态）。
  * mock 场景条 + 「模拟断线」开关是开发夹具（阶段验收要求断线重连条在 mock 下可走查）。
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { ids } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
@@ -64,6 +64,18 @@ export function SessionPage() {
 
   // 欢迎页 chip 发送失败的回填草稿（§6.2.1：不丢用户输入）
   const initialDraft = (location.state as { draft?: string } | null)?.draft ?? ''
+
+  // 压缩完成轻提示（工单 4.3）：compacting true→false 沿变时显示 2.5s（§6.4 细条）
+  const [compactDone, setCompactDone] = useState(false)
+  const wasCompacting = useRef(false)
+  useEffect(() => {
+    const finished = wasCompacting.current && !compacting
+    wasCompacting.current = compacting
+    if (!finished) return
+    setCompactDone(true)
+    const t = setTimeout(() => setCompactDone(false), 2500)
+    return () => clearTimeout(t)
+  }, [compacting])
 
   // TurnStatusBar props：运行中工具名从 items 推导（activeTurn.runningTools 是 CallId 集）
   const turnProp = useMemo(() => {
@@ -139,6 +151,11 @@ export function SessionPage() {
                   上下文压缩中…
                 </div>
               )}
+              {!compacting && compactDone && (
+                <div className="rounded-md border border-border bg-background/95 px-2.5 py-0.5 font-mono text-xs text-[var(--spark-accent)]">
+                  上下文已压缩
+                </div>
+              )}
               {topBanner !== null && (
                 <div className="pointer-events-auto flex h-7 items-center gap-2 rounded-md border border-[var(--spark-warn)]/40 bg-[var(--spark-warn)]/[0.06] px-2.5 text-xs">
                   <span className="text-[var(--spark-warn)]">本轮以 error 结束</span>
@@ -188,6 +205,7 @@ export function SessionPage() {
               })
             }
             onInterrupt={() => void transport.interrupt(sid)}
+            onCompact={() => transport.compact(sid)}
           />
         </div>
       </div>

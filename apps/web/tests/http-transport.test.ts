@@ -213,6 +213,20 @@ describe('REST 调用形状', () => {
     expect(bodyJson(replyCall)).toEqual({ reply: 'reject' })
   })
 
+  it('compact：POST /:id/compact 直通（工单 4.3）；409 E_TURN_ACTIVE 透传错误体', async () => {
+    const { calls } = stubFetch(() => new SseStream(), () => jsonResponse(200, { ok: true }))
+    const t = makeTransport()
+    await t.compact(SID)
+    const call = calls.find((c) => c.url.endsWith(`/api/sessions/${SID}/compact`))
+    expect(call?.init?.method).toBe('POST')
+    t.dispose()
+
+    stubFetch(() => new SseStream(), () => errorResponse(409, 'E_TURN_ACTIVE', 'turn 进行中'))
+    const t2 = makeTransport()
+    await expect(t2.compact(SID)).rejects.toThrow('E_TURN_ACTIVE: turn 进行中')
+    t2.dispose()
+  })
+
   it('getSession：GET /:id 返回 dto 并登记 openSessions（重连 resync 集合）', async () => {
     const dto = {
       id: SID,

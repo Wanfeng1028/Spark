@@ -28,6 +28,7 @@ import { CompactorImpl } from './compaction.js'
 import { loadConfig, loadProjectRules } from './config.js'
 import type { EngineConfig, ModelRef } from './config.js'
 import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
+import type { Compactor } from './run-loop.js'
 import { PiGateway } from './pi-gateway.js'
 import { buildSystemPrompt } from './prompts.js'
 import { ProjectorImpl } from './projector.js'
@@ -65,6 +66,8 @@ export interface SessionHandle {
   /** 三态直通受理结果（HTTP 只表达"已受理"） */
   send(text: string, delivery?: Delivery): Promise<SubmitResult>
   interrupt(): Promise<void>
+  /** 手动压缩（§5.8.5）：turn 进行中拒绝（E_TURN_ACTIVE——压缩读全路径，避开运行竞态） */
+  compact(): Promise<void>
   /** 实时状态（SessionRuntime + 审批挂起表合成） */
   status(): SessionStatus
   /** 全部 durable 事件按 seq 升序（GET /api/sessions/:id 回放数据源） */
@@ -92,6 +95,8 @@ interface SessionEntry {
   store: SessionStore
   runtime: SessionRuntime
   meta: SessionMeta
+  /** 手动压缩入口（§5.8.5；自动触发在 run-loop step ②） */
+  compactor: Compactor
   /** run-loop 后台循环体（shutdown 等待用） */
   loop: Promise<void>
 }
@@ -452,7 +457,7 @@ export class Engine {
       compactionThreshold: this.config.spark.engine.compactionThreshold,
     }
     const loop = runSessionLoop(runtime, deps)
-    return { store, runtime, meta, loop }
+    return { store, runtime, meta, compactor, loop }
   }
 
   private handleOf(entry: SessionEntry): SessionHandle {
@@ -470,6 +475,18 @@ export class Engine {
       interrupt: () => {
         entry.runtime.interrupt()
         return Promise.resolve()
+      },
+      compact: () => {
+        if (this.shuttingDown) {
+          return Promise.reject(new Error('E_SHUTTING_DOWN: 引擎正在关闭，拒绝新请求'))
+        }
+        // 压缩读全路径并落锚点事件——运行中 turn 会与之竞态，idle 才受理（§5.8.5）
+        if (entry.runtime.state === 'running') {
+          return Promise.reject(
+            new Error('E_TURN_ACTIVE: turn 进行中，暂不能手动压缩——请等本轮结束'),
+          )
+        }
+        return entry.compactor.compact()
       },
       status: () => this.statusOf(entry.meta.id),
       events: () => entry.store.tree.pathToRoot(),

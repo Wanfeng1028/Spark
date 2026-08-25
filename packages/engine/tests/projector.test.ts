@@ -225,6 +225,38 @@ describe('有 compaction 分支（§5.8.3 第 2/3 步）', () => {
     const ctx = makeProjector(f.sink.tree, false).modelContext()
     expect(texts(ctx.messages)).toEqual(['悬空摘要', '问题一', '回答一', '问题二'])
   })
+
+  test('有 compaction × includeReasoning=true（四象限补全）：锚点后 reasoning 项保留、锚点前滤除', async () => {
+    const f = makeFixture()
+    const trn = newIds.turn()
+    await f.bus.emit(SID, 'user.message', { text: '被摘要的旧问题' })
+    await f.bus.emit(SID, 'assistant.message', {
+      turnId: trn,
+      content: [
+        { type: 'reasoning', text: '被摘要的旧思考' },
+        { type: 'text', text: '被摘要的旧回答' },
+      ],
+    })
+    const anchor = await f.bus.emit(SID, 'user.message', { text: '锚点问题' })
+    await f.bus.emit(SID, 'compaction.completed', {
+      summary: '摘要',
+      keptFromEventId: anchor.id,
+      tokensBefore: 50,
+    })
+    await f.bus.emit(SID, 'assistant.message', {
+      turnId: trn,
+      content: [
+        { type: 'reasoning', text: '锚点后的思考' },
+        { type: 'text', text: '锚点后的回答' },
+      ],
+    })
+
+    const ctx = makeProjector(f.sink.tree, true).modelContext()
+    // 摘要 + 锚点事件（含）之后：reasoning 项原样保留；锚点前（含其 reasoning）不出现
+    expect(roles(ctx.messages)).toEqual(['user', 'user', 'assistant'])
+    expect(types(ctx.messages)).toEqual(['text', 'text', 'reasoning', 'text'])
+    expect(texts(ctx.messages)).toEqual(['摘要', '锚点问题', '锚点后的回答'])
+  })
 })
 
 describe('token 估算（§5.8.3 第 6 步：字符近似）', () => {

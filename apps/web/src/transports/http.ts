@@ -171,6 +171,12 @@ export class HttpTransport implements Transport {
     }).then(() => undefined)
   }
 
+  compact(sessionId: SessionId): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/sessions/${sessionId}/compact`, {
+      method: 'POST',
+    }).then(() => undefined)
+  }
+
   replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void> {
     return this.req<{ ok: boolean }>(`/api/permissions/${requestId}`, {
       method: 'POST',

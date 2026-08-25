@@ -114,6 +114,53 @@ describe('compact 基本流程（§5.8.5）', () => {
     )
     expect(texts).toEqual(['压缩摘要', '旧回答', '新问题'])
   })
+
+  test('压缩后重投影 × reasoning=true（Anthropic 形态）：锚点后 reasoning 项保留进模型上下文', async () => {
+    // 独立 fixture：includeReasoning=true 的 Projector（压缩器复用同一投影）
+    const sink = new TreeSink()
+    const bus = new EventBus({ sink })
+    const gateway = new ScriptedLlm()
+    const projector = new ProjectorImpl({ tree: sink.tree, includeReasoning: true })
+    const compactor = new CompactorImpl({
+      sessionId: SID,
+      bus,
+      gateway,
+      projector,
+      tree: sink.tree,
+      model: { provider: 'anthropic', model: 'claude-x', contextWindow: 200_000 },
+      keepTokens: 100_000,
+    })
+    const trn = newIds.turn()
+    await bus.emit(SID, 'user.message', { text: '旧问题' })
+    await bus.emit(SID, 'assistant.message', {
+      turnId: trn,
+      content: [
+        { type: 'reasoning', text: '旧思考' },
+        { type: 'text', text: '旧回答' },
+      ],
+    })
+    gateway.scriptOnce('压缩摘要')
+    await compactor.compact()
+    await bus.emit(SID, 'assistant.message', {
+      turnId: trn,
+      content: [
+        { type: 'reasoning', text: '新思考' },
+        { type: 'text', text: '新回答' },
+      ],
+    })
+
+    const ctx = projector.modelContext()
+    const flat = ctx.messages.flatMap((m) => m.content)
+    // 预算充足 → 锚点=首条 surface（旧问题）：全部事件保留，reasoning 项原样进上下文
+    expect(flat.map((c) => (c.type === 'text' || c.type === 'reasoning' ? c.text : ''))).toEqual([
+      '压缩摘要',
+      '旧问题',
+      '旧思考',
+      '旧回答',
+      '新思考',
+      '新回答',
+    ])
+  })
 })
 
 describe('keptFromEventId 尾部预算反推（§5.8.5 "N 由 token 预算反推"）', () => {

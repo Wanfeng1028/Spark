@@ -317,6 +317,64 @@ describe('POST /api/sessions/:id/interrupt', () => {
   })
 })
 
+describe('POST /api/sessions/:id/compact（工单 4.3 手动 /compact）', () => {
+  test('idle → 200 {ok:true}；compaction.* 事件落盘；未知会话 → 404', async () => {
+    const f = await setup()
+    const events = collectEvents(f)
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const created = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: {},
+    })
+    const dto: Json = created.json()
+    const id = dto['id'] as string
+    await f.app.inject({ method: 'POST', url: `/api/sessions/${id}/messages`, payload: { text: '讨论' } })
+    await waitFor(() => (events.some((e) => e.type === 'turn.completed') ? true : undefined))
+
+    f.gateway.scriptOnce('路由层摘要')
+    const res = await f.app.inject({ method: 'POST', url: `/api/sessions/${id}/compact` })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ ok: true })
+    const types = events.filter((e) => e.seq !== undefined).map((e) => e.type)
+    expect(types).toContain('compaction.started')
+    expect(types.indexOf('compaction.started')).toBeLessThan(
+      types.indexOf('compaction.completed'),
+    )
+    const completed = events.find((e) => e.type === 'compaction.completed')
+    expect(completed?.data).toMatchObject({ summary: '路由层摘要' })
+
+    const missing = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions/ses_notexist00000000000000000/compact',
+    })
+    expect(missing.statusCode).toBe(404)
+  })
+
+  test('turn 进行中 → 409 E_TURN_ACTIVE', async () => {
+    const f = await setup()
+    const events = collectEvents(f)
+    f.gateway.scriptStep({
+      deltas: [{ kind: 'text', text: '长' }],
+      hangMs: 300,
+    })
+    const created = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: {},
+    })
+    const dto: Json = created.json()
+    const id = dto['id'] as string
+    await f.app.inject({ method: 'POST', url: `/api/sessions/${id}/messages`, payload: { text: '第一条' } })
+    await waitFor(() => (events.some((e) => e.type === 'turn.started') ? true : undefined))
+
+    const res = await f.app.inject({ method: 'POST', url: `/api/sessions/${id}/compact` })
+    expect(res.statusCode).toBe(409)
+    const body: Json = res.json()
+    expect(body['code']).toBe('E_TURN_ACTIVE')
+  })
+})
+
 describe('POST /api/permissions/:requestId', () => {
   test('审批流：asked → reply 200；重复 → 409；未知 → 404', async () => {
     const f = await setup()
