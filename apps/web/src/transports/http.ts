@@ -9,6 +9,8 @@
  */
 import { parseEnvelope } from '@spark/protocol'
 import type {
+  CheckpointDto,
+  CheckpointId,
   EventId,
   PermissionReply,
   RequestId,
@@ -211,6 +213,16 @@ export class HttpTransport implements Transport {
     return this.req<SessionDto>(`/api/sessions/${sessionId}/fork`, {
       method: 'POST',
       body: JSON.stringify({ fromEventId }),
+    })
+  }
+
+  listCheckpoints(sessionId: SessionId): Promise<CheckpointDto[]> {
+    return this.req<CheckpointDto[]>(`/api/sessions/${sessionId}/checkpoints`)
+  }
+
+  rollbackCheckpoint(sessionId: SessionId, checkpointId: CheckpointId): Promise<SessionDto> {
+    return this.req<SessionDto>(`/api/sessions/${sessionId}/checkpoints/${checkpointId}/rollback`, {
+      method: 'POST',
     })
   }
 

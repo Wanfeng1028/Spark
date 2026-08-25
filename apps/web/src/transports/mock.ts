@@ -10,6 +10,8 @@
  */
 import { ids, parseEnvelope } from '@spark/protocol'
 import type {
+  CheckpointDto,
+  CheckpointId,
   EventId,
   PermissionReply,
   RequestId,
@@ -524,6 +526,61 @@ export class MockTransport implements Transport {
     }
     this.forkChildren.push({ fromEventId, dto, events: kept })
     return Promise.resolve(dto)
+  }
+
+  /**
+   * 工单 4.6 checkpoint：按已回放的 turn.completed 边界派生快照列表（引擎语义对等
+   * 演示——真实实现为 turn 边界 git 快照，两域 = 工作区 + 会话文件别名）。
+   */
+  listCheckpoints(sessionId: SessionId): Promise<CheckpointDto[]> {
+    this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId) {
+      return Promise.resolve([]) // fork 子会话为内存态（未走 run-loop），无快照
+    }
+    let n = 0
+    return Promise.resolve(
+      this.emitted.flatMap((e) => {
+        if (e.type !== 'turn.completed') return []
+        n += 1
+        return [
+          {
+            checkpointId: ids.checkpoint(`ckp_mock_${n}`),
+            turnId: (e.data as { turnId: TurnId }).turnId,
+            createdAt: e.time,
+            files: ['.spark-checkpoint/session.jsonl'], // 引擎 SESSION_ALIAS（会话文件域）
+          },
+        ]
+      }),
+    )
+  }
+
+  /** 工单 4.6 回滚：截断已回放事件到快照边界（内存态；引擎为 reset --hard + 覆写两域） */
+  rollbackCheckpoint(sessionId: SessionId, checkpointId: CheckpointId): Promise<SessionDto> {
+    this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    if (this.timer !== null || this.suspended !== null) {
+      return Promise.reject(new Error('E_OPEN_TURN: turn 进行中，不可回滚——请等本轮结束'))
+    }
+    let n = 0
+    const cut = this.emitted.findIndex((e) => {
+      if (e.type !== 'turn.completed') return false
+      n += 1
+      return ids.checkpoint(`ckp_mock_${n}`) === checkpointId
+    })
+    if (cut === -1) {
+      return Promise.reject(new Error(`E_NOT_FOUND: checkpoint ${checkpointId} 不存在`))
+    }
+    this.emitted.length = cut + 1 // 截断到该 turn.completed（含）
+    this.currentTurnId = null
+    const durable = this.emitted.filter((e) => e.seq !== undefined)
+    const last = durable[durable.length - 1]
+    return Promise.resolve({
+      ...MockTransport.dtoOf(this.script, this.status()),
+      lastSeq: last?.seq ?? 0,
+      updatedAt: last?.time ?? this.script.meta.createdAt,
+    })
   }
 
   createSession(): Promise<SessionDto> {

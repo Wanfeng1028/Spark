@@ -509,7 +509,7 @@ export class Engine {
     this.sessions.delete(id)
     await entry.checkpointer.rollback(checkpointId)
     this.logger.info('session.rollback', { sid: id, checkpointId })
-    return this.requireEntry(id) // 重载：requireEntry → loadSession（树重建 + session.resumed）
+    return this.handleOf(await this.requireEntry(id)) // 重载：requireEntry → loadSession（树重建 + session.resumed）
   }
 
   /** 磁盘扫描 header.parentSession === id 的会话 → 边界事件 + 子会话信息（标题须读事件） */
