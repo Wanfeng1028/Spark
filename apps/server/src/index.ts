@@ -12,9 +12,11 @@ import { registerRoutes } from './routes.js'
 import { registerSse } from './sse.js'
 import { registerStatic } from './static.js'
 
-const PORT = 4318
-const HOST = '127.0.0.1' // 仅本地绑定，刻意不暴露（doc/02 §7.1）
-const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url))
+// 端口/静态资源根可由桌面壳注入（阶段五工单 5.1 sidecar：SPARK_PORT/SPARK_WEB_DIST；
+// 缺省保持原行为：4318 / web 构建产物相对路径）
+const PORT = Number(process.env.SPARK_PORT ?? 4318)
+const HOST = process.env.SPARK_HOST ?? '127.0.0.1' // 仅本地绑定，刻意不暴露（doc/02 §7.1）
+const WEB_DIST = process.env.SPARK_WEB_DIST ?? fileURLToPath(new URL('../../web/dist', import.meta.url))
 
 const engine = new Engine()
 

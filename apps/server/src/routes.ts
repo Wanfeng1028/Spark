@@ -125,6 +125,9 @@ function treeToDto(tree: SessionTreeInfo): TreeNodeDto[] {
 export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
   const { engine } = opts
 
+  // 探活端点（阶段五工单 5.1）：桌面壳 sidecar 就绪轮询用；listen 成功即引擎可用
+  app.get('/api/healthz', () => ({ ok: true }))
+
   app.post('/api/sessions', async (req, reply) => {
     try {
       const body = parseOr400(CreateSessionBody, req.body)

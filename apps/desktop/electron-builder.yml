@@ -1,0 +1,25 @@
+# electron-builder 配置（阶段五工单 5.1）：Windows NSIS 安装包最小落地。
+# sidecar 资源（server 单文件 bundle + web 构建产物）经 extraResources 进 resources/，
+# 主进程经 ELECTRON_RUN_AS_NODE 拉起——用户机零 Node 依赖（ADR D14）。
+appId: com.wanfeng1028.spark
+productName: Spark
+directories:
+  output: release
+files:
+  - dist/**
+extraResources:
+  - from: build/server
+    to: server
+  - from: ../web/dist
+    to: web
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # Linux 交叉构建免 wine：跳过 exe 资源编辑（rcedit）与 signtool 签名——
+  # 未签名包的代价（SmartScreen 警告/无版本资源）在 ADR D14 记录，正式发布再补签名
+  signAndEditExecutable: false
+nsis:
+  oneClick: true
+  deleteAppDataOnUninstall: false

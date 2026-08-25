@@ -40,6 +40,7 @@
 | v2.22 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审整改指令） | **评审整改（协议兼容三项）**：① 旧版磁盘迁移——SessionStore.read 检测阶段三格式 `compaction.completed{keptFromSeq}`，按行号回查事件 id 原位转 `keptFromEventId` 后重过严校验（幂等内存迁移不重写文件；schema 保持严格不双收字段；锚点越界/字段混写仍 fail-closed），store 迁移 2 例（转换+拒绝）；② 悬空锚点不再静默——ProjectorDeps 增 `onDanglingAnchor` 回调（退化兜底触发时结构化 warn `projector.dangling_anchor`，按锚点 id 去重防 modelContext 高频刷屏），engine 接线 logger.warn，projector 1 例（触发一次+无压缩不触发）；③ 文档勘误——摘要消息角色统一为「首条 user 消息」（v2.7 定案 system 走 StreamRequest 独立字段），§5.8.5 删"system: summary 等价"旧表述并补迁移策略段。全仓 404 例（engine 277）+ typecheck/lint 全绿 |
 | v2.23 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.7 完成**：permission always 持久化+同批放行+规则管理 UI——引擎 UserRuleStore（用户级 ~/.spark/permissions.json 内存持有 + tmp/rename 原子落盘，add 同键覆盖/remove 精确匹配；§5.7 补强 3）接替只读数组成为 evaluate 用户层单一来源；多 pattern 规则消费（补强 1）：PermissionCheck/ToolDefinition 增 patternsOf/alwaysPatternsOf，bash 复合命令按 && \\|\\| ; \\| 分段声明（<2 段回落单资源），evaluateAll 任一 deny 短路→全 allow 直过→一次 ask 携带 patterns/alwaysPatterns；always 固化 = 先落用户级文件再写会话临时层（写盘失败审批仍挂起 fail-closed），同批放行级联复用多 pattern 重评；Engine 门面增 list/add/removePermissionRules 三方法；protocol 增 PermissionRuleDto + Transport 三方法；server 注册 GET/POST/DELETE /api/permissions/rules（§4.5/§7.2 表登记）；前端 SettingsDialog 新增「权限·规则」区（列表/删除/添加表单，即存即生效，§6.2.3 表更新）+ ApprovalCard 多 pattern 清单与固化范围提示；MockTransport 对等演示（内存规则表 + always 按 alwaysPatterns 固化）；engine 9 例（多 pattern 四路径/UserRuleStore 落盘/bash 分段）+ server 1 例 + mock 1 例新增；全仓 415 例（engine 286/server 31/web 52/protocol 46）+ typecheck/lint 全绿；§8 阶段四 permission 行勾选 |
 | v2.24 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.8 完成（阶段四收官）**：node:sqlite 会话索引 + metrics 端点——SessionIndex 单表索引（<root>/index.db；upsert/touch 仅前进水位/setTitle/LIKE 转义搜索/rebuild 全量重建）；JSONL 恒为权威：boot 自磁盘扫描全量重建对齐、durable 事件增量 touch（meta 订阅器内）、会话装载点 wireSession 单点 upsert（create/resume/fork/rollback 重载共用）、写失败或关库后自动降级磁盘扫描（结构化 error 日志，主流程不受影响）；listSessions 改索引驱动 + `?q` 标题子串过滤（已加载内存态覆盖且同样过 q 过滤），shutdown 先 await 重建完成再关库（防迟到写库撞已关闭句柄）；Metrics 计数器（§5.10 清单）：spark_turns_total{finish}（run-loop finally）/ spark_tool_calls_total{name,is_error}（管线三出口）/ spark_llm_tokens_total{direction}（流式结果 usage）/ spark_permission_decisions{reply}（settle）/ spark_events_durable_total（订阅器）+ spark_sessions_active 快照 gauge，renderMetrics 输出 Prometheus exposition 文本；server 注册 GET /api/metrics（text/plain; version=0.0.4）；session-index 单测 5 例 + engine 集成 2 例（q 过滤/增量水位/重启重建不丢/计数断言/Prometheus 文本）+ server 1 例新增；全仓 423 例（engine 293/server 32/web 52/protocol 46）+ typecheck/lint 全绿；§4.5/§7.2 表登记 metrics 与 ?q、§8 阶段四 sqlite/metrics 行勾选 |
+| v2.25 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五工单 5.1 完成**：Electron 壳——ARCHITECTURE 新增 ADR D14（sidecar vs 主进程嵌入评估：选 sidecar，HttpTransport 零改动复用/崩溃隔离/用户机零 Node 依赖）；apps/desktop（main 进程三件事：ELECTRON_RUN_AS_NODE 拉起 server 单文件 bundle + healthz 轮询探活 + 加载动态端口 URL；退出 SIGTERM 收尸）；server 最小改动（GET /api/healthz + SPARK_PORT/SPARK_HOST/SPARK_WEB_DIST 环境注入）；esbuild 全量 bundle（createRequire banner 解决 fastify CJS 动态 require）；打包：electron-builder（extraResources=server bundle+web dist，signAndEditExecutable=false 免 wine 签名），Linux 本地 `--win zip` 154MB 产物实证（Electron RUN_AS_NODE 跑 sidecar + healthz 200 + Web UI 伺服全通），NSIS 安装包走 GH Actions windows runner（desktop-win.yml 手动触发；NSIS 卸载器生成需 32 位 stub/wine wow64，容器不可靠）；§4.5/§7.2 表登记 healthz、§8 阶段五 Electron 行勾选；新增 healthz 单测 1 例，全仓 424 例 + typecheck/lint 全绿 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -207,7 +208,7 @@ spark/
 ├── apps/
 │   ├── server/src/{index,routes/{sessions,messages,permissions},sse.ts,static.ts,errors.ts}
 │   ├── web/（结构见 §6）
-│   └── desktop/                    # （阶段五）
+│   └── desktop/                    # Electron 壳（阶段五工单 5.1，ADR D14 sidecar：src/main.ts + electron-builder.yml）
 └── examples/mock-sessions/
 ```
 
@@ -1597,6 +1598,7 @@ app.post('/api/sessions/:id/messages', async (req, reply) => {
 
 | 路由                             | 实现要点                                                                                                                           |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| GET /api/healthz                 | 工单 5.1 已注册：桌面壳 sidecar 探活端点（listen 成功即引擎可用）；`{ok:true}` 无鉴权无副作用。server 入口支持 `SPARK_PORT`/`SPARK_HOST`/`SPARK_WEB_DIST` 环境变量注入（桌面壳 ADR D14） |
 | POST /api/sessions               | body `{title?, model?, cwd?}`（model 缺省用引擎 defaultModel；cwd 缺省 = server 进程 cwd）→ `createSession` → 201 + SessionMetaDto |
 | GET /api/sessions                | **索引驱动**（工单 4.8）：node:sqlite sessions 表（boot 自磁盘全量重建对齐 JSONL 权威，durable 事件增量 touch、装载点 upsert；索引不可用降级回磁盘扫描）；`?limit`（默认 50）+ `?cursor`（= 最后一条的 id，倒序遍历）+ `?q`（标题子串过滤）——分页 v1 内存切片 |
 | GET /api/metrics                 | 工单 4.8 已注册：`engine.renderMetrics()` → Prometheus exposition 文本（text/plain; version=0.0.4）；counter 清单见 §5.10，spark_sessions_active 为快照时点 gauge |
@@ -1714,7 +1716,7 @@ app.get('/api/event', async (req, reply) => {
 
 ## 阶段五：产品化
 
-- [ ] Electron 壳（sidecar vs 主进程嵌入评估；复用 HttpTransport）
+- [x] Electron 壳（ADR D14 sidecar 模式：`ELECTRON_RUN_AS_NODE` 拉起 server 单文件 bundle + healthz 探活 + 加载 `http://127.0.0.1:<动态端口>`，HttpTransport/协议零改动；apps/desktop + `SPARK_PORT`/`SPARK_WEB_DIST` 注入；NSIS 安装包走 GH Actions windows runner，Linux 本地 `--win zip` 管线已实证，工单 5.1）
 - [ ] 沙箱：bash 默认审批；Windows AppContainer / macOS Seatbelt / Linux bwrap 评估
 - [ ] MCP client（@modelcontextprotocol/sdk）
 - [ ] 子代理（Task 工具 + parentSession 子会话）

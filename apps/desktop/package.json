@@ -1,0 +1,23 @@
+{
+  "name": "@spark/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Spark 桌面壳（阶段五工单 5.1，ADR D14 sidecar 模式）：拉起 server sidecar + 加载 Web UI",
+  "author": "Wanfeng1028",
+  "main": "dist/main.js",
+  "scripts": {
+    "build:main": "tsc -p tsconfig.json",
+    "build:server": "esbuild ../../apps/server/src/index.ts --bundle --platform=node --format=esm --outfile=build/server/index.mjs --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
+    "build": "pnpm build:server && pnpm --filter @spark/web build && pnpm build:main",
+    "start": "electron .",
+    "dist:win": "pnpm build && electron-builder --win nsis --x64",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.3"
+  }
+}

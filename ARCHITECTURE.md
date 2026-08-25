@@ -16,6 +16,7 @@
 | v1.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）                                                                                                                                   | §4 核心抽象表事件模型 **21→19 种**（@spark/protocol 实现时核对词表实数；与 doc/02 v2.3、AGENTS v1.11、doc/03 v1.1 同步）                                                                                                       |
 | v1.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续把文档完善"）                                                                                      | **ADR 补录 D9-D13**（源码对照三轮产生的架构级决策收拢归档，此前散落 doc/02 注记）：D9 跨平台 bash 执行器、D10 SSE 全局订阅语义、D11 reject 级联、D12 会话文件演进与 fail-closed 四条、D13 maxSteps 防御线；与 doc/02 v2.7 同步 |
 | v1.8 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | §4 核心抽象表会话行 compaction 锚点 `keptFromSeq` → `keptFromEventId`（阶段四工单 4.1 协议演进同步；与 doc/02 v2.16 同步） |
+| v1.9 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D14 Electron 壳 = sidecar 独立 server 进程**（阶段五工单 5.1：sidecar vs 主进程嵌入评估结论——HttpTransport 零改动复用/崩溃隔离/用户机零 Node 依赖）；§6 模块速览表补 apps/desktop 行 |
 
 ---
 
@@ -126,6 +127,13 @@
 
 理由：pi 无步数计数器（终止靠 terminate 钩子），但其场景有上层产品兜底；我们是本地长驻进程，保留硬上限防模型死循环烧 token。v2 可演化出 shouldStopAfterTurn 式钩子。依据：doc/02 §5.5 对照决策注记。
 
+### D14 Electron 壳 = sidecar 独立 server 进程（2026-08-25，阶段五工单 5.1）
+
+决策：Electron 主进程不 import 引擎，只做三件事——①以 `ELECTRON_RUN_AS_NODE=1` 用 Electron 自带二进制拉起 server 单文件 bundle（esbuild 全量打包，用户机零 Node 依赖）；②轮询 `GET /api/healthz` 探活；③BrowserWindow 加载 `http://127.0.0.1:<动态端口>`。端口/静态资源根经 `SPARK_PORT`/`SPARK_WEB_DIST` 环境变量注入（server 三行改动）。
+理由：HttpTransport 与协议零改动复用（doc/02 §1.2 架构图原设计）；崩溃隔离——壳/渲染崩溃不伤 JSONL 单写者，sidecar 崩溃即整壳退出、重启 resume 恢复（durable 日志 + 补闭合语义复用阶段三 kill -9 验收路径）；与 web 开发态同构（同一 server 同一前端）；引擎可独立于 Electron 测试（CI 无需 GUI）。
+否决备选：主进程嵌入（`new Engine()` 跑在 Electron 主进程）——引擎生命周期绑壳生命周期、Node 版本被 Electron 锁死、CI 要起 Electron 才能测引擎，全是为打包方便付出的架构耦合。
+附带决策：sidecar cwd = 用户主目录（桌面态无项目上下文时的默认工作区）；Windows 退出为强制终止，一致性由 fsync + durable 恢复兜底。打包：server 以 esbuild 全量单文件 bundle（含 pi-ai，`createRequire` banner 解决 CJS 依赖动态 require），经 extraResources 进 resources/；NSIS 安装包在 GitHub Actions windows runner 构建（`.github/workflows/desktop-win.yml` 手动触发）——NSIS 卸载器生成需执行 32 位安装器 stub，Linux 交叉构建依赖 wine wow64（宿主须支持 32 位 ELF），容器环境不可靠；Linux 本地可用 `--win zip` 验证打包管线（阶段五验收已实证）。`signAndEditExecutable: false`（未签名包，SmartScreen 警告代价已接受，正式发布再补签名）。依据：doc/02 §1.2/§8 阶段五工单 5.1。
+
 ## 6. 模块速览（职责边界）
 
 | 模块                | 职责                                        | 不许做                                     |
@@ -134,6 +142,7 @@
 | `packages/engine`   | 输入队列/RunLoop/工具/审批/会话/LLM 网关    | 不感知 HTTP；不 import 前端代码            |
 | `apps/server`       | REST 薄壳 + SSE + 静态托管                  | 不写业务（全部委托 engine）                |
 | `apps/web`          | UI 渲染与交互                               | 不做协议外的数据加工；不改写事件（只投影） |
+| `apps/desktop`      | Electron 壳：sidecar 生命周期 + 窗口（D14） | 不 import 引擎/协议；不写业务             |
 
 ## 7. 演进路线（摘要）
 

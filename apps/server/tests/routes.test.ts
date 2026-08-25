@@ -793,3 +793,12 @@ describe('GET /api/metrics（工单 4.8）', () => {
     expect(res.body).toContain('spark_sessions_active 1')
   })
 })
+
+describe('GET /api/healthz（工单 5.1 桌面壳探活）', () => {
+  test('200 + {ok:true}', async () => {
+    const f = await setup()
+    const res = await f.app.inject({ method: 'GET', url: '/api/healthz' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json<Json>()).toEqual({ ok: true })
+  })
+})
