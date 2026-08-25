@@ -219,7 +219,8 @@ export class MockTransport implements Transport {
     // 脚本耗尽：回放自然结束（等待切场景或耗尽后的 sendMessage 语义见下）
   }
 
-  sendMessage(): Promise<SubmitOutcome> {
+  sendMessage(_sessionId: SessionId): Promise<SubmitOutcome> {
+    // 单场景回放：sessionId 即脚本会话（调用方传当前路由 sid；mock 不校验——夹具宽松）
     return Promise.resolve(this.submit())
   }
 
@@ -253,7 +254,7 @@ export class MockTransport implements Transport {
     this.cursor = Math.max(this.cursor, idx + 1)
   }
 
-  interrupt(): Promise<void> {
+  interrupt(_sessionId: SessionId): Promise<void> {
     this.stopTimer()
     const rand = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
     // 失败闭合（引擎铁律）：挂起中的审批合成拒绝、进行中的 turn 合成 aborted——事件流不悬空
@@ -330,6 +331,19 @@ export class MockTransport implements Transport {
       lastSeq: last?.seq ?? 0,
       status,
     }
+  }
+
+  /** 接口完整性实现（mock 下 SessionPage 不走全量回放——流式回放即夹具语义） */
+  getSession(sessionId: SessionId): Promise<SessionDto> {
+    this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    const dto = MockTransport.dtoOf(this.script, this.status())
+    const durable = this.script.lines.flatMap((l) =>
+      l.kind === 'event' && l.envelope.seq !== undefined ? [l.envelope] : [],
+    )
+    return Promise.resolve({ ...dto, events: durable })
   }
 
   listSessions(): Promise<SessionDto[]> {

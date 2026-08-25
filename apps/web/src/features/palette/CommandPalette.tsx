@@ -11,6 +11,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useSessionList } from '@/hooks/useSessionList'
 import { useSettingsStore } from '@/stores/settings'
+import { useSessionStore } from '@/stores/session'
 import { useUiStore } from '@/stores/ui'
 import { useTransport } from '@/transports/context'
 
@@ -88,7 +89,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               <CommandItem
                 value="打断当前轮"
                 onSelect={() => {
-                  void transport.interrupt()
+                  const active = useSessionStore.getState().activeId
+                  if (active !== null) void transport.interrupt(active)
                   close()
                 }}
               >

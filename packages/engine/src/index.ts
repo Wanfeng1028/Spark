@@ -126,3 +126,9 @@ export {
   type ReplyOutcome,
 } from './engine.js'
 export { buildSystemPrompt } from './prompts.js'
+export {
+  Logger,
+  type SparkLogger,
+  type LogFields,
+  type LogMsg,
+} from './logger.js'

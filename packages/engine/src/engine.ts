@@ -23,7 +23,7 @@ import type {
 } from '@spark/protocol'
 import type { SessionStatus } from '@spark/protocol'
 import { EventBus } from './bus.js'
-import type { EventSink } from './bus.js'
+import type { EventSink, SubscribeHandle } from './bus.js'
 import { CompactorImpl } from './compaction.js'
 import { loadConfig, loadProjectRules } from './config.js'
 import type { EngineConfig, ModelRef } from './config.js'
@@ -43,6 +43,8 @@ import { ToolPipelineImpl } from './tools/pipeline.js'
 import { ToolRegistry } from './tools/registry.js'
 import { registerBuiltinTools } from './tools/builtin/index.js'
 import { newIds } from './ulid.js'
+import { Logger } from './logger.js'
+import type { SparkLogger } from './logger.js'
 
 export const SPARK_VERSION = '0.1.0'
 
@@ -82,6 +84,8 @@ export interface EngineDeps {
   /** 配置直注入（测试用；缺省 loadConfig(root)） */
   config?: EngineConfig
   now?: () => number
+  /** 日志器（缺省 `new Logger({ root })` → stdout + `<root>/logs/engine.log` §5.10 双路） */
+  logger?: SparkLogger
 }
 
 interface SessionEntry {
@@ -108,6 +112,8 @@ export class Engine {
   private readonly settledRequests = new Set<RequestId>()
   private shuttingDown = false
   private shutdownPromise: Promise<void> | null = null
+  private readonly logger: SparkLogger
+  private readonly ownsLogger: boolean
 
   constructor(deps: EngineDeps = {}) {
     this.root = deps.root ?? join(homedir(), '.spark')
@@ -115,6 +121,14 @@ export class Engine {
     this.config = deps.config ?? loadConfig(this.root)
     this.now = deps.now ?? Date.now
     this.gateway = deps.gateway ?? new PiGateway()
+    if (deps.logger !== undefined) {
+      this.logger = deps.logger
+      this.ownsLogger = false
+    } else {
+      this.logger = new Logger({ root: this.root })
+      this.ownsLogger = true
+    }
+    this.logger.info('engine.start', { root: this.root, cwd: this.defaultCwd })
 
     // sink 路由：EventBus 单例 → 按 sessionId 找到对应 SessionStore（单写者）
     const sink: EventSink = {
@@ -128,7 +142,17 @@ export class Engine {
         return entry.store.append(e)
       },
     }
-    this.bus = new EventBus({ sink })
+    this.bus = new EventBus({
+      sink,
+      onSubscriberError: (err, e) => {
+        this.logger.warn('bus.subscriber.error', {
+          sid: e.sessionId,
+          type: e.type,
+          eventId: e.id,
+          err,
+        })
+      },
+    })
 
     this.registry = new ToolRegistry()
     registerBuiltinTools(this.registry)
@@ -157,13 +181,12 @@ export class Engine {
     })
   }
 
-  /** §5.3 订阅透传（server SSE 的数据源） */
+  /** §5.3 订阅透传（server SSE 的数据源；resume 供 SSE 背压 drain 恢复） */
   subscribe(
     handler: (e: SparkEventEnvelope) => void | false | Promise<void | false>,
     filter?: { sessionId?: SessionId },
-  ): () => void {
-    const handle = this.bus.subscribe(handler, filter)
-    return () => handle.unsubscribe()
+  ): SubscribeHandle {
+    return this.bus.subscribe(handler, filter)
   }
 
   async createSession(
@@ -178,12 +201,20 @@ export class Engine {
 
     const dir = join(this.root, 'sessions', mungeDir(cwd))
     const path = join(dir, sessionFileName(createdAt, sessionId))
-    const store = await SessionStore.create(path, {
-      sparkVersion: SPARK_VERSION,
-      cwd,
-      createdAt,
-      model: modelStr,
-    })
+    const store = await SessionStore.create(
+      path,
+      {
+        sparkVersion: SPARK_VERSION,
+        cwd,
+        createdAt,
+        model: modelStr,
+      },
+      {
+        onTailTorn: (reason) => {
+          this.logger.warn('store.tail.torn', { path, reason })
+        },
+      },
+    )
     const meta: SessionMeta = {
       id: sessionId,
       title: opts.title ?? '',
@@ -222,7 +253,11 @@ export class Engine {
 
   private async loadSession(id: SessionId): Promise<SessionEntry> {
     const path = await this.locateSessionFile(id)
-    const store = await SessionStore.resume(path)
+    const store = await SessionStore.resume(path, {
+      onTailTorn: (reason) => {
+        this.logger.warn('store.tail.torn', { path, reason, sid: id })
+      },
+    })
     const events = store.tree.pathToRoot() // root → leaf = seq 升序
     const last = events[events.length - 1]
     const modelRef = this.resolveModelRef(store.header.model)
@@ -348,18 +383,27 @@ export class Engine {
   }
 
   private async doShutdown(): Promise<void> {
-    // 1) 拒新（assertNotShutdown 已生效）2) 逐会话 interrupt + 关输入队列
-    for (const entry of this.sessions.values()) {
-      entry.runtime.interrupt()
-      entry.runtime.shutdown()
-    }
-    // 3) 等待 run-loop 退出（turn 收尾事件闭合）
-    await Promise.all([...this.sessions.values()].map((e) => e.loop))
-    // 4) 审批 pending 全部 fail-closed（§5.7 补强 7）
-    await this.permission.dispose()
-    // 5) 全量 flush + close（fsync）
-    for (const entry of this.sessions.values()) {
-      await entry.store.close()
+    this.logger.info('engine.shutdown.start', { sessions: this.sessions.size })
+    try {
+      // 1) 拒新（assertNotShutdown 已生效）2) 逐会话 interrupt + 关输入队列
+      for (const entry of this.sessions.values()) {
+        entry.runtime.interrupt()
+        entry.runtime.shutdown()
+      }
+      // 3) 等待 run-loop 退出（turn 收尾事件闭合）
+      await Promise.all([...this.sessions.values()].map((e) => e.loop))
+      // 4) 审批 pending 全部 fail-closed（§5.7 补强 7）
+      await this.permission.dispose()
+      // 5) 全量 flush + close（fsync）
+      for (const entry of this.sessions.values()) {
+        await entry.store.close()
+      }
+      this.logger.info('engine.shutdown.done')
+    } catch (err) {
+      this.logger.error('engine.shutdown.error', { err })
+      throw err
+    } finally {
+      if (this.ownsLogger) await this.logger.close()
     }
   }
 

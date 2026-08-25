@@ -5,10 +5,10 @@
  * 最后一条 user.message）。右下 ErrorToast（error 事件；fatal 全屏态）。
  * mock 场景条 + 「模拟断线」开关是开发夹具（阶段验收要求断线重连条在 mock 下可走查）。
  */
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { ids } from '@spark/protocol'
-import { useTransport } from '@/transports/context'
+import { useTransport, replaySessionEvents } from '@/transports/context'
 import { MOCK_SCENARIOS } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
 import { ChatView } from '@/features/chat/ChatView'
@@ -17,6 +17,9 @@ import { TurnStatusBar } from '@/features/chat/TurnStatusBar'
 import { ErrorToast } from '@/features/chat/ErrorToast'
 import { useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
 import { useConnectionStore } from '@/stores/connection'
+
+/** 打开会话：GET 全量 durable → resetSlice → 批量 apply（§6.10 时序①；mock 流式夹具不走此路径） */
+type LoadState = 'loading' | 'ready' | { error: string }
 
 export function SessionPage() {
   const { sessionId } = useParams()
@@ -31,14 +34,33 @@ export function SessionPage() {
   const compacting = useSessionStore((s) => s.byId[sid]?.compacting ?? false)
   const connStatus = useConnectionStore((s) => s.status)
   const setConnStatus = useConnectionStore((s) => s.setStatus)
+  // http 打开态（加载/错误呈现；mock 即挂即用）。函数式初值防 sid 切换时沿用旧态
+  const [load, setLoad] = useState<LoadState>(() => (mock ? 'ready' : 'loading'))
+  const [reloadKey, setReloadKey] = useState(0)
 
   const busy = turn !== null
   const waiting = turn?.waiting === true
 
-  // 路由激活：StatusBar/Sidebar 的「当前会话」数据源
+  // 路由激活 + 冷启动回放：StatusBar/Sidebar 的「当前会话」数据源
   useEffect(() => {
     useSessionStore.getState().setActiveId(sid)
   }, [sid])
+
+  useEffect(() => {
+    if (mock) return
+    let cancelled = false
+    setLoad('loading')
+    replaySessionEvents(transport, sid)
+      .then(() => {
+        if (!cancelled) setLoad('ready')
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setLoad({ error: err instanceof Error ? err.message : String(err) })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [transport, sid, mock, reloadKey])
 
   // 欢迎页 chip 发送失败的回填草稿（§6.2.1：不丢用户输入）
   const initialDraft = (location.state as { draft?: string } | null)?.draft ?? ''
@@ -65,7 +87,7 @@ export function SessionPage() {
   /** error finish 重试：重发最后一条 user.message（§6.2.2 状态矩阵） */
   async function retryLastMessage() {
     const text = [...items].reverse().find((i) => i.kind === 'user')
-    if (text !== undefined && text.kind === 'user') await transport.sendMessage(text.text)
+    if (text !== undefined && text.kind === 'user') await transport.sendMessage(sid, text.text)
   }
 
   return (
@@ -130,7 +152,24 @@ export function SessionPage() {
                 </div>
               )}
             </div>
-            <ChatView sessionId={sessionId ?? ''} />
+            {load === 'loading' ? (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                加载会话…
+              </div>
+            ) : typeof load === 'object' ? (
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-6">
+                <p className="font-mono text-xs text-[var(--spark-warn)]">{load.error}</p>
+                <button
+                  type="button"
+                  onClick={() => setReloadKey((k) => k + 1)}
+                  className="h-7 rounded-md border border-border px-3 text-[13px] hover:bg-accent"
+                >
+                  重试
+                </button>
+              </div>
+            ) : (
+              <ChatView sessionId={sessionId ?? ''} />
+            )}
             <ErrorToast sid={sid} />
           </div>
         </div>
@@ -143,9 +182,12 @@ export function SessionPage() {
             waiting={waiting}
             initialDraft={initialDraft}
             onSend={(text, delivery, attachments) =>
-              transport.sendMessage(text, { delivery, ...(attachments ? { attachments } : {}) })
+              transport.sendMessage(sid, text, {
+                delivery,
+                ...(attachments ? { attachments } : {}),
+              })
             }
-            onInterrupt={() => void transport.interrupt()}
+            onInterrupt={() => void transport.interrupt(sid)}
           />
         </div>
       </div>

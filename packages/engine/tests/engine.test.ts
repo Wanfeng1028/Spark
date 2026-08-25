@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ids } from '@spark/protocol'
 import type { SparkEventEnvelope } from '@spark/protocol'
 import type { EngineConfig } from '../src/config.js'
+import type { SubscribeHandle } from '../src/bus.js'
 import { Engine } from '../src/engine.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
 
@@ -41,7 +42,7 @@ interface Fixture {
   engine: Engine
   gateway: ScriptedLlm
   events: SparkEventEnvelope[]
-  unsubscribe: () => void
+  sub: SubscribeHandle
 }
 
 let fixtures: Fixture[] = []
@@ -53,10 +54,10 @@ async function makeEngine(opts?: { rules?: EngineConfig['permissions']['rules'] 
   if (opts?.rules !== undefined) config.permissions.rules = opts.rules
   const engine = new Engine({ root, gateway, config })
   const events: SparkEventEnvelope[] = []
-  const unsubscribe = engine.subscribe((e) => {
+  const sub = engine.subscribe((e) => {
     events.push(e)
   })
-  const f: Fixture = { root, engine, gateway, events, unsubscribe }
+  const f: Fixture = { root, engine, gateway, events, sub }
   fixtures.push(f)
   return f
 }
@@ -82,7 +83,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   for (const f of fixtures) {
-    f.unsubscribe()
+    f.sub.unsubscribe()
     await f.engine.shutdown()
   }
 })
@@ -191,13 +192,13 @@ describe('resumeSession', () => {
     await h1.send('问题')
     await waitForTurnDone(f)
     const lastSeq = h1.meta.lastSeq
-    f.unsubscribe()
+    f.sub.unsubscribe()
     await f.engine.shutdown()
 
     // 新引擎实例读同一 root（进程重启语义）
     const gateway2 = new ScriptedLlm()
     const engine2 = new Engine({ root: f.root, gateway: gateway2, config: makeConfig() })
-    fixtures.push({ root: f.root, engine: engine2, gateway: gateway2, events: [], unsubscribe: () => {} })
+    fixtures.push({ root: f.root, engine: engine2, gateway: gateway2, events: [], sub: { unsubscribe: () => {}, resume: () => {} } })
     const seen: SparkEventEnvelope[] = []
     engine2.subscribe((e) => {
       seen.push(e)
@@ -228,7 +229,7 @@ describe('resumeSession', () => {
     const h = await f.engine.createSession()
     await h.send('问题')
     await waitForTurnDone(f)
-    f.unsubscribe()
+    f.sub.unsubscribe()
     await f.engine.shutdown()
 
     // 篡改文件：删除最后两行（turn.completed 与 assistant.message），制造悬挂 turn.started
@@ -240,7 +241,7 @@ describe('resumeSession', () => {
 
     const gateway2 = new ScriptedLlm()
     const engine2 = new Engine({ root: f.root, gateway: gateway2, config: makeConfig() })
-    fixtures.push({ root: f.root, engine: engine2, gateway: gateway2, events: [], unsubscribe: () => {} })
+    fixtures.push({ root: f.root, engine: engine2, gateway: gateway2, events: [], sub: { unsubscribe: () => {}, resume: () => {} } })
     const seen: SparkEventEnvelope[] = []
     engine2.subscribe((e) => {
       seen.push(e)
