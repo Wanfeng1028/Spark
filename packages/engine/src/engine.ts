@@ -44,6 +44,9 @@ import { runSessionLoop } from './run-loop.js'
 import type { RunLoopDeps } from './run-loop.js'
 import { PermissionServiceImpl } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
+import { SessionIndex } from './session/index.js'
+import type { SessionIndexRow } from './session/index.js'
+import { Metrics } from './observability/metrics.js'
 import { SessionRuntime } from './session/runtime.js'
 import { SessionStore, danglingTurnIds, mungeDir, sessionFileName } from './session/store.js'
 import type { SubmitResult } from './session/input-queue.js'
@@ -152,6 +155,13 @@ export class Engine {
   private readonly permission: PermissionServiceImpl
   /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
   private readonly ruleStore: UserRuleStore
+  /** 进程内指标计数器（§5.10 清单；GET /api/metrics 数据源，工单 4.8） */
+  private readonly metrics = new Metrics()
+  /** 会话索引（node:sqlite；JSONL 恒为权威——损坏即降级磁盘扫描，工单 4.8） */
+  private readonly index: SessionIndex | null
+  private indexBroken = false
+  private indexClosed = false
+  private readonly indexReady: Promise<void>
   private readonly registry: ToolRegistry
   private readonly outputs: ToolOutputStore
   private readonly sessions = new Map<SessionId, SessionEntry>()
@@ -178,6 +188,12 @@ export class Engine {
       this.ownsLogger = true
     }
     this.logger.info('engine.start', { root: this.root, cwd: this.defaultCwd })
+
+    // 会话索引：建库失败即降级（JSONL 权威不受影响）；启动重建对齐磁盘
+    this.index = this.openIndex()
+    this.indexReady = this.rebuildIndex().catch((err: unknown) => {
+      this.disableIndex(err, 'session.index.rebuild.error')
+    })
 
     // sink 路由：EventBus 单例 → 按 sessionId 找到对应 SessionStore（单写者）
     const sink: EventSink = {
@@ -218,6 +234,7 @@ export class Engine {
       ruleStore: this.ruleStore,
       projectRules: loadProjectRules(this.defaultCwd),
       timeoutMs: this.config.spark.engine.permissionTimeoutMs,
+      metrics: this.metrics,
     })
 
     // meta 增量维护：durable 事件更新 updatedAt/lastSeq；session.title 更新标题
@@ -227,9 +244,14 @@ export class Engine {
       if (e.seq !== undefined && e.seq > entry.meta.lastSeq) {
         entry.meta.lastSeq = e.seq
         entry.meta.updatedAt = e.time
+        this.touchIndex(e.sessionId, e.seq, e.time) // 索引增量（工单 4.8）
+      }
+      if (e.seq !== undefined) {
+        this.metrics.inc('spark_events_durable_total')
       }
       if (e.type === 'session.title') {
         entry.meta.title = (e.data as { title: string }).title
+        this.titleIndex(e.sessionId, entry.meta.title)
       }
       // 会话自动标题（§5.11 / 工单 4.4）：turn 完成后异步触发（无标题且无在途任务；
       // 失败不 emit error——空标题不悬空 UI，下一 turn.completed 重触发）
@@ -508,6 +530,72 @@ export class Engine {
     return this.ruleStore.remove(action, resource)
   }
 
+  // ---- 会话索引（工单 4.8：node:sqlite；JSONL 恒为权威，损坏降级磁盘扫描） ----
+
+  private openIndex(): SessionIndex | null {
+    try {
+      return new SessionIndex(join(this.root, 'index.db'))
+    } catch (err) {
+      this.logger.error('session.index.open.error', { err })
+      this.indexBroken = true
+      return null
+    }
+  }
+
+  /** boot 重建：磁盘扫描 → 全量写入（对齐 JSONL 权威）；已关闭（shutdown 先至）则跳过 */
+  private async rebuildIndex(): Promise<void> {
+    if (this.index === null || this.indexClosed) return
+    const rows = await this.scanDiskSessions()
+    this.index.rebuild(
+      rows.map((m) => ({
+        id: m.id,
+        title: m.title,
+        model: m.model,
+        cwd: m.cwd,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+        lastSeq: m.lastSeq,
+      })),
+    )
+  }
+
+  private touchIndex(id: SessionId, seq: number, time: number): void {
+    if (this.index === null || this.indexBroken || this.indexClosed) return
+    try {
+      this.index.touch(id, seq, time)
+    } catch (err) {
+      this.disableIndex(err, 'session.index.touch.error')
+    }
+  }
+
+  private titleIndex(id: SessionId, title: string): void {
+    if (this.index === null || this.indexBroken || this.indexClosed) return
+    try {
+      this.index.setTitle(id, title)
+    } catch (err) {
+      this.disableIndex(err, 'session.index.title.error')
+    }
+  }
+
+  /** 索引写失败：置降级标记并落结构化日志——主流程不受影响（JSONL 权威） */
+  private disableIndex(err: unknown, msg: string): void {
+    if (this.indexBroken) return
+    this.indexBroken = true
+    this.logger.error(msg, { err })
+  }
+
+  // ---- 指标（§5.10 清单 / 工单 4.8） ----
+
+  /** Prometheus exposition 文本（sessions_active 为快照时点 gauge） */
+  renderMetrics(): string {
+    return this.metrics.render({ spark_sessions_active: this.sessions.size })
+  }
+
+  /** 结构化序列快照（测试断言用） */
+  metricsSnapshot() {
+    return this.metrics.snapshot()
+  }
+
   /**
    * 工单 4.6 回滚：工作区 + 会话文件复位到快照。前置：会话 idle（运行中 →
    * E_TURN_ACTIVE）。停旧 run-loop/store → 覆写两域 → 重载（重建树、续 seq、
@@ -563,10 +651,38 @@ export class Engine {
     return out
   }
 
-  /** §5.2.1 listSessions：v1 全量扫描磁盘（单用户本地量级）；已加载用内存态 */
-  async listSessions(): Promise<SessionMeta[]> {
+  /** §5.2.1 listSessions：索引驱动（工单 4.8）；已加载会话以内存 meta 为准；q = 标题子串过滤 */
+  async listSessions(opts?: { q?: string }): Promise<SessionMeta[]> {
+    await this.indexReady
+    let out: SessionMeta[]
+    if (this.index !== null && !this.indexBroken && !this.indexClosed) {
+      const rows = this.index.list(opts?.q)
+      const byId = new Map<SessionId, SessionMeta>(rows.map((r) => [r.id, { ...r }]))
+      // 已加载会话内存态覆盖（同样过 q 过滤）；索引缺失的已加载会话防御性补充
+      const lower =
+        opts?.q !== undefined && opts.q !== '' ? opts.q.toLowerCase() : undefined
+      for (const entry of this.sessions.values()) {
+        if (lower !== undefined && !entry.meta.title.toLowerCase().includes(lower)) continue
+        byId.set(entry.meta.id, { ...entry.meta })
+      }
+      out = [...byId.values()]
+    } else {
+      out = await this.scanDiskSessions()
+      if (opts?.q !== undefined && opts.q !== '') {
+        const needle = opts.q.toLowerCase()
+        out = out.filter((m) => m.title.toLowerCase().includes(needle))
+      }
+    }
+    out.sort((a, b) => b.updatedAt - a.updatedAt)
+    return out
+  }
+
+  /**
+   * 磁盘全量扫描（§5.2.1 v1 路径）：boot 索引重建与索引不可用降级共用。
+   * 单用户本地量级全量读即可；文件名即 id（列表排序免读 header，pi 做法）。
+   */
+  private async scanDiskSessions(): Promise<SessionMeta[]> {
     const out: SessionMeta[] = []
-    const onDisk = new Set<SessionId>()
     const sessionsRoot = join(this.root, 'sessions')
     try {
       const dirs = await readdir(sessionsRoot, { withFileTypes: true })
@@ -577,12 +693,6 @@ export class Engine {
           const path = join(sessionsRoot, dir.name, file)
           const id = idOfFileName(file)
           if (id === null) continue
-          onDisk.add(id)
-          const loaded = this.sessions.get(id)
-          if (loaded !== undefined) {
-            out.push({ ...loaded.meta })
-            continue
-          }
           const file_ = await SessionStore.read(path)
           const events = file_.events
           const last = events[events.length - 1]
@@ -600,11 +710,6 @@ export class Engine {
     } catch {
       // sessions 目录缺失 = 空列表（首次运行）
     }
-    // 已加载但文件已被外部移除的（v1 不存在此路径，防御性跳过）
-    for (const entry of this.sessions.values()) {
-      if (!onDisk.has(entry.meta.id)) out.push({ ...entry.meta })
-    }
-    out.sort((a, b) => b.updatedAt - a.updatedAt)
     return out
   }
 
@@ -662,6 +767,17 @@ export class Engine {
       // 5) 全量 flush + close（fsync）
       for (const entry of this.sessions.values()) {
         await entry.store.close()
+      }
+      // 6) 会话索引收尾（工单 4.8）：先等 boot 重建完成再关库——防迟到的重建写库
+      //    撞上已关闭句柄；closed 标记使后续增量写全部短路
+      await this.indexReady
+      if (this.index !== null && !this.indexClosed) {
+        try {
+          this.index.close()
+        } catch (err) {
+          this.logger.warn('session.index.close.error', { err })
+        }
+        this.indexClosed = true
       }
       this.logger.info('engine.shutdown.done')
     } catch (err) {
@@ -725,6 +841,7 @@ export class Engine {
       cwd: meta.cwd,
       maxToolParallel: this.config.spark.engine.maxToolParallel,
       progressThrottleMs: this.config.spark.engine.progressThrottleMs,
+      metrics: this.metrics,
     })
     const deps: RunLoopDeps = {
       sessionId: meta.id,
@@ -737,6 +854,7 @@ export class Engine {
       system: buildSystemPrompt(meta.cwd),
       maxStepsPerTurn: this.config.spark.engine.maxStepsPerTurn,
       compactionThreshold: this.config.spark.engine.compactionThreshold,
+      metrics: this.metrics,
       ...(checkpointer !== null
         ? {
             checkpoint: {
@@ -750,7 +868,28 @@ export class Engine {
         : {}),
     }
     const loop = runSessionLoop(runtime, deps)
+    // 装载点同步索引（create/resume/fork/rollback 重载共用本单点，工单 4.8）
+    this.syncIndex(meta)
     return { store, runtime, meta, compactor, checkpointer, titler, titleTask: null, loop }
+  }
+
+  /** 装载点 upsert：以内存 meta 全量覆盖索引行 */
+  private syncIndex(meta: SessionMeta): void {
+    if (this.index === null || this.indexBroken || this.indexClosed) return
+    try {
+      const row: SessionIndexRow = {
+        id: meta.id,
+        title: meta.title,
+        model: meta.model,
+        cwd: meta.cwd,
+        createdAt: meta.createdAt,
+        updatedAt: meta.updatedAt,
+        lastSeq: meta.lastSeq,
+      }
+      this.index.upsert(row)
+    } catch (err) {
+      this.disableIndex(err, 'session.index.upsert.error')
+    }
   }
 
   private handleOf(entry: SessionEntry): SessionHandle {

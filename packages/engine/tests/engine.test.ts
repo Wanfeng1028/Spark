@@ -7,7 +7,7 @@
 import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { ids } from '@spark/protocol'
 import type { SessionId, SparkEventEnvelope } from '@spark/protocol'
 import type { EngineConfig } from '../src/config.js'
@@ -58,9 +58,11 @@ async function makeEngine(
     newSessionId?: () => SessionId
     /** 工单 4.6 专项：开启 turn 边界 git 快照（默认关——既有用例不落 git） */
     checkpoints?: boolean
+    /** 工单 4.8 专项：复用同一 root（重启重建索引用） */
+    root?: string
   },
 ): Promise<Fixture> {
-  const root = await mkdtemp(join(tmpdir(), 'spark-engine-'))
+  const root = opts?.root ?? (await mkdtemp(join(tmpdir(), 'spark-engine-')))
   const gateway = new ScriptedLlm()
   const config = makeConfig()
   if (opts?.rules !== undefined) config.permissions.rules = opts.rules
@@ -773,5 +775,71 @@ describe('checkpoint（§5.8.7 / 工单 4.6）', () => {
     await expect(
       f2.engine.rollbackToCheckpoint(h2.id, ids.checkpoint('ckp_disabled0000000000000')),
     ).rejects.toThrow('E_NOT_FOUND')
+  })
+})
+
+describe('会话索引与指标（§5.10 / 工单 4.8）', () => {
+  test('listSessions 走索引：q 标题过滤；durable 增量推进水位；重启重建不丢（JSONL 权威）', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'spark-engine-idx-'))
+    const f = await makeEngine({ root })
+    const h1 = await f.engine.createSession({ title: '重构重试常量' })
+    await f.engine.createSession({ title: '写周报' })
+
+    expect((await f.engine.listSessions()).map((m) => m.title).sort()).toEqual([
+      '写周报',
+      '重构重试常量',
+    ])
+    expect((await f.engine.listSessions({ q: '重构' })).map((m) => m.id)).toEqual([h1.id])
+
+    // durable 增量：turn 完成后索引水位前进（touch）
+    f.gateway.scriptStep({
+      deltas: [{ kind: 'text', text: '答复' }],
+      usage: { inputTokens: 120, outputTokens: 40, reasoningTokens: 0 },
+    })
+    await h1.send('问题')
+    await vi.waitFor(async () => {
+      const rows = await f.engine.listSessions({ q: '重构' })
+      expect(rows[0]?.lastSeq ?? 0).toBeGreaterThanOrEqual(5)
+    })
+
+    // 重启：新 Engine 同 root → boot 重建索引自磁盘，列表与水位不丢
+    await f.engine.shutdown()
+    const f2 = await makeEngine({ root })
+    const again = await f2.engine.listSessions()
+    expect(again.map((m) => m.title).sort()).toEqual(['写周报', '重构重试常量'])
+    expect(again.find((m) => m.id === h1.id)?.lastSeq).toBeGreaterThanOrEqual(5)
+  })
+
+  test('指标计数：turns/tokens/durable 计入；renderMetrics 输出 Prometheus 文本与 active gauge', async () => {
+    const f = await makeEngine()
+    f.gateway.scriptStep({
+      deltas: [{ kind: 'text', text: '答复' }],
+      usage: { inputTokens: 100, outputTokens: 30, reasoningTokens: 0 },
+    })
+    const handle = await f.engine.createSession()
+    await handle.send('问题')
+    await waitForTurnDone(f)
+
+    const snap = f.engine.metricsSnapshot()
+    const valueOf = (name: string, labels?: Record<string, string>): number | undefined =>
+      snap.find(
+        (p) =>
+          p.name === name &&
+          (labels === undefined || Object.entries(labels).every(([k, v]) => p.labels[k] === v)),
+      )?.value
+    expect(valueOf('spark_turns_total', { finish: 'stop' })).toBe(1)
+    expect(valueOf('spark_events_durable_total') ?? 0).toBeGreaterThanOrEqual(5)
+    expect(valueOf('spark_llm_tokens_total', { direction: 'input' })).toBe(100)
+    expect(valueOf('spark_llm_tokens_total', { direction: 'output' })).toBe(30)
+
+    const text = f.engine.renderMetrics()
+    expect(text).toContain('# TYPE spark_turns_total counter')
+    expect(text).toContain('spark_turns_total{finish="stop"} 1')
+    expect(text).toContain('# TYPE spark_sessions_active gauge')
+    expect(text).toContain('spark_sessions_active 1')
+
+    // 幂等 shutdown 后 render 仍可用（计数器在内存，不触库）
+    await f.engine.shutdown()
+    expect(f.engine.renderMetrics()).toContain('spark_sessions_active')
   })
 })

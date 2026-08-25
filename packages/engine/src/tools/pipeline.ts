@@ -13,6 +13,7 @@
 import type { SessionId } from '@spark/protocol'
 import type { EventBus } from '../bus.js'
 import type { ToolSpec } from '../llm-gateway.js'
+import type { Metrics } from '../observability/metrics.js'
 import type { ToolPipeline, ToolPipelineResult, TurnCtx } from '../run-loop.js'
 import type { ToolCallPending } from '../run-loop.js'
 import type { PermissionService } from './permission-port.js'
@@ -28,6 +29,8 @@ export interface PipelineDeps {
   cwd: string
   maxToolParallel: number
   progressThrottleMs: number
+  /** 进程内指标（§5.10；缺省不计数——测试 stub 可省，工单 4.8） */
+  metrics?: Metrics
 }
 
 /** 错误 → {code, message}：提取 E_* 前缀码，未分类 → E_INTERNAL（§5.10） */
@@ -160,6 +163,7 @@ export class ToolPipelineImpl implements ToolPipeline {
         isError: true,
         durationMs: startedAt(),
       })
+      this.deps.metrics?.inc('spark_tool_calls_total', { name: call.name, is_error: 'true' })
       return { callId: call.callId, output: { code: 'E_NOT_FOUND' }, isError: true }
     }
 
@@ -200,6 +204,7 @@ export class ToolPipelineImpl implements ToolPipeline {
           isError: true,
           durationMs: startedAt(),
         })
+        this.deps.metrics?.inc('spark_tool_calls_total', { name: call.name, is_error: 'true' })
         return { callId: call.callId, output: { code: 'E_PERMISSION' }, isError: true }
       }
 
@@ -225,6 +230,10 @@ export class ToolPipelineImpl implements ToolPipeline {
         output: bounded,
         isError: result.isError,
         durationMs: startedAt(),
+      })
+      this.deps.metrics?.inc('spark_tool_calls_total', {
+        name: call.name,
+        is_error: String(result.isError),
       })
       return { callId: call.callId, output: bounded, isError: result.isError }
     } catch (err) {

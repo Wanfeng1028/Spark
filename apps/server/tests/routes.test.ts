@@ -769,3 +769,27 @@ describe('GET/POST/DELETE /api/permissions/rules（工单 4.7 规则管理）', 
     expect((missing.json<Json>())['code']).toBe('E_NOT_FOUND')
   })
 })
+
+describe('GET /api/metrics（工单 4.8）', () => {
+  test('Prometheus 文本：一轮对话后 turns_total/durable 计数与 active gauge', async () => {
+    const f = await setup()
+    const events = collectEvents(f)
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const id = created.json<Json>()['id'] as string
+    await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '问题' },
+    })
+    await waitFor(() => (events.some((e) => e.type === 'turn.completed') ? true : undefined))
+
+    const res = await f.app.inject({ method: 'GET', url: '/api/metrics' })
+    expect(res.statusCode).toBe(200)
+    expect(String(res.headers['content-type'])).toContain('text/plain')
+    expect(res.body).toContain('spark_turns_total{finish="stop"} 1')
+    expect(res.body).toContain('# TYPE spark_events_durable_total counter')
+    expect(res.body).toContain('# TYPE spark_sessions_active gauge')
+    expect(res.body).toContain('spark_sessions_active 1')
+  })
+})

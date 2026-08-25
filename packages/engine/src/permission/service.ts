@@ -18,6 +18,7 @@ import { newIds } from '../ulid.js'
 import type { PermissionCheck, PermissionService } from '../tools/permission-port.js'
 import { evaluateAll } from './rules.js'
 import type { RuleStore } from './store.js'
+import type { Metrics } from '../observability/metrics.js'
 
 interface PendingEntry {
   requestId: RequestId
@@ -37,6 +38,8 @@ export interface PermissionServiceDeps {
   projectRules: readonly PermissionRule[]
   /** 审批超时（spark.json permissionTimeoutMs，缺省 5min） */
   timeoutMs: number
+  /** 进程内指标（§5.10；缺省不计数——测试可省，工单 4.8） */
+  metrics?: Metrics
 }
 
 export class PermissionServiceImpl implements PermissionService {
@@ -187,6 +190,7 @@ export class PermissionServiceImpl implements PermissionService {
     clearTimeout(entry.timer)
     entry.check.signal.removeEventListener('abort', entry.onAbort)
     this.pending.delete(entry.requestId)
+    this.deps.metrics?.inc('spark_permission_decisions', { reply }) // 工单 4.8：once/always/reject 计数
     try {
       await this.deps.bus.emit(entry.sessionId, 'permission.resolved', {
         requestId: entry.requestId,

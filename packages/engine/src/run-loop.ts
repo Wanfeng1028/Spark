@@ -25,6 +25,7 @@ import type {
 import type { EventBus } from './bus.js'
 import type { LlmGateway, LlmMessage, ResolvedModel, ToolSpec } from './llm-gateway.js'
 import { ZERO_USAGE, addUsage } from './llm-gateway.js'
+import type { Metrics } from './observability/metrics.js'
 import type { SessionRuntime } from './session/runtime.js'
 import type { InputItem } from './session/input-queue.js'
 
@@ -91,6 +92,8 @@ export interface RunLoopDeps {
   maxStepsPerTurn: number
   /** 压缩阈值比例（config.engine.compactionThreshold，乘 contextWindow） */
   compactionThreshold: number
+  /** 进程内指标（§5.10 清单；缺省不计数——测试 stub 可省，工单 4.8） */
+  metrics?: Metrics
   /** turn 边界 checkpoint（工单 4.6；config.engine.checkpoints=false 时缺省） */
   checkpoint?: Checkpointer
 }
@@ -194,6 +197,13 @@ export async function runTurn(
       })
       usage = addUsage(usage, result.usage)
       turn.usage = usage
+      // 指标口径：全部流式调用（含 error/aborted——调用量本身就是要观测的事实）
+      deps.metrics?.inc('spark_llm_tokens_total', { direction: 'input' }, result.usage.inputTokens)
+      deps.metrics?.inc(
+        'spark_llm_tokens_total',
+        { direction: 'output' },
+        result.usage.outputTokens,
+      )
 
       if (result.stopReason === 'error') {
         await deps.bus.emit(sid, 'error', {
@@ -284,6 +294,7 @@ export async function runTurn(
     // 失败闭合：started 已发则必有 completed；endTurn 转移 steer 残留并处理 idle
     if (started) {
       await deps.bus.emit(sid, 'turn.completed', { turnId, finish, usage })
+      deps.metrics?.inc('spark_turns_total', { finish })
       // turn 边界 checkpoint（工单 4.6）：completed 已落盘，快照在下一输入前串行执行
       // （晚于 turn.completed、不含自身事件；失败由实现自闭合 emit error{io}）
       if (deps.checkpoint !== undefined) {

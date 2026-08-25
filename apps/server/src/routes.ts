@@ -300,4 +300,12 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
       return sendError(req, reply, err)
     }
   })
+
+  // 指标端点（§5.10 清单 / 工单 4.8）：Prometheus exposition 文本
+  app.get('/api/metrics', async (_req, reply) => {
+    return reply
+      .code(200)
+      .header('content-type', 'text/plain; version=0.0.4; charset=utf-8')
+      .send(engine.renderMetrics())
+  })
 }

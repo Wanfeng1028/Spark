@@ -39,6 +39,7 @@
 | v2.21 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.6 完成**：checkpoint 两域简化——新增 §5.8.7 规格（GitCheckpointer：gitDir=<会话目录>/checkpoints/<sid>/.git、work-tree=会话 cwd 全量 add + 会话文件 hash-object 别名 .spark-checkpoint/session.jsonl 入索引、commit --allow-empty、turn.completed 后 snapshot 失败仅 error{io} 不推翻 turn）；引擎 `rollbackToCheckpoint`（仅 idle 受理 E_TURN_ACTIVE → 停 run-loop/关 store → 工作区 reset --hard + clean -fd + 删物化别名 → 会话文件快照 blob 覆写 → 重载补 session.resumed；未启用/不存在 E_NOT_FOUND、git 失败 E_CHECKPOINT_ROLLBACK）+ `checkpointsOf` 索引读出（DTO 不含 commit sha）；server 注册 GET /:id/checkpoints 与 POST /:id/checkpoints/:cid/rollback 路由（§4.5/§7.2 表登记、§7.4 补全 E_TURN_ACTIVE/E_INVALID_BOUNDARY/E_OPEN_TURN/E_ALREADY_EXISTS/E_CHECKPOINT_ROLLBACK 五行）；前端 CheckpointDialog（快照列表 hover 回滚，busy 禁用前置，回滚后 resetSlice + GET /:id 全量重放）+ SessionPage 检查点入口（History 图标与树按钮并排）+ StatusBar 徽标数据源 checkpoint.created（applyEvent 已测）；MockTransport 对等演示（turn 边界派生 checkpoint.created 与 listCheckpoints 同源 ckp_mock_N、getSession 改回已回放 durable 现状使 rollback 截断可走查）；engine 3 例 + server 3 例 + mock 1 例新增；全仓 401 例（engine 274/server 30/web 51/protocol 46）+ typecheck/lint 全绿；§8 阶段四 checkpoint 行勾选 |
 | v2.22 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审整改指令） | **评审整改（协议兼容三项）**：① 旧版磁盘迁移——SessionStore.read 检测阶段三格式 `compaction.completed{keptFromSeq}`，按行号回查事件 id 原位转 `keptFromEventId` 后重过严校验（幂等内存迁移不重写文件；schema 保持严格不双收字段；锚点越界/字段混写仍 fail-closed），store 迁移 2 例（转换+拒绝）；② 悬空锚点不再静默——ProjectorDeps 增 `onDanglingAnchor` 回调（退化兜底触发时结构化 warn `projector.dangling_anchor`，按锚点 id 去重防 modelContext 高频刷屏），engine 接线 logger.warn，projector 1 例（触发一次+无压缩不触发）；③ 文档勘误——摘要消息角色统一为「首条 user 消息」（v2.7 定案 system 走 StreamRequest 独立字段），§5.8.5 删"system: summary 等价"旧表述并补迁移策略段。全仓 404 例（engine 277）+ typecheck/lint 全绿 |
 | v2.23 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.7 完成**：permission always 持久化+同批放行+规则管理 UI——引擎 UserRuleStore（用户级 ~/.spark/permissions.json 内存持有 + tmp/rename 原子落盘，add 同键覆盖/remove 精确匹配；§5.7 补强 3）接替只读数组成为 evaluate 用户层单一来源；多 pattern 规则消费（补强 1）：PermissionCheck/ToolDefinition 增 patternsOf/alwaysPatternsOf，bash 复合命令按 && \\|\\| ; \\| 分段声明（<2 段回落单资源），evaluateAll 任一 deny 短路→全 allow 直过→一次 ask 携带 patterns/alwaysPatterns；always 固化 = 先落用户级文件再写会话临时层（写盘失败审批仍挂起 fail-closed），同批放行级联复用多 pattern 重评；Engine 门面增 list/add/removePermissionRules 三方法；protocol 增 PermissionRuleDto + Transport 三方法；server 注册 GET/POST/DELETE /api/permissions/rules（§4.5/§7.2 表登记）；前端 SettingsDialog 新增「权限·规则」区（列表/删除/添加表单，即存即生效，§6.2.3 表更新）+ ApprovalCard 多 pattern 清单与固化范围提示；MockTransport 对等演示（内存规则表 + always 按 alwaysPatterns 固化）；engine 9 例（多 pattern 四路径/UserRuleStore 落盘/bash 分段）+ server 1 例 + mock 1 例新增；全仓 415 例（engine 286/server 31/web 52/protocol 46）+ typecheck/lint 全绿；§8 阶段四 permission 行勾选 |
+| v2.24 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.8 完成（阶段四收官）**：node:sqlite 会话索引 + metrics 端点——SessionIndex 单表索引（<root>/index.db；upsert/touch 仅前进水位/setTitle/LIKE 转义搜索/rebuild 全量重建）；JSONL 恒为权威：boot 自磁盘扫描全量重建对齐、durable 事件增量 touch（meta 订阅器内）、会话装载点 wireSession 单点 upsert（create/resume/fork/rollback 重载共用）、写失败或关库后自动降级磁盘扫描（结构化 error 日志，主流程不受影响）；listSessions 改索引驱动 + `?q` 标题子串过滤（已加载内存态覆盖且同样过 q 过滤），shutdown 先 await 重建完成再关库（防迟到写库撞已关闭句柄）；Metrics 计数器（§5.10 清单）：spark_turns_total{finish}（run-loop finally）/ spark_tool_calls_total{name,is_error}（管线三出口）/ spark_llm_tokens_total{direction}（流式结果 usage）/ spark_permission_decisions{reply}（settle）/ spark_events_durable_total（订阅器）+ spark_sessions_active 快照 gauge，renderMetrics 输出 Prometheus exposition 文本；server 注册 GET /api/metrics（text/plain; version=0.0.4）；session-index 单测 5 例 + engine 集成 2 例（q 过滤/增量水位/重启重建不丢/计数断言/Prometheus 文本）+ server 1 例新增；全仓 423 例（engine 293/server 32/web 52/protocol 46）+ typecheck/lint 全绿；§4.5/§7.2 表登记 metrics 与 ?q、§8 阶段四 sqlite/metrics 行勾选 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -415,7 +416,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | 方法 | 路径                        | 请求                                                 | 响应                                                 |
 | ---- | --------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
 | POST | /api/sessions               | `{ title?, model?, cwd? }`                           | SessionDto                                           |
-| GET  | /api/sessions               | `?limit&cursor`                                      | SessionDto[]                                         |
+| GET  | /api/sessions               | `?limit&cursor&q`（q=标题子串过滤，工单 4.8）        | SessionDto[]                                         |
 | GET  | /api/sessions/:id           | —                                                    | SessionDto（含 `events: SparkEvent[]` durable 回放） |
 | POST | /api/sessions/:id/messages  | `{ text, delivery? }`                                | `{ result:'started'\|'steered'\|'queued', turnId? }` |
 | POST | /api/sessions/:id/interrupt | —                                                    | `{ ok:true }`                                        |
@@ -427,6 +428,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | GET  | /api/sessions/:id/tree      | —                                                    | TreeNode[]（阶段四）                                 |
 | POST | /api/sessions/:id/fork      | `{ fromEventId }`                                    | SessionDto（阶段四）                                 |
 | GET  | /api/event                  | `?sessionId&since`（均可省略，语义见 §4.6 订阅语义） | SSE 流                                               |
+| GET  | /api/metrics                | —                                                    | Prometheus exposition 文本（工单 4.8，§5.10 清单）   |
 
 ### 4.5.1 DTO 定义（protocol/src/api.ts）
 
@@ -1596,7 +1598,8 @@ app.post('/api/sessions/:id/messages', async (req, reply) => {
 | 路由                             | 实现要点                                                                                                                           |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | POST /api/sessions               | body `{title?, model?, cwd?}`（model 缺省用引擎 defaultModel；cwd 缺省 = server 进程 cwd）→ `createSession` → 201 + SessionMetaDto |
-| GET /api/sessions                | `listSessions()` 按 updatedAt 倒序；`?limit`（默认 50）+ `?cursor`（= 最后一条的 id，倒序遍历）——v1 内存全量切片即可，无索引       |
+| GET /api/sessions                | **索引驱动**（工单 4.8）：node:sqlite sessions 表（boot 自磁盘全量重建对齐 JSONL 权威，durable 事件增量 touch、装载点 upsert；索引不可用降级回磁盘扫描）；`?limit`（默认 50）+ `?cursor`（= 最后一条的 id，倒序遍历）+ `?q`（标题子串过滤）——分页 v1 内存切片 |
+| GET /api/metrics                 | 工单 4.8 已注册：`engine.renderMetrics()` → Prometheus exposition 文本（text/plain; version=0.0.4）；counter 清单见 §5.10，spark_sessions_active 为快照时点 gauge |
 | GET /api/sessions/:id            | 会话未加载先 `resumeSession`；meta + 全量 durable 事件（按 seq 升序）→ SessionDto（`events` = 前端冷启动回放数据源）               |
 | POST /api/sessions/:id/messages  | 见上例代码；**submit 三态直通**（不等待 turn 结果——HTTP 只表达"已受理"）                                                           |
 | POST /api/sessions/:id/interrupt | `handle.interrupt()`；会话 idle 时同样返回 200 `{ok:true}`（幂等，无 turn 也成功）                                                 |
@@ -1706,7 +1709,7 @@ app.get('/api/event', async (req, reply) => {
 - [x] fork 与树视图（三拒绝码 + tree 路由 + 前端树视图/分叉入口，工单 4.5）
 - [x] checkpoint（turn 边界 git 快照，两域简化）+ UI（§5.8.7 / §7.2 路由行 / CheckpointDialog 回滚入口，工单 4.6）
 - [x] permission always 持久化 + 同批放行 + 规则管理 UI（用户级 permissions.json 原子写 + alwaysPatterns 固化 + SettingsDialog 规则区，工单 4.7）
-- [ ] node:sqlite 会话索引（列表/搜索，不动 JSONL 权威）+ metrics 端点
+- [x] node:sqlite 会话索引（列表/搜索，不动 JSONL 权威）+ metrics 端点（boot 重建+durable 增量+GET /api/metrics Prometheus 文本，工单 4.8）
 - **验收**：长会话（>100 turn）稳定；压缩后上下文正确；规则跨会话生效
 
 ## 阶段五：产品化
