@@ -56,6 +56,7 @@ describe('合法路径', () => {
     expect(cfg.spark.engine.compactionThreshold).toBe(0.5)
     expect(cfg.spark.engine.maxToolParallel).toBe(8) // 默认
     expect(cfg.spark.engine.toolTimeoutMs).toBe(120_000) // 默认
+    expect(cfg.spark.engine.bashSandbox).toBe('off') // 默认（工单 5.2）
 
     expect(cfg.models.defaultModel).toEqual({
       provider: 'deepseek',

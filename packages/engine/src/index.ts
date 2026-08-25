@@ -91,7 +91,17 @@ export {
   writeTool,
   editTool,
   bashTool,
+  makeBashTool,
+  type BashToolOptions,
 } from './tools/builtin/index.js'
+export {
+  bwrapArgs,
+  seatbeltProfile,
+  resolveSandboxWrapper,
+  wrapperAvailable,
+  type BashSandboxMode,
+  type SandboxWrapper,
+} from './tools/sandbox.js'
 export { evaluate, type Effect } from './permission/rules.js'
 export {
   PermissionServiceImpl,

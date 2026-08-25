@@ -5,11 +5,18 @@
  * ctx.signal abort 同样树杀并报 E_ABORTED（跑到静默 + 自身响应 abort）。
  * shell 解析：Windows 优先 PATH 中的 bash.exe（where bash 探测），缺失则
  * powershell -NoProfile -Command；Unix 一律 /bin/bash -c。
+ * 沙箱（阶段五工单 5.2，ADR D15）：sandbox 'on' 时命令包平台 wrapper 前缀
+ * （Linux bwrap / macOS Seatbelt；Windows 无 OS 级路线），wrapper 不可用即
+ * E_SANDBOX_UNAVAILABLE 拒跑（fail-closed 不降级）。
  */
 import { execSync, spawn } from 'node:child_process'
+import { tmpdir } from 'node:os'
+import { realpathSync } from 'node:fs'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { resolveInRoot } from '../definition.js'
+import { resolveSandboxWrapper, wrapperAvailable } from '../sandbox.js'
+import type { BashSandboxMode } from '../sandbox.js'
 
 const PROGRESS_CHUNK_BYTES = 16 * 1024
 const KILL_GRACE_MS = 5000
@@ -65,97 +72,142 @@ function treeKill(pid: number | undefined, sig: 'SIGTERM' | 'SIGKILL'): void {
   }
 }
 
-export const bashTool: ToolDefinition<BashInput> = {
-  name: 'bash',
-  description:
-    '在独立 shell 中执行命令（每次新 shell，无常驻状态）。stdout/stderr 合流流式输出；' +
-    '退出码非 0 时标记错误但保留输出。timeoutMs 上限 120000（默认同上限）。' +
-    '危险命令（rm/网络写入等）会经过审批。',
-  inputSchema: BashInput,
-  permission: {
-    action: 'shell.exec',
-    resourceOf: (input) => `cmd:${input.command.slice(0, 80)}`,
-    // 复合命令多 pattern：逐段评估与展示；always 固化同样按段（§5.7 补强 1/3）
-    patternsOf: (input) => splitCommandPatterns(input.command),
-    alwaysPatternsOf: (input) => splitCommandPatterns(input.command),
-  },
-  parallelizable: false,
+export interface BashToolOptions {
+  /** 沙箱开关（spark.json engine.bashSandbox，ADR D15）：off = 现行为（审批 + 路径硬边界） */
+  sandbox: BashSandboxMode
+  /** 测试注入：wrapper 可用性探测替换（缺省真实探测 command -v） */
+  isWrapperAvailable?: (file: string) => boolean
+}
 
-  async execute(ctx: ToolContext, input: BashInput): Promise<ToolOutput> {
-    const workDir = input.cwd !== undefined ? resolveInRoot(ctx.cwd, input.cwd) : ctx.cwd
-    const timeoutMs = input.timeoutMs ?? 120_000
-    const shell = resolveShell()
+/** 默认实例（沙箱关）：旧行为不变；引擎按配置用 makeBashTool 构造 */
+export const bashTool: ToolDefinition<BashInput> = makeBashTool({ sandbox: 'off' })
 
-    return new Promise<ToolOutput>((resolve) => {
-      const child = spawn(shell.file, [...shell.args, input.command], {
-        cwd: workDir,
-        ...(process.platform === 'win32' ? {} : { detached: true }),
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
+export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
+  const probe =
+    opts.isWrapperAvailable ?? ((file: string) => wrapperAvailable(process.platform, file))
+  return {
+    name: 'bash',
+    description:
+      '在独立 shell 中执行命令（每次新 shell，无常驻状态）。stdout/stderr 合流流式输出；' +
+      '退出码非 0 时标记错误但保留输出。timeoutMs 上限 120000（默认同上限）。' +
+      '危险命令（rm/网络写入等）会经过审批。',
+    inputSchema: BashInput,
+    permission: {
+      action: 'shell.exec',
+      resourceOf: (input) => `cmd:${input.command.slice(0, 80)}`,
+      // 复合命令多 pattern：逐段评估与展示；always 固化同样按段（§5.7 补强 1/3）
+      patternsOf: (input) => splitCommandPatterns(input.command),
+      alwaysPatternsOf: (input) => splitCommandPatterns(input.command),
+    },
+    parallelizable: false,
 
-      const chunks: string[] = []
-      const collect = (buf: Buffer): void => {
-        const text = buf.toString('utf8')
-        chunks.push(text)
-        // 16KB/帧截断（Grok）：长帧切开发 progress
-        for (let i = 0; i < text.length; i += PROGRESS_CHUNK_BYTES) {
-          ctx.onProgress(text.slice(i, i + PROGRESS_CHUNK_BYTES))
-        }
-      }
-      child.stdout?.on('data', collect)
-      child.stderr?.on('data', collect)
+    async execute(ctx: ToolContext, input: BashInput): Promise<ToolOutput> {
+      const workDir = input.cwd !== undefined ? resolveInRoot(ctx.cwd, input.cwd) : ctx.cwd
+      const timeoutMs = input.timeoutMs ?? 120_000
+      const shell = resolveShell()
 
-      let timedOut = false
-      let aborted = false
-      let settled = false
-      let killTimer: ReturnType<typeof setTimeout> | null = null
-      const timeoutTimer = setTimeout(() => {
-        timedOut = true
-        treeKill(child.pid, 'SIGTERM')
-        killTimer = setTimeout(() => treeKill(child.pid, 'SIGKILL'), KILL_GRACE_MS)
-      }, timeoutMs)
-      const onAbort = (): void => {
-        aborted = true
-        treeKill(child.pid, 'SIGTERM')
-        killTimer = setTimeout(() => treeKill(child.pid, 'SIGKILL'), KILL_GRACE_MS)
-      }
-      ctx.signal.addEventListener('abort', onAbort, { once: true })
-
-      const finish = (output: ToolOutput): void => {
-        if (settled) return
-        settled = true
-        clearTimeout(timeoutTimer)
-        if (killTimer !== null) clearTimeout(killTimer)
-        ctx.signal.removeEventListener('abort', onAbort)
-        resolve(output)
-      }
-
-      child.on('error', (err) => {
-        finish({
-          output: { code: 'E_SPAWN', message: err.message },
-          isError: true,
+      // 沙箱前缀（ADR D15）：win32 无 wrapper 路线 → 拒跑；wrapper 缺失 → 拒跑（fail-closed）
+      let file = shell.file
+      let args = [...shell.args, input.command]
+      if (opts.sandbox === 'on') {
+        const wrapper = resolveSandboxWrapper(process.platform, {
+          cwd: workDir,
+          tmpdir: realpathSync(tmpdir()),
         })
-      })
+        if (wrapper === null) {
+          return {
+            output: {
+              code: 'E_SANDBOX_UNAVAILABLE',
+              message:
+                '当前平台（Windows）无 OS 级沙箱路线（ADR D15）——bashSandbox 置 off 或迁移工作区',
+            },
+            isError: true,
+          }
+        }
+        if (!probe(wrapper.file)) {
+          return {
+            output: {
+              code: 'E_SANDBOX_UNAVAILABLE',
+              message: `沙箱 wrapper ${wrapper.file} 不可用（未安装？）——fail-closed 拒跑`,
+            },
+            isError: true,
+          }
+        }
+        file = wrapper.file
+        args = [...wrapper.args, shell.file, ...shell.args, input.command]
+      }
 
-      child.on('close', (code, signal) => {
-        const combined = chunks.join('')
-        if (aborted) {
-          finish({ output: { code: 'E_ABORTED', output: combined }, isError: true })
-          return
+      return new Promise<ToolOutput>((resolve) => {
+        const child = spawn(file, args, {
+          cwd: workDir,
+          ...(process.platform === 'win32' ? {} : { detached: true }),
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+
+        const chunks: string[] = []
+        const collect = (buf: Buffer): void => {
+          const text = buf.toString('utf8')
+          chunks.push(text)
+          // 16KB/帧截断（Grok）：长帧切开发 progress
+          for (let i = 0; i < text.length; i += PROGRESS_CHUNK_BYTES) {
+            ctx.onProgress(text.slice(i, i + PROGRESS_CHUNK_BYTES))
+          }
         }
-        if (timedOut) {
-          finish({ output: { code: 'E_TIMEOUT', output: combined }, isError: true })
-          return
+        child.stdout?.on('data', collect)
+        child.stderr?.on('data', collect)
+
+        let timedOut = false
+        let aborted = false
+        let settled = false
+        let killTimer: ReturnType<typeof setTimeout> | null = null
+        const timeoutTimer = setTimeout(() => {
+          timedOut = true
+          treeKill(child.pid, 'SIGTERM')
+          killTimer = setTimeout(() => treeKill(child.pid, 'SIGKILL'), KILL_GRACE_MS)
+        }, timeoutMs)
+        const onAbort = (): void => {
+          aborted = true
+          treeKill(child.pid, 'SIGTERM')
+          killTimer = setTimeout(() => treeKill(child.pid, 'SIGKILL'), KILL_GRACE_MS)
         }
-        if (code !== 0) {
+        ctx.signal.addEventListener('abort', onAbort, { once: true })
+
+        const finish = (output: ToolOutput): void => {
+          if (settled) return
+          settled = true
+          clearTimeout(timeoutTimer)
+          if (killTimer !== null) clearTimeout(killTimer)
+          ctx.signal.removeEventListener('abort', onAbort)
+          resolve(output)
+        }
+
+        child.on('error', (err) => {
           finish({
-            output: { code: 'E_EXIT_CODE', exitCode: code, signal, output: combined },
+            output: { code: 'E_SPAWN', message: err.message },
             isError: true,
           })
-          return
-        }
-        finish({ output: combined, isError: false })
+        })
+
+        child.on('close', (code, signal) => {
+          const combined = chunks.join('')
+          if (aborted) {
+            finish({ output: { code: 'E_ABORTED', output: combined }, isError: true })
+            return
+          }
+          if (timedOut) {
+            finish({ output: { code: 'E_TIMEOUT', output: combined }, isError: true })
+            return
+          }
+          if (code !== 0) {
+            finish({
+              output: { code: 'E_EXIT_CODE', exitCode: code, signal, output: combined },
+              isError: true,
+            })
+            return
+          }
+          finish({ output: combined, isError: false })
+        })
       })
-    })
-  },
+    },
+  }
 }

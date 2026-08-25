@@ -220,7 +220,9 @@ export class Engine {
     })
 
     this.registry = new ToolRegistry()
-    registerBuiltinTools(this.registry)
+    registerBuiltinTools(this.registry, {
+      bashSandbox: this.config.spark.engine.bashSandbox,
+    })
     this.outputs = new ToolOutputStore(
       this.config.spark.engine.toolOutputLimitKB * 1024,
       join(this.root, 'tool-outputs'),

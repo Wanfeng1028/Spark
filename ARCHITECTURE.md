@@ -17,6 +17,7 @@
 | v1.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续把文档完善"）                                                                                      | **ADR 补录 D9-D13**（源码对照三轮产生的架构级决策收拢归档，此前散落 doc/02 注记）：D9 跨平台 bash 执行器、D10 SSE 全局订阅语义、D11 reject 级联、D12 会话文件演进与 fail-closed 四条、D13 maxSteps 防御线；与 doc/02 v2.7 同步 |
 | v1.8 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | §4 核心抽象表会话行 compaction 锚点 `keptFromSeq` → `keptFromEventId`（阶段四工单 4.1 协议演进同步；与 doc/02 v2.16 同步） |
 | v1.9 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D14 Electron 壳 = sidecar 独立 server 进程**（阶段五工单 5.1：sidecar vs 主进程嵌入评估结论——HttpTransport 零改动复用/崩溃隔离/用户机零 Node 依赖）；§6 模块速览表补 apps/desktop 行 |
+| v1.10 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D15 bash 沙箱 = 平台 wrapper 前缀（bwrap/Seatbelt），Windows 本期不做 OS 级**（阶段五工单 5.2 三平台调研：AppContainer 否决依据——任意路径只读不可行/无维护中 Node 绑定；dsh ACL 包 koffi 原生依赖破坏 sidecar 打包；Claude Code 先例 Windows 未支持）；spark.json engine.bashSandbox 开关 + fail-closed 拒跑 |
 
 ---
 
@@ -133,6 +134,13 @@
 理由：HttpTransport 与协议零改动复用（doc/02 §1.2 架构图原设计）；崩溃隔离——壳/渲染崩溃不伤 JSONL 单写者，sidecar 崩溃即整壳退出、重启 resume 恢复（durable 日志 + 补闭合语义复用阶段三 kill -9 验收路径）；与 web 开发态同构（同一 server 同一前端）；引擎可独立于 Electron 测试（CI 无需 GUI）。
 否决备选：主进程嵌入（`new Engine()` 跑在 Electron 主进程）——引擎生命周期绑壳生命周期、Node 版本被 Electron 锁死、CI 要起 Electron 才能测引擎，全是为打包方便付出的架构耦合。
 附带决策：sidecar cwd = 用户主目录（桌面态无项目上下文时的默认工作区）；Windows 退出为强制终止，一致性由 fsync + durable 恢复兜底。打包：server 以 esbuild 全量单文件 bundle（含 pi-ai，`createRequire` banner 解决 CJS 依赖动态 require），经 extraResources 进 resources/；NSIS 安装包在 GitHub Actions windows runner 构建（`.github/workflows/desktop-win.yml` 手动触发）——NSIS 卸载器生成需执行 32 位安装器 stub，Linux 交叉构建依赖 wine wow64（宿主须支持 32 位 ELF），容器环境不可靠；Linux 本地可用 `--win zip` 验证打包管线（阶段五验收已实证）。`signAndEditExecutable: false`（未签名包，SmartScreen 警告代价已接受，正式发布再补签名）。依据：doc/02 §1.2/§8 阶段五工单 5.1。
+
+### D15 bash 沙箱 = 平台 wrapper 前缀（bwrap/Seatbelt），Windows 本期不做 OS 级（2026-08-25，阶段五工单 5.2）
+
+决策：`spark.json engine.bashSandbox: off|on`（默认 off = 现行为）。on 时 bash 命令包平台 wrapper 前缀——Linux `bwrap --ro-bind / / --bind <cwd> <cwd> --dev /dev --proc /proc --tmpfs /tmp`、macOS `sandbox-exec -p`（Seatbelt profile：默认放行 + 写限 cwd/tmpdir）；wrapper 不可用即 `E_SANDBOX_UNAVAILABLE` 拒跑（fail-closed，不降级裸跑）。语义 = workspace-write（全盘只读 + 工作区/临时可写，Claude Code 同款姿态）；网络隔离 v1 不做（其方案为沙箱外 SOCKS5 代理 + 域名清单，复杂度后置）。
+理由：wrapper 前缀是零依赖的 argv 变换——引擎不引原生组件、sidecar 单文件打包不受影响；bwrap/Seatbelt 均为 Claude Code 实证路线（官方文档：macOS 开箱即用 Seatbelt、Linux 装 bubblewrap，Windows 原生"未支持/计划中"）。
+否决备选：① Windows AppContainer（工单原候选）——无法做到"任意路径只读"（dsh 设计笔记实证：AppContainer 不支持 arbitrary-path reads；mxc 路线需 Win11 24H2 + 全盘 DACL 改写），且现实实现存在子进程无法创建的缺陷（FerroxLabs #321 实证），Codex 用它是因 Rust 原生代码自持——Node/TS 无维护中的 AppContainer 绑定（幻觉依赖红线）；② dsh 的 `@deepseek-ai/dsh-sandbox-windows-acl`（ACL WRITE_RESTRICTED token）——机制成立且 MIT，但 koffi FFI 原生依赖破坏 sidecar 单文件 bundle、包龄 0.0.1-rc；③ Windows 纯用户态限制（如 `@ggui-ai/sandbox` 类）——不隔离文件系统/网络，只是进程卫生，配不上"OS 级防线"名义。
+Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§10 原对策），OS 级沙箱连同网络隔离排期至有原生组件诉求时再立项。依据：doc/02 §8 阶段五工单 5.2、§10 风险表；Claude Code sandboxing 官方文档；dsh sandbox 设计笔记。
 
 ## 6. 模块速览（职责边界）
 

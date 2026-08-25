@@ -11,7 +11,8 @@ import type { ToolContext } from '../src/tools/definition.js'
 import { readTool } from '../src/tools/builtin/read.js'
 import { writeTool } from '../src/tools/builtin/write.js'
 import { editTool } from '../src/tools/builtin/edit.js'
-import { bashTool, splitCommandPatterns } from '../src/tools/builtin/bash.js'
+import { bashTool, makeBashTool, splitCommandPatterns } from '../src/tools/builtin/bash.js'
+import { bwrapArgs, resolveSandboxWrapper, seatbeltProfile } from '../src/tools/sandbox.js'
 
 async function makeCwd(): Promise<string> {
   return mkdtemp(join(tmpdir(), 'spark-tools-'))
@@ -228,6 +229,40 @@ describe('bash（§5.6.3）', () => {
     expect((r.output as string).length).toBe(40 * 1024)
     // 40KB → 至少 3 帧（16KB/帧截断）
     expect(chunks.length).toBeGreaterThanOrEqual(3)
+  })
+})
+
+describe('bash 沙箱（工单 5.2，ADR D15）', () => {
+  test('bwrap 参数：根只读 + cwd 可写 + dev/proc/tmp + 终止符', () => {
+    expect(bwrapArgs('/work/dir')).toEqual([
+      '--ro-bind', '/', '/',
+      '--bind', '/work/dir', '/work/dir',
+      '--dev', '/dev',
+      '--proc', '/proc',
+      '--tmpfs', '/tmp',
+      '--',
+    ])
+  })
+
+  test('Seatbelt profile：默认放行 + 写限 cwd 与 tmpdir', () => {
+    expect(seatbeltProfile('/work/dir', '/private/tmp')).toBe(
+      '(version 1)(allow default)(deny file-write*)' +
+        '(allow file-write* (subpath "/work/dir")(subpath "/private/tmp"))',
+    )
+  })
+
+  test('平台 wrapper 路线：linux=bwrap / darwin=sandbox-exec / win32=null', () => {
+    expect(resolveSandboxWrapper('linux', { cwd: '/w', tmpdir: '/t' })?.file).toBe('bwrap')
+    expect(resolveSandboxWrapper('darwin', { cwd: '/w', tmpdir: '/t' })?.file).toBe('sandbox-exec')
+    expect(resolveSandboxWrapper('win32', { cwd: 'C:\\w', tmpdir: 'C:\\t' })).toBeNull()
+  })
+
+  test("sandbox on + wrapper 不可用：E_SANDBOX_UNAVAILABLE（fail-closed 不降级裸跑）", async () => {
+    const cwd = await makeCwd()
+    const tool = makeBashTool({ sandbox: 'on', isWrapperAvailable: () => false })
+    const r = await tool.execute(makeCtx(cwd), { command: 'echo hello' })
+    expect(r.isError).toBe(true)
+    expect(r.output).toMatchObject({ code: 'E_SANDBOX_UNAVAILABLE' })
   })
 })
 
