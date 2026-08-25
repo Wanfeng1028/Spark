@@ -44,3 +44,21 @@ export function evaluate(
   }
   return verdict ?? 'ask'
 }
+
+/**
+ * 多 pattern 汇总（§5.7 补强 1，工单 4.7）：任一 deny → deny（fail-closed 短路）；
+ * 否则任一 ask → ask；全部 allow → allow。
+ */
+export function evaluateAll(
+  action: string,
+  resources: readonly string[],
+  ...rulesets: readonly (readonly PermissionRule[])[]
+): Effect {
+  let worst: Effect = 'allow'
+  for (const resource of resources) {
+    const effect = evaluate(action, resource, ...rulesets)
+    if (effect === 'deny') return 'deny'
+    if (effect === 'ask') worst = 'ask'
+  }
+  return worst
+}

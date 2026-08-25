@@ -34,6 +34,19 @@ function resolveShell(): { file: string; args: string[] } {
   return { file: '/bin/bash', args: ['-c'] }
 }
 
+/**
+ * 复合命令分段（§5.7 补强 1，工单 4.7）：按 && || ; | 切分并 trim，<2 段返回 undefined
+ * （单段走单一 resource 审批路径）。v1 纯文本切分不解析引号——审批展示/固化用，
+ * 误分段只会让审批更细不会更粗（fail-closed 方向）。
+ */
+export function splitCommandPatterns(command: string): string[] | undefined {
+  const segments = command
+    .split(/&&|\|\||;|\|/)
+    .map((s) => s.trim())
+    .filter((s) => s !== '')
+  return segments.length >= 2 ? segments.map((s) => `cmd:${s.slice(0, 80)}`) : undefined
+}
+
 /** 树杀：Unix 杀进程组（detached 使 child 即组长）；Windows taskkill /T /F */
 function treeKill(pid: number | undefined, sig: 'SIGTERM' | 'SIGKILL'): void {
   if (pid === undefined) return
@@ -62,6 +75,9 @@ export const bashTool: ToolDefinition<BashInput> = {
   permission: {
     action: 'shell.exec',
     resourceOf: (input) => `cmd:${input.command.slice(0, 80)}`,
+    // 复合命令多 pattern：逐段评估与展示；always 固化同样按段（§5.7 补强 1/3）
+    patternsOf: (input) => splitCommandPatterns(input.command),
+    alwaysPatternsOf: (input) => splitCommandPatterns(input.command),
   },
   parallelizable: false,
 

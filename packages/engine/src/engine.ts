@@ -32,6 +32,7 @@ import { CompactorImpl } from './compaction.js'
 import { GitCheckpointer } from './checkpoint.js'
 import type { CheckpointRecord } from './checkpoint.js'
 import { loadConfig, loadProjectRules } from './config.js'
+import type { PermissionRule } from './config.js'
 import type { EngineConfig, ModelRef } from './config.js'
 import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
 import type { Compactor } from './run-loop.js'
@@ -42,6 +43,7 @@ import { reasoningIncluded } from './projector.js'
 import { runSessionLoop } from './run-loop.js'
 import type { RunLoopDeps } from './run-loop.js'
 import { PermissionServiceImpl } from './permission/service.js'
+import { UserRuleStore } from './permission/store.js'
 import { SessionRuntime } from './session/runtime.js'
 import { SessionStore, danglingTurnIds, mungeDir, sessionFileName } from './session/store.js'
 import type { SubmitResult } from './session/input-queue.js'
@@ -148,6 +150,8 @@ export class Engine {
   private readonly bus: EventBus
   private readonly gateway: LlmGateway
   private readonly permission: PermissionServiceImpl
+  /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
+  private readonly ruleStore: UserRuleStore
   private readonly registry: ToolRegistry
   private readonly outputs: ToolOutputStore
   private readonly sessions = new Map<SessionId, SessionEntry>()
@@ -205,9 +209,13 @@ export class Engine {
       this.config.spark.engine.toolOutputLimitKB * 1024,
       join(this.root, 'tool-outputs'),
     )
+    this.ruleStore = new UserRuleStore(
+      join(this.root, 'permissions.json'),
+      this.config.permissions.rules,
+    )
     this.permission = new PermissionServiceImpl({
       bus: this.bus,
-      userRules: this.config.permissions.rules,
+      ruleStore: this.ruleStore,
       projectRules: loadProjectRules(this.defaultCwd),
       timeoutMs: this.config.spark.engine.permissionTimeoutMs,
     })
@@ -484,6 +492,20 @@ export class Engine {
   async checkpointsOf(id: SessionId): Promise<CheckpointRecord[]> {
     const entry = await this.requireEntry(id)
     return entry.checkpointer === null ? [] : entry.checkpointer.list()
+  }
+
+  // ---- 权限规则管理（§5.7 规则表 / 工单 4.7：用户级 permissions.json 的线上入口） ----
+
+  listPermissionRules(): PermissionRule[] {
+    return [...this.ruleStore.list()]
+  }
+
+  addPermissionRule(rule: PermissionRule): void {
+    this.ruleStore.add(rule)
+  }
+
+  removePermissionRule(action: string, resource: string): boolean {
+    return this.ruleStore.remove(action, resource)
   }
 
   /**

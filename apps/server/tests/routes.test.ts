@@ -717,3 +717,55 @@ describe('GET /:id/checkpoints 与 POST /:id/checkpoints/:cid/rollback（工单 
     expect((active.json<Json>())['code']).toBe('E_TURN_ACTIVE')
   })
 })
+
+describe('GET/POST/DELETE /api/permissions/rules（工单 4.7 规则管理）', () => {
+  test('空表 → 添加 → 覆盖同键 → 删除 → 未知删除 404', async () => {
+    const f = await setup()
+
+    const empty = await f.app.inject({ method: 'GET', url: '/api/permissions/rules' })
+    expect(empty.statusCode).toBe(200)
+    expect((empty.json<Json>())['rules']).toEqual([])
+
+    const add = await f.app.inject({
+      method: 'POST',
+      url: '/api/permissions/rules',
+      payload: { action: 'shell.exec', resource: 'cmd:git *', effect: 'allow' },
+    })
+    expect(add.statusCode).toBe(201)
+    expect((add.json<Json>())['ok']).toBe(true)
+
+    // 校验失败（非法 effect / 空 action）
+    const bad = await f.app.inject({
+      method: 'POST',
+      url: '/api/permissions/rules',
+      payload: { action: 'shell.exec', resource: 'cmd:**', effect: 'maybe' },
+    })
+    expect(bad.statusCode).toBe(400)
+
+    // 同 action+resource 再添加 → 覆盖 effect（列表仍一条）
+    await f.app.inject({
+      method: 'POST',
+      url: '/api/permissions/rules',
+      payload: { action: 'shell.exec', resource: 'cmd:git *', effect: 'deny' },
+    })
+    const one = await f.app.inject({ method: 'GET', url: '/api/permissions/rules' })
+    expect((one.json<Json>())['rules']).toEqual([
+      { action: 'shell.exec', resource: 'cmd:git *', effect: 'deny' },
+    ])
+
+    // 精确匹配删除；再删同键 → 404
+    const del = await f.app.inject({
+      method: 'DELETE',
+      url: '/api/permissions/rules',
+      payload: { action: 'shell.exec', resource: 'cmd:git *' },
+    })
+    expect(del.statusCode).toBe(200)
+    const missing = await f.app.inject({
+      method: 'DELETE',
+      url: '/api/permissions/rules',
+      payload: { action: 'shell.exec', resource: 'cmd:git *' },
+    })
+    expect(missing.statusCode).toBe(404)
+    expect((missing.json<Json>())['code']).toBe('E_NOT_FOUND')
+  })
+})

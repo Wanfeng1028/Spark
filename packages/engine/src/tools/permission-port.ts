@@ -13,6 +13,10 @@ export interface PermissionCheck {
   name: string
   action: string
   resource: string
+  /** 多 pattern 评估清单（§5.7 补强 1，工单 4.7）：复合命令等一次声明多个资源；缺省单资源 */
+  patterns?: readonly string[]
+  /** always 固化范围（补强 3）：缺省回落 patterns ?? [resource] */
+  alwaysPatterns?: readonly string[]
   input: unknown
   /** turn 的中断信号：挂起期间 abort → 级联拒绝（fail-closed） */
   signal: AbortSignal

@@ -14,6 +14,7 @@ import type {
   CheckpointId,
   EventId,
   PermissionReply,
+  PermissionRuleDto,
   RequestId,
   SessionDto,
   SessionId,
@@ -156,6 +157,8 @@ export class MockTransport implements Transport {
   private disposed = false
   private currentTurnId: TurnId | null = null
   private lastAskedRequestId: RequestId | null = null
+  /** 最近一次 asked 完整信封（always 固化 alwaysPatterns 的数据源，工单 4.7） */
+  private lastAsked: SparkEventEnvelope<'permission.asked'> | null = null
   /** 自动标题已合成（首个 turn.completed 后一次性；引擎语义对等演示） */
   private titleEmitted = false
   /** 已 emit 事件（compact 合成 keptFromEventId/tokensBefore 的数据源） */
@@ -200,7 +203,10 @@ export class MockTransport implements Transport {
   private emit(e: SparkEventEnvelope): void {
     // 跟踪未闭合 turn 与最近审批请求（interrupt 合成闭合事件用）
     if (ofType(e, 'turn.started')) this.currentTurnId = e.data.turnId
-    else if (ofType(e, 'permission.asked')) this.lastAskedRequestId = e.data.requestId
+    else if (ofType(e, 'permission.asked')) {
+      this.lastAskedRequestId = e.data.requestId
+      this.lastAsked = e
+    }
     this.emitted.push(e)
     for (const h of [...this.handlers]) h(e)
     if (ofType(e, 'turn.completed')) {
@@ -415,6 +421,14 @@ export class MockTransport implements Transport {
       console.warn(`[mock] replyPermission 在无审批挂起时被调用（requestId=${requestId}）——已忽略`)
       return Promise.resolve()
     }
+    if (reply === 'always' && this.lastAsked !== null) {
+      // 工单 4.7 对等演示：按 alwaysPatterns（缺省 patterns ?? [resource]）固化到内存规则表
+      const asked = this.lastAsked
+      const targets = asked.data.alwaysPatterns ?? asked.data.patterns ?? [asked.data.resource]
+      for (const resource of targets) {
+        MockTransport.putRule(this.rules, { action: asked.data.action, resource, effect: 'allow' })
+      }
+    }
     // 覆写脚本中紧随的 permission.resolved，使 UI 呈现与用户实际选择一致
     const next = this.script.lines
       .slice(this.cursor)
@@ -428,6 +442,38 @@ export class MockTransport implements Transport {
     this.suspended = null
     this.advance()
     return Promise.resolve()
+  }
+
+  // ---- 权限规则管理（工单 4.7 对等演示：内存表，进程生命周期内有效） ----
+
+  private readonly rules: PermissionRuleDto[] = []
+
+  listPermissionRules(): Promise<PermissionRuleDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([...this.rules])
+  }
+
+  addPermissionRule(rule: PermissionRuleDto): Promise<void> {
+    this.assertNotDisposed()
+    MockTransport.putRule(this.rules, rule)
+    return Promise.resolve()
+  }
+
+  removePermissionRule(action: string, resource: string): Promise<void> {
+    this.assertNotDisposed()
+    const idx = this.rules.findIndex((r) => r.action === action && r.resource === resource)
+    if (idx < 0) {
+      return Promise.reject(new Error(`E_NOT_FOUND: 规则 ${action} ${resource} 不存在`))
+    }
+    this.rules.splice(idx, 1)
+    return Promise.resolve()
+  }
+
+  /** 精确匹配 action+resource 覆盖，否则追加（与引擎 UserRuleStore.add 同语义） */
+  private static putRule(rules: PermissionRuleDto[], rule: PermissionRuleDto): void {
+    const idx = rules.findIndex((r) => r.action === rule.action && r.resource === rule.resource)
+    if (idx >= 0) rules[idx] = { ...rule }
+    else rules.push({ ...rule })
   }
 
   /** 由脚本静态构造 SessionDto（listSessions / createSession 共用） */

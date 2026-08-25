@@ -267,6 +267,31 @@ describe('MockTransport 回放状态机', () => {
     )
   })
 
+  it('权限规则（工单 4.7 对等）：always 按 alwaysPatterns 固化到内存规则表；CRUD 同引擎语义', async () => {
+    const t = new MockTransport('normal')
+    await t.sendMessage(SID)
+    await vi.advanceTimersByTimeAsync(10_000) // 挂在审批锚点
+    expect(await t.listPermissionRules()).toEqual([])
+
+    // 场景 asked 声明 alwaysPatterns=[单文件]：固化一条 allow
+    await t.replyPermission(ids.request('req_01HXMOCKNRMLPERM00000000000'), 'always')
+    expect(await t.listPermissionRules()).toEqual([
+      { action: 'edit', resource: 'file:E:/code/demo/src/index.ts', effect: 'allow' },
+    ])
+
+    // 手动添加：同键覆盖、新键追加；未知规则删除 → E_NOT_FOUND
+    await t.addPermissionRule({ action: 'shell.exec', resource: 'cmd:git *', effect: 'allow' })
+    expect(await t.listPermissionRules()).toHaveLength(2)
+    await t.addPermissionRule({ action: 'shell.exec', resource: 'cmd:git *', effect: 'deny' })
+    const rules = await t.listPermissionRules()
+    expect(rules.filter((r) => r.resource === 'cmd:git *')).toEqual([
+      { action: 'shell.exec', resource: 'cmd:git *', effect: 'deny' },
+    ])
+    await expect(t.removePermissionRule('fs.read', 'file:**')).rejects.toThrow('E_NOT_FOUND')
+    await t.removePermissionRule('shell.exec', 'cmd:git *')
+    expect(await t.listPermissionRules()).toHaveLength(1)
+  })
+
   it('listSessions：四场景各一条 SessionDto', async () => {
     const t = new MockTransport('normal')
     const list = await t.listSessions()

@@ -175,7 +175,10 @@ export class ToolPipelineImpl implements ToolPipeline {
     }, this.deps.progressThrottleMs)
 
     try {
-      // ② 权限门（ask → 挂起等待；超时/中断一律 deny——fail-closed 在 service 内）
+      // ② 权限门（ask → 挂起等待；超时/中断一律 deny——fail-closed 在 service 内）。
+      // 复合操作的多 pattern 清单由工具声明（§5.7 补强 1；单段命令 patternsOf 返回 undefined）
+      const patterns = def.permission.patternsOf?.(call.input, { cwd: this.deps.cwd })
+      const alwaysPatterns = def.permission.alwaysPatternsOf?.(call.input, { cwd: this.deps.cwd })
       const allowed = await this.deps.permission.assert({
         sessionId: sid,
         callId: call.callId,
@@ -183,6 +186,8 @@ export class ToolPipelineImpl implements ToolPipeline {
         name: call.name,
         action: def.permission.action,
         resource: def.permission.resourceOf(call.input, { cwd: this.deps.cwd }),
+        ...(patterns !== undefined ? { patterns } : {}),
+        ...(alwaysPatterns !== undefined ? { alwaysPatterns } : {}),
         input: call.input,
         signal: turn.abort.signal,
       })

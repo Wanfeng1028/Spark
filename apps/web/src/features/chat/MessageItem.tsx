@@ -70,6 +70,8 @@ function ApprovalRow({ item }: { item: Extract<UiItem, { kind: 'approval' }> }) 
     <ApprovalCard
       action={item.action}
       resource={item.resource}
+      patterns={item.patterns}
+      alwaysPatterns={item.alwaysPatterns}
       reason={item.reason}
       detail={item.detail}
       status={item.status}

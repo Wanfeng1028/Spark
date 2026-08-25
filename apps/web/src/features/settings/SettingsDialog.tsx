@@ -1,10 +1,11 @@
 /**
  * SettingsDialog（doc/02 §6.2.3）：v1 用 Dialog 不换路由；即存即生效（无保存按钮）。
  * 字段全部走 settings-store（localStorage 持久化）；默认模型只影响新建会话。
- * 权限规则表为阶段四内容，v1 不渲染（§6.2.3 表内标注 v2）。
+ * 权限规则区（工单 4.7）：用户级 permissions.json 的列表/删除/手动添加，即存即生效。
  */
-import { useState } from 'react'
-import type { Delivery } from '@spark/protocol'
+import { useEffect, useState } from 'react'
+import type { Delivery, PermissionRuleDto } from '@spark/protocol'
+import { useTransport } from '@/transports/context'
 import { useSettingsStore } from '@/stores/settings'
 import { useUiStore } from '@/stores/ui'
 import {
@@ -21,8 +22,147 @@ const DELIVERIES: { value: Delivery; label: string; hint: string }[] = [
   { value: 'queue', label: 'queue', hint: '排队等本轮结束' },
 ]
 
+const EFFECTS = ['allow', 'deny', 'ask'] as const
+
 function SectionLabel({ children }: { children: string }) {
   return <p className="font-mono text-[11px] text-muted-foreground">{children}</p>
+}
+
+/** 权限规则行内删除/添加表单共用样式 */
+const ruleInputClass =
+  'h-7 min-w-0 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring'
+
+/** 权限规则管理（§5.7 规则表 / 工单 4.7）：加载失败如实呈现，操作错误行内提示 */
+function RulesSection() {
+  const { transport } = useTransport()
+  const [rules, setRules] = useState<PermissionRuleDto[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [opError, setOpError] = useState<string | null>(null)
+  const [action, setAction] = useState('')
+  const [resource, setResource] = useState('')
+  const [effect, setEffect] = useState<PermissionRuleDto['effect']>('allow')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    transport
+      .listPermissionRules()
+      .then((rs) => {
+        if (!cancelled) setRules(rs)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [transport])
+
+  async function addRule() {
+    if (action.trim() === '' || resource.trim() === '') return
+    setBusy(true)
+    setOpError(null)
+    try {
+      const rule: PermissionRuleDto = {
+        action: action.trim(),
+        resource: resource.trim(),
+        effect,
+      }
+      await transport.addPermissionRule(rule)
+      setRules((rs) => {
+        const next = rs ?? []
+        const idx = next.findIndex((r) => r.action === rule.action && r.resource === rule.resource)
+        return idx >= 0 ? next.map((r, i) => (i === idx ? rule : r)) : [...next, rule]
+      })
+      setAction('')
+      setResource('')
+    } catch (err) {
+      setOpError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeRule(rule: PermissionRuleDto) {
+    setBusy(true)
+    setOpError(null)
+    try {
+      await transport.removePermissionRule(rule.action, rule.resource)
+      setRules((rs) => (rs ?? []).filter((r) => !(r.action === rule.action && r.resource === rule.resource)))
+    } catch (err) {
+      setOpError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <SectionLabel>权限 · 规则（用户级，跨会话生效；always 固化同表）</SectionLabel>
+      {error !== null && <p className="font-mono text-xs text-[var(--spark-err)]">{error}</p>}
+      {error === null && rules === null && (
+        <p className="text-xs text-muted-foreground">加载规则…</p>
+      )}
+      {rules !== null && rules.length === 0 && (
+        <p className="text-xs text-muted-foreground">暂无规则——审批选「总是允许」或下方手动添加</p>
+      )}
+      {rules !== null && rules.length > 0 && (
+        <ul className="max-h-40 overflow-y-auto rounded-md border border-border">
+          {rules.map((r) => (
+            <li key={`${r.action}:${r.resource}`} className="flex min-h-7 items-center gap-2 px-2 py-0.5">
+              <span className="w-10 shrink-0 font-mono text-[11px] text-muted-foreground">{r.effect}</span>
+              <span className="min-w-0 flex-1 truncate font-mono text-[11px]" title={`${r.action} ${r.resource}`}>
+                {r.action} <span className="text-muted-foreground">{r.resource}</span>
+              </span>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void removeRule(r)}
+                className="h-5 shrink-0 rounded border border-border px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                删除
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex items-center gap-1.5">
+        <input
+          value={action}
+          onChange={(e) => setAction(e.target.value)}
+          placeholder="action（如 shell.exec）"
+          className={ruleInputClass + ' w-32'}
+        />
+        <input
+          value={resource}
+          onChange={(e) => setResource(e.target.value)}
+          placeholder="resource pattern（如 cmd:git *）"
+          className={ruleInputClass + ' flex-1'}
+        />
+        <select
+          value={effect}
+          onChange={(e) => setEffect(e.target.value as PermissionRuleDto['effect'])}
+          aria-label="效果"
+          className={ruleInputClass + ' w-16'}
+        >
+          {EFFECTS.map((ef) => (
+            <option key={ef} value={ef}>
+              {ef}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={busy || action.trim() === '' || resource.trim() === ''}
+          onClick={() => void addRule()}
+          className="h-7 shrink-0 rounded-md border border-border px-2 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          添加
+        </button>
+      </div>
+      {opError !== null && <p className="font-mono text-xs text-[var(--spark-err)]">{opError}</p>}
+    </section>
+  )
 }
 
 export function SettingsDialog() {
@@ -118,6 +258,8 @@ export function SettingsDialog() {
               <p className="text-xs text-[var(--spark-err)]">模型名不能为空——留空将沿用上次保存值</p>
             )}
           </section>
+
+          <RulesSection />
         </div>
       </DialogContent>
     </Dialog>

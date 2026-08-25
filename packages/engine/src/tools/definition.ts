@@ -33,6 +33,10 @@ export interface ToolDefinition<I = unknown> {
     action: string
     /** 方法签名（双变）：ToolDefinition<具体输入> 可注册进 ToolDefinition<unknown> 表 */
     resourceOf(input: I, ctx: { cwd: string }): string
+    /** 复合操作的多 pattern 清单（§5.7 补强 1，工单 4.7）：≥2 段才返回（单段走 resource） */
+    patternsOf?(input: I, ctx: { cwd: string }): string[] | undefined
+    /** always 固化范围（补强 3）：缺省由服务端回落 patterns ?? [resource] */
+    alwaysPatternsOf?(input: I, ctx: { cwd: string }): string[] | undefined
   }
   /** read=true；bash/edit/write=false（串行 barrier） */
   parallelizable: boolean

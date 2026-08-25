@@ -67,3 +67,13 @@ export const CheckpointDtoSchema = z.strictObject({
   files: z.array(z.string()),
 })
 export type CheckpointDto = z.infer<typeof CheckpointDtoSchema>
+
+// ---------- permission rules（doc/02 §5.7 规则表 / 阶段四工单 4.7） ----------
+
+/** 权限规则（用户级 permissions.json 行；规则管理 UI 的线上形状） */
+export const PermissionRuleDtoSchema = z.strictObject({
+  action: z.string().min(1),
+  resource: z.string().min(1),
+  effect: z.enum(['allow', 'deny', 'ask']),
+})
+export type PermissionRuleDto = z.infer<typeof PermissionRuleDtoSchema>

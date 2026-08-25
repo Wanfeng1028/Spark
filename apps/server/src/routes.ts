@@ -1,7 +1,7 @@
 /**
  * REST 路由（doc/02 §7.2）：zod 解析 → engine 调用 → DTO 序列化；错误经 errors.ts 映射。
- * 端点清单 = §4.5 表（tree/fork 工单 4.5、checkpoints/rollback 工单 4.6 注册）；
- * 并发安全由引擎单写者保证，路由层无锁。
+ * 端点清单 = §4.5 表（tree/fork 工单 4.5、checkpoints/rollback 工单 4.6、
+ * permission rules 工单 4.7 注册）；并发安全由引擎单写者保证，路由层无锁。
  */
 import type { FastifyPluginCallback } from 'fastify'
 import { z } from 'zod'
@@ -10,6 +10,7 @@ import {
   DeliverySchema,
   EventIdSchema,
   PermissionReplySchema,
+  PermissionRuleDtoSchema,
   RequestIdSchema,
   SessionIdSchema,
 } from '@spark/protocol'
@@ -82,6 +83,8 @@ const RequestIdParams = z.strictObject({ requestId: RequestIdSchema })
 const RollbackParams = z.strictObject({ id: SessionIdSchema, cid: CheckpointIdSchema })
 
 const ForkBody = z.strictObject({ fromEventId: EventIdSchema })
+
+const RemoveRuleBody = z.strictObject({ action: z.string().min(1), resource: z.string().min(1) })
 
 /** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
 function labelOf(e: SparkEventEnvelope): string {
@@ -260,6 +263,37 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
           code: outcome === 'already-resolved' ? 'E_ALREADY_RESOLVED' : 'E_NOT_FOUND',
           message: outcome === 'already-resolved' ? '审批请求已答复过' : 'not found',
         })
+      }
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 权限规则管理（§5.7 规则表 / 工单 4.7）：用户级 permissions.json 的线上 CRUD
+  app.get('/api/permissions/rules', async (req, reply) => {
+    try {
+      return reply.send({ rules: engine.listPermissionRules() })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.post('/api/permissions/rules', async (req, reply) => {
+    try {
+      const rule = parseOr400(PermissionRuleDtoSchema, req.body)
+      engine.addPermissionRule(rule)
+      return reply.code(201).send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.delete('/api/permissions/rules', async (req, reply) => {
+    try {
+      const { action, resource } = parseOr400(RemoveRuleBody, req.body)
+      if (!engine.removePermissionRule(action, resource)) {
+        return reply.code(404).send({ code: 'E_NOT_FOUND', message: '规则不存在' })
       }
       return reply.send({ ok: true })
     } catch (err) {

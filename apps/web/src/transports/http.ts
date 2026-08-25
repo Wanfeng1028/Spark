@@ -13,6 +13,7 @@ import type {
   CheckpointId,
   EventId,
   PermissionReply,
+  PermissionRuleDto,
   RequestId,
   SessionDto,
   SessionId,
@@ -224,6 +225,26 @@ export class HttpTransport implements Transport {
     return this.req<SessionDto>(`/api/sessions/${sessionId}/checkpoints/${checkpointId}/rollback`, {
       method: 'POST',
     })
+  }
+
+  listPermissionRules(): Promise<PermissionRuleDto[]> {
+    return this.req<{ rules: PermissionRuleDto[] }>('/api/permissions/rules').then(
+      (r) => r.rules,
+    )
+  }
+
+  addPermissionRule(rule: PermissionRuleDto): Promise<void> {
+    return this.req<{ ok: boolean }>('/api/permissions/rules', {
+      method: 'POST',
+      body: JSON.stringify(rule),
+    }).then(() => undefined)
+  }
+
+  removePermissionRule(action: string, resource: string): Promise<void> {
+    return this.req<{ ok: boolean }>('/api/permissions/rules', {
+      method: 'DELETE',
+      body: JSON.stringify({ action, resource }),
+    }).then(() => undefined)
   }
 
   dispose(): void {

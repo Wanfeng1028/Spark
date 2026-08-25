@@ -6,7 +6,7 @@
  */
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply } from './primitives.js'
-import type { CheckpointDto, SessionDto, TreeNodeDto } from './api.js'
+import type { CheckpointDto, PermissionRuleDto, SessionDto, TreeNodeDto } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
 
 export interface SendMessageOptions {
@@ -39,5 +39,11 @@ export interface Transport {
   listCheckpoints(sessionId: SessionId): Promise<CheckpointDto[]>
   /** POST /api/sessions/:id/checkpoints/:cid/rollback：工作区+会话文件复位到快照（回滚后 seq 回退，调用方须全量重放） */
   rollbackCheckpoint(sessionId: SessionId, checkpointId: CheckpointId): Promise<SessionDto>
+  /** GET /api/permissions/rules：用户级权限规则列表（工单 4.7 规则管理数据源） */
+  listPermissionRules(): Promise<PermissionRuleDto[]>
+  /** POST /api/permissions/rules：新增/覆盖一条规则（action+resource 精确匹配去重） */
+  addPermissionRule(rule: PermissionRuleDto): Promise<void>
+  /** DELETE /api/permissions/rules：精确匹配删除（无此规则拒绝） */
+  removePermissionRule(action: string, resource: string): Promise<void>
   dispose(): void
 }
