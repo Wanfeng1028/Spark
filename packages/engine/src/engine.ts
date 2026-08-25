@@ -23,7 +23,6 @@ import type {
   SessionId,
   SparkEventEnvelope,
   SparkEventMap,
-  SparkEventType,
   TurnId,
 } from '@spark/protocol'
 import type { SessionStatus } from '@spark/protocol'
@@ -507,6 +506,7 @@ export class Engine {
     await entry.loop
     await entry.store.close()
     this.sessions.delete(id)
+    this.bus.forgetSession(id) // 总线水位随旧 store 一并清除——重载 restoreSeq 才能重设截断后的 seq 起点
     await entry.checkpointer.rollback(checkpointId)
     this.logger.info('session.rollback', { sid: id, checkpointId })
     return this.handleOf(await this.requireEntry(id)) // 重载：requireEntry → loadSession（树重建 + session.resumed）

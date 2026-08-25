@@ -36,6 +36,7 @@
 | v2.18 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.3 完成**：手动 /compact 全链路（Composer 本地拦截 `/compact` → Transport.compact → POST /api/sessions/:id/compact → SessionHandle.compact——引擎仅 idle 受理，turn 进行中 409 E_TURN_ACTIVE；错误码/§4.5 路由表/§7.2 要点表/§6.3 ComposerProps 同步登记）；前端细条轻提示（压缩中→已完成 2.5s）；MockTransport.compact 合成 started→600ms→completed 事件对（锚点=最近 surface 事件）；Projector 正确性四象限补全（有 compaction × reasoning=true）+ Compactor×reasoning=true 重投影 + engine 手动压缩 2 例 + 路由 2 例；全仓 379 例（engine 259/server 25/web 49/protocol 46）+ typecheck/lint 全绿；§8 阶段四 compaction 行勾选 |
 | v2.19 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.4 完成**：会话自动标题——`engine/src/title.ts` TitleGenerator（§5.11 标题提示词 + serializeTranscript 转录 / maxTokens 50 / trim+截 80 字符空串不发）；engine meta 订阅器在 turn.completed 且无标题时 fire-and-forget 触发（titleTask 在途去重；失败仅 logger.warn 不 emit error，下一 turn 重触发；shutdown 序列增 3.5 步 await 标题任务防 append-after-close）；重启恢复实证（titleOf 路径恢复 meta.title/status idle/listSessions 含标题/恢复不重复触发）；前端 Sidebar 激活会话标题走事件流实时值（liveTitle 覆盖 DTO 静态值，与 liveStatus 同模式）；MockTransport 对等演示（首个 turn.completed 后 400ms 合成 session.title 一次）；新增 title 单测 4 例 + engine 集成 5 例 + mock 1 例；全仓 389 例（engine 268/server 25/web 50/protocol 46）+ typecheck/lint 全绿；§8 阶段四自动标题行勾选 |
 | v2.20 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.5 完成**：fork 与树视图——引擎 `forkSession`（复制 root→边界路径行重链 parentId + seq 重编 1..k + sessionId 改写、事件 id 保留；header 记 parentSession/parentPath/parentEventId；三拒绝码 E_INVALID_BOUNDARY/E_OPEN_TURN(运行中+边界落 turn 中间)/E_ALREADY_EXISTS；SessionStore.seed 批量落盘不经 bus）+ `treeOf`（EventTree.list 线性链节点 + scanForkChildren 磁盘 header 扫描）；protocol 增 TreeNodeDto/ForkChildDto + Transport.getTree/fork；server 注册 GET /:id/tree（label 摘要截 60 字符）与 POST /:id/fork（错误映射 400/409）路由；前端 SessionTreeDialog（节点链 + hover 分叉 + 子会话 chip 跳转，turn 进行中禁用前置）+ SessionPage 右上角入口；MockTransport 对等演示（内存 fork + isLiveScriptSession 区分流式/回放路径）；engine fork 3 例 + 路由 2 例新增；全仓 394 例（engine 271/server 27/web 50/protocol 46）+ typecheck 全绿；§8 阶段四 fork 行勾选、§7.2 tree/fork 路由行更新 |
+| v2.21 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.6 完成**：checkpoint 两域简化——新增 §5.8.7 规格（GitCheckpointer：gitDir=<会话目录>/checkpoints/<sid>/.git、work-tree=会话 cwd 全量 add + 会话文件 hash-object 别名 .spark-checkpoint/session.jsonl 入索引、commit --allow-empty、turn.completed 后 snapshot 失败仅 error{io} 不推翻 turn）；引擎 `rollbackToCheckpoint`（仅 idle 受理 E_TURN_ACTIVE → 停 run-loop/关 store → 工作区 reset --hard + clean -fd + 删物化别名 → 会话文件快照 blob 覆写 → 重载补 session.resumed；未启用/不存在 E_NOT_FOUND、git 失败 E_CHECKPOINT_ROLLBACK）+ `checkpointsOf` 索引读出（DTO 不含 commit sha）；server 注册 GET /:id/checkpoints 与 POST /:id/checkpoints/:cid/rollback 路由（§4.5/§7.2 表登记、§7.4 补全 E_TURN_ACTIVE/E_INVALID_BOUNDARY/E_OPEN_TURN/E_ALREADY_EXISTS/E_CHECKPOINT_ROLLBACK 五行）；前端 CheckpointDialog（快照列表 hover 回滚，busy 禁用前置，回滚后 resetSlice + GET /:id 全量重放）+ SessionPage 检查点入口（History 图标与树按钮并排）+ StatusBar 徽标数据源 checkpoint.created（applyEvent 已测）；MockTransport 对等演示（turn 边界派生 checkpoint.created 与 listCheckpoints 同源 ckp_mock_N、getSession 改回已回放 durable 现状使 rollback 截断可走查）；engine 3 例 + server 3 例 + mock 1 例新增；全仓 401 例（engine 274/server 30/web 51/protocol 46）+ typecheck/lint 全绿；§8 阶段四 checkpoint 行勾选 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -984,6 +985,29 @@ compact(rt):
 
 **fork 边界校验**（dsh `SessionForkErrorCode` 对照，v2.6）：forkFrom 必须拒绝三类请求——边界事件不存在（INVALID_BOUNDARY）、边界落在 open turn 中间（OPEN_TURN：turn 未闭合不可分叉）、目标会话 id 已存在（ALREADY_EXISTS）。
 
+### 5.8.7 checkpoint（阶段四，工单 4.6）
+
+**两域简化**（Grok checkpoint 思路）：工作区（会话 cwd）+ 会话文件 → 同一棵 git 树。仓库位于
+`<会话目录>/checkpoints/<sessionId>/.git`（与 JSONL 同级、不进工作区）；`--work-tree <cwd>` 全量
+`add -A`（.gitignore 生效），会话文件经 `hash-object -w` 以固定别名 `.spark-checkpoint/session.jsonl`
+挂入索引（别名前缀目录写进 info/exclude——add 永不吸入工作区同名目录）。
+
+**快照时机**：run-loop 在 turn.completed 落盘后、消费下一输入前 `snapshot(turnId)`；流程 =
+add → hash-object 会话文件 → commit --allow-empty（纯对话推进也成锚点，回滚点按 turn 均匀分布）→
+索引追加 `{checkpointId, turnId, commit, createdAt, files}` → emit `checkpoint.created`
+（durable，但在快照 blob 之后——回滚恢复的会话文件不含本事件）。失败不推翻已闭合的 turn：
+error{io} 如实上报（失败闭合），不吞、不重试。
+
+**回滚**（`rollbackToCheckpoint(id, cid)`）：仅 idle 受理——运行中 E_TURN_ACTIVE；未启用
+（`spark.engine.checkpoints=false`）或快照不存在 E_NOT_FOUND。执行 = interrupt + 停 run-loop →
+flush + 关旧 store（单写者纪律）→ 工作区 `reset --hard <commit>` + `clean -fd`（ignored 不动）→
+删除被 reset 物化的别名文件（目录保留，可能是用户自己的）→ 会话文件用快照 blob 逐字节覆写 →
+重载补发 session.resumed。git 失败闭合为 E_CHECKPOINT_ROLLBACK。回滚后续跑 seq 从截断水位连续
+前进，无断洞。
+
+**列表与开关**：`checkpointsOf` 读索引（创建序 = 旧→新）；DTO 只含 checkpointId/turnId/createdAt/files
+（commit sha 不上线）。开关 `spark.engine.checkpoints` 默认 false——快照有 git 子进程开销，按需开启。
+
 ## 5.9 LLM 网关（llm-gateway.ts）
 
 ```ts
@@ -1572,6 +1596,7 @@ app.post('/api/sessions/:id/messages', async (req, reply) => {
 | POST /api/sessions/:id/compact   | `handle.compact()`（§5.8.5 手动压缩）；等 compaction.completed 落盘再返回（started/completed 经 SSE 直播）；turn 进行中 → 409 E_TURN_ACTIVE |
 | POST /api/permissions/:requestId | `PermissionService.reply`；已答复 → 409 E_ALREADY_RESOLVED；requestId 不存在 → 404                                                 |
 | GET /:id/tree · POST /:id/fork   | 阶段四工单 4.5 已注册：tree = `treeOf()`（节点链 + label 摘要 + forks 磁盘扫描归组）；fork = `forkSession()`（三拒绝码 §5.8.6：INVALID_BOUNDARY 400 / OPEN_TURN 409 / ALREADY_EXISTS 409）→ 201 + SessionMetaDto |
+| GET /:id/checkpoints · POST /:id/checkpoints/:cid/rollback | 阶段四工单 4.6 已注册：list = `checkpointsOf()`（索引读出旧→新，commit sha 不上线）；rollback = `rollbackToCheckpoint()`（§5.8.7 两域复位：仅 idle 受理，运行中 409 E_TURN_ACTIVE、快照不存在/未启用 404、git 失败 500 E_CHECKPOINT_ROLLBACK 详情只进日志）→ 200 + SessionMetaDto（**回滚后 seq 回退**，响应不含 events，前端走 GET /:id 全量重放） |
 
 校验失败 400（zod flatten）；未知会话 404。并发安全由引擎单写者与 per-session 串行保证，路由层无锁。
 
@@ -1604,6 +1629,11 @@ app.get('/api/event', async (req, reply) => {
 | zod 校验失败     | 400 `{code:'E_VALIDATION', message, issues}` |
 | 会话/请求不存在  | 404 `E_NOT_FOUND`                            |
 | 审批请求已答复过 | 409 `E_ALREADY_RESOLVED`                     |
+| turn 进行中      | 409 `E_TURN_ACTIVE`（手动压缩/回滚共用）     |
+| 分叉边界事件不存在 | 400 `E_INVALID_BOUNDARY`                   |
+| 分叉源 turn 未闭合 | 409 `E_OPEN_TURN`                          |
+| 目标会话已存在   | 409 `E_ALREADY_EXISTS`                       |
+| 回滚 git 操作失败 | 500 `E_CHECKPOINT_ROLLBACK`（详情只进日志） |
 | 引擎已 shutdown  | 503 `E_SHUTTING_DOWN`                        |
 | 内部异常         | 500 `E_INTERNAL`（详情只进日志，不透出）     |
 
@@ -1666,7 +1696,7 @@ app.get('/api/event', async (req, reply) => {
 - [x] compaction（自动阈值+手动 /compact）+ 前端轻提示
 - [x] 会话自动标题（§5.11 标题提示词；工单 4.4）+ 重启恢复/列表/状态点
 - [x] fork 与树视图（三拒绝码 + tree 路由 + 前端树视图/分叉入口，工单 4.5）
-- [ ] checkpoint（turn 边界 git 快照，两域简化）+ UI
+- [x] checkpoint（turn 边界 git 快照，两域简化）+ UI（§5.8.7 / §7.2 路由行 / CheckpointDialog 回滚入口，工单 4.6）
 - [ ] permission always 持久化 + 同批放行 + 规则管理 UI
 - [ ] node:sqlite 会话索引（列表/搜索，不动 JSONL 权威）+ metrics 端点
 - **验收**：长会话（>100 turn）稳定；压缩后上下文正确；规则跨会话生效

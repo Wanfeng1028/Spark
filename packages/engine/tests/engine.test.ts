@@ -1,9 +1,10 @@
 /**
  * Engine 门面单测（doc/02 §5.2 / §5.2.1 / §8.6 engine/session 行）：
  * createSession 落盘与事件、ScriptedLlm 全链路 turn、resume 补闭合与 resumed、
- * listSessions 磁盘扫描、replyPermission 三态、shutdown 拒新/幂等/审批 fail-closed。
+ * listSessions 磁盘扫描、replyPermission 三态、shutdown 拒新/幂等/审批 fail-closed、
+ * checkpoint turn 边界快照与两域回滚（工单 4.6）。
  */
-import { mkdtemp, readFile, readdir } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -15,6 +16,7 @@ import { Engine } from '../src/engine.js'
 import type { SessionHandle } from '../src/engine.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
 import { TITLE_PROMPT } from '../src/title.js'
+import { SESSION_ALIAS } from '../src/checkpoint.js'
 
 function makeConfig(): EngineConfig {
   return {
@@ -51,12 +53,18 @@ interface Fixture {
 let fixtures: Fixture[] = []
 
 async function makeEngine(
-  opts?: { rules?: EngineConfig['permissions']['rules']; newSessionId?: () => SessionId },
+  opts?: {
+    rules?: EngineConfig['permissions']['rules']
+    newSessionId?: () => SessionId
+    /** 工单 4.6 专项：开启 turn 边界 git 快照（默认关——既有用例不落 git） */
+    checkpoints?: boolean
+  },
 ): Promise<Fixture> {
   const root = await mkdtemp(join(tmpdir(), 'spark-engine-'))
   const gateway = new ScriptedLlm()
   const config = makeConfig()
   if (opts?.rules !== undefined) config.permissions.rules = opts.rules
+  if (opts?.checkpoints === true) config.spark.engine.checkpoints = true
   const engine = new Engine({
     root,
     gateway,
@@ -634,5 +642,136 @@ describe('forkSession 与树视图（§5.8.6 / 工单 4.5）', () => {
     } finally {
       await engine2.shutdown()
     }
+  })
+})
+
+describe('checkpoint（§5.8.7 / 工单 4.6）', () => {
+  test('turn 边界快照：emit checkpoint.created + checkpointsOf 登记（会话文件别名 + commit）；checkpoints:false 无快照', async () => {
+    const f = await makeEngine({ checkpoints: true })
+    const ws = await mkdtemp(join(tmpdir(), 'spark-ckpt-ws-'))
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const handle = await f.engine.createSession({ cwd: ws })
+    await handle.send('问题')
+    await waitFor(() => f.events.some((e) => e.type === 'checkpoint.created'), 'checkpoint.created')
+
+    const created = f.events.find(
+      (e): e is SparkEventEnvelope<'checkpoint.created'> => e.type === 'checkpoint.created',
+    )
+    const list = await f.engine.checkpointsOf(handle.id)
+    expect(list).toHaveLength(1)
+    expect(list[0]?.checkpointId).toBe(created?.data.checkpointId)
+    expect(list[0]?.turnId).toBe(created?.data.turnId)
+    expect(list[0]?.files).toContain(SESSION_ALIAS) // 会话文件域（两域之一）
+    expect(list[0]?.commit).toMatch(/^[0-9a-f]{7,40}$/)
+
+    // 快照仓位于 <会话目录>/checkpoints/<sid>/.git（与会话文件同级，不进工作区）
+    const dir = (await readdir(join(f.root, 'sessions')))[0] as string
+    const sessionDir = join(f.root, 'sessions', dir)
+    expect(await readdir(join(sessionDir, 'checkpoints'))).toEqual([handle.id])
+    expect((await readdir(join(sessionDir, 'checkpoints', handle.id))).includes('.git')).toBe(true)
+
+    // 对照：checkpoints:false（默认）不建仓、不 emit
+    const f2 = await makeEngine()
+    f2.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const h2 = await f2.engine.createSession()
+    await h2.send('问题')
+    await waitForTurnDone(f2)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(f2.events.some((e) => e.type === 'checkpoint.created')).toBe(false)
+    expect(await f2.engine.checkpointsOf(h2.id)).toEqual([])
+  })
+
+  test('回滚两域：工作区 reset/clean + 会话文件截断；重载补 resumed；续跑 seq 无断洞', async () => {
+    const f = await makeEngine({ checkpoints: true })
+    const ws = await mkdtemp(join(tmpdir(), 'spark-ckpt-ws-'))
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复一' }] })
+    const handle = await f.engine.createSession({ cwd: ws })
+    await handle.send('问题一')
+    await waitFor(
+      () => f.events.filter((e) => e.type === 'checkpoint.created').length >= 1,
+      '第一个快照',
+    )
+    await writeFile(join(ws, 'a.txt'), 'v1', 'utf8')
+
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复二' }] })
+    await handle.send('问题二')
+    await waitFor(
+      () => f.events.filter((e) => e.type === 'checkpoint.created').length >= 2,
+      '第二个快照',
+    )
+    // 第二个快照之后的用户改动：改内容 + 新增未跟踪文件（回滚应复位）
+    await writeFile(join(ws, 'a.txt'), 'v2', 'utf8')
+    await writeFile(join(ws, 'b.txt'), '快照后新增', 'utf8')
+
+    const list = await f.engine.checkpointsOf(handle.id)
+    expect(list).toHaveLength(2)
+    // 回滚到第二快照（a.txt 已入库为 v1）：一并验证 reset --hard 内容还原与 clean -fd 清新增
+    const second = list[1]
+    if (second === undefined) throw new Error('快照记录缺失')
+    const h2 = await f.engine.rollbackToCheckpoint(handle.id, second.checkpointId)
+
+    // 工作区域复位：a.txt 还原快照内容（reset --hard）、b.txt 清除（clean -fd）
+    expect(await readFile(join(ws, 'a.txt'), 'utf8')).toBe('v1')
+    await expect(readFile(join(ws, 'b.txt'), 'utf8')).rejects.toThrow()
+
+    // 会话文件域复位：截断到第二 turn 边界（含第一轮的 checkpoint.created）+ 重载补 session.resumed
+    expect(h2.events().map((e) => e.type)).toEqual([
+      'session.created',
+      'user.message',
+      'turn.started',
+      'assistant.message',
+      'turn.completed',
+      'checkpoint.created',
+      'user.message',
+      'turn.started',
+      'assistant.message',
+      'turn.completed',
+      'session.resumed',
+    ])
+    expect(h2.meta.lastSeq).toBe(11)
+    expect(h2.status()).toBe('idle')
+
+    // 回滚点续跑：seq 连续前进（resumed=11，第三轮 12..15，新快照 16）
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复三' }] })
+    await h2.send('问题三')
+    await waitFor(
+      () => f.events.filter((e) => e.type === 'checkpoint.created').length >= 3,
+      '回滚后的快照',
+    )
+    const seqs = h2
+      .events()
+      .map((e) => e.seq)
+      .filter((s): s is number => s !== undefined)
+    expect(seqs).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+  })
+
+  test('拒绝码：运行中 E_TURN_ACTIVE；未知快照/未启用 E_NOT_FOUND', async () => {
+    const f = await makeEngine({ checkpoints: true })
+    const ws = await mkdtemp(join(tmpdir(), 'spark-ckpt-ws-'))
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '长回复' }], hangMs: 300 })
+    const handle = await f.engine.createSession({ cwd: ws })
+    await handle.send('第一句')
+    await waitFor(() => f.events.some((e) => e.type === 'turn.started'), 'turn.started')
+    // 运行检查先于快照存在性检查（此时尚无快照）
+    await expect(
+      f.engine.rollbackToCheckpoint(handle.id, ids.checkpoint('ckp_running00000000000000')),
+    ).rejects.toThrow('E_TURN_ACTIVE')
+    await waitForTurnDone(f)
+    // 快照串行于 turn.completed 之后、endTurn 之前：回滚须等运行态真正回到 idle
+    await waitFor(() => handle.status() === 'idle', '回 idle')
+
+    await expect(
+      f.engine.rollbackToCheckpoint(handle.id, ids.checkpoint('ckp_missing00000000000000')),
+    ).rejects.toThrow('E_NOT_FOUND')
+
+    // 未启用（checkpoints:false）：列表恒空，回滚一律 E_NOT_FOUND
+    const f2 = await makeEngine()
+    f2.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const h2 = await f2.engine.createSession()
+    await h2.send('问题')
+    await waitForTurnDone(f2)
+    await expect(
+      f2.engine.rollbackToCheckpoint(h2.id, ids.checkpoint('ckp_disabled0000000000000')),
+    ).rejects.toThrow('E_NOT_FOUND')
   })
 })

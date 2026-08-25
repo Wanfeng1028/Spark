@@ -1,6 +1,7 @@
 /**
  * MockTransport 单测（工单 1.4）：锚点解析（@delay/@wait/@speed）+ 回放状态机
- * （sendMessage 触发、审批挂起/回复覆写、@wait message 恢复、场景切换重置）。
+ * （sendMessage 触发、审批挂起/回复覆写、@wait message 恢复、场景切换重置）；
+ * compaction（4.3）/自动标题（4.4）/checkpoint（4.6）为引擎语义对等演示。
  * 场景文件本身的逐行协议校验在 @spark/protocol/tests/mock-sessions.test.ts（工单 1.3）。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -165,10 +166,11 @@ describe('MockTransport 回放状态机', () => {
     await vi.advanceTimersByTimeAsync(60_000)
     // 中止后脚本不再推进——仅可能追加合成的自动标题（工单 4.4：aborted turn 同样触发，引擎语义对等）
     expect(events.filter((e) => e.type !== 'session.title')).toHaveLength(countAfterStop)
-    // 中止合成：最后的 turn.completed finish=aborted（事件流不悬空）
-    const last = events[countAfterStop - 1]
-    expect(last?.type).toBe('turn.completed')
-    expect(last?.data).toMatchObject({ finish: 'aborted' })
+    // 中止合成：turn.completed finish=aborted（事件流不悬空），其后随 turn 边界快照事件
+    const aborted = events[countAfterStop - 2]
+    expect(aborted?.type).toBe('turn.completed')
+    expect(aborted?.data).toMatchObject({ finish: 'aborted' })
+    expect(events[countAfterStop - 1]?.type).toBe('checkpoint.created')
 
     t.setScenario('reject')
     const dto = await t.createSession()
@@ -185,8 +187,9 @@ describe('MockTransport 回放状态机', () => {
 
     await t.interrupt(SID)
     const types = events.map((e) => e.type)
-    expect(types[types.length - 2]).toBe('permission.resolved')
-    expect(types[types.length - 1]).toBe('turn.completed')
+    expect(types[types.length - 3]).toBe('permission.resolved')
+    expect(types[types.length - 2]).toBe('turn.completed')
+    expect(types[types.length - 1]).toBe('checkpoint.created') // 工单 4.6：中止闭合同样落快照（引擎对等）
     const resolved = events.find((e) => e.type === 'permission.resolved')
     expect(resolved?.data).toMatchObject({ reply: 'reject' })
     const aborted = events.find((e) => e.type === 'turn.completed')
@@ -221,6 +224,47 @@ describe('MockTransport 回放状态机', () => {
     )
     const lastSurface = surfaces[surfaces.length - 1]
     expect(compactEvents[1]?.data).toMatchObject({ keptFromEventId: lastSurface?.id })
+  })
+
+  it('checkpoint（工单 4.6）：turn 边界派生快照事件；rollbackCheckpoint 截断回放与 getSession 现状', async () => {
+    const t = new MockTransport('normal')
+    const { events } = recorder(t)
+    await t.sendMessage(SID)
+    await vi.advanceTimersByTimeAsync(10_000)
+
+    // 回放挂起中（suspended）→ E_OPEN_TURN（运行检查先于快照存在性）
+    await expect(
+      t.rollbackCheckpoint(SID, ids.checkpoint('ckp_mock_0')),
+    ).rejects.toThrow('E_OPEN_TURN')
+
+    await t.replyPermission(ids.request('req_01HXMOCKNRMLPERM00000000000'), 'once')
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    // 第一 turn 已闭合：列表与徽标事件同源（ckp_mock_1），文件域为会话别名
+    const cps = await t.listCheckpoints(SID)
+    expect(cps).toHaveLength(1)
+    expect(cps[0]?.files).toEqual(['.spark-checkpoint/session.jsonl'])
+    const created = events.find((e) => e.type === 'checkpoint.created')
+    expect(created?.data).toMatchObject({ checkpointId: cps[0]?.checkpointId })
+
+    // 第二 turn 完成后回滚到第一快照：回放截断到该 turn.completed（含）
+    await t.sendMessage(SID)
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(events.filter((e) => e.type === 'turn.completed')).toHaveLength(2)
+    const first = cps[0]
+    if (first === undefined) throw new Error('快照缺失')
+
+    const dto = await t.rollbackCheckpoint(SID, first.checkpointId)
+    // 截断后现状：getSession 只回已回放的 durable（止于第一 turn），lastSeq 同步回落
+    const got = await t.getSession(SID)
+    const types = (got.events ?? []).map((e) => e.type)
+    expect(types.filter((x) => x === 'turn.completed')).toHaveLength(1)
+    expect(got.lastSeq).toBe(dto.lastSeq)
+    // 列表随截断回落（mock 内存态：从已回放边界重派生）；越界快照 → E_NOT_FOUND
+    expect(await t.listCheckpoints(SID)).toHaveLength(1)
+    await expect(t.rollbackCheckpoint(SID, ids.checkpoint('ckp_mock_99'))).rejects.toThrow(
+      'E_NOT_FOUND',
+    )
   })
 
   it('listSessions：四场景各一条 SessionDto', async () => {

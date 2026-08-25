@@ -7,7 +7,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
-import { GitBranch } from 'lucide-react'
+import { GitBranch, History } from 'lucide-react'
 import { ids } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
 import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
@@ -17,6 +17,7 @@ import { Composer } from '@/features/chat/Composer'
 import { TurnStatusBar } from '@/features/chat/TurnStatusBar'
 import { ErrorToast } from '@/features/chat/ErrorToast'
 import { SessionTreeDialog } from '@/features/chat/SessionTreeDialog'
+import { CheckpointDialog } from '@/features/chat/CheckpointDialog'
 import { useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
 import { useConnectionStore } from '@/stores/connection'
 
@@ -41,6 +42,8 @@ export function SessionPage() {
   const [reloadKey, setReloadKey] = useState(0)
   // 会话树浮层（工单 4.5）：分叉入口 + 树视图
   const [treeOpen, setTreeOpen] = useState(false)
+  // 检查点浮层（工单 4.6）：快照列表 + 回滚入口；turn 进行中回滚按钮禁用
+  const [ckptOpen, setCkptOpen] = useState(false)
 
   const busy = turn !== null
   const waiting = turn?.waiting === true
@@ -201,7 +204,17 @@ export function SessionPage() {
             >
               <GitBranch className="size-4" />
             </button>
+            {/* 检查点入口（工单 4.6）：与树按钮并排；回滚动作在浮层内 */}
+            <button
+              type="button"
+              aria-label="检查点"
+              onClick={() => setCkptOpen(true)}
+              className="absolute right-9 top-0 flex size-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              <History className="size-4" />
+            </button>
             <SessionTreeDialog open={treeOpen} onOpenChange={setTreeOpen} sid={sid} busy={busy} />
+            <CheckpointDialog open={ckptOpen} onOpenChange={setCkptOpen} sid={sid} busy={busy} />
             <ErrorToast sid={sid} />
           </div>
         </div>
