@@ -161,40 +161,69 @@ describe('reasoning 配置（§5.8.3 第 5 步）', () => {
 })
 
 describe('有 compaction 分支（§5.8.3 第 2/3 步）', () => {
-  test('摘要为首条 user 消息；seq < keptFromSeq 的 surface 事件被滤除', async () => {
+  test('摘要为首条 user 消息；锚点事件（含）之后进上下文、之前的被滤除', async () => {
     const f = makeFixture()
     const trn = newIds.turn()
     await f.bus.emit(SID, 'user.message', { text: '被摘要的旧问题' })
-    await f.bus.emit(SID, 'assistant.message', { turnId: trn, content: [{ type: 'text', text: '被摘要的旧回答' }] })
-    // seq 3：锚点
-    await f.bus.emit(SID, 'compaction.completed', { summary: '此前的讨论摘要', keptFromSeq: 3, tokensBefore: 100 })
+    // 锚点 = 保留的最老 surface 事件（真实 Compactor 输出形态；含边界保留）
+    const oldAnswer = await f.bus.emit(SID, 'assistant.message', {
+      turnId: trn,
+      content: [{ type: 'text', text: '被保留的旧回答' }],
+    })
+    await f.bus.emit(SID, 'compaction.completed', {
+      summary: '此前的讨论摘要',
+      keptFromEventId: oldAnswer.id,
+      tokensBefore: 100,
+    })
     await f.bus.emit(SID, 'user.message', { text: '新问题' })
     await f.bus.emit(SID, 'assistant.message', { turnId: trn, content: [{ type: 'text', text: '新回答' }] })
 
     const ctx = makeProjector(f.sink.tree, false).modelContext()
-    expect(roles(ctx.messages)).toEqual(['user', 'user', 'assistant'])
-    expect(texts(ctx.messages)).toEqual(['此前的讨论摘要', '新问题', '新回答'])
+    expect(roles(ctx.messages)).toEqual(['user', 'assistant', 'user', 'assistant'])
+    expect(texts(ctx.messages)).toEqual(['此前的讨论摘要', '被保留的旧回答', '新问题', '新回答'])
   })
 
   test('多个 compaction.completed 取最新锚点', async () => {
     const f = makeFixture()
     await f.bus.emit(SID, 'user.message', { text: 'A' })
-    await f.bus.emit(SID, 'compaction.completed', { summary: '旧摘要', keptFromSeq: 1, tokensBefore: 10 })
-    await f.bus.emit(SID, 'user.message', { text: 'B' })
-    await f.bus.emit(SID, 'compaction.completed', { summary: '新摘要', keptFromSeq: 3, tokensBefore: 20 })
+    await f.bus.emit(SID, 'compaction.completed', { summary: '旧摘要', keptFromEventId: newIds.event(), tokensBefore: 10 })
+    const b = await f.bus.emit(SID, 'user.message', { text: 'B' })
+    await f.bus.emit(SID, 'compaction.completed', { summary: '新摘要', keptFromEventId: b.id, tokensBefore: 20 })
     await f.bus.emit(SID, 'user.message', { text: 'C' })
 
     const ctx = makeProjector(f.sink.tree, false).modelContext()
     expect(texts(ctx.messages)).toEqual(['新摘要', 'B', 'C'])
   })
 
-  test('锚点后无 surface 事件：仅摘要消息', async () => {
+  test('锚点（非 surface 事件）后无 surface 事件：仅摘要消息', async () => {
     const f = makeFixture()
     await f.bus.emit(SID, 'user.message', { text: '旧' })
-    await f.bus.emit(SID, 'compaction.completed', { summary: 'S', keptFromSeq: 2, tokensBefore: 5 })
+    // 锚点 = 路径上真实存在的非 surface durable 事件（锚点语义是位置而非类型）
+    const boundary = await f.bus.emit(SID, 'error', { scope: 'engine', message: '边界' })
+    await f.bus.emit(SID, 'compaction.completed', {
+      summary: 'S',
+      keptFromEventId: boundary.id,
+      tokensBefore: 5,
+    })
 
     const ctx = makeProjector(f.sink.tree, false).modelContext()
     expect(texts(ctx.messages)).toEqual(['S'])
+  })
+
+  test('锚点 id 不在路径（数据损坏兜底）：摘要与全部事件保留（不丢数据，可再压缩自愈）', async () => {
+    const f = makeFixture()
+    const trn = newIds.turn()
+    await f.bus.emit(SID, 'user.message', { text: '问题一' })
+    await f.bus.emit(SID, 'assistant.message', { turnId: trn, content: [{ type: 'text', text: '回答一' }] })
+    await f.bus.emit(SID, 'compaction.completed', {
+      summary: '悬空摘要',
+      keptFromEventId: newIds.event(),
+      tokensBefore: 5,
+    })
+    await f.bus.emit(SID, 'user.message', { text: '问题二' })
+
+    const ctx = makeProjector(f.sink.tree, false).modelContext()
+    expect(texts(ctx.messages)).toEqual(['悬空摘要', '问题一', '回答一', '问题二'])
   })
 })
 
@@ -231,8 +260,15 @@ describe('SessionStore 真实装配', () => {
     const sid = ids.session('ses_storeround1')
     const bus = new EventBus({ sink: store })
     await bus.emit(sid, 'user.message', { text: '第一问' })
-    await bus.emit(sid, 'assistant.message', { turnId: newIds.turn(), content: [{ type: 'text', text: '第一答' }] })
-    await bus.emit(sid, 'compaction.completed', { summary: '摘要', keptFromSeq: 2, tokensBefore: 9 })
+    const firstAnswer = await bus.emit(sid, 'assistant.message', {
+      turnId: newIds.turn(),
+      content: [{ type: 'text', text: '第一答' }],
+    })
+    await bus.emit(sid, 'compaction.completed', {
+      summary: '摘要',
+      keptFromEventId: firstAnswer.id,
+      tokensBefore: 9,
+    })
     await bus.emit(sid, 'user.message', { text: '第二问' })
     const before = makeProjector(store.tree, false).modelContext()
     await store.close()

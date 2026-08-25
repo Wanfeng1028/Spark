@@ -15,6 +15,7 @@
 | v1.5 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"后端的 AI 规范也要写好"）                                                                              | 新增 **§9 代码"AI 生成味"黑名单（后端与通用代码）**：六类（过度设计/防御式噪音/注释与死代码/命名结构/类型依赖/硬检查），boring code 总原则，与引擎铁律挂钩（吞异常=违反失败闭合）；依据 arXiv 实证 + 社区案例 6 源             |
 | v1.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）                                                                                                                                   | §4 核心抽象表事件模型 **21→19 种**（@spark/protocol 实现时核对词表实数；与 doc/02 v2.3、AGENTS v1.11、doc/03 v1.1 同步）                                                                                                       |
 | v1.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续把文档完善"）                                                                                      | **ADR 补录 D9-D13**（源码对照三轮产生的架构级决策收拢归档，此前散落 doc/02 注记）：D9 跨平台 bash 执行器、D10 SSE 全局订阅语义、D11 reject 级联、D12 会话文件演进与 fail-closed 四条、D13 maxSteps 防御线；与 doc/02 v2.7 同步 |
+| v1.8 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | §4 核心抽象表会话行 compaction 锚点 `keptFromSeq` → `keptFromEventId`（阶段四工单 4.1 协议演进同步；与 doc/02 v2.16 同步） |
 
 ---
 
@@ -56,7 +57,7 @@
 | 抽象           | 设计                                                                                                                                                                           | 来源                                                           |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
 | **事件模型**   | 19 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分    | opencode durable/live + dsh surface                            |
-| **会话**       | append-only JSONL 树（条目 `id/parentId`）；分叉=只移 leaf 指针；compaction 是树上的普通 entry（summary+keptFromSeq 锚点）；模型上下文=Projector 从 surface 事件投影           | pi session-manager + dsh projector                             |
+| **会话**       | append-only JSONL 树（条目 `id/parentId`）；分叉=只移 leaf 指针；compaction 是树上的普通 entry（summary+keptFromEventId 锚点）；模型上下文=Projector 从 surface 事件投影           | pi session-manager + dsh projector                             |
 | **输入三通道** | `now`（空闲即开 turn）/ `steer`（进行中，下一 step 前注入）/ `queue`（turn 间依序）；提交三态 `started/steered/queued`；唤醒合并防空转                                         | Codex TurnInputMode + opencode pendingWake                     |
 | **工具管线**   | zod schema-first；before→permission→execute→after；serial 工具 barrier / parallel 工具并发（read 并行，bash/edit/write 独占）；输出 >32KB 溢写文件；中断补合成事件对           | Codex RwLock 门控 + dsh 三段 waterfall + opencode output-store |
 | **审批**       | wildcard 规则 `findLast` 胜出、无命中默认 ask、agent 未声明全 deny；ask 时工具 Promise 挂起在事件上（任何客户端可接单）；always 持久化并自动放行同批；reject+feedback 回喂模型 | opencode permission.ts + dsh fail-closed                       |

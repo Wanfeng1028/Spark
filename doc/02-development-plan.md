@@ -31,6 +31,7 @@
 | v2.13 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三继续）                                                                                                                                       | **阶段三工单 8/9 完成**：PiGateway（pi-ai 0.84.3 集成：消息双向映射 toolResult 拆独立消息+toolName 回查/Type.Unsafe 薄桥/provider→api 表/错误内化不抛/429-5xx-网络指数退避 1s/2s/4s±20% 重试 3 次/已交付不重试/abort 前缀保留/generateOnce，31 例）；Projector 投影六步+compaction 锚点（20 例）；engine 230 例全绿。spike 脚本备妥待 DEEPSEEK_API_KEY 实证（工单 8 真实模型验证留给阶段验收）                                                                                                                                                                                                                                                                                                                    |
 | v2.14 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三继续）                                                                                                                                       | **阶段三工单 10a/10b/10c 完成**：Engine 门面（createSession/resume/listSessions/replyPermission/shutdown，per-session 循环串，跨会话并发，13 例单测）；server REST+SSE 全端点（POST sessions/messages/interrupt/permissions + GET sessions/sessions/:id/event，zod 400/404/409/503 映射，SSE 回放水位+直播+心跳+背压+bye 帧，23 例）；web HttpTransport 与 context 接线（SSE 帧解析/注释帧忽略/退避重连/resync 重放/REST 错误映射/断线状态，18 例）；全仓 313 例（engine 243 + server 23 + web 47）+ typecheck/lint 全绿；§8 阶段三工单 REST+SSE+HttpTransport 行勾                                                                                                                                                                                                                                                                                              |
 | v2.15 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三继续）                                                                                                                                       | **阶段三工单 11 完成**：Logger 封装（pino v10 stdout + `<root>/logs/engine.log` 双路，info 级别，字段约定 sid/turnId/callId/code/durMs）；写入前脱敏三层正则（sk-xxx 20+ 字母数字 / Bearer + token / process.env ≥6 字符值出现处 → ***），递归遍历对象数组 Error；bus subscriber 异常与 SessionStore 尾行半写接入 logger；Engine 生命周期 4 条日志（start/shutdown.start/shutdown.done/shutdown.error + ownsLogger close await flush）；8 例单测；§8 阶段三工单 pino 行勾；全仓 367 例（engine 251/server 23/web 47/protocol 46）+ typecheck/lint 全绿；阶段验收（真实模型闭环/断线重连/kill-9 resume）待 DEEPSEEK_API_KEY 用户自配后由 e2e-smoke 脚本执行                                                                                                                                                                                                                                                                |
+| v2.16 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.1 协议演进落地**：`compaction.completed` 锚点 `keptFromSeq` → `keptFromEventId`（§5.8.5 分支隐患——fork 后路径序≠文件行序；Projector/Compactor 改按锚点事件在路径中的位置过滤，含边界；锚点 id 不在路径时退化"摘要+全量"不丢数据）；`permission.asked` 增 `patterns?[]`/`alwaysPatterns?[]`（§5.7 补强 1/3，前端 approval item 透传）；protocol zod + 引擎 + mock 场景（normal/reject）+ 前端 applyEvent + 四端单测同步；全仓 368 例 + typecheck/lint 全绿 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -321,11 +322,13 @@ export interface SparkEventMap {
     resource: string
     reason: string
     detail?: unknown
+    patterns?: string[]        // §5.7 补强 1：多 pattern 展示（阶段四工单 4.1 落地）
+    alwaysPatterns?: string[]  // §5.7 补强 3：always 固化范围声明
   }
   'permission.resolved': { requestId: RequestId; reply: PermissionReply; feedback?: string }
   // 上下文管理
   'compaction.started': { turnId?: TurnId }
-  'compaction.completed': { summary: string; keptFromSeq: number; tokensBefore: number }
+  'compaction.completed': { summary: string; keptFromEventId: EventId; tokensBefore: number }
   'checkpoint.created': { checkpointId: CheckpointId; files: string[]; turnId: TurnId }
   // 系统
   error: { scope: 'engine' | 'llm' | 'tool' | 'io'; message: string; fatal?: boolean }
@@ -870,7 +873,7 @@ UI 收到 asked → ApprovalCard → POST /api/permissions/:requestId
 
 **与 opencode（`packages/opencode/src/permission/index.ts`）的对照补强**（v2.4 在线核对，7 条）：
 
-1. **多 pattern 评估**：一次工具调用可声明多个 resource pattern（如复合 bash 命令）；逐 pattern evaluate——任一 deny → 立即拒绝；全部 allow → 放行；否则**一次 ask 携带全部 patterns**。词表扩展：`permission.asked` 增 `patterns?[]` / `alwaysPatterns?[]`，按 AGENTS §2.5 从 protocol 改起随下次提交落地。
+1. **多 pattern 评估**：一次工具调用可声明多个 resource pattern（如复合 bash 命令）；逐 pattern evaluate——任一 deny → 立即拒绝；全部 allow → 放行；否则**一次 ask 携带全部 patterns**。词表扩展：`permission.asked` 增 `patterns?[]` / `alwaysPatterns?[]`（阶段四工单 4.1 已落地 protocol/引擎/前端透传；规则引擎消费见工单 4.7）。
 2. **reject 也级联**：用户 reject 后，同会话其余挂起审批一并自动 reject 并发 resolved 事件（fail-closed 收敛；此前只定义了 always 级联放行）。
 3. **always 的持久化范围在 ask 时声明**：`alwaysPatterns` 与展示用 patterns 解耦（opencode `request.always`）——决定"总是允许"到底固化哪几条规则。
 4. **优先级实现机制实锤**：evaluate 对 [用户级, 项目级, 会话临时] **依序扁平化后 findLast**——会话临时层排最后即最高优先（5.7.1 声明的机制路径确认）。
@@ -919,7 +922,7 @@ class EventTree {
 modelContext(leafId):
   1. path = tree.pathToRoot(leafId)                      // 全部 durable 事件
   2. c = path 上最新 compaction.completed（无则跳到 4）
-  3. 上下文 = [system: c.summary] + path 中 seq ≥ c.keptFromSeq 的 surface 事件
+  3. 上下文 = [system: c.summary] + path 中锚点事件（c.keptFromEventId，含）之后的 surface 事件
   4. （无 compaction）上下文 = path 全部 surface 事件
   5. 投影：user.message→user 消息；assistant.message→assistant 消息
      （content 内 toolCall/toolResult 转为 provider 对应的消息结构）；
@@ -948,8 +951,8 @@ compact(rt):
   emit compaction.started
   summary = await LlmGateway.generateOnce(compactionModel,
       prompt=压缩提示词 + 旧上下文（Projector 输出）, maxTokens=2000)
-  keptFromSeq = 当前上下文中"最近 N 条 surface 事件"的首 seq（N 由 token 预算反推）
-  emit compaction.completed{summary, keptFromSeq, tokensBefore}(durable)
+  keptFromEventId = 当前上下文中"最近 N 条 surface 事件"的首事件 id（N 由 token 预算反推）
+  emit compaction.completed{summary, keptFromEventId, tokensBefore}(durable)
   （此后 Projector 自动按 5.8.3 生效；旧事件不删——append-only）
 触发（v2.7 升级为 opencode `session/overflow.ts` 的 **reserve 扣减公式**）：
   usable = (model.limit.input ?? context − maxOutputTokens(model)) − reserved
@@ -961,7 +964,7 @@ compact(rt):
 （压缩调用本身的 usage 不计入会话 usage——与 Claude Code modelUsage 口径一致的做法，v1 简化为不计）
 ```
 
-**compaction 锚点的分支隐患**（v2.5，pi `firstKeptEntryId` 实证）：pi 的 compaction 条目锚定 **entry id**，我们在词表里用 `keptFromSeq`（文件行号）。v1 线性会话下 seq==路径序没问题；**阶段四 fork 后路径序≠文件行序**，seq 比较会保留错误的条目——届时按 §2.5 从 protocol 改为 `keptFromEventId`（Projector 语义同 pi buildContextEntries：摘要消息 + [锚点事件..compaction 前全部] + compaction 后全部）。另：compaction 条目本身参与上下文（作为摘要消息）——与我们"system: summary"等价，互证。
+**compaction 锚点的分支隐患**（v2.5，pi `firstKeptEntryId` 实证；**阶段四工单 4.1 已落地**）：pi 的 compaction 条目锚定 **entry id**，词表原用 `keptFromSeq`（文件行号）。v1 线性会话下 seq==路径序没问题；**阶段四 fork 后路径序≠文件行序**，seq 比较会保留错误的条目——已按 §2.5 从 protocol 改为 `keptFromEventId`（Projector 语义同 pi buildContextEntries：摘要消息 + [锚点事件..compaction 前全部] + compaction 后全部）。锚点 id 不在路径（数据损坏）时退化为"摘要+全量事件"投影（不丢数据，超限自愈再压缩）。另：compaction 条目本身参与上下文（作为摘要消息）——与我们"system: summary"等价，互证。
 
 ### 5.8.6 fork（阶段四）
 
