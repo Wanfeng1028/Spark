@@ -32,6 +32,7 @@
 | v2.14 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三继续）                                                                                                                                       | **阶段三工单 10a/10b/10c 完成**：Engine 门面（createSession/resume/listSessions/replyPermission/shutdown，per-session 循环串，跨会话并发，13 例单测）；server REST+SSE 全端点（POST sessions/messages/interrupt/permissions + GET sessions/sessions/:id/event，zod 400/404/409/503 映射，SSE 回放水位+直播+心跳+背压+bye 帧，23 例）；web HttpTransport 与 context 接线（SSE 帧解析/注释帧忽略/退避重连/resync 重放/REST 错误映射/断线状态，18 例）；全仓 313 例（engine 243 + server 23 + web 47）+ typecheck/lint 全绿；§8 阶段三工单 REST+SSE+HttpTransport 行勾                                                                                                                                                                                                                                                                                              |
 | v2.15 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三继续）                                                                                                                                       | **阶段三工单 11 完成**：Logger 封装（pino v10 stdout + `<root>/logs/engine.log` 双路，info 级别，字段约定 sid/turnId/callId/code/durMs）；写入前脱敏三层正则（sk-xxx 20+ 字母数字 / Bearer + token / process.env ≥6 字符值出现处 → ***），递归遍历对象数组 Error；bus subscriber 异常与 SessionStore 尾行半写接入 logger；Engine 生命周期 4 条日志（start/shutdown.start/shutdown.done/shutdown.error + ownsLogger close await flush）；8 例单测；§8 阶段三工单 pino 行勾；全仓 367 例（engine 251/server 23/web 47/protocol 46）+ typecheck/lint 全绿；阶段验收（真实模型闭环/断线重连/kill-9 resume）待 DEEPSEEK_API_KEY 用户自配后由 e2e-smoke 脚本执行                                                                                                                                                                                                                                                                |
 | v2.16 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.1 协议演进落地**：`compaction.completed` 锚点 `keptFromSeq` → `keptFromEventId`（§5.8.5 分支隐患——fork 后路径序≠文件行序；Projector/Compactor 改按锚点事件在路径中的位置过滤，含边界；锚点 id 不在路径时退化"摘要+全量"不丢数据）；`permission.asked` 增 `patterns?[]`/`alwaysPatterns?[]`（§5.7 补强 1/3，前端 approval item 透传）；protocol zod + 引擎 + mock 场景（normal/reject）+ 前端 applyEvent + 四端单测同步；全仓 368 例 + typecheck/lint 全绿 |
+| v2.17 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.2 完成**：steer/queue 完整语义端到端时序单测 3 例（queue 依序消费 FIFO 三 turn 严格配对交替 / 多 steer 下一 step 前按提交序注入采样上下文 / interrupt 后残留 steer 依序转主队列续跑两 turn——§5.4 补漏语义实证）；UI 走查确认 Composer 插话/排队按钮链路真实生效（三态提示→HttpTransport delivery 透传→路由 zod→engine 三态路由，mock @wait:message 演示路径可用）；§8 阶段四 steer/queue 行勾选；engine 255 例全绿 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -1646,7 +1647,7 @@ app.get('/api/event', async (req, reply) => {
 
 ## 阶段四：深度体验
 
-- [ ] steer/queue 完整语义验证（turn 中插话/排队消费）
+- [x] steer/queue 完整语义验证（turn 中插话/排队消费）
 - [ ] compaction（自动阈值+手动 /compact）+ 前端轻提示
 - [ ] 会话恢复/列表/自动标题；fork 与树视图
 - [ ] checkpoint（turn 边界 git 快照，两域简化）+ UI

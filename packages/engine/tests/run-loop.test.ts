@@ -484,3 +484,102 @@ describe('runSessionLoop（§5.5）', () => {
     await expect(loop).resolves.toBeUndefined()
   })
 })
+
+describe('steer/queue 完整语义（工单 4.2 / §5.4 端到端时序）', () => {
+  test('queue 依序消费：running 中多项 queue → turn 完成后 FIFO 依次开 turn', async () => {
+    const f = makeFixture()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '一答' }], hangMs: 60 })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: 'A答' }] })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: 'B答' }] })
+    const loop = runSessionLoop(f.rt, f.deps)
+
+    f.rt.submit('第一问')
+    await vi.waitFor(() => expect(f.gateway.calls).toHaveLength(1))
+    f.rt.submit('问题A', 'queue')
+    f.rt.submit('问题B', 'queue')
+    await vi.waitFor(() => {
+      expect(sinkTypes(f).filter((t) => t === 'turn.completed')).toHaveLength(3)
+    })
+
+    // FIFO：user 消息按提交序各开一个 turn
+    const userTexts = f.sink.events
+      .filter((e) => isEvent(e, 'user.message'))
+      .map((e) => e.data.text)
+    expect(userTexts).toEqual(['第一问', '问题A', '问题B'])
+    // 三组 turn.started/completed 严格配对交替（依序消费不交错）
+    const turnMarks = sinkTypes(f).filter((t) => t === 'turn.started' || t === 'turn.completed')
+    expect(turnMarks).toEqual([
+      'turn.started',
+      'turn.completed',
+      'turn.started',
+      'turn.completed',
+      'turn.started',
+      'turn.completed',
+    ])
+    f.rt.shutdown()
+    await expect(loop).resolves.toBeUndefined()
+  })
+
+  test('多 steer 依序注入：下一 step 前按提交序全部进上下文', async () => {
+    const f = makeFixture()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '开始' }], hangMs: 60 })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '收到两条插话' }] })
+    const p = runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: '原始问题',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    await vi.waitFor(() => expect(f.gateway.calls).toHaveLength(1))
+    f.rt.submit('插话一', 'steer')
+    f.rt.submit('插话二', 'steer')
+    await p
+
+    // 两条注入 user.message 均落在 step①，下一 step 的采样上下文按提交序可见
+    const texts = f.gateway.calls[1]?.messages
+      .flatMap((m) => m.content)
+      .filter((c) => c.type === 'text')
+      .map((c) => c.text)
+    expect(texts).toEqual(['原始问题', '开始', '插话一', '插话二'])
+  })
+
+  test('interrupt 后残留转 queue：aborted 收尾 → steer 依序转主队列续跑两个 turn', async () => {
+    const f = makeFixture()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '被打断的前缀' }], hangMs: 5000 })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: 'S1答' }] })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: 'S2答' }] })
+    const loop = runSessionLoop(f.rt, f.deps)
+
+    f.rt.submit('长任务')
+    await vi.waitFor(() => expect(f.gateway.calls).toHaveLength(1))
+    f.rt.submit('残留S1', 'steer')
+    f.rt.submit('残留S2', 'steer')
+    f.rt.interrupt()
+    await vi.waitFor(() => {
+      expect(sinkTypes(f).filter((t) => t === 'turn.completed')).toHaveLength(3)
+    })
+
+    // turn1 = aborted；steer 残留不在 turn1 内（其 user.message 均在 turn1.completed 之后）
+    const events = f.sink.events
+    const firstCompletedIdx = events.findIndex((e) => isEvent(e, 'turn.completed'))
+    const steerMsgs = events.filter(
+      (e): e is SparkEventEnvelope<'user.message'> =>
+        isEvent(e, 'user.message') && e.data.text.startsWith('残留'),
+    )
+    expect(steerMsgs.map((e) => e.data.text)).toEqual(['残留S1', '残留S2'])
+    for (const e of steerMsgs) {
+      expect(events.indexOf(e)).toBeGreaterThan(firstCompletedIdx)
+    }
+    expect(lastOf(f, 'turn.completed')?.data).toMatchObject({ finish: 'stop' })
+    // 续跑两 turn 各自采样到对应残留文本（依序 FIFO）
+    expect(f.gateway.calls[1]?.messages.at(-1)?.content).toEqual([
+      { type: 'text', text: '残留S1' },
+    ])
+    expect(f.gateway.calls[2]?.messages.at(-1)?.content).toEqual([
+      { type: 'text', text: '残留S2' },
+    ])
+    f.rt.shutdown()
+    await expect(loop).resolves.toBeUndefined()
+  })
+})
