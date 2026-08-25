@@ -6,8 +6,8 @@
  */
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply } from './primitives.js'
-import type { SessionDto, TreeNodeDto } from './api.js'
-import type { EventId, RequestId, SessionId } from './ids.js'
+import type { CheckpointDto, SessionDto, TreeNodeDto } from './api.js'
+import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
 
 export interface SendMessageOptions {
   delivery?: Delivery
@@ -35,5 +35,9 @@ export interface Transport {
   getTree(sessionId: SessionId): Promise<TreeNodeDto[]>
   /** POST /api/sessions/:id/fork：从指定事件分叉新会话（三拒绝码经错误消息透出，§5.8.6） */
   fork(sessionId: SessionId, fromEventId: EventId): Promise<SessionDto>
+  /** GET /api/sessions/:id/checkpoints：turn 边界快照列表（旧→新，工单 4.6） */
+  listCheckpoints(sessionId: SessionId): Promise<CheckpointDto[]>
+  /** POST /api/sessions/:id/checkpoints/:cid/rollback：工作区+会话文件复位到快照（回滚后 seq 回退，调用方须全量重放） */
+  rollbackCheckpoint(sessionId: SessionId, checkpointId: CheckpointId): Promise<SessionDto>
   dispose(): void
 }

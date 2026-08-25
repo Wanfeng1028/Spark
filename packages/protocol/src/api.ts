@@ -2,7 +2,7 @@
  * HTTP API DTO（doc/02 §4.5.1）——SessionMeta 的线上形状。
  */
 import { z } from 'zod'
-import { EventIdSchema, SessionIdSchema } from './ids.js'
+import { CheckpointIdSchema, EventIdSchema, SessionIdSchema, TurnIdSchema } from './ids.js'
 import type { SparkEventEnvelope } from './events.js'
 import type { TurnId } from './ids.js'
 
@@ -56,3 +56,14 @@ export const TreeNodeDtoSchema = z.strictObject({
   forks: z.array(ForkChildDtoSchema),
 })
 export type TreeNodeDto = z.infer<typeof TreeNodeDtoSchema>
+
+// ---------- checkpoint（doc/02 §5.8.7 / 阶段四工单 4.6） ----------
+
+/** GET /api/sessions/:id/checkpoints 行：turn 边界快照（files 含会话文件别名） */
+export const CheckpointDtoSchema = z.strictObject({
+  checkpointId: CheckpointIdSchema,
+  turnId: TurnIdSchema,
+  createdAt: z.number().int().nonnegative(),
+  files: z.array(z.string()),
+})
+export type CheckpointDto = z.infer<typeof CheckpointDtoSchema>

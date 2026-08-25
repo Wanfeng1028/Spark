@@ -40,6 +40,11 @@ export interface Compactor {
   compact(): Promise<void>
 }
 
+/** 工单 4.6：turn 边界快照端口（实现自闭合——失败 emit error{io}，不向 run-loop 抛） */
+export interface Checkpointer {
+  snapshot(turnId: TurnId): Promise<void>
+}
+
 /** 本 step 待执行的工具调用（assistant.message content 中 toolCall 项的提取） */
 export interface ToolCallPending {
   callId: CallId
@@ -86,6 +91,8 @@ export interface RunLoopDeps {
   maxStepsPerTurn: number
   /** 压缩阈值比例（config.engine.compactionThreshold，乘 contextWindow） */
   compactionThreshold: number
+  /** turn 边界 checkpoint（工单 4.6；config.engine.checkpoints=false 时缺省） */
+  checkpoint?: Checkpointer
 }
 
 function isToolCall(c: ContentItem): c is Extract<ContentItem, { type: 'toolCall' }> {
@@ -277,6 +284,11 @@ export async function runTurn(
     // 失败闭合：started 已发则必有 completed；endTurn 转移 steer 残留并处理 idle
     if (started) {
       await deps.bus.emit(sid, 'turn.completed', { turnId, finish, usage })
+      // turn 边界 checkpoint（工单 4.6）：completed 已落盘，快照在下一输入前串行执行
+      // （晚于 turn.completed、不含自身事件；失败由实现自闭合 emit error{io}）
+      if (deps.checkpoint !== undefined) {
+        await deps.checkpoint.snapshot(turnId)
+      }
     }
     rt.endTurn()
   }

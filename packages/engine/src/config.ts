@@ -38,6 +38,8 @@ const sparkSchema = z.object({
       progressThrottleMs: z.number().int().positive(),
       toolOutputLimitKB: z.number().int().positive(),
       compactionThreshold: z.number().gt(0).lt(1),
+      /** turn 边界 checkpoint（阶段四工单 4.6）：git 快照开关（测试夹具关掉提速） */
+      checkpoints: z.boolean(),
     })
     .partial()
     .optional(),
@@ -53,6 +55,7 @@ export interface SparkConfig {
     progressThrottleMs: number
     toolOutputLimitKB: number
     compactionThreshold: number
+    checkpoints: boolean
   }
 }
 
@@ -66,6 +69,7 @@ const SPARK_DEFAULTS: SparkConfig = {
     progressThrottleMs: 200,
     toolOutputLimitKB: 32,
     compactionThreshold: 0.8,
+    checkpoints: true,
   },
 }
 
@@ -188,6 +192,7 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
               progressThrottleMs: p.engine?.progressThrottleMs ?? SPARK_DEFAULTS.engine.progressThrottleMs,
               toolOutputLimitKB: p.engine?.toolOutputLimitKB ?? SPARK_DEFAULTS.engine.toolOutputLimitKB,
               compactionThreshold: p.engine?.compactionThreshold ?? SPARK_DEFAULTS.engine.compactionThreshold,
+              checkpoints: p.engine?.checkpoints ?? SPARK_DEFAULTS.engine.checkpoints,
             },
           }
         })()

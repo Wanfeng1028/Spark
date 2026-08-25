@@ -13,8 +13,9 @@
  */
 import { readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import type {
+  CheckpointId,
   Delivery,
   EventId,
   PermissionReply,
@@ -29,6 +30,8 @@ import type { SessionStatus } from '@spark/protocol'
 import { EventBus } from './bus.js'
 import type { EventSink, SubscribeHandle } from './bus.js'
 import { CompactorImpl } from './compaction.js'
+import { GitCheckpointer } from './checkpoint.js'
+import type { CheckpointRecord } from './checkpoint.js'
 import { loadConfig, loadProjectRules } from './config.js'
 import type { EngineConfig, ModelRef } from './config.js'
 import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
@@ -127,6 +130,8 @@ interface SessionEntry {
   meta: SessionMeta
   /** 手动压缩入口（§5.8.5；自动触发在 run-loop step ②） */
   compactor: Compactor
+  /** turn 边界快照（工单 4.6；config.engine.checkpoints=false 时 null） */
+  checkpointer: GitCheckpointer | null
   /** 会话自动标题入口（§5.11；turn.completed 后由 meta 订阅器触发） */
   titler: TitleGenerator
   /** 在途标题任务（null=无；触发去重 + shutdown 收尾） */
@@ -476,6 +481,37 @@ export class Engine {
     return { nodes, forks: await this.scanForkChildren(id) }
   }
 
+  /** 工单 4.6：快照列表（创建序 = 旧→新；未启用/无快照 → []） */
+  async checkpointsOf(id: SessionId): Promise<CheckpointRecord[]> {
+    const entry = await this.requireEntry(id)
+    return entry.checkpointer === null ? [] : entry.checkpointer.list()
+  }
+
+  /**
+   * 工单 4.6 回滚：工作区 + 会话文件复位到快照。前置：会话 idle（运行中 →
+   * E_TURN_ACTIVE）。停旧 run-loop/store → 覆写两域 → 重载（重建树、续 seq、
+   * emit session.resumed）。E_NOT_FOUND 快照不存在；E_CHECKPOINT_ROLLBACK git 失败。
+   */
+  async rollbackToCheckpoint(id: SessionId, checkpointId: CheckpointId): Promise<SessionHandle> {
+    this.assertNotShutdown()
+    const entry = await this.requireEntry(id)
+    if (entry.runtime.state === 'running') {
+      throw new Error('E_TURN_ACTIVE: turn 进行中，不可回滚——请等本轮结束')
+    }
+    if (entry.checkpointer === null) {
+      throw new Error(`E_NOT_FOUND: checkpoint ${checkpointId} 不存在（checkpoint 未启用）`)
+    }
+    // 单写者纪律：覆写会话文件前先停 run-loop、flush + close 旧 store
+    entry.runtime.interrupt()
+    entry.runtime.shutdown()
+    await entry.loop
+    await entry.store.close()
+    this.sessions.delete(id)
+    await entry.checkpointer.rollback(checkpointId)
+    this.logger.info('session.rollback', { sid: id, checkpointId })
+    return this.requireEntry(id) // 重载：requireEntry → loadSession（树重建 + session.resumed）
+  }
+
   /** 磁盘扫描 header.parentSession === id 的会话 → 边界事件 + 子会话信息（标题须读事件） */
   private async scanForkChildren(
     id: SessionId,
@@ -643,6 +679,17 @@ export class Engine {
       projector,
       model: compactionModel, // §5.11 辅助提示词同一廉价通道
     })
+    const checkpointer = this.config.spark.engine.checkpoints
+      ? new GitCheckpointer({
+          sessionId: meta.id,
+          cwd: meta.cwd,
+          sessionPath: store.path,
+          checkpointRoot: join(dirname(store.path), 'checkpoints'),
+          bus: this.bus,
+          logger: this.logger,
+          now: this.now,
+        })
+      : null
     const tools = new ToolPipelineImpl({
       sessionId: meta.id,
       bus: this.bus,
@@ -664,9 +711,20 @@ export class Engine {
       system: buildSystemPrompt(meta.cwd),
       maxStepsPerTurn: this.config.spark.engine.maxStepsPerTurn,
       compactionThreshold: this.config.spark.engine.compactionThreshold,
+      ...(checkpointer !== null
+        ? {
+            checkpoint: {
+              // 快照读会话文件前先 fsync（append 已落 page cache，fsync 保崩溃一致）
+              snapshot: async (turnId: TurnId) => {
+                await store.flush()
+                await checkpointer.snapshot(turnId)
+              },
+            },
+          }
+        : {}),
     }
     const loop = runSessionLoop(runtime, deps)
-    return { store, runtime, meta, compactor, titler, titleTask: null, loop }
+    return { store, runtime, meta, compactor, checkpointer, titler, titleTask: null, loop }
   }
 
   private handleOf(entry: SessionEntry): SessionHandle {

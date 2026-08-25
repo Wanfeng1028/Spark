@@ -60,6 +60,7 @@ export {
   runTurn,
   type Projector,
   type Compactor,
+  type Checkpointer,
   type ToolCallPending,
   type ToolPipelineResult,
   type ToolPipeline,
@@ -106,6 +107,12 @@ export {
   type Projection,
 } from './projector.js'
 export { CompactorImpl, COMPACTION_PROMPT, type CompactorDeps } from './compaction.js'
+export {
+  GitCheckpointer,
+  SESSION_ALIAS,
+  type CheckpointRecord,
+  type GitCheckpointerDeps,
+} from './checkpoint.js'
 export {
   PiGateway,
   classifyLlmError,
