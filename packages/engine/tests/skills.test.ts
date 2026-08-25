@@ -177,7 +177,9 @@ describe('EventBus.emitExtended（durable/live 双路 + ignorable 信封）', ()
       schema: z.object({ skill: z.string(), sourceEventId: z.string(), sourceType: z.string() }),
     })
     const appended: SparkEventEnvelope[] = []
-    const bus = new EventBus({ sink: { append: async (e) => { appended.push(e); return e } } })
+    const bus = new EventBus({
+      sink: { append: (e) => { appended.push(e); return Promise.resolve(e) } },
+    })
     const sid = ids.session('sesSkiDurable0000000000')
     bus.restoreSeq(sid, 0)
     const seen: SparkEventEnvelope[] = []
@@ -196,7 +198,9 @@ describe('EventBus.emitExtended（durable/live 双路 + ignorable 信封）', ()
       liveOnly: true,
     })
     const appended: SparkEventEnvelope[] = []
-    const bus = new EventBus({ sink: { append: async (e) => { appended.push(e); return e } } })
+    const bus = new EventBus({
+      sink: { append: (e) => { appended.push(e); return Promise.resolve(e) } },
+    })
     const sid = ids.session('sesSkiLiveonly000000000')
     const seen: SparkEventEnvelope[] = []
     bus.subscribe((e) => { seen.push(e) })
@@ -210,7 +214,7 @@ describe('EventBus.emitExtended（durable/live 双路 + ignorable 信封）', ()
 
   test('未注册类型 / data 校验失败：抛错闭合', async () => {
     registerEventType('plugin.c.bad', { schema: z.object({ x: z.number() }) })
-    const bus = new EventBus({ sink: { append: async (e) => e } })
+    const bus = new EventBus({ sink: { append: (e) => Promise.resolve(e) } })
     const sid = ids.session('sesSkiInvalid000000000')
     await expect(bus.emitExtended(sid, 'plugin.nope.x', {})).rejects.toThrow(/E_BUS_UNKNOWN_TYPE/)
     await expect(bus.emitExtended(sid, 'plugin.c.bad', { x: '不是数字' })).rejects.toThrow(/E_BUS_INVALID_DATA/)

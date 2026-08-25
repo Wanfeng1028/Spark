@@ -98,9 +98,9 @@ afterEach(async () => {
 describe('Task 工具（makeTaskTool 六要素）', () => {
   test('name/permission/parallelizable/执行体委托', async () => {
     const calls: string[] = []
-    const tool = makeTaskTool(async (input) => {
+    const tool = makeTaskTool((input) => {
       calls.push(input.prompt)
-      return { output: `ran:${input.prompt}`, isError: false }
+      return Promise.resolve({ output: `ran:${input.prompt}`, isError: false })
     })
     expect(tool.name).toBe('task')
     expect(tool.permission.action).toBe('agent.task')

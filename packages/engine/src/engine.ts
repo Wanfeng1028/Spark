@@ -849,7 +849,7 @@ export class Engine {
               // 父先中断、子 turn 后开始：turn.started 时补一次 interrupt
               //（interrupt 在 turn 未开始时是 no-op——本行关闭该竞态）
               if (e.type === 'turn.started' && ctx.signal.aborted) {
-                child.interrupt()
+                void child.interrupt()
               }
               if (e.type === 'assistant.message') {
                 const texts = (e.data as { content: Array<{ type: string; text?: string }> })
@@ -1051,7 +1051,8 @@ export class Engine {
         try {
           return Promise.resolve(entry.runtime.submit(text, delivery, undefined, expectedTurnId))
         } catch (err) {
-          return Promise.reject(err)
+          // reject 理由必须是 Error（prefer-promise-reject-errors）；submit 抛的均为 Error
+          return Promise.reject(err instanceof Error ? err : new Error(String(err)))
         }
       },
       interrupt: () => {

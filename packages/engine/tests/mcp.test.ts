@@ -12,7 +12,6 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { ids, type SparkEventEnvelope } from '@spark/protocol'
@@ -31,7 +30,7 @@ import { ToolOutputStore } from '../src/tools/output-store.js'
 
 const FIXTURE_SERVER = fileURLToPath(new URL('./fixtures/mcp-echo-server.mjs', import.meta.url))
 
-let dirs: string[] = []
+const dirs: string[] = []
 
 function tempDir(): string {
   const d = mkdtempSync(join(tmpdir(), 'spark-mcp-'))
@@ -84,10 +83,10 @@ async function inMemoryFixture(): Promise<{
 }> {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
   const server = new McpServer({ name: 't', version: '1.0.0' })
-  server.tool('echo', '原样返回', { message: z.string() }, async ({ message }) => ({
+  server.tool('echo', '原样返回', { message: z.string() }, ({ message }) => ({
     content: [{ type: 'text', text: `echo: ${message}` }],
   }))
-  server.tool('fail', '总是失败', {}, async () => ({
+  server.tool('fail', '总是失败', {}, () => ({
     content: [{ type: 'text', text: 'boom' }],
     isError: true,
   }))
