@@ -58,6 +58,8 @@ import { registerBuiltinTools } from './tools/builtin/index.js'
 import { newIds } from './ulid.js'
 import { Logger } from './logger.js'
 import type { SparkLogger } from './logger.js'
+import { loadMcpConfig } from './mcp/config.js'
+import { McpManager } from './mcp/manager.js'
 
 export const SPARK_VERSION = '0.1.0'
 
@@ -163,6 +165,10 @@ export class Engine {
   private indexClosed = false
   private readonly indexReady: Promise<void>
   private readonly registry: ToolRegistry
+  /** MCP 外部工具管理（阶段五工单 5.3 / ADR D16）：与内置工具同一注册表同一管线 */
+  private readonly mcp: McpManager
+  /** MCP 连接任务（connect 内部逐 server 失败闭合；ready() 供 server 入口等待） */
+  private readonly mcpReady: Promise<void>
   private readonly outputs: ToolOutputStore
   private readonly sessions = new Map<SessionId, SessionEntry>()
   private readonly inflight = new Map<SessionId, Promise<SessionEntry>>()
@@ -223,6 +229,16 @@ export class Engine {
     registerBuiltinTools(this.registry, {
       bashSandbox: this.config.spark.engine.bashSandbox,
     })
+    // MCP 外部工具（工单 5.3）：配置缺失 = 零外部工具立即就绪；单 server 失败
+    // 由 manager 内部 warn 闭合（工具不注册，引擎照常启动）
+    this.mcp = new McpManager({
+      config: loadMcpConfig(this.root),
+      logger: this.logger,
+      toolTimeoutMs: this.config.spark.engine.toolTimeoutMs,
+    })
+    this.mcpReady = this.mcp.connect(this.registry).catch((err: unknown) => {
+      this.logger.warn('mcp.connect.error', { err })
+    })
     this.outputs = new ToolOutputStore(
       this.config.spark.engine.toolOutputLimitKB * 1024,
       join(this.root, 'tool-outputs'),
@@ -273,6 +289,11 @@ export class Engine {
           })
       }
     })
+  }
+
+  /** MCP 连接任务完成（server 入口 listen 前等待；无 mcp.json 立即返回） */
+  ready(): Promise<void> {
+    return this.mcpReady
   }
 
   /** §5.3 订阅透传（server SSE 的数据源；resume 供 SSE 背压 drain 恢复） */
@@ -766,6 +787,8 @@ export class Engine {
       await Promise.all([...this.sessions.values()].map((e) => e.titleTask ?? Promise.resolve()))
       // 4) 审批 pending 全部 fail-closed（§5.7 补强 7）
       await this.permission.dispose()
+      // 4.5) MCP 子进程关闭（工具已随 run-loop 退出不再调用）
+      await this.mcp.close()
       // 5) 全量 flush + close（fsync）
       for (const entry of this.sessions.values()) {
         await entry.store.close()

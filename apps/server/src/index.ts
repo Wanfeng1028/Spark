@@ -19,6 +19,8 @@ const HOST = process.env.SPARK_HOST ?? '127.0.0.1' // 仅本地绑定，刻意�
 const WEB_DIST = process.env.SPARK_WEB_DIST ?? fileURLToPath(new URL('../../web/dist', import.meta.url))
 
 const engine = new Engine()
+// MCP 外部工具注册完成后再对外服务（无 mcp.json 立即返回；单 server 失败已 warn 跳过）
+await engine.ready()
 
 // Fastify 内置 pino logger（§7.1 level info；传 pino 实例与 exactOptionalPropertyTypes 不兼容）
 const app = Fastify({ logger: { level: 'info' } })

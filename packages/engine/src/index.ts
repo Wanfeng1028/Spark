@@ -102,6 +102,18 @@ export {
   type BashSandboxMode,
   type SandboxWrapper,
 } from './tools/sandbox.js'
+export {
+  loadMcpConfig,
+  type McpConfig,
+  type McpServerConfig,
+} from './mcp/config.js'
+export {
+  McpManager,
+  makeMcpToolDef,
+  mcpToolName,
+  serializeMcpContent,
+  type McpManagerDeps,
+} from './mcp/manager.js'
 export { evaluate, type Effect } from './permission/rules.js'
 export {
   PermissionServiceImpl,
