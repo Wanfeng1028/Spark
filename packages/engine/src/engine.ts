@@ -659,6 +659,10 @@ export class Engine {
     const projector = new ProjectorImpl({
       tree: store.tree,
       includeReasoning: reasoningIncluded(model.provider),
+      // 悬空锚点（数据损坏兜底被触发）：结构化 warning 可 grep，不静默退化
+      onDanglingAnchor: (anchorId) => {
+        this.logger.warn('projector.dangling_anchor', { sid: meta.id, anchorId })
+      },
     })
     const compactionModel = this.resolveModel(this.config.models.compactionModel)
     const compactor = new CompactorImpl({

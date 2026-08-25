@@ -32,6 +32,8 @@ export interface ProjectorDeps {
   tree: EventTree
   /** §5.8.3 第 5 步 provider 配置：Anthropic thinking 块保留，其他丢弃 */
   includeReasoning: boolean
+  /** 悬空锚点告警（§5.8.5 数据损坏兜底被触发时调用；实现方落结构化日志） */
+  onDanglingAnchor?: (anchorId: EventId) => void
 }
 
 /** §5.8.3 第 5 步：reasoning 投影的 provider 判定（Anthropic thinking 块 / 其他丢弃） */
@@ -91,14 +93,19 @@ export function estimateTokens(messages: readonly LlmMessage[]): number {
  * 锚点定位：keptFromEventId 在路径中的位置（含该事件）之后全部保留——
  * 与 seq 比较不同，路径序与文件行序解耦后依然正确（§5.8.5 分支隐患修复）。
  */
-export function projectSurface(tree: EventTree, includeReasoning: boolean): Projection {
+export function projectSurface(
+  tree: EventTree,
+  includeReasoning: boolean,
+  onDanglingAnchor?: (anchorId: EventId) => void,
+): Projection {
   const path = tree.pathToRoot()
   const anchor = latestCompaction(path)
   let start = 0
   if (anchor !== undefined) {
     const pos = path.findIndex((e) => e.id === anchor.data.keptFromEventId)
-    // 锚点事件不在路径（数据损坏的兜底）：退化为无压缩全量投影；
-    // 超限上下文会被 run-loop 触发判据再次压缩，自愈而非丢数据
+    if (pos < 0) onDanglingAnchor?.(anchor.data.keptFromEventId)
+    // 锚点事件不在路径（数据损坏的兜底）：退化为无压缩全量投影（调用方落结构化
+    // warning）；超限上下文会被 run-loop 触发判据再次压缩，自愈而非丢数据
     start = pos >= 0 ? pos : 0
   }
   const entries: SurfaceEntry[] = []
@@ -117,10 +124,17 @@ export function projectSurface(tree: EventTree, includeReasoning: boolean): Proj
 }
 
 export class ProjectorImpl implements Projector {
+  /** 已告警过的悬空锚点（modelContext 高频调用——同一锚点只报一次防刷屏） */
+  private readonly danglingWarned = new Set<EventId>()
+
   constructor(private readonly deps: ProjectorDeps) {}
 
   modelContext(): { messages: LlmMessage[]; tokens: number } {
-    const p = projectSurface(this.deps.tree, this.deps.includeReasoning)
+    const p = projectSurface(this.deps.tree, this.deps.includeReasoning, (anchorId) => {
+      if (this.danglingWarned.has(anchorId)) return
+      this.danglingWarned.add(anchorId)
+      this.deps.onDanglingAnchor?.(anchorId)
+    })
     const messages: LlmMessage[] = []
     if (p.summary !== undefined) {
       messages.push({ role: 'user', content: [{ type: 'text', text: p.summary }] })

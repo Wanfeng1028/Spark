@@ -5,6 +5,9 @@
  * 坏行策略：尾行坏 = 崩溃半写丢弃 warn；非尾行坏 / 未知 type 无 ignorable /
  *   seq 断洞 → 拒绝加载（fail-closed）。ignorable 未知事件跳过但占行号
  *   （seq == 文件事件行号，dsh "seq = log.length" contiguity contract）。
+ * 磁盘格式迁移（§5.8.4）：旧版 compaction.completed{keptFromSeq}（阶段三词表）在
+ * read 时按行号回查事件 id 原位转为 keptFromEventId——幂等内存迁移，文件不重写
+ * （重写引入崩溃窗口；schema 保持严格，适配只在磁盘读取边界）。
  */
 import { createHash } from 'node:crypto'
 import { mkdir, open, readFile } from 'node:fs/promises'
@@ -36,6 +39,34 @@ export interface SessionHeader {
 export interface SessionFile {
   header: SessionHeader
   events: SparkEventEnvelope[]
+}
+
+/**
+ * 阶段三旧格式 compaction.completed{keptFromSeq} → keptFromEventId（工单 4.1 词表演进）。
+ * 仅接受确凿的旧形状（有 keptFromSeq、无 keptFromEventId）；锚点行未读到或 seq 不符
+ * → undefined（调用方按原错误拒绝加载，fail-closed 不放松）。转换结果仍走严校验。
+ */
+function migrateLegacyCompaction(
+  raw: unknown,
+  events: readonly SparkEventEnvelope[],
+): SparkEventEnvelope | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const r = raw as { type?: unknown; data?: unknown }
+  if (r.type !== 'compaction.completed' || typeof r.data !== 'object' || r.data === null) {
+    return undefined
+  }
+  const d = r.data as Record<string, unknown>
+  if (typeof d.keptFromSeq !== 'number' || 'keptFromEventId' in d) return undefined
+  const anchor = events[d.keptFromSeq - 1] // seq == 事件行号（header 占第 0 行）
+  if (anchor === undefined || anchor.seq !== d.keptFromSeq) return undefined
+  return {
+    ...(raw as Record<string, unknown>),
+    data: {
+      summary: d.summary,
+      keptFromEventId: anchor.id,
+      tokensBefore: d.tokensBefore,
+    },
+  } as SparkEventEnvelope
 }
 
 /** cwd → 目录名（确定性、防碰撞）：非 [A-Za-z0-9] 连续段合并为 -，截断 48，尾缀 sha1 前 8 位 */
@@ -160,7 +191,15 @@ export class SessionStore implements EventSink {
         throw new Error(`E_SESSION_UNKNOWN_EVENT: 第 ${lineNo} 行未知事件 type "${String(type)}"`)
       }
 
-      const envelope = parseEnvelope(parsed)
+      let envelope: SparkEventEnvelope
+      try {
+        envelope = parseEnvelope(parsed)
+      } catch (err) {
+        // 已知 type 但 data 是旧版磁盘形状 → 尝试迁移后重过严校验；否则原样拒绝
+        const migrated = migrateLegacyCompaction(parsed, events)
+        if (migrated === undefined) throw err
+        envelope = parseEnvelope(migrated)
+      }
       if (envelope.seq !== lineNo) {
         throw new Error(
           `E_SESSION_SEQ_GAP: 第 ${lineNo} 行事件 seq=${envelope.seq} 断洞（fail-closed）`,

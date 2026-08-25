@@ -226,6 +226,41 @@ describe('有 compaction 分支（§5.8.3 第 2/3 步）', () => {
     expect(texts(ctx.messages)).toEqual(['悬空摘要', '问题一', '回答一', '问题二'])
   })
 
+  test('悬空锚点触发 onDanglingAnchor 告警；同一锚点只报一次（modelContext 高频去重）', async () => {
+    const f = makeFixture()
+    await f.bus.emit(SID, 'user.message', { text: '问题一' })
+    await f.bus.emit(SID, 'compaction.completed', {
+      summary: '悬空摘要',
+      keptFromEventId: newIds.event(),
+      tokensBefore: 5,
+    })
+    await f.bus.emit(SID, 'user.message', { text: '问题二' })
+
+    const seen: string[] = []
+    const p = new ProjectorImpl({
+      tree: f.sink.tree,
+      includeReasoning: false,
+      onDanglingAnchor: (id) => seen.push(id),
+    })
+    p.modelContext()
+    p.modelContext()
+    p.modelContext()
+    expect(seen).toHaveLength(1)
+
+    // 路径上无 compaction：不告警
+    const f2 = makeFixture()
+    await f2.bus.emit(SID, 'user.message', { text: '无压缩' })
+    let fired = false
+    new ProjectorImpl({
+      tree: f2.sink.tree,
+      includeReasoning: false,
+      onDanglingAnchor: () => {
+        fired = true
+      },
+    }).modelContext()
+    expect(fired).toBe(false)
+  })
+
   test('有 compaction × includeReasoning=true（四象限补全）：锚点后 reasoning 项保留、锚点前滤除', async () => {
     const f = makeFixture()
     const trn = newIds.turn()
