@@ -1,17 +1,24 @@
 /**
  * REST 路由（doc/02 §7.2）：zod 解析 → engine 调用 → DTO 序列化；错误经 errors.ts 映射。
- * 端点清单 = §4.5 表（tree/fork 阶段四，不注册）；并发安全由引擎单写者保证，路由层无锁。
+ * 端点清单 = §4.5 表（tree/fork 阶段四工单 4.5 注册）；并发安全由引擎单写者保证，路由层无锁。
  */
 import type { FastifyPluginCallback } from 'fastify'
 import { z } from 'zod'
 import {
   DeliverySchema,
+  EventIdSchema,
   PermissionReplySchema,
   RequestIdSchema,
   SessionIdSchema,
 } from '@spark/protocol'
-import type { SessionId } from '@spark/protocol'
-import type { Engine, SessionHandle, SessionMeta } from '@spark/engine'
+import type { SessionId, SparkEventEnvelope, TreeNodeDto } from '@spark/protocol'
+import type {
+  Engine,
+  SessionHandle,
+  SessionMeta,
+  SessionTreeInfo,
+  SessionTreeNode,
+} from '@spark/engine'
 import type { SessionMetaDto } from '@spark/protocol'
 import { sendError, validationError } from './errors.js'
 
@@ -70,6 +77,43 @@ const ReplyBody = z.strictObject({
 
 const IdParams = z.strictObject({ id: SessionIdSchema })
 const RequestIdParams = z.strictObject({ requestId: RequestIdSchema })
+
+const ForkBody = z.strictObject({ fromEventId: EventIdSchema })
+
+/** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
+function labelOf(e: SparkEventEnvelope): string {
+  const data = e.data as Record<string, unknown>
+  let text = ''
+  if (typeof data.text === 'string') text = data.text // user/assistant/reasoning 的 ended 终值
+  else if (typeof data.title === 'string') text = data.title
+  else if (typeof data.summary === 'string') text = data.summary
+  else if (e.type === 'turn.started') text = 'turn 开始'
+  else if (e.type === 'turn.completed') text = `turn 结束（${String(data.finish ?? '')}）`
+  else if (e.type === 'tool.started') text = `工具 ${String(data.toolId ?? '')}`
+  else if (e.type === 'permission.asked') text = `审批 ${String(data.requestId ?? '')}`
+  return text.length > 60 ? `${text.slice(0, 57)}…` : text
+}
+
+/** 引擎树数据 → 线上 DTO（forks 按边界事件归组到节点） */
+function treeToDto(tree: SessionTreeInfo): TreeNodeDto[] {
+  const forksByEvent = new Map<string, TreeNodeDto['forks']>()
+  for (const f of tree.forks) {
+    const list = forksByEvent.get(f.fromEventId) ?? []
+    list.push({ sessionId: f.child.sessionId, title: f.child.title, createdAt: f.child.createdAt })
+    forksByEvent.set(f.fromEventId, list)
+  }
+  const toDto = (n: SessionTreeNode): TreeNodeDto => ({
+    id: n.event.id,
+    parentId: n.parentId,
+    seq: n.event.seq ?? 0,
+    type: n.event.type,
+    time: n.event.time,
+    label: labelOf(n.event),
+    childIds: n.childIds,
+    forks: forksByEvent.get(n.event.id) ?? [],
+  })
+  return tree.nodes.map(toDto)
+}
 
 export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
   const { engine } = opts
@@ -146,6 +190,26 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
       // 等压缩完成再返回：started/completed 经 SSE 直播（§5.8.5 手动 /compact）
       await handle.compact()
       return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.get('/api/sessions/:id/tree', async (req, reply) => {
+    try {
+      const { id } = parseOr400(IdParams, req.params)
+      return reply.send(treeToDto(await engine.treeOf(id)))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.post('/api/sessions/:id/fork', async (req, reply) => {
+    try {
+      const { id } = parseOr400(IdParams, req.params)
+      const body = parseOr400(ForkBody, req.body)
+      const handle = await engine.forkSession(id, body.fromEventId)
+      return reply.code(201).send(toDto(engine, handle.meta))
     } catch (err) {
       return sendError(req, reply, err)
     }

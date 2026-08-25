@@ -9,12 +9,14 @@
  */
 import { parseEnvelope } from '@spark/protocol'
 import type {
+  EventId,
   PermissionReply,
   RequestId,
   SessionDto,
   SessionId,
   SparkEventEnvelope,
   SubmitOutcome,
+  TreeNodeDto,
   Transport,
 } from '@spark/protocol'
 import type { SendMessageOptions } from '@spark/protocol'
@@ -198,6 +200,17 @@ export class HttpTransport implements Transport {
     return this.req<SessionDto>('/api/sessions', {
       method: 'POST',
       body: JSON.stringify(opts?.title !== undefined ? { title: opts.title } : {}),
+    })
+  }
+
+  getTree(sessionId: SessionId): Promise<TreeNodeDto[]> {
+    return this.req<TreeNodeDto[]>(`/api/sessions/${sessionId}/tree`)
+  }
+
+  fork(sessionId: SessionId, fromEventId: EventId): Promise<SessionDto> {
+    return this.req<SessionDto>(`/api/sessions/${sessionId}/fork`, {
+      method: 'POST',
+      body: JSON.stringify({ fromEventId }),
     })
   }
 

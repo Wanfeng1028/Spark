@@ -122,6 +122,9 @@ export {
   SPARK_VERSION,
   type SessionMeta,
   type SessionHandle,
+  type SessionTreeNode,
+  type SessionTreeInfo,
+  type ForkChildInfo,
   type EngineDeps,
   type ReplyOutcome,
 } from './engine.js'

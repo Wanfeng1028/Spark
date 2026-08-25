@@ -7,14 +7,16 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
+import { GitBranch } from 'lucide-react'
 import { ids } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
-import { MOCK_SCENARIOS } from '@/transports/mock'
+import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
 import { ChatView } from '@/features/chat/ChatView'
 import { Composer } from '@/features/chat/Composer'
 import { TurnStatusBar } from '@/features/chat/TurnStatusBar'
 import { ErrorToast } from '@/features/chat/ErrorToast'
+import { SessionTreeDialog } from '@/features/chat/SessionTreeDialog'
 import { useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
 import { useConnectionStore } from '@/stores/connection'
 
@@ -37,6 +39,8 @@ export function SessionPage() {
   // http 打开态（加载/错误呈现；mock 即挂即用）。函数式初值防 sid 切换时沿用旧态
   const [load, setLoad] = useState<LoadState>(() => (mock ? 'ready' : 'loading'))
   const [reloadKey, setReloadKey] = useState(0)
+  // 会话树浮层（工单 4.5）：分叉入口 + 树视图
+  const [treeOpen, setTreeOpen] = useState(false)
 
   const busy = turn !== null
   const waiting = turn?.waiting === true
@@ -47,7 +51,8 @@ export function SessionPage() {
   }, [sid])
 
   useEffect(() => {
-    if (mock) return
+    // mock：脚本会话走流式回放（全量 replay 会剧透未回放事件）；fork 子会话无流，走全量回放
+    if (mock && transport instanceof MockTransport && transport.isLiveScriptSession(sid)) return
     let cancelled = false
     setLoad('loading')
     replaySessionEvents(transport, sid)
@@ -187,6 +192,16 @@ export function SessionPage() {
             ) : (
               <ChatView sessionId={sessionId ?? ''} />
             )}
+            {/* 会话树入口（工单 4.5）：右上角悬浮；turn 进行中仍可查看，分叉按钮在浮层内禁用 */}
+            <button
+              type="button"
+              aria-label="会话树"
+              onClick={() => setTreeOpen(true)}
+              className="absolute right-0 top-0 flex size-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              <GitBranch className="size-4" />
+            </button>
+            <SessionTreeDialog open={treeOpen} onOpenChange={setTreeOpen} sid={sid} busy={busy} />
             <ErrorToast sid={sid} />
           </div>
         </div>

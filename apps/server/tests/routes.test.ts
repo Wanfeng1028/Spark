@@ -463,3 +463,107 @@ describe('引擎 shutdown 后', () => {
     expect(body['code']).toBe('E_SHUTTING_DOWN')
   })
 })
+
+describe('GET /api/sessions/:id/tree 与 POST /:id/fork（工单 4.5）', () => {
+  /** 建一个完整 turn 的会话，返回 { id, nodes }（树节点数组） */
+  async function makeTurnSession(
+    f: ServerFixture,
+  ): Promise<{ id: string; nodes: Record<string, unknown>[] }> {
+    const events = collectEvents(f)
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复内容' }] })
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const id = (created.json() as Json)['id'] as string
+    await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '用户提问' },
+    })
+    await waitFor(() => (events.some((e) => e.type === 'turn.completed') ? true : undefined))
+    const tree = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}/tree` })
+    return { id, nodes: tree.json() as Record<string, unknown>[] }
+  }
+
+  test('tree：节点链 + label 摘要 + childIds 线性链', async () => {
+    const f = await setup()
+    const { nodes } = await makeTurnSession(f)
+    expect(nodes).toHaveLength(5)
+    const types = nodes.map((n) => n['type'])
+    expect(types).toEqual([
+      'session.created',
+      'user.message',
+      'turn.started',
+      'assistant.message',
+      'turn.completed',
+    ])
+    // label：user.message 取 text、turn.completed 取 finish 摘要
+    expect(nodes[1]?.['label']).toBe('用户提问')
+    expect(nodes[4]?.['label']).toBe('turn 结束（stop）')
+    // 线性链：childIds 指向下一节点
+    expect(nodes[0]?.['childIds']).toEqual([nodes[1]?.['id']])
+    expect(nodes[4]?.['childIds']).toEqual([])
+    // parentId 链
+    expect(nodes[1]?.['parentId']).toBe(nodes[0]?.['id'])
+  })
+
+  test('fork：201 + 新会话 dto；树出现 forks；边界/未知会话/坏 body 拒绝', async () => {
+    const f = await setup()
+    const { id, nodes } = await makeTurnSession(f)
+    const boundary = nodes[1]?.['id'] as string // user.message
+
+    const forked = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/fork`,
+      payload: { fromEventId: boundary },
+    })
+    expect(forked.statusCode).toBe(201)
+    const fdto: Json = forked.json()
+    expect(fdto['lastSeq']).toBe(2)
+    expect(fdto['status']).toBe('idle')
+    expect(fdto['title']).toBe('') // 无显式标题（自动标题未触发——fork 不发 session.created）
+
+    // 分叉后树视图：boundary 节点挂 forks 子会话
+    const tree = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}/tree` })
+    const treeNodes = tree.json() as Record<string, unknown>[]
+    const boundaryNode = treeNodes.find((n) => n['id'] === boundary)
+    expect(boundaryNode).toBeDefined()
+    const forks = boundaryNode?.['forks'] as Record<string, unknown>[]
+    expect(forks).toHaveLength(1)
+    expect(forks[0]?.['sessionId']).toBe(fdto['id'])
+
+    // 边界事件不存在 → 400 E_INVALID_BOUNDARY
+    const bad = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/fork`,
+      payload: { fromEventId: 'evt_01HXNOTEXIST00000000000X' },
+    })
+    expect(bad.statusCode).toBe(400)
+    expect((bad.json() as Json)['code']).toBe('E_INVALID_BOUNDARY')
+
+    // 边界落在历史 turn 中间 → 409 E_OPEN_TURN
+    const midTurn = nodes[3]?.['id'] as string // assistant.message（turn.started 之后）
+    const mid = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/fork`,
+      payload: { fromEventId: midTurn },
+    })
+    expect(mid.statusCode).toBe(409)
+    expect((mid.json() as Json)['code']).toBe('E_OPEN_TURN')
+
+    // 未知会话 → 404
+    const missing = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions/ses_notexist00000000000000000/fork',
+      payload: { fromEventId: boundary },
+    })
+    expect(missing.statusCode).toBe(404)
+
+    // 坏 body（缺 fromEventId）→ 400 E_VALIDATION
+    const badBody = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/fork`,
+      payload: {},
+    })
+    expect(badBody.statusCode).toBe(400)
+    expect((badBody.json() as Json)['code']).toBe('E_VALIDATION')
+  })
+})

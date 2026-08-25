@@ -6,8 +6,8 @@
  */
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply } from './primitives.js'
-import type { SessionDto } from './api.js'
-import type { RequestId, SessionId } from './ids.js'
+import type { SessionDto, TreeNodeDto } from './api.js'
+import type { EventId, RequestId, SessionId } from './ids.js'
 
 export interface SendMessageOptions {
   delivery?: Delivery
@@ -31,5 +31,9 @@ export interface Transport {
   getSession(sessionId: SessionId): Promise<SessionDto>
   listSessions(): Promise<SessionDto[]>
   createSession(opts?: { title?: string }): Promise<SessionDto>
+  /** GET /api/sessions/:id/tree：树视图数据（doc/02 §5.8.6，阶段四工单 4.5） */
+  getTree(sessionId: SessionId): Promise<TreeNodeDto[]>
+  /** POST /api/sessions/:id/fork：从指定事件分叉新会话（三拒绝码经错误消息透出，§5.8.6） */
+  fork(sessionId: SessionId, fromEventId: EventId): Promise<SessionDto>
   dispose(): void
 }

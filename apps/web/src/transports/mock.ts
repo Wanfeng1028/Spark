@@ -19,6 +19,7 @@ import type {
   SparkEventEnvelope,
   SparkEventType,
   SubmitOutcome,
+  TreeNodeDto,
   Transport,
   TurnId,
 } from '@spark/protocol'
@@ -120,6 +121,21 @@ export function parseScenarioScript(raw: string): ScenarioScript {
 
 const jitter = () => 30 + Math.floor(Math.random() * 51) // 30~80ms（§4.7）
 
+/** 事件渲染摘要（树视图 label，工单 4.5）：文本类取 text，其余用类型名（与 server labelOf 同规则简化版） */
+function mockLabelOf(e: SparkEventEnvelope): string {
+  const data = e.data as Record<string, unknown>
+  const text =
+    typeof data.text === 'string'
+      ? data.text
+      : typeof data.title === 'string'
+        ? data.title
+        : typeof data.summary === 'string'
+          ? data.summary
+          : ''
+  const raw = text.length > 0 ? text : e.type
+  return raw.length > 60 ? `${raw.slice(0, 57)}…` : raw
+}
+
 /** 按词表窄化事件类型（SparkEventEnvelope 是接口非联合，TS 不做判别收窄） */
 function ofType<T extends SparkEventType>(e: SparkEventEnvelope, t: T): e is SparkEventEnvelope<T> {
   return e.type === t
@@ -142,6 +158,8 @@ export class MockTransport implements Transport {
   private titleEmitted = false
   /** 已 emit 事件（compact 合成 keptFromEventId/tokensBefore 的数据源） */
   private readonly emitted: SparkEventEnvelope[] = []
+  /** fork 子会话（工单 4.5 引擎语义对等演示）：内存态（真实实现落盘 + header 记 parentSession） */
+  private readonly forkChildren: { fromEventId: EventId; dto: SessionDto; events: SparkEventEnvelope[] }[] = []
 
   constructor(scenario: MockScenario = 'normal') {
     this.scenario = scenario
@@ -150,6 +168,11 @@ export class MockTransport implements Transport {
 
   get currentScenario(): MockScenario {
     return this.scenario
+  }
+
+  /** sid 是否为当前脚本会话（流式回放体）；fork 子会话走 getSession 全量回放（工单 4.5） */
+  isLiveScriptSession(sid: SessionId): boolean {
+    return sid === this.script.sessionId
   }
 
   /** 场景切换：重置回放状态（不吐事件——新会话由 createSession 发起） */
@@ -404,25 +427,103 @@ export class MockTransport implements Transport {
   /** 接口完整性实现（mock 下 SessionPage 不走全量回放——流式回放即夹具语义） */
   getSession(sessionId: SessionId): Promise<SessionDto> {
     this.assertNotDisposed()
+    const fork = this.forkChildren.find((f) => f.dto.id === sessionId)
+    if (fork !== undefined) {
+      return Promise.resolve({ ...fork.dto, events: fork.events })
+    }
     if (sessionId !== this.script.sessionId) {
       return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
     }
     const dto = MockTransport.dtoOf(this.script, this.status())
-    const durable = this.script.lines.flatMap((l) =>
-      l.kind === 'event' && l.envelope.seq !== undefined ? [l.envelope] : [],
-    )
+    const durable = this.durableLines()
     return Promise.resolve({ ...dto, events: durable })
   }
 
   listSessions(): Promise<SessionDto[]> {
-    return Promise.resolve(
-      MOCK_SCENARIOS.map((s) =>
+    return Promise.resolve([
+      ...MOCK_SCENARIOS.map((s) =>
         MockTransport.dtoOf(
           s === this.scenario ? this.script : parseScenarioScript(SCRIPTS[s]),
           'idle',
         ),
       ),
+      ...this.forkChildren.map((f) => f.dto),
+    ])
+  }
+
+  /** 脚本 durable 事件（seq 升序线性链——树视图与 fork 复制的数据源） */
+  private durableLines(): SparkEventEnvelope[] {
+    return this.script.lines.flatMap((l) =>
+      l.kind === 'event' && l.envelope.seq !== undefined ? [l.envelope] : [],
     )
+  }
+
+  /** 工单 4.5 树视图：脚本 durable 事件 → 线性链节点（fork 子会话标注在边界事件上） */
+  getTree(sessionId: SessionId): Promise<TreeNodeDto[]> {
+    this.assertNotDisposed()
+    let events: SparkEventEnvelope[]
+    let forks: { fromEventId: EventId; dto: SessionDto }[]
+    if (sessionId === this.script.sessionId) {
+      events = this.durableLines()
+      forks = this.forkChildren.map((f) => ({ fromEventId: f.fromEventId, dto: f.dto }))
+    } else {
+      const fork = this.forkChildren.find((f) => f.dto.id === sessionId)
+      if (fork === undefined) {
+        return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+      }
+      events = fork.events
+      forks = []
+    }
+    return Promise.resolve(
+      events.map((e, i) => {
+        const prev = i > 0 ? events[i - 1]?.id ?? null : null
+        const next = events[i + 1]?.id
+        return {
+          id: e.id,
+          parentId: prev,
+          seq: e.seq ?? 0,
+          type: e.type,
+          time: e.time,
+          label: mockLabelOf(e),
+          childIds: next !== undefined ? [next] : [],
+          forks: forks
+            .filter((f) => f.fromEventId === e.id)
+            .map((f) => ({ sessionId: f.dto.id, title: f.dto.title, createdAt: f.dto.createdAt })),
+        }
+      }),
+    )
+  }
+
+  /** 工单 4.5 fork：内存复制边界前路径（引擎语义对等——三拒绝码同构） */
+  fork(sessionId: SessionId, fromEventId: EventId): Promise<SessionDto> {
+    this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    if (this.timer !== null || this.suspended !== null) {
+      return Promise.reject(new Error('E_OPEN_TURN: turn 进行中，不可分叉——请等本轮结束'))
+    }
+    const durable = this.durableLines()
+    const idx = durable.findIndex((e) => e.id === fromEventId)
+    if (idx === -1) {
+      return Promise.reject(new Error(`E_INVALID_BOUNDARY: 分叉边界事件 ${fromEventId} 不存在`))
+    }
+    const kept = durable.slice(0, idx + 1)
+    const rand = `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    const forkId = ids.session(`ses_mock_fork_${rand}`)
+    const last = kept[kept.length - 1]
+    const dto: SessionDto = {
+      id: forkId,
+      title: `${this.script.created.data.title ?? '会话'}（分叉）`,
+      model: this.script.meta.model,
+      cwd: this.script.meta.cwd,
+      createdAt: Date.now(),
+      updatedAt: last?.time ?? this.script.meta.createdAt,
+      lastSeq: idx + 1,
+      status: 'idle',
+    }
+    this.forkChildren.push({ fromEventId, dto, events: kept })
+    return Promise.resolve(dto)
   }
 
   createSession(): Promise<SessionDto> {

@@ -12,6 +12,7 @@ import type { FileHandle } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { EventSchemas, parseEnvelope } from '@spark/protocol'
 import type {
+  EventId,
   SessionId,
   SparkEventEnvelope,
   SparkEventMap,
@@ -26,6 +27,10 @@ export interface SessionHeader {
   cwd: string
   createdAt: number
   model: string
+  /** fork 来源（§5.8.6，阶段四）：父会话 id + 源文件路径 + 分叉边界事件 id */
+  parentSession?: SessionId
+  parentPath?: string
+  parentEventId?: EventId
 }
 
 export interface SessionFile {
@@ -64,7 +69,16 @@ function parseHeader(raw: string): SessionHeader {
   ) {
     throw new Error('E_SESSION_BAD_HEADER: 首行缺 sparkVersion/cwd/createdAt/model')
   }
-  return parsed as SessionHeader
+  const h = parsed as SessionHeader
+  // fork 来源字段（§5.8.6）：出现即须为 string（坏 header fail-closed，不静默丢弃）
+  if (
+    (h.parentSession !== undefined && typeof h.parentSession !== 'string') ||
+    (h.parentPath !== undefined && typeof h.parentPath !== 'string') ||
+    (h.parentEventId !== undefined && typeof h.parentEventId !== 'string')
+  ) {
+    throw new Error('E_SESSION_BAD_HEADER: fork 来源字段（parentSession 等）类型错误')
+  }
+  return h
 }
 
 export class SessionStore implements EventSink {
@@ -169,6 +183,25 @@ export class SessionStore implements EventSink {
       // 先盘后树：写失败时树/磁盘不分裂（事件未持久化 = 未发生，失败闭合）
       this.tree.append(e, parentId)
       return final
+    })
+    this.queue = task.catch(() => undefined) // 链不断：失败由调用方处理
+    return task
+  }
+
+  /**
+   * fork 种子写入（§5.8.6）：批量落盘既定信封——sessionId/seq/parentId 已由调用方
+   * 重写（事件 id 保留源值：compaction 锚点与引用完整性）。不经 bus——历史复制
+   * 不产生新广播（客户端经 POST /fork 响应 + GET 回放获取）。
+   */
+  seed(events: readonly SparkEventEnvelope[]): Promise<void> {
+    const task = this.queue.then(async () => {
+      if (this.fh === null) {
+        throw new Error('E_SESSION_CLOSED: 会话文件已关闭，禁止追加（fail-closed）')
+      }
+      for (const e of events) {
+        await this.fh.appendFile(`${JSON.stringify(e)}\n`, 'utf8')
+        this.tree.append(e, e.parentId ?? null)
+      }
     })
     this.queue = task.catch(() => undefined) // 链不断：失败由调用方处理
     return task

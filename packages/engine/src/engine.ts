@@ -16,10 +16,14 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type {
   Delivery,
+  EventId,
   PermissionReply,
   RequestId,
   SessionId,
   SparkEventEnvelope,
+  SparkEventMap,
+  SparkEventType,
+  TurnId,
 } from '@spark/protocol'
 import type { SessionStatus } from '@spark/protocol'
 import { EventBus } from './bus.js'
@@ -69,10 +73,33 @@ export interface SessionHandle {
   interrupt(): Promise<void>
   /** 手动压缩（§5.8.5）：turn 进行中拒绝（E_TURN_ACTIVE——压缩读全路径，避开运行竞态） */
   compact(): Promise<void>
+  /** §5.8.6 fork：从指定事件分叉新会话（三拒绝码见 forkSession） */
+  fork(fromEventId: EventId): Promise<SessionHandle>
   /** 实时状态（SessionRuntime + 审批挂起表合成） */
   status(): SessionStatus
   /** 全部 durable 事件按 seq 升序（GET /api/sessions/:id 回放数据源） */
   events(): SparkEventEnvelope[]
+}
+
+/** §5.8.6 树视图节点（server 转 TreeNodeDto；event 供 label 摘要） */
+export interface SessionTreeNode {
+  event: SparkEventEnvelope
+  parentId: EventId | null
+  childIds: EventId[]
+}
+
+/** 从某事件分叉出去的子会话 */
+export interface ForkChildInfo {
+  sessionId: SessionId
+  title: string
+  createdAt: number
+}
+
+/** GET /api/sessions/:id/tree 的引擎数据源 */
+export interface SessionTreeInfo {
+  nodes: SessionTreeNode[]
+  /** 各节点分叉出的子会话（磁盘 header 扫描；v1 本地量级全量读） */
+  forks: { fromEventId: EventId; child: ForkChildInfo }[]
 }
 
 /** UI 审批回复的三态（server 层映射 200 / 409 / 404） */
@@ -88,6 +115,8 @@ export interface EngineDeps {
   /** 配置直注入（测试用；缺省 loadConfig(root)） */
   config?: EngineConfig
   now?: () => number
+  /** 会话 id 生成器（缺省 UUID ULID 构造；测试注入固定值触发 ALREADY_EXISTS 拒绝码） */
+  newSessionId?: () => SessionId
   /** 日志器（缺省 `new Logger({ root })` → stdout + `<root>/logs/engine.log` §5.10 双路） */
   logger?: SparkLogger
 }
@@ -111,6 +140,7 @@ export class Engine {
   private readonly defaultCwd: string
   private readonly config: EngineConfig
   private readonly now: () => number
+  private readonly newSessionId: () => SessionId
   private readonly bus: EventBus
   private readonly gateway: LlmGateway
   private readonly permission: PermissionServiceImpl
@@ -130,6 +160,7 @@ export class Engine {
     this.defaultCwd = deps.cwd ?? process.cwd()
     this.config = deps.config ?? loadConfig(this.root)
     this.now = deps.now ?? Date.now
+    this.newSessionId = deps.newSessionId ?? newIds.session
     this.gateway = deps.gateway ?? new PiGateway()
     if (deps.logger !== undefined) {
       this.logger = deps.logger
@@ -223,7 +254,7 @@ export class Engine {
     const cwd = opts.cwd ?? this.defaultCwd
     const modelRef = this.resolveModelRef(opts.model)
     const modelStr = `${modelRef.provider}/${modelRef.model}`
-    const sessionId = newIds.session()
+    const sessionId = this.newSessionId()
     const createdAt = this.now()
 
     const dir = join(this.root, 'sessions', mungeDir(cwd))
@@ -264,15 +295,20 @@ export class Engine {
   /** §5.2.1：定位文件 → read（坏行策略）→ 重建树 → 补闭合 → resumed{fromSeq} */
   async resumeSession(id: SessionId): Promise<SessionHandle> {
     this.assertNotShutdown()
+    return this.handleOf(await this.requireEntry(id))
+  }
+
+  /** 已加载直用；未加载走 loadSession（inflight 去重）——resume/treeOf/fork 共用入口 */
+  private async requireEntry(id: SessionId): Promise<SessionEntry> {
     const existing = this.sessions.get(id)
-    if (existing !== undefined) return this.handleOf(existing)
+    if (existing !== undefined) return existing
     const inflight = this.inflight.get(id)
-    if (inflight !== undefined) return this.handleOf(await inflight)
+    if (inflight !== undefined) return inflight
 
     const task = this.loadSession(id)
     this.inflight.set(id, task)
     try {
-      return this.handleOf(await task)
+      return await task
     } finally {
       this.inflight.delete(id)
     }
@@ -311,12 +347,19 @@ export class Engine {
 
   /** 遍历 sessions 目录下的 `<ts>_<id>.jsonl` 定位会话文件；未找到 → E_NOT_FOUND 语义错误 */
   private async locateSessionFile(id: SessionId): Promise<string> {
+    const path = await this.findSessionFile(id)
+    if (path === null) throw new Error(`E_NOT_FOUND: 会话 ${id} 不存在`)
+    return path
+  }
+
+  /** 同 locateSessionFile 但未找到返回 null（fork 的 ALREADY_EXISTS 碰撞检测用） */
+  private async findSessionFile(id: SessionId): Promise<string | null> {
     const sessionsRoot = join(this.root, 'sessions')
     let dirs: string[]
     try {
       dirs = await readdir(sessionsRoot)
     } catch {
-      throw new Error(`E_NOT_FOUND: 会话 ${id} 不存在（sessions 目录缺失）`)
+      return null
     }
     const suffix = `_${id}.jsonl`
     for (const dir of dirs) {
@@ -324,7 +367,142 @@ export class Engine {
       const hit = files.find((f) => f.endsWith(suffix))
       if (hit !== undefined) return join(sessionsRoot, dir, hit)
     }
-    throw new Error(`E_NOT_FOUND: 会话 ${id} 不存在`)
+    return null
+  }
+
+  /**
+   * §5.8.6 forkFrom：复制 root→边界事件的路径行到新文件——重编 seq（1..k）、
+   * 重链 parentId、改写 sessionId（事件 id 保留：compaction 锚点/引用完整性）；
+   * header 记 parentSession/parentPath/parentEventId。
+   * 三拒绝码（dsh SessionForkErrorCode 对照）：
+   *   E_INVALID_BOUNDARY 边界事件不存在 / E_OPEN_TURN 边界落在未闭合 turn 中
+   *   （含运行中会话）/ E_ALREADY_EXISTS 目标会话 id 已占用。
+   */
+  async forkSession(id: SessionId, fromEventId: EventId): Promise<SessionHandle> {
+    this.assertNotShutdown()
+    const source = await this.requireEntry(id)
+
+    if (!source.store.tree.has(fromEventId)) {
+      throw new Error(`E_INVALID_BOUNDARY: 分叉边界事件 ${fromEventId} 不存在`)
+    }
+    // OPEN_TURN ①：会话运行中（尾部可能正产生半成品 turn，复制会撕裂事件流）
+    if (source.runtime.state === 'running') {
+      throw new Error('E_OPEN_TURN: turn 进行中，不可分叉——请等本轮结束')
+    }
+    // OPEN_TURN ②：边界落在历史 turn 中间（turn.started 之后、turn.completed 之前）
+    const path = source.store.tree.pathToRoot(fromEventId)
+    const openTurns = new Set<TurnId>()
+    for (const e of path) {
+      if (e.id === fromEventId && openTurns.size > 0) {
+        throw new Error('E_OPEN_TURN: 分叉边界落在未闭合 turn 中间')
+      }
+      if (e.type === 'turn.started') {
+        openTurns.add((e.data as SparkEventMap['turn.started']).turnId)
+      } else if (e.type === 'turn.completed') {
+        openTurns.delete((e.data as SparkEventMap['turn.completed']).turnId)
+      }
+    }
+    // ALREADY_EXISTS：目标 id 与已加载会话或磁盘文件碰撞（注入生成器可测）
+    const newId = this.newSessionId()
+    if (this.sessions.has(newId) || (await this.findSessionFile(newId)) !== null) {
+      throw new Error(`E_ALREADY_EXISTS: 目标会话 ${newId} 已存在`)
+    }
+
+    const createdAt = this.now()
+    const dir = join(this.root, 'sessions', mungeDir(source.meta.cwd))
+    const forkPath = join(dir, sessionFileName(createdAt, newId))
+    const store = await SessionStore.create(
+      forkPath,
+      {
+        sparkVersion: SPARK_VERSION,
+        cwd: source.meta.cwd,
+        createdAt,
+        model: source.meta.model,
+        parentSession: id,
+        parentPath: source.store.path,
+        parentEventId: fromEventId,
+      },
+      {
+        onTailTorn: (reason) => {
+          this.logger.warn('store.tail.torn', { path: forkPath, reason, sid: newId })
+        },
+      },
+    )
+    let prev: EventId | null = null
+    const copied = path.map((e, i) => {
+      const c: SparkEventEnvelope = { ...e, sessionId: newId, seq: i + 1, parentId: prev }
+      prev = e.id
+      return c
+    })
+    await store.seed(copied)
+    const last = copied[copied.length - 1]
+    const meta: SessionMeta = {
+      id: newId,
+      title: titleOf(path), // 标题继承（复制行含源 session.created/session.title）
+      model: source.meta.model,
+      cwd: source.meta.cwd,
+      createdAt,
+      updatedAt: last?.time ?? createdAt, // 不变式：最近 durable 事件 time（fork 即边界事件 time）
+      lastSeq: copied.length,
+    }
+    this.bus.restoreSeq(newId, meta.lastSeq) // 后续 emit 从 k+1 继续（无断洞）
+    const modelRef = this.resolveModelRef(source.meta.model)
+    const entry = this.wireSession(store, meta, modelRef)
+    this.sessions.set(newId, entry)
+    this.logger.info('session.forked', {
+      sid: newId,
+      parent: id,
+      fromEventId,
+      events: copied.length,
+    })
+    return this.handleOf(entry)
+  }
+
+  /** §5.8.6 树视图：会话内事件节点（v1 线性链）+ 从各节点分叉出去的子会话 */
+  async treeOf(id: SessionId): Promise<SessionTreeInfo> {
+    const entry = await this.requireEntry(id)
+    const childrenOf = new Map<EventId, EventId[]>()
+    const nodes: SessionTreeNode[] = entry.store.tree.list().map((n) => {
+      if (n.parentId !== null) {
+        const siblings = childrenOf.get(n.parentId) ?? []
+        siblings.push(n.event.id)
+        childrenOf.set(n.parentId, siblings)
+      }
+      return { event: n.event, parentId: n.parentId, childIds: [] }
+    })
+    for (const n of nodes) {
+      n.childIds = childrenOf.get(n.event.id) ?? []
+    }
+    return { nodes, forks: await this.scanForkChildren(id) }
+  }
+
+  /** 磁盘扫描 header.parentSession === id 的会话 → 边界事件 + 子会话信息（标题须读事件） */
+  private async scanForkChildren(
+    id: SessionId,
+  ): Promise<{ fromEventId: EventId; child: ForkChildInfo }[]> {
+    const out: { fromEventId: EventId; child: ForkChildInfo }[] = []
+    const sessionsRoot = join(this.root, 'sessions')
+    try {
+      const dirs = await readdir(sessionsRoot, { withFileTypes: true })
+      for (const dir of dirs) {
+        if (!dir.isDirectory()) continue
+        for (const file of await readdir(join(sessionsRoot, dir.name))) {
+          if (!file.endsWith('.jsonl')) continue
+          const childId = idOfFileName(file)
+          if (childId === null) continue
+          const file_ = await SessionStore.read(join(sessionsRoot, dir.name, file))
+          const h = file_.header
+          if (h.parentSession !== id || h.parentEventId === undefined) continue
+          out.push({
+            fromEventId: h.parentEventId,
+            child: { sessionId: childId, title: titleOf(file_.events), createdAt: h.createdAt },
+          })
+        }
+      }
+    } catch {
+      // sessions 目录缺失 = 无分叉（首次运行）
+    }
+    return out
   }
 
   /** §5.2.1 listSessions：v1 全量扫描磁盘（单用户本地量级）；已加载用内存态 */
@@ -518,6 +696,12 @@ export class Engine {
           )
         }
         return entry.compactor.compact()
+      },
+      fork: (fromEventId) => {
+        if (this.shuttingDown) {
+          return Promise.reject(new Error('E_SHUTTING_DOWN: 引擎正在关闭，拒绝新请求'))
+        }
+        return this.forkSession(entry.meta.id, fromEventId)
       },
       status: () => this.statusOf(entry.meta.id),
       events: () => entry.store.tree.pathToRoot(),

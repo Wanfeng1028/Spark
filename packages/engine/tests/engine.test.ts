@@ -8,10 +8,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ids } from '@spark/protocol'
-import type { SparkEventEnvelope } from '@spark/protocol'
+import type { SessionId, SparkEventEnvelope } from '@spark/protocol'
 import type { EngineConfig } from '../src/config.js'
 import type { SubscribeHandle } from '../src/bus.js'
 import { Engine } from '../src/engine.js'
+import type { SessionHandle } from '../src/engine.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
 import { TITLE_PROMPT } from '../src/title.js'
 
@@ -48,12 +49,19 @@ interface Fixture {
 
 let fixtures: Fixture[] = []
 
-async function makeEngine(opts?: { rules?: EngineConfig['permissions']['rules'] }): Promise<Fixture> {
+async function makeEngine(
+  opts?: { rules?: EngineConfig['permissions']['rules']; newSessionId?: () => SessionId },
+): Promise<Fixture> {
   const root = await mkdtemp(join(tmpdir(), 'spark-engine-'))
   const gateway = new ScriptedLlm()
   const config = makeConfig()
   if (opts?.rules !== undefined) config.permissions.rules = opts.rules
-  const engine = new Engine({ root, gateway, config })
+  const engine = new Engine({
+    root,
+    gateway,
+    config,
+    ...(opts?.newSessionId !== undefined ? { newSessionId: opts.newSessionId } : {}),
+  })
   const events: SparkEventEnvelope[] = []
   const sub = engine.subscribe((e) => {
     events.push(e)
@@ -499,6 +507,129 @@ describe('会话自动标题（§5.11 / 工单 4.4）', () => {
       expect(gateway2.onceCalls).toHaveLength(0) // 恢复不触发新一轮标题生成
       const list = await engine2.listSessions()
       expect(list.find((s) => s.id === sid)?.title).toBe('重启前的标题')
+    } finally {
+      await engine2.shutdown()
+    }
+  })
+})
+
+describe('forkSession 与树视图（§5.8.6 / 工单 4.5）', () => {
+  /** 一个完整 turn 的五事件会话：session.created/user.message/turn.started/assistant.message/turn.completed */
+  async function makeTurnFixture(title = '源会话'): Promise<{ f: Fixture; handle: SessionHandle }> {
+    const f = await makeEngine()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const handle = await f.engine.createSession({ title })
+    await handle.send('问题')
+    await waitForTurnDone(f)
+    return { f, handle }
+  }
+
+  test('fork 复制边界前路径：seq 重编、parentId 重链、header 记来源、事件 id 保留', async () => {
+    const { f, handle } = await makeTurnFixture()
+    const source = handle.events()
+    expect(source).toHaveLength(5)
+    const boundary = source[1] as SparkEventEnvelope // user.message（seq 2）
+
+    const forked = await handle.fork(boundary.id)
+    expect(forked.id).not.toBe(handle.id)
+    expect(forked.meta.lastSeq).toBe(2)
+    expect(forked.meta.title).toBe('源会话') // 标题继承（复制行含 session.created title）
+    expect(forked.status()).toBe('idle')
+
+    // 新文件 header 记 fork 来源三元组（parentSession/parentPath/parentEventId）
+    const dir = (await readdir(join(f.root, 'sessions')))[0] as string
+    const files = await readdir(join(f.root, 'sessions', dir))
+    const forkFile = files.find((name) => name.includes(forked.id)) as string
+    expect(forkFile).toBeDefined()
+    const raw = (await readFile(join(f.root, 'sessions', dir, forkFile), 'utf8')).split('\n')
+    const header = JSON.parse(raw[0] as string) as Record<string, unknown>
+    expect(header['parentSession']).toBe(handle.id)
+    expect(header['parentEventId']).toBe(boundary.id)
+    expect(typeof header['parentPath']).toBe('string')
+
+    // 事件级校验：sessionId 改写、seq 重编 1..k、parentId 重链、事件 id 保留（引用完整性）
+    const fe = forked.events()
+    expect(fe).toHaveLength(2)
+    expect(fe.map((e) => e.type)).toEqual(['session.created', 'user.message'])
+    expect(fe.map((e) => e.sessionId)).toEqual([forked.id, forked.id])
+    expect(fe.map((e) => e.seq)).toEqual([1, 2])
+    expect(fe[0]?.parentId).toBeNull()
+    expect(fe[1]?.parentId).toBe(fe[0]?.id)
+    expect(fe[0]?.id).toBe(source[0]?.id)
+    expect(fe[1]?.id).toBe(boundary.id)
+
+    // fork 后继续对话：seq 从 3 前进（无断洞），文件行号与 seq 一致（resume 校验可通过）
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '续答' }] })
+    await forked.send('继续')
+    await waitFor(
+      () => f.events.some((e) => e.sessionId === forked.id && e.type === 'turn.completed'),
+      'fork 会话 turn 完成',
+    )
+    // 复制 2 行 + 本 turn 4 事件（user.message/turn.started/assistant.message/turn.completed）
+    const seqs = forked.events().map((e) => e.seq)
+    expect(seqs).toEqual([1, 2, 3, 4, 5, 6])
+  })
+
+  test('三拒绝码：INVALID_BOUNDARY / OPEN_TURN（运行中·turn 中间·边界后无闭合）/ ALREADY_EXISTS', async () => {
+    const { handle } = await makeTurnFixture()
+    // 边界事件不存在
+    await expect(handle.fork(ids.event('evt_01HXNOTEXIST00000000000X'))).rejects.toThrow(
+      'E_INVALID_BOUNDARY',
+    )
+    // 边界落在历史 turn 中间（turn.started 之后、turn.completed 之前）
+    const midTurn = handle.events()[3] as SparkEventEnvelope // assistant.message
+    await expect(handle.fork(midTurn.id)).rejects.toThrow('E_OPEN_TURN')
+
+    // 运行中 fork → E_OPEN_TURN ①
+    const f2 = await makeEngine()
+    f2.gateway.scriptStep({ deltas: [{ kind: 'text', text: '长回复' }], hangMs: 300 })
+    const h2 = await f2.engine.createSession()
+    await h2.send('第一句')
+    await waitFor(() => f2.events.some((e) => e.type === 'turn.started'), 'turn.started')
+    await expect(h2.fork(h2.events()[1]?.id ?? ids.event('evt_x'))).rejects.toThrow('E_OPEN_TURN')
+    await waitForTurnDone(f2)
+
+    // ALREADY_EXISTS：注入固定 id 生成器——createSession 占用后 fork 再取同 id 碰撞
+    const fixed = ids.session('ses_01HXFIXEDID0000000000000')
+    const f3 = await makeEngine({ newSessionId: () => fixed })
+    f3.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const h3 = await f3.engine.createSession()
+    expect(h3.id).toBe(fixed)
+    await h3.send('问题')
+    await waitForTurnDone(f3)
+    await expect(h3.fork(h3.events()[1]?.id ?? ids.event('evt_x'))).rejects.toThrow(
+      'E_ALREADY_EXISTS',
+    )
+  })
+
+  test('treeOf：线性链节点 + forks 磁盘扫描（新引擎实例亦可见）', async () => {
+    const { f, handle } = await makeTurnFixture()
+    const before = await f.engine.treeOf(handle.id)
+    expect(before.nodes).toHaveLength(5)
+    expect(before.nodes.map((n) => n.event.seq)).toEqual([1, 2, 3, 4, 5])
+    expect(before.nodes.map((n) => n.parentId)).toEqual([null, ...before.nodes.slice(0, 4).map((n) => n.event.id)])
+    expect(before.nodes[0]?.childIds).toEqual([before.nodes[1]?.event.id])
+    expect(before.nodes[4]?.childIds).toEqual([])
+    expect(before.forks).toHaveLength(0)
+
+    const boundary = handle.events()[1] as SparkEventEnvelope
+    const forked = await handle.fork(boundary.id)
+    const after = await f.engine.treeOf(handle.id)
+    expect(after.forks).toHaveLength(1)
+    expect(after.forks[0]?.fromEventId).toBe(boundary.id)
+    expect(after.forks[0]?.child.sessionId).toBe(forked.id)
+    expect(after.forks[0]?.child.title).toBe('源会话')
+
+    // 新引擎实例（未加载路径）：treeOf 经 requireEntry resume 后磁盘扫描仍见分叉
+    // （resume 补发 session.resumed durable 事件 → 节点数 5+1）
+    await f.engine.shutdown()
+    const gateway2 = new ScriptedLlm()
+    const engine2 = new Engine({ root: f.root, gateway: gateway2, config: makeConfig() })
+    try {
+      const tree2 = await engine2.treeOf(handle.id)
+      expect(tree2.nodes).toHaveLength(6)
+      expect(tree2.forks).toHaveLength(1)
+      expect(tree2.forks[0]?.child.sessionId).toBe(forked.id)
     } finally {
       await engine2.shutdown()
     }

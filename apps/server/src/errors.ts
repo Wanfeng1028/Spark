@@ -51,6 +51,15 @@ export function toApiError(err: unknown): ApiError {
   if (msg.startsWith('E_TURN_ACTIVE')) {
     return new ApiError(409, 'E_TURN_ACTIVE', 'turn 进行中，暂不能手动压缩')
   }
+  if (msg.startsWith('E_INVALID_BOUNDARY')) {
+    return new ApiError(400, 'E_INVALID_BOUNDARY', '分叉边界事件不存在')
+  }
+  if (msg.startsWith('E_OPEN_TURN')) {
+    return new ApiError(409, 'E_OPEN_TURN', 'turn 进行中，不可分叉')
+  }
+  if (msg.startsWith('E_ALREADY_EXISTS')) {
+    return new ApiError(409, 'E_ALREADY_EXISTS', '目标会话已存在')
+  }
   return new ApiError(500, 'E_INTERNAL', 'internal error')
 }
 

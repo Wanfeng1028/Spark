@@ -2,7 +2,7 @@
  * HTTP API DTO（doc/02 §4.5.1）——SessionMeta 的线上形状。
  */
 import { z } from 'zod'
-import { SessionIdSchema } from './ids.js'
+import { EventIdSchema, SessionIdSchema } from './ids.js'
 import type { SparkEventEnvelope } from './events.js'
 import type { TurnId } from './ids.js'
 
@@ -31,3 +31,28 @@ export interface SubmitResult {
   result: 'started' | 'steered' | 'queued'
   turnId?: TurnId
 }
+
+// ---------- fork 与树视图（doc/02 §5.8.6 / §4.5，阶段四） ----------
+
+/** 从某事件分叉出去的子会话（engine 扫描磁盘 header.parentSession 汇总） */
+export const ForkChildDtoSchema = z.strictObject({
+  sessionId: SessionIdSchema,
+  title: z.string(), // 空字符串 = 新会话
+  createdAt: z.number().int().nonnegative(),
+})
+export type ForkChildDto = z.infer<typeof ForkChildDtoSchema>
+
+/** GET /api/sessions/:id/tree 节点：label 为渲染摘要（截断文本；无摘要事件为空串） */
+export const TreeNodeDtoSchema = z.strictObject({
+  id: EventIdSchema,
+  parentId: EventIdSchema.nullable(),
+  seq: z.number().int().positive(),
+  type: z.string(), // SparkEventType（词表演进不改本 DTO 形状）
+  time: z.number().int().nonnegative(),
+  label: z.string(),
+  /** 会话内子节点（v1 线性路径至多 1 个；分支树阶段二扩展） */
+  childIds: z.array(EventIdSchema),
+  /** 从此事件分叉出的子会话（树视图"已分叉"标记） */
+  forks: z.array(ForkChildDtoSchema),
+})
+export type TreeNodeDto = z.infer<typeof TreeNodeDtoSchema>
