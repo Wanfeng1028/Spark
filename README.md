@@ -48,6 +48,7 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 | [doc/01-research-report.md](./doc/01-research-report.md)     | 调研档案：10 个参考项目源码级调研 + 前后端生态选型                                              |
 | [doc/02-development-plan.md](./doc/02-development-plan.md)   | 完整开发方案：协议 / 引擎 / 前端 / 服务端实现级规格 + 五阶段路线图                              |
 | [doc/03-frontend-approach.md](./doc/03-frontend-approach.md) | 前端专题：参考实现分析 · 我方前端思路 · 与传统 Web 开发的差异                                   |
+| [doc/05-completion-audit.md](./doc/05-completion-audit.md)   | 完成度审计（阶段三后）：源码级核查实测结果 · 缺口清单 G1–G7 · 动工顺序                          |
 | [.agents/skills/](./.agents/skills/)                         | 可重复任务流程：docs-update · new-event-type · new-tool · frontend-component                    |
 
 ## 开发
@@ -86,3 +87,4 @@ pnpm test / typecheck / lint
 | v1.10 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段二开工指令）                                                                                       | **当前状态与状态徽章更新为阶段二完成**（11 项前端工单 + 四场景 mock 验收勾选，doc/02 §8 v2.10 同步）                                                                            |
 | v1.11 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三继续）                                                                                          | **当前状态与状态徽章更新为阶段三进行中（工单 1–10 完成）**——engine 243 例 + server 23 例 + web 47 例全绿，PR #2 含阶段二+三全量代码；doc/02 §8 v2.14 同步勾选中                                                                                                                                                                                                                  |
 | v1.12 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三完成）                                                                                          | **当前状态与状态徽章更新为阶段三完成**（工单 11 pino 日志+脱敏 + examples/e2e-smoke.sh 验收脚本）；全仓 367 例（engine 251 + server 23 + web 47 + protocol 46）；doc/02 §8 v2.15 同步勾选 pino 行；用户自配 DEEPSEEK_API_KEY 后由 examples/e2e-smoke.sh 完成真实模型验收三场景                                                                                                                                                                                                                  |
+| v1.13 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028）                                                             | 文档导航新增 doc/05 完成度审计（源码级核查：367 例全绿实测、缺口 G1–G7、外部评审采纳/保留意见、动工顺序）                                                       |
