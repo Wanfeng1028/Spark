@@ -10,7 +10,11 @@
  */
 import { ids, parseEnvelope } from '@spark/protocol'
 import type {
+  CheckpointDto,
+  CheckpointId,
+  EventId,
   PermissionReply,
+  PermissionRuleDto,
   RequestId,
   SessionDto,
   SessionId,
@@ -18,6 +22,7 @@ import type {
   SparkEventEnvelope,
   SparkEventType,
   SubmitOutcome,
+  TreeNodeDto,
   Transport,
   TurnId,
 } from '@spark/protocol'
@@ -119,6 +124,21 @@ export function parseScenarioScript(raw: string): ScenarioScript {
 
 const jitter = () => 30 + Math.floor(Math.random() * 51) // 30~80ms（§4.7）
 
+/** 事件渲染摘要（树视图 label，工单 4.5）：文本类取 text，其余用类型名（与 server labelOf 同规则简化版） */
+function mockLabelOf(e: SparkEventEnvelope): string {
+  const data = e.data as Record<string, unknown>
+  const text =
+    typeof data.text === 'string'
+      ? data.text
+      : typeof data.title === 'string'
+        ? data.title
+        : typeof data.summary === 'string'
+          ? data.summary
+          : ''
+  const raw = text.length > 0 ? text : e.type
+  return raw.length > 60 ? `${raw.slice(0, 57)}…` : raw
+}
+
 /** 按词表窄化事件类型（SparkEventEnvelope 是接口非联合，TS 不做判别收窄） */
 function ofType<T extends SparkEventType>(e: SparkEventEnvelope, t: T): e is SparkEventEnvelope<T> {
   return e.type === t
@@ -137,6 +157,14 @@ export class MockTransport implements Transport {
   private disposed = false
   private currentTurnId: TurnId | null = null
   private lastAskedRequestId: RequestId | null = null
+  /** 最近一次 asked 完整信封（always 固化 alwaysPatterns 的数据源，工单 4.7） */
+  private lastAsked: SparkEventEnvelope<'permission.asked'> | null = null
+  /** 自动标题已合成（首个 turn.completed 后一次性；引擎语义对等演示） */
+  private titleEmitted = false
+  /** 已 emit 事件（compact 合成 keptFromEventId/tokensBefore 的数据源） */
+  private readonly emitted: SparkEventEnvelope[] = []
+  /** fork 子会话（工单 4.5 引擎语义对等演示）：内存态（真实实现落盘 + header 记 parentSession） */
+  private readonly forkChildren: { fromEventId: EventId; dto: SessionDto; events: SparkEventEnvelope[] }[] = []
 
   constructor(scenario: MockScenario = 'normal') {
     this.scenario = scenario
@@ -145,6 +173,11 @@ export class MockTransport implements Transport {
 
   get currentScenario(): MockScenario {
     return this.scenario
+  }
+
+  /** sid 是否为当前脚本会话（流式回放体）；fork 子会话走 getSession 全量回放（工单 4.5） */
+  isLiveScriptSession(sid: SessionId): boolean {
+    return sid === this.script.sessionId
   }
 
   /** 场景切换：重置回放状态（不吐事件——新会话由 createSession 发起） */
@@ -159,6 +192,7 @@ export class MockTransport implements Transport {
     this.suspended = null
     this.sessionStarted = false
     this.currentTurnId = null
+    this.titleEmitted = false
   }
 
   onEvent(handler: (e: SparkEventEnvelope) => void): () => void {
@@ -169,9 +203,54 @@ export class MockTransport implements Transport {
   private emit(e: SparkEventEnvelope): void {
     // 跟踪未闭合 turn 与最近审批请求（interrupt 合成闭合事件用）
     if (ofType(e, 'turn.started')) this.currentTurnId = e.data.turnId
-    else if (ofType(e, 'turn.completed')) this.currentTurnId = null
-    else if (ofType(e, 'permission.asked')) this.lastAskedRequestId = e.data.requestId
+    else if (ofType(e, 'permission.asked')) {
+      this.lastAskedRequestId = e.data.requestId
+      this.lastAsked = e
+    }
+    this.emitted.push(e)
     for (const h of [...this.handlers]) h(e)
+    if (ofType(e, 'turn.completed')) {
+      this.currentTurnId = null
+      this.emitCheckpoint(e.data.turnId)
+      this.scheduleAutoTitle()
+    }
+  }
+
+  /**
+   * turn 边界快照事件（工单 4.6 引擎语义对等演示）：checkpointId 与
+   * listCheckpoints 派生规则一致（ckp_mock_<turn 序号>）——徽标与列表可互查。
+   */
+  private emitCheckpoint(turnId: TurnId): void {
+    const n = this.emitted.filter((e) => e.type === 'turn.completed').length
+    const rand = `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    this.emit({
+      id: ids.event(`evt_mock_ckpt_${n}_${rand}`),
+      sessionId: this.script.sessionId,
+      type: 'checkpoint.created',
+      time: Date.now(),
+      data: {
+        checkpointId: ids.checkpoint(`ckp_mock_${n}`),
+        files: ['.spark-checkpoint/session.jsonl'], // 引擎 SESSION_ALIAS（会话文件域）
+        turnId,
+      },
+    })
+  }
+
+  /** 会话自动标题（工单 4.4 引擎语义对等演示）：首个 turn.completed 后延迟合成 session.title */
+  private scheduleAutoTitle(): void {
+    if (this.titleEmitted) return
+    this.titleEmitted = true
+    const rand = `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    setTimeout(() => {
+      if (this.disposed) return
+      this.emit({
+        id: ids.event(`evt_mock_title_${rand}`),
+        sessionId: this.script.sessionId,
+        type: 'session.title',
+        time: Date.now(),
+        data: { title: '（mock）自动生成的会话标题' },
+      })
+    }, 400)
   }
 
   private stopTimer(): void {
@@ -294,11 +373,61 @@ export class MockTransport implements Transport {
     return Promise.resolve()
   }
 
+  /** 手动压缩（工单 4.3）：合成 started → 600ms → completed 事件对（假摘要） */
+  compact(_sessionId: SessionId): Promise<void> {
+    this.assertNotDisposed()
+    const rand = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    this.emit({
+      id: ids.event(`evt_mock_compact_start_${rand()}`),
+      sessionId: this.script.sessionId,
+      type: 'compaction.started',
+      time: Date.now(),
+      data: {},
+    })
+    // 锚点 = 最近回放的 surface 事件（尚无 → session.created 首事件）；tokensBefore 字符近似
+    const surfaces = this.emitted.filter(
+      (e) => e.type === 'user.message' || e.type === 'assistant.message',
+    )
+    const lastSurface = surfaces[surfaces.length - 1]
+    const keptFromEventId: EventId = lastSurface !== undefined ? lastSurface.id : this.script.created.id
+    const tokensBefore = Math.ceil(
+      surfaces.reduce((acc, e) => acc + JSON.stringify(e.data).length, 0) / 4,
+    )
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        if (this.disposed) {
+          resolve()
+          return
+        }
+        this.emit({
+          id: ids.event(`evt_mock_compact_done_${rand()}`),
+          sessionId: this.script.sessionId,
+          type: 'compaction.completed',
+          time: Date.now(),
+          data: {
+            summary: '（mock）已压缩此前的对话：保留了目标与当前任务状态。',
+            keptFromEventId,
+            tokensBefore,
+          },
+        })
+        resolve()
+      }, 600)
+    })
+  }
+
   replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void> {
     this.assertNotDisposed()
     if (this.suspended !== 'approval') {
       console.warn(`[mock] replyPermission 在无审批挂起时被调用（requestId=${requestId}）——已忽略`)
       return Promise.resolve()
+    }
+    if (reply === 'always' && this.lastAsked !== null) {
+      // 工单 4.7 对等演示：按 alwaysPatterns（缺省 patterns ?? [resource]）固化到内存规则表
+      const asked = this.lastAsked
+      const targets = asked.data.alwaysPatterns ?? asked.data.patterns ?? [asked.data.resource]
+      for (const resource of targets) {
+        MockTransport.putRule(this.rules, { action: asked.data.action, resource, effect: 'allow' })
+      }
     }
     // 覆写脚本中紧随的 permission.resolved，使 UI 呈现与用户实际选择一致
     const next = this.script.lines
@@ -313,6 +442,38 @@ export class MockTransport implements Transport {
     this.suspended = null
     this.advance()
     return Promise.resolve()
+  }
+
+  // ---- 权限规则管理（工单 4.7 对等演示：内存表，进程生命周期内有效） ----
+
+  private readonly rules: PermissionRuleDto[] = []
+
+  listPermissionRules(): Promise<PermissionRuleDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([...this.rules])
+  }
+
+  addPermissionRule(rule: PermissionRuleDto): Promise<void> {
+    this.assertNotDisposed()
+    MockTransport.putRule(this.rules, rule)
+    return Promise.resolve()
+  }
+
+  removePermissionRule(action: string, resource: string): Promise<void> {
+    this.assertNotDisposed()
+    const idx = this.rules.findIndex((r) => r.action === action && r.resource === resource)
+    if (idx < 0) {
+      return Promise.reject(new Error(`E_NOT_FOUND: 规则 ${action} ${resource} 不存在`))
+    }
+    this.rules.splice(idx, 1)
+    return Promise.resolve()
+  }
+
+  /** 精确匹配 action+resource 覆盖，否则追加（与引擎 UserRuleStore.add 同语义） */
+  private static putRule(rules: PermissionRuleDto[], rule: PermissionRuleDto): void {
+    const idx = rules.findIndex((r) => r.action === rule.action && r.resource === rule.resource)
+    if (idx >= 0) rules[idx] = { ...rule }
+    else rules.push({ ...rule })
   }
 
   /** 由脚本静态构造 SessionDto（listSessions / createSession 共用） */
@@ -336,25 +497,165 @@ export class MockTransport implements Transport {
   /** 接口完整性实现（mock 下 SessionPage 不走全量回放——流式回放即夹具语义） */
   getSession(sessionId: SessionId): Promise<SessionDto> {
     this.assertNotDisposed()
+    const fork = this.forkChildren.find((f) => f.dto.id === sessionId)
+    if (fork !== undefined) {
+      return Promise.resolve({ ...fork.dto, events: fork.events })
+    }
     if (sessionId !== this.script.sessionId) {
       return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
     }
-    const dto = MockTransport.dtoOf(this.script, this.status())
-    const durable = this.script.lines.flatMap((l) =>
-      l.kind === 'event' && l.envelope.seq !== undefined ? [l.envelope] : [],
-    )
-    return Promise.resolve({ ...dto, events: durable })
+    // 已回放的事件即"当前态"（含 rollbackCheckpoint 截断后的现状）——
+    // 未回放脚本行不上车（mock 会话冷启动走流式回放，不走本全量路径）
+    const durable = this.emitted.filter((e) => e.seq !== undefined)
+    const last = durable[durable.length - 1]
+    return Promise.resolve({
+      ...MockTransport.dtoOf(this.script, this.status()),
+      lastSeq: last?.seq ?? 0,
+      updatedAt: last?.time ?? this.script.meta.createdAt,
+      events: durable,
+    })
   }
 
   listSessions(): Promise<SessionDto[]> {
-    return Promise.resolve(
-      MOCK_SCENARIOS.map((s) =>
+    return Promise.resolve([
+      ...MOCK_SCENARIOS.map((s) =>
         MockTransport.dtoOf(
           s === this.scenario ? this.script : parseScenarioScript(SCRIPTS[s]),
           'idle',
         ),
       ),
+      ...this.forkChildren.map((f) => f.dto),
+    ])
+  }
+
+  /** 脚本 durable 事件（seq 升序线性链——树视图与 fork 复制的数据源） */
+  private durableLines(): SparkEventEnvelope[] {
+    return this.script.lines.flatMap((l) =>
+      l.kind === 'event' && l.envelope.seq !== undefined ? [l.envelope] : [],
     )
+  }
+
+  /** 工单 4.5 树视图：脚本 durable 事件 → 线性链节点（fork 子会话标注在边界事件上） */
+  getTree(sessionId: SessionId): Promise<TreeNodeDto[]> {
+    this.assertNotDisposed()
+    let events: SparkEventEnvelope[]
+    let forks: { fromEventId: EventId; dto: SessionDto }[]
+    if (sessionId === this.script.sessionId) {
+      events = this.durableLines()
+      forks = this.forkChildren.map((f) => ({ fromEventId: f.fromEventId, dto: f.dto }))
+    } else {
+      const fork = this.forkChildren.find((f) => f.dto.id === sessionId)
+      if (fork === undefined) {
+        return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+      }
+      events = fork.events
+      forks = []
+    }
+    return Promise.resolve(
+      events.map((e, i) => {
+        const prev = i > 0 ? events[i - 1]?.id ?? null : null
+        const next = events[i + 1]?.id
+        return {
+          id: e.id,
+          parentId: prev,
+          seq: e.seq ?? 0,
+          type: e.type,
+          time: e.time,
+          label: mockLabelOf(e),
+          childIds: next !== undefined ? [next] : [],
+          forks: forks
+            .filter((f) => f.fromEventId === e.id)
+            .map((f) => ({ sessionId: f.dto.id, title: f.dto.title, createdAt: f.dto.createdAt })),
+        }
+      }),
+    )
+  }
+
+  /** 工单 4.5 fork：内存复制边界前路径（引擎语义对等——三拒绝码同构） */
+  fork(sessionId: SessionId, fromEventId: EventId): Promise<SessionDto> {
+    this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    if (this.timer !== null || this.suspended !== null) {
+      return Promise.reject(new Error('E_OPEN_TURN: turn 进行中，不可分叉——请等本轮结束'))
+    }
+    const durable = this.durableLines()
+    const idx = durable.findIndex((e) => e.id === fromEventId)
+    if (idx === -1) {
+      return Promise.reject(new Error(`E_INVALID_BOUNDARY: 分叉边界事件 ${fromEventId} 不存在`))
+    }
+    const kept = durable.slice(0, idx + 1)
+    const rand = `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    const forkId = ids.session(`ses_mock_fork_${rand}`)
+    const last = kept[kept.length - 1]
+    const dto: SessionDto = {
+      id: forkId,
+      title: `${this.script.created.data.title ?? '会话'}（分叉）`,
+      model: this.script.meta.model,
+      cwd: this.script.meta.cwd,
+      createdAt: Date.now(),
+      updatedAt: last?.time ?? this.script.meta.createdAt,
+      lastSeq: idx + 1,
+      status: 'idle',
+    }
+    this.forkChildren.push({ fromEventId, dto, events: kept })
+    return Promise.resolve(dto)
+  }
+
+  /**
+   * 工单 4.6 checkpoint：按已回放的 turn.completed 边界派生快照列表（引擎语义对等
+   * 演示——真实实现为 turn 边界 git 快照，两域 = 工作区 + 会话文件别名）。
+   */
+  listCheckpoints(sessionId: SessionId): Promise<CheckpointDto[]> {
+    this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId) {
+      return Promise.resolve([]) // fork 子会话为内存态（未走 run-loop），无快照
+    }
+    let n = 0
+    return Promise.resolve(
+      this.emitted.flatMap((e) => {
+        if (e.type !== 'turn.completed') return []
+        n += 1
+        return [
+          {
+            checkpointId: ids.checkpoint(`ckp_mock_${n}`),
+            turnId: (e.data as { turnId: TurnId }).turnId,
+            createdAt: e.time,
+            files: ['.spark-checkpoint/session.jsonl'], // 引擎 SESSION_ALIAS（会话文件域）
+          },
+        ]
+      }),
+    )
+  }
+
+  /** 工单 4.6 回滚：截断已回放事件到快照边界（内存态；引擎为 reset --hard + 覆写两域） */
+  rollbackCheckpoint(sessionId: SessionId, checkpointId: CheckpointId): Promise<SessionDto> {
+    this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    if (this.timer !== null || this.suspended !== null) {
+      return Promise.reject(new Error('E_OPEN_TURN: turn 进行中，不可回滚——请等本轮结束'))
+    }
+    let n = 0
+    const cut = this.emitted.findIndex((e) => {
+      if (e.type !== 'turn.completed') return false
+      n += 1
+      return ids.checkpoint(`ckp_mock_${n}`) === checkpointId
+    })
+    if (cut === -1) {
+      return Promise.reject(new Error(`E_NOT_FOUND: checkpoint ${checkpointId} 不存在`))
+    }
+    this.emitted.length = cut + 1 // 截断到该 turn.completed（含）
+    this.currentTurnId = null
+    const durable = this.emitted.filter((e) => e.seq !== undefined)
+    const last = durable[durable.length - 1]
+    return Promise.resolve({
+      ...MockTransport.dtoOf(this.script, this.status()),
+      lastSeq: last?.seq ?? 0,
+      updatedAt: last?.time ?? this.script.meta.createdAt,
+    })
   }
 
   createSession(): Promise<SessionDto> {

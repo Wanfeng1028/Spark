@@ -44,6 +44,10 @@ export type UiItem =
       resource: string
       reason: string
       detail?: unknown
+      /** §5.7 补强 1/3：展示用多 pattern（可选，v1 审批卡不强制） */
+      patterns?: string[]
+      /** §5.7 补强：决定"总是允许"固化哪几条规则（可选；缺省=resource 单条） */
+      alwaysPatterns?: string[]
       reply?: 'once' | 'always' | 'reject'
       status: 'pending' | 'resolved'
     } & UiItemBase)
@@ -362,6 +366,10 @@ export function reduce(s: SessionStoreState, e: SparkEventEnvelope): SessionStor
         resource: e.data.resource,
         reason: e.data.reason,
         ...(e.data.detail !== undefined ? { detail: e.data.detail } : {}),
+        ...(e.data.patterns !== undefined ? { patterns: e.data.patterns } : {}),
+        ...(e.data.alwaysPatterns !== undefined
+          ? { alwaysPatterns: e.data.alwaysPatterns }
+          : {}),
         status: 'pending',
       },
     ]

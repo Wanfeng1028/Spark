@@ -1,17 +1,27 @@
 /**
  * REST 路由（doc/02 §7.2）：zod 解析 → engine 调用 → DTO 序列化；错误经 errors.ts 映射。
- * 端点清单 = §4.5 表（tree/fork 阶段四，不注册）；并发安全由引擎单写者保证，路由层无锁。
+ * 端点清单 = §4.5 表（tree/fork 工单 4.5、checkpoints/rollback 工单 4.6、
+ * permission rules 工单 4.7 注册）；并发安全由引擎单写者保证，路由层无锁。
  */
 import type { FastifyPluginCallback } from 'fastify'
 import { z } from 'zod'
 import {
+  CheckpointIdSchema,
   DeliverySchema,
+  EventIdSchema,
   PermissionReplySchema,
+  PermissionRuleDtoSchema,
   RequestIdSchema,
   SessionIdSchema,
 } from '@spark/protocol'
-import type { SessionId } from '@spark/protocol'
-import type { Engine, SessionHandle, SessionMeta } from '@spark/engine'
+import type { CheckpointDto, SessionId, SparkEventEnvelope, TreeNodeDto } from '@spark/protocol'
+import type {
+  Engine,
+  SessionHandle,
+  SessionMeta,
+  SessionTreeInfo,
+  SessionTreeNode,
+} from '@spark/engine'
 import type { SessionMetaDto } from '@spark/protocol'
 import { sendError, validationError } from './errors.js'
 
@@ -70,6 +80,47 @@ const ReplyBody = z.strictObject({
 
 const IdParams = z.strictObject({ id: SessionIdSchema })
 const RequestIdParams = z.strictObject({ requestId: RequestIdSchema })
+const RollbackParams = z.strictObject({ id: SessionIdSchema, cid: CheckpointIdSchema })
+
+const ForkBody = z.strictObject({ fromEventId: EventIdSchema })
+
+const RemoveRuleBody = z.strictObject({ action: z.string().min(1), resource: z.string().min(1) })
+
+/** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
+function labelOf(e: SparkEventEnvelope): string {
+  const data = e.data as Record<string, unknown>
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+  let text = ''
+  if (typeof data.text === 'string') text = data.text // user/assistant/reasoning 的 ended 终值
+  else if (typeof data.title === 'string') text = data.title
+  else if (typeof data.summary === 'string') text = data.summary
+  else if (e.type === 'turn.started') text = 'turn 开始'
+  else if (e.type === 'turn.completed') text = `turn 结束（${str(data.finish)}）`
+  else if (e.type === 'tool.started') text = `工具 ${str(data.toolId)}`
+  else if (e.type === 'permission.asked') text = `审批 ${str(data.requestId)}`
+  return text.length > 60 ? `${text.slice(0, 57)}…` : text
+}
+
+/** 引擎树数据 → 线上 DTO（forks 按边界事件归组到节点） */
+function treeToDto(tree: SessionTreeInfo): TreeNodeDto[] {
+  const forksByEvent = new Map<string, TreeNodeDto['forks']>()
+  for (const f of tree.forks) {
+    const list = forksByEvent.get(f.fromEventId) ?? []
+    list.push({ sessionId: f.child.sessionId, title: f.child.title, createdAt: f.child.createdAt })
+    forksByEvent.set(f.fromEventId, list)
+  }
+  const toDto = (n: SessionTreeNode): TreeNodeDto => ({
+    id: n.event.id,
+    parentId: n.parentId,
+    seq: n.event.seq ?? 0,
+    type: n.event.type,
+    time: n.event.time,
+    label: labelOf(n.event),
+    childIds: n.childIds,
+    forks: forksByEvent.get(n.event.id) ?? [],
+  })
+  return tree.nodes.map(toDto)
+}
 
 export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
   const { engine } = opts
@@ -139,6 +190,65 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
     }
   })
 
+  app.post('/api/sessions/:id/compact', async (req, reply) => {
+    try {
+      const { id } = parseOr400(IdParams, req.params)
+      const handle = await requireHandle(engine, id)
+      // 等压缩完成再返回：started/completed 经 SSE 直播（§5.8.5 手动 /compact）
+      await handle.compact()
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.get('/api/sessions/:id/tree', async (req, reply) => {
+    try {
+      const { id } = parseOr400(IdParams, req.params)
+      return reply.send(treeToDto(await engine.treeOf(id)))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.post('/api/sessions/:id/fork', async (req, reply) => {
+    try {
+      const { id } = parseOr400(IdParams, req.params)
+      const body = parseOr400(ForkBody, req.body)
+      const handle = await engine.forkSession(id, body.fromEventId)
+      return reply.code(201).send(toDto(engine, handle.meta))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.get('/api/sessions/:id/checkpoints', async (req, reply) => {
+    try {
+      const { id } = parseOr400(IdParams, req.params)
+      // commit sha 不上线（CheckpointDto §4.5.1：checkpointId/turnId/createdAt/files）
+      const rows: CheckpointDto[] = (await engine.checkpointsOf(id)).map((r) => ({
+        checkpointId: r.checkpointId,
+        turnId: r.turnId,
+        createdAt: r.createdAt,
+        files: r.files,
+      }))
+      return reply.send(rows)
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.post('/api/sessions/:id/checkpoints/:cid/rollback', async (req, reply) => {
+    try {
+      const { id, cid } = parseOr400(RollbackParams, req.params)
+      // 回滚后 seq 回退：响应只回 meta，前端走 GET /:id 全量重放（§4.5 表注）
+      const handle = await engine.rollbackToCheckpoint(id, cid)
+      return reply.send(toDto(engine, handle.meta))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
   app.post('/api/permissions/:requestId', async (req, reply) => {
     try {
       const { requestId } = parseOr400(RequestIdParams, req.params)
@@ -158,5 +268,44 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
     } catch (err) {
       return sendError(req, reply, err)
     }
+  })
+
+  // 权限规则管理（§5.7 规则表 / 工单 4.7）：用户级 permissions.json 的线上 CRUD
+  app.get('/api/permissions/rules', async (req, reply) => {
+    try {
+      return reply.send({ rules: engine.listPermissionRules() })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.post('/api/permissions/rules', async (req, reply) => {
+    try {
+      const rule = parseOr400(PermissionRuleDtoSchema, req.body)
+      engine.addPermissionRule(rule)
+      return reply.code(201).send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.delete('/api/permissions/rules', async (req, reply) => {
+    try {
+      const { action, resource } = parseOr400(RemoveRuleBody, req.body)
+      if (!engine.removePermissionRule(action, resource)) {
+        return reply.code(404).send({ code: 'E_NOT_FOUND', message: '规则不存在' })
+      }
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 指标端点（§5.10 清单 / 工单 4.8）：Prometheus exposition 文本
+  app.get('/api/metrics', async (_req, reply) => {
+    return reply
+      .code(200)
+      .header('content-type', 'text/plain; version=0.0.4; charset=utf-8')
+      .send(engine.renderMetrics())
   })
 }

@@ -3,6 +3,9 @@
  * 列表分页 cursor；详情含 durable 回放；messages 三态直通；interrupt 幂等。
  */
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import Fastify from 'fastify'
 import { ids } from '@spark/protocol'
 import type { SparkEventEnvelope } from '@spark/protocol'
@@ -317,6 +320,64 @@ describe('POST /api/sessions/:id/interrupt', () => {
   })
 })
 
+describe('POST /api/sessions/:id/compact（工单 4.3 手动 /compact）', () => {
+  test('idle → 200 {ok:true}；compaction.* 事件落盘；未知会话 → 404', async () => {
+    const f = await setup()
+    const events = collectEvents(f)
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const created = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: {},
+    })
+    const dto: Json = created.json()
+    const id = dto['id'] as string
+    await f.app.inject({ method: 'POST', url: `/api/sessions/${id}/messages`, payload: { text: '讨论' } })
+    await waitFor(() => (events.some((e) => e.type === 'turn.completed') ? true : undefined))
+
+    f.gateway.scriptOnce('路由层摘要')
+    const res = await f.app.inject({ method: 'POST', url: `/api/sessions/${id}/compact` })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ ok: true })
+    const types = events.filter((e) => e.seq !== undefined).map((e) => e.type)
+    expect(types).toContain('compaction.started')
+    expect(types.indexOf('compaction.started')).toBeLessThan(
+      types.indexOf('compaction.completed'),
+    )
+    const completed = events.find((e) => e.type === 'compaction.completed')
+    expect(completed?.data).toMatchObject({ summary: '路由层摘要' })
+
+    const missing = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions/ses_notexist00000000000000000/compact',
+    })
+    expect(missing.statusCode).toBe(404)
+  })
+
+  test('turn 进行中 → 409 E_TURN_ACTIVE', async () => {
+    const f = await setup()
+    const events = collectEvents(f)
+    f.gateway.scriptStep({
+      deltas: [{ kind: 'text', text: '长' }],
+      hangMs: 300,
+    })
+    const created = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: {},
+    })
+    const dto: Json = created.json()
+    const id = dto['id'] as string
+    await f.app.inject({ method: 'POST', url: `/api/sessions/${id}/messages`, payload: { text: '第一条' } })
+    await waitFor(() => (events.some((e) => e.type === 'turn.started') ? true : undefined))
+
+    const res = await f.app.inject({ method: 'POST', url: `/api/sessions/${id}/compact` })
+    expect(res.statusCode).toBe(409)
+    const body: Json = res.json()
+    expect(body['code']).toBe('E_TURN_ACTIVE')
+  })
+})
+
 describe('POST /api/permissions/:requestId', () => {
   test('审批流：asked → reply 200；重复 → 409；未知 → 404', async () => {
     const f = await setup()
@@ -403,5 +464,332 @@ describe('引擎 shutdown 后', () => {
     expect(res.statusCode).toBe(503)
     const body: Json = res.json()
     expect(body['code']).toBe('E_SHUTTING_DOWN')
+  })
+})
+
+describe('GET /api/sessions/:id/tree 与 POST /:id/fork（工单 4.5）', () => {
+  /** 建一个完整 turn 的会话，返回 { id, nodes }（树节点数组） */
+  async function makeTurnSession(
+    f: ServerFixture,
+  ): Promise<{ id: string; nodes: Record<string, unknown>[] }> {
+    const events = collectEvents(f)
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复内容' }] })
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const id = created.json<Json>()['id'] as string
+    await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '用户提问' },
+    })
+    await waitFor(() => (events.some((e) => e.type === 'turn.completed') ? true : undefined))
+    const tree = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}/tree` })
+    return { id, nodes: tree.json<Record<string, unknown>[]>() }
+  }
+
+  test('tree：节点链 + label 摘要 + childIds 线性链', async () => {
+    const f = await setup()
+    const { nodes } = await makeTurnSession(f)
+    expect(nodes).toHaveLength(5)
+    const types = nodes.map((n) => n['type'])
+    expect(types).toEqual([
+      'session.created',
+      'user.message',
+      'turn.started',
+      'assistant.message',
+      'turn.completed',
+    ])
+    // label：user.message 取 text、turn.completed 取 finish 摘要
+    expect(nodes[1]?.['label']).toBe('用户提问')
+    expect(nodes[4]?.['label']).toBe('turn 结束（stop）')
+    // 线性链：childIds 指向下一节点
+    expect(nodes[0]?.['childIds']).toEqual([nodes[1]?.['id']])
+    expect(nodes[4]?.['childIds']).toEqual([])
+    // parentId 链
+    expect(nodes[1]?.['parentId']).toBe(nodes[0]?.['id'])
+  })
+
+  test('fork：201 + 新会话 dto；树出现 forks；边界/未知会话/坏 body 拒绝', async () => {
+    const f = await setup()
+    const { id, nodes } = await makeTurnSession(f)
+    const boundary = nodes[1]?.['id'] as string // user.message
+
+    const forked = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/fork`,
+      payload: { fromEventId: boundary },
+    })
+    expect(forked.statusCode).toBe(201)
+    const fdto: Json = forked.json()
+    expect(fdto['lastSeq']).toBe(2)
+    expect(fdto['status']).toBe('idle')
+    expect(fdto['title']).toBe('') // 无显式标题（自动标题未触发——fork 不发 session.created）
+
+    // 分叉后树视图：boundary 节点挂 forks 子会话
+    const tree = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}/tree` })
+    const treeNodes = tree.json<Record<string, unknown>[]>()
+    const boundaryNode = treeNodes.find((n) => n['id'] === boundary)
+    expect(boundaryNode).toBeDefined()
+    const forks = boundaryNode?.['forks'] as Record<string, unknown>[]
+    expect(forks).toHaveLength(1)
+    expect(forks[0]?.['sessionId']).toBe(fdto['id'])
+
+    // 边界事件不存在 → 400 E_INVALID_BOUNDARY
+    const bad = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/fork`,
+      payload: { fromEventId: 'evt_01HXNOTEXIST00000000000X' },
+    })
+    expect(bad.statusCode).toBe(400)
+    expect((bad.json<Json>())['code']).toBe('E_INVALID_BOUNDARY')
+
+    // 边界落在历史 turn 中间 → 409 E_OPEN_TURN
+    const midTurn = nodes[3]?.['id'] as string // assistant.message（turn.started 之后）
+    const mid = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/fork`,
+      payload: { fromEventId: midTurn },
+    })
+    expect(mid.statusCode).toBe(409)
+    expect((mid.json<Json>())['code']).toBe('E_OPEN_TURN')
+
+    // 未知会话 → 404
+    const missing = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions/ses_notexist00000000000000000/fork',
+      payload: { fromEventId: boundary },
+    })
+    expect(missing.statusCode).toBe(404)
+
+    // 坏 body（缺 fromEventId）→ 400 E_VALIDATION
+    const badBody = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/fork`,
+      payload: {},
+    })
+    expect(badBody.statusCode).toBe(400)
+    expect((badBody.json<Json>())['code']).toBe('E_VALIDATION')
+  })
+})
+
+describe('GET /:id/checkpoints 与 POST /:id/checkpoints/:cid/rollback（工单 4.6）', () => {
+  test('checkpoints:false（默认夹具）：列表 []；回滚 → 404（快照不存在）', async () => {
+    const f = await setup()
+    const events = collectEvents(f)
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const id = created.json<Json>()['id'] as string
+    await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '问题' },
+    })
+    await waitFor(() => (events.some((e) => e.type === 'turn.completed') ? true : undefined))
+
+    const list = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}/checkpoints` })
+    expect(list.statusCode).toBe(200)
+    expect(list.json()).toEqual([])
+
+    const rb = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/checkpoints/${ids.checkpoint('ckp_none0000000000000000')}/rollback`,
+    })
+    expect(rb.statusCode).toBe(404)
+    expect((rb.json<Json>())['code']).toBe('E_NOT_FOUND')
+  })
+
+  test('checkpoints:true：turn 边界快照 + 回滚两域复位（工作区恢复/清除 + 会话截断 + resumed）', async () => {
+    const f = await makeServer({ checkpoints: true })
+    fixtures.push(f)
+    const ws = await mkdtemp(join(tmpdir(), 'spark-ckpt-ws-'))
+    const events = collectEvents(f)
+
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复一' }] })
+    const created = await f.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: { cwd: ws },
+    })
+    const id = created.json<Json>()['id'] as string
+    await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '问题一' },
+    })
+    await waitFor(
+      () => (events.filter((e) => e.type === 'checkpoint.created').length >= 1 ? true : undefined),
+    )
+    await writeFile(join(ws, 'a.txt'), 'v1', 'utf8')
+
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复二' }] })
+    await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '问题二' },
+    })
+    await waitFor(
+      () => (events.filter((e) => e.type === 'checkpoint.created').length >= 2 ? true : undefined),
+    )
+    // 第二个快照之后的用户改动：a.txt 改内容 + 新增未跟踪 b.txt
+    await writeFile(join(ws, 'a.txt'), 'v2', 'utf8')
+    await writeFile(join(ws, 'b.txt'), '快照后新增', 'utf8')
+
+    const list = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}/checkpoints` })
+    expect(list.statusCode).toBe(200)
+    const rows = list.json<Json[]>()
+    expect(rows).toHaveLength(2)
+    expect(rows[0]?.['files']).toContain('.spark-checkpoint/session.jsonl')
+    expect(rows[0]?.['commit']).toBeUndefined() // commit sha 不上线（DTO 形状）
+    // 回滚到第二快照（a.txt 已入库为 v1）：一并验证 reset --hard 内容还原与 clean -fd 清新增
+    const second = rows[1]?.['checkpointId'] as string
+
+    const rb = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/checkpoints/${second}/rollback`,
+    })
+    expect(rb.statusCode).toBe(200)
+    const dto: Json = rb.json()
+    expect(dto['status']).toBe('idle')
+
+    // 工作区复位：a.txt 还原快照内容（reset --hard）、b.txt 清除（clean -fd）
+    expect(await readFile(join(ws, 'a.txt'), 'utf8')).toBe('v1')
+    await expect(readFile(join(ws, 'b.txt'), 'utf8')).rejects.toThrow()
+
+    // 会话文件截断到第二 turn 边界（含第一轮的 checkpoint.created）+ 重载补 session.resumed
+    const detail = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}` })
+    const evs = (detail.json<Json>()['events'] as Json[]).map((e) => e['type'])
+    expect(evs).toEqual([
+      'session.created',
+      'user.message',
+      'turn.started',
+      'assistant.message',
+      'turn.completed',
+      'checkpoint.created',
+      'user.message',
+      'turn.started',
+      'assistant.message',
+      'turn.completed',
+      'session.resumed',
+    ])
+  })
+
+  test('拒绝码：未知快照 404；坏 cid 400；未知会话 404；turn 进行中 409', async () => {
+    const f = await makeServer({ checkpoints: true })
+    fixtures.push(f)
+    // cwd 指向临时空目录：checkpoints:true 下 turn 边界会对工作区 git add -A，
+    // 默认 cwd（server 源码树）会让快照吞掉整个 node_modules
+    const ws = await mkdtemp(join(tmpdir(), 'spark-ckpt-ws-'))
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: { cwd: ws } })
+    const id = created.json<Json>()['id'] as string
+
+    const missing = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/checkpoints/${ids.checkpoint('ckp_missing00000000000000')}/rollback`,
+    })
+    expect(missing.statusCode).toBe(404)
+
+    const badCid = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/checkpoints/not-a-cid/rollback`,
+    })
+    expect(badCid.statusCode).toBe(400)
+    expect((badCid.json<Json>())['code']).toBe('E_VALIDATION')
+
+    const missingSession = await f.app.inject({
+      method: 'GET',
+      url: '/api/sessions/ses_notexist00000000000000000/checkpoints',
+    })
+    expect(missingSession.statusCode).toBe(404)
+
+    // turn 进行中 → 409 E_TURN_ACTIVE（运行检查先于快照存在性检查）
+    const events = collectEvents(f)
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '长回复' }], hangMs: 300 })
+    await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '第一句' },
+    })
+    await waitFor(() => (events.some((e) => e.type === 'turn.started') ? true : undefined))
+    const active = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/checkpoints/${ids.checkpoint('ckp_any000000000000000000')}/rollback`,
+    })
+    expect(active.statusCode).toBe(409)
+    expect((active.json<Json>())['code']).toBe('E_TURN_ACTIVE')
+  })
+})
+
+describe('GET/POST/DELETE /api/permissions/rules（工单 4.7 规则管理）', () => {
+  test('空表 → 添加 → 覆盖同键 → 删除 → 未知删除 404', async () => {
+    const f = await setup()
+
+    const empty = await f.app.inject({ method: 'GET', url: '/api/permissions/rules' })
+    expect(empty.statusCode).toBe(200)
+    expect((empty.json<Json>())['rules']).toEqual([])
+
+    const add = await f.app.inject({
+      method: 'POST',
+      url: '/api/permissions/rules',
+      payload: { action: 'shell.exec', resource: 'cmd:git *', effect: 'allow' },
+    })
+    expect(add.statusCode).toBe(201)
+    expect((add.json<Json>())['ok']).toBe(true)
+
+    // 校验失败（非法 effect / 空 action）
+    const bad = await f.app.inject({
+      method: 'POST',
+      url: '/api/permissions/rules',
+      payload: { action: 'shell.exec', resource: 'cmd:**', effect: 'maybe' },
+    })
+    expect(bad.statusCode).toBe(400)
+
+    // 同 action+resource 再添加 → 覆盖 effect（列表仍一条）
+    await f.app.inject({
+      method: 'POST',
+      url: '/api/permissions/rules',
+      payload: { action: 'shell.exec', resource: 'cmd:git *', effect: 'deny' },
+    })
+    const one = await f.app.inject({ method: 'GET', url: '/api/permissions/rules' })
+    expect((one.json<Json>())['rules']).toEqual([
+      { action: 'shell.exec', resource: 'cmd:git *', effect: 'deny' },
+    ])
+
+    // 精确匹配删除；再删同键 → 404
+    const del = await f.app.inject({
+      method: 'DELETE',
+      url: '/api/permissions/rules',
+      payload: { action: 'shell.exec', resource: 'cmd:git *' },
+    })
+    expect(del.statusCode).toBe(200)
+    const missing = await f.app.inject({
+      method: 'DELETE',
+      url: '/api/permissions/rules',
+      payload: { action: 'shell.exec', resource: 'cmd:git *' },
+    })
+    expect(missing.statusCode).toBe(404)
+    expect((missing.json<Json>())['code']).toBe('E_NOT_FOUND')
+  })
+})
+
+describe('GET /api/metrics（工单 4.8）', () => {
+  test('Prometheus 文本：一轮对话后 turns_total/durable 计数与 active gauge', async () => {
+    const f = await setup()
+    const events = collectEvents(f)
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const id = created.json<Json>()['id'] as string
+    await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '问题' },
+    })
+    await waitFor(() => (events.some((e) => e.type === 'turn.completed') ? true : undefined))
+
+    const res = await f.app.inject({ method: 'GET', url: '/api/metrics' })
+    expect(res.statusCode).toBe(200)
+    expect(String(res.headers['content-type'])).toContain('text/plain')
+    expect(res.body).toContain('spark_turns_total{finish="stop"} 1')
+    expect(res.body).toContain('# TYPE spark_events_durable_total counter')
+    expect(res.body).toContain('# TYPE spark_sessions_active gauge')
+    expect(res.body).toContain('spark_sessions_active 1')
   })
 })

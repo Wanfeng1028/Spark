@@ -5,7 +5,7 @@
  * feedback 注入 user.message；超时/中断/dispose fail-closed；deny 工具不广告；
  * 项目级规则文件加载。
  */
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, test, vi } from 'vitest'
@@ -14,6 +14,8 @@ import { EventBus, type EventSink } from '../src/bus.js'
 import { ConfigError, loadProjectRules, type PermissionRule } from '../src/config.js'
 import { evaluate } from '../src/permission/rules.js'
 import { PermissionServiceImpl } from '../src/permission/service.js'
+import { UserRuleStore } from '../src/permission/store.js'
+import type { RuleStore } from '../src/permission/store.js'
 import type { PermissionCheck } from '../src/tools/permission-port.js'
 import { newIds } from '../src/ulid.js'
 
@@ -35,20 +37,42 @@ class MemSink implements EventSink {
 const SID = ids.session('sespermtest0000000000000000')
 const SID2 = ids.session('sespermtest2000000000000000')
 
+/** 内存规则仓（RuleStore 端口替身；UserRuleStore 落盘语义单测见独立 describe） */
+class MemRuleStore implements RuleStore {
+  constructor(public rules: PermissionRule[] = []) {}
+  list(): readonly PermissionRule[] {
+    return this.rules
+  }
+  add(rule: PermissionRule): void {
+    const idx = this.rules.findIndex(
+      (r) => r.action === rule.action && r.resource === rule.resource,
+    )
+    if (idx >= 0) this.rules[idx] = rule
+    else this.rules.push(rule)
+  }
+  remove(action: string, resource: string): boolean {
+    const idx = this.rules.findIndex((r) => r.action === action && r.resource === resource)
+    if (idx < 0) return false
+    this.rules.splice(idx, 1)
+    return true
+  }
+}
+
 function makeService(opts?: {
   userRules?: PermissionRule[]
   projectRules?: PermissionRule[]
   timeoutMs?: number
-}): { sink: MemSink; service: PermissionServiceImpl } {
+}): { sink: MemSink; service: PermissionServiceImpl; store: MemRuleStore } {
   const sink = new MemSink()
   const bus = new EventBus({ sink })
+  const store = new MemRuleStore(opts?.userRules ?? [])
   const service = new PermissionServiceImpl({
     bus,
-    userRules: opts?.userRules ?? [],
+    ruleStore: store,
     projectRules: opts?.projectRules ?? [],
     timeoutMs: opts?.timeoutMs ?? 300_000,
   })
-  return { sink, service }
+  return { sink, service, store }
 }
 
 interface CheckBundle {
@@ -401,5 +425,116 @@ describe('loadProjectRules（<cwd>/.spark/permissions.json）', () => {
       'utf8',
     )
     expect(() => loadProjectRules(dir)).toThrow(ConfigError)
+  })
+})
+
+// ---- 多 pattern 与 always 持久化（§5.7 补强 1/3，工单 4.7） ----
+
+describe('多 pattern 评估（补强 1 规则引擎消费）', () => {
+  test('任一 deny → 直接拒绝，零事件（fail-closed 短路）', async () => {
+    const { sink, service } = makeService({
+      userRules: [
+        { action: 'shell.exec', resource: 'cmd:git *', effect: 'allow' },
+        { action: 'shell.exec', resource: 'cmd:rm **', effect: 'deny' },
+      ],
+    })
+    const { check } = makeCheck({
+      patterns: ['cmd:git status', 'cmd:rm -rf x'],
+      alwaysPatterns: ['cmd:git status'],
+    })
+    expect(await service.assert(check)).toBe(false)
+    expect(sink.events).toHaveLength(0)
+  })
+
+  test('全部 allow → 直过，零事件', async () => {
+    const { sink, service } = makeService({
+      userRules: [{ action: 'shell.exec', resource: 'cmd:**', effect: 'allow' }],
+    })
+    const { check } = makeCheck({ patterns: ['cmd:a', 'cmd:b/c'] })
+    expect(await service.assert(check)).toBe(true)
+    expect(sink.events).toHaveLength(0)
+  })
+
+  test('部分 ask → 一次 asked 携带 patterns/alwaysPatterns；once 放行', async () => {
+    const { sink, service } = makeService()
+    const { check } = makeCheck({
+      patterns: ['cmd:git push origin main', 'cmd:git status'],
+      alwaysPatterns: ['cmd:git status'],
+    })
+    const before = sink.events.filter((e) => isEvent(e, 'permission.asked')).length
+    const promise = service.assert(check)
+    await vi.waitFor(() => {
+      expect(sink.events.filter((e) => isEvent(e, 'permission.asked')).length).toBe(before + 1)
+    })
+    const asked = sink.events.filter((e) => isEvent(e, 'permission.asked')).at(-1)
+    if (asked === undefined || !isEvent(asked, 'permission.asked')) throw new Error('asked 缺失')
+    expect(asked.data.patterns).toEqual(['cmd:git push origin main', 'cmd:git status'])
+    expect(asked.data.alwaysPatterns).toEqual(['cmd:git status'])
+    await service.reply(asked.data.requestId, 'once')
+    expect(await promise).toBe(true)
+  })
+
+  test('always 按 alwaysPatterns 固化到规则仓 + 会话临时层；后续免审批', async () => {
+    const { sink, service, store } = makeService()
+    const bundle = makeCheck({
+      patterns: ['cmd:git push origin main', 'cmd:git status'],
+      alwaysPatterns: ['cmd:git *'],
+    })
+    const { requestId, promise } = await pendAsk(service, sink, bundle.check)
+    expect(await service.reply(requestId, 'always')).toBe(true)
+    expect(await promise).toBe(true)
+    expect(store.list()).toEqual([{ action: 'shell.exec', resource: 'cmd:git *', effect: 'allow' }])
+
+    // 会话临时层已生效：同命令再跑不再 ask（事件数不增）
+    const before = sink.events.length
+    expect(await service.assert(bundle.check)).toBe(true)
+    expect(sink.events.length).toBe(before)
+  })
+
+  test('always 无声明时回落单 resource（旧形状兼容）', async () => {
+    const { sink, service, store } = makeService()
+    const { requestId } = await pendAsk(service, sink, makeCheck().check)
+    await service.reply(requestId, 'always')
+    expect(store.list()).toEqual([
+      { action: 'shell.exec', resource: 'cmd:rm -rf /tmp/x', effect: 'allow' },
+    ])
+  })
+})
+
+describe('UserRuleStore 落盘（工单 4.7：tmp+rename 原子写）', () => {
+  test('add 精确覆盖/追加，文件与内存一致且无 tmp 残留', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'spark-rules-'))
+    const path = join(dir, 'permissions.json')
+    const store = new UserRuleStore(path, [
+      { action: 'fs.read', resource: 'file:**', effect: 'allow' },
+    ])
+    store.add({ action: 'fs.read', resource: 'file:**', effect: 'deny' }) // 同键覆盖
+    store.add({ action: 'shell.exec', resource: 'cmd:git *', effect: 'allow' })
+
+    const raw = JSON.parse(await readFile(path, 'utf8')) as { version: number; rules: unknown }
+    expect(raw.version).toBe(1)
+    expect(raw.rules).toEqual([
+      { action: 'fs.read', resource: 'file:**', effect: 'deny' },
+      { action: 'shell.exec', resource: 'cmd:git *', effect: 'allow' },
+    ])
+    const { readdir } = await import('node:fs/promises')
+    expect(await readdir(dir)).not.toContain('permissions.json.tmp')
+  })
+
+  test('remove 精确匹配删除并落盘；无此规则返回 false 且不写盘', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'spark-rules-'))
+    const path = join(dir, 'permissions.json')
+    const store = new UserRuleStore(path, [
+      { action: 'fs.read', resource: 'file:**', effect: 'allow' },
+    ])
+    // 初始规则来自配置加载（文件本已存在于生产），构造不写盘；先 add 触发首次持久化
+    store.add({ action: 'fs.read', resource: 'file:**', effect: 'allow' })
+    expect(store.remove('fs.read', 'file:nope')).toBe(false)
+    const untouched = await readFile(path, 'utf8')
+    expect(store.remove('fs.read', 'file:**')).toBe(true)
+    expect(store.list()).toEqual([])
+    expect(await readFile(path, 'utf8')).not.toBe(untouched)
+    const raw = JSON.parse(await readFile(path, 'utf8')) as { rules: unknown[] }
+    expect(raw.rules).toEqual([])
   })
 })

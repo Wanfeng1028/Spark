@@ -1,6 +1,7 @@
 /**
  * 压缩（doc/02 §5.8.5）：emit compaction.started → generateOnce 生成摘要 →
- * keptFromSeq（尾部 token 预算反推）→ emit compaction.completed。
+ * keptFromEventId（尾部 token 预算反推；§5.8.5 分支隐患修复——fork 后路径序≠
+ * 文件行序，锚定事件 id 而非 seq）→ emit compaction.completed。
  * 旧事件不删（append-only）；此后 Projector 按 §5.8.3 锚点分支自动生效。
  *
  * 失败语义：generateOnce 抛错 → emit error{scope:'llm'} 后正常返回——压缩是
@@ -9,7 +10,7 @@
  * 压缩调用本身的 usage 不计入会话 usage（§5.8.5 v1 口径——compactor 不触碰
  * turn.usage 即达成）。
  */
-import type { SessionId, SparkEventEnvelope, SparkEventType } from '@spark/protocol'
+import type { EventId, SessionId, SparkEventEnvelope, SparkEventType } from '@spark/protocol'
 import type { EventBus } from './bus.js'
 import type { LlmGateway, LlmMessage, ResolvedModel } from './llm-gateway.js'
 import type { Compactor, Projector } from './run-loop.js'
@@ -42,8 +43,8 @@ export interface CompactorDeps {
   keepTokens: number
 }
 
-/** 投影消息 → 纯文本转录（generateOnce 单 prompt；结构项 JSON 序列化） */
-function serializeTranscript(messages: readonly LlmMessage[]): string {
+/** 投影消息 → 纯文本转录（generateOnce 单 prompt；结构项 JSON 序列化；标题生成复用） */
+export function serializeTranscript(messages: readonly LlmMessage[]): string {
   return messages
     .map((m) => {
       const parts = m.content.map((item) =>
@@ -76,10 +77,10 @@ export class CompactorImpl implements Compactor {
         prompt: `${COMPACTION_PROMPT}\n\n${serializeTranscript(ctx.messages)}`,
         maxTokens: 2000,
       })
-      const keptFromSeq = this.computeKeptFromSeq()
+      const keptFromEventId = this.computeKeptFromEventId()
       await this.deps.bus.emit(sid, 'compaction.completed', {
         summary,
-        keptFromSeq,
+        keptFromEventId,
         tokensBefore: ctx.tokens,
       })
     } catch (err) {
@@ -92,35 +93,41 @@ export class CompactorImpl implements Compactor {
   }
 
   /**
-   * keptFromSeq = 当前上下文尾部（token 预算内）最老 surface 事件的 seq。
+   * keptFromEventId = 当前上下文尾部（token 预算内）最老 surface 事件的 id。
    * 最新一条无条件保留（不得把当前上下文全部摘要掉）；边界不越过旧锚点
    * （越过会复活已被上一轮摘要的事件）。
    */
-  private computeKeptFromSeq(): number {
+  private computeKeptFromEventId(): EventId {
     const path = this.deps.tree.pathToRoot()
-    let anchorSeq = 0
+    // 旧锚点位置：新边界不得越过（已摘要事件不复活）
+    let start = 0
     for (let i = path.length - 1; i >= 0; i--) {
       const e = path[i]
       if (e !== undefined && isOfType(e, 'compaction.completed')) {
-        anchorSeq = e.data.keptFromSeq
+        const pos = path.findIndex((p) => p.id === e.data.keptFromEventId)
+        if (pos >= 0) start = pos
         break
       }
     }
-    const surface = path.filter((e) => isSurface(e) && (e.seq ?? 0) >= anchorSeq)
-    if (surface.length === 0) return anchorSeq
-
-    const last = surface[surface.length - 1]
-    if (last === undefined) return anchorSeq
-    let acc = eventTokens(last)
-    let boundary = last.seq ?? 0
-    for (let i = surface.length - 2; i >= 0; i--) {
-      const e = surface[i]
-      if (e === undefined) break
+    // 尾部预算反推：从 leaf 端收 surface 事件，预算耗尽即停；
+    // 无 surface 事件时边界即旧锚点位置（与"无新内容可保"语义一致）
+    let boundary = start
+    let acc = 0
+    let keptAny = false
+    for (let i = path.length - 1; i >= start; i--) {
+      const e = path[i]
+      if (e === undefined || !isSurface(e)) continue
       const t = eventTokens(e)
-      if (acc + t > this.deps.keepTokens) break
+      if (keptAny && acc + t > this.deps.keepTokens) break
       acc += t
-      boundary = e.seq ?? 0
+      keptAny = true
+      boundary = i
     }
-    return boundary
+    const anchor = path[boundary]
+    if (anchor === undefined) {
+      // 空路径（零事件会话手动压缩）：走 error 事件失败闭合
+      throw new Error('E_COMPACTION_EMPTY_PATH')
+    }
+    return anchor.id
   }
 }

@@ -79,6 +79,10 @@ export const EventSchemas = {
     resource: z.string(),
     reason: z.string(),
     detail: z.unknown().optional(),
+    // §5.7 补强 1/3：一次调用可声明多个 resource pattern；
+    // alwaysPatterns 与展示用 patterns 解耦——决定"总是允许"固化哪几条规则
+    patterns: z.array(z.string()).optional(),
+    alwaysPatterns: z.array(z.string()).optional(),
   }),
   'permission.resolved': z.strictObject({
     requestId: RequestIdSchema,
@@ -89,7 +93,8 @@ export const EventSchemas = {
   'compaction.started': z.strictObject({ turnId: TurnIdSchema.optional() }),
   'compaction.completed': z.strictObject({
     summary: z.string(),
-    keptFromSeq: z.number().int().nonnegative(),
+    // §5.8.5：锚定事件 id（fork 后路径序≠文件行序，seq 比较会保留错误条目）
+    keptFromEventId: EventIdSchema,
     tokensBefore: z.number().int().nonnegative(),
   }),
   'checkpoint.created': z.strictObject({

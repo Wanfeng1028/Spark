@@ -9,12 +9,17 @@
  */
 import { parseEnvelope } from '@spark/protocol'
 import type {
+  CheckpointDto,
+  CheckpointId,
+  EventId,
   PermissionReply,
+  PermissionRuleDto,
   RequestId,
   SessionDto,
   SessionId,
   SparkEventEnvelope,
   SubmitOutcome,
+  TreeNodeDto,
   Transport,
 } from '@spark/protocol'
 import type { SendMessageOptions } from '@spark/protocol'
@@ -171,6 +176,12 @@ export class HttpTransport implements Transport {
     }).then(() => undefined)
   }
 
+  compact(sessionId: SessionId): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/sessions/${sessionId}/compact`, {
+      method: 'POST',
+    }).then(() => undefined)
+  }
+
   replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void> {
     return this.req<{ ok: boolean }>(`/api/permissions/${requestId}`, {
       method: 'POST',
@@ -193,6 +204,47 @@ export class HttpTransport implements Transport {
       method: 'POST',
       body: JSON.stringify(opts?.title !== undefined ? { title: opts.title } : {}),
     })
+  }
+
+  getTree(sessionId: SessionId): Promise<TreeNodeDto[]> {
+    return this.req<TreeNodeDto[]>(`/api/sessions/${sessionId}/tree`)
+  }
+
+  fork(sessionId: SessionId, fromEventId: EventId): Promise<SessionDto> {
+    return this.req<SessionDto>(`/api/sessions/${sessionId}/fork`, {
+      method: 'POST',
+      body: JSON.stringify({ fromEventId }),
+    })
+  }
+
+  listCheckpoints(sessionId: SessionId): Promise<CheckpointDto[]> {
+    return this.req<CheckpointDto[]>(`/api/sessions/${sessionId}/checkpoints`)
+  }
+
+  rollbackCheckpoint(sessionId: SessionId, checkpointId: CheckpointId): Promise<SessionDto> {
+    return this.req<SessionDto>(`/api/sessions/${sessionId}/checkpoints/${checkpointId}/rollback`, {
+      method: 'POST',
+    })
+  }
+
+  listPermissionRules(): Promise<PermissionRuleDto[]> {
+    return this.req<{ rules: PermissionRuleDto[] }>('/api/permissions/rules').then(
+      (r) => r.rules,
+    )
+  }
+
+  addPermissionRule(rule: PermissionRuleDto): Promise<void> {
+    return this.req<{ ok: boolean }>('/api/permissions/rules', {
+      method: 'POST',
+      body: JSON.stringify(rule),
+    }).then(() => undefined)
+  }
+
+  removePermissionRule(action: string, resource: string): Promise<void> {
+    return this.req<{ ok: boolean }>('/api/permissions/rules', {
+      method: 'DELETE',
+      body: JSON.stringify({ action, resource }),
+    }).then(() => undefined)
   }
 
   dispose(): void {

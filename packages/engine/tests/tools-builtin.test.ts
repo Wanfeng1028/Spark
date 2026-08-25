@@ -11,7 +11,7 @@ import type { ToolContext } from '../src/tools/definition.js'
 import { readTool } from '../src/tools/builtin/read.js'
 import { writeTool } from '../src/tools/builtin/write.js'
 import { editTool } from '../src/tools/builtin/edit.js'
-import { bashTool } from '../src/tools/builtin/bash.js'
+import { bashTool, splitCommandPatterns } from '../src/tools/builtin/bash.js'
 
 async function makeCwd(): Promise<string> {
   return mkdtemp(join(tmpdir(), 'spark-tools-'))
@@ -228,5 +228,31 @@ describe('bash（§5.6.3）', () => {
     expect((r.output as string).length).toBe(40 * 1024)
     // 40KB → 至少 3 帧（16KB/帧截断）
     expect(chunks.length).toBeGreaterThanOrEqual(3)
+  })
+})
+
+describe('bash 复合命令分段（§5.7 补强 1，工单 4.7）', () => {
+  test('&& / || / ; / | 切分并 trim；<2 段返回 undefined（走单一 resource 路径）', () => {
+    expect(
+      splitCommandPatterns('git status && git push origin main'),
+    ).toEqual(['cmd:git status', 'cmd:git push origin main'])
+    expect(splitCommandPatterns('echo a; echo b')).toEqual(['cmd:echo a', 'cmd:echo b'])
+    expect(splitCommandPatterns('cat a | grep b | wc -l')).toEqual([
+      'cmd:cat a',
+      'cmd:grep b',
+      'cmd:wc -l',
+    ])
+    expect(splitCommandPatterns('git status || exit 1')).toEqual(['cmd:git status', 'cmd:exit 1'])
+    // 单段：不声明多 pattern（审批与固化都走原 resource 形状）
+    expect(splitCommandPatterns('git status')).toBeUndefined()
+    // 分号收尾过滤空段后仅剩 1 段：同样回落 undefined
+    expect(splitCommandPatterns('git add .;')).toBeUndefined()
+  })
+
+  test('patternsOf/alwaysPatternsOf 声明一致（逐段评估 = 逐段固化范围候选）', () => {
+    const input = { command: 'git pull && npm test' }
+    expect(bashTool.permission.patternsOf?.(input, { cwd: '.' })).toEqual(
+      bashTool.permission.alwaysPatternsOf?.(input, { cwd: '.' }),
+    )
   })
 })

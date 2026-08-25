@@ -374,11 +374,25 @@ describe('审批', () => {
       s,
       ev(
         'permission.asked',
-        { requestId: REQ, callId: CALL, action: 'write', resource: '/a.txt', reason: '编辑文件' },
+        {
+          requestId: REQ,
+          callId: CALL,
+          action: 'write',
+          resource: '/a.txt',
+          reason: '编辑文件',
+          patterns: ['/a.txt', '/a/*'],
+          alwaysPatterns: ['/a.txt'],
+        },
         { seq: 3 },
       ),
     )
-    expect(itemsOf(s).at(-1)).toMatchObject({ kind: 'approval', requestId: REQ, status: 'pending' })
+    expect(itemsOf(s).at(-1)).toMatchObject({
+      kind: 'approval',
+      requestId: REQ,
+      status: 'pending',
+      patterns: ['/a.txt', '/a/*'],
+      alwaysPatterns: ['/a.txt'],
+    })
     expect(s.byId[SID]?.activeTurn?.waiting).toBe(true)
 
     s = reduce(s, ev('permission.resolved', { requestId: REQ, reply: 'once' }, { seq: 4 }))
@@ -394,7 +408,11 @@ describe('compaction / checkpoint / error', () => {
     expect(s.byId[SID]?.compacting).toBe(true)
     s = reduce(
       s,
-      ev('compaction.completed', { summary: '…', keptFromSeq: 5, tokensBefore: 100 }, { seq: 3 }),
+      ev(
+        'compaction.completed',
+        { summary: '…', keptFromEventId: ids.event('evt_anchor1'), tokensBefore: 100 },
+        { seq: 3 },
+      ),
     )
     expect(s.byId[SID]?.compacting).toBe(false)
   })

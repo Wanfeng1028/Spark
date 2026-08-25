@@ -3,8 +3,9 @@
  *
  * 1. path = tree.pathToRoot()（v1 线性追加：leaf 恒为最新；端口无参——§5.5 runStep ②
  *    调用时树即当前态）
- * 2/3. 有最新 compaction.completed → 上下文 = [摘要消息] + seq ≥ keptFromSeq 的
- *    surface 事件；4. 无 → 全部 surface 事件
+ * 2/3. 有最新 compaction.completed → 上下文 = [摘要消息] + 路径上锚点事件
+ *    （keptFromEventId，含）之后的 surface 事件（§5.8.5：fork 后路径序≠文件行序，
+ *    锚定事件 id 而非 seq）；4. 无 → 全部 surface 事件
  * 5. 投影：user.message → user 消息；assistant.message → assistant 消息
  *    （content 逐字直通——dsh "framing is caller-owned"，投影层禁止二次加工）；
  *    reasoning 项按 provider 配置保留（Anthropic thinking 块）或丢弃；
@@ -14,7 +15,7 @@
  * 摘要消息形状：system 走 StreamRequest 独立字段（v2.7），摘要作首条 user 消息
  * （§5.8.5 注：与 pi buildContextEntries 的"摘要条目"互证）。
  */
-import type { ContentItem, SparkEventEnvelope, SparkEventType } from '@spark/protocol'
+import type { ContentItem, EventId, SparkEventEnvelope, SparkEventType } from '@spark/protocol'
 import type { LlmMessage } from './llm-gateway.js'
 import type { Projector } from './run-loop.js'
 import type { EventTree } from './session/tree.js'
@@ -31,6 +32,8 @@ export interface ProjectorDeps {
   tree: EventTree
   /** §5.8.3 第 5 步 provider 配置：Anthropic thinking 块保留，其他丢弃 */
   includeReasoning: boolean
+  /** 悬空锚点告警（§5.8.5 数据损坏兜底被触发时调用；实现方落结构化日志） */
+  onDanglingAnchor?: (anchorId: EventId) => void
 }
 
 /** §5.8.3 第 5 步：reasoning 投影的 provider 判定（Anthropic thinking 块 / 其他丢弃） */
@@ -38,9 +41,9 @@ export function reasoningIncluded(provider: string): boolean {
   return provider === 'anthropic'
 }
 
-/** surface 投影条目（seq 供 compaction 计算 keptFromSeq，§5.8.5） */
+/** surface 投影条目（eventId 供 compaction 计算 keptFromEventId，§5.8.5） */
 export interface SurfaceEntry {
-  seq: number
+  eventId: EventId
   message: LlmMessage
 }
 
@@ -85,30 +88,53 @@ export function estimateTokens(messages: readonly LlmMessage[]): number {
   return messages.reduce((acc, m) => acc + messageTokens(m), 0)
 }
 
-/** 六步算法主体（Compactor 复用同一锚点语义） */
-export function projectSurface(tree: EventTree, includeReasoning: boolean): Projection {
+/**
+ * 六步算法主体（Compactor 复用同一锚点语义）。
+ * 锚点定位：keptFromEventId 在路径中的位置（含该事件）之后全部保留——
+ * 与 seq 比较不同，路径序与文件行序解耦后依然正确（§5.8.5 分支隐患修复）。
+ */
+export function projectSurface(
+  tree: EventTree,
+  includeReasoning: boolean,
+  onDanglingAnchor?: (anchorId: EventId) => void,
+): Projection {
   const path = tree.pathToRoot()
   const anchor = latestCompaction(path)
-  const minSeq = anchor !== undefined ? anchor.data.keptFromSeq : 0
+  let start = 0
+  if (anchor !== undefined) {
+    const pos = path.findIndex((e) => e.id === anchor.data.keptFromEventId)
+    if (pos < 0) onDanglingAnchor?.(anchor.data.keptFromEventId)
+    // 锚点事件不在路径（数据损坏的兜底）：退化为无压缩全量投影（调用方落结构化
+    // warning）；超限上下文会被 run-loop 触发判据再次压缩，自愈而非丢数据
+    start = pos >= 0 ? pos : 0
+  }
   const entries: SurfaceEntry[] = []
-  for (const e of path) {
-    if ((e.seq ?? 0) < minSeq) continue
+  for (let i = start; i < path.length; i++) {
+    const e = path[i]
+    if (e === undefined) continue
     if (isOfType(e, 'user.message')) {
-      entries.push({ seq: e.seq ?? 0, message: { role: 'user', content: [{ type: 'text', text: e.data.text }] } })
+      entries.push({ eventId: e.id, message: { role: 'user', content: [{ type: 'text', text: e.data.text }] } })
     } else if (isOfType(e, 'assistant.message')) {
       const content = projectContent(e.data.content, includeReasoning)
       if (content.length === 0) continue // 空内容/全滤空不进转录（dsh 规则）
-      entries.push({ seq: e.seq ?? 0, message: { role: 'assistant', content } })
+      entries.push({ eventId: e.id, message: { role: 'assistant', content } })
     }
   }
   return { summary: anchor?.data.summary, entries }
 }
 
 export class ProjectorImpl implements Projector {
+  /** 已告警过的悬空锚点（modelContext 高频调用——同一锚点只报一次防刷屏） */
+  private readonly danglingWarned = new Set<EventId>()
+
   constructor(private readonly deps: ProjectorDeps) {}
 
   modelContext(): { messages: LlmMessage[]; tokens: number } {
-    const p = projectSurface(this.deps.tree, this.deps.includeReasoning)
+    const p = projectSurface(this.deps.tree, this.deps.includeReasoning, (anchorId) => {
+      if (this.danglingWarned.has(anchorId)) return
+      this.danglingWarned.add(anchorId)
+      this.deps.onDanglingAnchor?.(anchorId)
+    })
     const messages: LlmMessage[] = []
     if (p.summary !== undefined) {
       messages.push({ role: 'user', content: [{ type: 'text', text: p.summary }] })

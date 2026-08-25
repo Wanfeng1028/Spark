@@ -20,6 +20,10 @@ import { Button } from '@/components/ui/button'
 export interface ApprovalCardProps {
   action: string
   resource: string
+  /** 多 pattern 清单（§5.7 补强 1，工单 4.7）：复合命令逐段展示；缺省单资源行 */
+  patterns?: readonly string[] | undefined
+  /** always 固化范围（补强 3）：展示「总是允许」将固化的规则 */
+  alwaysPatterns?: readonly string[] | undefined
   reason: string
   detail?: unknown
   status: 'pending' | 'resolved'
@@ -31,6 +35,8 @@ export interface ApprovalCardProps {
 export function ApprovalCard({
   action,
   resource,
+  patterns,
+  alwaysPatterns,
   reason,
   detail,
   status,
@@ -66,6 +72,20 @@ export function ApprovalCard({
         <span className="text-muted-foreground"> {resource}</span>
       </ConfirmationTitle>
       <p className="text-xs leading-relaxed text-muted-foreground">{reason}</p>
+      {(patterns?.length ?? 0) > 1 && (
+        <ul className="flex flex-col gap-0.5">
+          {patterns?.map((p) => (
+            <li key={p} className="font-mono text-[11px] text-muted-foreground">
+              · {p}
+            </li>
+          ))}
+        </ul>
+      )}
+      {(alwaysPatterns?.length ?? 0) > 1 && (
+        <p className="font-mono text-[11px] text-muted-foreground/70">
+          「总是允许」将固化以上 {alwaysPatterns?.length} 条模式规则（跨会话生效）
+        </p>
+      )}
       {detail !== undefined && (
         <pre className="max-h-24 overflow-auto rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs text-muted-foreground">
           {JSON.stringify(detail, null, 2)}

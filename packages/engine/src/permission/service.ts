@@ -2,8 +2,10 @@
  * PermissionService（doc/02 §5.7.2）：ask 挂起表 + 事件时序 + fail-closed。
  *
  * - evaluate → allow 直接过 / deny 直接拒（均不发事件，事件由管线补）；
- * - ask → emit permission.asked（durable）+ Promise 挂入 pending 表；
- * - reply：once 放行一次；always 写入会话临时层（findLast 最高优先）并扫描
+ *   多 pattern 清单逐段评估：任一 deny → 拒、全 allow → 过、否则一次 ask 携带全部
+ *   patterns/alwaysPatterns（补强 1，工单 4.7）；
+ * - reply：once 放行一次；always 按 alwaysPatterns（缺省 patterns ?? [resource]）固化
+ *   规则——先落用户级文件（跨会话生效）再写会话临时层（进程内立即生效），并扫描
  *   pending 级联放行（opencode 自动放行）；reject 级联拒绝同会话其余挂起
  *   （补强 2），feedback 非空时注入 user.message 回喂模型；
  * - 超时 / turn 中断（AbortSignal）/ dispose → 一律 resolve(deny) +
@@ -14,7 +16,9 @@ import type { EventBus } from '../bus.js'
 import type { PermissionRule } from '../config.js'
 import { newIds } from '../ulid.js'
 import type { PermissionCheck, PermissionService } from '../tools/permission-port.js'
-import { evaluate } from './rules.js'
+import { evaluateAll } from './rules.js'
+import type { RuleStore } from './store.js'
+import type { Metrics } from '../observability/metrics.js'
 
 interface PendingEntry {
   requestId: RequestId
@@ -28,12 +32,14 @@ interface PendingEntry {
 
 export interface PermissionServiceDeps {
   bus: EventBus
-  /** 用户级 ~/.spark/permissions.json 规则（EngineConfig.permissions.rules） */
-  userRules: readonly PermissionRule[]
+  /** 用户级规则仓（~/.spark/permissions.json 内存持有；always 持久化落点——工单 4.7） */
+  ruleStore: RuleStore
   /** 项目级 <cwd>/.spark/permissions.json 规则（loadProjectRules） */
   projectRules: readonly PermissionRule[]
   /** 审批超时（spark.json permissionTimeoutMs，缺省 5min） */
   timeoutMs: number
+  /** 进程内指标（§5.10；缺省不计数——测试可省，工单 4.8） */
+  metrics?: Metrics
 }
 
 export class PermissionServiceImpl implements PermissionService {
@@ -45,10 +51,10 @@ export class PermissionServiceImpl implements PermissionService {
   async assert(check: PermissionCheck): Promise<boolean> {
     // fail-closed：请求已达时 turn 已中断
     if (check.signal.aborted) return false
-    const effect = evaluate(
+    const effect = evaluateAll(
       check.action,
-      check.resource,
-      this.deps.userRules,
+      check.patterns ?? [check.resource],
+      this.deps.ruleStore.list(),
       this.deps.projectRules,
       this.sessionRulesOf(check.sessionId),
     )
@@ -61,6 +67,10 @@ export class PermissionServiceImpl implements PermissionService {
       callId: check.callId,
       action: check.action,
       resource: check.resource,
+      ...(check.patterns !== undefined ? { patterns: [...check.patterns] } : {}),
+      ...(check.alwaysPatterns !== undefined
+        ? { alwaysPatterns: [...check.alwaysPatterns] }
+        : {}),
       reason: `工具 ${check.name} 请求 ${check.action}：${check.resource}`,
       detail: check.input,
     })
@@ -93,7 +103,7 @@ export class PermissionServiceImpl implements PermissionService {
 
   /** 全域 deny 的 action 不进广告清单（§5.7 补强 5；会话临时层只有 allow 写入，不参与） */
   isDenied(action: string): boolean {
-    return evaluate(action, '**', this.deps.userRules, this.deps.projectRules) === 'deny'
+    return evaluateAll(action, ['**'], this.deps.ruleStore.list(), this.deps.projectRules) === 'deny'
   }
 
   /** 会话是否有挂起审批（SessionMetaDto.status 的 'waiting-approval' 数据源） */
@@ -116,19 +126,28 @@ export class PermissionServiceImpl implements PermissionService {
       return true
     }
     if (reply === 'always') {
-      this.sessionRulesOf(entry.sessionId).push({
-        action: entry.check.action,
-        resource: entry.check.resource,
-        effect: 'allow',
-      })
+      // 固化范围在 ask 时声明（补强 3）：alwaysPatterns ?? patterns ?? 单资源。
+      // 先落用户级文件（跨会话生效；写盘失败抛错→审批仍挂起可重试），再写会话临时层
+      // （进程内立即生效，免重读文件）
+      const targets =
+        entry.check.alwaysPatterns ?? entry.check.patterns ?? [entry.check.resource]
+      for (const resource of targets) {
+        const rule: PermissionRule = {
+          action: entry.check.action,
+          resource,
+          effect: 'allow',
+        }
+        this.deps.ruleStore.add(rule)
+        this.sessionRulesOf(entry.sessionId).push(rule)
+      }
       await this.settle(entry, true, 'always')
       // 级联放行：各自会话规则下现在 evaluate=allow 的其他挂起项一并 resolve
       for (const other of [...this.pending.values()]) {
         if (
-          evaluate(
+          evaluateAll(
             other.check.action,
-            other.check.resource,
-            this.deps.userRules,
+            other.check.patterns ?? [other.check.resource],
+            this.deps.ruleStore.list(),
             this.deps.projectRules,
             this.sessionRulesOf(other.sessionId),
           ) === 'allow'
@@ -171,6 +190,7 @@ export class PermissionServiceImpl implements PermissionService {
     clearTimeout(entry.timer)
     entry.check.signal.removeEventListener('abort', entry.onAbort)
     this.pending.delete(entry.requestId)
+    this.deps.metrics?.inc('spark_permission_decisions', { reply }) // 工单 4.8：once/always/reject 计数
     try {
       await this.deps.bus.emit(entry.sessionId, 'permission.resolved', {
         requestId: entry.requestId,

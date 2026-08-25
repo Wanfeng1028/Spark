@@ -81,6 +81,11 @@ export class EventBus {
     this.sessions.set(sid, { seq: lastSeq, tail: Promise.resolve() })
   }
 
+  /** 会话卸载（回滚覆写后重载前调用，§5.8.7）：清除 seq 水位，restoreSeq 才能重设截断后的起点 */
+  forgetSession(sid: SessionId): void {
+    this.sessions.delete(sid)
+  }
+
   /** durable 发射：落盘并广播；返回最终信封（run-loop 需 userEventId 引用，§5.5） */
   async emit<T extends DurableEventType>(
     sid: SessionId,

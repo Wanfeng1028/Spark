@@ -245,6 +245,43 @@ describe('坏行策略（§5.8.4）', () => {
   })
 })
 
+describe('磁盘格式迁移（工单 4.1 词表演进：keptFromSeq → keptFromEventId）', () => {
+  it('旧 compaction.completed 行按 seq 回查事件 id 原位转换，其余行不受影响', async () => {
+    const anchor = env(2, { type: 'user.message', data: { text: '被摘要的提问' } })
+    const legacy = JSON.stringify({
+      ...env(3, { type: 'compaction.completed' }),
+      data: { summary: '旧版摘要', keptFromSeq: 2, tokensBefore: 100 },
+    })
+    const path = await writeRaw(
+      [JSON.stringify(HEADER), diskLine(env(1)), diskLine(anchor), legacy, diskLine(env(4))].join(
+        '\n',
+      ) + '\n',
+    )
+
+    const file = await SessionStore.read(path)
+    expect(file.events.map((e) => e.seq)).toEqual([1, 2, 3, 4])
+    const ck = file.events[2]
+    if (ck?.type !== 'compaction.completed') throw new Error('迁移行丢失')
+    expect(ck.data).toEqual({ summary: '旧版摘要', keptFromEventId: anchor.id, tokensBefore: 100 })
+  })
+
+  it('非旧形状（锚点越界 / 新旧字段混写）→ 按原错误拒绝加载（fail-closed 不放松）', async () => {
+    const dangling = JSON.stringify({
+      ...env(1, { type: 'compaction.completed' }),
+      data: { summary: 's', keptFromSeq: 99, tokensBefore: 1 },
+    })
+    const p1 = await writeRaw([JSON.stringify(HEADER), dangling].join('\n') + '\n')
+    await expect(SessionStore.read(p1)).rejects.toThrow()
+
+    const mixed = JSON.stringify({
+      ...env(1, { type: 'compaction.completed' }),
+      data: { summary: 's', keptFromSeq: 1, keptFromEventId: 'evt_mixed000000000000000', tokensBefore: 1 },
+    })
+    const p2 = await writeRaw([JSON.stringify(HEADER), mixed].join('\n') + '\n')
+    await expect(SessionStore.read(p2)).rejects.toThrow()
+  })
+})
+
 describe('resume（§5.8.4）', () => {
   it('重建 header 与树；续写 parentId 接叶', async () => {
     const dir = await tmpDir()

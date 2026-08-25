@@ -36,6 +36,18 @@ export class EventTree {
     this.leaf = fromEventId
   }
 
+  /** 节点存在性（fork 边界校验用，§5.8.6） */
+  has(eventId: EventId): boolean {
+    return this.nodes.has(eventId)
+  }
+
+  /** 全部节点（seq 升序；v1 线性 = 路径序）——树视图数据源 */
+  list(): { event: SparkEventEnvelope; parentId: EventId | null }[] {
+    return [...this.nodes.values()]
+      .sort((a, b) => (a.event.seq ?? 0) - (b.event.seq ?? 0))
+      .map((n) => ({ event: n.event, parentId: n.parentId }))
+  }
+
   /** leaf（或指定事件）→ root 回溯后反转：root → leaf 序的路径 */
   pathToRoot(eventId?: EventId): SparkEventEnvelope[] {
     let cursor: EventId | null = eventId ?? this.leaf

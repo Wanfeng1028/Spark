@@ -31,6 +31,15 @@
 | v2.13 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三继续）                                                                                                                                       | **阶段三工单 8/9 完成**：PiGateway（pi-ai 0.84.3 集成：消息双向映射 toolResult 拆独立消息+toolName 回查/Type.Unsafe 薄桥/provider→api 表/错误内化不抛/429-5xx-网络指数退避 1s/2s/4s±20% 重试 3 次/已交付不重试/abort 前缀保留/generateOnce，31 例）；Projector 投影六步+compaction 锚点（20 例）；engine 230 例全绿。spike 脚本备妥待 DEEPSEEK_API_KEY 实证（工单 8 真实模型验证留给阶段验收）                                                                                                                                                                                                                                                                                                                    |
 | v2.14 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三继续）                                                                                                                                       | **阶段三工单 10a/10b/10c 完成**：Engine 门面（createSession/resume/listSessions/replyPermission/shutdown，per-session 循环串，跨会话并发，13 例单测）；server REST+SSE 全端点（POST sessions/messages/interrupt/permissions + GET sessions/sessions/:id/event，zod 400/404/409/503 映射，SSE 回放水位+直播+心跳+背压+bye 帧，23 例）；web HttpTransport 与 context 接线（SSE 帧解析/注释帧忽略/退避重连/resync 重放/REST 错误映射/断线状态，18 例）；全仓 313 例（engine 243 + server 23 + web 47）+ typecheck/lint 全绿；§8 阶段三工单 REST+SSE+HttpTransport 行勾                                                                                                                                                                                                                                                                                              |
 | v2.15 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三继续）                                                                                                                                       | **阶段三工单 11 完成**：Logger 封装（pino v10 stdout + `<root>/logs/engine.log` 双路，info 级别，字段约定 sid/turnId/callId/code/durMs）；写入前脱敏三层正则（sk-xxx 20+ 字母数字 / Bearer + token / process.env ≥6 字符值出现处 → ***），递归遍历对象数组 Error；bus subscriber 异常与 SessionStore 尾行半写接入 logger；Engine 生命周期 4 条日志（start/shutdown.start/shutdown.done/shutdown.error + ownsLogger close await flush）；8 例单测；§8 阶段三工单 pino 行勾；全仓 367 例（engine 251/server 23/web 47/protocol 46）+ typecheck/lint 全绿；阶段验收（真实模型闭环/断线重连/kill-9 resume）待 DEEPSEEK_API_KEY 用户自配后由 e2e-smoke 脚本执行                                                                                                                                                                                                                                                                |
+| v2.16 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.1 协议演进落地**：`compaction.completed` 锚点 `keptFromSeq` → `keptFromEventId`（§5.8.5 分支隐患——fork 后路径序≠文件行序；Projector/Compactor 改按锚点事件在路径中的位置过滤，含边界；锚点 id 不在路径时退化"摘要+全量"不丢数据）；`permission.asked` 增 `patterns?[]`/`alwaysPatterns?[]`（§5.7 补强 1/3，前端 approval item 透传）；protocol zod + 引擎 + mock 场景（normal/reject）+ 前端 applyEvent + 四端单测同步；全仓 368 例 + typecheck/lint 全绿 |
+| v2.17 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.2 完成**：steer/queue 完整语义端到端时序单测 3 例（queue 依序消费 FIFO 三 turn 严格配对交替 / 多 steer 下一 step 前按提交序注入采样上下文 / interrupt 后残留 steer 依序转主队列续跑两 turn——§5.4 补漏语义实证）；UI 走查确认 Composer 插话/排队按钮链路真实生效（三态提示→HttpTransport delivery 透传→路由 zod→engine 三态路由，mock @wait:message 演示路径可用）；§8 阶段四 steer/queue 行勾选；engine 255 例全绿 |
+| v2.18 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.3 完成**：手动 /compact 全链路（Composer 本地拦截 `/compact` → Transport.compact → POST /api/sessions/:id/compact → SessionHandle.compact——引擎仅 idle 受理，turn 进行中 409 E_TURN_ACTIVE；错误码/§4.5 路由表/§7.2 要点表/§6.3 ComposerProps 同步登记）；前端细条轻提示（压缩中→已完成 2.5s）；MockTransport.compact 合成 started→600ms→completed 事件对（锚点=最近 surface 事件）；Projector 正确性四象限补全（有 compaction × reasoning=true）+ Compactor×reasoning=true 重投影 + engine 手动压缩 2 例 + 路由 2 例；全仓 379 例（engine 259/server 25/web 49/protocol 46）+ typecheck/lint 全绿；§8 阶段四 compaction 行勾选 |
+| v2.19 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.4 完成**：会话自动标题——`engine/src/title.ts` TitleGenerator（§5.11 标题提示词 + serializeTranscript 转录 / maxTokens 50 / trim+截 80 字符空串不发）；engine meta 订阅器在 turn.completed 且无标题时 fire-and-forget 触发（titleTask 在途去重；失败仅 logger.warn 不 emit error，下一 turn 重触发；shutdown 序列增 3.5 步 await 标题任务防 append-after-close）；重启恢复实证（titleOf 路径恢复 meta.title/status idle/listSessions 含标题/恢复不重复触发）；前端 Sidebar 激活会话标题走事件流实时值（liveTitle 覆盖 DTO 静态值，与 liveStatus 同模式）；MockTransport 对等演示（首个 turn.completed 后 400ms 合成 session.title 一次）；新增 title 单测 4 例 + engine 集成 5 例 + mock 1 例；全仓 389 例（engine 268/server 25/web 50/protocol 46）+ typecheck/lint 全绿；§8 阶段四自动标题行勾选 |
+| v2.20 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.5 完成**：fork 与树视图——引擎 `forkSession`（复制 root→边界路径行重链 parentId + seq 重编 1..k + sessionId 改写、事件 id 保留；header 记 parentSession/parentPath/parentEventId；三拒绝码 E_INVALID_BOUNDARY/E_OPEN_TURN(运行中+边界落 turn 中间)/E_ALREADY_EXISTS；SessionStore.seed 批量落盘不经 bus）+ `treeOf`（EventTree.list 线性链节点 + scanForkChildren 磁盘 header 扫描）；protocol 增 TreeNodeDto/ForkChildDto + Transport.getTree/fork；server 注册 GET /:id/tree（label 摘要截 60 字符）与 POST /:id/fork（错误映射 400/409）路由；前端 SessionTreeDialog（节点链 + hover 分叉 + 子会话 chip 跳转，turn 进行中禁用前置）+ SessionPage 右上角入口；MockTransport 对等演示（内存 fork + isLiveScriptSession 区分流式/回放路径）；engine fork 3 例 + 路由 2 例新增；全仓 394 例（engine 271/server 27/web 50/protocol 46）+ typecheck 全绿；§8 阶段四 fork 行勾选、§7.2 tree/fork 路由行更新 |
+| v2.21 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.6 完成**：checkpoint 两域简化——新增 §5.8.7 规格（GitCheckpointer：gitDir=<会话目录>/checkpoints/<sid>/.git、work-tree=会话 cwd 全量 add + 会话文件 hash-object 别名 .spark-checkpoint/session.jsonl 入索引、commit --allow-empty、turn.completed 后 snapshot 失败仅 error{io} 不推翻 turn）；引擎 `rollbackToCheckpoint`（仅 idle 受理 E_TURN_ACTIVE → 停 run-loop/关 store → 工作区 reset --hard + clean -fd + 删物化别名 → 会话文件快照 blob 覆写 → 重载补 session.resumed；未启用/不存在 E_NOT_FOUND、git 失败 E_CHECKPOINT_ROLLBACK）+ `checkpointsOf` 索引读出（DTO 不含 commit sha）；server 注册 GET /:id/checkpoints 与 POST /:id/checkpoints/:cid/rollback 路由（§4.5/§7.2 表登记、§7.4 补全 E_TURN_ACTIVE/E_INVALID_BOUNDARY/E_OPEN_TURN/E_ALREADY_EXISTS/E_CHECKPOINT_ROLLBACK 五行）；前端 CheckpointDialog（快照列表 hover 回滚，busy 禁用前置，回滚后 resetSlice + GET /:id 全量重放）+ SessionPage 检查点入口（History 图标与树按钮并排）+ StatusBar 徽标数据源 checkpoint.created（applyEvent 已测）；MockTransport 对等演示（turn 边界派生 checkpoint.created 与 listCheckpoints 同源 ckp_mock_N、getSession 改回已回放 durable 现状使 rollback 截断可走查）；engine 3 例 + server 3 例 + mock 1 例新增；全仓 401 例（engine 274/server 30/web 51/protocol 46）+ typecheck/lint 全绿；§8 阶段四 checkpoint 行勾选 |
+| v2.22 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审整改指令） | **评审整改（协议兼容三项）**：① 旧版磁盘迁移——SessionStore.read 检测阶段三格式 `compaction.completed{keptFromSeq}`，按行号回查事件 id 原位转 `keptFromEventId` 后重过严校验（幂等内存迁移不重写文件；schema 保持严格不双收字段；锚点越界/字段混写仍 fail-closed），store 迁移 2 例（转换+拒绝）；② 悬空锚点不再静默——ProjectorDeps 增 `onDanglingAnchor` 回调（退化兜底触发时结构化 warn `projector.dangling_anchor`，按锚点 id 去重防 modelContext 高频刷屏），engine 接线 logger.warn，projector 1 例（触发一次+无压缩不触发）；③ 文档勘误——摘要消息角色统一为「首条 user 消息」（v2.7 定案 system 走 StreamRequest 独立字段），§5.8.5 删"system: summary 等价"旧表述并补迁移策略段。全仓 404 例（engine 277）+ typecheck/lint 全绿 |
+| v2.23 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.7 完成**：permission always 持久化+同批放行+规则管理 UI——引擎 UserRuleStore（用户级 ~/.spark/permissions.json 内存持有 + tmp/rename 原子落盘，add 同键覆盖/remove 精确匹配；§5.7 补强 3）接替只读数组成为 evaluate 用户层单一来源；多 pattern 规则消费（补强 1）：PermissionCheck/ToolDefinition 增 patternsOf/alwaysPatternsOf，bash 复合命令按 && \\|\\| ; \\| 分段声明（<2 段回落单资源），evaluateAll 任一 deny 短路→全 allow 直过→一次 ask 携带 patterns/alwaysPatterns；always 固化 = 先落用户级文件再写会话临时层（写盘失败审批仍挂起 fail-closed），同批放行级联复用多 pattern 重评；Engine 门面增 list/add/removePermissionRules 三方法；protocol 增 PermissionRuleDto + Transport 三方法；server 注册 GET/POST/DELETE /api/permissions/rules（§4.5/§7.2 表登记）；前端 SettingsDialog 新增「权限·规则」区（列表/删除/添加表单，即存即生效，§6.2.3 表更新）+ ApprovalCard 多 pattern 清单与固化范围提示；MockTransport 对等演示（内存规则表 + always 按 alwaysPatterns 固化）；engine 9 例（多 pattern 四路径/UserRuleStore 落盘/bash 分段）+ server 1 例 + mock 1 例新增；全仓 415 例（engine 286/server 31/web 52/protocol 46）+ typecheck/lint 全绿；§8 阶段四 permission 行勾选 |
+| v2.24 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.8 完成（阶段四收官）**：node:sqlite 会话索引 + metrics 端点——SessionIndex 单表索引（<root>/index.db；upsert/touch 仅前进水位/setTitle/LIKE 转义搜索/rebuild 全量重建）；JSONL 恒为权威：boot 自磁盘扫描全量重建对齐、durable 事件增量 touch（meta 订阅器内）、会话装载点 wireSession 单点 upsert（create/resume/fork/rollback 重载共用）、写失败或关库后自动降级磁盘扫描（结构化 error 日志，主流程不受影响）；listSessions 改索引驱动 + `?q` 标题子串过滤（已加载内存态覆盖且同样过 q 过滤），shutdown 先 await 重建完成再关库（防迟到写库撞已关闭句柄）；Metrics 计数器（§5.10 清单）：spark_turns_total{finish}（run-loop finally）/ spark_tool_calls_total{name,is_error}（管线三出口）/ spark_llm_tokens_total{direction}（流式结果 usage）/ spark_permission_decisions{reply}（settle）/ spark_events_durable_total（订阅器）+ spark_sessions_active 快照 gauge，renderMetrics 输出 Prometheus exposition 文本；server 注册 GET /api/metrics（text/plain; version=0.0.4）；session-index 单测 5 例 + engine 集成 2 例（q 过滤/增量水位/重启重建不丢/计数断言/Prometheus 文本）+ server 1 例新增；全仓 423 例（engine 293/server 32/web 52/protocol 46）+ typecheck/lint 全绿；§4.5/§7.2 表登记 metrics 与 ?q、§8 阶段四 sqlite/metrics 行勾选 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -321,11 +330,13 @@ export interface SparkEventMap {
     resource: string
     reason: string
     detail?: unknown
+    patterns?: string[]        // §5.7 补强 1：多 pattern 展示（阶段四工单 4.1 落地）
+    alwaysPatterns?: string[]  // §5.7 补强 3：always 固化范围声明
   }
   'permission.resolved': { requestId: RequestId; reply: PermissionReply; feedback?: string }
   // 上下文管理
   'compaction.started': { turnId?: TurnId }
-  'compaction.completed': { summary: string; keptFromSeq: number; tokensBefore: number }
+  'compaction.completed': { summary: string; keptFromEventId: EventId; tokensBefore: number }
   'checkpoint.created': { checkpointId: CheckpointId; files: string[]; turnId: TurnId }
   // 系统
   error: { scope: 'engine' | 'llm' | 'tool' | 'io'; message: string; fatal?: boolean }
@@ -405,14 +416,19 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | 方法 | 路径                        | 请求                                                 | 响应                                                 |
 | ---- | --------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
 | POST | /api/sessions               | `{ title?, model?, cwd? }`                           | SessionDto                                           |
-| GET  | /api/sessions               | `?limit&cursor`                                      | SessionDto[]                                         |
+| GET  | /api/sessions               | `?limit&cursor&q`（q=标题子串过滤，工单 4.8）        | SessionDto[]                                         |
 | GET  | /api/sessions/:id           | —                                                    | SessionDto（含 `events: SparkEvent[]` durable 回放） |
 | POST | /api/sessions/:id/messages  | `{ text, delivery? }`                                | `{ result:'started'\|'steered'\|'queued', turnId? }` |
 | POST | /api/sessions/:id/interrupt | —                                                    | `{ ok:true }`                                        |
+| POST | /api/sessions/:id/compact   | —                                                    | `{ ok:true }`（turn 进行中 → 409 `E_TURN_ACTIVE`）    |
 | POST | /api/permissions/:requestId | `{ reply, feedback? }`                               | `{ ok:true }`                                        |
+| GET  | /api/permissions/rules      | —                                                    | `{ rules: PermissionRuleDto[] }`（阶段四工单 4.7）   |
+| POST | /api/permissions/rules      | `PermissionRuleDto`                                  | 201 `{ ok:true }`（action+resource 同键覆盖）        |
+| DELETE | /api/permissions/rules    | `{ action, resource }`                               | `{ ok:true }`；无此规则 → 404 `E_NOT_FOUND`          |
 | GET  | /api/sessions/:id/tree      | —                                                    | TreeNode[]（阶段四）                                 |
 | POST | /api/sessions/:id/fork      | `{ fromEventId }`                                    | SessionDto（阶段四）                                 |
 | GET  | /api/event                  | `?sessionId&since`（均可省略，语义见 §4.6 订阅语义） | SSE 流                                               |
+| GET  | /api/metrics                | —                                                    | Prometheus exposition 文本（工单 4.8，§5.10 清单）   |
 
 ### 4.5.1 DTO 定义（protocol/src/api.ts）
 
@@ -870,7 +886,7 @@ UI 收到 asked → ApprovalCard → POST /api/permissions/:requestId
 
 **与 opencode（`packages/opencode/src/permission/index.ts`）的对照补强**（v2.4 在线核对，7 条）：
 
-1. **多 pattern 评估**：一次工具调用可声明多个 resource pattern（如复合 bash 命令）；逐 pattern evaluate——任一 deny → 立即拒绝；全部 allow → 放行；否则**一次 ask 携带全部 patterns**。词表扩展：`permission.asked` 增 `patterns?[]` / `alwaysPatterns?[]`，按 AGENTS §2.5 从 protocol 改起随下次提交落地。
+1. **多 pattern 评估**：一次工具调用可声明多个 resource pattern（如复合 bash 命令）；逐 pattern evaluate——任一 deny → 立即拒绝；全部 allow → 放行；否则**一次 ask 携带全部 patterns**。词表扩展：`permission.asked` 增 `patterns?[]` / `alwaysPatterns?[]`（阶段四工单 4.1 已落地 protocol/引擎/前端透传；规则引擎消费已落地，见工单 4.7——bash 复合命令 `patternsOf/alwaysPatternsOf` 按 `&& || ; |` 分段声明）。
 2. **reject 也级联**：用户 reject 后，同会话其余挂起审批一并自动 reject 并发 resolved 事件（fail-closed 收敛；此前只定义了 always 级联放行）。
 3. **always 的持久化范围在 ask 时声明**：`alwaysPatterns` 与展示用 patterns 解耦（opencode `request.always`）——决定"总是允许"到底固化哪几条规则。
 4. **优先级实现机制实锤**：evaluate 对 [用户级, 项目级, 会话临时] **依序扁平化后 findLast**——会话临时层排最后即最高优先（5.7.1 声明的机制路径确认）。
@@ -919,7 +935,7 @@ class EventTree {
 modelContext(leafId):
   1. path = tree.pathToRoot(leafId)                      // 全部 durable 事件
   2. c = path 上最新 compaction.completed（无则跳到 4）
-  3. 上下文 = [system: c.summary] + path 中 seq ≥ c.keptFromSeq 的 surface 事件
+  3. 上下文 = [system: c.summary] + path 中锚点事件（c.keptFromEventId，含）之后的 surface 事件
   4. （无 compaction）上下文 = path 全部 surface 事件
   5. 投影：user.message→user 消息；assistant.message→assistant 消息
      （content 内 toolCall/toolResult 转为 provider 对应的消息结构）；
@@ -948,8 +964,8 @@ compact(rt):
   emit compaction.started
   summary = await LlmGateway.generateOnce(compactionModel,
       prompt=压缩提示词 + 旧上下文（Projector 输出）, maxTokens=2000)
-  keptFromSeq = 当前上下文中"最近 N 条 surface 事件"的首 seq（N 由 token 预算反推）
-  emit compaction.completed{summary, keptFromSeq, tokensBefore}(durable)
+  keptFromEventId = 当前上下文中"最近 N 条 surface 事件"的首事件 id（N 由 token 预算反推）
+  emit compaction.completed{summary, keptFromEventId, tokensBefore}(durable)
   （此后 Projector 自动按 5.8.3 生效；旧事件不删——append-only）
 触发（v2.7 升级为 opencode `session/overflow.ts` 的 **reserve 扣减公式**）：
   usable = (model.limit.input ?? context − maxOutputTokens(model)) − reserved
@@ -959,9 +975,16 @@ compact(rt):
     取舍：本地误压缩代价低于漏压缩）。spark.json 的 compactionThreshold 降为手动覆盖项
     （设置后改用 tokens > threshold × context 简化式）。手动 /compact 不变
 （压缩调用本身的 usage 不计入会话 usage——与 Claude Code modelUsage 口径一致的做法，v1 简化为不计）
+手动 /compact（阶段四工单 4.3 落地）：Composer 本地拦截 `/compact` 文本 →
+  Transport.compact → POST /api/sessions/:id/compact → handle.compact()。
+  引擎仅在 idle 受理（turn 进行中 → 409 E_TURN_ACTIVE：压缩读全路径，避开运行竞态）；
+  HTTP 等压缩完成再返回（本地单用户，摘要生成秒级），started/completed 经 SSE 直播——
+  前端顶部细条「上下文压缩中…」→ 完成后轻提示「上下文已压缩」（2.5s）。
 ```
 
-**compaction 锚点的分支隐患**（v2.5，pi `firstKeptEntryId` 实证）：pi 的 compaction 条目锚定 **entry id**，我们在词表里用 `keptFromSeq`（文件行号）。v1 线性会话下 seq==路径序没问题；**阶段四 fork 后路径序≠文件行序**，seq 比较会保留错误的条目——届时按 §2.5 从 protocol 改为 `keptFromEventId`（Projector 语义同 pi buildContextEntries：摘要消息 + [锚点事件..compaction 前全部] + compaction 后全部）。另：compaction 条目本身参与上下文（作为摘要消息）——与我们"system: summary"等价，互证。
+**compaction 锚点的分支隐患**（v2.5，pi `firstKeptEntryId` 实证；**阶段四工单 4.1 已落地**）：pi 的 compaction 条目锚定 **entry id**，词表原用 `keptFromSeq`（文件行号）。v1 线性会话下 seq==路径序没问题；**阶段四 fork 后路径序≠文件行序**，seq 比较会保留错误的条目——已按 §2.5 从 protocol 改为 `keptFromEventId`（Projector 语义同 pi buildContextEntries：摘要消息 + [锚点事件..compaction 前全部] + compaction 后全部）。锚点 id 不在路径（数据损坏）时退化为"摘要+全量事件"投影（不丢数据，超限自愈再压缩）并落结构化 warning（`projector.dangling_anchor`，按锚点 id 去重——不静默）。另：compaction 条目本身参与上下文，投影为**首条 user 消息**（v2.7 定案：system 走 StreamRequest 独立字段不复用；§5.11 压缩提示词与该角色配套）。
+
+**磁盘格式迁移**（工单 4.1 词表演进的加载适配）：旧版 JSONL 中 `compaction.completed{keptFromSeq}`（阶段三格式）在 SessionStore.read 时按行号回查事件 id、原位转为 `keptFromEventId` 后重过严校验——幂等内存迁移，**文件不重写**（避免崩溃窗口）；schema 保持严格不双收字段，适配只存在于磁盘读取边界。非旧形状（锚点行缺失/新旧字段混写）仍 fail-closed 拒绝加载。
 
 ### 5.8.6 fork（阶段四）
 
@@ -970,6 +993,29 @@ compact(rt):
 **branch_summary（阶段四+ 可选，pi branchWithSummary）**：分叉时对**被放弃的路径**生成摘要条目注入新分支——回退不丢上下文。同款思路也可用于 /rewind（checkpoint 回滚后补一条被放弃未来的摘要）。
 
 **fork 边界校验**（dsh `SessionForkErrorCode` 对照，v2.6）：forkFrom 必须拒绝三类请求——边界事件不存在（INVALID_BOUNDARY）、边界落在 open turn 中间（OPEN_TURN：turn 未闭合不可分叉）、目标会话 id 已存在（ALREADY_EXISTS）。
+
+### 5.8.7 checkpoint（阶段四，工单 4.6）
+
+**两域简化**（Grok checkpoint 思路）：工作区（会话 cwd）+ 会话文件 → 同一棵 git 树。仓库位于
+`<会话目录>/checkpoints/<sessionId>/.git`（与 JSONL 同级、不进工作区）；`--work-tree <cwd>` 全量
+`add -A`（.gitignore 生效），会话文件经 `hash-object -w` 以固定别名 `.spark-checkpoint/session.jsonl`
+挂入索引（别名前缀目录写进 info/exclude——add 永不吸入工作区同名目录）。
+
+**快照时机**：run-loop 在 turn.completed 落盘后、消费下一输入前 `snapshot(turnId)`；流程 =
+add → hash-object 会话文件 → commit --allow-empty（纯对话推进也成锚点，回滚点按 turn 均匀分布）→
+索引追加 `{checkpointId, turnId, commit, createdAt, files}` → emit `checkpoint.created`
+（durable，但在快照 blob 之后——回滚恢复的会话文件不含本事件）。失败不推翻已闭合的 turn：
+error{io} 如实上报（失败闭合），不吞、不重试。
+
+**回滚**（`rollbackToCheckpoint(id, cid)`）：仅 idle 受理——运行中 E_TURN_ACTIVE；未启用
+（`spark.engine.checkpoints=false`）或快照不存在 E_NOT_FOUND。执行 = interrupt + 停 run-loop →
+flush + 关旧 store（单写者纪律）→ 工作区 `reset --hard <commit>` + `clean -fd`（ignored 不动）→
+删除被 reset 物化的别名文件（目录保留，可能是用户自己的）→ 会话文件用快照 blob 逐字节覆写 →
+重载补发 session.resumed。git 失败闭合为 E_CHECKPOINT_ROLLBACK。回滚后续跑 seq 从截断水位连续
+前进，无断洞。
+
+**列表与开关**：`checkpointsOf` 读索引（创建序 = 旧→新）；DTO 只含 checkpointId/turnId/createdAt/files
+（commit sha 不上线）。开关 `spark.engine.checkpoints` 默认 false——快照有 git 子进程开销，按需开启。
 
 ## 5.9 LLM 网关（llm-gateway.ts）
 
@@ -1030,6 +1076,10 @@ export interface ResolvedModel {
 | E_VALIDATION                                     | HTTP 请求 zod 失败                            | HTTP 400 `{code, message, issues}` |
 | E_NOT_FOUND                                      | 会话/审批请求/文件路径不存在                  | HTTP 404 / tool output             |
 | E_ALREADY_RESOLVED                               | 审批重复答复                                  | HTTP 409                           |
+| E_TURN_ACTIVE                                    | 手动 /compact 时 turn 进行中（idle 才受理）   | HTTP 409                           |
+| E_INVALID_BOUNDARY                               | fork 边界事件不存在（§5.8.6 工单 4.5）        | HTTP 400                           |
+| E_OPEN_TURN                                      | fork 时 turn 进行中/边界落未闭合 turn（§5.8.6） | HTTP 409                          |
+| E_ALREADY_EXISTS                                 | fork 目标会话 id 已占用（§5.8.6）             | HTTP 409                           |
 | E_SHUTTING_DOWN                                  | 引擎关闭中拒新请求                            | HTTP 503                           |
 | E_INTERNAL                                       | 未分类内部异常（详情只进日志）                | HTTP 500                           |
 | E_PATH_OUTSIDE                                   | 路径越出允许根（硬边界，先于审批）            | tool output                        |
@@ -1105,7 +1155,7 @@ You are Spark, a coding agent working in the user's repository.
 **辅助提示词**：
 
 - **compaction**（§5.8.5 用，`generateOnce`）："Summarize the conversation so far so work can continue with this summary alone. Keep: goals, key decisions, current task state, open TODOs, important file paths. Reply with the summary only."（maxTokens 2000）
-- **会话标题**（阶段四，首 turn 完成后异步触发）："Generate a 3-6 word title for this conversation. Reply with the title only."
+- **会话标题**（阶段四工单 4.4 已落地，首 turn 完成后异步触发）："Generate a 3-6 word title for this conversation. Reply with the title only."（maxTokens 50；复用 compactionModel 廉价通道，`engine/src/title.ts`——turn.completed 且无标题时经 meta 订阅器 fire-and-forget 触发，在途任务去重、失败只记日志不 emit error、shutdown 3.5 步收尾防 append-after-close；回串 trim+截 80 字符，空串不发）
 
 ---
 
@@ -1220,7 +1270,7 @@ apps/web/
 | 通用 | 主题             | light/dark 二态切换          | settings-store（localStorage） | 立即生效（document class 切换）；v1 无"跟随系统"                             |
 | 通用 | 默认 delivery    | now/steer/queue 单选         | 同上                           | Composer 初始模式（§6.2.2）                                                  |
 | 模型 | 新建会话默认模型 | 文本输入（`provider/model`） | 同上                           | v1 手输直传 createSession，非空校验；模型枚举 API 不在 §4.5 表内，阶段四再议 |
-| 会话 | 权限规则表       | —（v2）                      | —                              | 阶段四"规则管理 UI"（§8）                                                    |
+| 权限 | 规则表（工单 4.7 已落地） | 列表 + 行内删除 + action/resource/effect 添加表单 | 用户级 permissions.json（服务端持久化） | 打开时 GET /api/permissions/rules 加载；即存即生效；always 固化同表（§5.7 补强 3） |
 
 行为：全部即存即生效（无保存按钮，桌面应用惯例）；默认模型只影响新建会话，不改已有会话。空/错误态：字段为本地态无加载；唯一校验为非空。
 
@@ -1277,6 +1327,7 @@ interface ComposerProps {
   busy: boolean
   onSend(text, delivery): void
   onInterrupt(): void
+  onCompact(): Promise<void> // /compact 命令（§5.8.5 手动压缩；本地拦截不进消息通道）
 }
 // SessionSidebar / SessionItem（标题/相对时间/状态点 idle|running|waiting-approval）
 // SettingsDialog：完整规格见 §6.2.3
@@ -1547,12 +1598,16 @@ app.post('/api/sessions/:id/messages', async (req, reply) => {
 | 路由                             | 实现要点                                                                                                                           |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | POST /api/sessions               | body `{title?, model?, cwd?}`（model 缺省用引擎 defaultModel；cwd 缺省 = server 进程 cwd）→ `createSession` → 201 + SessionMetaDto |
-| GET /api/sessions                | `listSessions()` 按 updatedAt 倒序；`?limit`（默认 50）+ `?cursor`（= 最后一条的 id，倒序遍历）——v1 内存全量切片即可，无索引       |
+| GET /api/sessions                | **索引驱动**（工单 4.8）：node:sqlite sessions 表（boot 自磁盘全量重建对齐 JSONL 权威，durable 事件增量 touch、装载点 upsert；索引不可用降级回磁盘扫描）；`?limit`（默认 50）+ `?cursor`（= 最后一条的 id，倒序遍历）+ `?q`（标题子串过滤）——分页 v1 内存切片 |
+| GET /api/metrics                 | 工单 4.8 已注册：`engine.renderMetrics()` → Prometheus exposition 文本（text/plain; version=0.0.4）；counter 清单见 §5.10，spark_sessions_active 为快照时点 gauge |
 | GET /api/sessions/:id            | 会话未加载先 `resumeSession`；meta + 全量 durable 事件（按 seq 升序）→ SessionDto（`events` = 前端冷启动回放数据源）               |
 | POST /api/sessions/:id/messages  | 见上例代码；**submit 三态直通**（不等待 turn 结果——HTTP 只表达"已受理"）                                                           |
 | POST /api/sessions/:id/interrupt | `handle.interrupt()`；会话 idle 时同样返回 200 `{ok:true}`（幂等，无 turn 也成功）                                                 |
+| POST /api/sessions/:id/compact   | `handle.compact()`（§5.8.5 手动压缩）；等 compaction.completed 落盘再返回（started/completed 经 SSE 直播）；turn 进行中 → 409 E_TURN_ACTIVE |
 | POST /api/permissions/:requestId | `PermissionService.reply`；已答复 → 409 E_ALREADY_RESOLVED；requestId 不存在 → 404                                                 |
-| GET /:id/tree · POST /:id/fork   | 阶段四实现；v1 不注册路由（§4.5 表已标注）                                                                                         |
+| GET/POST/DELETE /api/permissions/rules | 阶段四工单 4.7 已注册：list = `engine.listPermissionRules()`；POST = `addPermissionRule`（zod PermissionRuleDto 校验，同键覆盖，201）；DELETE = `removePermissionRule`（精确匹配，无此规则 404）。落点 = 用户级 ~/.spark/permissions.json（tmp+rename 原子写），always 固化与手动管理同表 |
+| GET /:id/tree · POST /:id/fork   | 阶段四工单 4.5 已注册：tree = `treeOf()`（节点链 + label 摘要 + forks 磁盘扫描归组）；fork = `forkSession()`（三拒绝码 §5.8.6：INVALID_BOUNDARY 400 / OPEN_TURN 409 / ALREADY_EXISTS 409）→ 201 + SessionMetaDto |
+| GET /:id/checkpoints · POST /:id/checkpoints/:cid/rollback | 阶段四工单 4.6 已注册：list = `checkpointsOf()`（索引读出旧→新，commit sha 不上线）；rollback = `rollbackToCheckpoint()`（§5.8.7 两域复位：仅 idle 受理，运行中 409 E_TURN_ACTIVE、快照不存在/未启用 404、git 失败 500 E_CHECKPOINT_ROLLBACK 详情只进日志）→ 200 + SessionMetaDto（**回滚后 seq 回退**，响应不含 events，前端走 GET /:id 全量重放） |
 
 校验失败 400（zod flatten）；未知会话 404。并发安全由引擎单写者与 per-session 串行保证，路由层无锁。
 
@@ -1585,6 +1640,11 @@ app.get('/api/event', async (req, reply) => {
 | zod 校验失败     | 400 `{code:'E_VALIDATION', message, issues}` |
 | 会话/请求不存在  | 404 `E_NOT_FOUND`                            |
 | 审批请求已答复过 | 409 `E_ALREADY_RESOLVED`                     |
+| turn 进行中      | 409 `E_TURN_ACTIVE`（手动压缩/回滚共用）     |
+| 分叉边界事件不存在 | 400 `E_INVALID_BOUNDARY`                   |
+| 分叉源 turn 未闭合 | 409 `E_OPEN_TURN`                          |
+| 目标会话已存在   | 409 `E_ALREADY_EXISTS`                       |
+| 回滚 git 操作失败 | 500 `E_CHECKPOINT_ROLLBACK`（详情只进日志） |
 | 引擎已 shutdown  | 503 `E_SHUTTING_DOWN`                        |
 | 内部异常         | 500 `E_INTERNAL`（详情只进日志，不透出）     |
 
@@ -1643,12 +1703,13 @@ app.get('/api/event', async (req, reply) => {
 
 ## 阶段四：深度体验
 
-- [ ] steer/queue 完整语义验证（turn 中插话/排队消费）
-- [ ] compaction（自动阈值+手动 /compact）+ 前端轻提示
-- [ ] 会话恢复/列表/自动标题；fork 与树视图
-- [ ] checkpoint（turn 边界 git 快照，两域简化）+ UI
-- [ ] permission always 持久化 + 同批放行 + 规则管理 UI
-- [ ] node:sqlite 会话索引（列表/搜索，不动 JSONL 权威）+ metrics 端点
+- [x] steer/queue 完整语义验证（turn 中插话/排队消费）
+- [x] compaction（自动阈值+手动 /compact）+ 前端轻提示
+- [x] 会话自动标题（§5.11 标题提示词；工单 4.4）+ 重启恢复/列表/状态点
+- [x] fork 与树视图（三拒绝码 + tree 路由 + 前端树视图/分叉入口，工单 4.5）
+- [x] checkpoint（turn 边界 git 快照，两域简化）+ UI（§5.8.7 / §7.2 路由行 / CheckpointDialog 回滚入口，工单 4.6）
+- [x] permission always 持久化 + 同批放行 + 规则管理 UI（用户级 permissions.json 原子写 + alwaysPatterns 固化 + SettingsDialog 规则区，工单 4.7）
+- [x] node:sqlite 会话索引（列表/搜索，不动 JSONL 权威）+ metrics 端点（boot 重建+durable 增量+GET /api/metrics Prometheus 文本，工单 4.8）
 - **验收**：长会话（>100 turn）稳定；压缩后上下文正确；规则跨会话生效
 
 ## 阶段五：产品化

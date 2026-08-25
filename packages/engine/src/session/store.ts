@@ -5,6 +5,9 @@
  * 坏行策略：尾行坏 = 崩溃半写丢弃 warn；非尾行坏 / 未知 type 无 ignorable /
  *   seq 断洞 → 拒绝加载（fail-closed）。ignorable 未知事件跳过但占行号
  *   （seq == 文件事件行号，dsh "seq = log.length" contiguity contract）。
+ * 磁盘格式迁移（§5.8.4）：旧版 compaction.completed{keptFromSeq}（阶段三词表）在
+ * read 时按行号回查事件 id 原位转为 keptFromEventId——幂等内存迁移，文件不重写
+ * （重写引入崩溃窗口；schema 保持严格，适配只在磁盘读取边界）。
  */
 import { createHash } from 'node:crypto'
 import { mkdir, open, readFile } from 'node:fs/promises'
@@ -12,6 +15,7 @@ import type { FileHandle } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { EventSchemas, parseEnvelope } from '@spark/protocol'
 import type {
+  EventId,
   SessionId,
   SparkEventEnvelope,
   SparkEventMap,
@@ -26,11 +30,43 @@ export interface SessionHeader {
   cwd: string
   createdAt: number
   model: string
+  /** fork 来源（§5.8.6，阶段四）：父会话 id + 源文件路径 + 分叉边界事件 id */
+  parentSession?: SessionId
+  parentPath?: string
+  parentEventId?: EventId
 }
 
 export interface SessionFile {
   header: SessionHeader
   events: SparkEventEnvelope[]
+}
+
+/**
+ * 阶段三旧格式 compaction.completed{keptFromSeq} → keptFromEventId（工单 4.1 词表演进）。
+ * 仅接受确凿的旧形状（有 keptFromSeq、无 keptFromEventId）；锚点行未读到或 seq 不符
+ * → undefined（调用方按原错误拒绝加载，fail-closed 不放松）。转换结果仍走严校验。
+ */
+function migrateLegacyCompaction(
+  raw: unknown,
+  events: readonly SparkEventEnvelope[],
+): SparkEventEnvelope | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const r = raw as { type?: unknown; data?: unknown }
+  if (r.type !== 'compaction.completed' || typeof r.data !== 'object' || r.data === null) {
+    return undefined
+  }
+  const d = r.data as Record<string, unknown>
+  if (typeof d.keptFromSeq !== 'number' || 'keptFromEventId' in d) return undefined
+  const anchor = events[d.keptFromSeq - 1] // seq == 事件行号（header 占第 0 行）
+  if (anchor === undefined || anchor.seq !== d.keptFromSeq) return undefined
+  return {
+    ...(raw as Record<string, unknown>),
+    data: {
+      summary: d.summary,
+      keptFromEventId: anchor.id,
+      tokensBefore: d.tokensBefore,
+    },
+  } as SparkEventEnvelope
 }
 
 /** cwd → 目录名（确定性、防碰撞）：非 [A-Za-z0-9] 连续段合并为 -，截断 48，尾缀 sha1 前 8 位 */
@@ -64,7 +100,16 @@ function parseHeader(raw: string): SessionHeader {
   ) {
     throw new Error('E_SESSION_BAD_HEADER: 首行缺 sparkVersion/cwd/createdAt/model')
   }
-  return parsed as SessionHeader
+  const h = parsed as SessionHeader
+  // fork 来源字段（§5.8.6）：出现即须为 string（坏 header fail-closed，不静默丢弃）
+  if (
+    (h.parentSession !== undefined && typeof h.parentSession !== 'string') ||
+    (h.parentPath !== undefined && typeof h.parentPath !== 'string') ||
+    (h.parentEventId !== undefined && typeof h.parentEventId !== 'string')
+  ) {
+    throw new Error('E_SESSION_BAD_HEADER: fork 来源字段（parentSession 等）类型错误')
+  }
+  return h
 }
 
 export class SessionStore implements EventSink {
@@ -146,7 +191,15 @@ export class SessionStore implements EventSink {
         throw new Error(`E_SESSION_UNKNOWN_EVENT: 第 ${lineNo} 行未知事件 type "${String(type)}"`)
       }
 
-      const envelope = parseEnvelope(parsed)
+      let envelope: SparkEventEnvelope
+      try {
+        envelope = parseEnvelope(parsed)
+      } catch (err) {
+        // 已知 type 但 data 是旧版磁盘形状 → 尝试迁移后重过严校验；否则原样拒绝
+        const migrated = migrateLegacyCompaction(parsed, events)
+        if (migrated === undefined) throw err
+        envelope = parseEnvelope(migrated)
+      }
       if (envelope.seq !== lineNo) {
         throw new Error(
           `E_SESSION_SEQ_GAP: 第 ${lineNo} 行事件 seq=${envelope.seq} 断洞（fail-closed）`,
@@ -169,6 +222,25 @@ export class SessionStore implements EventSink {
       // 先盘后树：写失败时树/磁盘不分裂（事件未持久化 = 未发生，失败闭合）
       this.tree.append(e, parentId)
       return final
+    })
+    this.queue = task.catch(() => undefined) // 链不断：失败由调用方处理
+    return task
+  }
+
+  /**
+   * fork 种子写入（§5.8.6）：批量落盘既定信封——sessionId/seq/parentId 已由调用方
+   * 重写（事件 id 保留源值：compaction 锚点与引用完整性）。不经 bus——历史复制
+   * 不产生新广播（客户端经 POST /fork 响应 + GET 回放获取）。
+   */
+  seed(events: readonly SparkEventEnvelope[]): Promise<void> {
+    const task = this.queue.then(async () => {
+      if (this.fh === null) {
+        throw new Error('E_SESSION_CLOSED: 会话文件已关闭，禁止追加（fail-closed）')
+      }
+      for (const e of events) {
+        await this.fh.appendFile(`${JSON.stringify(e)}\n`, 'utf8')
+        this.tree.append(e, e.parentId ?? null)
+      }
     })
     this.queue = task.catch(() => undefined) // 链不断：失败由调用方处理
     return task

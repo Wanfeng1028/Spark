@@ -31,6 +31,7 @@ export function makeConfig(): EngineConfig {
         progressThrottleMs: 200,
         toolOutputLimitKB: 32,
         compactionThreshold: 0.8,
+        checkpoints: false, // 路由用例不落 git 快照；4.6 专项集成用例单开
       },
     },
     models: {
@@ -42,10 +43,14 @@ export function makeConfig(): EngineConfig {
   }
 }
 
-export async function makeServer(opts?: { heartbeatMs?: number }): Promise<ServerFixture> {
+export async function makeServer(
+  opts?: { heartbeatMs?: number; checkpoints?: boolean },
+): Promise<ServerFixture> {
   const root = await mkdtemp(join(tmpdir(), 'spark-server-'))
   const gateway = new ScriptedLlm()
-  const engine = new Engine({ root, gateway, config: makeConfig() })
+  const config = makeConfig()
+  if (opts?.checkpoints === true) config.spark.engine.checkpoints = true // 工单 4.6 专项集成用例
+  const engine = new Engine({ root, gateway, config })
   const app = Fastify({ logger: false })
   await app.register(registerRoutes, { engine })
   await app.register(registerSse, {

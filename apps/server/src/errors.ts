@@ -1,7 +1,8 @@
 /**
  * 错误映射（doc/02 §7.4）：引擎语义错误 → HTTP 状态码 + `{code, message}` JSON。
- * zod 校验失败 400（issues 透出）；未知会话/请求 404；审批已答复 409；
- * 引擎 shutdown 503；其余一律 500 E_INTERNAL（详情只进日志，不透出）。
+ * zod 校验失败 400（issues 透出）；未知会话/请求/快照 404；审批已答复 409；
+ * turn 进行中（手动压缩/回滚）409；分叉三拒绝码 400/409；引擎 shutdown 503；
+ * 回滚 git 失败 500（详情只进日志）；其余一律 500 E_INTERNAL（详情只进日志，不透出）。
  */
 import type { FastifyReply, FastifyRequest } from 'fastify'
 
@@ -47,6 +48,22 @@ export function toApiError(err: unknown): ApiError {
   }
   if (msg.startsWith('E_SHUTTING_DOWN')) {
     return new ApiError(503, 'E_SHUTTING_DOWN', '引擎正在关闭，拒绝新请求')
+  }
+  if (msg.startsWith('E_TURN_ACTIVE')) {
+    return new ApiError(409, 'E_TURN_ACTIVE', 'turn 进行中，暂不能执行该操作')
+  }
+  if (msg.startsWith('E_INVALID_BOUNDARY')) {
+    return new ApiError(400, 'E_INVALID_BOUNDARY', '分叉边界事件不存在')
+  }
+  if (msg.startsWith('E_OPEN_TURN')) {
+    return new ApiError(409, 'E_OPEN_TURN', 'turn 进行中，不可分叉')
+  }
+  if (msg.startsWith('E_ALREADY_EXISTS')) {
+    return new ApiError(409, 'E_ALREADY_EXISTS', '目标会话已存在')
+  }
+  if (msg.startsWith('E_CHECKPOINT_ROLLBACK')) {
+    // git 失败详情只进日志（sendError 对 >=500 记 req.log.error）
+    return new ApiError(500, 'E_CHECKPOINT_ROLLBACK', '回滚失败：git 操作异常')
   }
   return new ApiError(500, 'E_INTERNAL', 'internal error')
 }

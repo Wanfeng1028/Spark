@@ -5,16 +5,19 @@
  * 最后一条 user.message）。右下 ErrorToast（error 事件；fatal 全屏态）。
  * mock 场景条 + 「模拟断线」开关是开发夹具（阶段验收要求断线重连条在 mock 下可走查）。
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
+import { GitBranch, History } from 'lucide-react'
 import { ids } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
-import { MOCK_SCENARIOS } from '@/transports/mock'
+import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
 import { ChatView } from '@/features/chat/ChatView'
 import { Composer } from '@/features/chat/Composer'
 import { TurnStatusBar } from '@/features/chat/TurnStatusBar'
 import { ErrorToast } from '@/features/chat/ErrorToast'
+import { SessionTreeDialog } from '@/features/chat/SessionTreeDialog'
+import { CheckpointDialog } from '@/features/chat/CheckpointDialog'
 import { useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
 import { useConnectionStore } from '@/stores/connection'
 
@@ -37,6 +40,10 @@ export function SessionPage() {
   // http 打开态（加载/错误呈现；mock 即挂即用）。函数式初值防 sid 切换时沿用旧态
   const [load, setLoad] = useState<LoadState>(() => (mock ? 'ready' : 'loading'))
   const [reloadKey, setReloadKey] = useState(0)
+  // 会话树浮层（工单 4.5）：分叉入口 + 树视图
+  const [treeOpen, setTreeOpen] = useState(false)
+  // 检查点浮层（工单 4.6）：快照列表 + 回滚入口；turn 进行中回滚按钮禁用
+  const [ckptOpen, setCkptOpen] = useState(false)
 
   const busy = turn !== null
   const waiting = turn?.waiting === true
@@ -47,7 +54,8 @@ export function SessionPage() {
   }, [sid])
 
   useEffect(() => {
-    if (mock) return
+    // mock：脚本会话走流式回放（全量 replay 会剧透未回放事件）；fork 子会话无流，走全量回放
+    if (mock && transport instanceof MockTransport && transport.isLiveScriptSession(sid)) return
     let cancelled = false
     setLoad('loading')
     replaySessionEvents(transport, sid)
@@ -64,6 +72,18 @@ export function SessionPage() {
 
   // 欢迎页 chip 发送失败的回填草稿（§6.2.1：不丢用户输入）
   const initialDraft = (location.state as { draft?: string } | null)?.draft ?? ''
+
+  // 压缩完成轻提示（工单 4.3）：compacting true→false 沿变时显示 2.5s（§6.4 细条）
+  const [compactDone, setCompactDone] = useState(false)
+  const wasCompacting = useRef(false)
+  useEffect(() => {
+    const finished = wasCompacting.current && !compacting
+    wasCompacting.current = compacting
+    if (!finished) return
+    setCompactDone(true)
+    const t = setTimeout(() => setCompactDone(false), 2500)
+    return () => clearTimeout(t)
+  }, [compacting])
 
   // TurnStatusBar props：运行中工具名从 items 推导（activeTurn.runningTools 是 CallId 集）
   const turnProp = useMemo(() => {
@@ -139,6 +159,11 @@ export function SessionPage() {
                   上下文压缩中…
                 </div>
               )}
+              {!compacting && compactDone && (
+                <div className="rounded-md border border-border bg-background/95 px-2.5 py-0.5 font-mono text-xs text-[var(--spark-accent)]">
+                  上下文已压缩
+                </div>
+              )}
               {topBanner !== null && (
                 <div className="pointer-events-auto flex h-7 items-center gap-2 rounded-md border border-[var(--spark-warn)]/40 bg-[var(--spark-warn)]/[0.06] px-2.5 text-xs">
                   <span className="text-[var(--spark-warn)]">本轮以 error 结束</span>
@@ -170,6 +195,26 @@ export function SessionPage() {
             ) : (
               <ChatView sessionId={sessionId ?? ''} />
             )}
+            {/* 会话树入口（工单 4.5）：右上角悬浮；turn 进行中仍可查看，分叉按钮在浮层内禁用 */}
+            <button
+              type="button"
+              aria-label="会话树"
+              onClick={() => setTreeOpen(true)}
+              className="absolute right-0 top-0 flex size-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              <GitBranch className="size-4" />
+            </button>
+            {/* 检查点入口（工单 4.6）：与树按钮并排；回滚动作在浮层内 */}
+            <button
+              type="button"
+              aria-label="检查点"
+              onClick={() => setCkptOpen(true)}
+              className="absolute right-9 top-0 flex size-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              <History className="size-4" />
+            </button>
+            <SessionTreeDialog open={treeOpen} onOpenChange={setTreeOpen} sid={sid} busy={busy} />
+            <CheckpointDialog open={ckptOpen} onOpenChange={setCkptOpen} sid={sid} busy={busy} />
             <ErrorToast sid={sid} />
           </div>
         </div>
@@ -188,6 +233,7 @@ export function SessionPage() {
               })
             }
             onInterrupt={() => void transport.interrupt(sid)}
+            onCompact={() => transport.compact(sid)}
           />
         </div>
       </div>

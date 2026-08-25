@@ -56,10 +56,16 @@ const samples: { [K in SparkEventType]: SparkEventMap[K] } = {
     action: 'shell.exec',
     resource: 'cmd:pnpm test',
     reason: 'bash 默认需审批',
+    patterns: ['cmd:pnpm test', 'cmd:pnpm *'],
+    alwaysPatterns: ['cmd:pnpm test'],
   },
   'permission.resolved': { requestId: req, reply: 'once' },
   'compaction.started': { turnId: trn },
-  'compaction.completed': { summary: '已压缩：修 bug 全程', keptFromSeq: 30, tokensBefore: 98000 },
+  'compaction.completed': {
+    summary: '已压缩：修 bug 全程',
+    keptFromEventId: evt(30),
+    tokensBefore: 98000,
+  },
   'checkpoint.created': { checkpointId: ckp, files: ['src/a.ts'], turnId: trn },
   error: { scope: 'llm', message: 'provider 429 重试穷尽' },
 }

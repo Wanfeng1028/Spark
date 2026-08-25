@@ -46,6 +46,12 @@ export function Sidebar() {
     return t.waiting ? 'waiting-approval' : 'running'
   }
 
+  /** 当前激活会话的标题由事件流推导（session.title 实时生效），覆盖 DTO 静态值 */
+  const liveTitle = (dto: SessionDto): string => {
+    if (activeSlice === null || activeSlice.meta.id !== dto.id) return dto.title
+    return activeSlice.meta.title !== '' ? activeSlice.meta.title : dto.title
+  }
+
   const groups = useMemo(() => {
     if (sessions === null) return null
     const filtered = sessions.filter((s) =>
@@ -104,10 +110,22 @@ export function Sidebar() {
           </p>
         )}
         {groups !== null && groups.today.length > 0 && (
-          <SidebarGroup label="今天" items={groups.today} activeId={routeSessionId} statusOf={liveStatus} />
+          <SidebarGroup
+            label="今天"
+            items={groups.today}
+            activeId={routeSessionId}
+            statusOf={liveStatus}
+            titleOf={liveTitle}
+          />
         )}
         {groups !== null && groups.earlier.length > 0 && (
-          <SidebarGroup label="更早" items={groups.earlier} activeId={routeSessionId} statusOf={liveStatus} />
+          <SidebarGroup
+            label="更早"
+            items={groups.earlier}
+            activeId={routeSessionId}
+            statusOf={liveStatus}
+            titleOf={liveTitle}
+          />
         )}
       </div>
     </nav>
@@ -129,9 +147,10 @@ interface SidebarGroupProps {
   items: SessionDto[]
   activeId: string
   statusOf: (dto: SessionDto) => SessionStatus
+  titleOf: (dto: SessionDto) => string
 }
 
-function SidebarGroup({ label, items, activeId, statusOf }: SidebarGroupProps) {
+function SidebarGroup({ label, items, activeId, statusOf, titleOf }: SidebarGroupProps) {
   const navigate = useNavigate()
   return (
     <section className="mb-2">
@@ -150,7 +169,7 @@ function SidebarGroup({ label, items, activeId, statusOf }: SidebarGroupProps) {
             >
               <SessionStatusDot status={statusOf(s)} />
               <span className="min-w-0 flex-1 truncate text-[13px]">
-                {s.title === '' ? '新会话' : s.title}
+                {titleOf(s) === '' ? '新会话' : titleOf(s)}
               </span>
               <span className="shrink-0 text-xs text-muted-foreground/70">
                 {formatRelative(s.updatedAt)}
