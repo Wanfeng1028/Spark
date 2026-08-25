@@ -20,6 +20,7 @@
 | v1.10 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D15 bash 沙箱 = 平台 wrapper 前缀（bwrap/Seatbelt），Windows 本期不做 OS 级**（阶段五工单 5.2 三平台调研：AppContainer 否决依据——任意路径只读不可行/无维护中 Node 绑定；dsh ACL 包 koffi 原生依赖破坏 sidecar 打包；Claude Code 先例 Windows 未支持）；spark.json engine.bashSandbox 开关 + fail-closed 拒跑 |
 | v1.11 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D16 MCP 工具 = ToolRegistry 一等公民，同一管线一视同仁**（阶段五工单 5.3：~/.spark/mcp.json stdio 声明 + mcp__<server>__<tool> 命名 + mcp.call 审批动作默认 ask + z.fromJSONSchema 往返；否决旁路管线聚合层与 HTTP transport；审批三态经真实子进程 e2e 测试实证） |
 | v1.12 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D17 子代理 = 独立子会话（header.parentSession），主会话只见工具事件对**（阶段五工单 5.4：Task 工具 agent.task 审批默认 ask + Engine.runSubagent 注入执行体 + 单层限制 E_SUBAGENT_DEPTH + 父中断级联（turn.started 补中断关竞态）；否决内嵌主流与自定义 durable 事件两备选；Steer expectedTurnId 校验同步落地 E_TURN_MISMATCH 409） |
+| v1.13 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D18 事件词表扩展 = 运行时注册表 + declaration merging，插件是声明不是程序**（阶段五工单 5.5：protocol extend.ts registerEventType/eventSchemaOf 注册表、EventBus.emitExtended durable/live 双路 + ignorable 信封、skills loader 声明式清单目录扫描、hooks 声明式触发器 data 固定形状、示例插件 examples/skills/demo-ping；否决 JS 动态 import 与旁路校验两备选） |
 
 ---
 
@@ -156,6 +157,12 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 决策：Task 工具（input `{prompt, title?}`，审批 `agent.task`/`task` 默认 ask，串行 barrier）执行体 = `Engine.runSubagent`：createSession({parentId}) 派生**独立会话**（JSONL/header/审批/索引/事件流全复用，header 记 parentSession——fork 另记 parentPath/parentEventId 可区分）；订阅先于提交，等子 turn.completed，返回最终 assistant 文本（tool.completed 的 output，限界溢写由管线免费复用）。单层限制：`subagentChildren` 集合标记派生出的会话，子会话内再派生 → `E_SUBAGENT_DEPTH`（进程生命周期内有效，不落盘）。父 turn 中断级联：ctx.signal abort → child.interrupt()；"父先中断、子 turn 后开始"竞态由子 turn.started 事件时补一次 interrupt 关闭。Steer `expectedTurnId` 校验同步落地（§5.4 多 turn 并发前提）：submit 可选参数，无活动 turn/不匹配 → `E_TURN_MISMATCH`（HTTP 409），不传保持宽容路由。
 理由：独立会话零新词表——事件流形态（durable/live/surface 纪律）、审批管线、会话索引、重启恢复全部现成；主会话上下文只多一对 tool.started/completed，不被子代理事件淹没（surface 纪律）。fork（工单 4.5）已验证 parentSession 头字段路线。
 否决备选：① 子代理事件内嵌主会话流（嵌套 turn/子 turn 事件进主流）——需扩事件词表 + 前端 applyEvent/树结构改造 + 投影 surface 判定复杂化，"最小落地"原则下全是否决项；② 子代理结果作为独立 durable 事件类型（如 task.completed 自定义事件）——违反"事件词表从 protocol 开始"的演进纪律且无必要（tool.completed 已承载）。依据：doc/02 §8 阶段五工单 5.4、§5.4 Codex 对照（ExpectedTurnMismatch）。
+
+### D18 事件词表扩展 = 运行时注册表 + declaration merging，插件是声明不是程序（2026-08-25，阶段五工单 5.5）
+
+决策：`@spark/protocol` 新增运行时扩展注册表（`registerEventType`/`eventSchemaOf`/`isExtendedLiveOnly`）——插件事件类型（强制 `plugin.` 前缀，zod schema 由清单 JSON Schema 经 `z.fromJSONSchema` 转换）注册后与内置 19 种走**同一条校验路径**（EventBus/parseEnvelope/SessionStore 读端统一查 `eventSchemaOf`）。编译期扩展仍走 declaration merging（§4.3 原设计），运行时注册表是 JS 清单的对位。扩展事件信封一律带 `ignorable: true`：durable 走同一落盘管线（占行号），liveOnly 走直播不落盘；插件卸载后旧会话可加载（store 未知 type + ignorable 跳过），未装插件的前端对未知 ignorable 帧跳过不断流（web transport 与 store 读端同策略）。skills/插件 = `<root>/skills/<name>/skill.json` **声明式清单**（version/name/events/hooks），**不执行任意代码**——hooks 是声明式触发器（on 内置事件 → emit 插件事件，data 固定形状 `{skill, sourceEventId, sourceType}`，无自定义构造器）；on 限定内置词表类型（防插件事件自触发循环）。单个 skill 坏清单/类型冲突/钩子非法 → warn 跳过（引擎照常启动，与 MCP 单 server 失败同纪律）。
+理由：插件与 MCP 分工——MCP 扩**工具**（子进程，有审批管线兜底），skills 扩**事件词表与钩子**（纯数据，无进程无代码执行面）；声明式使插件不可编程作恶，ignorable 信封使装/卸不破坏旧会话（与 §4.4 协议演进的 fail-closed 兼容：非 ignorable 未知事件仍拒绝加载）。
+否决备选：① 插件 = JS 模块动态 import（Claude Code plugins/OpenClaw plugin-sdk 路线）——任意代码执行面 + 打包/权限复杂，"最小落地"下不需要；② 只做编译期 declaration merging 不做运行时注册——用户装插件不重编译，运行时注册表是 ~/.spark 目录扫描的必要对位；③ 扩展事件走独立旁路校验——违反"事件词表从 protocol 开始"纪律，制造第二事实源。依据：doc/02 §4.3 merge-extensible 设计、§8 阶段五工单 5.5；示例插件 `examples/skills/demo-ping/`。
 
 ## 6. 模块速览（职责边界）
 

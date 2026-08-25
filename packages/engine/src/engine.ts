@@ -64,6 +64,8 @@ import { Logger } from './logger.js'
 import type { SparkLogger } from './logger.js'
 import { loadMcpConfig } from './mcp/config.js'
 import { McpManager } from './mcp/manager.js'
+import { loadSkills } from './skills/loader.js'
+import type { LoadedSkill } from './skills/loader.js'
 
 export const SPARK_VERSION = '0.1.0'
 
@@ -173,6 +175,8 @@ export class Engine {
   private readonly mcp: McpManager
   /** MCP 连接任务（connect 内部逐 server 失败闭合；ready() 供 server 入口等待） */
   private readonly mcpReady: Promise<void>
+  /** skills/插件加载任务（工单 5.5 / ADR D18：词表注册 + hooks 订阅；ready() 等待） */
+  private readonly skillsReady: Promise<LoadedSkill[]>
   private readonly outputs: ToolOutputStore
   private readonly sessions = new Map<SessionId, SessionEntry>()
   private readonly inflight = new Map<SessionId, Promise<SessionEntry>>()
@@ -230,6 +234,38 @@ export class Engine {
         })
       },
     })
+
+    // skills/插件（工单 5.5 / ADR D18）：声明式清单 → 事件词表扩展 + hooks 订阅；
+    // 逐 skill 失败 warn 跳过（loader 内闭合），ready() 前完成注册
+    this.skillsReady = loadSkills(join(this.root, 'skills'), this.logger).then(
+      (skills) => {
+        for (const s of skills) {
+          this.logger.info('skills.loaded', { name: s.name, events: s.events })
+          for (const h of s.hooks) {
+            this.bus.subscribe((e) => {
+              if (e.type !== h.on) return
+              // data 固定形状（ADR D18：声明式钩子，无自定义构造器）；发射失败
+              // warn 闭合——不干扰源事件的既定流程
+              void this.bus
+                .emitExtended(e.sessionId, h.emit, {
+                  skill: s.name,
+                  sourceEventId: e.id,
+                  sourceType: e.type,
+                })
+                .catch((err: unknown) => {
+                  this.logger.warn('skills.hook.error', {
+                    skill: s.name,
+                    emit: h.emit,
+                    sid: e.sessionId,
+                    err,
+                  })
+                })
+            })
+          }
+        }
+        return skills
+      },
+    )
 
     this.registry = new ToolRegistry()
     registerBuiltinTools(this.registry, {
@@ -301,9 +337,9 @@ export class Engine {
     })
   }
 
-  /** MCP 连接任务完成（server 入口 listen 前等待；无 mcp.json 立即返回） */
+  /** MCP 连接与 skills 加载完成（server 入口 listen 前等待；两者缺省立即返回） */
   ready(): Promise<void> {
-    return this.mcpReady
+    return Promise.all([this.mcpReady, this.skillsReady]).then(() => undefined)
   }
 
   /** §5.3 订阅透传（server SSE 的数据源；resume 供 SSE 背压 drain 恢复） */

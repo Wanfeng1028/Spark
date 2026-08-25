@@ -2,6 +2,7 @@
 export * from './ids.js'
 export * from './primitives.js'
 export * from './events.js'
+export * from './extend.js'
 export * from './api.js'
 export * from './transport.js'
 export * from './schema.js'

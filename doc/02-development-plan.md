@@ -44,6 +44,7 @@
 | v2.26 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五工单 5.2 完成**：bash 沙箱——ARCHITECTURE 新增 ADR D15（三平台调研：AppContainer 否决——任意路径只读不可行/dsh 设计笔记实证 + FerroxLabs #321 子进程缺陷 + Node/TS 无维护中绑定；dsh ACL 包 koffi 原生依赖破坏 sidecar 单文件打包；Claude Code 先例 Windows 原生未支持）；最小落地 = 平台 wrapper 前缀（engine `tools/sandbox.ts`：Linux bwrap `--ro-bind / / --bind cwd cwd --dev --proc --tmpfs /tmp` / macOS Seatbelt profile 写限 cwd+tmpdir，workspace-write 语义；网络隔离 v1 不做记 D15）；spark.json `engine.bashSandbox: off\|on`（默认 off 现行为不变）+ makeBashTool 工厂 + registerBuiltinTools opts 接线；wrapper 不可用/平台无路线 → E_SANDBOX_UNAVAILABLE fail-closed 拒跑不降级；§5.1 配置表/§5.10 错误码表登记；沙箱单测 4 例（bwrap 参数/Seatbelt profile/平台路线/fail-closed）+ config 默认值 1 例，全仓 428 例 + typecheck/lint 全绿 |
 | v2.27 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五工单 5.3 完成**：MCP client——ARCHITECTURE 新增 ADR D16（外部工具 = ToolRegistry 一等公民同一管线一视同仁；否决旁路管线聚合层与 HTTP transport）；`@modelcontextprotocol/sdk@1.30.0`：engine `mcp/config.ts`（~/.spark/mcp.json 可选，version 1 + servers 表 stdio 声明，坏文件 E_CONFIG）+ `mcp/manager.ts`（McpManager 逐 server 连接 10s 上限 + makeMcpToolDef 包装：命名 mcp__<server>__<tool>、审批 mcp.call/`<server>/<tool>` 默认 ask、parallelizable=false 串行 barrier、z.fromJSONSchema ↔ toJSONSchema 往返、callTool 请求级 toolTimeoutMs + signal 级联、输出 text 拼接→structuredContent→占位，失败 E_MCP_CALL/中断 E_ABORTED）；单 server 失败 warn 跳过失败闭合；Engine.ready() + shutdown 4.5 步关子进程；server 入口 await ready() 再 listen；§5.1 配置表 mcp.json 行/§5.10 错误码 E_MCP_CALL 登记；mcp 单测 10 例（config 三路径/包装命名 schema 执行/stdio e2e spawn + **审批三态 allow·deny·ask(reject/once) 经真实子进程与真实 PermissionServiceImpl·EventBus·管线走通**，fixtures/mcp-echo-server.mjs echo+fail 工具）；全仓 438 例（engine 307）+ typecheck 全绿 |
 | v2.28 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五工单 5.4 完成**：子代理 + Steer 校验——ARCHITECTURE 新增 ADR D17（子会话 = 独立会话 header.parentSession，主会话只见 task 工具事件对；否决内嵌主流与自定义 durable 事件两备选）；Task 工具（engine `tools/builtin/task.ts`：{prompt,title?} 审批 agent.task/task 默认 ask、parallelizable=false、执行体 TaskRunner 端口由 Engine.runSubagent 注入）；runSubagent（createSession{parentId} 派生独立会话、订阅先于提交等子 turn.completed、返回最终 assistant 文本、subagentChildren 单层限制 E_SUBAGENT_DEPTH、父中断级联 child.interrupt + turn.started 补中断关闭"父先断子后开"竞态）；Steer expectedTurnId（protocol SendMessageOptions + SessionHandle.send + runtime.submit 可选参数，beginTurn(turnId) 登记活动 turn，不符 E_TURN_MISMATCH→HTTP 409；server routes/errors + web HttpTransport 透传，不传保持宽容路由向后兼容）；§5.4/§5.6.3/§7.2/§5.10 同步；subagent 单测 5 例（六要素/成功全链路含子会话事件与 header 留痕/深度限制两级闭合/父中断级联 E_ABORTED + steer mismatch 接线/deny E_PERMISSION 不派生）+ runtime steer 校验 4 例；全仓 449 例（engine 316）+ typecheck 全绿 |
+| v2.29 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五工单 5.5 完成**：skills/插件——ARCHITECTURE 新增 ADR D18（事件词表扩展 = 运行时注册表 + declaration merging，插件是声明不是程序；否决 JS 动态 import 与旁路校验两备选）；protocol `extend.ts`（registerEventType 冲突检测 E_EVENT_TYPE_CLASH / eventSchemaOf 统一查表 / isExtendedLiveOnly / clearExtendedEvents 测试隔离），EventBus/parseEnvelope/SessionStore 读端全部改走 eventSchemaOf（扩展事件与内置 19 种同一校验路径）；engine `skills/loader.ts`（`~/.spark/skills/<name>/skill.json` 声明式清单：events plugin. 前缀 JSON Schema→zod + hooks 声明式触发器 on 内置事件→emit 插件事件 data 固定形状；先全量预检再注册不留半注册态；单 skill 坏清单/冲突/钩子非法 warn 跳过）+ Engine 构造接线（skillsReady 并入 ready()）+ EventBus.emitExtended（durable 同一落盘管线占行号 / liveOnly 直播不落盘，信封一律 ignorable:true）；web HttpTransport 未知 ignorable 帧跳过不断流（与 store 读端同策略）；示例插件 `examples/skills/demo-ping/`；§4.3 扩展落地注记/§5.1 配置表 skills 行/§5.10 错误码登记；skills 单测 8 例（loader 四路径/emitExtended durable·live·校验失败/引擎 e2e：hook 落盘可回放 + "卸载"后重读跳过占行号）+ web transport ignorable 帧跳过 1 例；全仓 456 例（engine 324/web 53/server 33/protocol 46）+ typecheck 全绿 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -300,6 +301,8 @@ export type PermissionReply = 'once' | 'always' | 'reject'
 ```
 
 ## 4.3 事件词表（19 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
+
+> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 19 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
 
 ```ts
 export interface SparkEventMap {
@@ -588,6 +591,7 @@ createEngine(config)
 | models.json      | `providers`: record<string, {apiKeyEnv: string\|null, baseUrl?: url}>；`defaultModel/compactionModel`: {provider, model, contextWindow: int>0}                                                                           | **无缺省——defaultModel 必填**（缺失/校验失败 → `E_CONFIG` 启动失败） |
 | permissions.json | `version`: 1；`rules`: {action, resource, effect: 'allow'\|'deny'\|'ask'}[]                                                                                                                                              | 空规则表（全部落默认 ask）                                           |
 | mcp.json         | `version`: 1；`servers`: record<string, {command: string, args?: string[], env?: record<string,string>}>（工单 5.3，ADR D16：stdio MCP server 声明，工具注册进同一 ToolRegistry，审批 action `mcp.call`/resource `<server>/<tool>` 默认 ask） | 空表（零外部工具，引擎照常启动；单 server 连接失败 warn 跳过）       |
+| skills/ 目录     | `<root>/skills/<name>/skill.json`：`version`: 1；`name`: ^[a-z0-9][a-z0-9-]*$；`events`: record<`plugin.` 前缀类型, {description?, liveOnly?, data: JSON Schema}>；`hooks`?: {on: 内置事件类型, emit: 本 skill 事件}[]（工单 5.5，ADR D18：声明式清单——插件是数据不是程序，不执行任意代码；hooks data 固定形状 `{skill, sourceEventId, sourceType}`） | 目录不存在 = 零插件；单 skill 坏清单/类型冲突/钩子非法 warn 跳过（引擎照常启动） |
 
 ## 5.2 Engine 门面与生命周期
 
@@ -1097,6 +1101,8 @@ export interface ResolvedModel {
 | E_MCP_CALL                                       | MCP 外部工具调用失败（协议错误/超时；工单 5.3，ADR D16） | tool output                        |
 | E_TURN_MISMATCH                                  | steer expectedTurnId 与活动 turn 不符（工单 5.4，§5.4） | HTTP 409                           |
 | E_SUBAGENT_DEPTH                                 | 子会话内再派生子代理（单层限制；工单 5.4，ADR D17） | tool output                        |
+| E_EVENT_TYPE_CLASH                               | 插件事件类型与内置词表/其他 skill 冲突（工单 5.5，ADR D18） | 该 skill warn 跳过          |
+| E_SKILL_HOOK_TARGET / E_SKILL_HOOK_EMIT          | hooks.on 非内置事件类型 / hooks.emit 未在本 skill 声明（工单 5.5） | 该 skill warn 跳过          |
 | E_PERMISSION                                     | 工具调用被审批拒绝（denied/超时 fail-closed） | tool output                        |
 | E_TRUNCATED                                      | stopReason 'length' 时截断 toolCall 的补事件  | tool.completed                     |
 | E_ABORTED                                        | 分组排队中未启动即被 interrupt                | tool.completed                     |
@@ -1730,7 +1736,7 @@ app.get('/api/event', async (req, reply) => {
 - [ ] 沙箱：bash 默认审批；Windows AppContainer / macOS Seatbelt / Linux bwrap 评估（ADR D15 已定：平台 wrapper 前缀 bwrap/Seatbelt + spark.json bashSandbox 开关 + fail-closed 拒跑，Windows 本期不做 OS 级；待真实主机验证隔离效果）
 - [ ] MCP client（ADR D16 已定：@modelcontextprotocol/sdk stdio + ~/.spark/mcp.json 声明 + mcp__<server>__<tool> 注册进同一 ToolRegistry（审批 mcp.call 默认 ask/限界/溢写/事件一视同仁）；审批三态 allow/ask/deny 经真实子进程 e2e 测试实证，待真实外部 server 现场演示）
 - [ ] 子代理（ADR D17 已定：子会话 = 独立会话（header.parentSession），主会话只见 task 工具事件对；Task 工具 {prompt,title?} 审批 agent.task 默认 ask、单层限制 E_SUBAGENT_DEPTH、父中断级联 interrupt 子会话；Steer expectedTurnId 校验已实现——submit 可选参数，不符 E_TURN_MISMATCH 409。ScriptedLlm 四路径 e2e 已测，待真实模型现场演示）
-- [ ] skills/插件（目录扫描 + declaration merging 扩展事件）
+- [ ] skills/插件（ADR D18 已定：`~/.spark/skills/<name>/skill.json` 声明式清单——插件是数据不是程序；protocol 运行时注册表 registerEventType/eventSchemaOf 与内置词表同一校验路径，EventBus.emitExtended durable/live 双路 + ignorable 信封（插件卸载后旧会话可加载，未装插件的前端跳过 ignorable 帧不断流）；hooks 声明式触发器（on 内置事件 → emit 插件事件，data 固定形状）；单 skill 失败 warn 跳过。示例插件 examples/skills/demo-ping + 引擎 e2e（session.created → plugin.demo.ping 落盘/卸载后重读）已测）
 - **验收**：桌面安装包 + 首个外部 MCP 工具可用
 
 ## 8.6 测试矩阵（各阶段验收的测试面；框架 vitest）

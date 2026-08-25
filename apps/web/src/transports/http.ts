@@ -7,7 +7,7 @@
  * 3) REST fetch：sendMessage 三态原样返回；错误体 {code,message} 抛 Error（code: message）。
  * 4) dispose：abort SSE + 清订阅；此后一切调用抛错（不静默）。
  */
-import { parseEnvelope } from '@spark/protocol'
+import { eventSchemaOf, parseEnvelope } from '@spark/protocol'
 import type {
   CheckpointDto,
   CheckpointId,
@@ -134,6 +134,16 @@ export class HttpTransport implements Transport {
     const dataLine = frame.split('\n').find((l) => l.startsWith('data: '))
     if (dataLine === undefined) return // event: bye 等无 data 帧——连接关闭由流结束驱动
     const payload: unknown = JSON.parse(dataLine.slice('data: '.length))
+    // 插件扩展事件（工单 5.5 / ADR D18）：本端未注册词表的 ignorable 帧跳过
+    // （与引擎 SessionStore 读端同策略——不因未装插件断流重连）
+    const p = payload as { type?: unknown; ignorable?: unknown }
+    if (
+      p.ignorable === true &&
+      typeof p.type === 'string' &&
+      eventSchemaOf(p.type) === undefined
+    ) {
+      return
+    }
     const envelope = parseEnvelope(payload) // 非法信封抛错 → pump 冒泡 → 断开重连自愈
     for (const h of [...this.handlers]) h(envelope)
   }

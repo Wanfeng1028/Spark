@@ -7,7 +7,7 @@
  * 背压：handler 返回 false | Promise<false> 暂停该订阅者，事件进环形缓冲
  *       （溢出丢最老——durable 可由 since 回放补，live 可丢）；resume() 续传。
  */
-import { EventSchemas } from '@spark/protocol'
+import { eventSchemaOf, isExtendedLiveOnly } from '@spark/protocol'
 import type { z } from 'zod'
 import type {
   DurableEventType,
@@ -149,7 +149,7 @@ export class EventBus {
 
   /** zod 校验：失败 = 编程错误，直接 throw（fail-fast 在写入点——dsh append site 思想） */
   private validate<T extends SparkEventType>(type: T, data: SparkEventMap[T]): unknown {
-    const schema: z.ZodType | undefined = EventSchemas[type]
+    const schema: z.ZodType | undefined = eventSchemaOf(type)
     if (schema === undefined) {
       throw new Error(`E_BUS_UNKNOWN_TYPE: 未知事件类型 ${type}`)
     }
@@ -160,6 +160,56 @@ export class EventBus {
       )
     }
     return result.data
+  }
+
+  /**
+   * 扩展事件发射（§4.3 merge-extensible，工单 5.5 / ADR D18）：插件注册的类型，
+   * liveOnly 声明走 live 直播（不落盘不计数），否则走同一 durable 管线；
+   * 信封一律带 ignorable:true——插件卸载后旧会话仍可加载/旧帧仍可被未装
+   * 插件的前端跳过（store 读端与 web transport 对未知 type + ignorable 跳过）。
+   */
+  async emitExtended(sid: SessionId, type: string, data: unknown): Promise<SparkEventEnvelope> {
+    const schema = eventSchemaOf(type)
+    if (schema === undefined) {
+      throw new Error(`E_BUS_UNKNOWN_TYPE: 未知事件类型 ${type}`)
+    }
+    const parsed = schema.safeParse(data)
+    if (!parsed.success) {
+      throw new Error(`E_BUS_INVALID_DATA: ${type} 事件 data 校验失败：${parsed.error.message}`)
+    }
+    if (isExtendedLiveOnly(type)) {
+      const envelope = {
+        id: newIds.event(),
+        sessionId: sid,
+        version: 1,
+        ignorable: true,
+        time: Date.now(),
+        type,
+        data: parsed.data,
+      } as SparkEventEnvelope
+      this.broadcast(envelope)
+      return envelope
+    }
+    const st = this.stateOf(sid)
+    const task = st.tail.then(async () => {
+      const seq = st.seq + 1
+      const draft = {
+        id: newIds.event(),
+        sessionId: sid,
+        seq,
+        version: 1,
+        ignorable: true,
+        time: Date.now(),
+        type,
+        data: parsed.data,
+      } as SparkEventEnvelope
+      const final = await this.opts.sink.append(draft)
+      st.seq = seq
+      this.broadcast(final)
+      return final
+    })
+    st.tail = task.catch(() => undefined)
+    return task
   }
 
   private async emitDurable<T extends DurableEventType>(
