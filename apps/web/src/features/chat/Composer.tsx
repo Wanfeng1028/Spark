@@ -81,10 +81,16 @@ export function Composer({ busy, waiting, initialDraft = '', onSend, onInterrupt
       return
     }
     setDraft('')
-    const outcome = await onSend(text, delivery, attachments.length > 0 ? attachments : undefined)
-    setAttachments([])
-    setAttachOpen(false)
-    showHint(OUTCOME_TEXT[outcome.result])
+    try {
+      const outcome = await onSend(text, delivery, attachments.length > 0 ? attachments : undefined)
+      setAttachments([])
+      setAttachOpen(false)
+      showHint(OUTCOME_TEXT[outcome.result])
+    } catch (err) {
+      // 失败闭合 + 不丢用户输入（§6.2.1）：发送失败如实提示并回填草稿
+      setDraft(text)
+      showHint(err instanceof Error ? err.message : String(err))
+    }
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {

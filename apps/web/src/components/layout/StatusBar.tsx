@@ -1,8 +1,9 @@
 /**
- * 状态条 28px（DESIGN.md §2 / doc/02 §6.3）：
- * 左起：连接状态点+文案 · 当前会话模型名 · seq 水位 · token 累计（含 checkpoint 短暂徽标）；
+ * 状态条 24px 单行细条（DESIGN.md §13.A，取代 §2 的 28px）：
+ * 左起：连接状态点+文案 · 当前会话模型名 · seq 水位 · token 累计 · 提交模式（settings.defaultDelivery；
+ * 上下文水位百分比在工单 6.6 接 Projector 估算后加入，>80% 转 warn）；
  * 右起：主题切换 · 设置齿轮（SettingsDialog 触发器，doc/02 §6.2.3）。
- * 数据源：connection-store / session-store 选择器（组件不直接 fetch，DESIGN §9）。
+ * 数据源：connection-store / session-store / settings-store 选择器（组件不直接 fetch，DESIGN §9）。
  */
 import { useEffect, useState } from 'react'
 import { Monitor, Moon, Settings, Sun } from 'lucide-react'
@@ -62,6 +63,7 @@ export function StatusBar() {
   const status = useConnectionStore((s) => s.status)
   const theme = useSettingsStore((s) => s.theme)
   const toggleTheme = useSettingsStore((s) => s.toggleTheme)
+  const delivery = useSettingsStore((s) => s.defaultDelivery)
   const slice = useActiveSlice()
 
   const usage = slice?.usageTotal
@@ -70,7 +72,7 @@ export function StatusBar() {
   const ThemeIcon = themeMeta.icon
 
   return (
-    <footer className="flex h-7 items-center justify-between border-t border-border px-3 text-xs text-muted-foreground">
+    <footer className="flex h-6 items-center justify-between border-t border-border px-3 text-xs text-muted-foreground">
       <div className="flex min-w-0 items-center gap-3">
         <span className="flex shrink-0 items-center gap-1.5">
           <ConnectionDot status={status} />
@@ -92,6 +94,12 @@ export function StatusBar() {
             ↑{fmtTokens(usage.inputTokens)} ↓{fmtTokens(usage.outputTokens)}
           </span>
         )}
+        <span
+          className="shrink-0 font-mono"
+          title={`提交模式（settings.defaultDelivery）——${delivery === 'now' ? '空闲时 Enter 直发' : delivery === 'steer' ? '进行中 Enter 插话注入当前轮' : 'Enter 排队下一轮执行'}`}
+        >
+          {delivery}
+        </span>
         {checkpoint != null && <CheckpointBadge checkpointId={checkpoint.checkpointId} />}
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
