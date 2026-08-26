@@ -21,6 +21,7 @@
 | v1.11 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D16 MCP 工具 = ToolRegistry 一等公民，同一管线一视同仁**（阶段五工单 5.3：~/.spark/mcp.json stdio 声明 + mcp__<server>__<tool> 命名 + mcp.call 审批动作默认 ask + z.fromJSONSchema 往返；否决旁路管线聚合层与 HTTP transport；审批三态经真实子进程 e2e 测试实证） |
 | v1.12 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D17 子代理 = 独立子会话（header.parentSession），主会话只见工具事件对**（阶段五工单 5.4：Task 工具 agent.task 审批默认 ask + Engine.runSubagent 注入执行体 + 单层限制 E_SUBAGENT_DEPTH + 父中断级联（turn.started 补中断关竞态）；否决内嵌主流与自定义 durable 事件两备选；Steer expectedTurnId 校验同步落地 E_TURN_MISMATCH 409） |
 | v1.13 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D18 事件词表扩展 = 运行时注册表 + declaration merging，插件是声明不是程序**（阶段五工单 5.5：protocol extend.ts registerEventType/eventSchemaOf 注册表、EventBus.emitExtended durable/live 双路 + ignorable 信封、skills loader 声明式清单目录扫描、hooks 声明式触发器 data 固定形状、示例插件 examples/skills/demo-ping；否决 JS 动态 import 与旁路校验两备选） |
+| v1.14 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D4 多端 ADR 指令） | 新增 **D19–D24 多端 ADR**（D19 CLI TUI=Ink v6 / D20 移动端=Expo+RN / D21 小程序=Taro 4 / D22 四端复用边界 / D23 复用与许可 / D24 配对鉴权）；**D7 补记**：档位制按预期演化落地（DESIGN §13.E 四档=规则引擎之上的预设层，非推翻）；§7 演进路线补阶段六~九；与 D1–D18 无未声明冲突；AGENTS 适配表补 CLI/移动端注记（AGENTS v1.17 同步）；工单互引 doc/02 §8 阶段八/九 |
 
 ---
 
@@ -106,6 +107,7 @@
 
 理由：三家的最优组合——opencode 的规则引擎（findLast/未声明全 deny/always 级联/feedback 回喂）+ dsh 的 fail-closed（超时即拒）+ Codex 的"审批即学习"（v2 预留 proposedRule）。
 备选否决：模式档位制（default/acceptEdits/bypass…）——v1 规则更细且可渐进演化出档位；pi 的无审批 YOLO——与我们产品定位冲突。
+**补记（2026-08-26，DESIGN §13.E 定稿触发）**：档位制按本条预期的"渐进演化"路径落地——Composer 权限四档（逐项确认/自动编辑/计划模式/完全访问）定位为**规则引擎之上的预设层**：逐项确认=缺省规则表不动；自动编辑=会话临时层对 fs.write/edit 预置 allow；完全访问=会话临时层批量预置 allow（档位图标转 warn 琥珀色警示）；计划模式是交互层约定，不改审批语义。evaluate/findLast/fail-closed 语义不变，不引入第二权限机制。
 
 ### D8 不引入 Effect/RxJS 等响应式框架
 
@@ -164,6 +166,47 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 理由：插件与 MCP 分工——MCP 扩**工具**（子进程，有审批管线兜底），skills 扩**事件词表与钩子**（纯数据，无进程无代码执行面）；声明式使插件不可编程作恶，ignorable 信封使装/卸不破坏旧会话（与 §4.4 协议演进的 fail-closed 兼容：非 ignorable 未知事件仍拒绝加载）。
 否决备选：① 插件 = JS 模块动态 import（Claude Code plugins/OpenClaw plugin-sdk 路线）——任意代码执行面 + 打包/权限复杂，"最小落地"下不需要；② 只做编译期 declaration merging 不做运行时注册——用户装插件不重编译，运行时注册表是 ~/.spark 目录扫描的必要对位；③ 扩展事件走独立旁路校验——违反"事件词表从 protocol 开始"纪律，制造第二事实源。依据：doc/02 §4.3 merge-extensible 设计、§8 阶段五工单 5.5；示例插件 `examples/skills/demo-ping/`。
 
+### D19 CLI TUI = Ink v6（React 19 生态一致），弱终端降级策略内置（2026-08-26，阶段八选型，工单 8.2）
+
+背景：阶段八建 apps/cli，需在"组件化 TUI 框架"与"自绘终端渲染"间选型；约束=复用既有 React 心智与 @spark/protocol 消费层、冷启 <1s（doc/06 基线）、80 列可用。
+候选：① Ink v6——React 19 同生态、声明式组件、Claude Code 同路线（其 TUI 形态可对照）；② blessed/neo-blessed 系——全功能但多年无维护（幻觉依赖红线）；③ 纯 ANSI 自绘（pi 路线）——pi 实证了 retained-mode 组件 + 差量渲染（只重绘首个变更行起的内容）+ 同步更新转义序列（CSI ?2026h/l）防闪烁 + 写 scrollback 不抢视口（保留原生滚动/搜索），但其成本是自维护渲染层。
+结论：**Ink v6**。理由：团队单栈 React（D2/D20 同理），声明式模型让 applyEvent reducer 的状态直接映射组件树；Claude Code 同路线意味着形态与交互有成熟对照；渲染质量差异（Ink 全帧重绘 vs pi 差量）在会话长度可控的 TUI 场景可接受，长输出由折叠与虚拟化兜底。pi 的差量渲染记为性能不达标时的演进方向（不预埋）。
+后果：apps/cli 依赖 react+ink（均 MIT）；降级策略——能力检测 `supportsColor`，无真彩降 256 色、再降 16 色；<80 列隐藏会话侧栏（8.2 验收项）；冷启预算进 nightly（doc/06 §3）。
+
+### D20 移动端 = Expo + React Native，逻辑层全复用（2026-08-26，阶段九选型，工单 9.2）
+
+背景：阶段九 Android/iOS App；引擎经 REST+SSE 消费，客户端只需投影层。
+候选：① Expo+RN——与 web 同为 React 19 心智，applyEvent reducer 是纯逻辑可直接复用，OTA 更新与原生模块生态成熟；② Capacitor——WebView 套壳，web 代码零改动复用，但长会话 SSE 在 WebView 的后台存活/手势体验差，与 desktop（Electron 壳包 web）同质化、无独立价值；③ PWA——零商店分发成本，但 iOS Safari 的 SSE/通知/后台限制硬伤。
+结论：**Expo+RN**。UI 层重写（RN 组件），四件共享资产照 D22；主题由 DESIGN §13.C token 映射 RN Theme（亮色默认、深浅跟随系统）。
+后果：新增 apps/mobile（Expo SDK，MIT）；E2E 用 Maestro（doc/06 L5）；CI 增 RN typecheck+Jest；服务端零改动（配对鉴权除外，D24）。
+
+### D21 小程序 = Taro 4 复用逻辑层；合法域名约束如实记录（2026-08-26，阶段九选型，工单 9.4）
+
+背景：微信小程序端复用 Spark 协议层；约束=小程序运行时非浏览器、wx.request 有合法域名白名单。
+候选：① Taro 4（React 语法）——与 RN/web 共享组件心智与逻辑层，编译到小程序；② 原生 WXML/WXSS——运行时最贴但全部重写，四端共享归零；③ uni-app——Vue 系，与仓库 React 栈断裂。
+结论：**Taro 4**。逻辑层（protocol/applyEvent/文案表）直接复用，UI 层 Taro 组件重写。
+**合法域名约束（如实）**：wx.request 生产环境要求 HTTPS+备案域名——v1 仅开发者工具与体验版可走局域网 IP（勾选"不校验合法域名"），**正式分发需中继服务**（WSS 转发 SSE 或轮询网关），记 v2 项（届时补 ADR）；本条不构成对"引擎零 fork、一律 REST+SSE"（D22）的修改——中继是传输桥接不是协议分叉。
+后果：小程序包体积受微信上限约束（主包 <2MB），protocol 按需引入；miniprogram-simulate 测试（doc/06 L5.5）。
+
+### D22 四端复用边界：四件共享资产 + 各端原生 UI，引擎零 fork（2026-08-26，阶段六~九总纲）
+
+决策：全端共享四件——**@spark/protocol（词表/DTO）、applyEvent reducer、错误码人话文案表、设计 token（§13.C）**；UI 层各端原生——web=React DOM、desktop=Electron 壳包 web（D14）、cli=Ink（D19）、mobile=RN（D20）+小程序 Taro（D21）；**引擎零 fork，所有端一律 REST+SSE，headless 边界不破例**。HttpTransport 内核（SSE 解析/重连/错误映射）下沉 packages/protocol 供 web/cli 共用（工单 8.1）；RN 侧做传输适配层（fetch/EventSource），协议不变。
+理由：投影哲学（§2 一句话）的价值在多端兑现——协议定了界面自然定了（会话投影类）；管理域 CRUD 页（DESIGN §13.0）各端形态分化，但操作对象仍是同一 REST 面。
+后果：引擎/协议改动天然四端受益；端特化层禁止夹带业务逻辑（违反即架构破坏，§6 职责表同纪律）；错误文案表单一来源（6.7 落地时建表）。
+
+### D23 复用与许可：npm 依赖 + MIT 片段注明出处，参考项目仍禁克隆（2026-08-26，多端依赖前置）
+
+决策：AGENTS 第十二条（参考项目禁止克隆本地）**维持不变**，多端阶段同样在线调研；允许的复用=①成熟 npm 依赖（pi-ai 先例，D3）+②MIT 许可代码片段（注明出处与许可证）。多端新增依赖逐项许可核验：Electron（MIT）、Ink（MIT）、Expo/React Native（MIT）、Taro（MIT）、Playwright（Apache-2.0）、@modelcontextprotocol/sdk（MIT）——与既有栈（React MIT、Fastify MIT、pi-ai MIT、zod MIT）同谱。
+理由：Apache-2.0 与 MIT 均允许商用闭源集成（保留版权声明即可）；引入 GPL/AGPL 依赖会传染本仓许可选择（LICENSE 缺口 doc/05 G6 悬而未决，落地前必须先定——倾向 MIT）。
+后果：新增依赖进 PR 时附许可证行；claude-code-analysis（泄露源码）红线不变——只读理解，一行不抄。
+
+### D24 配对鉴权 = 非环回强制 token + 6 位配对码换长效 token，缺省行为不变为红线（2026-08-26，阶段九工单 9.1 架构依据）
+
+背景：移动端真连需 server 监听非环回地址；现状 127.0.0.1+无鉴权是刻意缺省（§4 传输行），不能为移动端破坏桌面/本地安全模型。
+候选：① 配置文件固定 token——简单但泄露后无轮换路径；② mTLS——本地场景证书管理过重；③ **6 位配对码换长效 token**——ZCode/Claude Code 远程配对同范式，UX 与安全平衡。
+结论：`server.host` **显式配置才可非环回**（SPARK_HOST 环境变量语义收紧）；非环回绑定强制开启 token 鉴权；配对流程=移动端扫码/手输 6 位短码（60s 有效）→ POST 换长效 token → REST 与 SSE **同口径**校验（SSE 经查询参数或首帧握手，实现细节工单定）；无 token 且非环回 → **拒绝启动（fail-closed）**。**缺省行为（127.0.0.1+无鉴权）不变为红线**——不配 host 的用户升级后零感知。
+后果：web 设置页新增配对管理 UI（已配对设备列表+撤销）；token 撤销后已连 SSE 立即断开；配对码/ token 存 ~/.spark/（secrets 纪律同 7.1）；服务端改动仅限 9.1 声明范围（doc/02 阶段九纪律）。
+
 ## 6. 模块速览（职责边界）
 
 | 模块                | 职责                                        | 不许做                                     |
@@ -176,7 +219,7 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 
 ## 7. 演进路线（摘要）
 
-阶段一 骨架（协议+Mock）→ 二 前端全量（对 Mock）→ 三 引擎跑通（切真实 Transport）→ 四 深度体验（steer/压缩/fork/checkpoint/SQLite 索引）→ 五 产品化（Electron/沙箱/MCP/子代理/skills）。任务清单级细节见 doc/02 §8。
+阶段一 骨架（协议+Mock）→ 二 前端全量（对 Mock）→ 三 引擎跑通（切真实 Transport）→ 四 深度体验（steer/压缩/fork/checkpoint/SQLite 索引）→ 五 产品化（Electron/沙箱/MCP/子代理/skills）→ **六 UI 重构（ZCode 化，DESIGN §13）→ 七 Harness 补全（doc/07 缺口 P0→P2）→ 八 CLI TUI（D19）→ 九 移动端三端（D20/D21/D24）**；v2 候选池不阻塞（doc/02 §8.7）。任务清单级细节见 doc/02 §8。
 
 ## 8. 已知风险（摘要）
 

@@ -24,12 +24,13 @@
 | v1.14 | 2026-08-25 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028）                                                                        | §1 必读索引新增 doc/05 完成度审计（阶段三后源码级核查：缺口清单 G1–G7 与动工顺序；编号 04 已随原前端约束文档并入 DESIGN.md 退役）                                                                                                                                                                                                        |
 | v1.15 | 2026-08-25 | 同上；指误：晚风（Wanfeng1028）                                                                                                                                                                    | **v1.14 作者栏勘误**：误沿既有版本表的"GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）"署名（历史会话所留标签，本会话不可核实），改为可确证标识 ox-alpha + model id；详见 doc/05 v1.1 勘误说明。**署名纪律**：此后 AI 新增行只署当前会话可确证标识，禁止照抄历史行署名                                                                                                                                          |
 | v1.16 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令）                                                                                                                                 | §1 项目上下文事实刷新：**v1——五阶段全部完成**（阶段五产品化落地：Electron sidecar 壳/沙箱 wrapper/MCP client/子代理/skills 插件，ADR D14–D18）；与 doc/02 v2.30、README v1.15 同步                                                                                                                                           |
+| v1.17 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D4 多端 ADR 指令）                                                      | §1 项目上下文补**阶段六~九已立项**（doc/02 v3.0：UI 重构 ZCode 化/Harness 补全/CLI TUI/移动端三端；缺口依据 doc/07 审计 H01–H36，视觉依据 DESIGN §13，多端选型 ADR D19–D24）；必读索引新增 doc/06-testing-plan.md 与 doc/07-harness-audit.md；§8.1 补 CLI/移动端条目注记；与 ARCHITECTURE v1.14（D19–D24）、doc/02 v3.0 同步 |
 
 ## 1. 项目上下文（30 秒版）
 
-Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端 + Electron 桌面壳（sidecar 复用同一 HTTP+SSE 事件流协议）。当前处于 **v1（五阶段全部完成：骨架/前端/引擎/深度体验/产品化——Electron 壳、沙箱、MCP client、子代理、skills 插件均已落地，ADR D14–D18）**。完整规格见 `doc/02-development-plan.md`。
+Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端 + Electron 桌面壳（sidecar 复用同一 HTTP+SSE 事件流协议）。当前处于 **v1（五阶段全部完成：骨架/前端/引擎/深度体验/产品化——Electron 壳、沙箱、MCP client、子代理、skills 插件均已落地，ADR D14–D18）；阶段六~九已立项（doc/02 v3.0：UI 重构 ZCode 化 / Harness 补全 / CLI TUI / 移动端三端——缺口依据 doc/07 审计 H01–H36，视觉依据 DESIGN §13，多端选型 ADR D19–D24）**。完整规格见 `doc/02-development-plan.md`。
 
-**必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；完成度审计（阶段三后源码级核查）→ `doc/05-completion-audit.md`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
+**必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD/ZCode 化四端规格 §13）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；完成度审计（阶段三后源码级核查）→ `doc/05-completion-audit.md`；测试体系规划 → `doc/06-testing-plan.md`；Harness 模块审计（缺口 H01–H36 与"不做"判决）→ `doc/07-harness-audit.md`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
 
 ## 2. 硬性约定（违反即返工）
 
@@ -120,3 +121,5 @@ pnpm test / pnpm typecheck / pnpm lint
 | Qwen Code                       | `QWEN.md`（主，仓库代码 114 处）+ `AGENTS.md`（兼容，61 处，**已核实**）           | ✅ 已建 `QWEN.md`（@AGENTS.md 导入+差异）                      |
 
 原则：**团队实际启用某工具时才建它的 shim**；摘要 shim 只在工具无法读 AGENTS.md 时才存在，且必须声明"冲突以 AGENTS.md 为准"。
+
+**CLI/移动端条目（2026-08-26，ADR D19–D24）**：阶段八/九新增的 apps/cli（Ink TUI）与 apps/mobile（RN）/小程序（Taro）**不改变本表**——任何在这些目录工作的 AI 助手同样以根 AGENTS.md 为准（大型化后"越靠近目标文件的 AGENTS.md 优先"见 §8）；四端共享资产（协议/applyEvent/错误文案表/设计 token）的修改纪律见 ARCHITECTURE.md D22。
