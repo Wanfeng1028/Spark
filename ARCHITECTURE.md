@@ -22,6 +22,7 @@
 | v1.12 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D17 子代理 = 独立子会话（header.parentSession），主会话只见工具事件对**（阶段五工单 5.4：Task 工具 agent.task 审批默认 ask + Engine.runSubagent 注入执行体 + 单层限制 E_SUBAGENT_DEPTH + 父中断级联（turn.started 补中断关竞态）；否决内嵌主流与自定义 durable 事件两备选；Steer expectedTurnId 校验同步落地 E_TURN_MISMATCH 409） |
 | v1.13 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D18 事件词表扩展 = 运行时注册表 + declaration merging，插件是声明不是程序**（阶段五工单 5.5：protocol extend.ts registerEventType/eventSchemaOf 注册表、EventBus.emitExtended durable/live 双路 + ignorable 信封、skills loader 声明式清单目录扫描、hooks 声明式触发器 data 固定形状、示例插件 examples/skills/demo-ping；否决 JS 动态 import 与旁路校验两备选） |
 | v1.14 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D4 多端 ADR 指令） | 新增 **D19–D24 多端 ADR**（D19 CLI TUI=Ink v6 / D20 移动端=Expo+RN / D21 小程序=Taro 4 / D22 四端复用边界 / D23 复用与许可 / D24 配对鉴权）；**D7 补记**：档位制按预期演化落地（DESIGN §13.E 四档=规则引擎之上的预设层，非推翻）；§7 演进路线补阶段六~九；与 D1–D18 无未声明冲突；AGENTS 适配表补 CLI/移动端注记（AGENTS v1.17 同步）；工单互引 doc/02 §8 阶段八/九 |
+| v1.15 | 2026-08-26 | 同上（发起：晚风，移动端框架确认"适合 React 的"=React Native，与 D20 一致；供图 Qoder CN iOS 13 张） | **D24 补记**：配对 UX 定稿扫码为主（桌面出示 QR 含一次性短码→App 扫码换长效 token，Qoder CN 实测同范式）、手输 6 位码降兜底；token 交换/校验机制不变。移动端视觉规格落 DESIGN §13.J（v2.2）；doc/02 阶段九工单措辞同步（v3.1） |
 
 ---
 
@@ -206,6 +207,7 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 候选：① 配置文件固定 token——简单但泄露后无轮换路径；② mTLS——本地场景证书管理过重；③ **6 位配对码换长效 token**——ZCode/Claude Code 远程配对同范式，UX 与安全平衡。
 结论：`server.host` **显式配置才可非环回**（SPARK_HOST 环境变量语义收紧）；非环回绑定强制开启 token 鉴权；配对流程=移动端扫码/手输 6 位短码（60s 有效）→ POST 换长效 token → REST 与 SSE **同口径**校验（SSE 经查询参数或首帧握手，实现细节工单定）；无 token 且非环回 → **拒绝启动（fail-closed）**。**缺省行为（127.0.0.1+无鉴权）不变为红线**——不配 host 的用户升级后零感知。
 后果：web 设置页新增配对管理 UI（已配对设备列表+撤销）；token 撤销后已连 SSE 立即断开；配对码/ token 存 ~/.spark/（secrets 纪律同 7.1）；服务端改动仅限 9.1 声明范围（doc/02 阶段九纪律）。
+**补记（2026-08-26，移动端规格 DESIGN §13.J 定稿触发）**：配对 UX 定稿为**扫码为主**——桌面/web 设置页出示 QR（内容 `spark://pair?host=&port=&code=<一次性短码>`），App 扫码确认后换长效 token（Qoder CN 实测同范式）；**手输 6 位码降为兜底路径**（无相机/扫码失败）。token 交换与校验机制不变：REST/SSE 同口径、撤销即断、fail-closed。
 
 ## 6. 模块速览（职责边界）
 
