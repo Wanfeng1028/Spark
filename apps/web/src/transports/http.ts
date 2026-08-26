@@ -12,6 +12,8 @@ import type {
   CheckpointDto,
   CheckpointId,
   EventId,
+  ModelTestResultDto,
+  ModelsDto,
   PermissionPreset,
   PermissionReply,
   PermissionRuleDto,
@@ -273,6 +275,23 @@ export class HttpTransport implements Transport {
       method: 'PUT',
       body: JSON.stringify({ preset }),
     }).then(() => undefined)
+  }
+
+  listModels(): Promise<ModelsDto> {
+    return this.req<ModelsDto>('/api/models')
+  }
+
+  testModelProvider(providerId: string): Promise<ModelTestResultDto> {
+    return this.req<ModelTestResultDto>(`/api/models/${encodeURIComponent(providerId)}/test`, {
+      method: 'POST',
+    })
+  }
+
+  setSessionModel(sessionId: SessionId, model: string): Promise<string> {
+    return this.req<{ model: string }>(`/api/sessions/${sessionId}/model`, {
+      method: 'PUT',
+      body: JSON.stringify({ model }),
+    }).then((r) => r.model)
   }
 
   dispose(): void {

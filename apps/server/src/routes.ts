@@ -92,6 +92,10 @@ const RemoveRuleBody = z.strictObject({ action: z.string().min(1), resource: z.s
 /** 权限档位（DESIGN §13.E 四档 / D7 补记预设层，工单 6.3） */
 const PresetBody = z.strictObject({ preset: PermissionPresetSchema })
 
+/** 模型管理（工单 6.5）：供应商连通测试参数 + 会话级换模型 body */
+const ProviderIdParams = z.strictObject({ providerId: z.string().min(1).max(64) })
+const SetModelBody = z.strictObject({ model: z.string().min(1) })
+
 /** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
 function labelOf(e: SparkEventEnvelope): string {
   const data = e.data as Record<string, unknown>
@@ -330,6 +334,34 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
       await requireHandle(engine, id)
       engine.setPermissionPreset(id, body.preset)
       return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 模型管理（DESIGN §13.D③ / 工单 6.5 轻后端例外——本阶段唯一 engine/server 改动）
+  app.get('/api/models', async () => {
+    // 纯读配置合成（无网络请求）：供应商清单（内置/自定义、掩码原则 key 永不上线）+ 模型 + defaultModel
+    return engine.listModels()
+  })
+
+  app.post('/api/models/:providerId/test', async (req, reply) => {
+    try {
+      const { providerId } = parseOr400(ProviderIdParams, req.params)
+      // ok=false 不是传输失败：连通/鉴权问题走 200 + 人话文案（工单 6.5 验收）
+      return reply.send(await engine.testModel(providerId))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.put('/api/sessions/:id/model', async (req, reply) => {
+    try {
+      const { id } = parseOr400(IdParams, req.params)
+      const body = parseOr400(SetModelBody, req.body)
+      await requireHandle(engine, id) // 存在性校验（未加载会话先 resume，与其他 :id 端点同纪律）
+      const model = await engine.setSessionModel(id, body.model)
+      return reply.send({ model })
     } catch (err) {
       return sendError(req, reply, err)
     }

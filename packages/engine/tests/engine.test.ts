@@ -39,6 +39,7 @@ function makeConfig(): EngineConfig {
       providers: { fake: { apiKeyEnv: null } },
       defaultModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       compactionModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+      models: [{ provider: 'fake', model: 'fake-chat', contextWindow: 100_000 }],
     },
     permissions: { version: 1, rules: [] },
   }
@@ -154,6 +155,63 @@ describe('createSession', () => {
     expect(h.meta.model).toBe('fake/other-model')
     await expect(f.engine.createSession({ model: 'nope/x' })).rejects.toThrow('E_CONFIG')
     await expect(f.engine.createSession({ model: 'badformat' })).rejects.toThrow('E_CONFIG')
+  })
+})
+
+describe('模型管理（工单 6.5：listModels/testModel/setSessionModel）', () => {
+  test('listModels：内置目录全量 + 自定义 fake；testModel 配置缺失走人话文案', async () => {
+    const f = await makeEngine()
+    const dto = f.engine.listModels()
+    expect(dto.providers.map((p) => p.id)).toContain('openai')
+    const fake = dto.providers.find((p) => p.id === 'fake')
+    expect(fake).toMatchObject({ builtin: false, configured: true, hasKey: false })
+    expect(dto.defaultModel.model).toBe('fake-chat')
+
+    const r = await f.engine.testModel('fake')
+    expect(r).toMatchObject({ provider: 'fake', ok: false })
+    expect(r.message).toContain('API Key')
+  })
+
+  test('setSessionModel：内存 meta 跟随 + 下一 turn 生效；坏形状/未知会话拒绝', async () => {
+    const f = await makeEngine()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '第一轮' }] })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '第二轮' }] })
+    const handle = await f.engine.createSession()
+    await handle.send('第一问')
+    await waitForTurnDone(f)
+    expect(f.gateway.calls[0]?.model).toBe('fake/fake-chat')
+
+    // 换模型：下一 turn 起网关收到新 model；meta/索引即时跟随
+    const applied = await f.engine.setSessionModel(handle.id, 'fake/other-chat')
+    expect(applied).toBe('fake/other-chat')
+    expect(handle.meta.model).toBe('fake/other-chat')
+    const listed = await f.engine.listSessions()
+    expect(listed.find((m) => m.id === handle.id)?.model).toBe('fake/other-chat')
+
+    await handle.send('第二问')
+    // waitForTurnDone 只认首个 completed（turn 1 已闭合），这里等第二个
+    await waitFor(
+      () => f.events.filter((e) => e.type === 'turn.completed').length >= 2,
+      '第二个 turn.completed',
+    )
+    expect(f.gateway.calls[1]?.model).toBe('fake/other-chat')
+
+    // 会话文件 header 不动（持久真相仍是创建时模型）
+    const dirs = await readdir(join(f.root, 'sessions'))
+    const files = await readdir(join(f.root, 'sessions', dirs[0] as string))
+    const raw = await readFile(
+      join(f.root, 'sessions', dirs[0] as string, files[0] as string),
+      'utf8',
+    )
+    const header = JSON.parse(raw.split('\n')[0] as string) as Record<string, unknown>
+    expect(header['model']).toBe('fake/fake-chat')
+
+    // 坏形状 / 未知 provider / 未知会话
+    await expect(f.engine.setSessionModel(handle.id, 'badformat')).rejects.toThrow('E_CONFIG')
+    await expect(f.engine.setSessionModel(handle.id, 'nope/x')).rejects.toThrow('E_CONFIG')
+    await expect(
+      f.engine.setSessionModel(ids.session('ses_nonexistent0000000000000'), 'fake/fake-chat'),
+    ).rejects.toThrow('E_NOT_FOUND')
   })
 })
 

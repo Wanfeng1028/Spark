@@ -102,6 +102,16 @@ const modelsSchema = z.object({
   ),
   defaultModel: defaultModelSchema,
   compactionModel: compactionModelSchema.optional(),
+  /** 可选模型清单（工单 6.5）：选择器级联与设置页模型列表的数据源；defaultModel/compactionModel 自动并入 */
+  models: z
+    .array(
+      z.object({
+        provider: z.string().min(1),
+        model: z.string().min(1),
+        contextWindow: z.number().int().positive(),
+      }),
+    )
+    .optional(),
 })
 
 export interface ModelRef {
@@ -114,6 +124,8 @@ export interface ModelsConfig {
   providers: Record<string, { apiKeyEnv: string | null; baseUrl?: string | undefined }>
   defaultModel: ModelRef
   compactionModel: ModelRef
+  /** 显式 models[] + defaultModel/compactionModel 合并去重（provider/model 键） */
+  models: ModelRef[]
 }
 
 // ---- permissions.json ----
@@ -212,10 +224,23 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
   const compactionModel: ModelRef = modelsParsed.compactionModel
     ? { ...modelsParsed.compactionModel, contextWindow: modelsParsed.compactionModel.contextWindow ?? defaultModel.contextWindow }
     : defaultModel
+  // models[] + defaultModel/compactionModel 合并去重（先显式后自动，首个 contextWindow 生效）
+  const merged: ModelRef[] = []
+  const seen = new Set<string>()
+  const push = (m: ModelRef): void => {
+    const key = `${m.provider}/${m.model}`
+    if (seen.has(key)) return
+    seen.add(key)
+    merged.push(m)
+  }
+  for (const m of modelsParsed.models ?? []) push(m)
+  push(defaultModel)
+  push(compactionModel)
   const models: ModelsConfig = {
     providers: modelsParsed.providers,
     defaultModel,
     compactionModel,
+    models: merged,
   }
 
   // permissions.json：缺省 = 空规则表

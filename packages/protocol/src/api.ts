@@ -90,3 +90,50 @@ export type PermissionRuleDto = z.infer<typeof PermissionRuleDtoSchema>
  */
 export const PermissionPresetSchema = z.enum(['confirm-each', 'auto-edit', 'plan', 'full-access'])
 export type PermissionPreset = z.infer<typeof PermissionPresetSchema>
+
+// ---------- models（DESIGN §13.D③ / 阶段六工单 6.5 轻后端例外） ----------
+
+/** 供应商线上形状（GET /api/models）：apiKeyEnv 只回传环境变量名——key 本身永不进 DTO（红线 §6.3） */
+export const ModelProviderDtoSchema = z.strictObject({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  /** 内置目录（引擎 PROVIDER_CATALOG）中的已知供应商 = true；仅 models.json 出现的 = false（自定义） */
+  builtin: z.boolean(),
+  /** 已在 models.json providers 中配置 */
+  configured: z.boolean(),
+  /** 实际生效地址（models.json 覆盖 ?? 内置默认；自定义供应商必填） */
+  baseUrl: z.string().optional(),
+  /** API Key 环境变量名（null = models.json 未设 apiKeyEnv） */
+  apiKeyEnv: z.string().nullable(),
+  /** 环境变量已设置（状态点数据源） */
+  hasKey: z.boolean(),
+  api: z.enum(['openai-completions', 'anthropic-messages']),
+})
+export type ModelProviderDto = z.infer<typeof ModelProviderDtoSchema>
+
+/** 可选模型条目（models.json models[] + defaultModel/compactionModel 合并去重） */
+export const ModelEntryDtoSchema = z.strictObject({
+  provider: z.string().min(1),
+  model: z.string().min(1),
+  contextWindow: z.number().int().positive(),
+})
+export type ModelEntryDto = z.infer<typeof ModelEntryDtoSchema>
+
+export const ModelsDtoSchema = z.strictObject({
+  providers: z.array(ModelProviderDtoSchema),
+  models: z.array(ModelEntryDtoSchema),
+  defaultModel: ModelEntryDtoSchema,
+})
+export type ModelsDto = z.infer<typeof ModelsDtoSchema>
+
+/** POST /api/models/:id/test 结果（连通测试返回时延/错误人话文案，工单 6.5 验收） */
+export const ModelTestResultDtoSchema = z.strictObject({
+  provider: z.string().min(1),
+  ok: z.boolean(),
+  latencyMs: z.number().int().nonnegative().optional(),
+  /** 人话文案（成功"连通正常"；失败为可读原因） */
+  message: z.string(),
+  /** 原始错误详情（前端折叠展示） */
+  detail: z.string().optional(),
+})
+export type ModelTestResultDto = z.infer<typeof ModelTestResultDtoSchema>

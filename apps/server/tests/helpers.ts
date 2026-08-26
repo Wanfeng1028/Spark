@@ -39,6 +39,7 @@ export function makeConfig(): EngineConfig {
       providers: { fake: { apiKeyEnv: null } },
       defaultModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       compactionModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+      models: [{ provider: 'fake', model: 'fake-chat', contextWindow: 100_000 }],
     },
     permissions: { version: 1, rules: [] },
   }

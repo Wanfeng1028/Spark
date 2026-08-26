@@ -18,6 +18,8 @@ import type {
   CheckpointId,
   Delivery,
   EventId,
+  ModelTestResultDto,
+  ModelsDto,
   PermissionPreset,
   PermissionReply,
   RequestId,
@@ -37,6 +39,7 @@ import { loadConfig, loadProjectRules } from './config.js'
 import type { PermissionRule } from './config.js'
 import type { EngineConfig, ModelRef } from './config.js'
 import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
+import { listModels, testProvider } from './model-catalog.js'
 import type { Compactor } from './run-loop.js'
 import { PiGateway } from './pi-gateway.js'
 import { buildSystemPrompt, PLAN_MODE_DIRECTIVE } from './prompts.js'
@@ -141,6 +144,8 @@ interface SessionEntry {
   store: SessionStore
   runtime: SessionRuntime
   meta: SessionMeta
+  /** 会话级换模型入口（工单 6.5）：替换 deps.model 闭包持有——下一 turn 生效 */
+  setModel: (m: ResolvedModel) => void
   /** 手动压缩入口（§5.8.5；自动触发在 run-loop step ②） */
   compactor: Compactor
   /** turn 边界快照（工单 4.6；config.engine.checkpoints=false 时 null） */
@@ -614,6 +619,34 @@ export class Engine {
     return this.permission.presetOf(id)
   }
 
+  // ---- 模型管理（DESIGN §13.D③ / 阶段六工单 6.5 轻后端例外） ----
+
+  /** GET /api/models：供应商清单（内置/自定义）+ 可选模型 + defaultModel */
+  listModels(): ModelsDto {
+    return listModels(this.config.models)
+  }
+
+  /** POST /api/models/:id/test：连通测试（时延/错误人话文案；ok=false 仍 200） */
+  testModel(providerId: string): Promise<ModelTestResultDto> {
+    return testProvider(providerId, this.config.models)
+  }
+
+  /**
+   * PUT /api/sessions/:id/model：会话级换模型（内存态——同权限预设层先例，D7 补记）。
+   * 下一 turn 生效（进行中 turn 用旧模型跑完）；重启/重新装载回会话文件模型。
+   * 返回生效的 "provider/model"；形状/provider 未配置 → E_CONFIG，未知会话 → E_NOT_FOUND。
+   */
+  async setSessionModel(id: SessionId, model: string): Promise<string> {
+    this.assertNotShutdown()
+    const modelRef = this.resolveModelRef(model)
+    const entry = await this.requireEntry(id)
+    entry.setModel(this.resolveModel(modelRef))
+    // 内存 meta 跟随（header 不动——持久真相仍是会话文件；DTO/索引用内存值）
+    entry.meta.model = `${modelRef.provider}/${modelRef.model}`
+    this.syncIndex(entry.meta)
+    return entry.meta.model
+  }
+
   // ---- 会话索引（工单 4.8：node:sqlite；JSONL 恒为权威，损坏降级磁盘扫描） ----
 
   private openIndex(): SessionIndex | null {
@@ -950,11 +983,13 @@ export class Engine {
 
   /** per-session 组件接线：Runtime/Projector/Compactor/Pipeline + run-loop 启动 */
   private wireSession(store: SessionStore, meta: SessionMeta, modelRef: ModelRef): SessionEntry {
-    const model = this.resolveModel(modelRef)
+    // 会话级换模型（工单 6.5）：deps.model getter 化持有可变引用（同 system 的档位先例）——
+    // setSessionModel 替换引用，下一 turn 生效；Projector/Compactor 的接线参数仍取装载时值
+    let currentModel = this.resolveModel(modelRef)
     const runtime = new SessionRuntime(meta.id)
     const projector = new ProjectorImpl({
       tree: store.tree,
-      includeReasoning: reasoningIncluded(model.provider),
+      includeReasoning: reasoningIncluded(currentModel.provider),
       // 悬空锚点（数据损坏兜底被触发）：结构化 warning 可 grep，不静默退化
       onDanglingAnchor: (anchorId) => {
         this.logger.warn('projector.dangling_anchor', { sid: meta.id, anchorId })
@@ -969,7 +1004,7 @@ export class Engine {
       tree: store.tree,
       model: compactionModel,
       keepTokens: Math.round(
-        (this.config.spark.engine.compactionThreshold * model.contextWindow) / 2,
+        (this.config.spark.engine.compactionThreshold * currentModel.contextWindow) / 2,
       ),
     })
     const titler = new TitleGenerator({
@@ -1012,7 +1047,10 @@ export class Engine {
       projector,
       compactor,
       tools,
-      model,
+      // 工单 6.5：model 同 system 走 getter——会话级换模型（内存态）下一 turn 生效
+      get model(): ResolvedModel {
+        return currentModel
+      },
       // §5.11 基座组装一次；计划模式（D7 补记：交互层约定）按当前档位逐 step 现读追加——
       // getter 不改 RunLoopDeps 形状，档位切换即时生效（AGENTS.md 读盘成本仍为会话装载一次）
       get system(): string {
@@ -1038,7 +1076,19 @@ export class Engine {
     const loop = runSessionLoop(runtime, deps)
     // 装载点同步索引（create/resume/fork/rollback 重载共用本单点，工单 4.8）
     this.syncIndex(meta)
-    return { store, runtime, meta, compactor, checkpointer, titler, titleTask: null, loop }
+    return {
+      store,
+      runtime,
+      meta,
+      setModel: (m: ResolvedModel) => {
+        currentModel = m
+      },
+      compactor,
+      checkpointer,
+      titler,
+      titleTask: null,
+      loop,
+    }
   }
 
   /** 装载点 upsert：以内存 meta 全量覆盖索引行 */
@@ -1111,7 +1161,7 @@ export class Engine {
     }
   }
 
-  /** "provider/model" → ModelRef（缺省 defaultModel；provider 未配置 → E_CONFIG） */
+  /** "provider/model" → ModelRef（缺省 defaultModel；provider 未配置 → E_CONFIG；contextWindow 优先取 models[] 条目） */
   private resolveModelRef(model?: string): ModelRef {
     if (model === undefined) return this.config.models.defaultModel
     const slash = model.indexOf('/')
@@ -1122,10 +1172,12 @@ export class Engine {
     if (this.config.models.providers[provider] === undefined) {
       throw new Error(`E_CONFIG: models.json 未配置 provider "${provider}"`)
     }
+    const name = model.slice(slash + 1)
+    const listed = this.config.models.models.find((m) => m.provider === provider && m.model === name)
     return {
       provider,
-      model: model.slice(slash + 1),
-      contextWindow: this.config.models.defaultModel.contextWindow,
+      model: name,
+      contextWindow: listed?.contextWindow ?? this.config.models.defaultModel.contextWindow,
     }
   }
 
