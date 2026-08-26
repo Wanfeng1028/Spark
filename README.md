@@ -12,7 +12,7 @@ Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行�
 
 刻意不做：多用户、登录、公网部署（绑定 127.0.0.1 是设计而非缺省）。
 
-**当前状态**：**v1 —— 五阶段全部完成**（阶段一骨架 / 阶段二前端 / 阶段三引擎 / 阶段四深度体验 / 阶段五产品化）。全仓 456 例单测 + typecheck 全绿；阶段五四件套已落地：Electron sidecar 壳（ADR D14，NSIS 安装包走 GH Actions Windows runner）、bash 沙箱 wrapper（ADR D15 bwrap/Seatbelt）、MCP client（ADR D16 外部工具与内置工具同一管线）、子代理（ADR D17 独立子会话 + Steer turn 校验）、skills/插件（ADR D18 事件词表运行时扩展 + 声明式清单，示例 examples/skills/demo-ping）。待用户环境执行的现场验收：Windows 本机安装走查、真实外部 MCP server 演示、真实模型子代理演示、沙箱隔离效果验证（容器内 bwrap 不可用）。
+**当前状态**：**v1 —— 五阶段全部完成**（阶段一骨架 / 阶段二前端 / 阶段三引擎 / 阶段四深度体验 / 阶段五产品化）。全仓 456 例单测 + typecheck 全绿；阶段五四件套已落地：Electron sidecar 壳（ADR D14，NSIS 安装包走 GH Actions Windows runner）、bash 沙箱 wrapper（ADR D15 bwrap/Seatbelt）、MCP client（ADR D16 外部工具与内置工具同一管线）、子代理（ADR D17 独立子会话 + Steer turn 校验）、skills/插件（ADR D18 事件词表运行时扩展 + 声明式清单，示例 examples/skills/demo-ping）。待用户环境执行的现场验收：Windows 本机安装走查、真实外部 MCP server 演示、真实模型子代理演示、沙箱隔离效果验证（容器内 bwrap 不可用）。**阶段六~九已立项**（doc/02 v3.0：UI 重构 ZCode 化 / Harness 补全 / CLI TUI / 移动端三端；工单依据 doc/07 审计缺口 H01–H36，未排期项入 §8.7 v2 候选池）；测试体系规划见 doc/06。
 
 ## 架构一览
 
@@ -49,6 +49,8 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 | [doc/02-development-plan.md](./doc/02-development-plan.md)   | 完整开发方案：协议 / 引擎 / 前端 / 服务端实现级规格 + 五阶段路线图                              |
 | [doc/03-frontend-approach.md](./doc/03-frontend-approach.md) | 前端专题：参考实现分析 · 我方前端思路 · 与传统 Web 开发的差异                                   |
 | [doc/05-completion-audit.md](./doc/05-completion-audit.md)   | 完成度审计（阶段三后）：源码级核查实测结果 · 缺口清单 G1–G7 · 动工顺序                          |
+| [doc/06-testing-plan.md](./doc/06-testing-plan.md)           | 测试体系补全计划：五层+契约分层 · CI 流水线 · 性能基线 · 456 例归属 · 四端走查模板              |
+| [doc/07-harness-audit.md](./doc/07-harness-audit.md)         | Harness 模块审计：十九条学科×三态 · 六大类源码级证据 · 缺口 H01–H36 · Python Worker 判决        |
 | [.agents/skills/](./.agents/skills/)                         | 可重复任务流程：docs-update · new-event-type · new-tool · frontend-component                    |
 
 ## 开发
@@ -90,3 +92,4 @@ pnpm test / typecheck / lint
 | v1.13 | 2026-08-25 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028）                             | 文档导航新增 doc/05 完成度审计（源码级核查：367 例全绿实测、缺口 G1–G7、外部评审采纳/保留意见、动工顺序）                                                       |
 | v1.14 | 2026-08-25 | 同上；指误：晚风（Wanfeng1028）                                                                                                                          | **v1.13 作者栏勘误**：误沿既有版本表的"GLM-5.3"署名（历史标签、本会话不可核实），改为可确证标识 ox-alpha + model id；详见 doc/05 v1.1 勘误说明                 |
 | v1.15 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令）                                                                                       | **状态更新为 v1——五阶段全部完成**（阶段五 5.1–5.5 全落地：Electron sidecar 壳/沙箱 wrapper/MCP client/子代理/skills 插件，ADR D14–D18；此前 README 停留在阶段三，本次一并补记阶段四完成）；导语"后期加 Electron 壳"改为现状；待用户环境执行的现场验收四项注记；doc/02 §8 v2.30 同步 |
+| v1.16 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D2 路线图指令）               | **当前状态行追加"阶段六~九已立项"**（doc/02 v3.0：阶段六 UI 重构 ZCode 化 / 阶段七 Harness 补全 / 阶段八 CLI TUI / 阶段九 移动端三端；依据 doc/07 审计缺口 H01–H36，未排期项入 v2 候选池；测试体系规划 doc/06）；文档导航新增 doc/06/doc/07 两行 |

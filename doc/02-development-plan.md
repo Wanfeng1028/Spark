@@ -46,6 +46,7 @@
 | v2.28 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五工单 5.4 完成**：子代理 + Steer 校验——ARCHITECTURE 新增 ADR D17（子会话 = 独立会话 header.parentSession，主会话只见 task 工具事件对；否决内嵌主流与自定义 durable 事件两备选）；Task 工具（engine `tools/builtin/task.ts`：{prompt,title?} 审批 agent.task/task 默认 ask、parallelizable=false、执行体 TaskRunner 端口由 Engine.runSubagent 注入）；runSubagent（createSession{parentId} 派生独立会话、订阅先于提交等子 turn.completed、返回最终 assistant 文本、subagentChildren 单层限制 E_SUBAGENT_DEPTH、父中断级联 child.interrupt + turn.started 补中断关闭"父先断子后开"竞态）；Steer expectedTurnId（protocol SendMessageOptions + SessionHandle.send + runtime.submit 可选参数，beginTurn(turnId) 登记活动 turn，不符 E_TURN_MISMATCH→HTTP 409；server routes/errors + web HttpTransport 透传，不传保持宽容路由向后兼容）；§5.4/§5.6.3/§7.2/§5.10 同步；subagent 单测 5 例（六要素/成功全链路含子会话事件与 header 留痕/深度限制两级闭合/父中断级联 E_ABORTED + steer mismatch 接线/deny E_PERMISSION 不派生）+ runtime steer 校验 4 例；全仓 449 例（engine 316）+ typecheck 全绿 |
 | v2.29 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五工单 5.5 完成**：skills/插件——ARCHITECTURE 新增 ADR D18（事件词表扩展 = 运行时注册表 + declaration merging，插件是声明不是程序；否决 JS 动态 import 与旁路校验两备选）；protocol `extend.ts`（registerEventType 冲突检测 E_EVENT_TYPE_CLASH / eventSchemaOf 统一查表 / isExtendedLiveOnly / clearExtendedEvents 测试隔离），EventBus/parseEnvelope/SessionStore 读端全部改走 eventSchemaOf（扩展事件与内置 19 种同一校验路径）；engine `skills/loader.ts`（`~/.spark/skills/<name>/skill.json` 声明式清单：events plugin. 前缀 JSON Schema→zod + hooks 声明式触发器 on 内置事件→emit 插件事件 data 固定形状；先全量预检再注册不留半注册态；单 skill 坏清单/冲突/钩子非法 warn 跳过）+ Engine 构造接线（skillsReady 并入 ready()）+ EventBus.emitExtended（durable 同一落盘管线占行号 / liveOnly 直播不落盘，信封一律 ignorable:true）；web HttpTransport 未知 ignorable 帧跳过不断流（与 store 读端同策略）；示例插件 `examples/skills/demo-ping/`；§4.3 扩展落地注记/§5.1 配置表 skills 行/§5.10 错误码登记；skills 单测 8 例（loader 四路径/emitExtended durable·live·校验失败/引擎 e2e：hook 落盘可回放 + "卸载"后重读跳过占行号）+ web transport ignorable 帧跳过 1 例；全仓 456 例（engine 324/web 53/server 33/protocol 46）+ typecheck 全绿 |
 | v2.30 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五完成（收尾）**：§8 阶段五清单 5.2–5.5 全部勾选（沙箱/MCP/子代理/skills 实现均落地并单测/ e2e 实证；沙箱隔离效果、Windows 本机安装走查、真实外部 MCP server 与真实模型现场演示四项待用户环境执行，文字保留注记）；验收行更新——**五阶段全部完成，Spark v1**；README 状态徽章与"当前状态"更新为 v1（阶段一~五完成；README v1.15 同步）；AGENTS §1 项目上下文事实刷新（README/AGENTS 同步） |
+| v3.0  | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D2 路线图指令） | **阶段六~九立项工单化（+0.5 进位）**：§8 续写阶段六 UI 重构（6.1–6.8）/ 阶段七 Harness 补全（7.1–7.8、7.10–7.13；**7.9 Python worker 删除**——判决见 doc/07 §4.1）/ 阶段八 CLI TUI（8.1–8.5）/ 阶段九 移动端三端（9.1–9.5），工单表与阶段一逐列对齐（#/工单/产出/验收标准/依赖）；新增 §8.7 v2 候选池（V2-01–V2-22，不阻塞四阶段）；7.4 命令清单基线对齐 Claude Code 命令面 + opencode leader 键模式；输入=doc/07 缺口编号 H01–H36；登记 doc/06-testing-plan.md（D5，测试体系五层）与 doc/07-harness-audit.md（D1，Harness 审计）；README 当前状态行同步（v1.16） |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -1740,6 +1741,64 @@ app.get('/api/event', async (req, reply) => {
 - [x] skills/插件（ADR D18：`~/.spark/skills/<name>/skill.json` 声明式清单——插件是数据不是程序；protocol 运行时注册表 registerEventType/eventSchemaOf 与内置词表同一校验路径，EventBus.emitExtended durable/live 双路 + ignorable 信封（插件卸载后旧会话可加载，未装插件的前端跳过 ignorable 帧不断流）；hooks 声明式触发器（on 内置事件 → emit 插件事件，data 固定形状）；单 skill 失败 warn 跳过。示例插件 examples/skills/demo-ping + 引擎 e2e（session.created → plugin.demo.ping 落盘/卸载后重读）已测）
 - **验收**：桌面安装包（GH Actions NSIS 产物管线 + Linux `--win zip` sidecar/healthz/Web UI 全通实证；Windows 本机安装走查待用户执行）+ 首个外部 MCP 工具可用（审批三态经真实子进程 e2e 实证；真实外部 server 现场演示待用户执行）。**五阶段全部完成，Spark v1**
 
+## 阶段六：UI 重构（ZCode 化：亮色默认+设置中心）——工单级
+
+> 实现依据：DESIGN.md v2.0 §A~§J（布局栅格/控件规格/主题 token/设置中心/Composer/管理页规格，全部落数值）；规格有疑义先提勘误再动手。测试面见 doc/06（6.8 首批落地 L2 组件/L3 E2E/视觉基线）。纪律：不动 engine/protocol（6.5 轻后端例外已声明）；组件库不新增，shadcn/ui 内消化。
+
+| #   | 工单                 | 产出（目标 + 涉及包）                                                                                                                                     | 验收标准                                                                                                          | 依赖    |
+| --- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------- |
+| 6.1 | 主题翻转（H13）      | web：§C token 表落地——light 挂 `:root` 默认、dark 收 `.dark`；系统跟随 + 手动切换；持久化 localStorage                                                                  | 亮色为系统默认；两主题 AA 对比度复核通过；跟随系统/手动/持久化三态可用                                             | —       |
+| 6.2 | 布局栅格（H13/H15）  | web：空态垂直居中（问候语+居中 Composer+建议 chips）；会话态沉底 Composer + 主区 768px 居中；左栏 264px 可折叠、会话按日期分组（数据源=磁盘 cwd 目录结构，纯前端点亮）；StatusBar 单行细条化 | 三视口（1280/1440/375）无大片空白；分组与磁盘目录一致                                                             | 6.1     |
+| 6.3 | 控件规格落地（H13）  | web：按 §B 表重过存量组件（按钮 sm28/md32/lg38、输入框 38、圆角 6-8、字号 13/12/11）；Composer 重做（内嵌三钮+now-steer-queue 分段+多行自增至 6 行+快捷 chips）          | 存量组件密度抽查全过；Composer 新交互走查可用                                                                      | 6.1     |
+| 6.4 | 设置中心骨架（H13/H16） | web：六分区导航壳（常规/外观/模型/工具/Agent 能力/数据）；外观区落地（主题/界面字号/浅深代码主题/行号/换行——DiffViewer 与 CodeBlock 接入）；常规区语言与代理占位；工具分区含沙箱开关入口（engine.bashSandbox） | 六分区可导航；外观区字段即存即生效；沙箱开关读写 spark.json 配置                                                  | 6.1     |
+| 6.5 | 模型管理（H13）      | web+server（轻后端，本阶段唯一例外）：Composer 旁会话级模型选择器 + 设置内供应商列表 + 连通测试（新增 GET /api/models 与 POST /api/models/:id/test，PR 说明中单列）      | 选择器切换即时生效于新 turn；连通测试返回时延/错误人话文案                                                        | 6.4     |
+| 6.6 | 用量条（H13/H23 前置） | web：读 assistant.message usage + Projector 估算，Composer 上方细条，超阈值变色                                                                          | 用量与 StatusBar 累计一致；阈值变色可演示                                                                          | 6.2     |
+| 6.7 | 断线与错误态（H14）  | web：顶部细条 + 错误码人话文案表（E_MOCK_UNKNOWN_SESSION→"会话不存在或已被清理"，原码折叠进详情）+ 重试样式统一（文案表单一来源，四端共享——doc/07 §3）                   | 全部 E_* 出口走文案表；断线→重连→续播走查通过                                                                     | 6.2     |
+| 6.8 | 验收（doc/06 首批）  | web+测试：mock 四场景 + 断线场景，1280/1440/375 三视口截图对比入 doc/06 基线；Playwright 组件 + E2E 首批用例入库                                                          | doc/06 §1 首批用例全绿；三视口无大片空白截图为证                                                                  | 6.1–6.7 |
+
+## 阶段七：Harness 补全（顺序 = doc/07 §4 优先级 P0→P2）——工单级
+
+> 缺口编号（H01–H36）与判决以 doc/07-harness-audit.md 为准，与定稿冲突以本表为准。7.5/7.6/7.10 动手前各补一条迷你 ADR；动 protocol 词表按 AGENTS 硬性约定第 5 条从 packages/protocol 开始。原 7.9（Python worker）经审计判决**删除**（doc/07 §4.1），后续编号顺延不变。
+
+| #    | 工单                          | 产出（目标 + 涉及包）                                                                                                                                                           | 验收标准                                                                                              | 依赖    |
+| ---- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------- |
+| 7.1  | secrets 管理（H01，P0）       | engine+web：~/.spark/secrets 存储 + 设置页录入 + 引擎取用优先级（store > env），env 迁移兼容                                                                     | apiKey 不再必须环境变量；日志/事件流无明文密钥（复用 pino 脱敏断言）                                   | —       |
+| 7.2  | I/O 护栏（H02，P0）           | engine：工具输出注入检测（标记协议 + 可疑模式结构化告警事件）+ 敏感输出过滤（复用 pino 三层脱敏正则）                                                             | 注入样例集触发告警事件且不阻断 turn；密钥样例经工具输出进上下文前被过滤                                | —       |
+| 7.3  | 用户侧 hooks（H03）           | engine：spark.json 声明 turn.before / turn.after / permission.resolved / tool.completed 挂点 → 外部命令或 skill 触发                                             | 四挂点 e2e 各一例；hook 失败不阻断主流程（warn 闭合，同 D18 纪律）                                     | —       |
+| 7.4  | 命令注册表（H04）             | engine+web：/命令 解析框架（/compact 迁入）+ ~/.spark/commands/*.md 自定义命令 + CommandPalette 接入；**命令清单基线 = 对齐 Claude Code 命令面（/compact /model /mcp /skills /usage /resume）+ opencode leader 键模式（ctrl+x 前缀）——命令名可不同，覆盖面以此为下限** | 基线清单逐条可用；自定义 .md 命令可被发现与执行；/compact 行为回归不变                                 | —       |
+| 7.5  | 长期记忆（H05，P1）           | engine+web：~/.spark/memory.db（node:sqlite FTS5；向量检索后置）+ memory.save/search 工具族 + Projector 注入 top-k + 设置页管理；迷你 ADR                          | 记忆跨会话生效（save→新会话 search 命中）；注入不破坏 surface 纪律（模型可见必被记录）                 | 7.1     |
+| 7.6  | 自动化触发器（H06，P1）       | engine+web：cron / watch / webhook 三类触发 → 自动建会话执行 prompt；任务列表 + 运行历史 UI；迷你 ADR                                                             | 三类触发器各一条 e2e；运行历史可查；失败运行有结构化错误留存                                           | 7.1     |
+| 7.7  | model routing 增强（H07，P0） | engine：provider fallback 链 + 按任务路由（主/压缩/标题/子代理）+ 成本上限熔断（usage 聚合阈值中断）                                                             | 主模型断连自动 fallback；熔断触发后新 turn 拒绝且人话提示；路由配置热生效                              | —       |
+| 7.8  | 子代理增强（H08，P1）         | engine+web：并行 Task（解除单并发）+ 树状运行监控（复用 4.5 树视图加运行态）                                                                                     | 多子代理并行互不串扰；监控视图实时状态与事件流一致；单层限制语义不变                                   | —       |
+| 7.10 | browser 工具族（H09，P2）     | engine+web：Playwright chromium；browser.open/click/read/screenshot 工具、审批默认 ask、前端 BrowserCard 可视化；迷你 ADR                                         | 四工具走查（真实页面）；审批/中断/失败闭合与内置工具同管线；截图经工具输出限界                          | —       |
+| 7.11 | eval harness（H10，P2）       | examples+脚本：examples/evals 场景集（ScriptedLlm 回归 + 可选真实模型评分）+ pnpm eval + 接入 nightly（doc/06 §2）                                                | pnpm eval 本地可跑；nightly 红灯出报告；场景集含审批/中断/压缩回归                                     | —       |
+| 7.12 | 审计日志（H11，P1）           | engine+web：permission 决策 / 规则变更 / rollback 独立 JSONL 明细流 + 设置页查看器                                                                               | 明细流含时间/主体/动作/结果；查看器可过滤；脱敏纪律同 pino                                             | 7.1     |
+| 7.13 | 会话全文搜索（H12，P1）       | engine+web：事件内容入 FTS5 + 搜索页（标题/内容命中高亮）                                                                                                        | 千事件会话搜索 <500ms（doc/06 基线）；命中高亮与跳转正确                                               | —       |
+
+## 阶段八：CLI TUI（对齐 Claude Code/pi 形态）——工单级
+
+> 可与阶段七并行开发、串行合入；选型依据 ADR D19（Ink v6）。纪律：server 零改动为验收项（确需改动单独工单说明）；错误人话文案表与 web 共享同一来源（doc/07 §3）。
+
+| #   | 工单                       | 产出（目标 + 涉及包）                                                                                                                                     | 验收标准                                                                                              | 依赖      |
+| --- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------- |
+| 8.1 | transport 下沉             | protocol：web HttpTransport 内核（SSE 解析/重连/REST 错误映射）抽至 packages/protocol transport-node 模块，web 与 cli 共用                                  | web 既有测试保绿；cli 冒烟连真实 server                                                                | —         |
+| 8.2 | Ink 骨架                   | 新建 apps/cli（Ink v6）四区：会话列表侧栏 / 消息流 / 输入框 / 状态细条；<80 列隐藏侧栏；resize 适配                                                        | 80 列与 200 列两档走查可用；冷启 <1s（doc/06 基线）                                                    | 8.1       |
+| 8.3 | 核心交互                   | apps/cli：流式 delta 渲染；tool 单行折叠可展开；reasoning 默认折叠；审批 y=once / a=always / n=reject；Esc 中断 turn；双击 Ctrl+C 退出；/compact；Tab 循环 now/steer/queue 状态条显示；键位表成文（H36 前置） | 交互清单逐条走查；键位表入文档并与错误文案表同库共享                                                   | 8.2       |
+| 8.4 | 断线续播 + 优雅退出        | apps/cli：细条提示 + 自动退避重连 + since=seq 续播；错误人话化共享文案表；SIGINT 优雅退出                                                                   | kill server→重启→续播无丢失；SIGINT 无悬挂 turn                                                        | 8.2       |
+| 8.5 | 验收与登记                 | apps/cli+docs：Ink test-renderer 组件快照 + tty 模拟四幕走查（doc/06 §5）截图入 doc；README 补 pnpm --filter cli dev；本表勾选；AGENTS 适配表登记           | 四幕走查通过；测试/typecheck/lint 全绿（含 cli 包）                                                    | 8.1–8.4   |
+
+## 阶段九：移动端三端（Android/iOS App + 微信小程序）——工单级
+
+> 选型依据 ADR D20（Expo+RN）/ D21（Taro 4）/ D24（配对鉴权）；9.1 为本阶段首工单，未完成前 App 无法真连。纪律：缺省行为不变红线（127.0.0.1+无鉴权）；动 protocol 先按硬性约定第 5 条；服务端改动仅限 9.1 声明范围。
+
+| #   | 工单                  | 产出（目标 + 涉及包）                                                                                                                                             | 验收标准                                                                                              | 依赖    |
+| --- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------- |
+| 9.1 | 配对鉴权（D24）       | server+web：server.host 显式配置才可非环回；非环回强制 token、6 位配对码换长效 token、REST 与 SSE 同口径校验、无 token 非环回拒绝启动（fail-closed）；web 设置页配对 UI | 缺省行为不变；非环回无 token 拒启动；配对全流程走查（含撤销被拒）                                       | —       |
+| 9.2 | RN 骨架（D20）        | 新建 apps/mobile（Expo+RN）：复用 @spark/protocol + applyEvent + 设计 token 映射 RN 主题（亮色默认、深浅跟随系统）；会话列表（下拉刷新）/ 会话页 / 设置页三屏 + 导航 | 三屏走查；冷启 <2s（doc/06 基线）；CI 增 RN typecheck+Jest                                             | 9.1     |
+| 9.3 | 会话体验              | apps/mobile：SSE 流式、审批卡三键、中断、断线重连条、下拉加载历史（GET /:id 分页）、键盘避让与安全区、Composer 多行自增                                             | 四场景走查（正常/审批/断网恢复/配对撤销被拒）；Maestro 用例入库（doc/06 L5）                            | 9.2     |
+| 9.4 | 小程序（D21）         | 新建 Taro 4 壳复用逻辑层；v1 = 开发者工具 + 体验版（局域网 IP + 不校验合法域名开关），正式分发中继服务记 v2（ADR D21）                                             | 开发者工具四幕走查；体验版真机预览可用                                                                 | 9.1     |
+| 9.5 | 验收                  | mobile+docs：iOS/Android 模拟器 + 各一台真机四场景走查；Maestro 双端；真机记录（截图/录屏）归档；本表勾选 + README/AGENTS 登记                                      | doc/06 §5 四幕×双端全过；CI 全绿（含 RN）                                                              | 9.1–9.4 |
+
 ## 8.6 测试矩阵（各阶段验收的测试面；框架 vitest）
 
 | 模块               | 用例要点                                                                                                                                                         |
@@ -1755,6 +1814,33 @@ app.get('/api/event', async (req, reply) => {
 | server             | 路由 zod 400/404/409/503 映射；SSE 回放+直播边界、心跳、全局订阅；SPA fallback 排除 /api                                                                         |
 | web                | **applyEvent 19 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
 | 集成               | MockTransport 四场景全跑（§4.7 表）；阶段三：ScriptedLlm 全闭环 + 崩溃恢复（kill -9 后 resume 无悬挂事件）                                                       |
+
+## 8.7 v2 候选池（未排期，不阻塞阶段六~九；缺口编号对应 doc/07 §2.7）
+
+| 编号  | 项                       | 优先级 | 依赖 / 备注                                   |
+| ----- | ------------------------ | ------ | --------------------------------------------- |
+| V2-01 | MCP/技能管理页（列表/启停/连接状态） | P1     | 依赖 6.4 设置骨架；数据源 mcp.json/loader 已就绪 |
+| V2-02 | 插件市场壳               | P2     | 依赖 V2-01；loader（5.5）已就绪               |
+| V2-03 | 附件/图片粘贴 + @file 引用 | P1     | protocol attachments 字段已预留；需后端接收端点+工具读图 |
+| V2-04 | 文件树抽屉               | P1     | 轻后端目录列举端点；UI 规格见 DESIGN §J       |
+| V2-05 | 通知推送（turn 完成/审批等待） | P1     | Electron notification + 托盘                  |
+| V2-06 | LLM 出网代理（HTTP proxy/自定义证书） | P1     | 公司网必需；pi-ai baseUrl 已支持              |
+| V2-07 | 成本看板（按日/供应商聚合） | P1     | 依赖 6.6 用量条 + 7.7 熔断的 usage 聚合       |
+| V2-08 | 审查模式（多文件 diff 聚合+批量放行） | P2     | checkpoint git 底子已有；形态参考 Codex Diff/Logs 双栏 |
+| V2-09 | 辅助会话抽屉             | P2     | 纯前端形态；引擎跨会话并发已有                |
+| V2-10 | 内置终端面板             | P2     | 桌面 pty；需 Electron preload/IPC 首次引入    |
+| V2-11 | trace 视图               | P2     | JSONL 即 trace 潜质；聚合查询先行             |
+| V2-12 | i18n 框架                | P2     | 文案表先集中（6.7）再抽取                     |
+| V2-13 | 数据管理（占用/清理/导出导入） | P2     | ~/.spark 目录统计 + 清理须走确认纪律          |
+| V2-14 | 诊断页（日志查看器/导出） | P2     | logs/engine.log 已有                          |
+| V2-15 | 自更新                   | P2     | electron-updater；代码签名前置                |
+| V2-16 | 用户可配提示词模板       | P2     | 三处硬编码（doc/07 §2.1）                     |
+| V2-17 | onboarding 引导流        | P2     | 首启配 Key→选模型→建会话                      |
+| V2-18 | 代码库语义索引（RAG）    | P3     | 大件；与会话索引（4.8）分离                   |
+| V2-19 | 沙箱网络隔离             | P2     | ADR D15 后置项                                |
+| V2-20 | 多窗口多会话             | P3     | Electron 多 BrowserWindow                     |
+| V2-21 | MCP HTTP/SSE transport   | P2     | ADR D16：远程 server 有真实诉求再立项         |
+| V2-22 | 快捷键 keymap 自定义（web） | P2     | 8.3 CLI 键位表成文后共享同一来源              |
 
 ---
 
@@ -1828,4 +1914,4 @@ app.get('/api/event', async (req, reply) => {
 
 ---
 
-_方案完（v2.7）。前后端均为完整规格；开工顺序：阶段一工单表自上而下；每次完成按版本记录表追加记录并 push。_
+_方案完（v3.0）。阶段一~五已完成（Spark v1）；开工顺序：阶段六 → 阶段七 → 八/九（可并行开发、串行合入），v2 候选池不阻塞；每次完成按版本记录表追加记录并 push。_
