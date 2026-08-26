@@ -94,8 +94,8 @@
   --color-spark-err: var(--spark-err);
   --color-sidebar: var(--sidebar-bg);
 
-  /* 密度（DESIGN.md §3）：UI 基础字号 13px；12px 辅助走 text-xs */
-  --text-base: 13px;
+  /* 密度（DESIGN.md §3）：UI 基础字号 13px（外观区可调，settings-store 驱动）；12px 辅助走 text-xs */
+  --text-base: var(--spark-ui-font-size, 13px);
   --text-base--line-height: 1.5;
 
   --font-sans:

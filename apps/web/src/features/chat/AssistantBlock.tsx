@@ -4,10 +4,12 @@
  * 末尾 ▮ 闪烁光标（DESIGN §6）；定稿后渲染 content 中的 text/reasoning 块。
  * animated=false：关 streamdown 入场动画（DESIGN §6 只允许微动效）。
  * toolCall/toolResult 由 store 投影展开为独立 tool UiItem（applyEvent 处理表 §6.4），此处跳过以免双渲染。
+ * 代码主题对与行号来自外观设置（工单 6.4 §13.D②）：浅深两主题 + 显示行号即存即生效。
  */
 import type { BundledTheme } from 'shiki'
 import type { ContentItem, Usage } from '@spark/protocol'
 import { Streamdown } from 'streamdown'
+import { useSettingsStore } from '@/stores/settings'
 import { ReasoningCollapsible } from './ReasoningCollapsible'
 
 export interface AssistantBlockProps {
@@ -16,15 +18,24 @@ export interface AssistantBlockProps {
   usage?: Usage | undefined
 }
 
-/** 双主题 shiki（DESIGN §10：深浅两主题人工检查） */
-const SHIKI_THEMES: [BundledTheme, BundledTheme] = ['github-light', 'github-dark']
-
 export function AssistantBlock({ content, streaming, usage }: AssistantBlockProps) {
+  const codeThemeLight = useSettingsStore((s) => s.codeThemeLight)
+  const codeThemeDark = useSettingsStore((s) => s.codeThemeDark)
+  const showLineNumbers = useSettingsStore((s) => s.showLineNumbers)
+
+  /** 双主题 shiki（DESIGN §10 浅深两主题；主题对由外观设置驱动） */
+  const shikiTheme: [BundledTheme, BundledTheme] = [codeThemeLight, codeThemeDark]
+
   return (
     <div className="flex flex-col gap-2">
       {streaming !== undefined && (
         <div className="text-[13px] leading-relaxed">
-          <Streamdown mode="streaming" animated={false} shikiTheme={SHIKI_THEMES}>
+          <Streamdown
+            mode="streaming"
+            animated={false}
+            shikiTheme={shikiTheme}
+            lineNumbers={showLineNumbers}
+          >
             {streaming.textBuf}
           </Streamdown>
           <span className="spark-cursor-blink" aria-hidden="true">
@@ -36,7 +47,12 @@ export function AssistantBlock({ content, streaming, usage }: AssistantBlockProp
         if (c.type === 'text') {
           return (
             <div key={i} className="text-[13px] leading-relaxed">
-              <Streamdown mode="static" animated={false} shikiTheme={SHIKI_THEMES}>
+              <Streamdown
+                mode="static"
+                animated={false}
+                shikiTheme={shikiTheme}
+                lineNumbers={showLineNumbers}
+              >
                 {c.text}
               </Streamdown>
             </div>

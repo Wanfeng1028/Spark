@@ -15,7 +15,8 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  font-size: 13px;
+  /* 界面字号（§13.D 外观区；settings-store 经 --spark-ui-font-size 驱动，默认 13） */
+  font-size: var(--spark-ui-font-size, 13px);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -56,4 +57,22 @@ body {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/*
+ * 代码块外观（§13.D 外观区：代码字号 + 长行换行，settings-store 驱动）：
+ * streamdown 代码块容器带 data-streamdown="code-block-body"；
+ * 字号默认 12px；html.spark-code-wrap 时 pre-wrap 折行（默认开）。
+ */
+[data-streamdown='code-block-body'] {
+  font-size: var(--spark-code-font-size, 12px);
+}
+
+html.spark-code-wrap [data-streamdown='code-block-body'] {
+  overflow-x: visible;
+}
+
+html.spark-code-wrap [data-streamdown='code-block-body'] pre {
+  white-space: pre-wrap;
+  word-break: break-word;
 }

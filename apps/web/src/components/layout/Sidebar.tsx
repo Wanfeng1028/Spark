@@ -9,7 +9,7 @@
  */
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Plus, Search } from 'lucide-react'
+import { ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings } from 'lucide-react'
 import type { SessionDto, SessionStatus } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useActiveSlice } from '@/stores/session'
@@ -129,6 +129,15 @@ export function Sidebar() {
         >
           <Plus className="size-4" />
         </button>
+        <button
+          type="button"
+          aria-label="设置中心"
+          title="设置中心"
+          onClick={() => void navigate('/settings/appearance')}
+          className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          <Settings className="size-4" />
+        </button>
         {groups !== null &&
           groups.map((g) => {
             const active = g.sessions.some((s) => s.id === routeSessionId)
@@ -219,6 +228,16 @@ export function Sidebar() {
             />
           ))}
       </div>
+
+      {/* 设置中心入口（§13.D：左栏底部齿轮） */}
+      <button
+        type="button"
+        onClick={() => void navigate('/settings/appearance')}
+        className="flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+      >
+        <Settings className="size-4 shrink-0" />
+        设置
+      </button>
     </nav>
   )
 }
