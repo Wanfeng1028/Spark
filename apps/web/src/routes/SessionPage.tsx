@@ -18,6 +18,7 @@ import { ChatView } from '@/features/chat/ChatView'
 import { Composer } from '@/features/chat/Composer'
 import { TurnStatusBar } from '@/features/chat/TurnStatusBar'
 import { ErrorToast } from '@/features/chat/ErrorToast'
+import { ErrorBanner } from '@/features/chat/ErrorBanner'
 import { SessionTreeDialog } from '@/features/chat/SessionTreeDialog'
 import { CheckpointDialog } from '@/features/chat/CheckpointDialog'
 import { projectOf } from '@/components/layout/Sidebar'
@@ -260,14 +261,12 @@ export function SessionPage() {
               </div>
             ) : typeof load === 'object' ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 px-6">
-                <p className="font-mono text-xs text-[var(--spark-warn)]">{load.error}</p>
-                <button
-                  type="button"
-                  onClick={() => setReloadKey((k) => k + 1)}
-                  className="h-7 rounded-md border border-border px-3 text-[13px] hover:bg-accent"
-                >
-                  重试
-                </button>
+                {/* 工单 6.7：错误人话化——文案表单一来源（E_MOCK_UNKNOWN_SESSION 等），原码折叠详情 */}
+                <ErrorBanner
+                  message={load.error}
+                  onRetry={() => setReloadKey((k) => k + 1)}
+                  retryLabel="重新加载会话"
+                />
               </div>
             ) : (
               <ChatView sessionId={sessionId ?? ''} />

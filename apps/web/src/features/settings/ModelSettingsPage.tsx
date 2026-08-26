@@ -10,6 +10,7 @@ import { Eye, EyeOff, PlugZap } from 'lucide-react'
 import type { ModelProviderDto, ModelTestResultDto, ModelsDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useSettingsStore } from '@/stores/settings'
+import { errorMessageOf } from '@/lib/error-copy'
 import { cn } from '@/lib/utils'
 import { SettingRow, SettingGroupCard } from './SettingRow'
 
@@ -53,7 +54,7 @@ export function ModelSettingsPage() {
         setSelected((cur) => cur ?? m.providers.find((p) => p.configured)?.id ?? null)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setDto({ error: err instanceof Error ? err.message : String(err) })
+        if (!cancelled) setDto({ error: errorMessageOf(err) })
       })
     return () => {
       cancelled = true
@@ -69,7 +70,7 @@ export function ModelSettingsPage() {
       // 传输层失败（网络/引擎不可达）也归入结果表如实展示
       setResults((rs) => ({
         ...rs,
-        [p.id]: { provider: p.id, ok: false, message: err instanceof Error ? err.message : String(err) },
+        [p.id]: { provider: p.id, ok: false, message: errorMessageOf(err) },
       }))
     } finally {
       setTesting((s) => {

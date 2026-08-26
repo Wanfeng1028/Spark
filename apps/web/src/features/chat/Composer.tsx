@@ -28,6 +28,7 @@ import { Segmented } from '@/components/ui/segmented'
 import { ModelPicker } from './ModelPicker'
 import { useSettingsStore } from '@/stores/settings'
 import { cn } from '@/lib/utils'
+import { errorMessageOf } from '@/lib/error-copy'
 import {
   COMMAND_PENDING_HINT,
   PERMISSION_TIERS,
@@ -244,7 +245,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         await onCompact()
         showHint('已触发上下文压缩')
       } catch (err) {
-        showHint(err instanceof Error ? err.message : String(err))
+        showHint(errorMessageOf(err))
       }
       return
     }
@@ -258,7 +259,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     } catch (err) {
       // 失败闭合 + 不丢用户输入（§6.2.1）：发送失败如实提示并回填草稿
       setDraft(text)
-      showHint(err instanceof Error ? err.message : String(err))
+      showHint(errorMessageOf(err))
     }
   }
 
@@ -290,7 +291,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       // 显示态只随父级 onChange 成功后的 props 更新（禁乐观更新）；失败进 hint 如实反馈
       await permission.onChange(p)
     } catch (err) {
-      showHint(err instanceof Error ? err.message : String(err))
+      showHint(errorMessageOf(err))
     }
   }
 
@@ -301,7 +302,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       showHint(`已切换 ${applied}（下一轮生效）`)
       return applied
     } catch (err) {
-      showHint(err instanceof Error ? err.message : String(err))
+      showHint(errorMessageOf(err))
       return model.current
     }
   }

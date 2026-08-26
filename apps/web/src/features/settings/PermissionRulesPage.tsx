@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import type { PermissionRuleDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { SettingGroupCard } from './SettingRow'
+import { errorMessageOf } from '@/lib/error-copy'
 
 const EFFECTS = ['allow', 'deny', 'ask'] as const
 
@@ -31,7 +32,7 @@ export function PermissionRulesPage() {
         if (!cancelled) setRules(rs)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+        if (!cancelled) setError(errorMessageOf(err))
       })
     return () => {
       cancelled = true
@@ -57,7 +58,7 @@ export function PermissionRulesPage() {
       setAction('')
       setResource('')
     } catch (err) {
-      setOpError(err instanceof Error ? err.message : String(err))
+      setOpError(errorMessageOf(err))
     } finally {
       setBusy(false)
     }
@@ -72,7 +73,7 @@ export function PermissionRulesPage() {
         (rs ?? []).filter((r) => !(r.action === rule.action && r.resource === rule.resource)),
       )
     } catch (err) {
-      setOpError(err instanceof Error ? err.message : String(err))
+      setOpError(errorMessageOf(err))
     } finally {
       setBusy(false)
     }

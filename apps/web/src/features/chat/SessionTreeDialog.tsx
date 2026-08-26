@@ -11,6 +11,7 @@ import { GitBranch } from 'lucide-react'
 import type { EventId, SessionId, TreeNodeDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { errorMessageOf } from '@/lib/error-copy'
 
 export interface SessionTreeDialogProps {
   open: boolean
@@ -40,7 +41,7 @@ export function SessionTreeDialog({ open, onOpenChange, sid, busy }: SessionTree
         if (!cancelled) setNodes(ns)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+        if (!cancelled) setError(errorMessageOf(err))
       })
     return () => {
       cancelled = true
@@ -56,7 +57,7 @@ export function SessionTreeDialog({ open, onOpenChange, sid, busy }: SessionTree
       void navigate(`/session/${dto.id}`)
     } catch (err) {
       // 三拒绝码等错误如实呈现（失败闭合：不跳转、不造会话）
-      setForkError(err instanceof Error ? err.message : String(err))
+      setForkError(errorMessageOf(err))
     } finally {
       setForking(null)
     }
