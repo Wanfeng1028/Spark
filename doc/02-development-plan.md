@@ -51,6 +51,7 @@
 | v3.2  | 2026-08-26 | 同上（补供图：Qoder CN 会话页有内容态 2 张）                                                                                           | §8.7 候选池新增 **V2-23 会话管理增强**（删除/归档/置顶）——移动端会话页实测暴露后端缺口：无 DELETE /api/sessions/:id，归档/置顶需 meta 标记；DESIGN §13.J.3 同步升级为实测规格（user 右对齐胶囊/assistant 全宽/操作行/时间戳分隔） |
 | v3.3  | 2026-08-26 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段六开工指令） | **阶段六工单 6.1/6.2/6.3 完成**：6.1 主题翻转（09cff97——light 挂 `:root` 默认+dark 收 `.dark` 三档+localStorage 持久化+预上色防闪白+AA 对比度单测 26 例）；6.2 布局栅格（23a8fe5——§13.A 三栏骨架/左栏 264 折叠 48/空态垂直居中/内容列 768/顶栏 44/StatusBar 24/会话按项目分组）；6.3 控件+Composer（1e85f90——button 按 §13.B 重过+Segmented 新增+Composer 按 §13.E 重做：底部工具条/权限四档/**protocol+engine+server 最小面预设层（D7 补记：PermissionPreset 枚举/PermissionService setPreset/presetRulesOf 派生行/plan 档 system 指令逐 step 现读/GET·PUT permission-preset 路由）**——纪律"不动 engine/protocol"的本工单例外已在 PR 说明单列/@ 与 / 菜单纯逻辑+键盘导航/多行 6 行上限/空态 chips 点击填入；engine 预设层 9 例+web 菜单逻辑 16 例新增，全仓 512 例全绿）；开发分支 feat/stage6-ui（PR 审核合入，非直推 main） |
 | v3.4  | 2026-08-26 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段六开工指令） | **阶段六工单 6.4 完成**：设置中心骨架+外观区全量——路由 /settings/:page + 三组导航（基础设置/Agent 能力/数据与统计，§13.D）；外观页落地主题/界面字号 13/浅深代码主题（默认 GitHub Light+Minimal Dark）/行号/换行/代码字号 12+双栏实时预览（Streamdown/shiki）；常规区交互行为（三模式默认档）即存即生效，语言/代理/沙箱开关标"desktop 特化/后续工单"占位；权限规则页自 SettingsDialog 迁入 Agent 能力组；settings-store 扩展外观字段（CSS 变量 --spark-ui-font-size/--spark-code-font-size + .spark-code-wrap 类名即存即生效，localStorage 持久化+脏数据收窄）5 例新增，web 105 例全绿。**分歧留决策**：沙箱开关原计划读写 spark.json engine.bashSandbox，本工单纪律"不动 engine"（6.5 已是唯一例外）故降为占位行，待人类裁决是否随 6.5 一并加只读 GET 或排阶段七 |
+| v3.5  | 2026-08-26 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段六开工指令） | **阶段六工单 6.5 完成（轻后端例外已声明）**：模型管理三路由——protocol 增 ModelProviderDto/ModelEntryDto/ModelsDto/ModelTestResultDto（strictObject；掩码原则 apiKeyEnv 只回环境变量名）+ Transport 三方法；engine 增 model-catalog.ts（PROVIDER_CATALOG 内置 8 家目录=pi-gateway 流式分派单一来源、listModels 合成、testProvider 廉价鉴权探针 8s 超时+人话文案）+ models.json 增 models[] 可选清单（与 defaultModel/compactionModel 合并去重，用户决策"扩展 models.json"）+ Engine.listModels/testModel/**setSessionModel（内存态下一 turn 生效，getter 化 deps.model——同权限预设层 D7 先例；会话文件 header 不动）**；server 注册 GET /api/models、POST /api/models/:providerId/test（ok=false 走 200）、PUT /api/sessions/:id/model（用户决策"加换模型路由"），E_CONFIG 显式映射 400（原 E_INTERNAL 500 判例同步改）；web——ModelPicker（Composer 工具条中位，供应商分组+上下文窗口 badge+当前勾选，切换经 SessionPage 内存覆盖、禁乐观更新）+ ModelSettingsPage 落地供应商两组列表/状态点/启用 badge/Base URL/Key 掩码（只示环境变量名）/显式测试连接按钮（时延+人话文案+状态点）；MockTransport 对等实现（内存目录副本+换模型表）；engine 20 例（model-catalog 16+engine 2+config 2）+server 3 例+web mock 3 例新增，全仓 543 例（engine 353/server 36/web 108/protocol 46）+ typecheck/lint 全绿；§4.5/§5.1/§7.4 表同步 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -585,7 +586,11 @@ createEngine(config)
     "ollama":   { "baseUrl": "http://127.0.0.1:11434/v1", "apiKeyEnv": null }
   },
   "defaultModel": { "provider": "deepseek", "model": "deepseek-chat", "contextWindow": 128000 },
-  "compactionModel": { "provider": "deepseek", "model": "deepseek-chat" }
+  "compactionModel": { "provider": "deepseek", "model": "deepseek-chat" },
+  "models": [
+    { "provider": "deepseek", "model": "deepseek-chat", "contextWindow": 128000 },
+    { "provider": "deepseek", "model": "deepseek-reasoner", "contextWindow": 128000 }
+  ]
 }
 ```
 
@@ -594,7 +599,7 @@ createEngine(config)
 | 文件             | 字段 → 类型/约束                                                                                                                                                                                                         | 缺省                                                                 |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
 | spark.json       | `server.port`: int(1-65535)；`server.host`: string；`engine.maxStepsPerTurn/maxToolParallel`: int≥1；`toolTimeoutMs/permissionTimeoutMs/progressThrottleMs/toolOutputLimitKB`: int>0；`compactionThreshold`: number(0,1)；`checkpoints`: boolean；`bashSandbox`: 'off'\|'on'（工单 5.2，ADR D15：on = 平台 wrapper 前缀 + 不可用即拒跑） | 全部可缺省（取 §5.1 默认值）；文件本身可不存在                       |
-| models.json      | `providers`: record<string, {apiKeyEnv: string\|null, baseUrl?: url}>；`defaultModel/compactionModel`: {provider, model, contextWindow: int>0}                                                                           | **无缺省——defaultModel 必填**（缺失/校验失败 → `E_CONFIG` 启动失败） |
+| models.json      | `providers`: record<string, {apiKeyEnv: string\|null, baseUrl?: url}>；`defaultModel/compactionModel`: {provider, model, contextWindow: int>0}；`models`: {provider, model, contextWindow: int>0}[]（工单 6.5：可选模型清单——Composer 模型选择器与 GET /api/models 数据源；加载时与 defaultModel/compactionModel 合并去重，显式条目在前首个 contextWindow 生效） | **无缺省——defaultModel 必填**（缺失/校验失败 → `E_CONFIG` 启动失败）；models[] 缺省 = [defaultModel] |
 | permissions.json | `version`: 1；`rules`: {action, resource, effect: 'allow'\|'deny'\|'ask'}[]                                                                                                                                              | 空规则表（全部落默认 ask）                                           |
 | mcp.json         | `version`: 1；`servers`: record<string, {command: string, args?: string[], env?: record<string,string>}>（工单 5.3，ADR D16：stdio MCP server 声明，工具注册进同一 ToolRegistry，审批 action `mcp.call`/resource `<server>/<tool>` 默认 ask） | 空表（零外部工具，引擎照常启动；单 server 连接失败 warn 跳过）       |
 | skills/ 目录     | `<root>/skills/<name>/skill.json`：`version`: 1；`name`: ^[a-z0-9][a-z0-9-]*$；`events`: record<`plugin.` 前缀类型, {description?, liveOnly?, data: JSON Schema}>；`hooks`?: {on: 内置事件类型, emit: 本 skill 事件}[]（工单 5.5，ADR D18：声明式清单——插件是数据不是程序，不执行任意代码；hooks data 固定形状 `{skill, sourceEventId, sourceType}`） | 目录不存在 = 零插件；单 skill 坏清单/类型冲突/钩子非法 warn 跳过（引擎照常启动） |
@@ -1632,6 +1637,7 @@ app.post('/api/sessions/:id/messages', async (req, reply) => {
 | GET/POST/DELETE /api/permissions/rules | 阶段四工单 4.7 已注册：list = `engine.listPermissionRules()`；POST = `addPermissionRule`（zod PermissionRuleDto 校验，同键覆盖，201）；DELETE = `removePermissionRule`（精确匹配，无此规则 404）。落点 = 用户级 ~/.spark/permissions.json（tmp+rename 原子写），always 固化与手动管理同表 |
 | GET /:id/tree · POST /:id/fork   | 阶段四工单 4.5 已注册：tree = `treeOf()`（节点链 + label 摘要 + forks 磁盘扫描归组）；fork = `forkSession()`（三拒绝码 §5.8.6：INVALID_BOUNDARY 400 / OPEN_TURN 409 / ALREADY_EXISTS 409）→ 201 + SessionMetaDto |
 | GET /:id/checkpoints · POST /:id/checkpoints/:cid/rollback | 阶段四工单 4.6 已注册：list = `checkpointsOf()`（索引读出旧→新，commit sha 不上线）；rollback = `rollbackToCheckpoint()`（§5.8.7 两域复位：仅 idle 受理，运行中 409 E_TURN_ACTIVE、快照不存在/未启用 404、git 失败 500 E_CHECKPOINT_ROLLBACK 详情只进日志）→ 200 + SessionMetaDto（**回滚后 seq 回退**，响应不含 events，前端走 GET /:id 全量重放） |
+| GET /api/models · POST /api/models/:providerId/test · PUT /api/sessions/:id/model | 阶段六工单 6.5 已注册（本阶段唯一 engine/server 轻后端例外，ADR D7 补记同款内存态先例）：models = `engine.listModels()`（PROVIDER_CATALOG 内置目录 8 家 + models.json providers 独有自定义，掩码原则 apiKeyEnv 只回环境变量名、key 值永不上线）；test = `testProvider()`（廉价鉴权探针 openai 系 GET /models、anthropic GET /v1/models，8s 超时；**ok=false 不是传输失败走 200** + 时延/人话文案，detail 折叠透出）；PUT model = `setSessionModel()`（**内存态，下一 turn 生效**，会话文件 header 不动——重启回会话文件模型；坏形状/未配置 provider 400 E_CONFIG、未知会话 404）→ 200 `{model}` |
 
 校验失败 400（zod flatten）；未知会话 404。并发安全由引擎单写者与 per-session 串行保证，路由层无锁。
 
@@ -1668,6 +1674,7 @@ app.get('/api/event', async (req, reply) => {
 | 分叉边界事件不存在 | 400 `E_INVALID_BOUNDARY`                   |
 | 分叉源 turn 未闭合 | 409 `E_OPEN_TURN`                          |
 | 目标会话已存在   | 409 `E_ALREADY_EXISTS`                       |
+| 模型形状/供应商未配置 | 400 `E_CONFIG`（工单 6.5：createSession/setSessionModel 入参错误） |
 | 回滚 git 操作失败 | 500 `E_CHECKPOINT_ROLLBACK`（详情只进日志） |
 | 引擎已 shutdown  | 503 `E_SHUTTING_DOWN`                        |
 | 内部异常         | 500 `E_INTERNAL`（详情只进日志，不透出）     |
@@ -1755,7 +1762,7 @@ app.get('/api/event', async (req, reply) => {
 | 6.2 | ✅ 布局栅格（H13/H15）（提交 23a8fe5）  | web：空态垂直居中（问候语+居中 Composer+建议 chips）；会话态沉底 Composer + 主区 768px 居中；左栏 264px 可折叠、会话按日期分组（数据源=磁盘 cwd 目录结构，纯前端点亮）；StatusBar 单行细条化 | 三视口（1280/1440/375）无大片空白；分组与磁盘目录一致                                                             | 6.1     |
 | 6.3 | ✅ 控件规格落地（H13）（提交 1e85f90）  | web：按 §B 表重过存量组件（按钮 sm28/md32/lg38、输入框 38、圆角 6-8、字号 13/12/11）；Composer 按 §13.E 重做（底部工具条+权限四档预设层（D7 补记，protocol/engine/server 最小面）+now-steer-queue 分段+@ 与 / 菜单+多行自增至 6 行+空态 chips 填充）          | 存量组件密度抽查全过；Composer 新交互走查可用                                                                      | 6.1     |
 | 6.4 | ✅ 设置中心骨架（H13/H16）（提交见下） | web：设置中心骨架，导航与分区对齐 DESIGN §13.D（三组：基础设置/Agent 能力/数据与统计，v2.0 定稿取代早期六分区草案）；外观区落地（主题/界面字号/浅深代码主题/行号/换行/代码字号+双栏预览——Streamdown/shiki 接入）；常规区语言与代理占位；沙箱开关占位（见版本记录 v3.4 分歧说明） | 三组导航可达、页骨架对齐 §13.D；外观区字段即存即生效；沙箱开关读写 spark.json 配置（**分歧留决策**）                                | 6.1     |
-| 6.5 | 模型管理（H13）      | web+server（轻后端，本阶段唯一例外）：Composer 旁会话级模型选择器 + 设置内供应商列表 + 连通测试（新增 GET /api/models 与 POST /api/models/:id/test，PR 说明中单列）      | 选择器切换即时生效于新 turn；连通测试返回时延/错误人话文案                                                        | 6.4     |
+| 6.5 | ✅ 模型管理（H13）   | web+server（轻后端，本阶段唯一例外）：Composer 旁会话级模型选择器 + 设置内供应商列表 + 连通测试（新增 GET /api/models 与 POST /api/models/:id/test，PR 说明中单列；另加 PUT /api/sessions/:id/model 换模型路由——用户决策"加换模型路由"+"扩展 models.json"）      | 选择器切换即时生效于新 turn；连通测试返回时延/错误人话文案                                                        | 6.4     |
 | 6.6 | 用量条（H13/H23 前置） | web：读 assistant.message usage + Projector 估算，Composer 上方细条，超阈值变色                                                                          | 用量与 StatusBar 累计一致；阈值变色可演示                                                                          | 6.2     |
 | 6.7 | 断线与错误态（H14）  | web：顶部细条 + 错误码人话文案表（E_MOCK_UNKNOWN_SESSION→"会话不存在或已被清理"，原码折叠进详情）+ 重试样式统一（文案表单一来源，四端共享——doc/07 §3）                   | 全部 E_* 出口走文案表；断线→重连→续播走查通过                                                                     | 6.2     |
 | 6.8 | 验收（doc/06 首批）  | web+测试：mock 四场景 + 断线场景，1280/1440/375 三视口截图对比入 doc/06 基线；Playwright 组件 + E2E 首批用例入库                                                          | doc/06 §1 首批用例全绿；三视口无大片空白截图为证                                                                  | 6.1–6.7 |

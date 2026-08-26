@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { FolderGit2, GitBranch, History } from 'lucide-react'
 import { ids } from '@spark/protocol'
-import type { PermissionPreset } from '@spark/protocol'
+import type { ModelsDto, PermissionPreset } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
 import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
@@ -65,6 +65,28 @@ export function SessionPage() {
       cancelled = true
     }
   }, [transport, sid])
+
+  // 模型管理（工单 6.5）：目录一次装载；当前模型以 slice.meta 为基线 + 换模型内存覆盖。
+  // 装载失败不渲染选择器（禁假状态），失败静默——重进会话即重试
+  const [models, setModels] = useState<ModelsDto | null>(null)
+  const sliceModel = useSessionStore((s) => s.byId[sid]?.meta.model)
+  const [modelOverride, setModelOverride] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    transport
+      .listModels()
+      .then((m) => {
+        if (!cancelled) setModels(m)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [transport])
+  // 会话切换：换模型覆盖归零（新会话以 slice.meta 为准）
+  useEffect(() => {
+    setModelOverride(null)
+  }, [sid])
 
   const busy = turn !== null
   const waiting = turn?.waiting === true
@@ -275,6 +297,20 @@ export function SessionPage() {
                   setPreset(p)
                 }),
             }}
+            model={
+              models !== null && sliceModel !== undefined && sliceModel !== ''
+                ? {
+                    current: modelOverride ?? sliceModel,
+                    models: models.models,
+                    providers: models.providers,
+                    onChange: (m) =>
+                      transport.setSessionModel(sid, m).then((applied) => {
+                        setModelOverride(applied)
+                        return applied
+                      }),
+                  }
+                : undefined
+            }
             onSend={(text, delivery, attachments) =>
               transport.sendMessage(sid, text, {
                 delivery,

@@ -17,8 +17,15 @@ import {
   Square,
   X,
 } from 'lucide-react'
-import type { Delivery, PermissionPreset, SubmitOutcome } from '@spark/protocol'
+import type {
+  Delivery,
+  ModelEntryDto,
+  ModelProviderDto,
+  PermissionPreset,
+  SubmitOutcome,
+} from '@spark/protocol'
 import { Segmented } from '@/components/ui/segmented'
+import { ModelPicker } from './ModelPicker'
 import { useSettingsStore } from '@/stores/settings'
 import { cn } from '@/lib/utils'
 import {
@@ -42,6 +49,14 @@ export interface ComposerProps {
     preset: PermissionPreset
     onChange: (preset: PermissionPreset) => Promise<void>
   }
+  /** 会话级模型选择器（§13.E 工具条中位 / 工单 6.5；缺省不渲染——欢迎页无会话上下文） */
+  model?: {
+    current: string
+    models: ModelEntryDto[]
+    providers: ModelProviderDto[]
+    /** 返回生效的 "provider/model"（成功后父级更新 current） */
+    onChange: (model: string) => Promise<string>
+  } | undefined
   onSend: (text: string, delivery: Delivery, attachments?: string[]) => Promise<SubmitOutcome>
   onInterrupt: () => void
   /** 手动压缩命令入口（/compact，doc/02 §5.8.5；turn 进行中由引擎拒绝） */
@@ -66,7 +81,7 @@ const OUTCOME_TEXT: Record<SubmitOutcome['result'], string> = {
 type SegmentValue = Delivery
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
-  { busy, waiting, initialDraft = '', permission, onSend, onInterrupt, onCompact },
+  { busy, waiting, initialDraft = '', permission, model, onSend, onInterrupt, onCompact },
   ref,
 ) {
   const defaultDelivery = useSettingsStore((s) => s.defaultDelivery)
@@ -279,6 +294,18 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     }
   }
 
+  async function chooseModel(m: string): Promise<string> {
+    if (model === undefined) return m
+    try {
+      const applied = await model.onChange(m)
+      showHint(`已切换 ${applied}（下一轮生效）`)
+      return applied
+    } catch (err) {
+      showHint(err instanceof Error ? err.message : String(err))
+      return model.current
+    }
+  }
+
   const preset: PermissionPreset = permission?.preset ?? 'confirm-each'
   const tier = tierOf(preset)
   const segmentValue = segmentDisplay(segment, busy, defaultDelivery)
@@ -476,6 +503,17 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               {tier.label}
               <ChevronsUpDown className="size-3 opacity-60" />
             </button>
+          )}
+
+          {/* 模型选择器（§13.E 工具条中位）：供应商/模型级联下拉，切换下一轮生效 */}
+          {model !== undefined && (
+            <ModelPicker
+              current={model.current}
+              models={model.models}
+              providers={model.providers}
+              onChange={chooseModel}
+              disabled={waiting}
+            />
           )}
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5">

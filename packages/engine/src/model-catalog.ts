@@ -6,7 +6,7 @@
  *   返回时延或人话错误文案——ok=false 不是传输失败，走 200。
  */
 import type { ModelProviderDto, ModelTestResultDto, ModelsDto } from '@spark/protocol'
-import type { ModelsConfig, ModelRef } from './config.js'
+import type { ModelsConfig } from './config.js'
 
 export type ProviderApiKind = 'openai-completions' | 'anthropic-messages'
 
@@ -26,11 +26,6 @@ export const PROVIDER_CATALOG: Record<string, CatalogEntry> = {
   xai: { label: 'xAI', api: 'openai-completions', defaultBaseUrl: 'https://api.x.ai/v1' },
   mistral: { label: 'Mistral', api: 'openai-completions', defaultBaseUrl: 'https://api.mistral.ai/v1' },
   anthropic: { label: 'Anthropic', api: 'anthropic-messages', defaultBaseUrl: 'https://api.anthropic.com' },
-}
-
-/** 显示名：目录命中用 label（目录键小写对齐 pi-gateway 查找语义）；自定义用原 id */
-function labelOf(id: string): string {
-  return PROVIDER_CATALOG[id.toLowerCase()]?.label ?? id
 }
 
 /** 环境变量是否已设置（空串视为未设置——与 resolveModel 注入判定一致） */

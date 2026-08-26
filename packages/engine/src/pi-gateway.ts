@@ -308,10 +308,10 @@ export class PiGateway implements LlmGateway {
   async stream(req: StreamRequest): Promise<StreamResult> {
     // 目录命中用目录表；自定义供应商（models.json 独有）按 OpenAI 兼容约定走 completions，
     // 但必须自带 baseUrl（无地址的自定义名 = 无法分派，保持原拒绝语义）
-    const spec =
+    const spec: ProviderSpec | undefined =
       PROVIDERS[req.model.provider.toLowerCase()] ??
       (req.model.baseUrl !== undefined
-        ? ({ api: 'openai-completions', defaultBaseUrl: '' } as ProviderSpec)
+        ? { api: 'openai-completions', defaultBaseUrl: '' }
         : undefined)
     if (spec === undefined) return UNKNOWN_PROVIDER_RESULT(req.model.provider)
     if (req.model.apiKey === undefined) return NO_API_KEY_RESULT(req.model.provider)

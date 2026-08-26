@@ -340,7 +340,7 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
   })
 
   // 模型管理（DESIGN §13.D③ / 工单 6.5 轻后端例外——本阶段唯一 engine/server 改动）
-  app.get('/api/models', async () => {
+  app.get('/api/models', () => {
     // 纯读配置合成（无网络请求）：供应商清单（内置/自定义、掩码原则 key 永不上线）+ 模型 + defaultModel
     return engine.listModels()
   })
