@@ -1,9 +1,18 @@
 <!doctype html>
-<html lang="zh-CN" class="dark">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spark</title>
+    <script>
+      // 主题预上色（§13.C）：React 加载前按持久化偏好设置 .dark，避免深色用户看到闪白
+      try {
+        var s = JSON.parse(localStorage.getItem('spark.settings') || '{}')
+        var t = s.theme === 'dark' || s.theme === 'light' || s.theme === 'system' ? s.theme : 'light'
+        if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
+          document.documentElement.classList.add('dark')
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

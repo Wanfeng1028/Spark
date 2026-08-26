@@ -5,7 +5,7 @@
  * 数据源：connection-store / session-store 选择器（组件不直接 fetch，DESIGN §9）。
  */
 import { useEffect, useState } from 'react'
-import { Moon, Settings, Sun } from 'lucide-react'
+import { Monitor, Moon, Settings, Sun } from 'lucide-react'
 import { useConnectionStore } from '@/stores/connection'
 import { useSettingsStore } from '@/stores/settings'
 import { useActiveSlice } from '@/stores/session'
@@ -17,6 +17,13 @@ const CONNECTION_TEXT = {
   open: '已连接',
   reconnecting: '已断线，重连中…',
   closed: '已断开',
+} as const
+
+/** 主题三档循环（§13.C）：light → dark → system */
+const THEME_META = {
+  light: { label: '浅色', next: '深色', icon: Sun },
+  dark: { label: '深色', next: '跟随系统', icon: Moon },
+  system: { label: '跟随系统', next: '浅色', icon: Monitor },
 } as const
 
 function ConnectionDot({ status }: { status: keyof typeof CONNECTION_TEXT }) {
@@ -59,6 +66,8 @@ export function StatusBar() {
 
   const usage = slice?.usageTotal
   const checkpoint = slice?.lastCheckpoint
+  const themeMeta = THEME_META[theme]
+  const ThemeIcon = themeMeta.icon
 
   return (
     <footer className="flex h-7 items-center justify-between border-t border-border px-3 text-xs text-muted-foreground">
@@ -88,11 +97,12 @@ export function StatusBar() {
       <div className="flex shrink-0 items-center gap-0.5">
         <button
           type="button"
-          aria-label="切换主题"
+          aria-label={`主题：${themeMeta.label}（点击切换为${themeMeta.next}）`}
+          title={`主题：${themeMeta.label}（点击切换为${themeMeta.next}）`}
           onClick={toggleTheme}
           className="flex size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
-          {theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+          <ThemeIcon className="size-3.5" />
         </button>
         <button
           type="button"
