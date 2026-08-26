@@ -15,6 +15,7 @@ import type { SubscribeHandle } from '../src/bus.js'
 import { Engine } from '../src/engine.js'
 import type { SessionHandle } from '../src/engine.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
+import { PLAN_MODE_DIRECTIVE } from '../src/prompts.js'
 import { TITLE_PROMPT } from '../src/title.js'
 import { SESSION_ALIAS } from '../src/checkpoint.js'
 
@@ -212,6 +213,39 @@ describe('send 全链路（ScriptedLlm）', () => {
     const handle = await f.engine.createSession()
     await expect(handle.interrupt()).resolves.toBeUndefined()
     expect(f.events.filter((e) => e.type === 'turn.completed')).toHaveLength(0)
+  })
+})
+
+describe('权限档位（§13.E 四档 / D7 补记，工单 6.3）', () => {
+  test('permissionPresetOf 缺省 confirm-each；setPermissionPreset 读写生效', async () => {
+    const f = await makeEngine()
+    const h = await f.engine.createSession()
+    expect(f.engine.permissionPresetOf(h.id)).toBe('confirm-each')
+    f.engine.setPermissionPreset(h.id, 'auto-edit')
+    expect(f.engine.permissionPresetOf(h.id)).toBe('auto-edit')
+    f.engine.setPermissionPreset(h.id, 'confirm-each')
+    expect(f.engine.permissionPresetOf(h.id)).toBe('confirm-each')
+  })
+
+  test('plan 档逐 step 现读追加计划模式指令；切回缺省档即失效', async () => {
+    const f = await makeEngine()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '计划如下' }] })
+    const h = await f.engine.createSession()
+    f.engine.setPermissionPreset(h.id, 'plan')
+    await h.send('做个计划')
+    await waitForTurnDone(f)
+    expect(f.gateway.calls.at(-1)?.system).toContain(PLAN_MODE_DIRECTIVE)
+
+    // 切回缺省档：同一会话下一轮不再携带指令（getter 逐 step 现读）
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '执行' }] })
+    f.engine.setPermissionPreset(h.id, 'confirm-each')
+    await h.send('继续')
+    const deadline = Date.now() + 2000
+    while (f.events.filter((e) => e.type === 'turn.completed').length < 2) {
+      if (Date.now() > deadline) throw new Error('等待第二个 turn 完成超时')
+      await new Promise((r) => setTimeout(r, 10))
+    }
+    expect(f.gateway.calls.at(-1)?.system).not.toContain(PLAN_MODE_DIRECTIVE)
   })
 })
 

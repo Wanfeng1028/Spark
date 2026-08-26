@@ -77,3 +77,16 @@ export const PermissionRuleDtoSchema = z.strictObject({
   effect: z.enum(['allow', 'deny', 'ask']),
 })
 export type PermissionRuleDto = z.infer<typeof PermissionRuleDtoSchema>
+
+// ---------- permission preset（DESIGN §13.E 权限四档 / ADR D7 补记，阶段六工单 6.3） ----------
+
+/**
+ * 会话级权限预设四档（规则引擎之上的预设层，不引入第二权限机制）：
+ * - confirm-each 逐项确认（缺省档）：规则表不动；
+ * - auto-edit 自动编辑：会话临时层对 fs.write 预置 allow；
+ * - plan 计划模式：交互层约定（system prompt 追加计划指令），不改审批语义；
+ * - full-access 完全访问：会话临时层批量预置 allow。
+ * 会话内存态（临时层），引擎重启回 confirm-each。
+ */
+export const PermissionPresetSchema = z.enum(['confirm-each', 'auto-edit', 'plan', 'full-access'])
+export type PermissionPreset = z.infer<typeof PermissionPresetSchema>

@@ -9,6 +9,7 @@ import {
   CheckpointIdSchema,
   DeliverySchema,
   EventIdSchema,
+  PermissionPresetSchema,
   PermissionReplySchema,
   PermissionRuleDtoSchema,
   RequestIdSchema,
@@ -87,6 +88,9 @@ const RollbackParams = z.strictObject({ id: SessionIdSchema, cid: CheckpointIdSc
 const ForkBody = z.strictObject({ fromEventId: EventIdSchema })
 
 const RemoveRuleBody = z.strictObject({ action: z.string().min(1), resource: z.string().min(1) })
+
+/** 权限档位（DESIGN §13.E 四档 / D7 补记预设层，工单 6.3） */
+const PresetBody = z.strictObject({ preset: PermissionPresetSchema })
 
 /** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
 function labelOf(e: SparkEventEnvelope): string {
@@ -302,6 +306,29 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
       if (!engine.removePermissionRule(action, resource)) {
         return reply.code(404).send({ code: 'E_NOT_FOUND', message: '规则不存在' })
       }
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 权限档位（DESIGN §13.E 四档 / D7 补记：规则引擎之上的预设层，工单 6.3）
+  app.get('/api/sessions/:id/permission-preset', async (req, reply) => {
+    try {
+      const { id } = parseOr400(IdParams, req.params)
+      await requireHandle(engine, id) // 存在性校验（未加载会话先 resume，与其他 :id 端点同纪律）
+      return reply.send({ preset: engine.permissionPresetOf(id) })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.put('/api/sessions/:id/permission-preset', async (req, reply) => {
+    try {
+      const { id } = parseOr400(IdParams, req.params)
+      const body = parseOr400(PresetBody, req.body)
+      await requireHandle(engine, id)
+      engine.setPermissionPreset(id, body.preset)
       return reply.send({ ok: true })
     } catch (err) {
       return sendError(req, reply, err)

@@ -6,7 +6,13 @@
  */
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply } from './primitives.js'
-import type { CheckpointDto, PermissionRuleDto, SessionDto, TreeNodeDto } from './api.js'
+import type {
+  CheckpointDto,
+  PermissionPreset,
+  PermissionRuleDto,
+  SessionDto,
+  TreeNodeDto,
+} from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
 export interface SendMessageOptions {
@@ -47,5 +53,9 @@ export interface Transport {
   addPermissionRule(rule: PermissionRuleDto): Promise<void>
   /** DELETE /api/permissions/rules：精确匹配删除（无此规则拒绝） */
   removePermissionRule(action: string, resource: string): Promise<void>
+  /** GET /api/sessions/:id/permission-preset：会话当前权限档位（内存态，重启回缺省） */
+  getPermissionPreset(sessionId: SessionId): Promise<PermissionPreset>
+  /** PUT /api/sessions/:id/permission-preset：设置权限档位（D7 补记预设层，写会话临时层） */
+  setPermissionPreset(sessionId: SessionId, preset: PermissionPreset): Promise<void>
   dispose(): void
 }

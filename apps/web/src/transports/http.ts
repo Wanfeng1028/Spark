@@ -12,6 +12,7 @@ import type {
   CheckpointDto,
   CheckpointId,
   EventId,
+  PermissionPreset,
   PermissionReply,
   PermissionRuleDto,
   RequestId,
@@ -258,6 +259,19 @@ export class HttpTransport implements Transport {
     return this.req<{ ok: boolean }>('/api/permissions/rules', {
       method: 'DELETE',
       body: JSON.stringify({ action, resource }),
+    }).then(() => undefined)
+  }
+
+  getPermissionPreset(sessionId: SessionId): Promise<PermissionPreset> {
+    return this.req<{ preset: PermissionPreset }>(
+      `/api/sessions/${sessionId}/permission-preset`,
+    ).then((r) => r.preset)
+  }
+
+  setPermissionPreset(sessionId: SessionId, preset: PermissionPreset): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/sessions/${sessionId}/permission-preset`, {
+      method: 'PUT',
+      body: JSON.stringify({ preset }),
     }).then(() => undefined)
   }
 

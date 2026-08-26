@@ -13,6 +13,7 @@ import type {
   CheckpointDto,
   CheckpointId,
   EventId,
+  PermissionPreset,
   PermissionReply,
   PermissionRuleDto,
   RequestId,
@@ -474,6 +475,32 @@ export class MockTransport implements Transport {
     const idx = rules.findIndex((r) => r.action === rule.action && r.resource === rule.resource)
     if (idx >= 0) rules[idx] = { ...rule }
     else rules.push({ ...rule })
+  }
+
+  // ---- 权限档位（工单 6.3 对等演示：内存表，随会话 id 记忆；引擎同款语义） ----
+
+  private readonly presets = new Map<SessionId, PermissionPreset>()
+
+  getPermissionPreset(sessionId: SessionId): Promise<PermissionPreset> {
+    this.assertNotDisposed()
+    const known =
+      sessionId === this.script.sessionId || this.forkChildren.some((f) => f.dto.id === sessionId)
+    if (!known) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    return Promise.resolve(this.presets.get(sessionId) ?? 'confirm-each')
+  }
+
+  setPermissionPreset(sessionId: SessionId, preset: PermissionPreset): Promise<void> {
+    this.assertNotDisposed()
+    const known =
+      sessionId === this.script.sessionId || this.forkChildren.some((f) => f.dto.id === sessionId)
+    if (!known) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    if (preset === 'confirm-each') this.presets.delete(sessionId)
+    else this.presets.set(sessionId, preset)
+    return Promise.resolve()
   }
 
   /** 由脚本静态构造 SessionDto（listSessions / createSession 共用） */

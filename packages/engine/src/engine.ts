@@ -18,6 +18,7 @@ import type {
   CheckpointId,
   Delivery,
   EventId,
+  PermissionPreset,
   PermissionReply,
   RequestId,
   SessionId,
@@ -38,7 +39,7 @@ import type { EngineConfig, ModelRef } from './config.js'
 import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
 import type { Compactor } from './run-loop.js'
 import { PiGateway } from './pi-gateway.js'
-import { buildSystemPrompt } from './prompts.js'
+import { buildSystemPrompt, PLAN_MODE_DIRECTIVE } from './prompts.js'
 import { ProjectorImpl } from './projector.js'
 import { reasoningIncluded } from './projector.js'
 import { runSessionLoop } from './run-loop.js'
@@ -601,6 +602,18 @@ export class Engine {
     return this.ruleStore.remove(action, resource)
   }
 
+  // ---- 权限档位（DESIGN §13.E 四档 / D7 补记预设层，阶段六工单 6.3） ----
+
+  /** 设置会话档位（PUT /api/sessions/:id/permission-preset 的引擎侧入口） */
+  setPermissionPreset(id: SessionId, preset: PermissionPreset): void {
+    this.permission.setPreset(id, preset)
+  }
+
+  /** 当前档位（无记录 = confirm-each；内存态，重启回缺省） */
+  permissionPresetOf(id: SessionId): PermissionPreset {
+    return this.permission.presetOf(id)
+  }
+
   // ---- 会话索引（工单 4.8：node:sqlite；JSONL 恒为权威，损坏降级磁盘扫描） ----
 
   private openIndex(): SessionIndex | null {
@@ -988,6 +1001,10 @@ export class Engine {
       progressThrottleMs: this.config.spark.engine.progressThrottleMs,
       metrics: this.metrics,
     })
+    // 计划模式 system 拼接的闭包依赖（见下方 deps.system getter）
+    const permission = this.permission
+    const sid = meta.id
+    const baseSystem = buildSystemPrompt(meta.cwd)
     const deps: RunLoopDeps = {
       sessionId: meta.id,
       bus: this.bus,
@@ -996,7 +1013,13 @@ export class Engine {
       compactor,
       tools,
       model,
-      system: buildSystemPrompt(meta.cwd),
+      // §5.11 基座组装一次；计划模式（D7 补记：交互层约定）按当前档位逐 step 现读追加——
+      // getter 不改 RunLoopDeps 形状，档位切换即时生效（AGENTS.md 读盘成本仍为会话装载一次）
+      get system(): string {
+        return permission.presetOf(sid) === 'plan'
+          ? `${baseSystem}${PLAN_MODE_DIRECTIVE}`
+          : baseSystem
+      },
       maxStepsPerTurn: this.config.spark.engine.maxStepsPerTurn,
       compactionThreshold: this.config.spark.engine.compactionThreshold,
       metrics: this.metrics,

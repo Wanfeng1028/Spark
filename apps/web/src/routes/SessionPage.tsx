@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { FolderGit2, GitBranch, History } from 'lucide-react'
 import { ids } from '@spark/protocol'
+import type { PermissionPreset } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
 import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
@@ -49,6 +50,21 @@ export function SessionPage() {
   const [treeOpen, setTreeOpen] = useState(false)
   // 检查点浮层（工单 4.6）：快照列表 + 回滚入口；turn 进行中回滚按钮禁用
   const [ckptOpen, setCkptOpen] = useState(false)
+  // 权限档位（§13.E 四档；会话级内存态）。装载失败保持缺省档 confirm-each——
+  // 与引擎缺省一致且最安全（fail-closed 方向），切档失败由 Composer hint 如实反馈
+  const [preset, setPreset] = useState<PermissionPreset>('confirm-each')
+  useEffect(() => {
+    let cancelled = false
+    transport
+      .getPermissionPreset(sid)
+      .then((p) => {
+        if (!cancelled) setPreset(p)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [transport, sid])
 
   const busy = turn !== null
   const waiting = turn?.waiting === true
@@ -252,6 +268,13 @@ export function SessionPage() {
             busy={busy}
             waiting={waiting}
             initialDraft={initialDraft}
+            permission={{
+              preset,
+              onChange: (p) =>
+                transport.setPermissionPreset(sid, p).then(() => {
+                  setPreset(p)
+                }),
+            }}
             onSend={(text, delivery, attachments) =>
               transport.sendMessage(sid, text, {
                 delivery,
