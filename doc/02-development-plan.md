@@ -48,6 +48,7 @@
 | v2.30 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五完成（收尾）**：§8 阶段五清单 5.2–5.5 全部勾选（沙箱/MCP/子代理/skills 实现均落地并单测/ e2e 实证；沙箱隔离效果、Windows 本机安装走查、真实外部 MCP server 与真实模型现场演示四项待用户环境执行，文字保留注记）；验收行更新——**五阶段全部完成，Spark v1**；README 状态徽章与"当前状态"更新为 v1（阶段一~五完成；README v1.15 同步）；AGENTS §1 项目上下文事实刷新（README/AGENTS 同步） |
 | v3.0  | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D2 路线图指令） | **阶段六~九立项工单化（+0.5 进位）**：§8 续写阶段六 UI 重构（6.1–6.8）/ 阶段七 Harness 补全（7.1–7.8、7.10–7.13；**7.9 Python worker 删除**——判决见 doc/07 §4.1）/ 阶段八 CLI TUI（8.1–8.5）/ 阶段九 移动端三端（9.1–9.5），工单表与阶段一逐列对齐（#/工单/产出/验收标准/依赖）；新增 §8.7 v2 候选池（V2-01–V2-22，不阻塞四阶段）；7.4 命令清单基线对齐 Claude Code 命令面 + opencode leader 键模式；输入=doc/07 缺口编号 H01–H36；登记 doc/06-testing-plan.md（D5，测试体系五层）与 doc/07-harness-audit.md（D1，Harness 审计）；README 当前状态行同步（v1.16） |
 | v3.1  | 2026-08-26 | 同上（发起：晚风，移动端规格指令 + Qoder CN iOS 实拍 13 张）                                                                           | 阶段九工单对齐 DESIGN §13.J：9.1 配对改**扫码为主、手输 6 位码兜底**（D24 补记同步）；9.2 视觉依据 §13.J（白卡无边框分层/单栈+抽屉/11 页实测映射）；9.3 审批卡纵向全宽与 Composer 胶囊形态锚定；移动端框架 Expo+RN 经用户确认维持 D20 |
+| v3.2  | 2026-08-26 | 同上（补供图：Qoder CN 会话页有内容态 2 张）                                                                                           | §8.7 候选池新增 **V2-23 会话管理增强**（删除/归档/置顶）——移动端会话页实测暴露后端缺口：无 DELETE /api/sessions/:id，归档/置顶需 meta 标记；DESIGN §13.J.3 同步升级为实测规格（user 右对齐胶囊/assistant 全宽/操作行/时间戳分隔） |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -1842,6 +1843,7 @@ app.get('/api/event', async (req, reply) => {
 | V2-20 | 多窗口多会话             | P3     | Electron 多 BrowserWindow                     |
 | V2-21 | MCP HTTP/SSE transport   | P2     | ADR D16：远程 server 有真实诉求再立项         |
 | V2-22 | 快捷键 keymap 自定义（web） | P2     | 8.3 CLI 键位表成文后共享同一来源              |
+| V2-23 | 会话管理增强（删除/归档/置顶） | P2     | 移动端截图评审新发现（DESIGN §13.J.3）：后端无 DELETE /api/sessions/:id（server routes 实测），归档/置顶需 meta 标记与索引列；UI 形态=会话菜单+已归档抽屉 |
 
 ---
 
