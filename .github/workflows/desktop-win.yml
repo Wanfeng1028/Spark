@@ -1,0 +1,26 @@
+# 桌面 Windows 安装包构建（阶段五工单 5.1，ADR D14）：
+# NSIS 卸载器生成需执行 32 位安装器 stub——wine wow64 依赖宿主支持 32 位 ELF，
+# Linux 容器/CI 常不可用；Windows runner 原生构建免 wine。手动触发。
+name: desktop-win
+
+on:
+  workflow_dispatch:
+
+jobs:
+  nsis:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @spark/desktop build
+      - run: pnpm --filter @spark/desktop exec electron-builder --win nsis --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Spark-win-nsis
+          path: apps/desktop/release/*.exe
+          if-no-files-found: error

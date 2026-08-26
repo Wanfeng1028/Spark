@@ -4,8 +4,8 @@
  */
 import { z } from 'zod'
 import { EventIdSchema, SessionIdSchema } from './ids.js'
-import { EventSchemas } from './events.js'
-import type { SparkEventEnvelope, SparkEventType } from './events.js'
+import { eventSchemaOf } from './extend.js'
+import type { SparkEventEnvelope } from './events.js'
 
 export const EnvelopeSchema = z.strictObject({
   id: EventIdSchema,
@@ -20,10 +20,10 @@ export const EnvelopeSchema = z.strictObject({
   data: z.unknown(),
 })
 
-/** 两步校验：信封结构 + 按词表严校验 data；未知 type 一律抛错（fail-closed，§4.4） */
+/** 两步校验：信封结构 + 按词表（内置 ?? 扩展注册表）严校验 data；未知 type 一律抛错（fail-closed，§4.4） */
 export function parseEnvelope(raw: unknown): SparkEventEnvelope {
   const env = EnvelopeSchema.parse(raw)
-  const schema: z.ZodType | undefined = EventSchemas[env.type as SparkEventType]
+  const schema: z.ZodType | undefined = eventSchemaOf(env.type)
   if (!schema) {
     throw new Error(
       `E_PROTOCOL_UNKNOWN_EVENT: 未知事件 type "${env.type}"（fail-closed，doc/02 §4.4）`,

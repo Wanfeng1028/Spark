@@ -16,6 +16,11 @@
 | v1.6 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）                                                                                                                                   | §4 核心抽象表事件模型 **21→19 种**（@spark/protocol 实现时核对词表实数；与 doc/02 v2.3、AGENTS v1.11、doc/03 v1.1 同步）                                                                                                       |
 | v1.7 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"继续把文档完善"）                                                                                      | **ADR 补录 D9-D13**（源码对照三轮产生的架构级决策收拢归档，此前散落 doc/02 注记）：D9 跨平台 bash 执行器、D10 SSE 全局订阅语义、D11 reject 级联、D12 会话文件演进与 fail-closed 四条、D13 maxSteps 防御线；与 doc/02 v2.7 同步 |
 | v1.8 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段四开工指令） | §4 核心抽象表会话行 compaction 锚点 `keptFromSeq` → `keptFromEventId`（阶段四工单 4.1 协议演进同步；与 doc/02 v2.16 同步） |
+| v1.9 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D14 Electron 壳 = sidecar 独立 server 进程**（阶段五工单 5.1：sidecar vs 主进程嵌入评估结论——HttpTransport 零改动复用/崩溃隔离/用户机零 Node 依赖）；§6 模块速览表补 apps/desktop 行 |
+| v1.10 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D15 bash 沙箱 = 平台 wrapper 前缀（bwrap/Seatbelt），Windows 本期不做 OS 级**（阶段五工单 5.2 三平台调研：AppContainer 否决依据——任意路径只读不可行/无维护中 Node 绑定；dsh ACL 包 koffi 原生依赖破坏 sidecar 打包；Claude Code 先例 Windows 未支持）；spark.json engine.bashSandbox 开关 + fail-closed 拒跑 |
+| v1.11 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D16 MCP 工具 = ToolRegistry 一等公民，同一管线一视同仁**（阶段五工单 5.3：~/.spark/mcp.json stdio 声明 + mcp__<server>__<tool> 命名 + mcp.call 审批动作默认 ask + z.fromJSONSchema 往返；否决旁路管线聚合层与 HTTP transport；审批三态经真实子进程 e2e 测试实证） |
+| v1.12 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D17 子代理 = 独立子会话（header.parentSession），主会话只见工具事件对**（阶段五工单 5.4：Task 工具 agent.task 审批默认 ask + Engine.runSubagent 注入执行体 + 单层限制 E_SUBAGENT_DEPTH + 父中断级联（turn.started 补中断关竞态）；否决内嵌主流与自定义 durable 事件两备选；Steer expectedTurnId 校验同步落地 E_TURN_MISMATCH 409） |
+| v1.13 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D18 事件词表扩展 = 运行时注册表 + declaration merging，插件是声明不是程序**（阶段五工单 5.5：protocol extend.ts registerEventType/eventSchemaOf 注册表、EventBus.emitExtended durable/live 双路 + ignorable 信封、skills loader 声明式清单目录扫描、hooks 声明式触发器 data 固定形状、示例插件 examples/skills/demo-ping；否决 JS 动态 import 与旁路校验两备选） |
 
 ---
 
@@ -126,6 +131,39 @@
 
 理由：pi 无步数计数器（终止靠 terminate 钩子），但其场景有上层产品兜底；我们是本地长驻进程，保留硬上限防模型死循环烧 token。v2 可演化出 shouldStopAfterTurn 式钩子。依据：doc/02 §5.5 对照决策注记。
 
+### D14 Electron 壳 = sidecar 独立 server 进程（2026-08-25，阶段五工单 5.1）
+
+决策：Electron 主进程不 import 引擎，只做三件事——①以 `ELECTRON_RUN_AS_NODE=1` 用 Electron 自带二进制拉起 server 单文件 bundle（esbuild 全量打包，用户机零 Node 依赖）；②轮询 `GET /api/healthz` 探活；③BrowserWindow 加载 `http://127.0.0.1:<动态端口>`。端口/静态资源根经 `SPARK_PORT`/`SPARK_WEB_DIST` 环境变量注入（server 三行改动）。
+理由：HttpTransport 与协议零改动复用（doc/02 §1.2 架构图原设计）；崩溃隔离——壳/渲染崩溃不伤 JSONL 单写者，sidecar 崩溃即整壳退出、重启 resume 恢复（durable 日志 + 补闭合语义复用阶段三 kill -9 验收路径）；与 web 开发态同构（同一 server 同一前端）；引擎可独立于 Electron 测试（CI 无需 GUI）。
+否决备选：主进程嵌入（`new Engine()` 跑在 Electron 主进程）——引擎生命周期绑壳生命周期、Node 版本被 Electron 锁死、CI 要起 Electron 才能测引擎，全是为打包方便付出的架构耦合。
+附带决策：sidecar cwd = 用户主目录（桌面态无项目上下文时的默认工作区）；Windows 退出为强制终止，一致性由 fsync + durable 恢复兜底。打包：server 以 esbuild 全量单文件 bundle（含 pi-ai，`createRequire` banner 解决 CJS 依赖动态 require），经 extraResources 进 resources/；NSIS 安装包在 GitHub Actions windows runner 构建（`.github/workflows/desktop-win.yml` 手动触发）——NSIS 卸载器生成需执行 32 位安装器 stub，Linux 交叉构建依赖 wine wow64（宿主须支持 32 位 ELF），容器环境不可靠；Linux 本地可用 `--win zip` 验证打包管线（阶段五验收已实证）。`signAndEditExecutable: false`（未签名包，SmartScreen 警告代价已接受，正式发布再补签名）。依据：doc/02 §1.2/§8 阶段五工单 5.1。
+
+### D15 bash 沙箱 = 平台 wrapper 前缀（bwrap/Seatbelt），Windows 本期不做 OS 级（2026-08-25，阶段五工单 5.2）
+
+决策：`spark.json engine.bashSandbox: off|on`（默认 off = 现行为）。on 时 bash 命令包平台 wrapper 前缀——Linux `bwrap --ro-bind / / --bind <cwd> <cwd> --dev /dev --proc /proc --tmpfs /tmp`、macOS `sandbox-exec -p`（Seatbelt profile：默认放行 + 写限 cwd/tmpdir）；wrapper 不可用即 `E_SANDBOX_UNAVAILABLE` 拒跑（fail-closed，不降级裸跑）。语义 = workspace-write（全盘只读 + 工作区/临时可写，Claude Code 同款姿态）；网络隔离 v1 不做（其方案为沙箱外 SOCKS5 代理 + 域名清单，复杂度后置）。
+理由：wrapper 前缀是零依赖的 argv 变换——引擎不引原生组件、sidecar 单文件打包不受影响；bwrap/Seatbelt 均为 Claude Code 实证路线（官方文档：macOS 开箱即用 Seatbelt、Linux 装 bubblewrap，Windows 原生"未支持/计划中"）。
+否决备选：① Windows AppContainer（工单原候选）——无法做到"任意路径只读"（dsh 设计笔记实证：AppContainer 不支持 arbitrary-path reads；mxc 路线需 Win11 24H2 + 全盘 DACL 改写），且现实实现存在子进程无法创建的缺陷（FerroxLabs #321 实证），Codex 用它是因 Rust 原生代码自持——Node/TS 无维护中的 AppContainer 绑定（幻觉依赖红线）；② dsh 的 `@deepseek-ai/dsh-sandbox-windows-acl`（ACL WRITE_RESTRICTED token）——机制成立且 MIT，但 koffi FFI 原生依赖破坏 sidecar 单文件 bundle、包龄 0.0.1-rc；③ Windows 纯用户态限制（如 `@ggui-ai/sandbox` 类）——不隔离文件系统/网络，只是进程卫生，配不上"OS 级防线"名义。
+Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§10 原对策），OS 级沙箱连同网络隔离排期至有原生组件诉求时再立项。依据：doc/02 §8 阶段五工单 5.2、§10 风险表；Claude Code sandboxing 官方文档；dsh sandbox 设计笔记。
+
+### D16 MCP 工具 = ToolRegistry 一等公民，同一管线一视同仁（2026-08-25，阶段五工单 5.3）
+
+决策：外部 MCP server 经 `~/.spark/mcp.json`（可选；version 1 + servers 表，stdio transport）声明。引擎构造时 `McpManager` 逐 server 连接（spawn + initialize + listTools，10s 墙钟上限）并把每个工具包成 `ToolDefinition` 注册进**同一 ToolRegistry**——命名 `mcp__<server>__<tool>`（register 重复名抛错兜底与内置冲突）、审批 `action=mcp.call` + `resource=<server>/<tool>`（默认 ask，permissions.json 三态规则照常生效）、`parallelizable=false`（外部进程副作用不透明，串行 barrier）、inputSchema 用 `z.fromJSONSchema`（materialize 的 toJSONSchema 往返已实证）。限界/溢写/事件纪律由管线免费复用——外部工具与内置四工具零差别路径。server 入口 `await engine.ready()` 后才 listen；shutdown 关闭全部子进程。
+理由：工具管线（审批/限界/溢写/事件）是本仓库引擎铁律的核心资产，任何绕过管线的外挂工具通道（独立调用路径、独立审批 UI）都会制造第二事实源；schema 往返（JSON Schema ↔ zod）打通后 MCP 工具对模型就是普通工具。
+否决备选：① 按 server 独立聚合层（McpToolGateway 旁路管线）——重复实现审批与限界，违反"一视同仁"验收语义；② HTTP/SSE transport 一并支持——本地 stdio 是 MCP 主流形态（npx 一行拉起），远程 server 排期到有真实诉求（§9.1 配置化膨胀警戒）。
+失败闭合：单 server 连接失败只 warn 跳过（该 server 工具不注册，引擎照常启动）；工具调用失败 `E_MCP_CALL`；turn 中断 `E_ABORTED`。依据：doc/02 §8 阶段五工单 5.3；@modelcontextprotocol/sdk 1.30.0（Client/StdioClientTransport/InMemoryTransport）。
+
+### D17 子代理 = 独立子会话（header.parentSession），主会话只见工具事件对（2026-08-25，阶段五工单 5.4）
+
+决策：Task 工具（input `{prompt, title?}`，审批 `agent.task`/`task` 默认 ask，串行 barrier）执行体 = `Engine.runSubagent`：createSession({parentId}) 派生**独立会话**（JSONL/header/审批/索引/事件流全复用，header 记 parentSession——fork 另记 parentPath/parentEventId 可区分）；订阅先于提交，等子 turn.completed，返回最终 assistant 文本（tool.completed 的 output，限界溢写由管线免费复用）。单层限制：`subagentChildren` 集合标记派生出的会话，子会话内再派生 → `E_SUBAGENT_DEPTH`（进程生命周期内有效，不落盘）。父 turn 中断级联：ctx.signal abort → child.interrupt()；"父先中断、子 turn 后开始"竞态由子 turn.started 事件时补一次 interrupt 关闭。Steer `expectedTurnId` 校验同步落地（§5.4 多 turn 并发前提）：submit 可选参数，无活动 turn/不匹配 → `E_TURN_MISMATCH`（HTTP 409），不传保持宽容路由。
+理由：独立会话零新词表——事件流形态（durable/live/surface 纪律）、审批管线、会话索引、重启恢复全部现成；主会话上下文只多一对 tool.started/completed，不被子代理事件淹没（surface 纪律）。fork（工单 4.5）已验证 parentSession 头字段路线。
+否决备选：① 子代理事件内嵌主会话流（嵌套 turn/子 turn 事件进主流）——需扩事件词表 + 前端 applyEvent/树结构改造 + 投影 surface 判定复杂化，"最小落地"原则下全是否决项；② 子代理结果作为独立 durable 事件类型（如 task.completed 自定义事件）——违反"事件词表从 protocol 开始"的演进纪律且无必要（tool.completed 已承载）。依据：doc/02 §8 阶段五工单 5.4、§5.4 Codex 对照（ExpectedTurnMismatch）。
+
+### D18 事件词表扩展 = 运行时注册表 + declaration merging，插件是声明不是程序（2026-08-25，阶段五工单 5.5）
+
+决策：`@spark/protocol` 新增运行时扩展注册表（`registerEventType`/`eventSchemaOf`/`isExtendedLiveOnly`）——插件事件类型（强制 `plugin.` 前缀，zod schema 由清单 JSON Schema 经 `z.fromJSONSchema` 转换）注册后与内置 19 种走**同一条校验路径**（EventBus/parseEnvelope/SessionStore 读端统一查 `eventSchemaOf`）。编译期扩展仍走 declaration merging（§4.3 原设计），运行时注册表是 JS 清单的对位。扩展事件信封一律带 `ignorable: true`：durable 走同一落盘管线（占行号），liveOnly 走直播不落盘；插件卸载后旧会话可加载（store 未知 type + ignorable 跳过），未装插件的前端对未知 ignorable 帧跳过不断流（web transport 与 store 读端同策略）。skills/插件 = `<root>/skills/<name>/skill.json` **声明式清单**（version/name/events/hooks），**不执行任意代码**——hooks 是声明式触发器（on 内置事件 → emit 插件事件，data 固定形状 `{skill, sourceEventId, sourceType}`，无自定义构造器）；on 限定内置词表类型（防插件事件自触发循环）。单个 skill 坏清单/类型冲突/钩子非法 → warn 跳过（引擎照常启动，与 MCP 单 server 失败同纪律）。
+理由：插件与 MCP 分工——MCP 扩**工具**（子进程，有审批管线兜底），skills 扩**事件词表与钩子**（纯数据，无进程无代码执行面）；声明式使插件不可编程作恶，ignorable 信封使装/卸不破坏旧会话（与 §4.4 协议演进的 fail-closed 兼容：非 ignorable 未知事件仍拒绝加载）。
+否决备选：① 插件 = JS 模块动态 import（Claude Code plugins/OpenClaw plugin-sdk 路线）——任意代码执行面 + 打包/权限复杂，"最小落地"下不需要；② 只做编译期 declaration merging 不做运行时注册——用户装插件不重编译，运行时注册表是 ~/.spark 目录扫描的必要对位；③ 扩展事件走独立旁路校验——违反"事件词表从 protocol 开始"纪律，制造第二事实源。依据：doc/02 §4.3 merge-extensible 设计、§8 阶段五工单 5.5；示例插件 `examples/skills/demo-ping/`。
+
 ## 6. 模块速览（职责边界）
 
 | 模块                | 职责                                        | 不许做                                     |
@@ -134,6 +172,7 @@
 | `packages/engine`   | 输入队列/RunLoop/工具/审批/会话/LLM 网关    | 不感知 HTTP；不 import 前端代码            |
 | `apps/server`       | REST 薄壳 + SSE + 静态托管                  | 不写业务（全部委托 engine）                |
 | `apps/web`          | UI 渲染与交互                               | 不做协议外的数据加工；不改写事件（只投影） |
+| `apps/desktop`      | Electron 壳：sidecar 生命周期 + 窗口（D14） | 不 import 引擎/协议；不写业务             |
 
 ## 7. 演进路线（摘要）
 

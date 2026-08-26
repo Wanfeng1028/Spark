@@ -2,9 +2,9 @@
 
 > 引擎 headless，UI 是事件流的投影。
 
-![status](https://img.shields.io/badge/status-阶段三_完成-green) ![node](https://img.shields.io/badge/node-%E2%89%A5_22-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
+![status](https://img.shields.io/badge/status-v1_五阶段完成-green) ![node](https://img.shields.io/badge/node-%E2%89%A5_22-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
 
-Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行循环、工具执行与审批，Web 前端（后期加 Electron 壳）只做一件事——把事件流投影成界面。核心体验三件事：
+Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行循环、工具执行与审批，Web 前端（Electron 桌面壳复用同一传输）只做一件事——把事件流投影成界面。核心体验三件事：
 
 - **流式对话** —— token 级 delta 增量渲染
 - **工具调用可视化** —— 每次调用是会话流里可折叠的执行块（含 diff / 终端输出）
@@ -12,7 +12,7 @@ Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行�
 
 刻意不做：多用户、登录、公网部署（绑定 127.0.0.1 是设计而非缺省）。
 
-**当前状态**：阶段三（引擎跑通）**完成**——工单 1–11 全部落地：config 体系（23）/EventBus（17）/SessionStore+EventTree（32）/Runtime+InputQueue（17）/RunLoop（15）/ToolRegistry+Pipeline+四工具（32）/PermissionService（33）/LlmGateway PiGateway（31）/Projector+compaction（20）/Engine 门面（13）/server REST+SSE（23）/web HttpTransport（18）/pino Logger+脱敏（8）共 367 例单测全绿；阶段验收（真实模型"读文件→改文件→跑命令→汇报"闭环 / SSE 断线重连回放 / kill -9 后 resume 无悬挂事件）由 examples/e2e-smoke.sh 脚本完成，用户自配 `DEEPSEEK_API_KEY` 后可跑；下一步 = 阶段四（深度体验：steer/queue 语义/compaction UI/会话恢复+fork+索引/checkpoint/权限持久化）。
+**当前状态**：**v1 —— 五阶段全部完成**（阶段一骨架 / 阶段二前端 / 阶段三引擎 / 阶段四深度体验 / 阶段五产品化）。全仓 456 例单测 + typecheck 全绿；阶段五四件套已落地：Electron sidecar 壳（ADR D14，NSIS 安装包走 GH Actions Windows runner）、bash 沙箱 wrapper（ADR D15 bwrap/Seatbelt）、MCP client（ADR D16 外部工具与内置工具同一管线）、子代理（ADR D17 独立子会话 + Steer turn 校验）、skills/插件（ADR D18 事件词表运行时扩展 + 声明式清单，示例 examples/skills/demo-ping）。待用户环境执行的现场验收：Windows 本机安装走查、真实外部 MCP server 演示、真实模型子代理演示、沙箱隔离效果验证（容器内 bwrap 不可用）。
 
 ## 架构一览
 
@@ -89,3 +89,4 @@ pnpm test / typecheck / lint
 | v1.12 | 2026-08-24 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段三完成）                                                                                          | **当前状态与状态徽章更新为阶段三完成**（工单 11 pino 日志+脱敏 + examples/e2e-smoke.sh 验收脚本）；全仓 367 例（engine 251 + server 23 + web 47 + protocol 46）；doc/02 §8 v2.15 同步勾选 pino 行；用户自配 DEEPSEEK_API_KEY 后由 examples/e2e-smoke.sh 完成真实模型验收三场景                                                                                                                                                                                                                  |
 | v1.13 | 2026-08-25 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028）                             | 文档导航新增 doc/05 完成度审计（源码级核查：367 例全绿实测、缺口 G1–G7、外部评审采纳/保留意见、动工顺序）                                                       |
 | v1.14 | 2026-08-25 | 同上；指误：晚风（Wanfeng1028）                                                                                                                          | **v1.13 作者栏勘误**：误沿既有版本表的"GLM-5.3"署名（历史标签、本会话不可核实），改为可确证标识 ox-alpha + model id；详见 doc/05 v1.1 勘误说明                 |
+| v1.15 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令）                                                                                       | **状态更新为 v1——五阶段全部完成**（阶段五 5.1–5.5 全落地：Electron sidecar 壳/沙箱 wrapper/MCP client/子代理/skills 插件，ADR D14–D18；此前 README 停留在阶段三，本次一并补记阶段四完成）；导语"后期加 Electron 壳"改为现状；待用户环境执行的现场验收四项注记；doc/02 §8 v2.30 同步 |

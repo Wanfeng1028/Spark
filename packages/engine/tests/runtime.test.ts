@@ -212,6 +212,44 @@ describe('唤醒合并（pendingWake 不空转）', () => {
   })
 })
 
+describe('steer expected_turn_id 校验（§5.4，工单 5.4）', () => {
+  it('匹配活动 turn → steered；不匹配 → E_TURN_MISMATCH', async () => {
+    const rt = new SessionRuntime(SID)
+    const started = rt.submit('first', 'now')
+    await rt.takeInput()
+    rt.beginTurn(started.turnId)
+
+    expect(rt.submit('ok', 'steer', undefined, started.turnId)).toEqual({ result: 'steered' })
+    expect(() =>
+      rt.submit('bad', 'steer', undefined, ids.turn('trn_other_turn_00000000')),
+    ).toThrow(/E_TURN_MISMATCH/)
+  })
+
+  it('无活动 turn（idle）时带 expectedTurnId → E_TURN_MISMATCH', () => {
+    const rt = new SessionRuntime(SID)
+    expect(() => rt.submit('x', 'steer', undefined, ids.turn('trn_no_active_turn_0000'))).toThrow(
+      /E_TURN_MISMATCH/,
+    )
+  })
+
+  it('不传 expectedTurnId 保持原宽容路由（向后兼容）', async () => {
+    const rt = new SessionRuntime(SID)
+    rt.submit('first', 'now')
+    await rt.takeInput()
+    rt.beginTurn()
+    expect(rt.submit('free steer', 'steer')).toEqual({ result: 'steered' })
+  })
+
+  it('endTurn 后活动 turn 清空：旧 expectedTurnId 再提交即拒', async () => {
+    const rt = new SessionRuntime(SID)
+    const started = rt.submit('first', 'now')
+    await rt.takeInput()
+    rt.beginTurn(started.turnId)
+    rt.endTurn()
+    expect(() => rt.submit('late', 'steer', undefined, started.turnId)).toThrow(/E_TURN_MISMATCH/)
+  })
+})
+
 describe('interrupt（级联入口）', () => {
   it('活动 turn：abort 生效并进入收尾（now 降级 queued）', async () => {
     const rt = new SessionRuntime(SID)

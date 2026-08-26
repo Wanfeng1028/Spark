@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, open, readFile } from 'node:fs/promises'
 import type { FileHandle } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { EventSchemas, parseEnvelope } from '@spark/protocol'
+import { eventSchemaOf, parseEnvelope } from '@spark/protocol'
 import type {
   EventId,
   SessionId,
@@ -184,9 +184,9 @@ export class SessionStore implements EventSink {
         throw new Error(`E_SESSION_BAD_LINE: 第 ${lineNo} 事件行损坏（fail-closed）`)
       }
 
-      // 未知 type：ignorable:true 跳过（占行号）；否则拒绝加载
+      // 未知 type（内置词表与扩展注册表均无）：ignorable:true 跳过（占行号）；否则拒绝加载
       const type = (parsed as { type?: unknown }).type
-      if (typeof type !== 'string' || !(type in EventSchemas)) {
+      if (typeof type !== 'string' || eventSchemaOf(type) === undefined) {
         if ((parsed as { ignorable?: unknown }).ignorable === true) continue
         throw new Error(`E_SESSION_UNKNOWN_EVENT: 第 ${lineNo} 行未知事件 type "${String(type)}"`)
       }

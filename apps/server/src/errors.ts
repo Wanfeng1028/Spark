@@ -52,6 +52,9 @@ export function toApiError(err: unknown): ApiError {
   if (msg.startsWith('E_TURN_ACTIVE')) {
     return new ApiError(409, 'E_TURN_ACTIVE', 'turn 进行中，暂不能执行该操作')
   }
+  if (msg.startsWith('E_TURN_MISMATCH')) {
+    return new ApiError(409, 'E_TURN_MISMATCH', '期望 turn 与活动 turn 不符')
+  }
   if (msg.startsWith('E_INVALID_BOUNDARY')) {
     return new ApiError(400, 'E_INVALID_BOUNDARY', '分叉边界事件不存在')
   }

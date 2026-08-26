@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "name": "demo-ping",
+  "events": {
+    "plugin.demo.ping": {
+      "description": "示例插件事件：会话创建后广播 ping（hooks data 固定形状 skill/sourceEventId/sourceType）",
+      "data": {
+        "type": "object",
+        "properties": {
+          "skill": { "type": "string" },
+          "sourceEventId": { "type": "string" },
+          "sourceType": { "type": "string" }
+        },
+        "required": ["skill", "sourceEventId", "sourceType"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "hooks": [{ "on": "session.created", "emit": "plugin.demo.ping" }]
+}

@@ -170,6 +170,36 @@ describe('SSE 事件流', () => {
     expect(statuses).toContain('reconnecting')
   })
 
+  it('插件扩展事件（ignorable 未知类型帧）：跳过不断流，后续帧照常分发（工单 5.5 / ADR D18）', async () => {
+    const e1 = envelope(1)
+    const pluginFrame =
+      'event: message\ndata: ' +
+      JSON.stringify({
+        id: ids.event('evt_plugintest0000000000000'),
+        sessionId: SID,
+        type: 'plugin.demo.ping',
+        time: 1_700_000_000_001,
+        seq: 2,
+        version: 1,
+        ignorable: true,
+        data: { skill: 'demo-ping', sourceEventId: 'evt_x', sourceType: 'session.created' },
+      }) +
+      '\n\n'
+    const stream = new SseStream()
+    stubFetch(() => stream)
+    const events: SparkEventEnvelope[] = []
+    const statuses: HttpConnectionStatus[] = []
+    const t = makeTransport({ backoffMs: [1], onStatus: (s) => statuses.push(s) })
+    t.onEvent((e) => events.push(e))
+    stream.push(sseFrame(e1))
+    stream.push(pluginFrame)
+    const e2 = envelope(3, 'session.title')
+    stream.push(sseFrame(e2))
+    await waitFor(() => (events.some((e) => e.id === e2.id) ? events : undefined))
+    expect(events.map((e) => e.id)).toEqual([e1.id, e2.id]) // 插件帧被跳过
+    expect(statuses).not.toContain('reconnecting') // 未触发断开重连
+  })
+
   it('event: bye 帧无 data 行：忽略；流结束后走重连', async () => {
     const statuses: HttpConnectionStatus[] = []
     let closed = false

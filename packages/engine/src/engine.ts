@@ -23,6 +23,7 @@ import type {
   SessionId,
   SparkEventEnvelope,
   SparkEventMap,
+  TurnFinish,
   TurnId,
 } from '@spark/protocol'
 import type { SessionStatus } from '@spark/protocol'
@@ -54,10 +55,17 @@ import { TitleGenerator } from './title.js'
 import { ToolOutputStore } from './tools/output-store.js'
 import { ToolPipelineImpl } from './tools/pipeline.js'
 import { ToolRegistry } from './tools/registry.js'
+import type { ToolContext, ToolOutput } from './tools/definition.js'
 import { registerBuiltinTools } from './tools/builtin/index.js'
+import { makeTaskTool } from './tools/builtin/task.js'
+import type { TaskInput } from './tools/builtin/task.js'
 import { newIds } from './ulid.js'
 import { Logger } from './logger.js'
 import type { SparkLogger } from './logger.js'
+import { loadMcpConfig } from './mcp/config.js'
+import { McpManager } from './mcp/manager.js'
+import { loadSkills } from './skills/loader.js'
+import type { LoadedSkill } from './skills/loader.js'
 
 export const SPARK_VERSION = '0.1.0'
 
@@ -76,7 +84,7 @@ export interface SessionHandle {
   readonly id: SessionId
   readonly meta: SessionMeta
   /** 三态直通受理结果（HTTP 只表达"已受理"） */
-  send(text: string, delivery?: Delivery): Promise<SubmitResult>
+  send(text: string, delivery?: Delivery, expectedTurnId?: TurnId): Promise<SubmitResult>
   interrupt(): Promise<void>
   /** 手动压缩（§5.8.5）：turn 进行中拒绝（E_TURN_ACTIVE——压缩读全路径，避开运行竞态） */
   compact(): Promise<void>
@@ -163,11 +171,19 @@ export class Engine {
   private indexClosed = false
   private readonly indexReady: Promise<void>
   private readonly registry: ToolRegistry
+  /** MCP 外部工具管理（阶段五工单 5.3 / ADR D16）：与内置工具同一注册表同一管线 */
+  private readonly mcp: McpManager
+  /** MCP 连接任务（connect 内部逐 server 失败闭合；ready() 供 server 入口等待） */
+  private readonly mcpReady: Promise<void>
+  /** skills/插件加载任务（工单 5.5 / ADR D18：词表注册 + hooks 订阅；ready() 等待） */
+  private readonly skillsReady: Promise<LoadedSkill[]>
   private readonly outputs: ToolOutputStore
   private readonly sessions = new Map<SessionId, SessionEntry>()
   private readonly inflight = new Map<SessionId, Promise<SessionEntry>>()
   /** 已答复过的 requestId（区分 409 与 404；进程生命周期内有效） */
   private readonly settledRequests = new Set<RequestId>()
+  /** 子代理派生出的会话（深度限制：子会话不可再派生，工单 5.4；进程生命周期内有效） */
+  private readonly subagentChildren = new Set<SessionId>()
   private shuttingDown = false
   private shutdownPromise: Promise<void> | null = null
   private readonly logger: SparkLogger
@@ -219,8 +235,56 @@ export class Engine {
       },
     })
 
+    // skills/插件（工单 5.5 / ADR D18）：声明式清单 → 事件词表扩展 + hooks 订阅；
+    // 逐 skill 失败 warn 跳过（loader 内闭合），ready() 前完成注册
+    this.skillsReady = loadSkills(join(this.root, 'skills'), this.logger).then(
+      (skills) => {
+        for (const s of skills) {
+          this.logger.info('skills.loaded', { name: s.name, events: s.events })
+          for (const h of s.hooks) {
+            this.bus.subscribe((e) => {
+              if (e.type !== h.on) return
+              // data 固定形状（ADR D18：声明式钩子，无自定义构造器）；发射失败
+              // warn 闭合——不干扰源事件的既定流程
+              void this.bus
+                .emitExtended(e.sessionId, h.emit, {
+                  skill: s.name,
+                  sourceEventId: e.id,
+                  sourceType: e.type,
+                })
+                .catch((err: unknown) => {
+                  this.logger.warn('skills.hook.error', {
+                    skill: s.name,
+                    emit: h.emit,
+                    sid: e.sessionId,
+                    err,
+                  })
+                })
+            })
+          }
+        }
+        return skills
+      },
+    )
+
     this.registry = new ToolRegistry()
-    registerBuiltinTools(this.registry)
+    registerBuiltinTools(this.registry, {
+      bashSandbox: this.config.spark.engine.bashSandbox,
+    })
+    // Task 工具（工单 5.4 / ADR D17）：执行体注入——子会话管理是 Engine 职责
+    this.registry.register(
+      makeTaskTool((input, ctx) => this.runSubagent(input, ctx)),
+    )
+    // MCP 外部工具（工单 5.3）：配置缺失 = 零外部工具立即就绪；单 server 失败
+    // 由 manager 内部 warn 闭合（工具不注册，引擎照常启动）
+    this.mcp = new McpManager({
+      config: loadMcpConfig(this.root),
+      logger: this.logger,
+      toolTimeoutMs: this.config.spark.engine.toolTimeoutMs,
+    })
+    this.mcpReady = this.mcp.connect(this.registry).catch((err: unknown) => {
+      this.logger.warn('mcp.connect.error', { err })
+    })
     this.outputs = new ToolOutputStore(
       this.config.spark.engine.toolOutputLimitKB * 1024,
       join(this.root, 'tool-outputs'),
@@ -273,6 +337,11 @@ export class Engine {
     })
   }
 
+  /** MCP 连接与 skills 加载完成（server 入口 listen 前等待；两者缺省立即返回） */
+  ready(): Promise<void> {
+    return Promise.all([this.mcpReady, this.skillsReady]).then(() => undefined)
+  }
+
   /** §5.3 订阅透传（server SSE 的数据源；resume 供 SSE 背压 drain 恢复） */
   subscribe(
     handler: (e: SparkEventEnvelope) => void | false | Promise<void | false>,
@@ -282,7 +351,7 @@ export class Engine {
   }
 
   async createSession(
-    opts: { title?: string; model?: string; cwd?: string } = {},
+    opts: { title?: string; model?: string; cwd?: string; parentId?: SessionId } = {},
   ): Promise<SessionHandle> {
     this.assertNotShutdown()
     const cwd = opts.cwd ?? this.defaultCwd
@@ -300,6 +369,8 @@ export class Engine {
         cwd,
         createdAt,
         model: modelStr,
+        // 子代理来源（工单 5.4 / ADR D17；fork 另记 parentPath/parentEventId）
+        ...(opts.parentId !== undefined ? { parentSession: opts.parentId } : {}),
       },
       {
         onTailTorn: (reason) => {
@@ -742,6 +813,78 @@ export class Engine {
     return this.settledRequests.has(requestId) ? 'already-resolved' : 'unknown'
   }
 
+  /**
+   * Task 工具执行体（工单 5.4 / ADR D17）：独立子会话（header.parentSession）
+   * 跑一轮任务，返回最终 assistant 文本。父 turn 中断级联 interrupt 子会话；
+   * 单层限制——正在派生子代理的会话不可再派生（E_SUBAGENT_DEPTH）。
+   */
+  private async runSubagent(input: TaskInput, ctx: ToolContext): Promise<ToolOutput> {
+    if (this.subagentChildren.has(ctx.sessionId)) {
+      throw new Error('E_SUBAGENT_DEPTH: 子会话不可再派生子代理（单层）')
+    }
+    const parent = this.sessions.get(ctx.sessionId)
+    if (parent === undefined) {
+      throw new Error(`E_ENGINE_NO_SESSION: 父会话 ${ctx.sessionId} 未加载，拒绝派生子代理`)
+    }
+    const child = await this.createSession({
+      title: input.title ?? '子代理',
+      cwd: parent.meta.cwd,
+      parentId: ctx.sessionId,
+    })
+    this.subagentChildren.add(child.id)
+    try {
+      // 父 turn 中断 → 级联 interrupt 子会话（子 turn 收尾后本工具返回 E_ABORTED）
+      const onAbort = (): void => {
+        void child.interrupt()
+      }
+      ctx.signal.addEventListener('abort', onAbort, { once: true })
+      let lastText = ''
+      // holder 对象：闭包内赋值不触发控制流窄化（TS let 闭包窄化限制的绕法）
+      const done = { finish: 'stop' as TurnFinish }
+      try {
+        // 订阅先于提交：user.message/turn.* 事件不漏
+        await new Promise<void>((resolve) => {
+          const sub = this.bus.subscribe(
+            (e) => {
+              // 父先中断、子 turn 后开始：turn.started 时补一次 interrupt
+              //（interrupt 在 turn 未开始时是 no-op——本行关闭该竞态）
+              if (e.type === 'turn.started' && ctx.signal.aborted) {
+                void child.interrupt()
+              }
+              if (e.type === 'assistant.message') {
+                const texts = (e.data as { content: Array<{ type: string; text?: string }> })
+                  .content.filter((c) => c.type === 'text' && typeof c.text === 'string')
+                  .map((c) => c.text as string)
+                if (texts.length > 0) lastText = texts.join('\n')
+              }
+              if (e.type === 'turn.completed') {
+                done.finish = (e.data as { finish: TurnFinish }).finish
+                sub.unsubscribe()
+                resolve()
+              }
+            },
+            { sessionId: child.id },
+          )
+          void child.send(input.prompt, 'now')
+        })
+      } finally {
+        ctx.signal.removeEventListener('abort', onAbort)
+      }
+      if (ctx.signal.aborted || done.finish === 'aborted') {
+        return { output: { code: 'E_ABORTED' }, isError: true }
+      }
+      return {
+        output: lastText.length > 0 ? lastText : '(子代理无文本输出)',
+        isError: done.finish === 'error',
+      }
+    } catch (err) {
+      // 子会话创建成功后异常（send 拒绝等）：interrupt 收尾，不让子 turn 悬挂
+      const childHandle = this.sessions.get(child.id)
+      childHandle?.runtime.interrupt()
+      throw err
+    }
+  }
+
   /** §5.2 shutdown 序列（幂等） */
   shutdown(): Promise<void> {
     if (this.shutdownPromise !== null) return this.shutdownPromise
@@ -764,6 +907,8 @@ export class Engine {
       await Promise.all([...this.sessions.values()].map((e) => e.titleTask ?? Promise.resolve()))
       // 4) 审批 pending 全部 fail-closed（§5.7 补强 7）
       await this.permission.dispose()
+      // 4.5) MCP 子进程关闭（工具已随 run-loop 退出不再调用）
+      await this.mcp.close()
       // 5) 全量 flush + close（fsync）
       for (const entry of this.sessions.values()) {
         await entry.store.close()
@@ -898,11 +1043,17 @@ export class Engine {
       get meta(): SessionMeta {
         return entry.meta
       },
-      send: (text, delivery) => {
+      send: (text, delivery, expectedTurnId) => {
         if (this.shuttingDown) {
           return Promise.reject(new Error('E_SHUTTING_DOWN: 引擎正在关闭，拒绝新请求'))
         }
-        return Promise.resolve(entry.runtime.submit(text, delivery))
+        // submit 同步抛（E_INPUT_EMPTY/E_TURN_MISMATCH）也走 rejected promise——接口语义一致
+        try {
+          return Promise.resolve(entry.runtime.submit(text, delivery, undefined, expectedTurnId))
+        } catch (err) {
+          // reject 理由必须是 Error（prefer-promise-reject-errors）；submit 抛的均为 Error
+          return Promise.reject(err instanceof Error ? err : new Error(String(err)))
+        }
       },
       interrupt: () => {
         entry.runtime.interrupt()

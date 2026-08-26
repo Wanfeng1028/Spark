@@ -6,7 +6,16 @@ export default tseslint.config(
   {
     // examples/spike-pi-ai 独立安装依赖、不进主构建（其 package.json 自述），
     // CI 只装根 workspace 依赖，类型解析不到会误报 unsafe-* —— 整目录排除
-    ignores: ['**/dist/**', '**/node_modules/**', '**/*.min.js', 'examples/spike-pi-ai/**'],
+    ignores: [
+      '**/dist/**',
+      '**/build/**',
+      '**/release/**',
+      '**/node_modules/**',
+      '**/*.min.js',
+      'examples/spike-pi-ai/**',
+      // 测试夹具：由测试用例 spawn 的独立 Node 脚本（非 TS 项目成员）
+      'packages/engine/tests/fixtures/*.mjs',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

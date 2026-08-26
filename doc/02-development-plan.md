@@ -40,6 +40,12 @@
 | v2.22 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，外部评审整改指令） | **评审整改（协议兼容三项）**：① 旧版磁盘迁移——SessionStore.read 检测阶段三格式 `compaction.completed{keptFromSeq}`，按行号回查事件 id 原位转 `keptFromEventId` 后重过严校验（幂等内存迁移不重写文件；schema 保持严格不双收字段；锚点越界/字段混写仍 fail-closed），store 迁移 2 例（转换+拒绝）；② 悬空锚点不再静默——ProjectorDeps 增 `onDanglingAnchor` 回调（退化兜底触发时结构化 warn `projector.dangling_anchor`，按锚点 id 去重防 modelContext 高频刷屏），engine 接线 logger.warn，projector 1 例（触发一次+无压缩不触发）；③ 文档勘误——摘要消息角色统一为「首条 user 消息」（v2.7 定案 system 走 StreamRequest 独立字段），§5.8.5 删"system: summary 等价"旧表述并补迁移策略段。全仓 404 例（engine 277）+ typecheck/lint 全绿 |
 | v2.23 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.7 完成**：permission always 持久化+同批放行+规则管理 UI——引擎 UserRuleStore（用户级 ~/.spark/permissions.json 内存持有 + tmp/rename 原子落盘，add 同键覆盖/remove 精确匹配；§5.7 补强 3）接替只读数组成为 evaluate 用户层单一来源；多 pattern 规则消费（补强 1）：PermissionCheck/ToolDefinition 增 patternsOf/alwaysPatternsOf，bash 复合命令按 && \\|\\| ; \\| 分段声明（<2 段回落单资源），evaluateAll 任一 deny 短路→全 allow 直过→一次 ask 携带 patterns/alwaysPatterns；always 固化 = 先落用户级文件再写会话临时层（写盘失败审批仍挂起 fail-closed），同批放行级联复用多 pattern 重评；Engine 门面增 list/add/removePermissionRules 三方法；protocol 增 PermissionRuleDto + Transport 三方法；server 注册 GET/POST/DELETE /api/permissions/rules（§4.5/§7.2 表登记）；前端 SettingsDialog 新增「权限·规则」区（列表/删除/添加表单，即存即生效，§6.2.3 表更新）+ ApprovalCard 多 pattern 清单与固化范围提示；MockTransport 对等演示（内存规则表 + always 按 alwaysPatterns 固化）；engine 9 例（多 pattern 四路径/UserRuleStore 落盘/bash 分段）+ server 1 例 + mock 1 例新增；全仓 415 例（engine 286/server 31/web 52/protocol 46）+ typecheck/lint 全绿；§8 阶段四 permission 行勾选 |
 | v2.24 | 2026-08-25 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，阶段四开工指令） | **阶段四工单 4.8 完成（阶段四收官）**：node:sqlite 会话索引 + metrics 端点——SessionIndex 单表索引（<root>/index.db；upsert/touch 仅前进水位/setTitle/LIKE 转义搜索/rebuild 全量重建）；JSONL 恒为权威：boot 自磁盘扫描全量重建对齐、durable 事件增量 touch（meta 订阅器内）、会话装载点 wireSession 单点 upsert（create/resume/fork/rollback 重载共用）、写失败或关库后自动降级磁盘扫描（结构化 error 日志，主流程不受影响）；listSessions 改索引驱动 + `?q` 标题子串过滤（已加载内存态覆盖且同样过 q 过滤），shutdown 先 await 重建完成再关库（防迟到写库撞已关闭句柄）；Metrics 计数器（§5.10 清单）：spark_turns_total{finish}（run-loop finally）/ spark_tool_calls_total{name,is_error}（管线三出口）/ spark_llm_tokens_total{direction}（流式结果 usage）/ spark_permission_decisions{reply}（settle）/ spark_events_durable_total（订阅器）+ spark_sessions_active 快照 gauge，renderMetrics 输出 Prometheus exposition 文本；server 注册 GET /api/metrics（text/plain; version=0.0.4）；session-index 单测 5 例 + engine 集成 2 例（q 过滤/增量水位/重启重建不丢/计数断言/Prometheus 文本）+ server 1 例新增；全仓 423 例（engine 293/server 32/web 52/protocol 46）+ typecheck/lint 全绿；§4.5/§7.2 表登记 metrics 与 ?q、§8 阶段四 sqlite/metrics 行勾选 |
+| v2.25 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五工单 5.1 完成**：Electron 壳——ARCHITECTURE 新增 ADR D14（sidecar vs 主进程嵌入评估：选 sidecar，HttpTransport 零改动复用/崩溃隔离/用户机零 Node 依赖）；apps/desktop（main 进程三件事：ELECTRON_RUN_AS_NODE 拉起 server 单文件 bundle + healthz 轮询探活 + 加载动态端口 URL；退出 SIGTERM 收尸）；server 最小改动（GET /api/healthz + SPARK_PORT/SPARK_HOST/SPARK_WEB_DIST 环境注入）；esbuild 全量 bundle（createRequire banner 解决 fastify CJS 动态 require）；打包：electron-builder（extraResources=server bundle+web dist，signAndEditExecutable=false 免 wine 签名），Linux 本地 `--win zip` 154MB 产物实证（Electron RUN_AS_NODE 跑 sidecar + healthz 200 + Web UI 伺服全通），NSIS 安装包走 GH Actions windows runner（desktop-win.yml 手动触发；NSIS 卸载器生成需 32 位 stub/wine wow64，容器不可靠）；§4.5/§7.2 表登记 healthz、§8 阶段五 Electron 行勾选；新增 healthz 单测 1 例，全仓 424 例 + typecheck/lint 全绿 |
+| v2.26 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五工单 5.2 完成**：bash 沙箱——ARCHITECTURE 新增 ADR D15（三平台调研：AppContainer 否决——任意路径只读不可行/dsh 设计笔记实证 + FerroxLabs #321 子进程缺陷 + Node/TS 无维护中绑定；dsh ACL 包 koffi 原生依赖破坏 sidecar 单文件打包；Claude Code 先例 Windows 原生未支持）；最小落地 = 平台 wrapper 前缀（engine `tools/sandbox.ts`：Linux bwrap `--ro-bind / / --bind cwd cwd --dev --proc --tmpfs /tmp` / macOS Seatbelt profile 写限 cwd+tmpdir，workspace-write 语义；网络隔离 v1 不做记 D15）；spark.json `engine.bashSandbox: off\|on`（默认 off 现行为不变）+ makeBashTool 工厂 + registerBuiltinTools opts 接线；wrapper 不可用/平台无路线 → E_SANDBOX_UNAVAILABLE fail-closed 拒跑不降级；§5.1 配置表/§5.10 错误码表登记；沙箱单测 4 例（bwrap 参数/Seatbelt profile/平台路线/fail-closed）+ config 默认值 1 例，全仓 428 例 + typecheck/lint 全绿 |
+| v2.27 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五工单 5.3 完成**：MCP client——ARCHITECTURE 新增 ADR D16（外部工具 = ToolRegistry 一等公民同一管线一视同仁；否决旁路管线聚合层与 HTTP transport）；`@modelcontextprotocol/sdk@1.30.0`：engine `mcp/config.ts`（~/.spark/mcp.json 可选，version 1 + servers 表 stdio 声明，坏文件 E_CONFIG）+ `mcp/manager.ts`（McpManager 逐 server 连接 10s 上限 + makeMcpToolDef 包装：命名 mcp__<server>__<tool>、审批 mcp.call/`<server>/<tool>` 默认 ask、parallelizable=false 串行 barrier、z.fromJSONSchema ↔ toJSONSchema 往返、callTool 请求级 toolTimeoutMs + signal 级联、输出 text 拼接→structuredContent→占位，失败 E_MCP_CALL/中断 E_ABORTED）；单 server 失败 warn 跳过失败闭合；Engine.ready() + shutdown 4.5 步关子进程；server 入口 await ready() 再 listen；§5.1 配置表 mcp.json 行/§5.10 错误码 E_MCP_CALL 登记；mcp 单测 10 例（config 三路径/包装命名 schema 执行/stdio e2e spawn + **审批三态 allow·deny·ask(reject/once) 经真实子进程与真实 PermissionServiceImpl·EventBus·管线走通**，fixtures/mcp-echo-server.mjs echo+fail 工具）；全仓 438 例（engine 307）+ typecheck 全绿 |
+| v2.28 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五工单 5.4 完成**：子代理 + Steer 校验——ARCHITECTURE 新增 ADR D17（子会话 = 独立会话 header.parentSession，主会话只见 task 工具事件对；否决内嵌主流与自定义 durable 事件两备选）；Task 工具（engine `tools/builtin/task.ts`：{prompt,title?} 审批 agent.task/task 默认 ask、parallelizable=false、执行体 TaskRunner 端口由 Engine.runSubagent 注入）；runSubagent（createSession{parentId} 派生独立会话、订阅先于提交等子 turn.completed、返回最终 assistant 文本、subagentChildren 单层限制 E_SUBAGENT_DEPTH、父中断级联 child.interrupt + turn.started 补中断关闭"父先断子后开"竞态）；Steer expectedTurnId（protocol SendMessageOptions + SessionHandle.send + runtime.submit 可选参数，beginTurn(turnId) 登记活动 turn，不符 E_TURN_MISMATCH→HTTP 409；server routes/errors + web HttpTransport 透传，不传保持宽容路由向后兼容）；§5.4/§5.6.3/§7.2/§5.10 同步；subagent 单测 5 例（六要素/成功全链路含子会话事件与 header 留痕/深度限制两级闭合/父中断级联 E_ABORTED + steer mismatch 接线/deny E_PERMISSION 不派生）+ runtime steer 校验 4 例；全仓 449 例（engine 316）+ typecheck 全绿 |
+| v2.29 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五工单 5.5 完成**：skills/插件——ARCHITECTURE 新增 ADR D18（事件词表扩展 = 运行时注册表 + declaration merging，插件是声明不是程序；否决 JS 动态 import 与旁路校验两备选）；protocol `extend.ts`（registerEventType 冲突检测 E_EVENT_TYPE_CLASH / eventSchemaOf 统一查表 / isExtendedLiveOnly / clearExtendedEvents 测试隔离），EventBus/parseEnvelope/SessionStore 读端全部改走 eventSchemaOf（扩展事件与内置 19 种同一校验路径）；engine `skills/loader.ts`（`~/.spark/skills/<name>/skill.json` 声明式清单：events plugin. 前缀 JSON Schema→zod + hooks 声明式触发器 on 内置事件→emit 插件事件 data 固定形状；先全量预检再注册不留半注册态；单 skill 坏清单/冲突/钩子非法 warn 跳过）+ Engine 构造接线（skillsReady 并入 ready()）+ EventBus.emitExtended（durable 同一落盘管线占行号 / liveOnly 直播不落盘，信封一律 ignorable:true）；web HttpTransport 未知 ignorable 帧跳过不断流（与 store 读端同策略）；示例插件 `examples/skills/demo-ping/`；§4.3 扩展落地注记/§5.1 配置表 skills 行/§5.10 错误码登记；skills 单测 8 例（loader 四路径/emitExtended durable·live·校验失败/引擎 e2e：hook 落盘可回放 + "卸载"后重读跳过占行号）+ web transport ignorable 帧跳过 1 例；全仓 456 例（engine 324/web 53/server 33/protocol 46）+ typecheck 全绿 |
+| v2.30 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | **阶段五完成（收尾）**：§8 阶段五清单 5.2–5.5 全部勾选（沙箱/MCP/子代理/skills 实现均落地并单测/ e2e 实证；沙箱隔离效果、Windows 本机安装走查、真实外部 MCP server 与真实模型现场演示四项待用户环境执行，文字保留注记）；验收行更新——**五阶段全部完成，Spark v1**；README 状态徽章与"当前状态"更新为 v1（阶段一~五完成；README v1.15 同步）；AGENTS §1 项目上下文事实刷新（README/AGENTS 同步） |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -207,7 +213,7 @@ spark/
 ├── apps/
 │   ├── server/src/{index,routes/{sessions,messages,permissions},sse.ts,static.ts,errors.ts}
 │   ├── web/（结构见 §6）
-│   └── desktop/                    # （阶段五）
+│   └── desktop/                    # Electron 壳（阶段五工单 5.1，ADR D14 sidecar：src/main.ts + electron-builder.yml）
 └── examples/mock-sessions/
 ```
 
@@ -296,6 +302,8 @@ export type PermissionReply = 'once' | 'always' | 'reject'
 ```
 
 ## 4.3 事件词表（19 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
+
+> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 19 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
 
 ```ts
 export interface SparkEventMap {
@@ -580,9 +588,11 @@ createEngine(config)
 
 | 文件             | 字段 → 类型/约束                                                                                                                                                                                                         | 缺省                                                                 |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| spark.json       | `server.port`: int(1-65535)；`server.host`: string；`engine.maxStepsPerTurn/maxToolParallel`: int≥1；`toolTimeoutMs/permissionTimeoutMs/progressThrottleMs/toolOutputLimitKB`: int>0；`compactionThreshold`: number(0,1) | 全部可缺省（取 §5.1 默认值）；文件本身可不存在                       |
+| spark.json       | `server.port`: int(1-65535)；`server.host`: string；`engine.maxStepsPerTurn/maxToolParallel`: int≥1；`toolTimeoutMs/permissionTimeoutMs/progressThrottleMs/toolOutputLimitKB`: int>0；`compactionThreshold`: number(0,1)；`checkpoints`: boolean；`bashSandbox`: 'off'\|'on'（工单 5.2，ADR D15：on = 平台 wrapper 前缀 + 不可用即拒跑） | 全部可缺省（取 §5.1 默认值）；文件本身可不存在                       |
 | models.json      | `providers`: record<string, {apiKeyEnv: string\|null, baseUrl?: url}>；`defaultModel/compactionModel`: {provider, model, contextWindow: int>0}                                                                           | **无缺省——defaultModel 必填**（缺失/校验失败 → `E_CONFIG` 启动失败） |
 | permissions.json | `version`: 1；`rules`: {action, resource, effect: 'allow'\|'deny'\|'ask'}[]                                                                                                                                              | 空规则表（全部落默认 ask）                                           |
+| mcp.json         | `version`: 1；`servers`: record<string, {command: string, args?: string[], env?: record<string,string>}>（工单 5.3，ADR D16：stdio MCP server 声明，工具注册进同一 ToolRegistry，审批 action `mcp.call`/resource `<server>/<tool>` 默认 ask） | 空表（零外部工具，引擎照常启动；单 server 连接失败 warn 跳过）       |
+| skills/ 目录     | `<root>/skills/<name>/skill.json`：`version`: 1；`name`: ^[a-z0-9][a-z0-9-]*$；`events`: record<`plugin.` 前缀类型, {description?, liveOnly?, data: JSON Schema}>；`hooks`?: {on: 内置事件类型, emit: 本 skill 事件}[]（工单 5.5，ADR D18：声明式清单——插件是数据不是程序，不执行任意代码；hooks data 固定形状 `{skill, sourceEventId, sourceType}`） | 目录不存在 = 零插件；单 skill 坏清单/类型冲突/钩子非法 warn 跳过（引擎照常启动） |
 
 ## 5.2 Engine 门面与生命周期
 
@@ -661,7 +671,7 @@ SessionRuntime 状态：idle ──submit(now)──▶ running ──turn 结�
 
 - **steerQueue 残留处理（补漏）**：turn 收尾时未消费的 steer 项**转入 queue 作为后续 turn 输入**（pendingWake 续跑消费）——防止"turn 在注入前结束导致插话凭空丢失"。此前规格未定义此边界。
 - **提交无拒绝态是刻意宽容**：Codex 的 `NotSubmittedReason` 有八种拒绝（NoActiveTurn / NotIdle / ExpectedTurnMismatch{期望 turn id 校验} / ActiveTurnNotSteerable / EmptyInput / 输出 schema 不匹配…）；我们三态之外不设拒绝——steer 遇 idle 自动升级为 started、EmptyInput 已由 zod `min(1)` 拒。v2 出现不可插话的 turn 类型（如 plan-mode turn）时再引入 `NotSubmitted`。
-- `Steer{expected_turn_id}` 的目标 turn 校验：v1 单 turn 运行无需；多 turn 并发（阶段五子代理）时必须加。
+- `Steer{expected_turn_id}` 的目标 turn 校验：**已实现（阶段五工单 5.4）**——`SessionRuntime.submit` 带可选 `expectedTurnId`（活动 turn 由 `beginTurn(turnId)` 登记）；无活动 turn 或不匹配 → `E_TURN_MISMATCH`（HTTP 409，§7.4）。不传保持原宽容路由（向后兼容）。多 turn 并发（子代理派生）下防串台的前提。
 
 ## 5.5 Run Loop（run-loop.ts）——函数签名级
 
@@ -815,6 +825,7 @@ runOne(call):
 | write | `{path, content}`                                 | action='fs.write'，resource='file:<abs>'         | 自动建父目录；返回写入字节数                                                                                                                       | E_PATH_OUTSIDE、E_WRITE_DENIED（只读挂载/权限）                  |
 | edit  | `{path, oldString, newString, replaceAll?=false}` | action='fs.write'，resource='file:<abs>'         | **oldString 唯一性校验**（0 命中→E_NOT_FOUND；>1 且未 replaceAll→E_AMBIGUOUS）；返回 unified diff（供前端 DiffViewer）                             | E_NOT_FOUND、E_AMBIGUOUS、E_PATH_OUTSIDE                         |
 | bash  | `{command, timeoutMs?≤120000, cwd?}`              | action='shell.exec'，resource='cmd:<前 80 字符>' | 每次独立 shell（v1 不做常驻）；stdout+stderr 合流 progress 流式（16KB/帧截断，Grok）；退出码非 0 → isError 但 output 保留；超时 SIGTERM→5s→SIGKILL | E_TIMEOUT、E_EXIT_CODE（附 code）、E_SPAWN                       |
+| task  | `{prompt, title?}`                                | action='agent.task'，resource='task'             | 阶段五工单 5.4 / ADR D17：派生独立子会话（header.parentSession）跑一轮，返回最终 assistant 文本；执行体 = Engine.runSubagent（工具层不感知会话管理）；单层限制；父中断级联 interrupt 子会话 | E_SUBAGENT_DEPTH（子会话再派生）、E_ABORTED（父中断级联）        |
 
 路径安全：v1 允许根 = cwd + 用户显式 addDir（v2）；越界直接 E_PATH_OUTSIDE（不需要审批兜底——硬边界优先于审批）。
 
@@ -1087,6 +1098,12 @@ export interface ResolvedModel {
 | E_WRITE_DENIED                                   | 只读挂载/OS 权限拒绝写                        | tool output                        |
 | E_AMBIGUOUS                                      | edit 的 oldString 多命中且未 replaceAll       | tool output                        |
 | E_TIMEOUT / E_EXIT_CODE / E_SPAWN                | bash 超时 / 非零退出（附 code）/ spawn 失败   | tool output                        |
+| E_SANDBOX_UNAVAILABLE                            | bashSandbox=on 而 wrapper 不可用/平台无路线（工单 5.2，fail-closed 拒跑） | tool output |
+| E_MCP_CALL                                       | MCP 外部工具调用失败（协议错误/超时；工单 5.3，ADR D16） | tool output                        |
+| E_TURN_MISMATCH                                  | steer expectedTurnId 与活动 turn 不符（工单 5.4，§5.4） | HTTP 409                           |
+| E_SUBAGENT_DEPTH                                 | 子会话内再派生子代理（单层限制；工单 5.4，ADR D17） | tool output                        |
+| E_EVENT_TYPE_CLASH                               | 插件事件类型与内置词表/其他 skill 冲突（工单 5.5，ADR D18） | 该 skill warn 跳过          |
+| E_SKILL_HOOK_TARGET / E_SKILL_HOOK_EMIT          | hooks.on 非内置事件类型 / hooks.emit 未在本 skill 声明（工单 5.5） | 该 skill warn 跳过          |
 | E_PERMISSION                                     | 工具调用被审批拒绝（denied/超时 fail-closed） | tool output                        |
 | E_TRUNCATED                                      | stopReason 'length' 时截断 toolCall 的补事件  | tool.completed                     |
 | E_ABORTED                                        | 分组排队中未启动即被 interrupt                | tool.completed                     |
@@ -1584,12 +1601,13 @@ await app.listen({ port: 4318, host: '127.0.0.1' }) // 仅本地（无 TLS/auth 
 ```ts
 // 通用模式：zod 解析 body/params → engine 调用 → DTO 序列化；错误经 errors.ts 映射
 // POST /api/sessions/:id/messages
-const Body = z.object({ text: z.string().min(1), delivery: z.enum(['now','steer','queue']).default('now') })
+const Body = z.object({ text: z.string().min(1), delivery: z.enum(['now','steer','queue']).default('now'),
+  expectedTurnId: TurnIdSchema.optional() })   // 工单 5.4：steer 目标 turn 校验（不符 → 409 E_TURN_MISMATCH）
 app.post('/api/sessions/:id/messages', async (req, reply) => {
   const { id } = z.object({ id: SessionIdSchema }).parse(req.params)
   const body = Body.parse(req.body)
   const handle = engine.getSession(id) ?? throw new SessionNotFound()
-  return handle.send(body.text, body.delivery)    // { result, turnId } 三态直通
+  return handle.send(body.text, body.delivery, body.expectedTurnId)    // { result, turnId } 三态直通
 })
 ```
 
@@ -1597,6 +1615,7 @@ app.post('/api/sessions/:id/messages', async (req, reply) => {
 
 | 路由                             | 实现要点                                                                                                                           |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| GET /api/healthz                 | 工单 5.1 已注册：桌面壳 sidecar 探活端点（listen 成功即引擎可用）；`{ok:true}` 无鉴权无副作用。server 入口支持 `SPARK_PORT`/`SPARK_HOST`/`SPARK_WEB_DIST` 环境变量注入（桌面壳 ADR D14） |
 | POST /api/sessions               | body `{title?, model?, cwd?}`（model 缺省用引擎 defaultModel；cwd 缺省 = server 进程 cwd）→ `createSession` → 201 + SessionMetaDto |
 | GET /api/sessions                | **索引驱动**（工单 4.8）：node:sqlite sessions 表（boot 自磁盘全量重建对齐 JSONL 权威，durable 事件增量 touch、装载点 upsert；索引不可用降级回磁盘扫描）；`?limit`（默认 50）+ `?cursor`（= 最后一条的 id，倒序遍历）+ `?q`（标题子串过滤）——分页 v1 内存切片 |
 | GET /api/metrics                 | 工单 4.8 已注册：`engine.renderMetrics()` → Prometheus exposition 文本（text/plain; version=0.0.4）；counter 清单见 §5.10，spark_sessions_active 为快照时点 gauge |
@@ -1714,12 +1733,12 @@ app.get('/api/event', async (req, reply) => {
 
 ## 阶段五：产品化
 
-- [ ] Electron 壳（sidecar vs 主进程嵌入评估；复用 HttpTransport）
-- [ ] 沙箱：bash 默认审批；Windows AppContainer / macOS Seatbelt / Linux bwrap 评估
-- [ ] MCP client（@modelcontextprotocol/sdk）
-- [ ] 子代理（Task 工具 + parentSession 子会话）
-- [ ] skills/插件（目录扫描 + declaration merging 扩展事件）
-- **验收**：桌面安装包 + 首个外部 MCP 工具可用
+- [x] Electron 壳（ADR D14 sidecar 模式：`ELECTRON_RUN_AS_NODE` 拉起 server 单文件 bundle + healthz 探活 + 加载 `http://127.0.0.1:<动态端口>`，HttpTransport/协议零改动；apps/desktop + `SPARK_PORT`/`SPARK_WEB_DIST` 注入；NSIS 安装包走 GH Actions windows runner，Linux 本地 `--win zip` 管线已实证，工单 5.1）
+- [x] 沙箱：bash 默认审批；Windows AppContainer / macOS Seatbelt / Linux bwrap 评估（ADR D15：平台 wrapper 前缀 bwrap/Seatbelt + spark.json bashSandbox 开关 + fail-closed 拒跑，Windows 本期不做 OS 级；隔离效果待真实主机验证——容器内 bwrap unprivileged namespace 不可用）
+- [x] MCP client（ADR D16：@modelcontextprotocol/sdk stdio + ~/.spark/mcp.json 声明 + mcp__<server>__<tool> 注册进同一 ToolRegistry（审批 mcp.call 默认 ask/限界/溢写/事件一视同仁）；审批三态 allow/ask/deny 经真实子进程 e2e 测试实证，真实外部 server 现场演示待用户环境执行）
+- [x] 子代理（ADR D17：子会话 = 独立会话（header.parentSession），主会话只见 task 工具事件对；Task 工具 {prompt,title?} 审批 agent.task 默认 ask、单层限制 E_SUBAGENT_DEPTH、父中断级联 interrupt 子会话；Steer expectedTurnId 校验——submit 可选参数，不符 E_TURN_MISMATCH 409。ScriptedLlm 四路径 e2e 已测，真实模型现场演示待用户环境执行）
+- [x] skills/插件（ADR D18：`~/.spark/skills/<name>/skill.json` 声明式清单——插件是数据不是程序；protocol 运行时注册表 registerEventType/eventSchemaOf 与内置词表同一校验路径，EventBus.emitExtended durable/live 双路 + ignorable 信封（插件卸载后旧会话可加载，未装插件的前端跳过 ignorable 帧不断流）；hooks 声明式触发器（on 内置事件 → emit 插件事件，data 固定形状）；单 skill 失败 warn 跳过。示例插件 examples/skills/demo-ping + 引擎 e2e（session.created → plugin.demo.ping 落盘/卸载后重读）已测）
+- **验收**：桌面安装包（GH Actions NSIS 产物管线 + Linux `--win zip` sidecar/healthz/Web UI 全通实证；Windows 本机安装走查待用户执行）+ 首个外部 MCP 工具可用（审批三态经真实子进程 e2e 实证；真实外部 server 现场演示待用户执行）。**五阶段全部完成，Spark v1**
 
 ## 8.6 测试矩阵（各阶段验收的测试面；框架 vitest）
 

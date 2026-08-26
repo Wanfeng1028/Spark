@@ -13,6 +13,7 @@ import {
   PermissionRuleDtoSchema,
   RequestIdSchema,
   SessionIdSchema,
+  TurnIdSchema,
 } from '@spark/protocol'
 import type { CheckpointDto, SessionId, SparkEventEnvelope, TreeNodeDto } from '@spark/protocol'
 import type {
@@ -71,6 +72,7 @@ const ListSessionsQuery = z.object({
 const SendMessageBody = z.strictObject({
   text: z.string().min(1),
   delivery: DeliverySchema.default('now'),
+  expectedTurnId: TurnIdSchema.optional(),
 })
 
 const ReplyBody = z.strictObject({
@@ -125,6 +127,9 @@ function treeToDto(tree: SessionTreeInfo): TreeNodeDto[] {
 export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
   const { engine } = opts
 
+  // 探活端点（阶段五工单 5.1）：桌面壳 sidecar 就绪轮询用；listen 成功即引擎可用
+  app.get('/api/healthz', () => ({ ok: true }))
+
   app.post('/api/sessions', async (req, reply) => {
     try {
       const body = parseOr400(CreateSessionBody, req.body)
@@ -173,7 +178,9 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
       const body = parseOr400(SendMessageBody, req.body)
       const handle = await requireHandle(engine, id)
       // 三态直通：HTTP 只表达"已受理"，不等 turn 结果（§7.2）
-      return reply.send(await handle.send(body.text, body.delivery))
+      return reply.send(
+        await handle.send(body.text, body.delivery, body.expectedTurnId),
+      )
     } catch (err) {
       return sendError(req, reply, err)
     }

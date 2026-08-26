@@ -40,6 +40,8 @@ const sparkSchema = z.object({
       compactionThreshold: z.number().gt(0).lt(1),
       /** turn 边界 checkpoint（阶段四工单 4.6）：git 快照开关（测试夹具关掉提速） */
       checkpoints: z.boolean(),
+      /** bash 沙箱（阶段五工单 5.2，ADR D15）：on = 平台 wrapper 前缀 + 不可用即拒跑 */
+      bashSandbox: z.enum(['off', 'on']),
     })
     .partial()
     .optional(),
@@ -56,6 +58,7 @@ export interface SparkConfig {
     toolOutputLimitKB: number
     compactionThreshold: number
     checkpoints: boolean
+    bashSandbox: 'off' | 'on'
   }
 }
 
@@ -70,6 +73,7 @@ const SPARK_DEFAULTS: SparkConfig = {
     toolOutputLimitKB: 32,
     compactionThreshold: 0.8,
     checkpoints: true,
+    bashSandbox: 'off',
   },
 }
 
@@ -193,6 +197,7 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
               toolOutputLimitKB: p.engine?.toolOutputLimitKB ?? SPARK_DEFAULTS.engine.toolOutputLimitKB,
               compactionThreshold: p.engine?.compactionThreshold ?? SPARK_DEFAULTS.engine.compactionThreshold,
               checkpoints: p.engine?.checkpoints ?? SPARK_DEFAULTS.engine.checkpoints,
+              bashSandbox: p.engine?.bashSandbox ?? SPARK_DEFAULTS.engine.bashSandbox,
             },
           }
         })()
