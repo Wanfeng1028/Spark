@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { FolderGit2, GitBranch, History } from 'lucide-react'
 import { ids } from '@spark/protocol'
-import type { ModelsDto, PermissionPreset } from '@spark/protocol'
+import type { PermissionPreset } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
 import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
@@ -23,6 +23,9 @@ import { CheckpointDialog } from '@/features/chat/CheckpointDialog'
 import { projectOf } from '@/components/layout/Sidebar'
 import { useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
 import { useConnectionStore } from '@/stores/connection'
+import { useModelsStore } from '@/stores/models-store'
+import { contextRatio, contextTokensOf, contextWindowOf } from '@/features/chat/context-usage'
+import { UsageBar } from '@/features/chat/UsageBar'
 
 /** 打开会话：GET 全量 durable → resetSlice → 批量 apply（§6.10 时序①；mock 流式夹具不走此路径） */
 type LoadState = 'loading' | 'ready' | { error: string }
@@ -66,23 +69,15 @@ export function SessionPage() {
     }
   }, [transport, sid])
 
-  // 模型管理（工单 6.5）：目录一次装载；当前模型以 slice.meta 为基线 + 换模型内存覆盖。
-  // 装载失败不渲染选择器（禁假状态），失败静默——重进会话即重试
-  const [models, setModels] = useState<ModelsDto | null>(null)
-  const sliceModel = useSessionStore((s) => s.byId[sid]?.meta.model)
-  const [modelOverride, setModelOverride] = useState<string | null>(null)
+  // 模型管理（工单 6.5）：目录一次装载（models-store 缓存，与 StatusBar 水位共用）；
+  // 当前模型以 slice.meta 为基线 + 换模型内存覆盖。装载失败不渲染选择器（禁假状态）
+  const models = useModelsStore((s) => s.dto)
   useEffect(() => {
-    let cancelled = false
-    transport
-      .listModels()
-      .then((m) => {
-        if (!cancelled) setModels(m)
-      })
-      .catch(() => undefined)
-    return () => {
-      cancelled = true
-    }
+    useModelsStore.getState().load(transport)
   }, [transport])
+  const sliceModel = useSessionStore((s) => s.byId[sid]?.meta.model)
+  const contextUsage = useSessionStore((s) => s.byId[sid]?.contextUsage ?? null)
+  const [modelOverride, setModelOverride] = useState<string | null>(null)
   // 会话切换：换模型覆盖归零（新会话以 slice.meta 为准）
   useEffect(() => {
     setModelOverride(null)
@@ -286,6 +281,18 @@ export function SessionPage() {
 
       <div className="shrink-0 border-t border-border px-6 py-3">
         <div className="mx-auto max-w-[768px]">
+          {/* 上下文用量条（工单 6.6）：最近一轮 usage ÷ contextWindow，>80% 变 warn */}
+          <UsageBar
+            ratio={contextRatio(
+              contextUsage,
+              contextWindowOf(models, modelOverride ?? sliceModel ?? ''),
+            )}
+            title={
+              contextUsage !== null
+                ? `上下文约 ${contextTokensOf(contextUsage)} tokens（按最近一轮 usage 估算，阈值 80%）`
+                : undefined
+            }
+          />
           <Composer
             busy={busy}
             waiting={waiting}

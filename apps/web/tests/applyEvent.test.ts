@@ -147,6 +147,21 @@ describe('turn 生命周期', () => {
     )
     expect(s.byId[SID]?.topBanner).toEqual({ kind: 'turn-error', turnId: ids.turn('trn_t2') })
     expect(s.byId[SID]?.usageTotal.inputTokens).toBe(11)
+    // 工单 6.6：contextUsage 跟随最近一次带 usage 的 turn.completed（水位数据源）
+    expect(s.byId[SID]?.contextUsage).toEqual({ inputTokens: 1, outputTokens: 1 })
+  })
+
+  it('contextUsage：assistant.message 带 usage 即更新；无 usage 事件保持原值', () => {
+    let s = seeded()
+    s = reduce(s, ev('turn.started', { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_u1') }, { seq: 2 }))
+    s = reduce(
+      s,
+      ev('assistant.message', { turnId: TURN, content: [], usage: { inputTokens: 7, outputTokens: 3 } }, { seq: 3 }),
+    )
+    expect(s.byId[SID]?.contextUsage).toEqual({ inputTokens: 7, outputTokens: 3 })
+    // 后续无 usage 的 assistant.message 不清水位
+    s = reduce(s, ev('assistant.message', { turnId: TURN, content: [{ type: 'text', text: 'x' }] }, { seq: 4 }))
+    expect(s.byId[SID]?.contextUsage).toEqual({ inputTokens: 7, outputTokens: 3 })
   })
 })
 

@@ -1,7 +1,7 @@
 /**
  * 状态条 24px 单行细条（DESIGN.md §13.A，取代 §2 的 28px）：
- * 左起：连接状态点+文案 · 当前会话模型名 · seq 水位 · token 累计 · 提交模式（settings.defaultDelivery；
- * 上下文水位百分比在工单 6.6 接 Projector 估算后加入，>80% 转 warn）；
+ * 左起：连接状态点+文案 · 当前会话模型名 · seq 水位 · token 累计 · 上下文水位百分比（工单 6.6：
+ * 最近一轮 usage ÷ contextWindow，>80% 转 warn——阈值与引擎 compactionThreshold 同源）· 提交模式；
  * 右起：主题切换 · 设置齿轮（SettingsDialog 触发器，doc/02 §6.2.3）。
  * 数据源：connection-store / session-store / settings-store 选择器（组件不直接 fetch，DESIGN §9）。
  */
@@ -10,7 +10,10 @@ import { Monitor, Moon, Settings, Sun } from 'lucide-react'
 import { useConnectionStore } from '@/stores/connection'
 import { useSettingsStore } from '@/stores/settings'
 import { useActiveSlice } from '@/stores/session'
+import { useModelsStore } from '@/stores/models-store'
+import { useTransport } from '@/transports/context'
 import { useUiStore } from '@/stores/ui'
+import { CONTEXT_WARN_RATIO, contextRatio, contextTokensOf, contextWindowOf } from '@/features/chat/context-usage'
 import { cn } from '@/lib/utils'
 
 const CONNECTION_TEXT = {
@@ -65,11 +68,22 @@ export function StatusBar() {
   const toggleTheme = useSettingsStore((s) => s.toggleTheme)
   const delivery = useSettingsStore((s) => s.defaultDelivery)
   const slice = useActiveSlice()
+  const models = useModelsStore((s) => s.dto)
+  const { transport } = useTransport()
+  // 目录幂等装载（SessionPage 同源共用；失败静默下次重试）
+  useEffect(() => {
+    useModelsStore.getState().load(transport)
+  }, [transport])
 
   const usage = slice?.usageTotal
   const checkpoint = slice?.lastCheckpoint
   const themeMeta = THEME_META[theme]
   const ThemeIcon = themeMeta.icon
+
+  // 上下文水位（工单 6.6）：无 usage/未知窗口 → null 不显示
+  const ratio =
+    slice === null ? null : contextRatio(slice.contextUsage, contextWindowOf(models, slice.meta.model))
+  const warn = ratio !== null && ratio > CONTEXT_WARN_RATIO
 
   return (
     <footer className="flex h-6 items-center justify-between border-t border-border px-3 text-xs text-muted-foreground">
@@ -92,6 +106,21 @@ export function StatusBar() {
             title={`输入 ${usage.inputTokens} · 输出 ${usage.outputTokens} · 思考 ${usage.reasoningTokens ?? 0}`}
           >
             ↑{fmtTokens(usage.inputTokens)} ↓{fmtTokens(usage.outputTokens)}
+          </span>
+        )}
+        {ratio !== null && (
+          <span
+            className={cn(
+              'shrink-0 font-mono',
+              warn && 'text-[var(--spark-warn)]',
+            )}
+            title={`上下文水位（最近一轮 usage 估算）——${
+              slice?.contextUsage !== null && slice?.contextUsage !== undefined
+                ? `约 ${contextTokensOf(slice.contextUsage)} tokens ÷ 窗口`
+                : '最近一轮 usage'
+            }${warn ? '，已超 80%（接近自动压缩阈值）' : ''}`}
+          >
+            水位 {Math.min(100, Math.round(ratio * 100))}%
           </span>
         )}
         <span
