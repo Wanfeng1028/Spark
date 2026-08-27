@@ -817,6 +817,72 @@ describe('GET/PUT/DELETE /api/secrets（阶段七工单 7.1 密钥管理）', ()
   })
 })
 
+describe('GET/PUT/DELETE /api/routing（阶段七工单 7.7 模型路由）', () => {
+  test('初值 → PUT 热更新回显 + 写回 models.json → DELETE usage 清零；坏形状 400', async () => {
+    const f = await setup()
+    // persistRouting 写回目标：PUT 前须有 models.json（引擎测试注入 config，盘上无文件）
+    await writeFile(
+      join(f.root, 'models.json'),
+      JSON.stringify({
+        providers: { fake: { apiKeyEnv: null } },
+        defaultModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+        models: [{ provider: 'fake', model: 'fake-chat', contextWindow: 100_000 }],
+      }),
+      'utf8',
+    )
+
+    const initial = await f.app.inject({ method: 'GET', url: '/api/routing' })
+    expect(initial.statusCode).toBe(200)
+    expect(initial.json<Json>()).toMatchObject({
+      fallbacks: [],
+      compactionModel: 'fake/fake-chat',
+      titleModel: 'fake/fake-chat',
+      subagentModel: 'fake/fake-chat',
+      costLimitUsd: null,
+      usage: { costUsd: 0, exceeded: false },
+    })
+
+    // PUT：回显即新态（热生效）
+    const put = await f.app.inject({
+      method: 'PUT',
+      url: '/api/routing',
+      payload: { fallbacks: ['fake/fake-chat'], costLimitUsd: 2.5 },
+    })
+    expect(put.statusCode).toBe(200)
+    expect(put.json<Json>()).toMatchObject({
+      fallbacks: ['fake/fake-chat'],
+      costLimitUsd: 2.5,
+    })
+
+    // 写回 models.json（重启延续）
+    const doc = JSON.parse(await readFile(join(f.root, 'models.json'), 'utf8')) as Json
+    expect(doc['fallbacks']).toEqual([
+      { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+    ])
+    expect(doc['costLimitUsd']).toBe(2.5)
+
+    // 未知 provider → 400 E_CONFIG；坏形状 → 400
+    const unknown = await f.app.inject({
+      method: 'PUT',
+      url: '/api/routing',
+      payload: { fallbacks: ['nope/x'] },
+    })
+    expect(unknown.statusCode).toBe(400)
+    expect((unknown.json<Json>())['code']).toBe('E_CONFIG')
+    const badShape = await f.app.inject({
+      method: 'PUT',
+      url: '/api/routing',
+      payload: { costLimitUsd: -1 },
+    })
+    expect(badShape.statusCode).toBe(400)
+
+    // DELETE usage：清零回显（解除熔断唯一入口）
+    const del = await f.app.inject({ method: 'DELETE', url: '/api/routing/usage' })
+    expect(del.statusCode).toBe(200)
+    expect((del.json<Json>())['usage']).toMatchObject({ costUsd: 0, exceeded: false })
+  })
+})
+
 describe('GET /api/metrics（工单 4.8）', () => {
   test('Prometheus 文本：一轮对话后 turns_total/durable 计数与 active gauge', async () => {
     const f = await setup()

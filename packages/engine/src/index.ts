@@ -168,6 +168,12 @@ export {
 } from './secrets/store.js'
 export { IoGuard, type IoWarning, type GuardDeps } from './tools/guard.js'
 export {
+  FallbackGateway,
+  type FallbackGatewayDeps,
+  type FallbackLogger,
+} from './fallback-gateway.js'
+export { CostTracker, type UsageTotal } from './cost-tracker.js'
+export {
   Logger,
   type SparkLogger,
   type LogFields,

@@ -15,6 +15,8 @@ import type {
   EventId,
   ModelTestResultDto,
   ModelsDto,
+  RoutingDto,
+  RoutingUpdate,
   PermissionPreset,
   PermissionReply,
   PermissionRuleDto,
@@ -654,6 +656,57 @@ export class MockTransport implements Transport {
     }
     this.modelOverrides.set(sessionId, model)
     return Promise.resolve(model)
+  }
+
+  // ---- 模型路由（工单 7.7 / H07）：内存态 mock——回放路由热更新语义 ----
+
+  private routing: RoutingDto = {
+    fallbacks: ['deepseek/deepseek-chat'],
+    compactionModel: 'deepseek/deepseek-chat',
+    titleModel: 'deepseek/deepseek-chat',
+    subagentModel: 'deepseek/deepseek-chat',
+    costLimitUsd: null,
+    usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, exceeded: false },
+  }
+
+  getRouting(): Promise<RoutingDto> {
+    this.assertNotDisposed()
+    return Promise.resolve(this.routing)
+  }
+
+  updateRouting(patch: RoutingUpdate): Promise<RoutingDto> {
+    this.assertNotDisposed()
+    const providerOf = (m: string): string => {
+      const slash = m.indexOf('/')
+      if (slash <= 0 || slash === m.length - 1) {
+        throw new Error(`E_CONFIG: model "${m}" 须为 provider/model 形式`)
+      }
+      const provider = m.slice(0, slash)
+      const configured = MockTransport.MODELS.providers.find((x) => x.id === provider)
+      if (configured === undefined || !configured.configured) {
+        throw new Error(`E_CONFIG: models.json 未配置 provider "${provider}"`)
+      }
+      return m
+    }
+    const next: RoutingDto = {
+      ...this.routing,
+      ...(patch.fallbacks !== undefined ? { fallbacks: patch.fallbacks.map(providerOf) } : {}),
+      ...(patch.compactionModel !== undefined ? { compactionModel: providerOf(patch.compactionModel) } : {}),
+      ...(patch.titleModel !== undefined ? { titleModel: providerOf(patch.titleModel) } : {}),
+      ...(patch.subagentModel !== undefined ? { subagentModel: providerOf(patch.subagentModel) } : {}),
+      ...(patch.costLimitUsd !== undefined ? { costLimitUsd: patch.costLimitUsd } : {}),
+    }
+    this.routing = next
+    return Promise.resolve(next)
+  }
+
+  resetUsage(): Promise<RoutingDto> {
+    this.assertNotDisposed()
+    this.routing = {
+      ...this.routing,
+      usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, exceeded: false },
+    }
+    return Promise.resolve(this.routing)
   }
 
   /** dtoOf 后叠加会话级换模型（内存态覆盖脚本 meta.model） */

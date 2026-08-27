@@ -65,6 +65,31 @@ export interface ToolPipeline {
   runAll(turn: TurnCtx, calls: readonly ToolCallPending[]): Promise<ToolPipelineResult[]>
 }
 
+/**
+ * 成本熔断端口（工单 7.7 / H07）：usage 聚合阈值中断。
+ * - turn 开始前 exceeded → 新 turn 拒绝（error 人话 + turn.completed{error}）；
+ * - 每步 usage 累加后检查 → 超限即中断本 turn（assistant.message 已 emit 后断——
+ *   产出保留，失败闭合走 finish='error'）。
+ */
+export interface Budget {
+  /** 当前成本上限美元值（undefined = 未配置，永不熔断） */
+  limitUsd(): number | undefined
+  /** 累加一步用量 */
+  add(usage: Usage): void
+  /** 熔断判定 */
+  exceeded(): boolean
+  /** 当前累计成本（人话错误文案用） */
+  spendUsd(): number
+}
+
+/** 熔断人话文案（工单 7.7 验收：触发后提示须可操作） */
+function budgetMessage(limitUsd: number, spendUsd: number): string {
+  return (
+    `E_BUDGET_EXCEEDED: 已达成本上限 $${limitUsd}（累计 $${spendUsd.toFixed(4)}）——` +
+    '本 turn 已熔断。可上调 models.json 的 costLimitUsd，或调用 DELETE /api/routing/usage 重置累计'
+  )
+}
+
 // ---- TurnCtx（§5.5）----
 
 export interface TurnCtx {
@@ -94,6 +119,8 @@ export interface RunLoopDeps {
   compactionThreshold: number
   /** 进程内指标（§5.10 清单；缺省不计数——测试 stub 可省，工单 4.8） */
   metrics?: Metrics
+  /** 成本熔断（工单 7.7 / H07；缺省不限——测试 stub 可省） */
+  budget?: Budget
   /** turn 边界 checkpoint（工单 4.6；config.engine.checkpoints=false 时缺省） */
   checkpoint?: Checkpointer
 }
@@ -168,6 +195,17 @@ export async function runTurn(
     })
     started = true
 
+    // 成本熔断（工单 7.7）：新 turn 拒绝——不调用 LLM，事件流人话闭合
+    // （finally 补 turn.completed{error}，失败闭合形态完整）
+    if (deps.budget !== undefined && deps.budget.exceeded()) {
+      await deps.bus.emit(sid, 'error', {
+        scope: 'engine',
+        message: budgetMessage(deps.budget.limitUsd() ?? 0, deps.budget.spendUsd()),
+      })
+      finish = 'error'
+      return
+    }
+
     for (;;) {
       turn.step += 1
       // ① steering 注入（pi：在 assistant 响应前生效）
@@ -204,6 +242,8 @@ export async function runTurn(
         { direction: 'output' },
         result.usage.outputTokens,
       )
+      // 成本熔断（工单 7.7）：记账口径同指标——全部流式调用都计入
+      deps.budget?.add(result.usage)
 
       if (result.stopReason === 'error') {
         await deps.bus.emit(sid, 'error', {
@@ -232,6 +272,15 @@ export async function runTurn(
         content: result.content,
         usage: result.usage,
       })
+      // 成本熔断（工单 7.7）：本步产出已定稿落盘，超限即中断（不再执行工具/续步）
+      if (deps.budget !== undefined && deps.budget.exceeded()) {
+        await deps.bus.emit(sid, 'error', {
+          scope: 'engine',
+          message: budgetMessage(deps.budget.limitUsd() ?? 0, deps.budget.spendUsd()),
+        })
+        finish = 'error'
+        break
+      }
       // ④ 截断保护（pi failToolCallsFromTruncatedMessage）
       if (result.stopReason === 'length') {
         const truncated = result.content.filter(isToolCall).map(toPending)

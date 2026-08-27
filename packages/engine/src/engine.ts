@@ -12,6 +12,7 @@
  * 退出 → 审批 pending 全部 fail-closed → 全量 flush + close。
  */
 import { readdir } from 'node:fs/promises'
+import { readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type {
@@ -23,6 +24,8 @@ import type {
   PermissionPreset,
   PermissionReply,
   RequestId,
+  RoutingDto,
+  RoutingUpdate,
   SessionId,
   SparkEventEnvelope,
   SparkEventMap,
@@ -42,6 +45,8 @@ import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
 import { listModels, testProvider } from './model-catalog.js'
 import type { Compactor } from './run-loop.js'
 import { PiGateway } from './pi-gateway.js'
+import { FallbackGateway } from './fallback-gateway.js'
+import { CostTracker } from './cost-tracker.js'
 import { buildSystemPrompt, PLAN_MODE_DIRECTIVE } from './prompts.js'
 import { ProjectorImpl } from './projector.js'
 import { reasoningIncluded } from './projector.js'
@@ -176,6 +181,19 @@ export class Engine {
   private readonly secrets: SecretStore
   /** I/O 护栏（阶段七工单 7.2 / H02）：工具输出注入检测 + 敏感过滤 */
   private readonly ioGuard: IoGuard
+  /** 成本累计（阶段七工单 7.7 / H07）：~/.spark/usage.json 持久化，熔断判定数据源 */
+  private readonly costTracker: CostTracker
+  /**
+   * 模型路由状态（阶段七工单 7.7 / H07）：fallback 链 + 任务路由档 + 成本上限。
+   * 就地可变（updateRouting 改属性不换对象）——已装接线闭包持同一引用，热生效。
+   */
+  private readonly routing: {
+    fallbacks: ResolvedModel[]
+    compactionModel: ResolvedModel
+    titleModel: ResolvedModel
+    subagentModel: ResolvedModel
+    costLimitUsd: number | undefined
+  }
   /** 进程内指标计数器（§5.10 清单；GET /api/metrics 数据源，工单 4.8） */
   private readonly metrics = new Metrics()
   /** 会话索引（node:sqlite；JSONL 恒为权威——损坏即降级磁盘扫描，工单 4.8） */
@@ -208,7 +226,18 @@ export class Engine {
     this.config = deps.config ?? loadConfig(this.root)
     this.now = deps.now ?? Date.now
     this.newSessionId = deps.newSessionId ?? newIds.session
-    this.gateway = deps.gateway ?? new PiGateway()
+    // 工单 7.7：网关包 fallback 装饰器（链每请求现读 this.routing——热生效）；
+    // 空链零开销短路，deps.gateway 注入（ScriptedLlm）行为不变。
+    // logger 闭包延迟解析（构造器内 gateway 先于 logger 赋值，调用时必已就绪）
+    this.gateway = new FallbackGateway({
+      inner: deps.gateway ?? new PiGateway(),
+      chain: () => this.routing.fallbacks,
+      logger: {
+        warn: (msg, data) => {
+          this.logger.warn(msg, data)
+        },
+      },
+    })
     if (deps.logger !== undefined) {
       this.logger = deps.logger
       this.ownsLogger = false
@@ -311,6 +340,15 @@ export class Engine {
     this.logger.registerSecrets?.(this.secrets.values())
     // 工单 7.2：I/O 护栏——store 值动态取（setSecret 即时生效，与日志脱敏同纪律）
     this.ioGuard = new IoGuard({ secretValues: () => this.secrets.values() })
+    // 工单 7.7：成本熔断计量（usage.json 跨进程延续）+ 路由状态（ResolvedModel 化）
+    this.costTracker = new CostTracker(join(this.root, 'usage.json'))
+    this.routing = {
+      fallbacks: this.config.models.fallbacks.map((r) => this.resolveModel(r)),
+      compactionModel: this.resolveModel(this.config.models.compactionModel),
+      titleModel: this.resolveModel(this.config.models.titleModel),
+      subagentModel: this.resolveModel(this.config.models.subagentModel),
+      costLimitUsd: this.config.models.costLimitUsd,
+    }
     this.permission = new PermissionServiceImpl({
       bus: this.bus,
       ruleStore: this.ruleStore,
@@ -373,7 +411,13 @@ export class Engine {
   ): Promise<SessionHandle> {
     this.assertNotShutdown()
     const cwd = opts.cwd ?? this.defaultCwd
-    const modelRef = this.resolveModelRef(opts.model)
+    // 工单 7.7：子代理派生（parentId 存在）缺省用 subagentModel 路由档（热更新现读）；
+    // 显式 opts.model 优先（调用方指定即尊重）
+    const subagentDefault =
+      opts.parentId !== undefined
+        ? `${this.routing.subagentModel.provider}/${this.routing.subagentModel.model}`
+        : undefined
+    const modelRef = this.resolveModelRef(opts.model ?? subagentDefault)
     const modelStr = `${modelRef.provider}/${modelRef.model}`
     const sessionId = this.newSessionId()
     const createdAt = this.now()
@@ -657,6 +701,93 @@ export class Engine {
     entry.meta.model = `${modelRef.provider}/${modelRef.model}`
     this.syncIndex(entry.meta)
     return entry.meta.model
+  }
+
+  // ---- 模型路由（阶段七工单 7.7 / H07：fallback 链 + 任务路由 + 成本熔断） ----
+
+  /** GET /api/routing：路由状态 + 成本累计（apiKey 永不进 DTO） */
+  getRouting(): RoutingDto {
+    const spend = this.costTracker.spend()
+    const id = (m: ResolvedModel): string => `${m.provider}/${m.model}`
+    return {
+      fallbacks: this.routing.fallbacks.map(id),
+      compactionModel: id(this.routing.compactionModel),
+      titleModel: id(this.routing.titleModel),
+      subagentModel: id(this.routing.subagentModel),
+      costLimitUsd: this.routing.costLimitUsd ?? null,
+      usage: {
+        costUsd: spend.costUsd,
+        inputTokens: spend.inputTokens,
+        outputTokens: spend.outputTokens,
+        exceeded: this.costTracker.exceeded(this.routing.costLimitUsd),
+      },
+    }
+  }
+
+  /**
+   * PUT /api/routing：热更新（就地改 routing 属性——已装接线闭包下一请求生效）。
+   * 形状/provider 未配置 → E_CONFIG（400）；通过后写回 models.json（重启延续）。
+   */
+  updateRouting(patch: RoutingUpdate): RoutingDto {
+    this.assertNotShutdown()
+    if (patch.fallbacks !== undefined) {
+      this.routing.fallbacks = patch.fallbacks.map((m) => this.resolveModel(this.resolveModelRef(m)))
+    }
+    if (patch.compactionModel !== undefined) {
+      this.routing.compactionModel = this.resolveModel(this.resolveModelRef(patch.compactionModel))
+    }
+    if (patch.titleModel !== undefined) {
+      this.routing.titleModel = this.resolveModel(this.resolveModelRef(patch.titleModel))
+    }
+    if (patch.subagentModel !== undefined) {
+      this.routing.subagentModel = this.resolveModel(this.resolveModelRef(patch.subagentModel))
+    }
+    if (patch.costLimitUsd !== undefined) {
+      this.routing.costLimitUsd = patch.costLimitUsd ?? undefined
+    }
+    this.persistRouting()
+    this.logger.info('routing.update', {
+      fallbacks: this.routing.fallbacks.length,
+      costLimitUsd: this.routing.costLimitUsd ?? null,
+    })
+    return this.getRouting()
+  }
+
+  /** DELETE /api/routing/usage：清零成本累计（解除熔断的唯一入口） */
+  resetUsage(): RoutingDto {
+    this.assertNotShutdown()
+    this.costTracker.reset()
+    this.logger.info('routing.usage.reset')
+    return this.getRouting()
+  }
+
+  /** 路由字段写回 models.json（原子写；其余字段原样保留） */
+  private persistRouting(): void {
+    const path = join(this.root, 'models.json')
+    let raw: unknown
+    try {
+      raw = JSON.parse(readFileSync(path, 'utf8')) as unknown
+    } catch (err) {
+      // 不兜底重写空文档——那会抹掉 providers/defaultModel；内存已更新，持久化显式失败
+      throw new Error(
+        `E_CONFIG: models.json 读取失败，路由配置仅内存生效未持久化：${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
+    const doc = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
+    const toRef = (m: ResolvedModel): { provider: string; model: string; contextWindow: number } => ({
+      provider: m.provider,
+      model: m.model,
+      contextWindow: m.contextWindow,
+    })
+    doc.fallbacks = this.routing.fallbacks.map(toRef)
+    doc.compactionModel = toRef(this.routing.compactionModel)
+    doc.titleModel = toRef(this.routing.titleModel)
+    doc.subagentModel = toRef(this.routing.subagentModel)
+    if (this.routing.costLimitUsd === undefined) delete doc.costLimitUsd
+    else doc.costLimitUsd = this.routing.costLimitUsd
+    const tmp = `${path}.tmp`
+    writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`)
+    renameSync(tmp, path)
   }
 
   // ---- 会话索引（工单 4.8：node:sqlite；JSONL 恒为权威，损坏降级磁盘扫描） ----
@@ -1007,14 +1138,17 @@ export class Engine {
         this.logger.warn('projector.dangling_anchor', { sid: meta.id, anchorId })
       },
     })
-    const compactionModel = this.resolveModel(this.config.models.compactionModel)
+    // 工单 7.7：路由档 getter 现读 routing（就地可变对象）——PUT /api/routing 热生效
+    const routing = this.routing
     const compactor = new CompactorImpl({
       sessionId: meta.id,
       bus: this.bus,
       gateway: this.gateway,
       projector,
       tree: store.tree,
-      model: compactionModel,
+      get model(): ResolvedModel {
+        return routing.compactionModel
+      },
       keepTokens: Math.round(
         (this.config.spark.engine.compactionThreshold * currentModel.contextWindow) / 2,
       ),
@@ -1024,7 +1158,9 @@ export class Engine {
       bus: this.bus,
       gateway: this.gateway,
       projector,
-      model: compactionModel, // §5.11 辅助提示词同一廉价通道
+      get model(): ResolvedModel {
+        return routing.titleModel
+      },
     })
     const checkpointer = this.config.spark.engine.checkpoints
       ? new GitCheckpointer({
@@ -1074,6 +1210,13 @@ export class Engine {
       maxStepsPerTurn: this.config.spark.engine.maxStepsPerTurn,
       compactionThreshold: this.config.spark.engine.compactionThreshold,
       metrics: this.metrics,
+      // 工单 7.7：成本熔断——limitUsd 现读 routing（热生效），累计跨进程持久
+      budget: {
+        limitUsd: () => this.routing.costLimitUsd,
+        add: (u) => this.costTracker.add(u),
+        exceeded: () => this.costTracker.exceeded(this.routing.costLimitUsd),
+        spendUsd: () => this.costTracker.spend().costUsd,
+      },
       ...(checkpointer !== null
         ? {
             checkpoint: {

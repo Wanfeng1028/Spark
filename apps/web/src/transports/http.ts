@@ -18,6 +18,8 @@ import type {
   PermissionReply,
   PermissionRuleDto,
   RequestId,
+  RoutingDto,
+  RoutingUpdate,
   SecretStatusDto,
   SessionDto,
   SessionId,
@@ -310,6 +312,21 @@ export class HttpTransport implements Transport {
       method: 'PUT',
       body: JSON.stringify({ model }),
     }).then((r) => r.model)
+  }
+
+  getRouting(): Promise<RoutingDto> {
+    return this.req<RoutingDto>('/api/routing')
+  }
+
+  updateRouting(patch: RoutingUpdate): Promise<RoutingDto> {
+    return this.req<RoutingDto>('/api/routing', {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    })
+  }
+
+  resetUsage(): Promise<RoutingDto> {
+    return this.req<RoutingDto>('/api/routing/usage', { method: 'DELETE' })
   }
 
   dispose(): void {

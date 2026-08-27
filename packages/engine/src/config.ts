@@ -92,6 +92,9 @@ const compactionModelSchema = modelRefSchema.extend({
   contextWindow: z.number().int().positive().optional(),
 })
 
+/** 工单 7.7：路由档/fallback 链条目（contextWindow 缺省取 defaultModel 的值） */
+const routingModelSchema = compactionModelSchema
+
 const modelsSchema = z.object({
   providers: z.record(
     z.string().min(1),
@@ -102,6 +105,14 @@ const modelsSchema = z.object({
   ),
   defaultModel: defaultModelSchema,
   compactionModel: compactionModelSchema.optional(),
+  /** 工单 7.7 / H07：provider fallback 链（主模型不可用且无已交付内容时逐个切换） */
+  fallbacks: z.array(routingModelSchema).optional(),
+  /** 工单 7.7：标题生成路由档（缺省 compactionModel——§5.11 辅助通道同一模型） */
+  titleModel: routingModelSchema.optional(),
+  /** 工单 7.7：子代理路由档（缺省 defaultModel） */
+  subagentModel: routingModelSchema.optional(),
+  /** 工单 7.7：成本上限美元值（usage.costUsd 聚合到阈值即熔断；缺省不限） */
+  costLimitUsd: z.number().positive().optional(),
   /** 可选模型清单（工单 6.5）：选择器级联与设置页模型列表的数据源；defaultModel/compactionModel 自动并入 */
   models: z
     .array(
@@ -124,6 +135,14 @@ export interface ModelsConfig {
   providers: Record<string, { apiKeyEnv: string | null; baseUrl?: string | undefined }>
   defaultModel: ModelRef
   compactionModel: ModelRef
+  /** 工单 7.7：fallback 链（主模型失败且无已交付内容时逐个切换；空链 = 不切换） */
+  fallbacks: ModelRef[]
+  /** 工单 7.7：标题生成路由档（缺省 compactionModel） */
+  titleModel: ModelRef
+  /** 工单 7.7：子代理路由档（缺省 defaultModel） */
+  subagentModel: ModelRef
+  /** 工单 7.7：成本上限美元值（undefined = 不限） */
+  costLimitUsd: number | undefined
   /** 显式 models[] + defaultModel/compactionModel 合并去重（provider/model 键） */
   models: ModelRef[]
 }
@@ -224,6 +243,20 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
   const compactionModel: ModelRef = modelsParsed.compactionModel
     ? { ...modelsParsed.compactionModel, contextWindow: modelsParsed.compactionModel.contextWindow ?? defaultModel.contextWindow }
     : defaultModel
+  // 工单 7.7 路由规范化：titleModel 缺省 compactionModel；subagentModel 缺省 defaultModel；
+  // fallback 链条目 contextWindow 缺省补 defaultModel 的值
+  const withWindow = (m: { provider: string; model: string; contextWindow?: number | undefined }): ModelRef => ({
+    provider: m.provider,
+    model: m.model,
+    contextWindow: m.contextWindow ?? defaultModel.contextWindow,
+  })
+  const titleModel = modelsParsed.titleModel
+    ? withWindow(modelsParsed.titleModel)
+    : compactionModel
+  const subagentModel = modelsParsed.subagentModel
+    ? withWindow(modelsParsed.subagentModel)
+    : defaultModel
+  const fallbacks = (modelsParsed.fallbacks ?? []).map(withWindow)
   // models[] + defaultModel/compactionModel 合并去重（先显式后自动，首个 contextWindow 生效）
   const merged: ModelRef[] = []
   const seen = new Set<string>()
@@ -236,10 +269,17 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
   for (const m of modelsParsed.models ?? []) push(m)
   push(defaultModel)
   push(compactionModel)
+  push(titleModel)
+  push(subagentModel)
+  for (const m of fallbacks) push(m)
   const models: ModelsConfig = {
     providers: modelsParsed.providers,
     defaultModel,
     compactionModel,
+    fallbacks,
+    titleModel,
+    subagentModel,
+    costLimitUsd: modelsParsed.costLimitUsd,
     models: merged,
   }
 

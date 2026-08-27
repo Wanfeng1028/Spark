@@ -149,3 +149,38 @@ export const ModelTestResultDtoSchema = z.strictObject({
   detail: z.string().optional(),
 })
 export type ModelTestResultDto = z.infer<typeof ModelTestResultDtoSchema>
+
+// ---------- routing（doc/02 §8 阶段七工单 7.7 / H07，P0） ----------
+
+/** 成本累计（GET /api/routing 的 usage 区；exceeded = 熔断已触发） */
+export const RoutingUsageDtoSchema = z.strictObject({
+  costUsd: z.number().nonnegative(),
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  exceeded: z.boolean(),
+})
+export type RoutingUsageDto = z.infer<typeof RoutingUsageDtoSchema>
+
+/** 模型路由状态：fallback 链 + 任务路由四档（主档=会话模型，不在此表）+ 成本上限 */
+export const RoutingDtoSchema = z.strictObject({
+  /** fallback 链（"provider/model" 列表；空 = 不切换） */
+  fallbacks: z.array(z.string()),
+  compactionModel: z.string(),
+  titleModel: z.string(),
+  subagentModel: z.string(),
+  /** 成本上限美元值（null = 未配置，永不熔断） */
+  costLimitUsd: z.number().positive().nullable(),
+  usage: RoutingUsageDtoSchema,
+})
+export type RoutingDto = z.infer<typeof RoutingDtoSchema>
+
+/** PUT /api/routing 请求体（全部可选字段；缺省字段保持现值；热生效下一请求） */
+export const RoutingUpdateSchema = z.strictObject({
+  fallbacks: z.array(z.string().min(1)).optional(),
+  compactionModel: z.string().min(1).optional(),
+  titleModel: z.string().min(1).optional(),
+  subagentModel: z.string().min(1).optional(),
+  /** null = 清除上限（不限） */
+  costLimitUsd: z.number().positive().nullable().optional(),
+})
+export type RoutingUpdate = z.infer<typeof RoutingUpdateSchema>

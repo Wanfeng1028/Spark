@@ -12,6 +12,8 @@ import type {
   ModelsDto,
   PermissionPreset,
   PermissionRuleDto,
+  RoutingDto,
+  RoutingUpdate,
   SecretStatusDto,
   SessionDto,
   TreeNodeDto,
@@ -73,5 +75,11 @@ export interface Transport {
   testModelProvider(providerId: string): Promise<ModelTestResultDto>
   /** PUT /api/sessions/:id/model：会话级换模型（内存态，下一个 turn 生效；重启回会话文件模型） */
   setSessionModel(sessionId: SessionId, model: string): Promise<string>
+  /** GET /api/routing：fallback 链 + 任务路由档 + 成本上限与累计（工单 7.7） */
+  getRouting(): Promise<RoutingDto>
+  /** PUT /api/routing：热更新路由配置（校验失败 400；下一请求生效；写回 models.json） */
+  updateRouting(patch: RoutingUpdate): Promise<RoutingDto>
+  /** DELETE /api/routing/usage：清零成本累计（解除熔断） */
+  resetUsage(): Promise<RoutingDto>
   dispose(): void
 }

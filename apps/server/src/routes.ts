@@ -13,6 +13,7 @@ import {
   PermissionReplySchema,
   PermissionRuleDtoSchema,
   RequestIdSchema,
+  RoutingUpdateSchema,
   SessionIdSchema,
   TurnIdSchema,
 } from '@spark/protocol'
@@ -400,6 +401,29 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
       await requireHandle(engine, id) // 存在性校验（未加载会话先 resume，与其他 :id 端点同纪律）
       const model = await engine.setSessionModel(id, body.model)
       return reply.send({ model })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 模型路由（阶段七工单 7.7 / H07）：fallback 链 + 任务路由档 + 成本熔断（热生效）
+  app.get('/api/routing', () => {
+    // 纯内存读（含 usage.json 启动载入的累计）：无网络请求
+    return engine.getRouting()
+  })
+
+  app.put('/api/routing', async (req, reply) => {
+    try {
+      const patch = parseOr400(RoutingUpdateSchema, req.body)
+      return reply.send(engine.updateRouting(patch))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.delete('/api/routing/usage', async (req, reply) => {
+    try {
+      return reply.send(engine.resetUsage())
     } catch (err) {
       return sendError(req, reply, err)
     }

@@ -57,6 +57,7 @@
 | v3.8  | 2026-08-26 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段六开工指令） | **阶段六工单 6.8 完成（阶段六全勾）**：L2 组件测试 22 例（ApprovalCard 三键+feedback+resolved 收起 / ToolCard 三态+展开区 / Composer 三态+发送失败草稿回填——vitest+@testing-library/react+jsdom，dom-stubs 补 matchMedia/rAF）；L3 E2E 7 例（mock 四场景回归+模拟断线恢复+E_MOCK_UNKNOWN_SESSION 人话断言+三视口截图，Playwright chromium 单档、单 worker 串行、webServer 起 vite VITE_SPARK_MOCK=1，`pnpm --filter @spark/web e2e`）；L3.5 基线截图 6 张入 apps/web/e2e/__screenshots__/（welcome/session × 1280/1440/375）。落地差异：沙箱网关拦截 PLAYWRIGHT CDN——SPARK_E2E_BROWSER 支持系统 Chrome executablePath 兜底；vite 绑 localhost 仅 IPv6——webServer 显式 --host 127.0.0.1；虚拟列表节点回收重置展开态——展开断言留 L2。web vitest 144 例全绿（新增 22）+ E2E 连续两轮 7/7 + typecheck/lint 全绿；doc/06 v1.1 同步 |
 | v3.9  | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                     | 阶段七工单 **7.1 secrets 管理落地**：SecretStore（~/.spark/secrets.json，原子写+0600+坏 JSON fail-closed）+ resolveApiKey 单点（store > env 迁移兼容）+ GET/PUT/DELETE /api/secrets（值永不回传）+ 设置中心模型页密钥区（随工单 6.4 瘦身自 SettingsDialog 迁入）+ Logger.registerSecrets（store 值单点注册进 pino 脱敏层）；§1.4 风险表与 §4.5 API 表同步；阶段七 7.1 勾选 |
 | v3.10 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                     | 阶段七工单 **7.2 I/O 护栏落地（H02，P0）**：新增事件 `io.warning`（log-only，durable 不 surface，告警只含结构化规则名不含原文——防注入内容/密钥片段经告警二次广播）；**事件词表 19→20 种**（§4.3/§4.4/§6.4 三表同步，AGENTS/ARCHITECTURE/README 同步）；引擎 IoGuard（tools/guard.ts：六条注入标记协议规则 + 敏感输出过滤四层——sk-token/Bearer/env 值/store 值，redaction.ts 脱敏正则单一来源与 pino 共用；递归字符串处理对象形状保留；/g 正则 lastIndex 复位防漏检）挂点 ToolPipeline 成功路径输出限界之后（tool.completed 事件与 run-loop toolResult 回填同源一次过滤两面覆盖）；告警不阻断 turn（warn 闭合非失败闭合）；guard 单测 14 例（六规则样例集/四层过滤/递归形状/管线集成 e2e 含事件原文泄漏自检）+ applyEvent 3 例 + protocol round-trip 20 种；阶段七 7.2 勾选、doc/07 H02 勾销 |
+| v3.11 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                     | 阶段七工单 **7.7 model routing 落地（H07，P0）**：engine `fallback-gateway.ts`（LlmGateway 装饰器——仅 stopReason=error 且零已交付时逐个切链（aborted/部分交付不切，pi"已交付即不重试"同源）；链尽汇总 `E_LLM_FALLBACK` 人话列各模型失败原因；空链短路 inner 行为完全不变；链经函数每请求现读支持热更新）+ `cost-tracker.ts`（~/.spark/usage.json 原子写持久累计，坏 JSON/形状 fail-closed E_CONFIG，exceeded = 累计 ≥ 阈值）+ run-loop `Budget` 端口熔断双检点（新 turn 拒绝 + 每步 assistant.message 定稿后中断，`E_BUDGET_EXCEEDED` 人话含解除路径）+ engine 装配（FallbackGateway 包 PiGateway；compaction/title/subagent 路由档 getter 现读热生效；getRouting/updateRouting/resetUsage 写回 models.json）；models.json 增 `fallbacks/titleModel/subagentModel/costLimitUsd`（zod+缺省回 defaultModel/不限）；protocol 增 RoutingDto/RoutingUpdate + Transport 三方法；server 注册 GET/PUT /api/routing、DELETE /api/routing/usage；web Http/MockTransport 对等实现；routing 单测 20 例（gateway 切换纪律/链尽汇总/空链短路/热更新/CostTracker 持久化往返/fail-closed/Engine 集成热生效+熔断闭环+写回）+ run-loop 熔断 2 例 + server 路由 1 例；§4.5/§5.1/§7.2 表同步；阶段七 7.7 勾选、doc/07 H07 勾销 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -457,6 +458,9 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | GET  | /api/secrets                | —                                                    | `{ secrets: SecretStatusDto[] }`（阶段七工单 7.1；值永不回传） |
 | PUT  | /api/secrets/:provider      | `{ value }`                                          | `{ ok:true }`；provider 未配置 → 400 `E_CONFIG`      |
 | DELETE | /api/secrets/:provider    | —                                                    | `{ ok:true }`；store 无此条 → 404 `E_NOT_FOUND`      |
+| GET  | /api/routing                | —                                                    | `RoutingDto`（阶段七工单 7.7：fallback 链/任务路由档/成本上限/usage 累计） |
+| PUT  | /api/routing                | `RoutingUpdate`（任一字段可选）                      | `RoutingDto`（热生效——下一请求；写回 models.json；坏形状/provider 未配置 → 400） |
+| DELETE | /api/routing/usage       | —                                                    | `RoutingDto`（usage 清零——解除成本熔断的唯一入口）  |
 | GET  | /api/sessions/:id/tree      | —                                                    | TreeNode[]（阶段四）                                 |
 | POST | /api/sessions/:id/fork      | `{ fromEventId }`                                    | SessionDto（阶段四）                                 |
 | GET  | /api/event                  | `?sessionId&since`（均可省略，语义见 §4.6 订阅语义） | SSE 流                                               |
@@ -574,8 +578,10 @@ createEngine(config)
 ```
 ~/.spark/
 ├── spark.json            # 引擎行为配置
-├── models.json           # provider 与默认模型
+├── models.json           # provider 与默认模型（含路由档：fallback 链/任务路由/成本上限）
 ├── permissions.json      # 用户级审批规则
+├── secrets.json          # 密钥仓（工单 7.1；store > env）
+├── usage.json            # 成本累计（工单 7.7；原子写，重启延续）
 ├── sessions/<cwd-munged>/<ses_id>.jsonl
 ├── tool-outputs/<callId> # 超大工具输出溢写
 └── logs/engine.log       # pino 日志（按天滚动）
@@ -605,6 +611,12 @@ createEngine(config)
   },
   "defaultModel": { "provider": "deepseek", "model": "deepseek-chat", "contextWindow": 128000 },
   "compactionModel": { "provider": "deepseek", "model": "deepseek-chat" },
+  "fallbacks": [                                          // 工单 7.7：主模型失败（无已交付）时依序切换
+    { "provider": "anthropic", "model": "claude-x" }
+  ],
+  "titleModel": { "provider": "deepseek", "model": "deepseek-chat" },      // 自动标题路由档
+  "subagentModel": { "provider": "deepseek", "model": "deepseek-chat" },   // 子代理路由档
+  "costLimitUsd": 5,                                      // 成本熔断阈值（累计 usage.costUsd ≥ 此值断新 turn）
   "models": [
     { "provider": "deepseek", "model": "deepseek-chat", "contextWindow": 128000 },
     { "provider": "deepseek", "model": "deepseek-reasoner", "contextWindow": 128000 }
@@ -617,7 +629,7 @@ createEngine(config)
 | 文件             | 字段 → 类型/约束                                                                                                                                                                                                         | 缺省                                                                 |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
 | spark.json       | `server.port`: int(1-65535)；`server.host`: string；`engine.maxStepsPerTurn/maxToolParallel`: int≥1；`toolTimeoutMs/permissionTimeoutMs/progressThrottleMs/toolOutputLimitKB`: int>0；`compactionThreshold`: number(0,1)；`checkpoints`: boolean；`bashSandbox`: 'off'\|'on'（工单 5.2，ADR D15：on = 平台 wrapper 前缀 + 不可用即拒跑） | 全部可缺省（取 §5.1 默认值）；文件本身可不存在                       |
-| models.json      | `providers`: record<string, {apiKeyEnv: string\|null, baseUrl?: url}>；`defaultModel/compactionModel`: {provider, model, contextWindow: int>0}；`models`: {provider, model, contextWindow: int>0}[]（工单 6.5：可选模型清单——Composer 模型选择器与 GET /api/models 数据源；加载时与 defaultModel/compactionModel 合并去重，显式条目在前首个 contextWindow 生效） | **无缺省——defaultModel 必填**（缺失/校验失败 → `E_CONFIG` 启动失败）；models[] 缺省 = [defaultModel] |
+| models.json      | `providers`: record<string, {apiKeyEnv: string\|null, baseUrl?: url}>；`defaultModel/compactionModel`: {provider, model, contextWindow: int>0}；`models`: {provider, model, contextWindow: int>0}[]（工单 6.5：可选模型清单——Composer 模型选择器与 GET /api/models 数据源；加载时与 defaultModel/compactionModel 合并去重，显式条目在前首个 contextWindow 生效）；`fallbacks`: {provider, model, contextWindow?}[]（工单 7.7：contextWindow 缺省回 defaultModel）；`titleModel/subagentModel`: {provider, model, contextWindow?}（工单 7.7：任务路由档，缺省回 defaultModel）；`costLimitUsd`: number>0 | **无缺省——defaultModel 必填**（缺失/校验失败 → `E_CONFIG` 启动失败）；models[] 缺省 = [defaultModel]；fallbacks/titleModel/subagentModel/costLimitUsd 缺省 = 空链/defaultModel/defaultModel/不限 |
 | permissions.json | `version`: 1；`rules`: {action, resource, effect: 'allow'\|'deny'\|'ask'}[]                                                                                                                                              | 空规则表（全部落默认 ask）                                           |
 | mcp.json         | `version`: 1；`servers`: record<string, {command: string, args?: string[], env?: record<string,string>}>（工单 5.3，ADR D16：stdio MCP server 声明，工具注册进同一 ToolRegistry，审批 action `mcp.call`/resource `<server>/<tool>` 默认 ask） | 空表（零外部工具，引擎照常启动；单 server 连接失败 warn 跳过）       |
 | skills/ 目录     | `<root>/skills/<name>/skill.json`：`version`: 1；`name`: ^[a-z0-9][a-z0-9-]*$；`events`: record<`plugin.` 前缀类型, {description?, liveOnly?, data: JSON Schema}>；`hooks`?: {on: 内置事件类型, emit: 本 skill 事件}[]（工单 5.5，ADR D18：声明式清单——插件是数据不是程序，不执行任意代码；hooks data 固定形状 `{skill, sourceEventId, sourceType}`） | 目录不存在 = 零插件；单 skill 坏清单/类型冲突/钩子非法 warn 跳过（引擎照常启动） |
@@ -1657,6 +1669,7 @@ app.post('/api/sessions/:id/messages', async (req, reply) => {
 | GET /:id/tree · POST /:id/fork   | 阶段四工单 4.5 已注册：tree = `treeOf()`（节点链 + label 摘要 + forks 磁盘扫描归组）；fork = `forkSession()`（三拒绝码 §5.8.6：INVALID_BOUNDARY 400 / OPEN_TURN 409 / ALREADY_EXISTS 409）→ 201 + SessionMetaDto |
 | GET /:id/checkpoints · POST /:id/checkpoints/:cid/rollback | 阶段四工单 4.6 已注册：list = `checkpointsOf()`（索引读出旧→新，commit sha 不上线）；rollback = `rollbackToCheckpoint()`（§5.8.7 两域复位：仅 idle 受理，运行中 409 E_TURN_ACTIVE、快照不存在/未启用 404、git 失败 500 E_CHECKPOINT_ROLLBACK 详情只进日志）→ 200 + SessionMetaDto（**回滚后 seq 回退**，响应不含 events，前端走 GET /:id 全量重放） |
 | GET /api/models · POST /api/models/:providerId/test · PUT /api/sessions/:id/model | 阶段六工单 6.5 已注册（本阶段唯一 engine/server 轻后端例外，ADR D7 补记同款内存态先例）：models = `engine.listModels()`（PROVIDER_CATALOG 内置目录 8 家 + models.json providers 独有自定义，掩码原则 apiKeyEnv 只回环境变量名、key 值永不上线）；test = `testProvider()`（廉价鉴权探针 openai 系 GET /models、anthropic GET /v1/models，8s 超时；**ok=false 不是传输失败走 200** + 时延/人话文案，detail 折叠透出）；PUT model = `setSessionModel()`（**内存态，下一 turn 生效**，会话文件 header 不动——重启回会话文件模型；坏形状/未配置 provider 400 E_CONFIG、未知会话 404）→ 200 `{model}` |
+| GET/PUT/DELETE /api/routing | 阶段七工单 7.7 已注册：GET = `engine.getRouting()`（路由状态 + usage 累计，apiKey 永不进 DTO）；PUT = `updateRouting()`（zod RoutingUpdate 任选字段——fallbacks/compactionModel/titleModel/subagentModel/costLimitUsd，**就地改 routing 属性热生效**（已装接线闭包下一请求生效），通过后写回 models.json（重启延续；读盘失败显式 E_CONFIG 不兜底重写），坏形状/未配置 provider 400）；DELETE usage = `resetUsage()`（usage.json 清零——解除成本熔断的唯一入口）→ RoutingDto |
 
 校验失败 400（zod flatten）；未知会话 404。并发安全由引擎单写者与 per-session 串行保证，路由层无锁。
 
@@ -1798,7 +1811,7 @@ app.get('/api/event', async (req, reply) => {
 | 7.4  | 命令注册表（H04）             | engine+web：/命令 解析框架（/compact 迁入）+ ~/.spark/commands/*.md 自定义命令 + CommandPalette 接入；**命令清单基线 = 对齐 Claude Code 命令面（/compact /model /mcp /skills /usage /resume）+ opencode leader 键模式（ctrl+x 前缀）——命令名可不同，覆盖面以此为下限** | 基线清单逐条可用；自定义 .md 命令可被发现与执行；/compact 行为回归不变                                 | —       |
 | 7.5  | 长期记忆（H05，P1）           | engine+web：~/.spark/memory.db（node:sqlite FTS5；向量检索后置）+ memory.save/search 工具族 + Projector 注入 top-k + 设置页管理；迷你 ADR                          | 记忆跨会话生效（save→新会话 search 命中）；注入不破坏 surface 纪律（模型可见必被记录）                 | 7.1     |
 | 7.6  | 自动化触发器（H06，P1）       | engine+web：cron / watch / webhook 三类触发 → 自动建会话执行 prompt；任务列表 + 运行历史 UI；迷你 ADR                                                             | 三类触发器各一条 e2e；运行历史可查；失败运行有结构化错误留存                                           | 7.1     |
-| 7.7  | model routing 增强（H07，P0） | engine：provider fallback 链 + 按任务路由（主/压缩/标题/子代理）+ 成本上限熔断（usage 聚合阈值中断）                                                             | 主模型断连自动 fallback；熔断触发后新 turn 拒绝且人话提示；路由配置热生效                              | —       |
+| 7.7  | ✅ model routing 增强（H07，P0） | engine：provider fallback 链 + 按任务路由（主/压缩/标题/子代理）+ 成本上限熔断（usage 聚合阈值中断）                                                             | 主模型断连自动 fallback；熔断触发后新 turn 拒绝且人话提示；路由配置热生效                              | —       |
 | 7.8  | 子代理增强（H08，P1）         | engine+web：并行 Task（解除单并发）+ 树状运行监控（复用 4.5 树视图加运行态）                                                                                     | 多子代理并行互不串扰；监控视图实时状态与事件流一致；单层限制语义不变                                   | —       |
 | 7.10 | browser 工具族（H09，P2）     | engine+web：Playwright chromium；browser.open/click/read/screenshot 工具、审批默认 ask、前端 BrowserCard 可视化；迷你 ADR                                         | 四工具走查（真实页面）；审批/中断/失败闭合与内置工具同管线；截图经工具输出限界                          | —       |
 | 7.11 | eval harness（H10，P2）       | examples+脚本：examples/evals 场景集（ScriptedLlm 回归 + 可选真实模型评分）+ pnpm eval + 接入 nightly（doc/06 §2）                                                | pnpm eval 本地可跑；nightly 红灯出报告；场景集含审批/中断/压缩回归                                     | —       |

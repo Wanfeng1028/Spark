@@ -7,6 +7,7 @@
 | v1.0 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D1 审计指令） | 初稿：十九条学科×三态总表 / 工程六大类明细（逐条落源码证据）/ 四端复用矩阵 / 缺口优先级 P0–P2；Python Worker 判决"不做"；缺口编号 H01–H36 供 doc/02 §8 阶段六~九工单与 v2 候选池引用 |
 | v1.1 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §2.4 密钥鉴权改 🟡（H01 → 7.1 ✅ 已落地：SecretStore + resolveApiKey store>env + /api/secrets + 设置页 + Logger.registerSecrets 日志脱敏）；§4.3 H01 勾销注记 |
 | v1.2 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §2.4 I/O 护栏改 ✅（H02 → 7.2 ✅ 已落地：IoGuard 六条注入标记规则 + 四层敏感过滤挂 ToolPipeline，`io.warning` log-only 事件，redaction.ts 脱敏正则与 pino 单一来源；guard 14 例含管线 e2e）；§2.3 沙箱差距注记更新；§4.3 H02 勾销注记 |
+| v1.3 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 11 Model Routing 改 ✅、小结计数 8/7→9/6；§2.1 Router 差距与 §2.4 预算与熔断改 ✅（H07 → 7.7 ✅ 已落地：FallbackGateway 未交付才切换 + CostTracker ~/.spark/usage.json 持久累计 + run-loop Budget 熔断双检点 + 任务路由档 title/subagent + /api/routing 热生效）；§2.6 Cost Tracker 差距更新；§4.3 H07 勾销注记 |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
 > **方法**：三条证据链——①引擎/服务端/前端逐模块源码走读（本文所有路径均为当日实测，非转抄文档）；②协议词表 19 种逐条核对（含 `user.message.attachments?`、`assistant.message.usage` 等已预留未消费字段）；③既有审计（doc/05 缺口 G1–G7）与用户侧能力对照清单合并盘点。
@@ -31,7 +32,7 @@
 | 8  | Memory 记忆工程            | ❌        | 只有会话内 JSONL，无跨会话记忆                                                                         | → H05（工单 7.5）            |
 | 9  | 状态机与恢复               | ✅        | 最强项：append-only、悬挂 turn 补闭合、kill-9 resume、checkpoint 回滚                                  | —                            |
 | 10 | 沙箱与护栏                 | 🟡        | 5.2 bwrap/Seatbelt + 审批 fail-closed                                                                  | I/O 护栏 → H02；网络隔离 → H34 |
-| 11 | Model Routing              | 🟡        | providers 表 + defaultModel + compactionModel + 会话级覆盖                                             | fallback 链/熔断 → H07       |
+| 11 | Model Routing              | ✅        | fallback 链（未交付才切换）+ 主/压缩/标题/子代理四路由档 + 成本熔断（7.7）                              | —                            |
 | 12 | 可观测与评估               | 🟡        | pino 三层脱敏 + /api/metrics 六类计数                                                                  | eval → H10；trace/成本 → H23/H27 |
 | 13 | 流式与事件工程             | ✅        | durable/live 二分、SSE since=seq 续播、背压、ignorable 前跳                                            | —                            |
 | 14 | Human-in-the-Loop          | ✅        | 审批卡、reject 级联、always 固化、规则管理 UI（4.7）                                                   | —                            |
@@ -41,7 +42,7 @@
 | 18 | Python Worker              | ❌→**不做** | 判决见 §4.1：主流本地编码 agent 均无此模块，bash + venv 已覆盖                                       | 未来以技能/MCP 外挂          |
 | 19 | Browser/Computer Use       | ❌        | 无 browser 工具族                                                                                      | → H09（工单 7.10）           |
 
-小结：扎实具备 8 项、部分具备 7 项、缺失 4 项（长期记忆/自动化/Python Worker/浏览器操控），其中 Python Worker 经评估判决**不做**。
+小结：扎实具备 9 项、部分具备 6 项、缺失 4 项（长期记忆/自动化/Python Worker/浏览器操控），其中 Python Worker 经评估判决**不做**。
 
 ---
 
@@ -61,10 +62,10 @@
 - 差距：三处提示词全部硬编码，用户不可配模板；AGENTS.md 注入已具备（H20 只剩模板可配化）。
 - 参考：Claude Code 系统提示词分层（官方 plugins/ 工作流）；pi 极简提示词哲学（提示词+工具 ≈1000 token 内）。工单：H20 → v2 候选池（P2，先 CLI 键位/命令成文再统一抽模板层）。
 
-**Planner-Router** —— ❌ 缺位，**刻意不做显式 Planner**
-- 证据：全仓无 plan/调度器模块；模型侧自主规划（system prompt 工作规则 + 工具循环）。
-- 差距：无显式任务分解器；模型路由只有主/压缩两档。
-- 参考：pi 实证"模型即 planner"（无 todo/plan mode 仍达 Terminal-Bench 竞争力）；Claude Code Plan Mode 是交互层不是引擎层。工单：Planner **不做**（与 pi 同判：加显式规划器是云端长任务场景需求）；Router 增强归 H07（7.7）。
+**Planner-Router** —— 🟡 Router 已补全（7.7），**刻意不做显式 Planner**
+- 证据：全仓无 plan/调度器模块；模型侧自主规划（system prompt 工作规则 + 工具循环）。Router 侧 7.7 已落地：`packages/engine/src/fallback-gateway.ts`（fallback 链）+ config 四路由档（主/压缩/标题/子代理）+ `engine.ts` 路由热生效（/api/routing）。
+- 差距：无显式任务分解器（刻意）。
+- 参考：pi 实证"模型即 planner"（无 todo/plan mode 仍达 Terminal-Bench 竞争力）；Claude Code Plan Mode 是交互层不是引擎层。工单：Planner **不做**（与 pi 同判：加显式规划器是云端长任务场景需求）；Router 增强归 H07（7.7 ✅）。
 
 **State Machine & Recovery** —— ✅ 已实现（全仓最强项）
 - 证据：`packages/engine/src/session/store.ts`（单写者 Promise 链、先盘后树、尾行半写丢弃/非尾行 fail-closed、seq 断洞拒载）；`packages/engine/src/engine.ts` loadSession（danglingTurnIds 补 emit turn.completed{aborted}）；kill-9 resume 已在阶段三 e2e 验收。
@@ -127,10 +128,10 @@
 - 差距：非环回绑定无 token 鉴权（移动端 9.1 的前置）；OS 级加密存储（safeStorage）后置——本地单用户场景 JSON+0600 判定够用。
 - 参考：Claude Code apiKeyHelper；系统钥匙串（keytar 已废，Electron safeStorage 现役——远端访问形态时再评估）。工单：H01 → **7.1 ✅**；配对鉴权 → **9.1**（ADR D24）。
 
-**预算与熔断** —— ❌ 缺失（H07 组成部分）
-- 证据：`packages/engine/src/observability/metrics.ts` 有 spark_llm_tokens_total 计数但无任何阈值动作；run-loop 无 token/成本上限中断。
-- 差距：无成本上限熔断、无单会话 token 预算闸。
-- 参考：Claude Code /usage 与限额提示；Gemini CLI policy 带数值阈值思路。工单：并入 **7.7**（成本上限熔断）。
+**预算与熔断** —— ✅ 已落地（H07 → 7.7）
+- 证据（7.7 已落地）：`packages/engine/src/cost-tracker.ts`（~/.spark/usage.json 原子写持久累计，坏 JSON/形状 fail-closed E_CONFIG）+ run-loop `Budget` 端口双检点（新 turn 拒绝 + assistant.message 定稿后中断，`E_BUDGET_EXCEEDED` 人话含解除路径）+ engine resetUsage（DELETE /api/routing/usage，解除熔断唯一入口）。
+- 差距：无单会话 token 预算闸（只有全局累计成本熔断——判定够用，会话级后置）。
+- 参考：Claude Code /usage 与限额提示；Gemini CLI policy 带数值阈值思路。工单：**7.7 ✅**。
 
 ## 2.5 容错（错误恢复自修正 / Checkpoint 断点续传）
 
@@ -158,7 +159,7 @@
 
 **Cost Tracker** —— 🟡 数据已齐、消费缺位（H23 + 6.6）
 - 证据：`assistant.message.usage`（inputTokens/outputTokens + costUsd?）每回合落盘（protocol events.ts）；前端 StatusBar 已显示会话累计 in/out（`apps/web/src/components/layout/StatusBar.tsx`）；`/api/metrics` 有 tokens 计数。
-- 差距：无按日/按供应商聚合、无费用换算看板、无超限动作（→ H07 熔断）。
+- 差距：无按日/按供应商聚合、无费用换算看板（超限动作已在 7.7 落地——CostTracker 全局累计熔断）。
 - 参考：Claude Code /usage。工单：UI 条 → **6.6**；看板 → H23 v2 候选池（P1，依赖 6.6 与聚合端点）。
 
 ## 2.7 平台与产品化缺口（补充盘点——用户对照清单 16 项 + 暗坑清单）
@@ -248,7 +249,7 @@
 | ---- | ---- | ---- |
 | H01 | secrets 管理（~/.spark/secrets + 设置页录入 + store>env 优先级） | 7.1 ✅ 已勾销（2026-08-27） |
 | H02 | I/O 护栏（注入检测 + 敏感输出过滤） | 7.2 ✅ 已勾销（2026-08-27） |
-| H07 | model routing 增强（fallback 链/按任务路由/**成本熔断**） | 7.7 |
+| H07 | model routing 增强（fallback 链/按任务路由/**成本熔断**） | 7.7 ✅ 已勾销（2026-08-27） |
 | —   | 配对鉴权（非环回强制 token，缺省 127.0.0.1 行为不变为红线） | 9.1（ADR D24） |
 
 ## 4.4 P1 —— 体验
