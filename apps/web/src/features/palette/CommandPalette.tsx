@@ -10,6 +10,9 @@ import type { SessionDto } from '@spark/protocol'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useSessionList } from '@/hooks/useSessionList'
+import { useCommands } from '@/hooks/useCommands'
+import { CLIENT_ACTIONS } from '@/features/chat/client-commands'
+import { mergeSlashCommands } from '@/features/chat/composer-menus'
 import { useSettingsStore } from '@/stores/settings'
 import { useSessionStore } from '@/stores/session'
 import { useTransport } from '@/transports/context'
@@ -37,6 +40,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate()
   const { transport } = useTransport()
   const { sessions } = useSessionList()
+  const { commands } = useCommands()
   const toggleTheme = useSettingsStore((s) => s.toggleTheme)
   const [query, setQuery] = useState('')
 
@@ -56,6 +60,27 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   function switchSession(dto: SessionDto): void {
     close()
     void navigate(`/session/${dto.id}`)
+  }
+
+  /**
+   * / 命令执行（工单 7.4）：client 命令本地执行（resume 在面板语境 = 面板自身已
+   * 内嵌会话切换，不重复列出；其余导航设置页）；action/prompt 需活动会话——
+   * 在面板中仅当存在 activeId 时列出并可执行（compact/自定义命令）。
+   */
+  const activeId = useSessionStore((s) => s.activeId)
+  const slashCommands = mergeSlashCommands(commands ?? []).filter(
+    (c) => c.name !== 'resume' && (c.kind === 'client' || activeId !== null),
+  )
+
+  async function runSlashCommand(name: string): Promise<void> {
+    close()
+    const client = CLIENT_ACTIONS[name]
+    if (client !== undefined) {
+      if (client.kind === 'palette') return // resume 已在面板内过滤，防御性兜底
+      void navigate(client.path)
+      return
+    }
+    if (activeId !== null) await transport.executeCommand(activeId, name)
   }
 
   return (
@@ -79,6 +104,19 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 <CommandItem key={s.id} value={s.title === '' ? '新会话' : s.title} onSelect={() => switchSession(s)}>
                   <Mark label={s.title === '' ? '新会话' : s.title} query={query} />
                   <span className="ml-auto font-mono text-[11px] text-muted-foreground/70">{s.id.slice(-6)}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+
+            <CommandGroup heading="/ 命令">
+              {slashCommands.map((c) => (
+                <CommandItem
+                  key={c.name}
+                  value={`/${c.name} ${c.description}`}
+                  onSelect={() => void runSlashCommand(c.name)}
+                >
+                  <span className="font-mono text-[12px]">/{c.name}</span>
+                  <Mark label={c.description} query={query} />
                 </CommandItem>
               ))}
             </CommandGroup>

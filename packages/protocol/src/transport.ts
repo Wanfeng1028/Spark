@@ -8,6 +8,8 @@ import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply } from './primitives.js'
 import type {
   CheckpointDto,
+  CommandDto,
+  McpServerDto,
   ModelTestResultDto,
   ModelsDto,
   PermissionPreset,
@@ -16,6 +18,7 @@ import type {
   RoutingUpdate,
   SecretStatusDto,
   SessionDto,
+  SkillDto,
   TreeNodeDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
@@ -81,5 +84,13 @@ export interface Transport {
   updateRouting(patch: RoutingUpdate): Promise<RoutingDto>
   /** DELETE /api/routing/usage：清零成本累计（解除熔断） */
   resetUsage(): Promise<RoutingDto>
+  /** GET /api/commands：命令注册表（内置 action/client + ~/.spark/commands/*.md prompt，工单 7.4） */
+  listCommands(): Promise<CommandDto[]>
+  /** POST /api/sessions/:id/commands/:name：执行引擎命令（action=compact / prompt=自定义展开，工单 7.4） */
+  executeCommand(sessionId: SessionId, name: string, args?: string): Promise<void>
+  /** GET /api/mcp：MCP 服务器只读状态（连接失败也列出 connected:false，工单 7.4） */
+  listMcpServers(): Promise<McpServerDto[]>
+  /** GET /api/skills：已加载技能只读清单（工单 7.4） */
+  listSkills(): Promise<SkillDto[]>
   dispose(): void
 }

@@ -186,6 +186,14 @@ export {
   type UserHookRunnerDeps,
 } from './hooks/runner.js'
 export {
+  BUILTIN_COMMANDS,
+  COMMAND_NAME_RE,
+  expandCommandPrompt,
+  loadCommands,
+  type LoadedCommand,
+  type CommandLogger,
+} from './commands/loader.js'
+export {
   Logger,
   type SparkLogger,
   type LogFields,

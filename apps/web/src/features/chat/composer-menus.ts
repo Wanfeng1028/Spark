@@ -10,7 +10,7 @@
  *   技能行用 $ 前缀与 / 命令区分（实测 ZCode 同款）。
  */
 import { FileEdit, ListTodo, ShieldAlert, ShieldCheck, type LucideIcon } from 'lucide-react'
-import type { Delivery, PermissionPreset } from '@spark/protocol'
+import type { CommandDto, Delivery, PermissionPreset } from '@spark/protocol'
 
 // ---- 触发检测 ----
 
@@ -43,36 +43,59 @@ function isWhitespace(ch: string): boolean {
   return /\s/.test(ch)
 }
 
-// ---- / 菜单：命令基线（完整命令面 = 阶段七工单 7.4） ----
+// ---- / 菜单：命令注册表（工单 7.4 / H04——基线 + 自定义合并） ----
 
 export interface SlashCommand {
   name: string
   description: string
-  /** false = 7.4 前仅列出不可执行（选中给出提示，不假装执行） */
-  available: boolean
+  kind: CommandDto['kind']
 }
 
+/** 静态基线（与引擎 BUILTIN_COMMANDS 同源约定；清单加载前/失败时的回退显示） */
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
-  { name: 'compact', description: '压缩上下文（保留摘要，释放窗口）', available: true },
-  { name: 'model', description: '查看或切换会话模型', available: false },
-  { name: 'mcp', description: '查看 MCP 服务器与工具', available: false },
-  { name: 'skills', description: '查看已加载技能', available: false },
-  { name: 'usage', description: '查看本轮与累计用量', available: false },
-  { name: 'resume', description: '恢复历史会话', available: false },
+  { name: 'compact', description: '压缩上下文（保留摘要，释放窗口）', kind: 'action' },
+  { name: 'model', description: '查看或切换会话模型', kind: 'client' },
+  { name: 'mcp', description: '查看 MCP 服务器与工具', kind: 'client' },
+  { name: 'skills', description: '查看已加载技能', kind: 'client' },
+  { name: 'usage', description: '查看本轮与累计用量', kind: 'client' },
+  { name: 'resume', description: '恢复历史会话', kind: 'client' },
 ]
 
+/** 基线 + 引擎动态清单合并（内置优先，重名自定义丢弃——与引擎加载纪律一致） */
+export function mergeSlashCommands(dynamic: readonly CommandDto[]): readonly SlashCommand[] {
+  const customs = dynamic
+    .filter((c) => !SLASH_COMMANDS.some((b) => b.name === c.name))
+    .map((c) => ({ name: c.name, description: c.description, kind: c.kind }))
+  return [...SLASH_COMMANDS, ...customs]
+}
+
 /** 名称/描述包含过滤词（大小写不敏感） */
-export function filterCommands(query: string): readonly SlashCommand[] {
+export function filterCommands(
+  query: string,
+  commands: readonly SlashCommand[] = SLASH_COMMANDS,
+): readonly SlashCommand[] {
   const q = query.trim().toLowerCase()
-  if (q === '') return SLASH_COMMANDS
-  return SLASH_COMMANDS.filter(
+  if (q === '') return commands
+  return commands.filter(
     (c) => c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q),
   )
 }
 
-/** 7.4 前不可执行命令的选中提示（人话，不留悬空反馈） */
-export const COMMAND_PENDING_HINT =
-  '该命令将在阶段七工单 7.4（命令注册表）提供完整能力，当前可先正常对话描述需求'
+/**
+ * 输入首词的 / 命令解析（工单 7.4）：整条文本首词以 / 开头且命中清单 →
+ * {name, args}（args = 首词后的剩余文本，可为空）；未命中返回 null（走普通发送）。
+ */
+export function parseCommandInput(
+  text: string,
+  commands: readonly SlashCommand[],
+): { name: string; args: string } | null {
+  const m = /^\/([^\s]+)(?:\s+([\s\S]*))?$/.exec(text.trim())
+  if (m === null) return null
+  const name = m[1] ?? ''
+  const args = (m[2] ?? '').trim()
+  if (!commands.some((c) => c.name === name)) return null
+  return { name, args }
+}
 
 // ---- 权限档位（DESIGN §13.E 四档 / ADR D7 补记） ----
 

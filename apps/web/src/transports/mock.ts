@@ -12,7 +12,9 @@ import { ids, parseEnvelope } from '@spark/protocol'
 import type {
   CheckpointDto,
   CheckpointId,
+  CommandDto,
   EventId,
+  McpServerDto,
   ModelTestResultDto,
   ModelsDto,
   RoutingDto,
@@ -25,6 +27,7 @@ import type {
   SessionDto,
   SessionId,
   SessionStatus,
+  SkillDto,
   SparkEventEnvelope,
   SparkEventType,
   SubmitOutcome,
@@ -707,6 +710,58 @@ export class MockTransport implements Transport {
       usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, exceeded: false },
     }
     return Promise.resolve(this.routing)
+  }
+
+  // ---- 命令注册表（工单 7.4 对等演示：内置基线 + mock 自定义命令） ----
+
+  private static readonly COMMANDS: readonly CommandDto[] = [
+    { name: 'compact', description: '压缩上下文（保留摘要，释放窗口）', kind: 'action' },
+    { name: 'model', description: '查看或切换会话模型', kind: 'client' },
+    { name: 'mcp', description: '查看 MCP 服务器与工具', kind: 'client' },
+    { name: 'skills', description: '查看已加载技能', kind: 'client' },
+    { name: 'usage', description: '查看本轮与累计用量', kind: 'client' },
+    { name: 'resume', description: '恢复历史会话', kind: 'client' },
+    { name: 'review', description: '审查当前工作区改动（mock 自定义命令）', kind: 'prompt' },
+  ]
+
+  listCommands(): Promise<CommandDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([...MockTransport.COMMANDS])
+  }
+
+  executeCommand(sessionId: SessionId, name: string, _args?: string): Promise<void> {
+    this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId && !this.forkChildren.some((f) => f.dto.id === sessionId)) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    if (name === 'compact') return this.compact(sessionId)
+    if (name === 'review') {
+      // 对等演示：自定义命令展开为 prompt 走正常 turn（sendMessage 假对话回放）
+      return this.sendMessage(sessionId).then(() => undefined)
+    }
+    if (MockTransport.COMMANDS.some((c) => c.name === name && c.kind === 'client')) {
+      return Promise.reject(new Error(`E_COMMAND_CLIENT: /${name} 是界面命令，由前端执行`))
+    }
+    return Promise.reject(new Error(`E_NOT_FOUND: 未知命令 /${name}`))
+  }
+
+  listMcpServers(): Promise<McpServerDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([
+      { name: 'filesystem', connected: true, tools: 3, command: 'npx' },
+      { name: 'github', connected: false, tools: 0, command: 'npx' },
+    ])
+  }
+
+  listSkills(): Promise<SkillDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([
+      {
+        name: 'demo-ping',
+        events: ['plugin.demo.ping'],
+        hooks: [{ on: 'session.created', emit: 'plugin.demo.ping' }],
+      },
+    ])
   }
 
   /** dtoOf 后叠加会话级换模型（内存态覆盖脚本 meta.model） */

@@ -17,8 +17,10 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type {
   CheckpointId,
+  CommandDto,
   Delivery,
   EventId,
+  McpServerDto,
   ModelTestResultDto,
   ModelsDto,
   PermissionPreset,
@@ -27,6 +29,7 @@ import type {
   RoutingDto,
   RoutingUpdate,
   SessionId,
+  SkillDto,
   SparkEventEnvelope,
   SparkEventMap,
   TurnFinish,
@@ -76,6 +79,8 @@ import { loadMcpConfig } from './mcp/config.js'
 import { McpManager } from './mcp/manager.js'
 import { loadSkills } from './skills/loader.js'
 import type { LoadedSkill } from './skills/loader.js'
+import { BUILTIN_COMMANDS, expandCommandPrompt, loadCommands } from './commands/loader.js'
+import type { LoadedCommand } from './commands/loader.js'
 import { DEFAULT_HOOK_TIMEOUT_MS, UserHookRunner } from './hooks/runner.js'
 import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
@@ -213,6 +218,10 @@ export class Engine {
   private loadedSkills: readonly LoadedSkill[] = []
   /** 用户侧 hooks（阶段七工单 7.3 / H03）：spark.json hooks 段四挂点 fire-and-forget 触发 */
   private readonly hooks: UserHookRunner
+  /** 自定义命令（阶段七工单 7.4 / H04）：~/.spark/commands/*.md；commandsReady 完成后填充 */
+  private customCommands: readonly LoadedCommand[] = []
+  /** 自定义命令加载任务（坏文件 warn 跳过，不阻塞启动；ready() 等待） */
+  private readonly commandsReady: Promise<void>
   private readonly outputs: ToolOutputStore
   private readonly sessions = new Map<SessionId, SessionEntry>()
   private readonly inflight = new Map<SessionId, Promise<SessionEntry>>()
@@ -326,6 +335,16 @@ export class Engine {
       defaultTimeoutMs: DEFAULT_HOOK_TIMEOUT_MS,
     })
 
+    // 工单 7.4 / H04：自定义命令（坏文件 warn 跳过——同 skills 纪律，不阻塞启动）
+    this.commandsReady = loadCommands(join(this.root, 'commands'), this.logger).then(
+      (cmds) => {
+        this.customCommands = cmds
+        for (const c of cmds) {
+          this.logger.info('commands.loaded', { name: c.name })
+        }
+      },
+    )
+
     this.registry = new ToolRegistry()
     registerBuiltinTools(this.registry, {
       bashSandbox: this.config.spark.engine.bashSandbox,
@@ -419,9 +438,11 @@ export class Engine {
     })
   }
 
-  /** MCP 连接与 skills 加载完成（server 入口 listen 前等待；两者缺省立即返回） */
+  /** MCP 连接与 skills/自定义命令加载完成（server 入口 listen 前等待；缺省项立即返回） */
   ready(): Promise<void> {
-    return Promise.all([this.mcpReady, this.skillsReady]).then(() => undefined)
+    return Promise.all([this.mcpReady, this.skillsReady, this.commandsReady]).then(
+      () => undefined,
+    )
   }
 
   /** §5.3 订阅透传（server SSE 的数据源；resume 供 SSE 背压 drain 恢复） */
@@ -727,6 +748,57 @@ export class Engine {
     entry.meta.model = `${modelRef.provider}/${modelRef.model}`
     this.syncIndex(entry.meta)
     return entry.meta.model
+  }
+
+  // ---- 命令注册表（阶段七工单 7.4 / H04：/命令 解析框架） ----
+
+  /** GET /api/commands：内置基线（action/client）+ 自定义（prompt）统一清单 */
+  listCommands(): CommandDto[] {
+    return [
+      ...BUILTIN_COMMANDS,
+      ...this.customCommands.map((c) => ({
+        name: c.name,
+        description: c.description,
+        kind: 'prompt' as const,
+      })),
+    ]
+  }
+
+  /**
+   * POST /api/sessions/:id/commands/:name 执行体：action（compact）走压缩入口；
+   * prompt（自定义 .md）展开为 prompt 走正常 turn 通道（user.message 事件落盘）。
+   * client 命令与未知命令拒绝（E_COMMAND_CLIENT / E_NOT_FOUND——失败闭合）。
+   */
+  async executeCommand(id: SessionId, name: string, args?: string): Promise<void> {
+    this.assertNotShutdown()
+    const handle = this.handleOf(await this.requireEntry(id))
+    if (name === 'compact') {
+      await handle.compact() // turn 进行中 → E_TURN_ACTIVE（§5.8.5 既有拒绝码）
+      return
+    }
+    const cmd = this.customCommands.find((c) => c.name === name)
+    if (cmd !== undefined) {
+      await handle.send(expandCommandPrompt(cmd.prompt, args))
+      return
+    }
+    if (BUILTIN_COMMANDS.some((c) => c.name === name && c.kind === 'client')) {
+      throw new Error(`E_COMMAND_CLIENT: /${name} 是界面命令，由前端执行——引擎不接受该请求`)
+    }
+    throw new Error(`E_NOT_FOUND: 未知命令 /${name}`)
+  }
+
+  /** GET /api/mcp：MCP 服务器只读状态（连接失败也列出 connected:false） */
+  listMcpServers(): McpServerDto[] {
+    return this.mcp.status().map((s) => ({ ...s }))
+  }
+
+  /** GET /api/skills：已加载技能只读清单（ready() 后为全量） */
+  listSkills(): SkillDto[] {
+    return this.loadedSkills.map((s) => ({
+      name: s.name,
+      events: [...s.events],
+      hooks: s.hooks.map((h) => ({ ...h })),
+    }))
   }
 
   // ---- 模型路由（阶段七工单 7.7 / H07：fallback 链 + 任务路由 + 成本熔断） ----

@@ -9,6 +9,7 @@ import {
   CheckpointIdSchema,
   DeliverySchema,
   EventIdSchema,
+  ExecuteCommandBodySchema,
   PermissionPresetSchema,
   PermissionReplySchema,
   PermissionRuleDtoSchema,
@@ -101,6 +102,12 @@ const PresetBody = z.strictObject({ preset: PermissionPresetSchema })
 /** 模型管理（工单 6.5）：供应商连通测试参数 + 会话级换模型 body */
 const ProviderIdParams = z.strictObject({ providerId: z.string().min(1).max(64) })
 const SetModelBody = z.strictObject({ model: z.string().min(1) })
+
+/** 命令注册表（阶段七工单 7.4 / H04）：命令名与执行 body */
+const CommandNameParams = z.strictObject({
+  id: SessionIdSchema,
+  name: z.string().min(1).max(64),
+})
 
 /** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
 function labelOf(e: SparkEventEnvelope): string {
@@ -427,6 +434,37 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
     } catch (err) {
       return sendError(req, reply, err)
     }
+  })
+
+  // 命令注册表（阶段七工单 7.4 / H04）：/命令 解析框架的线上入口
+  app.get('/api/commands', () => {
+    // 纯内存读（ready() 后为全量；server 入口 listen 前已 await ready）
+    return engine.listCommands()
+  })
+
+  app.post('/api/sessions/:id/commands/:name', async (req, reply) => {
+    try {
+      const { id, name } = parseOr400(CommandNameParams, req.params)
+      // body 可空（无补充参数的命令调用）——ExecuteCommandBody 对 undefined 原样通过
+      const body =
+        req.body === undefined || req.body === null
+          ? undefined
+          : parseOr400(ExecuteCommandBodySchema, req.body)
+      await engine.executeCommand(id, name, body?.args)
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.get('/api/mcp', () => {
+    // 纯内存读：各 server 连接结果快照（失败也列出 connected:false）
+    return engine.listMcpServers()
+  })
+
+  app.get('/api/skills', () => {
+    // 纯内存读：已加载技能清单
+    return engine.listSkills()
   })
 
   // 指标端点（§5.10 清单 / 工单 4.8）：Prometheus exposition 文本

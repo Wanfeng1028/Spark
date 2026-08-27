@@ -184,3 +184,41 @@ export const RoutingUpdateSchema = z.strictObject({
   costLimitUsd: z.number().positive().nullable().optional(),
 })
 export type RoutingUpdate = z.infer<typeof RoutingUpdateSchema>
+
+// ---------- commands / mcp / skills（doc/02 §8 阶段七工单 7.4 / H04） ----------
+
+/**
+ * 命令注册表行（GET /api/commands）。命令面基线对齐 Claude Code
+ * （/compact /model /mcp /skills /usage /resume），命令名可不同、覆盖面以此为下限。
+ * kind：action = 引擎动作（compact，POST /api/sessions/:id/commands/:name 执行）；
+ * prompt = ~/.spark/commands/*.md 自定义命令（正文展开为 prompt 走正常 turn 通道）；
+ * client = 前端 UI 动作（model/mcp/skills/usage/resume——导航/打开面板，不经引擎执行）。
+ */
+export const CommandDtoSchema = z.strictObject({
+  name: z.string().min(1),
+  description: z.string(),
+  kind: z.enum(['action', 'prompt', 'client']),
+})
+export type CommandDto = z.infer<typeof CommandDtoSchema>
+
+/** POST /api/sessions/:id/commands/:name 请求体（args = 命令后的补充文本） */
+export const ExecuteCommandBodySchema = z.strictObject({
+  args: z.string().optional(),
+})
+
+/** MCP 服务器只读状态（GET /api/mcp 行；连接失败也列出 connected:false） */
+export const McpServerDtoSchema = z.strictObject({
+  name: z.string().min(1),
+  connected: z.boolean(),
+  tools: z.number().int().nonnegative(),
+  command: z.string(),
+})
+export type McpServerDto = z.infer<typeof McpServerDtoSchema>
+
+/** 已加载技能只读清单（GET /api/skills 行） */
+export const SkillDtoSchema = z.strictObject({
+  name: z.string().min(1),
+  events: z.array(z.string()),
+  hooks: z.array(z.strictObject({ on: z.string(), emit: z.string() })),
+})
+export type SkillDto = z.infer<typeof SkillDtoSchema>

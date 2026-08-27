@@ -16,6 +16,7 @@ import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
 import { ChatView } from '@/features/chat/ChatView'
 import { Composer } from '@/features/chat/Composer'
+import { CLIENT_ACTIONS } from '@/features/chat/client-commands'
 import { TurnStatusBar } from '@/features/chat/TurnStatusBar'
 import { ErrorToast } from '@/features/chat/ErrorToast'
 import { ErrorBanner } from '@/features/chat/ErrorBanner'
@@ -25,6 +26,8 @@ import { projectOf } from '@/components/layout/Sidebar'
 import { useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
 import { useConnectionStore } from '@/stores/connection'
 import { useModelsStore } from '@/stores/models-store'
+import { useCommands } from '@/hooks/useCommands'
+import { useUiStore } from '@/stores/ui'
 import { contextRatio, contextTokensOf, contextWindowOf } from '@/features/chat/context-usage'
 import { UsageBar } from '@/features/chat/UsageBar'
 
@@ -36,6 +39,8 @@ export function SessionPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { transport, mock, scenario, setScenario } = useTransport()
+  const { commands } = useCommands()
+  const setPaletteOpen = useUiStore((s) => s.setPaletteOpen)
 
   const sid = ids.session(sessionId ?? '')
   const turn = useActiveTurn(sid)
@@ -324,7 +329,18 @@ export function SessionPage() {
               })
             }
             onInterrupt={() => void transport.interrupt(sid)}
-            onCompact={() => transport.compact(sid)}
+            {...(commands !== null ? { commands } : {})}
+            onCommand={(name, args) => {
+              // 命令分发（工单 7.4）：client 命令本地执行（导航/面板）；
+              // action（compact）/prompt（自定义 .md）走引擎统一入口
+              const client = CLIENT_ACTIONS[name]
+              if (client !== undefined) {
+                if (client.kind === 'palette') setPaletteOpen(true)
+                else void navigate(client.path)
+                return
+              }
+              return transport.executeCommand(sid, name, args === '' ? undefined : args)
+            }}
           />
         </div>
       </div>

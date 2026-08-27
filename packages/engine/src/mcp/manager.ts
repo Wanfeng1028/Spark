@@ -100,6 +100,8 @@ export interface McpManagerDeps {
 
 export class McpManager {
   private readonly clients: Client[] = []
+  /** 各 server 连接结果快照（工单 7.4：GET /api/mcp 只读数据源；失败也列出） */
+  private readonly serverStatuses: { name: string; connected: boolean; tools: number; command: string }[] = []
   private closed = false
 
   constructor(private readonly deps: McpManagerDeps) {}
@@ -123,6 +125,12 @@ export class McpManager {
           registry.register(makeMcpToolDef(name, tool, client, this.deps.toolTimeoutMs))
         }
         this.clients.push(client)
+        this.serverStatuses.push({
+          name,
+          connected: true,
+          tools: listed.tools.length,
+          command: cfg.command,
+        })
         this.deps.logger?.info('mcp.server.connected', {
           server: name,
           tools: listed.tools.length,
@@ -130,9 +138,15 @@ export class McpManager {
       } catch (err) {
         // 超时/启动失败：关闭半连接（杀掉子进程），该 server 工具不注册
         void client.close().catch(() => {})
+        this.serverStatuses.push({ name, connected: false, tools: 0, command: cfg.command })
         this.deps.logger?.warn('mcp.server.connect.error', { server: name, err })
       }
     }
+  }
+
+  /** 各 server 连接状态（connect 前为空；失败 server 也列出 connected:false） */
+  status(): readonly { name: string; connected: boolean; tools: number; command: string }[] {
+    return this.serverStatuses
   }
 
   /** 优雅退出：关闭全部 client（stdio 即终止子进程）；幂等 */

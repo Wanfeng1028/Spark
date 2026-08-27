@@ -5,13 +5,14 @@
  * 纯函数无 React 渲染——组件层键盘导航由 Playwright 组件测试覆盖（doc/06）。
  */
 import { describe, expect, test } from 'vitest'
-import type { PermissionPreset } from '@spark/protocol'
+import type { CommandDto, PermissionPreset } from '@spark/protocol'
 import {
-  COMMAND_PENDING_HINT,
   PERMISSION_TIERS,
   SLASH_COMMANDS,
   detectMenu,
   filterCommands,
+  mergeSlashCommands,
+  parseCommandInput,
   segmentDisplay,
   tierOf,
 } from '../src/features/chat/composer-menus'
@@ -46,14 +47,14 @@ describe('detectMenu（§13.E 触发词检测）', () => {
 })
 
 describe('filterCommands（/ 菜单命令过滤）', () => {
-  test('空查询 → 全量内置基线（六条）', () => {
+  test('空查询 → 全量内置基线（六条，全部可用）', () => {
     expect(filterCommands('')).toEqual(SLASH_COMMANDS)
     expect(SLASH_COMMANDS).toHaveLength(6)
   })
 
   test('按名称过滤（大小写不敏感）', () => {
     expect(filterCommands('COMP')).toEqual([
-      { name: 'compact', description: '压缩上下文（保留摘要，释放窗口）', available: true },
+      { name: 'compact', description: '压缩上下文（保留摘要，释放窗口）', kind: 'action' },
     ])
   })
 
@@ -65,10 +66,43 @@ describe('filterCommands（/ 菜单命令过滤）', () => {
   test('无匹配 → 空列表', () => {
     expect(filterCommands('不存在的命令')).toEqual([])
   })
+})
 
-  test('只有 compact 可执行（available=true，其余阶段七 7.4）', () => {
-    expect(SLASH_COMMANDS.filter((c) => c.available).map((c) => c.name)).toEqual(['compact'])
-    expect(COMMAND_PENDING_HINT).toContain('7.4')
+describe('mergeSlashCommands（工单 7.4：基线 + 引擎动态清单合并）', () => {
+  test('自定义命令追加在基线之后；与基线重名丢弃（内置优先）', () => {
+    const dynamic: CommandDto[] = [
+      { name: 'review', description: '审查改动', kind: 'prompt' },
+      { name: 'compact', description: '冒名顶替', kind: 'prompt' },
+    ]
+    const merged = mergeSlashCommands(dynamic)
+    expect(merged.map((c) => c.name)).toEqual([
+      'compact', 'model', 'mcp', 'skills', 'usage', 'resume', 'review',
+    ])
+    expect(merged.find((c) => c.name === 'compact')?.description).toBe(
+      '压缩上下文（保留摘要，释放窗口）',
+    )
+  })
+
+  test('空动态清单 → 仅基线', () => {
+    expect(mergeSlashCommands([])).toEqual(SLASH_COMMANDS)
+  })
+})
+
+describe('parseCommandInput（工单 7.4：首词 / 命令解析）', () => {
+  const cmds = mergeSlashCommands([{ name: 'review', description: '审查', kind: 'prompt' }])
+
+  test('首词命中 → {name, args}（args 含后续全部文本）', () => {
+    expect(parseCommandInput('/compact', cmds)).toEqual({ name: 'compact', args: '' })
+    expect(parseCommandInput('/review src/a.ts src/b.ts', cmds)).toEqual({
+      name: 'review',
+      args: 'src/a.ts src/b.ts',
+    })
+  })
+
+  test('未命中清单 / 非首词命令 / 普通文本 → null（走普通发送）', () => {
+    expect(parseCommandInput('/nope', cmds)).toBeNull()
+    expect(parseCommandInput('看 /compact 的用法', cmds)).toBeNull()
+    expect(parseCommandInput('普通消息', cmds)).toBeNull()
   })
 })
 

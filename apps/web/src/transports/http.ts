@@ -11,7 +11,9 @@ import { eventSchemaOf, parseEnvelope } from '@spark/protocol'
 import type {
   CheckpointDto,
   CheckpointId,
+  CommandDto,
   EventId,
+  McpServerDto,
   ModelTestResultDto,
   ModelsDto,
   PermissionPreset,
@@ -23,6 +25,7 @@ import type {
   SecretStatusDto,
   SessionDto,
   SessionId,
+  SkillDto,
   SparkEventEnvelope,
   SubmitOutcome,
   TreeNodeDto,
@@ -327,6 +330,26 @@ export class HttpTransport implements Transport {
 
   resetUsage(): Promise<RoutingDto> {
     return this.req<RoutingDto>('/api/routing/usage', { method: 'DELETE' })
+  }
+
+  listCommands(): Promise<CommandDto[]> {
+    return this.req<CommandDto[]>('/api/commands')
+  }
+
+  executeCommand(sessionId: SessionId, name: string, args?: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/sessions/${sessionId}/commands/${encodeURIComponent(name)}`, {
+      method: 'POST',
+      // body 可省（无补充参数）；args 空串不发送——引擎侧 undefined 语义相同
+      body: JSON.stringify(args !== undefined && args !== '' ? { args } : {}),
+    }).then(() => undefined)
+  }
+
+  listMcpServers(): Promise<McpServerDto[]> {
+    return this.req<McpServerDto[]>('/api/mcp')
+  }
+
+  listSkills(): Promise<SkillDto[]> {
+    return this.req<SkillDto[]>('/api/skills')
   }
 
   dispose(): void {

@@ -12,6 +12,9 @@ import type { LucideIcon } from 'lucide-react'
 import type { SubmitOutcome } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { Composer, type ComposerHandle } from '@/features/chat/Composer'
+import { CLIENT_ACTIONS } from '@/features/chat/client-commands'
+import { useCommands } from '@/hooks/useCommands'
+import { useUiStore } from '@/stores/ui'
 
 interface PromptChip {
   icon: LucideIcon
@@ -36,6 +39,8 @@ function greeting(): string {
 export function WelcomePage() {
   const navigate = useNavigate()
   const { transport } = useTransport()
+  const { commands } = useCommands()
+  const setPaletteOpen = useUiStore((s) => s.setPaletteOpen)
   const composerRef = useRef<ComposerHandle>(null)
 
   /** 新建会话并直发首条消息（新会话无活动轮，delivery 恒为 now 语义） */
@@ -56,7 +61,18 @@ export function WelcomePage() {
           waiting={false}
           onSend={(text, _delivery, attachments) => start(text, attachments)}
           onInterrupt={() => undefined}
-          onCompact={() => Promise.reject(new Error('会话尚未创建——/compact 需在会话中使用'))}
+          {...(commands !== null ? { commands } : {})}
+          onCommand={(name) => {
+            // 欢迎页无会话上下文：client 命令本地执行（导航/面板）；
+            // action/prompt（compact/自定义）需会话——如实拒绝
+            const client = CLIENT_ACTIONS[name]
+            if (client === undefined) {
+              return Promise.reject(new Error(`会话尚未创建——/${name} 需在会话中使用`))
+            }
+            if (client.kind === 'palette') setPaletteOpen(true)
+            else void navigate(client.path)
+            return undefined
+          }}
         />
       </div>
       <ul className="flex max-w-[560px] flex-wrap justify-center gap-2" aria-label="快捷提示词">

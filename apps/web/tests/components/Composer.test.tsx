@@ -26,7 +26,7 @@ function renderComposer(
       waiting={false}
       onSend={onSend}
       onInterrupt={onInterrupt}
-      onCompact={() => Promise.resolve()}
+      onCommand={() => Promise.resolve()}
       {...props}
     />,
   )
@@ -121,5 +121,45 @@ describe('Composer 审批挂起（waiting）态', () => {
     expect(screen.queryByRole('radiogroup')).toBeNull()
     fireEvent.keyDown(textarea(), { key: 'Enter' })
     expect(onSend).not.toHaveBeenCalled()
+  })
+})
+
+describe('Composer 命令分发（工单 7.4：首词 / 命中注册表 → onCommand）', () => {
+  it('/compact Esc 关菜单后 Enter → onCommand("compact","")，不进消息通道（注册表迁入回归）', async () => {
+    const onCommand = vi.fn().mockResolvedValue(undefined)
+    const { onSend } = renderComposer({ onCommand })
+    fireEvent.change(textarea(), { target: { value: '/compact' } })
+    // / 菜单开放时 Enter 归菜单确认（回写草稿）；Esc 关闭后 Enter 才发送
+    fireEvent.keyDown(textarea(), { key: 'Escape' })
+    fireEvent.keyDown(textarea(), { key: 'Enter' })
+    await vi.waitFor(() => {
+      expect(onCommand).toHaveBeenCalledWith('compact', '')
+    })
+    expect(onSend).not.toHaveBeenCalled()
+    expect(textarea().value).toBe('')
+  })
+
+  it('/review 带补充参数 → onCommand 收到完整 args', async () => {
+    const onCommand = vi.fn().mockResolvedValue(undefined)
+    const { onSend } = renderComposer({
+      onCommand,
+      commands: [{ name: 'review', description: '审查', kind: 'prompt' }],
+    })
+    fireEvent.change(textarea(), { target: { value: '/review src/a.ts 重点看并发' } })
+    fireEvent.keyDown(textarea(), { key: 'Escape' }) // 关 / 菜单
+    fireEvent.keyDown(textarea(), { key: 'Enter' })
+    await vi.waitFor(() => {
+      expect(onCommand).toHaveBeenCalledWith('review', 'src/a.ts 重点看并发')
+    })
+    expect(onSend).not.toHaveBeenCalled()
+  })
+
+  it('未注册 / 词 → 走普通发送（不误伤路径式输入）', async () => {
+    const { onSend } = renderComposer()
+    fireEvent.change(textarea(), { target: { value: '/nope 这不是命令' } })
+    fireEvent.keyDown(textarea(), { key: 'Enter' })
+    await vi.waitFor(() => {
+      expect(onSend).toHaveBeenCalledWith('/nope 这不是命令', 'now', undefined)
+    })
   })
 })

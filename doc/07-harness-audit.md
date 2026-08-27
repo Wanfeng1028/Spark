@@ -9,6 +9,7 @@
 | v1.2 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §2.4 I/O 护栏改 ✅（H02 → 7.2 ✅ 已落地：IoGuard 六条注入标记规则 + 四层敏感过滤挂 ToolPipeline，`io.warning` log-only 事件，redaction.ts 脱敏正则与 pino 单一来源；guard 14 例含管线 e2e）；§2.3 沙箱差距注记更新；§4.3 H02 勾销注记 |
 | v1.3 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 11 Model Routing 改 ✅、小结计数 8/7→9/6；§2.1 Router 差距与 §2.4 预算与熔断改 ✅（H07 → 7.7 ✅ 已落地：FallbackGateway 未交付才切换 + CostTracker ~/.spark/usage.json 持久累计 + run-loop Budget 熔断双检点 + 任务路由档 title/subagent + /api/routing 热生效）；§2.6 Cost Tracker 差距更新；§4.3 H07 勾销注记 |
 | v1.4 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 16 Hooks 生命周期改 ✅、小结计数 9/6→10/5（H03 → 7.3 ✅ 已落地：UserHookRunner——spark.json hooks 段四挂点 turn.before/after + permission.resolved/tool.completed → 外部命令（stdin 收 JSON 载荷，超时/非零退出/spawn 失败 warn 闭合）或 skill 插件事件双触发，fire-and-forget 不阻断主流程，载荷不含工具 output）；§4.4 H03 勾销注记 |
+| v1.5 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H04 勾销注记（H04 → 7.4 ✅ 已落地：命令注册表三 kind——action（compact 引擎动作）/ client（model/mcp/skills/usage/resume 前端执行）/ prompt（~/.spark/commands/*.md 自定义，$ARGUMENTS 展开走 turn 通道）；GET /api/commands + POST sessions/:id/commands/:name + GET /api/mcp、/api/skills 只读面；Composer /compact 硬编码迁入注册表分发行为回归；CommandPalette 命令分组；设置中心 mcp/skills/usage 三页只读点亮；opencode leader 键归 8.3 键位表成文） |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
 > **方法**：三条证据链——①引擎/服务端/前端逐模块源码走读（本文所有路径均为当日实测，非转抄文档）；②协议词表 19 种逐条核对（含 `user.message.attachments?`、`assistant.message.usage` 等已预留未消费字段）；③既有审计（doc/05 缺口 G1–G7）与用户侧能力对照清单合并盘点。
@@ -260,7 +261,7 @@
 | H05 | 长期记忆（FTS5，向量后置） | 7.5 |
 | H06 | 自动化触发器（cron/watch/webhook） | 7.6 |
 | H03 | 用户侧 hooks | 7.3 ✅ 已勾销（2026-08-27） |
-| H04 | 命令注册表（/compact 迁入 + 自定义命令；命令集基线对齐 Claude Code 命令面 + opencode leader 键模式） | 7.4 |
+| H04 | 命令注册表（/compact 迁入 + 自定义命令；命令集基线对齐 Claude Code 命令面 + opencode leader 键模式） | 7.4 ✅ 已勾销（2026-08-27；opencode leader 键归 8.3 CLI 键位表统一成文） |
 | H12 | 会话全文搜索 | 7.13 |
 | H11 | 审计日志明细流 | 7.12 |
 | H08 | 并行子代理 + 树状监控 | 7.8 |

@@ -9,6 +9,9 @@ import { GeneralSettingsPage } from '@/features/settings/GeneralPage'
 import { AppearancePage } from '@/features/settings/AppearancePage'
 import { ModelSettingsPage } from '@/features/settings/ModelSettingsPage'
 import { PermissionRulesPage } from '@/features/settings/PermissionRulesPage'
+import { McpSettingsPage } from '@/features/settings/McpSettingsPage'
+import { SkillsSettingsPage } from '@/features/settings/SkillsSettingsPage'
+import { UsageSettingsPage } from '@/features/settings/UsageSettingsPage'
 import { PlaceholderPage } from '@/features/settings/PlaceholderPage'
 
 /** ready 页 → 真组件（settings-pages.ts 只承载数据，映射单一来源在此） */
@@ -17,6 +20,9 @@ const READY_COMPONENTS = {
   appearance: AppearancePage,
   models: ModelSettingsPage,
   'permission-rules': PermissionRulesPage,
+  mcp: McpSettingsPage,
+  skills: SkillsSettingsPage,
+  usage: UsageSettingsPage,
 } as const
 
 export function SettingsPage() {

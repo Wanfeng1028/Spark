@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import type {
+  CommandDto,
   Delivery,
   ModelEntryDto,
   ModelProviderDto,
@@ -30,10 +31,11 @@ import { useSettingsStore } from '@/stores/settings'
 import { cn } from '@/lib/utils'
 import { errorMessageOf } from '@/lib/error-copy'
 import {
-  COMMAND_PENDING_HINT,
   PERMISSION_TIERS,
   detectMenu,
   filterCommands,
+  mergeSlashCommands,
+  parseCommandInput,
   segmentDisplay,
   tierOf,
   type MenuQuery,
@@ -60,8 +62,13 @@ export interface ComposerProps {
   } | undefined
   onSend: (text: string, delivery: Delivery, attachments?: string[]) => Promise<SubmitOutcome>
   onInterrupt: () => void
-  /** 手动压缩命令入口（/compact，doc/02 §5.8.5；turn 进行中由引擎拒绝） */
-  onCompact: () => Promise<void>
+  /**
+   * 命令分发（工单 7.4）：首词 / 命中注册表（静态基线 + commands 合并）时回调，
+   * 由父级决定执行体（client 命令本地导航；action/prompt 走 transport.executeCommand）。
+   */
+  onCommand: (name: string, args: string) => void | Promise<void>
+  /** 引擎命令注册表（GET /api/commands；缺省/未加载 = 仅静态基线） */
+  commands?: readonly CommandDto[]
 }
 
 /** 空态 chips「点击即填入输入框」（§13.E）——外部填词的 imperative 通道 */
@@ -82,7 +89,7 @@ const OUTCOME_TEXT: Record<SubmitOutcome['result'], string> = {
 type SegmentValue = Delivery
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
-  { busy, waiting, initialDraft = '', permission, model, onSend, onInterrupt, onCompact },
+  { busy, waiting, initialDraft = '', permission, model, onSend, onInterrupt, onCommand, commands },
   ref,
 ) {
   const defaultDelivery = useSettingsStore((s) => s.defaultDelivery)
@@ -169,8 +176,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     setMenuIndex(0)
   }
 
+  /** / 菜单命令全集（工单 7.4：静态基线 + 引擎动态清单合并） */
+  const allCommands = mergeSlashCommands(commands ?? [])
   /** / 菜单当前命令行（过滤后；技能组阶段七接入，空组壳） */
-  const slashItems = menu?.kind === 'slash' ? filterCommands(menu.query) : []
+  const slashItems = menu?.kind === 'slash' ? filterCommands(menu.query, allCommands) : []
 
   /** 扁平可选行数（@ 菜单两组皆空壳 → 0，仅浏览结构与底部提示） */
   const menuItemCount = menu?.kind === 'slash' ? slashItems.length : 0
@@ -180,12 +189,12 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     setMenu(null)
   }
 
-  /** 菜单确认：/ 命令回写（available）或给出阶段七提示（不假装执行） */
+  /** 菜单确认：/ 命令回写草稿（发送时由注册表分发执行） */
   function confirmMenu(): void {
     if (menu === null) return
     if (menu.kind === 'slash') {
       const cmd = slashItems[menuIndex]
-      if (cmd !== undefined && cmd.available) {
+      if (cmd !== undefined) {
         const el = taRef.current
         const next = `${draft.slice(0, menu.start)}/${cmd.name} ${draft.slice(caret)}`
         setDraft(next)
@@ -199,7 +208,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         })
         return
       }
-      showHint(COMMAND_PENDING_HINT)
     }
     closeMenu()
   }
@@ -236,14 +244,16 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   async function send(delivery: Delivery): Promise<void> {
     if (!hasText || waiting) return
     const text = draft.trim()
-    if (text === '/compact') {
-      // 手动压缩命令（doc/02 §5.8.5）：本地拦截，不进消息通道
+    // 命令分发（工单 7.4）：首词 / 命中注册表 → onCommand（不进消息通道）；
+    // /compact 迁入注册表后的行为回归——引擎侧同一 compactor.compact() 入口
+    const cmd = parseCommandInput(text, allCommands)
+    if (cmd !== null) {
       setDraft('')
       setAttachments([])
       setAttachOpen(false)
+      setMenu(null)
       try {
-        await onCompact()
-        showHint('已触发上下文压缩')
+        await onCommand(cmd.name, cmd.args)
       } catch (err) {
         showHint(errorMessageOf(err))
       }

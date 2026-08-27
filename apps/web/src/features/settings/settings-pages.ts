@@ -93,16 +93,14 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'mcp',
         title: 'MCP 服务器',
-        description: 'MCP 连接与启停',
-        status: 'placeholder',
-        placeholderReason: '后续工单',
+        description: 'MCP 连接状态与工具数（只读；启停编辑归 v2）',
+        status: 'ready',
       },
       {
         id: 'skills',
         title: '技能',
-        description: '技能列表与启停',
-        status: 'placeholder',
-        placeholderReason: '后续工单',
+        description: '已加载技能清单（只读；管理归 v2）',
+        status: 'ready',
       },
       {
         id: 'commands',
@@ -133,9 +131,8 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'usage',
         title: '使用统计',
-        description: 'Token 用量与趋势',
-        status: 'placeholder',
-        placeholderReason: '后续工单',
+        description: '成本累计与上限（趋势看板归 v2）',
+        status: 'ready',
       },
       {
         id: 'onboarding',
