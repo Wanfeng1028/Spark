@@ -166,6 +166,7 @@ export {
   resolveApiKey,
   type SecretSource,
 } from './secrets/store.js'
+export { IoGuard, type IoWarning, type GuardDeps } from './tools/guard.js'
 export {
   Logger,
   type SparkLogger,

@@ -10,29 +10,7 @@ import { join } from 'node:path'
 import pino from 'pino'
 import type { BaseLogger, LevelWithSilent } from 'pino'
 import type { CallId, SessionId, TurnId } from '@spark/protocol'
-
-const SECRET_RE = /sk-[A-Za-z0-9]{20,}/g
-const BEARER_RE = /Bearer\s+\S+/g
-const REPLACEMENT = '***'
-
-/** 转义正则特殊字符（用于 process.env 值匹配） */
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-/** 收集需要脱敏的环境变量值正则（长度 ≥ 6 防误伤普通短值） */
-function buildEnvPatterns(): readonly RegExp[] {
-  const out: RegExp[] = []
-  for (const [, v] of Object.entries(process.env)) {
-    if (!v || v.length < 6) continue
-    try {
-      out.push(new RegExp(escapeRegex(v), 'g'))
-    } catch {
-      // 非法模式跳过（极罕见）
-    }
-  }
-  return out
-}
+import { BEARER_RE, REPLACEMENT, SECRET_RE, buildEnvPatterns, escapeRegex } from './observability/redaction.js'
 
 export interface LogFields {
   sid?: SessionId

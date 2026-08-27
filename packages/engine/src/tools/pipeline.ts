@@ -19,6 +19,7 @@ import type { ToolCallPending } from '../run-loop.js'
 import type { PermissionService } from './permission-port.js'
 import type { ToolOutputStore } from './output-store.js'
 import type { ToolRegistry } from './registry.js'
+import type { IoGuard } from './guard.js'
 
 export interface PipelineDeps {
   sessionId: SessionId
@@ -31,6 +32,8 @@ export interface PipelineDeps {
   progressThrottleMs: number
   /** 进程内指标（§5.10；缺省不计数——测试 stub 可省，工单 4.8） */
   metrics?: Metrics
+  /** I/O 护栏（工单 7.2；缺省不启用——测试 stub 可省） */
+  guard?: IoGuard
 }
 
 /** 错误 → {code, message}：提取 E_* 前缀码，未分类 → E_INTERNAL（§5.10） */
@@ -223,11 +226,28 @@ export class ToolPipelineImpl implements ToolPipeline {
       )
       // ⑤ 输出限界（>32KB 截断 + 溢写文件）
       const bounded = await this.deps.outputs.bound(result.output, call.callId)
+      // ⑥ I/O 护栏（工单 7.2）：过滤敏感片段 + 注入扫描——tool.completed 事件
+      // 与 run-loop toolResult 回填共用此输出，两面一次覆盖；告警不阻断 turn
+      let finalOutput = bounded
+      if (this.deps.guard !== undefined) {
+        const guarded = this.deps.guard.apply(bounded)
+        finalOutput = guarded.output
+        for (const w of guarded.warnings) {
+          await bus.emit(sid, 'io.warning', {
+            turnId: turn.turnId,
+            callId: call.callId,
+            tool: call.name,
+            kind: w.kind,
+            rules: w.rules,
+            ...(w.redacted !== undefined ? { redacted: w.redacted } : {}),
+          })
+        }
+      }
       await gate.close()
       await bus.emit(sid, 'tool.completed', {
         turnId: turn.turnId,
         callId: call.callId,
-        output: bounded,
+        output: finalOutput,
         isError: result.isError,
         durationMs: startedAt(),
       })
@@ -235,7 +255,7 @@ export class ToolPipelineImpl implements ToolPipeline {
         name: call.name,
         is_error: String(result.isError),
       })
-      return { callId: call.callId, output: bounded, isError: result.isError }
+      return { callId: call.callId, output: finalOutput, isError: result.isError }
     } catch (err) {
       await gate.close()
       await bus.emit(sid, 'tool.completed', {

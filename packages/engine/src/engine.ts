@@ -54,6 +54,7 @@ import type { SubmitResult } from './session/input-queue.js'
 import { TitleGenerator } from './title.js'
 import { ToolOutputStore } from './tools/output-store.js'
 import { ToolPipelineImpl } from './tools/pipeline.js'
+import { IoGuard } from './tools/guard.js'
 import { ToolRegistry } from './tools/registry.js'
 import type { ToolContext, ToolOutput } from './tools/definition.js'
 import { registerBuiltinTools } from './tools/builtin/index.js'
@@ -167,6 +168,8 @@ export class Engine {
   private readonly ruleStore: UserRuleStore
   /** 密钥仓（阶段七工单 7.1 / H01）：~/.spark/secrets.json，取用优先级 store > env */
   private readonly secrets: SecretStore
+  /** I/O 护栏（阶段七工单 7.2 / H02）：工具输出注入检测 + 敏感过滤 */
+  private readonly ioGuard: IoGuard
   /** 进程内指标计数器（§5.10 清单；GET /api/metrics 数据源，工单 4.8） */
   private readonly metrics = new Metrics()
   /** 会话索引（node:sqlite；JSONL 恒为权威——损坏即降级磁盘扫描，工单 4.8） */
@@ -300,6 +303,8 @@ export class Engine {
     this.secrets = new SecretStore(join(this.root, 'secrets.json'))
     // 工单 7.1 验收：store 值不落日志——启动即注册进脱敏层（deps.logger 未实现则跳过）
     this.logger.registerSecrets?.(this.secrets.values())
+    // 工单 7.2：I/O 护栏——store 值动态取（setSecret 即时生效，与日志脱敏同纪律）
+    this.ioGuard = new IoGuard({ secretValues: () => this.secrets.values() })
     this.permission = new PermissionServiceImpl({
       bus: this.bus,
       ruleStore: this.ruleStore,
@@ -994,6 +999,7 @@ export class Engine {
       maxToolParallel: this.config.spark.engine.maxToolParallel,
       progressThrottleMs: this.config.spark.engine.progressThrottleMs,
       metrics: this.metrics,
+      guard: this.ioGuard, // 工单 7.2：工具输出 → 模型上下文的注入检测与敏感过滤
     })
     const deps: RunLoopDeps = {
       sessionId: meta.id,

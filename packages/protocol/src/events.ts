@@ -1,6 +1,6 @@
 /**
  * 事件词表（doc/02 §4.3）：schema registry 是唯一来源——SparkEventMap 由 infer 派生。
- * 词表当前 19 种（此前文档误计 21，v2.3 修正）；扩展走 declaration merging（dsh 手法，阶段五插件用）。
+ * 词表当前 20 种（19 + io.warning，阶段七工单 7.2）；扩展走 declaration merging（dsh 手法，阶段五插件用）。
  */
 import { z } from 'zod'
 import type { EventId, SessionId } from './ids.js'
@@ -107,6 +107,17 @@ export const EventSchemas = {
     scope: z.enum(['engine', 'llm', 'tool', 'io']),
     message: z.string(),
     fatal: z.boolean().optional(),
+  }),
+  // I/O 护栏（阶段七工单 7.2 / H02，log-only——告警本身不进模型历史）
+  'io.warning': z.strictObject({
+    turnId: TurnIdSchema,
+    callId: CallIdSchema,
+    tool: z.string(),
+    kind: z.enum(['injection', 'secret']),
+    // 命中规则名（结构化；不回传原文——防注入内容/密钥片段经告警二次广播）
+    rules: z.array(z.string()).min(1),
+    // kind=secret：敏感片段替换处数（进模型上下文前的过滤计数）
+    redacted: z.number().int().nonnegative().optional(),
   }),
 } as const satisfies Record<string, z.ZodType>
 

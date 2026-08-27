@@ -50,6 +50,7 @@
 | v3.1  | 2026-08-26 | 同上（发起：晚风，移动端规格指令 + Qoder CN iOS 实拍 13 张）                                                                           | 阶段九工单对齐 DESIGN §13.J：9.1 配对改**扫码为主、手输 6 位码兜底**（D24 补记同步）；9.2 视觉依据 §13.J（白卡无边框分层/单栈+抽屉/11 页实测映射）；9.3 审批卡纵向全宽与 Composer 胶囊形态锚定；移动端框架 Expo+RN 经用户确认维持 D20 |
 | v3.2  | 2026-08-26 | 同上（补供图：Qoder CN 会话页有内容态 2 张）                                                                                           | §8.7 候选池新增 **V2-23 会话管理增强**（删除/归档/置顶）——移动端会话页实测暴露后端缺口：无 DELETE /api/sessions/:id，归档/置顶需 meta 标记；DESIGN §13.J.3 同步升级为实测规格（user 右对齐胶囊/assistant 全宽/操作行/时间戳分隔） |
 | v3.3  | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                     | 阶段七工单 **7.1 secrets 管理落地**：SecretStore（~/.spark/secrets.json，原子写+0600+坏 JSON fail-closed）+ resolveApiKey 单点（store > env 迁移兼容）+ GET/PUT/DELETE /api/secrets（值永不回传）+ 设置页密钥管理区 + Logger.registerSecrets（store 值单点注册进 pino 脱敏层）；§1.4 风险表与 §4.5 API 表同步；阶段七 7.1 勾选 |
+| v3.4  | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                     | 阶段七工单 **7.2 I/O 护栏落地（H02，P0）**：新增事件 `io.warning`（log-only，durable 不 surface，告警只含结构化规则名不含原文——防注入内容/密钥片段经告警二次广播）；**事件词表 19→20 种**（§4.3/§4.4/§6.4 三表同步，AGENTS/ARCHITECTURE/README 同步）；引擎 IoGuard（tools/guard.ts：六条注入标记协议规则 + 敏感输出过滤四层——sk-token/Bearer/env 值/store 值，redaction.ts 脱敏正则单一来源与 pino 共用；递归字符串处理对象形状保留；/g 正则 lastIndex 复位防漏检）挂点 ToolPipeline 成功路径输出限界之后（tool.completed 事件与 run-loop toolResult 回填同源一次过滤两面覆盖）；告警不阻断 turn（warn 闭合非失败闭合）；guard 单测 14 例（六规则样例集/四层过滤/递归形状/管线集成 e2e 含事件原文泄漏自检）+ applyEvent 3 例 + protocol round-trip 20 种；阶段七 7.2 勾选、doc/07 H02 勾销 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -305,9 +306,9 @@ export type TurnFinish = 'stop' | 'length' | 'aborted' | 'permission-rejected' |
 export type PermissionReply = 'once' | 'always' | 'reject'
 ```
 
-## 4.3 事件词表（19 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
+## 4.3 事件词表（20 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
 
-> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 19 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
+> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 20 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
 
 ```ts
 export interface SparkEventMap {
@@ -352,6 +353,15 @@ export interface SparkEventMap {
   'checkpoint.created': { checkpointId: CheckpointId; files: string[]; turnId: TurnId }
   // 系统
   error: { scope: 'engine' | 'llm' | 'tool' | 'io'; message: string; fatal?: boolean }
+  // I/O 护栏（阶段七工单 7.2，log-only——告警本身不进模型历史）
+  'io.warning': {
+    turnId: TurnId
+    callId: CallId
+    tool: string
+    kind: 'injection' | 'secret'
+    rules: string[]            // 命中规则名（结构化；不回传原文——防注入内容/密钥片段经告警二次广播）
+    redacted?: number          // kind=secret：敏感片段替换处数
+  }
 }
 ```
 
@@ -369,7 +379,7 @@ export const EventSchemas = {
     text: z.string().min(1),
     attachments: z.array(z.string()).optional(),
   }),
-  // …19 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
+  // …20 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
 } satisfies { [T in SparkEventType]: z.ZodType<SparkEventMap[T]> }
 
 // schema.ts —— 信封 schema + jsonSchema 导出（工具参数与 DTO 用）
@@ -416,6 +426,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | permission.asked / resolved                       | ✅（审计）   | ❌ 永不进模型历史                                     |
 | compaction.* / checkpoint.created                 | ✅           | compaction 影响 projection                            |
 | error                                             | ✅           | ❌                                                    |
+| io.warning                                        | ✅           | ❌ 永不进模型历史（log-only；规则名结构化，原文不进事件） |
 
 **磁盘行与 wire 同构**：落盘 JSONL 行 = 信封原样（含 parentId）——单一格式，序列化零转换，前端 UiItem 的 parentId 即来源于此。
 
@@ -1416,7 +1427,7 @@ interface SessionSlice {
 
 **去重规则（回放×直播重叠）**：apply 入口先判 `e.seq !== undefined && e.seq <= slice.lastSeq` → 跳过（全局直播先到、REST 回放后到时不重复应用；重放期间乱序到达的直播同理被吸附）；live 事件无 seq，无条件应用。resetSlice 将 lastSeq 归 0 后重放从空重建。
 
-**applyEvent 处理表（19 种全覆盖）**：
+**applyEvent 处理表（20 种全覆盖）**：
 
 | 事件                         | 状态变更                                                                            |
 | ---------------------------- | ----------------------------------------------------------------------------------- |
@@ -1437,6 +1448,7 @@ interface SessionSlice {
 | compaction.started/completed | 顶部细条轻提示                                                                      |
 | checkpoint.created           | StatusBar 短暂徽标                                                                  |
 | error                        | toast；fatal→全屏错误态                                                             |
+| io.warning                   | 挂对应 tool 项 guard（角标数据源；不改状态机——不阻断 turn）                         |
 
 ```ts
 // connection-store：{ status:'connecting'|'open'|'reconnecting'|'closed', lastSeq, retryCount }
@@ -1769,7 +1781,7 @@ app.get('/api/event', async (req, reply) => {
 | #    | 工单                          | 产出（目标 + 涉及包）                                                                                                                                                           | 验收标准                                                                                              | 依赖    |
 | ---- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------- |
 | 7.1  | ✅ secrets 管理（H01，P0）    | engine+web：~/.spark/secrets 存储 + 设置页录入 + 引擎取用优先级（store > env），env 迁移兼容                                                                     | apiKey 不再必须环境变量；日志/事件流无明文密钥（复用 pino 脱敏断言 + registerSecrets 单点注册）       | —       |
-| 7.2  | I/O 护栏（H02，P0）           | engine：工具输出注入检测（标记协议 + 可疑模式结构化告警事件）+ 敏感输出过滤（复用 pino 三层脱敏正则）                                                             | 注入样例集触发告警事件且不阻断 turn；密钥样例经工具输出进上下文前被过滤                                | —       |
+| 7.2  | ✅ I/O 护栏（H02，P0）        | engine：工具输出注入检测（标记协议 + 可疑模式结构化告警事件）+ 敏感输出过滤（复用 pino 三层脱敏正则）                                                             | 注入样例集触发告警事件且不阻断 turn；密钥样例经工具输出进上下文前被过滤（IoGuard 挂 ToolPipeline，`io.warning` log-only） | —       |
 | 7.3  | 用户侧 hooks（H03）           | engine：spark.json 声明 turn.before / turn.after / permission.resolved / tool.completed 挂点 → 外部命令或 skill 触发                                             | 四挂点 e2e 各一例；hook 失败不阻断主流程（warn 闭合，同 D18 纪律）                                     | —       |
 | 7.4  | 命令注册表（H04）             | engine+web：/命令 解析框架（/compact 迁入）+ ~/.spark/commands/*.md 自定义命令 + CommandPalette 接入；**命令清单基线 = 对齐 Claude Code 命令面（/compact /model /mcp /skills /usage /resume）+ opencode leader 键模式（ctrl+x 前缀）——命令名可不同，覆盖面以此为下限** | 基线清单逐条可用；自定义 .md 命令可被发现与执行；/compact 行为回归不变                                 | —       |
 | 7.5  | 长期记忆（H05，P1）           | engine+web：~/.spark/memory.db（node:sqlite FTS5；向量检索后置）+ memory.save/search 工具族 + Projector 注入 top-k + 设置页管理；迷你 ADR                          | 记忆跨会话生效（save→新会话 search 命中）；注入不破坏 surface 纪律（模型可见必被记录）                 | 7.1     |
@@ -1818,7 +1830,7 @@ app.get('/api/event', async (req, reply) => {
 | engine/permission  | evaluate 优先级（临时>项目>用户>默认 ask）；always 写入 + 同批放行；超时/中断 fail-closed；reject feedback 注入 user.message                                     |
 | engine/session     | 单写者 append/flush；坏行（尾行丢弃/非尾拒绝加载）；resume 补 turn.completed{aborted}；Projector 投影（无/有 compaction 分支 × reasoning 配置）；mungeDir 确定性 |
 | server             | 路由 zod 400/404/409/503 映射；SSE 回放+直播边界、心跳、全局订阅；SPA fallback 排除 /api                                                                         |
-| web                | **applyEvent 19 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
+| web                | **applyEvent 20 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
 | 集成               | MockTransport 四场景全跑（§4.7 表）；阶段三：ScriptedLlm 全闭环 + 崩溃恢复（kill -9 后 resume 无悬挂事件）                                                       |
 
 ## 8.7 v2 候选池（未排期，不阻塞阶段六~九；缺口编号对应 doc/07 §2.7）

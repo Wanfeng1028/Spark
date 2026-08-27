@@ -2,7 +2,7 @@
  * skills/插件加载器（doc/02 §4.3 merge-extensible，阶段五工单 5.5 / ADR D18）：
  * 扫描 `<root>/skills/<name>/skill.json` 声明式清单——事件词表（JSON Schema → zod）
  * 经 registerEventType 注册进运行时扩展表（EventBus/parseEnvelope/SessionStore
- * 读端统一查 eventSchemaOf，与内置 19 种同一校验路径）；hooks = 声明式触发器
+ * 读端统一查 eventSchemaOf，与内置 20 种同一校验路径）；hooks = 声明式触发器
  * （on 内置事件 → emit 插件事件，data 固定形状 {skill, sourceEventId, sourceType}）。
  * 插件 = 数据声明，不是程序——不执行任意代码（与 MCP 子进程路线的分工）。
  * 单个 skill 清单坏/类型冲突/钩子非法 → warn 跳过该 skill（引擎照常启动，

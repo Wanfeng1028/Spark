@@ -6,6 +6,7 @@
 | ---- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | v1.0 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D1 审计指令） | 初稿：十九条学科×三态总表 / 工程六大类明细（逐条落源码证据）/ 四端复用矩阵 / 缺口优先级 P0–P2；Python Worker 判决"不做"；缺口编号 H01–H36 供 doc/02 §8 阶段六~九工单与 v2 候选池引用 |
 | v1.1 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §2.4 密钥鉴权改 🟡（H01 → 7.1 ✅ 已落地：SecretStore + resolveApiKey store>env + /api/secrets + 设置页 + Logger.registerSecrets 日志脱敏）；§4.3 H01 勾销注记 |
+| v1.2 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §2.4 I/O 护栏改 ✅（H02 → 7.2 ✅ 已落地：IoGuard 六条注入标记规则 + 四层敏感过滤挂 ToolPipeline，`io.warning` log-only 事件，redaction.ts 脱敏正则与 pino 单一来源；guard 14 例含管线 e2e）；§2.3 沙箱差距注记更新；§4.3 H02 勾销注记 |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
 > **方法**：三条证据链——①引擎/服务端/前端逐模块源码走读（本文所有路径均为当日实测，非转抄文档）；②协议词表 19 种逐条核对（含 `user.message.attachments?`、`assistant.message.usage` 等已预留未消费字段）；③既有审计（doc/05 缺口 G1–G7）与用户侧能力对照清单合并盘点。
@@ -96,7 +97,7 @@
 
 **沙箱** —— 🟡 部分（H02 关联）
 - 证据：`packages/engine/src/tools/sandbox.ts`（Linux bwrap --ro-bind / /、macOS Seatbelt profile、wrapper 不可用 E_SANDBOX_UNAVAILABLE fail-closed）；spark.json engine.bashSandbox（默认 off）；Windows 返回 null 拒跑（ADR D15）。
-- 差距：网络隔离 v1 不做（D15 记录：沙箱外 SOCKS5+域名清单方案后置）→ H34 候选池；Windows OS 级不做（D15 三备选全否决，维持"全审批+路径硬边界"防线）；**工具输出→模型通道的注入检测没有**→ H02（7.2）。
+- 差距：网络隔离 v1 不做（D15 记录：沙箱外 SOCKS5+域名清单方案后置）→ H34 候选池；Windows OS 级不做（D15 三备选全否决，维持"全审批+路径硬边界"防线）；工具输出→模型通道的注入检测已由 7.2 IoGuard 覆盖（H02 ✅，见 §2.4）。
 - 参考：Claude Code sandboxing 官方文档（同款 workspace-write 姿态）。工单：H02 → **7.2**；H34 → v2 候选池（P2）。
 
 **虚拟文件系统** —— ❌ 无，**不做**
@@ -111,10 +112,10 @@
 
 ## 2.4 护栏（I/O 护栏 / HITL 审批门 / 密钥鉴权 / 预算与熔断）
 
-**I/O 护栏** —— ❌ 缺失（H02）
-- 证据：工具输出原样进模型上下文（`packages/engine/src/tools/pipeline.ts` → Projector surface 投影），无注入模式检测；日志侧脱敏三层正则齐备（`packages/engine/src/logger.ts`：sk- / Bearer / process.env 动态）但仅覆盖日志不覆盖模型输入面。
-- 差距：工具输出中的提示词注入无可疑模式告警；敏感信息可能经工具输出进入模型上下文。
-- 参考：Gemini CLI toolDistillationService（输出蒸馏位）；dsh surface 纪律。工单：**7.2**（标记协议+结构化告警事件+复用 pino 三层正则做输出过滤）。
+**I/O 护栏** —— ✅ 已落地（H02 → 7.2 ✅）
+- 证据（7.2 已落地）：`packages/engine/src/tools/guard.ts` IoGuard（六条注入标记协议规则 + 敏感过滤四层——sk-token/Bearer/env 值/secrets store 值）挂 `tools/pipeline.ts` 成功路径输出限界之后，tool.completed 事件与 run-loop toolResult 回填同源一次过滤；脱敏正则抽至 `observability/redaction.ts` 单一来源与 pino logger 共用；告警走新增 `io.warning` 事件（log-only durable 不 surface，只含结构化规则名不含原文）；`/g` 正则 lastIndex 复位防跨调用漏检；guard 单测 14 例（含管线集成 e2e 与事件原文泄漏自检）。
+- 差距：注入模式集为保守小集（六条），更全面的样本集与蒸馏式压缩（Gemini CLI toolDistillationService）后置 v2 评估。
+- 参考：Gemini CLI toolDistillationService（输出蒸馏位）；dsh surface 纪律。工单：H02 → **7.2 ✅ 已勾销（2026-08-27）**。
 
 **HITL 审批门** —— ✅ 已实现
 - 证据：`packages/engine/src/permission/service.ts`（挂起表、超时 300s/dispose 一律 resolve(deny) fail-closed、always 先落盘再写会话临时层、同批放行级联、reject 同会话级联）；`packages/engine/src/permission/rules.ts`（findLast 胜出、任一 deny 短路）；前端 ApprovalCard 多 pattern 展示（4.7）。
@@ -246,7 +247,7 @@
 | 编号 | 缺口 | 工单 |
 | ---- | ---- | ---- |
 | H01 | secrets 管理（~/.spark/secrets + 设置页录入 + store>env 优先级） | 7.1 ✅ 已勾销（2026-08-27） |
-| H02 | I/O 护栏（注入检测 + 敏感输出过滤） | 7.2 |
+| H02 | I/O 护栏（注入检测 + 敏感输出过滤） | 7.2 ✅ 已勾销（2026-08-27） |
 | H07 | model routing 增强（fallback 链/按任务路由/**成本熔断**） | 7.7 |
 | —   | 配对鉴权（非环回强制 token，缺省 127.0.0.1 行为不变为红线） | 9.1（ADR D24） |
 
