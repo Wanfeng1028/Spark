@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
+import type { UserHooksConfig } from './hooks/runner.js'
 
 /** E_CONFIG（§5.10）：进程退出 + stderr 的载体由启动方（server）负责 */
 export class ConfigError extends Error {
@@ -19,6 +20,22 @@ export class ConfigError extends Error {
 }
 
 // ---- spark.json ----
+
+/** 工单 7.3：单条用户侧 hook——外部命令或 skill 触发（二选一，strictObject 防混写） */
+const userHookDefSchema = z.union([
+  z.strictObject({
+    command: z.string().min(1),
+    timeoutMs: z.number().int().positive().optional(),
+  }),
+  z.strictObject({ skill: z.string().min(1), emit: z.string().min(1) }),
+])
+
+const userHooksSchema = z.strictObject({
+  'turn.before': z.array(userHookDefSchema).optional(),
+  'turn.after': z.array(userHookDefSchema).optional(),
+  'permission.resolved': z.array(userHookDefSchema).optional(),
+  'tool.completed': z.array(userHookDefSchema).optional(),
+})
 
 const sparkSchema = z.object({
   version: z.literal(1).optional(),
@@ -45,6 +62,8 @@ const sparkSchema = z.object({
     })
     .partial()
     .optional(),
+  /** 用户侧 hooks（阶段七工单 7.3 / H03）：四挂点 → 外部命令或 skill 触发 */
+  hooks: userHooksSchema.optional(),
 })
 
 export interface SparkConfig {
@@ -60,6 +79,8 @@ export interface SparkConfig {
     checkpoints: boolean
     bashSandbox: 'off' | 'on'
   }
+  /** 用户侧 hooks（工单 7.3；可选——直注入配置的测试夹具可省，引擎侧 `?? {}`） */
+  hooks?: UserHooksConfig | undefined
 }
 
 const SPARK_DEFAULTS: SparkConfig = {
@@ -230,6 +251,7 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
               checkpoints: p.engine?.checkpoints ?? SPARK_DEFAULTS.engine.checkpoints,
               bashSandbox: p.engine?.bashSandbox ?? SPARK_DEFAULTS.engine.bashSandbox,
             },
+            hooks: p.hooks, // 工单 7.3：原样透传（undefined = 无挂点）
           }
         })()
 

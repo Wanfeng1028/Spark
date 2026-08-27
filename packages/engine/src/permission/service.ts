@@ -11,7 +11,7 @@
  * - 超时 / turn 中断（AbortSignal）/ dispose → 一律 resolve(deny) +
  *   permission.resolved{reject}（fail-closed，"宁可错杀"）。
  */
-import type { PermissionPreset, PermissionReply, RequestId, SessionId } from '@spark/protocol'
+import type { EventId, PermissionPreset, PermissionReply, RequestId, SessionId } from '@spark/protocol'
 import type { EventBus } from '../bus.js'
 import type { PermissionRule } from '../config.js'
 import { newIds } from '../ulid.js'
@@ -38,8 +38,18 @@ export interface PermissionServiceDeps {
   projectRules: readonly PermissionRule[]
   /** 审批超时（spark.json permissionTimeoutMs，缺省 5min） */
   timeoutMs: number
-  /** 进程内指标（§5.10；缺省不计数——测试可省，工单 4.8） */
+  /** 进程内指标（§5.10 清单；缺省不计数——测试可省，工单 4.8） */
   metrics?: Metrics
+  /**
+   * 用户侧 hooks 挂点（阶段七工单 7.3 / H03）：permission.resolved 事件落盘后
+   * 触发（fire-and-forget——回调内自闭合，不阻断审批流程）。
+   */
+  onResolved?: (payload: {
+    sessionId: SessionId
+    requestId: RequestId
+    reply: PermissionReply
+    sourceEventId: EventId
+  }) => void
 }
 
 export class PermissionServiceImpl implements PermissionService {
@@ -79,9 +89,15 @@ export class PermissionServiceImpl implements PermissionService {
     })
     // emit 期间 turn 中断：asked 已入流，补 resolved{reject} 保持闭合
     if (check.signal.aborted) {
-      await this.deps.bus.emit(check.sessionId, 'permission.resolved', {
+      const env = await this.deps.bus.emit(check.sessionId, 'permission.resolved', {
         requestId,
         reply: 'reject',
+      })
+      this.deps.onResolved?.({
+        sessionId: check.sessionId,
+        requestId,
+        reply: 'reject',
+        sourceEventId: env.id,
       })
       return false
     }
@@ -196,10 +212,16 @@ export class PermissionServiceImpl implements PermissionService {
     this.pending.delete(entry.requestId)
     this.deps.metrics?.inc('spark_permission_decisions', { reply }) // 工单 4.8：once/always/reject 计数
     try {
-      await this.deps.bus.emit(entry.sessionId, 'permission.resolved', {
+      const env = await this.deps.bus.emit(entry.sessionId, 'permission.resolved', {
         requestId: entry.requestId,
         reply,
         ...(feedback !== undefined && feedback !== '' ? { feedback } : {}),
+      })
+      this.deps.onResolved?.({
+        sessionId: entry.sessionId,
+        requestId: entry.requestId,
+        reply,
+        sourceEventId: env.id,
       })
     } finally {
       entry.resolve(allowed)

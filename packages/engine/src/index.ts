@@ -174,6 +174,18 @@ export {
 } from './fallback-gateway.js'
 export { CostTracker, type UsageTotal } from './cost-tracker.js'
 export {
+  UserHookRunner,
+  DEFAULT_HOOK_TIMEOUT_MS,
+  type HookPoint,
+  type HookLogger,
+  type HookFirePayload,
+  type UserHookDef,
+  type UserHookCommandDef,
+  type UserHookSkillDef,
+  type UserHooksConfig,
+  type UserHookRunnerDeps,
+} from './hooks/runner.js'
+export {
   Logger,
   type SparkLogger,
   type LogFields,

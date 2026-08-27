@@ -23,6 +23,7 @@ import type {
   Usage,
 } from '@spark/protocol'
 import type { EventBus } from './bus.js'
+import type { UserHookRunner } from './hooks/runner.js'
 import type { LlmGateway, LlmMessage, ResolvedModel, ToolSpec } from './llm-gateway.js'
 import { ZERO_USAGE, addUsage } from './llm-gateway.js'
 import type { Metrics } from './observability/metrics.js'
@@ -123,6 +124,10 @@ export interface RunLoopDeps {
   budget?: Budget
   /** turn 边界 checkpoint（工单 4.6；config.engine.checkpoints=false 时缺省） */
   checkpoint?: Checkpointer
+  /** 会话工作目录（工单 7.3：turn.before/turn.after 用户 hook 的命令 cwd） */
+  cwd?: string
+  /** 用户侧 hooks（工单 7.3 / H03；缺省不触发——测试 stub 可省） */
+  hooks?: UserHookRunner
 }
 
 function isToolCall(c: ContentItem): c is Extract<ContentItem, { type: 'toolCall' }> {
@@ -184,6 +189,14 @@ export async function runTurn(
   }
 
   try {
+    // 用户侧 hooks（工单 7.3）：turn.before——输入受理后、事件流开路前触发
+    // （先于 user.message/turn.started；fire-and-forget 不阻断）
+    deps.hooks?.fire('turn.before', {
+      sessionId: sid,
+      cwd: deps.cwd ?? '',
+      sourceEventId: null,
+      data: { turnId },
+    })
     const userEvent = await deps.bus.emit(sid, 'user.message', {
       text: input.text,
       ...(input.attachments !== undefined ? { attachments: input.attachments } : {}),
@@ -342,8 +355,15 @@ export async function runTurn(
   } finally {
     // 失败闭合：started 已发则必有 completed；endTurn 转移 steer 残留并处理 idle
     if (started) {
-      await deps.bus.emit(sid, 'turn.completed', { turnId, finish, usage })
+      const completed = await deps.bus.emit(sid, 'turn.completed', { turnId, finish, usage })
       deps.metrics?.inc('spark_turns_total', { finish })
+      // 用户侧 hooks（工单 7.3）：turn.after——completed 已落盘后触发
+      deps.hooks?.fire('turn.after', {
+        sessionId: sid,
+        cwd: deps.cwd ?? '',
+        sourceEventId: completed.id,
+        data: { turnId, finish, usage },
+      })
       // turn 边界 checkpoint（工单 4.6）：completed 已落盘，快照在下一输入前串行执行
       // （晚于 turn.completed、不含自身事件；失败由实现自闭合 emit error{io}）
       if (deps.checkpoint !== undefined) {

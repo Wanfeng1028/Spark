@@ -76,6 +76,7 @@ import { loadMcpConfig } from './mcp/config.js'
 import { McpManager } from './mcp/manager.js'
 import { loadSkills } from './skills/loader.js'
 import type { LoadedSkill } from './skills/loader.js'
+import { DEFAULT_HOOK_TIMEOUT_MS, UserHookRunner } from './hooks/runner.js'
 import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
 
@@ -208,6 +209,10 @@ export class Engine {
   private readonly mcpReady: Promise<void>
   /** skills/插件加载任务（工单 5.5 / ADR D18：词表注册 + hooks 订阅；ready() 等待） */
   private readonly skillsReady: Promise<LoadedSkill[]>
+  /** 已加载 skills 快照（skillsReady 完成后非空；用户侧 hooks 的 skill 触发现读） */
+  private loadedSkills: readonly LoadedSkill[] = []
+  /** 用户侧 hooks（阶段七工单 7.3 / H03）：spark.json hooks 段四挂点 fire-and-forget 触发 */
+  private readonly hooks: UserHookRunner
   private readonly outputs: ToolOutputStore
   private readonly sessions = new Map<SessionId, SessionEntry>()
   private readonly inflight = new Map<SessionId, Promise<SessionEntry>>()
@@ -308,6 +313,18 @@ export class Engine {
         return skills
       },
     )
+    // skillsReady 完成后留快照（用户侧 hooks 的 skill 触发按名现读）
+    void this.skillsReady.then((skills) => {
+      this.loadedSkills = skills
+    })
+
+    // 工单 7.3 / H03：用户侧 hooks（缺省空配置零开销；失败一律 warn 闭合不阻断主流程）
+    this.hooks = new UserHookRunner(this.config.spark.hooks ?? {}, {
+      bus: this.bus,
+      logger: this.logger,
+      skills: () => this.loadedSkills,
+      defaultTimeoutMs: DEFAULT_HOOK_TIMEOUT_MS,
+    })
 
     this.registry = new ToolRegistry()
     registerBuiltinTools(this.registry, {
@@ -355,6 +372,15 @@ export class Engine {
       projectRules: loadProjectRules(this.defaultCwd),
       timeoutMs: this.config.spark.engine.permissionTimeoutMs,
       metrics: this.metrics,
+      // 工单 7.3：permission.resolved 挂点（fire-and-forget；cwd 取会话工作目录）
+      onResolved: (p) => {
+        this.hooks.fire('permission.resolved', {
+          sessionId: p.sessionId,
+          cwd: this.sessions.get(p.sessionId)?.meta.cwd ?? this.defaultCwd,
+          sourceEventId: p.sourceEventId,
+          data: { requestId: p.requestId, reply: p.reply },
+        })
+      },
     })
 
     // meta 增量维护：durable 事件更新 updatedAt/lastSeq；session.title 更新标题
@@ -1184,6 +1210,7 @@ export class Engine {
       progressThrottleMs: this.config.spark.engine.progressThrottleMs,
       metrics: this.metrics,
       guard: this.ioGuard, // 工单 7.2：工具输出 → 模型上下文的注入检测与敏感过滤
+      hooks: this.hooks, // 工单 7.3：tool.completed 挂点（载荷不含 output）
     })
     // 计划模式 system 拼接的闭包依赖（见下方 deps.system getter）
     const permission = this.permission
@@ -1210,6 +1237,9 @@ export class Engine {
       maxStepsPerTurn: this.config.spark.engine.maxStepsPerTurn,
       compactionThreshold: this.config.spark.engine.compactionThreshold,
       metrics: this.metrics,
+      // 工单 7.3：turn.before/turn.after 用户 hook（命令 cwd = 会话工作目录）
+      cwd: meta.cwd,
+      hooks: this.hooks,
       // 工单 7.7：成本熔断——limitUsd 现读 routing（热生效），累计跨进程持久
       budget: {
         limitUsd: () => this.routing.costLimitUsd,
