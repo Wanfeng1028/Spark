@@ -1,0 +1,103 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mE:/code/javascript/project/Spark/packages/engine[39m
+
+(node:1152) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"level":"info","time":1787833716531,"pid":1152,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-routing-dH3M0D","cwd":"E:\\code\\javascript\\project\\Spark\\packages\\engine","msg":"engine.start"}
+{"level":"info","time":1787833716605,"pid":1152,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-routing-uytjr7","cwd":"E:\\code\\javascript\\project\\Spark\\packages\\engine","msg":"engine.start"}
+ [32m✓[39m tests/routing.test.ts[2m > [22mFallbackGateway.stream[2m > [22m主模型成功：不触发 fallback，结果原样返回[32m 1[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mFallbackGateway.stream[2m > [22m主模型 error 且无交付：切换到链首个可用模型[32m 1[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mFallbackGateway.stream[2m > [22m主模型与链全部失败：返回 E_LLM_FALLBACK 汇总（每个模型原因可见）[32m 0[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mFallbackGateway.stream[2m > [22m空 fallback 链：不切换，主模型错误原样返回[32m 0[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mFallbackGateway.stream[2m > [22maborted 不切换（用户主动中断不是故障）[32m 0[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mFallbackGateway.stream[2m > [22m部分交付不切换（error 但 content 非空——避免重复输出）[32m 0[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mFallbackGateway.stream[2m > [22m热更新：链经函数每请求现读（空链失败后加链，下一请求生效）[32m 0[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mFallbackGateway.generateOnce[2m > [22m主模型成功：不触发 fallback[32m 1[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mFallbackGateway.generateOnce[2m > [22m主模型抛错：切换到链上模型成功[32m 0[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mFallbackGateway.generateOnce[2m > [22m链尽：抛 E_LLM_FALLBACK 汇总错误[32m 1[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mCostTracker[2m > [22m无 usage.json：零起点累计[32m 2[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mCostTracker[2m > [22madd 累计 + 持久化往返（新实例读回延续）[32m 2[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mCostTracker[2m > [22mexceeded：limit undefined 永不熔断；累计 ≥ limit 熔断[32m 2[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mCostTracker[2m > [22mreset 清零并持久化[32m 2[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mCostTracker[2m > [22m坏 JSON fail-closed（E_CONFIG）[32m 2[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mCostTracker[2m > [22m形状不符 fail-closed：缺字段/非数字/负数[32m 3[2mms[22m[39m
+ [32m✓[39m tests/routing.test.ts[2m > [22mCostTracker[2m > [22m持久化文件为紧凑可读 JSON（人可核对账目）[32m 2[2mms[22m[39m
+ [31m×[39m tests/routing.test.ts[2m > [22mEngine 路由集成（工单 7.7）[2m > [22mgetRouting 初值来自配置；updateRouting 校验未知 provider 并写回 models.json[32m 76[2mms[22m[39m
+[31m   → Cannot read properties of undefined (reading 'map')[39m
+[31m   → EPERM, Permission denied: \\?\C:\windows\TEMP\spark-routing-dH3M0D '\\?\C:\windows\TEMP\spark-routing-dH3M0D'[39m
+{"level":"info","time":1787833716628,"pid":1152,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-routing-07G2YT","cwd":"E:\\code\\javascript\\project\\Spark\\packages\\engine","msg":"engine.start"}
+ [31m×[39m tests/routing.test.ts[2m > [22mEngine 路由集成（工单 7.7）[2m > [22mfallback 热生效：主模型失败 → 链上模型接管（同一 turn 内）[32m 24[2mms[22m[39m
+[31m   → Cannot read properties of undefined (reading 'map')[39m
+[31m   → EPERM, Permission denied: \\?\C:\windows\TEMP\spark-routing-dH3M0D '\\?\C:\windows\TEMP\spark-routing-dH3M0D'[39m
+ [31m×[39m tests/routing.test.ts[2m > [22mEngine 路由集成（工单 7.7）[2m > [22m成本熔断闭环：超限中断 turn → 新 turn 拒绝 → resetUsage 解除[32m 24[2mms[22m[39m
+[31m   → Cannot read properties of undefined (reading 'map')[39m
+[31m   → EPERM, Permission denied: \\?\C:\windows\TEMP\spark-routing-dH3M0D '\\?\C:\windows\TEMP\spark-routing-dH3M0D'[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/routing.test.ts > Engine 路由集成（工单 7.7） > getRouting 初值来自配置；updateRouting 校验未知 provider 并写回 models.json
+TypeError: Cannot read properties of undefined (reading 'map')
+ ❯ new Engine src/engine.ts:346:47
+    344|     this.costTracker = new CostTracker(join(this.root, 'usage.json'))
+    345|     this.routing = {
+    346|       fallbacks: this.config.models.fallbacks.map((r) => this.resolveM…
+       |                                               ^
+    347|       compactionModel: this.resolveModel(this.config.models.compaction…
+    348|       titleModel: this.resolveModel(this.config.models.titleModel),
+ ❯ makeRoutingEngine tests/routing.test.ts:307:18
+ ❯ tests/routing.test.ts:333:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/routing.test.ts > Engine 路由集成（工单 7.7） > getRouting 初值来自配置；updateRouting 校验未知 provider 并写回 models.json
+ FAIL  tests/routing.test.ts > Engine 路由集成（工单 7.7） > fallback 热生效：主模型失败 → 链上模型接管（同一 turn 内）
+ FAIL  tests/routing.test.ts > Engine 路由集成（工单 7.7） > 成本熔断闭环：超限中断 turn → 新 turn 拒绝 → resetUsage 解除
+Error: EPERM, Permission denied: \\?\C:\windows\TEMP\spark-routing-dH3M0D '\\?\C:\windows\TEMP\spark-routing-dH3M0D'
+ ❯ tests/routing.test.ts:33:25
+     31| 
+     32| afterEach(() => {
+     33|   for (const d of dirs) rmSync(d, { recursive: true, force: true })
+       |                         ^
+     34|   dirs = []
+     35| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errno: 1, code: 'EPERM', path: '\\?\C:\windows\TEMP\spark-routing-dH3M0D', syscall: 'rm' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/routing.test.ts > Engine 路由集成（工单 7.7） > fallback 热生效：主模型失败 → 链上模型接管（同一 turn 内）
+TypeError: Cannot read properties of undefined (reading 'map')
+ ❯ new Engine src/engine.ts:346:47
+    344|     this.costTracker = new CostTracker(join(this.root, 'usage.json'))
+    345|     this.routing = {
+    346|       fallbacks: this.config.models.fallbacks.map((r) => this.resolveM…
+       |                                               ^
+    347|       compactionModel: this.resolveModel(this.config.models.compaction…
+    348|       titleModel: this.resolveModel(this.config.models.titleModel),
+ ❯ makeRoutingEngine tests/routing.test.ts:307:18
+ ❯ tests/routing.test.ts:366:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  tests/routing.test.ts > Engine 路由集成（工单 7.7） > 成本熔断闭环：超限中断 turn → 新 turn 拒绝 → resetUsage 解除
+TypeError: Cannot read properties of undefined (reading 'map')
+ ❯ new Engine src/engine.ts:346:47
+    344|     this.costTracker = new CostTracker(join(this.root, 'usage.json'))
+    345|     this.routing = {
+    346|       fallbacks: this.config.models.fallbacks.map((r) => this.resolveM…
+       |                                               ^
+    347|       compactionModel: this.resolveModel(this.config.models.compaction…
+    348|       titleModel: this.resolveModel(this.config.models.titleModel),
+ ❯ makeRoutingEngine tests/routing.test.ts:307:18
+ ❯ tests/routing.test.ts:382:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m17 passed[39m[22m[90m (20)[39m
+[2m   Start at [22m 20:28:29
+[2m   Duration [22m 7.00s[2m (transform 541ms, setup 0ms, collect 5.16s, tests 144ms, environment 0ms, prepare 772ms)[22m
+
+undefined
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/routing.test.ts --reporter=verbose

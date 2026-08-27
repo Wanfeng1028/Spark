@@ -7,6 +7,9 @@
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply } from './primitives.js'
 import type {
+  AutomationCreate,
+  AutomationRunDto,
+  AutomationTriggerDto,
   CheckpointDto,
   CommandDto,
   McpServerDto,
@@ -97,5 +100,19 @@ export interface Transport {
   listMemories(): Promise<MemoryDto[]>
   /** DELETE /api/memories/:id：删除一条记忆（无此条 → E_NOT_FOUND） */
   removeMemory(id: number): Promise<void>
+  /** GET /api/automation：自动化触发器清单（工单 7.6） */
+  listAutomation(): Promise<AutomationTriggerDto[]>
+  /** POST /api/automation：创建触发器（cron/watch/webhook 至少一种） */
+  createAutomation(input: AutomationCreate): Promise<AutomationTriggerDto>
+  /** DELETE /api/automation/:id：删除触发器（无此条 → E_NOT_FOUND） */
+  removeAutomation(id: string): Promise<void>
+  /** PUT /api/automation/:id/enabled：启停触发器 */
+  setAutomationEnabled(id: string, enabled: boolean): Promise<void>
+  /** GET /api/automation/runs?limit：运行历史（新→旧） */
+  listAutomationRuns(limit?: number): Promise<AutomationRunDto[]>
+  /** POST /api/automation/webhook/:id：外部触发（未启用 webhook 或停用 → 拒绝） */
+  fireAutomationWebhook(id: string): Promise<void>
+  /** POST /api/automation/:id/run：手动触发（测试/调试） */
+  fireAutomationManual(id: string): Promise<void>
   dispose(): void
 }

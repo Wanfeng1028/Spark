@@ -232,3 +232,48 @@ export const MemoryDtoSchema = z.strictObject({
   createdAt: z.number().int().nonnegative(),
 })
 export type MemoryDto = z.infer<typeof MemoryDtoSchema>
+
+// ---------- automation（doc/02 §8 阶段七工单 7.6 / H06，ADR D26） ----------
+
+/** 触发器定义（GET /api/automation 行；三类触发条件至少一种，并存 = 任一命中） */
+export const AutomationTriggerDtoSchema = z.strictObject({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  enabled: z.boolean(),
+  /** 自动建会话的工作目录 */
+  cwd: z.string().min(1),
+  /** 触发后发送的 prompt */
+  prompt: z.string().min(1),
+  /** cron 5 字段表达式（分 时 日 月 周；* / N - ,） */
+  cron: z.string().min(1).optional(),
+  /** watch 路径（stat mtime 变化触发；文件内容/目录结构变化） */
+  watch: z.string().min(1).optional(),
+  /** 启用 webhook 入口（POST /api/automation/webhook/:id） */
+  webhook: z.boolean().optional(),
+  createdAt: z.number().int().nonnegative(),
+})
+export type AutomationTriggerDto = z.infer<typeof AutomationTriggerDtoSchema>
+
+/** POST /api/automation 创建体（id/createdAt/enabled 由引擎生成） */
+export const AutomationCreateSchema = z.strictObject({
+  name: z.string().min(1).max(64),
+  cwd: z.string().min(1),
+  prompt: z.string().min(1),
+  cron: z.string().min(1).optional(),
+  watch: z.string().min(1).optional(),
+  webhook: z.boolean().optional(),
+})
+export type AutomationCreate = z.infer<typeof AutomationCreateSchema>
+
+/** 运行历史行（GET /api/automation/runs；新→旧，finish=error 时带人话 error） */
+export const AutomationRunDtoSchema = z.strictObject({
+  id: z.string().min(1),
+  triggerId: z.string().min(1),
+  triggerName: z.string(),
+  at: z.number().int().nonnegative(),
+  kind: z.enum(['cron', 'watch', 'webhook', 'manual']),
+  sessionId: z.string().optional(),
+  finish: z.enum(['ok', 'error']),
+  error: z.string().optional(),
+})
+export type AutomationRunDto = z.infer<typeof AutomationRunDtoSchema>
