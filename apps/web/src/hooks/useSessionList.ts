@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { SessionDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
+import { errorMessageOf } from '@/lib/error-copy'
 
 export interface SessionListState {
   sessions: SessionDto[] | null // null = 加载中
@@ -25,7 +26,7 @@ export function useSessionList(): SessionListState {
       setSessions(list)
     } catch (err) {
       // 失败闭合：列表不可用如实呈现错误块（不吞、不用缓存冒充新数据）
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errorMessageOf(err))
     }
   }, [transport])
 

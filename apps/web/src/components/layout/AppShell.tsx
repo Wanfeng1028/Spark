@@ -1,23 +1,31 @@
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { Titlebar } from './Titlebar'
+import { useLocation, useNavigate } from 'react-router'
 import { Sidebar } from './Sidebar'
 import { StatusBar } from './StatusBar'
 import { SettingsDialog } from '@/features/settings/SettingsDialog'
+import { SettingsSidebar } from '@/features/settings/SettingsSidebar'
 import { CommandPalette } from '@/features/palette/CommandPalette'
 import { useConnectionStore } from '@/stores/connection'
 import { useUiStore } from '@/stores/ui'
+import { cn } from '@/lib/utils'
 
 /**
- * 工作台骨架（doc/02 §6.1 / DESIGN.md §2）：
- * titlebar 36px + 断线重连条（断线时出现，DESIGN §9 顶部强提示）+ 主区（Sidebar 240px | 内容）+ StatusBar 28px。
- * 页面级不滚动，只有内容区内部滚动。
- * 全局浮层与快捷键挂这里：Cmd/Ctrl+K 命令面板、Cmd/Ctrl+, 设置（doc/02 §6.3 / §6.2.3）。
+ * 工作台骨架（DESIGN.md §13.A，取代 §2 三行栅格）：
+ * 主区（Sidebar 264px 可折叠 48px ｜ 内容列）+ StatusBar 24px 单行细条；
+ * 会话态顶栏 44px 由 SessionPage 自带（标题+项目 chip），空态无顶栏。
+ * 设置路由下左栏切 SettingsSidebar（§13.D 复用 264px，不折叠）。
+ * 全局浮层与快捷键挂这里：Cmd/Ctrl+K 命令面板、Cmd/Ctrl+, 设置（doc/02 §6.3）。
+ * 断线重连条（DESIGN §9 顶部强提示）占一行 auto 行高，仅断线时出现。
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const status = useConnectionStore((s) => s.status)
+  const collapsed = useUiStore((s) => s.sidebarCollapsed)
   const paletteOpen = useUiStore((s) => s.paletteOpen)
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const inSettings = location.pathname.startsWith('/settings')
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -28,19 +36,24 @@ export function AppShell({ children }: { children: ReactNode }) {
         setPaletteOpen(!useUiStore.getState().paletteOpen)
       } else if (e.key === ',') {
         e.preventDefault()
-        useUiStore.getState().setSettingsOpen(!useUiStore.getState().settingsOpen)
+        // 设置中心为全屏页（工单 6.4）；Cmd/Ctrl+, 直达外观页
+        void navigate('/settings/appearance')
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setPaletteOpen])
+  }, [setPaletteOpen, navigate])
 
   return (
-    <div className="grid h-full grid-rows-[36px_auto_1fr_28px] bg-background text-foreground">
-      <Titlebar />
+    <div className="grid h-full grid-rows-[auto_1fr_24px] bg-background text-foreground">
       {status !== 'open' && <ReconnectBanner status={status} />}
-      <div className="grid min-h-0 grid-cols-[240px_1fr]">
-        <Sidebar />
+      <div
+        className={cn(
+          'grid min-h-0 grid-cols-[auto_1fr] transition-[grid-template-columns] duration-150',
+          !inSettings && collapsed ? 'grid-cols-[48px_1fr]' : 'grid-cols-[264px_1fr]',
+        )}
+      >
+        {inSettings ? <SettingsSidebar /> : <Sidebar />}
         <main className="min-h-0 overflow-hidden">{children}</main>
       </div>
       <StatusBar />

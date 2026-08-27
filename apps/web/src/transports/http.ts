@@ -12,6 +12,9 @@ import type {
   CheckpointDto,
   CheckpointId,
   EventId,
+  ModelTestResultDto,
+  ModelsDto,
+  PermissionPreset,
   PermissionReply,
   PermissionRuleDto,
   RequestId,
@@ -259,6 +262,36 @@ export class HttpTransport implements Transport {
       method: 'DELETE',
       body: JSON.stringify({ action, resource }),
     }).then(() => undefined)
+  }
+
+  getPermissionPreset(sessionId: SessionId): Promise<PermissionPreset> {
+    return this.req<{ preset: PermissionPreset }>(
+      `/api/sessions/${sessionId}/permission-preset`,
+    ).then((r) => r.preset)
+  }
+
+  setPermissionPreset(sessionId: SessionId, preset: PermissionPreset): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/sessions/${sessionId}/permission-preset`, {
+      method: 'PUT',
+      body: JSON.stringify({ preset }),
+    }).then(() => undefined)
+  }
+
+  listModels(): Promise<ModelsDto> {
+    return this.req<ModelsDto>('/api/models')
+  }
+
+  testModelProvider(providerId: string): Promise<ModelTestResultDto> {
+    return this.req<ModelTestResultDto>(`/api/models/${encodeURIComponent(providerId)}/test`, {
+      method: 'POST',
+    })
+  }
+
+  setSessionModel(sessionId: SessionId, model: string): Promise<string> {
+    return this.req<{ model: string }>(`/api/sessions/${sessionId}/model`, {
+      method: 'PUT',
+      body: JSON.stringify({ model }),
+    }).then((r) => r.model)
   }
 
   dispose(): void {

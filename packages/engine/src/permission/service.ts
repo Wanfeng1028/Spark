@@ -11,7 +11,7 @@
  * - 超时 / turn 中断（AbortSignal）/ dispose → 一律 resolve(deny) +
  *   permission.resolved{reject}（fail-closed，"宁可错杀"）。
  */
-import type { PermissionReply, RequestId, SessionId } from '@spark/protocol'
+import type { PermissionPreset, PermissionReply, RequestId, SessionId } from '@spark/protocol'
 import type { EventBus } from '../bus.js'
 import type { PermissionRule } from '../config.js'
 import { newIds } from '../ulid.js'
@@ -45,6 +45,8 @@ export interface PermissionServiceDeps {
 export class PermissionServiceImpl implements PermissionService {
   private readonly pending = new Map<RequestId, PendingEntry>()
   private readonly sessionRules = new Map<SessionId, PermissionRule[]>()
+  /** 档位 ID 表（D7 补记预设层）；规则由 presetRulesOf 派生，切档整体替换 */
+  private readonly presets = new Map<SessionId, PermissionPreset>()
 
   constructor(private readonly deps: PermissionServiceDeps) {}
 
@@ -57,6 +59,7 @@ export class PermissionServiceImpl implements PermissionService {
       this.deps.ruleStore.list(),
       this.deps.projectRules,
       this.sessionRulesOf(check.sessionId),
+      this.presetRulesOf(check.sessionId),
     )
     if (effect === 'allow') return true
     if (effect === 'deny') return false
@@ -150,6 +153,7 @@ export class PermissionServiceImpl implements PermissionService {
             this.deps.ruleStore.list(),
             this.deps.projectRules,
             this.sessionRulesOf(other.sessionId),
+            this.presetRulesOf(other.sessionId),
           ) === 'allow'
         ) {
           await this.settle(other, true, 'always')
@@ -210,4 +214,42 @@ export class PermissionServiceImpl implements PermissionService {
     }
     return rules
   }
+
+  // ---- 权限档位（DESIGN §13.E 四档 / ADR D7 补记：规则引擎之上的预设层） ----
+
+  /** 设置会话档位：切档整体替换预设规则；confirm-each / plan 无预设行（不改审批语义） */
+  setPreset(sessionId: SessionId, preset: PermissionPreset): void {
+    if (preset === 'confirm-each') {
+      this.presets.delete(sessionId)
+      return
+    }
+    this.presets.set(sessionId, preset)
+  }
+
+  /** 当前档位（无记录 = confirm-each 缺省档） */
+  presetOf(sessionId: SessionId): PermissionPreset {
+    return this.presets.get(sessionId) ?? 'confirm-each'
+  }
+
+  /**
+   * 档位 → 预设规则（派生，不落盘）。排在会话 always 规则之后（findLast：
+   * 档位是用户最新意图，与 always 写入同位的临时层语义）。
+   * - auto-edit：仅 fs.write（write/edit 同 action）预置 allow，其余照旧；
+   * - full-access：内置五 action 全量 allow（fs.read/fs.write/shell.exec/
+   *   agent.task/mcp.call）；用户/项目显式规则仍在其前，但档位行更靠后——
+   *   选此档即明示放行（UI 以 warn 琥珀警示，DESIGN §13.E）。
+   */
+  private presetRulesOf(sid: SessionId): readonly PermissionRule[] {
+    return PRESET_RULES[this.presetOf(sid)]
+  }
+}
+
+/** 各档位的预设行（const 派生表；plan/confirm-each 无行） */
+const PRESET_RULES: Record<PermissionPreset, readonly PermissionRule[]> = {
+  'confirm-each': [],
+  'auto-edit': [{ action: 'fs.write', resource: '**', effect: 'allow' }],
+  plan: [],
+  'full-access': ['fs.read', 'fs.write', 'shell.exec', 'agent.task', 'mcp.call'].map(
+    (action) => ({ action, resource: '**', effect: 'allow' as const }),
+  ),
 }

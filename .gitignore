@@ -24,6 +24,12 @@ pnpm-debug.log*
 coverage/
 .vitest/
 
+# Playwright 运行产物（trace/失败上下文；__screenshots__ 基线截图入库）
+apps/web/e2e/.artifacts/
+apps/web/playwright/.cache/
+# 本地工具产物（HTML share 预览等），不入库
+.trae-html-share-packages/
+
 # IDE & OS
 .idea/
 .vscode/*

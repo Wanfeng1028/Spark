@@ -43,3 +43,14 @@ export function buildSystemPrompt(cwd: string, now: Date = new Date()): string {
 # Project instructions (user-provided; follow unless conflicting with the rules above)
 ${projectInstructions(cwd)}`
 }
+
+/**
+ * 计划模式追加指令（DESIGN §13.E 档位「计划模式」/ D7 补记：交互层约定，不改审批语义）。
+ * 由 Engine 在 system 组装点按会话当前档位逐 step 现读拼接。
+ */
+export const PLAN_MODE_DIRECTIVE = `
+
+# Plan mode
+The user enabled plan mode for this session. For any non-trivial request, first draft a concise
+plan (goal, steps, files to touch) and ask the user to confirm it. Do not call write / edit / bash
+tools until the plan is confirmed. Read-only exploration is allowed.`

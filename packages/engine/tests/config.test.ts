@@ -110,6 +110,37 @@ describe('合法路径', () => {
       contextWindow: 128000,
     })
   })
+
+  it('models[] 显式清单 + defaultModel/compactionModel 合并去重（工单 6.5）', () => {
+    const dir = tempDir()
+    write(dir, 'models.json', JSON.stringify({
+      providers: { deepseek: { apiKeyEnv: 'DEEPSEEK_API_KEY' } },
+      defaultModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 128000 },
+      compactionModel: { provider: 'deepseek', model: 'deepseek-reasoner' },
+      models: [
+        { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 64000 },
+        { provider: 'deepseek', model: 'deepseek-x', contextWindow: 32000 },
+      ],
+    }))
+
+    const cfg = loadConfig(dir)
+
+    // 显式条目在前（重复的 defaultModel 以首个 contextWindow 为准），自动并入在后
+    expect(cfg.models.models).toEqual([
+      { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 64000 },
+      { provider: 'deepseek', model: 'deepseek-x', contextWindow: 32000 },
+      { provider: 'deepseek', model: 'deepseek-reasoner', contextWindow: 128000 },
+    ])
+  })
+
+  it('models[] 缺省 = [defaultModel]（compactionModel 同项去重）', () => {
+    const dir = tempDir()
+    write(dir, 'models.json', VALID_MODELS)
+
+    const cfg = loadConfig(dir)
+
+    expect(cfg.models.models).toEqual([cfg.models.defaultModel])
+  })
 })
 
 describe('E_CONFIG：缺字段', () => {

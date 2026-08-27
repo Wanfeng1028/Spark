@@ -19,4 +19,8 @@ export default defineConfig({
     proxy: { '/api': 'http://127.0.0.1:4318' },
   },
   build: { target: 'es2022', sourcemap: true },
+  // vitest（doc/06 §1）：L2 单测/组件测试跑 tests/；e2e/ 是 Playwright 用例（playwright.config.ts），不在 vitest 收集
+  test: {
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
+  },
 })

@@ -1,7 +1,9 @@
 /**
  * Button（shadcn/ui copy-in：https://ui.shadcn.com/r/styles/new-york/button.json，MIT）。
- * 桌面化改造（DESIGN §3/§8 + frontend-component SKILL）：密度 28-32px 高、13px/12px 字号、
- * 去 shadow（分隔用边框与留白）；焦点环交给 theme.css 全局 :focus-visible（删 outline-none）。
+ * 桌面化改造（DESIGN §3/§13.B + frontend-component SKILL）：sm 28 / md 32 / lg 38、
+ * 13px 字号、圆角 6px、去 shadow；disabled = 前景 opacity 40% + not-allowed 光标
+ * （§13.B 三态：hover 用 enabled: 限定，禁用态不出现悬浮反馈）；焦点环交给
+ * theme.css 全局 :focus-visible。
  */
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
@@ -10,21 +12,22 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-        outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
-        link: 'text-primary underline-offset-4 hover:underline',
+        default: 'bg-primary text-primary-foreground enabled:hover:bg-primary/90',
+        destructive: 'bg-destructive text-destructive-foreground enabled:hover:bg-destructive/90',
+        outline:
+          'border border-input bg-background enabled:hover:bg-accent enabled:hover:text-accent-foreground',
+        secondary: 'bg-secondary text-secondary-foreground enabled:hover:bg-secondary/80',
+        ghost: 'enabled:hover:bg-accent enabled:hover:text-accent-foreground',
+        link: 'text-primary underline-offset-4 enabled:hover:underline',
       },
       size: {
         default: 'h-8 px-3 text-[13px]',
-        sm: 'h-7 px-2.5 text-xs',
-        lg: 'h-9 px-4 text-[13px]',
+        sm: 'h-7 px-2.5 text-[13px]',
+        lg: 'h-9.5 px-4 text-[13px]',
         icon: 'h-7 w-7',
       },
     },

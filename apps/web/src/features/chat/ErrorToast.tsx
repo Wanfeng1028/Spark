@@ -2,11 +2,13 @@
  * ErrorToast（doc/02 §6.4 处理表「error → toast；fatal → 全屏错误态」）：
  * 消费当前会话 slice.lastError——非 fatal 右下角 toast（4s 自动消失，可手动关）；
  * fatal 全屏错误态（事件流不可用，无路可走——失败闭合的 UI 终态）。
+ * 工单 6.7：message 带 E_ 码走文案表（人话 title + 原码折叠详情，单一来源 error-copy.ts）。
  */
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import type { SessionId } from '@spark/protocol'
 import { useSessionStore } from '@/stores/session'
+import { humanizeError } from '@/lib/error-copy'
 
 export interface ErrorToastProps {
   sid: SessionId
@@ -31,6 +33,8 @@ export function ErrorToast({ sid }: ErrorToastProps) {
   if (lastError === null) return null
   if (dismissed === lastError.message) return null
 
+  const copy = humanizeError(lastError.message)
+
   if (lastError.fatal) {
     return (
       <div
@@ -40,7 +44,12 @@ export function ErrorToast({ sid }: ErrorToastProps) {
         <p className="font-mono text-xs uppercase tracking-wide text-[var(--spark-err)]">
           fatal · {lastError.scope}
         </p>
-        <p className="max-w-md text-[13px] leading-relaxed text-foreground">{lastError.message}</p>
+        <p className="max-w-md text-[13px] leading-relaxed text-foreground">{copy.title}</p>
+        {copy.detail !== null && (
+          <p className="max-w-md break-all font-mono text-[11px] text-muted-foreground">
+            {copy.detail}
+          </p>
+        )}
         <button
           type="button"
           onClick={() => window.location.reload()}
@@ -59,7 +68,12 @@ export function ErrorToast({ sid }: ErrorToastProps) {
     >
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="font-mono text-xs text-[var(--spark-err)]">{lastError.scope}</span>
-        <p className="break-words text-xs leading-relaxed text-foreground">{lastError.message}</p>
+        <p className="break-words text-xs leading-relaxed text-foreground">{copy.title}</p>
+        {copy.detail !== null && (
+          <p className="break-all font-mono text-[10px] leading-relaxed text-muted-foreground">
+            {copy.detail}
+          </p>
+        )}
       </div>
       <button
         type="button"

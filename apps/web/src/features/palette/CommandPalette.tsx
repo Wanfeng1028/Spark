@@ -12,7 +12,6 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useSessionList } from '@/hooks/useSessionList'
 import { useSettingsStore } from '@/stores/settings'
 import { useSessionStore } from '@/stores/session'
-import { useUiStore } from '@/stores/ui'
 import { useTransport } from '@/transports/context'
 
 export interface CommandPaletteProps {
@@ -39,7 +38,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const { transport } = useTransport()
   const { sessions } = useSessionList()
   const toggleTheme = useSettingsStore((s) => s.toggleTheme)
-  const setSettingsOpen = useUiStore((s) => s.setSettingsOpen)
   const [query, setQuery] = useState('')
 
   // 打开时重置过滤词——上次会话的残留不该带进来
@@ -112,7 +110,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 value="打开设置"
                 onSelect={() => {
                   close()
-                  setSettingsOpen(true)
+                  void navigate('/settings/appearance')
                 }}
               >
                 <Mark label="打开设置" query={query} />
