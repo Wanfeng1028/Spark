@@ -75,6 +75,11 @@ const samples: { [K in SparkEventType]: SparkEventMap[K] } = {
     kind: 'injection',
     rules: ['injection.ignore-instructions'],
   },
+  'memory.injected': {
+    turnId: trn,
+    query: '数据库连接配置',
+    memories: [{ id: 7, content: '用户偏好 PostgreSQL，连接串在 .env', createdAt: 1787800000000 }],
+  },
 }
 
 /** 组装信封：durable 类带 seq/parentId；surface 类带 surface 标记（编译期强制） */
@@ -99,8 +104,8 @@ function envelopeOf<K extends SparkEventType>(
 }
 
 describe('事件词表', () => {
-  it('词表共 20 种（durable 17 + live 3）', () => {
-    expect(Object.keys(EventSchemas)).toHaveLength(20)
+  it('词表共 21 种（durable 18 + live 3）', () => {
+    expect(Object.keys(EventSchemas)).toHaveLength(21)
   })
 
   it('surface 事件类型层强制标记（编译期断言的运行时副本）', () => {

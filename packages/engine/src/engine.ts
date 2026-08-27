@@ -21,6 +21,7 @@ import type {
   Delivery,
   EventId,
   McpServerDto,
+  MemoryDto,
   ModelTestResultDto,
   ModelsDto,
   PermissionPreset,
@@ -81,6 +82,8 @@ import { loadSkills } from './skills/loader.js'
 import type { LoadedSkill } from './skills/loader.js'
 import { BUILTIN_COMMANDS, expandCommandPrompt, loadCommands } from './commands/loader.js'
 import type { LoadedCommand } from './commands/loader.js'
+import { MemoryStore } from './memory/store.js'
+import { memorySaveTool, memorySearchTool } from './tools/builtin/memory.js'
 import { DEFAULT_HOOK_TIMEOUT_MS, UserHookRunner } from './hooks/runner.js'
 import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
@@ -222,6 +225,11 @@ export class Engine {
   private customCommands: readonly LoadedCommand[] = []
   /** 自定义命令加载任务（坏文件 warn 跳过，不阻塞启动；ready() 等待） */
   private readonly commandsReady: Promise<void>
+  /**
+   * 长期记忆仓（阶段七工单 7.5 / H05 / ADR D25）：~/.spark/memory.db（FTS5 trigram）。
+   * 打开失败 → null 降级（memory 工具族不注册、注入端口不接线，引擎照常启动）。
+   */
+  private readonly memory: MemoryStore | null
   private readonly outputs: ToolOutputStore
   private readonly sessions = new Map<SessionId, SessionEntry>()
   private readonly inflight = new Map<SessionId, Promise<SessionEntry>>()
@@ -345,10 +353,27 @@ export class Engine {
       },
     )
 
+    // 工单 7.5 / H05 / ADR D25：长期记忆仓（打开失败 null 降级，引擎照常启动）
+    let memoryStore: MemoryStore | null = null
+    try {
+      memoryStore = new MemoryStore(join(this.root, 'memory.db'))
+      if (!memoryStore.fts) {
+        this.logger.warn('memory.fts.unavailable', { path: join(this.root, 'memory.db') })
+      }
+    } catch (err) {
+      this.logger.warn('memory.store.error', { err })
+    }
+    this.memory = memoryStore
+
     this.registry = new ToolRegistry()
     registerBuiltinTools(this.registry, {
       bashSandbox: this.config.spark.engine.bashSandbox,
     })
+    // 记忆工具族（工单 7.5）：仓不可用不注册（模型无从调用，fail 路径不存在）
+    if (this.memory !== null) {
+      this.registry.register(memorySaveTool)
+      this.registry.register(memorySearchTool)
+    }
     // Task 工具（工单 5.4 / ADR D17）：执行体注入——子会话管理是 Engine 职责
     this.registry.register(
       makeTaskTool((input, ctx) => this.runSubagent(input, ctx)),
@@ -801,6 +826,24 @@ export class Engine {
     }))
   }
 
+  // ---- 长期记忆（阶段七工单 7.5 / H05 / ADR D25：设置页管理的线上入口） ----
+
+  /** GET /api/memories：全量列表（新→旧）；仓不可用 → E_MEMORY_UNAVAILABLE */
+  listMemories(): MemoryDto[] {
+    if (this.memory === null) {
+      throw new Error('E_MEMORY_UNAVAILABLE: 长期记忆未启用（memory.db 打开失败）')
+    }
+    return this.memory.list()
+  }
+
+  /** DELETE /api/memories/:id：删除一条（无此条 false → 路由层 404） */
+  removeMemory(id: number): boolean {
+    if (this.memory === null) {
+      throw new Error('E_MEMORY_UNAVAILABLE: 长期记忆未启用（memory.db 打开失败）')
+    }
+    return this.memory.remove(id)
+  }
+
   // ---- 模型路由（阶段七工单 7.7 / H07：fallback 链 + 任务路由 + 成本熔断） ----
 
   /** GET /api/routing：路由状态 + 成本累计（apiKey 永不进 DTO） */
@@ -1211,6 +1254,14 @@ export class Engine {
         }
         this.indexClosed = true
       }
+      // 6.5) 长期记忆仓收尾（工单 7.5）：关闭 memory.db 句柄
+      if (this.memory !== null) {
+        try {
+          this.memory.close()
+        } catch (err) {
+          this.logger.warn('memory.close.error', { err })
+        }
+      }
       this.logger.info('engine.shutdown.done')
     } catch (err) {
       this.logger.error('engine.shutdown.error', { err })
@@ -1283,6 +1334,7 @@ export class Engine {
       metrics: this.metrics,
       guard: this.ioGuard, // 工单 7.2：工具输出 → 模型上下文的注入检测与敏感过滤
       hooks: this.hooks, // 工单 7.3：tool.completed 挂点（载荷不含 output）
+      ...(this.memory !== null ? { memory: this.memory, now: this.now } : {}),
     })
     // 计划模式 system 拼接的闭包依赖（见下方 deps.system getter）
     const permission = this.permission
@@ -1312,6 +1364,29 @@ export class Engine {
       // 工单 7.3：turn.before/turn.after 用户 hook（命令 cwd = 会话工作目录）
       cwd: meta.cwd,
       hooks: this.hooks,
+      // 工单 7.5 / ADR D25：记忆注入端口（仓不可用不接线）；条件内判——
+      // 仅会话首条 user.message（此时树上尚无 user.message）且从未注入过且命中非空
+      ...(this.memory !== null
+        ? {
+            memory: {
+              maybeInject: async (turnId: TurnId, query: string): Promise<void> => {
+                const m = this.memory
+                if (m === null) return
+                const path = store.tree.pathToRoot()
+                const hasUser = path.some((e) => e.type === 'user.message')
+                const injected = path.some((e) => e.type === 'memory.injected')
+                if (hasUser || injected) return // 非首条/已注入
+                const hits = m.search(query, 3)
+                if (hits.length === 0) return
+                await this.bus.emit(meta.id, 'memory.injected', {
+                  turnId,
+                  query,
+                  memories: hits,
+                })
+              },
+            },
+          }
+        : {}),
       // 工单 7.7：成本熔断——limitUsd 现读 routing（热生效），累计跨进程持久
       budget: {
         limitUsd: () => this.routing.costLimitUsd,

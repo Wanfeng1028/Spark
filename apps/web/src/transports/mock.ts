@@ -15,6 +15,7 @@ import type {
   CommandDto,
   EventId,
   McpServerDto,
+  MemoryDto,
   ModelTestResultDto,
   ModelsDto,
   RoutingDto,
@@ -762,6 +763,26 @@ export class MockTransport implements Transport {
         hooks: [{ on: 'session.created', emit: 'plugin.demo.ping' }],
       },
     ])
+  }
+
+  // ---- 长期记忆（工单 7.5 对等演示：内存表，进程生命周期内有效） ----
+
+  private readonly memories: MemoryDto[] = [
+    { id: 1001, content: '（mock）用户偏好深色主题', createdAt: 1787800000000 },
+    { id: 1002, content: '（mock）项目约定用 pnpm 管理依赖', createdAt: 1787800001000 },
+  ]
+
+  listMemories(): Promise<MemoryDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([...this.memories])
+  }
+
+  removeMemory(id: number): Promise<void> {
+    this.assertNotDisposed()
+    const idx = this.memories.findIndex((m) => m.id === id)
+    if (idx < 0) return Promise.reject(new Error(`E_NOT_FOUND: 记忆 ${id} 不存在`))
+    this.memories.splice(idx, 1)
+    return Promise.resolve()
   }
 
   /** dtoOf 后叠加会话级换模型（内存态覆盖脚本 meta.model） */

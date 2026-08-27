@@ -10,6 +10,7 @@
 | v1.3 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 11 Model Routing 改 ✅、小结计数 8/7→9/6；§2.1 Router 差距与 §2.4 预算与熔断改 ✅（H07 → 7.7 ✅ 已落地：FallbackGateway 未交付才切换 + CostTracker ~/.spark/usage.json 持久累计 + run-loop Budget 熔断双检点 + 任务路由档 title/subagent + /api/routing 热生效）；§2.6 Cost Tracker 差距更新；§4.3 H07 勾销注记 |
 | v1.4 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 16 Hooks 生命周期改 ✅、小结计数 9/6→10/5（H03 → 7.3 ✅ 已落地：UserHookRunner——spark.json hooks 段四挂点 turn.before/after + permission.resolved/tool.completed → 外部命令（stdin 收 JSON 载荷，超时/非零退出/spawn 失败 warn 闭合）或 skill 插件事件双触发，fire-and-forget 不阻断主流程，载荷不含工具 output）；§4.4 H03 勾销注记 |
 | v1.5 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H04 勾销注记（H04 → 7.4 ✅ 已落地：命令注册表三 kind——action（compact 引擎动作）/ client（model/mcp/skills/usage/resume 前端执行）/ prompt（~/.spark/commands/*.md 自定义，$ARGUMENTS 展开走 turn 通道）；GET /api/commands + POST sessions/:id/commands/:name + GET /api/mcp、/api/skills 只读面；Composer /compact 硬编码迁入注册表分发行为回归；CommandPalette 命令分组；设置中心 mcp/skills/usage 三页只读点亮；opencode leader 键归 8.3 键位表成文） |
+| v1.6 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 8 Memory 记忆工程改 ✅、小结计数 10/5/4→11/5/3（H05 → 7.5 ✅ 已落地：~/.spark/memory.db SQLite FTS5 trigram（中文子串命中；建表失败降级 LIKE）+ memory.save/search 工具族（审批 memory.write/read 缺省 ask）+ 事件化注入——memory.injected 先于 user.message 落盘、Projector 投影为模型上下文前缀（surface 纪律双面）、每会话仅首条触发；ADR D25）；§4.4 H05 勾销注记 |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
 > **方法**：三条证据链——①引擎/服务端/前端逐模块源码走读（本文所有路径均为当日实测，非转抄文档）；②协议词表 19 种逐条核对（含 `user.message.attachments?`、`assistant.message.usage` 等已预留未消费字段）；③既有审计（doc/05 缺口 G1–G7）与用户侧能力对照清单合并盘点。
@@ -31,7 +32,7 @@
 | 5  | Tool 治理                  | ✅        | Registry+Pipeline+PermissionService+UserRuleStore 多 pattern                                           | —                            |
 | 6  | Skills 技能工程            | 🟡        | 5.5 声明式清单 loader + plugin. 词表运行时扩展                                                         | 管理 UI/市场 → H17/H18       |
 | 7  | MCP 集成                   | ✅        | 5.3 McpManager stdio + 真实子进程 e2e                                                                  | 管理 UI → H17；HTTP → V2-21  |
-| 8  | Memory 记忆工程            | ❌        | 只有会话内 JSONL，无跨会话记忆                                                                         | → H05（工单 7.5）            |
+| 8  | Memory 记忆工程            | ✅        | SQLite FTS5 trigram 记忆仓 + memory.save/search 工具 + 事件化注入（7.5，ADR D25）                     | —                            |
 | 9  | 状态机与恢复               | ✅        | 最强项：append-only、悬挂 turn 补闭合、kill-9 resume、checkpoint 回滚                                  | —                            |
 | 10 | 沙箱与护栏                 | 🟡        | 5.2 bwrap/Seatbelt + 审批 fail-closed                                                                  | I/O 护栏 → H02；网络隔离 → H34 |
 | 11 | Model Routing              | ✅        | fallback 链（未交付才切换）+ 主/压缩/标题/子代理四路由档 + 成本熔断（7.7）                              | —                            |
@@ -44,7 +45,7 @@
 | 18 | Python Worker              | ❌→**不做** | 判决见 §4.1：主流本地编码 agent 均无此模块，bash + venv 已覆盖                                       | 未来以技能/MCP 外挂          |
 | 19 | Browser/Computer Use       | ❌        | 无 browser 工具族                                                                                      | → H09（工单 7.10）           |
 
-小结：扎实具备 10 项、部分具备 5 项、缺失 4 项（长期记忆/自动化/Python Worker/浏览器操控），其中 Python Worker 经评估判决**不做**。
+小结：扎实具备 11 项、部分具备 5 项、缺失 3 项（自动化/Python Worker/浏览器操控），其中 Python Worker 经评估判决**不做**。
 
 ---
 
@@ -258,7 +259,7 @@
 
 | 编号 | 缺口 | 工单/候选池 |
 | ---- | ---- | ---- |
-| H05 | 长期记忆（FTS5，向量后置） | 7.5 |
+| H05 | 长期记忆（FTS5，向量后置） | 7.5 ✅ 已勾销（2026-08-27） |
 | H06 | 自动化触发器（cron/watch/webhook） | 7.6 |
 | H03 | 用户侧 hooks | 7.3 ✅ 已勾销（2026-08-27） |
 | H04 | 命令注册表（/compact 迁入 + 自定义命令；命令集基线对齐 Claude Code 命令面 + opencode leader 键模式） | 7.4 ✅ 已勾销（2026-08-27；opencode leader 键归 8.3 CLI 键位表统一成文） |

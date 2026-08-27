@@ -193,6 +193,8 @@ export {
   type LoadedCommand,
   type CommandLogger,
 } from './commands/loader.js'
+export { MemoryStore } from './memory/store.js'
+export { memorySaveTool, memorySearchTool } from './tools/builtin/memory.js'
 export {
   Logger,
   type SparkLogger,

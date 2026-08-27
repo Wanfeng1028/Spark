@@ -87,6 +87,8 @@ export interface SessionSlice {
   lastCheckpoint: { checkpointId: string; turnId: TurnId } | null
   /** 最近一条 error 事件（toast / fatal 全屏错误态的数据源） */
   lastError: { scope: 'engine' | 'llm' | 'tool' | 'io'; message: string; fatal: boolean } | null
+  /** 最近一次记忆注入（工单 7.5：会话首条消息的 top-k 命中；StatusBar/事件树数据源） */
+  memoryInjected: { count: number; query: string } | null
 }
 
 // ---------- state ----------
@@ -121,6 +123,7 @@ function emptySlice(sid: SessionId): SessionSlice {
     compacting: false,
     lastCheckpoint: null,
     lastError: null,
+    memoryInjected: null,
   }
 }
 
@@ -422,6 +425,13 @@ export function reduce(s: SessionStoreState, e: SparkEventEnvelope): SessionStor
 
   if (ofType(e, 'compaction.started')) {
     next.compacting = true
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'memory.injected')) {
+    // 工单 7.5 / ADR D25：记忆注入落 slice（不进转录 items——模型可见面已在
+    // 引擎事件流记录，UI 以状态徽标呈现注入发生）
+    next.memoryInjected = { count: e.data.memories.length, query: e.data.query }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 

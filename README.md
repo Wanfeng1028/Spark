@@ -20,7 +20,7 @@ Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行�
 apps/web            React 19 SPA —— 只消费事件流（applyEvent reducer）
    │  HttpTransport：REST 命令 + GET /api/event（SSE 单端点，since=seq 断线续播）
    ▼
-packages/protocol   前后端唯一合同：20 种事件词表 · zod schema · Transport 接口
+packages/protocol   前后端唯一合同：21 种事件词表 · zod schema · Transport 接口
    ▼
 apps/server         Fastify 薄壳：REST + SSE + 静态托管（127.0.0.1，无鉴权）
    ▼
@@ -95,3 +95,4 @@ pnpm test / typecheck / lint
 | v1.16 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D2 路线图指令）               | **当前状态行追加"阶段六~九已立项"**（doc/02 v3.0：阶段六 UI 重构 ZCode 化 / 阶段七 Harness 补全 / 阶段八 CLI TUI / 阶段九 移动端三端；依据 doc/07 审计缺口 H01–H36，未排期项入 v2 候选池；测试体系规划 doc/06）；文档导航新增 doc/06/doc/07 两行 |
 | v1.17 | 2026-08-26 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段六开工指令） | **阶段六完成（6.1–6.8 全勾，分支 feat/stage6-ui 待 PR 合入）**：UI 重构 ZCode 化——主题翻转（light 默认+dark+system，AA 复核）/§13.A 布局栅格（左栏 264 折叠 48、空态垂直居中、内容列 768、顶栏 44、StatusBar 24、会话按项目分组）/控件按 §13.B 重过+Composer 重做（底部工具条、权限四档预设层 D7、now/steer/queue 分段、@ 与 / 菜单、多行 6 行上限）/设置中心（§13.D 三组导航+外观区全量+权限规则迁入）/模型管理（会话级选择器+供应商列表+测试连接；轻后端三路由例外已声明）/用量条（usage 估算+>80% 变色）/错误人话化（error-copy.ts 四端共享文案表）；测试首批入库：L2 组件 22 例+L3 E2E 7 例+L3.5 三视口基线截图 6 张（doc/06 v1.1）；全仓 vitest 579 例（engine 353/server 36/web 144/protocol 46）+ Playwright 7 例全绿；doc/02 v3.3–v3.8 |
 | v1.18 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                       | 架构图协议行事实修正 **事件词表 19→20 种**（阶段七工单 7.2 新增 `io.warning` I/O 护栏告警事件）；与 doc/02 v3.10、AGENTS v1.18、ARCHITECTURE v1.16 同步 |
+| v1.19 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                       | 架构图协议行事实修正 **事件词表 20→21 种**（阶段七工单 7.5 新增 `memory.injected` 长期记忆注入事件——Projector 投影为模型上下文前缀，ADR D25）；与 doc/02 v3.14、AGENTS v1.19、ARCHITECTURE v1.17 同步 |

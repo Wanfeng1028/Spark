@@ -13,6 +13,7 @@
 import type { CallId, SessionId } from '@spark/protocol'
 import type { EventBus } from '../bus.js'
 import type { UserHookRunner } from '../hooks/runner.js'
+import type { MemoryStore } from '../memory/store.js'
 import type { ToolSpec } from '../llm-gateway.js'
 import type { Metrics } from '../observability/metrics.js'
 import type { ToolPipeline, ToolPipelineResult, TurnCtx } from '../run-loop.js'
@@ -37,6 +38,10 @@ export interface PipelineDeps {
   guard?: IoGuard
   /** 用户侧 hooks（工单 7.3；缺省不触发——测试 stub 可省） */
   hooks?: UserHookRunner
+  /** 长期记忆仓（工单 7.5 / ADR D25；缺省 memory 工具族拒绝执行——测试 stub 可省） */
+  memory?: MemoryStore
+  /** 时间源（memory.save created_at；缺省 Date.now） */
+  now?: () => number
 }
 
 /** 错误 → {code, message}：提取 E_* 前缀码，未分类 → E_INTERNAL（§5.10） */
@@ -226,6 +231,8 @@ export class ToolPipelineImpl implements ToolPipeline {
           signal: turn.abort.signal,
           onProgress: (chunk) => gate.push(chunk),
           cwd: this.deps.cwd,
+          ...(this.deps.memory !== undefined ? { memory: this.deps.memory } : {}),
+          ...(this.deps.now !== undefined ? { now: this.deps.now } : {}),
         },
         input,
       )

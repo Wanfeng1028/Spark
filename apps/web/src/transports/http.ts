@@ -14,6 +14,7 @@ import type {
   CommandDto,
   EventId,
   McpServerDto,
+  MemoryDto,
   ModelTestResultDto,
   ModelsDto,
   PermissionPreset,
@@ -350,6 +351,16 @@ export class HttpTransport implements Transport {
 
   listSkills(): Promise<SkillDto[]> {
     return this.req<SkillDto[]>('/api/skills')
+  }
+
+  listMemories(): Promise<MemoryDto[]> {
+    return this.req<MemoryDto[]>('/api/memories')
+  }
+
+  removeMemory(id: number): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/memories/${id}`, { method: 'DELETE' }).then(
+      () => undefined,
+    )
   }
 
   dispose(): void {

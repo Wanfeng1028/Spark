@@ -128,6 +128,14 @@ export interface RunLoopDeps {
   cwd?: string
   /** 用户侧 hooks（工单 7.3 / H03；缺省不触发——测试 stub 可省） */
   hooks?: UserHookRunner
+  /**
+   * 长期记忆注入端口（工单 7.5 / H05 / ADR D25）：会话首条 user.message 落盘后
+   * 调用（端口内部自判注入条件——已注入过/非首条即 no-op；命中空集不 emit）。
+   * 缺省不注入——测试 stub 与记忆未启用时可省。
+   */
+  memory?: {
+    maybeInject: (turnId: TurnId, query: string) => Promise<void>
+  }
 }
 
 function isToolCall(c: ContentItem): c is Extract<ContentItem, { type: 'toolCall' }> {
@@ -197,6 +205,10 @@ export async function runTurn(
       sourceEventId: null,
       data: { turnId },
     })
+    // 长期记忆注入（工单 7.5 / ADR D25）：先于 user.message 落盘（投影才是模型
+    // 上下文的首条前缀消息）；命中即 emit memory.injected（durable 落盘 = surface
+    // 纪律）；端口内部自判注入条件（非首条/已注入/命中空集 no-op）
+    await deps.memory?.maybeInject(turnId, input.text)
     const userEvent = await deps.bus.emit(sid, 'user.message', {
       text: input.text,
       ...(input.attachments !== undefined ? { attachments: input.attachments } : {}),

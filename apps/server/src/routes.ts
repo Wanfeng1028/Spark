@@ -109,6 +109,9 @@ const CommandNameParams = z.strictObject({
   name: z.string().min(1).max(64),
 })
 
+/** 长期记忆（工单 7.5）：删除参数 */
+const MemoryIdParams = z.strictObject({ id: z.coerce.number().int().positive() })
+
 /** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
 function labelOf(e: SparkEventEnvelope): string {
   const data = e.data as Record<string, unknown>
@@ -465,6 +468,27 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
   app.get('/api/skills', () => {
     // 纯内存读：已加载技能清单
     return engine.listSkills()
+  })
+
+  // 长期记忆（阶段七工单 7.5 / H05 / ADR D25）：设置页管理的线上入口
+  app.get('/api/memories', async (req, reply) => {
+    try {
+      return reply.send(engine.listMemories())
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.delete('/api/memories/:id', async (req, reply) => {
+    try {
+      const { id } = parseOr400(MemoryIdParams, req.params)
+      if (!engine.removeMemory(id)) {
+        return reply.code(404).send({ code: 'E_NOT_FOUND', message: `记忆 ${id} 不存在` })
+      }
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
   })
 
   // 指标端点（§5.10 清单 / 工单 4.8）：Prometheus exposition 文本

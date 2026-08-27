@@ -222,3 +222,13 @@ export const SkillDtoSchema = z.strictObject({
   hooks: z.array(z.strictObject({ on: z.string(), emit: z.string() })),
 })
 export type SkillDto = z.infer<typeof SkillDtoSchema>
+
+// ---------- memories（doc/02 §8 阶段七工单 7.5 / H05，ADR D25） ----------
+
+/** 长期记忆行（GET /api/memories 行；memory.injected 事件内嵌同形状） */
+export const MemoryDtoSchema = z.strictObject({
+  id: z.number().int().positive(),
+  content: z.string().min(1),
+  createdAt: z.number().int().nonnegative(),
+})
+export type MemoryDto = z.infer<typeof MemoryDtoSchema>

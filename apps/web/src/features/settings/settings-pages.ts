@@ -72,9 +72,8 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'memory',
         title: '记忆',
-        description: '工作区长期记忆',
-        status: 'placeholder',
-        placeholderReason: '后续工单',
+        description: '长期记忆列表与删除（保存走会话内 memory.save 工具）',
+        status: 'ready',
       },
       {
         id: 'subagents',

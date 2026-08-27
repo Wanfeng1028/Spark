@@ -5,6 +5,7 @@
 import { isAbsolute, relative, resolve } from 'node:path'
 import type { z } from 'zod'
 import type { CallId, SessionId, TurnId } from '@spark/protocol'
+import type { MemoryStore } from '../memory/store.js'
 
 export interface ToolContext {
   sessionId: SessionId
@@ -15,6 +16,10 @@ export interface ToolContext {
   /** 引擎 200ms 节流后 emitLive tool.progress（门控队列保证不晚于 completed） */
   onProgress: (chunk: string) => void
   cwd: string
+  /** 长期记忆仓（工单 7.5 / ADR D25）：memory 工具族使用，其余工具忽略 */
+  memory?: MemoryStore
+  /** 时间源（memory.save 记 created_at；缺省 Date.now） */
+  now?: () => number
 }
 
 export interface ToolOutput {

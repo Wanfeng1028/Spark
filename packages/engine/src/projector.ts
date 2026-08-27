@@ -118,9 +118,22 @@ export function projectSurface(
       const content = projectContent(e.data.content, includeReasoning)
       if (content.length === 0) continue // 空内容/全滤空不进转录（dsh 规则）
       entries.push({ eventId: e.id, message: { role: 'assistant', content } })
+    } else if (isOfType(e, 'memory.injected')) {
+      // 工单 7.5 / ADR D25：记忆注入投影为 user 前缀消息（模型可见 = 事件落盘，
+      // surface 纪律双面成立）；锚点后过滤与 surface 事件同规则（压缩后不再重复注入）
+      entries.push({
+        eventId: e.id,
+        message: { role: 'user', content: [{ type: 'text', text: memoryPrompt(e.data.memories) }] },
+      })
     }
   }
   return { summary: anchor?.data.summary, entries }
+}
+
+/** 记忆注入的投影文本（首条前缀消息形状；逐条列出命中内容） */
+function memoryPrompt(memories: ReadonlyArray<{ id: number; content: string }>): string {
+  const lines = memories.map((m) => `- ${m.content}`)
+  return [`[长期记忆检索命中 ${memories.length} 条]`, ...lines].join('\n')
 }
 
 export class ProjectorImpl implements Projector {

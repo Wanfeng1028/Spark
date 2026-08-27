@@ -60,6 +60,7 @@
 | v3.11 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                     | 阶段七工单 **7.7 model routing 落地（H07，P0）**：engine `fallback-gateway.ts`（LlmGateway 装饰器——仅 stopReason=error 且零已交付时逐个切链（aborted/部分交付不切，pi"已交付即不重试"同源）；链尽汇总 `E_LLM_FALLBACK` 人话列各模型失败原因；空链短路 inner 行为完全不变；链经函数每请求现读支持热更新）+ `cost-tracker.ts`（~/.spark/usage.json 原子写持久累计，坏 JSON/形状 fail-closed E_CONFIG，exceeded = 累计 ≥ 阈值）+ run-loop `Budget` 端口熔断双检点（新 turn 拒绝 + 每步 assistant.message 定稿后中断，`E_BUDGET_EXCEEDED` 人话含解除路径）+ engine 装配（FallbackGateway 包 PiGateway；compaction/title/subagent 路由档 getter 现读热生效；getRouting/updateRouting/resetUsage 写回 models.json）；models.json 增 `fallbacks/titleModel/subagentModel/costLimitUsd`（zod+缺省回 defaultModel/不限）；protocol 增 RoutingDto/RoutingUpdate + Transport 三方法；server 注册 GET/PUT /api/routing、DELETE /api/routing/usage；web Http/MockTransport 对等实现；routing 单测 20 例（gateway 切换纪律/链尽汇总/空链短路/热更新/CostTracker 持久化往返/fail-closed/Engine 集成热生效+熔断闭环+写回）+ run-loop 熔断 2 例 + server 路由 1 例；§4.5/§5.1/§7.2 表同步；阶段七 7.7 勾选、doc/07 H07 勾销 |
 | v3.12 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                     | 阶段七工单 **7.3 用户侧 hooks 落地（H03）**：engine `hooks/runner.ts` UserHookRunner——spark.json `hooks` 段声明四挂点（turn.before/turn.after/permission.resolved/tool.completed）→ 两种触发：`{command, timeoutMs?}` 外部命令（shell 解释，cwd=会话工作目录，stdin 收 `{point, sessionId, cwd, sourceEventId, data}` JSON 载荷；Claude Code settings hooks 同信任模型——用户显式写进自己的配置，不走审批门）或 `{skill, emit}` 插件事件（emit 须在该 skill 清单声明，data 形状同 ADR D18 `{skill, sourceEventId, sourceType}`）；纪律 fire-and-forget——spawn 失败/非零退出/超时/skill 未加载只 warn 闭合不阻断主流程；载荷不含工具 output（防超大/敏感内容外泄）；挂点接线：run-loop turn.before（事件流开路前）+ turn.after（completed 落盘后）/ ToolPipeline emitCompleted 统一出口（合成闭合对 E_ABORTED/E_TRUNCATED 不触发）/ PermissionService onResolved 回调（emit 后）；config spark.json schema 增 hooks 段（strictObject 防混写）；user-hooks 单测 11 例（命令载荷 JSON 全字段断言/超时 kill/非零退出/EPIPE 吞/spawn 失败 warn/skill 触发落盘+广播/未加载与未声明 warn/Engine e2e 四挂点全链路含顺序断言 before 先行 after 收尾+命令失败不阻断）；§5.1 spark.json 表同步；阶段七 7.3 勾选、doc/07 H03 勾销 |
 | v3.13 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                     | 阶段七工单 **7.4 命令注册表落地（H04）**：命令面基线对齐 Claude Code（compact/model/mcp/skills/usage/resume）——engine `commands/loader.ts`（内置基线 BUILTIN_COMMANDS 三 kind：action=compact 引擎动作 / client=五条界面命令由前端执行 / prompt=自定义）+ `~/.spark/commands/*.md` 扫描（文件名即命令名，frontmatter 简单 key:value 解析无 YAML 依赖，$ARGUMENTS 占位符替换/无则追加——Claude Code 同语义；坏文件/名字非法/内置重名 warn 跳过）；Engine.listCommands/executeCommand（compact 走 handle.compact 回归 §5.8.5、自定义展开走正常 turn 通道 user.message 落盘、client/未知命令失败闭合 E_COMMAND_CLIENT/E_NOT_FOUND）+ listMcpServers（McpManager 增 serverStatuses 快照——失败也列出 connected:false）+ listSkills（loadedSkills 只读面）；protocol 增 CommandDto/McpServerDto/SkillDto + Transport 四方法；server 注册 GET /api/commands、POST /api/sessions/:id/commands/:name（body 可空）、GET /api/mcp、GET /api/skills + E_COMMAND_CLIENT 400 映射；web——composer-menus 改注册表驱动（SLASH_COMMANDS 全可用 + mergeSlashCommands 合并 + parseCommandInput 首词解析）、Composer 硬编码 /compact 拦截迁入 onCommand 分发（行为回归）、CommandPalette 增"/ 命令"分组（resume 面板语境自滤、引擎命令仅 activeId 存在时列出）、useCommands hook、client-commands 动作表（model/mcp/skills/usage 导航设置页 + resume 开面板）、设置中心 mcp/skills/usage 三页 placeholder→ready 只读点亮；Http/MockTransport 对等实现（mock 含 review 自定义命令演示）；测试：engine commands 10 例 + server commands-routes 6 例 + web composer-menus 19 例（merge/parseCommandInput 新增 5）+ Composer 组件 10 例（命令分发 3 新增含 /compact 迁入回归）；§4.5/§5.1 表同步；阶段七 7.4 勾选、doc/07 H04 勾销。**opencode leader 键模式（ctrl+x 前缀）留 8.3 CLI 键位表成文时统一落地**（web 已有 Cmd+K 面板，命令覆盖面为本工单验收线） |
+| v3.14 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                     | 阶段七工单 **7.5 长期记忆落地（H05，P1；迷你 ADR D25 见 ARCHITECTURE v1.17）**：**新增事件 `memory.injected`（词表 20→21 种，§4.3/§4.4/§6.4 三表同步 + AGENTS/ARCHITECTURE/README 计数同步）——先于 user.message 落盘，Projector 投影为模型上下文首条前缀 user 消息（模型可见必被记录，surface 纪律双面成立；锚点后过滤与 surface 事件同规则——压缩后不重复注入）**；engine `memory/store.ts` MemoryStore（~/.spark/memory.db，node:sqlite + FTS5 trigram 虚表外容模式 + 触发器同步——中文子串可命中（unicode61 整段成词不可子串的修复）；FTS 建表失败降级 LIKE；召回链=整串 trigram MATCH→整串 LIKE→拆词最长词 LIKE；中文整句语义召回是已知限制，向量检索后置）；memory.save/memory.search 工具族（审批 action memory.write/read 资源恒 memory，空规则表缺省 ask 可 always 固化；save 内容用户可见）；注入端口（RunLoopDeps.memory.maybeInject——每会话仅首条 user.message 且未注入过且命中非空才 emit；仓不可用不接线、工具不注册 fail 路径不存在）；protocol 增 MemoryDto + Transport 两方法；server 注册 GET /api/memories、DELETE /api/memories/:id（无此条 404）；web——applyEvent memory.injected 落 slice.memoryInjected（不进 items）、设置中心 memory 页 ready（列表+删除）、Http/MockTransport 对等实现；测试：engine memory 8 例（store 往返/trigram 中文子串/召回链/短查询 LIKE/删除同步 + e2e：save 工具落库→新会话注入命中投影/第二条不重复注入/仓跨进程持久）+ web applyEvent 1 例 + server memory-routes 2 例；§4.5 API 表两行；阶段七 7.5 勾选、doc/07 H05 勾销 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -315,9 +316,9 @@ export type TurnFinish = 'stop' | 'length' | 'aborted' | 'permission-rejected' |
 export type PermissionReply = 'once' | 'always' | 'reject'
 ```
 
-## 4.3 事件词表（20 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
+## 4.3 事件词表（21 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
 
-> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 20 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
+> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 21 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
 
 ```ts
 export interface SparkEventMap {
@@ -371,6 +372,12 @@ export interface SparkEventMap {
     rules: string[]            // 命中规则名（结构化；不回传原文——防注入内容/密钥片段经告警二次广播）
     redacted?: number          // kind=secret：敏感片段替换处数
   }
+  // 长期记忆（阶段七工单 7.5 / ADR D25：先于 user.message 落盘，Projector 投影为模型上下文首条前缀）
+  'memory.injected': {
+    turnId: TurnId
+    query: string              // 检索词（会话首条 user.message 文本）
+    memories: { id: number; content: string; createdAt: number }[]  // top-k 命中（≥1）
+  }
 }
 ```
 
@@ -388,7 +395,7 @@ export const EventSchemas = {
     text: z.string().min(1),
     attachments: z.array(z.string()).optional(),
   }),
-  // …20 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
+  // …21 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
 } satisfies { [T in SparkEventType]: z.ZodType<SparkEventMap[T]> }
 
 // schema.ts —— 信封 schema + jsonSchema 导出（工具参数与 DTO 用）
@@ -436,6 +443,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | compaction.* / checkpoint.created                 | ✅           | compaction 影响 projection                            |
 | error                                             | ✅           | ❌                                                    |
 | io.warning                                        | ✅           | ❌ 永不进模型历史（log-only；规则名结构化，原文不进事件） |
+| memory.injected                                   | ✅           | ✅（工单 7.5 / ADR D25：Projector 投影为模型上下文首条前缀消息——模型可见必被记录，surface 纪律双面成立） |
 
 **磁盘行与 wire 同构**：落盘 JSONL 行 = 信封原样（含 parentId）——单一格式，序列化零转换，前端 UiItem 的 parentId 即来源于此。
 
@@ -467,6 +475,8 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | POST | /api/sessions/:id/commands/:name | `{ args? }`（body 可空）                       | `{ ok:true }`；action（compact）走压缩入口 / prompt 展开走 turn 通道；client 命令 → 400 `E_COMMAND_CLIENT`，未知命令 → 404 `E_NOT_FOUND` |
 | GET  | /api/mcp                    | —                                                    | `McpServerDto[]`（工单 7.4 只读状态；连接失败也列出 connected:false） |
 | GET  | /api/skills                 | —                                                    | `SkillDto[]`（工单 7.4 已加载技能只读清单）          |
+| GET  | /api/memories               | —                                                    | `MemoryDto[]`（工单 7.5 / ADR D25：长期记忆列表，设置页管理数据源） |
+| DELETE | /api/memories/:id         | —                                                    | `{ ok:true }`；无此条 → 404 `E_NOT_FOUND`            |
 | GET  | /api/sessions/:id/tree      | —                                                    | TreeNode[]（阶段四）                                 |
 | POST | /api/sessions/:id/fork      | `{ fromEventId }`                                    | SessionDto（阶段四）                                 |
 | GET  | /api/event                  | `?sessionId&since`（均可省略，语义见 §4.6 订阅语义） | SSE 流                                               |
@@ -640,6 +650,7 @@ createEngine(config)
 | mcp.json         | `version`: 1；`servers`: record<string, {command: string, args?: string[], env?: record<string,string>}>（工单 5.3，ADR D16：stdio MCP server 声明，工具注册进同一 ToolRegistry，审批 action `mcp.call`/resource `<server>/<tool>` 默认 ask） | 空表（零外部工具，引擎照常启动；单 server 连接失败 warn 跳过）       |
 | skills/ 目录     | `<root>/skills/<name>/skill.json`：`version`: 1；`name`: ^[a-z0-9][a-z0-9-]*$；`events`: record<`plugin.` 前缀类型, {description?, liveOnly?, data: JSON Schema}>；`hooks`?: {on: 内置事件类型, emit: 本 skill 事件}[]（工单 5.5，ADR D18：声明式清单——插件是数据不是程序，不执行任意代码；hooks data 固定形状 `{skill, sourceEventId, sourceType}`） | 目录不存在 = 零插件；单 skill 坏清单/类型冲突/钩子非法 warn 跳过（引擎照常启动） |
 | commands/ 目录   | `<root>/commands/<name>.md`（工单 7.4 / H04：自定义 /命令）：文件名即命令名（须匹配 ^[a-z0-9][a-z0-9-]*$，与内置重名丢弃）；frontmatter 可选 `description: 一行文本`（简单 key: value 解析，无 YAML 依赖；缺省取正文首行截 60 字符）；正文 = prompt 模板，`$ARGUMENTS` 占位符替换用户补充文本（无占位符则追加——Claude Code 自定义命令同语义），展开后走正常 turn 通道（user.message 事件落盘） | 目录不存在 = 零自定义命令；坏文件/名字非法 warn 跳过（引擎照常启动） |
+| memory.db        | SQLite 长期记忆库（工单 7.5 / H05 / ADR D25）：表 memories（id 自增、content、created_at、session_id 来源）+ FTS5 trigram 虚表（外容模式 + 触发器同步；中文子串可命中）；打开失败 null 降级（memory 工具不注册、注入不接线，引擎照常启动） | 自动创建；FTS5 不可用降级 LIKE 检索 |
 
 ## 5.2 Engine 门面与生命周期
 
@@ -1456,7 +1467,7 @@ interface SessionSlice {
 
 **去重规则（回放×直播重叠）**：apply 入口先判 `e.seq !== undefined && e.seq <= slice.lastSeq` → 跳过（全局直播先到、REST 回放后到时不重复应用；重放期间乱序到达的直播同理被吸附）；live 事件无 seq，无条件应用。resetSlice 将 lastSeq 归 0 后重放从空重建。
 
-**applyEvent 处理表（20 种全覆盖）**：
+**applyEvent 处理表（21 种全覆盖）**：
 
 | 事件                         | 状态变更                                                                            |
 | ---------------------------- | ----------------------------------------------------------------------------------- |
@@ -1478,6 +1489,7 @@ interface SessionSlice {
 | checkpoint.created           | StatusBar 短暂徽标                                                                  |
 | error                        | toast；fatal→全屏错误态                                                             |
 | io.warning                   | 挂对应 tool 项 guard（角标数据源；不改状态机——不阻断 turn）                         |
+| memory.injected              | slice.memoryInjected 记录命中数与查询词（工单 7.5；不进 items——模型可见面已在引擎事件流记录） |
 
 ```ts
 // connection-store：{ status:'connecting'|'open'|'reconnecting'|'closed', lastSeq, retryCount }
@@ -1816,7 +1828,7 @@ app.get('/api/event', async (req, reply) => {
 | 7.2  | ✅ I/O 护栏（H02，P0）        | engine：工具输出注入检测（标记协议 + 可疑模式结构化告警事件）+ 敏感输出过滤（复用 pino 三层脱敏正则）                                                             | 注入样例集触发告警事件且不阻断 turn；密钥样例经工具输出进上下文前被过滤（IoGuard 挂 ToolPipeline，`io.warning` log-only） | —       |
 | 7.3  | ✅ 用户侧 hooks（H03）        | engine：spark.json 声明 turn.before / turn.after / permission.resolved / tool.completed 挂点 → 外部命令或 skill 触发                                             | 四挂点 e2e 各一例；hook 失败不阻断主流程（warn 闭合，同 D18 纪律）                                     | —       |
 | 7.4  | ✅ 命令注册表（H04）          | engine+web：/命令 解析框架（/compact 迁入）+ ~/.spark/commands/*.md 自定义命令 + CommandPalette 接入；**命令清单基线 = 对齐 Claude Code 命令面（/compact /model /mcp /skills /usage /resume）+ opencode leader 键模式（ctrl+x 前缀）——命令名可不同，覆盖面以此为下限** | 基线清单逐条可用；自定义 .md 命令可被发现与执行；/compact 行为回归不变                                 | —       |
-| 7.5  | 长期记忆（H05，P1）           | engine+web：~/.spark/memory.db（node:sqlite FTS5；向量检索后置）+ memory.save/search 工具族 + Projector 注入 top-k + 设置页管理；迷你 ADR                          | 记忆跨会话生效（save→新会话 search 命中）；注入不破坏 surface 纪律（模型可见必被记录）                 | 7.1     |
+| 7.5  | ✅ 长期记忆（H05，P1）        | engine+web：~/.spark/memory.db（node:sqlite FTS5；向量检索后置）+ memory.save/search 工具族 + Projector 注入 top-k + 设置页管理；迷你 ADR                          | 记忆跨会话生效（save→新会话 search 命中）；注入不破坏 surface 纪律（模型可见必被记录）                 | 7.1     |
 | 7.6  | 自动化触发器（H06，P1）       | engine+web：cron / watch / webhook 三类触发 → 自动建会话执行 prompt；任务列表 + 运行历史 UI；迷你 ADR                                                             | 三类触发器各一条 e2e；运行历史可查；失败运行有结构化错误留存                                           | 7.1     |
 | 7.7  | ✅ model routing 增强（H07，P0） | engine：provider fallback 链 + 按任务路由（主/压缩/标题/子代理）+ 成本上限熔断（usage 聚合阈值中断）                                                             | 主模型断连自动 fallback；熔断触发后新 turn 拒绝且人话提示；路由配置热生效                              | —       |
 | 7.8  | 子代理增强（H08，P1）         | engine+web：并行 Task（解除单并发）+ 树状运行监控（复用 4.5 树视图加运行态）                                                                                     | 多子代理并行互不串扰；监控视图实时状态与事件流一致；单层限制语义不变                                   | —       |
@@ -1862,7 +1874,7 @@ app.get('/api/event', async (req, reply) => {
 | engine/permission  | evaluate 优先级（临时>项目>用户>默认 ask）；always 写入 + 同批放行；超时/中断 fail-closed；reject feedback 注入 user.message                                     |
 | engine/session     | 单写者 append/flush；坏行（尾行丢弃/非尾拒绝加载）；resume 补 turn.completed{aborted}；Projector 投影（无/有 compaction 分支 × reasoning 配置）；mungeDir 确定性 |
 | server             | 路由 zod 400/404/409/503 映射；SSE 回放+直播边界、心跳、全局订阅；SPA fallback 排除 /api                                                                         |
-| web                | **applyEvent 20 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
+| web                | **applyEvent 21 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
 | 集成               | MockTransport 四场景全跑（§4.7 表）；阶段三：ScriptedLlm 全闭环 + 崩溃恢复（kill -9 后 resume 无悬挂事件）                                                       |
 
 ## 8.7 v2 候选池（未排期，不阻塞阶段六~九；缺口编号对应 doc/07 §2.7）

@@ -516,6 +516,27 @@ describe('compaction / checkpoint / error', () => {
     expect(s.byId[SID]?.compacting).toBe(false)
   })
 
+  it('memory.injected：memoryInjected 记录命中数与查询词（工单 7.5；不进 items）', () => {
+    let s = seeded()
+    s = reduce(
+      s,
+      ev(
+        'memory.injected',
+        {
+          turnId: TURN,
+          query: '数据库配置',
+          memories: [
+            { id: 1, content: '用户偏好 PostgreSQL', createdAt: 1787800000000 },
+            { id: 2, content: '连接串在 .env', createdAt: 1787800001000 },
+          ],
+        },
+        { seq: 2 },
+      ),
+    )
+    expect(s.byId[SID]?.memoryInjected).toEqual({ count: 2, query: '数据库配置' })
+    expect(itemsOf(s)).toHaveLength(0) // 不建转录 item——模型可见面已在引擎事件流记录
+  })
+
   it('checkpoint.created：lastCheckpoint 记录（StatusBar 徽标数据源）', () => {
     const s = reduce(
       seeded(),
