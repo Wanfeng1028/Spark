@@ -66,6 +66,8 @@ import { loadMcpConfig } from './mcp/config.js'
 import { McpManager } from './mcp/manager.js'
 import { loadSkills } from './skills/loader.js'
 import type { LoadedSkill } from './skills/loader.js'
+import { SecretStore, resolveApiKey } from './secrets/store.js'
+import type { SecretSource } from './secrets/store.js'
 
 export const SPARK_VERSION = '0.1.0'
 
@@ -163,6 +165,8 @@ export class Engine {
   private readonly permission: PermissionServiceImpl
   /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
   private readonly ruleStore: UserRuleStore
+  /** 密钥仓（阶段七工单 7.1 / H01）：~/.spark/secrets.json，取用优先级 store > env */
+  private readonly secrets: SecretStore
   /** 进程内指标计数器（§5.10 清单；GET /api/metrics 数据源，工单 4.8） */
   private readonly metrics = new Metrics()
   /** 会话索引（node:sqlite；JSONL 恒为权威——损坏即降级磁盘扫描，工单 4.8） */
@@ -293,6 +297,9 @@ export class Engine {
       join(this.root, 'permissions.json'),
       this.config.permissions.rules,
     )
+    this.secrets = new SecretStore(join(this.root, 'secrets.json'))
+    // 工单 7.1 验收：store 值不落日志——启动即注册进脱敏层（deps.logger 未实现则跳过）
+    this.logger.registerSecrets?.(this.secrets.values())
     this.permission = new PermissionServiceImpl({
       bus: this.bus,
       ruleStore: this.ruleStore,
@@ -1106,21 +1113,49 @@ export class Engine {
     }
   }
 
-  /** ModelRef + providers 表 + 环境变量 → ResolvedModel（apiKey 只在此注入） */
+  /** ModelRef + providers 表 + 密钥仓/环境变量 → ResolvedModel（apiKey 只在此注入，store > env） */
   private resolveModel(ref: ModelRef): ResolvedModel {
     const provider = this.config.models.providers[ref.provider]
     if (provider === undefined) {
       throw new Error(`E_CONFIG: models.json 未配置 provider "${ref.provider}"`)
     }
-    const apiKey =
-      provider.apiKeyEnv === null ? undefined : process.env[provider.apiKeyEnv]
+    const { apiKey } = resolveApiKey(this.secrets, ref.provider, provider.apiKeyEnv)
     return {
       provider: ref.provider,
       model: ref.model,
       contextWindow: ref.contextWindow,
-      ...(apiKey !== undefined && apiKey !== '' ? { apiKey } : {}),
+      ...(apiKey !== undefined ? { apiKey } : {}),
       ...(provider.baseUrl !== undefined ? { baseUrl: provider.baseUrl } : {}),
     }
+  }
+
+  // ---- 密钥管理（阶段七工单 7.1 / H01：~/.spark/secrets.json 的线上入口） ----
+
+  /** providers 全表状态（含未配置）；永不回传密钥值 */
+  listSecrets(): { provider: string; source: SecretSource }[] {
+    return Object.entries(this.config.models.providers).map(([name, cfg]) => ({
+      provider: name,
+      source: resolveApiKey(this.secrets, name, cfg.apiKeyEnv).source,
+    }))
+  }
+
+  /** 新增/覆盖一条密钥（provider 未在 models.json 配置 → E_CONFIG） */
+  setSecret(provider: string, value: string): void {
+    this.assertNotShutdown()
+    if (this.config.models.providers[provider] === undefined) {
+      throw new Error(`E_CONFIG: models.json 未配置 provider "${provider}"`)
+    }
+    this.secrets.set(provider, value)
+    this.logger.registerSecrets?.([value]) // 新值即刻纳入日志脱敏
+    this.logger.info('secrets.set', { provider })
+  }
+
+  /** 删除一条密钥（store 中不存在 → false，路由层 404） */
+  removeSecret(provider: string): boolean {
+    this.assertNotShutdown()
+    const removed = this.secrets.delete(provider)
+    if (removed) this.logger.info('secrets.remove', { provider })
+    return removed
   }
 }
 

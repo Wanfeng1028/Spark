@@ -2,9 +2,10 @@
  * SettingsDialog（doc/02 §6.2.3）：v1 用 Dialog 不换路由；即存即生效（无保存按钮）。
  * 字段全部走 settings-store（localStorage 持久化）；默认模型只影响新建会话。
  * 权限规则区（工单 4.7）：用户级 permissions.json 的列表/删除/手动添加，即存即生效。
+ * 密钥区（阶段七工单 7.1）：~/.spark/secrets.json 录入（store > env 优先级），值只进不回。
  */
 import { useEffect, useState } from 'react'
-import type { Delivery, PermissionRuleDto } from '@spark/protocol'
+import type { Delivery, PermissionRuleDto, SecretStatusDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useSettingsStore } from '@/stores/settings'
 import { useUiStore } from '@/stores/ui'
@@ -165,6 +166,135 @@ function RulesSection() {
   )
 }
 
+/** 密钥来源徽标文案 */
+const SOURCE_LABEL: Record<SecretStatusDto['source'], string> = {
+  store: '密钥仓',
+  env: '环境变量',
+  none: '未配置',
+}
+
+/** 密钥管理（工单 7.1）：providers 状态列表 + 单条录入（保存即生效，值不回显） */
+function SecretsSection() {
+  const { transport } = useTransport()
+  const [secrets, setSecrets] = useState<SecretStatusDto[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [opError, setOpError] = useState<string | null>(null)
+  const [provider, setProvider] = useState('')
+  const [value, setValue] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    transport
+      .listSecrets()
+      .then((ss) => {
+        if (!cancelled) setSecrets(ss)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [transport])
+
+  async function save() {
+    if (provider.trim() === '' || value.trim() === '') return
+    setBusy(true)
+    setOpError(null)
+    try {
+      const p = provider.trim()
+      await transport.setSecret(p, value.trim())
+      setSecrets((ss) => {
+        const next = ss ?? []
+        return next.some((s) => s.provider === p)
+          ? next.map((s) => (s.provider === p ? { ...s, source: 'store' as const } : s))
+          : [...next, { provider: p, source: 'store' as const }]
+      })
+      setValue('')
+    } catch (err) {
+      setOpError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(p: string) {
+    setBusy(true)
+    setOpError(null)
+    try {
+      await transport.removeSecret(p)
+      setSecrets((ss) =>
+        (ss ?? []).map((s) => (s.provider === p ? { ...s, source: 'none' as const } : s)),
+      )
+    } catch (err) {
+      setOpError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <SectionLabel>模型 · API 密钥（密钥仓优先于环境变量；保存即生效，不回显）</SectionLabel>
+      {error !== null && <p className="font-mono text-xs text-[var(--spark-err)]">{error}</p>}
+      {error === null && secrets === null && (
+        <p className="text-xs text-muted-foreground">加载密钥状态…</p>
+      )}
+      {secrets !== null && secrets.length === 0 && (
+        <p className="text-xs text-muted-foreground">models.json 未配置任何 provider</p>
+      )}
+      {secrets !== null && secrets.length > 0 && (
+        <ul className="max-h-32 overflow-y-auto rounded-md border border-border">
+          {secrets.map((s) => (
+            <li key={s.provider} className="flex min-h-7 items-center gap-2 px-2 py-0.5">
+              <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{s.provider}</span>
+              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                {SOURCE_LABEL[s.source]}
+              </span>
+              {s.source === 'store' && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void remove(s.provider)}
+                  className="h-5 shrink-0 rounded border border-border px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  删除
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex items-center gap-1.5">
+        <input
+          value={provider}
+          onChange={(e) => setProvider(e.target.value)}
+          placeholder="provider（如 deepseek）"
+          className={ruleInputClass + ' w-36'}
+        />
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          type="password"
+          placeholder="apiKey（写入 ~/.spark/secrets.json）"
+          aria-label="apiKey"
+          className={ruleInputClass + ' flex-1'}
+        />
+        <button
+          type="button"
+          disabled={busy || provider.trim() === '' || value.trim() === ''}
+          onClick={() => void save()}
+          className="h-7 shrink-0 rounded-md border border-border px-2 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          保存
+        </button>
+      </div>
+      {opError !== null && <p className="font-mono text-xs text-[var(--spark-err)]">{opError}</p>}
+    </section>
+  )
+}
+
 export function SettingsDialog() {
   const open = useUiStore((s) => s.settingsOpen)
   const setOpen = useUiStore((s) => s.setSettingsOpen)
@@ -260,6 +390,8 @@ export function SettingsDialog() {
           </section>
 
           <RulesSection />
+
+          <SecretsSection />
         </div>
       </DialogContent>
     </Dialog>

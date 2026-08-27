@@ -162,6 +162,11 @@ export {
 } from './engine.js'
 export { buildSystemPrompt } from './prompts.js'
 export {
+  SecretStore,
+  resolveApiKey,
+  type SecretSource,
+} from './secrets/store.js'
+export {
   Logger,
   type SparkLogger,
   type LogFields,

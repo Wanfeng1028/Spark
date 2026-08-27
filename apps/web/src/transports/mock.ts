@@ -16,6 +16,7 @@ import type {
   PermissionReply,
   PermissionRuleDto,
   RequestId,
+  SecretStatusDto,
   SessionDto,
   SessionId,
   SessionStatus,
@@ -474,6 +475,42 @@ export class MockTransport implements Transport {
     const idx = rules.findIndex((r) => r.action === rule.action && r.resource === rule.resource)
     if (idx >= 0) rules[idx] = { ...rule }
     else rules.push({ ...rule })
+  }
+
+  // ---- 密钥管理（阶段七工单 7.1 对等演示：内存表，进程生命周期内有效） ----
+
+  /** mock 场景无 models.json：固定 provider 集（场景 meta.model 前缀） */
+  private static readonly MOCK_PROVIDERS: readonly string[] = ['deepseek', 'openai']
+
+  private readonly secretValues = new Map<string, string>()
+
+  listSecrets(): Promise<SecretStatusDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve(
+      MockTransport.MOCK_PROVIDERS.map((provider) => ({
+        provider,
+        source: this.secretValues.has(provider)
+          ? ('store' as const)
+          : ('none' as const),
+      })),
+    )
+  }
+
+  setSecret(provider: string, value: string): Promise<void> {
+    this.assertNotDisposed()
+    if (!MockTransport.MOCK_PROVIDERS.includes(provider)) {
+      return Promise.reject(new Error(`E_CONFIG: models.json 未配置 provider "${provider}"`))
+    }
+    this.secretValues.set(provider, value)
+    return Promise.resolve()
+  }
+
+  removeSecret(provider: string): Promise<void> {
+    this.assertNotDisposed()
+    if (!this.secretValues.delete(provider)) {
+      return Promise.reject(new Error('E_NOT_FOUND: 密钥仓中无此 provider'))
+    }
+    return Promise.resolve()
   }
 
   /** 由脚本静态构造 SessionDto（listSessions / createSession 共用） */

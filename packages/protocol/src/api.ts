@@ -77,3 +77,15 @@ export const PermissionRuleDtoSchema = z.strictObject({
   effect: z.enum(['allow', 'deny', 'ask']),
 })
 export type PermissionRuleDto = z.infer<typeof PermissionRuleDtoSchema>
+
+// ---------- secrets（doc/02 §8 阶段七工单 7.1 / H01，P0） ----------
+
+/**
+ * 密钥状态（GET /api/secrets 行）：只报 provider 与来源，永不回传密钥值。
+ * source：store = ~/.spark/secrets.json（优先）/ env = apiKeyEnv 环境变量 / none = 未配置
+ */
+export const SecretStatusDtoSchema = z.strictObject({
+  provider: z.string().min(1),
+  source: z.enum(['store', 'env', 'none']),
+})
+export type SecretStatusDto = z.infer<typeof SecretStatusDtoSchema>

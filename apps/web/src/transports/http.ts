@@ -15,6 +15,7 @@ import type {
   PermissionReply,
   PermissionRuleDto,
   RequestId,
+  SecretStatusDto,
   SessionDto,
   SessionId,
   SparkEventEnvelope,
@@ -258,6 +259,23 @@ export class HttpTransport implements Transport {
     return this.req<{ ok: boolean }>('/api/permissions/rules', {
       method: 'DELETE',
       body: JSON.stringify({ action, resource }),
+    }).then(() => undefined)
+  }
+
+  listSecrets(): Promise<SecretStatusDto[]> {
+    return this.req<{ secrets: SecretStatusDto[] }>('/api/secrets').then((r) => r.secrets)
+  }
+
+  setSecret(provider: string, value: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/secrets/${encodeURIComponent(provider)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+    }).then(() => undefined)
+  }
+
+  removeSecret(provider: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/secrets/${encodeURIComponent(provider)}`, {
+      method: 'DELETE',
     }).then(() => undefined)
   }
 

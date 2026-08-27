@@ -82,6 +82,12 @@ export interface SparkLogger {
   warn(msg: LogMsg, fields?: LogFields): void
   error(msg: LogMsg, fields?: LogFields): void
   debug(msg: LogMsg, fields?: LogFields): void
+  /**
+   * 注册需脱敏的密钥值（阶段七工单 7.1：密钥仓 store 值不在 process.env，
+   * 须单点注册进脱敏层；≥6 才收集，与 env 值同阈值防误伤）。
+   * 可选方法：注入的自定义 logger 不实现则跳过（脱敏兜底仍由三层正则承担）。
+   */
+  registerSecrets?(values: Iterable<string>): void
   /** 用于 child 派生（测试内存流注入场景用） */
   readonly inner: BaseLogger
   /** 销毁时关文件句柄（写流 finish 后 resolve；确保磁盘日志可读到） */
@@ -136,6 +142,8 @@ export class Logger implements SparkLogger {
   readonly inner: BaseLogger
   private readonly fileStream: WriteStream | null
   private readonly envPatterns: readonly RegExp[]
+  /** 密钥仓注册值（工单 7.1）：与 env 值同规则转义收集，运行时可追加 */
+  private readonly secretPatterns: RegExp[] = []
 
   constructor(deps: LoggerDeps = {}) {
     this.envPatterns = buildEnvPatterns()
@@ -178,6 +186,17 @@ export class Logger implements SparkLogger {
     this.emit('debug', msg, fields)
   }
 
+  registerSecrets(values: Iterable<string>): void {
+    for (const v of values) {
+      if (!v || v.length < 6) continue
+      try {
+        this.secretPatterns.push(new RegExp(escapeRegex(v), 'g'))
+      } catch {
+        // 非法模式跳过（与 buildEnvPatterns 同判）
+      }
+    }
+  }
+
   close(): Promise<void> {
     if (this.fileStream === null || this.fileStream.closed) return Promise.resolve()
     return new Promise((res, rej) => {
@@ -189,11 +208,14 @@ export class Logger implements SparkLogger {
   }
 
   private emit(level: 'info' | 'warn' | 'error' | 'debug', msg: LogMsg, fields: LogFields | undefined): void {
-    const cleanMsg = sanitizeString(msg, this.envPatterns)
+    const patterns = this.secretPatterns.length > 0
+      ? [...this.envPatterns, ...this.secretPatterns]
+      : this.envPatterns
+    const cleanMsg = sanitizeString(msg, patterns)
     const cleanFields =
       fields === undefined
         ? undefined
-        : (sanitizeObject(fields, this.envPatterns) as LogFields)
+        : (sanitizeObject(fields, patterns) as LogFields)
     if (cleanFields === undefined) this.inner[level](cleanMsg)
     else this.inner[level](cleanFields, cleanMsg)
   }

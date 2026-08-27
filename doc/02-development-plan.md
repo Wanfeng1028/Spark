@@ -49,6 +49,7 @@
 | v3.0  | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D2 路线图指令） | **阶段六~九立项工单化（+0.5 进位）**：§8 续写阶段六 UI 重构（6.1–6.8）/ 阶段七 Harness 补全（7.1–7.8、7.10–7.13；**7.9 Python worker 删除**——判决见 doc/07 §4.1）/ 阶段八 CLI TUI（8.1–8.5）/ 阶段九 移动端三端（9.1–9.5），工单表与阶段一逐列对齐（#/工单/产出/验收标准/依赖）；新增 §8.7 v2 候选池（V2-01–V2-22，不阻塞四阶段）；7.4 命令清单基线对齐 Claude Code 命令面 + opencode leader 键模式；输入=doc/07 缺口编号 H01–H36；登记 doc/06-testing-plan.md（D5，测试体系五层）与 doc/07-harness-audit.md（D1，Harness 审计）；README 当前状态行同步（v1.16） |
 | v3.1  | 2026-08-26 | 同上（发起：晚风，移动端规格指令 + Qoder CN iOS 实拍 13 张）                                                                           | 阶段九工单对齐 DESIGN §13.J：9.1 配对改**扫码为主、手输 6 位码兜底**（D24 补记同步）；9.2 视觉依据 §13.J（白卡无边框分层/单栈+抽屉/11 页实测映射）；9.3 审批卡纵向全宽与 Composer 胶囊形态锚定；移动端框架 Expo+RN 经用户确认维持 D20 |
 | v3.2  | 2026-08-26 | 同上（补供图：Qoder CN 会话页有内容态 2 张）                                                                                           | §8.7 候选池新增 **V2-23 会话管理增强**（删除/归档/置顶）——移动端会话页实测暴露后端缺口：无 DELETE /api/sessions/:id，归档/置顶需 meta 标记；DESIGN §13.J.3 同步升级为实测规格（user 右对齐胶囊/assistant 全宽/操作行/时间戳分隔） |
+| v3.3  | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                     | 阶段七工单 **7.1 secrets 管理落地**：SecretStore（~/.spark/secrets.json，原子写+0600+坏 JSON fail-closed）+ resolveApiKey 单点（store > env 迁移兼容）+ GET/PUT/DELETE /api/secrets（值永不回传）+ 设置页密钥管理区 + Logger.registerSecrets（store 值单点注册进 pino 脱敏层）；§1.4 风险表与 §4.5 API 表同步；阶段七 7.1 勾选 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -118,7 +119,7 @@ Agent 工作台：引擎（Node 进程）+ 事件流驱动的 Web 前端，后�
 | 提示词注入（恶意仓库的 AGENTS.md / 文件内容诱导危险行为） | 基座提示词声明系统规则优先于项目指引（§5.11 第 6 条 "unless conflicting"）；shell/写操作默认 ask——注入骗不过审批层 | §5.11 + §5.7 |
 | 路径逃逸（`../`、绝对路径、符号链接读敏感文件）           | `path.resolve` + 允许根前缀比较的**硬边界**，越界 E_PATH_OUTSIDE 直接拒绝、不经审批兜底                            | §5.6.3       |
 | 危险命令（`rm -rf`、`curl … \| sh`、git clean）           | 提示词禁删纪律 + shell.exec 默认 ask + deny 规则可永久封禁模式                                                     | §5.7 + §5.11 |
-| 密钥泄漏（apiKey 进日志/事件/模型上下文）                 | apiKey 只在 ResolvedModel 注入；不进事件/DTO/日志；日志启发式脱敏兜底                                              | §5.9 + §5.10 |
+| 密钥泄漏（apiKey 进日志/事件/模型上下文）                 | apiKey 只在 ResolvedModel 注入；不进事件/DTO/日志；日志启发式脱敏兜底；密钥仓 store 值单点注册进脱敏层（工单 7.1） | §5.9 + §5.10 |
 | 公网暴露/端口扫描                                         | 绑定 127.0.0.1；无 TLS/auth 是**刻意取舍**（本地单用户，dsh 姿态）                                                 | §7.1         |
 | 工具输出轰炸（超大/二进制输出撑爆上下文与 UI）            | 32KB 限界+溢写文件；progress 200ms 节流；前端 Terminal 缓冲截头                                                    | §5.6.4       |
 | 会话文件损坏/篡改                                         | 读端 fail-closed（非尾坏行拒绝加载）；未知事件 type 拒绝；尾行半写丢弃                                             | §5.8.4       |
@@ -436,6 +437,9 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | GET  | /api/permissions/rules      | —                                                    | `{ rules: PermissionRuleDto[] }`（阶段四工单 4.7）   |
 | POST | /api/permissions/rules      | `PermissionRuleDto`                                  | 201 `{ ok:true }`（action+resource 同键覆盖）        |
 | DELETE | /api/permissions/rules    | `{ action, resource }`                               | `{ ok:true }`；无此规则 → 404 `E_NOT_FOUND`          |
+| GET  | /api/secrets                | —                                                    | `{ secrets: SecretStatusDto[] }`（阶段七工单 7.1；值永不回传） |
+| PUT  | /api/secrets/:provider      | `{ value }`                                          | `{ ok:true }`；provider 未配置 → 400 `E_CONFIG`      |
+| DELETE | /api/secrets/:provider    | —                                                    | `{ ok:true }`；store 无此条 → 404 `E_NOT_FOUND`      |
 | GET  | /api/sessions/:id/tree      | —                                                    | TreeNode[]（阶段四）                                 |
 | POST | /api/sessions/:id/fork      | `{ fromEventId }`                                    | SessionDto（阶段四）                                 |
 | GET  | /api/event                  | `?sessionId&since`（均可省略，语义见 §4.6 订阅语义） | SSE 流                                               |
@@ -1764,7 +1768,7 @@ app.get('/api/event', async (req, reply) => {
 
 | #    | 工单                          | 产出（目标 + 涉及包）                                                                                                                                                           | 验收标准                                                                                              | 依赖    |
 | ---- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------- |
-| 7.1  | secrets 管理（H01，P0）       | engine+web：~/.spark/secrets 存储 + 设置页录入 + 引擎取用优先级（store > env），env 迁移兼容                                                                     | apiKey 不再必须环境变量；日志/事件流无明文密钥（复用 pino 脱敏断言）                                   | —       |
+| 7.1  | ✅ secrets 管理（H01，P0）    | engine+web：~/.spark/secrets 存储 + 设置页录入 + 引擎取用优先级（store > env），env 迁移兼容                                                                     | apiKey 不再必须环境变量；日志/事件流无明文密钥（复用 pino 脱敏断言 + registerSecrets 单点注册）       | —       |
 | 7.2  | I/O 护栏（H02，P0）           | engine：工具输出注入检测（标记协议 + 可疑模式结构化告警事件）+ 敏感输出过滤（复用 pino 三层脱敏正则）                                                             | 注入样例集触发告警事件且不阻断 turn；密钥样例经工具输出进上下文前被过滤                                | —       |
 | 7.3  | 用户侧 hooks（H03）           | engine：spark.json 声明 turn.before / turn.after / permission.resolved / tool.completed 挂点 → 外部命令或 skill 触发                                             | 四挂点 e2e 各一例；hook 失败不阻断主流程（warn 闭合，同 D18 纪律）                                     | —       |
 | 7.4  | 命令注册表（H04）             | engine+web：/命令 解析框架（/compact 迁入）+ ~/.spark/commands/*.md 自定义命令 + CommandPalette 接入；**命令清单基线 = 对齐 Claude Code 命令面（/compact /model /mcp /skills /usage /resume）+ opencode leader 键模式（ctrl+x 前缀）——命令名可不同，覆盖面以此为下限** | 基线清单逐条可用；自定义 .md 命令可被发现与执行；/compact 行为回归不变                                 | —       |

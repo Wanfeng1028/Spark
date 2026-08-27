@@ -5,6 +5,7 @@
 | 版本 | 日期       | 作者                                                                                                                                                            | 变更内容                                                                                                                                                        |
 | ---- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | v1.0 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D1 审计指令） | 初稿：十九条学科×三态总表 / 工程六大类明细（逐条落源码证据）/ 四端复用矩阵 / 缺口优先级 P0–P2；Python Worker 判决"不做"；缺口编号 H01–H36 供 doc/02 §8 阶段六~九工单与 v2 候选池引用 |
+| v1.1 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §2.4 密钥鉴权改 🟡（H01 → 7.1 ✅ 已落地：SecretStore + resolveApiKey store>env + /api/secrets + 设置页 + Logger.registerSecrets 日志脱敏）；§4.3 H01 勾销注记 |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
 > **方法**：三条证据链——①引擎/服务端/前端逐模块源码走读（本文所有路径均为当日实测，非转抄文档）；②协议词表 19 种逐条核对（含 `user.message.attachments?`、`assistant.message.usage` 等已预留未消费字段）；③既有审计（doc/05 缺口 G1–G7）与用户侧能力对照清单合并盘点。
@@ -120,10 +121,10 @@
 - 差距：无。
 - 参考：opencode permission.ts + dsh decide() + Codex ReviewDecision（审批=学习）。工单：—。
 
-**密钥鉴权** —— ❌ 缺失（H01 + 9.1）
-- 证据：`packages/engine/src/config.ts` loadConfig——apiKey 只从 apiKeyEnv 环境变量读，无系统钥匙串/加密存储；server 绑定 127.0.0.1 无鉴权（`apps/server/src/index.ts` SPARK_HOST，刻意缺省，红线）。
-- 差距：secrets 无本地安全存储；非环回绑定无 token 鉴权（移动端 9.1 的前置）。
-- 参考：Claude Code apiKeyHelper；系统钥匙串（keytar 已废，Electron safeStorage 现役）。工单：H01 → **7.1**；配对鉴权 → **9.1**（ADR D24）。
+**密钥鉴权** —— 🟡 secrets 已落地（H01 → 7.1 ✅）；配对鉴权仍缺（9.1）
+- 证据（7.1 已落地）：`packages/engine/src/secrets/store.ts` SecretStore（~/.spark/secrets.json，原子写+0600+坏 JSON fail-closed）+ `resolveApiKey` 单点（store > env 迁移兼容）+ `engine.ts` resolveModel 接线 + GET/PUT/DELETE /api/secrets（值永不回传）+ 设置页录入（SettingsDialog）+ `Logger.registerSecrets`（store 值单点注册进 pino 脱敏层，日志无明文断言在 logger.test/secrets.test）。
+- 差距：非环回绑定无 token 鉴权（移动端 9.1 的前置）；OS 级加密存储（safeStorage）后置——本地单用户场景 JSON+0600 判定够用。
+- 参考：Claude Code apiKeyHelper；系统钥匙串（keytar 已废，Electron safeStorage 现役——远端访问形态时再评估）。工单：H01 → **7.1 ✅**；配对鉴权 → **9.1**（ADR D24）。
 
 **预算与熔断** —— ❌ 缺失（H07 组成部分）
 - 证据：`packages/engine/src/observability/metrics.ts` 有 spark_llm_tokens_total 计数但无任何阈值动作；run-loop 无 token/成本上限中断。
@@ -244,7 +245,7 @@
 
 | 编号 | 缺口 | 工单 |
 | ---- | ---- | ---- |
-| H01 | secrets 管理（~/.spark/secrets + 设置页录入 + store>env 优先级） | 7.1 |
+| H01 | secrets 管理（~/.spark/secrets + 设置页录入 + store>env 优先级） | 7.1 ✅ 已勾销（2026-08-27） |
 | H02 | I/O 护栏（注入检测 + 敏感输出过滤） | 7.2 |
 | H07 | model routing 增强（fallback 链/按任务路由/**成本熔断**） | 7.7 |
 | —   | 配对鉴权（非环回强制 token，缺省 127.0.0.1 行为不变为红线） | 9.1（ADR D24） |

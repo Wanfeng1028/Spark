@@ -6,7 +6,7 @@
  */
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply } from './primitives.js'
-import type { CheckpointDto, PermissionRuleDto, SessionDto, TreeNodeDto } from './api.js'
+import type { CheckpointDto, PermissionRuleDto, SecretStatusDto, SessionDto, TreeNodeDto } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
 export interface SendMessageOptions {
@@ -47,5 +47,11 @@ export interface Transport {
   addPermissionRule(rule: PermissionRuleDto): Promise<void>
   /** DELETE /api/permissions/rules：精确匹配删除（无此规则拒绝） */
   removePermissionRule(action: string, resource: string): Promise<void>
+  /** GET /api/secrets：provider 密钥状态（store/env/none；值永不回传，阶段七工单 7.1） */
+  listSecrets(): Promise<SecretStatusDto[]>
+  /** PUT /api/secrets/:provider：新增/覆盖一条密钥（写入 ~/.spark/secrets.json） */
+  setSecret(provider: string, value: string): Promise<void>
+  /** DELETE /api/secrets/:provider：删除密钥仓条目（env 来源不可删） */
+  removeSecret(provider: string): Promise<void>
   dispose(): void
 }

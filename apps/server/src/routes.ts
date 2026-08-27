@@ -88,6 +88,10 @@ const ForkBody = z.strictObject({ fromEventId: EventIdSchema })
 
 const RemoveRuleBody = z.strictObject({ action: z.string().min(1), resource: z.string().min(1) })
 
+const SecretProviderParams = z.strictObject({ provider: z.string().min(1) })
+
+const SetSecretBody = z.strictObject({ value: z.string().min(1) })
+
 /** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
 function labelOf(e: SparkEventEnvelope): string {
   const data = e.data as Record<string, unknown>
@@ -301,6 +305,39 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
       const { action, resource } = parseOr400(RemoveRuleBody, req.body)
       if (!engine.removePermissionRule(action, resource)) {
         return reply.code(404).send({ code: 'E_NOT_FOUND', message: '规则不存在' })
+      }
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 密钥管理（阶段七工单 7.1 / H01）：~/.spark/secrets.json 的线上 CRUD——
+  // 值只进不回（GET 只报来源，PUT 写入后立即生效于后续 resolveModel）
+  app.get('/api/secrets', async (req, reply) => {
+    try {
+      return reply.send({ secrets: engine.listSecrets() })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.put('/api/secrets/:provider', async (req, reply) => {
+    try {
+      const { provider } = parseOr400(SecretProviderParams, req.params)
+      const body = parseOr400(SetSecretBody, req.body)
+      engine.setSecret(provider, body.value)
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.delete('/api/secrets/:provider', async (req, reply) => {
+    try {
+      const { provider } = parseOr400(SecretProviderParams, req.params)
+      if (!engine.removeSecret(provider)) {
+        return reply.code(404).send({ code: 'E_NOT_FOUND', message: '密钥仓中无此 provider' })
       }
       return reply.send({ ok: true })
     } catch (err) {

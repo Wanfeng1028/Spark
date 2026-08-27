@@ -205,6 +205,45 @@ describe('§5.10 脱敏', () => {
   })
 })
 
+describe('工单 7.1 密钥仓值脱敏（registerSecrets）', () => {
+  it('store 值注册后：日志中明文 → ***；<6 跳过', async () => {
+    const root = makeRoot()
+    const log = new Logger({ root })
+    try {
+      log.registerSecrets(['raw_store_value_abcdef', 'tiny'])
+      log.error('llm.stream.error', {
+        message: '网关错误，apiKey raw_store_value_abcdef 泄露',
+      })
+      log.info('tool.completed', { note: 'tiny 保留（<6 跳过）' })
+    } finally {
+      await log.close(); await drain()
+    }
+    const content = readFileSync(join(root, 'logs', 'engine.log'), 'utf8')
+    expect(content).not.toContain('raw_store_value_abcdef')
+    expect(content).toContain('***')
+    expect(content).toContain('tiny')
+    expect(content).toContain('网关错误')
+  })
+
+  it('registerSecrets 可多次追加；嵌套对象同样过脱敏', async () => {
+    const root = makeRoot()
+    const log = new Logger({ root })
+    try {
+      log.registerSecrets(['firstSecretValue1'])
+      log.registerSecrets(['secondSecretValue2'])
+      log.warn('tool.start', {
+        nested: [{ k: 'firstSecretValue1' }, { k: 'secondSecretValue2' }],
+      })
+    } finally {
+      await log.close(); await drain()
+    }
+    const content = readFileSync(join(root, 'logs', 'engine.log'), 'utf8')
+    expect(content).not.toContain('firstSecretValue1')
+    expect(content).not.toContain('secondSecretValue2')
+    expect(content).toContain('***')
+  })
+})
+
 describe('文件输出路径', () => {
   it('root 指定时：logs/engine.log 写到 root/logs 子目录', async () => {
     const root = makeRoot()
