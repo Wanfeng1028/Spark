@@ -89,3 +89,63 @@ export const SecretStatusDtoSchema = z.strictObject({
   source: z.enum(['store', 'env', 'none']),
 })
 export type SecretStatusDto = z.infer<typeof SecretStatusDtoSchema>
+
+// ---------- permission preset（DESIGN §13.E 权限四档 / ADR D7 补记，阶段六工单 6.3） ----------
+
+/**
+ * 会话级权限预设四档（规则引擎之上的预设层，不引入第二权限机制）：
+ * - confirm-each 逐项确认（缺省档）：规则表不动；
+ * - auto-edit 自动编辑：会话临时层对 fs.write 预置 allow；
+ * - plan 计划模式：交互层约定（system prompt 追加计划指令），不改审批语义；
+ * - full-access 完全访问：会话临时层批量预置 allow。
+ * 会话内存态（临时层），引擎重启回 confirm-each。
+ */
+export const PermissionPresetSchema = z.enum(['confirm-each', 'auto-edit', 'plan', 'full-access'])
+export type PermissionPreset = z.infer<typeof PermissionPresetSchema>
+
+// ---------- models（DESIGN §13.D③ / 阶段六工单 6.5 轻后端例外） ----------
+
+/** 供应商线上形状（GET /api/models）：apiKeyEnv 只回传环境变量名——key 本身永不进 DTO（红线 §6.3） */
+export const ModelProviderDtoSchema = z.strictObject({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  /** 内置目录（引擎 PROVIDER_CATALOG）中的已知供应商 = true；仅 models.json 出现的 = false（自定义） */
+  builtin: z.boolean(),
+  /** 已在 models.json providers 中配置 */
+  configured: z.boolean(),
+  /** 实际生效地址（models.json 覆盖 ?? 内置默认；自定义供应商必填） */
+  baseUrl: z.string().optional(),
+  /** API Key 环境变量名（null = models.json 未设 apiKeyEnv） */
+  apiKeyEnv: z.string().nullable(),
+  /** 环境变量已设置（状态点数据源） */
+  hasKey: z.boolean(),
+  api: z.enum(['openai-completions', 'anthropic-messages']),
+})
+export type ModelProviderDto = z.infer<typeof ModelProviderDtoSchema>
+
+/** 可选模型条目（models.json models[] + defaultModel/compactionModel 合并去重） */
+export const ModelEntryDtoSchema = z.strictObject({
+  provider: z.string().min(1),
+  model: z.string().min(1),
+  contextWindow: z.number().int().positive(),
+})
+export type ModelEntryDto = z.infer<typeof ModelEntryDtoSchema>
+
+export const ModelsDtoSchema = z.strictObject({
+  providers: z.array(ModelProviderDtoSchema),
+  models: z.array(ModelEntryDtoSchema),
+  defaultModel: ModelEntryDtoSchema,
+})
+export type ModelsDto = z.infer<typeof ModelsDtoSchema>
+
+/** POST /api/models/:id/test 结果（连通测试返回时延/错误人话文案，工单 6.5 验收） */
+export const ModelTestResultDtoSchema = z.strictObject({
+  provider: z.string().min(1),
+  ok: z.boolean(),
+  latencyMs: z.number().int().nonnegative().optional(),
+  /** 人话文案（成功"连通正常"；失败为可读原因） */
+  message: z.string(),
+  /** 原始错误详情（前端折叠展示） */
+  detail: z.string().optional(),
+})
+export type ModelTestResultDto = z.infer<typeof ModelTestResultDtoSchema>

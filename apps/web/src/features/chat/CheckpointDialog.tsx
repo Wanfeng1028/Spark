@@ -9,6 +9,7 @@ import type { CheckpointDto, CheckpointId, SessionId } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { formatRelative } from '@/lib/time'
+import { errorMessageOf } from '@/lib/error-copy'
 
 export interface CheckpointDialogProps {
   open: boolean
@@ -37,7 +38,7 @@ export function CheckpointDialog({ open, onOpenChange, sid, busy }: CheckpointDi
         if (!cancelled) setRows(rs)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+        if (!cancelled) setError(errorMessageOf(err))
       })
     return () => {
       cancelled = true
@@ -54,7 +55,7 @@ export function CheckpointDialog({ open, onOpenChange, sid, busy }: CheckpointDi
       onOpenChange(false)
     } catch (err) {
       // E_NOT_FOUND/E_TURN_ACTIVE/E_CHECKPOINT_ROLLBACK 等如实呈现（失败闭合）
-      setRollError(err instanceof Error ? err.message : String(err))
+      setRollError(errorMessageOf(err))
     } finally {
       setRolling(null)
     }

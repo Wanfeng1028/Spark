@@ -71,8 +71,8 @@ function prefixContent(texts: string[], thinkings: string[]): ContentItem[] {
 export class ScriptedLlm implements LlmGateway {
   private readonly steps: ScriptedStep[] = []
   private readonly onceReplies: string[] = []
-  /** 每次 stream 调用的请求快照（断言投影/工具清单用） */
-  readonly calls: Array<{ system: string; messages: LlmMessage[]; tools: ToolSpec[] }> = []
+  /** 每次 stream 调用的请求快照（断言投影/工具清单/会话级换模型下一 turn 生效用） */
+  readonly calls: Array<{ system: string; messages: LlmMessage[]; tools: ToolSpec[]; model: string }> = []
   /** 每次 generateOnce 调用的请求快照（断言压缩/标题提示词用） */
   readonly onceCalls: Array<{ system: string | undefined; prompt: string; maxTokens: number | undefined }> = []
 
@@ -85,7 +85,12 @@ export class ScriptedLlm implements LlmGateway {
   }
 
   async stream(req: StreamRequest): Promise<StreamResult> {
-    this.calls.push({ system: req.system, messages: req.messages, tools: req.tools })
+    this.calls.push({
+      system: req.system,
+      messages: req.messages,
+      tools: req.tools,
+      model: `${req.model.provider}/${req.model.model}`,
+    })
     if (req.signal.aborted) {
       // 请求未达 provider：不消耗预录步骤
       return { content: [], stopReason: 'aborted', usage: ZERO_USAGE }

@@ -86,17 +86,16 @@ describe('POST /api/sessions', () => {
     expect(Array.isArray(body['issues'])).toBe(true)
   })
 
-  test('model 指向未配置 provider → 500 E_INTERNAL（详情不透出）', async () => {
+  test('model 指向未配置 provider → 400 E_CONFIG（工单 6.5 起入参错误显式映射）', async () => {
     const f = await setup()
     const res = await f.app.inject({
       method: 'POST',
       url: '/api/sessions',
       payload: { model: 'nope/model' },
     })
-    expect(res.statusCode).toBe(500)
+    expect(res.statusCode).toBe(400)
     const body: Json = res.json()
-    expect(body['code']).toBe('E_INTERNAL')
-    expect(body['message']).toBe('internal error')
+    expect(body['code']).toBe('E_CONFIG')
   })
 })
 
@@ -850,3 +849,95 @@ describe('GET /api/healthz（工单 5.1 桌面壳探活）', () => {
     expect(res.json<Json>()).toEqual({ ok: true })
   })
 })
+
+describe('模型管理（工单 6.5：GET /api/models、POST /api/models/:id/test、PUT /api/sessions/:id/model）', () => {
+  test('GET /api/models：内置目录全量 + 自定义 fake；掩码原则（apiKeyEnv 名而非 key）', async () => {
+    const f = await setup()
+    const res = await f.app.inject({ method: 'GET', url: '/api/models' })
+    expect(res.statusCode).toBe(200)
+    const dto = res.json<Json>()
+    const providers = dto['providers'] as Json[]
+    // 内置目录 8 家在前，models.json 独有自定义 fake 在后
+    expect(providers.length).toBe(9)
+    const deepseek = providers.find((p) => p['id'] === 'deepseek') as Json
+    expect(deepseek['builtin']).toBe(true)
+    expect(deepseek['configured']).toBe(false)
+    expect(deepseek['baseUrl']).toBe('https://api.deepseek.com/v1')
+    expect(deepseek['apiKeyEnv']).toBe(null)
+    expect(deepseek['hasKey']).toBe(false)
+    const fake = providers.find((p) => p['id'] === 'fake') as Json
+    expect(fake['builtin']).toBe(false)
+    expect(fake['configured']).toBe(true)
+    expect(fake['hasKey']).toBe(false) // apiKeyEnv: null
+    // defaultModel 合并入 models[]
+    expect(dto['defaultModel']).toEqual({
+      provider: 'fake',
+      model: 'fake-chat',
+      contextWindow: 100_000,
+    })
+    const models = dto['models'] as Json[]
+    expect(models.some((m) => m['provider'] === 'fake' && m['model'] === 'fake-chat')).toBe(true)
+    // 红线 §6.3：DTO 无任何 key 值字段
+    expect(JSON.stringify(dto)).not.toContain('sk-')
+  })
+
+  test('POST test：未知供应商/未配置/缺 Key 均 200 + ok:false 人话文案', async () => {
+    const f = await setup()
+    const unknown = await f.app.inject({ method: 'POST', url: '/api/models/nope/test' })
+    expect(unknown.statusCode).toBe(200)
+    expect((unknown.json<Json>())['ok']).toBe(false)
+    expect(String((unknown.json<Json>())['message'])).toContain('未知供应商')
+
+    const builtin = await f.app.inject({ method: 'POST', url: '/api/models/openai/test' })
+    expect(builtin.statusCode).toBe(200)
+    expect(String((builtin.json<Json>())['message'])).toContain('未配置')
+
+    const noKey = await f.app.inject({ method: 'POST', url: '/api/models/fake/test' })
+    expect(noKey.statusCode).toBe(200)
+    expect(String((noKey.json<Json>())['message'])).toContain('API Key')
+  })
+
+  test('PUT model：换模型 200 回显 + meta 跟随；坏形状/未知供应商 400 E_CONFIG；未知会话 404', async () => {
+    const f = await setup()
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const id = (created.json<Json>())['id'] as string
+
+    // 换模型：provider 已配置即可（model 名无需在 models[] 清单中）
+    const ok = await f.app.inject({
+      method: 'PUT',
+      url: `/api/sessions/${id}/model`,
+      payload: { model: 'fake/other-chat' },
+    })
+    expect(ok.statusCode).toBe(200)
+    expect((ok.json<Json>())['model']).toBe('fake/other-chat')
+    // 内存 meta 跟随（GET 详情可见；会话文件 header 不动）
+    const detail = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}` })
+    expect((detail.json<Json>())['model']).toBe('fake/other-chat')
+
+    // 坏形状 / 未知供应商 → 400 E_CONFIG
+    const bad = await f.app.inject({
+      method: 'PUT',
+      url: `/api/sessions/${id}/model`,
+      payload: { model: 'no-slash' },
+    })
+    expect(bad.statusCode).toBe(400)
+    expect((bad.json<Json>())['code']).toBe('E_CONFIG')
+    const unknownProvider = await f.app.inject({
+      method: 'PUT',
+      url: `/api/sessions/${id}/model`,
+      payload: { model: 'nope/x' },
+    })
+    expect(unknownProvider.statusCode).toBe(400)
+    expect((unknownProvider.json<Json>())['code']).toBe('E_CONFIG')
+
+    // 未知会话 → 404
+    const missing = await f.app.inject({
+      method: 'PUT',
+      url: '/api/sessions/ses_unknown/model',
+      payload: { model: 'fake/fake-chat' },
+    })
+    expect(missing.statusCode).toBe(404)
+    expect((missing.json<Json>())['code']).toBe('E_NOT_FOUND')
+  })
+})
+

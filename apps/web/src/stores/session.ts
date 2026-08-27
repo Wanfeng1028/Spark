@@ -77,6 +77,8 @@ export interface SessionSlice {
   activeTurn: ActiveTurn | null
   lastSeq: number
   usageTotal: Usage
+  /** 最近一轮带 usage 的事件（assistant.message/turn.completed）——上下文水位数据源（工单 6.6） */
+  contextUsage: Usage | null
   /** turn.completed finish==='error' 设；下一次 turn.started 清（§6.4 处理表） */
   topBanner: { kind: 'turn-error'; turnId: TurnId } | null
   /** compaction.started/completed 的顶部细条（§6.4 处理表） */
@@ -114,6 +116,7 @@ function emptySlice(sid: SessionId): SessionSlice {
     activeTurn: null,
     lastSeq: 0,
     usageTotal: { ...ZERO_USAGE },
+    contextUsage: null,
     topBanner: null,
     compacting: false,
     lastCheckpoint: null,
@@ -216,6 +219,7 @@ export function reduce(s: SessionStoreState, e: SparkEventEnvelope): SessionStor
   if (ofType(e, 'turn.completed')) {
     next.activeTurn = null
     next.usageTotal = addUsage(next.usageTotal, e.data.usage)
+    if (e.data.usage !== undefined) next.contextUsage = e.data.usage
     if (e.data.finish === 'error') next.topBanner = { kind: 'turn-error', turnId: e.data.turnId }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
@@ -268,6 +272,7 @@ export function reduce(s: SessionStoreState, e: SparkEventEnvelope): SessionStor
       }
     }
     next.items = items
+    if (e.data.usage !== undefined) next.contextUsage = e.data.usage
     if (next.activeTurn !== null) {
       next.activeTurn = { ...next.activeTurn, stepCount: next.activeTurn.stepCount + 1 }
     }

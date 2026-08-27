@@ -13,6 +13,9 @@ import type {
   CheckpointDto,
   CheckpointId,
   EventId,
+  ModelTestResultDto,
+  ModelsDto,
+  PermissionPreset,
   PermissionReply,
   PermissionRuleDto,
   RequestId,
@@ -513,6 +516,152 @@ export class MockTransport implements Transport {
     return Promise.resolve()
   }
 
+  // ---- 权限档位（工单 6.3 对等演示：内存表，随会话 id 记忆；引擎同款语义） ----
+
+  private readonly presets = new Map<SessionId, PermissionPreset>()
+
+  getPermissionPreset(sessionId: SessionId): Promise<PermissionPreset> {
+    this.assertNotDisposed()
+    const known =
+      sessionId === this.script.sessionId || this.forkChildren.some((f) => f.dto.id === sessionId)
+    if (!known) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    return Promise.resolve(this.presets.get(sessionId) ?? 'confirm-each')
+  }
+
+  setPermissionPreset(sessionId: SessionId, preset: PermissionPreset): Promise<void> {
+    this.assertNotDisposed()
+    const known =
+      sessionId === this.script.sessionId || this.forkChildren.some((f) => f.dto.id === sessionId)
+    if (!known) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    if (preset === 'confirm-each') this.presets.delete(sessionId)
+    else this.presets.set(sessionId, preset)
+    return Promise.resolve()
+  }
+
+  // ---- 模型管理（工单 6.5 对等演示：内置目录副本 + 内存换模型，引擎同款语义） ----
+
+  /** mock 目录（引擎 PROVIDER_CATALOG 子集 + 一家自定义；DTO 永不含 key 值） */
+  private static readonly MODELS: ModelsDto = {
+    providers: [
+      {
+        id: 'deepseek',
+        label: 'DeepSeek',
+        builtin: true,
+        configured: true,
+        baseUrl: 'https://api.deepseek.com/v1',
+        apiKeyEnv: 'DEEPSEEK_API_KEY',
+        hasKey: true,
+        api: 'openai-completions',
+      },
+      {
+        id: 'openai',
+        label: 'OpenAI',
+        builtin: true,
+        configured: false,
+        baseUrl: 'https://api.openai.com/v1',
+        apiKeyEnv: null,
+        hasKey: false,
+        api: 'openai-completions',
+      },
+      {
+        id: 'anthropic',
+        label: 'Anthropic',
+        builtin: true,
+        configured: false,
+        baseUrl: 'https://api.anthropic.com',
+        apiKeyEnv: null,
+        hasKey: false,
+        api: 'anthropic-messages',
+      },
+      {
+        id: 'ollama-local',
+        label: 'ollama-local',
+        builtin: false,
+        configured: true,
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        apiKeyEnv: null,
+        hasKey: false,
+        api: 'openai-completions',
+      },
+    ],
+    models: [
+      { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
+      { provider: 'deepseek', model: 'deepseek-reasoner', contextWindow: 65536 },
+      { provider: 'ollama-local', model: 'qwen3:8b', contextWindow: 32768 },
+    ],
+    defaultModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
+  }
+
+  /** 会话级换模型内存表（引擎同款：内存态，进程生命周期内有效） */
+  private readonly modelOverrides = new Map<SessionId, string>()
+
+  listModels(): Promise<ModelsDto> {
+    this.assertNotDisposed()
+    return Promise.resolve(MockTransport.MODELS)
+  }
+
+  testModelProvider(providerId: string): Promise<ModelTestResultDto> {
+    this.assertNotDisposed()
+    const p = MockTransport.MODELS.providers.find((x) => x.id === providerId)
+    if (p === undefined) {
+      return Promise.resolve({
+        provider: providerId,
+        ok: false,
+        message: '未知供应商：不在 models.json providers，也不在内置目录',
+      })
+    }
+    if (!p.configured) {
+      return Promise.resolve({
+        provider: providerId,
+        ok: false,
+        message: '未配置：该供应商未写入 models.json providers',
+      })
+    }
+    if (!p.hasKey) {
+      return Promise.resolve({
+        provider: providerId,
+        ok: false,
+        message: '缺少 API Key：models.json 未设置 apiKeyEnv',
+      })
+    }
+    return Promise.resolve({
+      provider: providerId,
+      ok: true,
+      latencyMs: 86,
+      message: '连通正常',
+    })
+  }
+
+  setSessionModel(sessionId: SessionId, model: string): Promise<string> {
+    this.assertNotDisposed()
+    const known =
+      sessionId === this.script.sessionId || this.forkChildren.some((f) => f.dto.id === sessionId)
+    if (!known) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    const slash = model.indexOf('/')
+    if (slash <= 0 || slash === model.length - 1) {
+      return Promise.reject(new Error(`E_CONFIG: model "${model}" 须为 provider/model 形式`))
+    }
+    const provider = model.slice(0, slash)
+    const configured = MockTransport.MODELS.providers.find((x) => x.id === provider)
+    if (configured === undefined || !configured.configured) {
+      return Promise.reject(new Error(`E_CONFIG: models.json 未配置 provider "${provider}"`))
+    }
+    this.modelOverrides.set(sessionId, model)
+    return Promise.resolve(model)
+  }
+
+  /** dtoOf 后叠加会话级换模型（内存态覆盖脚本 meta.model） */
+  private withModelOverride(sid: SessionId, dto: SessionDto): SessionDto {
+    const m = this.modelOverrides.get(sid)
+    return m === undefined ? dto : { ...dto, model: m }
+  }
+
   /** 由脚本静态构造 SessionDto（listSessions / createSession 共用） */
   private static dtoOf(script: ScenarioScript, status: SessionStatus): SessionDto {
     const durable = script.lines.flatMap((l) =>
@@ -545,24 +694,31 @@ export class MockTransport implements Transport {
     // 未回放脚本行不上车（mock 会话冷启动走流式回放，不走本全量路径）
     const durable = this.emitted.filter((e) => e.seq !== undefined)
     const last = durable[durable.length - 1]
-    return Promise.resolve({
-      ...MockTransport.dtoOf(this.script, this.status()),
-      lastSeq: last?.seq ?? 0,
-      updatedAt: last?.time ?? this.script.meta.createdAt,
-      events: durable,
-    })
+    return Promise.resolve(
+      this.withModelOverride(sessionId, {
+        ...MockTransport.dtoOf(this.script, this.status()),
+        lastSeq: last?.seq ?? 0,
+        updatedAt: last?.time ?? this.script.meta.createdAt,
+        events: durable,
+      }),
+    )
   }
 
   listSessions(): Promise<SessionDto[]> {
     return Promise.resolve([
       ...MOCK_SCENARIOS.map((s) =>
-        MockTransport.dtoOf(
-          s === this.scenario ? this.script : parseScenarioScript(SCRIPTS[s]),
-          'idle',
+        this.withModelOverride(
+          this.parseFor(s).sessionId,
+          MockTransport.dtoOf(this.parseFor(s), 'idle'),
         ),
       ),
       ...this.forkChildren.map((f) => f.dto),
     ])
+  }
+
+  /** 场景脚本取用（当前场景用已解析实例，其余按需解析） */
+  private parseFor(s: MockScenario): ScenarioScript {
+    return s === this.scenario ? this.script : parseScenarioScript(SCRIPTS[s])
   }
 
   /** 脚本 durable 事件（seq 升序线性链——树视图与 fork 复制的数据源） */

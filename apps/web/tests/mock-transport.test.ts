@@ -326,3 +326,54 @@ describe('MockTransport 回放状态机', () => {
     expect(events.filter((e) => e.type === 'session.title')).toHaveLength(1)
   })
 })
+
+describe('MockTransport 模型管理（工单 6.5）', () => {
+  it('listModels：内置/自定义两组 + defaultModel；DTO 无 key 值', async () => {
+    const t = new MockTransport('normal')
+    const dto = await t.listModels()
+    expect(dto.providers.map((p) => p.id)).toEqual([
+      'deepseek',
+      'openai',
+      'anthropic',
+      'ollama-local',
+    ])
+    expect(dto.providers.find((p) => p.id === 'deepseek')).toMatchObject({
+      builtin: true,
+      configured: true,
+      hasKey: true,
+    })
+    expect(dto.providers.find((p) => p.id === 'ollama-local')).toMatchObject({
+      builtin: false,
+      configured: true,
+      hasKey: false,
+    })
+    expect(dto.defaultModel.model).toBe('deepseek-chat')
+    expect(JSON.stringify(dto)).not.toContain('sk-')
+  })
+
+  it('testModelProvider：未知/未配置/缺 Key 三失败分支 + 就绪 200', async () => {
+    const t = new MockTransport('normal')
+    expect((await t.testModelProvider('nope')).message).toContain('未知供应商')
+    expect((await t.testModelProvider('openai')).message).toContain('未配置')
+    expect((await t.testModelProvider('ollama-local')).message).toContain('API Key')
+    const ok = await t.testModelProvider('deepseek')
+    expect(ok.ok).toBe(true)
+    expect(ok.latencyMs).toBe(86)
+  })
+
+  it('setSessionModel：换模型回显 + getSession/listSessions 覆盖；拒绝未知会话/坏形状/未配置 provider', async () => {
+    const t = new MockTransport('normal')
+    const applied = await t.setSessionModel(SID, 'deepseek/deepseek-reasoner')
+    expect(applied).toBe('deepseek/deepseek-reasoner')
+    const dto = await t.getSession(SID)
+    expect(dto.model).toBe('deepseek/deepseek-reasoner')
+    const list = await t.listSessions()
+    expect(list.find((s) => s.id === SID)?.model).toBe('deepseek/deepseek-reasoner')
+
+    await expect(t.setSessionModel(ids.session('ses_unknown'), 'deepseek/x')).rejects.toThrow(
+      'E_MOCK_UNKNOWN_SESSION',
+    )
+    await expect(t.setSessionModel(SID, 'badformat')).rejects.toThrow('E_CONFIG')
+    await expect(t.setSessionModel(SID, 'openai/gpt-5')).rejects.toThrow('E_CONFIG')
+  })
+})

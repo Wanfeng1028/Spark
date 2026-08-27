@@ -501,6 +501,96 @@ describe('多 pattern 评估（补强 1 规则引擎消费）', () => {
   })
 })
 
+describe('权限档位预设层（DESIGN §13.E 四档 / D7 补记，工单 6.3）', () => {
+  /** 断言「照旧 ask」：asked 事件出现后 reply reject 收口（不留挂起计时器） */
+  async function expectAsk(
+    service: PermissionServiceImpl,
+    sink: MemSink,
+    check: PermissionCheck,
+  ): Promise<void> {
+    const { requestId, promise } = await pendAsk(service, sink, check)
+    await service.reply(requestId, 'reject')
+    expect(await promise).toBe(false)
+  }
+
+  function writeCheck(sessionId = SID): CheckBundle {
+    return makeCheck({
+      sessionId,
+      name: 'write',
+      action: 'fs.write',
+      resource: 'file:///repo/src/a.ts',
+      input: { path: '/repo/src/a.ts' },
+    })
+  }
+
+  test('缺省档 confirm-each：fs.write 照旧 ask；presetOf 无记录回落缺省', async () => {
+    const { service, sink } = makeService()
+    expect(service.presetOf(SID)).toBe('confirm-each')
+    await expectAsk(service, sink, writeCheck().check)
+  })
+
+  test('auto-edit：仅 fs.write 预置 allow（零事件直过），shell.exec 照旧 ask', async () => {
+    const { service, sink } = makeService()
+    service.setPreset(SID, 'auto-edit')
+    expect(service.presetOf(SID)).toBe('auto-edit')
+    // fs.write 直过
+    expect(await service.assert(writeCheck().check)).toBe(true)
+    expect(sink.events).toHaveLength(0)
+    // shell.exec 仍走审批
+    await expectAsk(service, sink, makeCheck().check)
+  })
+
+  test('full-access：内置五 action 全量直过（零事件）', async () => {
+    const { service, sink } = makeService()
+    service.setPreset(SID, 'full-access')
+    const checks: PermissionCheck[] = [
+      writeCheck().check, // fs.write
+      makeCheck({ name: 'read', action: 'fs.read', resource: 'file:///repo/x' }).check,
+      makeCheck().check, // shell.exec
+      makeCheck({ name: 'task', action: 'agent.task', resource: 'sub:explorer' }).check,
+      makeCheck({ name: 'mcp', action: 'mcp.call', resource: 'server:tool' }).check,
+    ]
+    for (const check of checks) {
+      expect(await service.assert(check)).toBe(true)
+    }
+    expect(sink.events).toHaveLength(0)
+  })
+
+  test('plan：无预设行（不改审批语义），fs.write 照旧 ask；档位可读回', async () => {
+    const { service, sink } = makeService()
+    service.setPreset(SID, 'plan')
+    expect(service.presetOf(SID)).toBe('plan')
+    await expectAsk(service, sink, writeCheck().check)
+  })
+
+  test('切回 confirm-each 整体清除预设（fs.write 再次 ask）', async () => {
+    const { service, sink } = makeService()
+    service.setPreset(SID, 'auto-edit')
+    expect(await service.assert(writeCheck().check)).toBe(true)
+    service.setPreset(SID, 'confirm-each')
+    expect(service.presetOf(SID)).toBe('confirm-each')
+    await expectAsk(service, sink, writeCheck().check)
+  })
+
+  test('档位会话隔离：SID 设 full-access 不影响 SID2（仍 ask）', async () => {
+    const { service, sink } = makeService()
+    service.setPreset(SID, 'full-access')
+    await expectAsk(service, sink, writeCheck(SID2).check)
+  })
+
+  test('档位是最新意图：用户级 deny 行被档位 allow 覆盖（findLast 后层胜出）', async () => {
+    const { service, sink } = makeService({
+      userRules: [{ action: 'fs.write', resource: '**', effect: 'deny' }],
+    })
+    // 未设档：deny 短路拒绝
+    expect(await service.assert(writeCheck().check)).toBe(false)
+    expect(sink.events).toHaveLength(0)
+    // 设 full-access：档位行更靠后，明示放行胜出（UI warn 警示由前端负责）
+    service.setPreset(SID, 'full-access')
+    expect(await service.assert(writeCheck().check)).toBe(true)
+  })
+})
+
 describe('UserRuleStore 落盘（工单 4.7：tmp+rename 原子写）', () => {
   test('add 精确覆盖/追加，文件与内存一致且无 tmp 残留', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'spark-rules-'))

@@ -1,15 +1,19 @@
 /**
- * 状态条 28px（DESIGN.md §2 / doc/02 §6.3）：
- * 左起：连接状态点+文案 · 当前会话模型名 · seq 水位 · token 累计（含 checkpoint 短暂徽标）；
+ * 状态条 24px 单行细条（DESIGN.md §13.A，取代 §2 的 28px）：
+ * 左起：连接状态点+文案 · 当前会话模型名 · seq 水位 · token 累计 · 上下文水位百分比（工单 6.6：
+ * 最近一轮 usage ÷ contextWindow，>80% 转 warn——阈值与引擎 compactionThreshold 同源）· 提交模式；
  * 右起：主题切换 · 设置齿轮（SettingsDialog 触发器，doc/02 §6.2.3）。
- * 数据源：connection-store / session-store 选择器（组件不直接 fetch，DESIGN §9）。
+ * 数据源：connection-store / session-store / settings-store 选择器（组件不直接 fetch，DESIGN §9）。
  */
 import { useEffect, useState } from 'react'
-import { Moon, Settings, Sun } from 'lucide-react'
+import { Monitor, Moon, Settings, Sun } from 'lucide-react'
 import { useConnectionStore } from '@/stores/connection'
 import { useSettingsStore } from '@/stores/settings'
 import { useActiveSlice } from '@/stores/session'
+import { useModelsStore } from '@/stores/models-store'
+import { useTransport } from '@/transports/context'
 import { useUiStore } from '@/stores/ui'
+import { CONTEXT_WARN_RATIO, contextRatio, contextTokensOf, contextWindowOf } from '@/features/chat/context-usage'
 import { cn } from '@/lib/utils'
 
 const CONNECTION_TEXT = {
@@ -17,6 +21,13 @@ const CONNECTION_TEXT = {
   open: '已连接',
   reconnecting: '已断线，重连中…',
   closed: '已断开',
+} as const
+
+/** 主题三档循环（§13.C）：light → dark → system */
+const THEME_META = {
+  light: { label: '浅色', next: '深色', icon: Sun },
+  dark: { label: '深色', next: '跟随系统', icon: Moon },
+  system: { label: '跟随系统', next: '浅色', icon: Monitor },
 } as const
 
 function ConnectionDot({ status }: { status: keyof typeof CONNECTION_TEXT }) {
@@ -55,13 +66,27 @@ export function StatusBar() {
   const status = useConnectionStore((s) => s.status)
   const theme = useSettingsStore((s) => s.theme)
   const toggleTheme = useSettingsStore((s) => s.toggleTheme)
+  const delivery = useSettingsStore((s) => s.defaultDelivery)
   const slice = useActiveSlice()
+  const models = useModelsStore((s) => s.dto)
+  const { transport } = useTransport()
+  // 目录幂等装载（SessionPage 同源共用；失败静默下次重试）
+  useEffect(() => {
+    useModelsStore.getState().load(transport)
+  }, [transport])
 
   const usage = slice?.usageTotal
   const checkpoint = slice?.lastCheckpoint
+  const themeMeta = THEME_META[theme]
+  const ThemeIcon = themeMeta.icon
+
+  // 上下文水位（工单 6.6）：无 usage/未知窗口 → null 不显示
+  const ratio =
+    slice === null ? null : contextRatio(slice.contextUsage, contextWindowOf(models, slice.meta.model))
+  const warn = ratio !== null && ratio > CONTEXT_WARN_RATIO
 
   return (
-    <footer className="flex h-7 items-center justify-between border-t border-border px-3 text-xs text-muted-foreground">
+    <footer className="flex h-6 items-center justify-between border-t border-border px-3 text-xs text-muted-foreground">
       <div className="flex min-w-0 items-center gap-3">
         <span className="flex shrink-0 items-center gap-1.5">
           <ConnectionDot status={status} />
@@ -83,16 +108,38 @@ export function StatusBar() {
             ↑{fmtTokens(usage.inputTokens)} ↓{fmtTokens(usage.outputTokens)}
           </span>
         )}
+        {ratio !== null && (
+          <span
+            className={cn(
+              'shrink-0 font-mono',
+              warn && 'text-[var(--spark-warn)]',
+            )}
+            title={`上下文水位（最近一轮 usage 估算）——${
+              slice?.contextUsage !== null && slice?.contextUsage !== undefined
+                ? `约 ${contextTokensOf(slice.contextUsage)} tokens ÷ 窗口`
+                : '最近一轮 usage'
+            }${warn ? '，已超 80%（接近自动压缩阈值）' : ''}`}
+          >
+            水位 {Math.min(100, Math.round(ratio * 100))}%
+          </span>
+        )}
+        <span
+          className="shrink-0 font-mono"
+          title={`提交模式（settings.defaultDelivery）——${delivery === 'now' ? '空闲时 Enter 直发' : delivery === 'steer' ? '进行中 Enter 插话注入当前轮' : 'Enter 排队下一轮执行'}`}
+        >
+          {delivery}
+        </span>
         {checkpoint != null && <CheckpointBadge checkpointId={checkpoint.checkpointId} />}
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
         <button
           type="button"
-          aria-label="切换主题"
+          aria-label={`主题：${themeMeta.label}（点击切换为${themeMeta.next}）`}
+          title={`主题：${themeMeta.label}（点击切换为${themeMeta.next}）`}
           onClick={toggleTheme}
           className="flex size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
-          {theme === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+          <ThemeIcon className="size-3.5" />
         </button>
         <button
           type="button"

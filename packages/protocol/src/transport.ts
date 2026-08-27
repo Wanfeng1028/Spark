@@ -6,7 +6,16 @@
  */
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply } from './primitives.js'
-import type { CheckpointDto, PermissionRuleDto, SecretStatusDto, SessionDto, TreeNodeDto } from './api.js'
+import type {
+  CheckpointDto,
+  ModelTestResultDto,
+  ModelsDto,
+  PermissionPreset,
+  PermissionRuleDto,
+  SecretStatusDto,
+  SessionDto,
+  TreeNodeDto,
+} from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
 export interface SendMessageOptions {
@@ -32,7 +41,8 @@ export interface Transport {
   /** GET /api/sessions/:id：meta + 全部 durable 事件（seq 升序——冷启动回放数据源） */
   getSession(sessionId: SessionId): Promise<SessionDto>
   listSessions(): Promise<SessionDto[]>
-  createSession(opts?: { title?: string }): Promise<SessionDto>
+  /** 新建会话（model 为 "provider/model"；缺省 = 引擎 defaultModel） */
+  createSession(opts?: { title?: string; model?: string }): Promise<SessionDto>
   /** GET /api/sessions/:id/tree：树视图数据（doc/02 §5.8.6，阶段四工单 4.5） */
   getTree(sessionId: SessionId): Promise<TreeNodeDto[]>
   /** POST /api/sessions/:id/fork：从指定事件分叉新会话（三拒绝码经错误消息透出，§5.8.6） */
@@ -53,5 +63,15 @@ export interface Transport {
   setSecret(provider: string, value: string): Promise<void>
   /** DELETE /api/secrets/:provider：删除密钥仓条目（env 来源不可删） */
   removeSecret(provider: string): Promise<void>
+  /** GET /api/sessions/:id/permission-preset：会话当前权限档位（内存态，重启回缺省） */
+  getPermissionPreset(sessionId: SessionId): Promise<PermissionPreset>
+  /** PUT /api/sessions/:id/permission-preset：设置权限档位（D7 补记预设层，写会话临时层） */
+  setPermissionPreset(sessionId: SessionId, preset: PermissionPreset): Promise<void>
+  /** GET /api/models：供应商清单（内置/自定义）+ 可选模型 + defaultModel（工单 6.5） */
+  listModels(): Promise<ModelsDto>
+  /** POST /api/models/:id/test：连通测试（时延/错误人话文案；ok=false 不算传输失败） */
+  testModelProvider(providerId: string): Promise<ModelTestResultDto>
+  /** PUT /api/sessions/:id/model：会话级换模型（内存态，下一个 turn 生效；重启回会话文件模型） */
+  setSessionModel(sessionId: SessionId, model: string): Promise<string>
   dispose(): void
 }

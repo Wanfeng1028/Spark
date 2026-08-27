@@ -72,6 +72,10 @@ export function toApiError(err: unknown): ApiError {
     // git 失败详情只进日志（sendError 对 >=500 记 req.log.error）
     return new ApiError(500, 'E_CHECKPOINT_ROLLBACK', '回滚失败：git 操作异常')
   }
+  if (msg.startsWith('E_CONFIG')) {
+    // 模型形状/供应商未配置（工单 6.5 setSessionModel/createSession）：客户端入参问题
+    return new ApiError(400, 'E_CONFIG', '模型配置无效：须为已配置供应商的 provider/model')
+  }
   return new ApiError(500, 'E_INTERNAL', 'internal error')
 }
 

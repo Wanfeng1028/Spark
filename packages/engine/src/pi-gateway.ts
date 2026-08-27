@@ -43,6 +43,7 @@ import {
   type StreamResult,
   type ToolSpec,
 } from './llm-gateway.js'
+import { PROVIDER_CATALOG } from './model-catalog.js'
 
 // ---- provider → api 解析 ----
 
@@ -51,17 +52,10 @@ interface ProviderSpec {
   defaultBaseUrl: string
 }
 
-/** v1 支持的 provider 表：OpenAI 兼容直连 + Anthropic（D3 spike 验证 deepseek） */
-const PROVIDERS: Record<string, ProviderSpec> = {
-  openai: { api: 'openai-completions', defaultBaseUrl: 'https://api.openai.com/v1' },
-  deepseek: { api: 'openai-completions', defaultBaseUrl: 'https://api.deepseek.com/v1' },
-  openrouter: { api: 'openai-completions', defaultBaseUrl: 'https://openrouter.ai/api/v1' },
-  groq: { api: 'openai-completions', defaultBaseUrl: 'https://api.groq.com/openai/v1' },
-  together: { api: 'openai-completions', defaultBaseUrl: 'https://api.together.xyz/v1' },
-  xai: { api: 'openai-completions', defaultBaseUrl: 'https://api.x.ai/v1' },
-  mistral: { api: 'openai-completions', defaultBaseUrl: 'https://api.mistral.ai/v1' },
-  anthropic: { api: 'anthropic-messages', defaultBaseUrl: 'https://api.anthropic.com' },
-}
+/** 目录表（model-catalog 单一来源）→ 流式分派用 ProviderSpec（api 字面量即 Api 联合成员） */
+const PROVIDERS: Record<string, ProviderSpec> = Object.fromEntries(
+  Object.entries(PROVIDER_CATALOG).map(([id, e]) => [id, { api: e.api, defaultBaseUrl: e.defaultBaseUrl }]),
+)
 
 /** 任意 api 的 pi Model（泛型缺省在 strict 下不可省，统一别名） */
 type AnyPiModel = Model<Api>
@@ -312,7 +306,13 @@ export class PiGateway implements LlmGateway {
   }
 
   async stream(req: StreamRequest): Promise<StreamResult> {
-    const spec = PROVIDERS[req.model.provider.toLowerCase()]
+    // 目录命中用目录表；自定义供应商（models.json 独有）按 OpenAI 兼容约定走 completions，
+    // 但必须自带 baseUrl（无地址的自定义名 = 无法分派，保持原拒绝语义）
+    const spec: ProviderSpec | undefined =
+      PROVIDERS[req.model.provider.toLowerCase()] ??
+      (req.model.baseUrl !== undefined
+        ? { api: 'openai-completions', defaultBaseUrl: '' }
+        : undefined)
     if (spec === undefined) return UNKNOWN_PROVIDER_RESULT(req.model.provider)
     if (req.model.apiKey === undefined) return NO_API_KEY_RESULT(req.model.provider)
 

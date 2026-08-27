@@ -1,14 +1,15 @@
 /**
- * Token 层（doc/02 §6.5 / DESIGN.md §4）：shadcn 标准 token + spark 语义色。
+ * Token 层（doc/02 §6.5 / DESIGN.md §13.C）：shadcn 标准 token + spark 语义色。
  * Tailwind v4 CSS-first：@theme inline 把 CSS 变量映射为工具类；无 tailwind.config.js。
- * 基调 zinc 中性、dark 默认（index.html 根类 + Titlebar 切换）；禁止组件内硬编码 hex。
+ * 基调 zinc 中性、light 默认（:root 即浅色，深色收 .dark——阶段六工单 6.1 翻转）；
+ * 禁止组件内硬编码 hex。对文本色与背景的 WCAG 对比度由 tests/theme-contrast.test.ts 复核。
  */
 @import 'tailwindcss';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
 @import 'streamdown/styles.css';
 
-/* class 策略二态主题（dark 为默认一级公民） */
+/* class 策略二态主题（light 为 :root 默认，dark 收 .dark——§13.C） */
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
@@ -26,30 +27,32 @@
   --muted-foreground: #71717a;
   --accent: #f4f4f5;
   --accent-foreground: #18181b;
-  --destructive: #b91c1c;
+  --destructive: #dc2626;
   --destructive-foreground: #fafafa;
   --border: #e4e4e7;
   --input: #e4e4e7;
   --ring: #a1a1aa;
-  /* spark 语义色（DESIGN.md §4：accent 单一，语义色只表达状态） */
+  /* spark 语义色（DESIGN.md §13.C：accent 单一，语义色只表达状态） */
   --spark-accent: #4f46e5;
   --spark-warn: #b45309;
   --spark-ok: #047857;
   --spark-err: #b91c1c;
+  /* 侧栏底色（§13.C：侧栏与内容区用底色差分层） */
+  --sidebar-bg: #fafafa;
 }
 
 .dark {
   --background: #09090b;
   --foreground: #fafafa;
-  --card: #09090b;
+  --card: #18181b;
   --card-foreground: #fafafa;
-  --popover: #09090b;
+  --popover: #18181b;
   --popover-foreground: #fafafa;
   --primary: #fafafa;
   --primary-foreground: #18181b;
   --secondary: #27272a;
   --secondary-foreground: #fafafa;
-  --muted: #18181b;
+  --muted: #27272a;
   --muted-foreground: #a1a1aa;
   --accent: #27272a;
   --accent-foreground: #fafafa;
@@ -57,11 +60,12 @@
   --destructive-foreground: #18181b;
   --border: #27272a;
   --input: #27272a;
-  --ring: #a1a1aa;
+  --ring: #52525b;
   --spark-accent: #818cf8;
   --spark-warn: #fbbf24;
   --spark-ok: #34d399;
   --spark-err: #f87171;
+  --sidebar-bg: #18181b;
 }
 
 @theme inline {
@@ -88,9 +92,10 @@
   --color-spark-warn: var(--spark-warn);
   --color-spark-ok: var(--spark-ok);
   --color-spark-err: var(--spark-err);
+  --color-sidebar: var(--sidebar-bg);
 
-  /* 密度（DESIGN.md §3）：UI 基础字号 13px；12px 辅助走 text-xs */
-  --text-base: 13px;
+  /* 密度（DESIGN.md §3）：UI 基础字号 13px（外观区可调，settings-store 驱动）；12px 辅助走 text-xs */
+  --text-base: var(--spark-ui-font-size, 13px);
   --text-base--line-height: 1.5;
 
   --font-sans:
