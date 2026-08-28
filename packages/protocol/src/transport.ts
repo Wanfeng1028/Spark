@@ -22,6 +22,7 @@ import type {
   PermissionRuleDto,
   RoutingDto,
   RoutingUpdate,
+  SearchHitDto,
   SecretStatusDto,
   SessionDto,
   SkillDto,
@@ -118,5 +119,7 @@ export interface Transport {
   fireAutomationManual(id: string): Promise<void>
   /** GET /api/audit：审计日志明细流（新→旧；设置页查看器数据源，工单 7.12） */
   listAudit(query?: AuditQuery): Promise<AuditEntryDto[]>
+  /** GET /api/search?q：会话全文搜索（事件内容命中；工单 7.13） */
+  search(q: string, limit?: number): Promise<SearchHitDto[]>
   dispose(): void
 }

@@ -4,7 +4,7 @@
  * 空态 = 居中欢迎语 + 提示词 chips（紧凑引导块，非 hero——DESIGN §7.1）。
  * 数据源：useSessionItems 选择器（组件不直接 fetch，DESIGN §9）。
  */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import type { Components, VirtuosoHandle } from 'react-virtuoso'
 import { ids } from '@spark/protocol'
@@ -17,17 +17,35 @@ import { BackBottom } from './BackBottom'
 
 export interface ChatViewProps {
   sessionId: string
+  /** 搜索跳转定位（工单 7.13）：滚至该事件并短暂高亮；未找到静默跳过 */
+  focusEventId?: string
 }
 
 const PROMPTS = ['总结这个项目的架构', '跑一遍测试并修复失败项', '把 src 里的 any 清理掉']
 
-export function ChatView({ sessionId }: ChatViewProps) {
+export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
   const sid = ids.session(sessionId)
   const items = useSessionItems(sid)
   const meta = useSessionMeta(sid)
   const model = meta.model === '' ? 'assistant' : meta.model
   const [atBottom, setAtBottom] = useState(true)
   const ref = useRef<VirtuosoHandle>(null)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  // 同一 focusEventId 只定位一次（后续新事件到达不重复滚动）
+  const focusedRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (focusEventId === undefined || focusEventId === '' || focusedRef.current === focusEventId) {
+      return
+    }
+    const idx = items.findIndex((i) => i.eventId === focusEventId)
+    if (idx === -1) return
+    focusedRef.current = focusEventId
+    ref.current?.scrollToIndex({ index: idx, align: 'center' })
+    setHighlightId(focusEventId)
+    const t = setTimeout(() => setHighlightId(null), 2500)
+    return () => clearTimeout(t)
+  }, [focusEventId, items])
 
   const components: Components<UiItem> = useMemo(
     () => ({ EmptyPlaceholder: () => <EmptyChat sid={sid} /> }),
@@ -40,7 +58,9 @@ export function ChatView({ sessionId }: ChatViewProps) {
         ref={ref}
         className="h-full"
         data={items}
-        itemContent={(_, item) => <MessageItem item={item} model={model} />}
+        itemContent={(_, item) => (
+          <MessageItem item={item} model={model} highlight={item.eventId === highlightId} />
+        )}
         followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
         atBottomStateChange={setAtBottom}
         components={components}

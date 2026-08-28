@@ -140,19 +140,24 @@ function makeCheck(over?: Partial<PermissionCheck>): PermissionCheck {
   }
 }
 
-/** 挂起一个 ask：等到 asked 入流后返回 { requestId, promise } */
+/** 挂起一个 ask：等到新增一条 asked 入流后返回 { requestId, promise }
+ *（按计数等新增——同一测试内多次挂起时不得命中上一条已决事件） */
 async function pendAsk(
   service: PermissionServiceImpl,
   sink: MemSink,
   check: PermissionCheck,
 ): Promise<{ requestId: RequestId; promise: Promise<boolean> }> {
+  const askedBefore = sink.events.filter((e) => e.type === 'permission.asked').length
   const promise = service.assert(check)
   const deadline = Date.now() + 2000
-  while (!sink.events.some((e) => e.type === 'permission.asked')) {
+  while (sink.events.filter((e) => e.type === 'permission.asked').length <= askedBefore) {
     if (Date.now() > deadline) throw new Error('等待 permission.asked 超时')
     await new Promise((r) => setTimeout(r, 5))
   }
-  const asked = sink.events.find((e) => e.type === 'permission.asked') as SparkEventEnvelope<'permission.asked'>
+  const asked = sink.events
+    .filter((e): e is SparkEventEnvelope<'permission.asked'> => e.type === 'permission.asked')
+    .at(-1)
+  if (asked === undefined) throw new Error('permission.asked 缺失（不可达）')
   return { requestId: asked.data.requestId, promise }
 }
 

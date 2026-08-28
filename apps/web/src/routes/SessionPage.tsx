@@ -7,7 +7,7 @@
  * mock 场景条 + 「模拟断线」开关是开发夹具（阶段验收要求断线重连条在 mock 下可走查）。
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { FolderGit2, GitBranch, History } from 'lucide-react'
 import { ids } from '@spark/protocol'
 import type { PermissionPreset } from '@spark/protocol'
@@ -38,9 +38,12 @@ export function SessionPage() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const { transport, mock, scenario, setScenario } = useTransport()
   const { commands } = useCommands()
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen)
+  // 搜索跳转定位（工单 7.13）：/search 命中行带 ?event=<eventId> 直达
+  const focusEventId = searchParams.get('event') ?? undefined
 
   const sid = ids.session(sessionId ?? '')
   const turn = useActiveTurn(sid)
@@ -274,7 +277,10 @@ export function SessionPage() {
                 />
               </div>
             ) : (
-              <ChatView sessionId={sessionId ?? ''} />
+              <ChatView
+                sessionId={sessionId ?? ''}
+                {...(focusEventId !== undefined ? { focusEventId } : {})}
+              />
             )}
             <SessionTreeDialog open={treeOpen} onOpenChange={setTreeOpen} sid={sid} busy={busy} />
             <CheckpointDialog open={ckptOpen} onOpenChange={setCkptOpen} sid={sid} busy={busy} />

@@ -31,6 +31,7 @@ import type {
   SecretStatusDto,
   SessionDto,
   SessionId,
+  SearchHitDto,
   SkillDto,
   SparkEventEnvelope,
   SubmitOutcome,
@@ -420,6 +421,12 @@ export class HttpTransport implements Transport {
     }
     const qs = params.toString()
     return this.req<AuditEntryDto[]>(`/api/audit${qs !== '' ? `?${qs}` : ''}`)
+  }
+
+  search(q: string, limit?: number): Promise<SearchHitDto[]> {
+    const params = new URLSearchParams({ q })
+    if (limit !== undefined) params.set('limit', String(limit))
+    return this.req<SearchHitDto[]>(`/api/search?${params.toString()}`)
   }
 
   dispose(): void {

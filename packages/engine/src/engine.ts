@@ -93,6 +93,7 @@ import { DEFAULT_HOOK_TIMEOUT_MS, UserHookRunner } from './hooks/runner.js'
 import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
 import { AuditLog, type AuditEntry, type AuditQuery } from './audit/log.js'
+import { SearchStore, type SearchEntry, type SearchEntryType } from './search/store.js'
 
 export const SPARK_VERSION = '0.1.0'
 
@@ -144,6 +145,17 @@ export interface SessionTreeInfo {
   nodes: SessionTreeNode[]
   /** 各节点分叉出的子会话（磁盘 header 扫描；v1 本地量级全量读） */
   forks: { fromEventId: EventId; child: ForkChildInfo }[]
+}
+
+/** 全文搜索命中行（工单 7.13 / H12；server 原样转 SearchHitDto） */
+export interface SearchHit {
+  sessionId: SessionId
+  sessionTitle: string
+  eventId: EventId
+  seq: number
+  type: SearchEntryType
+  time: number
+  snippet: string
 }
 
 /** UI 审批回复的三态（server 层映射 200 / 409 / 404） */
@@ -200,6 +212,9 @@ export class Engine {
   private readonly ioGuard: IoGuard
   /** 审计日志（阶段七工单 7.12 / H11）：~/.spark/audit.jsonl 明细流 */
   private readonly audit: AuditLog
+  /** 全文搜索索引（阶段七工单 7.13 / H12）：~/.spark/search.db（打开失败 null 降级） */
+  private readonly search: SearchStore | null
+  private searchClosed = false
   /** 成本累计（阶段七工单 7.7 / H07）：~/.spark/usage.json 持久化，熔断判定数据源 */
   private readonly costTracker: CostTracker
   /**
@@ -377,6 +392,18 @@ export class Engine {
     }
     this.memory = memoryStore
 
+    // 工单 7.13 / H12：会话全文搜索索引（打开失败 null 降级——检索不可用不阻塞引擎）
+    let searchStore: SearchStore | null = null
+    try {
+      searchStore = new SearchStore(join(this.root, 'search.db'))
+      if (!searchStore.fts) {
+        this.logger.warn('search.fts.unavailable', { path: join(this.root, 'search.db') })
+      }
+    } catch (err) {
+      this.logger.warn('search.store.error', { err })
+    }
+    this.search = searchStore
+
     // 工单 7.6 / H06 / ADR D26：自动化触发器（触发=自动建会话执行 prompt，走正常 turn 通道）；
     // 坏 automation.json 构造即抛 E_CONFIG（配置错误不带病运行，同 loadConfig 纪律）
     this.automation = new AutomationManager(new AutomationRegistry(this.root), {
@@ -463,6 +490,7 @@ export class Engine {
       }
       if (e.seq !== undefined) {
         this.metrics.inc('spark_events_durable_total')
+        this.indexSearchEvent(e) // 全文搜索增量（工单 7.13；旁路——失败只 warn）
       }
       if (e.type === 'session.title') {
         entry.meta.title = (e.data as { title: string }).title
@@ -797,6 +825,101 @@ export class Engine {
   /** 审计日志明细读（工单 7.12 / H11）：GET /api/audit 的引擎数据源（新→旧） */
   listAudit(query: AuditQuery): AuditEntry[] {
     return this.audit.entries(query)
+  }
+
+  // ---- 会话全文搜索（工单 7.13 / H12）----
+
+  /**
+   * 会话全文搜索（工单 7.13 / H12）：GET /api/search 的引擎数据源（新→旧）。
+   * 索引不可用（打开失败降级）→ 空数组——搜索失败不阻塞主流程（同 SessionIndex 纪律）。
+   */
+  searchSessions(q: string, limit: number): SearchHit[] {
+    if (this.search === null || this.searchClosed) return []
+    return this.search.search(q, limit).map((r) => ({
+      sessionId: r.sessionId,
+      sessionTitle: this.sessionTitleOf(r.sessionId),
+      eventId: r.eventId,
+      seq: r.seq,
+      type: r.type,
+      time: r.time,
+      snippet: searchSnippet(r.content, q),
+    }))
+  }
+
+  /** durable 事件增量入搜索索引（bus 钩子；旁路——失败只 warn，不碰事件流） */
+  private indexSearchEvent(e: SparkEventEnvelope): void {
+    if (this.search === null || this.searchClosed || e.seq === undefined) return
+    let content: string | null = null
+    let type: SearchEntryType | null = null
+    if (e.type === 'user.message') {
+      content = (e.data as SparkEventMap['user.message']).text
+      type = 'user.message'
+    } else if (e.type === 'assistant.message') {
+      // 只索引 text 块（reasoning/工具调用输出不入全文索引——噪声远大于召回价值）
+      const blocks = (e.data as SparkEventMap['assistant.message']).content
+      const text = blocks
+        .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+        .map((b) => b.text)
+        .join('\n')
+      if (text !== '') {
+        content = text
+        type = 'assistant.message'
+      }
+    } else if (e.type === 'session.title') {
+      const title = (e.data as SparkEventMap['session.title']).title
+      if (title !== '') {
+        content = title
+        type = 'session.title'
+      }
+    }
+    if (content === null || type === null) return
+    const entry: SearchEntry = {
+      sessionId: e.sessionId,
+      eventId: e.id,
+      seq: e.seq,
+      type,
+      time: e.time,
+      content,
+    }
+    try {
+      this.search.upsert(entry)
+    } catch (err) {
+      this.logger.warn('search.index.error', { sid: e.sessionId, eid: e.id, err })
+    }
+  }
+
+  /**
+   * 装载点同步（create/resume/fork/rollback 重载共用单点）：水位幂等——
+   * 持平跳过；水位 > 当前尾（回滚截断）先删界外行再补差量；水位 < 当前尾只补增量。
+   */
+  private syncSearch(sessionId: SessionId, events: readonly SparkEventEnvelope[]): void {
+    if (this.search === null || this.searchClosed) return
+    try {
+      const lastSeq = events.length === 0 ? 0 : (events[events.length - 1]?.seq ?? 0)
+      const wm = this.search.watermark(sessionId)
+      if (wm !== null && wm === lastSeq) return
+      if (wm !== null && wm > lastSeq) this.search.removeAfter(sessionId, lastSeq)
+      const from = wm !== null && wm <= lastSeq ? wm : 0
+      for (const e of events) {
+        if (e.seq !== undefined && e.seq > from) this.indexSearchEvent(e)
+      }
+      this.search.setWatermark(sessionId, lastSeq)
+    } catch (err) {
+      this.logger.warn('search.sync.error', { sid: sessionId, err })
+    }
+  }
+
+  /** 命中行的会话标题：已装载 meta → SessionIndex（boot 重建）→ 空串兜底 */
+  private sessionTitleOf(id: SessionId): string {
+    const loaded = this.sessions.get(id)
+    if (loaded !== undefined) return loaded.meta.title
+    if (this.index === null || this.indexClosed) return ''
+    try {
+      return this.index.titleOf(id) ?? ''
+    } catch (err) {
+      this.logger.warn('search.title.error', { sid: id, err })
+      return ''
+    }
   }
 
   // ---- 权限档位（DESIGN §13.E 四档 / D7 补记预设层，阶段六工单 6.3） ----
@@ -1381,6 +1504,16 @@ export class Engine {
           this.logger.warn('memory.close.error', { err })
         }
       }
+      // 6.6) 全文搜索索引收尾（工单 7.13）：关闭 search.db 句柄；
+      //      searchClosed 先行置位——迟到的 bus 增量写全部短路（同 indexClosed 纪律）
+      this.searchClosed = true
+      if (this.search !== null) {
+        try {
+          this.search.close()
+        } catch (err) {
+          this.logger.warn('search.close.error', { err })
+        }
+      }
       this.logger.info('engine.shutdown.done')
     } catch (err) {
       this.logger.error('engine.shutdown.error', { err })
@@ -1528,6 +1661,8 @@ export class Engine {
     const loop = runSessionLoop(runtime, deps)
     // 装载点同步索引（create/resume/fork/rollback 重载共用本单点，工单 4.8）
     this.syncIndex(meta)
+    // 装载点同步搜索索引（工单 7.13）：历史事件入 FTS（增量钩子只覆盖本进程新事件）
+    this.syncSearch(meta.id, store.tree.pathToRoot())
     return {
       store,
       runtime,
@@ -1698,4 +1833,28 @@ function titleOf(events: readonly SparkEventEnvelope[]): string {
     }
   }
   return title
+}
+
+/**
+ * 命中摘要（工单 7.13）：整串命中取命中处窗口（前 30 / 后 90 字符，越界加省略号）；
+ * 整串不中退最长词（≥2 字符）同法开窗；全不中取前 120 字符。只做展示截断，不改索引。
+ */
+function searchSnippet(content: string, q: string): string {
+  const query = q.trim()
+  let idx = query === '' ? -1 : content.indexOf(query)
+  let needleLen = query.length
+  if (idx === -1) {
+    let best: string | null = null
+    for (const t of query.split(/\s+/)) {
+      if (t.length >= 2 && (best === null || t.length > best.length)) best = t
+    }
+    if (best !== null) {
+      idx = content.indexOf(best)
+      needleLen = best.length
+    }
+  }
+  if (idx === -1) return content.length <= 120 ? content : `${content.slice(0, 120)}…`
+  const start = Math.max(0, idx - 30)
+  const end = Math.min(content.length, idx + needleLen + 90)
+  return `${start > 0 ? '…' : ''}${content.slice(start, end)}${end < content.length ? '…' : ''}`
 }

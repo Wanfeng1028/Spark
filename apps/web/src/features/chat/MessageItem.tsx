@@ -8,6 +8,7 @@ import type { PermissionReply } from '@spark/protocol'
 import { ids } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import type { UiItem } from '@/stores/session'
+import { cn } from '@/lib/utils'
 import { AssistantBlock } from './AssistantBlock'
 import { ReasoningCollapsible } from './ReasoningCollapsible'
 import { ToolCard } from './ToolCard'
@@ -16,13 +17,16 @@ import { ApprovalCard } from './ApprovalCard'
 export interface MessageItemProps {
   item: UiItem
   model: string
+  /** 搜索跳转定位闪烁（工单 7.13）：命中行短暂底色，由 ChatView 定时清除 */
+  highlight?: boolean
 }
 
-export const MessageItem = memo(function MessageItem({ item, model }: MessageItemProps) {
+export const MessageItem = memo(function MessageItem({ item, model, highlight }: MessageItemProps) {
+  const hl = highlight === true ? 'rounded-md bg-secondary ring-1 ring-border' : undefined
   switch (item.kind) {
     case 'user':
       return (
-        <article className="w-full">
+        <article className={cn('w-full', hl)}>
           <RoleLabel>YOU</RoleLabel>
           <div className="mt-1 w-full rounded-[4px] bg-accent px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap">
             {item.text}
@@ -31,7 +35,7 @@ export const MessageItem = memo(function MessageItem({ item, model }: MessageIte
       )
     case 'assistant':
       return (
-        <article className="w-full">
+        <article className={cn('w-full', hl)}>
           <RoleLabel>{model}</RoleLabel>
           <div className="mt-1">
             <AssistantBlock content={item.content} streaming={item.streaming} />
@@ -39,20 +43,30 @@ export const MessageItem = memo(function MessageItem({ item, model }: MessageIte
         </article>
       )
     case 'reasoning':
-      return <ReasoningCollapsible text={item.text} streaming={item.streaming} />
+      return (
+        <div className={hl}>
+          <ReasoningCollapsible text={item.text} streaming={item.streaming} />
+        </div>
+      )
     case 'tool':
       return (
-        <ToolCard
-          name={item.name}
-          input={item.input}
-          status={item.status}
-          progressBuf={item.progressBuf}
-          output={item.output}
-          isError={item.status === 'error'}
-        />
+        <div className={hl}>
+          <ToolCard
+            name={item.name}
+            input={item.input}
+            status={item.status}
+            progressBuf={item.progressBuf}
+            output={item.output}
+            isError={item.status === 'error'}
+          />
+        </div>
       )
     case 'approval':
-      return <ApprovalRow item={item} />
+      return (
+        <div className={hl}>
+          <ApprovalRow item={item} />
+        </div>
+      )
   }
 })
 

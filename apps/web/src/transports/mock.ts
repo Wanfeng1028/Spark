@@ -18,6 +18,7 @@ import type {
   CheckpointDto,
   CheckpointId,
   CommandDto,
+  ContentItem,
   EventId,
   McpServerDto,
   MemoryDto,
@@ -33,6 +34,7 @@ import type {
   SessionDto,
   SessionId,
   SessionStatus,
+  SearchHitDto,
   SkillDto,
   SparkEventEnvelope,
   SparkEventType,
@@ -917,6 +919,65 @@ export class MockTransport implements Transport {
         (query?.tool === undefined || e.tool === query.tool),
     )
     return Promise.resolve(filtered.slice(-(query?.limit ?? 200)).reverse())
+  }
+
+  /** 全文搜索（工单 7.13）：mock 扫脚本 + fork 子会话事件做大小写不敏感子串匹配 */
+  search(q: string, limit?: number): Promise<SearchHitDto[]> {
+    this.assertNotDisposed()
+    const needle = q.trim().toLowerCase()
+    if (needle === '') return Promise.resolve([])
+    const sources: { sessionId: SessionId; title: string; events: SparkEventEnvelope[] }[] = [
+      {
+        sessionId: this.script.sessionId,
+        title: this.script.created.data.title ?? '',
+        events: this.script.lines.flatMap((l) => (l.kind === 'event' ? [l.envelope] : [])),
+      },
+      ...this.forkChildren.map((f) => ({
+        sessionId: f.dto.id,
+        title: f.dto.title,
+        events: f.events,
+      })),
+    ]
+    const hits: SearchHitDto[] = []
+    for (const s of sources) {
+      for (const e of s.events) {
+        if (e.seq === undefined) continue
+        let content = ''
+        let type: SearchHitDto['type'] | null = null
+        if (e.type === 'user.message') {
+          content = (e.data as { text: string }).text
+          type = 'user.message'
+        } else if (e.type === 'assistant.message') {
+          content = (e.data as { content: ContentItem[] }).content
+            .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+            .map((b) => b.text)
+            .join('\n')
+          if (content === '') continue
+          type = 'assistant.message'
+        } else if (e.type === 'session.title') {
+          content = (e.data as { title: string }).title
+          if (content === '') continue
+          type = 'session.title'
+        } else {
+          continue
+        }
+        const idx = content.toLowerCase().indexOf(needle)
+        if (idx === -1) continue
+        const start = Math.max(0, idx - 30)
+        const end = Math.min(content.length, idx + needle.length + 90)
+        hits.push({
+          sessionId: s.sessionId,
+          sessionTitle: s.title,
+          eventId: e.id,
+          seq: e.seq,
+          type,
+          time: e.time,
+          snippet: `${start > 0 ? '…' : ''}${content.slice(start, end)}${end < content.length ? '…' : ''}`,
+        })
+      }
+    }
+    hits.sort((a, b) => b.time - a.time)
+    return Promise.resolve(hits.slice(0, limit ?? 20))
   }
 
   fireAutomationWebhook(id: string): Promise<void> {

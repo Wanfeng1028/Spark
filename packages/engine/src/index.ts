@@ -157,6 +157,7 @@ export {
   type SessionTreeNode,
   type SessionTreeInfo,
   type ForkChildInfo,
+  type SearchHit,
   type EngineDeps,
   type ReplyOutcome,
 } from './engine.js'
@@ -213,3 +214,5 @@ export {
   type AuditKind,
   type AuditSink,
 } from './audit/log.js'
+// 阶段七工单 7.13 / H12：会话全文搜索（~/.spark/search.db，FTS5 trigram + LIKE 降级）
+export { SearchStore, type SearchEntry, type SearchEntryType } from './search/store.js'

@@ -129,6 +129,12 @@ const AuditQuery = z.strictObject({
   since: z.coerce.number().int().nonnegative().optional(),
 })
 
+/** 会话全文搜索（工单 7.13 / H12）：q 必填非空；limit 缺省 20 上限 100 */
+const SearchQuery = z.strictObject({
+  q: z.string().min(1),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+})
+
 /** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
 function labelOf(e: SparkEventEnvelope): string {
   const data = e.data as Record<string, unknown>
@@ -578,6 +584,16 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
           ...(q.since !== undefined ? { since: q.since } : {}),
         }),
       )
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 会话全文搜索（阶段七工单 7.13 / H12）：用户/助手消息 + 会话标题入 FTS5
+  app.get('/api/search', async (req, reply) => {
+    try {
+      const q = parseOr400(SearchQuery, req.query)
+      return reply.send(engine.searchSessions(q.q, q.limit ?? 20))
     } catch (err) {
       return sendError(req, reply, err)
     }

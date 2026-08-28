@@ -14,6 +14,7 @@
 | v1.7 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 17 Automation 自动化改 ✅、小结计数 11/5/3→12/5/2（H06 → 7.6 ✅ 已落地：AutomationRegistry（~/.spark/automation.json + automation-runs.jsonl 追加写）+ AutomationManager 进程内 tick 循环——自研 cron 解析器（范围/列表/步长/周日 7→0 归一/同分钟去重）+ watch mtime 基线 + webhook/手动触发，效果恒为建会话发 prompt（FireDeps 注入），失败运行结构化 error 留存；/api/automation 七端点 + web /automation 页（§13.F.3）；ADR D26）；§4.4 H06 勾销注记 |
 | v1.8 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 15 Sub-agent 改 ✅、小结计数 12/5/2→13/4/2（H08 → 7.8 ✅ 已落地：task 工具 `parallelizable` 解除单并发——多子代理各自独立子会话并行跑（并发仍受 maxToolParallel 分批约束），单层限制语义不变；`ToolContext.sourceEventId` 串联派生它的 `tool.started` 事件 → 子会话 header.parentEventId → 树视图锚定，`ForkChildDto.status` 运行态实时快照（已加载直读 `statusOf`，未加载 idle），SessionTreeDialog 子代理行复用 SessionStatusDot + 等待审批/运行中文案；并行时序重叠 + prompt 隔离 + 树锚定/运行态单测）；§4.4 H08 勾销注记 |
 | v1.9 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H11 勾销注记（H11 → 7.12 ✅ 已落地：~/.spark/audit.jsonl 独立追加明细流——三类 kind（权限决策含 `rule:<层>`/`reply:*`/timeout 等来源归因、规则变更含 op/effect、回滚含 checkpointId）；写前脱敏同 pino（redaction.ts 单一来源 + 密钥仓动态值），写失败旁路吞掉不阻断主链路，读端坏行跳过；GET /api/audit 过滤 since/kind/result/tool + 设置页"审计日志"查看器（§13.G 转录式，基线 15 页外增项））；§2.6 Tracing 工单指针与 §1 学科 12 证据补记（状态仍 🟡——eval/trace 缺口在，小结计数 13/4/2 不变） |
+| v1.10 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H12 勾销注记（H12 → 7.13 ✅ 已落地：~/.spark/search.db 会话全文索引——索引范围 user.message / assistant.message text 块 / session.title 三类，行主键（session_id, event_id）容 fork 同 event id 跨会话；检索链 = FTS5 trigram MATCH（≥3 字符）→ 整串 LIKE → 拆词最长词 LIKE（同 MemoryStore 先例），建表失败降级 LIKE；水位表装载点幂等同步（持平跳过/倒退截断/缺失全量补），增量钩子在 bus durable 订阅（旁路失败只 warn）；JSONL 恒为权威，库打开失败降级空结果不阻塞启动；GET /api/search（q 必填，limit 缺省 20 上限 100）+ /search 页（命中摘要查询词高亮、点击 `?event=` 直达 + ChatView 定位高亮）+ Sidebar 搜索入口；**千事件检索 <500ms** DoD 性能线入单测）；§2 遗留行全文搜索/审计明细指针补 ✅（学科计数不变——搜索未单列学科） |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
 > **方法**：三条证据链——①引擎/服务端/前端逐模块源码走读（本文所有路径均为当日实测，非转抄文档）；②协议词表 19 种逐条核对（含 `user.message.attachments?`、`assistant.message.usage` 等已预留未消费字段）；③既有审计（doc/05 缺口 G1–G7）与用户侧能力对照清单合并盘点。
@@ -198,8 +199,8 @@
 | H34 | 沙箱网络隔离 | D15 明确后置 | v2 候选池 V2-19（P2） |
 | H35 | 多窗口多会话 | Electron 单 BrowserWindow（1440×900） | v2 候选池 V2-20（P3） |
 | H36 | 快捷键 keymap 成文/自定义 | 仅 Cmd/Ctrl+K、Cmd/Ctrl+, 两个全局键 + CommandPalette（`apps/web/src/features/palette/CommandPalette.tsx`） | 8.3 CLI 先成文共享表，web 自定义 → v2 候选池 V2-22（P2） |
-| —   | 全文搜索 | `listSessions?q=` 仅标题 LIKE 子串（`packages/engine/src/session/index.ts`） | H12 → **7.13**（事件内容入 FTS5） |
-| —   | 审计日志明细 | metrics 只有计数，无"何时 allow/deny 了什么"明细流 | H11 → **7.12** |
+| —   | 全文搜索 | `listSessions?q=` 仅标题 LIKE 子串（`packages/engine/src/session/index.ts`） | H12 → **7.13** ✅ 已落地（2026-08-29：事件内容入 FTS5 + /search 页） |
+| —   | 审计日志明细 | metrics 只有计数，无"何时 allow/deny 了什么"明细流 | H11 → **7.12** ✅ 已落地（2026-08-29：~/.spark/audit.jsonl 明细流 + 设置页查看器） |
 | —   | LICENSE 缺失 | doc/05 G6 未消解 | 法律决策，人作者定 MIT/Apache-2.0 |
 
 ---
@@ -266,7 +267,7 @@
 | H06 | 自动化触发器（cron/watch/webhook） | 7.6 ✅ 已勾销（2026-08-29，ADR D26） |
 | H03 | 用户侧 hooks | 7.3 ✅ 已勾销（2026-08-27） |
 | H04 | 命令注册表（/compact 迁入 + 自定义命令；命令集基线对齐 Claude Code 命令面 + opencode leader 键模式） | 7.4 ✅ 已勾销（2026-08-27；opencode leader 键归 8.3 CLI 键位表统一成文） |
-| H12 | 会话全文搜索 | 7.13 |
+| H12 | 会话全文搜索 | 7.13 ✅ 已勾销（2026-08-29） |
 | H11 | 审计日志明细流 | 7.12 ✅ 已勾销（2026-08-29） |
 | H08 | 并行子代理 + 树状监控 | 7.8 ✅ 已勾销（2026-08-29） |
 | H13/H14/H15/H16 | 设置中心/模型选择器/用量条/错误人话化/项目分组/沙箱入口 | 6.2–6.7 |

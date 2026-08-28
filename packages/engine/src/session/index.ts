@@ -88,6 +88,14 @@ export class SessionIndex {
     this.db.prepare('UPDATE sessions SET title = ? WHERE id = ?').run(title, id)
   }
 
+  /** 单会话标题（全文搜索命中标注用；无此行 → null） */
+  titleOf(id: SessionId): string | null {
+    const row = this.db.prepare('SELECT title FROM sessions WHERE id = ?').get(id) as
+      | { title: string }
+      | undefined
+    return row === undefined ? null : row.title
+  }
+
   /**
    * 列表（updatedAt 倒序、id 倒序稳定并列）；q 非空 → 标题子串过滤（LIKE，%/_ 转义）。
    * v1 内存分页切片在 server 层做（§7.2 GET /api/sessions 行）。

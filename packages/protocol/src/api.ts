@@ -314,3 +314,21 @@ export const AuditQuerySchema = z.strictObject({
   since: z.number().int().nonnegative().optional(),
 })
 export type AuditQuery = z.infer<typeof AuditQuerySchema>
+
+// ---------- 会话全文搜索（doc/02 §8 工单 7.13 / H12） ----------
+
+/** 搜索命中行（GET /api/search；事件内容 FTS5 索引，命中带上下文摘要） */
+export const SearchHitDtoSchema = z.strictObject({
+  sessionId: SessionIdSchema,
+  /** 命中事件所属会话标题（空串 = 新会话；索引降级时亦为空） */
+  sessionTitle: z.string(),
+  /** 命中事件（前端跳转锚点：/session/:id?event=<eventId>） */
+  eventId: EventIdSchema,
+  seq: z.number().int().nonnegative(),
+  /** 命中事件类型（索引范围 = 用户消息 / 助手消息 / 标题） */
+  type: z.enum(['user.message', 'assistant.message', 'session.title']),
+  time: z.number().int().nonnegative(),
+  /** 命中上下文摘要（引擎截窗；高亮由前端按查询词标出） */
+  snippet: z.string(),
+})
+export type SearchHitDto = z.infer<typeof SearchHitDtoSchema>
