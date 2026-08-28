@@ -10,6 +10,8 @@
  */
 import { ids, parseEnvelope } from '@spark/protocol'
 import type {
+  AuditEntryDto,
+  AuditQuery,
   AutomationCreate,
   AutomationRunDto,
   AutomationTriggerDto,
@@ -844,6 +846,77 @@ export class MockTransport implements Transport {
     this.assertNotDisposed()
     const rows = [...this.automationRuns].reverse() // 存储旧→新，线上形状新→旧
     return Promise.resolve(limit !== undefined ? rows.slice(0, limit) : rows)
+  }
+
+  /** 审计演示条目（三类 kind；时间相对调用时刻，保证"今天"等过滤演示有命中） */
+  listAudit(query?: AuditQuery): Promise<AuditEntryDto[]> {
+    this.assertNotDisposed()
+    const now = Date.now()
+    const h = 3_600_000
+    const sid = this.script.sessionId
+    const entries: AuditEntryDto[] = [
+      {
+        time: now - 48 * h,
+        kind: 'permission.rule',
+        actor: 'user',
+        result: 'applied',
+        op: 'add',
+        effect: 'allow',
+        action: 'Bash',
+        resource: 'npm test:*',
+        source: 'settings-ui',
+      },
+      {
+        time: now - 30 * h,
+        kind: 'permission.decision',
+        actor: 'system',
+        result: 'deny',
+        sessionId: sid,
+        tool: 'Bash',
+        action: 'bash',
+        resource: 'rm -rf node_modules',
+        source: 'rule:user',
+      },
+      {
+        time: now - 6 * h,
+        kind: 'permission.decision',
+        actor: 'user',
+        result: 'allow',
+        sessionId: sid,
+        tool: 'Write',
+        action: 'write',
+        resource: 'src/index.ts',
+        source: 'reply:once',
+      },
+      {
+        time: now - 3 * h,
+        kind: 'session.rollback',
+        actor: 'user',
+        result: 'ok',
+        sessionId: sid,
+        checkpointId: 'ckpt-mock-1',
+        source: 'checkpoint',
+      },
+      {
+        time: now - h,
+        kind: 'permission.decision',
+        actor: 'system',
+        result: 'allow',
+        sessionId: sid,
+        tool: 'Read',
+        action: 'read',
+        resource: 'package.json',
+        source: 'rule:preset',
+      },
+    ]
+    const filtered = entries.filter(
+      (e) =>
+        (query?.since === undefined || e.time >= query.since) &&
+        (query?.kind === undefined || e.kind === query.kind) &&
+        (query?.result === undefined || e.result === query.result) &&
+        (query?.tool === undefined || e.tool === query.tool),
+    )
+    return Promise.resolve(filtered.slice(-(query?.limit ?? 200)).reverse())
   }
 
   fireAutomationWebhook(id: string): Promise<void> {

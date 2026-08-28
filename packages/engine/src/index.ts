@@ -205,3 +205,11 @@ export {
 export { AutomationManager, type FireDeps } from './automation/manager.js'
 export { AutomationRegistry, type TriggerDef, type TriggerRun } from './automation/registry.js'
 export { parseCron, cronMatches, type CronSpec } from './automation/cron.js'
+// 阶段七工单 7.12 / H11：审计日志（permission 决策 / 规则变更 / rollback 独立 JSONL 明细流）
+export {
+  AuditLog,
+  type AuditEntry,
+  type AuditQuery,
+  type AuditKind,
+  type AuditSink,
+} from './audit/log.js'

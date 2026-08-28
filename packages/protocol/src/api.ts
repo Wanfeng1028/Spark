@@ -279,3 +279,38 @@ export const AutomationRunDtoSchema = z.strictObject({
   error: z.string().optional(),
 })
 export type AutomationRunDto = z.infer<typeof AutomationRunDtoSchema>
+
+// ---------- 审计日志（doc/02 §8 工单 7.12 / H11） ----------
+
+/** 审计明细行（~/.spark/audit.jsonl 追加写；GET /api/audit 新→旧） */
+export const AuditEntryDtoSchema = z.strictObject({
+  time: z.number().int().nonnegative(),
+  kind: z.enum(['permission.decision', 'permission.rule', 'session.rollback']),
+  /** 主体：user=用户答复/管理操作；system=规则/超时/中断/级联自动 */
+  actor: z.enum(['user', 'system']),
+  /** 结果：allow/deny=决策；applied=规则变更生效；ok=回滚完成 */
+  result: z.enum(['allow', 'deny', 'applied', 'ok']),
+  sessionId: SessionIdSchema.optional(),
+  /** 工具名（权限决策的过滤维度） */
+  tool: z.string().optional(),
+  action: z.string().optional(),
+  resource: z.string().optional(),
+  /** 规则变更时该规则的 effect（规则表允许 ask 档） */
+  effect: z.enum(['allow', 'deny', 'ask']).optional(),
+  /** 规则变更操作（kind=permission.rule）：add=新增/覆盖；remove=删除 */
+  op: z.enum(['add', 'remove']).optional(),
+  /** 决策/变更来源（命中规则层 / 答复类型 / 超时 / 管理页…） */
+  source: z.string().optional(),
+  checkpointId: z.string().optional(),
+})
+export type AuditEntryDto = z.infer<typeof AuditEntryDtoSchema>
+
+/** GET /api/audit 查询（全可选；limit 上限 500，缺省 200） */
+export const AuditQuerySchema = z.strictObject({
+  limit: z.number().int().positive().max(500).optional(),
+  kind: z.enum(['permission.decision', 'permission.rule', 'session.rollback']).optional(),
+  result: z.enum(['allow', 'deny', 'applied', 'ok']).optional(),
+  tool: z.string().optional(),
+  since: z.number().int().nonnegative().optional(),
+})
+export type AuditQuery = z.infer<typeof AuditQuerySchema>

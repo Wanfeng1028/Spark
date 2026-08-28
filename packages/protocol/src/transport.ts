@@ -7,6 +7,8 @@
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply } from './primitives.js'
 import type {
+  AuditEntryDto,
+  AuditQuery,
   AutomationCreate,
   AutomationRunDto,
   AutomationTriggerDto,
@@ -114,5 +116,7 @@ export interface Transport {
   fireAutomationWebhook(id: string): Promise<void>
   /** POST /api/automation/:id/run：手动触发（测试/调试） */
   fireAutomationManual(id: string): Promise<void>
+  /** GET /api/audit：审计日志明细流（新→旧；设置页查看器数据源，工单 7.12） */
+  listAudit(query?: AuditQuery): Promise<AuditEntryDto[]>
   dispose(): void
 }

@@ -9,6 +9,8 @@
  */
 import { eventSchemaOf, parseEnvelope } from '@spark/protocol'
 import type {
+  AuditEntryDto,
+  AuditQuery,
   AutomationCreate,
   AutomationRunDto,
   AutomationTriggerDto,
@@ -405,6 +407,19 @@ export class HttpTransport implements Transport {
     return this.req<{ ok: boolean }>(`/api/automation/${encodeURIComponent(id)}/run`, {
       method: 'POST',
     }).then(() => undefined)
+  }
+
+  listAudit(query?: AuditQuery): Promise<AuditEntryDto[]> {
+    const params = new URLSearchParams()
+    if (query !== undefined) {
+      if (query.limit !== undefined) params.set('limit', String(query.limit))
+      if (query.kind !== undefined) params.set('kind', query.kind)
+      if (query.result !== undefined) params.set('result', query.result)
+      if (query.tool !== undefined) params.set('tool', query.tool)
+      if (query.since !== undefined) params.set('since', String(query.since))
+    }
+    const qs = params.toString()
+    return this.req<AuditEntryDto[]>(`/api/audit${qs !== '' ? `?${qs}` : ''}`)
   }
 
   dispose(): void {

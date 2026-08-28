@@ -92,6 +92,7 @@ import { AutomationRegistry } from './automation/registry.js'
 import { DEFAULT_HOOK_TIMEOUT_MS, UserHookRunner } from './hooks/runner.js'
 import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
+import { AuditLog, type AuditEntry, type AuditQuery } from './audit/log.js'
 
 export const SPARK_VERSION = '0.1.0'
 
@@ -197,6 +198,8 @@ export class Engine {
   private readonly secrets: SecretStore
   /** I/O 护栏（阶段七工单 7.2 / H02）：工具输出注入检测 + 敏感过滤 */
   private readonly ioGuard: IoGuard
+  /** 审计日志（阶段七工单 7.12 / H11）：~/.spark/audit.jsonl 明细流 */
+  private readonly audit: AuditLog
   /** 成本累计（阶段七工单 7.7 / H07）：~/.spark/usage.json 持久化，熔断判定数据源 */
   private readonly costTracker: CostTracker
   /**
@@ -420,6 +423,8 @@ export class Engine {
     this.logger.registerSecrets?.(this.secrets.values())
     // 工单 7.2：I/O 护栏——store 值动态取（setSecret 即时生效，与日志脱敏同纪律）
     this.ioGuard = new IoGuard({ secretValues: () => this.secrets.values() })
+    // 工单 7.12：审计日志明细流——脱敏同纪律（密钥仓值动态注入）
+    this.audit = new AuditLog(this.root, () => this.secrets.values())
     // 工单 7.7：成本熔断计量（usage.json 跨进程延续）+ 路由状态（ResolvedModel 化）
     this.costTracker = new CostTracker(join(this.root, 'usage.json'))
     this.routing = {
@@ -435,6 +440,7 @@ export class Engine {
       projectRules: loadProjectRules(this.defaultCwd),
       timeoutMs: this.config.spark.engine.permissionTimeoutMs,
       metrics: this.metrics,
+      audit: this.audit, // 工单 7.12：决策与 always 固化规则变更入审计明细流
       // 工单 7.3：permission.resolved 挂点（fire-and-forget；cwd 取会话工作目录）
       onResolved: (p) => {
         this.hooks.fire('permission.resolved', {
@@ -758,10 +764,39 @@ export class Engine {
 
   addPermissionRule(rule: PermissionRule): void {
     this.ruleStore.add(rule)
+    this.audit.record({
+      time: Date.now(),
+      kind: 'permission.rule',
+      actor: 'user',
+      result: 'applied',
+      op: 'add',
+      action: rule.action,
+      resource: rule.resource,
+      effect: rule.effect,
+      source: 'settings-ui',
+    })
   }
 
   removePermissionRule(action: string, resource: string): boolean {
-    return this.ruleStore.remove(action, resource)
+    const removed = this.ruleStore.remove(action, resource)
+    if (removed) {
+      this.audit.record({
+        time: Date.now(),
+        kind: 'permission.rule',
+        actor: 'user',
+        result: 'applied',
+        op: 'remove',
+        action,
+        resource,
+        source: 'settings-ui',
+      })
+    }
+    return removed
+  }
+
+  /** 审计日志明细读（工单 7.12 / H11）：GET /api/audit 的引擎数据源（新→旧） */
+  listAudit(query: AuditQuery): AuditEntry[] {
+    return this.audit.entries(query)
   }
 
   // ---- 权限档位（DESIGN §13.E 四档 / D7 补记预设层，阶段六工单 6.3） ----
@@ -1086,6 +1121,15 @@ export class Engine {
     this.bus.forgetSession(id) // 总线水位随旧 store 一并清除——重载 restoreSeq 才能重设截断后的 seq 起点
     await entry.checkpointer.rollback(checkpointId)
     this.logger.info('session.rollback', { sid: id, checkpointId })
+    this.audit.record({
+      time: Date.now(),
+      kind: 'session.rollback',
+      actor: 'user',
+      result: 'ok',
+      sessionId: id,
+      checkpointId,
+      source: 'checkpoint',
+    })
     return this.handleOf(await this.requireEntry(id)) // 重载：requireEntry → loadSession（树重建 + session.resumed）
   }
 

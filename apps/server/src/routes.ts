@@ -120,6 +120,15 @@ const AutomationRunsQuery = z.strictObject({
   limit: z.coerce.number().int().positive().max(500).optional(),
 })
 
+/** 审计日志（工单 7.12 / H11）：明细流查询（时间/决策/工具过滤器数据源） */
+const AuditQuery = z.strictObject({
+  limit: z.coerce.number().int().positive().max(500).optional(),
+  kind: z.enum(['permission.decision', 'permission.rule', 'session.rollback']).optional(),
+  result: z.enum(['allow', 'deny', 'applied', 'ok']).optional(),
+  tool: z.string().optional(),
+  since: z.coerce.number().int().nonnegative().optional(),
+})
+
 /** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
 function labelOf(e: SparkEventEnvelope): string {
   const data = e.data as Record<string, unknown>
@@ -551,6 +560,24 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
     try {
       const { limit } = parseOr400(AutomationRunsQuery, req.query)
       return reply.send(engine.listAutomationRuns(limit ?? 100))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 审计日志（阶段七工单 7.12 / H11）：permission 决策 / 规则变更 / rollback 明细流
+  app.get('/api/audit', async (req, reply) => {
+    try {
+      const q = parseOr400(AuditQuery, req.query)
+      return reply.send(
+        engine.listAudit({
+          limit: q.limit ?? 200,
+          ...(q.kind !== undefined ? { kind: q.kind } : {}),
+          ...(q.result !== undefined ? { result: q.result } : {}),
+          ...(q.tool !== undefined ? { tool: q.tool } : {}),
+          ...(q.since !== undefined ? { since: q.since } : {}),
+        }),
+      )
     } catch (err) {
       return sendError(req, reply, err)
     }

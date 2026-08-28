@@ -134,6 +134,12 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
         status: 'ready',
       },
       {
+        id: 'audit',
+        title: '审计日志',
+        description: '权限决策 / 规则变更 / 会话回滚的明细流（§13.G 聚合投影）',
+        status: 'ready',
+      },
+      {
         id: 'onboarding',
         title: '引导',
         description: '重新打开新手引导',
