@@ -134,6 +134,8 @@ export interface ForkChildInfo {
   sessionId: SessionId
   title: string
   createdAt: number
+  /** 子代理运行态快照（工单 7.8：已加载会话实时状态；未加载 = idle） */
+  status: SessionStatus
 }
 
 /** GET /api/sessions/:id/tree 的引擎数据源 */
@@ -497,7 +499,14 @@ export class Engine {
   }
 
   async createSession(
-    opts: { title?: string; model?: string; cwd?: string; parentId?: SessionId } = {},
+    opts: {
+      title?: string
+      model?: string
+      cwd?: string
+      parentId?: SessionId
+      /** 子代理锚点事件（工单 7.8：派生它的 tool.started；fork 走 forkSession 自记） */
+      parentEventId?: EventId
+    } = {},
   ): Promise<SessionHandle> {
     this.assertNotShutdown()
     const cwd = opts.cwd ?? this.defaultCwd
@@ -523,6 +532,8 @@ export class Engine {
         model: modelStr,
         // 子代理来源（工单 5.4 / ADR D17；fork 另记 parentPath/parentEventId）
         ...(opts.parentId !== undefined ? { parentSession: opts.parentId } : {}),
+        // 工单 7.8：子代理锚点事件——树视图按 parentEventId 归组显示运行态
+        ...(opts.parentEventId !== undefined ? { parentEventId: opts.parentEventId } : {}),
       },
       {
         onTailTorn: (reason) => {
@@ -1097,7 +1108,12 @@ export class Engine {
           if (h.parentSession !== id || h.parentEventId === undefined) continue
           out.push({
             fromEventId: h.parentEventId,
-            child: { sessionId: childId, title: titleOf(file_.events), createdAt: h.createdAt },
+            child: {
+              sessionId: childId,
+              title: titleOf(file_.events),
+              createdAt: h.createdAt,
+              status: this.statusOf(childId),
+            },
           })
         }
       }
@@ -1215,6 +1231,8 @@ export class Engine {
       title: input.title ?? '子代理',
       cwd: parent.meta.cwd,
       parentId: ctx.sessionId,
+      // 工单 7.8：锚定派生它的 tool.started 事件 → 树视图可见子代理运行态
+      ...(ctx.sourceEventId !== undefined ? { parentEventId: ctx.sourceEventId } : {}),
     })
     this.subagentChildren.add(child.id)
     try {

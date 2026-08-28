@@ -179,7 +179,7 @@ export class ToolPipelineImpl implements ToolPipeline {
       return { callId: call.callId, output: { code: 'E_NOT_FOUND' }, isError: true }
     }
 
-    await bus.emit(sid, 'tool.started', {
+    const startedEnv = await bus.emit(sid, 'tool.started', {
       turnId: turn.turnId,
       callId: call.callId,
       name: call.name,
@@ -228,6 +228,7 @@ export class ToolPipelineImpl implements ToolPipeline {
           sessionId: sid,
           turnId: turn.turnId,
           callId: call.callId,
+          sourceEventId: startedEnv.id,
           signal: turn.abort.signal,
           onProgress: (chunk) => gate.push(chunk),
           cwd: this.deps.cwd,

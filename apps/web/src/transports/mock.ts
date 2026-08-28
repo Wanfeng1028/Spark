@@ -981,7 +981,12 @@ export class MockTransport implements Transport {
           childIds: next !== undefined ? [next] : [],
           forks: forks
             .filter((f) => f.fromEventId === e.id)
-            .map((f) => ({ sessionId: f.dto.id, title: f.dto.title, createdAt: f.dto.createdAt })),
+            .map((f) => ({
+              sessionId: f.dto.id,
+              title: f.dto.title,
+              createdAt: f.dto.createdAt,
+              status: f.dto.status,
+            })),
         }
       }),
     )

@@ -39,6 +39,8 @@ export const ForkChildDtoSchema = z.strictObject({
   sessionId: SessionIdSchema,
   title: z.string(), // 空字符串 = 新会话
   createdAt: z.number().int().nonnegative(),
+  /** 子代理运行态快照（工单 7.8：引擎从已加载会话实时填充；未加载 = idle） */
+  status: SessionStatusSchema,
 })
 export type ForkChildDto = z.infer<typeof ForkChildDtoSchema>
 

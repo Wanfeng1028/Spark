@@ -140,7 +140,12 @@ function treeToDto(tree: SessionTreeInfo): TreeNodeDto[] {
   const forksByEvent = new Map<string, TreeNodeDto['forks']>()
   for (const f of tree.forks) {
     const list = forksByEvent.get(f.fromEventId) ?? []
-    list.push({ sessionId: f.child.sessionId, title: f.child.title, createdAt: f.child.createdAt })
+    list.push({
+      sessionId: f.child.sessionId,
+      title: f.child.title,
+      createdAt: f.child.createdAt,
+      status: f.child.status,
+    })
     forksByEvent.set(f.fromEventId, list)
   }
   const toDto = (n: SessionTreeNode): TreeNodeDto => ({

@@ -110,7 +110,8 @@ describe('Task 工具（makeTaskTool 六要素）', () => {
     expect(tool.name).toBe('task')
     expect(tool.permission.action).toBe('agent.task')
     expect(tool.permission.resourceOf({ prompt: 'x' }, { cwd: '/tmp' })).toBe('task')
-    expect(tool.parallelizable).toBe(false)
+    // 工单 7.8：解除单并发——多子代理并行（独立子会话互不串扰）
+    expect(tool.parallelizable).toBe(true)
     const r = await tool.execute(
       {
         sessionId: ids.session('ses_task_unit_000000000'),
@@ -290,6 +291,136 @@ describe('子代理全链路（ScriptedLlm 共享脚本序列）', () => {
     })
     // 无子会话被创建（session.created 只有父一条）
     expect(f.events.filter((e) => e.type === 'session.created')).toHaveLength(1)
+  })
+})
+
+describe('工单 7.8：并行子代理 + 树状运行监控', () => {
+  test('并行双任务：时序重叠、prompt 隔离、结果映射', async () => {
+    const f = await makeEngine()
+    const parent = await f.engine.createSession({ title: '父会话' })
+    // 父 step1 一次派生两个子代理（task 已 parallelizable，进同一并行批）
+    f.gateway.scriptStep({
+      content: [
+        {
+          type: 'toolCall',
+          callId: ids.call('cal_TaskparaA00000000000'),
+          name: 'task',
+          input: { prompt: '调研 A' },
+        },
+        {
+          type: 'toolCall',
+          callId: ids.call('cal_TaskparaB00000000000'),
+          name: 'task',
+          input: { prompt: '调研 B' },
+        },
+      ],
+    })
+    // 两子会话共享 FIFO 各耗一步：应答同文——谁先消费都不影响断言
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '子代理完成' }], hangMs: 300 })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '子代理完成' }], hangMs: 300 })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '父汇总' }] })
+
+    await parent.send('开始')
+    await waitFor(
+      () =>
+        f.events.some(
+          (e) => e.type === 'assistant.message' && JSON.stringify(e.data).includes('父汇总'),
+        ),
+      '父会话最终消息',
+    )
+
+    const childIds = f.events
+      .filter((e) => e.type === 'session.created' && e.sessionId !== parent.id)
+      .map((e) => e.sessionId)
+    expect(childIds).toHaveLength(2)
+
+    // 并行判据：两子的 turn.started 都早于两子的 turn.completed
+    //（串行执行必为 started→completed→started→completed 交错）
+    const startedIdx = childIds.map((cid) =>
+      f.events.findIndex((e) => e.type === 'turn.started' && e.sessionId === cid),
+    )
+    const completedIdx = childIds.map((cid) =>
+      f.events.findIndex((e) => e.type === 'turn.completed' && e.sessionId === cid),
+    )
+    expect(startedIdx.every((i) => i >= 0)).toBe(true)
+    expect(completedIdx.every((i) => i >= 0)).toBe(true)
+    expect(Math.max(...startedIdx)).toBeLessThan(Math.min(...completedIdx))
+
+    // prompt 隔离：每个子会话的 user.message 是自己的 prompt（互不串扰）
+    const prompts = childIds.map((cid) =>
+      f.events
+        .filter((e) => e.type === 'user.message' && e.sessionId === cid)
+        .map((e) => (e.data as { text: string }).text),
+    )
+    expect(prompts.sort()).toEqual([['调研 A'], ['调研 B']])
+
+    // 结果映射：两个 callId 各自闭合，输出 = 子代理最终文本
+    for (const callId of ['cal_TaskparaA00000000000', 'cal_TaskparaB00000000000']) {
+      const done = toolCompleted(f, callId)
+      expect(done).toBeDefined()
+      expect((done?.data as { output: unknown }).output).toBe('子代理完成')
+      expect((done?.data as { isError: boolean }).isError).toBe(false)
+    }
+  })
+
+  test('树视图：子代理锚定派生它的 tool.started 事件，运行态实时快照', async () => {
+    const f = await makeEngine()
+    const parent = await f.engine.createSession({ title: '父会话' })
+    f.gateway.scriptStep({
+      content: [
+        {
+          type: 'toolCall',
+          callId: ids.call('cal_Tasktree00000000000'),
+          name: 'task',
+          input: { prompt: '树监控任务' },
+        },
+      ],
+    })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '子完成' }], hangMs: 500 })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '父收尾' }] })
+
+    await parent.send('开始')
+    await waitFor(
+      () =>
+        f.events.some(
+          (e) => e.type === 'tool.started' && (e.data as { name: string }).name === 'task',
+        ),
+      'task 工具启动',
+    )
+    // 等子 turn 跑起来再看树——运行态快照才可断言 running
+    await waitFor(
+      () =>
+        f.events.some(
+          (e) => e.type === 'turn.started' && e.sessionId !== parent.id,
+        ),
+      '子会话 turn 启动',
+    )
+    const startedEvent = f.events.find(
+      (e) =>
+        e.type === 'tool.started' &&
+        (e.data as { name: string; callId: string }).callId === 'cal_Tasktree00000000000',
+    )
+    expect(startedEvent).toBeDefined()
+
+    const tree = await f.engine.treeOf(parent.id)
+    expect(tree.forks).toHaveLength(1)
+    const fork = tree.forks[0]
+    if (fork === undefined) throw new Error('fork 缺失（上一断言已覆盖，此处仅窄化）')
+    // 锚定：fromEventId = 派生它的 tool.started 事件 id
+    expect(fork.fromEventId).toBe(startedEvent?.id)
+    expect(fork.child.status).toBe('running')
+
+    await waitFor(
+      () =>
+        f.events.some(
+          (e) => e.type === 'assistant.message' && JSON.stringify(e.data).includes('父收尾'),
+        ),
+      '父会话最终消息',
+    )
+    const treeAfter = await f.engine.treeOf(parent.id)
+    expect(treeAfter.forks).toHaveLength(1)
+    // turn 收尾后回落 idle（已加载会话实时状态）
+    expect(treeAfter.forks[0]?.child.status).toBe('idle')
   })
 })
 

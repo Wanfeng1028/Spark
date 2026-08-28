@@ -12,6 +12,7 @@
 | v1.5 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H04 勾销注记（H04 → 7.4 ✅ 已落地：命令注册表三 kind——action（compact 引擎动作）/ client（model/mcp/skills/usage/resume 前端执行）/ prompt（~/.spark/commands/*.md 自定义，$ARGUMENTS 展开走 turn 通道）；GET /api/commands + POST sessions/:id/commands/:name + GET /api/mcp、/api/skills 只读面；Composer /compact 硬编码迁入注册表分发行为回归；CommandPalette 命令分组；设置中心 mcp/skills/usage 三页只读点亮；opencode leader 键归 8.3 键位表成文） |
 | v1.6 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 8 Memory 记忆工程改 ✅、小结计数 10/5/4→11/5/3（H05 → 7.5 ✅ 已落地：~/.spark/memory.db SQLite FTS5 trigram（中文子串命中；建表失败降级 LIKE）+ memory.save/search 工具族（审批 memory.write/read 缺省 ask）+ 事件化注入——memory.injected 先于 user.message 落盘、Projector 投影为模型上下文前缀（surface 纪律双面）、每会话仅首条触发；ADR D25）；§4.4 H05 勾销注记 |
 | v1.7 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 17 Automation 自动化改 ✅、小结计数 11/5/3→12/5/2（H06 → 7.6 ✅ 已落地：AutomationRegistry（~/.spark/automation.json + automation-runs.jsonl 追加写）+ AutomationManager 进程内 tick 循环——自研 cron 解析器（范围/列表/步长/周日 7→0 归一/同分钟去重）+ watch mtime 基线 + webhook/手动触发，效果恒为建会话发 prompt（FireDeps 注入），失败运行结构化 error 留存；/api/automation 七端点 + web /automation 页（§13.F.3）；ADR D26）；§4.4 H06 勾销注记 |
+| v1.8 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 15 Sub-agent 改 ✅、小结计数 12/5/2→13/4/2（H08 → 7.8 ✅ 已落地：task 工具 `parallelizable` 解除单并发——多子代理各自独立子会话并行跑（并发仍受 maxToolParallel 分批约束），单层限制语义不变；`ToolContext.sourceEventId` 串联派生它的 `tool.started` 事件 → 子会话 header.parentEventId → 树视图锚定，`ForkChildDto.status` 运行态实时快照（已加载直读 `statusOf`，未加载 idle），SessionTreeDialog 子代理行复用 SessionStatusDot + 等待审批/运行中文案；并行时序重叠 + prompt 隔离 + 树锚定/运行态单测）；§4.4 H08 勾销注记 |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
 > **方法**：三条证据链——①引擎/服务端/前端逐模块源码走读（本文所有路径均为当日实测，非转抄文档）；②协议词表 19 种逐条核对（含 `user.message.attachments?`、`assistant.message.usage` 等已预留未消费字段）；③既有审计（doc/05 缺口 G1–G7）与用户侧能力对照清单合并盘点。
@@ -40,13 +41,13 @@
 | 12 | 可观测与评估               | 🟡        | pino 三层脱敏 + /api/metrics 六类计数                                                                  | eval → H10；trace/成本 → H23/H27 |
 | 13 | 流式与事件工程             | ✅        | durable/live 二分、SSE since=seq 续播、背压、ignorable 前跳                                            | —                            |
 | 14 | Human-in-the-Loop          | ✅        | 审批卡、reject 级联、always 固化、规则管理 UI（4.7）                                                   | —                            |
-| 15 | Sub-agent                  | 🟡        | 5.4 Task 工具、单层限制、父中断级联                                                                    | 并行+监控 → H08              |
+| 15 | Sub-agent                  | ✅        | 5.4 Task 工具、单层限制、父中断级联；并行解除 + 树状运行监控（7.8）                                    | —                            |
 | 16 | Hooks 生命周期             | ✅        | 作者侧 skill.json 声明式触发器 + 用户侧 spark.json hooks 四挂点（7.3，命令/skill 双触发 warn 闭合）     | —                            |
 | 17 | Automation 自动化          | ✅        | 进程内 tick 循环 + cron/watch/webhook 三类触发 → 建会话发 prompt + 运行历史（7.6，ADR D26）           | —                            |
 | 18 | Python Worker              | ❌→**不做** | 判决见 §4.1：主流本地编码 agent 均无此模块，bash + venv 已覆盖                                       | 未来以技能/MCP 外挂          |
 | 19 | Browser/Computer Use       | ❌        | 无 browser 工具族                                                                                      | → H09（工单 7.10）           |
 
-小结：扎实具备 12 项、部分具备 5 项、缺失 2 项（Python Worker/浏览器操控），其中 Python Worker 经评估判决**不做**。
+小结：扎实具备 13 项、部分具备 4 项、缺失 2 项（Python Worker/浏览器操控），其中 Python Worker 经评估判决**不做**。
 
 ---
 
@@ -266,7 +267,7 @@
 | H04 | 命令注册表（/compact 迁入 + 自定义命令；命令集基线对齐 Claude Code 命令面 + opencode leader 键模式） | 7.4 ✅ 已勾销（2026-08-27；opencode leader 键归 8.3 CLI 键位表统一成文） |
 | H12 | 会话全文搜索 | 7.13 |
 | H11 | 审计日志明细流 | 7.12 |
-| H08 | 并行子代理 + 树状监控 | 7.8 |
+| H08 | 并行子代理 + 树状监控 | 7.8 ✅ 已勾销（2026-08-29） |
 | H13/H14/H15/H16 | 设置中心/模型选择器/用量条/错误人话化/项目分组/沙箱入口 | 6.2–6.7 |
 | H19/H21/H26 | 附件粘贴/文件树/通知推送 | V2-03/V2-04/V2-05 |
 | H17/H23 | MCP·技能管理页/成本看板 | V2-01/V2-07 |

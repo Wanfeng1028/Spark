@@ -26,6 +26,7 @@
 | v1.16 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §4 事件模型行事实修正 **19→20 种**（阶段七工单 7.2 新增 `io.warning`：I/O 护栏告警，IoGuard 挂 ToolPipeline 输出限界后，log-only durable 不 surface）；与 doc/02 v3.4、AGENTS v1.18、README v1.17 同步 |
 | v1.17 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | 新增 **D25 长期记忆 = SQLite FTS5 trigram + 事件化注入（memory.injected 先于 user.message 落盘，Projector 投影为模型上下文前缀——surface 纪律双面成立）**（阶段七工单 7.5 迷你 ADR）；§4 事件模型行 **20→21 种**（新增 `memory.injected`）；与 doc/02 v3.14、AGENTS v1.19、README v1.19 同步 |
 | v1.18 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | 新增 **D26 自动化 = 进程内 tick 循环 + cron/watch/webhook 三类触发器，触发即建会话发 prompt，失败运行结构化留存**（阶段七工单 7.6 迷你 ADR）；事件词表不变（自动化不进事件流）；与 doc/02 v3.15、doc/07 v1.7 同步 |
+| v1.19 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | **D17 补记**：子代理并行解除（task 工具 `parallelizable` 改 true——独立子会话并行互不串扰，单层限制/中断级联语义不变）+ 树状运行监控（`ToolContext.sourceEventId` → 子会话 header.parentEventId → 树视图锚定；`ForkChildDto.status` 运行态快照，前端复用 SessionStatusDot）（阶段七工单 7.8）；事件词表不变；与 doc/02 v3.16、doc/07 v1.8 同步 |
 
 ---
 
@@ -163,6 +164,8 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 决策：Task 工具（input `{prompt, title?}`，审批 `agent.task`/`task` 默认 ask，串行 barrier）执行体 = `Engine.runSubagent`：createSession({parentId}) 派生**独立会话**（JSONL/header/审批/索引/事件流全复用，header 记 parentSession——fork 另记 parentPath/parentEventId 可区分）；订阅先于提交，等子 turn.completed，返回最终 assistant 文本（tool.completed 的 output，限界溢写由管线免费复用）。单层限制：`subagentChildren` 集合标记派生出的会话，子会话内再派生 → `E_SUBAGENT_DEPTH`（进程生命周期内有效，不落盘）。父 turn 中断级联：ctx.signal abort → child.interrupt()；"父先中断、子 turn 后开始"竞态由子 turn.started 事件时补一次 interrupt 关闭。Steer `expectedTurnId` 校验同步落地（§5.4 多 turn 并发前提）：submit 可选参数，无活动 turn/不匹配 → `E_TURN_MISMATCH`（HTTP 409），不传保持宽容路由。
 理由：独立会话零新词表——事件流形态（durable/live/surface 纪律）、审批管线、会话索引、重启恢复全部现成；主会话上下文只多一对 tool.started/completed，不被子代理事件淹没（surface 纪律）。fork（工单 4.5）已验证 parentSession 头字段路线。
 否决备选：① 子代理事件内嵌主会话流（嵌套 turn/子 turn 事件进主流）——需扩事件词表 + 前端 applyEvent/树结构改造 + 投影 surface 判定复杂化，"最小落地"原则下全是否决项；② 子代理结果作为独立 durable 事件类型（如 task.completed 自定义事件）——违反"事件词表从 protocol 开始"的演进纪律且无必要（tool.completed 已承载）。依据：doc/02 §8 阶段五工单 5.4、§5.4 Codex 对照（ExpectedTurnMismatch）。
+
+**补记（2026-08-29，阶段七工单 7.8 触发）**：**并行解除**——task 工具 `parallelizable` 由 false（串行 barrier）改 true：每个子代理在独立子会话跑（独立事件流/输入队列/审批管线），并行互不串扰；并发上限仍受管线 `maxToolParallel` 分批约束；单层限制与父中断级联语义不变（ctx.signal abort 逐子 cascade）。**树状运行监控**——`ToolContext.sourceEventId`（pipeline 注入本次 `tool.started` 事件 id）经 `createSession({parentEventId})` 写入子会话 header → `scanForkChildren` 把子代理子会话锚定到派生它的工具事件上（此前子代理子会话因无 parentEventId 不可见，树视图只认 fork）；`ForkChildDto.status` 携带运行态快照（已加载会话实时读 `statusOf`，未加载 idle），前端 SessionTreeDialog 复用 SessionStatusDot，activeTurn 活跃态优先于 DTO 快照（同 Sidebar 语义，DESIGN §8）。
 
 ### D18 事件词表扩展 = 运行时注册表 + declaration merging，插件是声明不是程序（2026-08-25，阶段五工单 5.5）
 

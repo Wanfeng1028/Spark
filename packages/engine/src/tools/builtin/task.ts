@@ -31,7 +31,9 @@ export function makeTaskTool(run: TaskRunner): ToolDefinition<TaskInput> {
       action: 'agent.task',
       resourceOf: () => 'task',
     },
-    parallelizable: false, // 派生整轮 LLM 会话：重副作用，串行 barrier
+    // 工单 7.8：解除单并发——每个子代理在独立子会话跑（独立事件流/输入队列），
+    // 并行互不串扰；并发上限仍受 maxToolParallel 分批约束
+    parallelizable: true,
     async execute(ctx, input) {
       return run(input, ctx)
     },
