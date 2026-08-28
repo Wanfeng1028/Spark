@@ -173,6 +173,25 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/debug@4.1.13)(@types/node@26.3.0)(jiti@2.7.0)(jsdom@30.0.1(@noble/hashes@2.3.0))(lightningcss@1.32.0)(tsx@4.23.12)
 
+  examples/evals:
+    dependencies:
+      '@spark/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@spark/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+    devDependencies:
+      '@types/node':
+        specifier: ^24
+        version: 24.13.3
+      tsx:
+        specifier: ^4.20.0
+        version: 4.23.12
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/engine:
     dependencies:
       '@earendil-works/pi-ai':

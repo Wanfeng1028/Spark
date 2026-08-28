@@ -1,0 +1,25 @@
+name: Nightly
+
+on:
+  schedule:
+    # 每日北京时间 02:30（UTC 18:30）——eval 回归（工单 7.11 / H10，doc/06 §2）；
+    # 视觉回归三视口与性能基线断言随阶段八/九接入（doc/06 §2 目标表）
+    - cron: '30 18 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        # 版本以 package.json 的 packageManager 为唯一来源（同 ci.yml 纪律）
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: eval 回归（ScriptedLlm 确定性场景集——审批/中断/压缩/基线）
+        run: pnpm eval
+      - name: 可选真实模型评分（仓库无 secrets → 恒 skip 不红）
+        run: pnpm eval --real

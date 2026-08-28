@@ -6,6 +6,7 @@
 | ---- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | v1.0 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D5 测试计划指令） | 初稿：五层分层与选型 / CI 流水线 / 性能基线表 / 既有 456 例分层归属与升级建议 / 四端手工走查清单模板；workflow 随各阶段落地（6.8 首批、7.11 eval、阶段八 CLI、阶段九移动端） |
 | v1.1 | 2026-08-26 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段六开工指令） | **阶段六工单 6.8 首批落地**：L2 组件测试 22 例（tests/components/——ApprovalCard 三键+feedback+resolved 收起 / ToolCard 三态+展开区 / Composer 三态优先+发送失败回填，vitest+Testing Library+jsdom，dom-stubs 补 matchMedia/rAF）；L3 E2E 7 例（apps/web/e2e/——mock 四场景回归+断线两例+三视口截图，Playwright chromium 单档，`pnpm --filter @spark/web e2e`）；L3.5 基线截图 6 张入 apps/web/e2e/__screenshots__/（welcome+session × 1280/1440/375）。**落地差异两条**：①沙箱内 PLAYWRIGHT 官方 CDN 被网关拦截——playwright.config.ts 支持 SPARK_E2E_BROWSER 指向系统 Chrome executablePath 兜底（CI 有官方浏览器时不设该变量即可）；②E2E 虚拟列表（react-virtuoso）节点回收会重置 ToolCard 展开态——展开断言留在 L2，E2E 以 TurnStatusBar（role=status 恒在 DOM）为就绪信号+「回到底部」滚屏后再断言下方内容。web 用例总数 122→144（vitest）+7（Playwright） |
+| v1.2 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | **阶段七工单 7.11 eval harness 落地（H10，P2）**：`examples/evals`（@spark/evals 工作区成员，进 `pnpm -r` typecheck/lint 覆盖）——`harness.ts` 临时 root + ScriptedLlm + 真实 Engine 夹具（与引擎单测同款装配，脱离 vitest 经 tsx 直跑）+ 四场景：审批（缺省 ask 形状 → once 执行落库 / reject → E_PERMISSION 零副作用）· 中断（挂起途中 interrupt → finish=aborted + 已交付前缀定稿落盘）· 压缩（手动 /compact 时序/摘要/提示词形状 + 下一 turn 上下文首条 = 摘要）· 基线（durable seq 单调 / started-completed 配对 / turn 时序）；`--real` 可选真实模型评分（用户 ~/.spark 配置 + env 密钥，会话落临时 root；配置/凭据/传输问题 → skip 不红，仅应答内容错 → fail）；根脚本 `pnpm eval` + `.github/workflows/nightly.yml`（每日北京时间 02:30，eval 恒跑 + --real 追加）；§2 表 nightly 行更新 |
 
 > **定位**：本文是测试体系的**规划文档**——只定分层、选型、命令、基线与入库位置；workflow 与代码随 doc/02 §8 各阶段工单落地（阶段六工单 6.8 落首批组件/E2E，阶段七工单 7.11 接 eval 与 nightly，阶段八补 CLI 层，阶段九补移动端层）。落地时若与本文冲突，先改本文（附版本记录）再写代码。
 > **现状基线**（2026-08-26 实测，main=`ace77d5`）：456 例单测全绿 + typecheck/lint 全绿 + CI（`check_doc_links.py` → typecheck → lint → test）；测试框架 vitest ^3.2.4 全仓统一。
@@ -42,7 +43,7 @@
 | ---- | ---- | ---- |
 | push main | `check_doc_links.py` → `pnpm typecheck` → `pnpm lint` → `pnpm test` | 不变（快速反馈层，<10 分钟） |
 | PR | 同上 | 追加 Playwright job（L3 E2E + L2 组件），仅 chromium 一档 |
-| nightly（新增 workflow） | 无 | 视觉回归三视口 + 性能基线断言（§3）+ eval 回归（7.11 的 pnpm eval） |
+| nightly（nightly.yml，7.11 已落地） | eval 回归 job：`pnpm eval`（ScriptedLlm 确定性场景集——审批/中断/压缩/基线四场景，任一 fail 即红）+ `pnpm eval --real`（可选真实模型评分，仓库无 secrets → 恒 skip 不红） | 视觉回归三视口 + 性能基线断言（§3）随阶段八/九接入 |
 | desktop 打包 | desktop-win.yml（手动，windows-latest，NSIS 产物上传 artifact） | 打包后 smoke：安装 → healthz 200 → Web UI 伺服（5.1 已实证的 Linux `--win zip` 路径固化为 job 内一步） |
 | 发布前（人工） | 无 | Maestro 双端（iOS/Android 真机）跑 §5 四幕；NSIS 本机安装走查 |
 

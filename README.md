@@ -61,6 +61,7 @@ pnpm install
 pnpm dev                    # server + web 并行（待 apps/web、apps/server 就位）
 pnpm --filter web dev       # 仅前端（VITE_SPARK_MOCK=1 可脱离后端跑 Mock）
 pnpm test / typecheck / lint
+pnpm eval                   # eval 回归（工单 7.11：确定性场景集；--real 可选真实模型评分）
 ```
 
 ## 设计原则
@@ -96,3 +97,4 @@ pnpm test / typecheck / lint
 | v1.17 | 2026-08-26 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段六开工指令） | **阶段六完成（6.1–6.8 全勾，分支 feat/stage6-ui 待 PR 合入）**：UI 重构 ZCode 化——主题翻转（light 默认+dark+system，AA 复核）/§13.A 布局栅格（左栏 264 折叠 48、空态垂直居中、内容列 768、顶栏 44、StatusBar 24、会话按项目分组）/控件按 §13.B 重过+Composer 重做（底部工具条、权限四档预设层 D7、now/steer/queue 分段、@ 与 / 菜单、多行 6 行上限）/设置中心（§13.D 三组导航+外观区全量+权限规则迁入）/模型管理（会话级选择器+供应商列表+测试连接；轻后端三路由例外已声明）/用量条（usage 估算+>80% 变色）/错误人话化（error-copy.ts 四端共享文案表）；测试首批入库：L2 组件 22 例+L3 E2E 7 例+L3.5 三视口基线截图 6 张（doc/06 v1.1）；全仓 vitest 579 例（engine 353/server 36/web 144/protocol 46）+ Playwright 7 例全绿；doc/02 v3.3–v3.8 |
 | v1.18 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                       | 架构图协议行事实修正 **事件词表 19→20 种**（阶段七工单 7.2 新增 `io.warning` I/O 护栏告警事件）；与 doc/02 v3.10、AGENTS v1.18、ARCHITECTURE v1.16 同步 |
 | v1.19 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                       | 架构图协议行事实修正 **事件词表 20→21 种**（阶段七工单 7.5 新增 `memory.injected` 长期记忆注入事件——Projector 投影为模型上下文前缀，ADR D25）；与 doc/02 v3.14、AGENTS v1.19、ARCHITECTURE v1.17 同步 |
+| v1.20 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                                 | 开发命令区补 `pnpm eval`（阶段七工单 7.11：examples/evals 确定性场景集 + --real 可选真实模型评分，nightly.yml 每日接线）；与 doc/02 v3.20、doc/06 v1.2、doc/07 v1.12 同步 |

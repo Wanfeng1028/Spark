@@ -16,6 +16,7 @@
 | v1.9 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H11 勾销注记（H11 → 7.12 ✅ 已落地：~/.spark/audit.jsonl 独立追加明细流——三类 kind（权限决策含 `rule:<层>`/`reply:*`/timeout 等来源归因、规则变更含 op/effect、回滚含 checkpointId）；写前脱敏同 pino（redaction.ts 单一来源 + 密钥仓动态值），写失败旁路吞掉不阻断主链路，读端坏行跳过；GET /api/audit 过滤 since/kind/result/tool + 设置页"审计日志"查看器（§13.G 转录式，基线 15 页外增项））；§2.6 Tracing 工单指针与 §1 学科 12 证据补记（状态仍 🟡——eval/trace 缺口在，小结计数 13/4/2 不变） |
 | v1.10 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H12 勾销注记（H12 → 7.13 ✅ 已落地：~/.spark/search.db 会话全文索引——索引范围 user.message / assistant.message text 块 / session.title 三类，行主键（session_id, event_id）容 fork 同 event id 跨会话；检索链 = FTS5 trigram MATCH（≥3 字符）→ 整串 LIKE → 拆词最长词 LIKE（同 MemoryStore 先例），建表失败降级 LIKE；水位表装载点幂等同步（持平跳过/倒退截断/缺失全量补），增量钩子在 bus durable 订阅（旁路失败只 warn）；JSONL 恒为权威，库打开失败降级空结果不阻塞启动；GET /api/search（q 必填，limit 缺省 20 上限 100）+ /search 页（命中摘要查询词高亮、点击 `?event=` 直达 + ChatView 定位高亮）+ Sidebar 搜索入口；**千事件检索 <500ms** DoD 性能线入单测）；§2 遗留行全文搜索/审计明细指针补 ✅（学科计数不变——搜索未单列学科） |
 | v1.11 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.5 H09 勾销注记（H09 → 7.10 ✅ 已落地：browser.open/click/read/screenshot 工具族——BrowserDriver 端口 + 引擎级单例单页跨会话共享（playwright-core headless chromium **懒启动**，缺包/缺二进制执行期 E_BROWSER_LAUNCH fail-closed）；四工具 `parallelizable: false` 串行互斥；审批三 action（browser.navigate/interact/read，resource `url:<页>`，空规则表缺省 ask）；中断 race 即返 E_ABORTED；**截图不进事件流**——PNG 落 ~/.spark/browser-shots，输出只回文件名+字节数，GET /api/artifacts/:file 白名单供图；前端 ToolCard BrowserDetail（截图按需拉图/降级文案）；迷你 ADR D27 见 ARCHITECTURE v1.20）；§1 学科 19 改 ✅、小结计数 13/4/2→14/4/1（缺失仅剩 Python Worker，判决不做） |
+| v1.12 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.5 H10 勾销注记（H10 → 7.11 ✅ 已落地：`examples/evals`——ScriptedLlm 确定性场景集四场景（审批缺省 ask/拒绝零副作用 · 中断 finish=aborted 前缀定稿 · 手动压缩时序/摘要/重投影 · 基线 seq 单调/工具事件配对/turn 时序），真实 Engine 全链路经 tsx 直跑；`--real` 可选真实模型评分（用户 ~/.spark 配置，缺凭据 → skip 不红）；根脚本 `pnpm eval` + nightly.yml 每日接线，任一 fail 红灯出报告）；§2 Eval 小节翻 ✅；§1 学科 12 证据补 7.11（状态仍 🟡——trace/成本缺口在）；学科 10 残留 H02 指针修正（7.2 已勾销，证据补 I/O 护栏） |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
 > **方法**：三条证据链——①引擎/服务端/前端逐模块源码走读（本文所有路径均为当日实测，非转抄文档）；②协议词表 19 种逐条核对（含 `user.message.attachments?`、`assistant.message.usage` 等已预留未消费字段）；③既有审计（doc/05 缺口 G1–G7）与用户侧能力对照清单合并盘点。
@@ -39,9 +40,9 @@
 | 7  | MCP 集成                   | ✅        | 5.3 McpManager stdio + 真实子进程 e2e                                                                  | 管理 UI → H17；HTTP → V2-21  |
 | 8  | Memory 记忆工程            | ✅        | SQLite FTS5 trigram 记忆仓 + memory.save/search 工具 + 事件化注入（7.5，ADR D25）                     | —                            |
 | 9  | 状态机与恢复               | ✅        | 最强项：append-only、悬挂 turn 补闭合、kill-9 resume、checkpoint 回滚                                  | —                            |
-| 10 | 沙箱与护栏                 | 🟡        | 5.2 bwrap/Seatbelt + 审批 fail-closed                                                                  | I/O 护栏 → H02；网络隔离 → H34 |
+| 10 | 沙箱与护栏                 | 🟡        | 5.2 bwrap/Seatbelt + 审批 fail-closed + I/O 护栏注入检测与敏感过滤（7.2）                              | 网络隔离 → H34               |
 | 11 | Model Routing              | ✅        | fallback 链（未交付才切换）+ 主/压缩/标题/子代理四路由档 + 成本熔断（7.7）                              | —                            |
-| 12 | 可观测与评估               | 🟡        | pino 三层脱敏 + /api/metrics 六类计数 + 审计明细流（7.12）                                             | eval → H10；trace/成本 → H23/H27 |
+| 12 | 可观测与评估               | 🟡        | pino 三层脱敏 + /api/metrics 六类计数 + 审计明细流（7.12）+ eval 回归场景集与 nightly（7.11）        | trace/成本 → H23/H27         |
 | 13 | 流式与事件工程             | ✅        | durable/live 二分、SSE since=seq 续播、背压、ignorable 前跳                                            | —                            |
 | 14 | Human-in-the-Loop          | ✅        | 审批卡、reject 级联、always 固化、规则管理 UI（4.7）                                                   | —                            |
 | 15 | Sub-agent                  | ✅        | 5.4 Task 工具、单层限制、父中断级联；并行解除 + 树状运行监控（7.8）                                    | —                            |
@@ -160,10 +161,9 @@
 - 差距：无 trace 视图/请求级链路聚合；日志是人看不是机查。
 - 参考：opencode 事件流即 trace（我们的 JSONL 本身具备该潜质）。工单：H27 → v2 候选池（P2）；审计明细流单列 H11 → **7.12 ✅ 已勾销（2026-08-29）**。
 
-**Eval** —— ❌ 缺失（H10）
-- 证据：无 eval 目录/脚本；测试全绿但都是确定性单测（ScriptedLlm），无模型质量回归。
-- 差距：无场景集、无评分、无 nightly 接线。
-- 参考：pi Terminal-Bench 接法（外部 harness 评内部 agent）。工单：**7.11**（examples/evals + pnpm eval + nightly）。
+**Eval** —— ✅ 已落地（7.11，2026-08-29）
+- 证据：`examples/evals`（@spark/evals）——ScriptedLlm 确定性场景集（审批/中断/压缩/基线四场景，真实 Engine 全链路）+ `--real` 可选真实模型评分（用户 ~/.spark 配置，缺凭据 → skip 不红）；根脚本 `pnpm eval` + nightly.yml 接线（每日跑，任一 fail 红灯出报告）。
+- 遗留：真实模型评分是启发式（基础问答内容判定），任务级基准（Terminal-Bench 类外部 harness）归 v2 候选池按需评估。
 
 **Cost Tracker** —— 🟡 数据已齐、消费缺位（H23 + 6.6）
 - 证据：`assistant.message.usage`（inputTokens/outputTokens + costUsd?）每回合落盘（protocol events.ts）；前端 StatusBar 已显示会话累计 in/out（`apps/web/src/components/layout/StatusBar.tsx`）；`/api/metrics` 有 tokens 计数。
@@ -280,7 +280,7 @@
 | 编号 | 缺口 | 工单/候选池 |
 | ---- | ---- | ---- |
 | H09 | browser 工具族（Playwright，审批默认 ask） | 7.10 ✅ 已勾销（2026-08-29，ADR D27） |
-| H10 | eval harness | 7.11 |
+| H10 | eval harness | 7.11 ✅ 已勾销（2026-08-29） |
 | H20/H22/H24/H25/H27/H28/H29/H30/H31/H32/H36 | 提示词模板/审查模式/辅助会话/内置终端/trace/i18n/数据管理/诊断页/自更新/onboarding/keymap | V2-16/08/09/10/11/12/13/14/15/17/22 |
 | H33/H34/H35 | 代码语义索引/网络隔离/多窗口 | V2-18/19/20 |
 | — | MCP HTTP/SSE transport（远程 server） | V2-21 |
