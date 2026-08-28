@@ -82,8 +82,8 @@ function makeManager(opts: { now: () => number }): {
   return { manager, factory, root }
 }
 
-afterEach(() => {
-  for (const m of managers) m.stop()
+afterEach(async () => {
+  for (const m of managers) await m.stop() // 等在途 tick 收尾，再删临时目录（防写已删目录）
   managers.length = 0
   for (const d of dirs) rmSync(d, { recursive: true, force: true })
   dirs = []
@@ -283,7 +283,7 @@ describe('AutomationManager 触发纪律', () => {
     manager.start()
     await sleep(50)
     expect(manager.runs(10)).toHaveLength(1)
-    manager.stop()
+    await manager.stop()
     await sleep(50)
     expect(manager.runs(10)).toHaveLength(1)
   })

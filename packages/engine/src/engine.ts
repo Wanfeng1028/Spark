@@ -1502,8 +1502,8 @@ export class Engine {
 
   private async doShutdown(): Promise<void> {
     this.logger.info('engine.shutdown.start', { sessions: this.sessions.size })
-    // 0) 工单 7.6：停自动化触发器（防关停流程中 tick 再创新会话）
-    this.automation.stop()
+    // 0) 工单 7.6：停自动化触发器（防关停流程中 tick 再创新会话；等在途 tick 收尾）
+    await this.automation.stop()
     try {
       // 1) 拒新（assertNotShutdown 已生效）2) 逐会话 interrupt + 关输入队列
       for (const entry of this.sessions.values()) {

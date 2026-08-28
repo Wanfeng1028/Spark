@@ -35,6 +35,8 @@ export class AutomationManager {
   private watchBaselines = new Map<string, number>()
   private timer: ReturnType<typeof setInterval> | null = null
   private ticking = false
+  private stopped = false
+  private tickTask: Promise<void> | null = null
 
   constructor(registry: AutomationRegistry, deps: FireDeps) {
     this.registry = registry
@@ -58,20 +60,30 @@ export class AutomationManager {
   /** 启动 tick 循环（幂等）；server listen 前调用 */
   start(): void {
     if (this.timer !== null) return
-    this.timer = setInterval(() => void this.tick(), this.deps.tickMs ?? 5000)
+    this.stopped = false
+    this.timer = setInterval(() => {
+      if (this.ticking) return
+      this.tickTask = this.tick().finally(() => {
+        this.tickTask = null
+      })
+      this.tickTask.catch(() => undefined) // tick 内部已逐触发器闭合；兜底防 unhandled rejection
+    }, this.deps.tickMs ?? 5000)
     this.timer.unref?.() // 不阻止进程退出（shutdown 由 Engine 序列驱动）
   }
 
-  stop(): void {
+  /** 停触发器并等在途 tick 收尾（关停即真停——防关停后仍写运行历史）；幂等 */
+  async stop(): Promise<void> {
+    this.stopped = true
     if (this.timer !== null) {
       clearInterval(this.timer)
       this.timer = null
     }
+    await this.tickTask
   }
 
   /** 单次 tick：cron 分钟匹配 + watch mtime 检查（并发重入保护） */
   private async tick(): Promise<void> {
-    if (this.ticking) return
+    if (this.ticking || this.stopped) return
     this.ticking = true
     try {
       const now = new Date(this.deps.now())
