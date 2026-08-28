@@ -6,6 +6,7 @@
 import type { FastifyPluginCallback } from 'fastify'
 import { z } from 'zod'
 import {
+  AutomationCreateSchema,
   CheckpointIdSchema,
   DeliverySchema,
   EventIdSchema,
@@ -111,6 +112,13 @@ const CommandNameParams = z.strictObject({
 
 /** 长期记忆（工单 7.5）：删除参数 */
 const MemoryIdParams = z.strictObject({ id: z.coerce.number().int().positive() })
+
+/** 自动化触发器（工单 7.6）：触发器 id 路径 / 启停 body / 运行历史 limit */
+const AutomationIdParams = z.strictObject({ id: z.string().min(1) })
+const AutomationEnabledBody = z.strictObject({ enabled: z.boolean() })
+const AutomationRunsQuery = z.strictObject({
+  limit: z.coerce.number().int().positive().max(500).optional(),
+})
 
 /** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
 function labelOf(e: SparkEventEnvelope): string {
@@ -485,6 +493,78 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
       if (!engine.removeMemory(id)) {
         return reply.code(404).send({ code: 'E_NOT_FOUND', message: `记忆 ${id} 不存在` })
       }
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 自动化触发器（阶段七工单 7.6 / H06 / ADR D26）：cron/watch/webhook → 自动建会话执行 prompt
+  app.get('/api/automation', async (req, reply) => {
+    try {
+      return reply.send(engine.listAutomations())
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.post('/api/automation', async (req, reply) => {
+    try {
+      const input = parseOr400(AutomationCreateSchema, req.body)
+      return reply.code(201).send(engine.createAutomation(input))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.delete('/api/automation/:id', async (req, reply) => {
+    try {
+      const { id } = parseOr400(AutomationIdParams, req.params)
+      if (!engine.removeAutomation(id)) {
+        return reply.code(404).send({ code: 'E_NOT_FOUND', message: `触发器 ${id} 不存在` })
+      }
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.put('/api/automation/:id/enabled', async (req, reply) => {
+    try {
+      const { id } = parseOr400(AutomationIdParams, req.params)
+      const { enabled } = parseOr400(AutomationEnabledBody, req.body)
+      if (!engine.setAutomationEnabled(id, enabled)) {
+        return reply.code(404).send({ code: 'E_NOT_FOUND', message: `触发器 ${id} 不存在` })
+      }
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.get('/api/automation/runs', async (req, reply) => {
+    try {
+      const { limit } = parseOr400(AutomationRunsQuery, req.query)
+      return reply.send(engine.listAutomationRuns(limit ?? 100))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.post('/api/automation/webhook/:id', async (req, reply) => {
+    try {
+      const { id } = parseOr400(AutomationIdParams, req.params)
+      await engine.fireAutomationWebhook(id)
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.post('/api/automation/:id/run', async (req, reply) => {
+    try {
+      const { id } = parseOr400(AutomationIdParams, req.params)
+      await engine.fireAutomationManual(id)
       return reply.send({ ok: true })
     } catch (err) {
       return sendError(req, reply, err)

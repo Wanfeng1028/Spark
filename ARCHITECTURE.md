@@ -25,6 +25,7 @@
 | v1.15 | 2026-08-26 | 同上（发起：晚风，移动端框架确认"适合 React 的"=React Native，与 D20 一致；供图 Qoder CN iOS 13 张） | **D24 补记**：配对 UX 定稿扫码为主（桌面出示 QR 含一次性短码→App 扫码换长效 token，Qoder CN 实测同范式）、手输 6 位码降兜底；token 交换/校验机制不变。移动端视觉规格落 DESIGN §13.J（v2.2）；doc/02 阶段九工单措辞同步（v3.1） |
 | v1.16 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §4 事件模型行事实修正 **19→20 种**（阶段七工单 7.2 新增 `io.warning`：I/O 护栏告警，IoGuard 挂 ToolPipeline 输出限界后，log-only durable 不 surface）；与 doc/02 v3.4、AGENTS v1.18、README v1.17 同步 |
 | v1.17 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | 新增 **D25 长期记忆 = SQLite FTS5 trigram + 事件化注入（memory.injected 先于 user.message 落盘，Projector 投影为模型上下文前缀——surface 纪律双面成立）**（阶段七工单 7.5 迷你 ADR）；§4 事件模型行 **20→21 种**（新增 `memory.injected`）；与 doc/02 v3.14、AGENTS v1.19、README v1.19 同步 |
+| v1.18 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | 新增 **D26 自动化 = 进程内 tick 循环 + cron/watch/webhook 三类触发器，触发即建会话发 prompt，失败运行结构化留存**（阶段七工单 7.6 迷你 ADR）；事件词表不变（自动化不进事件流）；与 doc/02 v3.15、doc/07 v1.7 同步 |
 
 ---
 
@@ -217,6 +218,13 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 候选：① system prompt 静态拼入记忆——违反 surface 纪律（模型可见但事件流无记录）；② 注入为 user.message 前缀（合成用户消息）——污染用户转录（分不清用户说的还是系统注入的）；③ **独立 `memory.injected` 事件 + Projector 投影**。
 结论：存储 = `~/.spark/memory.db`（node:sqlite，memories 表 + FTS5 **trigram** 虚表外容模式 + 触发器同步——unicode61 对连续 CJK 整段成词不可子串命中，trigram 修复；FTS5 建表失败降级 LIKE，引擎照常启动）；检索召回链 = 整串 trigram MATCH → 整串 LIKE → 拆词最长词 LIKE（中文整句语义召回为已知限制，向量后置）；工具族 `memory.save/memory.search`（审批 action `memory.write/read`、resource 恒 `memory`，空规则表缺省 ask 可 always 固化）；**注入 = 会话首条 user.message 之前 emit `memory.injected`（durable 落盘）→ Projector 投影为模型上下文首条前缀 user 消息**——模型可见（投影）与被记录（事件）双面成立，锚点后过滤与 surface 事件同规则（压缩后不重复注入）；每会话仅首条触发、命中空集不 emit。管理面 = GET/DELETE /api/memories（设置页列表+删除）。
 后果：事件词表 20→21 种（`memory.injected`，applyEvent/round-trip/文档计数同步）；Engine 持 MemoryStore 句柄（打开失败 null 降级——工具不注册、注入不接线）；向量检索升级时只换 MemoryStore.search 实现，注入协议与 UI 零改动。
+
+### D26 自动化 = 进程内 tick 循环 + 三类触发器，触发即建会话发 prompt，失败运行结构化留存（2026-08-29，阶段七工单 7.6 迷你 ADR）
+
+背景：doc/07 H06 缺口——无任何触发器引擎；工单 7.6 要求 cron / watch / webhook 三类触发 → 自动建会话执行 prompt + 任务列表/运行历史 UI（DESIGN §13.F.3）。
+候选：① 外挂系统调度器（crontab/计划任务）回调 webhook——跨平台安装路径分叉，且脱离引擎生命周期（引擎没跑时触发了也无人处理）；② 独立守护进程——违反单进程本地模型（D5/D10）；③ **引擎进程内 AutomationManager tick 循环**——引擎在跑才谈自动化，与"本地 127.0.0.1、无后台常驻"定位一致。
+结论：`AutomationRegistry`（`~/.spark/automation.json` 原子写存触发器定义 + `automation-runs.jsonl` 追加写运行历史——与会话 JSONL 同一单写者纪律）+ `AutomationManager`（setInterval tick，cron 自研解析器支持 `*`/范围/列表/步长与周日 7→0 归一；同分钟去重防重复触发；watch 基线比对文件 mtime；webhook/手动按需触发）；**触发效果恒为"建会话 + 发 prompt"**（FireDeps.createSession 注入，引擎接线，测试可替身）；**失败闭合**：触发器禁用/不存在/类型不符一律拒绝（E_TRIGGER_DISABLED/E_TRIGGER_KIND/E_TRIGGER），fire 失败不吞——运行历史行留结构化 `error` 字段（验收条款"失败运行有结构化错误留存"）。协议面 = AutomationTriggerDto/AutomationCreate/AutomationRunDto + Transport 七方法（从 packages/protocol 开始，AGENTS §2.5）；路由 7 端点（/api/automation*），错误码前缀映射 E_TRIGGER*/E_CRON。
+后果：web 新增 /automation 页（§13.F.3 形态：模板网格+任务列表+运行历史）；**"保持电脑唤醒"开关不在 web 落地**——系统电源权限归桌面壳（Electron 阶段再议，web 无此能力，如实缺省而非假实现）；引擎未运行时触发器不生效是刻意语义（不做补偿触发，避免"补跑"带来的不确定性）；watch 触发器数量大时 mtime 轮询成本线性增长，为已知限制（文件监听库后置）。
 
 ## 6. 模块速览（职责边界）
 

@@ -10,8 +10,7 @@
  */
 import { stat } from 'node:fs/promises'
 import type { AutomationRunDto, AutomationTriggerDto, SessionId } from '@spark/protocol'
-import { AutomationRegistry } from './registry.js'
-import type { TriggerDef, TriggerRun } from './registry.js'
+import type { AutomationRegistry, TriggerDef, TriggerRun } from './registry.js'
 import { cronMatches, parseCron } from './cron.js'
 
 /** 触发器执行的会话工厂（Engine 装配注入——本模块不感知 Engine 全貌） */
@@ -168,6 +167,10 @@ export class AutomationManager {
   // ---- 管理面透传（增删/启停后重建 cron 缓存） ----
 
   add(input: Omit<TriggerDef, 'id' | 'createdAt' | 'enabled'>): AutomationTriggerDto {
+    if (input.cron === undefined && input.watch === undefined && input.webhook !== true) {
+      throw new Error('E_TRIGGER: 至少启用一种触发条件（cron / watch / webhook）')
+    }
+    if (input.cron !== undefined) parseCron(input.cron) // 坏表达式创建即拒，不带病入库
     const t = this.registry.add(input)
     this.rebuildCronSpecs()
     return this.list().find((x) => x.id === t.id) as AutomationTriggerDto

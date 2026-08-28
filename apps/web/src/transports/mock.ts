@@ -10,6 +10,9 @@
  */
 import { ids, parseEnvelope } from '@spark/protocol'
 import type {
+  AutomationCreate,
+  AutomationRunDto,
+  AutomationTriggerDto,
   CheckpointDto,
   CheckpointId,
   CommandDto,
@@ -782,6 +785,97 @@ export class MockTransport implements Transport {
     const idx = this.memories.findIndex((m) => m.id === id)
     if (idx < 0) return Promise.reject(new Error(`E_NOT_FOUND: 记忆 ${id} 不存在`))
     this.memories.splice(idx, 1)
+    return Promise.resolve()
+  }
+
+  // ---- 自动化触发器（工单 7.6 对等演示：内存表，进程生命周期内有效） ----
+
+  private automationSeq = 0
+  private readonly automations: AutomationTriggerDto[] = [
+    {
+      id: 'mock-auto-1',
+      name: '（mock）夜间巡检',
+      enabled: true,
+      cwd: '/tmp/spark',
+      prompt: '检查构建状态',
+      cron: '0 3 * * *',
+      createdAt: 1787800000000,
+    },
+  ]
+  private readonly automationRuns: AutomationRunDto[] = []
+
+  listAutomation(): Promise<AutomationTriggerDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([...this.automations])
+  }
+
+  createAutomation(input: AutomationCreate): Promise<AutomationTriggerDto> {
+    this.assertNotDisposed()
+    if (input.cron === undefined && input.watch === undefined && input.webhook !== true) {
+      return Promise.reject(new Error('E_TRIGGER: 至少启用一种触发条件（cron / watch / webhook）'))
+    }
+    const t: AutomationTriggerDto = {
+      id: `mock-auto-${++this.automationSeq + 1}`,
+      enabled: true,
+      createdAt: Date.now(),
+      ...input,
+    }
+    this.automations.push(t)
+    return Promise.resolve(t)
+  }
+
+  removeAutomation(id: string): Promise<void> {
+    this.assertNotDisposed()
+    const idx = this.automations.findIndex((t) => t.id === id)
+    if (idx < 0) return Promise.reject(new Error(`E_NOT_FOUND: 触发器 ${id} 不存在`))
+    this.automations.splice(idx, 1)
+    return Promise.resolve()
+  }
+
+  setAutomationEnabled(id: string, enabled: boolean): Promise<void> {
+    this.assertNotDisposed()
+    const t = this.automations.find((x) => x.id === id)
+    if (t === undefined) return Promise.reject(new Error(`E_NOT_FOUND: 触发器 ${id} 不存在`))
+    t.enabled = enabled
+    return Promise.resolve()
+  }
+
+  listAutomationRuns(limit?: number): Promise<AutomationRunDto[]> {
+    this.assertNotDisposed()
+    const rows = [...this.automationRuns].reverse() // 存储旧→新，线上形状新→旧
+    return Promise.resolve(limit !== undefined ? rows.slice(0, limit) : rows)
+  }
+
+  fireAutomationWebhook(id: string): Promise<void> {
+    this.assertNotDisposed()
+    const t = this.automations.find((x) => x.id === id)
+    if (t === undefined) return Promise.reject(new Error(`E_NOT_FOUND: 触发器 ${id} 不存在`))
+    if (!t.enabled) return Promise.reject(new Error('E_TRIGGER_DISABLED: 触发器已停用'))
+    if (t.webhook !== true) {
+      return Promise.reject(new Error(`E_TRIGGER_KIND: 触发器 ${t.name} 未启用 webhook 入口`))
+    }
+    return this.recordAutomationRun(t, 'webhook')
+  }
+
+  fireAutomationManual(id: string): Promise<void> {
+    this.assertNotDisposed()
+    const t = this.automations.find((x) => x.id === id)
+    if (t === undefined) return Promise.reject(new Error(`E_NOT_FOUND: 触发器 ${id} 不存在`))
+    return this.recordAutomationRun(t, 'manual')
+  }
+
+  private recordAutomationRun(
+    t: AutomationTriggerDto,
+    kind: AutomationRunDto['kind'],
+  ): Promise<void> {
+    this.automationRuns.push({
+      id: `mock-run-${this.automationRuns.length + 1}`,
+      triggerId: t.id,
+      triggerName: t.name,
+      at: Date.now(),
+      kind,
+      finish: 'ok',
+    })
     return Promise.resolve()
   }
 

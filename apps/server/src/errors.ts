@@ -80,6 +80,22 @@ export function toApiError(err: unknown): ApiError {
     // 界面命令打到引擎（工单 7.4）：客户端调用方式错误 → 400
     return new ApiError(400, 'E_COMMAND_CLIENT', '界面命令由前端执行，不经引擎')
   }
+  if (msg.startsWith('E_TRIGGER_DISABLED')) {
+    // 工单 7.6：触发器已停用仍被触发（状态冲突）→ 409
+    return new ApiError(409, 'E_TRIGGER_DISABLED', '自动化触发器已停用')
+  }
+  if (msg.startsWith('E_TRIGGER_KIND')) {
+    // 工单 7.6：触发器未启用该触发入口（如非 webhook 触发器打 webhook 口）→ 400
+    return new ApiError(400, 'E_TRIGGER_KIND', '该触发器未启用此触发入口')
+  }
+  if (msg.startsWith('E_TRIGGER')) {
+    // 工单 7.6：创建校验失败（无触发条件等）→ 400
+    return new ApiError(400, 'E_TRIGGER', msg.slice('E_TRIGGER:'.length).trim())
+  }
+  if (msg.startsWith('E_CRON')) {
+    // 工单 7.6：cron 表达式解析失败 → 400
+    return new ApiError(400, 'E_CRON', msg.slice('E_CRON:'.length).trim())
+  }
   return new ApiError(500, 'E_INTERNAL', 'internal error')
 }
 

@@ -16,6 +16,9 @@ import { readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type {
+  AutomationCreate,
+  AutomationRunDto,
+  AutomationTriggerDto,
   CheckpointId,
   CommandDto,
   Delivery,
@@ -84,6 +87,8 @@ import { BUILTIN_COMMANDS, expandCommandPrompt, loadCommands } from './commands/
 import type { LoadedCommand } from './commands/loader.js'
 import { MemoryStore } from './memory/store.js'
 import { memorySaveTool, memorySearchTool } from './tools/builtin/memory.js'
+import { AutomationManager } from './automation/manager.js'
+import { AutomationRegistry } from './automation/registry.js'
 import { DEFAULT_HOOK_TIMEOUT_MS, UserHookRunner } from './hooks/runner.js'
 import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
@@ -230,6 +235,8 @@ export class Engine {
    * 打开失败 → null 降级（memory 工具族不注册、注入端口不接线，引擎照常启动）。
    */
   private readonly memory: MemoryStore | null
+  /** 自动化触发器（阶段七工单 7.6 / H06 / ADR D26）：cron/watch/webhook → 自动建会话执行 prompt */
+  private readonly automation: AutomationManager
   private readonly outputs: ToolOutputStore
   private readonly sessions = new Map<SessionId, SessionEntry>()
   private readonly inflight = new Map<SessionId, Promise<SessionEntry>>()
@@ -365,6 +372,16 @@ export class Engine {
     }
     this.memory = memoryStore
 
+    // 工单 7.6 / H06 / ADR D26：自动化触发器（触发=自动建会话执行 prompt，走正常 turn 通道）；
+    // 坏 automation.json 构造即抛 E_CONFIG（配置错误不带病运行，同 loadConfig 纪律）
+    this.automation = new AutomationManager(new AutomationRegistry(this.root), {
+      createSession: async ({ title, cwd }) => {
+        const handle = await this.createSession({ title, cwd })
+        return { id: handle.id, send: (text: string) => handle.send(text) }
+      },
+      now: () => this.now(),
+    })
+
     this.registry = new ToolRegistry()
     registerBuiltinTools(this.registry, {
       bashSandbox: this.config.spark.engine.bashSandbox,
@@ -465,9 +482,10 @@ export class Engine {
 
   /** MCP 连接与 skills/自定义命令加载完成（server 入口 listen 前等待；缺省项立即返回） */
   ready(): Promise<void> {
-    return Promise.all([this.mcpReady, this.skillsReady, this.commandsReady]).then(
-      () => undefined,
-    )
+    return Promise.all([this.mcpReady, this.skillsReady, this.commandsReady]).then(() => {
+      // 工单 7.6：tick 循环在 server listen 前启动（幂等；unref 不阻止进程退出）
+      this.automation.start()
+    })
   }
 
   /** §5.3 订阅透传（server SSE 的数据源；resume 供 SSE 背压 drain 恢复） */
@@ -842,6 +860,43 @@ export class Engine {
       throw new Error('E_MEMORY_UNAVAILABLE: 长期记忆未启用（memory.db 打开失败）')
     }
     return this.memory.remove(id)
+  }
+
+  // ---- 自动化触发器（阶段七工单 7.6 / H06 / ADR D26：任务列表与运行历史的线上入口） ----
+
+  /** GET /api/automation：触发器清单 */
+  listAutomations(): AutomationTriggerDto[] {
+    return this.automation.list()
+  }
+
+  /** POST /api/automation：创建（至少一种触发条件；坏 cron 表达式 → E_CRON） */
+  createAutomation(input: AutomationCreate): AutomationTriggerDto {
+    return this.automation.add(input)
+  }
+
+  /** DELETE /api/automation/:id：删除（无此条 false → 路由层 404） */
+  removeAutomation(id: string): boolean {
+    return this.automation.remove(id)
+  }
+
+  /** PUT /api/automation/:id/enabled：启停（无此条 false → 路由层 404） */
+  setAutomationEnabled(id: string, enabled: boolean): boolean {
+    return this.automation.setEnabled(id, enabled)
+  }
+
+  /** GET /api/automation/runs：运行历史（新→旧，每次触发必有一行终态记录） */
+  listAutomationRuns(limit: number): AutomationRunDto[] {
+    return this.automation.runs(limit)
+  }
+
+  /** POST /api/automation/webhook/:id：外部触发（未启用/停用/非 webhook → 语义错误） */
+  fireAutomationWebhook(id: string): Promise<void> {
+    return this.automation.fireWebhook(id)
+  }
+
+  /** POST /api/automation/:id/run：手动触发（测试/调试入口） */
+  fireAutomationManual(id: string): Promise<void> {
+    return this.automation.fireManual(id)
   }
 
   // ---- 模型路由（阶段七工单 7.7 / H07：fallback 链 + 任务路由 + 成本熔断） ----
@@ -1225,6 +1280,8 @@ export class Engine {
 
   private async doShutdown(): Promise<void> {
     this.logger.info('engine.shutdown.start', { sessions: this.sessions.size })
+    // 0) 工单 7.6：停自动化触发器（防关停流程中 tick 再创新会话）
+    this.automation.stop()
     try {
       // 1) 拒新（assertNotShutdown 已生效）2) 逐会话 interrupt + 关输入队列
       for (const entry of this.sessions.values()) {

@@ -201,3 +201,7 @@ export {
   type LogFields,
   type LogMsg,
 } from './logger.js'
+// 阶段七工单 7.6 / H06 / ADR D26：自动化触发器（cron/watch/webhook → 自动建会话执行 prompt）
+export { AutomationManager, type FireDeps } from './automation/manager.js'
+export { AutomationRegistry, type TriggerDef, type TriggerRun } from './automation/registry.js'
+export { parseCron, cronMatches, type CronSpec } from './automation/cron.js'

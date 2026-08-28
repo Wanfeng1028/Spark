@@ -11,6 +11,7 @@
 | v1.4 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 16 Hooks 生命周期改 ✅、小结计数 9/6→10/5（H03 → 7.3 ✅ 已落地：UserHookRunner——spark.json hooks 段四挂点 turn.before/after + permission.resolved/tool.completed → 外部命令（stdin 收 JSON 载荷，超时/非零退出/spawn 失败 warn 闭合）或 skill 插件事件双触发，fire-and-forget 不阻断主流程，载荷不含工具 output）；§4.4 H03 勾销注记 |
 | v1.5 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H04 勾销注记（H04 → 7.4 ✅ 已落地：命令注册表三 kind——action（compact 引擎动作）/ client（model/mcp/skills/usage/resume 前端执行）/ prompt（~/.spark/commands/*.md 自定义，$ARGUMENTS 展开走 turn 通道）；GET /api/commands + POST sessions/:id/commands/:name + GET /api/mcp、/api/skills 只读面；Composer /compact 硬编码迁入注册表分发行为回归；CommandPalette 命令分组；设置中心 mcp/skills/usage 三页只读点亮；opencode leader 键归 8.3 键位表成文） |
 | v1.6 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 8 Memory 记忆工程改 ✅、小结计数 10/5/4→11/5/3（H05 → 7.5 ✅ 已落地：~/.spark/memory.db SQLite FTS5 trigram（中文子串命中；建表失败降级 LIKE）+ memory.save/search 工具族（审批 memory.write/read 缺省 ask）+ 事件化注入——memory.injected 先于 user.message 落盘、Projector 投影为模型上下文前缀（surface 纪律双面）、每会话仅首条触发；ADR D25）；§4.4 H05 勾销注记 |
+| v1.7 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 17 Automation 自动化改 ✅、小结计数 11/5/3→12/5/2（H06 → 7.6 ✅ 已落地：AutomationRegistry（~/.spark/automation.json + automation-runs.jsonl 追加写）+ AutomationManager 进程内 tick 循环——自研 cron 解析器（范围/列表/步长/周日 7→0 归一/同分钟去重）+ watch mtime 基线 + webhook/手动触发，效果恒为建会话发 prompt（FireDeps 注入），失败运行结构化 error 留存；/api/automation 七端点 + web /automation 页（§13.F.3）；ADR D26）；§4.4 H06 勾销注记 |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
 > **方法**：三条证据链——①引擎/服务端/前端逐模块源码走读（本文所有路径均为当日实测，非转抄文档）；②协议词表 19 种逐条核对（含 `user.message.attachments?`、`assistant.message.usage` 等已预留未消费字段）；③既有审计（doc/05 缺口 G1–G7）与用户侧能力对照清单合并盘点。
@@ -41,11 +42,11 @@
 | 14 | Human-in-the-Loop          | ✅        | 审批卡、reject 级联、always 固化、规则管理 UI（4.7）                                                   | —                            |
 | 15 | Sub-agent                  | 🟡        | 5.4 Task 工具、单层限制、父中断级联                                                                    | 并行+监控 → H08              |
 | 16 | Hooks 生命周期             | ✅        | 作者侧 skill.json 声明式触发器 + 用户侧 spark.json hooks 四挂点（7.3，命令/skill 双触发 warn 闭合）     | —                            |
-| 17 | Automation 自动化          | ❌        | 无任何触发器引擎                                                                                       | → H06（工单 7.6）            |
+| 17 | Automation 自动化          | ✅        | 进程内 tick 循环 + cron/watch/webhook 三类触发 → 建会话发 prompt + 运行历史（7.6，ADR D26）           | —                            |
 | 18 | Python Worker              | ❌→**不做** | 判决见 §4.1：主流本地编码 agent 均无此模块，bash + venv 已覆盖                                       | 未来以技能/MCP 外挂          |
 | 19 | Browser/Computer Use       | ❌        | 无 browser 工具族                                                                                      | → H09（工单 7.10）           |
 
-小结：扎实具备 11 项、部分具备 5 项、缺失 3 项（自动化/Python Worker/浏览器操控），其中 Python Worker 经评估判决**不做**。
+小结：扎实具备 12 项、部分具备 5 项、缺失 2 项（Python Worker/浏览器操控），其中 Python Worker 经评估判决**不做**。
 
 ---
 
@@ -260,7 +261,7 @@
 | 编号 | 缺口 | 工单/候选池 |
 | ---- | ---- | ---- |
 | H05 | 长期记忆（FTS5，向量后置） | 7.5 ✅ 已勾销（2026-08-27） |
-| H06 | 自动化触发器（cron/watch/webhook） | 7.6 |
+| H06 | 自动化触发器（cron/watch/webhook） | 7.6 ✅ 已勾销（2026-08-29，ADR D26） |
 | H03 | 用户侧 hooks | 7.3 ✅ 已勾销（2026-08-27） |
 | H04 | 命令注册表（/compact 迁入 + 自定义命令；命令集基线对齐 Claude Code 命令面 + opencode leader 键模式） | 7.4 ✅ 已勾销（2026-08-27；opencode leader 键归 8.3 CLI 键位表统一成文） |
 | H12 | 会话全文搜索 | 7.13 |

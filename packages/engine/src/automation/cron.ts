@@ -38,12 +38,10 @@ function parseField(spec: string, min: number, max: number): Set<number> {
     }
     if (/^\d+$/.test(p)) {
       const v = Number(p)
-      // 周字段 7 折算 0（周日）——POSIX 两种写法等价
-      const value = max === 6 && v === 7 ? 0 : v
       if (v < min || v > max) {
         throw new Error(`E_CRON: 值越界 "${p}"（允许 ${min}-${max}）`)
       }
-      out.add(value)
+      out.add(v)
       continue
     }
     throw new Error(`E_CRON: 无法解析字段 "${p}"`)
@@ -65,12 +63,18 @@ export function parseCron(expr: string): CronSpec {
   if (fields.length !== 5) {
     throw new Error(`E_CRON: 须为 5 字段（分 时 日 月 周）"${expr}"`)
   }
+  const daysOfWeek = parseField(fields[4] ?? '', 0, 7)
+  // 周字段 7 折算 0（周日）——POSIX 两种写法等价；JS getDay() 周日=0
+  if (daysOfWeek.has(7)) {
+    daysOfWeek.delete(7)
+    daysOfWeek.add(0)
+  }
   return {
     minutes: parseField(fields[0] ?? '', 0, 59),
     hours: parseField(fields[1] ?? '', 0, 23),
     daysOfMonth: parseField(fields[2] ?? '', 1, 31),
     months: parseField(fields[3] ?? '', 1, 12),
-    daysOfWeek: parseField(fields[4] ?? '', 0, 7),
+    daysOfWeek,
   }
 }
 

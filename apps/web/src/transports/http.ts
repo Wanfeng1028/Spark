@@ -9,6 +9,9 @@
  */
 import { eventSchemaOf, parseEnvelope } from '@spark/protocol'
 import type {
+  AutomationCreate,
+  AutomationRunDto,
+  AutomationTriggerDto,
   CheckpointDto,
   CheckpointId,
   CommandDto,
@@ -361,6 +364,47 @@ export class HttpTransport implements Transport {
     return this.req<{ ok: boolean }>(`/api/memories/${id}`, { method: 'DELETE' }).then(
       () => undefined,
     )
+  }
+
+  listAutomation(): Promise<AutomationTriggerDto[]> {
+    return this.req<AutomationTriggerDto[]>('/api/automation')
+  }
+
+  createAutomation(input: AutomationCreate): Promise<AutomationTriggerDto> {
+    return this.req<AutomationTriggerDto>('/api/automation', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  }
+
+  removeAutomation(id: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/automation/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }).then(() => undefined)
+  }
+
+  setAutomationEnabled(id: string, enabled: boolean): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/automation/${encodeURIComponent(id)}/enabled`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    }).then(() => undefined)
+  }
+
+  listAutomationRuns(limit?: number): Promise<AutomationRunDto[]> {
+    const query = limit !== undefined ? `?limit=${limit}` : ''
+    return this.req<AutomationRunDto[]>(`/api/automation/runs${query}`)
+  }
+
+  fireAutomationWebhook(id: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/automation/webhook/${encodeURIComponent(id)}`, {
+      method: 'POST',
+    }).then(() => undefined)
+  }
+
+  fireAutomationManual(id: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/automation/${encodeURIComponent(id)}/run`, {
+      method: 'POST',
+    }).then(() => undefined)
   }
 
   dispose(): void {
