@@ -69,9 +69,9 @@ describe('GET /api/artifacts/:file（工单 7.10）', () => {
     }
   })
 
-  test('空文件名段 → 404（Fastify 不匹配空段，落兜底）', async () => {
+  test('空文件名段 → 拒绝（400/404 均闭合，不透出任何内容）', async () => {
     const f = await makeArtifactServer()
     const res = await f.app.inject({ method: 'GET', url: '/api/artifacts/' })
-    expect([404]).toContain(res.statusCode)
+    expect([400, 404]).toContain(res.statusCode)
   })
 })
