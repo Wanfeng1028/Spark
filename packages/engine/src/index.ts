@@ -216,3 +216,10 @@ export {
 } from './audit/log.js'
 // 阶段七工单 7.13 / H12：会话全文搜索（~/.spark/search.db，FTS5 trigram + LIKE 降级）
 export { SearchStore, type SearchEntry, type SearchEntryType } from './search/store.js'
+// 阶段七工单 7.10 / H09 / ADR D27：browser 工具族驱动端口（测试注入假驱动）
+export {
+  BrowserManager,
+  type BrowserDriver,
+  type BrowserOpenResult,
+  type BrowserShotResult,
+} from './browser/driver.js'

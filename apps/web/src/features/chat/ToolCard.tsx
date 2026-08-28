@@ -12,6 +12,7 @@ import {
   Copy,
   FilePen,
   FileText,
+  Globe,
   Loader2,
   Terminal,
   Wrench,
@@ -121,14 +122,17 @@ function ToolIcon({ name }: { name: string }) {
   if (name === 'bash') return <Terminal className={cls} />
   if (name === 'edit' || name === 'write') return <FilePen className={cls} />
   if (name === 'read') return <FileText className={cls} />
+  if (name.startsWith('browser.')) return <Globe className={cls} />
   return <Wrench className={cls} />
 }
 
-/** 工具资源摘要：bash→command，其余→path */
+/** 工具资源摘要：bash→command，browser→url/selector，其余→path */
 function resourceOf(name: string, input: unknown): string {
   if (typeof input !== 'object' || input === null) return ''
   const r = input as Record<string, unknown>
   if (name === 'bash' && typeof r.command === 'string') return r.command
+  if (typeof r.url === 'string') return r.url
+  if (typeof r.selector === 'string') return r.selector
   if (typeof r.path === 'string') return r.path
   if (typeof r.command === 'string') return r.command
   return ''
@@ -149,11 +153,72 @@ function ToolDetail({ name, output }: { name: string; output: unknown }) {
   if (name === 'bash') return <BashDetail output={output} />
   if (name === 'edit' || name === 'write') return <DiffViewer output={output} />
   if (name === 'read') return <ReadMeta output={output} />
+  if (name.startsWith('browser.')) return <BrowserDetail name={name} output={output} />
   return (
     <pre className="max-h-64 overflow-auto px-3 py-2 font-mono text-xs leading-relaxed text-muted-foreground">
       {JSON.stringify(output, null, 2)}
     </pre>
   )
+}
+
+/**
+ * browser 工具族可视化（工单 7.10 / ADR D27）：screenshot 显示截图本体
+ * （/api/artifacts 供图，加载失败降级占位——mock 模式与缺文件不炸）；
+ * read 显示文本预览；open/click 显示 URL 与标题元数据。
+ */
+function BrowserDetail({ name, output }: { name: string; output: unknown }) {
+  const r = (typeof output === 'object' && output !== null ? output : {}) as Record<string, unknown>
+  const url = typeof r.url === 'string' ? r.url : ''
+  const [imgFailed, setImgFailed] = useState(false)
+
+  const meta = (
+    <p className="truncate border-b border-border px-3 py-1.5 font-mono text-xs text-muted-foreground">
+      {url || '（无页面）'}
+      {typeof r.title === 'string' && r.title !== '' ? ` · ${r.title}` : ''}
+      {r.clicked === true ? ' · 已点击' : ''}
+      {typeof r.bytes === 'number' ? ` · ${(r.bytes / 1024).toFixed(1)} KB` : ''}
+    </p>
+  )
+
+  if (name === 'browser.screenshot' && typeof r.file === 'string') {
+    return (
+      <div>
+        {meta}
+        {imgFailed ? (
+          <p className="px-3 py-2 font-mono text-xs text-muted-foreground/70">
+            截图不可预览（{r.file}——服务未提供该文件）
+          </p>
+        ) : (
+          <div className="p-2">
+            <img
+              src={`/api/artifacts/${r.file}`}
+              alt={`页面截图 ${r.file}`}
+              onError={() => setImgFailed(true)}
+              className="max-h-80 w-auto rounded-md border border-border"
+            />
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (name === 'browser.read' && typeof r.text === 'string') {
+    return (
+      <div>
+        {meta}
+        <pre className="max-h-64 overflow-auto px-3 py-2 font-mono text-xs leading-relaxed text-muted-foreground">
+          {r.text}
+        </pre>
+        {r.truncated === true && (
+          <p className="border-t border-border px-3 py-1 font-mono text-xs text-muted-foreground/70">
+            正文已截断
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return meta
 }
 
 /** bash 输出（Terminal，DESIGN §8）：mono、自动滚底、右上角复制 */

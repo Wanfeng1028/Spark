@@ -15,6 +15,7 @@
 | v1.8 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 15 Sub-agent 改 ✅、小结计数 12/5/2→13/4/2（H08 → 7.8 ✅ 已落地：task 工具 `parallelizable` 解除单并发——多子代理各自独立子会话并行跑（并发仍受 maxToolParallel 分批约束），单层限制语义不变；`ToolContext.sourceEventId` 串联派生它的 `tool.started` 事件 → 子会话 header.parentEventId → 树视图锚定，`ForkChildDto.status` 运行态实时快照（已加载直读 `statusOf`，未加载 idle），SessionTreeDialog 子代理行复用 SessionStatusDot + 等待审批/运行中文案；并行时序重叠 + prompt 隔离 + 树锚定/运行态单测）；§4.4 H08 勾销注记 |
 | v1.9 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H11 勾销注记（H11 → 7.12 ✅ 已落地：~/.spark/audit.jsonl 独立追加明细流——三类 kind（权限决策含 `rule:<层>`/`reply:*`/timeout 等来源归因、规则变更含 op/effect、回滚含 checkpointId）；写前脱敏同 pino（redaction.ts 单一来源 + 密钥仓动态值），写失败旁路吞掉不阻断主链路，读端坏行跳过；GET /api/audit 过滤 since/kind/result/tool + 设置页"审计日志"查看器（§13.G 转录式，基线 15 页外增项））；§2.6 Tracing 工单指针与 §1 学科 12 证据补记（状态仍 🟡——eval/trace 缺口在，小结计数 13/4/2 不变） |
 | v1.10 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H12 勾销注记（H12 → 7.13 ✅ 已落地：~/.spark/search.db 会话全文索引——索引范围 user.message / assistant.message text 块 / session.title 三类，行主键（session_id, event_id）容 fork 同 event id 跨会话；检索链 = FTS5 trigram MATCH（≥3 字符）→ 整串 LIKE → 拆词最长词 LIKE（同 MemoryStore 先例），建表失败降级 LIKE；水位表装载点幂等同步（持平跳过/倒退截断/缺失全量补），增量钩子在 bus durable 订阅（旁路失败只 warn）；JSONL 恒为权威，库打开失败降级空结果不阻塞启动；GET /api/search（q 必填，limit 缺省 20 上限 100）+ /search 页（命中摘要查询词高亮、点击 `?event=` 直达 + ChatView 定位高亮）+ Sidebar 搜索入口；**千事件检索 <500ms** DoD 性能线入单测）；§2 遗留行全文搜索/审计明细指针补 ✅（学科计数不变——搜索未单列学科） |
+| v1.11 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.5 H09 勾销注记（H09 → 7.10 ✅ 已落地：browser.open/click/read/screenshot 工具族——BrowserDriver 端口 + 引擎级单例单页跨会话共享（playwright-core headless chromium **懒启动**，缺包/缺二进制执行期 E_BROWSER_LAUNCH fail-closed）；四工具 `parallelizable: false` 串行互斥；审批三 action（browser.navigate/interact/read，resource `url:<页>`，空规则表缺省 ask）；中断 race 即返 E_ABORTED；**截图不进事件流**——PNG 落 ~/.spark/browser-shots，输出只回文件名+字节数，GET /api/artifacts/:file 白名单供图；前端 ToolCard BrowserDetail（截图按需拉图/降级文案）；迷你 ADR D27 见 ARCHITECTURE v1.20）；§1 学科 19 改 ✅、小结计数 13/4/2→14/4/1（缺失仅剩 Python Worker，判决不做） |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
 > **方法**：三条证据链——①引擎/服务端/前端逐模块源码走读（本文所有路径均为当日实测，非转抄文档）；②协议词表 19 种逐条核对（含 `user.message.attachments?`、`assistant.message.usage` 等已预留未消费字段）；③既有审计（doc/05 缺口 G1–G7）与用户侧能力对照清单合并盘点。
@@ -47,9 +48,9 @@
 | 16 | Hooks 生命周期             | ✅        | 作者侧 skill.json 声明式触发器 + 用户侧 spark.json hooks 四挂点（7.3，命令/skill 双触发 warn 闭合）     | —                            |
 | 17 | Automation 自动化          | ✅        | 进程内 tick 循环 + cron/watch/webhook 三类触发 → 建会话发 prompt + 运行历史（7.6，ADR D26）           | —                            |
 | 18 | Python Worker              | ❌→**不做** | 判决见 §4.1：主流本地编码 agent 均无此模块，bash + venv 已覆盖                                       | 未来以技能/MCP 外挂          |
-| 19 | Browser/Computer Use       | ❌        | 无 browser 工具族                                                                                      | → H09（工单 7.10）           |
+| 19 | Browser/Computer Use       | ✅        | browser.open/click/read/screenshot 工具族（7.10，ADR D27：懒启动/单页共享/截图落盘供图/审批三 action） | —                            |
 
-小结：扎实具备 13 项、部分具备 4 项、缺失 2 项（Python Worker/浏览器操控），其中 Python Worker 经评估判决**不做**。
+小结：扎实具备 14 项、部分具备 4 项、缺失 1 项（Python Worker），其中 Python Worker 经评估判决**不做**。
 
 ---
 
@@ -278,7 +279,7 @@
 
 | 编号 | 缺口 | 工单/候选池 |
 | ---- | ---- | ---- |
-| H09 | browser 工具族（Playwright，审批默认 ask） | 7.10 |
+| H09 | browser 工具族（Playwright，审批默认 ask） | 7.10 ✅ 已勾销（2026-08-29，ADR D27） |
 | H10 | eval harness | 7.11 |
 | H20/H22/H24/H25/H27/H28/H29/H30/H31/H32/H36 | 提示词模板/审查模式/辅助会话/内置终端/trace/i18n/数据管理/诊断页/自更新/onboarding/keymap | V2-16/08/09/10/11/12/13/14/15/17/22 |
 | H33/H34/H35 | 代码语义索引/网络隔离/多窗口 | V2-18/19/20 |

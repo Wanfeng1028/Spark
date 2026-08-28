@@ -135,6 +135,9 @@ const SearchQuery = z.strictObject({
   limit: z.coerce.number().int().positive().max(100).optional(),
 })
 
+/** 浏览器截图供图（工单 7.10 / H09）：文件名白名单形状校验在引擎侧 */
+const ArtifactParams = z.strictObject({ file: z.string().min(1) })
+
 /** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
 function labelOf(e: SparkEventEnvelope): string {
   const data = e.data as Record<string, unknown>
@@ -594,6 +597,21 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
     try {
       const q = parseOr400(SearchQuery, req.query)
       return reply.send(engine.searchSessions(q.q, q.limit ?? 20))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 浏览器截图供图（阶段七工单 7.10 / H09 / ADR D27）：
+  // 文件名白名单（shot-<ts>-<seq>.png）校验在引擎侧，路径逃逸零面
+  app.get('/api/artifacts/:file', async (req, reply) => {
+    try {
+      const { file } = parseOr400(ArtifactParams, req.params)
+      const buf = engine.readScreenshot(file)
+      if (buf === null) {
+        return reply.code(404).send({ code: 'E_NOT_FOUND', message: 'not found' })
+      }
+      return reply.type('image/png').send(buf)
     } catch (err) {
       return sendError(req, reply, err)
     }

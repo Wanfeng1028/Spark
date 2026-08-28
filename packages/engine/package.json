@@ -14,6 +14,7 @@
     "@modelcontextprotocol/sdk": "1.30.0",
     "@spark/protocol": "workspace:*",
     "pino": "^10.1.0",
+    "playwright-core": "^1.62.1",
     "zod": "^4.1.5"
   },
   "devDependencies": {

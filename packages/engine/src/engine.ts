@@ -94,6 +94,10 @@ import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
 import { AuditLog, type AuditEntry, type AuditQuery } from './audit/log.js'
 import { SearchStore, type SearchEntry, type SearchEntryType } from './search/store.js'
+import { BrowserManager } from './browser/driver.js'
+import type { BrowserDriver } from './browser/driver.js'
+import { createPlaywrightDriver, SHOT_FILE_RE } from './browser/playwright.js'
+import { makeBrowserTools } from './tools/builtin/browser.js'
 
 export const SPARK_VERSION = '0.1.0'
 
@@ -175,6 +179,8 @@ export interface EngineDeps {
   newSessionId?: () => SessionId
   /** 日志器（缺省 `new Logger({ root })` → stdout + `<root>/logs/engine.log` §5.10 双路） */
   logger?: SparkLogger
+  /** browser 驱动工厂（缺省 playwright-core 懒启动；测试注入假驱动免真实浏览器） */
+  browserDriver?: () => Promise<BrowserDriver>
 }
 
 interface SessionEntry {
@@ -215,6 +221,10 @@ export class Engine {
   /** 全文搜索索引（阶段七工单 7.13 / H12）：~/.spark/search.db（打开失败 null 降级） */
   private readonly search: SearchStore | null
   private searchClosed = false
+  /** browser 工具族（阶段七工单 7.10 / H09 / ADR D27）：引擎级单例单页，驱动懒启动 */
+  private readonly browser: BrowserManager
+  /** 截图落盘目录（~/.spark/browser-shots；GET /api/artifacts/:file 供图） */
+  private readonly shotsDir: string
   /** 成本累计（阶段七工单 7.7 / H07）：~/.spark/usage.json 持久化，熔断判定数据源 */
   private readonly costTracker: CostTracker
   /**
@@ -404,6 +414,13 @@ export class Engine {
     }
     this.search = searchStore
 
+    // 工单 7.10 / H09 / ADR D27：browser 工具族——引擎级单例单页；
+    // 驱动（playwright-core）首次 browser.open 才启动，构造期零依赖
+    this.shotsDir = join(this.root, 'browser-shots')
+    this.browser = new BrowserManager(
+      deps.browserDriver ?? createPlaywrightDriver(this.shotsDir, this.logger),
+    )
+
     // 工单 7.6 / H06 / ADR D26：自动化触发器（触发=自动建会话执行 prompt，走正常 turn 通道）；
     // 坏 automation.json 构造即抛 E_CONFIG（配置错误不带病运行，同 loadConfig 纪律）
     this.automation = new AutomationManager(new AutomationRegistry(this.root), {
@@ -422,6 +439,11 @@ export class Engine {
     if (this.memory !== null) {
       this.registry.register(memorySaveTool)
       this.registry.register(memorySearchTool)
+    }
+    // browser 工具族（工单 7.10 / ADR D27）：恒广告——浏览器二进制缺失时
+    // 执行期 E_BROWSER_LAUNCH fail-closed（缺失不是静默降级的理由）
+    for (const tool of makeBrowserTools(this.browser)) {
+      this.registry.register(tool)
     }
     // Task 工具（工单 5.4 / ADR D17）：执行体注入——子会话管理是 Engine 职责
     this.registry.register(
@@ -844,6 +866,21 @@ export class Engine {
       time: r.time,
       snippet: searchSnippet(r.content, q),
     }))
+  }
+
+  // ---- 浏览器截图供图（工单 7.10 / H09 / ADR D27）----
+
+  /**
+   * 读截图文件（GET /api/artifacts/:file 的引擎数据源）：文件名白名单
+   * （`shot-<ts>-<seq>.png`）+ 目录拼接——路径逃逸零面。不存在/非法名 → null。
+   */
+  readScreenshot(file: string): Buffer | null {
+    if (!SHOT_FILE_RE.test(file)) return null
+    try {
+      return readFileSync(join(this.shotsDir, file))
+    } catch {
+      return null
+    }
   }
 
   /** durable 事件增量入搜索索引（bus 钩子；旁路——失败只 warn，不碰事件流） */
@@ -1513,6 +1550,12 @@ export class Engine {
         } catch (err) {
           this.logger.warn('search.close.error', { err })
         }
+      }
+      // 6.7) browser 工具族收尾（工单 7.10 / ADR D27）：关闭 chromium（未启动则为空操作）
+      try {
+        await this.browser.close()
+      } catch (err) {
+        this.logger.warn('browser.close.error', { err })
       }
       this.logger.info('engine.shutdown.done')
     } catch (err) {

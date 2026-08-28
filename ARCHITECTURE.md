@@ -27,6 +27,7 @@
 | v1.17 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | 新增 **D25 长期记忆 = SQLite FTS5 trigram + 事件化注入（memory.injected 先于 user.message 落盘，Projector 投影为模型上下文前缀——surface 纪律双面成立）**（阶段七工单 7.5 迷你 ADR）；§4 事件模型行 **20→21 种**（新增 `memory.injected`）；与 doc/02 v3.14、AGENTS v1.19、README v1.19 同步 |
 | v1.18 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | 新增 **D26 自动化 = 进程内 tick 循环 + cron/watch/webhook 三类触发器，触发即建会话发 prompt，失败运行结构化留存**（阶段七工单 7.6 迷你 ADR）；事件词表不变（自动化不进事件流）；与 doc/02 v3.15、doc/07 v1.7 同步 |
 | v1.19 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | **D17 补记**：子代理并行解除（task 工具 `parallelizable` 改 true——独立子会话并行互不串扰，单层限制/中断级联语义不变）+ 树状运行监控（`ToolContext.sourceEventId` → 子会话 header.parentEventId → 树视图锚定；`ForkChildDto.status` 运行态快照，前端复用 SessionStatusDot）（阶段七工单 7.8）；事件词表不变；与 doc/02 v3.16、doc/07 v1.8 同步 |
+| v1.20 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | 新增 **D27 browser 工具族 = BrowserDriver 端口 + 引擎级单页共享 + 截图落盘走静态面**（阶段七工单 7.10 迷你 ADR：playwright-core 懒启动 fail-closed / 四工具 parallelizable=false 串行互斥 / 审批三 action 缺省 ask / 截图文件名白名单供图）；事件词表不变；与 doc/02 v3.19、doc/07 v1.11 同步 |
 
 ---
 
@@ -228,6 +229,13 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 候选：① 外挂系统调度器（crontab/计划任务）回调 webhook——跨平台安装路径分叉，且脱离引擎生命周期（引擎没跑时触发了也无人处理）；② 独立守护进程——违反单进程本地模型（D5/D10）；③ **引擎进程内 AutomationManager tick 循环**——引擎在跑才谈自动化，与"本地 127.0.0.1、无后台常驻"定位一致。
 结论：`AutomationRegistry`（`~/.spark/automation.json` 原子写存触发器定义 + `automation-runs.jsonl` 追加写运行历史——与会话 JSONL 同一单写者纪律）+ `AutomationManager`（setInterval tick，cron 自研解析器支持 `*`/范围/列表/步长与周日 7→0 归一；同分钟去重防重复触发；watch 基线比对文件 mtime；webhook/手动按需触发）；**触发效果恒为"建会话 + 发 prompt"**（FireDeps.createSession 注入，引擎接线，测试可替身）；**失败闭合**：触发器禁用/不存在/类型不符一律拒绝（E_TRIGGER_DISABLED/E_TRIGGER_KIND/E_TRIGGER），fire 失败不吞——运行历史行留结构化 `error` 字段（验收条款"失败运行有结构化错误留存"）。协议面 = AutomationTriggerDto/AutomationCreate/AutomationRunDto + Transport 七方法（从 packages/protocol 开始，AGENTS §2.5）；路由 7 端点（/api/automation*），错误码前缀映射 E_TRIGGER*/E_CRON。
 后果：web 新增 /automation 页（§13.F.3 形态：模板网格+任务列表+运行历史）；**"保持电脑唤醒"开关不在 web 落地**——系统电源权限归桌面壳（Electron 阶段再议，web 无此能力，如实缺省而非假实现）；引擎未运行时触发器不生效是刻意语义（不做补偿触发，避免"补跑"带来的不确定性）；watch 触发器数量大时 mtime 轮询成本线性增长，为已知限制（文件监听库后置）。
+
+### D27 browser 工具族 = BrowserDriver 端口 + 引擎级单页共享 + 截图落盘走静态面（2026-08-29，阶段七工单 7.10 迷你 ADR）
+
+背景：doc/07 H09 缺口——无浏览器能力（Computer Use 类工具缺席）；工单 7.10 要求 browser.open/click/read/screenshot 四工具、审批默认 ask、截图经工具输出限界、前端 BrowserCard 可视化。
+候选：① 每会话独立浏览器实例——资源放大且无必要（浏览器页面本就是进程级副作用面）；② MCP browser server 外挂（Playwright MCP 形态）——多一个子进程生命周期与一条审批旁路，而引擎审批管线已是一等公民通道；③ **引擎内置工具族 + BrowserDriver 端口**——与 MCP 工具同管线一视同仁（D16 判例），测试以假驱动替身。
+结论：`BrowserDriver` 端口（open/click/readText/screenshot/currentUrl/close），生产实现 = `playwright-core` headless chromium **懒启动**（首次 browser.open 才 launch，构造期零依赖；缺浏览器二进制/包 → 执行期 E_BROWSER_LAUNCH fail-closed）；**引擎级单例单页**——四工具一律 `parallelizable: false` 走串行 barrier，天然互斥；跨会话共享同一页是刻意语义（同进程同权限面）。审批：`browser.navigate`（resource `url:<目标>`）/ `browser.interact`（click）/ `browser.read`（read/screenshot），resource 均含当前页 URL——空规则表缺省 ask，域名白名单可 always 固化（`url:https://docs.**` 风格）。中断：`ctx.signal` race 即返 E_ABORTED（底层 Playwright 操作跑到静默，同"已启动工具不硬杀"纪律）。**截图不进事件流**：PNG 落 `~/.spark/browser-shots/`，工具输出只回文件名+字节数（天然过 32KB 限界），GET /api/artifacts/:file 白名单文件名校验后供图（前端 BrowserCard 展示；路径逃逸零面）。
+后果：事件词表不变（工具事件走既有 tool.started/completed）；`playwright-core` 入引擎依赖（安装不自动下载浏览器——`npx playwright install chromium` 是显式前置，缺失时工具报错而非静默降级）；read 输出正文截断 + 管线输出限界双重保护；多页/有头模式/网络隔离（D15 同源后置）进 v2 候选池。
 
 ## 6. 模块速览（职责边界）
 
