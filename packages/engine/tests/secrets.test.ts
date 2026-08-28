@@ -39,6 +39,12 @@ const VALID_MODELS = JSON.stringify({
     ollama: { baseUrl: 'http://127.0.0.1:11434/v1', apiKeyEnv: null },
   },
   defaultModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 128000 },
+  compactionModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 128000 },
+  fallbacks: [],
+  titleModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 128000 },
+  subagentModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 128000 },
+  costLimitUsd: undefined,
+  models: [{ provider: 'deepseek', model: 'deepseek-chat', contextWindow: 128000 }],
 })
 
 /** 最小可用引擎配置（checkpoints 关——测试提速，engine.test.ts 同惯例） */

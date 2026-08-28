@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=24"
+  },
   "description": "Spark — Agent 工作台：Node/TS 引擎（headless）+ React Web 前端（实现规格见 doc/02）",
   "scripts": {
     "build": "pnpm -r build",
