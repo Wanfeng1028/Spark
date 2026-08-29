@@ -1,0 +1,48 @@
+/* 基础组件样式（工单 9.4）：rpx 保持 4 的倍数（750 设计稿 1px≈2rpx）；
+   禁多层阴影（至多单档）；系统字体（不设 font-family） */
+
+.spark-card {
+  border-radius: 24rpx;
+  padding: 32rpx;
+}
+
+.spark-hairline {
+  height: 1px;
+  width: 100%;
+}
+
+.spark-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 128rpx 64rpx;
+}
+
+.spark-empty-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.spark-empty-detail {
+  font-size: 28rpx;
+  text-align: center;
+}
+
+/* 浮钮：112rpx（56px×2）圆；单档阴影（§13.I 纪律） */
+.spark-fab {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.16);
+}
+
+.spark-fab-glyph {
+  font-size: 44rpx;
+  line-height: 48rpx;
+  font-weight: 600;
+}

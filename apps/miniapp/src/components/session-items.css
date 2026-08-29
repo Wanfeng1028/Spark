@@ -1,0 +1,137 @@
+/* 会话页消息流样式（工单 9.4）：尺寸自 §13.J.2.3 换算（1px≈2rpx），rpx 保持 4 的倍数 */
+
+/* user 右对齐浅灰胶囊 */
+.si-user-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+}
+
+.si-user-bubble {
+  max-width: 80%;
+  border-radius: 36rpx;
+  padding: 20rpx 28rpx;
+}
+
+.si-user-text {
+  font-size: 32rpx;
+  line-height: 44rpx;
+}
+
+/* assistant 全宽纯文本 */
+.si-assistant {
+  display: flex;
+  flex-direction: column;
+}
+
+.si-assistant-text {
+  font-size: 36rpx;
+  line-height: 48rpx;
+}
+
+.si-action-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 12rpx;
+}
+
+.si-copy-btn {
+  padding: 8rpx 16rpx 8rpx 0;
+  margin-right: 24rpx;
+}
+
+.si-meta {
+  font-size: 24rpx;
+  line-height: 36rpx;
+}
+
+/* 工具卡/思考块：紧凑卡（覆盖 Card 缺省内边距） */
+.si-tight-card {
+  padding: 20rpx 32rpx;
+}
+
+.si-card-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.si-card-title {
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 40rpx;
+}
+
+.si-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.si-chevron {
+  font-size: 24rpx;
+  margin-left: 16rpx;
+}
+
+.si-detail-text {
+  font-size: 24rpx;
+  line-height: 36rpx;
+  margin-top: 12rpx;
+}
+
+.si-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 12;
+  overflow: hidden;
+}
+
+/* 审批卡：白卡 + warn 左边条 */
+.si-approval-card {
+  display: flex;
+  flex-direction: row;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  overflow: hidden;
+}
+
+.si-approval-bar {
+  width: 6rpx;
+  align-self: stretch;
+}
+
+.si-approval-body {
+  flex: 1;
+  padding-left: 24rpx;
+}
+
+.si-approval-resource {
+  font-size: 32rpx;
+  line-height: 44rpx;
+  margin-top: 8rpx;
+}
+
+.si-approval-buttons {
+  margin-top: 16rpx;
+}
+
+/* 三键纵向全宽（J.3）：高 88rpx（44px×2）胶囊 */
+.si-approval-btn {
+  height: 88rpx;
+  border-radius: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16rpx;
+}
+
+.si-approval-btn-text {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.si-approval-resolved {
+  padding-top: 16rpx;
+}

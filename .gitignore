@@ -27,6 +27,9 @@ pnpm-debug.log*
 coverage/
 .vitest/
 
+# SWC 插件缓存（Taro/swc 构建运行时产物，工单 9.4）
+.swc/
+
 # Playwright 运行产物（trace/失败上下文；__screenshots__ 基线截图入库）
 apps/web/e2e/.artifacts/
 apps/web/playwright/.cache/

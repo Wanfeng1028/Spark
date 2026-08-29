@@ -42,6 +42,21 @@ export default tseslint.config(
     },
   },
   {
+    // apps/miniapp 的 Babel 配置：CJS（同 mobile 判例——工单 9.4）
+    files: ['apps/miniapp/babel.config.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        module: 'writable',
+        require: 'readonly',
+        __dirname: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
     languageOptions: {
       parserOptions: {
         projectService: {
@@ -50,6 +65,8 @@ export default tseslint.config(
             // apps/mobile 的 Metro/Babel 配置（CJS，不在任何 tsconfig 项目内）
             'apps/mobile/metro.config.js',
             'apps/mobile/babel.config.js',
+            // apps/miniapp 的 Babel 配置（同判例）
+            'apps/miniapp/babel.config.js',
           ],
         },
       },

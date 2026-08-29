@@ -1,0 +1,17 @@
+{
+  "miniprogramRoot": "dist/",
+  "projectname": "spark-miniapp",
+  "description": "Spark 微信小程序（Taro 4 壳，ADR D21 工单 9.4）",
+  "appid": "touristappid",
+  "setting": {
+    "urlCheck": false,
+    "es6": false,
+    "enhance": false,
+    "postcss": false,
+    "minified": true
+  },
+  "compileHotReLoad": true,
+  "compileType": "miniprogram",
+  "libVersion": "3.8.0",
+  "condition": {}
+}
