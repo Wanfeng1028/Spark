@@ -18,6 +18,10 @@ import type {
   MemoryDto,
   ModelTestResultDto,
   ModelsDto,
+  PairCodeDto,
+  PairRedeemBody,
+  PairStatusDto,
+  PairTokenDto,
   PermissionPreset,
   PermissionRuleDto,
   RoutingDto,
@@ -121,5 +125,13 @@ export interface Transport {
   listAudit(query?: AuditQuery): Promise<AuditEntryDto[]>
   /** GET /api/search?q：会话全文搜索（事件内容命中；工单 7.13） */
   search(q: string, limit?: number): Promise<SearchHitDto[]>
+  /** GET /api/pair：配对状态（监听地址/鉴权启用态/已配对设备；工单 9.1 / ADR D24） */
+  getPairStatus(): Promise<PairStatusDto>
+  /** POST /api/pair/code：签发配对码（6 位短码 60s 有效 + QR 出示内容） */
+  createPairCode(): Promise<PairCodeDto>
+  /** POST /api/pair：短码兑长效 token（移动端兑换口，鉴权自举；工单 9.1 / ADR D24） */
+  redeemPair(body: PairRedeemBody): Promise<PairTokenDto>
+  /** DELETE /api/pair/devices/:id：撤销设备（撤销后已连 SSE 立即断开） */
+  revokePairDevice(id: string): Promise<void>
   dispose(): void
 }

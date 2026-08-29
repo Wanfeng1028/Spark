@@ -29,6 +29,7 @@ apps/web/e2e/.artifacts/
 apps/web/playwright/.cache/
 # 本地工具产物（HTML share 预览等），不入库
 .trae-html-share-packages/
+.qoder/better-harness/
 
 # IDE & OS
 .idea/

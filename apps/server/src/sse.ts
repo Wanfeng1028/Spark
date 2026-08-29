@@ -24,6 +24,8 @@ declare module 'fastify' {
   interface FastifyInstance {
     /** 优雅退出用：全部活跃 SSE 连接发 bye 帧并断开（§7.1 序列第 1 步） */
     sseCloseAll(): void
+    /** 撤销配对设备时断开携带该 token 的已连 SSE（工单 9.1 / D24：撤销即断） */
+    sseRevokeToken(tokenHash: string): void
   }
 }
 
@@ -39,12 +41,22 @@ function frame(e: SparkEventEnvelope): string {
 const ssePlugin: FastifyPluginCallback<SseOptions> = (app, opts) => {
   const { engine } = opts
   const heartbeatMs = opts.heartbeatMs ?? 15_000
-  const clients = new Set<ServerResponse>()
+  /** 活跃连接 → 设备 token 哈希（未鉴权请求为 undefined；撤销时按哈希断连） */
+  const clients = new Map<ServerResponse, string | undefined>()
 
   app.decorate('sseCloseAll', () => {
-    for (const res of clients) {
+    for (const res of clients.keys()) {
       res.write('event: bye\ndata: {}\n\n')
       res.end()
+    }
+  })
+
+  app.decorate('sseRevokeToken', (tokenHash: string) => {
+    for (const [res, hash] of clients) {
+      if (hash !== tokenHash) continue
+      res.write('event: bye\ndata: {}\n\n')
+      res.end()
+      clients.delete(res)
     }
   })
 
@@ -74,7 +86,7 @@ const ssePlugin: FastifyPluginCallback<SseOptions> = (app, opts) => {
       'X-Accel-Buffering': 'no',
       'X-Content-Type-Options': 'nosniff',
     })
-    clients.add(res)
+    clients.set(res, req.pairTokenHash)
     // writeHead 不会立即发包（首个 write 才刷头）——先写注释帧让客户端立刻拿到响应头
     res.write(': connected\n\n')
 

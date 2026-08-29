@@ -45,6 +45,12 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
         status: 'ready',
       },
       {
+        id: 'devices',
+        title: '设备与配对',
+        description: '配对状态、已配对设备与添加设备（工单 9.1 / D24）',
+        status: 'ready',
+      },
+      {
         id: 'browser',
         title: '浏览器',
         description: '浏览器工具的数据与引擎设置',

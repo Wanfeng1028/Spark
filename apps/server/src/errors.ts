@@ -96,6 +96,14 @@ export function toApiError(err: unknown): ApiError {
     // 工单 7.6：cron 表达式解析失败 → 400
     return new ApiError(400, 'E_CRON', msg.slice('E_CRON:'.length).trim())
   }
+  if (msg.startsWith('E_PAIR_DISABLED')) {
+    // 工单 9.1：配对鉴权未启用（devices.json 不存在）即调兑换口 → 403（需先在桌面端开启）
+    return new ApiError(403, 'E_PAIR_DISABLED', '配对鉴权未启用：请先在桌面端设置页添加设备')
+  }
+  if (msg.startsWith('E_PAIR')) {
+    // 工单 9.1：配对码不符/过期/重放（不区分原因，避免泄露在途码状态）→ 401
+    return new ApiError(401, 'E_PAIR', '配对码无效或已过期')
+  }
   return new ApiError(500, 'E_INTERNAL', 'internal error')
 }
 

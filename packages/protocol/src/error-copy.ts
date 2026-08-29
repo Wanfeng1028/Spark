@@ -20,6 +20,9 @@ export const ERROR_COPY: Record<string, string> = {
   E_CHECKPOINT_ROLLBACK: '回滚失败：git 操作异常，详情见服务端日志',
   E_CONFIG: '模型配置无效：须为已配置供应商的 provider/model',
   E_SHUTTING_DOWN: '引擎正在关闭，请稍后重启应用',
+  E_AUTH: '连接未通过鉴权：请重新配对设备或检查 token',
+  E_PAIR: '配对码无效或已过期，请在桌面端重新获取',
+  E_PAIR_DISABLED: '配对鉴权未启用：请先在桌面端设置页添加设备',
   E_INTERNAL: '服务内部错误，请重试；若持续出现请查看服务端日志',
   // ---- transport / mock 特有 ----
   E_MOCK_UNKNOWN_SESSION: '会话不存在或已被清理',

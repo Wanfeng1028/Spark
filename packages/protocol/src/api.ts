@@ -332,3 +332,48 @@ export const SearchHitDtoSchema = z.strictObject({
   snippet: z.string(),
 })
 export type SearchHitDto = z.infer<typeof SearchHitDtoSchema>
+
+// ---------- 配对鉴权（doc/02 §8 阶段九工单 9.1 / ADR D24） ----------
+
+/** 已配对设备行（GET /api/pair 设备列表；token 永不上线，仅存哈希） */
+export const PairedDeviceDtoSchema = z.strictObject({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  createdAt: z.number().int().nonnegative(),
+  lastSeenAt: z.number().int().nonnegative(),
+})
+export type PairedDeviceDto = z.infer<typeof PairedDeviceDtoSchema>
+
+/** 配对状态（GET /api/pair：监听地址 + 鉴权启用态 + 设备列表） */
+export const PairStatusDtoSchema = z.strictObject({
+  host: z.string().min(1),
+  port: z.number().int().positive(),
+  /** true = 仅环回监听（缺省红线形态，无需鉴权） */
+  loopback: z.boolean(),
+  /** true = 配对鉴权已启用（~/.spark/devices.json 存在） */
+  authEnabled: z.boolean(),
+  devices: z.array(PairedDeviceDtoSchema),
+})
+export type PairStatusDto = z.infer<typeof PairStatusDtoSchema>
+
+/** 配对码（POST /api/pair/code：6 位短码 60s 有效 + QR 出示内容） */
+export const PairCodeDtoSchema = z.strictObject({
+  code: z.string().regex(/^\d{6}$/),
+  expiresAt: z.number().int().positive(),
+  /** QR 内容：spark://pair?host=<host>&port=<port>&code=<短码>（DESIGN §13.J.2.9） */
+  qr: z.string().min(1),
+})
+export type PairCodeDto = z.infer<typeof PairCodeDtoSchema>
+
+/** 移动端换长效 token（POST /api/pair：扫码/手输短码兑换；name 为设备名） */
+export const PairRedeemBodySchema = z.strictObject({
+  code: z.string().regex(/^\d{6}$/),
+  name: z.string().min(1).max(64).optional(),
+})
+export type PairRedeemBody = z.infer<typeof PairRedeemBodySchema>
+
+/** 配对兑换结果（长效 token 仅此次回传，此后只存哈希） */
+export const PairTokenDtoSchema = z.strictObject({
+  token: z.string().min(1),
+})
+export type PairTokenDto = z.infer<typeof PairTokenDtoSchema>

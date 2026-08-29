@@ -24,6 +24,10 @@ import type {
   MemoryDto,
   ModelTestResultDto,
   ModelsDto,
+  PairCodeDto,
+  PairRedeemBody,
+  PairStatusDto,
+  PairTokenDto,
   RoutingDto,
   RoutingUpdate,
   PermissionPreset,
@@ -751,6 +755,56 @@ export class MockTransport implements Transport {
       return Promise.reject(new Error(`E_COMMAND_CLIENT: /${name} 是界面命令，由前端执行`))
     }
     return Promise.reject(new Error(`E_NOT_FOUND: 未知命令 /${name}`))
+  }
+
+  // ---- 配对鉴权（工单 9.1 / D24 对等演示：内存表，进程生命周期内有效） ----
+
+  private pairSeq = 0
+  /** 在途短码（一次性：兑换后失效；与服务端 PairService 同语义） */
+  private pairCode: string | null = null
+  private readonly pairDevices: { id: string; name: string; createdAt: number; lastSeenAt: number }[] = []
+
+  getPairStatus(): Promise<PairStatusDto> {
+    this.assertNotDisposed()
+    return Promise.resolve({
+      host: '127.0.0.1',
+      port: 4318,
+      loopback: true,
+      authEnabled: this.pairDevices.length > 0,
+      devices: [...this.pairDevices],
+    })
+  }
+
+  createPairCode(): Promise<PairCodeDto> {
+    this.assertNotDisposed()
+    const code = String((this.pairSeq += 1)).padStart(6, '0')
+    this.pairCode = code
+    const dto: PairCodeDto = {
+      code,
+      expiresAt: Date.now() + 60_000,
+      qr: `spark://pair?host=127.0.0.1&port=4318&code=${code}`,
+    }
+    return Promise.resolve(dto)
+  }
+
+  redeemPair(body: PairRedeemBody): Promise<PairTokenDto> {
+    this.assertNotDisposed()
+    if (this.pairCode === null || body.code !== this.pairCode) {
+      return Promise.reject(new Error('E_PAIR: 配对码无效或已过期'))
+    }
+    this.pairCode = null // 一次性：兑换后即失效（重放拒绝）
+    const now = Date.now()
+    const id = `dev_mock_${this.pairDevices.length + 1}`
+    this.pairDevices.push({ id, name: body.name ?? '移动设备', createdAt: now, lastSeenAt: now })
+    return Promise.resolve({ token: `spk_mock_${id}` })
+  }
+
+  revokePairDevice(id: string): Promise<void> {
+    this.assertNotDisposed()
+    const idx = this.pairDevices.findIndex((d) => d.id === id)
+    if (idx < 0) return Promise.reject(new Error(`E_NOT_FOUND: 配对设备 ${id} 不存在`))
+    this.pairDevices.splice(idx, 1)
+    return Promise.resolve()
   }
 
   listMcpServers(): Promise<McpServerDto[]> {

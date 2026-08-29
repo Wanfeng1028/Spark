@@ -13,6 +13,8 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/*.min.js',
       'examples/spike-pi-ai/**',
+      // 本地工具产物（Qoder better-harness 报告等，同 .trae-html-share-packages 判例）
+      '.qoder/better-harness/**',
       // 测试夹具：由测试用例 spawn 的独立 Node 脚本（非 TS 项目成员）
       'packages/engine/tests/fixtures/*.mjs',
     ],

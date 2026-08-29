@@ -23,6 +23,10 @@ import type {
   MemoryDto,
   ModelTestResultDto,
   ModelsDto,
+  PairCodeDto,
+  PairRedeemBody,
+  PairStatusDto,
+  PairTokenDto,
   PermissionPreset,
   PermissionRuleDto,
   RoutingDto,
@@ -53,6 +57,8 @@ export interface HttpTransportOptions {
   onResync?: (sids: readonly SessionId[]) => void
   /** 是否启动全局 SSE 直播（缺省启动；cli 走 SessionEventSource 会话级流时传 false 仅用 REST） */
   eventStream?: boolean
+  /** 配对长效 token（工单 9.1 / D24）：REST 附 Bearer 头，SSE URL 附 ?token=（与服务端 tokenOf 双口径一致） */
+  authToken?: string
 }
 
 /** server 错误体（§7.4）：{code, message} */
@@ -98,6 +104,22 @@ export function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
   })
 }
 
+/**
+ * SSE 切帧纯函数（四端共享，供小程序端复用——工单 9.4）：
+ * 新 chunk 拼接缓冲后按 `\n\n` 切出完整帧，返回帧序列与残余缓冲（尾帧未收齐时留存）。
+ */
+export function splitSseFrames(chunk: string, buffer: string): { frames: string[]; rest: string } {
+  let buf = buffer + chunk
+  const frames: string[] = []
+  for (;;) {
+    const idx = buf.indexOf('\n\n')
+    if (idx === -1) break
+    frames.push(buf.slice(0, idx))
+    buf = buf.slice(idx + 2)
+  }
+  return { frames, rest: buf }
+}
+
 /** ReadableStream → 帧切分（\n\n）→ envelopeFromSseFrame 分发；坏帧冒泡（失败闭合） */
 export async function pumpSseStream(
   body: ReadableStream<Uint8Array>,
@@ -109,12 +131,9 @@ export async function pumpSseStream(
   for (;;) {
     const { done, value } = await reader.read()
     if (done) break
-    buf += decoder.decode(value, { stream: true })
-    for (;;) {
-      const idx = buf.indexOf('\n\n')
-      if (idx === -1) break
-      const frame = buf.slice(0, idx)
-      buf = buf.slice(idx + 2)
+    const { frames, rest } = splitSseFrames(decoder.decode(value, { stream: true }), buf)
+    buf = rest
+    for (const frame of frames) {
       const envelope = envelopeFromSseFrame(frame)
       if (envelope !== null) onEnvelope(envelope)
     }
@@ -125,6 +144,7 @@ export class HttpTransport implements Transport {
   protected readonly base: string
   private readonly backoffMs: readonly number[]
   private readonly opts: HttpTransportOptions
+  private readonly authToken: string | undefined
   private readonly handlers = new Set<(e: SparkEventEnvelope) => void>()
   private readonly abort = new AbortController()
   private readonly openSessions = new Set<SessionId>()
@@ -135,6 +155,7 @@ export class HttpTransport implements Transport {
   constructor(opts: HttpTransportOptions = {}) {
     this.opts = opts
     this.base = opts.baseUrl ?? ''
+    this.authToken = opts.authToken
     this.backoffMs = opts.backoffMs ?? DEFAULT_BACKOFF_MS
     if (opts.eventStream !== false) {
       this.setStatus('connecting')
@@ -160,7 +181,11 @@ export class HttpTransport implements Transport {
   protected async loop(): Promise<void> {
     while (!this.disposed) {
       try {
-        const res = await fetch(`${this.base}/api/event`, {
+        // SSE 无法自定义头：token 走 ?token= 查询参数（服务端 tokenOf 双口径，工单 9.1）
+        const url = `${this.base}/api/event${
+          this.authToken !== undefined ? `?token=${encodeURIComponent(this.authToken)}` : ''
+        }`
+        const res = await fetch(url, {
           signal: this.abort.signal,
           headers: { accept: 'text/event-stream' },
         })
@@ -200,7 +225,11 @@ export class HttpTransport implements Transport {
     this.assertNotDisposed()
     const res = await fetch(`${this.base}${path}`, {
       ...init,
-      headers: { 'content-type': 'application/json', ...init?.headers },
+      headers: {
+        'content-type': 'application/json',
+        ...init?.headers,
+        ...(this.authToken !== undefined ? { authorization: `Bearer ${this.authToken}` } : {}),
+      },
     })
     if (!res.ok) {
       let code = `HTTP_${res.status}`
@@ -458,6 +487,27 @@ export class HttpTransport implements Transport {
     return this.req<SearchHitDto[]>(`/api/search?${params.toString()}`)
   }
 
+  getPairStatus(): Promise<PairStatusDto> {
+    return this.req<PairStatusDto>('/api/pair')
+  }
+
+  createPairCode(): Promise<PairCodeDto> {
+    return this.req<PairCodeDto>('/api/pair/code', { method: 'POST' })
+  }
+
+  redeemPair(body: PairRedeemBody): Promise<PairTokenDto> {
+    return this.req<PairTokenDto>('/api/pair', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  }
+
+  revokePairDevice(id: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/pair/devices/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }).then(() => undefined)
+  }
+
   dispose(): void {
     this.disposed = true
     this.abort.abort()
@@ -477,6 +527,8 @@ export interface SessionEventSourceOptions {
   backoffMs?: readonly number[]
   onStatus?: (s: HttpConnectionStatus) => void
   onEvent?: (e: SparkEventEnvelope) => void
+  /** 配对长效 token（工单 9.1 / D24）：SSE URL 附 &token=（服务端 tokenOf 双口径） */
+  authToken?: string
 }
 
 /**
@@ -518,7 +570,8 @@ export class SessionEventSource {
   private async loop(): Promise<void> {
     while (!this.disposed) {
       try {
-        const url = `${this.opts.baseUrl}/api/event?sessionId=${this.opts.sessionId}&since=${this.watermark}`
+        let url = `${this.opts.baseUrl}/api/event?sessionId=${this.opts.sessionId}&since=${this.watermark}`
+        if (this.opts.authToken !== undefined) url += `&token=${encodeURIComponent(this.opts.authToken)}`
         const res = await fetch(url, {
           signal: this.abort.signal,
           headers: { accept: 'text/event-stream' },
