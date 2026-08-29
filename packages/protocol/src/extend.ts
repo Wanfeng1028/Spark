@@ -1,7 +1,7 @@
 /**
  * 事件词表运行时扩展（doc/02 §4.3 merge-extensible，阶段五工单 5.5 / ADR D18）：
  * 插件经 registerEventType 注册新事件类型（zod schema），EventBus/parseEnvelope/
- * SessionStore 读端统一走 eventSchemaOf——扩展事件与内置 19 种同一校验路径。
+ * SessionStore 读端统一走 eventSchemaOf——扩展事件与内置 20 种同一校验路径。
  * 编译期扩展走 declaration merging（SparkEventMap）；本注册表是 JS 插件的运行时对位。
  */
 import type { z } from 'zod'

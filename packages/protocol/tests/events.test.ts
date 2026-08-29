@@ -1,6 +1,6 @@
 /**
  * 协议 round-trip 单测（doc/02 §8.6 protocol 行；工单 1.2 验收）：
- * 19 种事件逐一构造样例 → 信封+data 双步校验 → JSON 序列化往返仍通过。
+ * 20 种事件逐一构造样例 → 信封+data 双步校验 → JSON 序列化往返仍通过。
  */
 import { describe, expect, it } from 'vitest'
 import { EnvelopeSchema, EventSchemas, jsonSchemas, parseEnvelope } from '../src/index.js'
@@ -68,6 +68,18 @@ const samples: { [K in SparkEventType]: SparkEventMap[K] } = {
   },
   'checkpoint.created': { checkpointId: ckp, files: ['src/a.ts'], turnId: trn },
   error: { scope: 'llm', message: 'provider 429 重试穷尽' },
+  'io.warning': {
+    turnId: trn,
+    callId: cal,
+    tool: 'bash',
+    kind: 'injection',
+    rules: ['injection.ignore-instructions'],
+  },
+  'memory.injected': {
+    turnId: trn,
+    query: '数据库连接配置',
+    memories: [{ id: 7, content: '用户偏好 PostgreSQL，连接串在 .env', createdAt: 1787800000000 }],
+  },
 }
 
 /** 组装信封：durable 类带 seq/parentId；surface 类带 surface 标记（编译期强制） */
@@ -92,8 +104,8 @@ function envelopeOf<K extends SparkEventType>(
 }
 
 describe('事件词表', () => {
-  it('词表共 19 种（durable 16 + live 3）', () => {
-    expect(Object.keys(EventSchemas)).toHaveLength(19)
+  it('词表共 21 种（durable 18 + live 3）', () => {
+    expect(Object.keys(EventSchemas)).toHaveLength(21)
   })
 
   it('surface 事件类型层强制标记（编译期断言的运行时副本）', () => {
@@ -104,7 +116,7 @@ describe('事件词表', () => {
   })
 })
 
-describe('round-trip：19 种事件逐一', () => {
+describe('round-trip：20 种事件逐一', () => {
   for (const key of Object.keys(samples) as SparkEventType[]) {
     it(`${key}：构造 → parseEnvelope → JSON 往返 → 再 parse`, () => {
       const envelope = envelopeOf(key, samples[key], 3)

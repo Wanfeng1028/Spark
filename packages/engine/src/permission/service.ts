@@ -11,7 +11,7 @@
  * - 超时 / turn 中断（AbortSignal）/ dispose → 一律 resolve(deny) +
  *   permission.resolved{reject}（fail-closed，"宁可错杀"）。
  */
-import type { PermissionPreset, PermissionReply, RequestId, SessionId } from '@spark/protocol'
+import type { EventId, PermissionPreset, PermissionReply, RequestId, SessionId } from '@spark/protocol'
 import type { EventBus } from '../bus.js'
 import type { PermissionRule } from '../config.js'
 import { newIds } from '../ulid.js'
@@ -19,6 +19,7 @@ import type { PermissionCheck, PermissionService } from '../tools/permission-por
 import { evaluateAll } from './rules.js'
 import type { RuleStore } from './store.js'
 import type { Metrics } from '../observability/metrics.js'
+import type { AuditSink } from '../audit/log.js'
 
 interface PendingEntry {
   requestId: RequestId
@@ -38,8 +39,23 @@ export interface PermissionServiceDeps {
   projectRules: readonly PermissionRule[]
   /** 审批超时（spark.json permissionTimeoutMs，缺省 5min） */
   timeoutMs: number
-  /** 进程内指标（§5.10；缺省不计数——测试可省，工单 4.8） */
+  /** 进程内指标（§5.10 清单；缺省不计数——测试可省，工单 4.8） */
   metrics?: Metrics
+  /**
+   * 用户侧 hooks 挂点（阶段七工单 7.3 / H03）：permission.resolved 事件落盘后
+   * 触发（fire-and-forget——回调内自闭合，不阻断审批流程）。
+   */
+  onResolved?: (payload: {
+    sessionId: SessionId
+    requestId: RequestId
+    reply: PermissionReply
+    sourceEventId: EventId
+  }) => void
+  /**
+   * 审计日志（阶段七工单 7.12 / H11）：permission 决策与 always 固化规则变更
+   * 逐条记入独立明细流（旁路记录，写失败不影响审批主链路）。
+   */
+  audit?: AuditSink
 }
 
 export class PermissionServiceImpl implements PermissionService {
@@ -52,7 +68,10 @@ export class PermissionServiceImpl implements PermissionService {
 
   async assert(check: PermissionCheck): Promise<boolean> {
     // fail-closed：请求已达时 turn 已中断
-    if (check.signal.aborted) return false
+    if (check.signal.aborted) {
+      this.recordDecision(check, false, 'system', 'abort')
+      return false
+    }
     const effect = evaluateAll(
       check.action,
       check.patterns ?? [check.resource],
@@ -61,8 +80,11 @@ export class PermissionServiceImpl implements PermissionService {
       this.sessionRulesOf(check.sessionId),
       this.presetRulesOf(check.sessionId),
     )
-    if (effect === 'allow') return true
-    if (effect === 'deny') return false
+    if (effect === 'allow' || effect === 'deny') {
+      // 规则层快路径：归因 = 命中且与终判同效的最高优先层（findLast 语义倒查）
+      this.recordDecision(check, effect === 'allow', 'system', `rule:${this.ruleSourceOf(check, effect)}`)
+      return effect === 'allow'
+    }
 
     const requestId = newIds.request()
     await this.deps.bus.emit(check.sessionId, 'permission.asked', {
@@ -79,10 +101,17 @@ export class PermissionServiceImpl implements PermissionService {
     })
     // emit 期间 turn 中断：asked 已入流，补 resolved{reject} 保持闭合
     if (check.signal.aborted) {
-      await this.deps.bus.emit(check.sessionId, 'permission.resolved', {
+      const env = await this.deps.bus.emit(check.sessionId, 'permission.resolved', {
         requestId,
         reply: 'reject',
       })
+      this.deps.onResolved?.({
+        sessionId: check.sessionId,
+        requestId,
+        reply: 'reject',
+        sourceEventId: env.id,
+      })
+      this.recordDecision(check, false, 'system', 'abort')
       return false
     }
     return await new Promise<boolean>((resolve) => {
@@ -93,10 +122,10 @@ export class PermissionServiceImpl implements PermissionService {
         settled: false,
         resolve,
         onAbort: () => {
-          void this.settle(entry, false, 'reject')
+          void this.settle(entry, false, 'reject', 'abort')
         },
         timer: setTimeout(() => {
-          void this.settle(entry, false, 'reject')
+          void this.settle(entry, false, 'reject', 'timeout')
         }, this.deps.timeoutMs),
       }
       check.signal.addEventListener('abort', entry.onAbort, { once: true })
@@ -125,7 +154,7 @@ export class PermissionServiceImpl implements PermissionService {
     const entry = this.pending.get(requestId)
     if (entry === undefined) return false
     if (reply === 'once') {
-      await this.settle(entry, true, 'once')
+      await this.settle(entry, true, 'once', 'reply')
       return true
     }
     if (reply === 'always') {
@@ -142,8 +171,20 @@ export class PermissionServiceImpl implements PermissionService {
         }
         this.deps.ruleStore.add(rule)
         this.sessionRulesOf(entry.sessionId).push(rule)
+        // 审计（7.12）：always 答复附带规则固化——决策行之外另记规则变更行
+        this.deps.audit?.record({
+          time: Date.now(),
+          kind: 'permission.rule',
+          actor: 'user',
+          result: 'applied',
+          op: 'add',
+          action: rule.action,
+          resource,
+          effect: 'allow',
+          source: 'reply:always',
+        })
       }
-      await this.settle(entry, true, 'always')
+      await this.settle(entry, true, 'always', 'reply')
       // 级联放行：各自会话规则下现在 evaluate=allow 的其他挂起项一并 resolve
       for (const other of [...this.pending.values()]) {
         if (
@@ -156,20 +197,20 @@ export class PermissionServiceImpl implements PermissionService {
             this.presetRulesOf(other.sessionId),
           ) === 'allow'
         ) {
-          await this.settle(other, true, 'always')
+          await this.settle(other, true, 'always', 'cascade')
         }
       }
       return true
     }
     // reject：feedback 非空注入 user.message（surface）回喂模型（CorrectedError 思想）
-    await this.settle(entry, false, 'reject', feedback)
+    await this.settle(entry, false, 'reject', 'reply', feedback)
     if (feedback !== undefined && feedback !== '') {
       await this.deps.bus.emit(entry.sessionId, 'user.message', { text: feedback })
     }
     // reject 级联：同会话其余挂起审批一并自动 reject（fail-closed 收敛，补强 2）
     for (const other of [...this.pending.values()]) {
       if (other.sessionId === entry.sessionId) {
-        await this.settle(other, false, 'reject')
+        await this.settle(other, false, 'reject', 'cascade')
       }
     }
     return true
@@ -178,7 +219,7 @@ export class PermissionServiceImpl implements PermissionService {
   /** 引擎 shutdown 收尾：pending 非空 → 全部 resolve(deny)（§5.7 补强 7） */
   async dispose(): Promise<void> {
     for (const entry of [...this.pending.values()]) {
-      await this.settle(entry, false, 'reject')
+      await this.settle(entry, false, 'reject', 'shutdown')
     }
   }
 
@@ -187,6 +228,7 @@ export class PermissionServiceImpl implements PermissionService {
     entry: PendingEntry,
     allowed: boolean,
     reply: PermissionReply,
+    origin: 'reply' | 'timeout' | 'abort' | 'shutdown' | 'cascade',
     feedback?: string,
   ): Promise<void> {
     if (entry.settled) return
@@ -195,11 +237,24 @@ export class PermissionServiceImpl implements PermissionService {
     entry.check.signal.removeEventListener('abort', entry.onAbort)
     this.pending.delete(entry.requestId)
     this.deps.metrics?.inc('spark_permission_decisions', { reply }) // 工单 4.8：once/always/reject 计数
+    // 审计（7.12）：用户答复 = 主体 user；超时/中断/级联/收尾 = system 自动
+    this.recordDecision(
+      entry.check,
+      allowed,
+      origin === 'reply' ? 'user' : 'system',
+      origin === 'reply' ? `reply:${reply}` : origin,
+    )
     try {
-      await this.deps.bus.emit(entry.sessionId, 'permission.resolved', {
+      const env = await this.deps.bus.emit(entry.sessionId, 'permission.resolved', {
         requestId: entry.requestId,
         reply,
         ...(feedback !== undefined && feedback !== '' ? { feedback } : {}),
+      })
+      this.deps.onResolved?.({
+        sessionId: entry.sessionId,
+        requestId: entry.requestId,
+        reply,
+        sourceEventId: env.id,
       })
     } finally {
       entry.resolve(allowed)
@@ -213,6 +268,44 @@ export class PermissionServiceImpl implements PermissionService {
       this.sessionRules.set(sid, rules)
     }
     return rules
+  }
+
+  /** 审计（7.12）：记一条权限决策明细（旁路；未接审计仓即忽略） */
+  private recordDecision(
+    check: PermissionCheck,
+    allowed: boolean,
+    actor: 'user' | 'system',
+    source: string,
+  ): void {
+    this.deps.audit?.record({
+      time: Date.now(),
+      kind: 'permission.decision',
+      actor,
+      result: allowed ? 'allow' : 'deny',
+      sessionId: check.sessionId,
+      tool: check.name,
+      action: check.action,
+      resource: check.resource,
+      source,
+    })
+  }
+
+  /**
+   * 规则层归因（审计展示"规则来源"用）：evaluateAll 是 findLast 语义——
+   * 按优先级倒序（档位→会话→项目→用户）找首个单层评估即得终判 effect 的层。
+   */
+  private ruleSourceOf(check: PermissionCheck, effect: 'allow' | 'deny'): string {
+    const resources = check.patterns ?? [check.resource]
+    const layers: ReadonlyArray<readonly [string, readonly PermissionRule[]]> = [
+      ['preset', this.presetRulesOf(check.sessionId)],
+      ['session', this.sessionRulesOf(check.sessionId)],
+      ['project', this.deps.projectRules],
+      ['user', this.deps.ruleStore.list()],
+    ]
+    for (const [name, rules] of layers) {
+      if (evaluateAll(check.action, resources, rules) === effect) return name
+    }
+    return 'none'
   }
 
   // ---- 权限档位（DESIGN §13.E 四档 / ADR D7 补记：规则引擎之上的预设层） ----

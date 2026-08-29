@@ -12,7 +12,7 @@ Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行�
 
 刻意不做：多用户、登录、公网部署（绑定 127.0.0.1 是设计而非缺省）。
 
-**当前状态**：**v1 —— 五阶段全部完成；阶段六（UI 重构 ZCode 化）已完成待 PR 合入**。全仓 vitest 579 例 + Playwright E2E 7 例 + typecheck 全绿（阶段六新增：L2 组件测试 22 例 / L3 E2E 7 例 / 三视口视觉基线截图 6 张，见 doc/06）。阶段五四件套已落地：Electron sidecar 壳（ADR D14，NSIS 安装包走 GH Actions Windows runner）、bash 沙箱 wrapper（ADR D15 bwrap/Seatbelt）、MCP client（ADR D16 外部工具与内置工具同一管线）、子代理（ADR D17 独立子会话 + Steer turn 校验）、skills/插件（ADR D18 事件词表运行时扩展 + 声明式清单，示例 examples/skills/demo-ping）。待用户环境执行的现场验收：Windows 本机安装走查、真实外部 MCP server 演示、真实模型子代理演示、沙箱隔离效果验证（容器内 bwrap 不可用）。**阶段七~九已立项**（doc/02 v3.0+：Harness 补全 / CLI TUI / 移动端三端；工单依据 doc/07 审计缺口 H01–H36，未排期项入 §8.7 v2 候选池）；测试体系规划见 doc/06。
+**当前状态**：**v1 —— 五阶段全部完成；阶段六（UI 重构 ZCode 化）与阶段七（Harness 补全）均已完成待 PR 合入**。全仓 vitest 757 例（阶段七后：engine 486 / server 64 / web 159 / protocol 48）+ Playwright E2E 7 例 + typecheck 全绿；nightly 接 eval 回归（`pnpm eval`——examples/evals 确定性场景集，工单 7.11）。阶段七十二项工单全落地（7.9 Python worker 经审计判决删除，见 doc/07 §4.1）：secrets 管理 / I/O 护栏 / 用户侧 hooks / 命令注册表 / 长期记忆（ADR D25）/ 自动化触发器（ADR D26）/ model routing 增强 / 子代理增强 / browser 工具族（ADR D27）/ eval harness / 审计日志 / 会话全文搜索——doc/07 审计缺口 H01–H12 全部勾销，其余入 v2 候选池。阶段五四件套已落地：Electron sidecar 壳（ADR D14，NSIS 安装包走 GH Actions Windows runner）、bash 沙箱 wrapper（ADR D15 bwrap/Seatbelt）、MCP client（ADR D16 外部工具与内置工具同一管线）、子代理（ADR D17 独立子会话 + Steer turn 校验）、skills/插件（ADR D18 事件词表运行时扩展 + 声明式清单，示例 examples/skills/demo-ping）。待用户环境执行的现场验收：Windows 本机安装走查、真实外部 MCP server 演示、真实模型子代理演示、沙箱隔离效果验证（容器内 bwrap 不可用）。**阶段八~九已立项**（doc/02：CLI TUI / 移动端三端；多端选型 ADR D19–D24）；测试体系规划见 doc/06。
 
 ## 架构一览
 
@@ -20,7 +20,7 @@ Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行�
 apps/web            React 19 SPA —— 只消费事件流（applyEvent reducer）
    │  HttpTransport：REST 命令 + GET /api/event（SSE 单端点，since=seq 断线续播）
    ▼
-packages/protocol   前后端唯一合同：19 种事件词表 · zod schema · Transport 接口
+packages/protocol   前后端唯一合同：21 种事件词表 · zod schema · Transport 接口
    ▼
 apps/server         Fastify 薄壳：REST + SSE + 静态托管（127.0.0.1，无鉴权）
    ▼
@@ -61,6 +61,7 @@ pnpm install
 pnpm dev                    # server + web 并行（待 apps/web、apps/server 就位）
 pnpm --filter web dev       # 仅前端（VITE_SPARK_MOCK=1 可脱离后端跑 Mock）
 pnpm test / typecheck / lint
+pnpm eval                   # eval 回归（工单 7.11：确定性场景集；--real 可选真实模型评分）
 ```
 
 ## 设计原则
@@ -94,3 +95,7 @@ pnpm test / typecheck / lint
 | v1.15 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令）                                                                                       | **状态更新为 v1——五阶段全部完成**（阶段五 5.1–5.5 全落地：Electron sidecar 壳/沙箱 wrapper/MCP client/子代理/skills 插件，ADR D14–D18；此前 README 停留在阶段三，本次一并补记阶段四完成）；导语"后期加 Electron 壳"改为现状；待用户环境执行的现场验收四项注记；doc/02 §8 v2.30 同步 |
 | v1.16 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D2 路线图指令）               | **当前状态行追加"阶段六~九已立项"**（doc/02 v3.0：阶段六 UI 重构 ZCode 化 / 阶段七 Harness 补全 / 阶段八 CLI TUI / 阶段九 移动端三端；依据 doc/07 审计缺口 H01–H36，未排期项入 v2 候选池；测试体系规划 doc/06）；文档导航新增 doc/06/doc/07 两行 |
 | v1.17 | 2026-08-26 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段六开工指令） | **阶段六完成（6.1–6.8 全勾，分支 feat/stage6-ui 待 PR 合入）**：UI 重构 ZCode 化——主题翻转（light 默认+dark+system，AA 复核）/§13.A 布局栅格（左栏 264 折叠 48、空态垂直居中、内容列 768、顶栏 44、StatusBar 24、会话按项目分组）/控件按 §13.B 重过+Composer 重做（底部工具条、权限四档预设层 D7、now/steer/queue 分段、@ 与 / 菜单、多行 6 行上限）/设置中心（§13.D 三组导航+外观区全量+权限规则迁入）/模型管理（会话级选择器+供应商列表+测试连接；轻后端三路由例外已声明）/用量条（usage 估算+>80% 变色）/错误人话化（error-copy.ts 四端共享文案表）；测试首批入库：L2 组件 22 例+L3 E2E 7 例+L3.5 三视口基线截图 6 张（doc/06 v1.1）；全仓 vitest 579 例（engine 353/server 36/web 144/protocol 46）+ Playwright 7 例全绿；doc/02 v3.3–v3.8 |
+| v1.18 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                       | 架构图协议行事实修正 **事件词表 19→20 种**（阶段七工单 7.2 新增 `io.warning` I/O 护栏告警事件）；与 doc/02 v3.10、AGENTS v1.18、ARCHITECTURE v1.16 同步 |
+| v1.19 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                       | 架构图协议行事实修正 **事件词表 20→21 种**（阶段七工单 7.5 新增 `memory.injected` 长期记忆注入事件——Projector 投影为模型上下文前缀，ADR D25）；与 doc/02 v3.14、AGENTS v1.19、ARCHITECTURE v1.17 同步 |
+| v1.20 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                                 | 开发命令区补 `pnpm eval`（阶段七工单 7.11：examples/evals 确定性场景集 + --real 可选真实模型评分，nightly.yml 每日接线）；与 doc/02 v3.20、doc/06 v1.2、doc/07 v1.12 同步 |
+| v1.21 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                                 | **当前状态行刷新为阶段七完成待合入**：十二项工单全落地（7.9 判决删除）、doc/07 H01–H12 全勾销、全仓测试 757 例（engine 486/server 64/web 159/protocol 48）、nightly eval 接线；阶段八~九立项措辞替换"阶段七~九已立项" |

@@ -23,6 +23,11 @@
 | v1.13 | 2026-08-25 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段五开工指令） | 新增 **D18 事件词表扩展 = 运行时注册表 + declaration merging，插件是声明不是程序**（阶段五工单 5.5：protocol extend.ts registerEventType/eventSchemaOf 注册表、EventBus.emitExtended durable/live 双路 + ignorable 信封、skills loader 声明式清单目录扫描、hooks 声明式触发器 data 固定形状、示例插件 examples/skills/demo-ping；否决 JS 动态 import 与旁路校验两备选） |
 | v1.14 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D4 多端 ADR 指令） | 新增 **D19–D24 多端 ADR**（D19 CLI TUI=Ink v6 / D20 移动端=Expo+RN / D21 小程序=Taro 4 / D22 四端复用边界 / D23 复用与许可 / D24 配对鉴权）；**D7 补记**：档位制按预期演化落地（DESIGN §13.E 四档=规则引擎之上的预设层，非推翻）；§7 演进路线补阶段六~九；与 D1–D18 无未声明冲突；AGENTS 适配表补 CLI/移动端注记（AGENTS v1.17 同步）；工单互引 doc/02 §8 阶段八/九 |
 | v1.15 | 2026-08-26 | 同上（发起：晚风，移动端框架确认"适合 React 的"=React Native，与 D20 一致；供图 Qoder CN iOS 13 张） | **D24 补记**：配对 UX 定稿扫码为主（桌面出示 QR 含一次性短码→App 扫码换长效 token，Qoder CN 实测同范式）、手输 6 位码降兜底；token 交换/校验机制不变。移动端视觉规格落 DESIGN §13.J（v2.2）；doc/02 阶段九工单措辞同步（v3.1） |
+| v1.16 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §4 事件模型行事实修正 **19→20 种**（阶段七工单 7.2 新增 `io.warning`：I/O 护栏告警，IoGuard 挂 ToolPipeline 输出限界后，log-only durable 不 surface）；与 doc/02 v3.4、AGENTS v1.18、README v1.17 同步 |
+| v1.17 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | 新增 **D25 长期记忆 = SQLite FTS5 trigram + 事件化注入（memory.injected 先于 user.message 落盘，Projector 投影为模型上下文前缀——surface 纪律双面成立）**（阶段七工单 7.5 迷你 ADR）；§4 事件模型行 **20→21 种**（新增 `memory.injected`）；与 doc/02 v3.14、AGENTS v1.19、README v1.19 同步 |
+| v1.18 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | 新增 **D26 自动化 = 进程内 tick 循环 + cron/watch/webhook 三类触发器，触发即建会话发 prompt，失败运行结构化留存**（阶段七工单 7.6 迷你 ADR）；事件词表不变（自动化不进事件流）；与 doc/02 v3.15、doc/07 v1.7 同步 |
+| v1.19 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | **D17 补记**：子代理并行解除（task 工具 `parallelizable` 改 true——独立子会话并行互不串扰，单层限制/中断级联语义不变）+ 树状运行监控（`ToolContext.sourceEventId` → 子会话 header.parentEventId → 树视图锚定；`ForkChildDto.status` 运行态快照，前端复用 SessionStatusDot）（阶段七工单 7.8）；事件词表不变；与 doc/02 v3.16、doc/07 v1.8 同步 |
+| v1.20 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | 新增 **D27 browser 工具族 = BrowserDriver 端口 + 引擎级单页共享 + 截图落盘走静态面**（阶段七工单 7.10 迷你 ADR：playwright-core 懒启动 fail-closed / 四工具 parallelizable=false 串行互斥 / 审批三 action 缺省 ask / 截图文件名白名单供图）；事件词表不变；与 doc/02 v3.19、doc/07 v1.11 同步 |
 
 ---
 
@@ -63,7 +68,7 @@
 
 | 抽象           | 设计                                                                                                                                                                           | 来源                                                           |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| **事件模型**   | 19 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分    | opencode durable/live + dsh surface                            |
+| **事件模型**   | 21 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分    | opencode durable/live + dsh surface                            |
 | **会话**       | append-only JSONL 树（条目 `id/parentId`）；分叉=只移 leaf 指针；compaction 是树上的普通 entry（summary+keptFromEventId 锚点）；模型上下文=Projector 从 surface 事件投影           | pi session-manager + dsh projector                             |
 | **输入三通道** | `now`（空闲即开 turn）/ `steer`（进行中，下一 step 前注入）/ `queue`（turn 间依序）；提交三态 `started/steered/queued`；唤醒合并防空转                                         | Codex TurnInputMode + opencode pendingWake                     |
 | **工具管线**   | zod schema-first；before→permission→execute→after；serial 工具 barrier / parallel 工具并发（read 并行，bash/edit/write 独占）；输出 >32KB 溢写文件；中断补合成事件对           | Codex RwLock 门控 + dsh 三段 waterfall + opencode output-store |
@@ -161,6 +166,8 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 理由：独立会话零新词表——事件流形态（durable/live/surface 纪律）、审批管线、会话索引、重启恢复全部现成；主会话上下文只多一对 tool.started/completed，不被子代理事件淹没（surface 纪律）。fork（工单 4.5）已验证 parentSession 头字段路线。
 否决备选：① 子代理事件内嵌主会话流（嵌套 turn/子 turn 事件进主流）——需扩事件词表 + 前端 applyEvent/树结构改造 + 投影 surface 判定复杂化，"最小落地"原则下全是否决项；② 子代理结果作为独立 durable 事件类型（如 task.completed 自定义事件）——违反"事件词表从 protocol 开始"的演进纪律且无必要（tool.completed 已承载）。依据：doc/02 §8 阶段五工单 5.4、§5.4 Codex 对照（ExpectedTurnMismatch）。
 
+**补记（2026-08-29，阶段七工单 7.8 触发）**：**并行解除**——task 工具 `parallelizable` 由 false（串行 barrier）改 true：每个子代理在独立子会话跑（独立事件流/输入队列/审批管线），并行互不串扰；并发上限仍受管线 `maxToolParallel` 分批约束；单层限制与父中断级联语义不变（ctx.signal abort 逐子 cascade）。**树状运行监控**——`ToolContext.sourceEventId`（pipeline 注入本次 `tool.started` 事件 id）经 `createSession({parentEventId})` 写入子会话 header → `scanForkChildren` 把子代理子会话锚定到派生它的工具事件上（此前子代理子会话因无 parentEventId 不可见，树视图只认 fork）；`ForkChildDto.status` 携带运行态快照（已加载会话实时读 `statusOf`，未加载 idle），前端 SessionTreeDialog 复用 SessionStatusDot，activeTurn 活跃态优先于 DTO 快照（同 Sidebar 语义，DESIGN §8）。
+
 ### D18 事件词表扩展 = 运行时注册表 + declaration merging，插件是声明不是程序（2026-08-25，阶段五工单 5.5）
 
 决策：`@spark/protocol` 新增运行时扩展注册表（`registerEventType`/`eventSchemaOf`/`isExtendedLiveOnly`）——插件事件类型（强制 `plugin.` 前缀，zod schema 由清单 JSON Schema 经 `z.fromJSONSchema` 转换）注册后与内置 19 种走**同一条校验路径**（EventBus/parseEnvelope/SessionStore 读端统一查 `eventSchemaOf`）。编译期扩展仍走 declaration merging（§4.3 原设计），运行时注册表是 JS 清单的对位。扩展事件信封一律带 `ignorable: true`：durable 走同一落盘管线（占行号），liveOnly 走直播不落盘；插件卸载后旧会话可加载（store 未知 type + ignorable 跳过），未装插件的前端对未知 ignorable 帧跳过不断流（web transport 与 store 读端同策略）。skills/插件 = `<root>/skills/<name>/skill.json` **声明式清单**（version/name/events/hooks），**不执行任意代码**——hooks 是声明式触发器（on 内置事件 → emit 插件事件，data 固定形状 `{skill, sourceEventId, sourceType}`，无自定义构造器）；on 限定内置词表类型（防插件事件自触发循环）。单个 skill 坏清单/类型冲突/钩子非法 → warn 跳过（引擎照常启动，与 MCP 单 server 失败同纪律）。
@@ -208,6 +215,27 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 结论：`server.host` **显式配置才可非环回**（SPARK_HOST 环境变量语义收紧）；非环回绑定强制开启 token 鉴权；配对流程=移动端扫码/手输 6 位短码（60s 有效）→ POST 换长效 token → REST 与 SSE **同口径**校验（SSE 经查询参数或首帧握手，实现细节工单定）；无 token 且非环回 → **拒绝启动（fail-closed）**。**缺省行为（127.0.0.1+无鉴权）不变为红线**——不配 host 的用户升级后零感知。
 后果：web 设置页新增配对管理 UI（已配对设备列表+撤销）；token 撤销后已连 SSE 立即断开；配对码/ token 存 ~/.spark/（secrets 纪律同 7.1）；服务端改动仅限 9.1 声明范围（doc/02 阶段九纪律）。
 **补记（2026-08-26，移动端规格 DESIGN §13.J 定稿触发）**：配对 UX 定稿为**扫码为主**——桌面/web 设置页出示 QR（内容 `spark://pair?host=&port=&code=<一次性短码>`），App 扫码确认后换长效 token（Qoder CN 实测同范式）；**手输 6 位码降为兜底路径**（无相机/扫码失败）。token 交换与校验机制不变：REST/SSE 同口径、撤销即断、fail-closed。
+
+### D25 长期记忆 = SQLite FTS5 trigram + 事件化注入，注入即落盘守 surface 纪律（2026-08-27，阶段七工单 7.5 迷你 ADR）
+
+背景：跨会话记忆是 doc/07 H05 缺口（工单 7.5）；向量检索明示后置——词法召回先行。
+候选：① system prompt 静态拼入记忆——违反 surface 纪律（模型可见但事件流无记录）；② 注入为 user.message 前缀（合成用户消息）——污染用户转录（分不清用户说的还是系统注入的）；③ **独立 `memory.injected` 事件 + Projector 投影**。
+结论：存储 = `~/.spark/memory.db`（node:sqlite，memories 表 + FTS5 **trigram** 虚表外容模式 + 触发器同步——unicode61 对连续 CJK 整段成词不可子串命中，trigram 修复；FTS5 建表失败降级 LIKE，引擎照常启动）；检索召回链 = 整串 trigram MATCH → 整串 LIKE → 拆词最长词 LIKE（中文整句语义召回为已知限制，向量后置）；工具族 `memory.save/memory.search`（审批 action `memory.write/read`、resource 恒 `memory`，空规则表缺省 ask 可 always 固化）；**注入 = 会话首条 user.message 之前 emit `memory.injected`（durable 落盘）→ Projector 投影为模型上下文首条前缀 user 消息**——模型可见（投影）与被记录（事件）双面成立，锚点后过滤与 surface 事件同规则（压缩后不重复注入）；每会话仅首条触发、命中空集不 emit。管理面 = GET/DELETE /api/memories（设置页列表+删除）。
+后果：事件词表 20→21 种（`memory.injected`，applyEvent/round-trip/文档计数同步）；Engine 持 MemoryStore 句柄（打开失败 null 降级——工具不注册、注入不接线）；向量检索升级时只换 MemoryStore.search 实现，注入协议与 UI 零改动。
+
+### D26 自动化 = 进程内 tick 循环 + 三类触发器，触发即建会话发 prompt，失败运行结构化留存（2026-08-29，阶段七工单 7.6 迷你 ADR）
+
+背景：doc/07 H06 缺口——无任何触发器引擎；工单 7.6 要求 cron / watch / webhook 三类触发 → 自动建会话执行 prompt + 任务列表/运行历史 UI（DESIGN §13.F.3）。
+候选：① 外挂系统调度器（crontab/计划任务）回调 webhook——跨平台安装路径分叉，且脱离引擎生命周期（引擎没跑时触发了也无人处理）；② 独立守护进程——违反单进程本地模型（D5/D10）；③ **引擎进程内 AutomationManager tick 循环**——引擎在跑才谈自动化，与"本地 127.0.0.1、无后台常驻"定位一致。
+结论：`AutomationRegistry`（`~/.spark/automation.json` 原子写存触发器定义 + `automation-runs.jsonl` 追加写运行历史——与会话 JSONL 同一单写者纪律）+ `AutomationManager`（setInterval tick，cron 自研解析器支持 `*`/范围/列表/步长与周日 7→0 归一；同分钟去重防重复触发；watch 基线比对文件 mtime；webhook/手动按需触发）；**触发效果恒为"建会话 + 发 prompt"**（FireDeps.createSession 注入，引擎接线，测试可替身）；**失败闭合**：触发器禁用/不存在/类型不符一律拒绝（E_TRIGGER_DISABLED/E_TRIGGER_KIND/E_TRIGGER），fire 失败不吞——运行历史行留结构化 `error` 字段（验收条款"失败运行有结构化错误留存"）。协议面 = AutomationTriggerDto/AutomationCreate/AutomationRunDto + Transport 七方法（从 packages/protocol 开始，AGENTS §2.5）；路由 7 端点（/api/automation*），错误码前缀映射 E_TRIGGER*/E_CRON。
+后果：web 新增 /automation 页（§13.F.3 形态：模板网格+任务列表+运行历史）；**"保持电脑唤醒"开关不在 web 落地**——系统电源权限归桌面壳（Electron 阶段再议，web 无此能力，如实缺省而非假实现）；引擎未运行时触发器不生效是刻意语义（不做补偿触发，避免"补跑"带来的不确定性）；watch 触发器数量大时 mtime 轮询成本线性增长，为已知限制（文件监听库后置）。
+
+### D27 browser 工具族 = BrowserDriver 端口 + 引擎级单页共享 + 截图落盘走静态面（2026-08-29，阶段七工单 7.10 迷你 ADR）
+
+背景：doc/07 H09 缺口——无浏览器能力（Computer Use 类工具缺席）；工单 7.10 要求 browser.open/click/read/screenshot 四工具、审批默认 ask、截图经工具输出限界、前端 BrowserCard 可视化。
+候选：① 每会话独立浏览器实例——资源放大且无必要（浏览器页面本就是进程级副作用面）；② MCP browser server 外挂（Playwright MCP 形态）——多一个子进程生命周期与一条审批旁路，而引擎审批管线已是一等公民通道；③ **引擎内置工具族 + BrowserDriver 端口**——与 MCP 工具同管线一视同仁（D16 判例），测试以假驱动替身。
+结论：`BrowserDriver` 端口（open/click/readText/screenshot/currentUrl/close），生产实现 = `playwright-core` headless chromium **懒启动**（首次 browser.open 才 launch，构造期零依赖；缺浏览器二进制/包 → 执行期 E_BROWSER_LAUNCH fail-closed）；**引擎级单例单页**——四工具一律 `parallelizable: false` 走串行 barrier，天然互斥；跨会话共享同一页是刻意语义（同进程同权限面）。审批：`browser.navigate`（resource `url:<目标>`）/ `browser.interact`（click）/ `browser.read`（read/screenshot），resource 均含当前页 URL——空规则表缺省 ask，域名白名单可 always 固化（`url:https://docs.**` 风格）。中断：`ctx.signal` race 即返 E_ABORTED（底层 Playwright 操作跑到静默，同"已启动工具不硬杀"纪律）。**截图不进事件流**：PNG 落 `~/.spark/browser-shots/`，工具输出只回文件名+字节数（天然过 32KB 限界），GET /api/artifacts/:file 白名单文件名校验后供图（前端 BrowserCard 展示；路径逃逸零面）。
+后果：事件词表不变（工具事件走既有 tool.started/completed）；`playwright-core` 入引擎依赖（安装不自动下载浏览器——`npx playwright install chromium` 是显式前置，缺失时工具报错而非静默降级）；read 输出正文截断 + 管线输出限界双重保护；多页/有头模式/网络隔离（D15 同源后置）进 v2 候选池。
 
 ## 6. 模块速览（职责边界）
 

@@ -9,7 +9,7 @@
  */
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings } from 'lucide-react'
+import { CalendarClock, ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings } from 'lucide-react'
 import type { SessionDto, SessionStatus } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useActiveSlice } from '@/stores/session'
@@ -131,6 +131,34 @@ export function Sidebar() {
         </button>
         <button
           type="button"
+          aria-label="搜索会话"
+          title="搜索会话"
+          onClick={() => void navigate('/search')}
+          className={cn(
+            'flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground',
+            location.pathname === '/search'
+              ? 'bg-secondary text-foreground'
+              : 'text-muted-foreground',
+          )}
+        >
+          <Search className="size-4" />
+        </button>
+        <button
+          type="button"
+          aria-label="自动化"
+          title="自动化"
+          onClick={() => void navigate('/automation')}
+          className={cn(
+            'flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground',
+            location.pathname === '/automation'
+              ? 'bg-secondary text-foreground'
+              : 'text-muted-foreground',
+          )}
+        >
+          <CalendarClock className="size-4" />
+        </button>
+        <button
+          type="button"
           aria-label="设置中心"
           title="设置中心"
           onClick={() => void navigate('/settings/appearance')}
@@ -228,6 +256,38 @@ export function Sidebar() {
             />
           ))}
       </div>
+
+      {/* 全文搜索入口（工单 7.13 / H12） */}
+      <button
+        type="button"
+        onClick={() => void navigate('/search')}
+        aria-current={location.pathname === '/search' ? 'page' : undefined}
+        className={cn(
+          'flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-[13px] hover:bg-accent hover:text-accent-foreground',
+          location.pathname === '/search'
+            ? 'bg-secondary text-foreground'
+            : 'text-muted-foreground',
+        )}
+      >
+        <Search className="size-4 shrink-0" />
+        搜索
+      </button>
+
+      {/* 自动化入口（工单 7.6 / §13.F.3） */}
+      <button
+        type="button"
+        onClick={() => void navigate('/automation')}
+        aria-current={location.pathname === '/automation' ? 'page' : undefined}
+        className={cn(
+          'flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-[13px] hover:bg-accent hover:text-accent-foreground',
+          location.pathname === '/automation'
+            ? 'bg-secondary text-foreground'
+            : 'text-muted-foreground',
+        )}
+      >
+        <CalendarClock className="size-4 shrink-0" />
+        自动化
+      </button>
 
       {/* 设置中心入口（§13.D：左栏底部齿轮） */}
       <button

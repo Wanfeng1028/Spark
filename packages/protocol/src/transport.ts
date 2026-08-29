@@ -7,12 +7,25 @@
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply } from './primitives.js'
 import type {
+  AuditEntryDto,
+  AuditQuery,
+  AutomationCreate,
+  AutomationRunDto,
+  AutomationTriggerDto,
   CheckpointDto,
+  CommandDto,
+  McpServerDto,
+  MemoryDto,
   ModelTestResultDto,
   ModelsDto,
   PermissionPreset,
   PermissionRuleDto,
+  RoutingDto,
+  RoutingUpdate,
+  SearchHitDto,
+  SecretStatusDto,
   SessionDto,
+  SkillDto,
   TreeNodeDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
@@ -56,6 +69,12 @@ export interface Transport {
   addPermissionRule(rule: PermissionRuleDto): Promise<void>
   /** DELETE /api/permissions/rules：精确匹配删除（无此规则拒绝） */
   removePermissionRule(action: string, resource: string): Promise<void>
+  /** GET /api/secrets：provider 密钥状态（store/env/none；值永不回传，阶段七工单 7.1） */
+  listSecrets(): Promise<SecretStatusDto[]>
+  /** PUT /api/secrets/:provider：新增/覆盖一条密钥（写入 ~/.spark/secrets.json） */
+  setSecret(provider: string, value: string): Promise<void>
+  /** DELETE /api/secrets/:provider：删除密钥仓条目（env 来源不可删） */
+  removeSecret(provider: string): Promise<void>
   /** GET /api/sessions/:id/permission-preset：会话当前权限档位（内存态，重启回缺省） */
   getPermissionPreset(sessionId: SessionId): Promise<PermissionPreset>
   /** PUT /api/sessions/:id/permission-preset：设置权限档位（D7 补记预设层，写会话临时层） */
@@ -66,5 +85,41 @@ export interface Transport {
   testModelProvider(providerId: string): Promise<ModelTestResultDto>
   /** PUT /api/sessions/:id/model：会话级换模型（内存态，下一个 turn 生效；重启回会话文件模型） */
   setSessionModel(sessionId: SessionId, model: string): Promise<string>
+  /** GET /api/routing：fallback 链 + 任务路由档 + 成本上限与累计（工单 7.7） */
+  getRouting(): Promise<RoutingDto>
+  /** PUT /api/routing：热更新路由配置（校验失败 400；下一请求生效；写回 models.json） */
+  updateRouting(patch: RoutingUpdate): Promise<RoutingDto>
+  /** DELETE /api/routing/usage：清零成本累计（解除熔断） */
+  resetUsage(): Promise<RoutingDto>
+  /** GET /api/commands：命令注册表（内置 action/client + ~/.spark/commands/*.md prompt，工单 7.4） */
+  listCommands(): Promise<CommandDto[]>
+  /** POST /api/sessions/:id/commands/:name：执行引擎命令（action=compact / prompt=自定义展开，工单 7.4） */
+  executeCommand(sessionId: SessionId, name: string, args?: string): Promise<void>
+  /** GET /api/mcp：MCP 服务器只读状态（连接失败也列出 connected:false，工单 7.4） */
+  listMcpServers(): Promise<McpServerDto[]>
+  /** GET /api/skills：已加载技能只读清单（工单 7.4） */
+  listSkills(): Promise<SkillDto[]>
+  /** GET /api/memories：长期记忆列表（设置页管理数据源，工单 7.5） */
+  listMemories(): Promise<MemoryDto[]>
+  /** DELETE /api/memories/:id：删除一条记忆（无此条 → E_NOT_FOUND） */
+  removeMemory(id: number): Promise<void>
+  /** GET /api/automation：自动化触发器清单（工单 7.6） */
+  listAutomation(): Promise<AutomationTriggerDto[]>
+  /** POST /api/automation：创建触发器（cron/watch/webhook 至少一种） */
+  createAutomation(input: AutomationCreate): Promise<AutomationTriggerDto>
+  /** DELETE /api/automation/:id：删除触发器（无此条 → E_NOT_FOUND） */
+  removeAutomation(id: string): Promise<void>
+  /** PUT /api/automation/:id/enabled：启停触发器 */
+  setAutomationEnabled(id: string, enabled: boolean): Promise<void>
+  /** GET /api/automation/runs?limit：运行历史（新→旧） */
+  listAutomationRuns(limit?: number): Promise<AutomationRunDto[]>
+  /** POST /api/automation/webhook/:id：外部触发（未启用 webhook 或停用 → 拒绝） */
+  fireAutomationWebhook(id: string): Promise<void>
+  /** POST /api/automation/:id/run：手动触发（测试/调试） */
+  fireAutomationManual(id: string): Promise<void>
+  /** GET /api/audit：审计日志明细流（新→旧；设置页查看器数据源，工单 7.12） */
+  listAudit(query?: AuditQuery): Promise<AuditEntryDto[]>
+  /** GET /api/search?q：会话全文搜索（事件内容命中；工单 7.13） */
+  search(q: string, limit?: number): Promise<SearchHitDto[]>
   dispose(): void
 }

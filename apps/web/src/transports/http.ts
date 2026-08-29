@@ -9,17 +9,30 @@
  */
 import { eventSchemaOf, parseEnvelope } from '@spark/protocol'
 import type {
+  AuditEntryDto,
+  AuditQuery,
+  AutomationCreate,
+  AutomationRunDto,
+  AutomationTriggerDto,
   CheckpointDto,
   CheckpointId,
+  CommandDto,
   EventId,
+  McpServerDto,
+  MemoryDto,
   ModelTestResultDto,
   ModelsDto,
   PermissionPreset,
   PermissionReply,
   PermissionRuleDto,
   RequestId,
+  RoutingDto,
+  RoutingUpdate,
+  SecretStatusDto,
   SessionDto,
   SessionId,
+  SearchHitDto,
+  SkillDto,
   SparkEventEnvelope,
   SubmitOutcome,
   TreeNodeDto,
@@ -264,6 +277,23 @@ export class HttpTransport implements Transport {
     }).then(() => undefined)
   }
 
+  listSecrets(): Promise<SecretStatusDto[]> {
+    return this.req<{ secrets: SecretStatusDto[] }>('/api/secrets').then((r) => r.secrets)
+  }
+
+  setSecret(provider: string, value: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/secrets/${encodeURIComponent(provider)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+    }).then(() => undefined)
+  }
+
+  removeSecret(provider: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/secrets/${encodeURIComponent(provider)}`, {
+      method: 'DELETE',
+    }).then(() => undefined)
+  }
+
   getPermissionPreset(sessionId: SessionId): Promise<PermissionPreset> {
     return this.req<{ preset: PermissionPreset }>(
       `/api/sessions/${sessionId}/permission-preset`,
@@ -292,6 +322,111 @@ export class HttpTransport implements Transport {
       method: 'PUT',
       body: JSON.stringify({ model }),
     }).then((r) => r.model)
+  }
+
+  getRouting(): Promise<RoutingDto> {
+    return this.req<RoutingDto>('/api/routing')
+  }
+
+  updateRouting(patch: RoutingUpdate): Promise<RoutingDto> {
+    return this.req<RoutingDto>('/api/routing', {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    })
+  }
+
+  resetUsage(): Promise<RoutingDto> {
+    return this.req<RoutingDto>('/api/routing/usage', { method: 'DELETE' })
+  }
+
+  listCommands(): Promise<CommandDto[]> {
+    return this.req<CommandDto[]>('/api/commands')
+  }
+
+  executeCommand(sessionId: SessionId, name: string, args?: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/sessions/${sessionId}/commands/${encodeURIComponent(name)}`, {
+      method: 'POST',
+      // body 可省（无补充参数）；args 空串不发送——引擎侧 undefined 语义相同
+      body: JSON.stringify(args !== undefined && args !== '' ? { args } : {}),
+    }).then(() => undefined)
+  }
+
+  listMcpServers(): Promise<McpServerDto[]> {
+    return this.req<McpServerDto[]>('/api/mcp')
+  }
+
+  listSkills(): Promise<SkillDto[]> {
+    return this.req<SkillDto[]>('/api/skills')
+  }
+
+  listMemories(): Promise<MemoryDto[]> {
+    return this.req<MemoryDto[]>('/api/memories')
+  }
+
+  removeMemory(id: number): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/memories/${id}`, { method: 'DELETE' }).then(
+      () => undefined,
+    )
+  }
+
+  listAutomation(): Promise<AutomationTriggerDto[]> {
+    return this.req<AutomationTriggerDto[]>('/api/automation')
+  }
+
+  createAutomation(input: AutomationCreate): Promise<AutomationTriggerDto> {
+    return this.req<AutomationTriggerDto>('/api/automation', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  }
+
+  removeAutomation(id: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/automation/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }).then(() => undefined)
+  }
+
+  setAutomationEnabled(id: string, enabled: boolean): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/automation/${encodeURIComponent(id)}/enabled`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    }).then(() => undefined)
+  }
+
+  listAutomationRuns(limit?: number): Promise<AutomationRunDto[]> {
+    const query = limit !== undefined ? `?limit=${limit}` : ''
+    return this.req<AutomationRunDto[]>(`/api/automation/runs${query}`)
+  }
+
+  fireAutomationWebhook(id: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/automation/webhook/${encodeURIComponent(id)}`, {
+      method: 'POST',
+    }).then(() => undefined)
+  }
+
+  fireAutomationManual(id: string): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/automation/${encodeURIComponent(id)}/run`, {
+      method: 'POST',
+    }).then(() => undefined)
+  }
+
+  listAudit(query?: AuditQuery): Promise<AuditEntryDto[]> {
+    const params = new URLSearchParams()
+    if (query !== undefined) {
+      if (query.limit !== undefined) params.set('limit', String(query.limit))
+      if (query.kind !== undefined) params.set('kind', query.kind)
+      if (query.result !== undefined) params.set('result', query.result)
+      if (query.tool !== undefined) params.set('tool', query.tool)
+      if (query.since !== undefined) params.set('since', String(query.since))
+    }
+    const qs = params.toString()
+    return this.req<AuditEntryDto[]>(`/api/audit${qs !== '' ? `?${qs}` : ''}`)
+  }
+
+  search(q: string, limit?: number): Promise<SearchHitDto[]> {
+    const params = new URLSearchParams({ q })
+    if (limit !== undefined) params.set('limit', String(limit))
+    return this.req<SearchHitDto[]>(`/api/search?${params.toString()}`)
   }
 
   dispose(): void {

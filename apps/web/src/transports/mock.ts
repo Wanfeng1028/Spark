@@ -10,18 +10,32 @@
  */
 import { ids, parseEnvelope } from '@spark/protocol'
 import type {
+  AuditEntryDto,
+  AuditQuery,
+  AutomationCreate,
+  AutomationRunDto,
+  AutomationTriggerDto,
   CheckpointDto,
   CheckpointId,
+  CommandDto,
+  ContentItem,
   EventId,
+  McpServerDto,
+  MemoryDto,
   ModelTestResultDto,
   ModelsDto,
+  RoutingDto,
+  RoutingUpdate,
   PermissionPreset,
   PermissionReply,
   PermissionRuleDto,
   RequestId,
+  SecretStatusDto,
   SessionDto,
   SessionId,
   SessionStatus,
+  SearchHitDto,
+  SkillDto,
   SparkEventEnvelope,
   SparkEventType,
   SubmitOutcome,
@@ -479,6 +493,42 @@ export class MockTransport implements Transport {
     else rules.push({ ...rule })
   }
 
+  // ---- 密钥管理（阶段七工单 7.1 对等演示：内存表，进程生命周期内有效） ----
+
+  /** mock 场景无 models.json：固定 provider 集（场景 meta.model 前缀） */
+  private static readonly MOCK_PROVIDERS: readonly string[] = ['deepseek', 'openai']
+
+  private readonly secretValues = new Map<string, string>()
+
+  listSecrets(): Promise<SecretStatusDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve(
+      MockTransport.MOCK_PROVIDERS.map((provider) => ({
+        provider,
+        source: this.secretValues.has(provider)
+          ? ('store' as const)
+          : ('none' as const),
+      })),
+    )
+  }
+
+  setSecret(provider: string, value: string): Promise<void> {
+    this.assertNotDisposed()
+    if (!MockTransport.MOCK_PROVIDERS.includes(provider)) {
+      return Promise.reject(new Error(`E_CONFIG: models.json 未配置 provider "${provider}"`))
+    }
+    this.secretValues.set(provider, value)
+    return Promise.resolve()
+  }
+
+  removeSecret(provider: string): Promise<void> {
+    this.assertNotDisposed()
+    if (!this.secretValues.delete(provider)) {
+      return Promise.reject(new Error('E_NOT_FOUND: 密钥仓中无此 provider'))
+    }
+    return Promise.resolve()
+  }
+
   // ---- 权限档位（工单 6.3 对等演示：内存表，随会话 id 记忆；引擎同款语义） ----
 
   private readonly presets = new Map<SessionId, PermissionPreset>()
@@ -619,6 +669,350 @@ export class MockTransport implements Transport {
     return Promise.resolve(model)
   }
 
+  // ---- 模型路由（工单 7.7 / H07）：内存态 mock——回放路由热更新语义 ----
+
+  private routing: RoutingDto = {
+    fallbacks: ['deepseek/deepseek-chat'],
+    compactionModel: 'deepseek/deepseek-chat',
+    titleModel: 'deepseek/deepseek-chat',
+    subagentModel: 'deepseek/deepseek-chat',
+    costLimitUsd: null,
+    usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, exceeded: false },
+  }
+
+  getRouting(): Promise<RoutingDto> {
+    this.assertNotDisposed()
+    return Promise.resolve(this.routing)
+  }
+
+  updateRouting(patch: RoutingUpdate): Promise<RoutingDto> {
+    this.assertNotDisposed()
+    const providerOf = (m: string): string => {
+      const slash = m.indexOf('/')
+      if (slash <= 0 || slash === m.length - 1) {
+        throw new Error(`E_CONFIG: model "${m}" 须为 provider/model 形式`)
+      }
+      const provider = m.slice(0, slash)
+      const configured = MockTransport.MODELS.providers.find((x) => x.id === provider)
+      if (configured === undefined || !configured.configured) {
+        throw new Error(`E_CONFIG: models.json 未配置 provider "${provider}"`)
+      }
+      return m
+    }
+    const next: RoutingDto = {
+      ...this.routing,
+      ...(patch.fallbacks !== undefined ? { fallbacks: patch.fallbacks.map(providerOf) } : {}),
+      ...(patch.compactionModel !== undefined ? { compactionModel: providerOf(patch.compactionModel) } : {}),
+      ...(patch.titleModel !== undefined ? { titleModel: providerOf(patch.titleModel) } : {}),
+      ...(patch.subagentModel !== undefined ? { subagentModel: providerOf(patch.subagentModel) } : {}),
+      ...(patch.costLimitUsd !== undefined ? { costLimitUsd: patch.costLimitUsd } : {}),
+    }
+    this.routing = next
+    return Promise.resolve(next)
+  }
+
+  resetUsage(): Promise<RoutingDto> {
+    this.assertNotDisposed()
+    this.routing = {
+      ...this.routing,
+      usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, exceeded: false },
+    }
+    return Promise.resolve(this.routing)
+  }
+
+  // ---- 命令注册表（工单 7.4 对等演示：内置基线 + mock 自定义命令） ----
+
+  private static readonly COMMANDS: readonly CommandDto[] = [
+    { name: 'compact', description: '压缩上下文（保留摘要，释放窗口）', kind: 'action' },
+    { name: 'model', description: '查看或切换会话模型', kind: 'client' },
+    { name: 'mcp', description: '查看 MCP 服务器与工具', kind: 'client' },
+    { name: 'skills', description: '查看已加载技能', kind: 'client' },
+    { name: 'usage', description: '查看本轮与累计用量', kind: 'client' },
+    { name: 'resume', description: '恢复历史会话', kind: 'client' },
+    { name: 'review', description: '审查当前工作区改动（mock 自定义命令）', kind: 'prompt' },
+  ]
+
+  listCommands(): Promise<CommandDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([...MockTransport.COMMANDS])
+  }
+
+  executeCommand(sessionId: SessionId, name: string, _args?: string): Promise<void> {
+    this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId && !this.forkChildren.some((f) => f.dto.id === sessionId)) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    if (name === 'compact') return this.compact(sessionId)
+    if (name === 'review') {
+      // 对等演示：自定义命令展开为 prompt 走正常 turn（sendMessage 假对话回放）
+      return this.sendMessage(sessionId).then(() => undefined)
+    }
+    if (MockTransport.COMMANDS.some((c) => c.name === name && c.kind === 'client')) {
+      return Promise.reject(new Error(`E_COMMAND_CLIENT: /${name} 是界面命令，由前端执行`))
+    }
+    return Promise.reject(new Error(`E_NOT_FOUND: 未知命令 /${name}`))
+  }
+
+  listMcpServers(): Promise<McpServerDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([
+      { name: 'filesystem', connected: true, tools: 3, command: 'npx' },
+      { name: 'github', connected: false, tools: 0, command: 'npx' },
+    ])
+  }
+
+  listSkills(): Promise<SkillDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([
+      {
+        name: 'demo-ping',
+        events: ['plugin.demo.ping'],
+        hooks: [{ on: 'session.created', emit: 'plugin.demo.ping' }],
+      },
+    ])
+  }
+
+  // ---- 长期记忆（工单 7.5 对等演示：内存表，进程生命周期内有效） ----
+
+  private readonly memories: MemoryDto[] = [
+    { id: 1001, content: '（mock）用户偏好深色主题', createdAt: 1787800000000 },
+    { id: 1002, content: '（mock）项目约定用 pnpm 管理依赖', createdAt: 1787800001000 },
+  ]
+
+  listMemories(): Promise<MemoryDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([...this.memories])
+  }
+
+  removeMemory(id: number): Promise<void> {
+    this.assertNotDisposed()
+    const idx = this.memories.findIndex((m) => m.id === id)
+    if (idx < 0) return Promise.reject(new Error(`E_NOT_FOUND: 记忆 ${id} 不存在`))
+    this.memories.splice(idx, 1)
+    return Promise.resolve()
+  }
+
+  // ---- 自动化触发器（工单 7.6 对等演示：内存表，进程生命周期内有效） ----
+
+  private automationSeq = 0
+  private readonly automations: AutomationTriggerDto[] = [
+    {
+      id: 'mock-auto-1',
+      name: '（mock）夜间巡检',
+      enabled: true,
+      cwd: '/tmp/spark',
+      prompt: '检查构建状态',
+      cron: '0 3 * * *',
+      createdAt: 1787800000000,
+    },
+  ]
+  private readonly automationRuns: AutomationRunDto[] = []
+
+  listAutomation(): Promise<AutomationTriggerDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([...this.automations])
+  }
+
+  createAutomation(input: AutomationCreate): Promise<AutomationTriggerDto> {
+    this.assertNotDisposed()
+    if (input.cron === undefined && input.watch === undefined && input.webhook !== true) {
+      return Promise.reject(new Error('E_TRIGGER: 至少启用一种触发条件（cron / watch / webhook）'))
+    }
+    const t: AutomationTriggerDto = {
+      id: `mock-auto-${++this.automationSeq + 1}`,
+      enabled: true,
+      createdAt: Date.now(),
+      ...input,
+    }
+    this.automations.push(t)
+    return Promise.resolve(t)
+  }
+
+  removeAutomation(id: string): Promise<void> {
+    this.assertNotDisposed()
+    const idx = this.automations.findIndex((t) => t.id === id)
+    if (idx < 0) return Promise.reject(new Error(`E_NOT_FOUND: 触发器 ${id} 不存在`))
+    this.automations.splice(idx, 1)
+    return Promise.resolve()
+  }
+
+  setAutomationEnabled(id: string, enabled: boolean): Promise<void> {
+    this.assertNotDisposed()
+    const t = this.automations.find((x) => x.id === id)
+    if (t === undefined) return Promise.reject(new Error(`E_NOT_FOUND: 触发器 ${id} 不存在`))
+    t.enabled = enabled
+    return Promise.resolve()
+  }
+
+  listAutomationRuns(limit?: number): Promise<AutomationRunDto[]> {
+    this.assertNotDisposed()
+    const rows = [...this.automationRuns].reverse() // 存储旧→新，线上形状新→旧
+    return Promise.resolve(limit !== undefined ? rows.slice(0, limit) : rows)
+  }
+
+  /** 审计演示条目（三类 kind；时间相对调用时刻，保证"今天"等过滤演示有命中） */
+  listAudit(query?: AuditQuery): Promise<AuditEntryDto[]> {
+    this.assertNotDisposed()
+    const now = Date.now()
+    const h = 3_600_000
+    const sid = this.script.sessionId
+    const entries: AuditEntryDto[] = [
+      {
+        time: now - 48 * h,
+        kind: 'permission.rule',
+        actor: 'user',
+        result: 'applied',
+        op: 'add',
+        effect: 'allow',
+        action: 'Bash',
+        resource: 'npm test:*',
+        source: 'settings-ui',
+      },
+      {
+        time: now - 30 * h,
+        kind: 'permission.decision',
+        actor: 'system',
+        result: 'deny',
+        sessionId: sid,
+        tool: 'Bash',
+        action: 'bash',
+        resource: 'rm -rf node_modules',
+        source: 'rule:user',
+      },
+      {
+        time: now - 6 * h,
+        kind: 'permission.decision',
+        actor: 'user',
+        result: 'allow',
+        sessionId: sid,
+        tool: 'Write',
+        action: 'write',
+        resource: 'src/index.ts',
+        source: 'reply:once',
+      },
+      {
+        time: now - 3 * h,
+        kind: 'session.rollback',
+        actor: 'user',
+        result: 'ok',
+        sessionId: sid,
+        checkpointId: 'ckpt-mock-1',
+        source: 'checkpoint',
+      },
+      {
+        time: now - h,
+        kind: 'permission.decision',
+        actor: 'system',
+        result: 'allow',
+        sessionId: sid,
+        tool: 'Read',
+        action: 'read',
+        resource: 'package.json',
+        source: 'rule:preset',
+      },
+    ]
+    const filtered = entries.filter(
+      (e) =>
+        (query?.since === undefined || e.time >= query.since) &&
+        (query?.kind === undefined || e.kind === query.kind) &&
+        (query?.result === undefined || e.result === query.result) &&
+        (query?.tool === undefined || e.tool === query.tool),
+    )
+    return Promise.resolve(filtered.slice(-(query?.limit ?? 200)).reverse())
+  }
+
+  /** 全文搜索（工单 7.13）：mock 扫脚本 + fork 子会话事件做大小写不敏感子串匹配 */
+  search(q: string, limit?: number): Promise<SearchHitDto[]> {
+    this.assertNotDisposed()
+    const needle = q.trim().toLowerCase()
+    if (needle === '') return Promise.resolve([])
+    const sources: { sessionId: SessionId; title: string; events: SparkEventEnvelope[] }[] = [
+      {
+        sessionId: this.script.sessionId,
+        title: this.script.created.data.title ?? '',
+        events: this.script.lines.flatMap((l) => (l.kind === 'event' ? [l.envelope] : [])),
+      },
+      ...this.forkChildren.map((f) => ({
+        sessionId: f.dto.id,
+        title: f.dto.title,
+        events: f.events,
+      })),
+    ]
+    const hits: SearchHitDto[] = []
+    for (const s of sources) {
+      for (const e of s.events) {
+        if (e.seq === undefined) continue
+        let content = ''
+        let type: SearchHitDto['type'] | null = null
+        if (e.type === 'user.message') {
+          content = (e.data as { text: string }).text
+          type = 'user.message'
+        } else if (e.type === 'assistant.message') {
+          content = (e.data as { content: ContentItem[] }).content
+            .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+            .map((b) => b.text)
+            .join('\n')
+          if (content === '') continue
+          type = 'assistant.message'
+        } else if (e.type === 'session.title') {
+          content = (e.data as { title: string }).title
+          if (content === '') continue
+          type = 'session.title'
+        } else {
+          continue
+        }
+        const idx = content.toLowerCase().indexOf(needle)
+        if (idx === -1) continue
+        const start = Math.max(0, idx - 30)
+        const end = Math.min(content.length, idx + needle.length + 90)
+        hits.push({
+          sessionId: s.sessionId,
+          sessionTitle: s.title,
+          eventId: e.id,
+          seq: e.seq,
+          type,
+          time: e.time,
+          snippet: `${start > 0 ? '…' : ''}${content.slice(start, end)}${end < content.length ? '…' : ''}`,
+        })
+      }
+    }
+    hits.sort((a, b) => b.time - a.time)
+    return Promise.resolve(hits.slice(0, limit ?? 20))
+  }
+
+  fireAutomationWebhook(id: string): Promise<void> {
+    this.assertNotDisposed()
+    const t = this.automations.find((x) => x.id === id)
+    if (t === undefined) return Promise.reject(new Error(`E_NOT_FOUND: 触发器 ${id} 不存在`))
+    if (!t.enabled) return Promise.reject(new Error('E_TRIGGER_DISABLED: 触发器已停用'))
+    if (t.webhook !== true) {
+      return Promise.reject(new Error(`E_TRIGGER_KIND: 触发器 ${t.name} 未启用 webhook 入口`))
+    }
+    return this.recordAutomationRun(t, 'webhook')
+  }
+
+  fireAutomationManual(id: string): Promise<void> {
+    this.assertNotDisposed()
+    const t = this.automations.find((x) => x.id === id)
+    if (t === undefined) return Promise.reject(new Error(`E_NOT_FOUND: 触发器 ${id} 不存在`))
+    return this.recordAutomationRun(t, 'manual')
+  }
+
+  private recordAutomationRun(
+    t: AutomationTriggerDto,
+    kind: AutomationRunDto['kind'],
+  ): Promise<void> {
+    this.automationRuns.push({
+      id: `mock-run-${this.automationRuns.length + 1}`,
+      triggerId: t.id,
+      triggerName: t.name,
+      at: Date.now(),
+      kind,
+      finish: 'ok',
+    })
+    return Promise.resolve()
+  }
+
   /** dtoOf 后叠加会话级换模型（内存态覆盖脚本 meta.model） */
   private withModelOverride(sid: SessionId, dto: SessionDto): SessionDto {
     const m = this.modelOverrides.get(sid)
@@ -721,7 +1115,12 @@ export class MockTransport implements Transport {
           childIds: next !== undefined ? [next] : [],
           forks: forks
             .filter((f) => f.fromEventId === e.id)
-            .map((f) => ({ sessionId: f.dto.id, title: f.dto.title, createdAt: f.dto.createdAt })),
+            .map((f) => ({
+              sessionId: f.dto.id,
+              title: f.dto.title,
+              createdAt: f.dto.createdAt,
+              status: f.dto.status,
+            })),
         }
       }),
     )

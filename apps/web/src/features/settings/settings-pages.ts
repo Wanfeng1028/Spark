@@ -72,9 +72,8 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'memory',
         title: '记忆',
-        description: '工作区长期记忆',
-        status: 'placeholder',
-        placeholderReason: '后续工单',
+        description: '长期记忆列表与删除（保存走会话内 memory.save 工具）',
+        status: 'ready',
       },
       {
         id: 'subagents',
@@ -93,16 +92,14 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'mcp',
         title: 'MCP 服务器',
-        description: 'MCP 连接与启停',
-        status: 'placeholder',
-        placeholderReason: '后续工单',
+        description: 'MCP 连接状态与工具数（只读；启停编辑归 v2）',
+        status: 'ready',
       },
       {
         id: 'skills',
         title: '技能',
-        description: '技能列表与启停',
-        status: 'placeholder',
-        placeholderReason: '后续工单',
+        description: '已加载技能清单（只读；管理归 v2）',
+        status: 'ready',
       },
       {
         id: 'commands',
@@ -133,9 +130,14 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'usage',
         title: '使用统计',
-        description: 'Token 用量与趋势',
-        status: 'placeholder',
-        placeholderReason: '后续工单',
+        description: '成本累计与上限（趋势看板归 v2）',
+        status: 'ready',
+      },
+      {
+        id: 'audit',
+        title: '审计日志',
+        description: '权限决策 / 规则变更 / 会话回滚的明细流（§13.G 聚合投影）',
+        status: 'ready',
       },
       {
         id: 'onboarding',

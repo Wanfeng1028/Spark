@@ -2,7 +2,7 @@
  * SettingsDialog 快速面板（doc/02 §6.2.3 → 工单 6.4 瘦身）：
  * 设置主体已迁设置中心全屏页（/settings/:page，DESIGN §13.D）；
  * 此 Dialog 保留会话内快捷形态——主题三档 +「打开设置中心」入口。
- * defaultDelivery/model/权限规则均已迁（常规页/模型设置页/权限规则页）。
+ * defaultDelivery/model/权限规则/密钥均已迁（常规页/模型设置页/权限规则页）。
  */
 import { useNavigate } from 'react-router'
 import { useSettingsStore } from '@/stores/settings'

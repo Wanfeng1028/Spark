@@ -1,0 +1,9 @@
+feat: 阶段七工单 7.5——长期记忆（H05，P1；ADR D25）：SQLite FTS5 trigram 记忆仓 + memory 工具族 + 事件化注入
+
+- 迷你 ADR D25（ARCHITECTURE v1.17）：存储 = ~/.spark/memory.db（memories 表 + FTS5 trigram 虚表外容模式 + 触发器同步——unicode61 对连续 CJK 整段成词不可子串命中，trigram 修复）；检索召回链 = 整串 trigram MATCH → 整串 LIKE → 拆词最长词 LIKE（中文整句语义召回为已知限制，向量检索后置）；注入 = memory.injected 事件先于 user.message 落盘 → Projector 投影为模型上下文首条前缀 user 消息（模型可见 + 事件记录，surface 纪律双面成立；否决 system 静态拼入与合成 user.message 两备选）
+- protocol：新增事件 memory.injected（durable+surface 投影，词表 20→21 种——events/api/transport + round-trip 样例）；MemoryDto + Transport listMemories/removeMemory
+- engine：memory/store.ts MemoryStore（FTS 建表失败降级 LIKE；save/search/list/remove）；tools/builtin/memory.ts memory.save/memory.search（审批 action memory.write/read、resource 恒 memory，空规则表缺省 ask 可 always 固化；save 内容用户可见）；run-loop 注入端口（RunLoopDeps.memory.maybeInject——每会话仅首条 user.message 且未注入过且命中非空才 emit）；Projector 投影 memory.injected（锚点后过滤与 surface 事件同规则——压缩后不重复注入）；Engine 装配（仓打开失败 null 降级——工具不注册、注入不接线）+ listMemories/removeMemory + shutdown 关库
+- server：GET /api/memories、DELETE /api/memories/:id（无此条 404 E_NOT_FOUND）
+- web：applyEvent memory.injected 落 slice.memoryInjected（不进 items）；设置中心 memory 页 placeholder→ready（列表+删除）；Http/MockTransport 对等实现
+- 测试：engine memory 8 例（store 往返/FTS trigram 中文子串/自然语句召回链/短查询 LIKE/删除触发器同步 + e2e：save 工具落库→新会话首条注入命中且投影进模型上下文/第二条不重复注入/仓跨进程持久）+ web applyEvent 1 例 + server memory-routes 2 例 + protocol round-trip 21 种
+- 文档：doc/02 v3.14（§4.3 词表+事件定义/§4.4 规则表/§4.5 API 两行/§5.1 memory.db 行/§6.4 处理表/7.5 勾选）、doc/07 v1.6（学科 8 Memory ✅、小结 11/5/3、H05 勾销）、AGENTS v1.19/ARCHITECTURE v1.17/README v1.19（事件计数 20→21 三处一致，check_doc_links 强制）

@@ -36,6 +36,8 @@ export type UiItem =
       status: 'running' | 'completed' | 'error'
       progressBuf: string
       output?: unknown
+      /** io.warning（工单 7.2）：护栏告警挂对应工具项（保留最后一条；UI 角标数据源） */
+      guard?: { kind: 'injection' | 'secret'; rules: string[]; redacted?: number }
     } & UiItemBase)
   | ({
       kind: 'approval'
@@ -85,6 +87,8 @@ export interface SessionSlice {
   lastCheckpoint: { checkpointId: string; turnId: TurnId } | null
   /** 最近一条 error 事件（toast / fatal 全屏错误态的数据源） */
   lastError: { scope: 'engine' | 'llm' | 'tool' | 'io'; message: string; fatal: boolean } | null
+  /** 最近一次记忆注入（工单 7.5：会话首条消息的 top-k 命中；StatusBar/事件树数据源） */
+  memoryInjected: { count: number; query: string } | null
 }
 
 // ---------- state ----------
@@ -119,6 +123,7 @@ function emptySlice(sid: SessionId): SessionSlice {
     compacting: false,
     lastCheckpoint: null,
     lastError: null,
+    memoryInjected: null,
   }
 }
 
@@ -132,7 +137,7 @@ const EMPTY_META: SessionMeta = {
   updatedAt: 0,
 }
 
-// ---------- reduce：§6.4 处理表（19 种全覆盖） ----------
+// ---------- reduce：§6.4 处理表（20 种全覆盖） ----------
 
 /** 按词表窄化事件 data 的类型守卫（同 SessionPage 模式） */
 function ofType<T extends SparkEventEnvelope['type']>(
@@ -397,8 +402,36 @@ export function reduce(s: SessionStoreState, e: SparkEventEnvelope): SessionStor
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
+  if (ofType(e, 'io.warning')) {
+    // 工单 7.2：护栏告警挂对应 tool 项（不阻断 turn——reducer 只记录，不改状态机）
+    const i = items.findIndex((it) => it.kind === 'tool' && it.callId === e.data.callId)
+    if (i >= 0) {
+      const cur = items[i]
+      if (cur !== undefined && cur.kind === 'tool') {
+        items = [...items]
+        items[i] = {
+          ...cur,
+          guard: {
+            kind: e.data.kind,
+            rules: e.data.rules,
+            ...(e.data.redacted !== undefined ? { redacted: e.data.redacted } : {}),
+          },
+        }
+        next.items = items
+      }
+    }
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
   if (ofType(e, 'compaction.started')) {
     next.compacting = true
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'memory.injected')) {
+    // 工单 7.5 / ADR D25：记忆注入落 slice（不进转录 items——模型可见面已在
+    // 引擎事件流记录，UI 以状态徽标呈现注入发生）
+    next.memoryInjected = { count: e.data.memories.length, query: e.data.query }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
@@ -417,7 +450,7 @@ export function reduce(s: SessionStoreState, e: SparkEventEnvelope): SessionStor
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
-  // 词表穷尽由 tests/applyEvent.test.ts 19 例逐条把关（AGENTS §2.8：新增事件类型必须同步本表与单测）
+  // 词表穷尽由 tests/applyEvent.test.ts 逐条把关（AGENTS §2.8：新增事件类型必须同步本表与单测）
   return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
 }
 

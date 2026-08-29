@@ -23,6 +23,7 @@ import type {
   Usage,
 } from '@spark/protocol'
 import type { EventBus } from './bus.js'
+import type { UserHookRunner } from './hooks/runner.js'
 import type { LlmGateway, LlmMessage, ResolvedModel, ToolSpec } from './llm-gateway.js'
 import { ZERO_USAGE, addUsage } from './llm-gateway.js'
 import type { Metrics } from './observability/metrics.js'
@@ -65,6 +66,31 @@ export interface ToolPipeline {
   runAll(turn: TurnCtx, calls: readonly ToolCallPending[]): Promise<ToolPipelineResult[]>
 }
 
+/**
+ * 成本熔断端口（工单 7.7 / H07）：usage 聚合阈值中断。
+ * - turn 开始前 exceeded → 新 turn 拒绝（error 人话 + turn.completed{error}）；
+ * - 每步 usage 累加后检查 → 超限即中断本 turn（assistant.message 已 emit 后断——
+ *   产出保留，失败闭合走 finish='error'）。
+ */
+export interface Budget {
+  /** 当前成本上限美元值（undefined = 未配置，永不熔断） */
+  limitUsd(): number | undefined
+  /** 累加一步用量 */
+  add(usage: Usage): void
+  /** 熔断判定 */
+  exceeded(): boolean
+  /** 当前累计成本（人话错误文案用） */
+  spendUsd(): number
+}
+
+/** 熔断人话文案（工单 7.7 验收：触发后提示须可操作） */
+function budgetMessage(limitUsd: number, spendUsd: number): string {
+  return (
+    `E_BUDGET_EXCEEDED: 已达成本上限 $${limitUsd}（累计 $${spendUsd.toFixed(4)}）——` +
+    '本 turn 已熔断。可上调 models.json 的 costLimitUsd，或调用 DELETE /api/routing/usage 重置累计'
+  )
+}
+
 // ---- TurnCtx（§5.5）----
 
 export interface TurnCtx {
@@ -94,8 +120,22 @@ export interface RunLoopDeps {
   compactionThreshold: number
   /** 进程内指标（§5.10 清单；缺省不计数——测试 stub 可省，工单 4.8） */
   metrics?: Metrics
+  /** 成本熔断（工单 7.7 / H07；缺省不限——测试 stub 可省） */
+  budget?: Budget
   /** turn 边界 checkpoint（工单 4.6；config.engine.checkpoints=false 时缺省） */
   checkpoint?: Checkpointer
+  /** 会话工作目录（工单 7.3：turn.before/turn.after 用户 hook 的命令 cwd） */
+  cwd?: string
+  /** 用户侧 hooks（工单 7.3 / H03；缺省不触发——测试 stub 可省） */
+  hooks?: UserHookRunner
+  /**
+   * 长期记忆注入端口（工单 7.5 / H05 / ADR D25）：会话首条 user.message 落盘后
+   * 调用（端口内部自判注入条件——已注入过/非首条即 no-op；命中空集不 emit）。
+   * 缺省不注入——测试 stub 与记忆未启用时可省。
+   */
+  memory?: {
+    maybeInject: (turnId: TurnId, query: string) => Promise<void>
+  }
 }
 
 function isToolCall(c: ContentItem): c is Extract<ContentItem, { type: 'toolCall' }> {
@@ -157,6 +197,18 @@ export async function runTurn(
   }
 
   try {
+    // 用户侧 hooks（工单 7.3）：turn.before——输入受理后、事件流开路前触发
+    // （先于 user.message/turn.started；fire-and-forget 不阻断）
+    deps.hooks?.fire('turn.before', {
+      sessionId: sid,
+      cwd: deps.cwd ?? '',
+      sourceEventId: null,
+      data: { turnId },
+    })
+    // 长期记忆注入（工单 7.5 / ADR D25）：先于 user.message 落盘（投影才是模型
+    // 上下文的首条前缀消息）；命中即 emit memory.injected（durable 落盘 = surface
+    // 纪律）；端口内部自判注入条件（非首条/已注入/命中空集 no-op）
+    await deps.memory?.maybeInject(turnId, input.text)
     const userEvent = await deps.bus.emit(sid, 'user.message', {
       text: input.text,
       ...(input.attachments !== undefined ? { attachments: input.attachments } : {}),
@@ -167,6 +219,17 @@ export async function runTurn(
       userEventId: userEvent.id,
     })
     started = true
+
+    // 成本熔断（工单 7.7）：新 turn 拒绝——不调用 LLM，事件流人话闭合
+    // （finally 补 turn.completed{error}，失败闭合形态完整）
+    if (deps.budget !== undefined && deps.budget.exceeded()) {
+      await deps.bus.emit(sid, 'error', {
+        scope: 'engine',
+        message: budgetMessage(deps.budget.limitUsd() ?? 0, deps.budget.spendUsd()),
+      })
+      finish = 'error'
+      return
+    }
 
     for (;;) {
       turn.step += 1
@@ -204,6 +267,8 @@ export async function runTurn(
         { direction: 'output' },
         result.usage.outputTokens,
       )
+      // 成本熔断（工单 7.7）：记账口径同指标——全部流式调用都计入
+      deps.budget?.add(result.usage)
 
       if (result.stopReason === 'error') {
         await deps.bus.emit(sid, 'error', {
@@ -232,6 +297,15 @@ export async function runTurn(
         content: result.content,
         usage: result.usage,
       })
+      // 成本熔断（工单 7.7）：本步产出已定稿落盘，超限即中断（不再执行工具/续步）
+      if (deps.budget !== undefined && deps.budget.exceeded()) {
+        await deps.bus.emit(sid, 'error', {
+          scope: 'engine',
+          message: budgetMessage(deps.budget.limitUsd() ?? 0, deps.budget.spendUsd()),
+        })
+        finish = 'error'
+        break
+      }
       // ④ 截断保护（pi failToolCallsFromTruncatedMessage）
       if (result.stopReason === 'length') {
         const truncated = result.content.filter(isToolCall).map(toPending)
@@ -293,8 +367,15 @@ export async function runTurn(
   } finally {
     // 失败闭合：started 已发则必有 completed；endTurn 转移 steer 残留并处理 idle
     if (started) {
-      await deps.bus.emit(sid, 'turn.completed', { turnId, finish, usage })
+      const completed = await deps.bus.emit(sid, 'turn.completed', { turnId, finish, usage })
       deps.metrics?.inc('spark_turns_total', { finish })
+      // 用户侧 hooks（工单 7.3）：turn.after——completed 已落盘后触发
+      deps.hooks?.fire('turn.after', {
+        sessionId: sid,
+        cwd: deps.cwd ?? '',
+        sourceEventId: completed.id,
+        data: { turnId, finish, usage },
+      })
       // turn 边界 checkpoint（工单 4.6）：completed 已落盘，快照在下一输入前串行执行
       // （晚于 turn.completed、不含自身事件；失败由实现自闭合 emit error{io}）
       if (deps.checkpoint !== undefined) {

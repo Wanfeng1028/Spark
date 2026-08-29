@@ -39,6 +39,8 @@ export const ForkChildDtoSchema = z.strictObject({
   sessionId: SessionIdSchema,
   title: z.string(), // 空字符串 = 新会话
   createdAt: z.number().int().nonnegative(),
+  /** 子代理运行态快照（工单 7.8：引擎从已加载会话实时填充；未加载 = idle） */
+  status: SessionStatusSchema,
 })
 export type ForkChildDto = z.infer<typeof ForkChildDtoSchema>
 
@@ -77,6 +79,18 @@ export const PermissionRuleDtoSchema = z.strictObject({
   effect: z.enum(['allow', 'deny', 'ask']),
 })
 export type PermissionRuleDto = z.infer<typeof PermissionRuleDtoSchema>
+
+// ---------- secrets（doc/02 §8 阶段七工单 7.1 / H01，P0） ----------
+
+/**
+ * 密钥状态（GET /api/secrets 行）：只报 provider 与来源，永不回传密钥值。
+ * source：store = ~/.spark/secrets.json（优先）/ env = apiKeyEnv 环境变量 / none = 未配置
+ */
+export const SecretStatusDtoSchema = z.strictObject({
+  provider: z.string().min(1),
+  source: z.enum(['store', 'env', 'none']),
+})
+export type SecretStatusDto = z.infer<typeof SecretStatusDtoSchema>
 
 // ---------- permission preset（DESIGN §13.E 权限四档 / ADR D7 补记，阶段六工单 6.3） ----------
 
@@ -137,3 +151,184 @@ export const ModelTestResultDtoSchema = z.strictObject({
   detail: z.string().optional(),
 })
 export type ModelTestResultDto = z.infer<typeof ModelTestResultDtoSchema>
+
+// ---------- routing（doc/02 §8 阶段七工单 7.7 / H07，P0） ----------
+
+/** 成本累计（GET /api/routing 的 usage 区；exceeded = 熔断已触发） */
+export const RoutingUsageDtoSchema = z.strictObject({
+  costUsd: z.number().nonnegative(),
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  exceeded: z.boolean(),
+})
+export type RoutingUsageDto = z.infer<typeof RoutingUsageDtoSchema>
+
+/** 模型路由状态：fallback 链 + 任务路由四档（主档=会话模型，不在此表）+ 成本上限 */
+export const RoutingDtoSchema = z.strictObject({
+  /** fallback 链（"provider/model" 列表；空 = 不切换） */
+  fallbacks: z.array(z.string()),
+  compactionModel: z.string(),
+  titleModel: z.string(),
+  subagentModel: z.string(),
+  /** 成本上限美元值（null = 未配置，永不熔断） */
+  costLimitUsd: z.number().positive().nullable(),
+  usage: RoutingUsageDtoSchema,
+})
+export type RoutingDto = z.infer<typeof RoutingDtoSchema>
+
+/** PUT /api/routing 请求体（全部可选字段；缺省字段保持现值；热生效下一请求） */
+export const RoutingUpdateSchema = z.strictObject({
+  fallbacks: z.array(z.string().min(1)).optional(),
+  compactionModel: z.string().min(1).optional(),
+  titleModel: z.string().min(1).optional(),
+  subagentModel: z.string().min(1).optional(),
+  /** null = 清除上限（不限） */
+  costLimitUsd: z.number().positive().nullable().optional(),
+})
+export type RoutingUpdate = z.infer<typeof RoutingUpdateSchema>
+
+// ---------- commands / mcp / skills（doc/02 §8 阶段七工单 7.4 / H04） ----------
+
+/**
+ * 命令注册表行（GET /api/commands）。命令面基线对齐 Claude Code
+ * （/compact /model /mcp /skills /usage /resume），命令名可不同、覆盖面以此为下限。
+ * kind：action = 引擎动作（compact，POST /api/sessions/:id/commands/:name 执行）；
+ * prompt = ~/.spark/commands/*.md 自定义命令（正文展开为 prompt 走正常 turn 通道）；
+ * client = 前端 UI 动作（model/mcp/skills/usage/resume——导航/打开面板，不经引擎执行）。
+ */
+export const CommandDtoSchema = z.strictObject({
+  name: z.string().min(1),
+  description: z.string(),
+  kind: z.enum(['action', 'prompt', 'client']),
+})
+export type CommandDto = z.infer<typeof CommandDtoSchema>
+
+/** POST /api/sessions/:id/commands/:name 请求体（args = 命令后的补充文本） */
+export const ExecuteCommandBodySchema = z.strictObject({
+  args: z.string().optional(),
+})
+
+/** MCP 服务器只读状态（GET /api/mcp 行；连接失败也列出 connected:false） */
+export const McpServerDtoSchema = z.strictObject({
+  name: z.string().min(1),
+  connected: z.boolean(),
+  tools: z.number().int().nonnegative(),
+  command: z.string(),
+})
+export type McpServerDto = z.infer<typeof McpServerDtoSchema>
+
+/** 已加载技能只读清单（GET /api/skills 行） */
+export const SkillDtoSchema = z.strictObject({
+  name: z.string().min(1),
+  events: z.array(z.string()),
+  hooks: z.array(z.strictObject({ on: z.string(), emit: z.string() })),
+})
+export type SkillDto = z.infer<typeof SkillDtoSchema>
+
+// ---------- memories（doc/02 §8 阶段七工单 7.5 / H05，ADR D25） ----------
+
+/** 长期记忆行（GET /api/memories 行；memory.injected 事件内嵌同形状） */
+export const MemoryDtoSchema = z.strictObject({
+  id: z.number().int().positive(),
+  content: z.string().min(1),
+  createdAt: z.number().int().nonnegative(),
+})
+export type MemoryDto = z.infer<typeof MemoryDtoSchema>
+
+// ---------- automation（doc/02 §8 阶段七工单 7.6 / H06，ADR D26） ----------
+
+/** 触发器定义（GET /api/automation 行；三类触发条件至少一种，并存 = 任一命中） */
+export const AutomationTriggerDtoSchema = z.strictObject({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  enabled: z.boolean(),
+  /** 自动建会话的工作目录 */
+  cwd: z.string().min(1),
+  /** 触发后发送的 prompt */
+  prompt: z.string().min(1),
+  /** cron 5 字段表达式（分 时 日 月 周；* / N - ,） */
+  cron: z.string().min(1).optional(),
+  /** watch 路径（stat mtime 变化触发；文件内容/目录结构变化） */
+  watch: z.string().min(1).optional(),
+  /** 启用 webhook 入口（POST /api/automation/webhook/:id） */
+  webhook: z.boolean().optional(),
+  createdAt: z.number().int().nonnegative(),
+})
+export type AutomationTriggerDto = z.infer<typeof AutomationTriggerDtoSchema>
+
+/** POST /api/automation 创建体（id/createdAt/enabled 由引擎生成） */
+export const AutomationCreateSchema = z.strictObject({
+  name: z.string().min(1).max(64),
+  cwd: z.string().min(1),
+  prompt: z.string().min(1),
+  cron: z.string().min(1).optional(),
+  watch: z.string().min(1).optional(),
+  webhook: z.boolean().optional(),
+})
+export type AutomationCreate = z.infer<typeof AutomationCreateSchema>
+
+/** 运行历史行（GET /api/automation/runs；新→旧，finish=error 时带人话 error） */
+export const AutomationRunDtoSchema = z.strictObject({
+  id: z.string().min(1),
+  triggerId: z.string().min(1),
+  triggerName: z.string(),
+  at: z.number().int().nonnegative(),
+  kind: z.enum(['cron', 'watch', 'webhook', 'manual']),
+  sessionId: z.string().optional(),
+  finish: z.enum(['ok', 'error']),
+  error: z.string().optional(),
+})
+export type AutomationRunDto = z.infer<typeof AutomationRunDtoSchema>
+
+// ---------- 审计日志（doc/02 §8 工单 7.12 / H11） ----------
+
+/** 审计明细行（~/.spark/audit.jsonl 追加写；GET /api/audit 新→旧） */
+export const AuditEntryDtoSchema = z.strictObject({
+  time: z.number().int().nonnegative(),
+  kind: z.enum(['permission.decision', 'permission.rule', 'session.rollback']),
+  /** 主体：user=用户答复/管理操作；system=规则/超时/中断/级联自动 */
+  actor: z.enum(['user', 'system']),
+  /** 结果：allow/deny=决策；applied=规则变更生效；ok=回滚完成 */
+  result: z.enum(['allow', 'deny', 'applied', 'ok']),
+  sessionId: SessionIdSchema.optional(),
+  /** 工具名（权限决策的过滤维度） */
+  tool: z.string().optional(),
+  action: z.string().optional(),
+  resource: z.string().optional(),
+  /** 规则变更时该规则的 effect（规则表允许 ask 档） */
+  effect: z.enum(['allow', 'deny', 'ask']).optional(),
+  /** 规则变更操作（kind=permission.rule）：add=新增/覆盖；remove=删除 */
+  op: z.enum(['add', 'remove']).optional(),
+  /** 决策/变更来源（命中规则层 / 答复类型 / 超时 / 管理页…） */
+  source: z.string().optional(),
+  checkpointId: z.string().optional(),
+})
+export type AuditEntryDto = z.infer<typeof AuditEntryDtoSchema>
+
+/** GET /api/audit 查询（全可选；limit 上限 500，缺省 200） */
+export const AuditQuerySchema = z.strictObject({
+  limit: z.number().int().positive().max(500).optional(),
+  kind: z.enum(['permission.decision', 'permission.rule', 'session.rollback']).optional(),
+  result: z.enum(['allow', 'deny', 'applied', 'ok']).optional(),
+  tool: z.string().optional(),
+  since: z.number().int().nonnegative().optional(),
+})
+export type AuditQuery = z.infer<typeof AuditQuerySchema>
+
+// ---------- 会话全文搜索（doc/02 §8 工单 7.13 / H12） ----------
+
+/** 搜索命中行（GET /api/search；事件内容 FTS5 索引，命中带上下文摘要） */
+export const SearchHitDtoSchema = z.strictObject({
+  sessionId: SessionIdSchema,
+  /** 命中事件所属会话标题（空串 = 新会话；索引降级时亦为空） */
+  sessionTitle: z.string(),
+  /** 命中事件（前端跳转锚点：/session/:id?event=<eventId>） */
+  eventId: EventIdSchema,
+  seq: z.number().int().nonnegative(),
+  /** 命中事件类型（索引范围 = 用户消息 / 助手消息 / 标题） */
+  type: z.enum(['user.message', 'assistant.message', 'session.title']),
+  time: z.number().int().nonnegative(),
+  /** 命中上下文摘要（引擎截窗；高亮由前端按查询词标出） */
+  snippet: z.string(),
+})
+export type SearchHitDto = z.infer<typeof SearchHitDtoSchema>

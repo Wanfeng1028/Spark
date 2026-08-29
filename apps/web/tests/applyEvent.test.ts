@@ -1,5 +1,5 @@
 /**
- * applyEvent reducer 单测（doc/02 §6.4 处理表 19 种事件逐条覆盖，AGENTS §2.8）。
+ * applyEvent reducer 单测（doc/02 §6.4 处理表 20 种事件逐条覆盖，AGENTS §2.8）。
  * reduce 为纯函数——直接构造状态与事件断言，无 React 绑定。
  */
 import { describe, expect, it } from 'vitest'
@@ -416,6 +416,90 @@ describe('审批', () => {
   })
 })
 
+describe('io.warning（工单 7.2 I/O 护栏）', () => {
+  const CALL = ids.call('cal_guard001')
+
+  function toolStarted(): SessionStoreState {
+    let s = seeded()
+    s = reduce(
+      s,
+      ev(
+        'turn.started',
+        { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_u1') },
+        { seq: 2 },
+      ),
+    )
+    s = reduce(
+      s,
+      ev('tool.started', { turnId: TURN, callId: CALL, name: 'bash', input: { cmd: 'ls' } }, { seq: 3 }),
+    )
+    return s
+  }
+
+  it('injection：挂对应 tool 项 guard；turn 状态机不受影响（不阻断）', () => {
+    let s = toolStarted()
+    s = reduce(
+      s,
+      ev(
+        'io.warning',
+        {
+          turnId: TURN,
+          callId: CALL,
+          tool: 'bash',
+          kind: 'injection',
+          rules: ['injection.ignore-instructions'],
+        },
+        { seq: 4 },
+      ),
+    )
+    expect(itemsOf(s)[0]).toMatchObject({
+      kind: 'tool',
+      callId: CALL,
+      guard: { kind: 'injection', rules: ['injection.ignore-instructions'] },
+    })
+    // 告警不改状态机：tool 仍 running、activeTurn 保持
+    expect(itemsOf(s)[0]).toMatchObject({ status: 'running' })
+    expect(s.byId[SID]?.activeTurn?.runningTools.has(CALL)).toBe(true)
+  })
+
+  it('secret：guard 含 redacted 计数；后到覆盖前到（保留最后一条）', () => {
+    let s = toolStarted()
+    s = reduce(
+      s,
+      ev(
+        'io.warning',
+        { turnId: TURN, callId: CALL, tool: 'read', kind: 'injection', rules: ['injection.fake-tag'] },
+        { seq: 4 },
+      ),
+    )
+    s = reduce(
+      s,
+      ev(
+        'io.warning',
+        { turnId: TURN, callId: CALL, tool: 'read', kind: 'secret', rules: ['secret.sk-token'], redacted: 3 },
+        { seq: 5 },
+      ),
+    )
+    expect(itemsOf(s)[0]).toMatchObject({
+      guard: { kind: 'secret', rules: ['secret.sk-token'], redacted: 3 },
+    })
+  })
+
+  it('callId 无对应 tool 项：不崩不建 item', () => {
+    const s = toolStarted()
+    const out = reduce(
+      s,
+      ev(
+        'io.warning',
+        { turnId: TURN, callId: ids.call('cal_nobody1'), tool: 'bash', kind: 'injection', rules: ['x'] },
+        { seq: 4 },
+      ),
+    )
+    expect(itemsOf(out)).toHaveLength(1) // 只有原 tool 项
+    expect(itemsOf(out)[0]).not.toHaveProperty('guard')
+  })
+})
+
 describe('compaction / checkpoint / error', () => {
   it('compaction.started/completed：compacting 开关（顶部细条数据源）', () => {
     let s = seeded()
@@ -430,6 +514,27 @@ describe('compaction / checkpoint / error', () => {
       ),
     )
     expect(s.byId[SID]?.compacting).toBe(false)
+  })
+
+  it('memory.injected：memoryInjected 记录命中数与查询词（工单 7.5；不进 items）', () => {
+    let s = seeded()
+    s = reduce(
+      s,
+      ev(
+        'memory.injected',
+        {
+          turnId: TURN,
+          query: '数据库配置',
+          memories: [
+            { id: 1, content: '用户偏好 PostgreSQL', createdAt: 1787800000000 },
+            { id: 2, content: '连接串在 .env', createdAt: 1787800001000 },
+          ],
+        },
+        { seq: 2 },
+      ),
+    )
+    expect(s.byId[SID]?.memoryInjected).toEqual({ count: 2, query: '数据库配置' })
+    expect(itemsOf(s)).toHaveLength(0) // 不建转录 item——模型可见面已在引擎事件流记录
   })
 
   it('checkpoint.created：lastCheckpoint 记录（StatusBar 徽标数据源）', () => {

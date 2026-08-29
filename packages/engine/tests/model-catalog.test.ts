@@ -16,6 +16,10 @@ function makeConfig(over: Partial<ModelsConfig> = {}): ModelsConfig {
     },
     defaultModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
     compactionModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
+    fallbacks: [],
+    titleModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
+    subagentModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
+    costLimitUsd: undefined,
     models: [
       { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
       { provider: 'custom', model: 'custom-x', contextWindow: 32768 },

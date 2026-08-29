@@ -6,13 +6,16 @@
 import type { FastifyPluginCallback } from 'fastify'
 import { z } from 'zod'
 import {
+  AutomationCreateSchema,
   CheckpointIdSchema,
   DeliverySchema,
   EventIdSchema,
+  ExecuteCommandBodySchema,
   PermissionPresetSchema,
   PermissionReplySchema,
   PermissionRuleDtoSchema,
   RequestIdSchema,
+  RoutingUpdateSchema,
   SessionIdSchema,
   TurnIdSchema,
 } from '@spark/protocol'
@@ -89,12 +92,51 @@ const ForkBody = z.strictObject({ fromEventId: EventIdSchema })
 
 const RemoveRuleBody = z.strictObject({ action: z.string().min(1), resource: z.string().min(1) })
 
+/** 密钥仓（阶段七工单 7.1 / H01） */
+const SecretProviderParams = z.strictObject({ provider: z.string().min(1) })
+
+const SetSecretBody = z.strictObject({ value: z.string().min(1) })
+
 /** 权限档位（DESIGN §13.E 四档 / D7 补记预设层，工单 6.3） */
 const PresetBody = z.strictObject({ preset: PermissionPresetSchema })
 
 /** 模型管理（工单 6.5）：供应商连通测试参数 + 会话级换模型 body */
 const ProviderIdParams = z.strictObject({ providerId: z.string().min(1).max(64) })
 const SetModelBody = z.strictObject({ model: z.string().min(1) })
+
+/** 命令注册表（阶段七工单 7.4 / H04）：命令名与执行 body */
+const CommandNameParams = z.strictObject({
+  id: SessionIdSchema,
+  name: z.string().min(1).max(64),
+})
+
+/** 长期记忆（工单 7.5）：删除参数 */
+const MemoryIdParams = z.strictObject({ id: z.coerce.number().int().positive() })
+
+/** 自动化触发器（工单 7.6）：触发器 id 路径 / 启停 body / 运行历史 limit */
+const AutomationIdParams = z.strictObject({ id: z.string().min(1) })
+const AutomationEnabledBody = z.strictObject({ enabled: z.boolean() })
+const AutomationRunsQuery = z.strictObject({
+  limit: z.coerce.number().int().positive().max(500).optional(),
+})
+
+/** 审计日志（工单 7.12 / H11）：明细流查询（时间/决策/工具过滤器数据源） */
+const AuditQuery = z.strictObject({
+  limit: z.coerce.number().int().positive().max(500).optional(),
+  kind: z.enum(['permission.decision', 'permission.rule', 'session.rollback']).optional(),
+  result: z.enum(['allow', 'deny', 'applied', 'ok']).optional(),
+  tool: z.string().optional(),
+  since: z.coerce.number().int().nonnegative().optional(),
+})
+
+/** 会话全文搜索（工单 7.13 / H12）：q 必填非空；limit 缺省 20 上限 100 */
+const SearchQuery = z.strictObject({
+  q: z.string().min(1),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+})
+
+/** 浏览器截图供图（工单 7.10 / H09）：文件名白名单形状校验在引擎侧 */
+const ArtifactParams = z.strictObject({ file: z.string().min(1) })
 
 /** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
 function labelOf(e: SparkEventEnvelope): string {
@@ -116,7 +158,12 @@ function treeToDto(tree: SessionTreeInfo): TreeNodeDto[] {
   const forksByEvent = new Map<string, TreeNodeDto['forks']>()
   for (const f of tree.forks) {
     const list = forksByEvent.get(f.fromEventId) ?? []
-    list.push({ sessionId: f.child.sessionId, title: f.child.title, createdAt: f.child.createdAt })
+    list.push({
+      sessionId: f.child.sessionId,
+      title: f.child.title,
+      createdAt: f.child.createdAt,
+      status: f.child.status,
+    })
     forksByEvent.set(f.fromEventId, list)
   }
   const toDto = (n: SessionTreeNode): TreeNodeDto => ({
@@ -316,6 +363,39 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
     }
   })
 
+  // 密钥管理（阶段七工单 7.1 / H01）：~/.spark/secrets.json 的线上 CRUD——
+  // 值只进不回（GET 只报来源，PUT 写入后立即生效于后续 resolveModel）
+  app.get('/api/secrets', async (req, reply) => {
+    try {
+      return reply.send({ secrets: engine.listSecrets() })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.put('/api/secrets/:provider', async (req, reply) => {
+    try {
+      const { provider } = parseOr400(SecretProviderParams, req.params)
+      const body = parseOr400(SetSecretBody, req.body)
+      engine.setSecret(provider, body.value)
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.delete('/api/secrets/:provider', async (req, reply) => {
+    try {
+      const { provider } = parseOr400(SecretProviderParams, req.params)
+      if (!engine.removeSecret(provider)) {
+        return reply.code(404).send({ code: 'E_NOT_FOUND', message: '密钥仓中无此 provider' })
+      }
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
   // 权限档位（DESIGN §13.E 四档 / D7 补记：规则引擎之上的预设层，工单 6.3）
   app.get('/api/sessions/:id/permission-preset', async (req, reply) => {
     try {
@@ -362,6 +442,196 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
       await requireHandle(engine, id) // 存在性校验（未加载会话先 resume，与其他 :id 端点同纪律）
       const model = await engine.setSessionModel(id, body.model)
       return reply.send({ model })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 模型路由（阶段七工单 7.7 / H07）：fallback 链 + 任务路由档 + 成本熔断（热生效）
+  app.get('/api/routing', () => {
+    // 纯内存读（含 usage.json 启动载入的累计）：无网络请求
+    return engine.getRouting()
+  })
+
+  app.put('/api/routing', async (req, reply) => {
+    try {
+      const patch = parseOr400(RoutingUpdateSchema, req.body)
+      return reply.send(engine.updateRouting(patch))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.delete('/api/routing/usage', async (req, reply) => {
+    try {
+      return reply.send(engine.resetUsage())
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 命令注册表（阶段七工单 7.4 / H04）：/命令 解析框架的线上入口
+  app.get('/api/commands', () => {
+    // 纯内存读（ready() 后为全量；server 入口 listen 前已 await ready）
+    return engine.listCommands()
+  })
+
+  app.post('/api/sessions/:id/commands/:name', async (req, reply) => {
+    try {
+      const { id, name } = parseOr400(CommandNameParams, req.params)
+      // body 可空（无补充参数的命令调用）——ExecuteCommandBody 对 undefined 原样通过
+      const body =
+        req.body === undefined || req.body === null
+          ? undefined
+          : parseOr400(ExecuteCommandBodySchema, req.body)
+      await engine.executeCommand(id, name, body?.args)
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.get('/api/mcp', () => {
+    // 纯内存读：各 server 连接结果快照（失败也列出 connected:false）
+    return engine.listMcpServers()
+  })
+
+  app.get('/api/skills', () => {
+    // 纯内存读：已加载技能清单
+    return engine.listSkills()
+  })
+
+  // 长期记忆（阶段七工单 7.5 / H05 / ADR D25）：设置页管理的线上入口
+  app.get('/api/memories', async (req, reply) => {
+    try {
+      return reply.send(engine.listMemories())
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.delete('/api/memories/:id', async (req, reply) => {
+    try {
+      const { id } = parseOr400(MemoryIdParams, req.params)
+      if (!engine.removeMemory(id)) {
+        return reply.code(404).send({ code: 'E_NOT_FOUND', message: `记忆 ${id} 不存在` })
+      }
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 自动化触发器（阶段七工单 7.6 / H06 / ADR D26）：cron/watch/webhook → 自动建会话执行 prompt
+  app.get('/api/automation', async (req, reply) => {
+    try {
+      return reply.send(engine.listAutomations())
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.post('/api/automation', async (req, reply) => {
+    try {
+      const input = parseOr400(AutomationCreateSchema, req.body)
+      return reply.code(201).send(engine.createAutomation(input))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.delete('/api/automation/:id', async (req, reply) => {
+    try {
+      const { id } = parseOr400(AutomationIdParams, req.params)
+      if (!engine.removeAutomation(id)) {
+        return reply.code(404).send({ code: 'E_NOT_FOUND', message: `触发器 ${id} 不存在` })
+      }
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.put('/api/automation/:id/enabled', async (req, reply) => {
+    try {
+      const { id } = parseOr400(AutomationIdParams, req.params)
+      const { enabled } = parseOr400(AutomationEnabledBody, req.body)
+      if (!engine.setAutomationEnabled(id, enabled)) {
+        return reply.code(404).send({ code: 'E_NOT_FOUND', message: `触发器 ${id} 不存在` })
+      }
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.get('/api/automation/runs', async (req, reply) => {
+    try {
+      const { limit } = parseOr400(AutomationRunsQuery, req.query)
+      return reply.send(engine.listAutomationRuns(limit ?? 100))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 审计日志（阶段七工单 7.12 / H11）：permission 决策 / 规则变更 / rollback 明细流
+  app.get('/api/audit', async (req, reply) => {
+    try {
+      const q = parseOr400(AuditQuery, req.query)
+      return reply.send(
+        engine.listAudit({
+          limit: q.limit ?? 200,
+          ...(q.kind !== undefined ? { kind: q.kind } : {}),
+          ...(q.result !== undefined ? { result: q.result } : {}),
+          ...(q.tool !== undefined ? { tool: q.tool } : {}),
+          ...(q.since !== undefined ? { since: q.since } : {}),
+        }),
+      )
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 会话全文搜索（阶段七工单 7.13 / H12）：用户/助手消息 + 会话标题入 FTS5
+  app.get('/api/search', async (req, reply) => {
+    try {
+      const q = parseOr400(SearchQuery, req.query)
+      return reply.send(engine.searchSessions(q.q, q.limit ?? 20))
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 浏览器截图供图（阶段七工单 7.10 / H09 / ADR D27）：
+  // 文件名白名单（shot-<ts>-<seq>.png）校验在引擎侧，路径逃逸零面
+  app.get('/api/artifacts/:file', async (req, reply) => {
+    try {
+      const { file } = parseOr400(ArtifactParams, req.params)
+      const buf = engine.readScreenshot(file)
+      if (buf === null) {
+        return reply.code(404).send({ code: 'E_NOT_FOUND', message: 'not found' })
+      }
+      return reply.type('image/png').send(buf)
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.post('/api/automation/webhook/:id', async (req, reply) => {
+    try {
+      const { id } = parseOr400(AutomationIdParams, req.params)
+      await engine.fireAutomationWebhook(id)
+      return reply.send({ ok: true })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  app.post('/api/automation/:id/run', async (req, reply) => {
+    try {
+      const { id } = parseOr400(AutomationIdParams, req.params)
+      await engine.fireAutomationManual(id)
+      return reply.send({ ok: true })
     } catch (err) {
       return sendError(req, reply, err)
     }

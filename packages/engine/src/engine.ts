@@ -12,18 +12,28 @@
  * 退出 → 审批 pending 全部 fail-closed → 全量 flush + close。
  */
 import { readdir } from 'node:fs/promises'
+import { readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type {
+  AutomationCreate,
+  AutomationRunDto,
+  AutomationTriggerDto,
   CheckpointId,
+  CommandDto,
   Delivery,
   EventId,
+  McpServerDto,
+  MemoryDto,
   ModelTestResultDto,
   ModelsDto,
   PermissionPreset,
   PermissionReply,
   RequestId,
+  RoutingDto,
+  RoutingUpdate,
   SessionId,
+  SkillDto,
   SparkEventEnvelope,
   SparkEventMap,
   TurnFinish,
@@ -42,6 +52,8 @@ import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
 import { listModels, testProvider } from './model-catalog.js'
 import type { Compactor } from './run-loop.js'
 import { PiGateway } from './pi-gateway.js'
+import { FallbackGateway } from './fallback-gateway.js'
+import { CostTracker } from './cost-tracker.js'
 import { buildSystemPrompt, PLAN_MODE_DIRECTIVE } from './prompts.js'
 import { ProjectorImpl } from './projector.js'
 import { reasoningIncluded } from './projector.js'
@@ -58,6 +70,7 @@ import type { SubmitResult } from './session/input-queue.js'
 import { TitleGenerator } from './title.js'
 import { ToolOutputStore } from './tools/output-store.js'
 import { ToolPipelineImpl } from './tools/pipeline.js'
+import { IoGuard } from './tools/guard.js'
 import { ToolRegistry } from './tools/registry.js'
 import type { ToolContext, ToolOutput } from './tools/definition.js'
 import { registerBuiltinTools } from './tools/builtin/index.js'
@@ -70,6 +83,21 @@ import { loadMcpConfig } from './mcp/config.js'
 import { McpManager } from './mcp/manager.js'
 import { loadSkills } from './skills/loader.js'
 import type { LoadedSkill } from './skills/loader.js'
+import { BUILTIN_COMMANDS, expandCommandPrompt, loadCommands } from './commands/loader.js'
+import type { LoadedCommand } from './commands/loader.js'
+import { MemoryStore } from './memory/store.js'
+import { memorySaveTool, memorySearchTool } from './tools/builtin/memory.js'
+import { AutomationManager } from './automation/manager.js'
+import { AutomationRegistry } from './automation/registry.js'
+import { DEFAULT_HOOK_TIMEOUT_MS, UserHookRunner } from './hooks/runner.js'
+import { SecretStore, resolveApiKey } from './secrets/store.js'
+import type { SecretSource } from './secrets/store.js'
+import { AuditLog, type AuditEntry, type AuditQuery } from './audit/log.js'
+import { SearchStore, type SearchEntry, type SearchEntryType } from './search/store.js'
+import { BrowserManager } from './browser/driver.js'
+import type { BrowserDriver } from './browser/driver.js'
+import { createPlaywrightDriver, SHOT_FILE_RE } from './browser/playwright.js'
+import { makeBrowserTools } from './tools/builtin/browser.js'
 
 export const SPARK_VERSION = '0.1.0'
 
@@ -112,6 +140,8 @@ export interface ForkChildInfo {
   sessionId: SessionId
   title: string
   createdAt: number
+  /** 子代理运行态快照（工单 7.8：已加载会话实时状态；未加载 = idle） */
+  status: SessionStatus
 }
 
 /** GET /api/sessions/:id/tree 的引擎数据源 */
@@ -119,6 +149,17 @@ export interface SessionTreeInfo {
   nodes: SessionTreeNode[]
   /** 各节点分叉出的子会话（磁盘 header 扫描；v1 本地量级全量读） */
   forks: { fromEventId: EventId; child: ForkChildInfo }[]
+}
+
+/** 全文搜索命中行（工单 7.13 / H12；server 原样转 SearchHitDto） */
+export interface SearchHit {
+  sessionId: SessionId
+  sessionTitle: string
+  eventId: EventId
+  seq: number
+  type: SearchEntryType
+  time: number
+  snippet: string
 }
 
 /** UI 审批回复的三态（server 层映射 200 / 409 / 404） */
@@ -138,6 +179,8 @@ export interface EngineDeps {
   newSessionId?: () => SessionId
   /** 日志器（缺省 `new Logger({ root })` → stdout + `<root>/logs/engine.log` §5.10 双路） */
   logger?: SparkLogger
+  /** browser 驱动工厂（缺省 playwright-core 懒启动；测试注入假驱动免真实浏览器） */
+  browserDriver?: () => Promise<BrowserDriver>
 }
 
 interface SessionEntry {
@@ -169,6 +212,32 @@ export class Engine {
   private readonly permission: PermissionServiceImpl
   /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
   private readonly ruleStore: UserRuleStore
+  /** 密钥仓（阶段七工单 7.1 / H01）：~/.spark/secrets.json，取用优先级 store > env */
+  private readonly secrets: SecretStore
+  /** I/O 护栏（阶段七工单 7.2 / H02）：工具输出注入检测 + 敏感过滤 */
+  private readonly ioGuard: IoGuard
+  /** 审计日志（阶段七工单 7.12 / H11）：~/.spark/audit.jsonl 明细流 */
+  private readonly audit: AuditLog
+  /** 全文搜索索引（阶段七工单 7.13 / H12）：~/.spark/search.db（打开失败 null 降级） */
+  private readonly search: SearchStore | null
+  private searchClosed = false
+  /** browser 工具族（阶段七工单 7.10 / H09 / ADR D27）：引擎级单例单页，驱动懒启动 */
+  private readonly browser: BrowserManager
+  /** 截图落盘目录（~/.spark/browser-shots；GET /api/artifacts/:file 供图） */
+  private readonly shotsDir: string
+  /** 成本累计（阶段七工单 7.7 / H07）：~/.spark/usage.json 持久化，熔断判定数据源 */
+  private readonly costTracker: CostTracker
+  /**
+   * 模型路由状态（阶段七工单 7.7 / H07）：fallback 链 + 任务路由档 + 成本上限。
+   * 就地可变（updateRouting 改属性不换对象）——已装接线闭包持同一引用，热生效。
+   */
+  private readonly routing: {
+    fallbacks: ResolvedModel[]
+    compactionModel: ResolvedModel
+    titleModel: ResolvedModel
+    subagentModel: ResolvedModel
+    costLimitUsd: number | undefined
+  }
   /** 进程内指标计数器（§5.10 清单；GET /api/metrics 数据源，工单 4.8） */
   private readonly metrics = new Metrics()
   /** 会话索引（node:sqlite；JSONL 恒为权威——损坏即降级磁盘扫描，工单 4.8） */
@@ -183,6 +252,21 @@ export class Engine {
   private readonly mcpReady: Promise<void>
   /** skills/插件加载任务（工单 5.5 / ADR D18：词表注册 + hooks 订阅；ready() 等待） */
   private readonly skillsReady: Promise<LoadedSkill[]>
+  /** 已加载 skills 快照（skillsReady 完成后非空；用户侧 hooks 的 skill 触发现读） */
+  private loadedSkills: readonly LoadedSkill[] = []
+  /** 用户侧 hooks（阶段七工单 7.3 / H03）：spark.json hooks 段四挂点 fire-and-forget 触发 */
+  private readonly hooks: UserHookRunner
+  /** 自定义命令（阶段七工单 7.4 / H04）：~/.spark/commands/*.md；commandsReady 完成后填充 */
+  private customCommands: readonly LoadedCommand[] = []
+  /** 自定义命令加载任务（坏文件 warn 跳过，不阻塞启动；ready() 等待） */
+  private readonly commandsReady: Promise<void>
+  /**
+   * 长期记忆仓（阶段七工单 7.5 / H05 / ADR D25）：~/.spark/memory.db（FTS5 trigram）。
+   * 打开失败 → null 降级（memory 工具族不注册、注入端口不接线，引擎照常启动）。
+   */
+  private readonly memory: MemoryStore | null
+  /** 自动化触发器（阶段七工单 7.6 / H06 / ADR D26）：cron/watch/webhook → 自动建会话执行 prompt */
+  private readonly automation: AutomationManager
   private readonly outputs: ToolOutputStore
   private readonly sessions = new Map<SessionId, SessionEntry>()
   private readonly inflight = new Map<SessionId, Promise<SessionEntry>>()
@@ -201,7 +285,18 @@ export class Engine {
     this.config = deps.config ?? loadConfig(this.root)
     this.now = deps.now ?? Date.now
     this.newSessionId = deps.newSessionId ?? newIds.session
-    this.gateway = deps.gateway ?? new PiGateway()
+    // 工单 7.7：网关包 fallback 装饰器（链每请求现读 this.routing——热生效）；
+    // 空链零开销短路，deps.gateway 注入（ScriptedLlm）行为不变。
+    // logger 闭包延迟解析（构造器内 gateway 先于 logger 赋值，调用时必已就绪）
+    this.gateway = new FallbackGateway({
+      inner: deps.gateway ?? new PiGateway(),
+      chain: () => this.routing.fallbacks,
+      logger: {
+        warn: (msg, data) => {
+          this.logger.warn(msg, data)
+        },
+      },
+    })
     if (deps.logger !== undefined) {
       this.logger = deps.logger
       this.ownsLogger = false
@@ -272,11 +367,84 @@ export class Engine {
         return skills
       },
     )
+    // skillsReady 完成后留快照（用户侧 hooks 的 skill 触发按名现读）
+    void this.skillsReady.then((skills) => {
+      this.loadedSkills = skills
+    })
+
+    // 工单 7.3 / H03：用户侧 hooks（缺省空配置零开销；失败一律 warn 闭合不阻断主流程）
+    this.hooks = new UserHookRunner(this.config.spark.hooks ?? {}, {
+      bus: this.bus,
+      logger: this.logger,
+      skills: () => this.loadedSkills,
+      defaultTimeoutMs: DEFAULT_HOOK_TIMEOUT_MS,
+    })
+
+    // 工单 7.4 / H04：自定义命令（坏文件 warn 跳过——同 skills 纪律，不阻塞启动）
+    this.commandsReady = loadCommands(join(this.root, 'commands'), this.logger).then(
+      (cmds) => {
+        this.customCommands = cmds
+        for (const c of cmds) {
+          this.logger.info('commands.loaded', { name: c.name })
+        }
+      },
+    )
+
+    // 工单 7.5 / H05 / ADR D25：长期记忆仓（打开失败 null 降级，引擎照常启动）
+    let memoryStore: MemoryStore | null = null
+    try {
+      memoryStore = new MemoryStore(join(this.root, 'memory.db'))
+      if (!memoryStore.fts) {
+        this.logger.warn('memory.fts.unavailable', { path: join(this.root, 'memory.db') })
+      }
+    } catch (err) {
+      this.logger.warn('memory.store.error', { err })
+    }
+    this.memory = memoryStore
+
+    // 工单 7.13 / H12：会话全文搜索索引（打开失败 null 降级——检索不可用不阻塞引擎）
+    let searchStore: SearchStore | null = null
+    try {
+      searchStore = new SearchStore(join(this.root, 'search.db'))
+      if (!searchStore.fts) {
+        this.logger.warn('search.fts.unavailable', { path: join(this.root, 'search.db') })
+      }
+    } catch (err) {
+      this.logger.warn('search.store.error', { err })
+    }
+    this.search = searchStore
+
+    // 工单 7.10 / H09 / ADR D27：browser 工具族——引擎级单例单页；
+    // 驱动（playwright-core）首次 browser.open 才启动，构造期零依赖
+    this.shotsDir = join(this.root, 'browser-shots')
+    this.browser = new BrowserManager(
+      deps.browserDriver ?? createPlaywrightDriver(this.shotsDir, this.logger),
+    )
+
+    // 工单 7.6 / H06 / ADR D26：自动化触发器（触发=自动建会话执行 prompt，走正常 turn 通道）；
+    // 坏 automation.json 构造即抛 E_CONFIG（配置错误不带病运行，同 loadConfig 纪律）
+    this.automation = new AutomationManager(new AutomationRegistry(this.root), {
+      createSession: async ({ title, cwd }) => {
+        const handle = await this.createSession({ title, cwd })
+        return { id: handle.id, send: (text: string) => handle.send(text) }
+      },
+      now: () => this.now(),
+    })
 
     this.registry = new ToolRegistry()
     registerBuiltinTools(this.registry, {
       bashSandbox: this.config.spark.engine.bashSandbox,
     })
+    // 记忆工具族（工单 7.5）：仓不可用不注册（模型无从调用，fail 路径不存在）
+    if (this.memory !== null) {
+      this.registry.register(memorySaveTool)
+      this.registry.register(memorySearchTool)
+    }
+    // browser 工具族（工单 7.10 / ADR D27）：恒广告——浏览器二进制缺失时
+    // 执行期 E_BROWSER_LAUNCH fail-closed（缺失不是静默降级的理由）
+    for (const tool of makeBrowserTools(this.browser)) {
+      this.registry.register(tool)
+    }
     // Task 工具（工单 5.4 / ADR D17）：执行体注入——子会话管理是 Engine 职责
     this.registry.register(
       makeTaskTool((input, ctx) => this.runSubagent(input, ctx)),
@@ -299,12 +467,38 @@ export class Engine {
       join(this.root, 'permissions.json'),
       this.config.permissions.rules,
     )
+    this.secrets = new SecretStore(join(this.root, 'secrets.json'))
+    // 工单 7.1 验收：store 值不落日志——启动即注册进脱敏层（deps.logger 未实现则跳过）
+    this.logger.registerSecrets?.(this.secrets.values())
+    // 工单 7.2：I/O 护栏——store 值动态取（setSecret 即时生效，与日志脱敏同纪律）
+    this.ioGuard = new IoGuard({ secretValues: () => this.secrets.values() })
+    // 工单 7.12：审计日志明细流——脱敏同纪律（密钥仓值动态注入）
+    this.audit = new AuditLog(this.root, () => this.secrets.values())
+    // 工单 7.7：成本熔断计量（usage.json 跨进程延续）+ 路由状态（ResolvedModel 化）
+    this.costTracker = new CostTracker(join(this.root, 'usage.json'))
+    this.routing = {
+      fallbacks: this.config.models.fallbacks.map((r) => this.resolveModel(r)),
+      compactionModel: this.resolveModel(this.config.models.compactionModel),
+      titleModel: this.resolveModel(this.config.models.titleModel),
+      subagentModel: this.resolveModel(this.config.models.subagentModel),
+      costLimitUsd: this.config.models.costLimitUsd,
+    }
     this.permission = new PermissionServiceImpl({
       bus: this.bus,
       ruleStore: this.ruleStore,
       projectRules: loadProjectRules(this.defaultCwd),
       timeoutMs: this.config.spark.engine.permissionTimeoutMs,
       metrics: this.metrics,
+      audit: this.audit, // 工单 7.12：决策与 always 固化规则变更入审计明细流
+      // 工单 7.3：permission.resolved 挂点（fire-and-forget；cwd 取会话工作目录）
+      onResolved: (p) => {
+        this.hooks.fire('permission.resolved', {
+          sessionId: p.sessionId,
+          cwd: this.sessions.get(p.sessionId)?.meta.cwd ?? this.defaultCwd,
+          sourceEventId: p.sourceEventId,
+          data: { requestId: p.requestId, reply: p.reply },
+        })
+      },
     })
 
     // meta 增量维护：durable 事件更新 updatedAt/lastSeq；session.title 更新标题
@@ -318,6 +512,7 @@ export class Engine {
       }
       if (e.seq !== undefined) {
         this.metrics.inc('spark_events_durable_total')
+        this.indexSearchEvent(e) // 全文搜索增量（工单 7.13；旁路——失败只 warn）
       }
       if (e.type === 'session.title') {
         entry.meta.title = (e.data as { title: string }).title
@@ -343,9 +538,12 @@ export class Engine {
     })
   }
 
-  /** MCP 连接与 skills 加载完成（server 入口 listen 前等待；两者缺省立即返回） */
+  /** MCP 连接与 skills/自定义命令加载完成（server 入口 listen 前等待；缺省项立即返回） */
   ready(): Promise<void> {
-    return Promise.all([this.mcpReady, this.skillsReady]).then(() => undefined)
+    return Promise.all([this.mcpReady, this.skillsReady, this.commandsReady]).then(() => {
+      // 工单 7.6：tick 循环在 server listen 前启动（幂等；unref 不阻止进程退出）
+      this.automation.start()
+    })
   }
 
   /** §5.3 订阅透传（server SSE 的数据源；resume 供 SSE 背压 drain 恢复） */
@@ -357,11 +555,24 @@ export class Engine {
   }
 
   async createSession(
-    opts: { title?: string; model?: string; cwd?: string; parentId?: SessionId } = {},
+    opts: {
+      title?: string
+      model?: string
+      cwd?: string
+      parentId?: SessionId
+      /** 子代理锚点事件（工单 7.8：派生它的 tool.started；fork 走 forkSession 自记） */
+      parentEventId?: EventId
+    } = {},
   ): Promise<SessionHandle> {
     this.assertNotShutdown()
     const cwd = opts.cwd ?? this.defaultCwd
-    const modelRef = this.resolveModelRef(opts.model)
+    // 工单 7.7：子代理派生（parentId 存在）缺省用 subagentModel 路由档（热更新现读）；
+    // 显式 opts.model 优先（调用方指定即尊重）
+    const subagentDefault =
+      opts.parentId !== undefined
+        ? `${this.routing.subagentModel.provider}/${this.routing.subagentModel.model}`
+        : undefined
+    const modelRef = this.resolveModelRef(opts.model ?? subagentDefault)
     const modelStr = `${modelRef.provider}/${modelRef.model}`
     const sessionId = this.newSessionId()
     const createdAt = this.now()
@@ -377,6 +588,8 @@ export class Engine {
         model: modelStr,
         // 子代理来源（工单 5.4 / ADR D17；fork 另记 parentPath/parentEventId）
         ...(opts.parentId !== undefined ? { parentSession: opts.parentId } : {}),
+        // 工单 7.8：子代理锚点事件——树视图按 parentEventId 归组显示运行态
+        ...(opts.parentEventId !== undefined ? { parentEventId: opts.parentEventId } : {}),
       },
       {
         onTailTorn: (reason) => {
@@ -601,10 +814,149 @@ export class Engine {
 
   addPermissionRule(rule: PermissionRule): void {
     this.ruleStore.add(rule)
+    this.audit.record({
+      time: Date.now(),
+      kind: 'permission.rule',
+      actor: 'user',
+      result: 'applied',
+      op: 'add',
+      action: rule.action,
+      resource: rule.resource,
+      effect: rule.effect,
+      source: 'settings-ui',
+    })
   }
 
   removePermissionRule(action: string, resource: string): boolean {
-    return this.ruleStore.remove(action, resource)
+    const removed = this.ruleStore.remove(action, resource)
+    if (removed) {
+      this.audit.record({
+        time: Date.now(),
+        kind: 'permission.rule',
+        actor: 'user',
+        result: 'applied',
+        op: 'remove',
+        action,
+        resource,
+        source: 'settings-ui',
+      })
+    }
+    return removed
+  }
+
+  /** 审计日志明细读（工单 7.12 / H11）：GET /api/audit 的引擎数据源（新→旧） */
+  listAudit(query: AuditQuery): AuditEntry[] {
+    return this.audit.entries(query)
+  }
+
+  // ---- 会话全文搜索（工单 7.13 / H12）----
+
+  /**
+   * 会话全文搜索（工单 7.13 / H12）：GET /api/search 的引擎数据源（新→旧）。
+   * 索引不可用（打开失败降级）→ 空数组——搜索失败不阻塞主流程（同 SessionIndex 纪律）。
+   */
+  searchSessions(q: string, limit: number): SearchHit[] {
+    if (this.search === null || this.searchClosed) return []
+    return this.search.search(q, limit).map((r) => ({
+      sessionId: r.sessionId,
+      sessionTitle: this.sessionTitleOf(r.sessionId),
+      eventId: r.eventId,
+      seq: r.seq,
+      type: r.type,
+      time: r.time,
+      snippet: searchSnippet(r.content, q),
+    }))
+  }
+
+  // ---- 浏览器截图供图（工单 7.10 / H09 / ADR D27）----
+
+  /**
+   * 读截图文件（GET /api/artifacts/:file 的引擎数据源）：文件名白名单
+   * （`shot-<ts>-<seq>.png`）+ 目录拼接——路径逃逸零面。不存在/非法名 → null。
+   */
+  readScreenshot(file: string): Buffer | null {
+    if (!SHOT_FILE_RE.test(file)) return null
+    try {
+      return readFileSync(join(this.shotsDir, file))
+    } catch {
+      return null
+    }
+  }
+
+  /** durable 事件增量入搜索索引（bus 钩子；旁路——失败只 warn，不碰事件流） */
+  private indexSearchEvent(e: SparkEventEnvelope): void {
+    if (this.search === null || this.searchClosed || e.seq === undefined) return
+    let content: string | null = null
+    let type: SearchEntryType | null = null
+    if (e.type === 'user.message') {
+      content = (e.data as SparkEventMap['user.message']).text
+      type = 'user.message'
+    } else if (e.type === 'assistant.message') {
+      // 只索引 text 块（reasoning/工具调用输出不入全文索引——噪声远大于召回价值）
+      const blocks = (e.data as SparkEventMap['assistant.message']).content
+      const text = blocks
+        .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+        .map((b) => b.text)
+        .join('\n')
+      if (text !== '') {
+        content = text
+        type = 'assistant.message'
+      }
+    } else if (e.type === 'session.title') {
+      const title = (e.data as SparkEventMap['session.title']).title
+      if (title !== '') {
+        content = title
+        type = 'session.title'
+      }
+    }
+    if (content === null || type === null) return
+    const entry: SearchEntry = {
+      sessionId: e.sessionId,
+      eventId: e.id,
+      seq: e.seq,
+      type,
+      time: e.time,
+      content,
+    }
+    try {
+      this.search.upsert(entry)
+    } catch (err) {
+      this.logger.warn('search.index.error', { sid: e.sessionId, eid: e.id, err })
+    }
+  }
+
+  /**
+   * 装载点同步（create/resume/fork/rollback 重载共用单点）：水位幂等——
+   * 持平跳过；水位 > 当前尾（回滚截断）先删界外行再补差量；水位 < 当前尾只补增量。
+   */
+  private syncSearch(sessionId: SessionId, events: readonly SparkEventEnvelope[]): void {
+    if (this.search === null || this.searchClosed) return
+    try {
+      const lastSeq = events.length === 0 ? 0 : (events[events.length - 1]?.seq ?? 0)
+      const wm = this.search.watermark(sessionId)
+      if (wm !== null && wm === lastSeq) return
+      if (wm !== null && wm > lastSeq) this.search.removeAfter(sessionId, lastSeq)
+      const from = wm !== null && wm <= lastSeq ? wm : 0
+      for (const e of events) {
+        if (e.seq !== undefined && e.seq > from) this.indexSearchEvent(e)
+      }
+      this.search.setWatermark(sessionId, lastSeq)
+    } catch (err) {
+      this.logger.warn('search.sync.error', { sid: sessionId, err })
+    }
+  }
+
+  /** 命中行的会话标题：已装载 meta → SessionIndex（boot 重建）→ 空串兜底 */
+  private sessionTitleOf(id: SessionId): string {
+    const loaded = this.sessions.get(id)
+    if (loaded !== undefined) return loaded.meta.title
+    if (this.index === null || this.indexClosed) return ''
+    try {
+      return this.index.titleOf(id) ?? ''
+    } catch (err) {
+      this.logger.warn('search.title.error', { sid: id, err })
+      return ''
+    }
   }
 
   // ---- 权限档位（DESIGN §13.E 四档 / D7 补记预设层，阶段六工单 6.3） ----
@@ -645,6 +997,199 @@ export class Engine {
     entry.meta.model = `${modelRef.provider}/${modelRef.model}`
     this.syncIndex(entry.meta)
     return entry.meta.model
+  }
+
+  // ---- 命令注册表（阶段七工单 7.4 / H04：/命令 解析框架） ----
+
+  /** GET /api/commands：内置基线（action/client）+ 自定义（prompt）统一清单 */
+  listCommands(): CommandDto[] {
+    return [
+      ...BUILTIN_COMMANDS,
+      ...this.customCommands.map((c) => ({
+        name: c.name,
+        description: c.description,
+        kind: 'prompt' as const,
+      })),
+    ]
+  }
+
+  /**
+   * POST /api/sessions/:id/commands/:name 执行体：action（compact）走压缩入口；
+   * prompt（自定义 .md）展开为 prompt 走正常 turn 通道（user.message 事件落盘）。
+   * client 命令与未知命令拒绝（E_COMMAND_CLIENT / E_NOT_FOUND——失败闭合）。
+   */
+  async executeCommand(id: SessionId, name: string, args?: string): Promise<void> {
+    this.assertNotShutdown()
+    const handle = this.handleOf(await this.requireEntry(id))
+    if (name === 'compact') {
+      await handle.compact() // turn 进行中 → E_TURN_ACTIVE（§5.8.5 既有拒绝码）
+      return
+    }
+    const cmd = this.customCommands.find((c) => c.name === name)
+    if (cmd !== undefined) {
+      await handle.send(expandCommandPrompt(cmd.prompt, args))
+      return
+    }
+    if (BUILTIN_COMMANDS.some((c) => c.name === name && c.kind === 'client')) {
+      throw new Error(`E_COMMAND_CLIENT: /${name} 是界面命令，由前端执行——引擎不接受该请求`)
+    }
+    throw new Error(`E_NOT_FOUND: 未知命令 /${name}`)
+  }
+
+  /** GET /api/mcp：MCP 服务器只读状态（连接失败也列出 connected:false） */
+  listMcpServers(): McpServerDto[] {
+    return this.mcp.status().map((s) => ({ ...s }))
+  }
+
+  /** GET /api/skills：已加载技能只读清单（ready() 后为全量） */
+  listSkills(): SkillDto[] {
+    return this.loadedSkills.map((s) => ({
+      name: s.name,
+      events: [...s.events],
+      hooks: s.hooks.map((h) => ({ ...h })),
+    }))
+  }
+
+  // ---- 长期记忆（阶段七工单 7.5 / H05 / ADR D25：设置页管理的线上入口） ----
+
+  /** GET /api/memories：全量列表（新→旧）；仓不可用 → E_MEMORY_UNAVAILABLE */
+  listMemories(): MemoryDto[] {
+    if (this.memory === null) {
+      throw new Error('E_MEMORY_UNAVAILABLE: 长期记忆未启用（memory.db 打开失败）')
+    }
+    return this.memory.list()
+  }
+
+  /** DELETE /api/memories/:id：删除一条（无此条 false → 路由层 404） */
+  removeMemory(id: number): boolean {
+    if (this.memory === null) {
+      throw new Error('E_MEMORY_UNAVAILABLE: 长期记忆未启用（memory.db 打开失败）')
+    }
+    return this.memory.remove(id)
+  }
+
+  // ---- 自动化触发器（阶段七工单 7.6 / H06 / ADR D26：任务列表与运行历史的线上入口） ----
+
+  /** GET /api/automation：触发器清单 */
+  listAutomations(): AutomationTriggerDto[] {
+    return this.automation.list()
+  }
+
+  /** POST /api/automation：创建（至少一种触发条件；坏 cron 表达式 → E_CRON） */
+  createAutomation(input: AutomationCreate): AutomationTriggerDto {
+    return this.automation.add(input)
+  }
+
+  /** DELETE /api/automation/:id：删除（无此条 false → 路由层 404） */
+  removeAutomation(id: string): boolean {
+    return this.automation.remove(id)
+  }
+
+  /** PUT /api/automation/:id/enabled：启停（无此条 false → 路由层 404） */
+  setAutomationEnabled(id: string, enabled: boolean): boolean {
+    return this.automation.setEnabled(id, enabled)
+  }
+
+  /** GET /api/automation/runs：运行历史（新→旧，每次触发必有一行终态记录） */
+  listAutomationRuns(limit: number): AutomationRunDto[] {
+    return this.automation.runs(limit)
+  }
+
+  /** POST /api/automation/webhook/:id：外部触发（未启用/停用/非 webhook → 语义错误） */
+  fireAutomationWebhook(id: string): Promise<void> {
+    return this.automation.fireWebhook(id)
+  }
+
+  /** POST /api/automation/:id/run：手动触发（测试/调试入口） */
+  fireAutomationManual(id: string): Promise<void> {
+    return this.automation.fireManual(id)
+  }
+
+  // ---- 模型路由（阶段七工单 7.7 / H07：fallback 链 + 任务路由 + 成本熔断） ----
+
+  /** GET /api/routing：路由状态 + 成本累计（apiKey 永不进 DTO） */
+  getRouting(): RoutingDto {
+    const spend = this.costTracker.spend()
+    const id = (m: ResolvedModel): string => `${m.provider}/${m.model}`
+    return {
+      fallbacks: this.routing.fallbacks.map(id),
+      compactionModel: id(this.routing.compactionModel),
+      titleModel: id(this.routing.titleModel),
+      subagentModel: id(this.routing.subagentModel),
+      costLimitUsd: this.routing.costLimitUsd ?? null,
+      usage: {
+        costUsd: spend.costUsd,
+        inputTokens: spend.inputTokens,
+        outputTokens: spend.outputTokens,
+        exceeded: this.costTracker.exceeded(this.routing.costLimitUsd),
+      },
+    }
+  }
+
+  /**
+   * PUT /api/routing：热更新（就地改 routing 属性——已装接线闭包下一请求生效）。
+   * 形状/provider 未配置 → E_CONFIG（400）；通过后写回 models.json（重启延续）。
+   */
+  updateRouting(patch: RoutingUpdate): RoutingDto {
+    this.assertNotShutdown()
+    if (patch.fallbacks !== undefined) {
+      this.routing.fallbacks = patch.fallbacks.map((m) => this.resolveModel(this.resolveModelRef(m)))
+    }
+    if (patch.compactionModel !== undefined) {
+      this.routing.compactionModel = this.resolveModel(this.resolveModelRef(patch.compactionModel))
+    }
+    if (patch.titleModel !== undefined) {
+      this.routing.titleModel = this.resolveModel(this.resolveModelRef(patch.titleModel))
+    }
+    if (patch.subagentModel !== undefined) {
+      this.routing.subagentModel = this.resolveModel(this.resolveModelRef(patch.subagentModel))
+    }
+    if (patch.costLimitUsd !== undefined) {
+      this.routing.costLimitUsd = patch.costLimitUsd ?? undefined
+    }
+    this.persistRouting()
+    this.logger.info('routing.update', {
+      fallbacks: this.routing.fallbacks.length,
+      costLimitUsd: this.routing.costLimitUsd ?? null,
+    })
+    return this.getRouting()
+  }
+
+  /** DELETE /api/routing/usage：清零成本累计（解除熔断的唯一入口） */
+  resetUsage(): RoutingDto {
+    this.assertNotShutdown()
+    this.costTracker.reset()
+    this.logger.info('routing.usage.reset')
+    return this.getRouting()
+  }
+
+  /** 路由字段写回 models.json（原子写；其余字段原样保留） */
+  private persistRouting(): void {
+    const path = join(this.root, 'models.json')
+    let raw: unknown
+    try {
+      raw = JSON.parse(readFileSync(path, 'utf8')) as unknown
+    } catch (err) {
+      // 不兜底重写空文档——那会抹掉 providers/defaultModel；内存已更新，持久化显式失败
+      throw new Error(
+        `E_CONFIG: models.json 读取失败，路由配置仅内存生效未持久化：${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
+    const doc = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
+    const toRef = (m: ResolvedModel): { provider: string; model: string; contextWindow: number } => ({
+      provider: m.provider,
+      model: m.model,
+      contextWindow: m.contextWindow,
+    })
+    doc.fallbacks = this.routing.fallbacks.map(toRef)
+    doc.compactionModel = toRef(this.routing.compactionModel)
+    doc.titleModel = toRef(this.routing.titleModel)
+    doc.subagentModel = toRef(this.routing.subagentModel)
+    if (this.routing.costLimitUsd === undefined) delete doc.costLimitUsd
+    else doc.costLimitUsd = this.routing.costLimitUsd
+    const tmp = `${path}.tmp`
+    writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`)
+    renameSync(tmp, path)
   }
 
   // ---- 会话索引（工单 4.8：node:sqlite；JSONL 恒为权威，损坏降级磁盘扫描） ----
@@ -736,6 +1281,15 @@ export class Engine {
     this.bus.forgetSession(id) // 总线水位随旧 store 一并清除——重载 restoreSeq 才能重设截断后的 seq 起点
     await entry.checkpointer.rollback(checkpointId)
     this.logger.info('session.rollback', { sid: id, checkpointId })
+    this.audit.record({
+      time: Date.now(),
+      kind: 'session.rollback',
+      actor: 'user',
+      result: 'ok',
+      sessionId: id,
+      checkpointId,
+      source: 'checkpoint',
+    })
     return this.handleOf(await this.requireEntry(id)) // 重载：requireEntry → loadSession（树重建 + session.resumed）
   }
 
@@ -758,7 +1312,12 @@ export class Engine {
           if (h.parentSession !== id || h.parentEventId === undefined) continue
           out.push({
             fromEventId: h.parentEventId,
-            child: { sessionId: childId, title: titleOf(file_.events), createdAt: h.createdAt },
+            child: {
+              sessionId: childId,
+              title: titleOf(file_.events),
+              createdAt: h.createdAt,
+              status: this.statusOf(childId),
+            },
           })
         }
       }
@@ -876,6 +1435,8 @@ export class Engine {
       title: input.title ?? '子代理',
       cwd: parent.meta.cwd,
       parentId: ctx.sessionId,
+      // 工单 7.8：锚定派生它的 tool.started 事件 → 树视图可见子代理运行态
+      ...(ctx.sourceEventId !== undefined ? { parentEventId: ctx.sourceEventId } : {}),
     })
     this.subagentChildren.add(child.id)
     try {
@@ -941,6 +1502,8 @@ export class Engine {
 
   private async doShutdown(): Promise<void> {
     this.logger.info('engine.shutdown.start', { sessions: this.sessions.size })
+    // 0) 工单 7.6：停自动化触发器（防关停流程中 tick 再创新会话；等在途 tick 收尾）
+    await this.automation.stop()
     try {
       // 1) 拒新（assertNotShutdown 已生效）2) 逐会话 interrupt + 关输入队列
       for (const entry of this.sessions.values()) {
@@ -970,6 +1533,30 @@ export class Engine {
         }
         this.indexClosed = true
       }
+      // 6.5) 长期记忆仓收尾（工单 7.5）：关闭 memory.db 句柄
+      if (this.memory !== null) {
+        try {
+          this.memory.close()
+        } catch (err) {
+          this.logger.warn('memory.close.error', { err })
+        }
+      }
+      // 6.6) 全文搜索索引收尾（工单 7.13）：关闭 search.db 句柄；
+      //      searchClosed 先行置位——迟到的 bus 增量写全部短路（同 indexClosed 纪律）
+      this.searchClosed = true
+      if (this.search !== null) {
+        try {
+          this.search.close()
+        } catch (err) {
+          this.logger.warn('search.close.error', { err })
+        }
+      }
+      // 6.7) browser 工具族收尾（工单 7.10 / ADR D27）：关闭 chromium（未启动则为空操作）
+      try {
+        await this.browser.close()
+      } catch (err) {
+        this.logger.warn('browser.close.error', { err })
+      }
       this.logger.info('engine.shutdown.done')
     } catch (err) {
       this.logger.error('engine.shutdown.error', { err })
@@ -995,14 +1582,17 @@ export class Engine {
         this.logger.warn('projector.dangling_anchor', { sid: meta.id, anchorId })
       },
     })
-    const compactionModel = this.resolveModel(this.config.models.compactionModel)
+    // 工单 7.7：路由档 getter 现读 routing（就地可变对象）——PUT /api/routing 热生效
+    const routing = this.routing
     const compactor = new CompactorImpl({
       sessionId: meta.id,
       bus: this.bus,
       gateway: this.gateway,
       projector,
       tree: store.tree,
-      model: compactionModel,
+      get model(): ResolvedModel {
+        return routing.compactionModel
+      },
       keepTokens: Math.round(
         (this.config.spark.engine.compactionThreshold * currentModel.contextWindow) / 2,
       ),
@@ -1012,7 +1602,9 @@ export class Engine {
       bus: this.bus,
       gateway: this.gateway,
       projector,
-      model: compactionModel, // §5.11 辅助提示词同一廉价通道
+      get model(): ResolvedModel {
+        return routing.titleModel
+      },
     })
     const checkpointer = this.config.spark.engine.checkpoints
       ? new GitCheckpointer({
@@ -1035,6 +1627,9 @@ export class Engine {
       maxToolParallel: this.config.spark.engine.maxToolParallel,
       progressThrottleMs: this.config.spark.engine.progressThrottleMs,
       metrics: this.metrics,
+      guard: this.ioGuard, // 工单 7.2：工具输出 → 模型上下文的注入检测与敏感过滤
+      hooks: this.hooks, // 工单 7.3：tool.completed 挂点（载荷不含 output）
+      ...(this.memory !== null ? { memory: this.memory, now: this.now } : {}),
     })
     // 计划模式 system 拼接的闭包依赖（见下方 deps.system getter）
     const permission = this.permission
@@ -1061,6 +1656,39 @@ export class Engine {
       maxStepsPerTurn: this.config.spark.engine.maxStepsPerTurn,
       compactionThreshold: this.config.spark.engine.compactionThreshold,
       metrics: this.metrics,
+      // 工单 7.3：turn.before/turn.after 用户 hook（命令 cwd = 会话工作目录）
+      cwd: meta.cwd,
+      hooks: this.hooks,
+      // 工单 7.5 / ADR D25：记忆注入端口（仓不可用不接线）；条件内判——
+      // 仅会话首条 user.message（此时树上尚无 user.message）且从未注入过且命中非空
+      ...(this.memory !== null
+        ? {
+            memory: {
+              maybeInject: async (turnId: TurnId, query: string): Promise<void> => {
+                const m = this.memory
+                if (m === null) return
+                const path = store.tree.pathToRoot()
+                const hasUser = path.some((e) => e.type === 'user.message')
+                const injected = path.some((e) => e.type === 'memory.injected')
+                if (hasUser || injected) return // 非首条/已注入
+                const hits = m.search(query, 3)
+                if (hits.length === 0) return
+                await this.bus.emit(meta.id, 'memory.injected', {
+                  turnId,
+                  query,
+                  memories: hits,
+                })
+              },
+            },
+          }
+        : {}),
+      // 工单 7.7：成本熔断——limitUsd 现读 routing（热生效），累计跨进程持久
+      budget: {
+        limitUsd: () => this.routing.costLimitUsd,
+        add: (u) => this.costTracker.add(u),
+        exceeded: () => this.costTracker.exceeded(this.routing.costLimitUsd),
+        spendUsd: () => this.costTracker.spend().costUsd,
+      },
       ...(checkpointer !== null
         ? {
             checkpoint: {
@@ -1076,6 +1704,8 @@ export class Engine {
     const loop = runSessionLoop(runtime, deps)
     // 装载点同步索引（create/resume/fork/rollback 重载共用本单点，工单 4.8）
     this.syncIndex(meta)
+    // 装载点同步搜索索引（工单 7.13）：历史事件入 FTS（增量钩子只覆盖本进程新事件）
+    this.syncSearch(meta.id, store.tree.pathToRoot())
     return {
       store,
       runtime,
@@ -1181,21 +1811,49 @@ export class Engine {
     }
   }
 
-  /** ModelRef + providers 表 + 环境变量 → ResolvedModel（apiKey 只在此注入） */
+  /** ModelRef + providers 表 + 密钥仓/环境变量 → ResolvedModel（apiKey 只在此注入，store > env） */
   private resolveModel(ref: ModelRef): ResolvedModel {
     const provider = this.config.models.providers[ref.provider]
     if (provider === undefined) {
       throw new Error(`E_CONFIG: models.json 未配置 provider "${ref.provider}"`)
     }
-    const apiKey =
-      provider.apiKeyEnv === null ? undefined : process.env[provider.apiKeyEnv]
+    const { apiKey } = resolveApiKey(this.secrets, ref.provider, provider.apiKeyEnv)
     return {
       provider: ref.provider,
       model: ref.model,
       contextWindow: ref.contextWindow,
-      ...(apiKey !== undefined && apiKey !== '' ? { apiKey } : {}),
+      ...(apiKey !== undefined ? { apiKey } : {}),
       ...(provider.baseUrl !== undefined ? { baseUrl: provider.baseUrl } : {}),
     }
+  }
+
+  // ---- 密钥管理（阶段七工单 7.1 / H01：~/.spark/secrets.json 的线上入口） ----
+
+  /** providers 全表状态（含未配置）；永不回传密钥值 */
+  listSecrets(): { provider: string; source: SecretSource }[] {
+    return Object.entries(this.config.models.providers).map(([name, cfg]) => ({
+      provider: name,
+      source: resolveApiKey(this.secrets, name, cfg.apiKeyEnv).source,
+    }))
+  }
+
+  /** 新增/覆盖一条密钥（provider 未在 models.json 配置 → E_CONFIG） */
+  setSecret(provider: string, value: string): void {
+    this.assertNotShutdown()
+    if (this.config.models.providers[provider] === undefined) {
+      throw new Error(`E_CONFIG: models.json 未配置 provider "${provider}"`)
+    }
+    this.secrets.set(provider, value)
+    this.logger.registerSecrets?.([value]) // 新值即刻纳入日志脱敏
+    this.logger.info('secrets.set', { provider })
+  }
+
+  /** 删除一条密钥（store 中不存在 → false，路由层 404） */
+  removeSecret(provider: string): boolean {
+    this.assertNotShutdown()
+    const removed = this.secrets.delete(provider)
+    if (removed) this.logger.info('secrets.remove', { provider })
+    return removed
   }
 }
 
@@ -1218,4 +1876,28 @@ function titleOf(events: readonly SparkEventEnvelope[]): string {
     }
   }
   return title
+}
+
+/**
+ * 命中摘要（工单 7.13）：整串命中取命中处窗口（前 30 / 后 90 字符，越界加省略号）；
+ * 整串不中退最长词（≥2 字符）同法开窗；全不中取前 120 字符。只做展示截断，不改索引。
+ */
+function searchSnippet(content: string, q: string): string {
+  const query = q.trim()
+  let idx = query === '' ? -1 : content.indexOf(query)
+  let needleLen = query.length
+  if (idx === -1) {
+    let best: string | null = null
+    for (const t of query.split(/\s+/)) {
+      if (t.length >= 2 && (best === null || t.length > best.length)) best = t
+    }
+    if (best !== null) {
+      idx = content.indexOf(best)
+      needleLen = best.length
+    }
+  }
+  if (idx === -1) return content.length <= 120 ? content : `${content.slice(0, 120)}…`
+  const start = Math.max(0, idx - 30)
+  const end = Math.min(content.length, idx + needleLen + 90)
+  return `${start > 0 ? '…' : ''}${content.slice(start, end)}${end < content.length ? '…' : ''}`
 }

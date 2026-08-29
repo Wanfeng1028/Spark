@@ -4,17 +4,24 @@
  */
 import { isAbsolute, relative, resolve } from 'node:path'
 import type { z } from 'zod'
-import type { CallId, SessionId, TurnId } from '@spark/protocol'
+import type { CallId, EventId, SessionId, TurnId } from '@spark/protocol'
+import type { MemoryStore } from '../memory/store.js'
 
 export interface ToolContext {
   sessionId: SessionId
   turnId: TurnId
   callId: CallId
+  /** 本次调用 tool.started 事件 id（工单 7.8：Task 子代理锚定树视图用；其余工具忽略） */
+  sourceEventId?: EventId
   /** interrupt 级联（§5.6.2 ③：已启动的工具跑到静默，工具自行响应 abort） */
   signal: AbortSignal
   /** 引擎 200ms 节流后 emitLive tool.progress（门控队列保证不晚于 completed） */
   onProgress: (chunk: string) => void
   cwd: string
+  /** 长期记忆仓（工单 7.5 / ADR D25）：memory 工具族使用，其余工具忽略 */
+  memory?: MemoryStore
+  /** 时间源（memory.save 记 created_at；缺省 Date.now） */
+  now?: () => number
 }
 
 export interface ToolOutput {

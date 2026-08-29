@@ -2,7 +2,8 @@
  * RunLoop 单测（doc/02 §5.5 / §8.6 engine 行）：
  * 事件序列（对照 mock normal.jsonl 基线）、工具一轮、steering 注入、
  * interrupt 前缀定稿、LLM error、截断保护（E_TRUNCATED 回喂）、maxSteps、
- * usage 累计、compaction 触发、失败闭合、常驻循环唤醒合并与 shutdown。
+ * usage 累计、compaction 触发、失败闭合、常驻循环唤醒合并与 shutdown、
+ * 成本熔断（工单 7.7：新 turn 拒绝 + 步间中断）。
  */
 import { describe, expect, test, vi } from 'vitest'
 import {
@@ -10,6 +11,7 @@ import {
   type ContentItem,
   type SparkEventEnvelope,
   type SparkEventType,
+  type Usage,
 } from '@spark/protocol'
 import { EventBus, type EventSink } from '../src/bus.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
@@ -66,6 +68,31 @@ class StubCompactor {
   compact(): Promise<void> {
     this.calls += 1
     return Promise.resolve()
+  }
+}
+
+/** 工单 7.7：成本熔断 stub——exceeded 随累计与 limit 现算，added 记录每步 costUsd */
+class StubBudget {
+  limit = 1
+  total = 0
+  readonly added: number[] = []
+
+  limitUsd(): number | undefined {
+    return this.limit
+  }
+
+  add(usage: Usage): void {
+    const cost = usage.costUsd ?? 0
+    this.added.push(cost)
+    this.total += cost
+  }
+
+  exceeded(): boolean {
+    return this.total >= this.limit
+  }
+
+  spendUsd(): number {
+    return this.total
   }
 }
 
@@ -434,6 +461,70 @@ describe('runTurn（§5.5）', () => {
       admittedAt: Date.now(),
     })
     expect(sinkTypes(f)).toEqual(['user.message', 'turn.started', 'error', 'turn.completed'])
+    const err = f.sink.events.find((e) => e.type === 'error')
+    expect(err?.data).toMatchObject({ scope: 'engine' })
+    expect(lastOf(f, 'turn.completed')?.data).toMatchObject({ finish: 'error' })
+    expect(f.rt.state).toBe('idle')
+  })
+
+  test('成本熔断：turn 开始前已超限 → 拒绝新 turn（不调 LLM，人话 error + finish=error）', async () => {
+    const f = makeFixture()
+    const budget = new StubBudget()
+    budget.total = 1.5 // 已超 limit=1
+    f.deps.budget = budget
+    await takeSubmitted(f.rt, 'x')
+    await runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'x',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    // 失败闭合：user.message/turn.started 已落，error 人话闭合，turn.completed{error}
+    expect(sinkTypes(f)).toEqual(['user.message', 'turn.started', 'error', 'turn.completed'])
+    const err = f.sink.events.find((e) => e.type === 'error')
+    expect(err?.data).toMatchObject({ scope: 'engine' })
+    const msg = err !== undefined && 'message' in err.data ? err.data.message : ''
+    expect(msg).toContain('E_BUDGET_EXCEEDED')
+    expect(msg).toContain('$1')
+    expect(msg).toContain('$1.5000')
+    expect(msg).toContain('DELETE /api/routing/usage')
+    expect(f.gateway.calls).toHaveLength(0) // 未调 LLM
+    expect(budget.added).toEqual([]) // 未记账（本 turn 零调用）
+    expect(lastOf(f, 'turn.completed')?.data).toMatchObject({ finish: 'error' })
+    expect(f.rt.state).toBe('idle')
+  })
+
+  test('成本熔断：本步 usage 超限 → 产出定稿后中断（工具不执行、不续步）', async () => {
+    const f = makeFixture()
+    const budget = new StubBudget() // limit=1
+    f.deps.budget = budget
+    f.gateway.scriptStep({
+      content: [
+        { type: 'text', text: '部分产出' },
+        { type: 'toolCall', callId: ids.call('cal_budget1'), name: 'read', input: { path: 'x' } },
+      ],
+      usage: { inputTokens: 10, outputTokens: 5, costUsd: 2 },
+    })
+    await takeSubmitted(f.rt, 'x')
+    await runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'x',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    // assistant.message 已 emit（产出保留）→ error 熔断 → 闭合
+    expect(sinkTypes(f)).toEqual([
+      'user.message',
+      'turn.started',
+      'assistant.message',
+      'error',
+      'turn.completed',
+    ])
+    expect(f.gateway.calls).toHaveLength(1) // 不续步
+    expect(f.tools.batches).toHaveLength(0) // toolCall 未执行
+    expect(budget.added).toEqual([2]) // 本步已记账
     const err = f.sink.events.find((e) => e.type === 'error')
     expect(err?.data).toMatchObject({ scope: 'engine' })
     expect(lastOf(f, 'turn.completed')?.data).toMatchObject({ finish: 'error' })

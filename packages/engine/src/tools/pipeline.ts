@@ -10,8 +10,10 @@
  * 门控 + 200ms 节流合并；工具结束关门排水后才 emit tool.completed——progress
  * 永不晚于 completed 乱序到达。
  */
-import type { SessionId } from '@spark/protocol'
+import type { CallId, SessionId } from '@spark/protocol'
 import type { EventBus } from '../bus.js'
+import type { UserHookRunner } from '../hooks/runner.js'
+import type { MemoryStore } from '../memory/store.js'
 import type { ToolSpec } from '../llm-gateway.js'
 import type { Metrics } from '../observability/metrics.js'
 import type { ToolPipeline, ToolPipelineResult, TurnCtx } from '../run-loop.js'
@@ -19,6 +21,7 @@ import type { ToolCallPending } from '../run-loop.js'
 import type { PermissionService } from './permission-port.js'
 import type { ToolOutputStore } from './output-store.js'
 import type { ToolRegistry } from './registry.js'
+import type { IoGuard } from './guard.js'
 
 export interface PipelineDeps {
   sessionId: SessionId
@@ -31,6 +34,14 @@ export interface PipelineDeps {
   progressThrottleMs: number
   /** 进程内指标（§5.10；缺省不计数——测试 stub 可省，工单 4.8） */
   metrics?: Metrics
+  /** I/O 护栏（工单 7.2；缺省不启用——测试 stub 可省） */
+  guard?: IoGuard
+  /** 用户侧 hooks（工单 7.3；缺省不触发——测试 stub 可省） */
+  hooks?: UserHookRunner
+  /** 长期记忆仓（工单 7.5 / ADR D25；缺省 memory 工具族拒绝执行——测试 stub 可省） */
+  memory?: MemoryStore
+  /** 时间源（memory.save created_at；缺省 Date.now） */
+  now?: () => number
 }
 
 /** 错误 → {code, message}：提取 E_* 前缀码，未分类 → E_INTERNAL（§5.10） */
@@ -156,18 +167,19 @@ export class ToolPipelineImpl implements ToolPipeline {
         name: call.name,
         input: call.input,
       })
-      await bus.emit(sid, 'tool.completed', {
-        turnId: turn.turnId,
-        callId: call.callId,
-        output: { code: 'E_NOT_FOUND', message: `未知工具 ${call.name}` },
-        isError: true,
-        durationMs: startedAt(),
-      })
+      await this.emitCompleted(
+        turn,
+        call.callId,
+        call.name,
+        { code: 'E_NOT_FOUND', message: `未知工具 ${call.name}` },
+        true,
+        startedAt(),
+      )
       this.deps.metrics?.inc('spark_tool_calls_total', { name: call.name, is_error: 'true' })
       return { callId: call.callId, output: { code: 'E_NOT_FOUND' }, isError: true }
     }
 
-    await bus.emit(sid, 'tool.started', {
+    const startedEnv = await bus.emit(sid, 'tool.started', {
       turnId: turn.turnId,
       callId: call.callId,
       name: call.name,
@@ -197,13 +209,14 @@ export class ToolPipelineImpl implements ToolPipeline {
       })
       if (!allowed) {
         await gate.close()
-        await bus.emit(sid, 'tool.completed', {
-          turnId: turn.turnId,
-          callId: call.callId,
-          output: { code: 'E_PERMISSION' },
-          isError: true,
-          durationMs: startedAt(),
-        })
+        await this.emitCompleted(
+          turn,
+          call.callId,
+          call.name,
+          { code: 'E_PERMISSION' },
+          true,
+          startedAt(),
+        )
         this.deps.metrics?.inc('spark_tool_calls_total', { name: call.name, is_error: 'true' })
         return { callId: call.callId, output: { code: 'E_PERMISSION' }, isError: true }
       }
@@ -215,38 +228,82 @@ export class ToolPipelineImpl implements ToolPipeline {
           sessionId: sid,
           turnId: turn.turnId,
           callId: call.callId,
+          sourceEventId: startedEnv.id,
           signal: turn.abort.signal,
           onProgress: (chunk) => gate.push(chunk),
           cwd: this.deps.cwd,
+          ...(this.deps.memory !== undefined ? { memory: this.deps.memory } : {}),
+          ...(this.deps.now !== undefined ? { now: this.deps.now } : {}),
         },
         input,
       )
       // ⑤ 输出限界（>32KB 截断 + 溢写文件）
       const bounded = await this.deps.outputs.bound(result.output, call.callId)
+      // ⑥ I/O 护栏（工单 7.2）：过滤敏感片段 + 注入扫描——tool.completed 事件
+      // 与 run-loop toolResult 回填共用此输出，两面一次覆盖；告警不阻断 turn
+      let finalOutput = bounded
+      if (this.deps.guard !== undefined) {
+        const guarded = this.deps.guard.apply(bounded)
+        finalOutput = guarded.output
+        for (const w of guarded.warnings) {
+          await bus.emit(sid, 'io.warning', {
+            turnId: turn.turnId,
+            callId: call.callId,
+            tool: call.name,
+            kind: w.kind,
+            rules: w.rules,
+            ...(w.redacted !== undefined ? { redacted: w.redacted } : {}),
+          })
+        }
+      }
       await gate.close()
-      await bus.emit(sid, 'tool.completed', {
-        turnId: turn.turnId,
-        callId: call.callId,
-        output: bounded,
-        isError: result.isError,
-        durationMs: startedAt(),
-      })
+      await this.emitCompleted(
+        turn,
+        call.callId,
+        call.name,
+        finalOutput,
+        result.isError,
+        startedAt(),
+      )
       this.deps.metrics?.inc('spark_tool_calls_total', {
         name: call.name,
         is_error: String(result.isError),
       })
-      return { callId: call.callId, output: bounded, isError: result.isError }
+      return { callId: call.callId, output: finalOutput, isError: result.isError }
     } catch (err) {
       await gate.close()
-      await bus.emit(sid, 'tool.completed', {
-        turnId: turn.turnId,
-        callId: call.callId,
-        output: mapError(err),
-        isError: true,
-        durationMs: startedAt(),
-      })
-      return { callId: call.callId, output: mapError(err), isError: true }
+      const mapped = mapError(err)
+      await this.emitCompleted(turn, call.callId, call.name, mapped, true, startedAt())
+      return { callId: call.callId, output: mapped, isError: true }
     }
+  }
+
+  /**
+   * tool.completed 发射 + 用户侧 hooks 挂点（工单 7.3）：载荷不含 output
+   * （可能超大/含敏感内容）。合成闭合对（E_ABORTED 未启动 / E_TRUNCATED 截断
+   * 保护）不走此路——挂点语义是"真实工具调用完成后"。
+   */
+  private async emitCompleted(
+    turn: TurnCtx,
+    callId: CallId,
+    name: string,
+    output: unknown,
+    isError: boolean,
+    durationMs: number,
+  ): Promise<void> {
+    const env = await this.deps.bus.emit(this.deps.sessionId, 'tool.completed', {
+      turnId: turn.turnId,
+      callId,
+      output,
+      isError,
+      durationMs,
+    })
+    this.deps.hooks?.fire('tool.completed', {
+      sessionId: this.deps.sessionId,
+      cwd: this.deps.cwd,
+      sourceEventId: env.id,
+      data: { turnId: turn.turnId, callId, name, isError, durationMs },
+    })
   }
 
   /** 未启动即被 interrupt：补事件对（E_ABORTED） */

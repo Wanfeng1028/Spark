@@ -1,17 +1,21 @@
 /**
- * 会话树视图（doc/02 §5.8.6，工单 4.5）：GET /api/sessions/:id/tree → 事件节点链 +
- * 各节点分叉出的子会话。节点行 hover 出现「分叉」→ POST /:id/fork（三拒绝码如实
- * 呈现；E_OPEN_TURN 以禁用态前置）；子会话 chip 点击跳转（fork 复制的 durable
- * 事件冷启动回放与普通会话同一路径）。
+ * 会话树视图（doc/02 §5.8.6，工单 4.5；工单 7.8 加子代理运行态监控）：
+ * GET /api/sessions/:id/tree → 事件节点链 + 各节点分叉出的子会话。
+ * 节点行 hover 出现「分叉」→ POST /:id/fork（三拒绝码如实呈现；E_OPEN_TURN 以
+ * 禁用态前置）；子会话行 = 子代理运行监控点——状态点数据源优先事件流实时推导
+ * （子会话 slice 的 activeTurn：waiting → 等待审批，否则运行中），无事件流覆盖
+ * 时退回 DTO 快照（未加载会话 = idle，绿点）；点击跳转。
  * 数据源 transport.getTree（组件不直接 fetch 之外的旁路——DESIGN §9）。
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { GitBranch } from 'lucide-react'
-import type { EventId, SessionId, TreeNodeDto } from '@spark/protocol'
+import type { EventId, ForkChildDto, SessionId, SessionStatus, TreeNodeDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
+import { SessionStatusDot } from '@/components/layout/Sidebar'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { errorMessageOf } from '@/lib/error-copy'
+import { useActiveTurn } from '@/stores/session'
 
 export interface SessionTreeDialogProps {
   open: boolean
@@ -133,19 +137,39 @@ function TreeNodeRow({ node, busy, forking, disabled, onFork, onOpenChild }: Tre
       {node.forks.length > 0 && (
         <ul className="flex flex-col gap-0.5 pb-1.5 pl-12 pr-2.5">
           {node.forks.map((f) => (
-            <li key={f.sessionId}>
-              <button
-                type="button"
-                onClick={() => onOpenChild(f.sessionId)}
-                className="flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              >
-                <GitBranch className="size-3 shrink-0 text-[var(--spark-accent)]" />
-                <span className="min-w-0 truncate">{f.title === '' ? '新会话' : f.title}</span>
-              </button>
-            </li>
+            <ForkChildRow key={f.sessionId} fork={f} onOpen={onOpenChild} />
           ))}
         </ul>
       )}
+    </li>
+  )
+}
+
+/**
+ * 子代理监控行（工单 7.8）：状态点实时推导——子会话事件流经 applyEvent 落
+ * byId[sessionId].activeTurn（turn.started 置 / turn.completed 清），有活跃
+ * turn 即运行中（waiting → 等待审批）；否则用 tree DTO 携带的快照状态
+ * （未加载子会话恒 idle）。与 Sidebar 状态点同语义（DESIGN §8）。
+ */
+function ForkChildRow({ fork, onOpen }: { fork: ForkChildDto; onOpen: (sid: SessionId) => void }) {
+  const turn = useActiveTurn(fork.sessionId)
+  const status: SessionStatus =
+    turn !== null ? (turn.waiting ? 'waiting-approval' : 'running') : fork.status
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onOpen(fork.sessionId)}
+        className="flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+      >
+        <SessionStatusDot status={status} />
+        <GitBranch className="size-3 shrink-0 text-[var(--spark-accent)]" />
+        <span className="min-w-0 truncate">{fork.title === '' ? '新会话' : fork.title}</span>
+        {status === 'running' && <span className="shrink-0 text-[11px] text-muted-foreground/70">运行中</span>}
+        {status === 'waiting-approval' && (
+          <span className="shrink-0 text-[11px] text-[var(--spark-warn)]">等待审批</span>
+        )}
+      </button>
     </li>
   )
 }

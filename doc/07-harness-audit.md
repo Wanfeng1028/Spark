@@ -5,6 +5,18 @@
 | 版本 | 日期       | 作者                                                                                                                                                            | 变更内容                                                                                                                                                        |
 | ---- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | v1.0 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D1 审计指令） | 初稿：十九条学科×三态总表 / 工程六大类明细（逐条落源码证据）/ 四端复用矩阵 / 缺口优先级 P0–P2；Python Worker 判决"不做"；缺口编号 H01–H36 供 doc/02 §8 阶段六~九工单与 v2 候选池引用 |
+| v1.1 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §2.4 密钥鉴权改 🟡（H01 → 7.1 ✅ 已落地：SecretStore + resolveApiKey store>env + /api/secrets + 设置页 + Logger.registerSecrets 日志脱敏）；§4.3 H01 勾销注记 |
+| v1.2 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §2.4 I/O 护栏改 ✅（H02 → 7.2 ✅ 已落地：IoGuard 六条注入标记规则 + 四层敏感过滤挂 ToolPipeline，`io.warning` log-only 事件，redaction.ts 脱敏正则与 pino 单一来源；guard 14 例含管线 e2e）；§2.3 沙箱差距注记更新；§4.3 H02 勾销注记 |
+| v1.3 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 11 Model Routing 改 ✅、小结计数 8/7→9/6；§2.1 Router 差距与 §2.4 预算与熔断改 ✅（H07 → 7.7 ✅ 已落地：FallbackGateway 未交付才切换 + CostTracker ~/.spark/usage.json 持久累计 + run-loop Budget 熔断双检点 + 任务路由档 title/subagent + /api/routing 热生效）；§2.6 Cost Tracker 差距更新；§4.3 H07 勾销注记 |
+| v1.4 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 16 Hooks 生命周期改 ✅、小结计数 9/6→10/5（H03 → 7.3 ✅ 已落地：UserHookRunner——spark.json hooks 段四挂点 turn.before/after + permission.resolved/tool.completed → 外部命令（stdin 收 JSON 载荷，超时/非零退出/spawn 失败 warn 闭合）或 skill 插件事件双触发，fire-and-forget 不阻断主流程，载荷不含工具 output）；§4.4 H03 勾销注记 |
+| v1.5 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H04 勾销注记（H04 → 7.4 ✅ 已落地：命令注册表三 kind——action（compact 引擎动作）/ client（model/mcp/skills/usage/resume 前端执行）/ prompt（~/.spark/commands/*.md 自定义，$ARGUMENTS 展开走 turn 通道）；GET /api/commands + POST sessions/:id/commands/:name + GET /api/mcp、/api/skills 只读面；Composer /compact 硬编码迁入注册表分发行为回归；CommandPalette 命令分组；设置中心 mcp/skills/usage 三页只读点亮；opencode leader 键归 8.3 键位表成文） |
+| v1.6 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 8 Memory 记忆工程改 ✅、小结计数 10/5/4→11/5/3（H05 → 7.5 ✅ 已落地：~/.spark/memory.db SQLite FTS5 trigram（中文子串命中；建表失败降级 LIKE）+ memory.save/search 工具族（审批 memory.write/read 缺省 ask）+ 事件化注入——memory.injected 先于 user.message 落盘、Projector 投影为模型上下文前缀（surface 纪律双面）、每会话仅首条触发；ADR D25）；§4.4 H05 勾销注记 |
+| v1.7 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 17 Automation 自动化改 ✅、小结计数 11/5/3→12/5/2（H06 → 7.6 ✅ 已落地：AutomationRegistry（~/.spark/automation.json + automation-runs.jsonl 追加写）+ AutomationManager 进程内 tick 循环——自研 cron 解析器（范围/列表/步长/周日 7→0 归一/同分钟去重）+ watch mtime 基线 + webhook/手动触发，效果恒为建会话发 prompt（FireDeps 注入），失败运行结构化 error 留存；/api/automation 七端点 + web /automation 页（§13.F.3）；ADR D26）；§4.4 H06 勾销注记 |
+| v1.8 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §1 学科 15 Sub-agent 改 ✅、小结计数 12/5/2→13/4/2（H08 → 7.8 ✅ 已落地：task 工具 `parallelizable` 解除单并发——多子代理各自独立子会话并行跑（并发仍受 maxToolParallel 分批约束），单层限制语义不变；`ToolContext.sourceEventId` 串联派生它的 `tool.started` 事件 → 子会话 header.parentEventId → 树视图锚定，`ForkChildDto.status` 运行态实时快照（已加载直读 `statusOf`，未加载 idle），SessionTreeDialog 子代理行复用 SessionStatusDot + 等待审批/运行中文案；并行时序重叠 + prompt 隔离 + 树锚定/运行态单测）；§4.4 H08 勾销注记 |
+| v1.9 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H11 勾销注记（H11 → 7.12 ✅ 已落地：~/.spark/audit.jsonl 独立追加明细流——三类 kind（权限决策含 `rule:<层>`/`reply:*`/timeout 等来源归因、规则变更含 op/effect、回滚含 checkpointId）；写前脱敏同 pino（redaction.ts 单一来源 + 密钥仓动态值），写失败旁路吞掉不阻断主链路，读端坏行跳过；GET /api/audit 过滤 since/kind/result/tool + 设置页"审计日志"查看器（§13.G 转录式，基线 15 页外增项））；§2.6 Tracing 工单指针与 §1 学科 12 证据补记（状态仍 🟡——eval/trace 缺口在，小结计数 13/4/2 不变） |
+| v1.10 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H12 勾销注记（H12 → 7.13 ✅ 已落地：~/.spark/search.db 会话全文索引——索引范围 user.message / assistant.message text 块 / session.title 三类，行主键（session_id, event_id）容 fork 同 event id 跨会话；检索链 = FTS5 trigram MATCH（≥3 字符）→ 整串 LIKE → 拆词最长词 LIKE（同 MemoryStore 先例），建表失败降级 LIKE；水位表装载点幂等同步（持平跳过/倒退截断/缺失全量补），增量钩子在 bus durable 订阅（旁路失败只 warn）；JSONL 恒为权威，库打开失败降级空结果不阻塞启动；GET /api/search（q 必填，limit 缺省 20 上限 100）+ /search 页（命中摘要查询词高亮、点击 `?event=` 直达 + ChatView 定位高亮）+ Sidebar 搜索入口；**千事件检索 <500ms** DoD 性能线入单测）；§2 遗留行全文搜索/审计明细指针补 ✅（学科计数不变——搜索未单列学科） |
+| v1.11 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.5 H09 勾销注记（H09 → 7.10 ✅ 已落地：browser.open/click/read/screenshot 工具族——BrowserDriver 端口 + 引擎级单例单页跨会话共享（playwright-core headless chromium **懒启动**，缺包/缺二进制执行期 E_BROWSER_LAUNCH fail-closed）；四工具 `parallelizable: false` 串行互斥；审批三 action（browser.navigate/interact/read，resource `url:<页>`，空规则表缺省 ask）；中断 race 即返 E_ABORTED；**截图不进事件流**——PNG 落 ~/.spark/browser-shots，输出只回文件名+字节数，GET /api/artifacts/:file 白名单供图；前端 ToolCard BrowserDetail（截图按需拉图/降级文案）；迷你 ADR D27 见 ARCHITECTURE v1.20）；§1 学科 19 改 ✅、小结计数 13/4/2→14/4/1（缺失仅剩 Python Worker，判决不做） |
+| v1.12 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.5 H10 勾销注记（H10 → 7.11 ✅ 已落地：`examples/evals`——ScriptedLlm 确定性场景集四场景（审批缺省 ask/拒绝零副作用 · 中断 finish=aborted 前缀定稿 · 手动压缩时序/摘要/重投影 · 基线 seq 单调/工具事件配对/turn 时序），真实 Engine 全链路经 tsx 直跑；`--real` 可选真实模型评分（用户 ~/.spark 配置，缺凭据 → skip 不红）；根脚本 `pnpm eval` + nightly.yml 每日接线，任一 fail 红灯出报告）；§2 Eval 小节翻 ✅；§1 学科 12 证据补 7.11（状态仍 🟡——trace/成本缺口在）；学科 10 残留 H02 指针修正（7.2 已勾销，证据补 I/O 护栏） |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
 > **方法**：三条证据链——①引擎/服务端/前端逐模块源码走读（本文所有路径均为当日实测，非转抄文档）；②协议词表 19 种逐条核对（含 `user.message.attachments?`、`assistant.message.usage` 等已预留未消费字段）；③既有审计（doc/05 缺口 G1–G7）与用户侧能力对照清单合并盘点。
@@ -26,20 +38,20 @@
 | 5  | Tool 治理                  | ✅        | Registry+Pipeline+PermissionService+UserRuleStore 多 pattern                                           | —                            |
 | 6  | Skills 技能工程            | 🟡        | 5.5 声明式清单 loader + plugin. 词表运行时扩展                                                         | 管理 UI/市场 → H17/H18       |
 | 7  | MCP 集成                   | ✅        | 5.3 McpManager stdio + 真实子进程 e2e                                                                  | 管理 UI → H17；HTTP → V2-21  |
-| 8  | Memory 记忆工程            | ❌        | 只有会话内 JSONL，无跨会话记忆                                                                         | → H05（工单 7.5）            |
+| 8  | Memory 记忆工程            | ✅        | SQLite FTS5 trigram 记忆仓 + memory.save/search 工具 + 事件化注入（7.5，ADR D25）                     | —                            |
 | 9  | 状态机与恢复               | ✅        | 最强项：append-only、悬挂 turn 补闭合、kill-9 resume、checkpoint 回滚                                  | —                            |
-| 10 | 沙箱与护栏                 | 🟡        | 5.2 bwrap/Seatbelt + 审批 fail-closed                                                                  | I/O 护栏 → H02；网络隔离 → H34 |
-| 11 | Model Routing              | 🟡        | providers 表 + defaultModel + compactionModel + 会话级覆盖                                             | fallback 链/熔断 → H07       |
-| 12 | 可观测与评估               | 🟡        | pino 三层脱敏 + /api/metrics 六类计数                                                                  | eval → H10；trace/成本 → H23/H27 |
+| 10 | 沙箱与护栏                 | 🟡        | 5.2 bwrap/Seatbelt + 审批 fail-closed + I/O 护栏注入检测与敏感过滤（7.2）                              | 网络隔离 → H34               |
+| 11 | Model Routing              | ✅        | fallback 链（未交付才切换）+ 主/压缩/标题/子代理四路由档 + 成本熔断（7.7）                              | —                            |
+| 12 | 可观测与评估               | 🟡        | pino 三层脱敏 + /api/metrics 六类计数 + 审计明细流（7.12）+ eval 回归场景集与 nightly（7.11）        | trace/成本 → H23/H27         |
 | 13 | 流式与事件工程             | ✅        | durable/live 二分、SSE since=seq 续播、背压、ignorable 前跳                                            | —                            |
 | 14 | Human-in-the-Loop          | ✅        | 审批卡、reject 级联、always 固化、规则管理 UI（4.7）                                                   | —                            |
-| 15 | Sub-agent                  | 🟡        | 5.4 Task 工具、单层限制、父中断级联                                                                    | 并行+监控 → H08              |
-| 16 | Hooks 生命周期             | 🟡        | 仅 skill.json 作者侧声明式触发器                                                                       | 用户侧钩子 → H03             |
-| 17 | Automation 自动化          | ❌        | 无任何触发器引擎                                                                                       | → H06（工单 7.6）            |
+| 15 | Sub-agent                  | ✅        | 5.4 Task 工具、单层限制、父中断级联；并行解除 + 树状运行监控（7.8）                                    | —                            |
+| 16 | Hooks 生命周期             | ✅        | 作者侧 skill.json 声明式触发器 + 用户侧 spark.json hooks 四挂点（7.3，命令/skill 双触发 warn 闭合）     | —                            |
+| 17 | Automation 自动化          | ✅        | 进程内 tick 循环 + cron/watch/webhook 三类触发 → 建会话发 prompt + 运行历史（7.6，ADR D26）           | —                            |
 | 18 | Python Worker              | ❌→**不做** | 判决见 §4.1：主流本地编码 agent 均无此模块，bash + venv 已覆盖                                       | 未来以技能/MCP 外挂          |
-| 19 | Browser/Computer Use       | ❌        | 无 browser 工具族                                                                                      | → H09（工单 7.10）           |
+| 19 | Browser/Computer Use       | ✅        | browser.open/click/read/screenshot 工具族（7.10，ADR D27：懒启动/单页共享/截图落盘供图/审批三 action） | —                            |
 
-小结：扎实具备 8 项、部分具备 7 项、缺失 4 项（长期记忆/自动化/Python Worker/浏览器操控），其中 Python Worker 经评估判决**不做**。
+小结：扎实具备 14 项、部分具备 4 项、缺失 1 项（Python Worker），其中 Python Worker 经评估判决**不做**。
 
 ---
 
@@ -59,10 +71,10 @@
 - 差距：三处提示词全部硬编码，用户不可配模板；AGENTS.md 注入已具备（H20 只剩模板可配化）。
 - 参考：Claude Code 系统提示词分层（官方 plugins/ 工作流）；pi 极简提示词哲学（提示词+工具 ≈1000 token 内）。工单：H20 → v2 候选池（P2，先 CLI 键位/命令成文再统一抽模板层）。
 
-**Planner-Router** —— ❌ 缺位，**刻意不做显式 Planner**
-- 证据：全仓无 plan/调度器模块；模型侧自主规划（system prompt 工作规则 + 工具循环）。
-- 差距：无显式任务分解器；模型路由只有主/压缩两档。
-- 参考：pi 实证"模型即 planner"（无 todo/plan mode 仍达 Terminal-Bench 竞争力）；Claude Code Plan Mode 是交互层不是引擎层。工单：Planner **不做**（与 pi 同判：加显式规划器是云端长任务场景需求）；Router 增强归 H07（7.7）。
+**Planner-Router** —— 🟡 Router 已补全（7.7），**刻意不做显式 Planner**
+- 证据：全仓无 plan/调度器模块；模型侧自主规划（system prompt 工作规则 + 工具循环）。Router 侧 7.7 已落地：`packages/engine/src/fallback-gateway.ts`（fallback 链）+ config 四路由档（主/压缩/标题/子代理）+ `engine.ts` 路由热生效（/api/routing）。
+- 差距：无显式任务分解器（刻意）。
+- 参考：pi 实证"模型即 planner"（无 todo/plan mode 仍达 Terminal-Bench 竞争力）；Claude Code Plan Mode 是交互层不是引擎层。工单：Planner **不做**（与 pi 同判：加显式规划器是云端长任务场景需求）；Router 增强归 H07（7.7 ✅）。
 
 **State Machine & Recovery** —— ✅ 已实现（全仓最强项）
 - 证据：`packages/engine/src/session/store.ts`（单写者 Promise 链、先盘后树、尾行半写丢弃/非尾行 fail-closed、seq 断洞拒载）；`packages/engine/src/engine.ts` loadSession（danglingTurnIds 补 emit turn.completed{aborted}）；kill-9 resume 已在阶段三 e2e 验收。
@@ -95,7 +107,7 @@
 
 **沙箱** —— 🟡 部分（H02 关联）
 - 证据：`packages/engine/src/tools/sandbox.ts`（Linux bwrap --ro-bind / /、macOS Seatbelt profile、wrapper 不可用 E_SANDBOX_UNAVAILABLE fail-closed）；spark.json engine.bashSandbox（默认 off）；Windows 返回 null 拒跑（ADR D15）。
-- 差距：网络隔离 v1 不做（D15 记录：沙箱外 SOCKS5+域名清单方案后置）→ H34 候选池；Windows OS 级不做（D15 三备选全否决，维持"全审批+路径硬边界"防线）；**工具输出→模型通道的注入检测没有**→ H02（7.2）。
+- 差距：网络隔离 v1 不做（D15 记录：沙箱外 SOCKS5+域名清单方案后置）→ H34 候选池；Windows OS 级不做（D15 三备选全否决，维持"全审批+路径硬边界"防线）；工具输出→模型通道的注入检测已由 7.2 IoGuard 覆盖（H02 ✅，见 §2.4）。
 - 参考：Claude Code sandboxing 官方文档（同款 workspace-write 姿态）。工单：H02 → **7.2**；H34 → v2 候选池（P2）。
 
 **虚拟文件系统** —— ❌ 无，**不做**
@@ -110,25 +122,25 @@
 
 ## 2.4 护栏（I/O 护栏 / HITL 审批门 / 密钥鉴权 / 预算与熔断）
 
-**I/O 护栏** —— ❌ 缺失（H02）
-- 证据：工具输出原样进模型上下文（`packages/engine/src/tools/pipeline.ts` → Projector surface 投影），无注入模式检测；日志侧脱敏三层正则齐备（`packages/engine/src/logger.ts`：sk- / Bearer / process.env 动态）但仅覆盖日志不覆盖模型输入面。
-- 差距：工具输出中的提示词注入无可疑模式告警；敏感信息可能经工具输出进入模型上下文。
-- 参考：Gemini CLI toolDistillationService（输出蒸馏位）；dsh surface 纪律。工单：**7.2**（标记协议+结构化告警事件+复用 pino 三层正则做输出过滤）。
+**I/O 护栏** —— ✅ 已落地（H02 → 7.2 ✅）
+- 证据（7.2 已落地）：`packages/engine/src/tools/guard.ts` IoGuard（六条注入标记协议规则 + 敏感过滤四层——sk-token/Bearer/env 值/secrets store 值）挂 `tools/pipeline.ts` 成功路径输出限界之后，tool.completed 事件与 run-loop toolResult 回填同源一次过滤；脱敏正则抽至 `observability/redaction.ts` 单一来源与 pino logger 共用；告警走新增 `io.warning` 事件（log-only durable 不 surface，只含结构化规则名不含原文）；`/g` 正则 lastIndex 复位防跨调用漏检；guard 单测 14 例（含管线集成 e2e 与事件原文泄漏自检）。
+- 差距：注入模式集为保守小集（六条），更全面的样本集与蒸馏式压缩（Gemini CLI toolDistillationService）后置 v2 评估。
+- 参考：Gemini CLI toolDistillationService（输出蒸馏位）；dsh surface 纪律。工单：H02 → **7.2 ✅ 已勾销（2026-08-27）**。
 
 **HITL 审批门** —— ✅ 已实现
 - 证据：`packages/engine/src/permission/service.ts`（挂起表、超时 300s/dispose 一律 resolve(deny) fail-closed、always 先落盘再写会话临时层、同批放行级联、reject 同会话级联）；`packages/engine/src/permission/rules.ts`（findLast 胜出、任一 deny 短路）；前端 ApprovalCard 多 pattern 展示（4.7）。
 - 差距：无。
 - 参考：opencode permission.ts + dsh decide() + Codex ReviewDecision（审批=学习）。工单：—。
 
-**密钥鉴权** —— ❌ 缺失（H01 + 9.1）
-- 证据：`packages/engine/src/config.ts` loadConfig——apiKey 只从 apiKeyEnv 环境变量读，无系统钥匙串/加密存储；server 绑定 127.0.0.1 无鉴权（`apps/server/src/index.ts` SPARK_HOST，刻意缺省，红线）。
-- 差距：secrets 无本地安全存储；非环回绑定无 token 鉴权（移动端 9.1 的前置）。
-- 参考：Claude Code apiKeyHelper；系统钥匙串（keytar 已废，Electron safeStorage 现役）。工单：H01 → **7.1**；配对鉴权 → **9.1**（ADR D24）。
+**密钥鉴权** —— 🟡 secrets 已落地（H01 → 7.1 ✅）；配对鉴权仍缺（9.1）
+- 证据（7.1 已落地）：`packages/engine/src/secrets/store.ts` SecretStore（~/.spark/secrets.json，原子写+0600+坏 JSON fail-closed）+ `resolveApiKey` 单点（store > env 迁移兼容）+ `engine.ts` resolveModel 接线 + GET/PUT/DELETE /api/secrets（值永不回传）+ 设置页录入（SettingsDialog）+ `Logger.registerSecrets`（store 值单点注册进 pino 脱敏层，日志无明文断言在 logger.test/secrets.test）。
+- 差距：非环回绑定无 token 鉴权（移动端 9.1 的前置）；OS 级加密存储（safeStorage）后置——本地单用户场景 JSON+0600 判定够用。
+- 参考：Claude Code apiKeyHelper；系统钥匙串（keytar 已废，Electron safeStorage 现役——远端访问形态时再评估）。工单：H01 → **7.1 ✅**；配对鉴权 → **9.1**（ADR D24）。
 
-**预算与熔断** —— ❌ 缺失（H07 组成部分）
-- 证据：`packages/engine/src/observability/metrics.ts` 有 spark_llm_tokens_total 计数但无任何阈值动作；run-loop 无 token/成本上限中断。
-- 差距：无成本上限熔断、无单会话 token 预算闸。
-- 参考：Claude Code /usage 与限额提示；Gemini CLI policy 带数值阈值思路。工单：并入 **7.7**（成本上限熔断）。
+**预算与熔断** —— ✅ 已落地（H07 → 7.7）
+- 证据（7.7 已落地）：`packages/engine/src/cost-tracker.ts`（~/.spark/usage.json 原子写持久累计，坏 JSON/形状 fail-closed E_CONFIG）+ run-loop `Budget` 端口双检点（新 turn 拒绝 + assistant.message 定稿后中断，`E_BUDGET_EXCEEDED` 人话含解除路径）+ engine resetUsage（DELETE /api/routing/usage，解除熔断唯一入口）。
+- 差距：无单会话 token 预算闸（只有全局累计成本熔断——判定够用，会话级后置）。
+- 参考：Claude Code /usage 与限额提示；Gemini CLI policy 带数值阈值思路。工单：**7.7 ✅**。
 
 ## 2.5 容错（错误恢复自修正 / Checkpoint 断点续传）
 
@@ -147,16 +159,15 @@
 **Tracing** —— 🟡 部分（H27）
 - 证据：`packages/engine/src/logger.ts` pino v10 双路（stdout + ~/.spark/logs/engine.log）+ 三层脱敏；`apps/server/src/routes.ts` GET /api/metrics Prometheus 文本。
 - 差距：无 trace 视图/请求级链路聚合；日志是人看不是机查。
-- 参考：opencode 事件流即 trace（我们的 JSONL 本身具备该潜质）。工单：H27 → v2 候选池（P2）；审计明细流单列 H11 → **7.12**。
+- 参考：opencode 事件流即 trace（我们的 JSONL 本身具备该潜质）。工单：H27 → v2 候选池（P2）；审计明细流单列 H11 → **7.12 ✅ 已勾销（2026-08-29）**。
 
-**Eval** —— ❌ 缺失（H10）
-- 证据：无 eval 目录/脚本；测试全绿但都是确定性单测（ScriptedLlm），无模型质量回归。
-- 差距：无场景集、无评分、无 nightly 接线。
-- 参考：pi Terminal-Bench 接法（外部 harness 评内部 agent）。工单：**7.11**（examples/evals + pnpm eval + nightly）。
+**Eval** —— ✅ 已落地（7.11，2026-08-29）
+- 证据：`examples/evals`（@spark/evals）——ScriptedLlm 确定性场景集（审批/中断/压缩/基线四场景，真实 Engine 全链路）+ `--real` 可选真实模型评分（用户 ~/.spark 配置，缺凭据 → skip 不红）；根脚本 `pnpm eval` + nightly.yml 接线（每日跑，任一 fail 红灯出报告）。
+- 遗留：真实模型评分是启发式（基础问答内容判定），任务级基准（Terminal-Bench 类外部 harness）归 v2 候选池按需评估。
 
 **Cost Tracker** —— 🟡 数据已齐、消费缺位（H23 + 6.6）
 - 证据：`assistant.message.usage`（inputTokens/outputTokens + costUsd?）每回合落盘（protocol events.ts）；前端 StatusBar 已显示会话累计 in/out（`apps/web/src/components/layout/StatusBar.tsx`）；`/api/metrics` 有 tokens 计数。
-- 差距：无按日/按供应商聚合、无费用换算看板、无超限动作（→ H07 熔断）。
+- 差距：无按日/按供应商聚合、无费用换算看板（超限动作已在 7.7 落地——CostTracker 全局累计熔断）。
 - 参考：Claude Code /usage。工单：UI 条 → **6.6**；看板 → H23 v2 候选池（P1，依赖 6.6 与聚合端点）。
 
 ## 2.7 平台与产品化缺口（补充盘点——用户对照清单 16 项 + 暗坑清单）
@@ -189,8 +200,8 @@
 | H34 | 沙箱网络隔离 | D15 明确后置 | v2 候选池 V2-19（P2） |
 | H35 | 多窗口多会话 | Electron 单 BrowserWindow（1440×900） | v2 候选池 V2-20（P3） |
 | H36 | 快捷键 keymap 成文/自定义 | 仅 Cmd/Ctrl+K、Cmd/Ctrl+, 两个全局键 + CommandPalette（`apps/web/src/features/palette/CommandPalette.tsx`） | 8.3 CLI 先成文共享表，web 自定义 → v2 候选池 V2-22（P2） |
-| —   | 全文搜索 | `listSessions?q=` 仅标题 LIKE 子串（`packages/engine/src/session/index.ts`） | H12 → **7.13**（事件内容入 FTS5） |
-| —   | 审计日志明细 | metrics 只有计数，无"何时 allow/deny 了什么"明细流 | H11 → **7.12** |
+| —   | 全文搜索 | `listSessions?q=` 仅标题 LIKE 子串（`packages/engine/src/session/index.ts`） | H12 → **7.13** ✅ 已落地（2026-08-29：事件内容入 FTS5 + /search 页） |
+| —   | 审计日志明细 | metrics 只有计数，无"何时 allow/deny 了什么"明细流 | H11 → **7.12** ✅ 已落地（2026-08-29：~/.spark/audit.jsonl 明细流 + 设置页查看器） |
 | —   | LICENSE 缺失 | doc/05 G6 未消解 | 法律决策，人作者定 MIT/Apache-2.0 |
 
 ---
@@ -244,22 +255,22 @@
 
 | 编号 | 缺口 | 工单 |
 | ---- | ---- | ---- |
-| H01 | secrets 管理（~/.spark/secrets + 设置页录入 + store>env 优先级） | 7.1 |
-| H02 | I/O 护栏（注入检测 + 敏感输出过滤） | 7.2 |
-| H07 | model routing 增强（fallback 链/按任务路由/**成本熔断**） | 7.7 |
+| H01 | secrets 管理（~/.spark/secrets + 设置页录入 + store>env 优先级） | 7.1 ✅ 已勾销（2026-08-27） |
+| H02 | I/O 护栏（注入检测 + 敏感输出过滤） | 7.2 ✅ 已勾销（2026-08-27） |
+| H07 | model routing 增强（fallback 链/按任务路由/**成本熔断**） | 7.7 ✅ 已勾销（2026-08-27） |
 | —   | 配对鉴权（非环回强制 token，缺省 127.0.0.1 行为不变为红线） | 9.1（ADR D24） |
 
 ## 4.4 P1 —— 体验
 
 | 编号 | 缺口 | 工单/候选池 |
 | ---- | ---- | ---- |
-| H05 | 长期记忆（FTS5，向量后置） | 7.5 |
-| H06 | 自动化触发器（cron/watch/webhook） | 7.6 |
-| H03 | 用户侧 hooks | 7.3 |
-| H04 | 命令注册表（/compact 迁入 + 自定义命令；命令集基线对齐 Claude Code 命令面 + opencode leader 键模式） | 7.4 |
-| H12 | 会话全文搜索 | 7.13 |
-| H11 | 审计日志明细流 | 7.12 |
-| H08 | 并行子代理 + 树状监控 | 7.8 |
+| H05 | 长期记忆（FTS5，向量后置） | 7.5 ✅ 已勾销（2026-08-27） |
+| H06 | 自动化触发器（cron/watch/webhook） | 7.6 ✅ 已勾销（2026-08-29，ADR D26） |
+| H03 | 用户侧 hooks | 7.3 ✅ 已勾销（2026-08-27） |
+| H04 | 命令注册表（/compact 迁入 + 自定义命令；命令集基线对齐 Claude Code 命令面 + opencode leader 键模式） | 7.4 ✅ 已勾销（2026-08-27；opencode leader 键归 8.3 CLI 键位表统一成文） |
+| H12 | 会话全文搜索 | 7.13 ✅ 已勾销（2026-08-29） |
+| H11 | 审计日志明细流 | 7.12 ✅ 已勾销（2026-08-29） |
+| H08 | 并行子代理 + 树状监控 | 7.8 ✅ 已勾销（2026-08-29） |
 | H13/H14/H15/H16 | 设置中心/模型选择器/用量条/错误人话化/项目分组/沙箱入口 | 6.2–6.7 |
 | H19/H21/H26 | 附件粘贴/文件树/通知推送 | V2-03/V2-04/V2-05 |
 | H17/H23 | MCP·技能管理页/成本看板 | V2-01/V2-07 |
@@ -268,8 +279,8 @@
 
 | 编号 | 缺口 | 工单/候选池 |
 | ---- | ---- | ---- |
-| H09 | browser 工具族（Playwright，审批默认 ask） | 7.10 |
-| H10 | eval harness | 7.11 |
+| H09 | browser 工具族（Playwright，审批默认 ask） | 7.10 ✅ 已勾销（2026-08-29，ADR D27） |
+| H10 | eval harness | 7.11 ✅ 已勾销（2026-08-29） |
 | H20/H22/H24/H25/H27/H28/H29/H30/H31/H32/H36 | 提示词模板/审查模式/辅助会话/内置终端/trace/i18n/数据管理/诊断页/自更新/onboarding/keymap | V2-16/08/09/10/11/12/13/14/15/17/22 |
 | H33/H34/H35 | 代码语义索引/网络隔离/多窗口 | V2-18/19/20 |
 | — | MCP HTTP/SSE transport（远程 server） | V2-21 |

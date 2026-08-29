@@ -157,13 +157,69 @@ export {
   type SessionTreeNode,
   type SessionTreeInfo,
   type ForkChildInfo,
+  type SearchHit,
   type EngineDeps,
   type ReplyOutcome,
 } from './engine.js'
 export { buildSystemPrompt } from './prompts.js'
+export {
+  SecretStore,
+  resolveApiKey,
+  type SecretSource,
+} from './secrets/store.js'
+export { IoGuard, type IoWarning, type GuardDeps } from './tools/guard.js'
+export {
+  FallbackGateway,
+  type FallbackGatewayDeps,
+  type FallbackLogger,
+} from './fallback-gateway.js'
+export { CostTracker, type UsageTotal } from './cost-tracker.js'
+export {
+  UserHookRunner,
+  DEFAULT_HOOK_TIMEOUT_MS,
+  type HookPoint,
+  type HookLogger,
+  type HookFirePayload,
+  type UserHookDef,
+  type UserHookCommandDef,
+  type UserHookSkillDef,
+  type UserHooksConfig,
+  type UserHookRunnerDeps,
+} from './hooks/runner.js'
+export {
+  BUILTIN_COMMANDS,
+  COMMAND_NAME_RE,
+  expandCommandPrompt,
+  loadCommands,
+  type LoadedCommand,
+  type CommandLogger,
+} from './commands/loader.js'
+export { MemoryStore } from './memory/store.js'
+export { memorySaveTool, memorySearchTool } from './tools/builtin/memory.js'
 export {
   Logger,
   type SparkLogger,
   type LogFields,
   type LogMsg,
 } from './logger.js'
+// 阶段七工单 7.6 / H06 / ADR D26：自动化触发器（cron/watch/webhook → 自动建会话执行 prompt）
+export { AutomationManager, type FireDeps } from './automation/manager.js'
+export { AutomationRegistry, type TriggerDef, type TriggerRun } from './automation/registry.js'
+export { parseCron, cronMatches, type CronSpec } from './automation/cron.js'
+// 阶段七工单 7.12 / H11：审计日志（permission 决策 / 规则变更 / rollback 独立 JSONL 明细流）
+export {
+  AuditLog,
+  type AuditEntry,
+  type AuditQuery,
+  type AuditKind,
+  type AuditSink,
+} from './audit/log.js'
+// 阶段七工单 7.13 / H12：会话全文搜索（~/.spark/search.db，FTS5 trigram + LIKE 降级）
+export { SearchStore, type SearchEntry, type SearchEntryType } from './search/store.js'
+// 阶段七工单 7.10 / H09 / ADR D27：browser 工具族驱动端口（测试注入假驱动）
+export {
+  BrowserManager,
+  type BrowserDriver,
+  type BrowserOpenResult,
+  type BrowserShotResult,
+} from './browser/driver.js'
