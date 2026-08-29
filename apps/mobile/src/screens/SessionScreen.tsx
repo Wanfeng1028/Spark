@@ -50,6 +50,7 @@ import type { RnSessionEventSource } from '../transport/rn-event-source'
 import {
   buildSessionRows,
   formatTimestamp,
+  isReplayedDuplicate,
   mergeEventPage,
 } from '../session/session-rows'
 import type { SessionRow } from '../session/session-rows'
@@ -93,6 +94,8 @@ export function SessionScreen() {
   const [slice, setSlice] = useState<SessionSlice>(() => emptySessionSlice(sid))
   const [sending, setSending] = useState(false)
   const [approvalBusy, setApprovalBusy] = useState(false)
+  // 防抖闸门用 ref（回调闭包内即时可读；state 仅供三键 disabled 渲染，评审 H3）
+  const approvalBusyRef = useRef(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [atBottom, setAtBottom] = useState(true)
 
@@ -115,6 +118,9 @@ export function SessionScreen() {
     if (transport === null) return () => undefined
 
     const applyLocal = (e: SparkEventEnvelope): void => {
+      // 评审 H4：库轮询重开时服务端按旧水位重放——带 seq 且已在水位内即重复帧，
+      // 不入窗（与 applyEvent 去重同口径），防重复信封致 FlatList 重复 key。
+      if (isReplayedDuplicate(e, watermarkRef.current)) return
       eventsRef.current.push(e)
       timesRef.current.set(e.id, e.time)
       if (e.seq !== undefined && e.seq > watermarkRef.current) watermarkRef.current = e.seq
@@ -124,6 +130,7 @@ export function SessionScreen() {
     batcherRef.current = batcher
 
     void (async () => {
+      let replayOk = false
       try {
         const dto = await transport.getSession(sid, { limit: PAGE_SIZE })
         if (cancelled) return
@@ -131,17 +138,19 @@ export function SessionScreen() {
         if (events.length < PAGE_SIZE) hasMoreRef.current = false
         for (const e of events) batcher.enqueue(e)
         batcher.flushNow()
+        replayOk = true
       } catch (err: unknown) {
         if (!cancelled) setNotice(errorMessageOf(err))
-        return
       }
       if (cancelled) return
-      // 续播流：since=回放水位（重放与直播重叠由 applyEvent seq 去重）
+      // 续播流：since=回放水位（重放与直播重叠由 applyEvent seq 去重）；
+      // 评审 H2：取页失败退化为 since=0 直接开流（服务端补全量，SSE 自带退避重连）——
+      // 不留“取页失败即永不开流”的空白卡死路径。
       streamRef.current = openSessionStream({
         sessionId: sid,
         serverUrl,
         token,
-        since: watermarkRef.current,
+        since: replayOk ? watermarkRef.current : 0,
         onEvent: (e) => batcherRef.current?.enqueue(e),
         onStatus: (s) => setStatus(s),
         onError: (err) => setNotice(errorMessageOf(err)),
@@ -219,14 +228,19 @@ export function SessionScreen() {
 
   const handleReply = useCallback(
     async (requestId: RequestId, reply: PermissionReply): Promise<void> => {
+      // 评审 H3：防抖闸门——快速双击不二次发 replyPermission
+      // （服务端 409 安全，但用户会看到误导性错误条）
+      if (approvalBusyRef.current) return
       const transport = getHttpTransport(serverUrl, token)
       if (transport === null) return
+      approvalBusyRef.current = true
       setApprovalBusy(true)
       try {
         await transport.replyPermission(requestId, reply)
       } catch (err: unknown) {
         setNotice(errorMessageOf(err))
       } finally {
+        approvalBusyRef.current = false
         setApprovalBusy(false)
       }
     },

@@ -5,7 +5,7 @@ exports[`buildSessionRows——消息行构建 审批事件的投影快照（pen
   {
     "item": {
       "action": "bash",
-      "eventId": "evt_rows_14",
+      "eventId": "evt_rows_16",
       "kind": "approval",
       "reason": "命令含删除语义",
       "requestId": "req_rows_1",
@@ -23,7 +23,7 @@ exports[`buildSessionRows——消息行构建 审批事件的投影快照（pen
   {
     "item": {
       "action": "bash",
-      "eventId": "evt_rows_14",
+      "eventId": "evt_rows_16",
       "kind": "approval",
       "reason": "命令含删除语义",
       "reply": "once",

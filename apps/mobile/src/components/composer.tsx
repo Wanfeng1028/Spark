@@ -43,6 +43,14 @@ export function Composer({ running, busy, onSend, onStop }: ComposerProps) {
   const sendDisabled = text.trim() === '' || busy
   return (
     <View style={[styles.capsule, { backgroundColor: t.card }]}>
+      {/* J.2.1 左侧“+”圆钮 32——附件/上下文占位（真实附件逻辑记 v2）：
+          置灰占位语义、非可交互元素（不挂按钮角色冒充当态），反 AI 味：线性图标无 emoji */}
+      <View
+        accessibilityLabel="附件（v2 规划）"
+        style={[styles.plusButton, { backgroundColor: t.muted }]}
+      >
+        <Feather name="plus" size={18} color={t.mutedForeground} />
+      </View>
       <TextInput
         accessibilityLabel="消息输入框"
         style={[styles.input, { color: t.foreground, height: composerHeight(lines) - 20 }]}
@@ -101,6 +109,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     paddingTop: 10,
     paddingBottom: 10,
+  },
+  plusButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sendButton: {
     width: 40,

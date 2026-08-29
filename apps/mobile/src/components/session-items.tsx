@@ -164,10 +164,13 @@ function ApprovalButton({
   label,
   variant,
   onPress,
+  disabled,
 }: {
   label: string
   variant: 'primary' | 'secondary' | 'danger'
   onPress: () => void
+  /** 决策在途：三键齐禁（评审 H3 防抖的渲染面） */
+  disabled: boolean
 }) {
   const t = useTheme()
   const bg = variant === 'primary' ? t.primary : variant === 'secondary' ? t.secondary : t.card
@@ -182,8 +185,9 @@ function ApprovalButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
+      disabled={disabled}
       activeOpacity={0.7}
-      style={[styles.approvalButton, { backgroundColor: bg }]}
+      style={[styles.approvalButton, { backgroundColor: bg, opacity: disabled ? 0.5 : 1 }]}
     >
       <Text style={[styles.approvalButtonText, { color: fg }]}>{label}</Text>
     </TouchableOpacity>
@@ -220,13 +224,24 @@ export function ApprovalCard({
         )}
         {item.status === 'pending' ? (
           <View style={styles.approvalButtons}>
-            <ApprovalButton label="允许" variant="primary" onPress={() => onReply('once')} />
+            <ApprovalButton
+              label="允许"
+              variant="primary"
+              disabled={busy}
+              onPress={() => onReply('once')}
+            />
             <ApprovalButton
               label="始终允许"
               variant="secondary"
+              disabled={busy}
               onPress={() => onReply('always')}
             />
-            <ApprovalButton label="拒绝" variant="danger" onPress={() => onReply('reject')} />
+            <ApprovalButton
+              label="拒绝"
+              variant="danger"
+              disabled={busy}
+              onPress={() => onReply('reject')}
+            />
           </View>
         ) : (
           <>

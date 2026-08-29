@@ -1,6 +1,7 @@
 /**
  * 会话页纯函数集（工单 9.3——可测逻辑自屏幕组件抽出，Jest 单测把关）：
- * 分页历史升序合并 / 时间戳分隔判定与格式化 / 消息行构建 / Composer 自增高度。
+ * 分页历史合并（前置+去重，不重排） / 重复帧判定 / 时间戳分隔判定与格式化 /
+ * 消息行构建 / Composer 自增高度。
  * 屏幕层只做渲染与接线，不含业务计算（AGENTS §2.7 纯逻辑可测化同律）。
  */
 import type { EventId, SparkEventEnvelope, UiItem } from '@spark/protocol'
@@ -18,13 +19,12 @@ export type SessionRow =
   | { kind: 'timestamp'; key: string; time: number }
   | { kind: 'item'; key: string; item: UiItem }
 
-function seqOf(e: SparkEventEnvelope): number {
-  // live 事件无 seq——稳定排序下保持到达序置于尾部
-  return e.seq ?? Number.MAX_SAFE_INTEGER
-}
-
 /**
- * 分页合并：较旧一页（升序）并入既有窗口（升序）——按 id 去重、按 seq 升序输出。
+ * 分页合并：较旧一页前置并入既有窗口 + 按 id 去重——**不得排序**（评审 H1）。
+ * 到达序即正确重放序：既有窗口可能混有 live 事件（无 seq），纯 seq 排序会把
+ * 定稿事件（reasoning.ended/assistant.message）重排到自身 delta 之前，经顺序敏感的
+ * applyEvent 重放会损坏投影（重复 delta / streaming 永久置位）。
+ * `before=最早seq` 语义保证较旧页整体早于既有窗口且页内升序——直接前置即得正确重放序。
  * 幂等：同页重复合并不产生重复事件（弱网重试安全）。
  */
 export function mergeEventPage(
@@ -32,8 +32,16 @@ export function mergeEventPage(
   existing: readonly SparkEventEnvelope[],
 ): SparkEventEnvelope[] {
   const seen = new Set(existing.map((e) => e.id))
-  const merged = [...olderPage.filter((e) => !seen.has(e.id)), ...existing]
-  return merged.sort((a, b) => seqOf(a) - seqOf(b))
+  return [...olderPage.filter((e) => !seen.has(e.id)), ...existing]
+}
+
+/**
+ * 重放重复帧判定（评审 H4，与 applyEvent 去重同口径）：
+ * durable（带 seq）且 seq 已在水位内 → 重复帧（库轮询重开时服务端按旧水位重放）。
+ * 窗口去重同律，防重复信封入窗致 FlatList 重复 key。
+ */
+export function isReplayedDuplicate(e: { seq?: number }, watermark: number): boolean {
+  return e.seq !== undefined && e.seq <= watermark
 }
 
 /** 时间戳分隔判定：相邻消息间隔 >30 分钟插分隔（时间缺失不插——不拿缺数据冒充） */

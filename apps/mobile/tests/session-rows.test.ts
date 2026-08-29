@@ -1,5 +1,6 @@
 /**
- * 会话页纯函数单测（工单 9.3）：分页合并 / 时间戳分隔判定与格式化 /
+ * 会话页纯函数单测（工单 9.3）：分页合并（保到达序不重排，评审 H1）/
+ * 重复帧判定（评审 H4）/ 时间戳分隔判定与格式化 /
  * 消息行构建（含审批事件投影快照）/ Composer 自增高度。
  */
 import type { SparkEventEnvelope } from '@spark/protocol'
@@ -13,6 +14,7 @@ import {
   composerHeight,
   composerLinesFromContentSize,
   formatTimestamp,
+  isReplayedDuplicate,
   mergeEventPage,
   shouldInsertTimestamp,
 } from '../src/session/session-rows'
@@ -42,10 +44,10 @@ function env(
   }
 }
 
-describe('mergeEventPage——分页升序合并', () => {
+describe('mergeEventPage——分页合并（前置+去重，不重排）', () => {
   const mk = (seq: number) => env('user.message', 1000 + seq, seq, { text: `m${seq}` })
 
-  it('较旧一页并入既有窗口：按 seq 升序输出', () => {
+  it('较旧一页前置并入既有窗口：页内升序整体前移', () => {
     const older = [mk(1), mk(2)]
     const existing = [mk(3), mk(4), mk(5)]
     const merged = mergeEventPage(older, existing)
@@ -60,10 +62,30 @@ describe('mergeEventPage——分页升序合并', () => {
     expect(twice.map((e) => e.seq)).toEqual([1, 2, 3])
   })
 
-  it('live 事件（无 seq）保持到达序置于尾部', () => {
+  it('live delta 与后续 durable 交错的窗口：保持到达序，绝不做纯 seq 排序（评审 H1）', () => {
+    // 既有窗口：durable seq3 → live delta（无 seq）→ durable seq4。
+    // 若纯 seq 排序（live→MAX_SAFE_INTEGER），结果会是 [1,2,3,4,undefined]——
+    // 把 durable seq4 重排到其后到的 live delta 之前，重放即损坏投影。
     const live = env('assistant.delta', 9999, undefined, { turnId: TID, text: '增量' })
-    const merged = mergeEventPage([mk(1)], [mk(2), live])
-    expect(merged.map((e) => e.seq)).toEqual([1, 2, undefined])
+    const older = [mk(1), mk(2)]
+    const existing = [mk(3), live, mk(4)]
+    const merged = mergeEventPage(older, existing)
+    expect(merged).toEqual([...older, ...existing])
+    expect(merged.map((e) => e.seq)).toEqual([1, 2, 3, undefined, 4])
+    expect(merged.map((e) => e.id)).toEqual([...older, ...existing].map((e) => e.id))
+  })
+})
+
+describe('isReplayedDuplicate——重放重复帧判定（评审 H4，与 applyEvent 去重同口径）', () => {
+  it('带 seq 且 <= 水位即重复帧', () => {
+    expect(isReplayedDuplicate({ seq: 2 }, 3)).toBe(true)
+    expect(isReplayedDuplicate({ seq: 3 }, 3)).toBe(true)
+    expect(isReplayedDuplicate({ seq: 4 }, 3)).toBe(false)
+  })
+
+  it('live 事件（无 seq）恒非重复帧', () => {
+    expect(isReplayedDuplicate({}, 0)).toBe(false)
+    expect(isReplayedDuplicate({}, 99)).toBe(false)
   })
 })
 
