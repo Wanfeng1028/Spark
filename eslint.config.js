@@ -27,9 +27,31 @@ export default tseslint.config(
     ...tseslint.configs.disableTypeChecked,
   },
   {
+    // apps/mobile 的 Metro/Babel 配置：CJS（require/module.exports），声明 Node CJS 全局
+    files: ['apps/mobile/babel.config.js', 'apps/mobile/metro.config.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        module: 'writable',
+        require: 'readonly',
+        __dirname: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
     languageOptions: {
       parserOptions: {
-        projectService: { allowDefaultProject: ['eslint.config.js'] },
+        projectService: {
+          allowDefaultProject: [
+            'eslint.config.js',
+            // apps/mobile 的 Metro/Babel 配置（CJS，不在任何 tsconfig 项目内）
+            'apps/mobile/metro.config.js',
+            'apps/mobile/babel.config.js',
+          ],
+        },
       },
     },
     rules: {
