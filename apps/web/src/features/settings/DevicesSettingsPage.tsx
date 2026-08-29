@@ -37,28 +37,37 @@ function PairCodeDialog({
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const issuing = useRef(false)
+  // 代际标志：关闭弹窗时递增，使在途签发回调失效（防关闭后回调写状态竞态）
+  const generation = useRef(0)
 
   const issue = useCallback((): void => {
     if (issuing.current) return
     issuing.current = true
     setError(null)
+    const gen = ++generation.current
     transport
       .createPairCode()
       .then(async (dto) => {
+        // 固定白底：深色主题下 QR 反色不可扫（异步先生成，回写前再校验代际）
+        const dataUrl = await QRCode.toDataURL(dto.qr, { width: 208, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
+        if (generation.current !== gen) return // 已关闭/已被新一轮取代：在途回调失效，不写状态
         setPair(dto)
-        // 固定白底：深色主题下 QR 反色不可扫
-        setQrDataUrl(await QRCode.toDataURL(dto.qr, { width: 208, margin: 1, color: { dark: '#000000', light: '#ffffff' } }))
+        setQrDataUrl(dataUrl)
         onIssued()
       })
-      .catch((err: unknown) => setError(errorMessageOf(err)))
+      .catch((err: unknown) => {
+        if (generation.current === gen) setError(errorMessageOf(err))
+      })
       .finally(() => {
-        issuing.current = false
+        if (generation.current === gen) issuing.current = false
       })
   }, [transport, onIssued])
 
-  // 打开即签发；关闭清态
+  // 打开即签发；关闭清态并使在途回调失效（复位 issuing，下次打开可立即签发）
   useEffect(() => {
     if (!open) {
+      generation.current += 1
+      issuing.current = false
       setPair(null)
       setQrDataUrl(null)
       setError(null)

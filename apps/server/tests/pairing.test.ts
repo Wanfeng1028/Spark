@@ -14,9 +14,11 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import { ConfigError } from '@spark/engine'
 import type { PairCodeDto, PairStatusDto, PairTokenDto } from '@spark/protocol'
+import { redactTokenQuery } from '../src/auth.js'
 import {
   DeviceStore,
   PairService,
+  PAIR_CODE_MAX_FAILURES,
   PAIR_CODE_TTL_MS,
   isLoopbackHost,
   isLoopbackRemote,
@@ -82,10 +84,17 @@ describe('DeviceStore', () => {
     expect(store.list()).toEqual([])
   })
 
-  test('坏 JSON 拒载（不带病运行，同 secrets 纪律）', async () => {
+  test('坏 JSON 拒载：ConfigError（E_CONFIG，入口同护栏人话退出；不带病运行，同 secrets 纪律）', async () => {
     const path = join(await tmpDir('spark-devbad-'), 'devices.json')
     writeFileSync(path, '{ 不是 JSON')
-    expect(() => new DeviceStore(path)).toThrow(ConfigError)
+    let caught: unknown
+    try {
+      new DeviceStore(path)
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(ConfigError)
+    expect(caught instanceof ConfigError ? caught.code : '').toBe('E_CONFIG') // 退出前缀 `${code}: ` 的数据源
     writeFileSync(path, JSON.stringify({ version: 2, devices: [] }))
     expect(() => new DeviceStore(path)).toThrow(ConfigError)
   })
@@ -137,6 +146,21 @@ describe('PairService 生命周期', () => {
     const { code: code2 } = pair.createCode()
     nowMs += PAIR_CODE_TTL_MS + 1 // 超过 60s：过期拒绝
     expect(() => pair.redeem(code2, '手机')).toThrow(/^E_PAIR:/)
+  })
+
+  test('连续 5 次失败作废在途码（防暴力穷举）；新签发复位计数', async () => {
+    const store = new DeviceStore(join(await tmpDir('spark-pair-'), 'devices.json'))
+    const pair = new PairService(store)
+    const { code } = pair.createCode()
+    const wrong = code === '000000' ? '000001' : '000000'
+    for (let i = 0; i < PAIR_CODE_MAX_FAILURES; i++) {
+      expect(() => pair.redeem(wrong, '手机')).toThrow(/^E_PAIR:/)
+    }
+    // 在途码已作废：第 6 次即使输入正确码也被拒（须重新签发）
+    expect(() => pair.redeem(code, '手机')).toThrow(/^E_PAIR:/)
+    // 重新签发复位失败计数：新码立即可兑（成功兑换同样复位）
+    const { code: fresh } = pair.createCode()
+    expect(pair.redeem(fresh, '手机').token).toMatch(/^spk_/)
   })
 })
 
@@ -317,6 +341,29 @@ describe('鉴权钩子（非环回口径）', () => {
     expect(wrong.statusCode).toBe(401)
   })
 
+  test('百分号编码路径不得绕过鉴权（评审修复：preHandler 基于路由器解码后模式判断）', async () => {
+    f = await makeServer({ pairing: { authRequired: true } })
+    // 编码变体解码后均命中 /api/sessions：无 token 一律 401，不得误当静态资源放行
+    for (const url of ['/%61pi/sessions', '/ap%69/sessions', '/api/%73essions', '/%61%70%69/sessions']) {
+      const res = await f.app.inject({ method: 'GET', url, remoteAddress: REMOTE })
+      expect(res.statusCode, url).toBe(401)
+      const body: { code: string } = res.json()
+      expect(body.code).toBe('E_AUTH')
+    }
+    // 带有效 token 的编码变体照常放行（解码后 = /api/sessions）
+    const token = await pairToken()
+    const ok = await f.app.inject({
+      method: 'GET',
+      url: '/%61pi/sessions',
+      remoteAddress: REMOTE,
+      headers: { authorization: `Bearer ${token}` },
+    })
+    expect(ok.statusCode).toBe(200)
+    // 未匹配路由（静态 404 兜底）：非数据面豁免，404 而非 401（响应无敏感数据）
+    const miss = await f.app.inject({ method: 'GET', url: '/not-a-route', remoteAddress: REMOTE })
+    expect(miss.statusCode).toBe(404)
+  })
+
   test('撤销后已持该 token 的请求即被拒（撤销即失效）', async () => {
     f = await makeServer({ pairing: { authRequired: true } })
     const token = await pairToken()
@@ -333,6 +380,17 @@ describe('鉴权钩子（非环回口径）', () => {
       headers: { authorization: `Bearer ${token}` },
     })
     expect(after.statusCode).toBe(401)
+  })
+})
+
+describe('redactTokenQuery（请求日志 URL 脱敏，评审修复）', () => {
+  test('token= 值掩码；其余查询参数保留；无 token 不变', () => {
+    expect(redactTokenQuery('/api/event?token=spk_abc123')).toBe('/api/event?token=***')
+    expect(redactTokenQuery('/api/event?sessionId=ses_x&since=3&token=spk_abc')).toBe(
+      '/api/event?sessionId=ses_x&since=3&token=***',
+    )
+    expect(redactTokenQuery('/api/sessions?limit=10')).toBe('/api/sessions?limit=10')
+    expect(redactTokenQuery('/api/event')).toBe('/api/event')
   })
 })
 

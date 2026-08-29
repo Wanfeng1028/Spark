@@ -89,6 +89,15 @@ describe('splitSseFrames（SSE 切帧纯函数）', () => {
     expect(frames).toEqual([])
     expect(rest).toBe('')
   })
+
+  it('CRLF 归一化：\\r\\n 分行（部分网络栈/代理形态）照常切帧（评审修复）', () => {
+    const { frames, rest } = splitSseFrames('event: message\r\n\r\nevent: bye\r\n\r\n', '')
+    expect(frames).toEqual(['event: message', 'event: bye'])
+    expect(rest).toBe('')
+    // 跨 chunk：半帧残留同样归一化为 \n（9.4 小程序复用同一契约）
+    const first = splitSseFrames('event: message\r\nda', '')
+    expect(first.rest).toBe('event: message\nda')
+  })
 })
 
 describe('authToken 注入双口径（工单 9.1：与服务端 tokenOf 一致）', () => {

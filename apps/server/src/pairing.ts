@@ -13,6 +13,9 @@ import { ConfigError } from '@spark/engine'
 /** 短码有效期（D24：60s） */
 export const PAIR_CODE_TTL_MS = 60_000
 
+/** 连续兑换失败上限：达限即作废在途码（码空间 10^6，防 60s 窗口内暴力穷举抢兑） */
+export const PAIR_CODE_MAX_FAILURES = 5
+
 /** token 哈希（存盘与比对唯一形态；明文仅兑换响应一次性回传） */
 export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
@@ -179,17 +182,20 @@ export interface RedeemResult {
 /** 配对码服务：签发/兑换 6 位短码（进程内存，不落盘；兑换即建设备换长效 token） */
 export class PairService {
   private active: { code: string; expiresAt: number } | null = null
+  /** 连续失败计数（穷举防护：达限作废在途码；成功兑换或新签发复位） */
+  private failures = 0
 
   constructor(
     private readonly store: DeviceStore,
     private readonly now: () => number = Date.now,
   ) {}
 
-  /** 签发新码（替换在途旧码）；副作用：落盘启用鉴权（环回下"添加设备"即显式开启） */
+  /** 签发新码（替换在途旧码）；副作用：落盘启用鉴权（环回下“添加设备”即显式开启） */
   createCode(): { code: string; expiresAt: number } {
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
     const issued = { code, expiresAt: this.now() + PAIR_CODE_TTL_MS }
     this.active = issued
+    this.failures = 0 // 新码新窗口：历史失败不再计数（旧码已作废，穷举残留无意义）
     this.store.persist()
     return issued
   }
@@ -198,9 +204,14 @@ export class PairService {
   redeem(code: string, name: string): RedeemResult {
     if (!this.store.enabled) throw new Error('E_PAIR_DISABLED: 配对鉴权未启用')
     if (this.active === null || this.active.code !== code || this.now() > this.active.expiresAt) {
+      this.failures += 1
+      if (this.failures >= PAIR_CODE_MAX_FAILURES && this.active !== null) {
+        this.active = null // 连续 5 次失败：作废在途码，须重新签发（防暴力穷举）
+      }
       throw new Error('E_PAIR: 配对码无效或已过期')
     }
     this.active = null // 一次性：兑换后即失效（扫码/手输同码重放拒绝）
+    this.failures = 0
     const token = `spk_${randomBytes(24).toString('base64url')}`
     const device = this.store.add(name, hashToken(token), this.now())
     return { token, device }

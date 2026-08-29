@@ -105,11 +105,12 @@ export function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 /**
- * SSE 切帧纯函数（四端共享，供小程序端复用——工单 9.4）：
- * 新 chunk 拼接缓冲后按 `\n\n` 切出完整帧，返回帧序列与残余缓冲（尾帧未收齐时留存）。
+ * SSE 切帧纯函数（四端共享，供小程序端复用的契约——工单 9.4）：
+ * 新 chunk 拼接缓冲后先归一化 `\r\n`→`\n`（部分网络栈/代理按 CRLF 分行），
+ * 再按 `\n\n` 切出完整帧，返回帧序列与残余缓冲（尾帧未收齐时留存）。
  */
 export function splitSseFrames(chunk: string, buffer: string): { frames: string[]; rest: string } {
-  let buf = buffer + chunk
+  let buf = (buffer + chunk).replace(/\r\n/g, '\n')
   const frames: string[] = []
   for (;;) {
     const idx = buf.indexOf('\n\n')

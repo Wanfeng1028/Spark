@@ -12,8 +12,9 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Fastify from 'fastify'
+import type { FastifyRequest } from 'fastify'
 import { Engine, ConfigError, loadConfig } from '@spark/engine'
-import { registerAuth } from './auth.js'
+import { registerAuth, redactTokenQuery } from './auth.js'
 import { DeviceStore, PairService, isLoopbackHost, resolveBindTarget } from './pairing.js'
 import { registerPairingRoutes } from './pairing-routes.js'
 import { registerRoutes } from './routes.js'
@@ -23,13 +24,13 @@ import { registerStatic } from './static.js'
 const ROOT = join(homedir(), '.spark')
 const CONFIG = loadConfig(ROOT)
 
-// 配对鉴权（工单 9.1）：设备仓 + 配对码服务；鉴权启用态 = devices.json 存在
-const deviceStore = new DeviceStore(join(ROOT, 'devices.json'))
-
-// 监听地址纪律（工单 9.1 / ADR D24）：纯函数裁决，违规拒启动（fail-closed）——
-// SPARK_HOST 仅环回覆盖；非环回须 spark.json server.host 显式配置且鉴权已启用；单测见 pairing.test.ts
+// 配对鉴权（工单 9.1）：设备仓 + 配对码服务；鉴权启用态 = devices.json 存在。
+// 启动护栏：设备仓坏文件拒载（ConfigError）与绑定纪律违规一律拒启动（fail-closed，人话退出）——单测见 pairing.test.ts
+let deviceStore: DeviceStore
 let HOST: string
 try {
+  deviceStore = new DeviceStore(join(ROOT, 'devices.json'))
+  // SPARK_HOST 仅环回覆盖；非环回须 spark.json server.host 显式配置且鉴权已启用（ADR D24）
   HOST = resolveBindTarget(process.env.SPARK_HOST, CONFIG.spark.server.host, deviceStore.enabled)
 } catch (err) {
   const prefix = err instanceof ConfigError ? `${err.code}: ` : ''
@@ -46,8 +47,21 @@ const engine = new Engine()
 // MCP 外部工具注册完成后再对外服务（无 mcp.json 立即返回；单 server 失败已 warn 跳过）
 await engine.ready()
 
-// Fastify 内置 pino logger（§7.1 level info；传 pino 实例与 exactOptionalPropertyTypes 不兼容）
-const app = Fastify({ logger: { level: 'info' } })
+// Fastify 内置 pino logger（§7.1 level info；传 pino 实例与 exactOptionalPropertyTypes 不兼容）；
+// req 序列化器剥离 ?token= 明文（secrets 纪律：SSE 建连日志不得含长效 token，工单 9.1 评审修复）
+const app = Fastify({
+  logger: {
+    level: 'info',
+    serializers: {
+      req(req: FastifyRequest) {
+        return {
+          method: req.method,
+          url: redactTokenQuery(req.url),
+        }
+      },
+    },
+  },
+})
 
 // 鉴权钩子先于路由注册（环回缺省直通，非环回 REST/SSE 同口径；工单 9.1）
 await app.register(registerAuth, { required: !LOOPBACK, store: deviceStore })
