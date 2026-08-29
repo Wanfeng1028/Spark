@@ -28,10 +28,11 @@
 | v1.18 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                                                                | §2.8 事实修正：事件词表 **19→20 种**（阶段七工单 7.2 新增 `io.warning` I/O 护栏告警事件，log-only durable 不 surface；与 doc/02 v3.4、ARCHITECTURE v1.16、README v1.17 同步） |
 | v1.19 | 2026-08-27 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                                                                | §2.8 事实修正：事件词表 **20→21 种**（阶段七工单 7.5 新增 `memory.injected` 长期记忆注入事件——先于 user.message 落盘，Projector 投影为模型上下文前缀，surface 纪律双面成立，ADR D25；与 doc/02 v3.14、ARCHITECTURE v1.17、README v1.19 同步） |
 | v1.20 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                                                                        | §1 项目上下文刷新：**阶段六/七完成待合入，阶段八~九立项**（阶段七十二项工单全落地，7.9 Python worker 判决删除见 doc/07 §4.1，ADR D25–D27；与 README v1.21 同步） |
+| v1.21 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段八开工指令——CLI TUI 全量）                                                                                                                          | §1 项目上下文刷新：**阶段八完成待合入**（工单 8.1–8.5 全落地：transport/applyEvent/上下文水位/错误文案/键位表下沉 @spark/protocol 四端共享 + apps/cli Ink 6 四区形态，ADR D19；阶段九立项范围收窄为移动端三端，选型引用改 D20–D24）；§4 开发命令占位回填实际命令（含 `pnpm --filter cli dev`）；与 doc/02 v3.23 同步 |
 
 ## 1. 项目上下文（30 秒版）
 
-Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端 + Electron 桌面壳（sidecar 复用同一 HTTP+SSE 事件流协议）。当前处于 **v1（五阶段全部完成：骨架/前端/引擎/深度体验/产品化——Electron 壳、沙箱、MCP client、子代理、skills 插件均已落地，ADR D14–D18）；阶段六（UI 重构 ZCode 化）与阶段七（Harness 补全——7.1–7.8/7.10–7.13 共十二项，7.9 判决删除，ADR D25–D27）已完成待 PR 合入，阶段八~九已立项（doc/02：CLI TUI / 移动端三端——视觉依据 DESIGN §13，多端选型 ADR D19–D24）**。完整规格见 `doc/02-development-plan.md`。
+Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端 + Electron 桌面壳（sidecar 复用同一 HTTP+SSE 事件流协议）+ CLI TUI（阶段八落地，Ink 6）。当前处于 **v1（五阶段全部完成：骨架/前端/引擎/深度体验/产品化——Electron 壳、沙箱、MCP client、子代理、skills 插件均已落地，ADR D14–D18）；阶段六（UI 重构 ZCode 化）、阶段七（Harness 补全——7.1–7.8/7.10–7.13 共十二项，7.9 判决删除，ADR D25–D27）与阶段八（CLI TUI——apps/cli 四区形态，transport/applyEvent/水位/键位表下沉 @spark/protocol 四端共享，工单 8.1–8.5，ADR D19）已完成待 PR 合入，阶段九已立项（doc/02：移动端三端——视觉依据 DESIGN §13，多端选型 ADR D20–D24）**。完整规格见 `doc/02-development-plan.md`。
 
 **必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD/ZCode 化四端规格 §13）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；完成度审计（阶段三后源码级核查）→ `doc/05-completion-audit.md`；测试体系规划 → `doc/06-testing-plan.md`；Harness 模块审计（缺口 H01–H36 与"不做"判决）→ `doc/07-harness-audit.md`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
 
@@ -61,14 +62,15 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 | 改 SSE/API        | `protocol/src/api.ts` DTO → server 路由 + zod → 前端 Transport → 02 §4.5 表同步                                                      |
 | 会话持久化变更    | `session/` 对应文件 → 02 §5.8 算法描述同步 → 坏行/迁移策略评估                                                                       |
 
-## 4. 开发命令（阶段一搭好后更新本节）
+## 4. 开发命令
 
 ```bash
-# 规划中（骨架落地时回填实际命令）：
 pnpm install
-pnpm dev          # server + web 并行
-pnpm --filter web dev        # 仅前端（VITE_SPARK_MOCK=1 可脱离后端）
+pnpm --filter server dev     # 后端（tsx watch；缺省 127.0.0.1:4318）
+pnpm --filter web dev        # 前端（VITE_SPARK_MOCK=1 可脱离后端）
+pnpm --filter cli dev        # CLI TUI（Ink；需 server 在跑；--api <url>/SPARK_API 指基址）
 pnpm test / pnpm typecheck / pnpm lint
+pnpm eval                    # eval 回归（doc/02 工单 7.11；--real 可选真实模型）
 ```
 
 ## 5. 参考项目速查（遇到问题先查这里）
