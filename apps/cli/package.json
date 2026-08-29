@@ -1,0 +1,26 @@
+{
+  "name": "@spark/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Spark CLI TUI（Ink v6，ADR D19；阶段八）",
+  "scripts": {
+    "dev": "tsx src/main.tsx",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@spark/protocol": "workspace:*",
+    "ink": "^6.2.0",
+    "react": "^19.1.0",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@types/react": "^19.1.0",
+    "ink-testing-library": "^4.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
