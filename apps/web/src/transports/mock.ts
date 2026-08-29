@@ -36,6 +36,7 @@ import type {
   RequestId,
   SecretStatusDto,
   SessionDto,
+  SessionEventsQuery,
   SessionId,
   SessionStatus,
   SearchHitDto,
@@ -1092,11 +1093,21 @@ export class MockTransport implements Transport {
   }
 
   /** 接口完整性实现（mock 下 SessionPage 不走全量回放——流式回放即夹具语义） */
-  getSession(sessionId: SessionId): Promise<SessionDto> {
+  getSession(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto> {
     this.assertNotDisposed()
     const fork = this.forkChildren.find((f) => f.dto.id === sessionId)
+    // 分页（工单 9.3）：before 游标过滤 + limit 升序尾部切片；全缺省 = 全量（红线）
+    const page = (events: SparkEventEnvelope[]): SparkEventEnvelope[] => {
+      let out = events
+      if (query?.before !== undefined) {
+        const before = query.before
+        out = out.filter((e) => e.seq !== undefined && e.seq < before)
+      }
+      if (query?.limit !== undefined) out = out.slice(-query.limit)
+      return out
+    }
     if (fork !== undefined) {
-      return Promise.resolve({ ...fork.dto, events: fork.events })
+      return Promise.resolve({ ...fork.dto, events: page(fork.events) })
     }
     if (sessionId !== this.script.sessionId) {
       return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
@@ -1104,13 +1115,14 @@ export class MockTransport implements Transport {
     // 已回放的事件即"当前态"（含 rollbackCheckpoint 截断后的现状）——
     // 未回放脚本行不上车（mock 会话冷启动走流式回放，不走本全量路径）
     const durable = this.emitted.filter((e) => e.seq !== undefined)
+    const events = page(durable)
     const last = durable[durable.length - 1]
     return Promise.resolve(
       this.withModelOverride(sessionId, {
         ...MockTransport.dtoOf(this.script, this.status()),
         lastSeq: last?.seq ?? 0,
         updatedAt: last?.time ?? this.script.meta.createdAt,
-        events: durable,
+        events,
       }),
     )
   }

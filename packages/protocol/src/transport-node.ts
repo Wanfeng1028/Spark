@@ -34,6 +34,7 @@ import type {
   SecretStatusDto,
   SearchHitDto,
   SessionDto,
+  SessionEventsQuery,
   SkillDto,
   TreeNodeDto,
 } from './api.js'
@@ -278,8 +279,17 @@ export class HttpTransport implements Transport {
     }).then(() => undefined)
   }
 
-  async getSession(sessionId: SessionId): Promise<SessionDto> {
-    const dto = await this.req<SessionDto>(`/api/sessions/${sessionId}`)
+  async getSession(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto> {
+    // 分页参数全缺省 = 不带查询串（缺省全量红线，与无参调用完全同形）
+    const params = new URLSearchParams()
+    if (query !== undefined) {
+      if (query.limit !== undefined) params.set('limit', String(query.limit))
+      if (query.before !== undefined) params.set('before', String(query.before))
+    }
+    const qs = params.toString()
+    const dto = await this.req<SessionDto>(
+      `/api/sessions/${sessionId}${qs !== '' ? `?${qs}` : ''}`,
+    )
     this.noteOpenSession(sessionId)
     return dto
   }

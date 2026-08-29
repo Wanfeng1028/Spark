@@ -29,6 +29,7 @@ import type {
   SearchHitDto,
   SecretStatusDto,
   SessionDto,
+  SessionEventsQuery,
   SkillDto,
   TreeNodeDto,
 } from './api.js'
@@ -54,8 +55,11 @@ export interface Transport {
   /** 手动压缩（doc/02 §5.8.5）：触发 compaction.* 事件对（SSE 推送；turn 进行中拒绝） */
   compact(sessionId: SessionId): Promise<void>
   replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void>
-  /** GET /api/sessions/:id：meta + 全部 durable 事件（seq 升序——冷启动回放数据源） */
-  getSession(sessionId: SessionId): Promise<SessionDto>
+  /**
+   * GET /api/sessions/:id：meta + durable 事件（seq 升序——冷启动回放数据源）。
+   * query 分页（工单 9.3）：limit 升序尾部切片 / before=seq 游标；无参 = 全量（向后兼容）。
+   */
+  getSession(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto>
   listSessions(): Promise<SessionDto[]>
   /** 新建会话（model 为 "provider/model"；缺省 = 引擎 defaultModel） */
   createSession(opts?: { title?: string; model?: string }): Promise<SessionDto>

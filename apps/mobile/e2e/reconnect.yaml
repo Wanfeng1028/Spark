@@ -1,0 +1,26 @@
+# 工单 9.3 Maestro 用例③：断网恢复（只入库不执行——真机走查由用户做）
+# 依据：doc/06-testing-plan.md §1 分层表 L5 行（移动端 E2E 用 Maestro，YAML 入库 apps/mobile/e2e/）
+# 走查方式：本流程给操作者留出人工窗口——执行到等待断线条时手动开飞行模式，
+#   看到“已断线，重连中…”后关闭飞行模式，流程继续断言恢复。
+#   maestro test apps/mobile/e2e/reconnect.yaml
+appId: com.sparkapp.mobile
+---
+- launchApp:
+    clearState: false
+- assertVisible: "全部会话"
+- tapOn:
+    text: ".*"
+    index: 1
+- assertVisible: "消息输入框"
+# 发起一轮进行中的任务，保证断网时流处于活动态
+- tapOn: "消息输入框"
+- inputText: "请慢慢数到二十"
+- tapOn: "发送消息"
+# 操作者在此刻开启飞行模式（约 10s 宽限窗口）；断线细条应呈现（J.2.3）
+- extendedWaitUntil:
+    visible: "已断线，重连中…"
+    timeout: 30000
+# 操作者关闭飞行模式；恢复后细条消失、回到正常态
+- assertNotVisible:
+    text: "已断线，重连中…"
+    # 退避 1/2/5/10s 封顶，留出充足恢复窗口

@@ -57,6 +57,8 @@ export interface SessionStreamOptions {
   since?: number
   onEvent: (e: SparkEventEnvelope) => void
   onStatus?: (s: RnConnectionStatus) => void
+  /** 鉴权失败（401/403）人话错误源（工单 9.3：会话页走 ERROR_COPY 呈现） */
+  onError?: (err: Error) => void
 }
 
 /** 新建会话级续播流（调用方持有生命周期：切换会话/卸载时 dispose） */
@@ -69,6 +71,7 @@ export function openSessionStream(opts: SessionStreamOptions): RnSessionEventSou
     ...(opts.since !== undefined ? { since: opts.since } : {}),
     ...(opts.token !== '' ? { authToken: opts.token } : {}),
     ...(opts.onStatus !== undefined ? { onStatus: opts.onStatus } : {}),
+    ...(opts.onError !== undefined ? { onError: opts.onError } : {}),
     onEvent: opts.onEvent,
   })
 }

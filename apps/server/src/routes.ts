@@ -73,6 +73,15 @@ const ListSessionsQuery = z.object({
   cursor: SessionIdSchema.optional(),
 })
 
+/**
+ * GET /api/sessions/:id 事件分页查询（工单 9.3）：全可选——缺省 = 全量回放（向后兼容红线）。
+ * limit 升序尾部切片（上限 200）；before = seq 游标（只返回 seq < before）。
+ */
+const SessionDetailQuery = z.strictObject({
+  limit: z.coerce.number().int().positive().max(200).optional(),
+  before: z.coerce.number().int().positive().optional(),
+})
+
 const SendMessageBody = z.strictObject({
   text: z.string().min(1),
   delivery: DeliverySchema.default('now'),
@@ -220,8 +229,19 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
   app.get('/api/sessions/:id', async (req, reply) => {
     try {
       const { id } = parseOr400(IdParams, req.params)
+      const query = parseOr400(SessionDetailQuery, req.query)
       const handle = await requireHandle(engine, id)
-      return reply.send({ ...toDto(engine, handle.meta), events: handle.events() })
+      // 事件分页（工单 9.3）：before 游标过滤 + limit 升序尾部切片；
+      // 两参缺省 = 现状全量（缺省行为不变红线）
+      let events = handle.events()
+      if (query.before !== undefined) {
+        const before = query.before
+        events = events.filter((e) => e.seq !== undefined && e.seq < before)
+      }
+      if (query.limit !== undefined) {
+        events = events.slice(-query.limit)
+      }
+      return reply.send({ ...toDto(engine, handle.meta), events })
     } catch (err) {
       return sendError(req, reply, err)
     }

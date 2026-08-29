@@ -26,6 +26,17 @@ export interface SessionDto extends SessionMetaDto {
   events?: SparkEventEnvelope[]
 }
 
+/**
+ * GET /api/sessions/:id 事件分页查询（阶段九工单 9.3——移动端上拉加载历史）。
+ * 全可选——缺省参数 = 现状全量回放（向后兼容红线）：
+ * limit = 返回条数上限（升序尾部切片，上限 200）；before = seq 游标（只返回 seq < before 的事件）。
+ */
+export const SessionEventsQuerySchema = z.strictObject({
+  limit: z.number().int().positive().max(200).optional(),
+  before: z.number().int().positive().optional(),
+})
+export type SessionEventsQuery = z.infer<typeof SessionEventsQuerySchema>
+
 /** POST /:id/messages 响应：三态直通（HTTP 只表达"已受理"，不等 turn 结果） */
 export interface SubmitResult {
   result: 'started' | 'steered' | 'queued'
