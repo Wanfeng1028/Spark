@@ -30,10 +30,11 @@
 | v1.20 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令）                                                                                                                                        | §1 项目上下文刷新：**阶段六/七完成待合入，阶段八~九立项**（阶段七十二项工单全落地，7.9 Python worker 判决删除见 doc/07 §4.1，ADR D25–D27；与 README v1.21 同步） |
 | v1.21 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段八开工指令——CLI TUI 全量）                                                                                                                          | §1 项目上下文刷新：**阶段八完成待合入**（工单 8.1–8.5 全落地：transport/applyEvent/上下文水位/错误文案/键位表下沉 @spark/protocol 四端共享 + apps/cli Ink 6 四区形态，ADR D19；阶段九立项范围收窄为移动端三端，选型引用改 D20–D24）；§4 开发命令占位回填实际命令（含 `pnpm --filter cli dev`）；与 doc/02 v3.23 同步 |
 | v1.22 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段九开工指令）                                                                                                                          | §1 项目上下文事实刷新：**阶段九已开工，工单 9.1 配对鉴权完成待合入**（ADR D24：DeviceStore/PairService + REST Bearer 与 SSE `?token=` 双口径鉴权钩子 + `resolveBindTarget` 启动护栏；协议面 `Transport.redeemPair`/`authToken`/`splitSseFrames`；web「设备与配对」页；缺省 127.0.0.1+无鉴权行为不变红线保持）；与 doc/02 v3.25、README v1.23 同步 |
+| v1.23 | 2026-08-30 | AI 编写：Qoder                                                                                                                          | §1 项目上下文刷新：**阶段九已完成待合入**（工单 9.1–9.5 全落地：配对鉴权 + apps/mobile Expo+RN 会话体验 + apps/miniapp Taro 4 小程序壳，ADR D20–D24；真机/模拟器四场景走查与小程序开发者工具走查由用户执行，留待记录）；§4 开发命令补 `pnpm --filter mobile dev`/`miniapp dev`；与 doc/02 v3.29、README v1.24 同步 |
 
 ## 1. 项目上下文（30 秒版）
 
-Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端 + Electron 桌面壳（sidecar 复用同一 HTTP+SSE 事件流协议）+ CLI TUI（阶段八落地，Ink 6）。当前处于 **v1（五阶段全部完成：骨架/前端/引擎/深度体验/产品化——Electron 壳、沙箱、MCP client、子代理、skills 插件均已落地，ADR D14–D18）；阶段六（UI 重构 ZCode 化）、阶段七（Harness 补全——7.1–7.8/7.10–7.13 共十二项，7.9 判决删除，ADR D25–D27）与阶段八（CLI TUI——apps/cli 四区形态，transport/applyEvent/水位/键位表下沉 @spark/protocol 四端共享，工单 8.1–8.5，ADR D19）已完成待 PR 合入，阶段九已开工：工单 9.1 配对鉴权完成待合入（ADR D24：扫码配对/双口径鉴权/启动护栏，缺省 127.0.0.1+无鉴权行为不变；9.2–9.5 移动端三端推进中，视觉依据 DESIGN §13，多端选型 ADR D20–D24）**。完整规格见 `doc/02-development-plan.md`。
+Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端 + Electron 桌面壳（sidecar 复用同一 HTTP+SSE 事件流协议）+ CLI TUI（阶段八落地，Ink 6）+ 移动端三端（阶段九落地：apps/mobile Expo+RN App / apps/miniapp Taro 4 微信小程序）。当前处于 **v1（五阶段全部完成：骨架/前端/引擎/深度体验/产品化——Electron 壳、沙箱、MCP client、子代理、skills 插件均已落地，ADR D14–D18）；阶段六（UI 重构 ZCode 化）、阶段七（Harness 补全——7.1–7.8/7.10–7.13 共十二项，7.9 判决删除，ADR D25–D27）、阶段八（CLI TUI——apps/cli 四区形态，transport/applyEvent/水位/键位表下沉 @spark/protocol 四端共享，工单 8.1–8.5，ADR D19）与阶段九（移动端三端——工单 9.1–9.5 全落地：配对鉴权 ADR D24 + apps/mobile Expo+RN ADR D20 + apps/miniapp Taro 4 ADR D21；真机/模拟器四场景走查与小程序开发者工具走查由用户执行，留待记录）已完成待 PR 合入**。完整规格见 `doc/02-development-plan.md`。
 
 **必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD/ZCode 化四端规格 §13）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；完成度审计（阶段三后源码级核查）→ `doc/05-completion-audit.md`；测试体系规划 → `doc/06-testing-plan.md`；Harness 模块审计（缺口 H01–H36 与"不做"判决）→ `doc/07-harness-audit.md`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
 
@@ -70,6 +71,8 @@ pnpm install
 pnpm --filter server dev     # 后端（tsx watch；缺省 127.0.0.1:4318）
 pnpm --filter web dev        # 前端（VITE_SPARK_MOCK=1 可脱离后端）
 pnpm --filter cli dev        # CLI TUI（Ink；需 server 在跑；--api <url>/SPARK_API 指基址）
+pnpm --filter mobile dev     # 移动端 App（Expo；需 server 在跑，配对后连接）
+pnpm --filter miniapp dev    # 微信小程序（Taro 4 watch 构建；微信开发者工具导入 dist）
 pnpm test / pnpm typecheck / pnpm lint
 pnpm eval                    # eval 回归（doc/02 工单 7.11；--real 可选真实模型）
 ```
