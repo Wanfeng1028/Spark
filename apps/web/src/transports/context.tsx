@@ -47,6 +47,8 @@ export function TransportProvider({ children }: { children: ReactNode }) {
   const transport = useMemo<Transport>(() => {
     if (mockTransport !== null) return mockTransport
     return new HttpTransport({
+      // 基址缺省同源（dev 走 vite proxy → 127.0.0.1:4318；VITE_SPARK_API 覆盖）——下沉后由构造处注入（工单 8.1）
+      baseUrl: import.meta.env.VITE_SPARK_API ?? '',
       onStatus: (s) => useConnectionStore.getState().setStatus(s),
       onResync: (sids) => {
         const t = transportRef.current
