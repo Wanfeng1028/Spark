@@ -98,7 +98,8 @@
 }
 
 .si-approval-bar {
-  width: 6rpx;
+  /* rpx 保持 4 的倍数（§13.I——评审 I3：6rpx 违规，取 8） */
+  width: 8rpx;
   align-self: stretch;
 }
 

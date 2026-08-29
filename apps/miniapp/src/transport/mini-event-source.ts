@@ -12,9 +12,10 @@
  * seq 去重口径（applyEvent 去重），切换重叠期不重复投影。进入轮询后本实例生命期内
  * 不再回试 SSE（避免在两路间振荡；重建实例即重新探测）。
  *
- * 契约对齐 RN 端 RnSessionEventSource：connecting/open/reconnecting 三态 + since
- * 水位续播 + 退避序列 1/2/5/10s（DEFAULT_BACKOFF_MS）+ 鉴权收敛（连续 3 次
- * 401/403 进终态；同一错误码 onError 只上抛一次，重连成功复位）。
+ * 契约对齐 RN 端 RnSessionEventSource：connecting/open/reconnecting/closed 四态 +
+ * since 水位续播 + 退避序列 1/2/5/10s（DEFAULT_BACKOFF_MS）+ 鉴权收敛（连续 3 次
+ * 401/403 进终态；同一错误码 onError 只上抛一次，重连成功复位）。终态发 'closed'
+ * （不再静默滞留 reconnecting——评审 I2），UI 据此呈现"连接已停止"。
  */
 import Taro from '@tarojs/taro'
 import type { SessionId, SparkEventEnvelope } from '@spark/protocol'
@@ -24,7 +25,7 @@ import { SseFramePump } from './sse-pump'
 import { filterFreshEvents } from './poll'
 import { sdkSupportsChunked } from './support'
 
-export type MiniConnectionStatus = 'connecting' | 'open' | 'reconnecting'
+export type MiniConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
 
 /** 轮询降级参数：3s 一轮（时延与开销折中）；尾部切片 200（服务端上限） */
 const POLL_INTERVAL_MS = 3000
@@ -136,7 +137,11 @@ export class MiniSessionEventSource {
       this.opts.onError?.(new Error(`E_AUTH: 事件流鉴权失败（HTTP ${status}）`))
     }
     this.authFailures++
-    if (this.authFailures >= 3) this.disposed = true
+    if (this.authFailures >= 3) {
+      this.disposed = true
+      // 终态：发 closed 让 UI 收敛（不滞留 reconnecting 谎报——评审 I2）
+      this.setStatus('closed')
+    }
   }
 
   /** 连接建立成功：退避/鉴权计数复位 + open 状态 */
@@ -160,6 +165,14 @@ export class MiniSessionEventSource {
       let settled = false
       let chunkReceived = false
       let authBlocked = false
+      // 同一响应的鉴权失败只计一次：onHeadersReceived 与 requestTask.then 两条
+      // 路径可能各见一次 401/403——局部闸门防双计（评审 I1）
+      let authCounted = false
+      const countAuthOnce = (status: number): void => {
+        if (authCounted) return
+        authCounted = true
+        this.handleAuthFailure(status)
+      }
 
       const pump = new SseFramePump((e) => {
         if (e.seq !== undefined && e.seq > this.watermark) this.watermark = e.seq
@@ -200,7 +213,7 @@ export class MiniSessionEventSource {
           const status = res.statusCode
           if (status === 401 || status === 403) {
             authBlocked = true
-            this.handleAuthFailure(status)
+            countAuthOnce(status)
           }
           finish()
         })
@@ -223,7 +236,7 @@ export class MiniSessionEventSource {
           if (stale()) return
           if (res.statusCode === 401 || res.statusCode === 403) {
             authBlocked = true
-            this.handleAuthFailure(res.statusCode)
+            countAuthOnce(res.statusCode)
             finish()
             return
           }
@@ -246,6 +259,12 @@ export class MiniSessionEventSource {
             finish()
           }
         })
+      } else {
+        // 分块回调缺失（类型档异常/能力退化）：不静默挂死——
+        // 与 catch 分支同口径单向降级轮询（评审 I7）
+        this.mode = 'polling'
+        finish()
+        return
       }
 
       // dispose 的 abort 信号接线：空闲（心跳是注释帧、无回调）也能即刻断开
@@ -272,9 +291,14 @@ export class MiniSessionEventSource {
       return true
     } catch (err: unknown) {
       if (stale()) return true
-      // REST 鉴权失败（`E_AUTH: ...`）走同一收敛纪律；其余错误静默进退避重试
+      // REST 鉴权失败（`E_AUTH: ...`）走同一收敛纪律；其余错误静默进退避重试。
+      // 状态码从错误消息解析真实值（`HTTP_401: ...`，与 SSE 路去重口径一致），
+      // 解析不到再落 401（评审 I6）
       const msg = err instanceof Error ? err.message : String(err)
-      if (/^E_AUTH/.test(msg)) this.handleAuthFailure(401)
+      if (/^E_AUTH/.test(msg) || /^HTTP_(40[13])/.test(msg)) {
+        const parsed = /^HTTP_(40[13])/.exec(msg)?.[1]
+        this.handleAuthFailure(parsed !== undefined ? Number(parsed) : 401)
+      }
       return false
     }
   }

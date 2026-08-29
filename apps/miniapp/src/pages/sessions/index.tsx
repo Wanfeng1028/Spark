@@ -157,6 +157,16 @@ export default function SessionsPage() {
           <Text className="sl-notice-text" style={{ color: t.sparkErr }}>
             {notice}
           </Text>
+          {/* 错误=细条+人话文案+重试钮（§13.J.4——评审 I10） */}
+          <Text
+            className="sl-notice-retry"
+            style={{ color: t.sparkAccent }}
+            onClick={() => {
+              void refresh()
+            }}
+          >
+            重试
+          </Text>
         </View>
       )}
       {sections.length === 0 && !refreshing ? (

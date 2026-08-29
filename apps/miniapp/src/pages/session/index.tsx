@@ -51,10 +51,12 @@ import './index.css'
 /** 上拉翻页页长（服务端上限 200；50 条兼顾首屏速度与翻页次数） */
 const PAGE_SIZE = 50
 
-/** 连接细条人话文案（同 web CONNECTION_TEXT 口径，D22 同律） */
-const CONNECTION_TEXT: Record<'connecting' | 'reconnecting', string> = {
+/** 连接细条人话文案（同 web CONNECTION_TEXT 口径，D22 同律；
+ * closed 态文案同 ERROR_COPY 风格——鉴权终态不静默，评审 I2） */
+const CONNECTION_TEXT: Record<'connecting' | 'reconnecting' | 'closed', string> = {
   connecting: '连接中…',
   reconnecting: '已断线，重连中…',
+  closed: '连接已停止：鉴权失败，请到设置页重新配对',
 }
 
 /** 贴底判定阈值（px）：距底 40 以内视作贴底 */
@@ -268,10 +270,12 @@ export default function SessionPage() {
   )
 
   // 贴底时新内容自动跟随（正向列表：滚到底 = scrollTop 足够大；
-  // 值单调递增避免同值不生效——小程序对相同 scrollTop 不重复滚动）
+  // 值单调递增避免同值不生效——小程序对相同 scrollTop 不重复滚动）。
+  // 依赖 slice 而非 rows.length：流式 delta 只改既有项内容不改行数，
+  // 而 applyEvent 后 slice 引用必变（与批处理同频——评审 I5）
   useEffect(() => {
     if (atBottomRef.current) setScrollTop((v) => v + 4096)
-  }, [rows.length])
+  }, [slice])
 
   const onScroll = (e: BaseEventOrig<ScrollViewProps.onScrollDetail>): void => {
     const d = e.detail
@@ -283,7 +287,9 @@ export default function SessionPage() {
   const running = slice.activeTurn !== null
 
   const connectionText =
-    status === 'connecting' || status === 'reconnecting' ? CONNECTION_TEXT[status] : null
+    status === 'connecting' || status === 'reconnecting' || status === 'closed'
+      ? CONNECTION_TEXT[status]
+      : null
 
   return (
     <View className="sp-screen" style={{ backgroundColor: t.pageBackground }}>

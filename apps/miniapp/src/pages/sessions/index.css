@@ -38,6 +38,13 @@
   font-size: 24rpx;
 }
 
+/* 细条内联重试文字钮（§13.J.4——评审 I10） */
+.sl-notice-retry {
+  font-size: 24rpx;
+  margin-left: 24rpx;
+  padding: 4rpx 16rpx;
+}
+
 .sl-list {
   padding: 0 32rpx 192rpx;
 }

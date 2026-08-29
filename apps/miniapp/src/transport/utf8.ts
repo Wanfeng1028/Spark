@@ -3,6 +3,9 @@
  * ArrayBuffer 分块（onChunkReceived）可能在多字节序列中间切断——
  * 解码器持残留字节状态，跨块拼接后再解；坏序列替为 U+FFFD（不静默吞、不崩）。
  * 纯实现（不依赖小程序运行时）——vitest 直接单测。
+ *
+ * 收紧纪律（评审 I8）：拒 overlong（2 字节要求 b0≥0xC2）、拒 CESU-8 孤代理
+ * （0xED A0-BF）、拒超 U+10FFFF（b0≤0xF4 且 F4 后限 b1≤0x8F）——越界一律 U+FFFD。
  */
 
 /** 完整字节段 → 字符串（坏序列逐位替为 U+FFFD） */
@@ -17,7 +20,12 @@ export function decodeUtf8(bytes: Uint8Array): string {
       continue
     }
     if ((b0 & 0xe0) === 0xc0) {
-      // 2 字节
+      // 2 字节（0xC0/0xC1 为 overlong 编码，拒——ASCII 不得用双字节冒充）
+      if (b0 < 0xc2) {
+        out += '\uFFFD'
+        i += 1
+        continue
+      }
       const b1 = bytes[i + 1]
       if (b1 === undefined || (b1 & 0xc0) !== 0x80) {
         out += '\uFFFD'
@@ -29,10 +37,16 @@ export function decodeUtf8(bytes: Uint8Array): string {
       continue
     }
     if ((b0 & 0xf0) === 0xe0) {
-      // 3 字节（中文主战场）
+      // 3 字节（中文主战场；0xED A0-BF 是 CESU-8 孤代理，拒）
       const b1 = bytes[i + 1]
       const b2 = bytes[i + 2]
-      if (b1 === undefined || b2 === undefined || (b1 & 0xc0) !== 0x80 || (b2 & 0xc0) !== 0x80) {
+      if (
+        b1 === undefined ||
+        b2 === undefined ||
+        (b1 & 0xc0) !== 0x80 ||
+        (b2 & 0xc0) !== 0x80 ||
+        (b0 === 0xed && b1 >= 0xa0)
+      ) {
         out += '\uFFFD'
         i += 1
         continue
@@ -42,17 +56,20 @@ export function decodeUtf8(bytes: Uint8Array): string {
       continue
     }
     if ((b0 & 0xf8) === 0xf0) {
-      // 4 字节（emoji 等增补面——拆代理对）
+      // 4 字节（emoji 等增补面——拆代理对；限 U+10FFFF 内：
+      // b0≤0xF4，且 b0=0xF4 时 b1≤0x8F）
       const b1 = bytes[i + 1]
       const b2 = bytes[i + 2]
       const b3 = bytes[i + 3]
       if (
+        b0 > 0xf4 ||
         b1 === undefined ||
         b2 === undefined ||
         b3 === undefined ||
         (b1 & 0xc0) !== 0x80 ||
         (b2 & 0xc0) !== 0x80 ||
-        (b3 & 0xc0) !== 0x80
+        (b3 & 0xc0) !== 0x80 ||
+        (b0 === 0xf4 && b1 > 0x8f)
       ) {
         out += '\uFFFD'
         i += 1
@@ -64,7 +81,7 @@ export function decodeUtf8(bytes: Uint8Array): string {
       i += 4
       continue
     }
-    // 孤立续字节/非法首字节
+    // 孤立续字节/非法首字节（0xF8-0xFF 也落这里）
     out += '\uFFFD'
     i += 1
   }
@@ -98,10 +115,13 @@ export class Utf8StreamDecoder {
 
   /** 喂一块字节，返回本块可安全解出的文本（可能为空串） */
   decode(chunk: Uint8Array): string {
-    const bytes =
-      this.pending.length > 0
-        ? Uint8Array.from([...this.pending, ...chunk])
-        : chunk
+    let bytes = chunk
+    if (this.pending.length > 0) {
+      // 两段 set() 拷贝（不建中间数组——评审 I8：免 [...a, ...b] 展开开销）
+      bytes = new Uint8Array(this.pending.length + chunk.length)
+      bytes.set(this.pending, 0)
+      bytes.set(chunk, this.pending.length)
+    }
     this.pending = []
     const boundary = safeUtf8Boundary(bytes)
     if (boundary < bytes.length) {

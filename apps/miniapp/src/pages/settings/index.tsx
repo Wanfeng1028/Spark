@@ -4,7 +4,7 @@
  * 手输配对（地址+6 位码——小程序主路径；扫码失败不阻塞落回手输）、
  * 外观三档（跟随系统/浅色/深色）、断开连接（红字独立白卡，J.2.4⑤）。
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { BaseEventOrig, InputProps } from '@tarojs/components'
@@ -38,6 +38,8 @@ export default function SettingsPage() {
   const [pairUrlDraft, setPairUrlDraft] = useState('')
   const [pairCodeDraft, setPairCodeDraft] = useState('')
   const [busy, setBusy] = useState(false)
+  // 防抖闸门用 ref（回调闭包内即时可读；busy state 仅供渲染——同会话页审批/9.3 H3 判例，评审 I4）
+  const busyRef = useRef(false)
   const [localNotice, setLocalNotice] = useState<string | null>(null)
 
   const configured = serverUrl !== ''
@@ -57,6 +59,8 @@ export default function SettingsPage() {
   /** 待配对确认卡"连接"：短码兑长效 token（兑换口无需 token——鉴权自举，9.1） */
   const onRedeem = useCallback((): void => {
     if (pendingPair === null) return
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(true)
     const base = baseUrlOf(pendingPair.host, pendingPair.port)
     void redeemPairCode(base, pendingPair.code)
@@ -67,7 +71,10 @@ export default function SettingsPage() {
         setLocalNotice(null)
       })
       .catch((err: unknown) => setLocalNotice(errorMessageOf(err)))
-      .finally(() => setBusy(false))
+      .finally(() => {
+        busyRef.current = false
+        setBusy(false)
+      })
   }, [pendingPair, saveConnection, setPendingPair])
 
   /** 手输配对（小程序主路径）：地址 + 6 位码 → 兑换 */
@@ -82,6 +89,8 @@ export default function SettingsPage() {
       setLocalNotice('配对码须为 6 位数字')
       return
     }
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(true)
     void redeemPairCode(url, code)
       .then((dto) => {
@@ -93,7 +102,10 @@ export default function SettingsPage() {
         setLocalNotice(null)
       })
       .catch((err: unknown) => setLocalNotice(errorMessageOf(err)))
-      .finally(() => setBusy(false))
+      .finally(() => {
+        busyRef.current = false
+        setBusy(false)
+      })
   }, [pairUrlDraft, pairCodeDraft, saveConnection])
 
   /** 扫码配对（可选路径）：Taro.scanCode 解析 spark://pair；失败/取消不阻塞 */

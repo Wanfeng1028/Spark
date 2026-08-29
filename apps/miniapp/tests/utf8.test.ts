@@ -39,6 +39,36 @@ describe('decodeUtf8——完整字节段解码', () => {
     // 中文"你"(e4 bd a0) 后跟孤立续字节
     expect(decodeUtf8(Uint8Array.from([0xe4, 0xbd, 0xa0, 0x80]))).toBe('你\uFFFD')
   })
+
+  // 收紧纪律（评审 I8）
+  it('拒 overlong：0xC0/0xC1 双字节序列不合法（ASCII 不得双字节冒充）', () => {
+    expect(decodeUtf8(Uint8Array.from([0xc0, 0x80]))).toBe('\uFFFD\uFFFD')
+    expect(decodeUtf8(Uint8Array.from([0xc1, 0xbf]))).toBe('\uFFFD\uFFFD')
+    // 0xC2 是合法 2 字节下界（U+0080）
+    expect(decodeUtf8(Uint8Array.from([0xc2, 0x80]))).toBe('\u0080')
+  })
+
+  it('拒 CESU-8 孤代理：0xED A0-BF 不解为代理码点', () => {
+    // U+D800 的 CESU-8 形态——拒（逐位替字符）
+    expect(decodeUtf8(Uint8Array.from([0xed, 0xa0, 0x80]))).toBe('\uFFFD\uFFFD\uFFFD')
+    expect(decodeUtf8(Uint8Array.from([0xed, 0xbf, 0xbf]))).toBe('\uFFFD\uFFFD\uFFFD')
+    // 0xED 9F BF = U+D7FF（代理区前一个码点）合法；0xEE 80 80 = U+E000 合法
+    expect(decodeUtf8(Uint8Array.from([0xed, 0x9f, 0xbf]))).toBe('\uD7FF')
+    expect(decodeUtf8(Uint8Array.from([0xee, 0x80, 0x80]))).toBe('\uE000')
+  })
+
+  it('拒超 U+10FFFF：F4 后限 8F，F5 起全拒', () => {
+    // U+110000（刚好越界）
+    expect(decodeUtf8(Uint8Array.from([0xf4, 0x90, 0x80, 0x80]))).toBe(
+      '\uFFFD\uFFFD\uFFFD\uFFFD',
+    )
+    // F5 首字节全非法（首字节替字符 + 三个孤立续字节）
+    expect(decodeUtf8(Uint8Array.from([0xf5, 0x80, 0x80, 0x80]))).toBe(
+      '\uFFFD\uFFFD\uFFFD\uFFFD',
+    )
+    // U+10FFFF（合法上界）正常解为代理对 \uDBFF\uDFFF
+    expect(decodeUtf8(Uint8Array.from([0xf4, 0x8f, 0xbf, 0xbf]))).toBe('\uDBFF\uDFFF')
+  })
 })
 
 describe('safeUtf8Boundary——跨块安全切分点', () => {
