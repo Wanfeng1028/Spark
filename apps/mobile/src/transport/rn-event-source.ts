@@ -12,6 +12,13 @@
  * 不复用库内自动重试——退避序列与状态回调必须与四端同口径（1/2/5/10s 封顶）。
  * 鉴权失败（401/403）：库的 ErrorEvent 暴露 xhrStatus——构造 `E_AUTH: ...` 错误
  * 走 onError 回调，调用方经 ERROR_COPY 人话化呈现（工单 9.1 双口径同律）。
+ *
+ * 偏离记录（评审 G4）：react-native-sse 对服务端正常关流（2 系 DONE）不派发任何事件，
+ * 而是自行约 5s 轮询重开（复用首连 since URL）——接受其轮询续播（durable seq 去重
+ * 已验证安全，回放×直播重叠不重复投影），仅在 open 回调以 openedOnce 探测：
+ * 同一实例第二次 open 时补报 reconnecting → open，使状态机诚实。
+ * 鉴权收敛（评审 G5）：连续 3 次 401/403 后进终态停止重连（不再发请求）；
+ * onError 同一错误码只上抛一次（重连成功后复位）。
  */
 import EventSource from 'react-native-sse'
 import type { MessageEvent } from 'react-native-sse'
@@ -53,6 +60,9 @@ export class RnSessionEventSource {
   private retries = 0
   /** 代际计数：close 后残余回调不再驱动状态机（防竞态） */
   private generation = 0
+  /** G5：连续鉴权失败计数（≥3 进终态）；同一错误码去重标记（重连成功复位） */
+  private authFailures = 0
+  private lastAuthErrorCode: string | null = null
 
   constructor(opts: RnSessionEventSourceOptions) {
     this.opts = opts
@@ -99,6 +109,8 @@ export class RnSessionEventSource {
 
       let settled = false
       let es: EventSource | null = null
+      /** G4：同实例首次 open 探测（库轮询重开 = 第二次 open，需补报状态） */
+      let openedOnce = false
       const finish = (): void => {
         if (settled) return
         settled = true
@@ -119,7 +131,15 @@ export class RnSessionEventSource {
           finish()
           return
         }
+        if (openedOnce) {
+          // G4 偏离：库轮询重开复用本实例——补报状态转换，状态机不撒谎
+          this.setStatus('reconnecting')
+        }
+        openedOnce = true
         this.retries = 0
+        // 重连成功：鉴权收敛计数与错误码去重复位（G5）
+        this.authFailures = 0
+        this.lastAuthErrorCode = null
         this.setStatus('open')
       })
       es.addEventListener('message', (event: MessageEvent) => {
@@ -145,16 +165,30 @@ export class RnSessionEventSource {
       es.addEventListener('error', (event) => {
         if (!stale() && 'xhrStatus' in event) {
           const status = event.xhrStatus
-          // 401/403：token 无效/已撤销——重连无意义但不断流（配置修复后自愈），
-          // 错误上抛给调用方人话呈现（失败闭合，不静默吞）
           if (status === 401 || status === 403) {
-            this.opts.onError?.(
-              new Error(`E_AUTH: SSE 鉴权失败（HTTP ${status}）`),
-            )
+            const code = `E_AUTH_${status}`
+            // G5：同一错误码只上抛一次（重连成功/新实例配置变化后复位）
+            if (this.lastAuthErrorCode !== code) {
+              this.lastAuthErrorCode = code
+              this.opts.onError?.(
+                new Error(`E_AUTH: SSE 鉴权失败（HTTP ${status}）`),
+              )
+            }
+            // G5：连续 3 次鉴权失败进终态——停止重连，不再发请求（配置修复需重建实例）
+            this.authFailures++
+            if (this.authFailures >= 3) this.disposed = true
           }
         }
         finish()
       })
+
+      // G1：dispose 的 abort 信号接线到本连接——连接 open 且空闲时（心跳是注释帧、
+      // 库不派发事件）也能即刻 es.close()，防僵尸连接累积（finish 幂等）
+      if (this.abort.signal.aborted) {
+        finish()
+        return
+      }
+      this.abort.signal.addEventListener('abort', finish, { once: true })
     })
   }
 }

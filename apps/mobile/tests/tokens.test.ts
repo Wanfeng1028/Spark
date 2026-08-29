@@ -27,6 +27,7 @@ const REQUIRED_KEYS: ReadonlyArray<keyof ThemeTokens> = [
   'sparkWarn',
   'sparkOk',
   'sparkErr',
+  'sidebarBg',
 ]
 
 describe('theme tokens（DESIGN §13.C 1:1）', () => {
@@ -46,12 +47,15 @@ describe('theme tokens（DESIGN §13.C 1:1）', () => {
     expect(lightTheme.pageBackground).toBe('#F7F7F7')
     expect(lightTheme.sparkAccent).toBe('#4f46e5')
     expect(lightTheme.sparkWarn).toBe('#b45309')
+    // G3：侧栏底 --sidebar-bg 同 §13.C 口径
+    expect(lightTheme.sidebarBg).toBe('#fafafa')
   })
 
   it('暗色关键色锚定 §13.C .dark', () => {
     expect(darkTheme.background).toBe('#09090b')
     expect(darkTheme.sparkAccent).toBe('#818cf8')
     expect(darkTheme.sparkErr).toBe('#f87171')
+    expect(darkTheme.sidebarBg).toBe('#18181b')
   })
 
   describe('resolveTheme（三档外观 × 系统色）', () => {

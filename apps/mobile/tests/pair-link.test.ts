@@ -53,6 +53,24 @@ describe('parsePairLink', () => {
       expect(parsePairLink('spark://pair?host=a%20b&port=1&code=123456')).toBeNull()
     })
 
+    it('host 白名单拒绝黑名单漏网字符（评审 G7）', () => {
+      // IPv6 字面量（含冒号）：当前配对协议仅支持主机名/IPv4
+      expect(parsePairLink('spark://pair?host=::1&port=1&code=123456')).toBeNull()
+      // 反斜杠（黑名单漏网）
+      expect(parsePairLink('spark://pair?host=a\\b&port=1&code=123456')).toBeNull()
+      // 冒号（黑名单漏网；防 host:port 拼接歧义）
+      expect(parsePairLink('spark://pair?host=a:8080&port=1&code=123456')).toBeNull()
+    })
+
+    it('合法域名/IPv4 通过（白名单不误伤）', () => {
+      expect(
+        parsePairLink('spark://pair?host=my-server.local&port=4318&code=123456'),
+      ).toEqual({ host: 'my-server.local', port: 4318, code: '123456' })
+      expect(
+        parsePairLink('spark://pair?host=172.16.0.2&port=4318&code=123456'),
+      ).toEqual({ host: '172.16.0.2', port: 4318, code: '123456' })
+    })
+
     it('乱序转义拒绝', () => {
       expect(parsePairLink('spark://pair?host=%E0%A4%A&port=1&code=123456')).toBeNull()
     })

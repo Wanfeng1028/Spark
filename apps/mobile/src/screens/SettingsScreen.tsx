@@ -199,11 +199,14 @@ export function SettingsScreen() {
           <TouchableOpacity
             accessibilityRole="button"
             onPress={() => {
-              void disconnect().then(() => {
-                invalidateTransport()
-                setUrlDraft('')
-                setTokenDraft('')
-              })
+              // G6：异步口径一致——失败走本地人话提示（失败闭合，不静默吞）
+              void disconnect()
+                .then(() => {
+                  invalidateTransport()
+                  setUrlDraft('')
+                  setTokenDraft('')
+                })
+                .catch((err: unknown) => setLocalNotice(errorMessageOf(err)))
             }}
             style={[styles.card, { backgroundColor: t.card }]}
             activeOpacity={0.7}

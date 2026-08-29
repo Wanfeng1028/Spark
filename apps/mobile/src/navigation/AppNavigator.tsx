@@ -42,7 +42,8 @@ function SparkDrawerContent({ navigation, state }: DrawerContentComponentProps) 
       style={[
         styles.drawer,
         {
-          backgroundColor: t.card,
+          // G3：§13.C 侧栏底 --sidebar-bg（亮 #fafafa/暗 #18181b）
+          backgroundColor: t.sidebarBg,
           paddingTop: insets.top + 16,
           paddingBottom: insets.bottom + 16,
         },
@@ -58,7 +59,17 @@ function SparkDrawerContent({ navigation, state }: DrawerContentComponentProps) 
               accessibilityRole="button"
               onPress={() => navigation.navigate(item.key)}
               activeOpacity={0.7}
-              style={[styles.menuItem, active ? { backgroundColor: t.muted } : null]}
+              style={[
+                styles.menuItem,
+                active
+                  ? {
+                      // G3：§13.C 侧栏选中项（底 #f4f4f5/muted + 1px border 边）
+                      backgroundColor: t.muted,
+                      borderWidth: 1,
+                      borderColor: t.border,
+                    }
+                  : null,
+              ]}
             >
               <Text
                 style={[
@@ -89,7 +100,7 @@ export function AppNavigator() {
         drawerType: 'front',
         drawerStyle: {
           width: 280,
-          backgroundColor: t.card,
+          backgroundColor: t.sidebarBg,
           // §13.I：禁多层阴影——抽屉边缘单档，暗色不加
           ...(t === darkTheme ? {} : { elevation: 2 }),
         },

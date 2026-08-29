@@ -2,6 +2,9 @@
 node_modules/
 .pnpm-store/
 
+# Expo 产物（工单 9.2 评审 G8；prebuild 原生目录 android/ 与 ios/ 待工单 9.5 决策口径）
+.expo/
+
 # build outputs
 dist/
 build/

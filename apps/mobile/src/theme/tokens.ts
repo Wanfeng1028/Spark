@@ -37,6 +37,8 @@ export interface ThemeTokens {
   sparkOk: string
   /** --spark-err：错误/断线/危险操作 */
   sparkErr: string
+  /** §13.C 侧栏底 --sidebar-bg（移动端抽屉同口径，评审 G3） */
+  sidebarBg: string
 }
 
 /** 亮色（§13.C :root 默认；pageBackground 按 J.0 取浅灰） */
@@ -57,6 +59,7 @@ export const lightTheme: ThemeTokens = {
   sparkWarn: '#b45309',
   sparkOk: '#047857',
   sparkErr: '#b91c1c',
+  sidebarBg: '#fafafa',
 }
 
 /** 暗色（§13.C .dark；pageBackground 按 J.0 取 #09090b） */
@@ -77,6 +80,7 @@ export const darkTheme: ThemeTokens = {
   sparkWarn: '#fbbf24',
   sparkOk: '#34d399',
   sparkErr: '#f87171',
+  sidebarBg: '#18181b',
 }
 
 /** §13.C 三档外观偏好（持久化；系统档跟随 prefers-color-scheme / useColorScheme） */
@@ -107,4 +111,7 @@ export const mobileMetrics = {
   fabSize: 56,
   statusDot: 8,
   ctaHeight: 52,
+  /** J.2.2 筛选菜单：白卡 radius 12、行高 44（评审 G2） */
+  menuRadius: 12,
+  menuRowHeight: 44,
 } as const

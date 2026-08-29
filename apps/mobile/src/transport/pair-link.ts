@@ -10,9 +10,9 @@ export interface PairLink {
   code: string
 }
 
-/** 合法主机段：非空、不含空白/斜杠/查询符（防注入到 URL 拼接） */
+/** 合法主机段：白名单（字母/数字/点/连字符，评审 G7）——黑名单会漏 `:` 与 `\` */
 function isValidHost(host: string): boolean {
-  return host !== '' && !/[\s/?#@]/.test(host)
+  return /^[A-Za-z0-9.-]+$/.test(host)
 }
 
 /** 仅匹配 `spark://pair?<query>` 形态（不依赖 RN 的 URL 全局——其对自定义 scheme 支持不全） */
