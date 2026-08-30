@@ -27,10 +27,12 @@ import type {
   ModelEntryDto,
   ModelProviderDto,
   PermissionPreset,
+  ReasoningEffort,
   SubmitOutcome,
 } from '@spark/protocol'
 import { Segmented } from '@/components/ui/segmented'
 import { ModelPicker } from './ModelPicker'
+import { EffortPicker } from './EffortPicker'
 import { useSettingsStore } from '@/stores/settings'
 import { cn } from '@/lib/utils'
 import { errorMessageOf } from '@/lib/error-copy'
@@ -64,6 +66,11 @@ export interface ComposerProps {
     /** 返回生效的 "provider/model"（成功后父级更新 current） */
     onChange: (model: string) => Promise<string>
   } | undefined
+  /** 推理档位（§13.E 工具条中位 / 工单 10.6；缺省不渲染——同 model 纪律） */
+  effort?: {
+    current: ReasoningEffort | undefined
+    onChange: (effort: ReasoningEffort) => Promise<ReasoningEffort>
+  } | undefined
   onSend: (text: string, delivery: Delivery, attachments?: string[]) => Promise<SubmitOutcome>
   onInterrupt: () => void
   /**
@@ -93,7 +100,7 @@ const OUTCOME_TEXT: Record<SubmitOutcome['result'], string> = {
 type SegmentValue = Delivery
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
-  { busy, waiting, initialDraft = '', permission, model, onSend, onInterrupt, onCommand, commands },
+  { busy, waiting, initialDraft = '', permission, model, effort, onSend, onInterrupt, onCommand, commands },
   ref,
 ) {
   const defaultDelivery = useSettingsStore((s) => s.defaultDelivery)
@@ -344,6 +351,18 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     }
   }
 
+  async function chooseEffort(value: ReasoningEffort): Promise<ReasoningEffort> {
+    if (effort === undefined) return value
+    try {
+      const applied = await effort.onChange(value)
+      showHint('推理档位已切换（下一轮生效）')
+      return applied
+    } catch (err) {
+      showHint(errorMessageOf(err))
+      return effort.current ?? value
+    }
+  }
+
   const preset: PermissionPreset = permission?.preset ?? 'confirm-each'
   const tier = tierOf(preset)
   const segmentValue = segmentDisplay(segment, busy, defaultDelivery)
@@ -583,6 +602,15 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               models={model.models}
               providers={model.providers}
               onChange={chooseModel}
+              disabled={waiting}
+            />
+          )}
+
+          {/* 推理档位（工单 10.6，§13.E 工具条中位）：低/中/高，切换下一轮生效 */}
+          {effort !== undefined && (
+            <EffortPicker
+              current={effort.current}
+              onChange={chooseEffort}
               disabled={waiting}
             />
           )}

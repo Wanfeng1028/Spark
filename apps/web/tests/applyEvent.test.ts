@@ -68,6 +68,21 @@ describe('session.created / resumed / title', () => {
     expect(s2.byId[OTHER]).toBeDefined()
   })
 
+  it('created：branch/effort 透传（工单 10.6；未携带则缺省——禁假状态）', () => {
+    const s1 = applyEvent(
+      fresh(),
+      ev(
+        'session.created',
+        { cwd: '/w', model: 'm', branch: 'main', effort: 'high' },
+        { seq: 1 },
+      ),
+    )
+    expect(s1.byId[SID]?.meta).toMatchObject({ branch: 'main', effort: 'high' })
+    const s2 = applyEvent(fresh(), ev('session.created', { cwd: '/w', model: 'm' }, { seq: 1 }))
+    expect(s2.byId[SID]?.meta.branch).toBeUndefined()
+    expect(s2.byId[SID]?.meta.effort).toBeUndefined()
+  })
+
   it('resumed：未知会话也建 slice（回放随后逐条应用）', () => {
     const s = applyEvent(fresh(), ev('session.resumed', { fromSeq: 0 }, { seq: 1 }))
     expect(s.byId[SID]).toBeDefined()

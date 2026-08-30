@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { FolderGit2, GitBranch, History } from 'lucide-react'
 import { ids } from '@spark/protocol'
-import type { PermissionPreset } from '@spark/protocol'
+import type { PermissionPreset, ReasoningEffort } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
 import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
@@ -48,9 +48,11 @@ export function SessionPage() {
   const items = useSessionItems(sid)
   const topBanner = useSessionStore((s) => s.byId[sid]?.topBanner ?? null)
   const compacting = useSessionStore((s) => s.byId[sid]?.compacting ?? false)
-  // 顶栏数据：标题/项目来自 slice.meta（事件流推导；undefined = 尚未加载）
+  // 顶栏数据：标题/项目/分支来自 slice.meta（事件流推导；undefined = 尚未加载/取不到）
   const sliceTitle = useSessionStore((s) => s.byId[sid]?.meta.title)
   const sliceCwd = useSessionStore((s) => s.byId[sid]?.meta.cwd)
+  const sliceBranch = useSessionStore((s) => s.byId[sid]?.meta.branch)
+  const sliceEffort = useSessionStore((s) => s.byId[sid]?.meta.effort)
   const connStatus = useConnectionStore((s) => s.status)
   const setConnStatus = useConnectionStore((s) => s.setStatus)
   // http 打开态（加载/错误呈现；mock 即挂即用）。函数式初值防 sid 切换时沿用旧态
@@ -84,9 +86,12 @@ export function SessionPage() {
   }, [transport])
   const sliceModel = useSessionStore((s) => s.byId[sid]?.meta.model)
   const [modelOverride, setModelOverride] = useState<string | null>(null)
-  // 会话切换：换模型覆盖归零（新会话以 slice.meta 为准）
+  // 推理档位覆盖（工单 10.6）：引擎内存态不持久，与换模型同纪律
+  const [effortOverride, setEffortOverride] = useState<ReasoningEffort | null>(null)
+  // 会话切换：换模型/档位覆盖归零（新会话以 slice.meta 为准）
   useEffect(() => {
     setModelOverride(null)
+    setEffortOverride(null)
   }, [sid])
 
   const busy = turn !== null
@@ -156,8 +161,8 @@ export function SessionPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* 顶栏 44px（§13.A）：会话标题（13px semibold 截断）+ 项目 chip（24px，cwd 目录名）；
-          分支 chip 无数据源（事件流/DTO 不含 git 分支）暂不渲染，禁假状态 */}
+      {/* 顶栏 44px（§13.A）：会话标题（13px semibold 截断）+ 项目 chip（24px，cwd 目录名）
+          + 分支 chip（工单 10.6：创建时 git 只读探测真值；取不到不渲染，禁假状态） */}
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-4">
         <h1 className="min-w-0 shrink truncate text-[13px] font-semibold">
           {sliceTitle === undefined ? '…' : sliceTitle === '' ? '新会话' : sliceTitle}
@@ -169,6 +174,15 @@ export function SessionPage() {
           >
             <FolderGit2 className="size-3" />
             {projectOf(sliceCwd)}
+          </span>
+        )}
+        {sliceBranch !== undefined && sliceBranch !== '' && (
+          <span
+            className="flex h-6 shrink-0 items-center gap-1 rounded-full border border-border px-2 font-mono text-[11px] text-muted-foreground"
+            title={`git 分支（会话创建时探测）：${sliceBranch}`}
+          >
+            <GitBranch className="size-3" />
+            {sliceBranch}
           </span>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -315,6 +329,14 @@ export function SessionPage() {
                   }
                 : undefined
             }
+            effort={{
+              current: effortOverride ?? sliceEffort,
+              onChange: (v) =>
+                transport.setSessionEffort(sid, v).then((applied) => {
+                  setEffortOverride(applied)
+                  return applied
+                }),
+            }}
             onSend={(text, delivery, attachments) =>
               transport.sendMessage(sid, text, {
                 delivery,
