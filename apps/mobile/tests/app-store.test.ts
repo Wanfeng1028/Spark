@@ -85,9 +85,9 @@ describe('applyEvent 投影（典型事件序列快照）', () => {
     expect(slice).toBeDefined()
     expect(slice?.meta.model).toBe('test/model')
     expect(slice?.meta.cwd).toBe('/tmp/spark')
-    expect(slice?.items.map((it) => it.kind)).toEqual(['user', 'assistant'])
-    // 流式缓冲：delta 累入 assistant 项 textBuf
-    const assistant = slice?.items[1]
+    expect(slice?.items.map((it) => it.kind)).toEqual(['user', 'turn', 'assistant'])
+    // 流式缓冲：delta 累入 assistant 项 textBuf（turn 项占位 items[1]，工单 10.4② 回合头）
+    const assistant = slice?.items[2]
     expect(assistant?.kind === 'assistant' && assistant.streaming?.textBuf).toBe('在的')
     expect(slice?.activeTurn?.turnId).toBe(TID)
 

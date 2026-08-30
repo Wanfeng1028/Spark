@@ -48,9 +48,10 @@ export function timeGroupOf(ts: number): string {
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   const DAY = 86400000
+  // 段界整点归更早段（开区间下界）：恰为昨日零点/六天前零点的时间戳不算上一段
   if (ts >= startOfToday) return '今天'
-  if (ts >= startOfToday - DAY) return '昨天'
-  if (ts >= startOfToday - 6 * DAY) return '7 天内'
+  if (ts > startOfToday - DAY) return '昨天'
+  if (ts > startOfToday - 6 * DAY) return '7 天内'
   return '更早'
 }
 
