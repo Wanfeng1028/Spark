@@ -36,7 +36,7 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | 前端 | Vite 7 · React 19 · TypeScript(strict) · Tailwind CSS v4 · shadcn/ui · Vercel AI Elements（copy-in）· streamdown · react-virtuoso · zustand |
 | 后端 | Node 22+ · `@earendil-works/pi-ai` / `pi-agent-core` · Fastify · SSE · 自写 append-only JSONL 会话日志                                      |
-| 布局 | pnpm monorepo：`packages/protocol`（唯一合同）· `packages/engine` · `apps/server` · `apps/web` · `apps/desktop`（阶段五）· `apps/cli`（阶段八）· `apps/mobile`（阶段九，Expo+RN）· `apps/miniapp`（阶段九，Taro 4 小程序） |
+| 布局 | pnpm monorepo：`packages/protocol`（唯一合同）· `packages/engine` · `apps/server` · `apps/web` · `apps/desktop`（阶段五）· `apps/cli`（阶段八）· `apps/mobile`（阶段九，Expo+RN）· `apps/miniapp`（阶段九，Taro 4 小程序）；另 `offical/`=Spark 产品官网代码（仅前端，不在 pnpm workspace，独立于产品各端） |
 
 ## 文档
 
@@ -108,3 +108,4 @@ pnpm eval                   # eval 回归（工单 7.11：确定性场景集；-
 | v1.24 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段九开工指令）                                                                                   | **阶段九完成登记**：当前状态行刷新为阶段六/七/八/九完成待合入（工单 9.1–9.5：配对鉴权 + apps/mobile Expo+RN + apps/miniapp Taro 4 小程序壳，ADR D20–D24）；测试计数 921 例（新增 mobile 48/miniapp 51，server 85→92、protocol 68→69）；技术栈布局行补 `apps/mobile`/`apps/miniapp`；开发区补 `pnpm --filter mobile dev`/`miniapp dev`；真机/模拟器与小程序开发者工具走查由用户执行（留待记录）；与 AGENTS v1.23、doc/02 v3.29 同步 |
 | v1.25 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，v2 展望会话）                        | 文档导航新增 doc/08 v2 展望与工单库（阶段十一~十五：发布化/可日用/可证明/SDK 化/生态面，34 张工单含开工提示词；决策已拍板：MIT / npm CLI 优先） |
 | v1.26 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段十全量开工指令）                        | 当前状态段登记阶段十进展（规格修订/会话流升级/侧栏细节/分支 chip+推理档位/CLI §13.K 纯单栏重构——ADR D19 修订）；阶段八描述同步"纯单栏会话优先" |
+| v1.27 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028）                        | 技术栈布局行登记 `offical/`——Spark 产品官网代码（仅前端，不在 pnpm workspace，独立于产品各端）；与 doc/02 v3.35 §3 目录树同步 |
