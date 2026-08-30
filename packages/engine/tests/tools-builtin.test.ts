@@ -172,16 +172,23 @@ describe('edit（§5.6.3）', () => {
 })
 
 describe('bash（§5.6.3）', () => {
+  // 命令一律用 node -e 表达：跨 shell 可移植（Windows 无真实 bash 时工具回落
+  // powershell，bash 方言如 sleep/>&2 不可用），测的是工具机制不是 shell 方言。
   test('成功：echo 输出', async () => {
     const cwd = await makeCwd()
-    const r = await bashTool.execute(makeCtx(cwd), { command: 'echo hello' })
+    const r = await bashTool.execute(makeCtx(cwd), {
+      command: "node -e \"process.stdout.write('hello\\n')\"",
+    })
     expect(r.isError).toBe(false)
     expect(r.output).toBe('hello\n')
   })
 
   test('非零退出：E_EXIT_CODE 且 output 保留', async () => {
     const cwd = await makeCwd()
-    const r = await bashTool.execute(makeCtx(cwd), { command: 'echo out; echo err >&2; exit 3' })
+    // 显式 `exit 3`：powershell -Command 不传播内部原生命令退出码（非零一律转 1）
+    const r = await bashTool.execute(makeCtx(cwd), {
+      command: "node -e \"console.log('out'); console.error('err')\"; exit 3",
+    })
     expect(r.isError).toBe(true)
     const out = r.output as { code: string; exitCode: number | null; output: string }
     expect(out.code).toBe('E_EXIT_CODE')
@@ -190,21 +197,22 @@ describe('bash（§5.6.3）', () => {
     expect(out.output).toContain('err')
   })
 
-  test('超时：E_TIMEOUT（SIGTERM 树杀）', async () => {
+  test('超时：E_TIMEOUT（SIGTERM 树杀）', { timeout: 10000 }, async () => {
+    // timeout 10000：树杀与派生竞态时孤儿最长活满子命令 5s 自然退出，压默认 5s 上限会被负载抖成假红
     const cwd = await makeCwd()
     const r = await bashTool.execute(makeCtx(cwd), {
-      command: 'sleep 5',
+      command: 'node -e "setTimeout(()=>{},5000)"',
       timeoutMs: 100,
     })
     expect(r.isError).toBe(true)
     expect(r.output).toMatchObject({ code: 'E_TIMEOUT' })
   })
 
-  test('abort 级联：signal 已中止 → 树杀 + E_ABORTED', async () => {
+  test('abort 级联：signal 已中止 → 树杀 + E_ABORTED', { timeout: 10000 }, async () => {
     const cwd = await makeCwd()
     const ac = new AbortController()
     const ctx: ToolContext = { ...makeCtx(cwd), signal: ac.signal }
-    const p = bashTool.execute(ctx, { command: 'sleep 5' })
+    const p = bashTool.execute(ctx, { command: 'node -e "setTimeout(()=>{},5000)"' })
     setTimeout(() => ac.abort(), 100)
     const r = await p
     expect(r.isError).toBe(true)

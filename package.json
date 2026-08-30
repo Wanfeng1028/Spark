@@ -16,6 +16,11 @@
     "format": "prettier --write .",
     "eval": "pnpm --filter @spark/evals eval"
   },
+  "pnpm": {
+    "overrides": {
+      "@spark/miniapp>webpack": "5.95.0"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^9.30.0",
     "eslint": "^9.30.0",

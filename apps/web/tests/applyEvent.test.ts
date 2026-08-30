@@ -1,12 +1,11 @@
 /**
- * applyEvent reducer 单测（doc/02 §6.4 处理表 20 种事件逐条覆盖，AGENTS §2.8）。
- * reduce 为纯函数——直接构造状态与事件断言，无 React 绑定。
+ * applyEvent reducer 单测（doc/02 §6.4 处理表 21 种事件逐条覆盖，AGENTS §2.8）。
+ * 工单 8.2 起实现下沉 @spark/protocol（D22 四端共享资产），web/cli 同一实现共此词表把关。
+ * applyEvent 为纯函数——直接构造状态与事件断言，无 React 绑定。
  */
 import { describe, expect, it } from 'vitest'
-import type { SparkEventEnvelope, SparkEventType } from '@spark/protocol'
-import { ids } from '@spark/protocol'
-import { reduce } from '../src/stores/session'
-import type { SessionStoreState } from '../src/stores/session'
+import type { ProjectionState, SparkEventEnvelope, SparkEventType } from '@spark/protocol'
+import { applyEvent, ids } from '@spark/protocol'
 
 const SID = ids.session('ses_test0001')
 const TURN = ids.turn('trn_test0001')
@@ -33,25 +32,25 @@ function ev<T extends SparkEventType>(
   return e
 }
 
-function fresh(): SessionStoreState {
-  return { byId: {}, activeId: null, applyEvent: () => {}, resetSlice: () => {}, setActiveId: () => {} }
+function fresh(): ProjectionState {
+  return { byId: {}, activeId: null }
 }
 
 /** 从 session.created 起步的常规状态 */
-function seeded(): SessionStoreState {
-  return reduce(
+function seeded(): ProjectionState {
+  return applyEvent(
     fresh(),
     ev('session.created', { title: '测试会话', cwd: '/tmp', model: 'deepseek/chat' }, { seq: 1 }),
   )
 }
 
-function itemsOf(s: SessionStoreState) {
+function itemsOf(s: ProjectionState) {
   return s.byId[SID]?.items ?? []
 }
 
 describe('session.created / resumed / title', () => {
   it('created：初始化 slice，activeId 空则激活', () => {
-    const s = reduce(fresh(), ev('session.created', { cwd: '/w', model: 'm' }, { seq: 1 }))
+    const s = applyEvent(fresh(), ev('session.created', { cwd: '/w', model: 'm' }, { seq: 1 }))
     expect(s.activeId).toBe(SID)
     const slice = s.byId[SID]
     expect(slice?.meta).toMatchObject({ id: SID, title: '', model: 'm', cwd: '/w' })
@@ -59,9 +58,9 @@ describe('session.created / resumed / title', () => {
   })
 
   it('created：activeId 已有则不抢', () => {
-    const s1 = reduce(fresh(), ev('session.created', { cwd: '/a', model: 'm' }, { seq: 1 }))
+    const s1 = applyEvent(fresh(), ev('session.created', { cwd: '/a', model: 'm' }, { seq: 1 }))
     const OTHER = ids.session('ses_other0001')
-    const s2 = reduce(
+    const s2 = applyEvent(
       s1,
       ev('session.created', { cwd: '/b', model: 'm' }, { seq: 1, sessionId: OTHER }),
     )
@@ -70,12 +69,12 @@ describe('session.created / resumed / title', () => {
   })
 
   it('resumed：未知会话也建 slice（回放随后逐条应用）', () => {
-    const s = reduce(fresh(), ev('session.resumed', { fromSeq: 0 }, { seq: 1 }))
+    const s = applyEvent(fresh(), ev('session.resumed', { fromSeq: 0 }, { seq: 1 }))
     expect(s.byId[SID]).toBeDefined()
   })
 
   it('title：meta.title 更新', () => {
-    const s = reduce(seeded(), ev('session.title', { title: '新标题' }, { seq: 2 }))
+    const s = applyEvent(seeded(), ev('session.title', { title: '新标题' }, { seq: 2 }))
     expect(s.byId[SID]?.meta.title).toBe('新标题')
   })
 })
@@ -83,9 +82,9 @@ describe('session.created / resumed / title', () => {
 describe('turn 生命周期', () => {
   it('turn.started：建 activeTurn，清上轮错误横幅', () => {
     let s = seeded()
-    s = reduce(s, ev('turn.completed', { turnId: TURN, finish: 'error' }, { seq: 2 }))
+    s = applyEvent(s, ev('turn.completed', { turnId: TURN, finish: 'error' }, { seq: 2 }))
     expect(s.byId[SID]?.topBanner).toEqual({ kind: 'turn-error', turnId: TURN })
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'turn.started',
@@ -101,7 +100,7 @@ describe('turn 生命周期', () => {
 
   it('turn.completed：activeTurn 清空 + usage 累计 + finish=error 设横幅', () => {
     let s = seeded()
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'turn.started',
@@ -109,7 +108,7 @@ describe('turn 生命周期', () => {
         { seq: 2 },
       ),
     )
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'turn.completed',
@@ -129,7 +128,7 @@ describe('turn 生命周期', () => {
     })
     expect(s.byId[SID]?.topBanner).toBeNull()
 
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'turn.started',
@@ -137,7 +136,7 @@ describe('turn 生命周期', () => {
         { seq: 4 },
       ),
     )
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'turn.completed',
@@ -153,21 +152,21 @@ describe('turn 生命周期', () => {
 
   it('contextUsage：assistant.message 带 usage 即更新；无 usage 事件保持原值', () => {
     let s = seeded()
-    s = reduce(s, ev('turn.started', { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_u1') }, { seq: 2 }))
-    s = reduce(
+    s = applyEvent(s, ev('turn.started', { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_u1') }, { seq: 2 }))
+    s = applyEvent(
       s,
       ev('assistant.message', { turnId: TURN, content: [], usage: { inputTokens: 7, outputTokens: 3 } }, { seq: 3 }),
     )
     expect(s.byId[SID]?.contextUsage).toEqual({ inputTokens: 7, outputTokens: 3 })
     // 后续无 usage 的 assistant.message 不清水位
-    s = reduce(s, ev('assistant.message', { turnId: TURN, content: [{ type: 'text', text: 'x' }] }, { seq: 4 }))
+    s = applyEvent(s, ev('assistant.message', { turnId: TURN, content: [{ type: 'text', text: 'x' }] }, { seq: 4 }))
     expect(s.byId[SID]?.contextUsage).toEqual({ inputTokens: 7, outputTokens: 3 })
   })
 })
 
 describe('消息流：user / assistant / reasoning', () => {
   it('user.message：push user item', () => {
-    const s = reduce(seeded(), ev('user.message', { text: '你好' }, { seq: 2 }))
+    const s = applyEvent(seeded(), ev('user.message', { text: '你好' }, { seq: 2 }))
     const items = itemsOf(s)
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({ kind: 'user', text: '你好' })
@@ -175,13 +174,13 @@ describe('消息流：user / assistant / reasoning', () => {
 
   it('assistant.delta→message：streaming 缓冲累积后定稿清 streaming', () => {
     let s = seeded()
-    s = reduce(s, ev('assistant.delta', { turnId: TURN, text: 'He' }))
-    s = reduce(s, ev('assistant.delta', { turnId: TURN, text: 'llo' }))
+    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: 'He' }))
+    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: 'llo' }))
     let items = itemsOf(s)
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({ kind: 'assistant', streaming: { textBuf: 'Hello' } })
 
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'assistant.message',
@@ -200,7 +199,7 @@ describe('消息流：user / assistant / reasoning', () => {
 
   it('assistant.message 含 toolCall：定稿 + 展开 tool running', () => {
     const CALL = ids.call('cal_test0001')
-    const s = reduce(
+    const s = applyEvent(
       seeded(),
       ev(
         'assistant.message',
@@ -218,7 +217,7 @@ describe('消息流：user / assistant / reasoning', () => {
 
   it('assistant.message：activeTurn.stepCount 递增', () => {
     let s = seeded()
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'turn.started',
@@ -226,7 +225,7 @@ describe('消息流：user / assistant / reasoning', () => {
         { seq: 2 },
       ),
     )
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'assistant.message',
@@ -239,10 +238,10 @@ describe('消息流：user / assistant / reasoning', () => {
 
   it('reasoning.delta→ended：流式累积后以 ended 定稿全文', () => {
     let s = seeded()
-    s = reduce(s, ev('reasoning.delta', { turnId: TURN, text: '想一' }))
-    s = reduce(s, ev('reasoning.delta', { turnId: TURN, text: '想' }))
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '想一' }))
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '想' }))
     expect(itemsOf(s)[0]).toMatchObject({ kind: 'reasoning', text: '想一想', streaming: true })
-    s = reduce(s, ev('reasoning.ended', { turnId: TURN, text: '想一想（完整）' }, { seq: 2 }))
+    s = applyEvent(s, ev('reasoning.ended', { turnId: TURN, text: '想一想（完整）' }, { seq: 2 }))
     expect(itemsOf(s)[0]).toMatchObject({
       kind: 'reasoning',
       text: '想一想（完整）',
@@ -251,7 +250,7 @@ describe('消息流：user / assistant / reasoning', () => {
   })
 
   it('reasoning.ended 先于 delta 到达（回放乱序防御）：ended 直接定稿', () => {
-    const s = reduce(seeded(), ev('reasoning.ended', { turnId: TURN, text: '全文' }, { seq: 2 }))
+    const s = applyEvent(seeded(), ev('reasoning.ended', { turnId: TURN, text: '全文' }, { seq: 2 }))
     expect(itemsOf(s)[0]).toMatchObject({ kind: 'reasoning', text: '全文', streaming: false })
   })
 })
@@ -259,9 +258,9 @@ describe('消息流：user / assistant / reasoning', () => {
 describe('tool 状态机', () => {
   const CALL = ids.call('cal_tool0001')
 
-  function started(): SessionStoreState {
+  function started(): ProjectionState {
     let s = seeded()
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'turn.started',
@@ -269,7 +268,7 @@ describe('tool 状态机', () => {
         { seq: 2 },
       ),
     )
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'tool.started',
@@ -293,7 +292,7 @@ describe('tool 状态机', () => {
 
   it('tool.started 在 assistant.message 展开后到达：不重复建 item，仍入 runningTools', () => {
     let s = seeded()
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'turn.started',
@@ -301,7 +300,7 @@ describe('tool 状态机', () => {
         { seq: 2 },
       ),
     )
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'assistant.message',
@@ -312,7 +311,7 @@ describe('tool 状态机', () => {
         { seq: 3 },
       ),
     )
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'tool.started',
@@ -327,11 +326,11 @@ describe('tool 状态机', () => {
 
   it('tool.progress：chunk 追加；>2000 行截头保尾', () => {
     let s = started()
-    s = reduce(s, ev('tool.progress', { turnId: TURN, callId: CALL, chunk: 'a\nb\n' }))
+    s = applyEvent(s, ev('tool.progress', { turnId: TURN, callId: CALL, chunk: 'a\nb\n' }))
     expect(itemsOf(s)[0]).toMatchObject({ kind: 'tool', progressBuf: 'a\nb\n' })
 
     const big = Array.from({ length: 2100 }, (_, i) => `line-${i}`).join('\n')
-    s = reduce(s, ev('tool.progress', { turnId: TURN, callId: CALL, chunk: big }))
+    s = applyEvent(s, ev('tool.progress', { turnId: TURN, callId: CALL, chunk: big }))
     const tool = itemsOf(s)[0]
     if (tool?.kind !== 'tool') throw new Error('unreachable')
     // 已有 'a\nb\n' 的尾 \n 成为分隔符：拼接后 2+2100=2102 行 → 截 102 保 2000
@@ -342,7 +341,7 @@ describe('tool 状态机', () => {
 
   it('tool.completed：成功定稿 completed + output；错误定稿 error；runningTools 删除', () => {
     let s = started()
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'tool.completed',
@@ -354,11 +353,11 @@ describe('tool 状态机', () => {
     expect(s.byId[SID]?.activeTurn?.runningTools.has(CALL)).toBe(false)
 
     const CALL2 = ids.call('cal_tool0002')
-    s = reduce(
+    s = applyEvent(
       s,
       ev('tool.started', { turnId: TURN, callId: CALL2, name: 'edit', input: {} }, { seq: 5 }),
     )
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'tool.completed',
@@ -377,7 +376,7 @@ describe('审批', () => {
 
   it('permission.asked→resolved：pending→resolved，activeTurn.waiting 置位/复位', () => {
     let s = seeded()
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'turn.started',
@@ -385,7 +384,7 @@ describe('审批', () => {
         { seq: 2 },
       ),
     )
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'permission.asked',
@@ -410,7 +409,7 @@ describe('审批', () => {
     })
     expect(s.byId[SID]?.activeTurn?.waiting).toBe(true)
 
-    s = reduce(s, ev('permission.resolved', { requestId: REQ, reply: 'once' }, { seq: 4 }))
+    s = applyEvent(s, ev('permission.resolved', { requestId: REQ, reply: 'once' }, { seq: 4 }))
     expect(itemsOf(s).at(-1)).toMatchObject({ kind: 'approval', status: 'resolved', reply: 'once' })
     expect(s.byId[SID]?.activeTurn?.waiting).toBe(false)
   })
@@ -419,9 +418,9 @@ describe('审批', () => {
 describe('io.warning（工单 7.2 I/O 护栏）', () => {
   const CALL = ids.call('cal_guard001')
 
-  function toolStarted(): SessionStoreState {
+  function toolStarted(): ProjectionState {
     let s = seeded()
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'turn.started',
@@ -429,7 +428,7 @@ describe('io.warning（工单 7.2 I/O 护栏）', () => {
         { seq: 2 },
       ),
     )
-    s = reduce(
+    s = applyEvent(
       s,
       ev('tool.started', { turnId: TURN, callId: CALL, name: 'bash', input: { cmd: 'ls' } }, { seq: 3 }),
     )
@@ -438,7 +437,7 @@ describe('io.warning（工单 7.2 I/O 护栏）', () => {
 
   it('injection：挂对应 tool 项 guard；turn 状态机不受影响（不阻断）', () => {
     let s = toolStarted()
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'io.warning',
@@ -464,7 +463,7 @@ describe('io.warning（工单 7.2 I/O 护栏）', () => {
 
   it('secret：guard 含 redacted 计数；后到覆盖前到（保留最后一条）', () => {
     let s = toolStarted()
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'io.warning',
@@ -472,7 +471,7 @@ describe('io.warning（工单 7.2 I/O 护栏）', () => {
         { seq: 4 },
       ),
     )
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'io.warning',
@@ -487,7 +486,7 @@ describe('io.warning（工单 7.2 I/O 护栏）', () => {
 
   it('callId 无对应 tool 项：不崩不建 item', () => {
     const s = toolStarted()
-    const out = reduce(
+    const out = applyEvent(
       s,
       ev(
         'io.warning',
@@ -503,9 +502,9 @@ describe('io.warning（工单 7.2 I/O 护栏）', () => {
 describe('compaction / checkpoint / error', () => {
   it('compaction.started/completed：compacting 开关（顶部细条数据源）', () => {
     let s = seeded()
-    s = reduce(s, ev('compaction.started', {}, { seq: 2 }))
+    s = applyEvent(s, ev('compaction.started', {}, { seq: 2 }))
     expect(s.byId[SID]?.compacting).toBe(true)
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'compaction.completed',
@@ -518,7 +517,7 @@ describe('compaction / checkpoint / error', () => {
 
   it('memory.injected：memoryInjected 记录命中数与查询词（工单 7.5；不进 items）', () => {
     let s = seeded()
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'memory.injected',
@@ -538,7 +537,7 @@ describe('compaction / checkpoint / error', () => {
   })
 
   it('checkpoint.created：lastCheckpoint 记录（StatusBar 徽标数据源）', () => {
-    const s = reduce(
+    const s = applyEvent(
       seeded(),
       ev(
         'checkpoint.created',
@@ -550,7 +549,7 @@ describe('compaction / checkpoint / error', () => {
   })
 
   it('error：lastError 记录，fatal 透传（toast / 全屏错误态数据源）', () => {
-    const s = reduce(
+    const s = applyEvent(
       seeded(),
       ev('error', { scope: 'llm', message: '429', fatal: true }, { seq: 2 }),
     )
@@ -561,30 +560,30 @@ describe('compaction / checkpoint / error', () => {
 describe('去重规则（回放×直播重叠，§6.4）', () => {
   it('durable seq <= lastSeq 跳过（全局直播先到、REST 回放后到不重复应用）', () => {
     let s = seeded() // lastSeq=1
-    s = reduce(s, ev('user.message', { text: '直播先到' }, { seq: 5 }))
+    s = applyEvent(s, ev('user.message', { text: '直播先到' }, { seq: 5 }))
     expect(itemsOf(s)).toHaveLength(1)
     // 回放的同一行（seq=5，<= lastSeq）再到达 → 跳过
-    s = reduce(s, ev('user.message', { text: '直播先到' }, { seq: 5 }))
+    s = applyEvent(s, ev('user.message', { text: '直播先到' }, { seq: 5 }))
     expect(itemsOf(s)).toHaveLength(1)
     // 乱序旧 durable（seq=3）也被吸附
-    s = reduce(s, ev('user.message', { text: '乱序旧事件' }, { seq: 3 }))
+    s = applyEvent(s, ev('user.message', { text: '乱序旧事件' }, { seq: 3 }))
     expect(itemsOf(s)).toHaveLength(1)
   })
 
   it('live 事件无 seq：无条件应用（delta 不去重）', () => {
     let s = seeded()
-    s = reduce(s, ev('user.message', { text: 'durable' }, { seq: 9 }))
-    s = reduce(s, ev('assistant.delta', { turnId: TURN, text: 'a' }))
-    s = reduce(s, ev('assistant.delta', { turnId: TURN, text: 'b' }))
+    s = applyEvent(s, ev('user.message', { text: 'durable' }, { seq: 9 }))
+    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: 'a' }))
+    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: 'b' }))
     const a = itemsOf(s).at(-1)
     expect(a).toMatchObject({ kind: 'assistant', streaming: { textBuf: 'ab' } })
   })
 
   it('lastSeq 单调推进（max 而非盲写）', () => {
     let s = seeded() // lastSeq=1
-    s = reduce(s, ev('user.message', { text: 'x' }, { seq: 7 }))
+    s = applyEvent(s, ev('user.message', { text: 'x' }, { seq: 7 }))
     expect(s.byId[SID]?.lastSeq).toBe(7)
-    s = reduce(s, ev('user.message', { text: 'y' }, { seq: 4 })) // 吸附，不改写 lastSeq
+    s = applyEvent(s, ev('user.message', { text: 'y' }, { seq: 4 })) // 吸附，不改写 lastSeq
     expect(s.byId[SID]?.lastSeq).toBe(7)
   })
 })
@@ -596,14 +595,14 @@ describe('全链路：normal 场景形状串联', () => {
     let s = seeded()
     const seq = () => ({ seq: (s.byId[SID]?.lastSeq ?? 0) + 1 })
 
-    s = reduce(s, ev('user.message', { text: '改一下配置' }, seq()))
-    s = reduce(
+    s = applyEvent(s, ev('user.message', { text: '改一下配置' }, seq()))
+    s = applyEvent(
       s,
       ev('turn.started', { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_u') }, seq()),
     )
-    s = reduce(s, ev('reasoning.delta', { turnId: TURN, text: '先读' }))
-    s = reduce(s, ev('reasoning.ended', { turnId: TURN, text: '先读文件' }, seq()))
-    s = reduce(
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '先读' }))
+    s = applyEvent(s, ev('reasoning.ended', { turnId: TURN, text: '先读文件' }, seq()))
+    s = applyEvent(
       s,
       ev(
         'assistant.message',
@@ -614,7 +613,7 @@ describe('全链路：normal 场景形状串联', () => {
         seq(),
       ),
     )
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'permission.asked',
@@ -622,8 +621,8 @@ describe('全链路：normal 场景形状串联', () => {
         seq(),
       ),
     )
-    s = reduce(s, ev('permission.resolved', { requestId: REQ, reply: 'once' }, seq()))
-    s = reduce(
+    s = applyEvent(s, ev('permission.resolved', { requestId: REQ, reply: 'once' }, seq()))
+    s = applyEvent(
       s,
       ev(
         'tool.started',
@@ -631,8 +630,8 @@ describe('全链路：normal 场景形状串联', () => {
         seq(),
       ),
     )
-    s = reduce(s, ev('tool.progress', { turnId: TURN, callId: CALL, chunk: 'wrote 3 lines' }))
-    s = reduce(
+    s = applyEvent(s, ev('tool.progress', { turnId: TURN, callId: CALL, chunk: 'wrote 3 lines' }))
+    s = applyEvent(
       s,
       ev(
         'tool.completed',
@@ -640,8 +639,8 @@ describe('全链路：normal 场景形状串联', () => {
         seq(),
       ),
     )
-    s = reduce(s, ev('assistant.delta', { turnId: TURN, text: '已改好' }))
-    s = reduce(
+    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: '已改好' }))
+    s = applyEvent(
       s,
       ev(
         'assistant.message',
@@ -649,7 +648,7 @@ describe('全链路：normal 场景形状串联', () => {
         seq(),
       ),
     )
-    s = reduce(
+    s = applyEvent(
       s,
       ev(
         'turn.completed',

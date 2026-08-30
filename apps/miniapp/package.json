@@ -1,0 +1,43 @@
+{
+  "name": "@spark/miniapp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Spark 微信小程序壳（Taro 4 + React 语法，ADR D21；阶段九工单 9.4）。v1=开发者工具+体验版（局域网 IP），正式分发中继服务记 v2",
+  "templateInfo": {
+    "name": "default",
+    "typescript": true,
+    "css": "None",
+    "framework": "React"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "dev": "taro build --type weapp --watch",
+    "dev:weapp": "taro build --type weapp --watch"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.26.0",
+    "@spark/protocol": "workspace:*",
+    "@tarojs/components": "4.2.1",
+    "@tarojs/helper": "4.2.1",
+    "@tarojs/plugin-framework-react": "4.2.1",
+    "@tarojs/plugin-platform-weapp": "4.2.1",
+    "@tarojs/react": "4.2.1",
+    "@tarojs/runtime": "4.2.1",
+    "@tarojs/shared": "4.2.1",
+    "@tarojs/taro": "4.2.1",
+    "react": "18.3.1",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@babel/preset-react": "7.26.3",
+    "@tarojs/cli": "4.2.1",
+    "@tarojs/webpack5-runner": "4.2.1",
+    "@types/node": "^24",
+    "@types/react": "^18.3.12",
+    "babel-preset-taro": "4.2.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4",
+    "webpack": "5.95.0"
+  }
+}

@@ -1,0 +1,38 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`buildSessionRows——消息行构建 审批事件的投影快照（pending → resolved 行形稳定） 1`] = `
+[
+  {
+    "item": {
+      "action": "bash",
+      "eventId": "evt_rows_16",
+      "kind": "approval",
+      "reason": "命令含删除语义",
+      "requestId": "req_rows_1",
+      "resource": "rm -rf /tmp/x",
+      "status": "pending",
+    },
+    "key": "approval-req_rows_1",
+    "kind": "item",
+  },
+]
+`;
+
+exports[`buildSessionRows——消息行构建 审批事件的投影快照（pending → resolved 行形稳定） 2`] = `
+[
+  {
+    "item": {
+      "action": "bash",
+      "eventId": "evt_rows_16",
+      "kind": "approval",
+      "reason": "命令含删除语义",
+      "reply": "once",
+      "requestId": "req_rows_1",
+      "resource": "rm -rf /tmp/x",
+      "status": "resolved",
+    },
+    "key": "approval-req_rows_1",
+    "kind": "item",
+  },
+]
+`;

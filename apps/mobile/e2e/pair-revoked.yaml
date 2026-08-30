@@ -1,0 +1,26 @@
+# 工单 9.3 Maestro 用例④：配对撤销被拒（只入库不执行——真机走查由用户做）
+# 依据：doc/06-testing-plan.md §1 分层表 L5 行（移动端 E2E 用 Maestro，YAML 入库 apps/mobile/e2e/）
+# 走查方式：本流程给操作者留出人工窗口——执行到等待窗口时在桌面端设置页「设备与配对」
+#   撤销本机设备（撤销即断），App 侧 401 走 E_AUTH 收敛呈现人话文案。
+#   maestro test apps/mobile/e2e/pair-revoked.yaml
+appId: com.sparkapp.mobile
+---
+- launchApp:
+    clearState: false
+- assertVisible: "全部会话"
+- tapOn:
+    text: ".*"
+    index: 1
+- assertVisible: "消息输入框"
+# 操作者在此窗口于桌面端撤销本设备（撤销即断：已连 SSE 立即断开）
+# App 侧重连持续 401 → E_AUTH 收敛终态，人话文案走 ERROR_COPY（D22）
+- extendedWaitUntil:
+    visible: "连接未通过鉴权：请重新配对设备或检查 token"
+    timeout: 60000
+# 撤销后发消息应同样被拒（失败闭合，不静默）
+- tapOn: "消息输入框"
+- inputText: "撤销后仍尝试发送"
+- tapOn: "发送消息"
+- extendedWaitUntil:
+    visible: "连接未通过鉴权：请重新配对设备或检查 token"
+    timeout: 30000

@@ -13,6 +13,8 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/*.min.js',
       'examples/spike-pi-ai/**',
+      // 本地工具产物（Qoder better-harness 报告等，同 .trae-html-share-packages 判例）
+      '.qoder/better-harness/**',
       // 测试夹具：由测试用例 spawn 的独立 Node 脚本（非 TS 项目成员）
       'packages/engine/tests/fixtures/*.mjs',
     ],
@@ -25,9 +27,48 @@ export default tseslint.config(
     ...tseslint.configs.disableTypeChecked,
   },
   {
+    // apps/mobile 的 Metro/Babel 配置：CJS（require/module.exports），声明 Node CJS 全局
+    files: ['apps/mobile/babel.config.js', 'apps/mobile/metro.config.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        module: 'writable',
+        require: 'readonly',
+        __dirname: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
+    // apps/miniapp 的 Babel 配置：CJS（同 mobile 判例——工单 9.4）
+    files: ['apps/miniapp/babel.config.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        module: 'writable',
+        require: 'readonly',
+        __dirname: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
     languageOptions: {
       parserOptions: {
-        projectService: { allowDefaultProject: ['eslint.config.js'] },
+        projectService: {
+          allowDefaultProject: [
+            'eslint.config.js',
+            // apps/mobile 的 Metro/Babel 配置（CJS，不在任何 tsconfig 项目内）
+            'apps/mobile/metro.config.js',
+            'apps/mobile/babel.config.js',
+            // apps/miniapp 的 Babel 配置（同判例）
+            'apps/miniapp/babel.config.js',
+          ],
+        },
       },
     },
     rules: {

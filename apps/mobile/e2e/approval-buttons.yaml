@@ -1,0 +1,29 @@
+# 工单 9.3 Maestro 用例②：审批三键（只入库不执行——真机走查由用户做）
+# 依据：doc/06-testing-plan.md §1 分层表 L5 行（移动端 E2E 用 Maestro，YAML 入库 apps/mobile/e2e/）
+# 运行前置：已配对可连的 Spark server（权限档调成需审批，如 ask 全量）+ 已安装构建包后
+#   maestro test apps/mobile/e2e/approval-buttons.yaml
+appId: com.sparkapp.mobile
+---
+- launchApp:
+    clearState: false
+- assertVisible: "全部会话"
+- tapOn:
+    text: ".*"
+    index: 1
+- assertVisible: "消息输入框"
+# 发起一个会触发审批的动作（工具需授权）
+- tapOn: "消息输入框"
+- inputText: "请运行 bash 命令 ls 查看目录"
+- tapOn: "发送消息"
+# 审批卡呈现（J.3：白卡+warn 左边条+三键纵向全宽）
+- extendedWaitUntil:
+    visible: "请求授权"
+    timeout: 60000
+- assertVisible: "允许"
+- assertVisible: "始终允许"
+- assertVisible: "拒绝"
+# 点“允许”（= once）：卡片收敛为已处理态
+- tapOn: "允许"
+- extendedWaitUntil:
+    visible: "已允许本次"
+    timeout: 30000

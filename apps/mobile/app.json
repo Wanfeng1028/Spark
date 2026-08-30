@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Spark",
+    "slug": "spark-mobile",
+    "scheme": "spark",
+    "version": "0.1.0",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#F7F7F7",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.sparkapp.mobile"
+    },
+    "android": {
+      "edgeToEdgeEnabled": true,
+      "package": "com.sparkapp.mobile"
+    },
+    "plugins": ["expo-secure-store", "expo-status-bar"]
+  }
+}

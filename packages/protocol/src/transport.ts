@@ -18,6 +18,10 @@ import type {
   MemoryDto,
   ModelTestResultDto,
   ModelsDto,
+  PairCodeDto,
+  PairRedeemBody,
+  PairStatusDto,
+  PairTokenDto,
   PermissionPreset,
   PermissionRuleDto,
   RoutingDto,
@@ -25,6 +29,7 @@ import type {
   SearchHitDto,
   SecretStatusDto,
   SessionDto,
+  SessionEventsQuery,
   SkillDto,
   TreeNodeDto,
 } from './api.js'
@@ -50,8 +55,11 @@ export interface Transport {
   /** 手动压缩（doc/02 §5.8.5）：触发 compaction.* 事件对（SSE 推送；turn 进行中拒绝） */
   compact(sessionId: SessionId): Promise<void>
   replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void>
-  /** GET /api/sessions/:id：meta + 全部 durable 事件（seq 升序——冷启动回放数据源） */
-  getSession(sessionId: SessionId): Promise<SessionDto>
+  /**
+   * GET /api/sessions/:id：meta + durable 事件（seq 升序——冷启动回放数据源）。
+   * query 分页（工单 9.3）：limit 升序尾部切片 / before=seq 游标；无参 = 全量（向后兼容）。
+   */
+  getSession(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto>
   listSessions(): Promise<SessionDto[]>
   /** 新建会话（model 为 "provider/model"；缺省 = 引擎 defaultModel） */
   createSession(opts?: { title?: string; model?: string }): Promise<SessionDto>
@@ -121,5 +129,13 @@ export interface Transport {
   listAudit(query?: AuditQuery): Promise<AuditEntryDto[]>
   /** GET /api/search?q：会话全文搜索（事件内容命中；工单 7.13） */
   search(q: string, limit?: number): Promise<SearchHitDto[]>
+  /** GET /api/pair：配对状态（监听地址/鉴权启用态/已配对设备；工单 9.1 / ADR D24） */
+  getPairStatus(): Promise<PairStatusDto>
+  /** POST /api/pair/code：签发配对码（6 位短码 60s 有效 + QR 出示内容） */
+  createPairCode(): Promise<PairCodeDto>
+  /** POST /api/pair：短码兑长效 token（移动端兑换口，鉴权自举；工单 9.1 / ADR D24） */
+  redeemPair(body: PairRedeemBody): Promise<PairTokenDto>
+  /** DELETE /api/pair/devices/:id：撤销设备（撤销后已连 SSE 立即断开） */
+  revokePairDevice(id: string): Promise<void>
   dispose(): void
 }

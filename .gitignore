@@ -2,6 +2,9 @@
 node_modules/
 .pnpm-store/
 
+# Expo 产物（工单 9.2 评审 G8；prebuild 原生目录 android/ 与 ios/ 待工单 9.5 决策口径）
+.expo/
+
 # build outputs
 dist/
 build/
@@ -24,11 +27,15 @@ pnpm-debug.log*
 coverage/
 .vitest/
 
+# SWC 插件缓存（Taro/swc 构建运行时产物，工单 9.4）
+.swc/
+
 # Playwright 运行产物（trace/失败上下文；__screenshots__ 基线截图入库）
 apps/web/e2e/.artifacts/
 apps/web/playwright/.cache/
 # 本地工具产物（HTML share 预览等），不入库
 .trae-html-share-packages/
+.qoder/better-harness/
 
 # IDE & OS
 .idea/

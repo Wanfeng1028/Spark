@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { rmSync } from 'node:fs'
-import type { SearchHitDto } from '@spark/protocol'
+import type { SearchHitDto, SessionId } from '@spark/protocol'
 import { makeServer, type ServerFixture } from './helpers.js'
 
 type ErrBody = { code: string }
@@ -52,6 +52,16 @@ async function waitTurnDone(f: ServerFixture, n = 1): Promise<void> {
   }
 }
 
+/** 自动标题是 turn 完成后异步生成的——断言 sessionTitle 前先等 session.title 落盘 */
+async function waitSessionTitle(f: ServerFixture, sid: SessionId): Promise<void> {
+  const deadline = Date.now() + 2000
+  for (;;) {
+    if (f.engine.getSession(sid)?.events().some((e) => e.type === 'session.title')) return
+    if (Date.now() > deadline) throw new Error('等待 session.title 超时')
+    await new Promise((r) => setTimeout(r, 10))
+  }
+}
+
 describe('GET /api/search（工单 7.13）', () => {
   test('空库 → []；一轮对话后 user/assistant 命中（形状完整、新→旧）', async () => {
     const f = await makeSearchServer()
@@ -62,9 +72,10 @@ describe('GET /api/search（工单 7.13）', () => {
     f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '路由层的检索应答词' }] })
     f.gateway.scriptOnce('路由搜索标题')
     const dto = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
-    const sid = dto.json<{ id: string }>().id
+    const sid = dto.json<{ id: SessionId }>().id
     await f.app.inject({ method: 'POST', url: `/api/sessions/${sid}/messages`, payload: { text: '路由层的提问检索词' } })
     await waitTurnDone(f)
+    await waitSessionTitle(f, sid)
 
     res = await f.app.inject({ method: 'GET', url: '/api/search?q=检索' })
     const rows = res.json<SearchHitDto[]>()

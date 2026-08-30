@@ -52,6 +52,10 @@ export class SearchStore {
 
   constructor(dbPath: string) {
     this.db = new DatabaseSync(dbPath)
+    // WAL + synchronous=NORMAL：索引是派生缓存（JSONL 恒为权威，丢行由装载点
+    // 水位重建补齐），逐条 upsert 免每次 fsync——慢盘上批量入库吞吐差异显著。
+    this.db.exec('PRAGMA journal_mode = WAL')
+    this.db.exec('PRAGMA synchronous = NORMAL')
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS search_entries (
         session_id TEXT NOT NULL,

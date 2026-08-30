@@ -1,0 +1,42 @@
+/* Composer 胶囊（工单 9.4，J.2.1/J.2.3）：高 104rpx 起（52px×2）、radius 全圆、rpx 4 的倍数 */
+
+.composer-capsule {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  min-height: 104rpx;
+  border-radius: 52rpx;
+  padding: 12rpx 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+}
+
+.composer-input {
+  flex: 1;
+  font-size: 32rpx;
+  line-height: 44rpx;
+  min-height: 44rpx;
+  max-height: 176rpx;
+  padding: 16rpx 0;
+}
+
+.composer-send {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 16rpx;
+}
+
+.composer-send-glyph {
+  font-size: 40rpx;
+  line-height: 44rpx;
+  font-weight: 600;
+}
+
+.composer-stop-square {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 4rpx;
+}

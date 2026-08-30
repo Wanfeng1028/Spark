@@ -1,0 +1,85 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`applyEvent 序列快照（小程序逻辑层复用口径） > 审批 pending → resolved：三键卡收敛为已处理态 1`] = `
+[
+  {
+    "item": {
+      "action": "bash",
+      "eventId": "evt_mini_proj_4",
+      "kind": "approval",
+      "reason": "命令含删除语义",
+      "requestId": "req_mini_1",
+      "resource": "rm -rf /tmp/x",
+      "status": "pending",
+    },
+    "key": "approval-req_mini_1",
+    "kind": "item",
+  },
+]
+`;
+
+exports[`applyEvent 序列快照（小程序逻辑层复用口径） > 审批 pending → resolved：三键卡收敛为已处理态 2`] = `
+[
+  {
+    "item": {
+      "action": "bash",
+      "eventId": "evt_mini_proj_4",
+      "kind": "approval",
+      "reason": "命令含删除语义",
+      "reply": "once",
+      "requestId": "req_mini_1",
+      "resource": "rm -rf /tmp/x",
+      "status": "resolved",
+    },
+    "key": "approval-req_mini_1",
+    "kind": "item",
+  },
+]
+`;
+
+exports[`applyEvent 序列快照（小程序逻辑层复用口径） > 用户消息 → 流式增量 → 定稿 → 工具调用：投影形态稳定 1`] = `
+[
+  {
+    "item": {
+      "eventId": "evt_mini_proj_1",
+      "kind": "user",
+      "text": "帮我跑测试",
+    },
+    "key": "evt_mini_proj_1",
+    "kind": "item",
+  },
+  {
+    "item": {
+      "content": [
+        {
+          "text": "好的",
+          "type": "text",
+        },
+        {
+          "callId": "cal_mini_1",
+          "input": {},
+          "name": "bash",
+          "type": "toolCall",
+        },
+      ],
+      "eventId": "evt_mini_proj_2",
+      "kind": "assistant",
+    },
+    "key": "evt_mini_proj_2",
+    "kind": "item",
+  },
+  {
+    "item": {
+      "callId": "cal_mini_1",
+      "eventId": "evt_mini_proj_3",
+      "input": {},
+      "kind": "tool",
+      "name": "bash",
+      "progressBuf": "",
+      "status": "running",
+    },
+    "key": "tool-cal_mini_1",
+    "kind": "item",
+  },
+]
+`;

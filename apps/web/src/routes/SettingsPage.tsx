@@ -13,6 +13,7 @@ import { McpSettingsPage } from '@/features/settings/McpSettingsPage'
 import { SkillsSettingsPage } from '@/features/settings/SkillsSettingsPage'
 import { UsageSettingsPage } from '@/features/settings/UsageSettingsPage'
 import { MemorySettingsPage } from '@/features/settings/MemorySettingsPage'
+import { DevicesSettingsPage } from '@/features/settings/DevicesSettingsPage'
 import { AuditSettingsPage } from '@/features/settings/AuditSettingsPage'
 import { PlaceholderPage } from '@/features/settings/PlaceholderPage'
 
@@ -21,6 +22,7 @@ const READY_COMPONENTS = {
   general: GeneralSettingsPage,
   appearance: AppearancePage,
   models: ModelSettingsPage,
+  devices: DevicesSettingsPage,
   'permission-rules': PermissionRulesPage,
   mcp: McpSettingsPage,
   skills: SkillsSettingsPage,

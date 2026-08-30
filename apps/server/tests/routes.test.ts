@@ -211,6 +211,83 @@ describe('GET /api/sessions/:id', () => {
     const badBody: Json = bad.json()
     expect(badBody['code']).toBe('E_VALIDATION')
   })
+
+  // ---- 事件分页（工单 9.3）：缺省全量红线 / limit 尾部切片 / before 游标 / 非法 400 ----
+
+  /** 建一个完整 turn 的会话（5 条 durable：created/user/turn.started/assistant/turn.completed） */
+  async function makePagedSession(f: ServerFixture): Promise<string> {
+    const events = collectEvents(f)
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '分页答复' }] })
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const id = created.json<Json>()['id'] as string
+    await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '分页提问' },
+    })
+    await waitFor(() => (events.some((e) => e.type === 'turn.completed') ? true : undefined))
+    return id
+  }
+
+  test('分页缺省参数 = 全量回放回归（红线）', async () => {
+    const f = await setup()
+    const id = await makePagedSession(f)
+    const res = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}` })
+    expect(res.statusCode).toBe(200)
+    const detail: Json = res.json()
+    const events = detail['events'] as Json[]
+    expect(events).toHaveLength(5)
+    expect(events.map((e) => e['seq'])).toEqual([1, 2, 3, 4, 5])
+  })
+
+  test('limit 升序尾部切片', async () => {
+    const f = await setup()
+    const id = await makePagedSession(f)
+    const res = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}?limit=2` })
+    expect(res.statusCode).toBe(200)
+    const events = (res.json<Json>())['events'] as Json[]
+    // 升序不变，取尾部 2 条（分页向上翻 = 较早事件页）
+    expect(events.map((e) => e['seq'])).toEqual([4, 5])
+  })
+
+  test('before 游标（只返回 seq < before）与 limit 组合', async () => {
+    const f = await setup()
+    const id = await makePagedSession(f)
+    const res = await f.app.inject({
+      method: 'GET',
+      url: `/api/sessions/${id}?before=4`,
+    })
+    expect(res.statusCode).toBe(200)
+    const events = (res.json<Json>())['events'] as Json[]
+    expect(events.map((e) => e['seq'])).toEqual([1, 2, 3])
+
+    // 组合：最早一页向前翻 2 条（移动端上拉加载形态）
+    const combo = await f.app.inject({
+      method: 'GET',
+      url: `/api/sessions/${id}?limit=2&before=4`,
+    })
+    expect(combo.statusCode).toBe(200)
+    const comboEvents = (combo.json<Json>())['events'] as Json[]
+    expect(comboEvents.map((e) => e['seq'])).toEqual([2, 3])
+
+    // before 越过最早事件 → 空页（非错误）
+    const empty = await f.app.inject({
+      method: 'GET',
+      url: `/api/sessions/${id}?before=1`,
+    })
+    expect(empty.statusCode).toBe(200)
+    expect((empty.json<Json>())['events']).toEqual([])
+  })
+
+  test('分页参数非法 → 400 E_VALIDATION', async () => {
+    const f = await setup()
+    const id = await makePagedSession(f)
+    for (const qs of ['limit=abc', 'limit=0', 'limit=201', 'before=-1', 'before=xyz']) {
+      const res = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}?${qs}` })
+      expect(res.statusCode).toBe(400)
+      expect((res.json<Json>())['code']).toBe('E_VALIDATION')
+    }
+  })
 })
 
 describe('POST /api/sessions/:id/messages', () => {

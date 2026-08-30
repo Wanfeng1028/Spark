@@ -1,15 +1,18 @@
 /**
  * bash 工具（doc/02 §5.6.3）：每次独立 shell（v1 不做常驻）；stdout+stderr 合流
  * progress 流式（16KB/帧截断）；退出码非 0 → isError 但 output 保留；
- * 超时 SIGTERM → 5s → SIGKILL（Unix 进程组树杀 / Windows taskkill /T /F）。
+ * 超时 SIGTERM → 宽限期 → SIGKILL（Unix 进程组树杀 5s 宽限 / Windows taskkill /T /F
+ * 两次都强杀、1s 宽限——树杀与派生竞态时补杀兼做孤儿清理）。
  * ctx.signal abort 同样树杀并报 E_ABORTED（跑到静默 + 自身响应 abort）。
- * shell 解析：Windows 优先 PATH 中的 bash.exe（where bash 探测），缺失则
- * powershell -NoProfile -Command；Unix 一律 /bin/bash -c。
+ * shell 解析：Windows 优先 PATH 中的真实 bash.exe（where bash 列候选，逐个以
+ * `-c "exit 0"` 探测可用性并缓存；System32/WindowsApps 的 WSL 别名 stub 无发行版时
+ * 跑任何命令都非零退出，一律跳过），缺失则 powershell -NoProfile -Command；
+ * Unix 一律 /bin/bash -c。
  * 沙箱（阶段五工单 5.2，ADR D15）：sandbox 'on' 时命令包平台 wrapper 前缀
  * （Linux bwrap / macOS Seatbelt；Windows 无 OS 级路线），wrapper 不可用即
  * E_SANDBOX_UNAVAILABLE 拒跑（fail-closed 不降级）。
  */
-import { execSync, spawn } from 'node:child_process'
+import { execFileSync, execSync, spawn } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { realpathSync } from 'node:fs'
 import { z } from 'zod'
@@ -19,7 +22,9 @@ import { resolveSandboxWrapper, wrapperAvailable } from '../sandbox.js'
 import type { BashSandboxMode } from '../sandbox.js'
 
 const PROGRESS_CHUNK_BYTES = 16 * 1024
-const KILL_GRACE_MS = 5000
+// Windows 两次 taskkill 均为 /F 强杀，无需 Unix 的 5s SIGTERM 宽限；短宽限兼做
+// 树杀与派生竞态时的孤儿补杀（首杀早于子进程派生 → 孤儿握管道，补杀收尾）
+const KILL_GRACE_MS = process.platform === 'win32' ? 1000 : 5000
 
 const BashInput = z.strictObject({
   command: z.string().min(1),
@@ -29,14 +34,34 @@ const BashInput = z.strictObject({
 
 type BashInput = z.infer<typeof BashInput>
 
+/** Windows bash 探测结果缓存（进程生命周期内不变：装/卸 bash 都需重启进程） */
+let cachedWinShell: { file: string; args: string[] } | null = null
+
 function resolveShell(): { file: string; args: string[] } {
   if (process.platform === 'win32') {
+    if (cachedWinShell !== null) return cachedWinShell
     try {
-      execSync('where bash', { stdio: 'ignore' })
-      return { file: 'bash', args: ['-c'] }
+      const out = execSync('where bash', { stdio: ['ignore', 'pipe', 'ignore'] }).toString()
+      for (const line of out.split(/\r?\n/)) {
+        const candidate = line.trim()
+        if (candidate === '') continue
+        // System32\bash.exe 与 WindowsApps 别名是 WSL stub：无发行版时任何命令都失败，
+        // 有发行版时文件系统语义也非本地上下文——不作为本地 shell 候选，直接跳过。
+        if (/\b(system32|windowsapps)\\bash\.exe$/i.test(candidate)) continue
+        // 探测真实可用性（能跑 `-c "exit 0"` 才算数）
+        try {
+          execFileSync(candidate, ['-c', 'exit 0'], { stdio: 'ignore', timeout: 2000 })
+          cachedWinShell = { file: candidate, args: ['-c'] }
+          return cachedWinShell
+        } catch {
+          // 该候选不可用：试下一个（或最终回落 powershell）
+        }
+      }
     } catch {
-      return { file: 'powershell', args: ['-NoProfile', '-Command'] }
+      // where 失败：回落 powershell
     }
+    cachedWinShell = { file: 'powershell', args: ['-NoProfile', '-Command'] }
+    return cachedWinShell
   }
   return { file: '/bin/bash', args: ['-c'] }
 }
