@@ -5,7 +5,7 @@
  */
 import { Box, Text } from 'ink'
 import { KEYMAP } from '@spark/protocol'
-import type { CommandDto } from '@spark/protocol'
+import type { CommandDto, KeyBinding } from '@spark/protocol'
 import { useCliStore } from '../store.js'
 
 const TABS = ['概览', '命令', '键位'] as const
@@ -74,14 +74,26 @@ function Commands({ commands, columns }: { commands: CommandDto[]; columns: numb
   )
 }
 
+/** 生效区人话（K.6 四列之三；数据源 keymap.surface） */
+const SURFACE_COPY: Record<KeyBinding['surface'], string> = {
+  cli: '终端',
+  web: '网页',
+  both: '两端',
+}
+
 function Keymap() {
   return (
     <Box flexDirection="column">
+      <Text color="gray">{'键'.padEnd(14)}行为（生效区 · 备注）</Text>
       {KEYMAP.filter((k) => k.surface !== 'web').map((k) => (
-        <Text key={k.keys}>
-          <Text color="cyan">{k.keys.padEnd(22)}</Text>
+        <Text key={k.keys} wrap="truncate-end">
+          <Text color="cyan">{k.keys.padEnd(16)}</Text>
           {k.action}
-          {k.note !== undefined ? <Text color="gray">（{k.note}）</Text> : null}
+          <Text color="gray">
+            {' '}
+            〔{SURFACE_COPY[k.surface]}〕
+            {k.note !== undefined ? `（${k.note}）` : ''}
+          </Text>
         </Text>
       ))}
     </Box>

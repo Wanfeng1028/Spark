@@ -12,7 +12,9 @@ import { ApprovalPrompt } from '../src/components/ApprovalPrompt.js'
 import { InputBox } from '../src/components/InputBox.js'
 import { Footer } from '../src/components/Footer.js'
 import { filterSlashCommands } from '../src/components/SlashMenu.js'
-import { ItemView, summarizeToolInput, toolCategoryOf, toolOutputText } from '../src/components/items.js'
+import { ItemView, summarizeToolInput, toolCategoryOf, toolOutputText, toolOutputLines, ToolGroupLine } from '../src/components/items.js'
+import { flowRowsOf, rowSettled } from '../src/flow-rows.js'
+import { ResumePanel } from '../src/components/ResumePanel.js'
 
 const SID = ids.session('ses_cli00001')
 const TURN = ids.turn('trn_cli00001')
@@ -333,6 +335,140 @@ describe('Footer（工单 10.8 / §13.K K.4 双行）', () => {
     s.meta.cwd = '/home/wanfeng/Spark'
     const f = render(<Footer slice={s} />).lastFrame()
     expect(f).not.toContain('git:(')
+  })
+})
+
+describe('聚合与折叠提示（工单 10.9 补齐 / §13.K K.2）', () => {
+  function toolItem(
+    call: string,
+    name: string,
+    status: 'running' | 'completed' | 'error',
+    output?: unknown,
+  ): UiItem {
+    return {
+      kind: 'tool',
+      eventId: ids.event(`evt_${call}`),
+      callId: ids.call(call),
+      name,
+      input: { command: 'ls' },
+      status,
+      progressBuf: '',
+      output,
+    }
+  }
+
+  it('flowRowsOf：连续同类别聚合组行（≥2），异类别/孤立不组，顺序不变', () => {
+    const items = [
+      { kind: 'user', eventId: ids.event('evt_u0'), text: '前情' } as UiItem,
+      toolItem('cal_a1', 'bash', 'completed'),
+      toolItem('cal_a2', 'bash', 'completed'),
+      toolItem('cal_a3', 'read', 'completed'),
+      toolItem('cal_a4', 'bash', 'completed'),
+    ]
+    const rows = flowRowsOf(items)
+    expect(rows.map((r) => r.kind)).toEqual(['item', 'toolGroup', 'item', 'item'])
+    const group = rows[1]
+    expect(group?.kind === 'toolGroup' && group.category).toBe('终端')
+    expect(group?.kind === 'toolGroup' && group.tools.length).toBe(2)
+  })
+
+  it('rowSettled：组行需全组定稿（运行中组滞留活动区——组以整组入 scrollback）', () => {
+    const rows = flowRowsOf([toolItem('cal_b1', 'bash', 'completed'), toolItem('cal_b2', 'bash', 'running')])
+    expect(rows[0]?.kind).toBe('toolGroup')
+    expect(rowSettled(rows[0] as Extract<ReturnType<typeof flowRowsOf>[number], { kind: 'toolGroup' }>)).toBe(false)
+  })
+
+  it('toolOutputLines：截断前完整行数', () => {
+    expect(toolOutputLines('a\nb')).toBe(2)
+    expect(toolOutputLines({ k: 1 })).toBe(3) // JSON.stringify(x, null, 2) = {\n  "k": 1\n}
+  })
+
+  it('tool 折叠态：超长输出附 first N lines hidden；短输出/展开态不附', () => {
+    const big = Array.from({ length: 12 }, (_, i) => `l${i}`).join('\n')
+    const folded = itemOf(toolItem('cal_c1', 'bash', 'completed', big))
+    expect(folded).toContain('first 12 lines hidden')
+
+    const short = itemOf(toolItem('cal_c2', 'bash', 'completed', 'ok'))
+    expect(short).not.toContain('lines hidden')
+
+    const opened = render(
+      <ItemView
+        item={toolItem('cal_c3', 'bash', 'completed', big)}
+        expandedTools={new Set([ids.call('cal_c3')])}
+        expandedReasoning={NO_EXPAND}
+      />,
+    ).lastFrame()
+    expect(opened).toContain('l0')
+    expect(opened).not.toContain('lines hidden')
+  })
+
+  it('ToolGroupLine：「类别 · N 次」；含拒绝注记；展开逐条工具行', () => {
+    const rows = flowRowsOf([
+      toolItem('cal_d1', 'bash', 'completed'),
+      toolItem('cal_d2', 'bash', 'error', { code: 'E_PERMISSION' }),
+    ])
+    const row = rows[0]
+    expect(row?.kind).toBe('toolGroup')
+    const folded = render(
+      <ToolGroupLine
+        row={row as Extract<ReturnType<typeof flowRowsOf>[number], { kind: 'toolGroup' }>}
+        expanded={false}
+        expandedTools={NO_EXPAND}
+      />,
+    ).lastFrame()
+    expect(folded).toContain('终端 · 2 次')
+    expect(folded).toContain('含拒绝')
+
+    const opened = render(
+      <ToolGroupLine
+        row={row as Extract<ReturnType<typeof flowRowsOf>[number], { kind: 'toolGroup' }>}
+        expanded
+        expandedTools={NO_EXPAND}
+      />,
+    ).lastFrame()
+    expect(opened).toContain('已拒绝')
+  })
+
+  it('MessagePane：定稿组行进 Static（聚合单行呈现）', () => {
+    const s = slice()
+    s.items = [
+      { kind: 'user', eventId: ids.event('evt_u9'), text: '连续调用' },
+      toolItem('cal_e1', 'bash', 'completed'),
+      toolItem('cal_e2', 'bash', 'completed'),
+    ]
+    const { frames } = render(<MessagePane slice={s} />)
+    expect(frames.join('\n')).toContain('终端 · 2 次')
+  })
+})
+
+describe('ResumePanel Space 预览（工单 10.11 补齐 / §13.K K.7）', () => {
+  const dto = {
+    id: ids.session('ses_res0000000000000001'),
+    title: '',
+    model: 'deepseek/chat',
+    cwd: '/tmp/proj',
+    createdAt: 1,
+    updatedAt: Date.now(),
+    lastSeq: 7,
+    status: 'idle',
+    branch: 'main',
+  } as const
+
+  it('列表行与提示含 Space 预览；preview 传入时渲染详情（档位缺省=自动）', () => {
+    const f = render(
+      <ResumePanel sessions={[dto]} selected={0} filter="" activeId={null} preview={dto} />,
+    ).lastFrame()
+    expect(f).toContain('Space 预览')
+    expect(f).toContain('新会话')
+    expect(f).toContain('deepseek/chat')
+    expect(f).toContain('git:(main)')
+    expect(f).toContain('档位 自动')
+    expect(f).toContain('seq 7')
+  })
+
+  it('preview 未传不渲染预览块', () => {
+    const f = render(<ResumePanel sessions={[dto]} selected={0} filter="" activeId={null} />).lastFrame()
+    expect(f).not.toContain('— 预览')
   })
 })
 

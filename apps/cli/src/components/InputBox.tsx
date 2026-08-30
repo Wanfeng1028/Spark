@@ -6,6 +6,8 @@
  * `onPreview`（工单 10.10）：逐键上报输入预览——slash 菜单过滤数据源。
  * 编辑态以 ref 为权威源：同一批输入（粘贴/快速连击）逐键同步回调时，
  * 渲染闭包里的 state 尚未提交，读 state 会丢字符——ref 保证逐键累积正确。
+ * IME 组合态（§13.K K.9，工单 10.10 登记）：候选窗由终端/系统绘制，应用层无实现面；
+ * 组合确认文本整段到达时按普通字符插入处理（raw-mode 逐键到达同口径），不额外重绘。
  */
 import { Text, useInput } from 'ink'
 import { useRef, useState } from 'react'
@@ -16,9 +18,11 @@ export interface InputBoxProps {
   placeholder: string
   onSubmit: (text: string) => void
   onPreview?: (value: string) => void
+  /** 空格且输入为空时触发（resume 面板 Space 预览——工单 10.11）；不插入空格 */
+  onSpace?: () => void
 }
 
-export function InputBox({ active, prefix, placeholder, onSubmit, onPreview }: InputBoxProps) {
+export function InputBox({ active, prefix, placeholder, onSubmit, onPreview, onSpace }: InputBoxProps) {
   const [value, setValue] = useState('')
   const [cursor, setCursor] = useState(0)
   const valueRef = useRef('')
@@ -68,6 +72,11 @@ export function InputBox({ active, prefix, placeholder, onSubmit, onPreview }: I
         return
       }
       if (!key.ctrl && !key.meta && input !== '') {
+        // 输入为空的空格交给 onSpace（resume 预览切换——过滤词不以空格开头无歧义）
+        if (input === ' ' && onSpace !== undefined && v === '') {
+          onSpace()
+          return
+        }
         const c = Math.min(cur, v.length)
         commit(v.slice(0, c) + input + v.slice(c), c + input.length)
       }

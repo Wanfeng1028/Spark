@@ -10,18 +10,10 @@
 import { Box, Text } from 'ink'
 import { useEffect, useState } from 'react'
 import type { UiItem } from '@spark/protocol'
+import { toolCategoryOf } from '../flow-rows.js'
+import type { FlowRow } from '../flow-rows.js'
 
-/** 工具人话类别词（与 web chat-flow-rows 同映射；未知工具保留原名） */
-export function toolCategoryOf(name: string): string {
-  if (name === 'bash') return '终端'
-  if (name === 'read') return '读取'
-  if (name === 'write') return '写入'
-  if (name === 'edit') return '改写'
-  if (name === 'task') return '子代理'
-  if (name === 'memory.save' || name === 'memory.search') return '记忆'
-  if (name.startsWith('browser.')) return '浏览'
-  return name
-}
+export { toolCategoryOf }
 
 /** 工具输入的一句话摘要（终端单行折叠用；未知形状如实空串） */
 export function summarizeToolInput(input: unknown): string {
@@ -46,6 +38,12 @@ export function toolOutputText(output: unknown, maxLines = 50): string {
   const lines = raw.split('\n')
   if (lines.length <= maxLines) return raw
   return `...（前 ${lines.length - maxLines} 行已截断）\n${lines.slice(-maxLines).join('\n')}`
+}
+
+/** 工具输出完整行数（截断前——折叠态「first N lines hidden」的 N；工单 10.9 补齐） */
+export function toolOutputLines(output: unknown): number {
+  const raw = typeof output === 'string' ? output : JSON.stringify(output, null, 2)
+  return raw.split('\n').length
 }
 
 /** 审批拒绝判定（引擎管线拒绝路径 output={code:'E_PERMISSION'}——与 10.4④ 同源） */
@@ -179,8 +177,11 @@ function ReasoningLine({
   )
 }
 
-/** 工具块（§13.K K.2）：运行中「… Ns · esc to cancel」；完成 ✓；拒绝整行删除线 */
-function ToolLine({
+/** 折叠态「超长输出隐藏行数」阈值（§13.K K.2：超长输出才显示 first N lines hidden） */
+const HIDDEN_LINES_MIN = 10
+
+/** 工具块（§13.K K.2）：运行中「… Ns · esc to cancel」；完成 ✓（折叠态超长输出附 first N lines hidden）；拒绝整行删除线 */
+export function ToolLine({
   item,
   expanded,
 }: {
@@ -213,11 +214,20 @@ function ToolLine({
   const headColor =
     denied || item.status === 'error' ? (denied ? 'gray' : 'red') : running ? 'gray' : 'green'
 
+  // 折叠态超长输出提示（工单 10.9 补齐 / §13.K K.2）：N=截断前完整行数；拒绝态未执行不提示
+  const hiddenLines =
+    !expanded && !running && !denied && item.output !== undefined
+      ? toolOutputLines(item.output)
+      : 0
+
   return (
     <Box flexDirection="column">
       <Text color={headColor}>
         {expanded ? 'v ' : '> '}
         {head}
+        {hiddenLines >= HIDDEN_LINES_MIN ? (
+          <Text color="gray"> · first {hiddenLines} lines hidden</Text>
+        ) : null}
         {item.guard !== undefined ? (
           <Text color="yellow"> [{item.guard.kind === 'injection' ? '注入告警' : '密钥过滤'}]</Text>
         ) : null}
@@ -237,6 +247,42 @@ function ToolLine({
           <Text color="gray">{item.progressBuf.split('\n').slice(-8).join('\n')}</Text>
         </Box>
       ) : null}
+    </Box>
+  )
+}
+
+/** 聚合组行（§13.K K.2 / 与 web ToolGroupRow 同语义）：「类别 · N 次」，展开=逐条 ToolLine */
+export function ToolGroupLine({
+  row,
+  expanded,
+  expandedTools,
+}: {
+  row: Extract<FlowRow, { kind: 'toolGroup' }>
+  expanded: boolean
+  expandedTools: ReadonlySet<string>
+}) {
+  const { category, tools } = row
+  const running = tools.some((t) => t.status === 'running')
+  const denied = tools.some((t) => isDenied(t))
+  const failed = tools.some((t) => t.status === 'error')
+  return (
+    <Box flexDirection="column">
+      <Text color={running ? 'gray' : 'green'}>
+        {expanded ? 'v ' : '> '}
+        {running ? '… ' : '✓ '}
+        {category}
+        <Text color="gray"> · {tools.length} 次</Text>
+        {!running && denied ? <Text color="red"> 含拒绝</Text> : null}
+        {!running && !denied && failed ? <Text color="red"> 含失败</Text> : null}
+        {running ? <Text color="gray"> · esc to cancel</Text> : null}
+      </Text>
+      {expanded
+        ? tools.map((t) => (
+            <Box key={t.callId} paddingLeft={2}>
+              <ToolLine item={t} expanded={expandedTools.has(t.callId)} />
+            </Box>
+          ))
+        : null}
     </Box>
   )
 }

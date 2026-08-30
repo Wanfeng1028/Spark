@@ -27,6 +27,7 @@ export const KEYMAP: readonly KeyBinding[] = [
   { keys: '?', action: '帮助面板（三 tab：概览/命令/键位，Tab/Shift+Tab 切换）', surface: 'cli' },
   { keys: 'Ctrl+U', action: '清空输入', surface: 'cli' },
   { keys: 'Ctrl+C ×2', action: '退出（在途 turn 先中断，不悬挂）', surface: 'cli' },
+  { keys: 'Ctrl+R', action: '重试最近一次发送（错误提示存在、无在途 turn 时）', surface: 'cli', note: '工单 10.11 / §13.K K.8' },
   { keys: 'Ctrl/Cmd+K', action: '命令面板', surface: 'web' },
   { keys: 'Ctrl/Cmd+,', action: '设置页', surface: 'web' },
 ]

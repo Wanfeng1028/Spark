@@ -36,9 +36,10 @@ export interface CliState extends ProjectionState {
   models: ModelsDto | null
   /** 命令注册表快照（启动时装载；帮助面板与 slash 菜单数据源，工单 10.10） */
   commands: CommandDto[]
-  /** 展开态：工具行按 callId / reasoning 按 eventId（默认折叠——工单 8.3） */
+  /** 展开态：工具行按 callId / reasoning 按 eventId / 聚合组行按组 key（默认折叠——工单 8.3） */
   expandedTools: ReadonlySet<string>
   expandedReasoning: ReadonlySet<string>
+  expandedGroups: ReadonlySet<string>
   /** 最近一条人话提示（REST 失败/引擎 error 事件；ErrorBanner 同思路的细条数据源） */
   notice: string | null
   /** 面板开关（工单 10.10/10.11） */
@@ -57,6 +58,7 @@ export interface CliState extends ProjectionState {
   setCommands: (c: CommandDto[]) => void
   toggleTool: (callId: string) => void
   toggleReasoning: (eventId: string) => void
+  toggleToolGroup: (groupKey: string) => void
   setNotice: (msg: string | null) => void
   setPanel: (p: CliPanel) => void
   cycleHelpTab: (dir: 1 | -1) => void
@@ -81,6 +83,7 @@ export const useCliStore = create<CliState>()((set) => ({
   commands: [],
   expandedTools: new Set<string>(),
   expandedReasoning: new Set<string>(),
+  expandedGroups: new Set<string>(),
   notice: null,
   panel: 'none',
   helpTab: 0,
@@ -101,6 +104,8 @@ export const useCliStore = create<CliState>()((set) => ({
   toggleTool: (callId) => set((s) => ({ expandedTools: toggle(s.expandedTools, callId) })),
   toggleReasoning: (eventId) =>
     set((s) => ({ expandedReasoning: toggle(s.expandedReasoning, eventId) })),
+  toggleToolGroup: (groupKey) =>
+    set((s) => ({ expandedGroups: toggle(s.expandedGroups, groupKey) })),
   setNotice: (notice) => set({ notice }),
   setPanel: (panel) => set({ panel, ...(panel === 'help' ? { helpTab: 0 } : {}) }),
   cycleHelpTab: (dir) => set((s) => ({ helpTab: (s.helpTab + dir + 3) % 3 })),

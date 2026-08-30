@@ -9,7 +9,8 @@
 import { Box, Text, useApp, useInput, useStdout } from 'ink'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { HttpTransport, SessionEventSource, errorMessageOf, humanizeError } from '@spark/protocol'
-import type { RequestId, SparkEventEnvelope } from '@spark/protocol'
+import type { RequestId, SessionId, SparkEventEnvelope } from '@spark/protocol'
+import { flowRowsOf } from './flow-rows.js'
 import { useCliStore } from './store.js'
 import { MessagePane } from './components/MessagePane.js'
 import { InputBox } from './components/InputBox.js'
@@ -58,6 +59,10 @@ export function App({ baseUrl }: { baseUrl: string }) {
 
   /** 拒绝反馈模式（3 之后展开——工单 8.3/10.9） */
   const [rejecting, setRejecting] = useState<RequestId | null>(null)
+  /** /resume 预览态（工单 10.11 补齐 / §13.K K.7：Space 切换，选中即预览对象） */
+  const [resumePreview, setResumePreview] = useState(false)
+  /** 最近一次发送失败的文本（Ctrl+R 重试数据源——发送失败时引擎无 user 事件可回溯） */
+  const lastFailedRef = useRef<string | null>(null)
   const lastCtrlCRef = useRef(0)
 
   // ---------- slash 菜单派生态（工单 10.10）：/ 前缀且未含空格即开 ----------
@@ -90,6 +95,10 @@ export function App({ baseUrl }: { baseUrl: string }) {
   useEffect(() => {
     setResumeSelected(0)
   }, [panel, draftPreview])
+  // 预览态随面板关闭复位（预览对象只在 resume 面板内有意义）
+  useEffect(() => {
+    if (panel !== 'resume') setResumePreview(false)
+  }, [panel])
 
   // ---------- 启动：会话快照 + 模型目录 + 命令注册表 ----------
 
@@ -284,7 +293,10 @@ export function App({ baseUrl }: { baseUrl: string }) {
 
     transport
       .sendMessage(sid, text, { delivery: mode })
-      .catch((err: unknown) => setNotice(errorMessageOf(err)))
+      .catch((err: unknown) => {
+        lastFailedRef.current = text // Ctrl+R 重试数据源（工单 10.11 / §13.K K.8）
+        useCliStore.getState().setNotice(errorMessageOf(err))
+      })
   }
 
   useInput((input, key) => {
@@ -361,13 +373,21 @@ export function App({ baseUrl }: { baseUrl: string }) {
       return
     }
     if (key.ctrl && input === 'o') {
-      // 展开/折叠最近一个工具或思考条目（工单 8.3）
+      // 展开/折叠最近一个工具或思考条目（工单 8.3）；工具在聚合组内时切换整组（工单 10.9）
       const s = useCliStore.getState()
       const items2 = s.activeSessionId === null ? [] : (s.byId[s.activeSessionId]?.items ?? [])
+      const rows = flowRowsOf(items2)
       for (let i = items2.length - 1; i >= 0; i--) {
         const it = items2[i]
         if (it === undefined) continue
         if (it.kind === 'tool') {
+          const group = rows.find(
+            (r) => r.kind === 'toolGroup' && r.tools.some((t) => t.callId === it.callId),
+          )
+          if (group !== undefined) {
+            s.toggleToolGroup(group.key)
+            return
+          }
           s.toggleTool(it.callId)
           return
         }
@@ -376,6 +396,32 @@ export function App({ baseUrl }: { baseUrl: string }) {
           return
         }
       }
+      return
+    }
+    if (key.ctrl && input === 'r') {
+      // 重试最近一次发送（工单 10.11 / §13.K K.8）：错误提示存在、无在途 turn 时重发
+      const s = useCliStore.getState()
+      const sid: SessionId | null = s.activeSessionId
+      if (sid === null) return
+      if ((s.byId[sid]?.activeTurn ?? null) !== null) return
+      const text =
+        lastFailedRef.current ??
+        (() => {
+          const items2 = s.byId[sid]?.items ?? []
+          for (let i = items2.length - 1; i >= 0; i--) {
+            const it = items2[i]
+            if (it !== undefined && it.kind === 'user') return it.text
+          }
+          return null
+        })()
+      if (text === null || text === '') return
+      s.setNotice(null)
+      transport
+        .sendMessage(sid, text, { delivery: s.delivery })
+        .catch((err: unknown) => {
+          lastFailedRef.current = text
+          useCliStore.getState().setNotice(errorMessageOf(err))
+        })
       return
     }
     // 审批键（工单 10.9：1/2/3 数字键直达，y/a/n 别名；挂起且非反馈模式时接管）
@@ -394,12 +440,12 @@ export function App({ baseUrl }: { baseUrl: string }) {
     }
   })
 
-  // ---------- 提示行：REST 失败优先；引擎 error 事件人话化（共享文案表） ----------
+  // ---------- 提示行：REST 失败优先；引擎 error 事件人话化（共享文案表，§13.K K.8） ----------
 
-  const errorLine = useMemo(() => {
-    if (notice !== null) return notice
+  const errorInfo = useMemo(() => {
+    if (notice !== null) return { title: notice, code: null as string | null, detail: null as string | null }
     const le = slice?.lastError
-    if (le !== undefined && le !== null) return humanizeError(le.message).title
+    if (le !== undefined && le !== null) return humanizeError(le.message)
     return null
   }, [notice, slice])
 
@@ -416,6 +462,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
           selected={resumeSelected}
           filter={panel === 'resume' ? draftPreview : ''}
           activeId={activeSessionId}
+          preview={resumePreview ? resumeFiltered[resumeSelected] : undefined}
         />
       ) : panel === 'stats' ? (
         <StatsPanel slice={slice} />
@@ -441,7 +488,15 @@ export function App({ baseUrl }: { baseUrl: string }) {
           page={Math.floor(slashSelected / SLASH_PAGE_SIZE)}
         />
       ) : null}
-      {errorLine !== null ? <Text color="red">{errorLine}</Text> : null}
+      {errorInfo !== null ? (
+        <Box flexDirection="column">
+          <Text color="red">{errorInfo.title}</Text>
+          {/* 细节行（§13.K K.8）：原错误码折叠呈现 + 重试键位提示 */}
+          <Text color="gray">
+            {errorInfo.code !== null ? `${errorInfo.detail ?? errorInfo.code} · ` : ''}Ctrl+R 重试
+          </Text>
+        </Box>
+      ) : null}
       {pendingApproval !== null && rejecting === null ? (
         <ApprovalPrompt item={pendingApproval} />
       ) : null}
@@ -462,13 +517,19 @@ export function App({ baseUrl }: { baseUrl: string }) {
           prefix={panel === 'resume' ? '过滤：' : `[${delivery}] > `}
           placeholder={
             panel === 'resume'
-              ? '输入关键词过滤会话，↑↓ 选择，Enter 恢复'
+              ? '输入关键词过滤会话，↑↓ 选择，Space 预览，Enter 恢复'
               : pendingApproval !== null
                 ? '等待审批——1 允许一次 / 2 总是允许 / 3 拒绝'
                 : '输入任务，Enter 发送；/ 命令；? 帮助'
           }
           onSubmit={submit}
           onPreview={(v) => useCliStore.getState().setDraftPreview(v)}
+          {...(panel === 'resume'
+            ? {
+                onSpace: () =>
+                  setResumePreview((v) => !v), // Space 预览（工单 10.11 / §13.K K.7）
+              }
+            : {})}
         />
       )}
       <Footer slice={slice} />
