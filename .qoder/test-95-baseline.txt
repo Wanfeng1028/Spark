@@ -1,0 +1,820 @@
+
+> spark@0.1.0 test E:\code\javascript\project\Spark
+> pnpm -r test
+
+Scope: 9 of 10 workspace projects
+packages/protocol test$ vitest run
+packages/protocol test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mE:/code/javascript/project/Spark/packages/protocol[39m
+packages/protocol test:  [32m鉁?[39m tests/transport-node.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+packages/protocol test:  [32m鉁?[39m tests/pairing-transport.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+packages/protocol test:  [32m鉁?[39m tests/events.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+packages/protocol test:  [32m鉁?[39m tests/mock-sessions.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+packages/protocol test:  [32m鉁?[39m tests/session-event-source.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 189[2mms[22m[39m
+packages/protocol test: [2m Test Files [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+packages/protocol test: [2m      Tests [22m [1m[32m69 passed[39m[22m[90m (69)[39m
+packages/protocol test: [2m   Start at [22m 05:30:56
+packages/protocol test: [2m   Duration [22m 1.06s[2m (transform 329ms, setup 0ms, collect 1.65s, tests 251ms, environment 1ms, prepare 1.09s)[22m
+packages/protocol test: Done
+apps/cli test$ vitest run --passWithNoTests
+apps/miniapp test$ vitest run
+apps/mobile test$ jest
+apps/web test$ vitest run --passWithNoTests
+apps/miniapp test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mE:/code/javascript/project/Spark/apps/miniapp[39m
+apps/cli test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mE:/code/javascript/project/Spark/apps/cli[39m
+apps/web test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mE:/code/javascript/project/Spark/apps/web[39m
+apps/miniapp test:  [32m鉁?[39m tests/pair.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+apps/miniapp test:  [32m鉁?[39m tests/utf8.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+apps/web test:  [32m鉁?[39m tests/theme-contrast.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+apps/miniapp test:  [32m鉁?[39m tests/support.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+apps/miniapp test:  [32m鉁?[39m tests/sse-pump.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+apps/miniapp test:  [32m鉁?[39m tests/poll.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+apps/web test:  [32m鉁?[39m tests/settings-store.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 105[2mms[22m[39m
+apps/miniapp test:  [32m鉁?[39m tests/projection.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+apps/web test:  [32m鉁?[39m tests/composer-menus.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+apps/miniapp test:  [32m鉁?[39m tests/mini-event-source.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 295[2mms[22m[39m
+apps/miniapp test: [2m Test Files [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+apps/miniapp test: [2m      Tests [22m [1m[32m51 passed[39m[22m[90m (51)[39m
+apps/miniapp test: [2m   Start at [22m 05:30:58
+apps/miniapp test: [2m   Duration [22m 2.28s[2m (transform 1.27s, setup 0ms, collect 4.38s, tests 360ms, environment 2ms, prepare 4.40s)[22m
+apps/web test:  [32m鉁?[39m tests/context-usage.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+apps/web test:  [32m鉁?[39m tests/error-copy.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+apps/web test:  [32m鉁?[39m tests/applyEvent.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+apps/web test:  [32m鉁?[39m tests/http-transport.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 139[2mms[22m[39m
+apps/miniapp test: Done
+packages/engine test$ vitest run
+apps/web test:  [32m鉁?[39m tests/mock-transport.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 94[2mms[22m[39m
+apps/web test:  [32m鉁?[39m tests/sidebar-grouping.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+apps/cli test:  [32m鉁?[39m tests/render.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[32m 80[2mms[22m[39m
+apps/cli test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+apps/cli test: [2m      Tests [22m [1m[32m16 passed[39m[22m[90m (16)[39m
+apps/cli test: [2m   Start at [22m 05:30:58
+apps/cli test: [2m   Duration [22m 3.25s[2m (transform 341ms, setup 0ms, collect 1.98s, tests 80ms, environment 0ms, prepare 718ms)[22m
+packages/engine test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mE:/code/javascript/project/Spark/packages/engine[39m
+apps/cli test: Done
+packages/engine test: {"level":"info","time":1788039063592,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","callId":"cal_t000000000000000000000001","code":"E_NONE","durMs":42,"sid":"ses_t00000000000000000000001","turnId":"trn_t00000000000000000000001","msg":"tool.completed"}
+packages/engine test: {"level":"warn","time":1788039063593,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","type":"session.created","msg":"bus.subscriber.error"}
+packages/engine test: {"level":"error","time":1788039063593,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","code":"E_LLM_NETWORK","msg":"llm.stream.error"}
+packages/engine test: {"level":"debug","time":1788039063724,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","msg":"session.list"}
+apps/web test:  [32m鉁?[39m tests/components/ApprovalCard.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 460[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039063832,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","apiKey":"***","text":"authorization: Bearer *** and then ok","msg":"llm.stream.start"}
+packages/engine test: {"level":"warn","time":1788039063897,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","headers":"authorization: Bearer ***","msg":"server.request.in"}
+apps/web test:  [32m鉁?[39m tests/components/ToolCard.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 487[2mms[22m[39m
+packages/engine test: (node:38352) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test: {"level":"error","time":1788039063954,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","message":"provider 閿欒锛?** 涓?abc 閮藉嚭鐜板湪鏃ュ織","msg":"llm.stream.error"}
+packages/engine test: {"level":"error","time":1788039064015,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","err":{"type":"Error","message":"缃戠粶閿欒锛宼oken *** 娉勯湶","stack":"Error: 缃戠粶閿欒锛宼oken *** 娉勯湶\n    at foo (/tmp/a.ts:1:1)","name":"Error"},"msg":"llm.stream.error"}
+packages/engine test:  [32m鉁?[39m tests/bus.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 187[2mms[22m[39m
+packages/engine test: {"level":"warn","time":1788039064077,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_test000000000000000000000001","nested":[{"auth":"Bearer ***","key":"***"},{"auth":"plain"}],"msg":"tool.start"}
+packages/engine test: {"level":"error","time":1788039064140,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","message":"缃戝叧閿欒锛宎piKey *** 娉勯湶","msg":"llm.stream.error"}
+packages/engine test: {"level":"info","time":1788039064140,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","note":"tiny 淇濈暀锛?6 璺宠繃锛?,"msg":"tool.completed"}
+packages/engine test:  [32m鉁?[39m tests/session-index.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 242[2mms[22m[39m
+packages/engine test: {"level":"warn","time":1788039064201,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","nested":[{"k":"***"},{"k":"***"}],"msg":"tool.start"}
+packages/engine test: {"level":"info","time":1788039064263,"pid":30376,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.start"}
+packages/engine test:  [32m鉁?[39m tests/logger.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 739[2mms[22m[39m
+apps/mobile test: PASS tests/tokens.test.ts
+apps/mobile test: PASS tests/pair-link.test.ts
+packages/engine test:  [32m鉁?[39m tests/run-loop.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 796[2mms[22m[39m
+apps/web test:  [32m鉁?[39m tests/components/Composer.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 847[2mms[22m[39m
+apps/web test:    [33m[2m鉁?[22m[39m Composer 绌洪棽鎬?[2m > [22mEnter 鍙戦€侊紙delivery=now锛夛紝鎴愬姛鍚庢竻绌鸿崏绋垮苟鎻愮ず銆屽凡寮€濮嬫湰杞€?[33m 388[2mms[22m[39m
+apps/web test: [2m Test Files [22m [1m[32m12 passed[39m[22m[90m (12)[39m
+apps/web test: [2m      Tests [22m [1m[32m159 passed[39m[22m[90m (159)[39m
+apps/web test: [2m   Start at [22m 05:30:58
+apps/web test: [2m   Duration [22m 6.05s[2m (transform 2.63s, setup 0ms, collect 9.67s, tests 2.19s, environment 7.70s, prepare 4.33s)[22m
+apps/mobile test: PASS tests/app-store.test.ts
+packages/engine test:  [32m鉁?[39m tests/pipeline.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 218[2mms[22m[39m
+apps/mobile test: PASS tests/rn-event-source.test.ts
+packages/engine test: E_SESSION_TAIL_TORN: 灏捐锛堢 2 琛岋級鍗婂啓锛屼涪寮?packages/engine test: E_SESSION_TAIL_TORN: 灏捐锛堢 2 琛岋級鍗婂啓锛屼涪寮?apps/web test: Done
+apps/mobile test: PASS tests/session-rows.test.ts
+apps/mobile test: Test Suites: 5 passed, 5 total
+apps/mobile test: Tests:       48 passed, 48 total
+apps/mobile test: Snapshots:   2 passed, 2 total
+apps/mobile test: Time:        5.766 s
+apps/mobile test: Ran all test suites.
+packages/engine test:  [32m鉁?[39m tests/store.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 212[2mms[22m[39m
+apps/mobile test: Done
+packages/engine test:  [32m鉁?[39m tests/permission.test.ts [2m([22m[2m47 tests[22m[2m)[22m[33m 1448[2mms[22m[39m
+packages/engine test: (node:37096) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test: (node:4600) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test: (node:29924) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test: (node:14628) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test: (node:34368) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test: (node:12616) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test: (node:4788) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test: (node:6848) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test: (node:37368) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test:  [32m鉁?[39m tests/runtime.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 66[2mms[22m[39m
+packages/engine test: (node:4504) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test: (node:23484) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test:  [32m鉁?[39m tests/scripted-llm.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 59[2mms[22m[39m
+packages/engine test: (node:14516) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test:  [32m鉁?[39m tests/projector.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 34[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039066552,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-Dnld9N","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039066585,"pid":4504,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-secrets-OMgN8H","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039066606,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-subagent-oorYZk","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039066607,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-commands-b151j3","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test:  [32m鉁?[39m tests/guard.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039066639,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-browser-lY0P8X","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039066655,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-routing-FVwql0","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039066666,"pid":6848,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-skills-e2e-CWaVfA","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039066711,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-audit-eng-ikE9wS","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039066788,"pid":4504,"hostname":"LAPTOP-GPUIHUS1","provider":"deepseek","msg":"secrets.set"}
+packages/engine test: {"level":"info","time":1788039066790,"pid":4504,"hostname":"LAPTOP-GPUIHUS1","provider":"deepseek","msg":"secrets.remove"}
+packages/engine test: {"level":"info","time":1788039066791,"pid":4504,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039066837,"pid":4504,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039066851,"pid":4504,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-secrets-jyiS6e","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039066860,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","name":"review","msg":"commands.loaded"}
+packages/engine test: {"level":"info","time":1788039066861,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039066885,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039066898,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: (node:34412) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+packages/engine test: (Use `node --trace-warnings ...` to show where the warning was created)
+packages/engine test: {"level":"info","time":1788039066917,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-commands-HXA6im","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039066918,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039066919,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","fallbacks":1,"costLimitUsd":5,"msg":"routing.update"}
+packages/engine test: {"level":"info","time":1788039066921,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039066922,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-bQ4OYV","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039066961,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039066968,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-routing-gx2y86","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039066968,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039066990,"pid":6848,"hostname":"LAPTOP-GPUIHUS1","name":"demo-ping","events":["plugin.demo.ping"],"msg":"skills.loaded"}
+packages/engine test: {"level":"info","time":1788039067009,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test:  [32m鉁?[39m tests/model-catalog.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039067017,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-audit-eng-VEokcC","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test:  [32m鉁?[39m tests/compaction.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039067082,"pid":4504,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039067095,"pid":6848,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039067122,"pid":4504,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039067122,"pid":6848,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test:  [32m鉁?[39m tests/skills.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 537[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m skills 绔埌绔紙hook 瑙﹀彂 鈫?钀界洏 鈫?鍗歌浇鍚庡彲鍔犺浇锛?[2m > [22msession.created 鈫?plugin.demo.ping 钀界洏锛涘嵏杞芥彃浠跺悗鏃т細璇濅粛鍙姞杞?[33m 478[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039067128,"pid":4504,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-secrets-nvuI0E","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test:  [32m鉁?[39m tests/automation.test.ts [2m([22m[2m21 tests[22m[2m)[22m[33m 591[2mms[22m[39m
+packages/engine test:  [32m鉁?[39m tests/config.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 141[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039067158,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","name":"review","msg":"commands.loaded"}
+packages/engine test: {"level":"info","time":1788039067168,"pid":37096,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-userhooks-37tRvB","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039067236,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test:  [32m鉁?[39m tests/title.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039067266,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039067270,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-2DN6sm","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039067274,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","fallbacks":1,"costLimitUsd":null,"msg":"routing.update"}
+packages/engine test: {"level":"warn","time":1788039067306,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_b64c87678449401cb1cb47be82a5d1a8","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039067308,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039067328,"pid":4504,"hostname":"LAPTOP-GPUIHUS1","provider":"deepseek","msg":"secrets.set"}
+packages/engine test: {"level":"info","time":1788039067328,"pid":4504,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"warn","time":1788039067329,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_ec635df398c24d32838f095b84213a46","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039067331,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039067334,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039067340,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-browser-EamTQD","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039067343,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","from":"fake/fake-chat","to":"fake/fake-backup","msg":"llm.fallback"}
+packages/engine test: {"level":"info","time":1788039067351,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039067356,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","sessions":2,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039067359,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-commands-H3ggrb","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039067360,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-memory-A4fWZo","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039067375,"pid":4504,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"warn","time":1788039067403,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","from":"fake/fake-chat","to":"fake/fake-backup","msg":"llm.fallback.once"}
+packages/engine test: {"level":"warn","time":1788039067408,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_64c5b87ae5f94401a83442fc27f7fa4c","err":{"type":"Error","message":"E_LLM_FALLBACK: 涓绘ā鍨嬩笌 fallback 閾惧潎涓嶅彲鐢ㄢ€斺€攆ake/fake-chat锛圗_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級锛夛紱fake/fake-backup锛圗_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級锛?,"stack":"Error: E_LLM_FALLBACK: 涓绘ā鍨嬩笌 fallback 閾惧潎涓嶅彲鐢ㄢ€斺€攆ake/fake-chat锛圗_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級锛夛紱fake/fake-backup锛圗_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級锛塡n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:89:13)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:17)","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039067409,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039067415,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039067419,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-subagent-m4woek","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039067429,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test:  [32m鉁?[39m tests/secrets.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 904[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 瀵嗛挜绠＄悊鍏ュ彛[2m > [22m楠屾敹锛歴etSecret 鍚?engine.log 鏃?store 鍊兼槑鏂囷紙pino 鑴辨晱鏂█澶嶇敤锛?[33m 310[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039067441,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-routing-KTdVeS","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039067490,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039067532,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039067540,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-xcahRX","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test:  [32m鉁?[39m tests/mcp.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 3272[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m stdio e2e + 瀹℃壒绠＄嚎涓夋€侊紙楠屾敹锛歛llow/ask/deny 鍚勬紨绀轰竴娆★級[2m > [22mstdio spawn锛氭敞鍐?2 宸ュ叿涓?execute 璧扮湡瀹炲瓙杩涚▼ [33m 791[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m stdio e2e + 瀹℃壒绠＄嚎涓夋€侊紙楠屾敹锛歛llow/ask/deny 鍚勬紨绀轰竴娆★級[2m > [22mallow 瑙勫垯锛氱洿鎺ユ墽琛岋紝浜嬩欢瀵归棴鍚堟棤瀹℃壒 [33m 743[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m stdio e2e + 瀹℃壒绠＄嚎涓夋€侊紙楠屾敹锛歛llow/ask/deny 鍚勬紨绀轰竴娆★級[2m > [22mdeny 瑙勫垯锛欵_PERMISSION 涓斾笉鎵ц [33m 730[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m stdio e2e + 瀹℃壒绠＄嚎涓夋€侊紙楠屾敹锛歛llow/ask/deny 鍚勬紨绀轰竴娆★級[2m > [22mask锛堟棤瑙勫垯锛夆啋 鐢ㄦ埛 reject锛欵_PERMISSION锛沘sked/resolved 浜嬩欢鎴愬 [33m 471[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m stdio e2e + 瀹℃壒绠＄嚎涓夋€侊紙楠屾敹锛歛llow/ask/deny 鍚勬紨绀轰竴娆★級[2m > [22mask锛堟棤瑙勫垯锛夆啋 鐢ㄦ埛 once 鏀捐锛氭墽琛屾垚鍔?[33m 481[2mms[22m[39m
+packages/engine test: {"level":"warn","time":1788039067558,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_da4308905ad34b25962234077258c5b4","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039067562,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-audit-eng-ye2CDo","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test:  [32m鉁?[39m tests/pi-gateway.test.ts [2m([22m[2m31 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+packages/engine test:  [32m鉁?[39m tests/tree.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039067650,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-search-c5RFwc","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039067759,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","fallbacks":0,"costLimitUsd":0.01,"msg":"routing.update"}
+packages/engine test: {"level":"info","time":1788039067865,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"warn","time":1788039067878,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_283832b62e444777b03e1e7ebf2edef5","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039067879,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"warn","time":1788039067882,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_d0ec03a08c9e41e9b3ab205ba0847d95","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039067889,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039067892,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-commands-PZRwTh","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039067900,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039067904,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-browser-LozeDC","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039067906,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_ac0852c87dc34656899a5527af03cdaf","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"warn","time":1788039067910,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_ded320f288d24521b89b47a62787a861","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"warn","time":1788039067975,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_d0ec03a08c9e41e9b3ab205ba0847d95","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039067976,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","msg":"routing.usage.reset"}
+packages/engine test: {"level":"warn","time":1788039068041,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_ded320f288d24521b89b47a62787a861","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039068044,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"warn","time":1788039068067,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_d0ec03a08c9e41e9b3ab205ba0847d95","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039068067,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068068,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068068,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068070,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-hEfFcQ","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039068072,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","sessions":2,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068092,"pid":14516,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068096,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test:  [32m鉁?[39m tests/routing.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 1532[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 璺敱闆嗘垚锛堝伐鍗?7.7锛?[2m > [22mgetRouting 鍒濆€兼潵鑷厤缃紱updateRouting 鏍￠獙鏈煡 provider 骞跺啓鍥?models.json [33m 327[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 璺敱闆嗘垚锛堝伐鍗?7.7锛?[2m > [22mfallback 鐑敓鏁堬細涓绘ā鍨嬪け璐?鈫?閾句笂妯″瀷鎺ョ锛堝悓涓€ turn 鍐咃級 [33m 473[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 璺敱闆嗘垚锛堝伐鍗?7.7锛?[2m > [22m鎴愭湰鐔旀柇闂幆锛氳秴闄愪腑鏂?turn 鈫?鏂?turn 鎷掔粷 鈫?resetUsage 瑙ｉ櫎 [33m 658[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039068100,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-search-g5UEFd","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039068145,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068145,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","sessions":2,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068150,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-memory-fFWtar","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039068182,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068201,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068204,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-subagent-7h9iY7","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039068216,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068221,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-commands-TVQhr7","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039068244,"pid":37096,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_7eb995f8719648429bb6d5ea419347dd","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039068332,"pid":37096,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068355,"pid":37096,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068359,"pid":37096,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-userhooks-hmvkO6","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039068378,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_d3aa26abb2764c439a67189b2a643ab8","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039068379,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068400,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068403,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-browser-npDkcq","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039068416,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_a9511302e73b417b948979791342e217","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039068416,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068436,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068437,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068440,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"warn","time":1788039068446,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_bf947a95fd774515975ec9d709f657c2","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039068447,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068453,"pid":4600,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test:  [32m鉁?[39m tests/commands.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 1916[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 鍛戒护娉ㄥ唽琛紙宸ュ崟 7.4锛?[2m > [22mlistCommands锛氬唴缃熀绾匡紙鍏潯锛? 鑷畾涔夊悎骞?[33m 320[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 鍛戒护娉ㄥ唽琛紙宸ュ崟 7.4锛?[2m > [22mexecuteCommand 鑷畾涔夊懡浠わ細prompt 灞曞紑璧?turn 閫氶亾锛坲ser.message 钀界洏锛?[33m 452[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 鍛戒护娉ㄥ唽琛紙宸ュ崟 7.4锛?[2m > [22mexecuteCommand compact锛氳蛋鍘嬬缉鍏ュ彛锛堝洖褰?搂5.8.5鈥斺€擡_TURN_ACTIVE 璇箟淇濈暀锛?[33m 535[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 鍛戒护娉ㄥ唽琛紙宸ュ崟 7.4锛?[2m > [22mexecuteCommand 鎷掔粷璺緞锛歝lient 鍛戒护涓庢湭鐭ュ懡浠ゅけ璐ラ棴鍚?[33m 328[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039068456,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068458,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-audit-eng-5EdDf5","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039068464,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068466,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-HfE08i","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039068507,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_a506c05728374df09276b6f51f6fc02a","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039068530,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068554,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068556,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-search-g5UEFd","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039068594,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_a506c05728374df09276b6f51f6fc02a","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039068595,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068614,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068618,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-memory-EQIVvZ","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039068637,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068661,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068663,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-search-5g8yLH","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039068683,"pid":37096,"hostname":"LAPTOP-GPUIHUS1","point":"turn.before","command":"node -e \"process.exit(9)\"","sid":"ses_a876b3b1a7014df3ae430a1798568cdd","code":"9","msg":"userhook.exit"}
+packages/engine test: {"level":"warn","time":1788039068704,"pid":37096,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_a876b3b1a7014df3ae430a1798568cdd","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039068704,"pid":37096,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068720,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","sessions":2,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068726,"pid":37096,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test:  [32m鉁?[39m tests/user-hooks.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 2194[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 绔埌绔紙宸ュ崟 7.3锛氬洓鎸傜偣鎺ョ嚎锛?[2m > [22mturn.before/after + tool.completed + permission.resolved 鍏ㄩ摼璺Е鍙戯紝椤哄簭闂悎 [33m 1197[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 绔埌绔紙宸ュ崟 7.3锛氬洓鎸傜偣鎺ョ嚎锛?[2m > [22m鍛戒护澶辫触锛堥潪闆堕€€鍑猴級涓嶅奖鍝?turn 姝ｅ父闂悎锛歸arn 闂悎 [33m 371[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039068747,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068750,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-subagent-lkWRQF","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039068797,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_1524d00ff6fe4d57a9e6462b272b3cd3","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"warn","time":1788039068857,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_44e2d9ebb5464c33909b136ce9505354","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039068858,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039068881,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039068885,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-browser-PgMIm1","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039069040,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039069063,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"warn","time":1788039069064,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_d17964e4b0b64deabd80223baff2aa8c","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039069064,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039069065,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-search-5g8yLH","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039069090,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039069092,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-memory-EQIVvZ","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039069096,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039069122,"pid":29924,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test:  [32m鉁?[39m tests/memory.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 2585[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 闀挎湡璁板繂绔埌绔紙宸ュ崟 7.5 楠屾敹锛歴ave鈫掓柊浼氳瘽娉ㄥ叆鍛戒腑锛?[2m > [22msave 宸ュ叿钀藉簱 鈫?鏂颁細璇濋鏉℃秷鎭敞鍏?鈫?Projector 鎶曞奖涓烘ā鍨嬩笂涓嬫枃鍓嶇紑 [33m 798[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 闀挎湡璁板繂绔埌绔紙宸ュ崟 7.5 楠屾敹锛歴ave鈫掓柊浼氳瘽娉ㄥ叆鍛戒腑锛?[2m > [22m绗簩鏉℃秷鎭笉閲嶅娉ㄥ叆锛堟瘡浼氳瘽浠呴鏉¤Е鍙戜竴娆★級 [33m 468[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 闀挎湡璁板繂绔埌绔紙宸ュ崟 7.5 楠屾敹锛歴ave鈫掓柊浼氳瘽娉ㄥ叆鍛戒腑锛?[2m > [22m浠撹法浼氳瘽鎸佷箙锛氶噸寮€ Engine锛堝悓涓€ root锛夋暟鎹粛鍦?[33m 507[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039069153,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039069168,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"warn","time":1788039069179,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_377f26263cb64274a337ca9aa2659dd2","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039069180,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039069188,"pid":4788,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039069187,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039069190,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-subagent-nBfzL0","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test:  [32m鉁?[39m tests/search.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 2618[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m SearchStore锛垀/.spark/search.db锛欶TS5 trigram + LIKE 闄嶇骇锛?[2m > [22m鍗冧簨浠舵绱?<500ms锛圖oD 鎬ц兘绾匡級 [33m 397[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 鍏ㄦ枃鎼滅储绔埌绔紙宸ュ崟 7.13 楠屾敹锛?[2m > [22m澧為噺绱㈠紩锛歶ser/assistant/title 涓夌被鍛戒腑 + 鏍囬濉厖 + 鎽樿鍚懡涓瘝 [33m 452[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 鍏ㄦ枃鎼滅储绔埌绔紙宸ュ崟 7.13 楠屾敹锛?[2m > [22m閲嶅惎鎸佷箙锛氬悓 root 閲嶅紑 Engine锛堟按浣嶆寔骞筹級鍛戒腑浠嶅湪 [33m 564[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 鍏ㄦ枃鎼滅储绔埌绔紙宸ュ崟 7.13 楠屾敹锛?[2m > [22m鍒犲簱鍚庤杞界偣澧為噺閲嶅缓锛歴earch.db 缂哄け鐢?JSONL 鍏ㄩ噺琛ュ洖 [33m 528[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039069197,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039069200,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-LiDCJ6","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039069245,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_1524d00ff6fe4d57a9e6462b272b3cd3","checkpointId":"ckp_01M17PXZ44EZN25V67GNWVRDAA","msg":"session.rollback"}
+packages/engine test: {"level":"warn","time":1788039069248,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_674974ddc6484f1893c5613cdf031544","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039069249,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039069265,"pid":34368,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test:  [32m鉁?[39m tests/browser.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 2730[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine browser 绔埌绔紙瀹℃壒榛樿 ask / 鎷掔粷 / 鎴浘渚涘浘锛?[2m > [22m瀹℃壒榛樿 ask锛氱瓟澶?once 鍚庢墽琛岋紝杈撳嚭缁?tool.completed [33m 705[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine browser 绔埌绔紙瀹℃壒榛樿 ask / 鎷掔粷 / 鎴浘渚涘浘锛?[2m > [22m瀹℃壒鎷掔粷锛欵_PERMISSION 闂悎锛岄┍鍔ㄤ粠鏈惎鍔?[33m 564[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine browser 绔埌绔紙瀹℃壒榛樿 ask / 鎷掔粷 / 鎴浘渚涘浘锛?[2m > [22mdeny 瑙勫垯锛氫笉骞垮憡璺緞鐩磋揪 E_PERMISSION锛堟棤 permission.asked锛?[33m 499[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine browser 绔埌绔紙瀹℃壒榛樿 ask / 鎷掔粷 / 鎴浘渚涘浘锛?[2m > [22m鎴浘渚涘浘锛氬伐鍏疯緭鍑哄彧鍥炴枃浠跺悕锛況eadScreenshot 鐧藉悕鍗曟牎楠岋紙璺緞閫冮€告嫆缁濓級 [33m 482[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine browser 绔埌绔紙瀹℃壒榛樿 ask / 鎷掔粷 / 鎴浘渚涘浘锛?[2m > [22m涓柇锛氶┍鍔ㄦ寕璧蜂腑 interrupt 鈫?tool.completed E_ABORTED锛堝け璐ラ棴鍚堬級 [33m 384[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039069278,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039069295,"pid":12616,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test:  [32m鉁?[39m tests/audit.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 2722[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 瀹¤闆嗘垚锛堝伐鍗?7.12锛?[2m > [22m瑙勫垯绠＄悊锛歛dd/remove 璁?permission.rule 琛岋紙璁剧疆椤垫潵婧愶級 [33m 319[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 瀹¤闆嗘垚锛堝伐鍗?7.12锛?[2m > [22m瀹℃壒鍏ㄩ摼璺細deny 瑙勫垯蹇矾寰?+ reply once 褰掑洜锛坆ash 宸ュ叿锛?[33m 1443[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m Engine 瀹¤闆嗘垚锛堝伐鍗?7.12锛?[2m > [22m鍥炴粴璁?session.rollback 琛岋紙鍚?checkpointId锛?[33m 839[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039069400,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039069419,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039069421,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-Sjck4K","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039069608,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039069621,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039069623,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-l2cPK4","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039069773,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_80385647ecfa44cfaafa41035b372d57","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"warn","time":1788039069813,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_80385647ecfa44cfaafa41035b372d57","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039069813,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039069823,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039069825,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-yt2emf","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039070035,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","sessions":3,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"warn","time":1788039070050,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_4ac39c4448c243b5b31bf0aea8477a90","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039070072,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039070074,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-subagent-KtJ9Xc","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039070142,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_4ac39c4448c243b5b31bf0aea8477a90","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039070143,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039070160,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039070162,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-8M4sZp","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039070706,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_1a6ac54dfc454278a05fa504d66e7ade","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039070706,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039070716,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039070718,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-bALe4t","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039070870,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039070880,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039070882,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-bALe4t","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039071018,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039071020,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","sessions":2,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039071032,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039071035,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-f0VARm","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039071035,"pid":37368,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test:  [32m鉁?[39m tests/subagent.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 4450[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m 瀛愪唬鐞嗗叏閾捐矾锛圫criptedLlm 鍏变韩鑴氭湰搴忓垪锛?[2m > [22m鎴愬姛锛氱埗娲剧敓 鈫?瀛愪細璇濈嫭绔嬭窇涓€杞?鈫?tool.completed 甯︽渶缁堟枃鏈?[33m 824[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m 瀛愪唬鐞嗗叏閾捐矾锛圫criptedLlm 鍏变韩鑴氭湰搴忓垪锛?[2m > [22m娣卞害闄愬埗锛氬瓙浼氳瘽鍐呭啀娲剧敓 鈫?E_SUBAGENT_DEPTH锛屼袱绾у悇鑷棴鍚?[33m 785[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m 瀛愪唬鐞嗗叏閾捐矾锛圫criptedLlm 鍏变韩鑴氭湰搴忓垪锛?[2m > [22m鐖朵腑鏂骇鑱旓細瀛愪細璇?interrupt 鈫?task E_ABORTED 鈫?鐖?turn aborted [33m 546[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m 瀛愪唬鐞嗗叏閾捐矾锛圫criptedLlm 鍏变韩鑴氭湰搴忓垪锛?[2m > [22m瀹℃壒鎷掔粷锛歞eny 瑙勫垯 鈫?E_PERMISSION锛屼笉娲剧敓瀛愪細璇?[33m 440[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m 宸ュ崟 7.8锛氬苟琛屽瓙浠ｇ悊 + 鏍戠姸杩愯鐩戞帶[2m > [22m骞惰鍙屼换鍔★細鏃跺簭閲嶅彔銆乸rompt 闅旂銆佺粨鏋滄槧灏?[33m 884[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m 宸ュ崟 7.8锛氬苟琛屽瓙浠ｇ悊 + 鏍戠姸杩愯鐩戞帶[2m > [22m鏍戣鍥撅細瀛愪唬鐞嗛敋瀹氭淳鐢熷畠鐨?tool.started 浜嬩欢锛岃繍琛屾€佸疄鏃跺揩鐓?[33m 964[2mms[22m[39m
+packages/engine test: {"level":"warn","time":1788039071190,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_65137a24af164562b31c9eb25fea06cf","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039071190,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039071199,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039071202,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-f0VARm","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039071241,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_65137a24af164562b31c9eb25fea06cf","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039071250,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039071259,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039071260,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-4hY4Wm","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039071865,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039071878,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039071881,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-eNf9Fq","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039072070,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":2,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039072087,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039072089,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-GCcT2n","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test:  [32m鉁?[39m tests/tools-builtin.test.ts [2m([22m[2m27 tests[22m[2m)[22m[33m 7878[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m bash锛埪?.6.3锛?[2m > [22m鎴愬姛锛歟cho 杈撳嚭 [33m 785[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m bash锛埪?.6.3锛?[2m > [22m闈為浂閫€鍑猴細E_EXIT_CODE 涓?output 淇濈暀 [33m 460[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m bash锛埪?.6.3锛?[2m > [22m瓒呮椂锛欵_TIMEOUT锛圫IGTERM 鏍戞潃锛?[33m 4271[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m bash锛埪?.6.3锛?[2m > [22mabort 绾ц仈锛歴ignal 宸蹭腑姝?鈫?鏍戞潃 + E_ABORTED [33m 2074[2mms[22m[39m
+packages/engine test: {"level":"info","time":1788039072194,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039072200,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039072203,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-fZ2Q2a","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039072657,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_62628f206b124bf8822333375927fcd1","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039072658,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039072667,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039072669,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-dge4GX","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039072774,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039072786,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039072788,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-xcw7xN","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039072939,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039072987,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039072989,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-DydZaw","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039073152,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039073161,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039073163,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-lIZCxn","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039073374,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039073383,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039073385,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-TQbIL1","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039073531,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_b0ec6cd058e14a3d96129026a25a28e4","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039073650,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039073660,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039073662,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-7TEmK0","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039073885,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039073894,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039073896,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-gr29J7","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039074061,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039074070,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039074072,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-gr29J7","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039074110,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039074119,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039074121,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-ZSEuDM","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039074316,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_6beaa40a428149ef9c50455ddbe1f77a","parent":"ses_759e9cc3285a457ba775a566671b144f","fromEventId":"evt_01M17PY4E2M5XMFRFZ6EW65NAD","events":2,"msg":"session.forked"}
+packages/engine test: {"level":"info","time":1788039074364,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":2,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039074377,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039074380,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-sOHpoQ","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039074525,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-GGOHge","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039074971,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_f18143df56884964941c64f7f2f49545","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039074982,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-CBvqUF","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039075124,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_01HXFIXEDID0000000000000","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039075124,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039075133,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039075133,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039075142,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039075142,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039075152,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039075153,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-IAl308","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039075312,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_a216e12ee28746159c0ed92fd5b3e913","parent":"ses_5cfe80ddb9fa40b0892ff714c126d376","fromEventId":"evt_01M17PY5DYDHAE9YDAXGR1X3GX","events":2,"msg":"session.forked"}
+packages/engine test: {"level":"info","time":1788039075313,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":2,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039075324,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039075325,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-IAl308","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039075375,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039075385,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039075388,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-p2PDOw","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039075533,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_d12b19f9ed124e16879765f809c71626","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039075787,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-o4BMvX","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039075930,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_7ff896d3bdb5404b96246a769dea9a18","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039075987,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039075996,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039075996,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039076005,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039076008,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-J9fPPF","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039076149,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_0a8bf94f24d147918baa257dda470b40","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"warn","time":1788039076441,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_0a8bf94f24d147918baa257dda470b40","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039076755,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_0a8bf94f24d147918baa257dda470b40","checkpointId":"ckp_01M17PY6JWNKD90W1WBBJYRRTP","msg":"session.rollback"}
+packages/engine test: {"level":"warn","time":1788039076814,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_0a8bf94f24d147918baa257dda470b40","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039077707,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039077717,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039077719,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-ZkQ7c3","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039078164,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_d9ddd0c89fc94bbb87b42ec2011cd7c9","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039078426,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-JbQXM2","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039078572,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_0fbc5109292548b8a0a2d1552f45b31b","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039078575,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039078581,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039078582,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039078591,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039078593,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-idx-CaBBqR","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039078779,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":2,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039078794,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039078796,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-idx-CaBBqR","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"info","time":1788039078810,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039078811,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test: {"level":"info","time":1788039078812,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-engine-SxA3y5","cwd":"***\\packages\\engine","msg":"engine.start"}
+packages/engine test: {"level":"warn","time":1788039078964,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_099435de9a274ccbb4f78b0157044e7d","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+packages/engine test: {"level":"info","time":1788039078965,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+packages/engine test: {"level":"info","time":1788039078975,"pid":14628,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+packages/engine test:  [32m鉁?[39m tests/engine.test.ts [2m([22m[2m32 tests[22m[2m)[22m[33m 12434[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m createSession[2m > [22m钀界洏 header + session.created 浜嬩欢 + meta 瀛楁 [33m 378[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m createSession[2m > [22m鑷畾涔?model 椤讳负宸查厤缃?provider锛涙湭鐭?provider 鎷掔粷 [33m 346[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m 妯″瀷绠＄悊锛堝伐鍗?6.5锛歭istModels/testModel/setSessionModel锛?[2m > [22msetSessionModel锛氬唴瀛?meta 璺熼殢 + 涓嬩竴 turn 鐢熸晥锛涘潖褰㈢姸/鏈煡浼氳瘽鎷掔粷 [33m 535[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m send 鍏ㄩ摼璺紙ScriptedLlm锛?[2m > [22mstarted 涓夋€佺洿閫氾紱turn 浜嬩欢搴忓垪闂悎钀界洏 [33m 397[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m send 鍏ㄩ摼璺紙ScriptedLlm锛?[2m > [22mrunning 鏈熼棿 now 鎻愪氦 鈫?steered锛泂tatus 鍙嶆槧 running [33m 733[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m 鎵嬪姩鍘嬬缉锛埪?.8.5 鎵嬪姩 /compact锛?[2m > [22midle 鏃?compact锛歟mit started鈫抍ompleted 钀界洏骞跺箍鎾紱鎽樿杩?generateOnce [33m 337[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m 鎵嬪姩鍘嬬缉锛埪?.8.5 鎵嬪姩 /compact锛?[2m > [22mturn 杩涜涓?compact 鈫?E_TURN_ACTIVE 鎷掔粷锛涗笉浜х敓 compaction 浜嬩欢 [33m 556[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m resumeSession[2m > [22m閲嶅惎鍚庢仮澶?meta 涓庡巻鍙诧紱emit session.resumed{fromSeq} [33m 316[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m resumeSession[2m > [22m鏈煡浼氳瘽 鈫?E_NOT_FOUND锛涢噸澶?resume 鍚屼竴瀹炰緥骞傜瓑 [33m 620[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m replyPermission 涓夋€?[2m > [22munknown 鈫?404 璇箟锛沷k 鍚庨噸澶?reply 鈫?already-resolved [33m 466[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m forkSession 涓庢爲瑙嗗浘锛埪?.8.6 / 宸ュ崟 4.5锛?[2m > [22m涓夋嫆缁濈爜锛欼NVALID_BOUNDARY / OPEN_TURN锛堣繍琛屼腑路turn 涓棿路杈圭晫鍚庢棤闂悎锛? ALREADY_EXISTS [33m 774[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m checkpoint锛埪?.8.7 / 宸ュ崟 4.6锛?[2m > [22mturn 杈圭晫蹇収锛歟mit checkpoint.created + checkpointsOf 鐧昏锛堜細璇濇枃浠跺埆鍚?+ commit锛夛紱checkpoints:false 鏃犲揩鐓?[33m 620[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m checkpoint锛埪?.8.7 / 宸ュ崟 4.6锛?[2m > [22m鍥炴粴涓ゅ煙锛氬伐浣滃尯 reset/clean + 浼氳瘽鏂囦欢鎴柇锛涢噸杞借ˉ resumed锛涚画璺?seq 鏃犳柇娲?[33m 1711[2mms[22m[39m
+packages/engine test:    [33m[2m鉁?[22m[39m checkpoint锛埪?.8.7 / 宸ュ崟 4.6锛?[2m > [22m鎷掔粷鐮侊細杩愯涓?E_TURN_ACTIVE锛涙湭鐭ュ揩鐓?鏈惎鐢?E_NOT_FOUND [33m 874[2mms[22m[39m
+packages/engine test: [2m Test Files [22m [1m[32m31 passed[39m[22m[90m (31)[39m
+packages/engine test: [2m      Tests [22m [1m[32m486 passed[39m[22m[90m (486)[39m
+packages/engine test: [2m   Start at [22m 05:31:02
+packages/engine test: [2m   Duration [22m 16.95s[2m (transform 4.87s, setup 0ms, collect 55.66s, tests 50.61s, environment 8ms, prepare 10.71s)[22m
+packages/engine test: Done
+apps/server test$ vitest run
+apps/server test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mE:/code/javascript/project/Spark/apps/server[39m
+apps/server test: (node:9592) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+apps/server test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/server test: (node:28860) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+apps/server test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/server test: (node:15172) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+apps/server test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/server test: (node:25024) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+apps/server test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/server test: (node:14760) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+apps/server test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/server test: (node:20960) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+apps/server test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/server test: (node:35060) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+apps/server test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/server test: (node:38468) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+apps/server test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/server test: (node:30728) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+apps/server test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/server test: {"level":"info","time":1788039082633,"pid":35060,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-memsrv-88YJaf","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039082829,"pid":30728,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-qTsxXx","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039082830,"pid":14760,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-7gKMpc","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039082833,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-kv521C","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039082833,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-ivCSDT","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039082834,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-Xf19Vd","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039082835,"pid":25024,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-jWWydt","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039082835,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-cmdsrv-3gaDNZ","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039083727,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-auEhOS","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039083869,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","name":"review","msg":"commands.loaded"}
+apps/server test: {"level":"info","time":1788039083939,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039083965,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039083973,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-4sX98C","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039083987,"pid":35060,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039083990,"pid":25024,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084000,"pid":35060,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084005,"pid":35060,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-memsrv-at9ulQ","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084010,"pid":14760,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084012,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084018,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084033,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084033,"pid":25024,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084044,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-cmdsrv-PnGrpP","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084044,"pid":25024,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-7D4FYP","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084048,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084055,"pid":14760,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084063,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084064,"pid":14760,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-xFRnGs","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084068,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084077,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-z2YKOt","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084077,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-kBStQQ","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084087,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084118,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084121,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-KSTlaP","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084183,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084219,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084229,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-7SjGjW","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084273,"pid":30728,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084276,"pid":25024,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084280,"pid":35060,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084295,"pid":14760,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084295,"pid":30728,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084296,"pid":35060,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test:  [32m鉁?[39m tests/memory-routes.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 1672[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET/DELETE /api/memories锛堝伐鍗?7.5锛?[2m > [22m绌哄簱 鈫?绌哄垪琛紱鍐欏叆鍚庡垪鍑猴紱鍒犻櫎鍚庡垪琛ㄦ洿鏂颁笖鍐嶅垹 404 [33m 1375[2mms[22m[39m
+apps/server test: {"level":"info","time":1788039084301,"pid":30728,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-v3Q35h","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084317,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","name":"review","msg":"commands.loaded"}
+apps/server test: {"level":"info","time":1788039084318,"pid":25024,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084321,"pid":25024,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-t1Qy88","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084330,"pid":14760,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084333,"pid":14760,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-vv1BiO","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084355,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084359,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084398,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084401,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-L83aWt","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084413,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084416,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-eMLe6h","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084443,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084456,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084491,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084504,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-KZCGoa","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"warn","time":1788039084506,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_d293deb3ab5e4b5097ccc41661e89ccc","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039084507,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084514,"pid":25024,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084520,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084522,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-J6VHNT","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084532,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084535,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-cmdsrv-hv4EKb","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084544,"pid":14760,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084553,"pid":25024,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test:  [32m鉁?[39m tests/artifact-routes.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 1923[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /api/artifacts/:file锛堝伐鍗?7.10锛?[2m > [22m鐧藉悕鍗曟枃浠跺悕 鈫?200 image/png锛屽瓧鑺傚師鏍疯繑鍥?[33m 1407[2mms[22m[39m
+apps/server test: {"level":"info","time":1788039084609,"pid":14760,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test:  [32m鉁?[39m tests/audit-routes.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 1980[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /api/audit锛堝伐鍗?7.12锛?[2m > [22m绌烘槑缁?鈫?[]锛涜鍒欑鐞嗗悗鍒楀嚭锛堟柊鈫掓棫锛屽惈 op/source锛?[33m 1428[2mms[22m[39m
+apps/server test: {"level":"info","time":1788039084619,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084663,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084666,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-Mx2Fye","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084666,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084680,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084682,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-ucSFFc","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084696,"pid":30728,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084743,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084755,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084758,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-PWw2El","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084759,"pid":30728,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084765,"pid":30728,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-A4fz2h","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084873,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084887,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084889,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-j2z7VQ","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084898,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"warn","time":1788039084909,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_dc10d47dc41d4dbeafb1e78614cf9c81","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039084910,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084912,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-FTELVf","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084915,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084937,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084939,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-An0g38","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084947,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084962,"pid":30728,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084982,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039084985,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039084987,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-jNADEF","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039084998,"pid":30728,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test:  [32m鉁?[39m tests/search-routes.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 2370[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /api/search锛堝伐鍗?7.13锛?[2m > [22m绌哄簱 鈫?[]锛涗竴杞璇濆悗 user/assistant 鍛戒腑锛堝舰鐘跺畬鏁淬€佹柊鈫掓棫锛?[33m 1667[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /api/search锛堝伐鍗?7.13锛?[2m > [22mlimit 鎴柇 [33m 464[2mms[22m[39m
+apps/server test: {"level":"info","time":1788039085005,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085012,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-cmdsrv-og8qRf","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085123,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085137,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085139,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-3FG4LW","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085197,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085205,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085209,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-eRX5NN","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085248,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"warn","time":1788039085265,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_c2c928864d91447fa4e77b9b3042d795","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039085269,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":3,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085277,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085279,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-cmdsrv-RUgjjj","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085320,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085327,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085329,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-v50KGh","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085335,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085345,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085347,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-hMHwL1","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085386,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085389,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-lppQN7","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085462,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085502,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085528,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085533,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085535,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-Su2L4h","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085551,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085551,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085555,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-TEJqoY","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085558,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085565,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085569,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-cmdsrv-ilCzkJ","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085575,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-ZyOjrH","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085637,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085649,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085652,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-eovUsp","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085747,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085750,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085761,"pid":9592,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test:  [32m鉁?[39m tests/commands-routes.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 3130[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /api/commands[2m > [22m鍐呯疆鍩虹嚎鍏潯 + 鑷畾涔夊懡浠ゅ悎骞?[33m 1405[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m POST /api/sessions/:id/commands/:name[2m > [22m鑷畾涔夊懡浠わ細args 灞曞紑杩?user.message锛堟甯?turn 閫氶亾锛?[33m 494[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m POST /api/sessions/:id/commands/:name[2m > [22mcompact锛氳蛋鍘嬬缉鍏ュ彛锛坈ompaction 浜嬩欢瀵癸級 [33m 473[2mms[22m[39m
+apps/server test: {"level":"info","time":1788039085783,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085784,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085788,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085789,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-L3sgkV","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085802,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085808,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-rui6x3","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085860,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039085876,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085880,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-zmwzft","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039085881,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039085884,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-d3RKwg","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039086009,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039086027,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-L3sgkV","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039086048,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039086051,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-23V2H0","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039086068,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039086076,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039086090,"pid":15172,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test:  [32m鉁?[39m tests/sse.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 3460[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /api/event[2m > [22m鍝嶅簲澶达紙text/event-stream / no-cache / X-Accel-Buffering锛?[33m 1441[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /api/event[2m > [22m鍏ㄥ眬璁㈤槄锛堢渷鐣?sessionId锛夛細涓嶅洖鏀撅紝鐩存挱鍏朵粬浼氳瘽浜嬩欢 [33m 446[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /api/event[2m > [22m浼氳瘽鍥炴斁锛坰essionId+since锛夛細seq>since 鐨?durable 鎸夊簭琛ュ彂 [33m 416[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /api/event[2m > [22m鍥炴斁姘翠綅锛歴ince=褰撳墠 lastSeq 鈫?涓嶈ˉ鍙戞棫浜嬩欢锛屾柊娑堟伅鐩存挱鍒拌揪 [33m 450[2mms[22m[39m
+apps/server test: {"level":"info","time":1788039086097,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039086103,"pid":38468,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039086103,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039086104,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test:  [32m鉁?[39m tests/automation-routes.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 3473[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /api/automation锛堝伐鍗?7.6锛?[2m > [22m绌烘竻鍗?鈫?[]锛涘垱寤哄悗鍒楀嚭锛堢嚎涓婂舰鐘跺惈 id/enabled/createdAt锛?[33m 1336[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m 瑙﹀彂鍏ュ彛锛堝伐鍗?7.6 楠屾敹锛氫笁绫昏Е鍙?+ 澶辫触缁撴瀯鍖栫暀瀛橈級[2m > [22m鎵嬪姩瑙﹀彂 鈫?鐪熷疄寤轰細璇濇墽琛?prompt锛圫criptedLlm 鍏ㄩ摼璺級 [33m 346[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m 瑙﹀彂鍏ュ彛锛堝伐鍗?7.6 楠屾敹锛氫笁绫昏Е鍙?+ 澶辫触缁撴瀯鍖栫暀瀛橈級[2m > [22mwebhook锛氶潪 webhook 瑙﹀彂鍣?400 / 鍋滅敤 409 / 鏈煡 404 / 姝ｅ父 200 [33m 329[2mms[22m[39m
+apps/server test: {"level":"info","time":1788039086120,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039086126,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-Mi5XQ5","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039086256,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039086266,"pid":28860,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039086272,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test:  [32m鉁?[39m tests/pairing.test.ts [2m([22m[2m24 tests[22m[2m)[22m[33m 3513[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m DeviceStore[2m > [22m鍧?JSON 鎷掕浇锛欳onfigError锛圗_CONFIG锛屽叆鍙ｅ悓鎶ゆ爮浜鸿瘽閫€鍑猴紱涓嶅甫鐥呰繍琛岋紝鍚?secrets 绾緥锛?[33m 372[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m DeviceStore[2m > [22madd 钀界洏鍚庨噸杞藉彲瑙侊紱remove 鍚屾牱鎸佷箙鍖?[33m 485[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m 閰嶅璺敱锛堢幆鍥炵己鐪佸彛寰勨€斺€旇涓轰笉鍙樼孩绾匡級[2m > [22mGET /api/pair锛氱己鐪佺幆鍥炴湭鍚敤 [33m 342[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m 閰嶅璺敱锛堢幆鍥炵己鐪佸彛寰勨€斺€旇涓轰笉鍙樼孩绾匡級[2m > [22m绛惧彂鈫掑厬鎹⑩啋璁惧鍒楄〃鈫掓挙閿€鍏ㄩ摼璺?[33m 349[2mms[22m[39m
+apps/server test: {"level":"info","time":1788039086278,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039086281,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-AFc2Yt","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"warn","time":1788039086454,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_cb2dbe2740af48dd9fb7c75681faa620","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039086457,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039086466,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039086468,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-YAZrPT","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"warn","time":1788039086618,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_957b9288ddd4490981b715dd410a4472","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039086619,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039086628,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039086630,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-lpYLvR","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"warn","time":1788039086783,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_f3942f1a58db496eb4d85718e582b79f","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039086784,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039086793,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039086796,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-8iMTSV","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"warn","time":1788039086948,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_cd1db9b35d08431f82e042151a2188cb","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039086950,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039086960,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039086962,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-tVFrj0","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039087076,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039087114,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039087117,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-5L91KG","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039087248,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039087285,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039087287,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-Irk8gL","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039087406,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039087417,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039087419,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-IHaZOM","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039087543,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039087556,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039087558,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-OOOJ9h","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"warn","time":1788039088888,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_1a43c8b705824ef49893123d9066e524","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039088909,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039088918,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039088920,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-WUoK2O","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039089050,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039089079,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039089082,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-QwNASA","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039089333,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039089600,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039089602,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-JRcNAf","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039089684,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039089700,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039089702,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-sHE93T","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039089779,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039089794,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039089799,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-ZbfDlO","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"warn","time":1788039089946,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_b8419f91c36a4225b50ac62eddc64151","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039089949,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039089958,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039089960,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-i3LHxx","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"warn","time":1788039090108,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_0cdc406b13054bc78fb3bb1ccc10a8dc","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039090122,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_f594182a942e4e4481e61a8a9b8404cf","parent":"ses_0cdc406b13054bc78fb3bb1ccc10a8dc","fromEventId":"evt_01M17PYKWQQQ8FPTWBK90G8W6P","events":2,"msg":"session.forked"}
+apps/server test: {"level":"info","time":1788039090127,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":2,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039090140,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039090142,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-gTtTZ6","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"warn","time":1788039090302,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_66a80c42f2c64d518a3d641d53502002","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039090304,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039090313,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039090315,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-AMaFg1","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"warn","time":1788039090463,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_839d760fc11647b3a6747789616c5062","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"warn","time":1788039090766,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_839d760fc11647b3a6747789616c5062","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039091057,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_839d760fc11647b3a6747789616c5062","checkpointId":"ckp_01M17PYMJHMQDVY14F3WXWH46W","msg":"session.rollback"}
+apps/server test: {"level":"info","time":1788039091080,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039091089,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039091091,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-y2PXvR","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039091248,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039091513,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039091515,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-ELRWSA","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039091621,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039091627,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039091632,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-mCrwII","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039091715,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","provider":"fake","msg":"secrets.set"}
+apps/server test: {"level":"info","time":1788039091727,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","provider":"fake","msg":"secrets.remove"}
+apps/server test: {"level":"info","time":1788039091727,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039091734,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039091736,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-udEi5I","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039091828,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","fallbacks":1,"costLimitUsd":2.5,"msg":"routing.update"}
+apps/server test: {"level":"info","time":1788039091829,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"routing.usage.reset"}
+apps/server test: {"level":"info","time":1788039091830,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039091837,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039091839,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-GQ1NNV","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"warn","time":1788039091986,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sid":"ses_95d1f243e12b45a7b91cae6b2b13b975","err":{"type":"Error","message":"E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級","stack":"Error: E_SCRIPTED_EXHAUSTED: 棰勫綍 once 搴旂瓟搴忓垪鑰楀敖锛堟祴璇曡剼鏈己鍙ｏ級\n    at ScriptedLlm.generateOnce (***\\packages\\engine\\src\\scripted-llm.ts:138:9)\n    at FallbackGateway.generateOnce (***\\packages\\engine\\src\\fallback-gateway.ts:73:36)\n    at TitleGenerator.generate (***\\packages\\engine\\src\\title.ts:41:41)\n    at Object.handler (***\\packages\\engine\\src\\engine.ts:530:12)\n    at EventBus.dispatch (***\\packages\\engine\\src\\bus.ts:263:21)\n    at ***\\packages\\engine\\src\\bus.ts:254:43","name":"Error"},"msg":"session.title.error"}
+apps/server test: {"level":"info","time":1788039091987,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039091997,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039091999,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-pXoyqi","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039092080,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039092097,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039092099,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-8y7zQb","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039092181,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039092196,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039092199,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-EYIx36","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039092281,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":0,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039092296,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test: {"level":"info","time":1788039092298,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","root":"***\\TEMP\\spark-server-f7TqPF","cwd":"***\\apps\\server","msg":"engine.start"}
+apps/server test: {"level":"info","time":1788039092417,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","sessions":1,"msg":"engine.shutdown.start"}
+apps/server test: {"level":"info","time":1788039092429,"pid":20960,"hostname":"LAPTOP-GPUIHUS1","msg":"engine.shutdown.done"}
+apps/server test:  [32m鉁?[39m tests/routes.test.ts [2m([22m[2m35 tests[22m[2m)[22m[33m 9793[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m POST /api/sessions[2m > [22m201 + SessionMetaDto锛坰tatus 瀹炴椂濉厖锛泂ession.created 宸茶惤鐩橈級 [33m 1482[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /api/sessions[2m > [22m鎸?updatedAt 鍊掑簭锛沴imit 鍒囩墖锛沜ursor 缈婚〉锛沜ursor 涓嶅瓨鍦?404 [33m 440[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /api/sessions/:id[2m > [22m鏈姞杞戒細璇濊蛋 resume 璺緞锛堢鐩樻壂鎻忥級 [33m 340[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m POST /api/sessions/:id/compact锛堝伐鍗?4.3 鎵嬪姩 /compact锛?[2m > [22midle 鈫?200 {ok:true}锛沜ompaction.* 浜嬩欢钀界洏锛涙湭鐭ヤ細璇?鈫?404 [33m 1362[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m POST /api/permissions/:requestId[2m > [22m瀹℃壒娴侊細asked 鈫?reply 200锛涢噸澶?鈫?409锛涙湭鐭?鈫?404 [33m 521[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /:id/checkpoints 涓?POST /:id/checkpoints/:cid/rollback锛堝伐鍗?4.6锛?[2m > [22mcheckpoints:true锛歵urn 杈圭晫蹇収 + 鍥炴粴涓ゅ煙澶嶄綅锛堝伐浣滃尯鎭㈠/娓呴櫎 + 浼氳瘽鎴柇 + resumed锛?[33m 776[2mms[22m[39m
+apps/server test:    [33m[2m鉁?[22m[39m GET /:id/checkpoints 涓?POST /:id/checkpoints/:cid/rollback锛堝伐鍗?4.6锛?[2m > [22m鎷掔粷鐮侊細鏈煡蹇収 404锛涘潖 cid 400锛涙湭鐭ヤ細璇?404锛泃urn 杩涜涓?409 [33m 424[2mms[22m[39m
+apps/server test: [2m Test Files [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+apps/server test: [2m      Tests [22m [1m[32m92 passed[39m[22m[90m (92)[39m
+apps/server test: [2m   Start at [22m 05:31:19
+apps/server test: [2m   Duration [22m 12.76s[2m (transform 1.12s, setup 0ms, collect 21.41s, tests 31.31s, environment 2ms, prepare 2.22s)[22m
+apps/server test: Done

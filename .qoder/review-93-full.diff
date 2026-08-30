@@ -1,0 +1,1715 @@
+commit bc1c5cfa39f565f083c24c8b18d20ab98355deea
+Author: Wanfeng1028 <dingyu_1028@163.com>
+Date:   Sun Aug 30 04:16:42 2026 +0800
+
+    feat(stage9): 工单 9.3——移动端会话体验（流式/审批/重连/分页/键盘避让）
+    
+    协议先行（唯一服务端追加，向后兼容）：
+    - SessionEventsQuerySchema（?limit=&before= 全可选——缺省参数=现状全量回放红线不破；
+      limit 正整数上限 200，before=seq 游标返回 seq < before 升序）
+    - Transport.getSession(id, query?) 无参兼容；transport-node HttpTransport 与
+      web MockTransport 三处同步（过滤+升序尾部切片）
+    - server GET /api/sessions/:id 消费查询参数，路由单测 4 例
+      （缺省全量回归/limit 截断/before 游标/非法参数 400）
+    
+    apps/mobile 会话页落地（DESIGN §13.J.2.3/J.3）：
+    - 消息流投影：user 右对齐浅灰胶囊 / assistant 全宽纯文本+复制+"内容由 AI 生成"
+      合规标注 / 相邻消息 >30min 居中时间戳分隔
+    - RnSessionEventSource 续播流（since 水位）+ rAF 批处理投影 + 新文字渐显微动效
+      + 回到底部浮钮 + 工具卡/思考块折叠（§13.H 迁移）
+    - 审批卡白卡 warn 左边条三键纵向全宽（走 replyPermission）；运行中停止钮
+      （中断走 interrupt）；断线重连细条（onStatus 人话文案）
+    - 上拉加载历史：分页升序合并+全量重放，inverted FlatList 滚动位置不跳
+    - KeyboardAvoidingView/安全区 + Composer 多行自增胶囊
+    - 错误文案一律 ERROR_COPY/errorMessageOf（ADR D22，禁自造）
+    
+    Maestro 四幕 YAML 入库（只入库不执行，真机走查由用户做）；
+    Jest 增补 7 例（分页合并/时间戳判定与格式/投影快照含审批/Composer 高度）；
+    doc/02 §4.5 与版本记录 v3.27 同步。
+    全仓三关全绿：868 例（engine 486/web 159/server 92/protocol 69/mobile 46/cli 16）。
+
+diff --git a/apps/mobile/app.json b/apps/mobile/app.json
+index fe3544d..f2a2e2a 100644
+--- a/apps/mobile/app.json
++++ b/apps/mobile/app.json
+@@ -8,10 +8,12 @@
+     "backgroundColor": "#F7F7F7",
+     "platforms": ["ios", "android"],
+     "ios": {
+-      "supportsTablet": false
++      "supportsTablet": false,
++      "bundleIdentifier": "com.sparkapp.mobile"
+     },
+     "android": {
+-      "edgeToEdgeEnabled": true
++      "edgeToEdgeEnabled": true,
++      "package": "com.sparkapp.mobile"
+     },
+     "plugins": ["expo-secure-store", "expo-status-bar"]
+   }
+diff --git a/apps/mobile/e2e/approval-buttons.yaml b/apps/mobile/e2e/approval-buttons.yaml
+new file mode 100644
+index 0000000..e5402a9
+--- /dev/null
++++ b/apps/mobile/e2e/approval-buttons.yaml
+@@ -0,0 +1,29 @@
++# 工单 9.3 Maestro 用例②：审批三键（只入库不执行——真机走查由用户做）
++# 依据：doc/06-testing-plan.md §1 分层表 L5 行（移动端 E2E 用 Maestro，YAML 入库 apps/mobile/e2e/）
++# 运行前置：已配对可连的 Spark server（权限档调成需审批，如 ask 全量）+ 已安装构建包后
++#   maestro test apps/mobile/e2e/approval-buttons.yaml
++appId: com.sparkapp.mobile
++---
++- launchApp:
++    clearState: false
++- assertVisible: "全部会话"
++- tapOn:
++    text: ".*"
++    index: 1
++- assertVisible: "消息输入框"
++# 发起一个会触发审批的动作（工具需授权）
++- tapOn: "消息输入框"
++- inputText: "请运行 bash 命令 ls 查看目录"
++- tapOn: "发送消息"
++# 审批卡呈现（J.3：白卡+warn 左边条+三键纵向全宽）
++- extendedWaitUntil:
++    visible: "请求授权"
++    timeout: 60000
++- assertVisible: "允许"
++- assertVisible: "始终允许"
++- assertVisible: "拒绝"
++# 点“允许”（= once）：卡片收敛为已处理态
++- tapOn: "允许"
++- extendedWaitUntil:
++    visible: "已允许本次"
++    timeout: 30000
+diff --git a/apps/mobile/e2e/pair-revoked.yaml b/apps/mobile/e2e/pair-revoked.yaml
+new file mode 100644
+index 0000000..a514ce7
+--- /dev/null
++++ b/apps/mobile/e2e/pair-revoked.yaml
+@@ -0,0 +1,26 @@
++# 工单 9.3 Maestro 用例④：配对撤销被拒（只入库不执行——真机走查由用户做）
++# 依据：doc/06-testing-plan.md §1 分层表 L5 行（移动端 E2E 用 Maestro，YAML 入库 apps/mobile/e2e/）
++# 走查方式：本流程给操作者留出人工窗口——执行到等待窗口时在桌面端设置页「设备与配对」
++#   撤销本机设备（撤销即断），App 侧 401 走 E_AUTH 收敛呈现人话文案。
++#   maestro test apps/mobile/e2e/pair-revoked.yaml
++appId: com.sparkapp.mobile
++---
++- launchApp:
++    clearState: false
++- assertVisible: "全部会话"
++- tapOn:
++    text: ".*"
++    index: 1
++- assertVisible: "消息输入框"
++# 操作者在此窗口于桌面端撤销本设备（撤销即断：已连 SSE 立即断开）
++# App 侧重连持续 401 → E_AUTH 收敛终态，人话文案走 ERROR_COPY（D22）
++- extendedWaitUntil:
++    visible: "连接未通过鉴权：请重新配对设备或检查 token"
++    timeout: 60000
++# 撤销后发消息应同样被拒（失败闭合，不静默）
++- tapOn: "消息输入框"
++- inputText: "撤销后仍尝试发送"
++- tapOn: "发送消息"
++- extendedWaitUntil:
++    visible: "连接未通过鉴权：请重新配对设备或检查 token"
++    timeout: 30000
+diff --git a/apps/mobile/e2e/reconnect.yaml b/apps/mobile/e2e/reconnect.yaml
+new file mode 100644
+index 0000000..c5bd02f
+--- /dev/null
++++ b/apps/mobile/e2e/reconnect.yaml
+@@ -0,0 +1,26 @@
++# 工单 9.3 Maestro 用例③：断网恢复（只入库不执行——真机走查由用户做）
++# 依据：doc/06-testing-plan.md §1 分层表 L5 行（移动端 E2E 用 Maestro，YAML 入库 apps/mobile/e2e/）
++# 走查方式：本流程给操作者留出人工窗口——执行到等待断线条时手动开飞行模式，
++#   看到“已断线，重连中…”后关闭飞行模式，流程继续断言恢复。
++#   maestro test apps/mobile/e2e/reconnect.yaml
++appId: com.sparkapp.mobile
++---
++- launchApp:
++    clearState: false
++- assertVisible: "全部会话"
++- tapOn:
++    text: ".*"
++    index: 1
++- assertVisible: "消息输入框"
++# 发起一轮进行中的任务，保证断网时流处于活动态
++- tapOn: "消息输入框"
++- inputText: "请慢慢数到二十"
++- tapOn: "发送消息"
++# 操作者在此刻开启飞行模式（约 10s 宽限窗口）；断线细条应呈现（J.2.3）
++- extendedWaitUntil:
++    visible: "已断线，重连中…"
++    timeout: 30000
++# 操作者关闭飞行模式；恢复后细条消失、回到正常态
++- assertNotVisible:
++    text: "已断线，重连中…"
++    # 退避 1/2/5/10s 封顶，留出充足恢复窗口
+diff --git a/apps/mobile/e2e/send-message.yaml b/apps/mobile/e2e/send-message.yaml
+new file mode 100644
+index 0000000..fe5833e
+--- /dev/null
++++ b/apps/mobile/e2e/send-message.yaml
+@@ -0,0 +1,27 @@
++# 工单 9.3 Maestro 用例①：正常发消息（只入库不执行——真机走查由用户做）
++# 依据：doc/06-testing-plan.md §1 分层表 L5 行（移动端 E2E 用 Maestro，YAML 入库 apps/mobile/e2e/）
++# 运行：已装 Maestro（https://maestro.mobile.dev）+ 已配对可连的 Spark server + 已安装构建包后
++#   maestro test apps/mobile/e2e/send-message.yaml
++appId: com.sparkapp.mobile
++---
++- launchApp:
++    clearState: false
++# 首页会话列表就绪（J.2.2）
++- assertVisible: "全部会话"
++# 进入任一已有会话（列表首行）
++- tapOn:
++    text: ".*"
++    index: 1
++# 会话页就绪：输入框与发送钮在场（J.2.3 Composer）
++- assertVisible: "消息输入框"
++- assertVisible: "发送消息"
++# 输入任务文案并发送
++- tapOn: "消息输入框"
++- inputText: "Maestro 冒烟：请回复收到"
++- tapOn: "发送消息"
++# user 胶囊即时呈现（发送后清空输入）
++- assertVisible: "Maestro 冒烟：请回复收到"
++# 等待 assistant 应答呈现（含合规标注，J.2.3 操作行）
++- extendedWaitUntil:
++    visible: "内容由 AI 生成"
++    timeout: 60000
+diff --git a/apps/mobile/package.json b/apps/mobile/package.json
+index 15bc5c3..9025c0d 100644
+--- a/apps/mobile/package.json
++++ b/apps/mobile/package.json
+@@ -17,6 +17,7 @@
+     "@spark/protocol": "workspace:*",
+     "babel-preset-expo": "~57.0.0",
+     "expo": "~57.0.18",
++    "expo-clipboard": "~57.0.1",
+     "expo-linking": "~57.0.8",
+     "expo-secure-store": "~57.0.2",
+     "expo-status-bar": "~57.0.1",
+diff --git a/apps/mobile/src/components/composer.tsx b/apps/mobile/src/components/composer.tsx
+new file mode 100644
+index 0000000..912eedc
+--- /dev/null
++++ b/apps/mobile/src/components/composer.tsx
+@@ -0,0 +1,117 @@
++/**
++ * Composer 多行自增胶囊（工单 9.3，J.2.1/J.2.3）：
++ * 左右边距 16、高 52 起、radius full、白底；占位"描述你的任务…"13 meta；
++ * 右发送黑圆钮 40——turn 运行中变停止 ■（中断走 Transport.interrupt）。
++ * 高度/行数纯函数在 src/session/session-rows.ts（Jest 把关）。
++ */
++import { useState } from 'react'
++import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native'
++import type { NativeSyntheticEvent, TextInputContentSizeChangeEventData } from 'react-native'
++import { Feather } from '@expo/vector-icons'
++import { useTheme } from '../theme/use-theme'
++import { mobileMetrics } from '../theme/tokens'
++import { composerHeight, composerLinesFromContentSize } from '../session/session-rows'
++
++export interface ComposerProps {
++  /** turn 运行中：右钮呈停止 ■（按 = 中断） */
++  running: boolean
++  /** 发送请求在途（防重复提交） */
++  busy: boolean
++  onSend: (text: string) => void
++  onStop: () => void
++}
++
++export function Composer({ running, busy, onSend, onStop }: ComposerProps) {
++  const t = useTheme()
++  const [text, setText] = useState('')
++  const [lines, setLines] = useState(1)
++
++  const onContentSizeChange = (
++    e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
++  ): void => {
++    setLines(composerLinesFromContentSize(e.nativeEvent.contentSize.height))
++  }
++
++  const submit = (): void => {
++    const trimmed = text.trim()
++    if (trimmed === '' || busy) return
++    onSend(trimmed)
++    setText('')
++    setLines(1)
++  }
++
++  const sendDisabled = text.trim() === '' || busy
++  return (
++    <View style={[styles.capsule, { backgroundColor: t.card }]}>
++      <TextInput
++        accessibilityLabel="消息输入框"
++        style={[styles.input, { color: t.foreground, height: composerHeight(lines) - 20 }]}
++        value={text}
++        onChangeText={setText}
++        placeholder="描述你的任务…"
++        placeholderTextColor={t.mutedForeground}
++        multiline
++        onContentSizeChange={onContentSizeChange}
++        onSubmitEditing={submit}
++        blurOnSubmit={false}
++      />
++      {running ? (
++        <TouchableOpacity
++          accessibilityRole="button"
++          accessibilityLabel="停止当前任务"
++          onPress={onStop}
++          activeOpacity={0.7}
++          style={[styles.sendButton, { backgroundColor: t.primary }]}
++        >
++          {/* 停止 ■：白方块自绘（反 AI 味——不引图标字体伪造实心方块） */}
++          <View style={[styles.stopSquare, { backgroundColor: t.primaryForeground }]} />
++        </TouchableOpacity>
++      ) : (
++        <TouchableOpacity
++          accessibilityRole="button"
++          accessibilityLabel="发送消息"
++          onPress={submit}
++          disabled={sendDisabled}
++          activeOpacity={0.7}
++          style={[
++            styles.sendButton,
++            { backgroundColor: t.primary, opacity: sendDisabled ? 0.35 : 1 },
++          ]}
++        >
++          <Feather name="arrow-up" size={20} color={t.primaryForeground} />
++        </TouchableOpacity>
++      )}
++    </View>
++  )
++}
++
++const styles = StyleSheet.create({
++  capsule: {
++    flexDirection: 'row',
++    alignItems: 'flex-end',
++    minHeight: mobileMetrics.ctaHeight,
++    borderRadius: mobileMetrics.ctaHeight,
++    paddingHorizontal: 10,
++    paddingVertical: 6,
++    gap: 8,
++  },
++  input: {
++    flex: 1,
++    fontSize: mobileMetrics.rowTitle,
++    lineHeight: 20,
++    paddingTop: 10,
++    paddingBottom: 10,
++  },
++  sendButton: {
++    width: 40,
++    height: 40,
++    borderRadius: 20,
++    alignItems: 'center',
++    justifyContent: 'center',
++  },
++  stopSquare: {
++    width: 14,
++    height: 14,
++    borderRadius: 2,
++  },
++})
+diff --git a/apps/mobile/src/components/session-items.tsx b/apps/mobile/src/components/session-items.tsx
+new file mode 100644
+index 0000000..1bcf572
+--- /dev/null
++++ b/apps/mobile/src/components/session-items.tsx
+@@ -0,0 +1,331 @@
++/**
++ * 会话页消息流子组件（工单 9.3，DESIGN §13.J.2.3 实测定死形态）：
++ * user 右对齐浅灰胶囊（无头像）/ assistant 全宽纯文本+操作行（复制+"内容由 AI 生成"）/
++ * 工具卡单行折叠 / 思考块折叠（§13.H 迁移）/ 审批卡白卡+warn 左边条+三键纵向全宽（J.3）。
++ * 反 AI 味（§13.I/J.5）：系统字体、单档阴影、禁渐变/emoji，动效仅微动效。
++ */
++import { useEffect, useRef, useState } from 'react'
++import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
++import { Feather } from '@expo/vector-icons'
++import * as Clipboard from 'expo-clipboard'
++import type { UiItem } from '@spark/protocol'
++import { useTheme } from '../theme/use-theme'
++import { Card, Hairline } from './ui'
++import { mobileMetrics } from '../theme/tokens'
++
++/** user 消息：右对齐浅灰胶囊（zinc-100 底、radius 18、内边距 10/14、最大宽 80%、16px、无头像） */
++export function UserBubble({ text }: { text: string }) {
++  const t = useTheme()
++  return (
++    <View style={styles.userRow}>
++      <View style={[styles.userBubble, { backgroundColor: t.muted }]}>
++        <Text style={[styles.userText, { color: t.foreground }]}>{text}</Text>
++      </View>
++    </View>
++  )
++}
++
++/** 流式增量文字渐显（opacity 微动效 120ms——J.2.3；仅挂载时一次，不逐字重放） */
++function StreamingText({ text, color }: { text: string; color: string }) {
++  const opacity = useRef(new Animated.Value(0)).current
++  useEffect(() => {
++    Animated.timing(opacity, { toValue: 1, duration: 120, useNativeDriver: true }).start()
++  }, [opacity])
++  return <Animated.Text style={[styles.assistantText, { color, opacity }]}>{text}</Animated.Text>
++}
++
++/** assistant 消息：全宽纯文本 17、段落间空行、无底色无边框；尾部操作行=复制+"内容由 AI 生成" */
++export function AssistantBlock({
++  item,
++  streaming,
++}: {
++  item: Extract<UiItem, { kind: 'assistant' }>
++  streaming: boolean
++}) {
++  const t = useTheme()
++  const [copied, setCopied] = useState(false)
++  const texts: string[] = []
++  for (const c of item.content) {
++    if (c.type === 'text') texts.push(c.text)
++  }
++  const finalized = texts.join('\n\n')
++  const buf = item.streaming?.textBuf ?? ''
++  const fullText = finalized !== '' && buf !== '' ? `${finalized}\n\n${buf}` : finalized + buf
++
++  const onCopy = (): void => {
++    void Clipboard.setStringAsync(fullText).then(() => {
++      setCopied(true)
++      setTimeout(() => setCopied(false), 1500)
++    })
++  }
++
++  return (
++    <View style={styles.assistantBlock}>
++      {finalized !== '' && <Text style={[styles.assistantText, { color: t.foreground }]}>{finalized}</Text>}
++      {buf !== '' && <StreamingText text={buf} color={t.foreground} />}
++      {/* 操作行（J.2.3：v1 只做复制+合规标注；👍👎 记 v2 需反馈存储） */}
++      {!streaming && (
++        <View style={styles.actionRow}>
++          <TouchableOpacity
++            accessibilityRole="button"
++            accessibilityLabel="复制消息"
++            onPress={onCopy}
++            style={styles.copyButton}
++            activeOpacity={0.7}
++          >
++            <Feather name={copied ? 'check' : 'copy'} size={14} color={t.mutedForeground} />
++            <Text style={[styles.meta, { color: t.mutedForeground }]}>
++              {copied ? '已复制' : '复制'}
++            </Text>
++          </TouchableOpacity>
++          <Text style={[styles.meta, { color: t.mutedForeground }]}>内容由 AI 生成</Text>
++        </View>
++      )}
++    </View>
++  )
++}
++
++/** 思考块折叠（§13.H 迁移：流式中自动展开，结束后收起；手动操作优先） */
++export function ReasoningCard({ item }: { item: Extract<UiItem, { kind: 'reasoning' }> }) {
++  const t = useTheme()
++  const streaming = item.streaming ?? false
++  const [override, setOverride] = useState<boolean | null>(null)
++  const expanded = override ?? streaming
++  return (
++    <Card style={styles.tightCard}>
++      <TouchableOpacity
++        accessibilityRole="button"
++        accessibilityLabel={expanded ? '收起思考过程' : '展开思考过程'}
++        onPress={() => setOverride(!expanded)}
++        style={styles.cardHeaderRow}
++        activeOpacity={0.7}
++      >
++        <Text style={[styles.cardTitle, { color: t.mutedForeground }]}>
++          {streaming ? '思考中…' : '思考过程'}
++        </Text>
++        <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={t.mutedForeground} />
++      </TouchableOpacity>
++      {expanded && (
++        <Text style={[styles.reasoningText, { color: t.mutedForeground }]}>{item.text}</Text>
++      )}
++    </Card>
++  )
++}
++
++function toolStatusText(status: 'running' | 'completed' | 'error'): string {
++  if (status === 'running') return '运行中'
++  if (status === 'error') return '失败'
++  return '完成'
++}
++
++/** 工具卡单行折叠（§13.H 迁移：白卡紧凑行；错误态默认展开） */
++export function ToolCard({ item }: { item: Extract<UiItem, { kind: 'tool' }> }) {
++  const t = useTheme()
++  const [override, setOverride] = useState<boolean | null>(null)
++  const expanded = override ?? item.status === 'error'
++  const statusColor =
++    item.status === 'error' ? t.sparkErr : item.status === 'running' ? t.sparkAccent : t.mutedForeground
++  const detail =
++    item.status === 'error'
++      ? typeof item.output === 'string'
++        ? item.output
++        : JSON.stringify(item.output)
++      : item.progressBuf !== ''
++        ? item.progressBuf
++        : typeof item.output === 'string'
++          ? item.output
++          : JSON.stringify(item.output ?? '')
++  return (
++    <Card style={styles.tightCard}>
++      <TouchableOpacity
++        accessibilityRole="button"
++        accessibilityLabel={`工具 ${item.name}，${toolStatusText(item.status)}，${expanded ? '收起' : '展开'}详情`}
++        onPress={() => setOverride(!expanded)}
++        style={styles.cardHeaderRow}
++        activeOpacity={0.7}
++      >
++        <Text numberOfLines={1} style={[styles.cardTitle, { color: t.foreground }]}>
++          {item.name}
++        </Text>
++        <Text style={[styles.meta, { color: statusColor }]}>{toolStatusText(item.status)}</Text>
++        <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={t.mutedForeground} />
++      </TouchableOpacity>
++      {expanded && detail !== '' && detail !== '""' && (
++        <Text numberOfLines={12} style={[styles.reasoningText, { color: t.mutedForeground }]}>
++          {detail}
++        </Text>
++      )}
++    </Card>
++  )
++}
++
++/** 审批决策键（纵向全宽三键——J.3；允许=主黑胶囊/始终允许=浅底/拒绝=红字） */
++function ApprovalButton({
++  label,
++  variant,
++  onPress,
++}: {
++  label: string
++  variant: 'primary' | 'secondary' | 'danger'
++  onPress: () => void
++}) {
++  const t = useTheme()
++  const bg = variant === 'primary' ? t.primary : variant === 'secondary' ? t.secondary : t.card
++  const fg =
++    variant === 'primary'
++      ? t.primaryForeground
++      : variant === 'danger'
++        ? t.destructive
++        : t.foreground
++  return (
++    <TouchableOpacity
++      accessibilityRole="button"
++      accessibilityLabel={label}
++      onPress={onPress}
++      activeOpacity={0.7}
++      style={[styles.approvalButton, { backgroundColor: bg }]}
++    >
++      <Text style={[styles.approvalButtonText, { color: fg }]}>{label}</Text>
++    </TouchableOpacity>
++  )
++}
++
++function approvalResolvedText(reply: 'once' | 'always' | 'reject' | undefined): string {
++  if (reply === 'once') return '已允许本次'
++  if (reply === 'always') return '已始终允许'
++  if (reply === 'reject') return '已拒绝'
++  return '已处理'
++}
++
++/** 审批卡：白卡 + warn 左边条 + 三键纵向全宽（J.3）；决策走 Transport.replyPermission */
++export function ApprovalCard({
++  item,
++  busy,
++  onReply,
++}: {
++  item: Extract<UiItem, { kind: 'approval' }>
++  /** 决策请求在途（防双击重复提交） */
++  busy: boolean
++  onReply: (reply: 'once' | 'always' | 'reject') => void
++}) {
++  const t = useTheme()
++  return (
++    <View style={[styles.approvalCard, { backgroundColor: t.card }]}>
++      <View style={[styles.approvalBar, { backgroundColor: t.sparkWarn }]} />
++      <View style={styles.approvalBody}>
++        <Text style={[styles.cardTitle, { color: t.foreground }]}>请求授权</Text>
++        <Text style={[styles.approvalResource, { color: t.foreground }]}>{item.resource}</Text>
++        {item.reason !== '' && (
++          <Text style={[styles.meta, { color: t.mutedForeground }]}>{item.reason}</Text>
++        )}
++        {item.status === 'pending' ? (
++          <View style={styles.approvalButtons}>
++            <ApprovalButton label="允许" variant="primary" onPress={() => onReply('once')} />
++            <ApprovalButton
++              label="始终允许"
++              variant="secondary"
++              onPress={() => onReply('always')}
++            />
++            <ApprovalButton label="拒绝" variant="danger" onPress={() => onReply('reject')} />
++          </View>
++        ) : (
++          <>
++            <Hairline inset={0} />
++            <Text style={[styles.meta, { color: t.mutedForeground, paddingTop: 8 }]}>
++              {approvalResolvedText(item.reply)}
++              {busy ? '，提交中…' : ''}
++            </Text>
++          </>
++        )}
++      </View>
++    </View>
++  )
++}
++
++const styles = StyleSheet.create({
++  userRow: {
++    flexDirection: 'row',
++    justifyContent: 'flex-end',
++  },
++  userBubble: {
++    maxWidth: '80%',
++    borderRadius: 18,
++    paddingVertical: 10,
++    paddingHorizontal: 14,
++  },
++  userText: {
++    fontSize: mobileMetrics.rowTitle,
++  },
++  assistantBlock: {
++    gap: 6,
++  },
++  assistantText: {
++    fontSize: mobileMetrics.headerTitle,
++    lineHeight: 24,
++  },
++  actionRow: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    gap: 12,
++  },
++  copyButton: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    gap: 4,
++    paddingVertical: 4,
++  },
++  meta: {
++    fontSize: mobileMetrics.caption,
++  },
++  tightCard: {
++    paddingVertical: 10,
++    gap: 6,
++  },
++  cardHeaderRow: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    gap: 8,
++  },
++  cardTitle: {
++    flex: 1,
++    fontSize: mobileMetrics.value,
++    fontWeight: '600',
++  },
++  reasoningText: {
++    fontSize: mobileMetrics.caption,
++    lineHeight: 18,
++  },
++  approvalCard: {
++    flexDirection: 'row',
++    borderRadius: mobileMetrics.cardRadius,
++    padding: mobileMetrics.cardPadding,
++    overflow: 'hidden',
++  },
++  approvalBar: {
++    width: 3,
++    alignSelf: 'stretch',
++  },
++  approvalBody: {
++    flex: 1,
++    backgroundColor: 'transparent',
++    gap: 8,
++    paddingLeft: 12,
++  },
++  approvalResource: {
++    fontSize: mobileMetrics.rowTitle,
++  },
++  approvalButtons: {
++    gap: 8,
++    paddingTop: 4,
++  },
++  approvalButton: {
++    height: 44,
++    borderRadius: 22,
++    alignItems: 'center',
++    justifyContent: 'center',
++  },
++  approvalButtonText: {
++    fontSize: mobileMetrics.rowTitle,
++    fontWeight: '600',
++  },
++})
+diff --git a/apps/mobile/src/screens/SessionScreen.tsx b/apps/mobile/src/screens/SessionScreen.tsx
+index 9b05d63..3849177 100644
+--- a/apps/mobile/src/screens/SessionScreen.tsx
++++ b/apps/mobile/src/screens/SessionScreen.tsx
+@@ -1,36 +1,344 @@
+ /**
+- * 会话页（骨架壳——工单 9.2：占位消息流区域，内容工单 9.3 填）。
+- * 页头带返回圆钮（J.1）；标题 17 semibold；空态两行式纯排版（J.4）。
++ * 会话页（工单 9.3 填充——DESIGN §13.J.2.3/J.3 实测定死形态）。
++ *
++ * 数据通道：打开会话 = REST 最新一页（?limit=）升序回放 + RnSessionEventSource
++ * 续播流（since=回放水位）；事件经 rAF 批处理进本地投影（applyEvent，D22 共享）。
++ * 上拉到顶向上翻页（?limit=&before=最早seq），本地升序合并后全量重放重建投影
++ * （applyEvent 假定升序——较旧页不得增量叠加），inverted FlatList 滚动位置不跳。
++ * 时间戳分隔需事件时间而 UiItem 无 time 字段——屏幕层维护 eventId→time 侧表。
++ * 错误文案一律 ERROR_COPY/errorMessageOf（ADR D22，禁自造文案）。
+  */
+-import { StyleSheet, View } from 'react-native'
++import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
++import {
++  ActivityIndicator,
++  FlatList,
++  KeyboardAvoidingView,
++  Platform,
++  StyleSheet,
++  Text,
++  View,
++} from 'react-native'
+ import { useNavigation, useRoute } from '@react-navigation/native'
+ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+ import type { RouteProp } from '@react-navigation/native'
++import { useSafeAreaInsets } from 'react-native-safe-area-context'
++import type {
++  EventId,
++  PermissionReply,
++  ProjectionState,
++  RequestId,
++  SessionSlice,
++  SparkEventEnvelope,
++} from '@spark/protocol'
++import { applyEvent, emptySessionSlice, errorMessageOf, ids } from '@spark/protocol'
+ import { useTheme } from '../theme/use-theme'
+-import { EmptyState, ScreenHeader } from '../components/ui'
++import { mobileMetrics } from '../theme/tokens'
++import { EmptyState, RoundFloatButton, ScreenHeader } from '../components/ui'
++import {
++  ApprovalCard,
++  AssistantBlock,
++  ReasoningCard,
++  ToolCard,
++  UserBubble,
++} from '../components/session-items'
++import { Composer } from '../components/composer'
++import { useConfigStore } from '../store/config-store'
++import { createEventBatcher, useAppStore } from '../store/app-store'
++import type { EventBatcher } from '../store/app-store'
++import { getHttpTransport, openSessionStream } from '../transport/runtime'
++import type { RnSessionEventSource } from '../transport/rn-event-source'
++import {
++  buildSessionRows,
++  formatTimestamp,
++  mergeEventPage,
++} from '../session/session-rows'
++import type { SessionRow } from '../session/session-rows'
+ import type { SessionsStackParamList } from '../navigation/params'
+ 
++/** 上拉翻页页长（服务端上限 200；50 条兼顾首屏速度与翻页次数） */
++const PAGE_SIZE = 50
++
++/** 连接细条人话文案（同 web CONNECTION_TEXT 口径，D22 同律） */
++const CONNECTION_TEXT: Record<'connecting' | 'reconnecting', string> = {
++  connecting: '连接中…',
++  reconnecting: '已断线，重连中…',
++}
++
++/** 居中时间戳分隔（13 meta，J.2.3） */
++function TimestampDivider({ time }: { time: number }) {
++  const t = useTheme()
++  return (
++    <View style={styles.divider}>
++      <Text style={[styles.dividerText, { color: t.mutedForeground }]}>
++        {formatTimestamp(time)}
++      </Text>
++    </View>
++  )
++}
++
+ export function SessionScreen() {
+   const t = useTheme()
++  const insets = useSafeAreaInsets()
+   const navigation = useNavigation<NativeStackNavigationProp<SessionsStackParamList>>()
+   const route = useRoute<RouteProp<SessionsStackParamList, 'Session'>>()
+-  const { sessionId, title } = route.params
++  const sid = ids.session(route.params.sessionId)
++
++  const serverUrl = useConfigStore((s) => s.serverUrl)
++  const token = useConfigStore((s) => s.token)
++  const status = useAppStore((s) => s.status)
++  const notice = useAppStore((s) => s.notice)
++  const setNotice = useAppStore((s) => s.setNotice)
++  const setStatus = useAppStore((s) => s.setStatus)
++
++  const [slice, setSlice] = useState<SessionSlice>(() => emptySessionSlice(sid))
++  const [sending, setSending] = useState(false)
++  const [approvalBusy, setApprovalBusy] = useState(false)
++  const [loadingOlder, setLoadingOlder] = useState(false)
++  const [atBottom, setAtBottom] = useState(true)
++
++  // 本地事件窗 + 时间侧表（分页合并/重放/时间戳分隔的数据源；ref 不触发渲染）
++  const eventsRef = useRef<SparkEventEnvelope[]>([])
++  const timesRef = useRef<Map<EventId, number>>(new Map())
++  const watermarkRef = useRef(0)
++  const hasMoreRef = useRef(true)
++  const loadingOlderRef = useRef(false)
++  const batcherRef = useRef<EventBatcher | null>(null)
++  const streamRef = useRef<RnSessionEventSource | null>(null)
++  const listRef = useRef<FlatList<SessionRow>>(null)
++  const atBottomRef = useRef(true)
++  atBottomRef.current = atBottom
++
++  // 打开会话：最新一页回放（批处理投影）→ 以水位开续播流
++  useEffect(() => {
++    let cancelled = false
++    const transport = getHttpTransport(serverUrl, token)
++    if (transport === null) return () => undefined
++
++    const applyLocal = (e: SparkEventEnvelope): void => {
++      eventsRef.current.push(e)
++      timesRef.current.set(e.id, e.time)
++      if (e.seq !== undefined && e.seq > watermarkRef.current) watermarkRef.current = e.seq
++      setSlice((s) => applyEvent({ byId: { [sid]: s }, activeId: sid }, e).byId[sid] ?? s)
++    }
++    const batcher = createEventBatcher(applyLocal)
++    batcherRef.current = batcher
++
++    void (async () => {
++      try {
++        const dto = await transport.getSession(sid, { limit: PAGE_SIZE })
++        if (cancelled) return
++        const events = dto.events ?? []
++        if (events.length < PAGE_SIZE) hasMoreRef.current = false
++        for (const e of events) batcher.enqueue(e)
++        batcher.flushNow()
++      } catch (err: unknown) {
++        if (!cancelled) setNotice(errorMessageOf(err))
++        return
++      }
++      if (cancelled) return
++      // 续播流：since=回放水位（重放与直播重叠由 applyEvent seq 去重）
++      streamRef.current = openSessionStream({
++        sessionId: sid,
++        serverUrl,
++        token,
++        since: watermarkRef.current,
++        onEvent: (e) => batcherRef.current?.enqueue(e),
++        onStatus: (s) => setStatus(s),
++        onError: (err) => setNotice(errorMessageOf(err)),
++      })
++    })()
++
++    return () => {
++      cancelled = true
++      streamRef.current?.dispose()
++      streamRef.current = null
++      batcher.flushNow()
++      batcherRef.current = null
++    }
++  }, [sid, serverUrl, token, setNotice, setStatus])
++
++  // 上拉到顶 → 向上翻页：较旧一页升序合并 + 全量重放重建投影（滚动位置不跳）
++  const loadOlder = useCallback(async (): Promise<void> => {
++    if (loadingOlderRef.current || !hasMoreRef.current) return
++    const oldest = eventsRef.current.find((e) => e.seq !== undefined)
++    if (oldest === undefined || oldest.seq === undefined) return
++    const transport = getHttpTransport(serverUrl, token)
++    if (transport === null) return
++    loadingOlderRef.current = true
++    setLoadingOlder(true)
++    try {
++      const dto = await transport.getSession(sid, { limit: PAGE_SIZE, before: oldest.seq })
++      const page = dto.events ?? []
++      if (page.length < PAGE_SIZE) hasMoreRef.current = false
++      if (page.length === 0) return
++      const merged = mergeEventPage(page, eventsRef.current)
++      // 全量重放（升序红线）：较旧事件不得增量叠加在较新投影之后
++      let state: ProjectionState = { byId: {}, activeId: sid }
++      const times = new Map<EventId, number>()
++      for (const e of merged) {
++        times.set(e.id, e.time)
++        state = applyEvent(state, e)
++      }
++      eventsRef.current = merged
++      timesRef.current = times
++      setSlice(state.byId[sid] ?? emptySessionSlice(sid))
++    } catch (err: unknown) {
++      setNotice(errorMessageOf(err))
++    } finally {
++      loadingOlderRef.current = false
++      setLoadingOlder(false)
++    }
++  }, [sid, serverUrl, token, setNotice])
++
++  // 发消息 / 中断 / 审批决策（失败文案走 errorMessageOf，不自造）
++  const handleSend = useCallback(
++    async (text: string): Promise<void> => {
++      const transport = getHttpTransport(serverUrl, token)
++      if (transport === null) return
++      setSending(true)
++      try {
++        await transport.sendMessage(sid, text)
++      } catch (err: unknown) {
++        setNotice(errorMessageOf(err))
++      } finally {
++        setSending(false)
++      }
++    },
++    [sid, serverUrl, token, setNotice],
++  )
++
++  const handleStop = useCallback(async (): Promise<void> => {
++    const transport = getHttpTransport(serverUrl, token)
++    if (transport === null) return
++    try {
++      await transport.interrupt(sid)
++    } catch (err: unknown) {
++      setNotice(errorMessageOf(err))
++    }
++  }, [sid, serverUrl, token, setNotice])
++
++  const handleReply = useCallback(
++    async (requestId: RequestId, reply: PermissionReply): Promise<void> => {
++      const transport = getHttpTransport(serverUrl, token)
++      if (transport === null) return
++      setApprovalBusy(true)
++      try {
++        await transport.replyPermission(requestId, reply)
++      } catch (err: unknown) {
++        setNotice(errorMessageOf(err))
++      } finally {
++        setApprovalBusy(false)
++      }
++    },
++    [serverUrl, token, setNotice],
++  )
++
++  // 人话提示条 5s 自清（不留陈旧错误冒充现状）
++  useEffect(() => {
++    if (notice === null) return () => undefined
++    const timer = setTimeout(() => setNotice(null), 5000)
++    return () => clearTimeout(timer)
++  }, [notice, setNotice])
++
++  const rows = useMemo(
++    () => buildSessionRows(slice.items, (id) => timesRef.current.get(id)),
++    [slice],
++  )
++  const data = useMemo(() => [...rows].reverse(), [rows])
++
++  // 贴底时新内容自动跟随（inverted：底部 = offset 0）
++  useEffect(() => {
++    if (atBottomRef.current) listRef.current?.scrollToOffset({ offset: 0, animated: false })
++  }, [rows.length])
++
++  const running = slice.activeTurn !== null
++
++  const renderRow = ({ item: row }: { item: SessionRow }) => {
++    if (row.kind === 'timestamp') return <TimestampDivider time={row.time} />
++    const it = row.item
++    switch (it.kind) {
++      case 'user':
++        return <UserBubble text={it.text} />
++      case 'assistant':
++        return <AssistantBlock item={it} streaming={it.streaming !== undefined} />
++      case 'reasoning':
++        return <ReasoningCard item={it} />
++      case 'tool':
++        return <ToolCard item={it} />
++      case 'approval':
++        return <ApprovalCard item={it} busy={approvalBusy} onReply={(r) => void handleReply(it.requestId, r)} />
++    }
++  }
++
++  const connectionText =
++    status === 'connecting' || status === 'reconnecting' ? CONNECTION_TEXT[status] : null
+ 
+   return (
+     <View style={[styles.screen, { backgroundColor: t.pageBackground }]}>
+       <ScreenHeader
+-        title={title !== '' ? title : '新会话'}
++        title={route.params.title !== '' ? route.params.title : '新会话'}
+         leftIcon="chevron-left"
+         leftLabel="返回会话列表"
+         onLeftPress={() => navigation.goBack()}
+       />
+-      {/* 消息流占位区（工单 9.3：投影渲染 user 胶囊 / assistant 全宽纯文本 / 工具卡） */}
+-      <View style={styles.stream} accessibilityLabel={`会话 ${sessionId} 消息流占位`}>
+-        <EmptyState
+-          title="消息流建设中"
+-          detail="会话内容将在下一工单接入，当前仅提供骨架"
+-        />
+-      </View>
++      {/* 断线重连细条（onStatus 订阅；恢复后自动消失） */}
++      {connectionText !== null && (
++        <View style={[styles.connectionBar, { backgroundColor: t.card }]}>
++          <Text style={[styles.meta, { color: t.sparkWarn }]}>{connectionText}</Text>
++        </View>
++      )}
++      {/* 人话错误细条（ERROR_COPY/errorMessageOf 单一来源） */}
++      {notice !== null && (
++        <View style={[styles.connectionBar, { backgroundColor: t.card }]}>
++          <Text style={[styles.meta, { color: t.sparkErr }]}>{notice}</Text>
++        </View>
++      )}
++      <KeyboardAvoidingView
++        style={styles.flex}
++        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
++        keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0}
++      >
++        <View style={styles.listWrap}>
++          <FlatList
++            ref={listRef}
++            inverted
++            data={data}
++            keyExtractor={(r) => r.key}
++            renderItem={renderRow}
++            contentContainerStyle={styles.listContent}
++            onEndReached={() => void loadOlder()}
++            onEndReachedThreshold={0.4}
++            keyboardDismissMode="on-drag"
++            scrollEventThrottle={100}
++            onScroll={(e) => setAtBottom(e.nativeEvent.contentOffset.y < 80)}
++            ListHeaderComponent={
++              loadingOlder ? (
++                <ActivityIndicator style={styles.pager} color={t.mutedForeground} />
++              ) : !hasMoreRef.current && eventsRef.current.length > 0 ? (
++                <Text style={[styles.meta, styles.pager, { color: t.mutedForeground }]}>
++                  已加载全部历史
++                </Text>
++              ) : null
++            }
++            ListEmptyComponent={
++              <EmptyState title="开始对话" detail="描述你的任务，Spark 即刻开工" />
++            }
++          />
++          {/* 回到底部浮动圆钮（上滚/流式中；44 白底 ↓，J.2.3） */}
++          {!atBottom && (
++            <View style={styles.backBottom}>
++              <RoundFloatButton
++                icon="arrow-down"
++                label="回到底部"
++                onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
++              />
++            </View>
++          )}
++        </View>
++        <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
++          <Composer running={running} busy={sending} onSend={(text) => void handleSend(text)} onStop={() => void handleStop()} />
++        </View>
++      </KeyboardAvoidingView>
+     </View>
+   )
+ }
+@@ -39,8 +347,44 @@ const styles = StyleSheet.create({
+   screen: {
+     flex: 1,
+   },
+-  stream: {
++  flex: {
++    flex: 1,
++  },
++  connectionBar: {
++    paddingHorizontal: 16,
++    paddingVertical: 6,
++    alignItems: 'center',
++  },
++  meta: {
++    fontSize: mobileMetrics.caption,
++  },
++  listWrap: {
+     flex: 1,
++  },
++  listContent: {
++    paddingHorizontal: 16,
++    paddingVertical: 12,
++    gap: mobileMetrics.cardGap,
++    flexGrow: 1,
++  },
++  divider: {
++    alignItems: 'center',
++    paddingVertical: 4,
++  },
++  dividerText: {
++    fontSize: mobileMetrics.caption,
++  },
++  pager: {
++    paddingVertical: 12,
++    textAlign: 'center',
++  },
++  backBottom: {
++    position: 'absolute',
++    right: 16,
++    bottom: 12,
++  },
++  composerWrap: {
+     paddingHorizontal: 16,
++    paddingTop: 8,
+   },
+ })
+diff --git a/apps/mobile/src/session/session-rows.ts b/apps/mobile/src/session/session-rows.ts
+new file mode 100644
+index 0000000..1176cbd
+--- /dev/null
++++ b/apps/mobile/src/session/session-rows.ts
+@@ -0,0 +1,98 @@
++/**
++ * 会话页纯函数集（工单 9.3——可测逻辑自屏幕组件抽出，Jest 单测把关）：
++ * 分页历史升序合并 / 时间戳分隔判定与格式化 / 消息行构建 / Composer 自增高度。
++ * 屏幕层只做渲染与接线，不含业务计算（AGENTS §2.7 纯逻辑可测化同律）。
++ */
++import type { EventId, SparkEventEnvelope, UiItem } from '@spark/protocol'
++
++/** 时间戳分隔阈值：相邻消息间隔 >30 分钟（DESIGN §13.J.2.3） */
++export const TIMESTAMP_GAP_MS = 30 * 60 * 1000
++
++/** Composer 规格（J.2.1）：高 52 起、行高 20、6 行上限（同 web Composer 纪律） */
++export const COMPOSER_BASE_HEIGHT = 52
++export const COMPOSER_LINE_HEIGHT = 20
++export const COMPOSER_MAX_LINES = 6
++
++/** 渲染行：消息/卡片项 或 居中时间戳分隔（key 供 FlatList） */
++export type SessionRow =
++  | { kind: 'timestamp'; key: string; time: number }
++  | { kind: 'item'; key: string; item: UiItem }
++
++function seqOf(e: SparkEventEnvelope): number {
++  // live 事件无 seq——稳定排序下保持到达序置于尾部
++  return e.seq ?? Number.MAX_SAFE_INTEGER
++}
++
++/**
++ * 分页合并：较旧一页（升序）并入既有窗口（升序）——按 id 去重、按 seq 升序输出。
++ * 幂等：同页重复合并不产生重复事件（弱网重试安全）。
++ */
++export function mergeEventPage(
++  olderPage: readonly SparkEventEnvelope[],
++  existing: readonly SparkEventEnvelope[],
++): SparkEventEnvelope[] {
++  const seen = new Set(existing.map((e) => e.id))
++  const merged = [...olderPage.filter((e) => !seen.has(e.id)), ...existing]
++  return merged.sort((a, b) => seqOf(a) - seqOf(b))
++}
++
++/** 时间戳分隔判定：相邻消息间隔 >30 分钟插分隔（时间缺失不插——不拿缺数据冒充） */
++export function shouldInsertTimestamp(
++  prevTime: number | undefined,
++  curTime: number | undefined,
++): boolean {
++  if (prevTime === undefined || curTime === undefined) return false
++  return curTime - prevTime > TIMESTAMP_GAP_MS
++}
++
++/** "7月25日 18:30" 式时间戳文案（13 meta，J.2.3 实测形态） */
++export function formatTimestamp(ms: number): string {
++  const d = new Date(ms)
++  const hh = String(d.getHours()).padStart(2, '0')
++  const mm = String(d.getMinutes()).padStart(2, '0')
++  return `${d.getMonth() + 1}月${d.getDate()}日 ${hh}:${mm}`
++}
++
++/** 行 key：tool/approval 以 callId/requestId 稳定化（同事件可派生多个工具行） */
++export function rowKeyOf(item: UiItem): string {
++  if (item.kind === 'tool') return `tool-${item.callId}`
++  if (item.kind === 'approval') return `approval-${item.requestId}`
++  return item.eventId
++}
++
++/**
++ * UiItem 序列 → 渲染行（含时间戳分隔）。
++ * timeOf = eventId → 事件时间侧表（屏幕层自信封流填充——UiItem 无 time 字段）。
++ * 间隔口径只算消息（user/assistant）：工具卡/思考块/审批卡不参与间隔判定。
++ */
++export function buildSessionRows(
++  items: readonly UiItem[],
++  timeOf: (eventId: EventId) => number | undefined,
++): SessionRow[] {
++  const rows: SessionRow[] = []
++  let lastMessageTime: number | undefined
++  for (const item of items) {
++    const time = timeOf(item.eventId)
++    const isMessage = item.kind === 'user' || item.kind === 'assistant'
++    if (isMessage && time !== undefined && shouldInsertTimestamp(lastMessageTime, time)) {
++      rows.push({ kind: 'timestamp', key: `ts-${item.eventId}`, time })
++    }
++    rows.push({ kind: 'item', key: rowKeyOf(item), item })
++    if (isMessage && time !== undefined) lastMessageTime = time
++  }
++  return rows
++}
++
++/**
++ * Composer 自增高度：单行 52 起、每多一行 +20、封顶 6 行（超出滚动输入）。
++ */
++export function composerHeight(lineCount: number): number {
++  const lines = Math.max(1, Math.min(lineCount, COMPOSER_MAX_LINES))
++  return COMPOSER_BASE_HEIGHT + (lines - 1) * COMPOSER_LINE_HEIGHT
++}
++
++/** TextInput contentSize 高度 → 行数（1 起步、6 封顶）——与 composerHeight 配对 */
++export function composerLinesFromContentSize(contentHeight: number): number {
++  const lines = Math.ceil(contentHeight / COMPOSER_LINE_HEIGHT)
++  return Math.max(1, Math.min(lines, COMPOSER_MAX_LINES))
++}
+diff --git a/apps/mobile/src/transport/runtime.ts b/apps/mobile/src/transport/runtime.ts
+index ab63e34..128e52b 100644
+--- a/apps/mobile/src/transport/runtime.ts
++++ b/apps/mobile/src/transport/runtime.ts
+@@ -57,6 +57,8 @@ export interface SessionStreamOptions {
+   since?: number
+   onEvent: (e: SparkEventEnvelope) => void
+   onStatus?: (s: RnConnectionStatus) => void
++  /** 鉴权失败（401/403）人话错误源（工单 9.3：会话页走 ERROR_COPY 呈现） */
++  onError?: (err: Error) => void
+ }
+ 
+ /** 新建会话级续播流（调用方持有生命周期：切换会话/卸载时 dispose） */
+@@ -69,6 +71,7 @@ export function openSessionStream(opts: SessionStreamOptions): RnSessionEventSou
+     ...(opts.since !== undefined ? { since: opts.since } : {}),
+     ...(opts.token !== '' ? { authToken: opts.token } : {}),
+     ...(opts.onStatus !== undefined ? { onStatus: opts.onStatus } : {}),
++    ...(opts.onError !== undefined ? { onError: opts.onError } : {}),
+     onEvent: opts.onEvent,
+   })
+ }
+diff --git a/apps/mobile/tests/__snapshots__/session-rows.test.ts.snap b/apps/mobile/tests/__snapshots__/session-rows.test.ts.snap
+new file mode 100644
+index 0000000..53a6007
+--- /dev/null
++++ b/apps/mobile/tests/__snapshots__/session-rows.test.ts.snap
+@@ -0,0 +1,38 @@
++// Jest Snapshot v1, https://goo.gl/fbAQLP
++
++exports[`buildSessionRows——消息行构建 审批事件的投影快照（pending → resolved 行形稳定） 1`] = `
++[
++  {
++    "item": {
++      "action": "bash",
++      "eventId": "evt_rows_14",
++      "kind": "approval",
++      "reason": "命令含删除语义",
++      "requestId": "req_rows_1",
++      "resource": "rm -rf /tmp/x",
++      "status": "pending",
++    },
++    "key": "approval-req_rows_1",
++    "kind": "item",
++  },
++]
++`;
++
++exports[`buildSessionRows——消息行构建 审批事件的投影快照（pending → resolved 行形稳定） 2`] = `
++[
++  {
++    "item": {
++      "action": "bash",
++      "eventId": "evt_rows_14",
++      "kind": "approval",
++      "reason": "命令含删除语义",
++      "reply": "once",
++      "requestId": "req_rows_1",
++      "resource": "rm -rf /tmp/x",
++      "status": "resolved",
++    },
++    "key": "approval-req_rows_1",
++    "kind": "item",
++  },
++]
++`;
+diff --git a/apps/mobile/tests/session-rows.test.ts b/apps/mobile/tests/session-rows.test.ts
+new file mode 100644
+index 0000000..381d60d
+--- /dev/null
++++ b/apps/mobile/tests/session-rows.test.ts
+@@ -0,0 +1,156 @@
++/**
++ * 会话页纯函数单测（工单 9.3）：分页合并 / 时间戳分隔判定与格式化 /
++ * 消息行构建（含审批事件投影快照）/ Composer 自增高度。
++ */
++import type { SparkEventEnvelope } from '@spark/protocol'
++import { applyEvent, emptySessionSlice, ids } from '@spark/protocol'
++import type { ProjectionState } from '@spark/protocol'
++import {
++  COMPOSER_BASE_HEIGHT,
++  COMPOSER_LINE_HEIGHT,
++  TIMESTAMP_GAP_MS,
++  buildSessionRows,
++  composerHeight,
++  composerLinesFromContentSize,
++  formatTimestamp,
++  mergeEventPage,
++  shouldInsertTimestamp,
++} from '../src/session/session-rows'
++
++const SID = ids.session('ses_rows_test')
++const TID = ids.turn('trn_rows_test_1')
++
++let eventNo = 0
++function eid(): string {
++  eventNo += 1
++  return `evt_rows_${eventNo}`
++}
++
++function env(
++  type: SparkEventEnvelope['type'],
++  time: number,
++  seq: number | undefined,
++  data: SparkEventEnvelope['data'],
++): SparkEventEnvelope {
++  return {
++    id: ids.event(eid()),
++    sessionId: SID,
++    time,
++    ...(seq !== undefined ? { seq } : {}),
++    type,
++    data,
++  }
++}
++
++describe('mergeEventPage——分页升序合并', () => {
++  const mk = (seq: number) => env('user.message', 1000 + seq, seq, { text: `m${seq}` })
++
++  it('较旧一页并入既有窗口：按 seq 升序输出', () => {
++    const older = [mk(1), mk(2)]
++    const existing = [mk(3), mk(4), mk(5)]
++    const merged = mergeEventPage(older, existing)
++    expect(merged.map((e) => e.seq)).toEqual([1, 2, 3, 4, 5])
++  })
++
++  it('按 id 去重：重复页幂等（弱网重试安全）', () => {
++    const page = [mk(1), mk(2)]
++    const once = mergeEventPage(page, [mk(3)])
++    const twice = mergeEventPage(page, once)
++    expect(twice.length).toBe(once.length)
++    expect(twice.map((e) => e.seq)).toEqual([1, 2, 3])
++  })
++
++  it('live 事件（无 seq）保持到达序置于尾部', () => {
++    const live = env('assistant.delta', 9999, undefined, { turnId: TID, text: '增量' })
++    const merged = mergeEventPage([mk(1)], [mk(2), live])
++    expect(merged.map((e) => e.seq)).toEqual([1, 2, undefined])
++  })
++})
++
++describe('时间戳分隔判定与格式化', () => {
++  it('间隔 >30 分钟插分隔；恰 30 分钟不插；时间缺失不插', () => {
++    const base = 1_700_000_000_000
++    expect(shouldInsertTimestamp(base, base + TIMESTAMP_GAP_MS + 1)).toBe(true)
++    expect(shouldInsertTimestamp(base, base + TIMESTAMP_GAP_MS)).toBe(false)
++    expect(shouldInsertTimestamp(undefined, base)).toBe(false)
++    expect(shouldInsertTimestamp(base, undefined)).toBe(false)
++  })
++
++  it('"7月25日 18:30" 式格式（本机时区）', () => {
++    const ms = new Date(2026, 6, 25, 18, 30).getTime()
++    expect(formatTimestamp(ms)).toBe('7月25日 18:30')
++    const morning = new Date(2026, 11, 3, 8, 5).getTime()
++    expect(formatTimestamp(morning)).toBe('12月3日 08:05')
++  })
++})
++
++describe('buildSessionRows——消息行构建', () => {
++  it('相邻消息间隔 >30 分钟插居中时间戳行', () => {
++    const t0 = 1_700_000_000_000
++    const u1 = env('user.message', t0, 1, { text: '早' })
++    const u2 = env('user.message', t0 + 40 * 60 * 1000, 2, { text: '晚' })
++    let s: ProjectionState = { byId: {}, activeId: SID }
++    s = applyEvent(s, u1)
++    s = applyEvent(s, u2)
++    const slice = s.byId[SID] ?? emptySessionSlice(SID)
++    const timeOf = (id: string) => (id === u1.id ? t0 : t0 + 40 * 60 * 1000)
++    const rows = buildSessionRows(slice.items, (id) => timeOf(id))
++    expect(rows.map((r) => r.kind)).toEqual(['item', 'timestamp', 'item'])
++    const divider = rows[1]
++    expect(divider?.kind === 'timestamp' && divider.time).toBe(t0 + 40 * 60 * 1000)
++  })
++
++  it('审批事件的投影快照（pending → resolved 行形稳定）', () => {
++    const asked = env('permission.asked', 5000, 1, {
++      requestId: ids.request('req_rows_1'),
++      callId: ids.call('cal_rows_perm'),
++      action: 'bash',
++      resource: 'rm -rf /tmp/x',
++      reason: '命令含删除语义',
++    })
++    const resolved = env('permission.resolved', 6000, 2, {
++      requestId: ids.request('req_rows_1'),
++      reply: 'once',
++    })
++    let s: ProjectionState = { byId: {}, activeId: SID }
++    s = applyEvent(s, asked)
++    const rowsPending = buildSessionRows((s.byId[SID] ?? emptySessionSlice(SID)).items, () => 5000)
++    expect(rowsPending).toMatchSnapshot()
++    s = applyEvent(s, resolved)
++    const rowsResolved = buildSessionRows((s.byId[SID] ?? emptySessionSlice(SID)).items, () => 5000)
++    expect(rowsResolved).toMatchSnapshot()
++  })
++
++  it('tool/approval 行 key 以 callId/requestId 稳定化', () => {
++    const msg = env(
++      'assistant.message',
++      1000,
++      1,
++      {
++        turnId: TID,
++        content: [{ type: 'toolCall', callId: ids.call('cal_rows_1'), name: 'bash', input: {} }],
++      },
++    )
++    let s: ProjectionState = { byId: {}, activeId: SID }
++    s = applyEvent(s, msg)
++    const rows = buildSessionRows((s.byId[SID] ?? emptySessionSlice(SID)).items, () => 1000)
++    expect(rows.map((r) => r.key)).toContain('tool-cal_rows_1')
++  })
++})
++
++describe('Composer 自增高度', () => {
++  it('单行 52 起、每行 +20、6 行封顶', () => {
++    expect(composerHeight(1)).toBe(COMPOSER_BASE_HEIGHT)
++    expect(composerHeight(2)).toBe(COMPOSER_BASE_HEIGHT + COMPOSER_LINE_HEIGHT)
++    expect(composerHeight(6)).toBe(COMPOSER_BASE_HEIGHT + 5 * COMPOSER_LINE_HEIGHT)
++    expect(composerHeight(99)).toBe(COMPOSER_BASE_HEIGHT + 5 * COMPOSER_LINE_HEIGHT)
++    expect(composerHeight(0)).toBe(COMPOSER_BASE_HEIGHT)
++  })
++
++  it('contentSize 高度 → 行数（1 起步 6 封顶）', () => {
++    expect(composerLinesFromContentSize(20)).toBe(1)
++    expect(composerLinesFromContentSize(41)).toBe(3)
++    expect(composerLinesFromContentSize(400)).toBe(6)
++    expect(composerLinesFromContentSize(0)).toBe(1)
++  })
++})
+diff --git a/apps/server/src/routes.ts b/apps/server/src/routes.ts
+index fdf1ddc..0b8f462 100644
+--- a/apps/server/src/routes.ts
++++ b/apps/server/src/routes.ts
+@@ -73,6 +73,15 @@ const ListSessionsQuery = z.object({
+   cursor: SessionIdSchema.optional(),
+ })
+ 
++/**
++ * GET /api/sessions/:id 事件分页查询（工单 9.3）：全可选——缺省 = 全量回放（向后兼容红线）。
++ * limit 升序尾部切片（上限 200）；before = seq 游标（只返回 seq < before）。
++ */
++const SessionDetailQuery = z.strictObject({
++  limit: z.coerce.number().int().positive().max(200).optional(),
++  before: z.coerce.number().int().positive().optional(),
++})
++
+ const SendMessageBody = z.strictObject({
+   text: z.string().min(1),
+   delivery: DeliverySchema.default('now'),
+@@ -220,8 +229,19 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts)
+   app.get('/api/sessions/:id', async (req, reply) => {
+     try {
+       const { id } = parseOr400(IdParams, req.params)
++      const query = parseOr400(SessionDetailQuery, req.query)
+       const handle = await requireHandle(engine, id)
+-      return reply.send({ ...toDto(engine, handle.meta), events: handle.events() })
++      // 事件分页（工单 9.3）：before 游标过滤 + limit 升序尾部切片；
++      // 两参缺省 = 现状全量（缺省行为不变红线）
++      let events = handle.events()
++      if (query.before !== undefined) {
++        const before = query.before
++        events = events.filter((e) => e.seq !== undefined && e.seq < before)
++      }
++      if (query.limit !== undefined) {
++        events = events.slice(-query.limit)
++      }
++      return reply.send({ ...toDto(engine, handle.meta), events })
+     } catch (err) {
+       return sendError(req, reply, err)
+     }
+diff --git a/apps/server/tests/routes.test.ts b/apps/server/tests/routes.test.ts
+index 0536a4a..5c5716d 100644
+--- a/apps/server/tests/routes.test.ts
++++ b/apps/server/tests/routes.test.ts
+@@ -211,6 +211,83 @@ describe('GET /api/sessions/:id', () => {
+     const badBody: Json = bad.json()
+     expect(badBody['code']).toBe('E_VALIDATION')
+   })
++
++  // ---- 事件分页（工单 9.3）：缺省全量红线 / limit 尾部切片 / before 游标 / 非法 400 ----
++
++  /** 建一个完整 turn 的会话（5 条 durable：created/user/turn.started/assistant/turn.completed） */
++  async function makePagedSession(f: ServerFixture): Promise<string> {
++    const events = collectEvents(f)
++    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '分页答复' }] })
++    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
++    const id = created.json<Json>()['id'] as string
++    await f.app.inject({
++      method: 'POST',
++      url: `/api/sessions/${id}/messages`,
++      payload: { text: '分页提问' },
++    })
++    await waitFor(() => (events.some((e) => e.type === 'turn.completed') ? true : undefined))
++    return id
++  }
++
++  test('分页缺省参数 = 全量回放回归（红线）', async () => {
++    const f = await setup()
++    const id = await makePagedSession(f)
++    const res = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}` })
++    expect(res.statusCode).toBe(200)
++    const detail: Json = res.json()
++    const events = detail['events'] as Json[]
++    expect(events).toHaveLength(5)
++    expect(events.map((e) => e['seq'])).toEqual([1, 2, 3, 4, 5])
++  })
++
++  test('limit 升序尾部切片', async () => {
++    const f = await setup()
++    const id = await makePagedSession(f)
++    const res = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}?limit=2` })
++    expect(res.statusCode).toBe(200)
++    const events = (res.json<Json>())['events'] as Json[]
++    // 升序不变，取尾部 2 条（分页向上翻 = 较早事件页）
++    expect(events.map((e) => e['seq'])).toEqual([4, 5])
++  })
++
++  test('before 游标（只返回 seq < before）与 limit 组合', async () => {
++    const f = await setup()
++    const id = await makePagedSession(f)
++    const res = await f.app.inject({
++      method: 'GET',
++      url: `/api/sessions/${id}?before=4`,
++    })
++    expect(res.statusCode).toBe(200)
++    const events = (res.json<Json>())['events'] as Json[]
++    expect(events.map((e) => e['seq'])).toEqual([1, 2, 3])
++
++    // 组合：最早一页向前翻 2 条（移动端上拉加载形态）
++    const combo = await f.app.inject({
++      method: 'GET',
++      url: `/api/sessions/${id}?limit=2&before=4`,
++    })
++    expect(combo.statusCode).toBe(200)
++    const comboEvents = (combo.json<Json>())['events'] as Json[]
++    expect(comboEvents.map((e) => e['seq'])).toEqual([2, 3])
++
++    // before 越过最早事件 → 空页（非错误）
++    const empty = await f.app.inject({
++      method: 'GET',
++      url: `/api/sessions/${id}?before=1`,
++    })
++    expect(empty.statusCode).toBe(200)
++    expect((empty.json<Json>())['events']).toEqual([])
++  })
++
++  test('分页参数非法 → 400 E_VALIDATION', async () => {
++    const f = await setup()
++    const id = await makePagedSession(f)
++    for (const qs of ['limit=abc', 'limit=0', 'limit=201', 'before=-1', 'before=xyz']) {
++      const res = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}?${qs}` })
++      expect(res.statusCode).toBe(400)
++      expect((res.json<Json>())['code']).toBe('E_VALIDATION')
++    }
++  })
+ })
+ 
+ describe('POST /api/sessions/:id/messages', () => {
+diff --git a/apps/web/src/transports/mock.ts b/apps/web/src/transports/mock.ts
+index 4dc9845..c56d1c8 100644
+--- a/apps/web/src/transports/mock.ts
++++ b/apps/web/src/transports/mock.ts
+@@ -36,6 +36,7 @@ import type {
+   RequestId,
+   SecretStatusDto,
+   SessionDto,
++  SessionEventsQuery,
+   SessionId,
+   SessionStatus,
+   SearchHitDto,
+@@ -1092,11 +1093,21 @@ export class MockTransport implements Transport {
+   }
+ 
+   /** 接口完整性实现（mock 下 SessionPage 不走全量回放——流式回放即夹具语义） */
+-  getSession(sessionId: SessionId): Promise<SessionDto> {
++  getSession(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto> {
+     this.assertNotDisposed()
+     const fork = this.forkChildren.find((f) => f.dto.id === sessionId)
++    // 分页（工单 9.3）：before 游标过滤 + limit 升序尾部切片；全缺省 = 全量（红线）
++    const page = (events: SparkEventEnvelope[]): SparkEventEnvelope[] => {
++      let out = events
++      if (query?.before !== undefined) {
++        const before = query.before
++        out = out.filter((e) => e.seq !== undefined && e.seq < before)
++      }
++      if (query?.limit !== undefined) out = out.slice(-query.limit)
++      return out
++    }
+     if (fork !== undefined) {
+-      return Promise.resolve({ ...fork.dto, events: fork.events })
++      return Promise.resolve({ ...fork.dto, events: page(fork.events) })
+     }
+     if (sessionId !== this.script.sessionId) {
+       return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+@@ -1104,13 +1115,14 @@ export class MockTransport implements Transport {
+     // 已回放的事件即"当前态"（含 rollbackCheckpoint 截断后的现状）——
+     // 未回放脚本行不上车（mock 会话冷启动走流式回放，不走本全量路径）
+     const durable = this.emitted.filter((e) => e.seq !== undefined)
++    const events = page(durable)
+     const last = durable[durable.length - 1]
+     return Promise.resolve(
+       this.withModelOverride(sessionId, {
+         ...MockTransport.dtoOf(this.script, this.status()),
+         lastSeq: last?.seq ?? 0,
+         updatedAt: last?.time ?? this.script.meta.createdAt,
+-        events: durable,
++        events,
+       }),
+     )
+   }
+diff --git a/doc/02-development-plan.md b/doc/02-development-plan.md
+index fa7a53f..db0836a 100644
+--- a/doc/02-development-plan.md
++++ b/doc/02-development-plan.md
+@@ -73,6 +73,7 @@
+ | v3.24 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七遗留修复指令）                                                           | **阶段七遗留——环境兼容性修复四处**（本机无真实 bash、慢盘、并行负载下复现，CI ubuntu 不受影响）：① bash 工具 `resolveShell` 重写——`where bash` 列候选逐个以 `-c "exit 0"` 探测（原实现只探测存在性：System32 WSL 别名 stub 无发行版时任何命令都非零退出），System32/WindowsApps 路径一律跳过，探测结果进程内缓存，无真实 bash 回落 powershell（§5.6.3 跨平台规则行同步）；② 内置工具单测 bash 组命令改 `node -e` 可移植表达（原 `sleep`/`>&2` 为 bash 方言，powershell 回落路径不可用；退出码用例显式 `exit 3`——powershell -Command 不传播内部原生命令退出码）；③ SearchStore 开 WAL + synchronous=NORMAL（索引是派生缓存，JSONL 恒为权威，逐条 upsert 免每次 fsync——修慢盘上千事件入库拖过 vitest 5s 上限）；另：Windows 树杀宽限 5s→1s（两次 taskkill 均 /F 强杀，首杀早于子进程派生时补杀兼做孤儿收尾）；④ server search-routes 测试竞态修复——断言命中行 sessionTitle 前先等 session.title 事件（自动标题是 turn 完成后异步生成，负载下未落索引即查得空串）；全仓 typecheck/lint/test 全绿 |
+ | v3.25 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段九开工指令） | **阶段九工单 9.1 配对鉴权完成（ADR D24）**：server——`pairing.ts`（DeviceStore：~/.spark/devices.json 0600 原子写，存在即鉴权启用态；PairService：6 位短码 60s 一次性、长效 token `spk_` 前缀只存 sha256 哈希）+ `auth.ts`（REST Bearer 头与 SSE `?token=` 双口径校验钩子，豁免 /api/healthz 与兑换口，未过 401 `E_AUTH` fail-closed）+ `pairing-routes.ts` 四端点 + 启动护栏纯函数 `resolveBindTarget`（SPARK_HOST 仅环回覆盖；非环回须 spark.json server.host 显式配置且鉴权已启用，否则拒启动——绑定纪律可测化）+ sse 撤销即断（`sseRevokeToken`）；protocol——`Transport.redeemPair` + transport-node `authToken` 双口径注入 + `splitSseFrames` 切帧纯函数抽出（9.4 小程序复用）；web——设置中心「设备与配对」页（QR 出示 + 手输 6 位码兜底 + 撤销即断）+ MockTransport 对等；测试：新增配对路由/护栏/兑换单测（server 85 例）+ protocol pairing-transport 11 例（切帧/authToken 双口径/兑换 round-trip），全仓 814 例（engine 486/server 85/web 159/protocol 68/cli 16），三关全绿；§4.5 API 表四行 + §7.2 要点表 + §7.4 错误表三行登记；§8 阶段九 9.1 勾选（引用修正 §13.J.9→§13.J.2.9）；新依赖 qrcode（MIT，QR 生成） |
+ | v3.26 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段九开工指令） | **阶段九工单 9.1 三维评审修复（F1–F7）**：F1 百分号编码路径绕过——鉴权拒绝判定自 `onRequest` 原始 `req.url` 前缀判断移至 `preHandler` 基于路由器解码后匹配模式 `req.routeOptions.url`（token 登记仍留 `onRequest`；未匹配路由 = 静态 404 兜底豁免），补四个编码变体回归用例；F2 配对码暴力穷举——`PairService` 连续 5 次失败即作废在途码（`PAIR_CODE_MAX_FAILURES`），成功兑换/新签发复位计数；F3 日志脱敏——pino 自定义 `serializers.req` 掩码 `?token=` 值（`redactTokenQuery` 纯函数可测）；F4 文档勘误——§4.5/§7.2/§7.4 `E_PAIR_DISABLED` 归因修正（仅兑换端点出现，签发即启用）+ `server.host/port` 自 9.1 起入口实际消费、`SPARK_HOST` 仅环回覆盖口径同步；F5 PairCodeDialog 代际标志防关闭后在途回调写状态竞态；F6 `splitSseFrames` 切帧前归一化 `\r\n`→`\n`（9.4 小程序复用契约，补 CRLF 用例）；F7 `new DeviceStore(...)` 纳入入口同 `resolveBindTarget` 的 try/catch 人话退出（`E_CONFIG: …` + exit 1） |
++| v3.27 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段九开工指令） | **阶段九工单 9.3 移动端会话体验（流式/审批/重连/分页/键盘避让）**：协议先行唯一服务端追加——`SessionEventsQuerySchema`（`?limit=&before=` 全可选：limit 正整数上限 200、缺省=全量；before=seq 游标，返回 seq < before 升序——"缺省参数=现状全量"红线不破）+ `Transport.getSession(id, query?)` 无参兼容 + transport-node HttpTransport 与 web MockTransport 三处同步（过滤+升序尾部切片）+ server `GET /api/sessions/:id` 消费查询参数（缺省全量回归/4 例路由单测）；apps/mobile 会话页落地（§13.J.2.3/J.3）——消息流投影（user 右对齐浅灰胶囊/assistant 全宽纯文本+复制+"内容由 AI 生成"标注/相邻 >30min 时间戳分隔）+ `RnSessionEventSource` 流式渐显 + 回到底部浮钮 + 工具卡/思考块折叠 + 审批卡三键纵向全宽（走 `replyPermission`）+ 中断停止钮 + 断线重连条（onStatus 人话文案）+ 下拉加载历史（向上翻页升序合并增量投影保持滚动位置）+ KeyboardAvoidingView/安全区 + Composer 多行自增胶囊；错误文案一律 ERROR_COPY/errorMessageOf；Maestro 四幕 YAML 入库（只入库不执行）；§4.5 API 表同步 |
+ 
+ > 依据：`01-research-report.md` 六大项目源码级调研结论。
+ > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
+@@ -469,7 +470,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
+ | ---- | --------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
+ | POST | /api/sessions               | `{ title?, model?, cwd? }`                           | SessionDto                                           |
+ | GET  | /api/sessions               | `?limit&cursor&q`（q=标题子串过滤，工单 4.8）        | SessionDto[]                                         |
+-| GET  | /api/sessions/:id           | —                                                    | SessionDto（含 `events: SparkEvent[]` durable 回放） |
++| GET  | /api/sessions/:id           | `?limit&before`（均可省；缺省=全量回放红线；before=seq 游标返回 seq < before 升序、limit 缺省全量上限 200——工单 9.3 移动端向上翻页） | SessionDto（含 `events: SparkEvent[]` durable 回放） |
+ | POST | /api/sessions/:id/messages  | `{ text, delivery? }`                                | `{ result:'started'\|'steered'\|'queued', turnId? }` |
+ | POST | /api/sessions/:id/interrupt | —                                                    | `{ ok:true }`                                        |
+ | POST | /api/sessions/:id/compact   | —                                                    | `{ ok:true }`（turn 进行中 → 409 `E_TURN_ACTIVE`）    |
+diff --git a/packages/protocol/src/api.ts b/packages/protocol/src/api.ts
+index 9543ed4..3f50f3e 100644
+--- a/packages/protocol/src/api.ts
++++ b/packages/protocol/src/api.ts
+@@ -26,6 +26,17 @@ export interface SessionDto extends SessionMetaDto {
+   events?: SparkEventEnvelope[]
+ }
+ 
++/**
++ * GET /api/sessions/:id 事件分页查询（阶段九工单 9.3——移动端上拉加载历史）。
++ * 全可选——缺省参数 = 现状全量回放（向后兼容红线）：
++ * limit = 返回条数上限（升序尾部切片，上限 200）；before = seq 游标（只返回 seq < before 的事件）。
++ */
++export const SessionEventsQuerySchema = z.strictObject({
++  limit: z.number().int().positive().max(200).optional(),
++  before: z.number().int().positive().optional(),
++})
++export type SessionEventsQuery = z.infer<typeof SessionEventsQuerySchema>
++
+ /** POST /:id/messages 响应：三态直通（HTTP 只表达"已受理"，不等 turn 结果） */
+ export interface SubmitResult {
+   result: 'started' | 'steered' | 'queued'
+diff --git a/packages/protocol/src/transport-node.ts b/packages/protocol/src/transport-node.ts
+index a98e810..9e8cd25 100644
+--- a/packages/protocol/src/transport-node.ts
++++ b/packages/protocol/src/transport-node.ts
+@@ -34,6 +34,7 @@ import type {
+   SecretStatusDto,
+   SearchHitDto,
+   SessionDto,
++  SessionEventsQuery,
+   SkillDto,
+   TreeNodeDto,
+ } from './api.js'
+@@ -278,8 +279,17 @@ export class HttpTransport implements Transport {
+     }).then(() => undefined)
+   }
+ 
+-  async getSession(sessionId: SessionId): Promise<SessionDto> {
+-    const dto = await this.req<SessionDto>(`/api/sessions/${sessionId}`)
++  async getSession(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto> {
++    // 分页参数全缺省 = 不带查询串（缺省全量红线，与无参调用完全同形）
++    const params = new URLSearchParams()
++    if (query !== undefined) {
++      if (query.limit !== undefined) params.set('limit', String(query.limit))
++      if (query.before !== undefined) params.set('before', String(query.before))
++    }
++    const qs = params.toString()
++    const dto = await this.req<SessionDto>(
++      `/api/sessions/${sessionId}${qs !== '' ? `?${qs}` : ''}`,
++    )
+     this.noteOpenSession(sessionId)
+     return dto
+   }
+diff --git a/packages/protocol/src/transport.ts b/packages/protocol/src/transport.ts
+index 759fff6..76b2fca 100644
+--- a/packages/protocol/src/transport.ts
++++ b/packages/protocol/src/transport.ts
+@@ -29,6 +29,7 @@ import type {
+   SearchHitDto,
+   SecretStatusDto,
+   SessionDto,
++  SessionEventsQuery,
+   SkillDto,
+   TreeNodeDto,
+ } from './api.js'
+@@ -54,8 +55,11 @@ export interface Transport {
+   /** 手动压缩（doc/02 §5.8.5）：触发 compaction.* 事件对（SSE 推送；turn 进行中拒绝） */
+   compact(sessionId: SessionId): Promise<void>
+   replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void>
+-  /** GET /api/sessions/:id：meta + 全部 durable 事件（seq 升序——冷启动回放数据源） */
+-  getSession(sessionId: SessionId): Promise<SessionDto>
++  /**
++   * GET /api/sessions/:id：meta + durable 事件（seq 升序——冷启动回放数据源）。
++   * query 分页（工单 9.3）：limit 升序尾部切片 / before=seq 游标；无参 = 全量（向后兼容）。
++   */
++  getSession(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto>
+   listSessions(): Promise<SessionDto[]>
+   /** 新建会话（model 为 "provider/model"；缺省 = 引擎 defaultModel） */
+   createSession(opts?: { title?: string; model?: string }): Promise<SessionDto>
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 2e71752..620b589 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -102,6 +102,9 @@ importers:
+       expo:
+         specifier: ~57.0.18
+         version: 57.0.18(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(react-dom@19.2.8(react@19.2.3))(react-native-worklets@0.12.1(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
++      expo-clipboard:
++        specifier: ~57.0.1
++        version: 57.0.1(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+       expo-linking:
+         specifier: ~57.0.8
+         version: 57.0.8(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+@@ -4032,6 +4035,13 @@ packages:
+       react: '*'
+       react-native: '*'
+ 
++  expo-clipboard@57.0.1:
++    resolution: {integrity: sha512-HWICri4+1ao7S6QEfcorxVumXDiDnx1guGGewjZgGJWLGxFYs0RgH8ujBs+lkTzBkMmlwADaWSlaesR+nDJt5Q==}
++    peerDependencies:
++      expo: '*'
++      react: '*'
++      react-native: '*'
++
+   expo-constants@57.0.16:
+     resolution: {integrity: sha512-HG3yJjGZo2BPTo2F1sBoxdJZRwX7d9C554EhKn8m12K62pxGolCsvPSoh/lQf95OEP9vO34wwXB2C3QFs0KG0g==}
+     peerDependencies:
+@@ -11830,6 +11840,12 @@ snapshots:
+       - supports-color
+       - typescript
+ 
++  expo-clipboard@57.0.1(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3):
++    dependencies:
++      expo: 57.0.18(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(react-dom@19.2.8(react@19.2.3))(react-native-worklets@0.12.1(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
++      react: 19.2.3
++      react-native: 0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3)
++
+   expo-constants@57.0.16(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3)):
+     dependencies:
+       '@expo/env': 2.4.3

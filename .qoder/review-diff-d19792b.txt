@@ -1,0 +1,1760 @@
+commit d19792b02df15cc62defe225b39c29be5815e7cb
+Author: Wanfeng1028 <dingyu_1028@163.com>
+Date:   Sun Aug 30 03:38:30 2026 +0800
+
+    feat(stage9): 工单 9.2——apps/mobile Expo 骨架（传输适配+主题+三屏导航）
+    
+    新建 @spark/mobile（Expo SDK 57 + React Native 0.86.3，ADR D20 移动端）：
+    - 传输适配层：REST 直接复用协议包 HttpTransport（authToken 双口径）；
+      会话级流 RnSessionEventSource 基于 react-native-sse（RN fetch 无流式响应体、
+      iOS XHR onprogress 增量不可靠），退避重连复用 DEFAULT_BACKOFF_MS 语义
+      （1/2/5/10s 封顶）、since 水位续播、?token= 注入、401/403 经 onError
+      上抛走 ERROR_COPY 人话化；配置存 expo-secure-store（token 加密）。
+    - Store：zustand + applyEvent 镜像 apps/cli 投影语义；事件入队
+      requestAnimationFrame 批处理（参照 web context.tsx 模式）。
+    - 主题：DESIGN §13.C token 表 1:1 亮/暗两套，亮色默认、跟随系统；
+      底色 #F7F7F7 + 白卡 radius 16 无边框无阴影（J.0）、elevation 单档。
+    - 三屏+导航（§13.J 数值）：单栈+抽屉、无 tab bar；会话列表（下拉刷新、
+      今天/更早分组、状态点 8px、行高 52、FAB 56）；会话页骨架壳；
+      设置页（服务器+token 配置、外观三档、断开连接、配对确认卡）；
+      spark://pair 深链解析纯函数（冷启动+运行期双路径）。
+    - Jest 首批 29 用例：applyEvent 投影快照与 durable 去重、主题
+      亮/暗 token 断言、配对深链合法/非法/缺参。
+    - 根管线：eslint 对 Metro/Babel CJS 配置加针对性 overrides（不装新插件）；
+      pnpm typecheck/lint/test 三关全绿，pnpm -r scope 含 @spark/mobile。
+    - 协议导出面核验：splitSseFrames/envelopeFromSseFrame/DEFAULT_BACKOFF_MS/
+      applyEvent/ERROR_COPY 均已从包入口导出，无需补齐。
+    
+    新依赖许可证清单（ADR D23，均 MIT/Apache 类）：
+    - expo ~57.0.18 / jest-expo ~57.0.5 / expo-linking / expo-secure-store /
+      expo-status-bar / babel-preset-expo / @expo/vector-icons — MIT
+    - react-native 0.86.3 / react-native-gesture-handler /
+      react-native-reanimated / react-native-safe-area-context /
+      react-native-screens — MIT
+    - @react-navigation/{drawer,native,native-stack} v7 — MIT
+    - react-native-sse ^1.2.1 — MIT
+    - zustand ^5.0.15（仓库既有选择）— MIT
+
+diff --git a/apps/mobile/src/components/ui.tsx b/apps/mobile/src/components/ui.tsx
+new file mode 100644
+index 0000000..5ddde12
+--- /dev/null
++++ b/apps/mobile/src/components/ui.tsx
+@@ -0,0 +1,199 @@
++/**
++ * 共享 UI 原语（DESIGN §13.J.3 控件规格表）：
++ * 白卡 radius 16 无边框无阴影、分组行 56 hairline、浮动圆钮 44 白底单档阴影、
++ * 页头居中标题 17 semibold + 左浮动圆钮（J.1）。禁多层阴影（§13.I）——elevation 单档。
++ */
++import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
++import type { StyleProp, ViewStyle } from 'react-native'
++import type { ComponentProps, ReactNode } from 'react'
++import { Feather } from '@expo/vector-icons'
++import { useSafeAreaInsets } from 'react-native-safe-area-context'
++import { useTheme } from '../theme/use-theme'
++import { darkTheme, mobileMetrics } from '../theme/tokens'
++
++export type FeatherIconName = ComponentProps<typeof Feather>['name']
++
++/** 白卡（J.3：radius 16、无边框无阴影、内边距 16；暗色用 card token） */
++export function Card({
++  children,
++  style,
++}: {
++  children: ReactNode
++  style?: StyleProp<ViewStyle>
++}) {
++  const t = useTheme()
++  return (
++    <View style={[styles.card, { backgroundColor: t.card }, style]}>{children}</View>
++  )
++}
++
++/** 分组行（J.3：高 56；行间 hairline 由父级按位控） */
++export function Row({
++  children,
++  onPress,
++  height = mobileMetrics.rowHeight,
++}: {
++  children: ReactNode
++  onPress?: () => void
++  height?: number
++}) {
++  const inner = (
++    <View style={[styles.row, { height }]}>{children}</View>
++  )
++  if (onPress === undefined) return inner
++  return (
++    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
++      {inner}
++    </TouchableOpacity>
++  )
++}
++
++/** 行内 hairline 分隔（缩进对齐文案，J.0） */
++export function Hairline({ inset = 0 }: { inset?: number }) {
++  const t = useTheme()
++  return (
++    <View
++      style={[
++        styles.hairline,
++        { backgroundColor: t.border, marginLeft: inset },
++      ]}
++    />
++  )
++}
++
++/** 浮动圆形钮（J.3：44 白底、图标 20、单档阴影；页头左钮/返回钮共用） */
++export function RoundFloatButton({
++  icon,
++  onPress,
++  label,
++}: {
++  icon: FeatherIconName
++  onPress: () => void
++  /** 无障碍标签 */
++  label: string
++}) {
++  const t = useTheme()
++  return (
++    <TouchableOpacity
++      accessibilityRole="button"
++      accessibilityLabel={label}
++      onPress={onPress}
++      activeOpacity={0.7}
++      style={[
++        styles.floatButton,
++        { backgroundColor: t.card },
++        floatShadow(),
++      ]}
++    >
++      <Feather name={icon} size={20} color={t.foreground} />
++    </TouchableOpacity>
++  )
++}
++
++/** 页头（J.1）：居中标题 17 semibold + 左浮动圆钮；避让顶部安全区 */
++export function ScreenHeader({
++  title,
++  leftIcon,
++  onLeftPress,
++  leftLabel,
++}: {
++  title: string
++  leftIcon: FeatherIconName
++  onLeftPress: () => void
++  leftLabel: string
++}) {
++  const t = useTheme()
++  const insets = useSafeAreaInsets()
++  return (
++    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
++      <View style={styles.headerFloat}>
++        <RoundFloatButton icon={leftIcon} onPress={onLeftPress} label={leftLabel} />
++      </View>
++      <Text
++        numberOfLines={1}
++        style={[styles.headerTitle, { color: t.foreground }]}
++      >
++        {title}
++      </Text>
++    </View>
++  )
++}
++
++/** 空态（J.4：居中两行式纯排版，禁插画填充） */
++export function EmptyState({ title, detail }: { title: string; detail: string }) {
++  const t = useTheme()
++  return (
++    <View style={styles.empty}>
++      <Text style={[styles.emptyTitle, { color: t.foreground }]}>{title}</Text>
++      <Text style={[styles.emptyDetail, { color: t.mutedForeground }]}>{detail}</Text>
++    </View>
++  )
++}
++
++/** 单档 subtle shadow（§13.I：禁多层阴影——仅此一档，浮钮/菜单共用） */
++const subtleShadow: StyleProp<ViewStyle> = {
++  elevation: 2,
++  shadowColor: '#000000',
++  shadowOpacity: 0.08,
++  shadowRadius: 4,
++  shadowOffset: { width: 0, height: 1 },
++}
++
++function floatShadow(): StyleProp<ViewStyle> {
++  // 暗色：不叠阴影层次，靠卡底色差分层（J.0 同律）
++  return useTheme() === darkTheme ? undefined : subtleShadow
++}
++
++const styles = StyleSheet.create({
++  card: {
++    borderRadius: mobileMetrics.cardRadius,
++    padding: mobileMetrics.cardPadding,
++    overflow: 'hidden',
++  },
++  row: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    paddingHorizontal: 16,
++  },
++  hairline: {
++    height: StyleSheet.hairlineWidth,
++  },
++  floatButton: {
++    width: mobileMetrics.floatButtonSize,
++    height: mobileMetrics.floatButtonSize,
++    borderRadius: mobileMetrics.floatButtonSize / 2,
++    alignItems: 'center',
++    justifyContent: 'center',
++  },
++  header: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    paddingHorizontal: 16,
++    paddingBottom: 12,
++  },
++  headerFloat: {
++    position: 'absolute',
++    left: 16,
++    bottom: 8,
++  },
++  headerTitle: {
++    flex: 1,
++    textAlign: 'center',
++    fontSize: mobileMetrics.headerTitle,
++    fontWeight: '600',
++  },
++  empty: {
++    flex: 1,
++    alignItems: 'center',
++    justifyContent: 'center',
++    paddingHorizontal: 32,
++    gap: 4,
++  },
++  emptyTitle: {
++    fontSize: mobileMetrics.headerTitle,
++    fontWeight: '600',
++  },
++  emptyDetail: {
++    fontSize: mobileMetrics.caption,
++  },
++})
+diff --git a/apps/mobile/src/navigation/AppNavigator.tsx b/apps/mobile/src/navigation/AppNavigator.tsx
+new file mode 100644
+index 0000000..0a803de
+--- /dev/null
++++ b/apps/mobile/src/navigation/AppNavigator.tsx
+@@ -0,0 +1,134 @@
++/**
++ * 根导航（DESIGN §13.J.1）：无 tab bar、单栈+抽屉。
++ * 抽屉=会话（嵌套 native-stack：列表→会话页）/ 设置；页头一律自绘（ScreenHeader），
++ * 导航库页头关闭。抽屉内容自绘（J.1 入口：会话/设置/配对——配对入口落设置页）。
++ */
++import { Text, TouchableOpacity, View, StyleSheet } from 'react-native'
++import { createDrawerNavigator } from '@react-navigation/drawer'
++import { createNativeStackNavigator } from '@react-navigation/native-stack'
++import { useSafeAreaInsets } from 'react-native-safe-area-context'
++import type { DrawerContentComponentProps } from '@react-navigation/drawer'
++import { SessionsScreen } from '../screens/SessionsScreen'
++import { SessionScreen } from '../screens/SessionScreen'
++import { SettingsScreen } from '../screens/SettingsScreen'
++import { useTheme } from '../theme/use-theme'
++import { darkTheme, mobileMetrics } from '../theme/tokens'
++import type { DrawerParamList, SessionsStackParamList } from './params'
++
++const Drawer = createDrawerNavigator<DrawerParamList>()
++const SessionsStack = createNativeStackNavigator<SessionsStackParamList>()
++
++function SessionsNavigator() {
++  return (
++    <SessionsStack.Navigator screenOptions={{ headerShown: false }}>
++      <SessionsStack.Screen name="SessionList" component={SessionsScreen} />
++      <SessionsStack.Screen name="Session" component={SessionScreen} />
++    </SessionsStack.Navigator>
++  )
++}
++
++/** 抽屉内容（自绘）：两行入口 + 底部配对说明；选中态 = muted 底（§13.C 侧栏选中同构） */
++function SparkDrawerContent({ navigation, state }: DrawerContentComponentProps) {
++  const t = useTheme()
++  const insets = useSafeAreaInsets()
++  const items: ReadonlyArray<{ key: keyof DrawerParamList; label: string }> = [
++    { key: 'Sessions', label: '全部会话' },
++    { key: 'Settings', label: '设置' },
++  ]
++  const activeKey = items[state.index]?.key ?? 'Sessions'
++
++  return (
++    <View
++      style={[
++        styles.drawer,
++        {
++          backgroundColor: t.card,
++          paddingTop: insets.top + 16,
++          paddingBottom: insets.bottom + 16,
++        },
++      ]}
++    >
++      <Text style={[styles.brand, { color: t.foreground }]}>Spark</Text>
++      <View style={styles.menu}>
++        {items.map((item) => {
++          const active = item.key === activeKey
++          return (
++            <TouchableOpacity
++              key={item.key}
++              accessibilityRole="button"
++              onPress={() => navigation.navigate(item.key)}
++              activeOpacity={0.7}
++              style={[styles.menuItem, active ? { backgroundColor: t.muted } : null]}
++            >
++              <Text
++                style={[
++                  styles.menuItemText,
++                  { color: active ? t.foreground : t.mutedForeground },
++                ]}
++              >
++                {item.label}
++              </Text>
++            </TouchableOpacity>
++          )
++        })}
++      </View>
++      <Text style={[styles.drawerFoot, { color: t.mutedForeground }]}>
++        配对与设备管理在设置页
++      </Text>
++    </View>
++  )
++}
++
++export function AppNavigator() {
++  const t = useTheme()
++  return (
++    <Drawer.Navigator
++      drawerContent={(props) => <SparkDrawerContent {...props} />}
++      screenOptions={{
++        headerShown: false,
++        drawerType: 'front',
++        drawerStyle: {
++          width: 280,
++          backgroundColor: t.card,
++          // §13.I：禁多层阴影——抽屉边缘单档，暗色不加
++          ...(t === darkTheme ? {} : { elevation: 2 }),
++        },
++        overlayColor: 'rgba(0,0,0,0.3)',
++        swipeEdgeWidth: 24,
++      }}
++    >
++      <Drawer.Screen name="Sessions" component={SessionsNavigator} />
++      <Drawer.Screen name="Settings" component={SettingsScreen} />
++    </Drawer.Navigator>
++  )
++}
++
++const styles = StyleSheet.create({
++  drawer: {
++    flex: 1,
++    paddingHorizontal: 12,
++  },
++  brand: {
++    fontSize: 20,
++    fontWeight: '600',
++    paddingHorizontal: 12,
++    marginBottom: 16,
++  },
++  menu: {
++    gap: 4,
++  },
++  menuItem: {
++    height: mobileMetrics.rowHeight - 8,
++    borderRadius: 8,
++    justifyContent: 'center',
++    paddingHorizontal: 12,
++  },
++  menuItemText: {
++    fontSize: mobileMetrics.rowTitle,
++  },
++  drawerFoot: {
++    marginTop: 'auto',
++    fontSize: mobileMetrics.caption,
++    paddingHorizontal: 12,
++  },
++})
+diff --git a/apps/mobile/src/navigation/params.ts b/apps/mobile/src/navigation/params.ts
+new file mode 100644
+index 0000000..aea9d5f
+--- /dev/null
++++ b/apps/mobile/src/navigation/params.ts
+@@ -0,0 +1,14 @@
++/** 导航参数类型（单栈+抽屉，无 tab bar——J.1）：根抽屉两页 + 会话栈两屏 */
++import type { NavigatorScreenParams } from '@react-navigation/native'
++
++/** 会话栈：列表 → 会话页 */
++export type SessionsStackParamList = {
++  SessionList: undefined
++  Session: { sessionId: string; title: string }
++}
++
++/** 根抽屉：会话（嵌套栈）/ 设置 */
++export type DrawerParamList = {
++  Sessions: NavigatorScreenParams<SessionsStackParamList> | undefined
++  Settings: undefined
++}
+diff --git a/apps/mobile/src/screens/SessionScreen.tsx b/apps/mobile/src/screens/SessionScreen.tsx
+new file mode 100644
+index 0000000..9b05d63
+--- /dev/null
++++ b/apps/mobile/src/screens/SessionScreen.tsx
+@@ -0,0 +1,46 @@
++/**
++ * 会话页（骨架壳——工单 9.2：占位消息流区域，内容工单 9.3 填）。
++ * 页头带返回圆钮（J.1）；标题 17 semibold；空态两行式纯排版（J.4）。
++ */
++import { StyleSheet, View } from 'react-native'
++import { useNavigation, useRoute } from '@react-navigation/native'
++import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
++import type { RouteProp } from '@react-navigation/native'
++import { useTheme } from '../theme/use-theme'
++import { EmptyState, ScreenHeader } from '../components/ui'
++import type { SessionsStackParamList } from '../navigation/params'
++
++export function SessionScreen() {
++  const t = useTheme()
++  const navigation = useNavigation<NativeStackNavigationProp<SessionsStackParamList>>()
++  const route = useRoute<RouteProp<SessionsStackParamList, 'Session'>>()
++  const { sessionId, title } = route.params
++
++  return (
++    <View style={[styles.screen, { backgroundColor: t.pageBackground }]}>
++      <ScreenHeader
++        title={title !== '' ? title : '新会话'}
++        leftIcon="chevron-left"
++        leftLabel="返回会话列表"
++        onLeftPress={() => navigation.goBack()}
++      />
++      {/* 消息流占位区（工单 9.3：投影渲染 user 胶囊 / assistant 全宽纯文本 / 工具卡） */}
++      <View style={styles.stream} accessibilityLabel={`会话 ${sessionId} 消息流占位`}>
++        <EmptyState
++          title="消息流建设中"
++          detail="会话内容将在下一工单接入，当前仅提供骨架"
++        />
++      </View>
++    </View>
++  )
++}
++
++const styles = StyleSheet.create({
++  screen: {
++    flex: 1,
++  },
++  stream: {
++    flex: 1,
++    paddingHorizontal: 16,
++  },
++})
+diff --git a/apps/mobile/src/screens/SessionsScreen.tsx b/apps/mobile/src/screens/SessionsScreen.tsx
+new file mode 100644
+index 0000000..ad36a46
+--- /dev/null
++++ b/apps/mobile/src/screens/SessionsScreen.tsx
+@@ -0,0 +1,269 @@
++/**
++ * 会话列表屏（DESIGN §13.J.2.2）：下拉刷新（transport.listSessions()）、
++ * 时间分组（今天/更早）、行=状态点 8px+标题 16 单行截断+右侧日期 13 meta、
++ * 行高 52、右下 FAB 56 accent 白"+"。列表快照纪律同 cli（AGENTS §2.7）：
++ * 刷新/聚焦时刻 REST 快照，不轮询。
++ */
++import { useCallback, useEffect, useMemo, useState } from 'react'
++import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
++import { Feather } from '@expo/vector-icons'
++import { useNavigation } from '@react-navigation/native'
++import type { DrawerNavigationProp } from '@react-navigation/drawer'
++import type { SessionDto, SessionStatus } from '@spark/protocol'
++import { errorMessageOf } from '@spark/protocol'
++import { useAppStore } from '../store/app-store'
++import { useConfigStore } from '../store/config-store'
++import { getHttpTransport } from '../transport/runtime'
++import { useTheme } from '../theme/use-theme'
++import type { ThemeTokens } from '../theme/tokens'
++import { mobileMetrics } from '../theme/tokens'
++import { Card, EmptyState, Hairline, ScreenHeader } from '../components/ui'
++import type { DrawerParamList } from '../navigation/params'
++
++/** 状态点配色（J.2.2：绿空闲/accent 运行/amber 待审批；灰=完成态 v2 归档预留） */
++function dotColor(status: SessionStatus, t: ThemeTokens): string {
++  switch (status) {
++    case 'running':
++      return t.sparkAccent
++    case 'waiting-approval':
++      return t.sparkWarn
++    case 'idle':
++      return t.sparkOk
++  }
++}
++
++function isToday(ts: number): boolean {
++  const d = new Date(ts)
++  const now = new Date()
++  return (
++    d.getFullYear() === now.getFullYear() &&
++    d.getMonth() === now.getMonth() &&
++    d.getDate() === now.getDate()
++  )
++}
++
++/** 右侧日期 13 meta：今天=时分，更早=月/日 */
++function fmtDate(ts: number): string {
++  const d = new Date(ts)
++  if (isToday(ts)) {
++    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
++  }
++  return `${d.getMonth() + 1}/${d.getDate()}`
++}
++
++type Section = { key: 'today' | 'earlier'; title: string; items: SessionDto[] }
++
++export function SessionsScreen() {
++  const t = useTheme()
++  const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>()
++  const sessions = useAppStore((s) => s.sessions)
++  const setSessions = useAppStore((s) => s.setSessions)
++  const setActiveSession = useAppStore((s) => s.setActiveSession)
++  const setNotice = useAppStore((s) => s.setNotice)
++  const serverUrl = useConfigStore((s) => s.serverUrl)
++  const token = useConfigStore((s) => s.token)
++  const [refreshing, setRefreshing] = useState(false)
++
++  const refresh = useCallback(async (): Promise<void> => {
++    const transport = getHttpTransport(serverUrl, token)
++    if (transport === null) {
++      setNotice('未配置服务器：请先在设置页完成配对')
++      return
++    }
++    try {
++      setSessions(await transport.listSessions())
++      setNotice(null)
++    } catch (err: unknown) {
++      // 失败闭合：列表失败如实提示，保留旧快照（不拿空列表冒充）
++      setNotice(errorMessageOf(err))
++    }
++  }, [serverUrl, token, setSessions, setNotice])
++
++  useEffect(() => {
++    setRefreshing(true)
++    void refresh().finally(() => setRefreshing(false))
++  }, [refresh])
++
++  const sections = useMemo<Section[]>(() => {
++    const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)
++    const today = sorted.filter((s) => isToday(s.updatedAt))
++    const earlier = sorted.filter((s) => !isToday(s.updatedAt))
++    const out: Section[] = []
++    if (today.length > 0) out.push({ key: 'today', title: '今天', items: today })
++    if (earlier.length > 0) out.push({ key: 'earlier', title: '更早', items: earlier })
++    return out
++  }, [sessions])
++
++  const onCreate = useCallback((): void => {
++    const transport = getHttpTransport(serverUrl, token)
++    if (transport === null) {
++      setNotice('未配置服务器：请先在设置页完成配对')
++      return
++    }
++    void transport
++      .createSession()
++      .then((dto) => {
++        setActiveSession(dto.id)
++        navigation.navigate('Sessions', {
++          screen: 'Session',
++          params: { sessionId: dto.id, title: dto.title },
++        })
++      })
++      .catch((err: unknown) => setNotice(errorMessageOf(err)))
++  }, [serverUrl, token, navigation, setActiveSession, setNotice])
++
++  const openSession = useCallback(
++    (dto: SessionDto): void => {
++      setActiveSession(dto.id)
++      navigation.navigate('Sessions', {
++        screen: 'Session',
++        params: { sessionId: dto.id, title: dto.title },
++      })
++    },
++    [navigation, setActiveSession],
++  )
++
++  return (
++    <View style={[styles.screen, { backgroundColor: t.pageBackground }]}>
++      <ScreenHeader
++        title="全部会话"
++        leftIcon="menu"
++        leftLabel="打开抽屉"
++        onLeftPress={() => navigation.openDrawer()}
++      />
++      {sections.length === 0 && !refreshing ? (
++        <EmptyState
++          title="暂无会话"
++          detail={
++            serverUrl === ''
++              ? '先在设置页完成配对，再从右下角新建'
++              : '下拉刷新，或从右下角新建会话'
++          }
++        />
++      ) : (
++        <FlatList
++          style={styles.list}
++          contentContainerStyle={styles.listContent}
++          refreshControl={
++            <RefreshControl
++              refreshing={refreshing}
++              onRefresh={() => {
++                setRefreshing(true)
++                void refresh().finally(() => setRefreshing(false))
++              }}
++              tintColor={t.mutedForeground}
++            />
++          }
++          data={sections}
++          keyExtractor={(s) => s.key}
++          renderItem={({ item: section }) => (
++            <View style={styles.section}>
++              <Text style={[styles.sectionTitle, { color: t.mutedForeground }]}>
++                {section.title}
++              </Text>
++              <Card style={styles.sectionCard}>
++                {section.items.map((dto, i) => (
++                  <View key={dto.id}>
++                    {i > 0 ? <Hairline inset={32} /> : null}
++                    <SessionRow dto={dto} onPress={() => openSession(dto)} theme={t} />
++                  </View>
++                ))}
++              </Card>
++            </View>
++          )}
++        />
++      )}
++      <TouchableOpacity
++        accessibilityRole="button"
++        accessibilityLabel="新建会话"
++        onPress={onCreate}
++        activeOpacity={0.85}
++        style={[styles.fab, { backgroundColor: t.sparkAccent }]}
++      >
++        <Feather name="plus" size={24} color="#ffffff" />
++      </TouchableOpacity>
++    </View>
++  )
++}
++
++function SessionRow({
++  dto,
++  onPress,
++  theme: t,
++}: {
++  dto: SessionDto
++  onPress: () => void
++  theme: ThemeTokens
++}) {
++  return (
++    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
++      <View style={[styles.row, { height: mobileMetrics.sessionRowHeight }]}>
++        <View style={[styles.dot, { backgroundColor: dotColor(dto.status, t) }]} />
++        <Text
++          numberOfLines={1}
++          style={[styles.rowTitle, { color: t.foreground }]}
++        >
++          {dto.title !== '' ? dto.title : '新会话'}
++        </Text>
++        <Text style={[styles.rowDate, { color: t.mutedForeground }]}>
++          {fmtDate(dto.updatedAt)}
++        </Text>
++      </View>
++    </TouchableOpacity>
++  )
++}
++
++const styles = StyleSheet.create({
++  screen: {
++    flex: 1,
++  },
++  list: {
++    flex: 1,
++  },
++  listContent: {
++    paddingHorizontal: 16,
++    paddingBottom: 96,
++  },
++  section: {
++    marginBottom: mobileMetrics.cardGap,
++  },
++  sectionTitle: {
++    fontSize: mobileMetrics.caption,
++    marginBottom: 8,
++    marginLeft: 4,
++  },
++  sectionCard: {
++    paddingVertical: 0,
++    paddingHorizontal: 0,
++  },
++  row: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    paddingHorizontal: 16,
++  },
++  dot: {
++    width: mobileMetrics.statusDot,
++    height: mobileMetrics.statusDot,
++    borderRadius: mobileMetrics.statusDot / 2,
++    marginRight: 12,
++  },
++  rowTitle: {
++    flex: 1,
++    fontSize: mobileMetrics.rowTitle,
++  },
++  rowDate: {
++    fontSize: mobileMetrics.caption,
++    marginLeft: 12,
++  },
++  fab: {
++    position: 'absolute',
++    right: 16,
++    bottom: 24,
++    width: mobileMetrics.fabSize,
++    height: mobileMetrics.fabSize,
++    borderRadius: mobileMetrics.fabSize / 2,
++    alignItems: 'center',
++    justifyContent: 'center',
++    elevation: 2,
++  },
++})
+diff --git a/apps/mobile/src/screens/SettingsScreen.tsx b/apps/mobile/src/screens/SettingsScreen.tsx
+new file mode 100644
+index 0000000..abf18b7
+--- /dev/null
++++ b/apps/mobile/src/screens/SettingsScreen.tsx
+@@ -0,0 +1,331 @@
++/**
++ * 设置屏（DESIGN §13.J.2.4 精简——工单 9.2 范围）：
++ * 服务器地址+token 配置区（未配置时展示配对引导占位，J.2.10 简化）、
++ * 深链待配对确认卡（spark://pair 解析产物，连接=短码兑长效 token）、
++ * 外观三档（跟随系统/浅色/深色）、断开连接（红字独立白卡）。
++ */
++import { useCallback, useState } from 'react'
++import {
++  ScrollView,
++  StyleSheet,
++  Text,
++  TextInput,
++  TouchableOpacity,
++  View,
++} from 'react-native'
++import { Feather } from '@expo/vector-icons'
++import { useNavigation } from '@react-navigation/native'
++import type { DrawerNavigationProp } from '@react-navigation/drawer'
++import { HttpTransport, errorMessageOf } from '@spark/protocol'
++import { useConfigStore } from '../store/config-store'
++import { invalidateTransport } from '../transport/runtime'
++import { baseUrlOf } from '../transport/pair-link'
++import { useTheme } from '../theme/use-theme'
++import type { AppearancePreference } from '../theme/tokens'
++import { mobileMetrics } from '../theme/tokens'
++import { Card, Hairline, ScreenHeader } from '../components/ui'
++import type { DrawerParamList } from '../navigation/params'
++
++const APPEARANCE_OPTIONS: ReadonlyArray<{ value: AppearancePreference; label: string }> = [
++  { value: 'system', label: '跟随系统' },
++  { value: 'light', label: '浅色' },
++  { value: 'dark', label: '深色' },
++]
++
++export function SettingsScreen() {
++  const t = useTheme()
++  const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>()
++  const serverUrl = useConfigStore((s) => s.serverUrl)
++  const token = useConfigStore((s) => s.token)
++  const appearance = useConfigStore((s) => s.appearance)
++  const pendingPair = useConfigStore((s) => s.pendingPair)
++  const saveConnection = useConfigStore((s) => s.saveConnection)
++  const disconnect = useConfigStore((s) => s.disconnect)
++  const setPendingPair = useConfigStore((s) => s.setPendingPair)
++
++  const [urlDraft, setUrlDraft] = useState(serverUrl)
++  const [tokenDraft, setTokenDraft] = useState(token)
++  const [busy, setBusy] = useState(false)
++  const [localNotice, setLocalNotice] = useState<string | null>(null)
++
++  const configured = serverUrl !== ''
++
++  const onSave = useCallback((): void => {
++    const url = urlDraft.trim()
++    if (url === '') {
++      setLocalNotice('服务器地址不能为空')
++      return
++    }
++    setBusy(true)
++    void saveConnection(url, tokenDraft.trim())
++      .then(() => {
++        invalidateTransport()
++        setLocalNotice(null)
++      })
++      .catch((err: unknown) => setLocalNotice(errorMessageOf(err)))
++      .finally(() => setBusy(false))
++  }, [urlDraft, tokenDraft, saveConnection])
++
++  const onRedeem = useCallback((): void => {
++    if (pendingPair === null) return
++    setBusy(true)
++    const base = baseUrlOf(pendingPair.host, pendingPair.port)
++    // 兑换口无需 token（鉴权自举——工单 9.1）；一次性短码服务端二次校验
++    const transport = new HttpTransport({ baseUrl: base, eventStream: false })
++    void transport
++      .redeemPair({ code: pendingPair.code })
++      .then((dto) => saveConnection(base, dto.token))
++      .then(() => {
++        invalidateTransport()
++        setPendingPair(null)
++        setLocalNotice(null)
++      })
++      .catch((err: unknown) => setLocalNotice(errorMessageOf(err)))
++      .finally(() => {
++        transport.dispose()
++        setBusy(false)
++      })
++  }, [pendingPair, saveConnection, setPendingPair])
++
++  return (
++    <View style={[styles.screen, { backgroundColor: t.pageBackground }]}>
++      <ScreenHeader
++        title="设置"
++        leftIcon="menu"
++        leftLabel="打开抽屉"
++        onLeftPress={() => navigation.openDrawer()}
++      />
++      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
++        {/* 深链待配对确认卡（J.2.9：server 地址 + 连接/取消） */}
++        {pendingPair !== null ? (
++          <Card style={styles.card}>
++            <Text style={[styles.cardTitle, { color: t.foreground }]}>待配对</Text>
++            <Text style={[styles.pairHost, { color: t.mutedForeground }]}>
++              {baseUrlOf(pendingPair.host, pendingPair.port)}
++            </Text>
++            <View style={styles.pairActions}>
++              <TouchableOpacity
++                accessibilityRole="button"
++                onPress={onRedeem}
++                disabled={busy}
++                style={[styles.cta, { backgroundColor: t.primary }]}
++              >
++                <Text style={[styles.ctaText, { color: t.primaryForeground }]}>连接</Text>
++              </TouchableOpacity>
++              <TouchableOpacity
++                accessibilityRole="button"
++                onPress={() => setPendingPair(null)}
++                disabled={busy}
++                style={[styles.ctaGhost, { borderColor: t.border }]}
++              >
++                <Text style={[styles.ctaGhostText, { color: t.mutedForeground }]}>取消</Text>
++              </TouchableOpacity>
++            </View>
++          </Card>
++        ) : null}
++
++        {/* 连接配置区（J.2.4：服务器地址 + token） */}
++        <Card style={styles.card}>
++          <Text style={[styles.cardTitle, { color: t.foreground }]}>服务器</Text>
++          <Text style={[styles.fieldLabel, { color: t.mutedForeground }]}>服务器地址</Text>
++          <TextInput
++            value={urlDraft}
++            onChangeText={setUrlDraft}
++            placeholder="http://192.168.1.10:4318"
++            placeholderTextColor={t.ring}
++            autoCapitalize="none"
++            autoCorrect={false}
++            style={[styles.input, { color: t.foreground, borderColor: t.border }]}
++          />
++          <Text style={[styles.fieldLabel, { color: t.mutedForeground }]}>配对 Token</Text>
++          <TextInput
++            value={tokenDraft}
++            onChangeText={setTokenDraft}
++            placeholder="扫码配对所得；环回直连可留空"
++            placeholderTextColor={t.ring}
++            autoCapitalize="none"
++            autoCorrect={false}
++            secureTextEntry
++            style={[styles.input, { color: t.foreground, borderColor: t.border }]}
++          />
++          {localNotice !== null ? (
++            <Text style={[styles.notice, { color: t.sparkErr }]}>{localNotice}</Text>
++          ) : null}
++          <TouchableOpacity
++            accessibilityRole="button"
++            onPress={onSave}
++            disabled={busy}
++            style={[styles.cta, { backgroundColor: t.primary }]}
++          >
++            <Text style={[styles.ctaText, { color: t.primaryForeground }]}>
++              {busy ? '保存中…' : '保存'}
++            </Text>
++          </TouchableOpacity>
++        </Card>
++
++        {/* 未配置：配对引导占位（J.2.10 简化——虚线卡 + 步骤，禁插画/3D 拟物） */}
++        {!configured && pendingPair === null ? (
++          <View style={[styles.guide, { borderColor: t.border }]}>
++            <Text style={[styles.guideTitle, { color: t.foreground }]}>扫码配对</Text>
++            <Text style={[styles.guideStep, { color: t.mutedForeground }]}>
++              1. 桌面端以非环回地址启动服务
++            </Text>
++            <Text style={[styles.guideStep, { color: t.mutedForeground }]}>
++              2. 桌面端设置页出示配对二维码
++            </Text>
++            <Text style={[styles.guideStep, { color: t.mutedForeground }]}>
++              3. 本应用扫码，或在上方手输地址与 Token
++            </Text>
++          </View>
++        ) : null}
++
++        {/* 外观（§13.C 三档） */}
++        <Card style={styles.card}>
++          <Text style={[styles.cardTitle, { color: t.foreground }]}>外观</Text>
++          {APPEARANCE_OPTIONS.map((opt, i) => (
++            <View key={opt.value}>
++              {i > 0 ? <Hairline inset={0} /> : null}
++              <AppearanceRow
++                label={opt.label}
++                selected={appearance === opt.value}
++                onPress={() => useConfigStore.getState().setAppearance(opt.value)}
++              />
++            </View>
++          ))}
++        </Card>
++
++        {/* 断开连接（J.2.4⑤：红字、独立白卡） */}
++        {configured ? (
++          <TouchableOpacity
++            accessibilityRole="button"
++            onPress={() => {
++              void disconnect().then(() => {
++                invalidateTransport()
++                setUrlDraft('')
++                setTokenDraft('')
++              })
++            }}
++            style={[styles.card, { backgroundColor: t.card }]}
++            activeOpacity={0.7}
++          >
++            <Text style={[styles.disconnect, { color: t.sparkErr }]}>断开连接</Text>
++          </TouchableOpacity>
++        ) : null}
++      </ScrollView>
++    </View>
++  )
++}
++
++function AppearanceRow({
++  label,
++  selected,
++  onPress,
++}: {
++  label: string
++  selected: boolean
++  onPress: () => void
++}) {
++  const t = useTheme()
++  return (
++    <TouchableOpacity accessibilityRole="button" onPress={onPress} activeOpacity={0.7}>
++      <View style={[styles.appearanceRow, { height: mobileMetrics.rowHeight }]}>
++        <Text style={[styles.appearanceLabel, { color: t.foreground }]}>{label}</Text>
++        {selected ? <Feather name="check" size={16} color={t.sparkAccent} /> : null}
++      </View>
++    </TouchableOpacity>
++  )
++}
++
++const styles = StyleSheet.create({
++  screen: {
++    flex: 1,
++  },
++  scroll: {
++    flex: 1,
++  },
++  scrollContent: {
++    paddingHorizontal: 16,
++    paddingBottom: 32,
++    gap: mobileMetrics.cardGap,
++  },
++  card: {
++    borderRadius: mobileMetrics.cardRadius,
++  },
++  cardTitle: {
++    fontSize: mobileMetrics.rowTitle,
++    fontWeight: '600',
++    marginBottom: 12,
++  },
++  fieldLabel: {
++    fontSize: mobileMetrics.caption,
++    marginBottom: 4,
++    marginTop: 8,
++  },
++  input: {
++    borderWidth: StyleSheet.hairlineWidth,
++    borderRadius: 8,
++    paddingHorizontal: 12,
++    height: 44,
++    fontSize: mobileMetrics.value,
++  },
++  notice: {
++    fontSize: mobileMetrics.caption,
++    marginTop: 8,
++  },
++  cta: {
++    height: mobileMetrics.ctaHeight,
++    borderRadius: mobileMetrics.ctaHeight / 2,
++    alignItems: 'center',
++    justifyContent: 'center',
++    marginTop: 16,
++  },
++  ctaText: {
++    fontSize: mobileMetrics.rowTitle,
++    fontWeight: '600',
++  },
++  ctaGhost: {
++    height: mobileMetrics.ctaHeight,
++    borderRadius: mobileMetrics.ctaHeight / 2,
++    alignItems: 'center',
++    justifyContent: 'center',
++    borderWidth: StyleSheet.hairlineWidth,
++    marginTop: 8,
++  },
++  ctaGhostText: {
++    fontSize: mobileMetrics.rowTitle,
++  },
++  pairHost: {
++    fontSize: mobileMetrics.value,
++    marginBottom: 4,
++  },
++  pairActions: {
++    marginTop: 8,
++  },
++  guide: {
++    borderWidth: 1,
++    borderStyle: 'dashed',
++    borderRadius: 12,
++    padding: 16,
++    gap: 6,
++  },
++  guideTitle: {
++    fontSize: mobileMetrics.rowTitle,
++    fontWeight: '600',
++    marginBottom: 4,
++  },
++  guideStep: {
++    fontSize: mobileMetrics.caption,
++  },
++  appearanceRow: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    justifyContent: 'space-between',
++  },
++  appearanceLabel: {
++    fontSize: mobileMetrics.rowTitle,
++  },
++  disconnect: {
++    fontSize: mobileMetrics.rowTitle,
++    textAlign: 'center',
++  },
++})
+diff --git a/apps/mobile/src/store/app-store.ts b/apps/mobile/src/store/app-store.ts
+new file mode 100644
+index 0000000..0941f6a
+--- /dev/null
++++ b/apps/mobile/src/store/app-store.ts
+@@ -0,0 +1,83 @@
++/**
++ * mobile 状态层（镜像 apps/cli/src/store.ts——D22 共享 applyEvent 投影 + 连接态）。
++ * UI 状态只来自事件流（AGENTS §2.7）；会话列表是连接/刷新时刻的 REST 快照。
++ * 事件入队做批处理：requestAnimationFrame flush（参照 apps/web context.tsx 模式）——
++ * 同帧多事件只触发一次渲染提交，避免高频 assistant.delta 逐事件渲染。
++ */
++import { create } from 'zustand'
++import type {
++  ProjectionState,
++  SessionDto,
++  SessionId,
++  SparkEventEnvelope,
++} from '@spark/protocol'
++import { applyEvent } from '@spark/protocol'
++
++export type MobileConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
++
++export interface AppState extends ProjectionState {
++  status: MobileConnectionStatus
++  /** 会话列表快照（下拉刷新/聚焦时刻 listSessions；如实呈现） */
++  sessions: SessionDto[]
++  /** 激活会话（会话级流的订阅对象；列表当前行） */
++  activeSessionId: SessionId | null
++  /** 最近一条人话提示（REST 失败/引擎 error 事件；顶部细条数据源，J.4） */
++  notice: string | null
++
++  apply: (e: SparkEventEnvelope) => void
++  setStatus: (s: MobileConnectionStatus) => void
++  setSessions: (list: SessionDto[]) => void
++  setActiveSession: (sid: SessionId | null) => void
++  setNotice: (msg: string | null) => void
++}
++
++export const useAppStore = create<AppState>()((set) => ({
++  byId: {},
++  activeId: null,
++  status: 'connecting',
++  sessions: [],
++  activeSessionId: null,
++  notice: null,
++
++  // ProjectionState 部分交共享 reducer（与 cli 同口径——byId/activeId 即全部所需）
++  apply: (e) => set((s) => applyEvent(s, e)),
++  setStatus: (status) => set({ status }),
++  setSessions: (sessions) => set({ sessions }),
++  setActiveSession: (activeSessionId) => set({ activeSessionId }),
++  setNotice: (notice) => set({ notice }),
++}))
++
++/**
++ * 事件批处理入队：缓冲按到达序、rAF 帧边界统一 flush（顺序不乱、一帧一次渲染）。
++ * 调度器可注入（测试用同步调度）；缺省 requestAnimationFrame（RN 全局）。
++ */
++export interface EventBatcher {
++  enqueue: (e: SparkEventEnvelope) => void
++  /** 立即 flush 挂起缓冲（卸载/测试断言用） */
++  flushNow: () => void
++}
++
++export function createEventBatcher(
++  apply: (e: SparkEventEnvelope) => void,
++  schedule: (fn: () => void) => void = (fn) => {
++    requestAnimationFrame(fn)
++  },
++): EventBatcher {
++  const buf: SparkEventEnvelope[] = []
++  let pending = false
++  const flush = (): void => {
++    pending = false
++    const batch = buf.splice(0)
++    for (const e of batch) apply(e)
++  }
++  return {
++    enqueue: (e) => {
++      buf.push(e)
++      if (!pending) {
++        pending = true
++        schedule(flush)
++      }
++    },
++    flushNow: flush,
++  }
++}
+diff --git a/apps/mobile/src/store/config-store.ts b/apps/mobile/src/store/config-store.ts
+new file mode 100644
+index 0000000..122d71f
+--- /dev/null
++++ b/apps/mobile/src/store/config-store.ts
+@@ -0,0 +1,110 @@
++/**
++ * 移动端连接配置与外观偏好（设置页数据源）。
++ * 存储选择（汇报②）：expo-secure-store（MIT，Expo 官方）——token 属鉴权凭据，
++ * 走系统密钥链/Keystore 加密存储；API 为 getItemAsync/setItemAsync 两枚，比
++ * AsyncStorage 明文存储更安全且同样简单。外观偏好与配置同键存放（单一配置面）。
++ * 持久化边界封装在 load/persist 两函数；首批单测不覆盖本 store（涉及原生模块）。
++ */
++import { create } from 'zustand'
++import * as SecureStore from 'expo-secure-store'
++import type { AppearancePreference } from '../theme/tokens'
++import type { PairLink } from '../transport/pair-link'
++
++const CONFIG_KEY = 'spark.config'
++
++export interface MobileConfig {
++  /** 服务器基址（配对所得或手输 `http://host:port`）；空 = 未配置 */
++  serverUrl: string
++  /** 配对长效 token（非环回必需；环回缺省形态可空） */
++  token: string
++  /** §13.C 三档外观（缺省跟随系统） */
++  appearance: AppearancePreference
++}
++
++interface PersistedConfig {
++  serverUrl: string
++  token: string
++  appearance: AppearancePreference
++}
++
++export const DEFAULT_CONFIG: MobileConfig = {
++  serverUrl: '',
++  token: '',
++  appearance: 'system',
++}
++
++export interface ConfigState extends MobileConfig {
++  /** 启动装载是否完成（首帧避免持久化值闪烁） */
++  hydrated: boolean
++  /** 深链待配对（spark://pair 解析产物；设置页呈现确认卡后兑换） */
++  pendingPair: PairLink | null
++
++  setServerUrl: (url: string) => void
++  setToken: (token: string) => void
++  setAppearance: (a: AppearancePreference) => void
++  /** 保存连接配置并持久化（失败如实上抛，不静默） */
++  saveConnection: (serverUrl: string, token: string) => Promise<void>
++  /** 断开连接：清配置并持久化（= 撤销本端配对态，J.2.4⑤） */
++  disconnect: () => Promise<void>
++  setPendingPair: (p: PairLink | null) => void
++  load: () => Promise<void>
++}
++
++async function persist(cfg: PersistedConfig): Promise<void> {
++  await SecureStore.setItemAsync(CONFIG_KEY, JSON.stringify(cfg))
++}
++
++export const useConfigStore = create<ConfigState>()((set, get) => ({
++  ...DEFAULT_CONFIG,
++  hydrated: false,
++  pendingPair: null,
++
++  setServerUrl: (serverUrl) => set({ serverUrl }),
++  setToken: (token) => set({ token }),
++  setAppearance: (appearance) => {
++    set({ appearance })
++    const { serverUrl, token } = get()
++    // 外观即时持久化（失败不阻塞交互，只记日志——非鉴权数据）
++    void persist({ serverUrl, token, appearance }).catch((err: unknown) => {
++      console.error('[config] 外观持久化失败', err)
++    })
++  },
++  saveConnection: async (serverUrl, token) => {
++    const { appearance } = get()
++    await persist({ serverUrl, token, appearance })
++    set({ serverUrl, token })
++  },
++  disconnect: async () => {
++    const { appearance } = get()
++    await persist({ serverUrl: '', token: '', appearance })
++    set({ serverUrl: '', token: '', pendingPair: null })
++  },
++  setPendingPair: (pendingPair) => set({ pendingPair }),
++  load: async () => {
++    try {
++      const raw = await SecureStore.getItemAsync(CONFIG_KEY)
++      if (raw === null) {
++        set({ hydrated: true })
++        return
++      }
++      const parsed: unknown = JSON.parse(raw)
++      if (typeof parsed !== 'object' || parsed === null) {
++        set({ hydrated: true })
++        return
++      }
++      const p = parsed as Partial<PersistedConfig>
++      const appearance: AppearancePreference =
++        p.appearance === 'light' || p.appearance === 'dark' ? p.appearance : 'system'
++      set({
++        serverUrl: typeof p.serverUrl === 'string' ? p.serverUrl : '',
++        token: typeof p.token === 'string' ? p.token : '',
++        appearance,
++        hydrated: true,
++      })
++    } catch (err: unknown) {
++      // 失败闭合：读不到配置按未配置呈现（不拿坏数据冒充），如实记录
++      console.error('[config] 装载失败', err)
++      set({ hydrated: true })
++    }
++  },
++}))
+diff --git a/apps/mobile/src/theme/tokens.ts b/apps/mobile/src/theme/tokens.ts
+new file mode 100644
+index 0000000..14b7ba4
+--- /dev/null
++++ b/apps/mobile/src/theme/tokens.ts
+@@ -0,0 +1,110 @@
++/**
++ * RN 主题 token（DESIGN §13.C token 表 1:1 映射 + §13.J.0 移动端适配）。
++ * 亮色默认、暗色跟随系统（App 层 useColorScheme + 设置页外观档解析）。
++ * J.0 纪律：底色浅灰 #F7F7F7 + 白卡 radius 16 无边框无阴影；语义色沿用 §13.C。
++ */
++
++export interface ThemeTokens {
++  /** §13.C --background（卡内/弹层底） */
++  background: string
++  /** J.0 屏幕底色（浅灰 #F7F7F7 / 暗 #09090b）——白卡靠底色差分层 */
++  pageBackground: string
++  /** --foreground */
++  foreground: string
++  /** --card / --popover */
++  card: string
++  /** --primary（主 CTA 黑底） */
++  primary: string
++  /** --primary-foreground */
++  primaryForeground: string
++  /** --secondary / --accent */
++  secondary: string
++  /** --muted */
++  muted: string
++  /** --muted-foreground（13/15px meta 文案） */
++  mutedForeground: string
++  /** --destructive（= spark-err 档位，危险操作红字） */
++  destructive: string
++  /** --border / --input（hairline 分隔） */
++  border: string
++  /** --ring（聚焦） */
++  ring: string
++  /** --spark-accent：运行/链接/焦点/选中填充（accent 唯一纪律，J.0） */
++  sparkAccent: string
++  /** --spark-warn：待审批/警示 */
++  sparkWarn: string
++  /** --spark-ok：空闲/成功 */
++  sparkOk: string
++  /** --spark-err：错误/断线/危险操作 */
++  sparkErr: string
++}
++
++/** 亮色（§13.C :root 默认；pageBackground 按 J.0 取浅灰） */
++export const lightTheme: ThemeTokens = {
++  background: '#ffffff',
++  pageBackground: '#F7F7F7',
++  foreground: '#18181b',
++  card: '#ffffff',
++  primary: '#18181b',
++  primaryForeground: '#fafafa',
++  secondary: '#f4f4f5',
++  muted: '#f4f4f5',
++  mutedForeground: '#71717a',
++  destructive: '#dc2626',
++  border: '#e4e4e7',
++  ring: '#a1a1aa',
++  sparkAccent: '#4f46e5',
++  sparkWarn: '#b45309',
++  sparkOk: '#047857',
++  sparkErr: '#b91c1c',
++}
++
++/** 暗色（§13.C .dark；pageBackground 按 J.0 取 #09090b） */
++export const darkTheme: ThemeTokens = {
++  background: '#09090b',
++  pageBackground: '#09090b',
++  foreground: '#fafafa',
++  card: '#18181b',
++  primary: '#fafafa',
++  primaryForeground: '#18181b',
++  secondary: '#27272a',
++  muted: '#27272a',
++  mutedForeground: '#a1a1aa',
++  destructive: '#f87171',
++  border: '#27272a',
++  ring: '#52525b',
++  sparkAccent: '#818cf8',
++  sparkWarn: '#fbbf24',
++  sparkOk: '#34d399',
++  sparkErr: '#f87171',
++}
++
++/** §13.C 三档外观偏好（持久化；系统档跟随 prefers-color-scheme / useColorScheme） */
++export type AppearancePreference = 'system' | 'light' | 'dark'
++
++/** 外观档 + 系统色 → 生效主题（亮色默认：系统值缺失时落亮色） */
++export function resolveTheme(
++  preference: AppearancePreference,
++  systemScheme: 'light' | 'dark' | null | undefined,
++): ThemeTokens {
++  if (preference === 'light') return lightTheme
++  if (preference === 'dark') return darkTheme
++  return systemScheme === 'dark' ? darkTheme : lightTheme
++}
++
++/** J.3 控件规格表（移动端）——数值单一来源，屏幕层只引用本表 */
++export const mobileMetrics = {
++  cardRadius: 16,
++  cardPadding: 16,
++  cardGap: 12,
++  rowHeight: 56,
++  sessionRowHeight: 52,
++  headerTitle: 17,
++  rowTitle: 16,
++  caption: 13,
++  value: 15,
++  floatButtonSize: 44,
++  fabSize: 56,
++  statusDot: 8,
++  ctaHeight: 52,
++} as const
+diff --git a/apps/mobile/src/theme/use-theme.ts b/apps/mobile/src/theme/use-theme.ts
+new file mode 100644
+index 0000000..259e327
+--- /dev/null
++++ b/apps/mobile/src/theme/use-theme.ts
+@@ -0,0 +1,13 @@
++/** 主题解析 hook：外观档（设置页）× 系统色（useColorScheme）→ 生效 token（亮色默认） */
++import { useColorScheme } from 'react-native'
++import { useConfigStore } from '../store/config-store'
++import { resolveTheme } from './tokens'
++import type { ThemeTokens } from './tokens'
++
++export function useTheme(): ThemeTokens {
++  const appearance = useConfigStore((s) => s.appearance)
++  const scheme = useColorScheme()
++  // ColorSchemeName 含 'unspecified'——归一为 null（亮色默认纪律）
++  const system = scheme === 'light' || scheme === 'dark' ? scheme : null
++  return resolveTheme(appearance, system)
++}
+diff --git a/apps/mobile/src/transport/pair-link.ts b/apps/mobile/src/transport/pair-link.ts
+new file mode 100644
+index 0000000..0b71247
+--- /dev/null
++++ b/apps/mobile/src/transport/pair-link.ts
+@@ -0,0 +1,64 @@
++/**
++ * 配对深链解析（DESIGN §13.J.2.9：QR 内容 `spark://pair?host=<host>&port=<port>&code=<短码>`）。
++ * 纯函数——深链（Linking）与手输兜底共用同一解析口径；单独单测（工单 9.2）。
++ */
++
++export interface PairLink {
++  host: string
++  port: number
++  /** 6 位数字短码（60s 有效，服务端二次校验） */
++  code: string
++}
++
++/** 合法主机段：非空、不含空白/斜杠/查询符（防注入到 URL 拼接） */
++function isValidHost(host: string): boolean {
++  return host !== '' && !/[\s/?#@]/.test(host)
++}
++
++/** 仅匹配 `spark://pair?<query>` 形态（不依赖 RN 的 URL 全局——其对自定义 scheme 支持不全） */
++const PAIR_LINK_RE = /^spark:\/\/pair\?([^#]*)$/
++
++/** 手工解析查询段（decodeURIComponent 逐对；坏转义返回 null） */
++function parseQuery(query: string): Map<string, string> | null {
++  const params = new Map<string, string>()
++  for (const pair of query.split('&')) {
++    if (pair === '') continue
++    const eq = pair.indexOf('=')
++    const rawKey = eq === -1 ? pair : pair.slice(0, eq)
++    const rawValue = eq === -1 ? '' : pair.slice(eq + 1)
++    try {
++      params.set(decodeURIComponent(rawKey), decodeURIComponent(rawValue))
++    } catch {
++      return null
++    }
++  }
++  return params
++}
++
++/**
++ * 解析配对深链；任何不合法（协议/路径/缺参/坏值）一律返回 null——
++ * 调用方按"未识别"处理（不做半截配置），失败闭合。
++ */
++export function parsePairLink(input: string): PairLink | null {
++  const m = PAIR_LINK_RE.exec(input.trim())
++  if (m === null) return null
++  const params = parseQuery(m[1] ?? '')
++  if (params === null) return null
++
++  const host = (params.get('host') ?? '').trim()
++  const portRaw = (params.get('port') ?? '').trim()
++  const code = (params.get('code') ?? '').trim()
++  if (host === '' || portRaw === '' || code === '') return null
++  if (!isValidHost(host)) return null
++  if (!/^\d{1,5}$/.test(portRaw)) return null
++  const port = Number(portRaw)
++  if (!Number.isInteger(port) || port < 1 || port > 65535) return null
++  if (!/^\d{6}$/.test(code)) return null
++
++  return { host, port, code }
++}
++
++/** 配对参数 → 服务器基址（传输构造共用口径） */
++export function baseUrlOf(host: string, port: number): string {
++  return `http://${host}:${port}`
++}
+diff --git a/apps/mobile/src/transport/rn-event-source.ts b/apps/mobile/src/transport/rn-event-source.ts
+new file mode 100644
+index 0000000..6919824
+--- /dev/null
++++ b/apps/mobile/src/transport/rn-event-source.ts
+@@ -0,0 +1,160 @@
++/**
++ * RN 会话级 SSE 续播流（工单 9.2——SessionEventSource 的 React Native 适配）。
++ *
++ * 方案选择（汇报②）：RN 的 fetch polyfill 不支持流式响应体（ReadableStream 缺位），
++ * 且 iOS 上 XMLHttpRequest 的 onprogress 增量读取不可靠（已知平台限制，readystate=3
++ * 阶段不增量回调）——故不自写 XHR 帧泵，采用 react-native-sse（MIT，专为此场景）：
++ * 它按平台屏蔽差异提供逐帧 message 事件；切帧后的帧解析/水位/退避一律复用
++ * @spark/protocol 共享资产（envelopeFromSseFrame / DEFAULT_BACKOFF_MS / abortableSleep），
++ * 对外契约与 SessionEventSource 对齐（connecting/open/reconnecting + since 水位续播）。
++ *
++ * 重连语义与 SessionEventSource 同：自管重连循环（error → close → 退避 → 重建），
++ * 不复用库内自动重试——退避序列与状态回调必须与四端同口径（1/2/5/10s 封顶）。
++ * 鉴权失败（401/403）：库的 ErrorEvent 暴露 xhrStatus——构造 `E_AUTH: ...` 错误
++ * 走 onError 回调，调用方经 ERROR_COPY 人话化呈现（工单 9.1 双口径同律）。
++ */
++import EventSource from 'react-native-sse'
++import type { MessageEvent } from 'react-native-sse'
++import type { SessionId, SparkEventEnvelope } from '@spark/protocol'
++import {
++  DEFAULT_BACKOFF_MS,
++  abortableSleep,
++  envelopeFromSseFrame,
++} from '@spark/protocol'
++
++export type RnConnectionStatus = 'connecting' | 'open' | 'reconnecting'
++
++export interface RnSessionEventSourceOptions {
++  baseUrl: string
++  sessionId: SessionId
++  /** 首连回放水位：服务端补发 seq>since 的 durable（0 = 全量回放） */
++  since?: number
++  backoffMs?: readonly number[]
++  onStatus?: (s: RnConnectionStatus) => void
++  onEvent?: (e: SparkEventEnvelope) => void
++  /** 鉴权失败（401/403）人话错误源：`E_AUTH: ...`（调用方走 ERROR_COPY 呈现） */
++  onError?: (err: Error) => void
++  /** 配对长效 token（工单 9.1 / D24）：SSE URL 附 &token=（服务端 tokenOf 双口径） */
++  authToken?: string
++}
++
++/** 库的 message 事件 → SSE 帧文本重建（data 可能多行，逐行补 'data: ' 前缀） */
++function frameFromMessage(event: MessageEvent): string | null {
++  if (event.data === null) return null
++  return event.data.split('\n').map((line) => `data: ${line}`).join('\n')
++}
++
++export class RnSessionEventSource {
++  private readonly opts: RnSessionEventSourceOptions
++  private readonly backoffMs: readonly number[]
++  private readonly abort = new AbortController()
++  private watermark: number
++  private disposed = false
++  private retries = 0
++  /** 代际计数：close 后残余回调不再驱动状态机（防竞态） */
++  private generation = 0
++
++  constructor(opts: RnSessionEventSourceOptions) {
++    this.opts = opts
++    this.backoffMs = opts.backoffMs ?? DEFAULT_BACKOFF_MS
++    this.watermark = opts.since ?? 0
++    this.setStatus('connecting')
++    void this.loop()
++  }
++
++  /** 当前回放水位（已收 durable 最大 seq）——切换会话/重建流时作 since */
++  get since(): number {
++    return this.watermark
++  }
++
++  dispose(): void {
++    this.disposed = true
++    this.generation++
++    this.abort.abort()
++  }
++
++  private setStatus(s: RnConnectionStatus): void {
++    this.opts.onStatus?.(s)
++  }
++
++  private async loop(): Promise<void> {
++    while (!this.disposed) {
++      const gen = this.generation
++      await this.connectOnce(gen)
++      if (this.disposed || this.abort.signal.aborted) return
++      if (this.generation !== gen) continue
++      // 失败闭合：任何断开一律退避重连（坏帧/网络/鉴权同路径自愈）
++      this.setStatus('reconnecting')
++      const delay = this.backoffMs[Math.min(this.retries, this.backoffMs.length - 1)] ?? 1000
++      this.retries++
++      await abortableSleep(delay, this.abort.signal)
++    }
++  }
++
++  /** 单次连接：挂事件回调，等到断开（error/手动关闭）后返回 */
++  private connectOnce(gen: number): Promise<void> {
++    return new Promise<void>((resolve) => {
++      let url = `${this.opts.baseUrl}/api/event?sessionId=${this.opts.sessionId}&since=${this.watermark}`
++      if (this.opts.authToken !== undefined) url += `&token=${encodeURIComponent(this.opts.authToken)}`
++
++      let settled = false
++      let es: EventSource | null = null
++      const finish = (): void => {
++        if (settled) return
++        settled = true
++        if (es !== null) es.close()
++        resolve()
++      }
++      const stale = (): boolean => this.disposed || this.generation !== gen
++
++      try {
++        es = new EventSource(url)
++      } catch {
++        finish()
++        return
++      }
++
++      es.addEventListener('open', () => {
++        if (stale()) {
++          finish()
++          return
++        }
++        this.retries = 0
++        this.setStatus('open')
++      })
++      es.addEventListener('message', (event: MessageEvent) => {
++        if (stale()) {
++          finish()
++          return
++        }
++        // 坏帧抛错 → 冒泡断开走重连（与 SessionEventSource 同纪律，不静默跳过）
++        try {
++          const frame = frameFromMessage(event)
++          if (frame === null) return
++          const envelope = envelopeFromSseFrame(frame)
++          if (envelope !== null) {
++            if (envelope.seq !== undefined && envelope.seq > this.watermark) {
++              this.watermark = envelope.seq
++            }
++            this.opts.onEvent?.(envelope)
++          }
++        } catch {
++          finish()
++        }
++      })
++      es.addEventListener('error', (event) => {
++        if (!stale() && 'xhrStatus' in event) {
++          const status = event.xhrStatus
++          // 401/403：token 无效/已撤销——重连无意义但不断流（配置修复后自愈），
++          // 错误上抛给调用方人话呈现（失败闭合，不静默吞）
++          if (status === 401 || status === 403) {
++            this.opts.onError?.(
++              new Error(`E_AUTH: SSE 鉴权失败（HTTP ${status}）`),
++            )
++          }
++        }
++        finish()
++      })
++    })
++  }
++}
+diff --git a/apps/mobile/src/transport/runtime.ts b/apps/mobile/src/transport/runtime.ts
+new file mode 100644
+index 0000000..ab63e34
+--- /dev/null
++++ b/apps/mobile/src/transport/runtime.ts
+@@ -0,0 +1,74 @@
++/**
++ * 传输运行时（工单 9.2）：配置 → 传输实例的单例缓存。
++ * REST：直接复用 @spark/protocol 的 HttpTransport（eventStream:false——
++ * 移动端会话级流走 RnSessionEventSource，不起全局 SSE）。
++ * SSE：RnSessionEventSource（rn-event-source.ts）。
++ * 配置变更（设置页保存/断开）→ rebuild 释放旧实例（失败闭合：旧连接不残留）。
++ */
++import type { SessionId, SparkEventEnvelope, Transport } from '@spark/protocol'
++import { HttpTransport } from '@spark/protocol'
++import { useAppStore } from '../store/app-store'
++import { RnSessionEventSource } from './rn-event-source'
++import type { RnConnectionStatus } from './rn-event-source'
++
++interface RuntimeEntry {
++  key: string
++  transport: Transport
++}
++
++let current: RuntimeEntry | null = null
++
++/**
++ * 按配置取 REST 传输（同配置复用实例；未配置返回 null）。
++ * onStatus 直写 app-store；事件流经 app-store 批处理入口（调用方装配，见 9.3）。
++ */
++export function getHttpTransport(serverUrl: string, token: string): Transport | null {
++  const baseUrl = serverUrl.trim()
++  if (baseUrl === '') {
++    invalidateTransport()
++    return null
++  }
++  const key = `${baseUrl}#${token}`
++  if (current !== null && current.key === key) return current.transport
++  invalidateTransport()
++  const transport = new HttpTransport({
++    baseUrl,
++    // exactOptionalPropertyTypes：无 token 时直接不传该键（而非传 undefined）
++    ...(token !== '' ? { authToken: token } : {}),
++    eventStream: false,
++    onStatus: (s) => useAppStore.getState().setStatus(s),
++  })
++  current = { key, transport }
++  return transport
++}
++
++/** 释放当前传输（断开连接/配置变更/退出）——幂等 */
++export function invalidateTransport(): void {
++  if (current === null) return
++  current.transport.dispose()
++  current = null
++  useAppStore.getState().setStatus('closed')
++}
++
++export interface SessionStreamOptions {
++  sessionId: SessionId
++  serverUrl: string
++  token: string
++  since?: number
++  onEvent: (e: SparkEventEnvelope) => void
++  onStatus?: (s: RnConnectionStatus) => void
++}
++
++/** 新建会话级续播流（调用方持有生命周期：切换会话/卸载时 dispose） */
++export function openSessionStream(opts: SessionStreamOptions): RnSessionEventSource | null {
++  const baseUrl = opts.serverUrl.trim()
++  if (baseUrl === '') return null
++  return new RnSessionEventSource({
++    baseUrl,
++    sessionId: opts.sessionId,
++    ...(opts.since !== undefined ? { since: opts.since } : {}),
++    ...(opts.token !== '' ? { authToken: opts.token } : {}),
++    ...(opts.onStatus !== undefined ? { onStatus: opts.onStatus } : {}),
++    onEvent: opts.onEvent,
++  })
++}
+diff --git a/eslint.config.js b/eslint.config.js
+index 103a9cd..f131845 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -26,10 +26,32 @@ export default tseslint.config(
+     files: ['**/*.config.{js,mjs,cjs}'],
+     ...tseslint.configs.disableTypeChecked,
+   },
++  {
++    // apps/mobile 的 Metro/Babel 配置：CJS（require/module.exports），声明 Node CJS 全局
++    files: ['apps/mobile/babel.config.js', 'apps/mobile/metro.config.js'],
++    languageOptions: {
++      sourceType: 'commonjs',
++      globals: {
++        module: 'writable',
++        require: 'readonly',
++        __dirname: 'readonly',
++      },
++    },
++    rules: {
++      '@typescript-eslint/no-require-imports': 'off',
++    },
++  },
+   {
+     languageOptions: {
+       parserOptions: {
+-        projectService: { allowDefaultProject: ['eslint.config.js'] },
++        projectService: {
++          allowDefaultProject: [
++            'eslint.config.js',
++            // apps/mobile 的 Metro/Babel 配置（CJS，不在任何 tsconfig 项目内）
++            'apps/mobile/metro.config.js',
++            'apps/mobile/babel.config.js',
++          ],
++        },
+       },
+     },
+     rules: {

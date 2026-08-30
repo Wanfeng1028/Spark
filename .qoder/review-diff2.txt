@@ -1,0 +1,201 @@
+commit effe1a548926d74ed34631a7f3277ea0af354c1f
+Author: Wanfeng1028 <dingyu_1028@163.com>
+Date:   Sun Aug 30 02:48:25 2026 +0800
+
+    feat(stage9): 工单 9.1——配对鉴权（服务端+web+协议+文档登记）
+    
+    阶段九首工单（ADR D24）：移动端真连的鉴权自举链路，修补不重写。
+    
+    服务端（改动仅限 9.1 声明面）：
+    - 新增 pairing.ts：DeviceStore（~/.spark/devices.json 0600 原子写，
+      存在即鉴权启用态）+ PairService（6 位短码 60s 一次性、长效 token
+      spk_ 前缀只存 sha256 哈希）+ 启动护栏纯函数 resolveBindTarget
+      （SPARK_HOST 仅环回覆盖；非环回须 spark.json server.host 显式
+      配置且鉴权已启用，否则拒启动——绑定纪律可测化）。
+    - 新增 auth.ts：REST Bearer 头与 SSE ?token= 双口径校验钩子，
+      豁免 /api/healthz 与兑换口，未过 401 E_AUTH（fail-closed）。
+    - 新增 pairing-routes.ts 四端点：GET /api/pair 状态、POST /api/pair
+      兑换、POST /api/pair/code 签发（含 QR 出示内容）、
+      DELETE /api/pair/devices/:id 撤销（撤销即断，sse.ts 增
+      sseRevokeToken）。errors.ts 补 E_AUTH 之外的 E_PAIR(401)/
+      E_PAIR_DISABLED(403) 映射。
+    
+    协议（AGENTS §2.5 从 packages/protocol 开始）：
+    - Transport 接口增 redeemPair；transport-node 增 authToken 双口径
+      注入（REST Bearer 头 / SSE URL ?token=）；切帧逻辑抽成导出纯函数
+      splitSseFrames（9.4 小程序复用，行为不变）；api.ts 已有
+      PairRedeemBody/PairTokenDto/PairStatusDto/PairCodeDto schema。
+    
+    Web：设置中心新增「设备与配对」页（QR 出示 qrcode MIT 依赖 +
+    手输 6 位码兜底 + 设备列表撤销即断）；MockTransport 对等 redeemPair；
+    error-copy 补配对错码人话文案。
+    
+    测试：新增配对路由/护栏/兑换单测（server 64→85 例）+
+    protocol pairing-transport 11 例（splitSseFrames 切帧/authToken
+    双口径/兑换 round-trip，protocol 57→68 例）。
+    
+    文档登记（docs-update 流程）：
+    - doc/02 v3.25：§4.5 API 表四行、§7.2 要点表、§7.4 错误表三行、
+      §8 阶段九 9.1 勾选（顺带修正 §13.J.9→§13.J.2.9 幽灵引用，全仓清零）。
+    - AGENTS v1.22 / README v1.23：阶段九已开工、9.1 完成待合入口径，
+      测试计数刷新 814 例。
+    
+    红线保持：缺省 127.0.0.1 + 无鉴权行为完全不变（缺省环回形态鉴权钩子只登记
+    token 哈希供撤销即断、绝不拒绝；既有回归测试全保）。三关全绿：typecheck 8 包、lint 0 告警、
+    vitest 814 例（engine 486/server 85/web 159/protocol 68/cli 16）。
+    
+    另：eslint ignores 与 .gitignore 加 .qoder/better-harness/（本地
+    skill 产物，判例同 .trae-html-preview-packages）。
+
+diff --git a/packages/protocol/src/transport-node.ts b/packages/protocol/src/transport-node.ts
+index ee59e13..0b80ae8 100644
+--- a/packages/protocol/src/transport-node.ts
++++ b/packages/protocol/src/transport-node.ts
+@@ -23,6 +23,10 @@ import type {
+   MemoryDto,
+   ModelTestResultDto,
+   ModelsDto,
++  PairCodeDto,
++  PairRedeemBody,
++  PairStatusDto,
++  PairTokenDto,
+   PermissionPreset,
+   PermissionRuleDto,
+   RoutingDto,
+@@ -53,6 +57,8 @@ export interface HttpTransportOptions {
+   onResync?: (sids: readonly SessionId[]) => void
+   /** 是否启动全局 SSE 直播（缺省启动；cli 走 SessionEventSource 会话级流时传 false 仅用 REST） */
+   eventStream?: boolean
++  /** 配对长效 token（工单 9.1 / D24）：REST 附 Bearer 头，SSE URL 附 ?token=（与服务端 tokenOf 双口径一致） */
++  authToken?: string
+ }
+ 
+ /** server 错误体（§7.4）：{code, message} */
+@@ -98,6 +104,22 @@ export function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
+   })
+ }
+ 
++/**
++ * SSE 切帧纯函数（四端共享，供小程序端复用——工单 9.4）：
++ * 新 chunk 拼接缓冲后按 `\n\n` 切出完整帧，返回帧序列与残余缓冲（尾帧未收齐时留存）。
++ */
++export function splitSseFrames(chunk: string, buffer: string): { frames: string[]; rest: string } {
++  let buf = buffer + chunk
++  const frames: string[] = []
++  for (;;) {
++    const idx = buf.indexOf('\n\n')
++    if (idx === -1) break
++    frames.push(buf.slice(0, idx))
++    buf = buf.slice(idx + 2)
++  }
++  return { frames, rest: buf }
++}
++
+ /** ReadableStream → 帧切分（\n\n）→ envelopeFromSseFrame 分发；坏帧冒泡（失败闭合） */
+ export async function pumpSseStream(
+   body: ReadableStream<Uint8Array>,
+@@ -109,12 +131,9 @@ export async function pumpSseStream(
+   for (;;) {
+     const { done, value } = await reader.read()
+     if (done) break
+-    buf += decoder.decode(value, { stream: true })
+-    for (;;) {
+-      const idx = buf.indexOf('\n\n')
+-      if (idx === -1) break
+-      const frame = buf.slice(0, idx)
+-      buf = buf.slice(idx + 2)
++    const { frames, rest } = splitSseFrames(decoder.decode(value, { stream: true }), buf)
++    buf = rest
++    for (const frame of frames) {
+       const envelope = envelopeFromSseFrame(frame)
+       if (envelope !== null) onEnvelope(envelope)
+     }
+@@ -125,6 +144,7 @@ export class HttpTransport implements Transport {
+   protected readonly base: string
+   private readonly backoffMs: readonly number[]
+   private readonly opts: HttpTransportOptions
++  private readonly authToken: string | undefined
+   private readonly handlers = new Set<(e: SparkEventEnvelope) => void>()
+   private readonly abort = new AbortController()
+   private readonly openSessions = new Set<SessionId>()
+@@ -135,6 +155,7 @@ export class HttpTransport implements Transport {
+   constructor(opts: HttpTransportOptions = {}) {
+     this.opts = opts
+     this.base = opts.baseUrl ?? ''
++    this.authToken = opts.authToken
+     this.backoffMs = opts.backoffMs ?? DEFAULT_BACKOFF_MS
+     if (opts.eventStream !== false) {
+       this.setStatus('connecting')
+@@ -160,7 +181,11 @@ export class HttpTransport implements Transport {
+   protected async loop(): Promise<void> {
+     while (!this.disposed) {
+       try {
+-        const res = await fetch(`${this.base}/api/event`, {
++        // SSE 无法自定义头：token 走 ?token= 查询参数（服务端 tokenOf 双口径，工单 9.1）
++        const url = `${this.base}/api/event${
++          this.authToken !== undefined ? `?token=${encodeURIComponent(this.authToken)}` : ''
++        }`
++        const res = await fetch(url, {
+           signal: this.abort.signal,
+           headers: { accept: 'text/event-stream' },
+         })
+@@ -200,7 +225,11 @@ export class HttpTransport implements Transport {
+     this.assertNotDisposed()
+     const res = await fetch(`${this.base}${path}`, {
+       ...init,
+-      headers: { 'content-type': 'application/json', ...init?.headers },
++      headers: {
++        'content-type': 'application/json',
++        ...init?.headers,
++        ...(this.authToken !== undefined ? { authorization: `Bearer ${this.authToken}` } : {}),
++      },
+     })
+     if (!res.ok) {
+       let code = `HTTP_${res.status}`
+@@ -458,6 +487,27 @@ export class HttpTransport implements Transport {
+     return this.req<SearchHitDto[]>(`/api/search?${params.toString()}`)
+   }
+ 
++  getPairStatus(): Promise<PairStatusDto> {
++    return this.req<PairStatusDto>('/api/pair')
++  }
++
++  createPairCode(): Promise<PairCodeDto> {
++    return this.req<PairCodeDto>('/api/pair/code', { method: 'POST' })
++  }
++
++  redeemPair(body: PairRedeemBody): Promise<PairTokenDto> {
++    return this.req<PairTokenDto>('/api/pair', {
++      method: 'POST',
++      body: JSON.stringify(body),
++    })
++  }
++
++  revokePairDevice(id: string): Promise<void> {
++    return this.req<{ ok: boolean }>(`/api/pair/devices/${encodeURIComponent(id)}`, {
++      method: 'DELETE',
++    }).then(() => undefined)
++  }
++
+   dispose(): void {
+     this.disposed = true
+     this.abort.abort()
+@@ -477,6 +527,8 @@ export interface SessionEventSourceOptions {
+   backoffMs?: readonly number[]
+   onStatus?: (s: HttpConnectionStatus) => void
+   onEvent?: (e: SparkEventEnvelope) => void
++  /** 配对长效 token（工单 9.1 / D24）：SSE URL 附 &token=（服务端 tokenOf 双口径） */
++  authToken?: string
+ }
+ 
+ /**
+@@ -518,7 +570,8 @@ export class SessionEventSource {
+   private async loop(): Promise<void> {
+     while (!this.disposed) {
+       try {
+-        const url = `${this.opts.baseUrl}/api/event?sessionId=${this.opts.sessionId}&since=${this.watermark}`
++        let url = `${this.opts.baseUrl}/api/event?sessionId=${this.opts.sessionId}&since=${this.watermark}`
++        if (this.opts.authToken !== undefined) url += `&token=${encodeURIComponent(this.opts.authToken)}`
+         const res = await fetch(url, {
+           signal: this.abort.signal,
+           headers: { accept: 'text/event-stream' },

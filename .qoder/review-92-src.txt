@@ -1,0 +1,2249 @@
+commit d19792b02df15cc62defe225b39c29be5815e7cb
+Author: Wanfeng1028 <dingyu_1028@163.com>
+Date:   Sun Aug 30 03:38:30 2026 +0800
+
+    feat(stage9): 宸ュ崟 9.2鈥斺€攁pps/mobile Expo 楠ㄦ灦锛堜紶杈撻€傞厤+涓婚+涓夊睆瀵艰埅锛?    
+    鏂板缓 @spark/mobile锛圗xpo SDK 57 + React Native 0.86.3锛孉DR D20 绉诲姩绔級锛?    - 浼犺緭閫傞厤灞傦細REST 鐩存帴澶嶇敤鍗忚鍖?HttpTransport锛坅uthToken 鍙屽彛寰勶級锛?      浼氳瘽绾ф祦 RnSessionEventSource 鍩轰簬 react-native-sse锛圧N fetch 鏃犳祦寮忓搷搴斾綋銆?      iOS XHR onprogress 澧為噺涓嶅彲闈狅級锛岄€€閬块噸杩炲鐢?DEFAULT_BACKOFF_MS 璇箟
+      锛?/2/5/10s 灏侀《锛夈€乻ince 姘翠綅缁挱銆?token= 娉ㄥ叆銆?01/403 缁?onError
+      涓婃姏璧?ERROR_COPY 浜鸿瘽鍖栵紱閰嶇疆瀛?expo-secure-store锛坱oken 鍔犲瘑锛夈€?    - Store锛歾ustand + applyEvent 闀滃儚 apps/cli 鎶曞奖璇箟锛涗簨浠跺叆闃?      requestAnimationFrame 鎵瑰鐞嗭紙鍙傜収 web context.tsx 妯″紡锛夈€?    - 涓婚锛欴ESIGN 搂13.C token 琛?1:1 浜?鏆椾袱濂楋紝浜壊榛樿銆佽窡闅忕郴缁燂紱
+      搴曡壊 #F7F7F7 + 鐧藉崱 radius 16 鏃犺竟妗嗘棤闃村奖锛圝.0锛夈€乪levation 鍗曟。銆?    - 涓夊睆+瀵艰埅锛埪?3.J 鏁板€硷級锛氬崟鏍?鎶藉眽銆佹棤 tab bar锛涗細璇濆垪琛紙涓嬫媺鍒锋柊銆?      浠婂ぉ/鏇存棭鍒嗙粍銆佺姸鎬佺偣 8px銆佽楂?52銆丗AB 56锛夛紱浼氳瘽椤甸鏋跺３锛?      璁剧疆椤碉紙鏈嶅姟鍣?token 閰嶇疆銆佸瑙備笁妗ｃ€佹柇寮€杩炴帴銆侀厤瀵圭‘璁ゅ崱锛夛紱
+      spark://pair 娣遍摼瑙ｆ瀽绾嚱鏁帮紙鍐峰惎鍔?杩愯鏈熷弻璺緞锛夈€?    - Jest 棣栨壒 29 鐢ㄤ緥锛歛pplyEvent 鎶曞奖蹇収涓?durable 鍘婚噸銆佷富棰?      浜?鏆?token 鏂█銆侀厤瀵规繁閾惧悎娉?闈炴硶/缂哄弬銆?    - 鏍圭绾匡細eslint 瀵?Metro/Babel CJS 閰嶇疆鍔犻拡瀵规€?overrides锛堜笉瑁呮柊鎻掍欢锛夛紱
+      pnpm typecheck/lint/test 涓夊叧鍏ㄧ豢锛宲npm -r scope 鍚?@spark/mobile銆?    - 鍗忚瀵煎嚭闈㈡牳楠岋細splitSseFrames/envelopeFromSseFrame/DEFAULT_BACKOFF_MS/
+      applyEvent/ERROR_COPY 鍧囧凡浠庡寘鍏ュ彛瀵煎嚭锛屾棤闇€琛ラ綈銆?    
+    鏂颁緷璧栬鍙瘉娓呭崟锛圓DR D23锛屽潎 MIT/Apache 绫伙級锛?    - expo ~57.0.18 / jest-expo ~57.0.5 / expo-linking / expo-secure-store /
+      expo-status-bar / babel-preset-expo / @expo/vector-icons 鈥?MIT
+    - react-native 0.86.3 / react-native-gesture-handler /
+      react-native-reanimated / react-native-safe-area-context /
+      react-native-screens 鈥?MIT
+    - @react-navigation/{drawer,native,native-stack} v7 鈥?MIT
+    - react-native-sse ^1.2.1 鈥?MIT
+    - zustand ^5.0.15锛堜粨搴撴棦鏈夐€夋嫨锛夆€?MIT
+
+diff --git a/apps/mobile/App.tsx b/apps/mobile/App.tsx
+new file mode 100644
+index 0000000..835fe45
+--- /dev/null
++++ b/apps/mobile/App.tsx
+@@ -0,0 +1,71 @@
++/**
++ * App 鏍癸紙宸ュ崟 9.2 楠ㄦ灦锛夛細閰嶇疆瑁呰浇 鈫?涓婚瑙ｆ瀽锛埪?3.C 涓夋。 脳 绯荤粺鑹诧級鈫?+ * NavigationContainer锛坱oken 鏄犲皠瀵艰埅涓婚锛夆啋 鍗曟爤+鎶藉眽銆?+ * 閰嶅娣遍摼锛歴park://pair 缁?parsePairLink 瑙ｆ瀽鍚庤惤 config.pendingPair锛?+ * 璁剧疆椤靛憟鐜扮‘璁ゅ崱锛堝喎鍚姩 getInitialURL + 杩愯鏈?addEventListener 鍙岃矾寰勶級銆?+ */
++import { useEffect } from 'react'
++import { useColorScheme } from 'react-native'
++import { StatusBar } from 'expo-status-bar'
++import * as Linking from 'expo-linking'
++import {
++  DefaultTheme,
++  NavigationContainer,
++} from '@react-navigation/native'
++import type { Theme as NavTheme } from '@react-navigation/native'
++import { SafeAreaProvider } from 'react-native-safe-area-context'
++import { AppNavigator } from './src/navigation/AppNavigator'
++import { useConfigStore } from './src/store/config-store'
++import { resolveTheme } from './src/theme/tokens'
++import { parsePairLink } from './src/transport/pair-link'
++
++/** 搂13.C token 鈫?react-navigation 涓婚锛堝鑸鍣ㄨ儗鏅?鏂囨湰涓庡睆骞曞悓鍙ｅ緞锛?*/
++function navTheme(dark: boolean, colors: NavTheme['colors']): NavTheme {
++  return { ...DefaultTheme, dark, colors, fonts: DefaultTheme.fonts }
++}
++
++export default function App() {
++  const scheme = useColorScheme()
++  // ColorSchemeName 鍚?'unspecified'鈥斺€斿綊涓€涓?null锛堜寒鑹查粯璁ょ邯寰嬶級
++  const system = scheme === 'light' || scheme === 'dark' ? scheme : null
++  const appearance = useConfigStore((s) => s.appearance)
++  const hydrated = useConfigStore((s) => s.hydrated)
++  const t = resolveTheme(appearance, system)
++
++  // 鍚姩瑁呰浇鎸佷箙鍖栭厤缃紙澶辫触闂悎锛氳澶辫触鎸夋湭閰嶇疆鍛堢幇锛?+  useEffect(() => {
++    void useConfigStore.getState().load()
++  }, [])
++
++  // 閰嶅娣遍摼锛氬喎鍚姩 + 杩愯鏈熷悓涓€璺緞锛堣В鏋愬け璐?= 鏈瘑鍒紝闈欓粯蹇界暐锛?+  useEffect(() => {
++    const handle = (url: string | null): void => {
++      if (url === null) return
++      const pair = parsePairLink(url)
++      if (pair !== null) useConfigStore.getState().setPendingPair(pair)
++    }
++    void Linking.getInitialURL().then(handle)
++    const sub = Linking.addEventListener('url', (e) => handle(e.url))
++    return () => sub.remove()
++  }, [])
++
++  if (!hydrated) return null
++
++  const theme = navTheme(appearance === 'dark' || (appearance === 'system' && system === 'dark'), {
++    primary: t.sparkAccent,
++    background: t.pageBackground,
++    card: t.card,
++    text: t.foreground,
++    border: t.border,
++    notification: t.sparkAccent,
++  })
++
++  return (
++    <SafeAreaProvider>
++      <NavigationContainer theme={theme}>
++        <AppNavigator />
++        <StatusBar style="auto" />
++      </NavigationContainer>
++    </SafeAreaProvider>
++  )
++}
+diff --git a/apps/mobile/app.json b/apps/mobile/app.json
+new file mode 100644
+index 0000000..fe3544d
+--- /dev/null
++++ b/apps/mobile/app.json
+@@ -0,0 +1,18 @@
++{
++  "expo": {
++    "name": "Spark",
++    "slug": "spark-mobile",
++    "scheme": "spark",
++    "version": "0.1.0",
++    "userInterfaceStyle": "automatic",
++    "backgroundColor": "#F7F7F7",
++    "platforms": ["ios", "android"],
++    "ios": {
++      "supportsTablet": false
++    },
++    "android": {
++      "edgeToEdgeEnabled": true
++    },
++    "plugins": ["expo-secure-store", "expo-status-bar"]
++  }
++}
+diff --git a/apps/mobile/babel.config.js b/apps/mobile/babel.config.js
+new file mode 100644
+index 0000000..ca91880
+--- /dev/null
++++ b/apps/mobile/babel.config.js
+@@ -0,0 +1,5 @@
++// babel 閰嶇疆锛圕JS鈥斺€擡xpo 绾﹀畾锛況eanimated 鎻掍欢鐢?babel-preset-expo 鑷姩鎺ュ叆锛?+module.exports = function (api) {
++  api.cache(true)
++  return { presets: ['babel-preset-expo'] }
++}
+diff --git a/apps/mobile/index.ts b/apps/mobile/index.ts
+new file mode 100644
+index 0000000..25b8caa
+--- /dev/null
++++ b/apps/mobile/index.ts
+@@ -0,0 +1,5 @@
++/** Expo 鍏ュ彛锛氭敞鍐屾牴缁勪欢锛坢ain 鎸囧悜鏈枃浠讹級 */
++import { registerRootComponent } from 'expo'
++import App from './App'
++
++registerRootComponent(App)
+diff --git a/apps/mobile/metro.config.js b/apps/mobile/metro.config.js
+new file mode 100644
+index 0000000..45ea690
+--- /dev/null
++++ b/apps/mobile/metro.config.js
+@@ -0,0 +1,16 @@
++// Metro 閰嶇疆锛圕JS鈥斺€擡xpo 绾﹀畾锛夛細pnpm monorepo鈥斺€攚atch 浠撳簱鏍广€佸弻 node_modules 瑙ｆ瀽锛?+// 浣?@spark/protocol 绛?workspace 鍖呯殑 TS 婧愮爜鍙 Metro 鐩存帴杞瘧銆?+const { getDefaultConfig } = require('expo/metro-config')
++const path = require('path')
++
++const projectRoot = __dirname
++const monorepoRoot = path.resolve(projectRoot, '../..')
++
++const config = getDefaultConfig(projectRoot)
++config.watchFolders = [monorepoRoot]
++config.resolver.nodeModulesPaths = [
++  path.resolve(projectRoot, 'node_modules'),
++  path.resolve(monorepoRoot, 'node_modules'),
++]
++
++module.exports = config
+diff --git a/apps/mobile/package.json b/apps/mobile/package.json
+new file mode 100644
+index 0000000..15bc5c3
+--- /dev/null
++++ b/apps/mobile/package.json
+@@ -0,0 +1,49 @@
++{
++  "name": "@spark/mobile",
++  "version": "0.1.0",
++  "private": true,
++  "description": "Spark 绉诲姩绔?App锛圗xpo + React Native锛孉DR D20锛涢樁娈典節宸ュ崟 9.2 楠ㄦ灦锛?,
++  "main": "index.ts",
++  "scripts": {
++    "dev": "expo start",
++    "typecheck": "tsc --noEmit",
++    "test": "jest"
++  },
++  "dependencies": {
++    "@expo/vector-icons": "^15.0.2",
++    "@react-navigation/drawer": "^7.13.10",
++    "@react-navigation/native": "^7.3.18",
++    "@react-navigation/native-stack": "^7.18.10",
++    "@spark/protocol": "workspace:*",
++    "babel-preset-expo": "~57.0.0",
++    "expo": "~57.0.18",
++    "expo-linking": "~57.0.8",
++    "expo-secure-store": "~57.0.2",
++    "expo-status-bar": "~57.0.1",
++    "react": "19.2.3",
++    "react-native": "0.86.3",
++    "react-native-gesture-handler": "~2.32.0",
++    "react-native-reanimated": "4.5.1",
++    "react-native-safe-area-context": "~5.7.0",
++    "react-native-screens": "~4.26.0",
++    "react-native-sse": "^1.2.1",
++    "zustand": "^5.0.15"
++  },
++  "devDependencies": {
++    "@types/jest": "^29.5.14",
++    "@types/node": "^24",
++    "@types/react": "~19.2.2",
++    "jest": "^29.7.0",
++    "jest-expo": "~57.0.5",
++    "typescript": "^5.9.3"
++  },
++  "jest": {
++    "preset": "jest-expo",
++    "moduleNameMapper": {
++      "^(\\.{1,2}/.*)\\.js$": "$1"
++    },
++    "transformIgnorePatterns": [
++      "node_modules/(?!\\.pnpm)(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*))"
++    ]
++  }
++}
+diff --git a/apps/mobile/src/components/ui.tsx b/apps/mobile/src/components/ui.tsx
+new file mode 100644
+index 0000000..5ddde12
+--- /dev/null
++++ b/apps/mobile/src/components/ui.tsx
+@@ -0,0 +1,199 @@
++/**
++ * 鍏变韩 UI 鍘熻锛圖ESIGN 搂13.J.3 鎺т欢瑙勬牸琛級锛?+ * 鐧藉崱 radius 16 鏃犺竟妗嗘棤闃村奖銆佸垎缁勮 56 hairline銆佹诞鍔ㄥ渾閽?44 鐧藉簳鍗曟。闃村奖銆?+ * 椤靛ご灞呬腑鏍囬 17 semibold + 宸︽诞鍔ㄥ渾閽紙J.1锛夈€傜澶氬眰闃村奖锛埪?3.I锛夆€斺€攅levation 鍗曟。銆?+ */
++import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
++import type { StyleProp, ViewStyle } from 'react-native'
++import type { ComponentProps, ReactNode } from 'react'
++import { Feather } from '@expo/vector-icons'
++import { useSafeAreaInsets } from 'react-native-safe-area-context'
++import { useTheme } from '../theme/use-theme'
++import { darkTheme, mobileMetrics } from '../theme/tokens'
++
++export type FeatherIconName = ComponentProps<typeof Feather>['name']
++
++/** 鐧藉崱锛圝.3锛歳adius 16銆佹棤杈规鏃犻槾褰便€佸唴杈硅窛 16锛涙殫鑹茬敤 card token锛?*/
++export function Card({
++  children,
++  style,
++}: {
++  children: ReactNode
++  style?: StyleProp<ViewStyle>
++}) {
++  const t = useTheme()
++  return (
++    <View style={[styles.card, { backgroundColor: t.card }, style]}>{children}</View>
++  )
++}
++
++/** 鍒嗙粍琛岋紙J.3锛氶珮 56锛涜闂?hairline 鐢辩埗绾ф寜浣嶆帶锛?*/
++export function Row({
++  children,
++  onPress,
++  height = mobileMetrics.rowHeight,
++}: {
++  children: ReactNode
++  onPress?: () => void
++  height?: number
++}) {
++  const inner = (
++    <View style={[styles.row, { height }]}>{children}</View>
++  )
++  if (onPress === undefined) return inner
++  return (
++    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
++      {inner}
++    </TouchableOpacity>
++  )
++}
++
++/** 琛屽唴 hairline 鍒嗛殧锛堢缉杩涘榻愭枃妗堬紝J.0锛?*/
++export function Hairline({ inset = 0 }: { inset?: number }) {
++  const t = useTheme()
++  return (
++    <View
++      style={[
++        styles.hairline,
++        { backgroundColor: t.border, marginLeft: inset },
++      ]}
++    />
++  )
++}
++
++/** 娴姩鍦嗗舰閽紙J.3锛?4 鐧藉簳銆佸浘鏍?20銆佸崟妗ｉ槾褰憋紱椤靛ご宸﹂挳/杩斿洖閽叡鐢級 */
++export function RoundFloatButton({
++  icon,
++  onPress,
++  label,
++}: {
++  icon: FeatherIconName
++  onPress: () => void
++  /** 鏃犻殰纰嶆爣绛?*/
++  label: string
++}) {
++  const t = useTheme()
++  return (
++    <TouchableOpacity
++      accessibilityRole="button"
++      accessibilityLabel={label}
++      onPress={onPress}
++      activeOpacity={0.7}
++      style={[
++        styles.floatButton,
++        { backgroundColor: t.card },
++        floatShadow(),
++      ]}
++    >
++      <Feather name={icon} size={20} color={t.foreground} />
++    </TouchableOpacity>
++  )
++}
++
++/** 椤靛ご锛圝.1锛夛細灞呬腑鏍囬 17 semibold + 宸︽诞鍔ㄥ渾閽紱閬胯椤堕儴瀹夊叏鍖?*/
++export function ScreenHeader({
++  title,
++  leftIcon,
++  onLeftPress,
++  leftLabel,
++}: {
++  title: string
++  leftIcon: FeatherIconName
++  onLeftPress: () => void
++  leftLabel: string
++}) {
++  const t = useTheme()
++  const insets = useSafeAreaInsets()
++  return (
++    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
++      <View style={styles.headerFloat}>
++        <RoundFloatButton icon={leftIcon} onPress={onLeftPress} label={leftLabel} />
++      </View>
++      <Text
++        numberOfLines={1}
++        style={[styles.headerTitle, { color: t.foreground }]}
++      >
++        {title}
++      </Text>
++    </View>
++  )
++}
++
++/** 绌烘€侊紙J.4锛氬眳涓袱琛屽紡绾帓鐗堬紝绂佹彃鐢诲～鍏咃級 */
++export function EmptyState({ title, detail }: { title: string; detail: string }) {
++  const t = useTheme()
++  return (
++    <View style={styles.empty}>
++      <Text style={[styles.emptyTitle, { color: t.foreground }]}>{title}</Text>
++      <Text style={[styles.emptyDetail, { color: t.mutedForeground }]}>{detail}</Text>
++    </View>
++  )
++}
++
++/** 鍗曟。 subtle shadow锛埪?3.I锛氱澶氬眰闃村奖鈥斺€斾粎姝や竴妗ｏ紝娴挳/鑿滃崟鍏辩敤锛?*/
++const subtleShadow: StyleProp<ViewStyle> = {
++  elevation: 2,
++  shadowColor: '#000000',
++  shadowOpacity: 0.08,
++  shadowRadius: 4,
++  shadowOffset: { width: 0, height: 1 },
++}
++
++function floatShadow(): StyleProp<ViewStyle> {
++  // 鏆楄壊锛氫笉鍙犻槾褰卞眰娆★紝闈犲崱搴曡壊宸垎灞傦紙J.0 鍚屽緥锛?+  return useTheme() === darkTheme ? undefined : subtleShadow
++}
++
++const styles = StyleSheet.create({
++  card: {
++    borderRadius: mobileMetrics.cardRadius,
++    padding: mobileMetrics.cardPadding,
++    overflow: 'hidden',
++  },
++  row: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    paddingHorizontal: 16,
++  },
++  hairline: {
++    height: StyleSheet.hairlineWidth,
++  },
++  floatButton: {
++    width: mobileMetrics.floatButtonSize,
++    height: mobileMetrics.floatButtonSize,
++    borderRadius: mobileMetrics.floatButtonSize / 2,
++    alignItems: 'center',
++    justifyContent: 'center',
++  },
++  header: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    paddingHorizontal: 16,
++    paddingBottom: 12,
++  },
++  headerFloat: {
++    position: 'absolute',
++    left: 16,
++    bottom: 8,
++  },
++  headerTitle: {
++    flex: 1,
++    textAlign: 'center',
++    fontSize: mobileMetrics.headerTitle,
++    fontWeight: '600',
++  },
++  empty: {
++    flex: 1,
++    alignItems: 'center',
++    justifyContent: 'center',
++    paddingHorizontal: 32,
++    gap: 4,
++  },
++  emptyTitle: {
++    fontSize: mobileMetrics.headerTitle,
++    fontWeight: '600',
++  },
++  emptyDetail: {
++    fontSize: mobileMetrics.caption,
++  },
++})
+diff --git a/apps/mobile/src/navigation/AppNavigator.tsx b/apps/mobile/src/navigation/AppNavigator.tsx
+new file mode 100644
+index 0000000..0a803de
+--- /dev/null
++++ b/apps/mobile/src/navigation/AppNavigator.tsx
+@@ -0,0 +1,134 @@
++/**
++ * 鏍瑰鑸紙DESIGN 搂13.J.1锛夛細鏃?tab bar銆佸崟鏍?鎶藉眽銆?+ * 鎶藉眽=浼氳瘽锛堝祵濂?native-stack锛氬垪琛ㄢ啋浼氳瘽椤碉級/ 璁剧疆锛涢〉澶翠竴寰嬭嚜缁橈紙ScreenHeader锛夛紝
++ * 瀵艰埅搴撻〉澶村叧闂€傛娊灞夊唴瀹硅嚜缁橈紙J.1 鍏ュ彛锛氫細璇?璁剧疆/閰嶅鈥斺€旈厤瀵瑰叆鍙ｈ惤璁剧疆椤碉級銆?+ */
++import { Text, TouchableOpacity, View, StyleSheet } from 'react-native'
++import { createDrawerNavigator } from '@react-navigation/drawer'
++import { createNativeStackNavigator } from '@react-navigation/native-stack'
++import { useSafeAreaInsets } from 'react-native-safe-area-context'
++import type { DrawerContentComponentProps } from '@react-navigation/drawer'
++import { SessionsScreen } from '../screens/SessionsScreen'
++import { SessionScreen } from '../screens/SessionScreen'
++import { SettingsScreen } from '../screens/SettingsScreen'
++import { useTheme } from '../theme/use-theme'
++import { darkTheme, mobileMetrics } from '../theme/tokens'
++import type { DrawerParamList, SessionsStackParamList } from './params'
++
++const Drawer = createDrawerNavigator<DrawerParamList>()
++const SessionsStack = createNativeStackNavigator<SessionsStackParamList>()
++
++function SessionsNavigator() {
++  return (
++    <SessionsStack.Navigator screenOptions={{ headerShown: false }}>
++      <SessionsStack.Screen name="SessionList" component={SessionsScreen} />
++      <SessionsStack.Screen name="Session" component={SessionScreen} />
++    </SessionsStack.Navigator>
++  )
++}
++
++/** 鎶藉眽鍐呭锛堣嚜缁橈級锛氫袱琛屽叆鍙?+ 搴曢儴閰嶅璇存槑锛涢€変腑鎬?= muted 搴曪紙搂13.C 渚ф爮閫変腑鍚屾瀯锛?*/
++function SparkDrawerContent({ navigation, state }: DrawerContentComponentProps) {
++  const t = useTheme()
++  const insets = useSafeAreaInsets()
++  const items: ReadonlyArray<{ key: keyof DrawerParamList; label: string }> = [
++    { key: 'Sessions', label: '鍏ㄩ儴浼氳瘽' },
++    { key: 'Settings', label: '璁剧疆' },
++  ]
++  const activeKey = items[state.index]?.key ?? 'Sessions'
++
++  return (
++    <View
++      style={[
++        styles.drawer,
++        {
++          backgroundColor: t.card,
++          paddingTop: insets.top + 16,
++          paddingBottom: insets.bottom + 16,
++        },
++      ]}
++    >
++      <Text style={[styles.brand, { color: t.foreground }]}>Spark</Text>
++      <View style={styles.menu}>
++        {items.map((item) => {
++          const active = item.key === activeKey
++          return (
++            <TouchableOpacity
++              key={item.key}
++              accessibilityRole="button"
++              onPress={() => navigation.navigate(item.key)}
++              activeOpacity={0.7}
++              style={[styles.menuItem, active ? { backgroundColor: t.muted } : null]}
++            >
++              <Text
++                style={[
++                  styles.menuItemText,
++                  { color: active ? t.foreground : t.mutedForeground },
++                ]}
++              >
++                {item.label}
++              </Text>
++            </TouchableOpacity>
++          )
++        })}
++      </View>
++      <Text style={[styles.drawerFoot, { color: t.mutedForeground }]}>
++        閰嶅涓庤澶囩鐞嗗湪璁剧疆椤?+      </Text>
++    </View>
++  )
++}
++
++export function AppNavigator() {
++  const t = useTheme()
++  return (
++    <Drawer.Navigator
++      drawerContent={(props) => <SparkDrawerContent {...props} />}
++      screenOptions={{
++        headerShown: false,
++        drawerType: 'front',
++        drawerStyle: {
++          width: 280,
++          backgroundColor: t.card,
++          // 搂13.I锛氱澶氬眰闃村奖鈥斺€旀娊灞夎竟缂樺崟妗ｏ紝鏆楄壊涓嶅姞
++          ...(t === darkTheme ? {} : { elevation: 2 }),
++        },
++        overlayColor: 'rgba(0,0,0,0.3)',
++        swipeEdgeWidth: 24,
++      }}
++    >
++      <Drawer.Screen name="Sessions" component={SessionsNavigator} />
++      <Drawer.Screen name="Settings" component={SettingsScreen} />
++    </Drawer.Navigator>
++  )
++}
++
++const styles = StyleSheet.create({
++  drawer: {
++    flex: 1,
++    paddingHorizontal: 12,
++  },
++  brand: {
++    fontSize: 20,
++    fontWeight: '600',
++    paddingHorizontal: 12,
++    marginBottom: 16,
++  },
++  menu: {
++    gap: 4,
++  },
++  menuItem: {
++    height: mobileMetrics.rowHeight - 8,
++    borderRadius: 8,
++    justifyContent: 'center',
++    paddingHorizontal: 12,
++  },
++  menuItemText: {
++    fontSize: mobileMetrics.rowTitle,
++  },
++  drawerFoot: {
++    marginTop: 'auto',
++    fontSize: mobileMetrics.caption,
++    paddingHorizontal: 12,
++  },
++})
+diff --git a/apps/mobile/src/navigation/params.ts b/apps/mobile/src/navigation/params.ts
+new file mode 100644
+index 0000000..aea9d5f
+--- /dev/null
++++ b/apps/mobile/src/navigation/params.ts
+@@ -0,0 +1,14 @@
++/** 瀵艰埅鍙傛暟绫诲瀷锛堝崟鏍?鎶藉眽锛屾棤 tab bar鈥斺€擩.1锛夛細鏍规娊灞変袱椤?+ 浼氳瘽鏍堜袱灞?*/
++import type { NavigatorScreenParams } from '@react-navigation/native'
++
++/** 浼氳瘽鏍堬細鍒楄〃 鈫?浼氳瘽椤?*/
++export type SessionsStackParamList = {
++  SessionList: undefined
++  Session: { sessionId: string; title: string }
++}
++
++/** 鏍规娊灞夛細浼氳瘽锛堝祵濂楁爤锛? 璁剧疆 */
++export type DrawerParamList = {
++  Sessions: NavigatorScreenParams<SessionsStackParamList> | undefined
++  Settings: undefined
++}
+diff --git a/apps/mobile/src/screens/SessionScreen.tsx b/apps/mobile/src/screens/SessionScreen.tsx
+new file mode 100644
+index 0000000..9b05d63
+--- /dev/null
++++ b/apps/mobile/src/screens/SessionScreen.tsx
+@@ -0,0 +1,46 @@
++/**
++ * 浼氳瘽椤碉紙楠ㄦ灦澹斥€斺€斿伐鍗?9.2锛氬崰浣嶆秷鎭祦鍖哄煙锛屽唴瀹瑰伐鍗?9.3 濉級銆?+ * 椤靛ご甯﹁繑鍥炲渾閽紙J.1锛夛紱鏍囬 17 semibold锛涚┖鎬佷袱琛屽紡绾帓鐗堬紙J.4锛夈€?+ */
++import { StyleSheet, View } from 'react-native'
++import { useNavigation, useRoute } from '@react-navigation/native'
++import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
++import type { RouteProp } from '@react-navigation/native'
++import { useTheme } from '../theme/use-theme'
++import { EmptyState, ScreenHeader } from '../components/ui'
++import type { SessionsStackParamList } from '../navigation/params'
++
++export function SessionScreen() {
++  const t = useTheme()
++  const navigation = useNavigation<NativeStackNavigationProp<SessionsStackParamList>>()
++  const route = useRoute<RouteProp<SessionsStackParamList, 'Session'>>()
++  const { sessionId, title } = route.params
++
++  return (
++    <View style={[styles.screen, { backgroundColor: t.pageBackground }]}>
++      <ScreenHeader
++        title={title !== '' ? title : '鏂颁細璇?}
++        leftIcon="chevron-left"
++        leftLabel="杩斿洖浼氳瘽鍒楄〃"
++        onLeftPress={() => navigation.goBack()}
++      />
++      {/* 娑堟伅娴佸崰浣嶅尯锛堝伐鍗?9.3锛氭姇褰辨覆鏌?user 鑳跺泭 / assistant 鍏ㄥ绾枃鏈?/ 宸ュ叿鍗★級 */}
++      <View style={styles.stream} accessibilityLabel={`浼氳瘽 ${sessionId} 娑堟伅娴佸崰浣峘}>
++        <EmptyState
++          title="娑堟伅娴佸缓璁句腑"
++          detail="浼氳瘽鍐呭灏嗗湪涓嬩竴宸ュ崟鎺ュ叆锛屽綋鍓嶄粎鎻愪緵楠ㄦ灦"
++        />
++      </View>
++    </View>
++  )
++}
++
++const styles = StyleSheet.create({
++  screen: {
++    flex: 1,
++  },
++  stream: {
++    flex: 1,
++    paddingHorizontal: 16,
++  },
++})
+diff --git a/apps/mobile/src/screens/SessionsScreen.tsx b/apps/mobile/src/screens/SessionsScreen.tsx
+new file mode 100644
+index 0000000..ad36a46
+--- /dev/null
++++ b/apps/mobile/src/screens/SessionsScreen.tsx
+@@ -0,0 +1,269 @@
++/**
++ * 浼氳瘽鍒楄〃灞忥紙DESIGN 搂13.J.2.2锛夛細涓嬫媺鍒锋柊锛坱ransport.listSessions()锛夈€?+ * 鏃堕棿鍒嗙粍锛堜粖澶?鏇存棭锛夈€佽=鐘舵€佺偣 8px+鏍囬 16 鍗曡鎴柇+鍙充晶鏃ユ湡 13 meta銆?+ * 琛岄珮 52銆佸彸涓?FAB 56 accent 鐧?+"銆傚垪琛ㄥ揩鐓х邯寰嬪悓 cli锛圓GENTS 搂2.7锛夛細
++ * 鍒锋柊/鑱氱劍鏃跺埢 REST 蹇収锛屼笉杞銆?+ */
++import { useCallback, useEffect, useMemo, useState } from 'react'
++import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
++import { Feather } from '@expo/vector-icons'
++import { useNavigation } from '@react-navigation/native'
++import type { DrawerNavigationProp } from '@react-navigation/drawer'
++import type { SessionDto, SessionStatus } from '@spark/protocol'
++import { errorMessageOf } from '@spark/protocol'
++import { useAppStore } from '../store/app-store'
++import { useConfigStore } from '../store/config-store'
++import { getHttpTransport } from '../transport/runtime'
++import { useTheme } from '../theme/use-theme'
++import type { ThemeTokens } from '../theme/tokens'
++import { mobileMetrics } from '../theme/tokens'
++import { Card, EmptyState, Hairline, ScreenHeader } from '../components/ui'
++import type { DrawerParamList } from '../navigation/params'
++
++/** 鐘舵€佺偣閰嶈壊锛圝.2.2锛氱豢绌洪棽/accent 杩愯/amber 寰呭鎵癸紱鐏?瀹屾垚鎬?v2 褰掓。棰勭暀锛?*/
++function dotColor(status: SessionStatus, t: ThemeTokens): string {
++  switch (status) {
++    case 'running':
++      return t.sparkAccent
++    case 'waiting-approval':
++      return t.sparkWarn
++    case 'idle':
++      return t.sparkOk
++  }
++}
++
++function isToday(ts: number): boolean {
++  const d = new Date(ts)
++  const now = new Date()
++  return (
++    d.getFullYear() === now.getFullYear() &&
++    d.getMonth() === now.getMonth() &&
++    d.getDate() === now.getDate()
++  )
++}
++
++/** 鍙充晶鏃ユ湡 13 meta锛氫粖澶?鏃跺垎锛屾洿鏃?鏈?鏃?*/
++function fmtDate(ts: number): string {
++  const d = new Date(ts)
++  if (isToday(ts)) {
++    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
++  }
++  return `${d.getMonth() + 1}/${d.getDate()}`
++}
++
++type Section = { key: 'today' | 'earlier'; title: string; items: SessionDto[] }
++
++export function SessionsScreen() {
++  const t = useTheme()
++  const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>()
++  const sessions = useAppStore((s) => s.sessions)
++  const setSessions = useAppStore((s) => s.setSessions)
++  const setActiveSession = useAppStore((s) => s.setActiveSession)
++  const setNotice = useAppStore((s) => s.setNotice)
++  const serverUrl = useConfigStore((s) => s.serverUrl)
++  const token = useConfigStore((s) => s.token)
++  const [refreshing, setRefreshing] = useState(false)
++
++  const refresh = useCallback(async (): Promise<void> => {
++    const transport = getHttpTransport(serverUrl, token)
++    if (transport === null) {
++      setNotice('鏈厤缃湇鍔″櫒锛氳鍏堝湪璁剧疆椤靛畬鎴愰厤瀵?)
++      return
++    }
++    try {
++      setSessions(await transport.listSessions())
++      setNotice(null)
++    } catch (err: unknown) {
++      // 澶辫触闂悎锛氬垪琛ㄥけ璐ュ瀹炴彁绀猴紝淇濈暀鏃у揩鐓э紙涓嶆嬁绌哄垪琛ㄥ啋鍏咃級
++      setNotice(errorMessageOf(err))
++    }
++  }, [serverUrl, token, setSessions, setNotice])
++
++  useEffect(() => {
++    setRefreshing(true)
++    void refresh().finally(() => setRefreshing(false))
++  }, [refresh])
++
++  const sections = useMemo<Section[]>(() => {
++    const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)
++    const today = sorted.filter((s) => isToday(s.updatedAt))
++    const earlier = sorted.filter((s) => !isToday(s.updatedAt))
++    const out: Section[] = []
++    if (today.length > 0) out.push({ key: 'today', title: '浠婂ぉ', items: today })
++    if (earlier.length > 0) out.push({ key: 'earlier', title: '鏇存棭', items: earlier })
++    return out
++  }, [sessions])
++
++  const onCreate = useCallback((): void => {
++    const transport = getHttpTransport(serverUrl, token)
++    if (transport === null) {
++      setNotice('鏈厤缃湇鍔″櫒锛氳鍏堝湪璁剧疆椤靛畬鎴愰厤瀵?)
++      return
++    }
++    void transport
++      .createSession()
++      .then((dto) => {
++        setActiveSession(dto.id)
++        navigation.navigate('Sessions', {
++          screen: 'Session',
++          params: { sessionId: dto.id, title: dto.title },
++        })
++      })
++      .catch((err: unknown) => setNotice(errorMessageOf(err)))
++  }, [serverUrl, token, navigation, setActiveSession, setNotice])
++
++  const openSession = useCallback(
++    (dto: SessionDto): void => {
++      setActiveSession(dto.id)
++      navigation.navigate('Sessions', {
++        screen: 'Session',
++        params: { sessionId: dto.id, title: dto.title },
++      })
++    },
++    [navigation, setActiveSession],
++  )
++
++  return (
++    <View style={[styles.screen, { backgroundColor: t.pageBackground }]}>
++      <ScreenHeader
++        title="鍏ㄩ儴浼氳瘽"
++        leftIcon="menu"
++        leftLabel="鎵撳紑鎶藉眽"
++        onLeftPress={() => navigation.openDrawer()}
++      />
++      {sections.length === 0 && !refreshing ? (
++        <EmptyState
++          title="鏆傛棤浼氳瘽"
++          detail={
++            serverUrl === ''
++              ? '鍏堝湪璁剧疆椤靛畬鎴愰厤瀵癸紝鍐嶄粠鍙充笅瑙掓柊寤?
++              : '涓嬫媺鍒锋柊锛屾垨浠庡彸涓嬭鏂板缓浼氳瘽'
++          }
++        />
++      ) : (
++        <FlatList
++          style={styles.list}
++          contentContainerStyle={styles.listContent}
++          refreshControl={
++            <RefreshControl
++              refreshing={refreshing}
++              onRefresh={() => {
++                setRefreshing(true)
++                void refresh().finally(() => setRefreshing(false))
++              }}
++              tintColor={t.mutedForeground}
++            />
++          }
++          data={sections}
++          keyExtractor={(s) => s.key}
++          renderItem={({ item: section }) => (
++            <View style={styles.section}>
++              <Text style={[styles.sectionTitle, { color: t.mutedForeground }]}>
++                {section.title}
++              </Text>
++              <Card style={styles.sectionCard}>
++                {section.items.map((dto, i) => (
++                  <View key={dto.id}>
++                    {i > 0 ? <Hairline inset={32} /> : null}
++                    <SessionRow dto={dto} onPress={() => openSession(dto)} theme={t} />
++                  </View>
++                ))}
++              </Card>
++            </View>
++          )}
++        />
++      )}
++      <TouchableOpacity
++        accessibilityRole="button"
++        accessibilityLabel="鏂板缓浼氳瘽"
++        onPress={onCreate}
++        activeOpacity={0.85}
++        style={[styles.fab, { backgroundColor: t.sparkAccent }]}
++      >
++        <Feather name="plus" size={24} color="#ffffff" />
++      </TouchableOpacity>
++    </View>
++  )
++}
++
++function SessionRow({
++  dto,
++  onPress,
++  theme: t,
++}: {
++  dto: SessionDto
++  onPress: () => void
++  theme: ThemeTokens
++}) {
++  return (
++    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
++      <View style={[styles.row, { height: mobileMetrics.sessionRowHeight }]}>
++        <View style={[styles.dot, { backgroundColor: dotColor(dto.status, t) }]} />
++        <Text
++          numberOfLines={1}
++          style={[styles.rowTitle, { color: t.foreground }]}
++        >
++          {dto.title !== '' ? dto.title : '鏂颁細璇?}
++        </Text>
++        <Text style={[styles.rowDate, { color: t.mutedForeground }]}>
++          {fmtDate(dto.updatedAt)}
++        </Text>
++      </View>
++    </TouchableOpacity>
++  )
++}
++
++const styles = StyleSheet.create({
++  screen: {
++    flex: 1,
++  },
++  list: {
++    flex: 1,
++  },
++  listContent: {
++    paddingHorizontal: 16,
++    paddingBottom: 96,
++  },
++  section: {
++    marginBottom: mobileMetrics.cardGap,
++  },
++  sectionTitle: {
++    fontSize: mobileMetrics.caption,
++    marginBottom: 8,
++    marginLeft: 4,
++  },
++  sectionCard: {
++    paddingVertical: 0,
++    paddingHorizontal: 0,
++  },
++  row: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    paddingHorizontal: 16,
++  },
++  dot: {
++    width: mobileMetrics.statusDot,
++    height: mobileMetrics.statusDot,
++    borderRadius: mobileMetrics.statusDot / 2,
++    marginRight: 12,
++  },
++  rowTitle: {
++    flex: 1,
++    fontSize: mobileMetrics.rowTitle,
++  },
++  rowDate: {
++    fontSize: mobileMetrics.caption,
++    marginLeft: 12,
++  },
++  fab: {
++    position: 'absolute',
++    right: 16,
++    bottom: 24,
++    width: mobileMetrics.fabSize,
++    height: mobileMetrics.fabSize,
++    borderRadius: mobileMetrics.fabSize / 2,
++    alignItems: 'center',
++    justifyContent: 'center',
++    elevation: 2,
++  },
++})
+diff --git a/apps/mobile/src/screens/SettingsScreen.tsx b/apps/mobile/src/screens/SettingsScreen.tsx
+new file mode 100644
+index 0000000..abf18b7
+--- /dev/null
++++ b/apps/mobile/src/screens/SettingsScreen.tsx
+@@ -0,0 +1,331 @@
++/**
++ * 璁剧疆灞忥紙DESIGN 搂13.J.2.4 绮剧畝鈥斺€斿伐鍗?9.2 鑼冨洿锛夛細
++ * 鏈嶅姟鍣ㄥ湴鍧€+token 閰嶇疆鍖猴紙鏈厤缃椂灞曠ず閰嶅寮曞鍗犱綅锛孞.2.10 绠€鍖栵級銆?+ * 娣遍摼寰呴厤瀵圭‘璁ゅ崱锛坰park://pair 瑙ｆ瀽浜х墿锛岃繛鎺?鐭爜鍏戦暱鏁?token锛夈€?+ * 澶栬涓夋。锛堣窡闅忕郴缁?娴呰壊/娣辫壊锛夈€佹柇寮€杩炴帴锛堢孩瀛楃嫭绔嬬櫧鍗★級銆?+ */
++import { useCallback, useState } from 'react'
++import {
++  ScrollView,
++  StyleSheet,
++  Text,
++  TextInput,
++  TouchableOpacity,
++  View,
++} from 'react-native'
++import { Feather } from '@expo/vector-icons'
++import { useNavigation } from '@react-navigation/native'
++import type { DrawerNavigationProp } from '@react-navigation/drawer'
++import { HttpTransport, errorMessageOf } from '@spark/protocol'
++import { useConfigStore } from '../store/config-store'
++import { invalidateTransport } from '../transport/runtime'
++import { baseUrlOf } from '../transport/pair-link'
++import { useTheme } from '../theme/use-theme'
++import type { AppearancePreference } from '../theme/tokens'
++import { mobileMetrics } from '../theme/tokens'
++import { Card, Hairline, ScreenHeader } from '../components/ui'
++import type { DrawerParamList } from '../navigation/params'
++
++const APPEARANCE_OPTIONS: ReadonlyArray<{ value: AppearancePreference; label: string }> = [
++  { value: 'system', label: '璺熼殢绯荤粺' },
++  { value: 'light', label: '娴呰壊' },
++  { value: 'dark', label: '娣辫壊' },
++]
++
++export function SettingsScreen() {
++  const t = useTheme()
++  const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>()
++  const serverUrl = useConfigStore((s) => s.serverUrl)
++  const token = useConfigStore((s) => s.token)
++  const appearance = useConfigStore((s) => s.appearance)
++  const pendingPair = useConfigStore((s) => s.pendingPair)
++  const saveConnection = useConfigStore((s) => s.saveConnection)
++  const disconnect = useConfigStore((s) => s.disconnect)
++  const setPendingPair = useConfigStore((s) => s.setPendingPair)
++
++  const [urlDraft, setUrlDraft] = useState(serverUrl)
++  const [tokenDraft, setTokenDraft] = useState(token)
++  const [busy, setBusy] = useState(false)
++  const [localNotice, setLocalNotice] = useState<string | null>(null)
++
++  const configured = serverUrl !== ''
++
++  const onSave = useCallback((): void => {
++    const url = urlDraft.trim()
++    if (url === '') {
++      setLocalNotice('鏈嶅姟鍣ㄥ湴鍧€涓嶈兘涓虹┖')
++      return
++    }
++    setBusy(true)
++    void saveConnection(url, tokenDraft.trim())
++      .then(() => {
++        invalidateTransport()
++        setLocalNotice(null)
++      })
++      .catch((err: unknown) => setLocalNotice(errorMessageOf(err)))
++      .finally(() => setBusy(false))
++  }, [urlDraft, tokenDraft, saveConnection])
++
++  const onRedeem = useCallback((): void => {
++    if (pendingPair === null) return
++    setBusy(true)
++    const base = baseUrlOf(pendingPair.host, pendingPair.port)
++    // 鍏戞崲鍙ｆ棤闇€ token锛堥壌鏉冭嚜涓锯€斺€斿伐鍗?9.1锛夛紱涓€娆℃€х煭鐮佹湇鍔＄浜屾鏍￠獙
++    const transport = new HttpTransport({ baseUrl: base, eventStream: false })
++    void transport
++      .redeemPair({ code: pendingPair.code })
++      .then((dto) => saveConnection(base, dto.token))
++      .then(() => {
++        invalidateTransport()
++        setPendingPair(null)
++        setLocalNotice(null)
++      })
++      .catch((err: unknown) => setLocalNotice(errorMessageOf(err)))
++      .finally(() => {
++        transport.dispose()
++        setBusy(false)
++      })
++  }, [pendingPair, saveConnection, setPendingPair])
++
++  return (
++    <View style={[styles.screen, { backgroundColor: t.pageBackground }]}>
++      <ScreenHeader
++        title="璁剧疆"
++        leftIcon="menu"
++        leftLabel="鎵撳紑鎶藉眽"
++        onLeftPress={() => navigation.openDrawer()}
++      />
++      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
++        {/* 娣遍摼寰呴厤瀵圭‘璁ゅ崱锛圝.2.9锛歴erver 鍦板潃 + 杩炴帴/鍙栨秷锛?*/}
++        {pendingPair !== null ? (
++          <Card style={styles.card}>
++            <Text style={[styles.cardTitle, { color: t.foreground }]}>寰呴厤瀵?/Text>
++            <Text style={[styles.pairHost, { color: t.mutedForeground }]}>
++              {baseUrlOf(pendingPair.host, pendingPair.port)}
++            </Text>
++            <View style={styles.pairActions}>
++              <TouchableOpacity
++                accessibilityRole="button"
++                onPress={onRedeem}
++                disabled={busy}
++                style={[styles.cta, { backgroundColor: t.primary }]}
++              >
++                <Text style={[styles.ctaText, { color: t.primaryForeground }]}>杩炴帴</Text>
++              </TouchableOpacity>
++              <TouchableOpacity
++                accessibilityRole="button"
++                onPress={() => setPendingPair(null)}
++                disabled={busy}
++                style={[styles.ctaGhost, { borderColor: t.border }]}
++              >
++                <Text style={[styles.ctaGhostText, { color: t.mutedForeground }]}>鍙栨秷</Text>
++              </TouchableOpacity>
++            </View>
++          </Card>
++        ) : null}
++
++        {/* 杩炴帴閰嶇疆鍖猴紙J.2.4锛氭湇鍔″櫒鍦板潃 + token锛?*/}
++        <Card style={styles.card}>
++          <Text style={[styles.cardTitle, { color: t.foreground }]}>鏈嶅姟鍣?/Text>
++          <Text style={[styles.fieldLabel, { color: t.mutedForeground }]}>鏈嶅姟鍣ㄥ湴鍧€</Text>
++          <TextInput
++            value={urlDraft}
++            onChangeText={setUrlDraft}
++            placeholder="http://192.168.1.10:4318"
++            placeholderTextColor={t.ring}
++            autoCapitalize="none"
++            autoCorrect={false}
++            style={[styles.input, { color: t.foreground, borderColor: t.border }]}
++          />
++          <Text style={[styles.fieldLabel, { color: t.mutedForeground }]}>閰嶅 Token</Text>
++          <TextInput
++            value={tokenDraft}
++            onChangeText={setTokenDraft}
++            placeholder="鎵爜閰嶅鎵€寰楋紱鐜洖鐩磋繛鍙暀绌?
++            placeholderTextColor={t.ring}
++            autoCapitalize="none"
++            autoCorrect={false}
++            secureTextEntry
++            style={[styles.input, { color: t.foreground, borderColor: t.border }]}
++          />
++          {localNotice !== null ? (
++            <Text style={[styles.notice, { color: t.sparkErr }]}>{localNotice}</Text>
++          ) : null}
++          <TouchableOpacity
++            accessibilityRole="button"
++            onPress={onSave}
++            disabled={busy}
++            style={[styles.cta, { backgroundColor: t.primary }]}
++          >
++            <Text style={[styles.ctaText, { color: t.primaryForeground }]}>
++              {busy ? '淇濆瓨涓€? : '淇濆瓨'}
++            </Text>
++          </TouchableOpacity>
++        </Card>
++
++        {/* 鏈厤缃細閰嶅寮曞鍗犱綅锛圝.2.10 绠€鍖栤€斺€旇櫄绾垮崱 + 姝ラ锛岀鎻掔敾/3D 鎷熺墿锛?*/}
++        {!configured && pendingPair === null ? (
++          <View style={[styles.guide, { borderColor: t.border }]}>
++            <Text style={[styles.guideTitle, { color: t.foreground }]}>鎵爜閰嶅</Text>
++            <Text style={[styles.guideStep, { color: t.mutedForeground }]}>
++              1. 妗岄潰绔互闈炵幆鍥炲湴鍧€鍚姩鏈嶅姟
++            </Text>
++            <Text style={[styles.guideStep, { color: t.mutedForeground }]}>
++              2. 妗岄潰绔缃〉鍑虹ず閰嶅浜岀淮鐮?+            </Text>
++            <Text style={[styles.guideStep, { color: t.mutedForeground }]}>
++              3. 鏈簲鐢ㄦ壂鐮侊紝鎴栧湪涓婃柟鎵嬭緭鍦板潃涓?Token
++            </Text>
++          </View>
++        ) : null}
++
++        {/* 澶栬锛埪?3.C 涓夋。锛?*/}
++        <Card style={styles.card}>
++          <Text style={[styles.cardTitle, { color: t.foreground }]}>澶栬</Text>
++          {APPEARANCE_OPTIONS.map((opt, i) => (
++            <View key={opt.value}>
++              {i > 0 ? <Hairline inset={0} /> : null}
++              <AppearanceRow
++                label={opt.label}
++                selected={appearance === opt.value}
++                onPress={() => useConfigStore.getState().setAppearance(opt.value)}
++              />
++            </View>
++          ))}
++        </Card>
++
++        {/* 鏂紑杩炴帴锛圝.2.4鈶わ細绾㈠瓧銆佺嫭绔嬬櫧鍗★級 */}
++        {configured ? (
++          <TouchableOpacity
++            accessibilityRole="button"
++            onPress={() => {
++              void disconnect().then(() => {
++                invalidateTransport()
++                setUrlDraft('')
++                setTokenDraft('')
++              })
++            }}
++            style={[styles.card, { backgroundColor: t.card }]}
++            activeOpacity={0.7}
++          >
++            <Text style={[styles.disconnect, { color: t.sparkErr }]}>鏂紑杩炴帴</Text>
++          </TouchableOpacity>
++        ) : null}
++      </ScrollView>
++    </View>
++  )
++}
++
++function AppearanceRow({
++  label,
++  selected,
++  onPress,
++}: {
++  label: string
++  selected: boolean
++  onPress: () => void
++}) {
++  const t = useTheme()
++  return (
++    <TouchableOpacity accessibilityRole="button" onPress={onPress} activeOpacity={0.7}>
++      <View style={[styles.appearanceRow, { height: mobileMetrics.rowHeight }]}>
++        <Text style={[styles.appearanceLabel, { color: t.foreground }]}>{label}</Text>
++        {selected ? <Feather name="check" size={16} color={t.sparkAccent} /> : null}
++      </View>
++    </TouchableOpacity>
++  )
++}
++
++const styles = StyleSheet.create({
++  screen: {
++    flex: 1,
++  },
++  scroll: {
++    flex: 1,
++  },
++  scrollContent: {
++    paddingHorizontal: 16,
++    paddingBottom: 32,
++    gap: mobileMetrics.cardGap,
++  },
++  card: {
++    borderRadius: mobileMetrics.cardRadius,
++  },
++  cardTitle: {
++    fontSize: mobileMetrics.rowTitle,
++    fontWeight: '600',
++    marginBottom: 12,
++  },
++  fieldLabel: {
++    fontSize: mobileMetrics.caption,
++    marginBottom: 4,
++    marginTop: 8,
++  },
++  input: {
++    borderWidth: StyleSheet.hairlineWidth,
++    borderRadius: 8,
++    paddingHorizontal: 12,
++    height: 44,
++    fontSize: mobileMetrics.value,
++  },
++  notice: {
++    fontSize: mobileMetrics.caption,
++    marginTop: 8,
++  },
++  cta: {
++    height: mobileMetrics.ctaHeight,
++    borderRadius: mobileMetrics.ctaHeight / 2,
++    alignItems: 'center',
++    justifyContent: 'center',
++    marginTop: 16,
++  },
++  ctaText: {
++    fontSize: mobileMetrics.rowTitle,
++    fontWeight: '600',
++  },
++  ctaGhost: {
++    height: mobileMetrics.ctaHeight,
++    borderRadius: mobileMetrics.ctaHeight / 2,
++    alignItems: 'center',
++    justifyContent: 'center',
++    borderWidth: StyleSheet.hairlineWidth,
++    marginTop: 8,
++  },
++  ctaGhostText: {
++    fontSize: mobileMetrics.rowTitle,
++  },
++  pairHost: {
++    fontSize: mobileMetrics.value,
++    marginBottom: 4,
++  },
++  pairActions: {
++    marginTop: 8,
++  },
++  guide: {
++    borderWidth: 1,
++    borderStyle: 'dashed',
++    borderRadius: 12,
++    padding: 16,
++    gap: 6,
++  },
++  guideTitle: {
++    fontSize: mobileMetrics.rowTitle,
++    fontWeight: '600',
++    marginBottom: 4,
++  },
++  guideStep: {
++    fontSize: mobileMetrics.caption,
++  },
++  appearanceRow: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    justifyContent: 'space-between',
++  },
++  appearanceLabel: {
++    fontSize: mobileMetrics.rowTitle,
++  },
++  disconnect: {
++    fontSize: mobileMetrics.rowTitle,
++    textAlign: 'center',
++  },
++})
+diff --git a/apps/mobile/src/store/app-store.ts b/apps/mobile/src/store/app-store.ts
+new file mode 100644
+index 0000000..0941f6a
+--- /dev/null
++++ b/apps/mobile/src/store/app-store.ts
+@@ -0,0 +1,83 @@
++/**
++ * mobile 鐘舵€佸眰锛堥暅鍍?apps/cli/src/store.ts鈥斺€擠22 鍏变韩 applyEvent 鎶曞奖 + 杩炴帴鎬侊級銆?+ * UI 鐘舵€佸彧鏉ヨ嚜浜嬩欢娴侊紙AGENTS 搂2.7锛夛紱浼氳瘽鍒楄〃鏄繛鎺?鍒锋柊鏃跺埢鐨?REST 蹇収銆?+ * 浜嬩欢鍏ラ槦鍋氭壒澶勭悊锛歳equestAnimationFrame flush锛堝弬鐓?apps/web context.tsx 妯″紡锛夆€斺€?+ * 鍚屽抚澶氫簨浠跺彧瑙﹀彂涓€娆℃覆鏌撴彁浜わ紝閬垮厤楂橀 assistant.delta 閫愪簨浠舵覆鏌撱€?+ */
++import { create } from 'zustand'
++import type {
++  ProjectionState,
++  SessionDto,
++  SessionId,
++  SparkEventEnvelope,
++} from '@spark/protocol'
++import { applyEvent } from '@spark/protocol'
++
++export type MobileConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
++
++export interface AppState extends ProjectionState {
++  status: MobileConnectionStatus
++  /** 浼氳瘽鍒楄〃蹇収锛堜笅鎷夊埛鏂?鑱氱劍鏃跺埢 listSessions锛涘瀹炲憟鐜帮級 */
++  sessions: SessionDto[]
++  /** 婵€娲讳細璇濓紙浼氳瘽绾ф祦鐨勮闃呭璞★紱鍒楄〃褰撳墠琛岋級 */
++  activeSessionId: SessionId | null
++  /** 鏈€杩戜竴鏉′汉璇濇彁绀猴紙REST 澶辫触/寮曟搸 error 浜嬩欢锛涢《閮ㄧ粏鏉℃暟鎹簮锛孞.4锛?*/
++  notice: string | null
++
++  apply: (e: SparkEventEnvelope) => void
++  setStatus: (s: MobileConnectionStatus) => void
++  setSessions: (list: SessionDto[]) => void
++  setActiveSession: (sid: SessionId | null) => void
++  setNotice: (msg: string | null) => void
++}
++
++export const useAppStore = create<AppState>()((set) => ({
++  byId: {},
++  activeId: null,
++  status: 'connecting',
++  sessions: [],
++  activeSessionId: null,
++  notice: null,
++
++  // ProjectionState 閮ㄥ垎浜ゅ叡浜?reducer锛堜笌 cli 鍚屽彛寰勨€斺€攂yId/activeId 鍗冲叏閮ㄦ墍闇€锛?+  apply: (e) => set((s) => applyEvent(s, e)),
++  setStatus: (status) => set({ status }),
++  setSessions: (sessions) => set({ sessions }),
++  setActiveSession: (activeSessionId) => set({ activeSessionId }),
++  setNotice: (notice) => set({ notice }),
++}))
++
++/**
++ * 浜嬩欢鎵瑰鐞嗗叆闃燂細缂撳啿鎸夊埌杈惧簭銆乺AF 甯ц竟鐣岀粺涓€ flush锛堥『搴忎笉涔便€佷竴甯т竴娆℃覆鏌擄級銆?+ * 璋冨害鍣ㄥ彲娉ㄥ叆锛堟祴璇曠敤鍚屾璋冨害锛夛紱缂虹渷 requestAnimationFrame锛圧N 鍏ㄥ眬锛夈€?+ */
++export interface EventBatcher {
++  enqueue: (e: SparkEventEnvelope) => void
++  /** 绔嬪嵆 flush 鎸傝捣缂撳啿锛堝嵏杞?娴嬭瘯鏂█鐢級 */
++  flushNow: () => void
++}
++
++export function createEventBatcher(
++  apply: (e: SparkEventEnvelope) => void,
++  schedule: (fn: () => void) => void = (fn) => {
++    requestAnimationFrame(fn)
++  },
++): EventBatcher {
++  const buf: SparkEventEnvelope[] = []
++  let pending = false
++  const flush = (): void => {
++    pending = false
++    const batch = buf.splice(0)
++    for (const e of batch) apply(e)
++  }
++  return {
++    enqueue: (e) => {
++      buf.push(e)
++      if (!pending) {
++        pending = true
++        schedule(flush)
++      }
++    },
++    flushNow: flush,
++  }
++}
+diff --git a/apps/mobile/src/store/config-store.ts b/apps/mobile/src/store/config-store.ts
+new file mode 100644
+index 0000000..122d71f
+--- /dev/null
++++ b/apps/mobile/src/store/config-store.ts
+@@ -0,0 +1,110 @@
++/**
++ * 绉诲姩绔繛鎺ラ厤缃笌澶栬鍋忓ソ锛堣缃〉鏁版嵁婧愶級銆?+ * 瀛樺偍閫夋嫨锛堟眹鎶モ憽锛夛細expo-secure-store锛圡IT锛孍xpo 瀹樻柟锛夆€斺€攖oken 灞為壌鏉冨嚟鎹紝
++ * 璧扮郴缁熷瘑閽ラ摼/Keystore 鍔犲瘑瀛樺偍锛汚PI 涓?getItemAsync/setItemAsync 涓ゆ灇锛屾瘮
++ * AsyncStorage 鏄庢枃瀛樺偍鏇村畨鍏ㄤ笖鍚屾牱绠€鍗曘€傚瑙傚亸濂戒笌閰嶇疆鍚岄敭瀛樻斁锛堝崟涓€閰嶇疆闈級銆?+ * 鎸佷箙鍖栬竟鐣屽皝瑁呭湪 load/persist 涓ゅ嚱鏁帮紱棣栨壒鍗曟祴涓嶈鐩栨湰 store锛堟秹鍙婂師鐢熸ā鍧楋級銆?+ */
++import { create } from 'zustand'
++import * as SecureStore from 'expo-secure-store'
++import type { AppearancePreference } from '../theme/tokens'
++import type { PairLink } from '../transport/pair-link'
++
++const CONFIG_KEY = 'spark.config'
++
++export interface MobileConfig {
++  /** 鏈嶅姟鍣ㄥ熀鍧€锛堥厤瀵规墍寰楁垨鎵嬭緭 `http://host:port`锛夛紱绌?= 鏈厤缃?*/
++  serverUrl: string
++  /** 閰嶅闀挎晥 token锛堥潪鐜洖蹇呴渶锛涚幆鍥炵己鐪佸舰鎬佸彲绌猴級 */
++  token: string
++  /** 搂13.C 涓夋。澶栬锛堢己鐪佽窡闅忕郴缁燂級 */
++  appearance: AppearancePreference
++}
++
++interface PersistedConfig {
++  serverUrl: string
++  token: string
++  appearance: AppearancePreference
++}
++
++export const DEFAULT_CONFIG: MobileConfig = {
++  serverUrl: '',
++  token: '',
++  appearance: 'system',
++}
++
++export interface ConfigState extends MobileConfig {
++  /** 鍚姩瑁呰浇鏄惁瀹屾垚锛堥甯ч伩鍏嶆寔涔呭寲鍊奸棯鐑侊級 */
++  hydrated: boolean
++  /** 娣遍摼寰呴厤瀵癸紙spark://pair 瑙ｆ瀽浜х墿锛涜缃〉鍛堢幇纭鍗″悗鍏戞崲锛?*/
++  pendingPair: PairLink | null
++
++  setServerUrl: (url: string) => void
++  setToken: (token: string) => void
++  setAppearance: (a: AppearancePreference) => void
++  /** 淇濆瓨杩炴帴閰嶇疆骞舵寔涔呭寲锛堝け璐ュ瀹炰笂鎶涳紝涓嶉潤榛橈級 */
++  saveConnection: (serverUrl: string, token: string) => Promise<void>
++  /** 鏂紑杩炴帴锛氭竻閰嶇疆骞舵寔涔呭寲锛? 鎾ら攢鏈閰嶅鎬侊紝J.2.4鈶わ級 */
++  disconnect: () => Promise<void>
++  setPendingPair: (p: PairLink | null) => void
++  load: () => Promise<void>
++}
++
++async function persist(cfg: PersistedConfig): Promise<void> {
++  await SecureStore.setItemAsync(CONFIG_KEY, JSON.stringify(cfg))
++}
++
++export const useConfigStore = create<ConfigState>()((set, get) => ({
++  ...DEFAULT_CONFIG,
++  hydrated: false,
++  pendingPair: null,
++
++  setServerUrl: (serverUrl) => set({ serverUrl }),
++  setToken: (token) => set({ token }),
++  setAppearance: (appearance) => {
++    set({ appearance })
++    const { serverUrl, token } = get()
++    // 澶栬鍗虫椂鎸佷箙鍖栵紙澶辫触涓嶉樆濉炰氦浜掞紝鍙鏃ュ織鈥斺€旈潪閴存潈鏁版嵁锛?+    void persist({ serverUrl, token, appearance }).catch((err: unknown) => {
++      console.error('[config] 澶栬鎸佷箙鍖栧け璐?, err)
++    })
++  },
++  saveConnection: async (serverUrl, token) => {
++    const { appearance } = get()
++    await persist({ serverUrl, token, appearance })
++    set({ serverUrl, token })
++  },
++  disconnect: async () => {
++    const { appearance } = get()
++    await persist({ serverUrl: '', token: '', appearance })
++    set({ serverUrl: '', token: '', pendingPair: null })
++  },
++  setPendingPair: (pendingPair) => set({ pendingPair }),
++  load: async () => {
++    try {
++      const raw = await SecureStore.getItemAsync(CONFIG_KEY)
++      if (raw === null) {
++        set({ hydrated: true })
++        return
++      }
++      const parsed: unknown = JSON.parse(raw)
++      if (typeof parsed !== 'object' || parsed === null) {
++        set({ hydrated: true })
++        return
++      }
++      const p = parsed as Partial<PersistedConfig>
++      const appearance: AppearancePreference =
++        p.appearance === 'light' || p.appearance === 'dark' ? p.appearance : 'system'
++      set({
++        serverUrl: typeof p.serverUrl === 'string' ? p.serverUrl : '',
++        token: typeof p.token === 'string' ? p.token : '',
++        appearance,
++        hydrated: true,
++      })
++    } catch (err: unknown) {
++      // 澶辫触闂悎锛氳涓嶅埌閰嶇疆鎸夋湭閰嶇疆鍛堢幇锛堜笉鎷垮潖鏁版嵁鍐掑厖锛夛紝濡傚疄璁板綍
++      console.error('[config] 瑁呰浇澶辫触', err)
++      set({ hydrated: true })
++    }
++  },
++}))
+diff --git a/apps/mobile/src/theme/tokens.ts b/apps/mobile/src/theme/tokens.ts
+new file mode 100644
+index 0000000..14b7ba4
+--- /dev/null
++++ b/apps/mobile/src/theme/tokens.ts
+@@ -0,0 +1,110 @@
++/**
++ * RN 涓婚 token锛圖ESIGN 搂13.C token 琛?1:1 鏄犲皠 + 搂13.J.0 绉诲姩绔€傞厤锛夈€?+ * 浜壊榛樿銆佹殫鑹茶窡闅忕郴缁燂紙App 灞?useColorScheme + 璁剧疆椤靛瑙傛。瑙ｆ瀽锛夈€?+ * J.0 绾緥锛氬簳鑹叉祬鐏?#F7F7F7 + 鐧藉崱 radius 16 鏃犺竟妗嗘棤闃村奖锛涜涔夎壊娌跨敤 搂13.C銆?+ */
++
++export interface ThemeTokens {
++  /** 搂13.C --background锛堝崱鍐?寮瑰眰搴曪級 */
++  background: string
++  /** J.0 灞忓箷搴曡壊锛堟祬鐏?#F7F7F7 / 鏆?#09090b锛夆€斺€旂櫧鍗￠潬搴曡壊宸垎灞?*/
++  pageBackground: string
++  /** --foreground */
++  foreground: string
++  /** --card / --popover */
++  card: string
++  /** --primary锛堜富 CTA 榛戝簳锛?*/
++  primary: string
++  /** --primary-foreground */
++  primaryForeground: string
++  /** --secondary / --accent */
++  secondary: string
++  /** --muted */
++  muted: string
++  /** --muted-foreground锛?3/15px meta 鏂囨锛?*/
++  mutedForeground: string
++  /** --destructive锛? spark-err 妗ｄ綅锛屽嵄闄╂搷浣滅孩瀛楋級 */
++  destructive: string
++  /** --border / --input锛坔airline 鍒嗛殧锛?*/
++  border: string
++  /** --ring锛堣仛鐒︼級 */
++  ring: string
++  /** --spark-accent锛氳繍琛?閾炬帴/鐒︾偣/閫変腑濉厖锛坅ccent 鍞竴绾緥锛孞.0锛?*/
++  sparkAccent: string
++  /** --spark-warn锛氬緟瀹℃壒/璀︾ず */
++  sparkWarn: string
++  /** --spark-ok锛氱┖闂?鎴愬姛 */
++  sparkOk: string
++  /** --spark-err锛氶敊璇?鏂嚎/鍗遍櫓鎿嶄綔 */
++  sparkErr: string
++}
++
++/** 浜壊锛埪?3.C :root 榛樿锛沺ageBackground 鎸?J.0 鍙栨祬鐏帮級 */
++export const lightTheme: ThemeTokens = {
++  background: '#ffffff',
++  pageBackground: '#F7F7F7',
++  foreground: '#18181b',
++  card: '#ffffff',
++  primary: '#18181b',
++  primaryForeground: '#fafafa',
++  secondary: '#f4f4f5',
++  muted: '#f4f4f5',
++  mutedForeground: '#71717a',
++  destructive: '#dc2626',
++  border: '#e4e4e7',
++  ring: '#a1a1aa',
++  sparkAccent: '#4f46e5',
++  sparkWarn: '#b45309',
++  sparkOk: '#047857',
++  sparkErr: '#b91c1c',
++}
++
++/** 鏆楄壊锛埪?3.C .dark锛沺ageBackground 鎸?J.0 鍙?#09090b锛?*/
++export const darkTheme: ThemeTokens = {
++  background: '#09090b',
++  pageBackground: '#09090b',
++  foreground: '#fafafa',
++  card: '#18181b',
++  primary: '#fafafa',
++  primaryForeground: '#18181b',
++  secondary: '#27272a',
++  muted: '#27272a',
++  mutedForeground: '#a1a1aa',
++  destructive: '#f87171',
++  border: '#27272a',
++  ring: '#52525b',
++  sparkAccent: '#818cf8',
++  sparkWarn: '#fbbf24',
++  sparkOk: '#34d399',
++  sparkErr: '#f87171',
++}
++
++/** 搂13.C 涓夋。澶栬鍋忓ソ锛堟寔涔呭寲锛涚郴缁熸。璺熼殢 prefers-color-scheme / useColorScheme锛?*/
++export type AppearancePreference = 'system' | 'light' | 'dark'
++
++/** 澶栬妗?+ 绯荤粺鑹?鈫?鐢熸晥涓婚锛堜寒鑹查粯璁わ細绯荤粺鍊肩己澶辨椂钀戒寒鑹诧級 */
++export function resolveTheme(
++  preference: AppearancePreference,
++  systemScheme: 'light' | 'dark' | null | undefined,
++): ThemeTokens {
++  if (preference === 'light') return lightTheme
++  if (preference === 'dark') return darkTheme
++  return systemScheme === 'dark' ? darkTheme : lightTheme
++}
++
++/** J.3 鎺т欢瑙勬牸琛紙绉诲姩绔級鈥斺€旀暟鍊煎崟涓€鏉ユ簮锛屽睆骞曞眰鍙紩鐢ㄦ湰琛?*/
++export const mobileMetrics = {
++  cardRadius: 16,
++  cardPadding: 16,
++  cardGap: 12,
++  rowHeight: 56,
++  sessionRowHeight: 52,
++  headerTitle: 17,
++  rowTitle: 16,
++  caption: 13,
++  value: 15,
++  floatButtonSize: 44,
++  fabSize: 56,
++  statusDot: 8,
++  ctaHeight: 52,
++} as const
+diff --git a/apps/mobile/src/theme/use-theme.ts b/apps/mobile/src/theme/use-theme.ts
+new file mode 100644
+index 0000000..259e327
+--- /dev/null
++++ b/apps/mobile/src/theme/use-theme.ts
+@@ -0,0 +1,13 @@
++/** 涓婚瑙ｆ瀽 hook锛氬瑙傛。锛堣缃〉锛壝?绯荤粺鑹诧紙useColorScheme锛夆啋 鐢熸晥 token锛堜寒鑹查粯璁わ級 */
++import { useColorScheme } from 'react-native'
++import { useConfigStore } from '../store/config-store'
++import { resolveTheme } from './tokens'
++import type { ThemeTokens } from './tokens'
++
++export function useTheme(): ThemeTokens {
++  const appearance = useConfigStore((s) => s.appearance)
++  const scheme = useColorScheme()
++  // ColorSchemeName 鍚?'unspecified'鈥斺€斿綊涓€涓?null锛堜寒鑹查粯璁ょ邯寰嬶級
++  const system = scheme === 'light' || scheme === 'dark' ? scheme : null
++  return resolveTheme(appearance, system)
++}
+diff --git a/apps/mobile/src/transport/pair-link.ts b/apps/mobile/src/transport/pair-link.ts
+new file mode 100644
+index 0000000..0b71247
+--- /dev/null
++++ b/apps/mobile/src/transport/pair-link.ts
+@@ -0,0 +1,64 @@
++/**
++ * 閰嶅娣遍摼瑙ｆ瀽锛圖ESIGN 搂13.J.2.9锛歈R 鍐呭 `spark://pair?host=<host>&port=<port>&code=<鐭爜>`锛夈€?+ * 绾嚱鏁扳€斺€旀繁閾撅紙Linking锛変笌鎵嬭緭鍏滃簳鍏辩敤鍚屼竴瑙ｆ瀽鍙ｅ緞锛涘崟鐙崟娴嬶紙宸ュ崟 9.2锛夈€?+ */
++
++export interface PairLink {
++  host: string
++  port: number
++  /** 6 浣嶆暟瀛楃煭鐮侊紙60s 鏈夋晥锛屾湇鍔＄浜屾鏍￠獙锛?*/
++  code: string
++}
++
++/** 鍚堟硶涓绘満娈碉細闈炵┖銆佷笉鍚┖鐧?鏂滄潬/鏌ヨ绗︼紙闃叉敞鍏ュ埌 URL 鎷兼帴锛?*/
++function isValidHost(host: string): boolean {
++  return host !== '' && !/[\s/?#@]/.test(host)
++}
++
++/** 浠呭尮閰?`spark://pair?<query>` 褰㈡€侊紙涓嶄緷璧?RN 鐨?URL 鍏ㄥ眬鈥斺€斿叾瀵硅嚜瀹氫箟 scheme 鏀寔涓嶅叏锛?*/
++const PAIR_LINK_RE = /^spark:\/\/pair\?([^#]*)$/
++
++/** 鎵嬪伐瑙ｆ瀽鏌ヨ娈碉紙decodeURIComponent 閫愬锛涘潖杞箟杩斿洖 null锛?*/
++function parseQuery(query: string): Map<string, string> | null {
++  const params = new Map<string, string>()
++  for (const pair of query.split('&')) {
++    if (pair === '') continue
++    const eq = pair.indexOf('=')
++    const rawKey = eq === -1 ? pair : pair.slice(0, eq)
++    const rawValue = eq === -1 ? '' : pair.slice(eq + 1)
++    try {
++      params.set(decodeURIComponent(rawKey), decodeURIComponent(rawValue))
++    } catch {
++      return null
++    }
++  }
++  return params
++}
++
++/**
++ * 瑙ｆ瀽閰嶅娣遍摼锛涗换浣曚笉鍚堟硶锛堝崗璁?璺緞/缂哄弬/鍧忓€硷級涓€寰嬭繑鍥?null鈥斺€?+ * 璋冪敤鏂规寜"鏈瘑鍒?澶勭悊锛堜笉鍋氬崐鎴厤缃級锛屽け璐ラ棴鍚堛€?+ */
++export function parsePairLink(input: string): PairLink | null {
++  const m = PAIR_LINK_RE.exec(input.trim())
++  if (m === null) return null
++  const params = parseQuery(m[1] ?? '')
++  if (params === null) return null
++
++  const host = (params.get('host') ?? '').trim()
++  const portRaw = (params.get('port') ?? '').trim()
++  const code = (params.get('code') ?? '').trim()
++  if (host === '' || portRaw === '' || code === '') return null
++  if (!isValidHost(host)) return null
++  if (!/^\d{1,5}$/.test(portRaw)) return null
++  const port = Number(portRaw)
++  if (!Number.isInteger(port) || port < 1 || port > 65535) return null
++  if (!/^\d{6}$/.test(code)) return null
++
++  return { host, port, code }
++}
++
++/** 閰嶅鍙傛暟 鈫?鏈嶅姟鍣ㄥ熀鍧€锛堜紶杈撴瀯閫犲叡鐢ㄥ彛寰勶級 */
++export function baseUrlOf(host: string, port: number): string {
++  return `http://${host}:${port}`
++}
+diff --git a/apps/mobile/src/transport/rn-event-source.ts b/apps/mobile/src/transport/rn-event-source.ts
+new file mode 100644
+index 0000000..6919824
+--- /dev/null
++++ b/apps/mobile/src/transport/rn-event-source.ts
+@@ -0,0 +1,160 @@
++/**
++ * RN 浼氳瘽绾?SSE 缁挱娴侊紙宸ュ崟 9.2鈥斺€擲essionEventSource 鐨?React Native 閫傞厤锛夈€?+ *
++ * 鏂规閫夋嫨锛堟眹鎶モ憽锛夛細RN 鐨?fetch polyfill 涓嶆敮鎸佹祦寮忓搷搴斾綋锛圧eadableStream 缂轰綅锛夛紝
++ * 涓?iOS 涓?XMLHttpRequest 鐨?onprogress 澧為噺璇诲彇涓嶅彲闈狅紙宸茬煡骞冲彴闄愬埗锛宺eadystate=3
++ * 闃舵涓嶅閲忓洖璋冿級鈥斺€旀晠涓嶈嚜鍐?XHR 甯ф车锛岄噰鐢?react-native-sse锛圡IT锛屼笓涓烘鍦烘櫙锛夛細
++ * 瀹冩寜骞冲彴灞忚斀宸紓鎻愪緵閫愬抚 message 浜嬩欢锛涘垏甯у悗鐨勫抚瑙ｆ瀽/姘翠綅/閫€閬夸竴寰嬪鐢?+ * @spark/protocol 鍏变韩璧勪骇锛坋nvelopeFromSseFrame / DEFAULT_BACKOFF_MS / abortableSleep锛夛紝
++ * 瀵瑰濂戠害涓?SessionEventSource 瀵归綈锛坈onnecting/open/reconnecting + since 姘翠綅缁挱锛夈€?+ *
++ * 閲嶈繛璇箟涓?SessionEventSource 鍚岋細鑷閲嶈繛寰幆锛坋rror 鈫?close 鈫?閫€閬?鈫?閲嶅缓锛夛紝
++ * 涓嶅鐢ㄥ簱鍐呰嚜鍔ㄩ噸璇曗€斺€旈€€閬垮簭鍒椾笌鐘舵€佸洖璋冨繀椤讳笌鍥涚鍚屽彛寰勶紙1/2/5/10s 灏侀《锛夈€?+ * 閴存潈澶辫触锛?01/403锛夛細搴撶殑 ErrorEvent 鏆撮湶 xhrStatus鈥斺€旀瀯閫?`E_AUTH: ...` 閿欒
++ * 璧?onError 鍥炶皟锛岃皟鐢ㄦ柟缁?ERROR_COPY 浜鸿瘽鍖栧憟鐜帮紙宸ュ崟 9.1 鍙屽彛寰勫悓寰嬶級銆?+ */
++import EventSource from 'react-native-sse'
++import type { MessageEvent } from 'react-native-sse'
++import type { SessionId, SparkEventEnvelope } from '@spark/protocol'
++import {
++  DEFAULT_BACKOFF_MS,
++  abortableSleep,
++  envelopeFromSseFrame,
++} from '@spark/protocol'
++
++export type RnConnectionStatus = 'connecting' | 'open' | 'reconnecting'
++
++export interface RnSessionEventSourceOptions {
++  baseUrl: string
++  sessionId: SessionId
++  /** 棣栬繛鍥炴斁姘翠綅锛氭湇鍔＄琛ュ彂 seq>since 鐨?durable锛? = 鍏ㄩ噺鍥炴斁锛?*/
++  since?: number
++  backoffMs?: readonly number[]
++  onStatus?: (s: RnConnectionStatus) => void
++  onEvent?: (e: SparkEventEnvelope) => void
++  /** 閴存潈澶辫触锛?01/403锛変汉璇濋敊璇簮锛歚E_AUTH: ...`锛堣皟鐢ㄦ柟璧?ERROR_COPY 鍛堢幇锛?*/
++  onError?: (err: Error) => void
++  /** 閰嶅闀挎晥 token锛堝伐鍗?9.1 / D24锛夛細SSE URL 闄?&token=锛堟湇鍔＄ tokenOf 鍙屽彛寰勶級 */
++  authToken?: string
++}
++
++/** 搴撶殑 message 浜嬩欢 鈫?SSE 甯ф枃鏈噸寤猴紙data 鍙兘澶氳锛岄€愯琛?'data: ' 鍓嶇紑锛?*/
++function frameFromMessage(event: MessageEvent): string | null {
++  if (event.data === null) return null
++  return event.data.split('\n').map((line) => `data: ${line}`).join('\n')
++}
++
++export class RnSessionEventSource {
++  private readonly opts: RnSessionEventSourceOptions
++  private readonly backoffMs: readonly number[]
++  private readonly abort = new AbortController()
++  private watermark: number
++  private disposed = false
++  private retries = 0
++  /** 浠ｉ檯璁℃暟锛歝lose 鍚庢畫浣欏洖璋冧笉鍐嶉┍鍔ㄧ姸鎬佹満锛堥槻绔炴€侊級 */
++  private generation = 0
++
++  constructor(opts: RnSessionEventSourceOptions) {
++    this.opts = opts
++    this.backoffMs = opts.backoffMs ?? DEFAULT_BACKOFF_MS
++    this.watermark = opts.since ?? 0
++    this.setStatus('connecting')
++    void this.loop()
++  }
++
++  /** 褰撳墠鍥炴斁姘翠綅锛堝凡鏀?durable 鏈€澶?seq锛夆€斺€斿垏鎹細璇?閲嶅缓娴佹椂浣?since */
++  get since(): number {
++    return this.watermark
++  }
++
++  dispose(): void {
++    this.disposed = true
++    this.generation++
++    this.abort.abort()
++  }
++
++  private setStatus(s: RnConnectionStatus): void {
++    this.opts.onStatus?.(s)
++  }
++
++  private async loop(): Promise<void> {
++    while (!this.disposed) {
++      const gen = this.generation
++      await this.connectOnce(gen)
++      if (this.disposed || this.abort.signal.aborted) return
++      if (this.generation !== gen) continue
++      // 澶辫触闂悎锛氫换浣曟柇寮€涓€寰嬮€€閬块噸杩烇紙鍧忓抚/缃戠粶/閴存潈鍚岃矾寰勮嚜鎰堬級
++      this.setStatus('reconnecting')
++      const delay = this.backoffMs[Math.min(this.retries, this.backoffMs.length - 1)] ?? 1000
++      this.retries++
++      await abortableSleep(delay, this.abort.signal)
++    }
++  }
++
++  /** 鍗曟杩炴帴锛氭寕浜嬩欢鍥炶皟锛岀瓑鍒版柇寮€锛坋rror/鎵嬪姩鍏抽棴锛夊悗杩斿洖 */
++  private connectOnce(gen: number): Promise<void> {
++    return new Promise<void>((resolve) => {
++      let url = `${this.opts.baseUrl}/api/event?sessionId=${this.opts.sessionId}&since=${this.watermark}`
++      if (this.opts.authToken !== undefined) url += `&token=${encodeURIComponent(this.opts.authToken)}`
++
++      let settled = false
++      let es: EventSource | null = null
++      const finish = (): void => {
++        if (settled) return
++        settled = true
++        if (es !== null) es.close()
++        resolve()
++      }
++      const stale = (): boolean => this.disposed || this.generation !== gen
++
++      try {
++        es = new EventSource(url)
++      } catch {
++        finish()
++        return
++      }
++
++      es.addEventListener('open', () => {
++        if (stale()) {
++          finish()
++          return
++        }
++        this.retries = 0
++        this.setStatus('open')
++      })
++      es.addEventListener('message', (event: MessageEvent) => {
++        if (stale()) {
++          finish()
++          return
++        }
++        // 鍧忓抚鎶涢敊 鈫?鍐掓场鏂紑璧伴噸杩烇紙涓?SessionEventSource 鍚岀邯寰嬶紝涓嶉潤榛樿烦杩囷級
++        try {
++          const frame = frameFromMessage(event)
++          if (frame === null) return
++          const envelope = envelopeFromSseFrame(frame)
++          if (envelope !== null) {
++            if (envelope.seq !== undefined && envelope.seq > this.watermark) {
++              this.watermark = envelope.seq
++            }
++            this.opts.onEvent?.(envelope)
++          }
++        } catch {
++          finish()
++        }
++      })
++      es.addEventListener('error', (event) => {
++        if (!stale() && 'xhrStatus' in event) {
++          const status = event.xhrStatus
++          // 401/403锛歵oken 鏃犳晥/宸叉挙閿€鈥斺€旈噸杩炴棤鎰忎箟浣嗕笉鏂祦锛堥厤缃慨澶嶅悗鑷剤锛夛紝
++          // 閿欒涓婃姏缁欒皟鐢ㄦ柟浜鸿瘽鍛堢幇锛堝け璐ラ棴鍚堬紝涓嶉潤榛樺悶锛?+          if (status === 401 || status === 403) {
++            this.opts.onError?.(
++              new Error(`E_AUTH: SSE 閴存潈澶辫触锛圚TTP ${status}锛塦),
++            )
++          }
++        }
++        finish()
++      })
++    })
++  }
++}
+diff --git a/apps/mobile/src/transport/runtime.ts b/apps/mobile/src/transport/runtime.ts
+new file mode 100644
+index 0000000..ab63e34
+--- /dev/null
++++ b/apps/mobile/src/transport/runtime.ts
+@@ -0,0 +1,74 @@
++/**
++ * 浼犺緭杩愯鏃讹紙宸ュ崟 9.2锛夛細閰嶇疆 鈫?浼犺緭瀹炰緥鐨勫崟渚嬬紦瀛樸€?+ * REST锛氱洿鎺ュ鐢?@spark/protocol 鐨?HttpTransport锛坋ventStream:false鈥斺€?+ * 绉诲姩绔細璇濈骇娴佽蛋 RnSessionEventSource锛屼笉璧峰叏灞€ SSE锛夈€?+ * SSE锛歊nSessionEventSource锛坮n-event-source.ts锛夈€?+ * 閰嶇疆鍙樻洿锛堣缃〉淇濆瓨/鏂紑锛夆啋 rebuild 閲婃斁鏃у疄渚嬶紙澶辫触闂悎锛氭棫杩炴帴涓嶆畫鐣欙級銆?+ */
++import type { SessionId, SparkEventEnvelope, Transport } from '@spark/protocol'
++import { HttpTransport } from '@spark/protocol'
++import { useAppStore } from '../store/app-store'
++import { RnSessionEventSource } from './rn-event-source'
++import type { RnConnectionStatus } from './rn-event-source'
++
++interface RuntimeEntry {
++  key: string
++  transport: Transport
++}
++
++let current: RuntimeEntry | null = null
++
++/**
++ * 鎸夐厤缃彇 REST 浼犺緭锛堝悓閰嶇疆澶嶇敤瀹炰緥锛涙湭閰嶇疆杩斿洖 null锛夈€?+ * onStatus 鐩村啓 app-store锛涗簨浠舵祦缁?app-store 鎵瑰鐞嗗叆鍙ｏ紙璋冪敤鏂硅閰嶏紝瑙?9.3锛夈€?+ */
++export function getHttpTransport(serverUrl: string, token: string): Transport | null {
++  const baseUrl = serverUrl.trim()
++  if (baseUrl === '') {
++    invalidateTransport()
++    return null
++  }
++  const key = `${baseUrl}#${token}`
++  if (current !== null && current.key === key) return current.transport
++  invalidateTransport()
++  const transport = new HttpTransport({
++    baseUrl,
++    // exactOptionalPropertyTypes锛氭棤 token 鏃剁洿鎺ヤ笉浼犺閿紙鑰岄潪浼?undefined锛?+    ...(token !== '' ? { authToken: token } : {}),
++    eventStream: false,
++    onStatus: (s) => useAppStore.getState().setStatus(s),
++  })
++  current = { key, transport }
++  return transport
++}
++
++/** 閲婃斁褰撳墠浼犺緭锛堟柇寮€杩炴帴/閰嶇疆鍙樻洿/閫€鍑猴級鈥斺€斿箓绛?*/
++export function invalidateTransport(): void {
++  if (current === null) return
++  current.transport.dispose()
++  current = null
++  useAppStore.getState().setStatus('closed')
++}
++
++export interface SessionStreamOptions {
++  sessionId: SessionId
++  serverUrl: string
++  token: string
++  since?: number
++  onEvent: (e: SparkEventEnvelope) => void
++  onStatus?: (s: RnConnectionStatus) => void
++}
++
++/** 鏂板缓浼氳瘽绾х画鎾祦锛堣皟鐢ㄦ柟鎸佹湁鐢熷懡鍛ㄦ湡锛氬垏鎹細璇?鍗歌浇鏃?dispose锛?*/
++export function openSessionStream(opts: SessionStreamOptions): RnSessionEventSource | null {
++  const baseUrl = opts.serverUrl.trim()
++  if (baseUrl === '') return null
++  return new RnSessionEventSource({
++    baseUrl,
++    sessionId: opts.sessionId,
++    ...(opts.since !== undefined ? { since: opts.since } : {}),
++    ...(opts.token !== '' ? { authToken: opts.token } : {}),
++    ...(opts.onStatus !== undefined ? { onStatus: opts.onStatus } : {}),
++    onEvent: opts.onEvent,
++  })
++}
+diff --git a/apps/mobile/tests/app-store.test.ts b/apps/mobile/tests/app-store.test.ts
+new file mode 100644
+index 0000000..21ca8b1
+--- /dev/null
++++ b/apps/mobile/tests/app-store.test.ts
+@@ -0,0 +1,177 @@
++/**
++ * app-store 鎶曞奖鍗曟祴锛堝伐鍗?9.2 棣栨壒锛夛細applyEvent 鍏稿瀷浜嬩欢搴忓垪蹇収
++ * 锛坰ession.created 鈫?user.message 鈫?turn.started 鈫?assistant.delta 鈫?turn.completed锛?+ * + durable 鍘婚噸 + rAF 鎵瑰鐞嗗櫒锛堝悓姝ヨ皟搴︽敞鍏ワ級銆?+ */
++import type { EventId, SparkEventEnvelope } from '@spark/protocol'
++import { ids } from '@spark/protocol'
++import { createEventBatcher, useAppStore } from '../src/store/app-store'
++
++const SID = ids.session('ses_store_test')
++const TID = ids.turn('trn_store_test_1')
++
++let eventNo = 0
++function nextEventId(): EventId {
++  eventNo += 1
++  return ids.event(`evt_store_test_${eventNo}`)
++}
++
++/** 鎸夊簭鏋勯€犱俊灏侊紙time 閫掑锛沝urable 缁?seq锛宭ive 涓嶇粰鈥斺€斅?.4 鍙ｅ緞锛?*/
++function sessionCreated(seq: number): SparkEventEnvelope<'session.created'> {
++  return {
++    id: nextEventId(),
++    sessionId: SID,
++    seq,
++    time: 1000,
++    type: 'session.created',
++    data: { title: '', cwd: '/tmp/spark', model: 'test/model' },
++  }
++}
++function userMessage(seq: number, text: string): SparkEventEnvelope<'user.message'> {
++  return {
++    id: nextEventId(),
++    sessionId: SID,
++    seq,
++    time: 2000,
++    type: 'user.message',
++    data: { text },
++  }
++}
++function turnStarted(seq: number, userEventId: EventId): SparkEventEnvelope<'turn.started'> {
++  return {
++    id: nextEventId(),
++    sessionId: SID,
++    seq,
++    time: 3000,
++    type: 'turn.started',
++    data: { turnId: TID, delivery: 'now', userEventId },
++  }
++}
++function assistantDelta(text: string): SparkEventEnvelope<'assistant.delta'> {
++  return {
++    id: nextEventId(),
++    sessionId: SID,
++    time: 4000,
++    type: 'assistant.delta',
++    data: { turnId: TID, text },
++  }
++}
++function turnCompleted(seq: number): SparkEventEnvelope<'turn.completed'> {
++  return {
++    id: nextEventId(),
++    sessionId: SID,
++    seq,
++    time: 5000,
++    type: 'turn.completed',
++    data: { turnId: TID, finish: 'stop' },
++  }
++}
++
++beforeEach(() => {
++  // 娓呯┖鎶曞奖锛坺ustand 鍗曚緥鈥斺€旀寜鍒濆褰㈢姸澶嶄綅锛?+  useAppStore.setState({ byId: {}, activeId: null, notice: null })
++})
++
++describe('applyEvent 鎶曞奖锛堝吀鍨嬩簨浠跺簭鍒楀揩鐓э級', () => {
++  it('涓€杞畬鏁村璇濈殑鎶曞奖褰㈢姸', () => {
++    const store = useAppStore.getState()
++    const um = userMessage(2, '浣犲ソ')
++    store.apply(sessionCreated(1))
++    store.apply(um)
++    store.apply(turnStarted(3, um.id))
++    store.apply(assistantDelta('鍦ㄧ殑'))
++
++    let slice = useAppStore.getState().byId[SID]
++    expect(slice).toBeDefined()
++    expect(slice?.meta.model).toBe('test/model')
++    expect(slice?.meta.cwd).toBe('/tmp/spark')
++    expect(slice?.items.map((it) => it.kind)).toEqual(['user', 'assistant'])
++    // 娴佸紡缂撳啿锛歞elta 绱叆 assistant 椤?textBuf
++    const assistant = slice?.items[1]
++    expect(assistant?.kind === 'assistant' && assistant.streaming?.textBuf).toBe('鍦ㄧ殑')
++    expect(slice?.activeTurn?.turnId).toBe(TID)
++
++    useAppStore.getState().apply(turnCompleted(4))
++    slice = useAppStore.getState().byId[SID]
++    expect(slice?.activeTurn).toBeNull()
++    expect(slice?.lastSeq).toBe(4)
++  })
++
++  it('durable 鍘婚噸锛歴eq <= lastSeq 鐨勪簨浠惰烦杩囷紙鍥炴斁脳鐩存挱閲嶅彔锛?, () => {
++    const store = useAppStore.getState()
++    store.apply(sessionCreated(1))
++    const dup = userMessage(1, '閲嶅甯?)
++    const before = useAppStore.getState().byId
++    store.apply(dup)
++    expect(useAppStore.getState().byId).toBe(before)
++  })
++
++  it('杩炴帴鎬佷笌鍒楄〃蹇収鎿嶄綔闈?, () => {
++    const store = useAppStore.getState()
++    store.setStatus('open')
++    store.setSessions([
++      {
++        id: SID,
++        title: '浠诲姟涓€',
++        model: 'test/model',
++        cwd: '/tmp/spark',
++        createdAt: 1000,
++        updatedAt: 2000,
++        lastSeq: 0,
++        status: 'idle',
++      },
++    ])
++    store.setActiveSession(SID)
++    store.setNotice('鎻愮ず')
++    const s = useAppStore.getState()
++    expect(s.status).toBe('open')
++    expect(s.sessions).toHaveLength(1)
++    expect(s.activeSessionId).toBe(SID)
++    expect(s.notice).toBe('鎻愮ず')
++  })
++})
++
++describe('createEventBatcher锛坮AF 鎵瑰鐞嗭級', () => {
++  it('鍚屽抚澶氫簨浠朵粎涓€娆¤皟搴︺€佹寜鍒拌揪搴忓簲鐢?, () => {
++    const applied: string[] = []
++    const scheduled: Array<() => void> = []
++    const batcher = createEventBatcher(
++      (e) => {
++        applied.push(e.type)
++      },
++      (fn) => {
++        scheduled.push(fn)
++      },
++    )
++
++    batcher.enqueue(assistantDelta('涓€'))
++    batcher.enqueue(assistantDelta('浜?))
++    expect(scheduled).toHaveLength(1)
++    expect(applied).toEqual([])
++
++    scheduled[0]?.()
++    expect(applied).toEqual(['assistant.delta', 'assistant.delta'])
++
++    // 涓嬩竴浜嬩欢閲嶆柊璋冨害锛堝抚杈圭晫澶嶄綅锛?+    batcher.enqueue(assistantDelta('涓?))
++    expect(scheduled).toHaveLength(2)
++    scheduled[1]?.()
++    expect(applied).toEqual(['assistant.delta', 'assistant.delta', 'assistant.delta'])
++  })
++
++  it('flushNow 绔嬪嵆鎺掔┖缂撳啿', () => {
++    const applied: string[] = []
++    const batcher = createEventBatcher(
++      (e) => {
++        applied.push(e.type)
++      },
++      () => {
++        // 姘镐笉璋冨害鈥斺€斿彧闈?flushNow
++      },
++    )
++    batcher.enqueue(turnCompleted(9))
++    expect(applied).toEqual([])
++    batcher.flushNow()
++    expect(applied).toEqual(['turn.completed'])
++  })
++})
+diff --git a/apps/mobile/tests/pair-link.test.ts b/apps/mobile/tests/pair-link.test.ts
+new file mode 100644
+index 0000000..2865810
+--- /dev/null
++++ b/apps/mobile/tests/pair-link.test.ts
+@@ -0,0 +1,84 @@
++/**
++ * 閰嶅娣遍摼瑙ｆ瀽鍗曟祴锛堝伐鍗?9.2 瑕佹眰锛氬悎娉?闈炴硶/缂哄弬涓夌被锛夈€?+ */
++import { baseUrlOf, parsePairLink } from '../src/transport/pair-link'
++
++describe('parsePairLink', () => {
++  describe('鍚堟硶杈撳叆', () => {
++    it('瑙ｆ瀽鏍囧噯 spark://pair 娣遍摼', () => {
++      expect(
++        parsePairLink('spark://pair?host=192.168.1.10&port=4318&code=123456'),
++      ).toEqual({ host: '192.168.1.10', port: 4318, code: '123456' })
++    })
++
++    it('瀹瑰繊棣栧熬绌虹櫧', () => {
++      expect(
++        parsePairLink('  spark://pair?host=spark.local&port=80&code=000111  '),
++      ).toEqual({ host: 'spark.local', port: 80, code: '000111' })
++    })
++
++    it('URL 缂栫爜鐨勫€煎彲杩樺師', () => {
++      expect(
++        parsePairLink('spark://pair?host=10.0.0.1&port=4318&code=654321&extra=x'),
++      ).toEqual({ host: '10.0.0.1', port: 4318, code: '654321' })
++    })
++  })
++
++  describe('闈炴硶杈撳叆', () => {
++    it('閿欒鍗忚鎷掔粷', () => {
++      expect(parsePairLink('http://pair?host=a&port=1&code=123456')).toBeNull()
++    })
++
++    it('閿欒涓绘満娈垫嫆缁?, () => {
++      expect(parsePairLink('spark://redeem?host=a&port=1&code=123456')).toBeNull()
++    })
++
++    it('绔彛瓒婄晫鎷掔粷', () => {
++      expect(parsePairLink('spark://pair?host=a&port=70000&code=123456')).toBeNull()
++      expect(parsePairLink('spark://pair?host=a&port=0&code=123456')).toBeNull()
++    })
++
++    it('绔彛闈炴暟瀛楁嫆缁?, () => {
++      expect(parsePairLink('spark://pair?host=a&port=abc&code=123456')).toBeNull()
++    })
++
++    it('閰嶅鐮侀潪 6 浣嶆暟瀛楁嫆缁?, () => {
++      expect(parsePairLink('spark://pair?host=a&port=4318&code=12345')).toBeNull()
++      expect(parsePairLink('spark://pair?host=a&port=4318&code=1234567')).toBeNull()
++      expect(parsePairLink('spark://pair?host=a&port=4318&code=12a456')).toBeNull()
++    })
++
++    it('host 鍚敞鍏ュ瓧绗︽嫆缁?, () => {
++      expect(parsePairLink('spark://pair?host=a/b&port=1&code=123456')).toBeNull()
++      expect(parsePairLink('spark://pair?host=a%20b&port=1&code=123456')).toBeNull()
++    })
++
++    it('涔卞簭杞箟鎷掔粷', () => {
++      expect(parsePairLink('spark://pair?host=%E0%A4%A&port=1&code=123456')).toBeNull()
++    })
++
++    it('闈?URL 鏂囨湰鎷掔粷', () => {
++      expect(parsePairLink('')).toBeNull()
++      expect(parsePairLink('涓嶆槸閾炬帴')).toBeNull()
++    })
++  })
++
++  describe('缂哄弬杈撳叆', () => {
++    it('缂?host', () => {
++      expect(parsePairLink('spark://pair?port=4318&code=123456')).toBeNull()
++    })
++    it('缂?port', () => {
++      expect(parsePairLink('spark://pair?host=a&code=123456')).toBeNull()
++    })
++    it('缂?code', () => {
++      expect(parsePairLink('spark://pair?host=a&port=4318')).toBeNull()
++    })
++    it('鏃犳煡璇㈡', () => {
++      expect(parsePairLink('spark://pair')).toBeNull()
++    })
++  })
++
++  it('baseUrlOf 鍙ｅ緞涓庤缃〉涓€鑷?, () => {
++    expect(baseUrlOf('192.168.1.10', 4318)).toBe('http://192.168.1.10:4318')
++  })
++})
+diff --git a/apps/mobile/tests/tokens.test.ts b/apps/mobile/tests/tokens.test.ts
+new file mode 100644
+index 0000000..e5213a6
+--- /dev/null
++++ b/apps/mobile/tests/tokens.test.ts
+@@ -0,0 +1,73 @@
++/**
++ * 涓婚 token 鍗曟祴锛堝伐鍗?9.2 瑕佹眰锛氫寒/鏆椾袱濂楀叧閿敭瀛樺湪涓斾负鍚堟硶鑹插€硷級銆?+ */
++import {
++  darkTheme,
++  lightTheme,
++  resolveTheme,
++} from '../src/theme/tokens'
++import type { ThemeTokens } from '../src/theme/tokens'
++
++const HEX_RE = /^#[0-9a-fA-F]{6}$/
++
++const REQUIRED_KEYS: ReadonlyArray<keyof ThemeTokens> = [
++  'background',
++  'pageBackground',
++  'foreground',
++  'card',
++  'primary',
++  'primaryForeground',
++  'secondary',
++  'muted',
++  'mutedForeground',
++  'destructive',
++  'border',
++  'ring',
++  'sparkAccent',
++  'sparkWarn',
++  'sparkOk',
++  'sparkErr',
++]
++
++describe('theme tokens锛圖ESIGN 搂13.C 1:1锛?, () => {
++  it.each([
++    ['light', lightTheme],
++    ['dark', darkTheme],
++  ])('%s 涓婚鍏抽敭閿綈鍏ㄤ笖涓哄悎娉?#rrggbb', (_name, theme) => {
++    for (const key of REQUIRED_KEYS) {
++      const value = theme[key]
++      expect(typeof value).toBe('string')
++      expect(value).toMatch(HEX_RE)
++    }
++  })
++
++  it('浜壊榛樿鍊奸敋瀹?搂13.C / J.0 鍏抽敭鑹?, () => {
++    expect(lightTheme.foreground).toBe('#18181b')
++    expect(lightTheme.pageBackground).toBe('#F7F7F7')
++    expect(lightTheme.sparkAccent).toBe('#4f46e5')
++    expect(lightTheme.sparkWarn).toBe('#b45309')
++  })
++
++  it('鏆楄壊鍏抽敭鑹查敋瀹?搂13.C .dark', () => {
++    expect(darkTheme.background).toBe('#09090b')
++    expect(darkTheme.sparkAccent).toBe('#818cf8')
++    expect(darkTheme.sparkErr).toBe('#f87171')
++  })
++
++  describe('resolveTheme锛堜笁妗ｅ瑙?脳 绯荤粺鑹诧級', () => {
++    it('娴呰壊妗ｆ亽瀹氫寒鑹?, () => {
++      expect(resolveTheme('light', 'dark')).toBe(lightTheme)
++    })
++    it('娣辫壊妗ｆ亽瀹氭殫鑹?, () => {
++      expect(resolveTheme('dark', 'light')).toBe(darkTheme)
++    })
++    it('绯荤粺妗ｈ窡闅忕郴缁熻壊', () => {
++      expect(resolveTheme('system', 'dark')).toBe(darkTheme)
++      expect(resolveTheme('system', 'light')).toBe(lightTheme)
++    })
++    it('绯荤粺鑹茬己澶辫惤浜壊锛堜寒鑹查粯璁ょ邯寰嬶級', () => {
++      expect(resolveTheme('system', null)).toBe(lightTheme)
++      expect(resolveTheme('system', undefined)).toBe(lightTheme)
++    })
++  })
++})
+diff --git a/apps/mobile/tsconfig.json b/apps/mobile/tsconfig.json
+new file mode 100644
+index 0000000..3581434
+--- /dev/null
++++ b/apps/mobile/tsconfig.json
+@@ -0,0 +1,10 @@
++{
++  "extends": "../../tsconfig.base.json",
++  "compilerOptions": {
++    "noEmit": true,
++    "jsx": "react-jsx",
++    "lib": ["ES2022"],
++    "types": ["jest", "node"]
++  },
++  "include": ["index.ts", "App.tsx", "src", "tests"]
++}
+diff --git a/eslint.config.js b/eslint.config.js
+index 103a9cd..f131845 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -26,10 +26,32 @@ export default tseslint.config(
+     files: ['**/*.config.{js,mjs,cjs}'],
+     ...tseslint.configs.disableTypeChecked,
+   },
++  {
++    // apps/mobile 鐨?Metro/Babel 閰嶇疆锛欳JS锛坮equire/module.exports锛夛紝澹版槑 Node CJS 鍏ㄥ眬
++    files: ['apps/mobile/babel.config.js', 'apps/mobile/metro.config.js'],
++    languageOptions: {
++      sourceType: 'commonjs',
++      globals: {
++        module: 'writable',
++        require: 'readonly',
++        __dirname: 'readonly',
++      },
++    },
++    rules: {
++      '@typescript-eslint/no-require-imports': 'off',
++    },
++  },
+   {
+     languageOptions: {
+       parserOptions: {
+-        projectService: { allowDefaultProject: ['eslint.config.js'] },
++        projectService: {
++          allowDefaultProject: [
++            'eslint.config.js',
++            // apps/mobile 鐨?Metro/Babel 閰嶇疆锛圕JS锛屼笉鍦ㄤ换浣?tsconfig 椤圭洰鍐咃級
++            'apps/mobile/metro.config.js',
++            'apps/mobile/babel.config.js',
++          ],
++        },
+       },
+     },
+     rules: {
