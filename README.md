@@ -51,6 +51,7 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 | [doc/05-completion-audit.md](./doc/05-completion-audit.md)   | 完成度审计（阶段三后）：源码级核查实测结果 · 缺口清单 G1–G7 · 动工顺序                          |
 | [doc/06-testing-plan.md](./doc/06-testing-plan.md)           | 测试体系补全计划：五层+契约分层 · CI 流水线 · 性能基线 · 456 例归属 · 四端走查模板              |
 | [doc/07-harness-audit.md](./doc/07-harness-audit.md)         | Harness 模块审计：十九条学科×三态 · 六大类源码级证据 · 缺口 H01–H36 · Python Worker 判决        |
+| [doc/08-v2-roadmap.md](./doc/08-v2-roadmap.md)               | v2 展望与工单库：阶段十一~十五规划（发布化/可日用/可证明/SDK 化/生态面）· 34 张工单含开工提示词 |
 | [.agents/skills/](./.agents/skills/)                         | 可重复任务流程：docs-update · new-event-type · new-tool · frontend-component                    |
 
 ## 开发
@@ -105,3 +106,4 @@ pnpm eval                   # eval 回归（工单 7.11：确定性场景集；-
 | v1.22 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段八开工指令——CLI TUI 全量）                                                                                   | **阶段八完成登记**：当前状态行刷新为阶段六/七/八完成待合入（工单 8.1–8.5；测试计数 782 例含 protocol 57/cli 16）；技术栈布局行补 `apps/cli`（阶段八）；开发区补 `pnpm --filter cli dev` 并清理阶段一过时占位（`pnpm dev` 行改按包 --filter 实际命令）；与 AGENTS v1.21、doc/02 v3.23 同步 |
 | v1.23 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段九开工指令）                                                                                   | **当前状态行刷新为阶段九已开工：工单 9.1 配对鉴权完成待合入**（ADR D24：扫码配对为主手输兜底/双口径鉴权/启动护栏/撤销即断；缺省 127.0.0.1+无鉴权行为不变红线保持）；测试计数 814 例（server 64→85、protocol 57→68）；与 AGENTS v1.22、doc/02 v3.25 同步 |
 | v1.24 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段九开工指令）                                                                                   | **阶段九完成登记**：当前状态行刷新为阶段六/七/八/九完成待合入（工单 9.1–9.5：配对鉴权 + apps/mobile Expo+RN + apps/miniapp Taro 4 小程序壳，ADR D20–D24）；测试计数 921 例（新增 mobile 48/miniapp 51，server 85→92、protocol 68→69）；技术栈布局行补 `apps/mobile`/`apps/miniapp`；开发区补 `pnpm --filter mobile dev`/`miniapp dev`；真机/模拟器与小程序开发者工具走查由用户执行（留待记录）；与 AGENTS v1.23、doc/02 v3.29 同步 |
+| v1.25 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，v2 展望会话）                        | 文档导航新增 doc/08 v2 展望与工单库（阶段十一~十五：发布化/可日用/可证明/SDK 化/生态面，34 张工单含开工提示词；决策已拍板：MIT / npm CLI 优先） |
