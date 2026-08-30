@@ -4,12 +4,13 @@
  * assistant 无背景由 AssistantBlock 排内容块；tool→ToolCard、approval→ApprovalCard。
  */
 import { memo } from 'react'
-import type { PermissionReply } from '@spark/protocol'
+import type { ContentItem, PermissionReply, SessionId } from '@spark/protocol'
 import { ids } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import type { UiItem } from '@/stores/session'
 import { cn } from '@/lib/utils'
 import { AssistantBlock } from './AssistantBlock'
+import { AssistantActions } from './AssistantActions'
 import { ReasoningCollapsible } from './ReasoningCollapsible'
 import { ToolCard } from './ToolCard'
 import { ApprovalCard } from './ApprovalCard'
@@ -18,11 +19,13 @@ import { TurnHeader } from './TurnHeader'
 export interface MessageItemProps {
   item: UiItem
   model: string
+  /** 所属会话（工单 10.4① 尾操作行 fork/导航需要） */
+  sid: SessionId
   /** 搜索跳转定位闪烁（工单 7.13）：命中行短暂底色，由 ChatView 定时清除 */
   highlight?: boolean
 }
 
-export const MessageItem = memo(function MessageItem({ item, model, highlight }: MessageItemProps) {
+export const MessageItem = memo(function MessageItem({ item, model, sid, highlight }: MessageItemProps) {
   const hl = highlight === true ? 'rounded-md bg-secondary ring-1 ring-border' : undefined
   switch (item.kind) {
     case 'user':
@@ -47,6 +50,14 @@ export const MessageItem = memo(function MessageItem({ item, model, highlight }:
           <div className="mt-1">
             <AssistantBlock content={item.content} streaming={item.streaming} />
           </div>
+          {item.streaming === undefined && item.time !== undefined && (
+            <AssistantActions
+              sid={sid}
+              eventId={item.eventId}
+              time={item.time}
+              copyText={assistantTextOf(item.content)}
+            />
+          )}
         </article>
       )
     case 'reasoning':
@@ -85,6 +96,14 @@ export const MessageItem = memo(function MessageItem({ item, model, highlight }:
 
 function RoleLabel({ children }: { children: string }) {
   return <p className="font-mono text-xs text-muted-foreground">{children}</p>
+}
+
+/** 尾操作行复制源（工单 10.4①）：正文 text 块拼接；reasoning/toolCall 不属正文 */
+function assistantTextOf(content: ContentItem[]): string {
+  return content
+    .filter((c): c is Extract<ContentItem, { type: 'text' }> => c.type === 'text')
+    .map((c) => c.text)
+    .join('\n\n')
 }
 
 /** 审批行：ApprovalCard + transport 回复派发 */

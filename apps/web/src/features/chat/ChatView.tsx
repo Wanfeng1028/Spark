@@ -63,7 +63,12 @@ export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
         data={rows}
         itemContent={(_, row) =>
           row.kind === 'item' ? (
-            <MessageItem item={row.item} model={model} highlight={row.item.eventId === highlightId} />
+            <MessageItem
+              item={row.item}
+              model={model}
+              sid={sid}
+              highlight={row.item.eventId === highlightId}
+            />
           ) : (
             <ToolGroupRow
               category={row.category}

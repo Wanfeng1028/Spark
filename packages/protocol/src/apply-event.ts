@@ -26,7 +26,13 @@ export type UiItem =
       finishedAt?: number
       finish?: TurnFinish
     } & UiItemBase)
-  | ({ kind: 'assistant'; content: ContentItem[]; streaming?: { textBuf: string } } & UiItemBase)
+  | ({
+      kind: 'assistant'
+      content: ContentItem[]
+      streaming?: { textBuf: string }
+      /** 定稿（或首帧）信封时间——尾操作行时间戳数据源（工单 10.4①） */
+      time?: number
+    } & UiItemBase)
   | ({
       kind: 'reasoning'
       text: string
@@ -260,7 +266,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
     } else {
       items = [
         ...items,
-        { kind: 'assistant', eventId: e.id, content: [], streaming: { textBuf: e.data.text } },
+        { kind: 'assistant', eventId: e.id, content: [], streaming: { textBuf: e.data.text }, time: e.time },
       ]
     }
     next.items = items
@@ -277,7 +283,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
       void finalized
       items[items.length - 1] = { ...rest, content: e.data.content }
     } else {
-      items.push({ kind: 'assistant', eventId: e.id, content: e.data.content })
+      items.push({ kind: 'assistant', eventId: e.id, content: e.data.content, time: e.time })
     }
     for (const c of e.data.content) {
       if (c.type === 'toolCall') {

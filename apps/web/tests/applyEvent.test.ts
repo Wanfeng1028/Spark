@@ -179,13 +179,14 @@ describe('消息流：user / assistant / reasoning', () => {
     expect(items[0]).toMatchObject({ kind: 'user', text: '你好' })
   })
 
-  it('assistant.delta→message：streaming 缓冲累积后定稿清 streaming', () => {
+  it('assistant.delta→message：streaming 缓冲累积后定稿清 streaming（含定稿时间，工单 10.4①）', () => {
     let s = seeded()
-    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: 'He' }))
+    const e1 = ev('assistant.delta', { turnId: TURN, text: 'He' })
+    s = applyEvent(s, e1)
     s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: 'llo' }))
     let items = itemsOf(s)
     expect(items).toHaveLength(1)
-    expect(items[0]).toMatchObject({ kind: 'assistant', streaming: { textBuf: 'Hello' } })
+    expect(items[0]).toMatchObject({ kind: 'assistant', streaming: { textBuf: 'Hello' }, time: e1.time })
 
     s = applyEvent(
       s,
@@ -201,6 +202,7 @@ describe('消息流：user / assistant / reasoning', () => {
     if (a?.kind === 'assistant') {
       expect(a.streaming).toBeUndefined()
       expect(a.content).toEqual([{ type: 'text', text: 'Hello!' }])
+      expect(a.time).toBe(e1.time) // 定稿保留首帧时间（尾操作行时间戳数据源）
     }
   })
 
