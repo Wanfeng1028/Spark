@@ -30,6 +30,8 @@ export interface SessionHeader {
   cwd: string
   createdAt: number
   model: string
+  /** 创建时 cwd 的 git 分支快照（只读探测；取不到不写入——工单 10.6） */
+  branch?: string
   /** fork 来源（§5.8.6，阶段四）：父会话 id + 源文件路径 + 分叉边界事件 id */
   parentSession?: SessionId
   parentPath?: string
@@ -101,6 +103,10 @@ function parseHeader(raw: string): SessionHeader {
     throw new Error('E_SESSION_BAD_HEADER: 首行缺 sparkVersion/cwd/createdAt/model')
   }
   const h = parsed as SessionHeader
+  // 分支快照（工单 10.6）：出现即须为 string（坏 header fail-closed，不静默丢弃）
+  if (h.branch !== undefined && typeof h.branch !== 'string') {
+    throw new Error('E_SESSION_BAD_HEADER: branch 字段类型错误')
+  }
   // fork 来源字段（§5.8.6）：出现即须为 string（坏 header fail-closed，不静默丢弃）
   if (
     (h.parentSession !== undefined && typeof h.parentSession !== 'string') ||

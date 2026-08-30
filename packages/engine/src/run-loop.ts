@@ -17,6 +17,7 @@ import type {
   CallId,
   ContentItem,
   Delivery,
+  ReasoningEffort,
   SessionId,
   TurnFinish,
   TurnId,
@@ -115,6 +116,8 @@ export interface RunLoopDeps {
   model: ResolvedModel
   /** §5.11 组装的 system prompt */
   system: string
+  /** 推理档位现读端口（工单 10.6）：会话级内存态 ?? 配置缺省；返回 undefined = 不设置 */
+  effort?: () => ReasoningEffort | undefined
   maxStepsPerTurn: number
   /** 压缩阈值比例（config.engine.compactionThreshold，乘 contextWindow） */
   compactionThreshold: number
@@ -246,12 +249,14 @@ export async function runTurn(
       const tools = deps.tools.materialize()
       // ③ 流式采样（live delta 直播；定稿事件本函数 emit）
       let thinking = ''
+      const effort = deps.effort?.()
       const result = await deps.gateway.stream({
         model: deps.model,
         system: deps.system,
         messages: ctx.messages,
         tools,
         signal: abort.signal,
+        ...(effort !== undefined ? { effort } : {}),
         onDelta: (text) => deps.bus.emitLive(sid, 'assistant.delta', { turnId, text }),
         onThinking: (text) => {
           thinking += text

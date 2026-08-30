@@ -20,6 +20,7 @@ function makeConfig(over: Partial<ModelsConfig> = {}): ModelsConfig {
     titleModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
     subagentModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
     costLimitUsd: undefined,
+    defaultEffort: undefined,
     models: [
       { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
       { provider: 'custom', model: 'custom-x', contextWindow: 32768 },

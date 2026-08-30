@@ -29,6 +29,7 @@ import type {
   ModelsDto,
   PermissionPreset,
   PermissionReply,
+  ReasoningEffort,
   RequestId,
   RoutingDto,
   RoutingUpdate,
@@ -45,6 +46,7 @@ import type { EventSink, SubscribeHandle } from './bus.js'
 import { CompactorImpl } from './compaction.js'
 import { GitCheckpointer } from './checkpoint.js'
 import type { CheckpointRecord } from './checkpoint.js'
+import { gitBranchOf } from './git.js'
 import { loadConfig, loadProjectRules } from './config.js'
 import type { PermissionRule } from './config.js'
 import type { EngineConfig, ModelRef } from './config.js'
@@ -110,6 +112,10 @@ export interface SessionMeta {
   createdAt: number
   updatedAt: number // = 最近 durable 事件 time（列表排序键）
   lastSeq: number
+  /** 创建时 cwd 的 git 分支（只读探测；取不到 = undefined，禁假状态——工单 10.6） */
+  branch?: string
+  /** 会话级推理档位（内存态，下一 turn 生效；缺省 = models.json defaultEffort——工单 10.6） */
+  effort?: ReasoningEffort
 }
 
 export interface SessionHandle {
@@ -576,6 +582,10 @@ export class Engine {
     const modelStr = `${modelRef.provider}/${modelRef.model}`
     const sessionId = this.newSessionId()
     const createdAt = this.now()
+    // 工单 10.6：分支只读探测（非仓库/无 git → null，不携带——禁假状态）
+    const branch = await gitBranchOf(cwd)
+    // 工单 10.6：推理档位缺省取 models.json defaultEffort（未配置 = 不设置）
+    const defaultEffort = this.config.models.defaultEffort
 
     const dir = join(this.root, 'sessions', mungeDir(cwd))
     const path = join(dir, sessionFileName(createdAt, sessionId))
@@ -586,6 +596,8 @@ export class Engine {
         cwd,
         createdAt,
         model: modelStr,
+        // 创建时分支快照（工单 10.6；重启/重载经 header 恢复）
+        ...(branch !== null ? { branch } : {}),
         // 子代理来源（工单 5.4 / ADR D17；fork 另记 parentPath/parentEventId）
         ...(opts.parentId !== undefined ? { parentSession: opts.parentId } : {}),
         // 工单 7.8：子代理锚点事件——树视图按 parentEventId 归组显示运行态
@@ -605,6 +617,8 @@ export class Engine {
       createdAt,
       updatedAt: createdAt,
       lastSeq: 0,
+      ...(branch !== null ? { branch } : {}),
+      ...(defaultEffort !== undefined ? { effort: defaultEffort } : {}),
     }
     const entry = this.wireSession(store, meta, modelRef)
     this.sessions.set(sessionId, entry)
@@ -612,6 +626,8 @@ export class Engine {
       cwd,
       model: modelStr,
       ...(opts.title !== undefined ? { title: opts.title } : {}),
+      ...(branch !== null ? { branch } : {}),
+      ...(meta.effort !== undefined ? { effort: meta.effort } : {}),
     })
     return this.handleOf(entry)
   }
@@ -656,6 +672,11 @@ export class Engine {
       createdAt: store.header.createdAt,
       updatedAt: last?.time ?? store.header.createdAt,
       lastSeq: last?.seq ?? 0,
+      // 工单 10.6：分支随 header 恢复（创建时快照）；档位内存态回缺省（同换模型先例）
+      ...(store.header.branch !== undefined ? { branch: store.header.branch } : {}),
+      ...(this.config.models.defaultEffort !== undefined
+        ? { effort: this.config.models.defaultEffort }
+        : {}),
     }
     // seq 起点恢复（磁盘最后一行 durable seq），先于补闭合事件
     this.bus.restoreSeq(id, meta.lastSeq)
@@ -742,6 +763,7 @@ export class Engine {
         cwd: source.meta.cwd,
         createdAt,
         model: source.meta.model,
+        ...(source.meta.branch !== undefined ? { branch: source.meta.branch } : {}),
         parentSession: id,
         parentPath: source.store.path,
         parentEventId: fromEventId,
@@ -768,6 +790,9 @@ export class Engine {
       createdAt,
       updatedAt: last?.time ?? createdAt, // 不变式：最近 durable 事件 time（fork 即边界事件 time）
       lastSeq: copied.length,
+      // 工单 10.6：分支/档位随源会话继承
+      ...(source.meta.branch !== undefined ? { branch: source.meta.branch } : {}),
+      ...(source.meta.effort !== undefined ? { effort: source.meta.effort } : {}),
     }
     this.bus.restoreSeq(newId, meta.lastSeq) // 后续 emit 从 k+1 继续（无断洞）
     const modelRef = this.resolveModelRef(source.meta.model)
@@ -997,6 +1022,17 @@ export class Engine {
     entry.meta.model = `${modelRef.provider}/${modelRef.model}`
     this.syncIndex(entry.meta)
     return entry.meta.model
+  }
+
+  /**
+   * PUT /api/sessions/:id/effort：会话级推理档位（工单 10.6，内存态同换模型先例）。
+   * 下一 turn 生效（deps.effort getter 现读）；重启回 models.json 缺省。
+   */
+  async setSessionEffort(id: SessionId, effort: ReasoningEffort): Promise<ReasoningEffort> {
+    this.assertNotShutdown()
+    const entry = await this.requireEntry(id)
+    entry.meta.effort = effort
+    return effort
   }
 
   // ---- 命令注册表（阶段七工单 7.4 / H04：/命令 解析框架） ----
@@ -1646,6 +1682,8 @@ export class Engine {
       get model(): ResolvedModel {
         return currentModel
       },
+      // 工单 10.6：推理档位现读（会话级内存态 ?? models.json 缺省）——切档下一 turn 生效
+      effort: () => meta.effort ?? this.config.models.defaultEffort,
       // §5.11 基座组装一次；计划模式（D7 补记：交互层约定）按当前档位逐 step 现读追加——
       // getter 不改 RunLoopDeps 形状，档位切换即时生效（AGENTS.md 读盘成本仍为会话装载一次）
       get system(): string {

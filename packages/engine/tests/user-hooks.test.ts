@@ -290,6 +290,7 @@ function makeConfig(hooks: UserHooksConfig): EngineConfig {
       titleModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       subagentModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       costLimitUsd: undefined,
+      defaultEffort: undefined,
       models: [{ provider: 'fake', model: 'fake-chat', contextWindow: 100_000 }],
     },
     permissions: { version: 1, rules: [] },

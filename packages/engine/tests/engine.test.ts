@@ -5,8 +5,10 @@
  * checkpoint turn 边界快照与两域回滚（工单 4.6）。
  */
 import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { promisify } from 'node:util'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { ids } from '@spark/protocol'
 import type { SessionId, SparkEventEnvelope } from '@spark/protocol'
@@ -43,6 +45,7 @@ function makeConfig(): EngineConfig {
       titleModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       subagentModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       costLimitUsd: undefined,
+      defaultEffort: undefined,
       models: [{ provider: 'fake', model: 'fake-chat', contextWindow: 100_000 }],
     },
     permissions: { version: 1, rules: [] },
@@ -67,6 +70,8 @@ async function makeEngine(
     checkpoints?: boolean
     /** 工单 4.8 专项：复用同一 root（重启重建索引用） */
     root?: string
+    /** 工单 10.6：推理档位缺省注入 */
+    defaultEffort?: 'low' | 'medium' | 'high'
   },
 ): Promise<Fixture> {
   const root = opts?.root ?? (await mkdtemp(join(tmpdir(), 'spark-engine-')))
@@ -74,6 +79,7 @@ async function makeEngine(
   const config = makeConfig()
   if (opts?.rules !== undefined) config.permissions.rules = opts.rules
   if (opts?.checkpoints === true) config.spark.engine.checkpoints = true
+  if (opts?.defaultEffort !== undefined) config.models.defaultEffort = opts.defaultEffort
   const engine = new Engine({
     root,
     gateway,
@@ -938,5 +944,60 @@ describe('会话索引与指标（§5.10 / 工单 4.8）', () => {
     // 幂等 shutdown 后 render 仍可用（计数器在内存，不触库）
     await f.engine.shutdown()
     expect(f.engine.renderMetrics()).toContain('spark_sessions_active')
+  })
+})
+
+describe('工单 10.6：分支探测与推理档位', () => {
+  const execFileAsync = promisify(execFile)
+
+  test('models.json defaultEffort → 会话创建即继承；session.created 事件携带', async () => {
+    const f = await makeEngine({ defaultEffort: 'high' })
+    const handle = await f.engine.createSession()
+    expect(handle.meta.effort).toBe('high')
+    const created = f.events.find((e) => e.type === 'session.created')
+    expect((created?.data as Record<string, unknown>).effort).toBe('high')
+  })
+
+  test('未配置 defaultEffort → 不携带（禁假状态）', async () => {
+    const f = await makeEngine()
+    const handle = await f.engine.createSession()
+    expect(handle.meta.effort).toBeUndefined()
+    const created = f.events.find((e) => e.type === 'session.created')
+    expect((created?.data as Record<string, unknown>).effort).toBeUndefined()
+  })
+
+  test('setSessionEffort 更新内存 meta（下一 turn 生效；同换模型口径）', async () => {
+    const f = await makeEngine()
+    const handle = await f.engine.createSession()
+    const applied = await f.engine.setSessionEffort(handle.id, 'low')
+    expect(applied).toBe('low')
+    expect(handle.meta.effort).toBe('low')
+  })
+
+  test('cwd 为 git 仓库 → 分支真值；非仓库 → 不携带', async () => {
+    const f = await makeEngine()
+    // 临时 git 仓库：init + 首提交（身份走环境变量，不碰全局配置）
+    const repo = await mkdtemp(join(tmpdir(), 'spark-git-'))
+    const env = {
+      ...process.env,
+      GIT_AUTHOR_NAME: 't',
+      GIT_AUTHOR_EMAIL: 't@t',
+      GIT_COMMITTER_NAME: 't',
+      GIT_COMMITTER_EMAIL: 't@t',
+    }
+    await execFileAsync('git', ['-C', repo, 'init', '-q'], { env })
+    await writeFile(join(repo, 'a.txt'), 'x')
+    await execFileAsync('git', ['-C', repo, 'add', '.'], { env })
+    await execFileAsync('git', ['-C', repo, 'commit', '-q', '-m', 'init'], { env })
+
+    const h1 = await f.engine.createSession({ cwd: repo })
+    expect(typeof h1.meta.branch).toBe('string')
+    expect(h1.meta.branch).not.toBe('')
+
+    const nonRepo = await mkdtemp(join(tmpdir(), 'spark-nongit-'))
+    const h2 = await f.engine.createSession({ cwd: nonRepo })
+    expect(h2.meta.branch).toBeUndefined()
+    const created = f.events.filter((e) => e.type === 'session.created').at(-1)
+    expect((created?.data as Record<string, unknown>).branch).toBeUndefined()
   })
 })

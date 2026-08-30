@@ -48,3 +48,7 @@ export type TurnFinish = z.infer<typeof TurnFinishSchema>
 
 export const PermissionReplySchema = z.enum(['once', 'always', 'reject'])
 export type PermissionReply = z.infer<typeof PermissionReplySchema>
+
+/** 推理档位（工单 10.6）：OpenAI reasoning_effort 映射；pi-ai ThinkingLevel 子集透传 */
+export const ReasoningEffortSchema = z.enum(['low', 'medium', 'high'])
+export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>

@@ -5,7 +5,7 @@
  * MockTransport 单场景忽略）；getSession 为打开会话的全量 durable 回放入口（冷启动与断线重连同一路径）。
  */
 import type { SparkEventEnvelope } from './events.js'
-import type { Delivery, PermissionReply } from './primitives.js'
+import type { Delivery, PermissionReply, ReasoningEffort } from './primitives.js'
 import type {
   AuditEntryDto,
   AuditQuery,
@@ -93,6 +93,8 @@ export interface Transport {
   testModelProvider(providerId: string): Promise<ModelTestResultDto>
   /** PUT /api/sessions/:id/model：会话级换模型（内存态，下一个 turn 生效；重启回会话文件模型） */
   setSessionModel(sessionId: SessionId, model: string): Promise<string>
+  /** PUT /api/sessions/:id/effort：会话级推理档位（内存态，下一个 turn 生效；工单 10.6） */
+  setSessionEffort(sessionId: SessionId, effort: ReasoningEffort): Promise<ReasoningEffort>
   /** GET /api/routing：fallback 链 + 任务路由档 + 成本上限与累计（工单 7.7） */
   getRouting(): Promise<RoutingDto>
   /** PUT /api/routing：热更新路由配置（校验失败 400；下一请求生效；写回 models.json） */

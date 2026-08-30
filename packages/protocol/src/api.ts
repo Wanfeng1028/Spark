@@ -3,6 +3,7 @@
  */
 import { z } from 'zod'
 import { CheckpointIdSchema, EventIdSchema, SessionIdSchema, TurnIdSchema } from './ids.js'
+import { ReasoningEffortSchema } from './primitives.js'
 import type { SparkEventEnvelope } from './events.js'
 import type { TurnId } from './ids.js'
 
@@ -18,6 +19,10 @@ export const SessionMetaDtoSchema = z.strictObject({
   updatedAt: z.number().int().nonnegative(), // = 最近 durable 事件 time（列表排序键）
   lastSeq: z.number().int().nonnegative(),
   status: SessionStatusSchema, // 引擎从 SessionRuntime 实时填充
+  /** 会话创建时 cwd 的 git 分支（只读探测；缺省 = 取不到，前端不渲染——工单 10.6） */
+  branch: z.string().optional(),
+  /** 当前生效推理档位（缺省 = 未配置，工单 10.6） */
+  effort: ReasoningEffortSchema.optional(),
 })
 export type SessionMetaDto = z.infer<typeof SessionMetaDtoSchema>
 

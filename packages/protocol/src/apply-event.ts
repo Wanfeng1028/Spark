@@ -5,7 +5,7 @@
  * 去重规则（回放×直播重叠）：durable（有 seq）且 seq <= lastSeq → 跳过；live（无 seq）无条件应用。
  */
 import type { SparkEventEnvelope } from './events.js'
-import type { Usage, ContentItem, TurnFinish } from './primitives.js'
+import type { Usage, ContentItem, TurnFinish, ReasoningEffort } from './primitives.js'
 import type { CallId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
 // ---------- UiItem（§6.4 类型表） ----------
@@ -52,6 +52,8 @@ export type UiItem =
       output?: unknown
       /** tool.completed 自带耗时——摘要行"完成 · 耗时"数据源（工单 10.4④） */
       durationMs?: number
+      /** 起始信封时间——运行中时长实时显示数据源（工单 10.9 / §13.K K.2） */
+      startedAt?: number
       /** io.warning（工单 7.2）：护栏告警挂对应工具项（保留最后一条；UI 角标数据源） */
       guard?: { kind: 'injection' | 'secret'; rules: string[]; redacted?: number }
     } & UiItemBase)
@@ -77,6 +79,10 @@ export interface SessionMeta {
   cwd: string
   createdAt: number
   updatedAt: number
+  /** 创建时 cwd 的 git 分支（缺省 = 取不到，前端不渲染——工单 10.6） */
+  branch?: string
+  /** 创建时生效的推理档位（缺省 = 未配置——工单 10.6） */
+  effort?: ReasoningEffort
 }
 
 export interface ActiveTurn {
@@ -200,6 +206,8 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
       cwd: e.data.cwd,
       createdAt: e.time,
       updatedAt: e.time,
+      ...(e.data.branch !== undefined ? { branch: e.data.branch } : {}),
+      ...(e.data.effort !== undefined ? { effort: e.data.effort } : {}),
     }
     return {
       ...s,
@@ -295,6 +303,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
           input: c.input,
           status: 'running',
           progressBuf: '',
+          startedAt: e.time,
         })
       }
     }
@@ -348,6 +357,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
         input: e.data.input,
         status: 'running',
         progressBuf: '',
+        startedAt: e.time,
       })
     }
     if (next.activeTurn !== null) {
