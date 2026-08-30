@@ -329,7 +329,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       <div
         className={cn(
           'relative flex flex-col rounded-xl border border-input bg-card p-3',
-          'focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/25',
+          'focus-within:border-ring',
         )}
       >
         {/* @ / / 菜单（§13.E）：容器上方浮层，Enter 确认/Esc 关闭 */}
