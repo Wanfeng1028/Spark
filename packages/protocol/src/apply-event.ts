@@ -5,7 +5,7 @@
  * 去重规则（回放×直播重叠）：durable（有 seq）且 seq <= lastSeq → 跳过；live（无 seq）无条件应用。
  */
 import type { SparkEventEnvelope } from './events.js'
-import type { Usage, ContentItem } from './primitives.js'
+import type { Usage, ContentItem, TurnFinish } from './primitives.js'
 import type { CallId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
 // ---------- UiItem（§6.4 类型表） ----------
@@ -17,6 +17,15 @@ interface UiItemBase {
 
 export type UiItem =
   | ({ kind: 'user'; text: string } & UiItemBase)
+  | ({
+      kind: 'turn'
+      turnId: TurnId
+      /** turn.started 信封时间——回合头"已工作 N 秒"数据源（工单 10.4） */
+      startedAt: number
+      /** turn.completed 回填；缺省 = 进行中（渲染侧实时计时） */
+      finishedAt?: number
+      finish?: TurnFinish
+    } & UiItemBase)
   | ({ kind: 'assistant'; content: ContentItem[]; streaming?: { textBuf: string } } & UiItemBase)
   | ({ kind: 'reasoning'; text: string; streaming?: boolean } & UiItemBase)
   | ({
@@ -145,6 +154,15 @@ function appendProgress(buf: string, chunk: string): string {
   return `…（前 ${lines.length - PROGRESS_MAX_LINES} 行已截断）\n${lines.slice(-PROGRESS_MAX_LINES).join('\n')}`
 }
 
+/** 反向查找最近一条同 turnId 的 turn 项（工单 10.4 回合头回填）；未命中返 -1 */
+function findLastTurn(items: UiItem[], turnId: TurnId): number {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i]
+    if (it !== undefined && it.kind === 'turn' && it.turnId === turnId) return i
+  }
+  return -1
+}
+
 export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): ProjectionState {
   const existing = s.byId[e.sessionId]
   // 去重入口（§6.4）：durable 且 seq <= lastSeq → 跳过（回放×直播重叠吸附）
@@ -192,6 +210,10 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
       waiting: false,
     }
     next.topBanner = null // 新 turn 清上一轮的错误横幅
+    next.items = [
+      ...next.items,
+      { kind: 'turn', eventId: e.id, turnId: e.data.turnId, startedAt: e.time },
+    ]
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
@@ -200,6 +222,16 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
     next.usageTotal = addUsage(next.usageTotal, e.data.usage)
     if (e.data.usage !== undefined) next.contextUsage = e.data.usage
     if (e.data.finish === 'error') next.topBanner = { kind: 'turn-error', turnId: e.data.turnId }
+    // 回合头回填：最近一条同 turnId 的 turn 项补 finishedAt/finish（工单 10.4）
+    const ti = findLastTurn(next.items, e.data.turnId)
+    if (ti >= 0) {
+      const cur = next.items[ti]
+      if (cur !== undefined && cur.kind === 'turn') {
+        const items = [...next.items]
+        items[ti] = { ...cur, finishedAt: e.time, finish: e.data.finish }
+        next.items = items
+      }
+    }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 

@@ -13,6 +13,7 @@ import { AssistantBlock } from './AssistantBlock'
 import { ReasoningCollapsible } from './ReasoningCollapsible'
 import { ToolCard } from './ToolCard'
 import { ApprovalCard } from './ApprovalCard'
+import { TurnHeader } from './TurnHeader'
 
 export interface MessageItemProps {
   item: UiItem
@@ -32,6 +33,12 @@ export const MessageItem = memo(function MessageItem({ item, model, highlight }:
             {item.text}
           </div>
         </article>
+      )
+    case 'turn':
+      return (
+        <div className={hl}>
+          <TurnHeader startedAt={item.startedAt} finishedAt={item.finishedAt} />
+        </div>
       )
     case 'assistant':
       return (

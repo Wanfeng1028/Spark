@@ -12,6 +12,8 @@ function isSettled(it: UiItem): boolean {
   switch (it.kind) {
     case 'user':
       return true
+    case 'turn':
+      return it.finishedAt !== undefined
     case 'assistant':
       return it.streaming === undefined
     case 'reasoning':

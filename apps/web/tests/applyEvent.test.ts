@@ -80,25 +80,27 @@ describe('session.created / resumed / title', () => {
 })
 
 describe('turn 生命周期', () => {
-  it('turn.started：建 activeTurn，清上轮错误横幅', () => {
+  it('turn.started：建 activeTurn，清上轮错误横幅，turn 项入列（工单 10.4 回合头）', () => {
     let s = seeded()
     s = applyEvent(s, ev('turn.completed', { turnId: TURN, finish: 'error' }, { seq: 2 }))
     expect(s.byId[SID]?.topBanner).toEqual({ kind: 'turn-error', turnId: TURN })
-    s = applyEvent(
-      s,
-      ev(
-        'turn.started',
-        { turnId: ids.turn('trn_t2'), delivery: 'now', userEventId: ids.event('evt_u2') },
-        { seq: 3 },
-      ),
+    const e2 = ev(
+      'turn.started',
+      { turnId: ids.turn('trn_t2'), delivery: 'now', userEventId: ids.event('evt_u2') },
+      { seq: 3 },
     )
+    s = applyEvent(s, e2)
     const at = s.byId[SID]?.activeTurn
     expect(at).toMatchObject({ turnId: ids.turn('trn_t2'), stepCount: 0, waiting: false })
     expect(at?.runningTools.size).toBe(0)
     expect(s.byId[SID]?.topBanner).toBeNull()
+    // turn 项：入列带 startedAt；此前无对应项的 completed 回填静默跳过不崩
+    const t = itemsOf(s).find((i) => i.kind === 'turn')
+    expect(t).toMatchObject({ kind: 'turn', turnId: ids.turn('trn_t2'), startedAt: e2.time })
+    if (t !== undefined && t.kind === 'turn') expect(t.finishedAt).toBeUndefined()
   })
 
-  it('turn.completed：activeTurn 清空 + usage 累计 + finish=error 设横幅', () => {
+  it('turn.completed：activeTurn 清空 + usage 累计 + finish=error 设横幅 + 回合头回填', () => {
     let s = seeded()
     s = applyEvent(
       s,
@@ -108,19 +110,24 @@ describe('turn 生命周期', () => {
         { seq: 2 },
       ),
     )
-    s = applyEvent(
-      s,
-      ev(
-        'turn.completed',
-        {
-          turnId: TURN,
-          finish: 'stop',
-          usage: { inputTokens: 10, outputTokens: 5, cacheRead: 1 },
-        },
-        { seq: 3 },
-      ),
+    const e3 = ev(
+      'turn.completed',
+      {
+        turnId: TURN,
+        finish: 'stop',
+        usage: { inputTokens: 10, outputTokens: 5, cacheRead: 1 },
+      },
+      { seq: 3 },
     )
+    s = applyEvent(s, e3)
     expect(s.byId[SID]?.activeTurn).toBeNull()
+    const t = itemsOf(s).find((i) => i.kind === 'turn')
+    if (t !== undefined && t.kind === 'turn') {
+      expect(t.finishedAt).toBe(e3.time)
+      expect(t.finish).toBe('stop')
+    } else {
+      expect.unreachable('turn 项应存在')
+    }
     expect(s.byId[SID]?.usageTotal).toMatchObject({
       inputTokens: 10,
       outputTokens: 5,

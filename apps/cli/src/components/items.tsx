@@ -116,6 +116,11 @@ export function ItemView({
     )
   }
 
+  if (item.kind === 'turn') {
+    const sec = Math.max(0, Math.round(((item.finishedAt ?? Date.now()) - item.startedAt) / 1000))
+    return <Text color="gray">— 回合 · 已工作 {sec} 秒</Text>
+  }
+
   // approval 已解决态（挂起态由 ApprovalPrompt 单独渲染——交互焦点不同）
   const replyText =
     item.reply === 'once'

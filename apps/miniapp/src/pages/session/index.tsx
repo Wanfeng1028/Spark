@@ -379,6 +379,9 @@ export default function SessionPage() {
                       />
                     </View>
                   )
+                case 'turn':
+                  // 回合头暂无小程序形态，穷尽分支渲染空（工单 10.4）
+                  return null
               }
             })
           )}
