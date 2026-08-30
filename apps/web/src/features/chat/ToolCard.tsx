@@ -1,9 +1,11 @@
 /**
  * ToolCard（doc/02 §6.3 / DESIGN §8）：工具调用块——默认折叠为一行摘要
- * `[图标] 工具名 · 资源路径（mono 截断）· 状态 · 耗时`；展开区按工具分发：
- * bash→Terminal（自动滚底 + 复制）、edit|write→DiffViewer（output.diff，unified），
- * read→CodeBlock（path+行数元数据）、其他→JSON 折叠。running 时摘要行尾显示
- * progressBuf 最后片段（折叠态也可见）；错误态红字摘要默认展开。
+ * `[图标] 人话类别词 · 资源路径（mono 截断）· 状态 · 耗时`（类别词工单 10.4④；
+ * 原工具名收 title）；展开区按工具分发：bash→Terminal（自动滚底 + 复制）、
+ * edit|write→DiffViewer（output.diff，unified）、read→CodeBlock（path+行数元数据）、
+ * 其他→JSON 折叠。running 时摘要行尾显示 progressBuf 最后片段（折叠态也可见）；
+ * 错误态红字摘要默认展开；审批拒绝（output.code=E_PERMISSION）整行删除线+"已拒绝"
+ * 不默认展开（拒绝非失败——工单 10.4④）。
  */
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -18,6 +20,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toolCategoryOf } from './chat-flow-rows'
 
 export interface ToolCardProps {
   name: string
@@ -41,17 +44,25 @@ export function ToolCard({
   const [open, setOpen] = useState(false)
   const manual = useRef(false)
 
-  // 错误态默认展开（DESIGN §8）；用户手动操作后优先
+  /** 审批拒绝态（工单 10.4④）：引擎管线拒绝路径 tool.completed output = {code:'E_PERMISSION'} */
+  const denied =
+    status !== 'running' &&
+    typeof output === 'object' &&
+    output !== null &&
+    (output as Record<string, unknown>).code === 'E_PERMISSION'
+
+  // 错误态默认展开（DESIGN §8；拒绝非失败不展开）；用户手动操作后优先
   useEffect(() => {
     if (manual.current) return
-    if (status === 'error') setOpen(true)
-  }, [status])
+    if (status === 'error' && !denied) setOpen(true)
+  }, [status, denied])
 
   function toggle() {
     manual.current = true
     setOpen((v) => !v)
   }
 
+  const category = toolCategoryOf(name)
   const resource = resourceOf(name, input)
   const progressTail = status === 'running' ? lastLine(progressBuf ?? '') : ''
 
@@ -74,15 +85,27 @@ export function ToolCard({
         ) : (
           <ToolIcon name={name} />
         )}
-        <span className="shrink-0 font-mono text-xs">{name}</span>
+        <span
+          className={cn('shrink-0 text-xs', denied && 'line-through')}
+          title={name !== category ? name : undefined}
+        >
+          {category}
+        </span>
         {resource && (
-          <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+          <span
+            className={cn(
+              'min-w-0 truncate font-mono text-xs text-muted-foreground',
+              denied && 'line-through',
+            )}
+          >
             {resource}
           </span>
         )}
         <span className="ml-auto shrink-0 font-mono text-xs">
           {status === 'running' ? (
             <span className="text-muted-foreground">运行中…</span>
+          ) : denied ? (
+            <span className="text-[var(--spark-err)]">已拒绝</span>
           ) : status === 'error' || isError ? (
             <span className="text-[var(--spark-err)]">失败</span>
           ) : (

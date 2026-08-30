@@ -44,6 +44,8 @@ export type UiItem =
       status: 'running' | 'completed' | 'error'
       progressBuf: string
       output?: unknown
+      /** tool.completed 自带耗时——摘要行"完成 · 耗时"数据源（工单 10.4④） */
+      durationMs?: number
       /** io.warning（工单 7.2）：护栏告警挂对应工具项（保留最后一条；UI 角标数据源） */
       guard?: { kind: 'injection' | 'secret'; rules: string[]; redacted?: number }
     } & UiItemBase)
@@ -374,6 +376,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
           ...cur,
           status: e.data.isError ? 'error' : 'completed',
           output: e.data.output,
+          durationMs: e.data.durationMs,
         }
         next.items = items
       }

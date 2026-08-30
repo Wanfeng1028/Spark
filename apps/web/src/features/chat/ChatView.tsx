@@ -10,9 +10,10 @@ import type { Components, VirtuosoHandle } from 'react-virtuoso'
 import { ids } from '@spark/protocol'
 import type { SessionId } from '@spark/protocol'
 import { useSessionItems, useSessionMeta } from '@/stores/session'
-import type { UiItem } from '@/stores/session'
 import { useTransport } from '@/transports/context'
+import { flowRowsOf, rowIndexOfEvent, type FlowRow } from './chat-flow-rows'
 import { MessageItem } from './MessageItem'
+import { ToolGroupRow } from './ToolGroupRow'
 import { BackBottom } from './BackBottom'
 
 export interface ChatViewProps {
@@ -28,6 +29,8 @@ export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
   const items = useSessionItems(sid)
   const meta = useSessionMeta(sid)
   const model = meta.model === '' ? 'assistant' : meta.model
+  // 显示行（工单 10.4④）：连续同类工具聚合成组行，其余逐项
+  const rows = useMemo(() => flowRowsOf(items), [items])
   const [atBottom, setAtBottom] = useState(true)
   const ref = useRef<VirtuosoHandle>(null)
   const [highlightId, setHighlightId] = useState<string | null>(null)
@@ -38,16 +41,16 @@ export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
     if (focusEventId === undefined || focusEventId === '' || focusedRef.current === focusEventId) {
       return
     }
-    const idx = items.findIndex((i) => i.eventId === focusEventId)
+    const idx = rowIndexOfEvent(rows, focusEventId)
     if (idx === -1) return
     focusedRef.current = focusEventId
     ref.current?.scrollToIndex({ index: idx, align: 'center' })
     setHighlightId(focusEventId)
     const t = setTimeout(() => setHighlightId(null), 2500)
     return () => clearTimeout(t)
-  }, [focusEventId, items])
+  }, [focusEventId, rows])
 
-  const components: Components<UiItem> = useMemo(
+  const components: Components<FlowRow> = useMemo(
     () => ({ EmptyPlaceholder: () => <EmptyChat sid={sid} /> }),
     [sid],
   )
@@ -57,16 +60,24 @@ export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
       <Virtuoso
         ref={ref}
         className="h-full"
-        data={items}
-        itemContent={(_, item) => (
-          <MessageItem item={item} model={model} highlight={item.eventId === highlightId} />
-        )}
+        data={rows}
+        itemContent={(_, row) =>
+          row.kind === 'item' ? (
+            <MessageItem item={row.item} model={model} highlight={row.item.eventId === highlightId} />
+          ) : (
+            <ToolGroupRow
+              category={row.category}
+              tools={row.tools}
+              highlight={row.tools.some((t) => t.eventId === highlightId)}
+            />
+          )
+        }
         followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
         atBottomStateChange={setAtBottom}
         components={components}
       />
       <BackBottom
-        show={!atBottom && items.length > 0}
+        show={!atBottom && rows.length > 0}
         onClick={() => ref.current?.scrollToIndex({ index: 'LAST' })}
       />
     </div>

@@ -70,6 +70,7 @@ export const MessageItem = memo(function MessageItem({ item, model, highlight }:
             progressBuf={item.progressBuf}
             output={item.output}
             isError={item.status === 'error'}
+            {...(item.durationMs !== undefined ? { durationMs: item.durationMs } : {})}
           />
         </div>
       )
