@@ -77,7 +77,6 @@ exports[`applyEvent 序列快照（小程序逻辑层复用口径） > 用户消
       "kind": "tool",
       "name": "bash",
       "progressBuf": "",
-      "startedAt": 1200,
       "status": "running",
     },
     "key": "tool-cal_mini_1",
