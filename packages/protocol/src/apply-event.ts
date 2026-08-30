@@ -27,7 +27,15 @@ export type UiItem =
       finish?: TurnFinish
     } & UiItemBase)
   | ({ kind: 'assistant'; content: ContentItem[]; streaming?: { textBuf: string } } & UiItemBase)
-  | ({ kind: 'reasoning'; text: string; streaming?: boolean } & UiItemBase)
+  | ({
+      kind: 'reasoning'
+      text: string
+      streaming?: boolean
+      /** 首帧 reasoning.delta 信封时间——流式实时计时数据源（工单 10.4③） */
+      startedAt?: number
+      /** reasoning.ended 回填（信封时间差）——"持续了 N 秒"定格 */
+      durationMs?: number
+    } & UiItemBase)
   | ({
       kind: 'tool'
       callId: CallId
@@ -296,7 +304,10 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
       items = [...items]
       items[items.length - 1] = { ...cur, text: cur.text + e.data.text, streaming: true }
     } else {
-      items = [...items, { kind: 'reasoning', eventId: e.id, text: e.data.text, streaming: true }]
+      items = [
+        ...items,
+        { kind: 'reasoning', eventId: e.id, text: e.data.text, streaming: true, startedAt: e.time },
+      ]
     }
     next.items = items
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
@@ -306,7 +317,9 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
     const cur = lastItem()
     if (cur !== undefined && cur.kind === 'reasoning') {
       items = [...items]
-      items[items.length - 1] = { ...cur, text: e.data.text, streaming: false }
+      const base = { ...cur, text: e.data.text, streaming: false }
+      items[items.length - 1] =
+        cur.startedAt !== undefined ? { ...base, durationMs: e.time - cur.startedAt } : base
     } else {
       items = [...items, { kind: 'reasoning', eventId: e.id, text: e.data.text, streaming: false }]
     }

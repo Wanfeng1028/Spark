@@ -243,16 +243,24 @@ describe('消息流：user / assistant / reasoning', () => {
     expect(s.byId[SID]?.activeTurn?.stepCount).toBe(1)
   })
 
-  it('reasoning.delta→ended：流式累积后以 ended 定稿全文', () => {
+  it('reasoning.delta→ended：流式累积后以 ended 定稿全文（含计时，工单 10.4③）', () => {
     let s = seeded()
-    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '想一' }))
+    const e1 = ev('reasoning.delta', { turnId: TURN, text: '想一' })
+    s = applyEvent(s, e1)
     s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '想' }))
-    expect(itemsOf(s)[0]).toMatchObject({ kind: 'reasoning', text: '想一想', streaming: true })
-    s = applyEvent(s, ev('reasoning.ended', { turnId: TURN, text: '想一想（完整）' }, { seq: 2 }))
+    expect(itemsOf(s)[0]).toMatchObject({
+      kind: 'reasoning',
+      text: '想一想',
+      streaming: true,
+      startedAt: e1.time,
+    })
+    const e2 = ev('reasoning.ended', { turnId: TURN, text: '想一想（完整）' }, { seq: 2 })
+    s = applyEvent(s, e2)
     expect(itemsOf(s)[0]).toMatchObject({
       kind: 'reasoning',
       text: '想一想（完整）',
       streaming: false,
+      durationMs: e2.time - e1.time,
     })
   })
 
@@ -288,7 +296,7 @@ describe('tool 状态机', () => {
 
   it('tool.started：push running + runningTools.add', () => {
     const s = started()
-    expect(itemsOf(s)[0]).toMatchObject({
+    expect(itemsOf(s).find((i) => i.kind === 'tool')).toMatchObject({
       kind: 'tool',
       callId: CALL,
       status: 'running',
@@ -334,11 +342,14 @@ describe('tool 状态机', () => {
   it('tool.progress：chunk 追加；>2000 行截头保尾', () => {
     let s = started()
     s = applyEvent(s, ev('tool.progress', { turnId: TURN, callId: CALL, chunk: 'a\nb\n' }))
-    expect(itemsOf(s)[0]).toMatchObject({ kind: 'tool', progressBuf: 'a\nb\n' })
+    expect(itemsOf(s).find((i) => i.kind === 'tool')).toMatchObject({
+      kind: 'tool',
+      progressBuf: 'a\nb\n',
+    })
 
     const big = Array.from({ length: 2100 }, (_, i) => `line-${i}`).join('\n')
     s = applyEvent(s, ev('tool.progress', { turnId: TURN, callId: CALL, chunk: big }))
-    const tool = itemsOf(s)[0]
+    const tool = itemsOf(s).find((i) => i.kind === 'tool')
     if (tool?.kind !== 'tool') throw new Error('unreachable')
     // 已有 'a\nb\n' 的尾 \n 成为分隔符：拼接后 2+2100=2102 行 → 截 102 保 2000
     expect(tool.progressBuf.startsWith('…（前 102 行已截断）')).toBe(true)
@@ -356,7 +367,9 @@ describe('tool 状态机', () => {
         { seq: 4 },
       ),
     )
-    expect(itemsOf(s)[0]).toMatchObject({ kind: 'tool', status: 'completed', output: 'done' })
+    expect(
+      itemsOf(s).find((i) => i.kind === 'tool' && i.callId === CALL),
+    ).toMatchObject({ kind: 'tool', status: 'completed', output: 'done' })
     expect(s.byId[SID]?.activeTurn?.runningTools.has(CALL)).toBe(false)
 
     const CALL2 = ids.call('cal_tool0002')
@@ -373,7 +386,11 @@ describe('tool 状态机', () => {
       ),
     )
     const items = itemsOf(s)
-    expect(items[1]).toMatchObject({ kind: 'tool', status: 'error', output: 'boom' })
+    expect(items.find((i) => i.kind === 'tool' && i.callId === CALL2)).toMatchObject({
+      kind: 'tool',
+      status: 'error',
+      output: 'boom',
+    })
   })
 })
 
@@ -458,13 +475,14 @@ describe('io.warning（工单 7.2 I/O 护栏）', () => {
         { seq: 4 },
       ),
     )
-    expect(itemsOf(s)[0]).toMatchObject({
+    const guarded = itemsOf(s).find((i) => i.kind === 'tool' && i.callId === CALL)
+    expect(guarded).toMatchObject({
       kind: 'tool',
       callId: CALL,
       guard: { kind: 'injection', rules: ['injection.ignore-instructions'] },
     })
     // 告警不改状态机：tool 仍 running、activeTurn 保持
-    expect(itemsOf(s)[0]).toMatchObject({ status: 'running' })
+    expect(guarded).toMatchObject({ status: 'running' })
     expect(s.byId[SID]?.activeTurn?.runningTools.has(CALL)).toBe(true)
   })
 
@@ -486,7 +504,7 @@ describe('io.warning（工单 7.2 I/O 护栏）', () => {
         { seq: 5 },
       ),
     )
-    expect(itemsOf(s)[0]).toMatchObject({
+    expect(itemsOf(s).find((i) => i.kind === 'tool' && i.callId === CALL)).toMatchObject({
       guard: { kind: 'secret', rules: ['secret.sk-token'], redacted: 3 },
     })
   })
@@ -501,8 +519,9 @@ describe('io.warning（工单 7.2 I/O 护栏）', () => {
         { seq: 4 },
       ),
     )
-    expect(itemsOf(out)).toHaveLength(1) // 只有原 tool 项
-    expect(itemsOf(out)[0]).not.toHaveProperty('guard')
+    const tools = itemsOf(out).filter((i) => i.kind === 'tool')
+    expect(tools).toHaveLength(1) // 只有原 tool 项（turn 项不计入）
+    expect(tools[0]).not.toHaveProperty('guard')
   })
 })
 
@@ -670,6 +689,7 @@ describe('全链路：normal 场景形状串联', () => {
     expect(slice?.usageTotal).toMatchObject({ inputTokens: 3, outputTokens: 4 })
     expect(itemsOf(s).map((i) => i.kind)).toEqual([
       'user',
+      'turn',
       'reasoning',
       'assistant',
       'tool',

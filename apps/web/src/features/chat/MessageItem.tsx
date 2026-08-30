@@ -52,7 +52,12 @@ export const MessageItem = memo(function MessageItem({ item, model, highlight }:
     case 'reasoning':
       return (
         <div className={hl}>
-          <ReasoningCollapsible text={item.text} streaming={item.streaming} />
+          <ReasoningCollapsible
+            text={item.text}
+            streaming={item.streaming}
+            {...(item.startedAt !== undefined ? { startedAt: item.startedAt } : {})}
+            {...(item.durationMs !== undefined ? { durationMs: item.durationMs } : {})}
+          />
         </div>
       )
     case 'tool':
