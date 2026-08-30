@@ -82,6 +82,7 @@
 | v3.33 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段十全量开工指令） | **阶段十工单 10.5 侧栏与全局细节完成并勾选**：① 全局单键快捷键 c 新建会话 / / 搜索（非输入态，§6.11 登记两行）+侧栏入口 kbd 提示 ② 分组双模式（项目/时间段，ui store 持久化；ZCode 自定义分组需后端，v1 时间分组为真实数据替代）③ 组内渐进展开（5 条起步 +5）④ 底部用户卡本地形态（无账号体系不做假账户）⑤ Composer + 菜单四项（附件/@///$）⑥ 欢迎页权限档钮（选档真实落档）⑦ 删 Composer 上方水位大条（待拍板 a 按建议执行；UsageBar 停用，文件删除留人工确认）；另欢迎页问候语 28px 大字（10.1 §13.A v2.5 落地）；单测补时间分组段边界 4 例 |
 | v3.34 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段十全量开工指令） | **阶段十工单 10.6–10.11 完成并勾选（阶段十收官）**：10.6 跨端分支 chip + 推理档位——协议先行（ReasoningEffort 枚举/session.created 与 SessionMetaDto 增 branch/effort/Transport.setSessionEffort）+ 引擎 git.ts 只读探测（取不到不携带，进 header 持久）+ setSessionEffort 内存态 + StreamRequest.effort → pi-ai reasoning 透传 + models.json defaultEffort（§4.3/§4.5/§5.1 表同步）+ server PUT effort 端点 + web 顶栏分支 chip/Composer EffortPicker + mock 对等；10.7 DESIGN §13.K CLI 视觉规格成文（v2.6，K.0–K.9，渐变豁免条款单列）；10.8 CLI 纯单栏重构（ARCHITECTURE v1.21 D19 修订行：四区→单栏，/new//resume，boot 头部+footer 双行；侧栏/状态细条组件停用留删）；10.9 块族+审批框（回合头计时/思考行持续时长/工具块人话头部+运行时长行/拒绝删除线；**审批框落三真选项**——引擎 replyPermission 暂无 project/user 作用域参数，不虚设第四项，作用域扩展记 v2）；10.10 面板族（帮助面板三 tab 只读键位表单一来源/slash 菜单 (1/N) 分页/统计面板；**@ 文件补全缺数据源未落地**——依赖 V2-04 文件树，如实记录）；10.11 收口（/stats 面板//resume 过滤恢复/错误红字+Esc 面板优先键纪律；四幕 tty 走查留用户/远端；README v1.26 登记）。**运行中工具行"↑↓ tokens"段无协议数据源未呈现**（usage 仅定稿事件携带，禁假状态）。遗留：UsageBar/Sidebar/StatusBar(cli) 三停用文件待人工删除确认 |
 | v3.35 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028） | §3 目录树登记 `offical/`——Spark 产品官网代码（仅前端；不在 pnpm workspace，独立于产品各端）；与 README v1.27 布局行同步 |
+| v3.36 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028） | 官网文件夹拼写改名 `offical/` → `official/`（v3.35 登记名系笔误；仓库内重命名，历史行不改）；§3 目录树引用同步；与 README v1.28、检查器 SKIP_DIRS 同步 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -251,7 +252,7 @@ spark/
 │   ├── web/（结构见 §6）
 │   └── desktop/                    # Electron 壳（阶段五工单 5.1，ADR D14 sidecar：src/main.ts + electron-builder.yml）
 ├── examples/mock-sessions/
-└── offical/                        # Spark 产品官网代码（仅前端；不在 pnpm workspace，独立于产品各端）
+└── official/                       # Spark 产品官网代码（仅前端；不在 pnpm workspace，独立于产品各端）
 ```
 
 ### 3.1 工程基础配置（阶段一照抄）

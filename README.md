@@ -36,7 +36,7 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | 前端 | Vite 7 · React 19 · TypeScript(strict) · Tailwind CSS v4 · shadcn/ui · Vercel AI Elements（copy-in）· streamdown · react-virtuoso · zustand |
 | 后端 | Node 22+ · `@earendil-works/pi-ai` / `pi-agent-core` · Fastify · SSE · 自写 append-only JSONL 会话日志                                      |
-| 布局 | pnpm monorepo：`packages/protocol`（唯一合同）· `packages/engine` · `apps/server` · `apps/web` · `apps/desktop`（阶段五）· `apps/cli`（阶段八）· `apps/mobile`（阶段九，Expo+RN）· `apps/miniapp`（阶段九，Taro 4 小程序）；另 `offical/`=Spark 产品官网代码（仅前端，不在 pnpm workspace，独立于产品各端） |
+| 布局 | pnpm monorepo：`packages/protocol`（唯一合同）· `packages/engine` · `apps/server` · `apps/web` · `apps/desktop`（阶段五）· `apps/cli`（阶段八）· `apps/mobile`（阶段九，Expo+RN）· `apps/miniapp`（阶段九，Taro 4 小程序）；另 `official/`=Spark 产品官网代码（仅前端，不在 pnpm workspace，独立于产品各端） |
 
 ## 文档
 
@@ -109,3 +109,4 @@ pnpm eval                   # eval 回归（工单 7.11：确定性场景集；-
 | v1.25 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，v2 展望会话）                        | 文档导航新增 doc/08 v2 展望与工单库（阶段十一~十五：发布化/可日用/可证明/SDK 化/生态面，34 张工单含开工提示词；决策已拍板：MIT / npm CLI 优先） |
 | v1.26 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段十全量开工指令）                        | 当前状态段登记阶段十进展（规格修订/会话流升级/侧栏细节/分支 chip+推理档位/CLI §13.K 纯单栏重构——ADR D19 修订）；阶段八描述同步"纯单栏会话优先" |
 | v1.27 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028）                        | 技术栈布局行登记 `offical/`——Spark 产品官网代码（仅前端，不在 pnpm workspace，独立于产品各端）；与 doc/02 v3.35 §3 目录树同步 |
+| v1.28 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028）                        | 官网文件夹拼写改名 `offical/` → `official/`（v1.27 登记名系笔误；仓库内重命名，历史行不改）；布局行引用同步；与 doc/02 v3.36、检查器 SKIP_DIRS 同步 |
