@@ -5,7 +5,8 @@
  *   skill 未加载与 emit 未声明 warn 闭合；
  * - Engine 端到端：spark.json hooks 四挂点真实触发（turn.before/after +
  *   tool.completed（未知工具 E_NOT_FOUND 路径）+ permission.resolved（bash
- *   审批 once 答复）），命令载荷形状与顺序（before 先行、after 收尾）。
+ *   审批 once 答复）），触发次数闭合（fire-and-forget 下子进程 append 的
+ *   文件级先后顺序取决于 OS 调度，不作顺序断言——CI run 33291296064 曾因此翻车）。
  */
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -311,7 +312,7 @@ async function waitTurnCompleted(f: EngineFixture): Promise<void> {
 }
 
 describe('Engine 端到端（工单 7.3：四挂点接线）', () => {
-  test('turn.before/after + tool.completed + permission.resolved 全链路触发，顺序闭合', async () => {
+  test('turn.before/after + tool.completed + permission.resolved 全链路触发，次数闭合', async () => {
     process.env.HOOK_OUT = join(tempDir(), 'engine-hook.log')
     const f = makeHookEngine({
       'turn.before': [{ command: appendCmd('turn.before') }],
@@ -344,16 +345,28 @@ describe('Engine 端到端（工单 7.3：四挂点接线）', () => {
 
     await waitTurnCompleted(f)
 
-    // 四挂点全部落日志：before 先行、after 收尾
-    await waitFor(() => {
-      const lines = hookLog().trim().split('\n')
-      return lines.includes('turn.before') && lines.includes('turn.after')
-    }, '四挂点全部触发')
-    const lines = hookLog().trim().split('\n').filter((l) => l !== '')
-    expect(lines[0]).toBe('turn.before')
-    expect(lines[lines.length - 1]).toBe('turn.after')
-    expect(lines.filter((l) => l === 'tool.completed')).toHaveLength(2) // 未知工具 + bash
-    expect(lines).toContain('permission.resolved')
+    // 四挂点全部落日志，触发次数闭合。hook 为 fire-and-forget（runner.ts 纪律）：
+    // 相邻挂点（如 bash 的 tool.completed 与 turn.after）的子进程 append 同一文件，
+    // 落盘先后取决于 OS 调度，文件级顺序不是引擎保证的不变量（CI run 33291296064
+    // 曾因断言"最后一行是 turn.after"在高负载 CI 上翻车）——触发顺序由事件流承载，
+    // 这里只断言各挂点触发次数；等齐计数同时也保证后续读到的是稳态。
+    const counts = () => {
+      const lines = hookLog().trim().split('\n').filter((l) => l !== '')
+      return {
+        before: lines.filter((l) => l === 'turn.before').length,
+        toolCompleted: lines.filter((l) => l === 'tool.completed').length,
+        resolved: lines.filter((l) => l === 'permission.resolved').length,
+        after: lines.filter((l) => l === 'turn.after').length,
+      }
+    }
+    await waitFor(
+      () => {
+        const c = counts()
+        return c.before === 1 && c.toolCompleted === 2 && c.resolved === 1 && c.after === 1
+      },
+      '四挂点全部触发',
+    )
+    expect(counts()).toEqual({ before: 1, toolCompleted: 2, resolved: 1, after: 1 }) // tool.completed ×2：未知工具 + bash
     expect(handle.status()).toBe('idle')
   })
 
