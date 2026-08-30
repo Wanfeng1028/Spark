@@ -1,0 +1,179 @@
+commit d19792b02df15cc62defe225b39c29be5815e7cb
+Author: Wanfeng1028 <dingyu_1028@163.com>
+Date:   Sun Aug 30 03:38:30 2026 +0800
+
+    feat(stage9): 工单 9.2——apps/mobile Expo 骨架（传输适配+主题+三屏导航）
+    
+    新建 @spark/mobile（Expo SDK 57 + React Native 0.86.3，ADR D20 移动端）：
+    - 传输适配层：REST 直接复用协议包 HttpTransport（authToken 双口径）；
+      会话级流 RnSessionEventSource 基于 react-native-sse（RN fetch 无流式响应体、
+      iOS XHR onprogress 增量不可靠），退避重连复用 DEFAULT_BACKOFF_MS 语义
+      （1/2/5/10s 封顶）、since 水位续播、?token= 注入、401/403 经 onError
+      上抛走 ERROR_COPY 人话化；配置存 expo-secure-store（token 加密）。
+    - Store：zustand + applyEvent 镜像 apps/cli 投影语义；事件入队
+      requestAnimationFrame 批处理（参照 web context.tsx 模式）。
+    - 主题：DESIGN §13.C token 表 1:1 亮/暗两套，亮色默认、跟随系统；
+      底色 #F7F7F7 + 白卡 radius 16 无边框无阴影（J.0）、elevation 单档。
+    - 三屏+导航（§13.J 数值）：单栈+抽屉、无 tab bar；会话列表（下拉刷新、
+      今天/更早分组、状态点 8px、行高 52、FAB 56）；会话页骨架壳；
+      设置页（服务器+token 配置、外观三档、断开连接、配对确认卡）；
+      spark://pair 深链解析纯函数（冷启动+运行期双路径）。
+    - Jest 首批 29 用例：applyEvent 投影快照与 durable 去重、主题
+      亮/暗 token 断言、配对深链合法/非法/缺参。
+    - 根管线：eslint 对 Metro/Babel CJS 配置加针对性 overrides（不装新插件）；
+      pnpm typecheck/lint/test 三关全绿，pnpm -r scope 含 @spark/mobile。
+    - 协议导出面核验：splitSseFrames/envelopeFromSseFrame/DEFAULT_BACKOFF_MS/
+      applyEvent/ERROR_COPY 均已从包入口导出，无需补齐。
+    
+    新依赖许可证清单（ADR D23，均 MIT/Apache 类）：
+    - expo ~57.0.18 / jest-expo ~57.0.5 / expo-linking / expo-secure-store /
+      expo-status-bar / babel-preset-expo / @expo/vector-icons — MIT
+    - react-native 0.86.3 / react-native-gesture-handler /
+      react-native-reanimated / react-native-safe-area-context /
+      react-native-screens — MIT
+    - @react-navigation/{drawer,native,native-stack} v7 — MIT
+    - react-native-sse ^1.2.1 — MIT
+    - zustand ^5.0.15（仓库既有选择）— MIT
+
+diff --git a/apps/mobile/babel.config.js b/apps/mobile/babel.config.js
+new file mode 100644
+index 0000000..ca91880
+--- /dev/null
++++ b/apps/mobile/babel.config.js
+@@ -0,0 +1,5 @@
++// babel 配置（CJS——Expo 约定；reanimated 插件由 babel-preset-expo 自动接入）
++module.exports = function (api) {
++  api.cache(true)
++  return { presets: ['babel-preset-expo'] }
++}
+diff --git a/apps/mobile/metro.config.js b/apps/mobile/metro.config.js
+new file mode 100644
+index 0000000..45ea690
+--- /dev/null
++++ b/apps/mobile/metro.config.js
+@@ -0,0 +1,16 @@
++// Metro 配置（CJS——Expo 约定）：pnpm monorepo——watch 仓库根、双 node_modules 解析，
++// 使 @spark/protocol 等 workspace 包的 TS 源码可被 Metro 直接转译。
++const { getDefaultConfig } = require('expo/metro-config')
++const path = require('path')
++
++const projectRoot = __dirname
++const monorepoRoot = path.resolve(projectRoot, '../..')
++
++const config = getDefaultConfig(projectRoot)
++config.watchFolders = [monorepoRoot]
++config.resolver.nodeModulesPaths = [
++  path.resolve(projectRoot, 'node_modules'),
++  path.resolve(monorepoRoot, 'node_modules'),
++]
++
++module.exports = config
+diff --git a/apps/mobile/package.json b/apps/mobile/package.json
+new file mode 100644
+index 0000000..15bc5c3
+--- /dev/null
++++ b/apps/mobile/package.json
+@@ -0,0 +1,49 @@
++{
++  "name": "@spark/mobile",
++  "version": "0.1.0",
++  "private": true,
++  "description": "Spark 移动端 App（Expo + React Native，ADR D20；阶段九工单 9.2 骨架）",
++  "main": "index.ts",
++  "scripts": {
++    "dev": "expo start",
++    "typecheck": "tsc --noEmit",
++    "test": "jest"
++  },
++  "dependencies": {
++    "@expo/vector-icons": "^15.0.2",
++    "@react-navigation/drawer": "^7.13.10",
++    "@react-navigation/native": "^7.3.18",
++    "@react-navigation/native-stack": "^7.18.10",
++    "@spark/protocol": "workspace:*",
++    "babel-preset-expo": "~57.0.0",
++    "expo": "~57.0.18",
++    "expo-linking": "~57.0.8",
++    "expo-secure-store": "~57.0.2",
++    "expo-status-bar": "~57.0.1",
++    "react": "19.2.3",
++    "react-native": "0.86.3",
++    "react-native-gesture-handler": "~2.32.0",
++    "react-native-reanimated": "4.5.1",
++    "react-native-safe-area-context": "~5.7.0",
++    "react-native-screens": "~4.26.0",
++    "react-native-sse": "^1.2.1",
++    "zustand": "^5.0.15"
++  },
++  "devDependencies": {
++    "@types/jest": "^29.5.14",
++    "@types/node": "^24",
++    "@types/react": "~19.2.2",
++    "jest": "^29.7.0",
++    "jest-expo": "~57.0.5",
++    "typescript": "^5.9.3"
++  },
++  "jest": {
++    "preset": "jest-expo",
++    "moduleNameMapper": {
++      "^(\\.{1,2}/.*)\\.js$": "$1"
++    },
++    "transformIgnorePatterns": [
++      "node_modules/(?!\\.pnpm)(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*))"
++    ]
++  }
++}
+diff --git a/apps/mobile/tsconfig.json b/apps/mobile/tsconfig.json
+new file mode 100644
+index 0000000..3581434
+--- /dev/null
++++ b/apps/mobile/tsconfig.json
+@@ -0,0 +1,10 @@
++{
++  "extends": "../../tsconfig.base.json",
++  "compilerOptions": {
++    "noEmit": true,
++    "jsx": "react-jsx",
++    "lib": ["ES2022"],
++    "types": ["jest", "node"]
++  },
++  "include": ["index.ts", "App.tsx", "src", "tests"]
++}
+diff --git a/eslint.config.js b/eslint.config.js
+index 103a9cd..f131845 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -26,10 +26,32 @@ export default tseslint.config(
+     files: ['**/*.config.{js,mjs,cjs}'],
+     ...tseslint.configs.disableTypeChecked,
+   },
++  {
++    // apps/mobile 的 Metro/Babel 配置：CJS（require/module.exports），声明 Node CJS 全局
++    files: ['apps/mobile/babel.config.js', 'apps/mobile/metro.config.js'],
++    languageOptions: {
++      sourceType: 'commonjs',
++      globals: {
++        module: 'writable',
++        require: 'readonly',
++        __dirname: 'readonly',
++      },
++    },
++    rules: {
++      '@typescript-eslint/no-require-imports': 'off',
++    },
++  },
+   {
+     languageOptions: {
+       parserOptions: {
+-        projectService: { allowDefaultProject: ['eslint.config.js'] },
++        projectService: {
++          allowDefaultProject: [
++            'eslint.config.js',
++            // apps/mobile 的 Metro/Babel 配置（CJS，不在任何 tsconfig 项目内）
++            'apps/mobile/metro.config.js',
++            'apps/mobile/babel.config.js',
++          ],
++        },
+       },
+     },
+     rules: {

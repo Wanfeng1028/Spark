@@ -1,0 +1,59 @@
+commit d19792b02df15cc62defe225b39c29be5815e7cb
+Author: Wanfeng1028 <dingyu_1028@163.com>
+Date:   Sun Aug 30 03:38:30 2026 +0800
+
+    feat(stage9): 宸ュ崟 9.2鈥斺€攁pps/mobile Expo 楠ㄦ灦锛堜紶杈撻€傞厤+涓婚+涓夊睆瀵艰埅锛?    
+    鏂板缓 @spark/mobile锛圗xpo SDK 57 + React Native 0.86.3锛孉DR D20 绉诲姩绔級锛?    - 浼犺緭閫傞厤灞傦細REST 鐩存帴澶嶇敤鍗忚鍖?HttpTransport锛坅uthToken 鍙屽彛寰勶級锛?      浼氳瘽绾ф祦 RnSessionEventSource 鍩轰簬 react-native-sse锛圧N fetch 鏃犳祦寮忓搷搴斾綋銆?      iOS XHR onprogress 澧為噺涓嶅彲闈狅級锛岄€€閬块噸杩炲鐢?DEFAULT_BACKOFF_MS 璇箟
+      锛?/2/5/10s 灏侀《锛夈€乻ince 姘翠綅缁挱銆?token= 娉ㄥ叆銆?01/403 缁?onError
+      涓婃姏璧?ERROR_COPY 浜鸿瘽鍖栵紱閰嶇疆瀛?expo-secure-store锛坱oken 鍔犲瘑锛夈€?    - Store锛歾ustand + applyEvent 闀滃儚 apps/cli 鎶曞奖璇箟锛涗簨浠跺叆闃?      requestAnimationFrame 鎵瑰鐞嗭紙鍙傜収 web context.tsx 妯″紡锛夈€?    - 涓婚锛欴ESIGN 搂13.C token 琛?1:1 浜?鏆椾袱濂楋紝浜壊榛樿銆佽窡闅忕郴缁燂紱
+      搴曡壊 #F7F7F7 + 鐧藉崱 radius 16 鏃犺竟妗嗘棤闃村奖锛圝.0锛夈€乪levation 鍗曟。銆?    - 涓夊睆+瀵艰埅锛埪?3.J 鏁板€硷級锛氬崟鏍?鎶藉眽銆佹棤 tab bar锛涗細璇濆垪琛紙涓嬫媺鍒锋柊銆?      浠婂ぉ/鏇存棭鍒嗙粍銆佺姸鎬佺偣 8px銆佽楂?52銆丗AB 56锛夛紱浼氳瘽椤甸鏋跺３锛?      璁剧疆椤碉紙鏈嶅姟鍣?token 閰嶇疆銆佸瑙備笁妗ｃ€佹柇寮€杩炴帴銆侀厤瀵圭‘璁ゅ崱锛夛紱
+      spark://pair 娣遍摼瑙ｆ瀽绾嚱鏁帮紙鍐峰惎鍔?杩愯鏈熷弻璺緞锛夈€?    - Jest 棣栨壒 29 鐢ㄤ緥锛歛pplyEvent 鎶曞奖蹇収涓?durable 鍘婚噸銆佷富棰?      浜?鏆?token 鏂█銆侀厤瀵规繁閾惧悎娉?闈炴硶/缂哄弬銆?    - 鏍圭绾匡細eslint 瀵?Metro/Babel CJS 閰嶇疆鍔犻拡瀵规€?overrides锛堜笉瑁呮柊鎻掍欢锛夛紱
+      pnpm typecheck/lint/test 涓夊叧鍏ㄧ豢锛宲npm -r scope 鍚?@spark/mobile銆?    - 鍗忚瀵煎嚭闈㈡牳楠岋細splitSseFrames/envelopeFromSseFrame/DEFAULT_BACKOFF_MS/
+      applyEvent/ERROR_COPY 鍧囧凡浠庡寘鍏ュ彛瀵煎嚭锛屾棤闇€琛ラ綈銆?    
+    鏂颁緷璧栬鍙瘉娓呭崟锛圓DR D23锛屽潎 MIT/Apache 绫伙級锛?    - expo ~57.0.18 / jest-expo ~57.0.5 / expo-linking / expo-secure-store /
+      expo-status-bar / babel-preset-expo / @expo/vector-icons 鈥?MIT
+    - react-native 0.86.3 / react-native-gesture-handler /
+      react-native-reanimated / react-native-safe-area-context /
+      react-native-screens 鈥?MIT
+    - @react-navigation/{drawer,native,native-stack} v7 鈥?MIT
+    - react-native-sse ^1.2.1 鈥?MIT
+    - zustand ^5.0.15锛堜粨搴撴棦鏈夐€夋嫨锛夆€?MIT
+
+diff --git a/eslint.config.js b/eslint.config.js
+index 103a9cd..f131845 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -26,10 +26,32 @@ export default tseslint.config(
+     files: ['**/*.config.{js,mjs,cjs}'],
+     ...tseslint.configs.disableTypeChecked,
+   },
++  {
++    // apps/mobile 鐨?Metro/Babel 閰嶇疆锛欳JS锛坮equire/module.exports锛夛紝澹版槑 Node CJS 鍏ㄥ眬
++    files: ['apps/mobile/babel.config.js', 'apps/mobile/metro.config.js'],
++    languageOptions: {
++      sourceType: 'commonjs',
++      globals: {
++        module: 'writable',
++        require: 'readonly',
++        __dirname: 'readonly',
++      },
++    },
++    rules: {
++      '@typescript-eslint/no-require-imports': 'off',
++    },
++  },
+   {
+     languageOptions: {
+       parserOptions: {
+-        projectService: { allowDefaultProject: ['eslint.config.js'] },
++        projectService: {
++          allowDefaultProject: [
++            'eslint.config.js',
++            // apps/mobile 鐨?Metro/Babel 閰嶇疆锛圕JS锛屼笉鍦ㄤ换浣?tsconfig 椤圭洰鍐咃級
++            'apps/mobile/metro.config.js',
++            'apps/mobile/babel.config.js',
++          ],
++        },
+       },
+     },
+     rules: {

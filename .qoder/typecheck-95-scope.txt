@@ -1,0 +1,23 @@
+
+> spark@0.1.0 typecheck E:\code\javascript\project\Spark
+> pnpm -r typecheck
+
+Scope: 9 of 10 workspace projects
+apps/desktop typecheck$ tsc --noEmit
+packages/protocol typecheck$ tsc --noEmit
+apps/desktop typecheck: Done
+packages/protocol typecheck: Done
+apps/cli typecheck$ tsc --noEmit
+apps/miniapp typecheck$ tsc --noEmit
+apps/mobile typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/cli typecheck: Done
+packages/engine typecheck$ tsc --noEmit
+apps/mobile typecheck: Done
+apps/miniapp typecheck: Done
+apps/web typecheck: Done
+packages/engine typecheck: Done
+apps/server typecheck$ tsc --noEmit
+examples/evals typecheck$ tsc --noEmit
+examples/evals typecheck: Done
+apps/server typecheck: Done

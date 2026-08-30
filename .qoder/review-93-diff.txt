@@ -1,0 +1,1637 @@
+commit bc1c5cfa39f565f083c24c8b18d20ab98355deea
+Author: Wanfeng1028 <dingyu_1028@163.com>
+Date:   Sun Aug 30 04:16:42 2026 +0800
+
+    feat(stage9): 宸ュ崟 9.3鈥斺€旂Щ鍔ㄧ浼氳瘽浣撻獙锛堟祦寮?瀹℃壒/閲嶈繛/鍒嗛〉/閿洏閬胯锛?    
+    鍗忚鍏堣锛堝敮涓€鏈嶅姟绔拷鍔狅紝鍚戝悗鍏煎锛夛細
+    - SessionEventsQuerySchema锛?limit=&before= 鍏ㄥ彲閫夆€斺€旂己鐪佸弬鏁?鐜扮姸鍏ㄩ噺鍥炴斁绾㈢嚎涓嶇牬锛?      limit 姝ｆ暣鏁颁笂闄?200锛宐efore=seq 娓告爣杩斿洖 seq < before 鍗囧簭锛?    - Transport.getSession(id, query?) 鏃犲弬鍏煎锛泃ransport-node HttpTransport 涓?      web MockTransport 涓夊鍚屾锛堣繃婊?鍗囧簭灏鹃儴鍒囩墖锛?    - server GET /api/sessions/:id 娑堣垂鏌ヨ鍙傛暟锛岃矾鐢卞崟娴?4 渚?      锛堢己鐪佸叏閲忓洖褰?limit 鎴柇/before 娓告爣/闈炴硶鍙傛暟 400锛?    
+    apps/mobile 浼氳瘽椤佃惤鍦帮紙DESIGN 搂13.J.2.3/J.3锛夛細
+    - 娑堟伅娴佹姇褰憋細user 鍙冲榻愭祬鐏拌兌鍥?/ assistant 鍏ㄥ绾枃鏈?澶嶅埗+"鍐呭鐢?AI 鐢熸垚"
+      鍚堣鏍囨敞 / 鐩搁偦娑堟伅 >30min 灞呬腑鏃堕棿鎴冲垎闅?    - RnSessionEventSource 缁挱娴侊紙since 姘翠綅锛? rAF 鎵瑰鐞嗘姇褰?+ 鏂版枃瀛楁笎鏄惧井鍔ㄦ晥
+      + 鍥炲埌搴曢儴娴挳 + 宸ュ叿鍗?鎬濊€冨潡鎶樺彔锛埪?3.H 杩佺Щ锛?    - 瀹℃壒鍗＄櫧鍗?warn 宸﹁竟鏉′笁閿旱鍚戝叏瀹斤紙璧?replyPermission锛夛紱杩愯涓仠姝㈤挳
+      锛堜腑鏂蛋 interrupt锛夛紱鏂嚎閲嶈繛缁嗘潯锛坥nStatus 浜鸿瘽鏂囨锛?    - 涓婃媺鍔犺浇鍘嗗彶锛氬垎椤靛崌搴忓悎骞?鍏ㄩ噺閲嶆斁锛宨nverted FlatList 婊氬姩浣嶇疆涓嶈烦
+    - KeyboardAvoidingView/瀹夊叏鍖?+ Composer 澶氳鑷鑳跺泭
+    - 閿欒鏂囨涓€寰?ERROR_COPY/errorMessageOf锛圓DR D22锛岀鑷€狅級
+    
+    Maestro 鍥涘箷 YAML 鍏ュ簱锛堝彧鍏ュ簱涓嶆墽琛岋紝鐪熸満璧版煡鐢辩敤鎴峰仛锛夛紱
+    Jest 澧炶ˉ 7 渚嬶紙鍒嗛〉鍚堝苟/鏃堕棿鎴冲垽瀹氫笌鏍煎紡/鎶曞奖蹇収鍚鎵?Composer 楂樺害锛夛紱
+    doc/02 搂4.5 涓庣増鏈褰?v3.27 鍚屾銆?    鍏ㄤ粨涓夊叧鍏ㄧ豢锛?68 渚嬶紙engine 486/web 159/server 92/protocol 69/mobile 46/cli 16锛夈€?
+diff --git a/apps/mobile/app.json b/apps/mobile/app.json
+index fe3544d..f2a2e2a 100644
+--- a/apps/mobile/app.json
++++ b/apps/mobile/app.json
+@@ -8,10 +8,12 @@
+     "backgroundColor": "#F7F7F7",
+     "platforms": ["ios", "android"],
+     "ios": {
+-      "supportsTablet": false
++      "supportsTablet": false,
++      "bundleIdentifier": "com.sparkapp.mobile"
+     },
+     "android": {
+-      "edgeToEdgeEnabled": true
++      "edgeToEdgeEnabled": true,
++      "package": "com.sparkapp.mobile"
+     },
+     "plugins": ["expo-secure-store", "expo-status-bar"]
+   }
+diff --git a/apps/mobile/e2e/approval-buttons.yaml b/apps/mobile/e2e/approval-buttons.yaml
+new file mode 100644
+index 0000000..e5402a9
+--- /dev/null
++++ b/apps/mobile/e2e/approval-buttons.yaml
+@@ -0,0 +1,29 @@
++# 宸ュ崟 9.3 Maestro 鐢ㄤ緥鈶★細瀹℃壒涓夐敭锛堝彧鍏ュ簱涓嶆墽琛屸€斺€旂湡鏈鸿蛋鏌ョ敱鐢ㄦ埛鍋氾級
++# 渚濇嵁锛歞oc/06-testing-plan.md 搂1 鍒嗗眰琛?L5 琛岋紙绉诲姩绔?E2E 鐢?Maestro锛孻AML 鍏ュ簱 apps/mobile/e2e/锛?+# 杩愯鍓嶇疆锛氬凡閰嶅鍙繛鐨?Spark server锛堟潈闄愭。璋冩垚闇€瀹℃壒锛屽 ask 鍏ㄩ噺锛? 宸插畨瑁呮瀯寤哄寘鍚?+#   maestro test apps/mobile/e2e/approval-buttons.yaml
++appId: com.sparkapp.mobile
++---
++- launchApp:
++    clearState: false
++- assertVisible: "鍏ㄩ儴浼氳瘽"
++- tapOn:
++    text: ".*"
++    index: 1
++- assertVisible: "娑堟伅杈撳叆妗?
++# 鍙戣捣涓€涓細瑙﹀彂瀹℃壒鐨勫姩浣滐紙宸ュ叿闇€鎺堟潈锛?+- tapOn: "娑堟伅杈撳叆妗?
++- inputText: "璇疯繍琛?bash 鍛戒护 ls 鏌ョ湅鐩綍"
++- tapOn: "鍙戦€佹秷鎭?
++# 瀹℃壒鍗″憟鐜帮紙J.3锛氱櫧鍗?warn 宸﹁竟鏉?涓夐敭绾靛悜鍏ㄥ锛?+- extendedWaitUntil:
++    visible: "璇锋眰鎺堟潈"
++    timeout: 60000
++- assertVisible: "鍏佽"
++- assertVisible: "濮嬬粓鍏佽"
++- assertVisible: "鎷掔粷"
++# 鐐光€滃厑璁糕€濓紙= once锛夛細鍗＄墖鏀舵暃涓哄凡澶勭悊鎬?+- tapOn: "鍏佽"
++- extendedWaitUntil:
++    visible: "宸插厑璁告湰娆?
++    timeout: 30000
+diff --git a/apps/mobile/e2e/pair-revoked.yaml b/apps/mobile/e2e/pair-revoked.yaml
+new file mode 100644
+index 0000000..a514ce7
+--- /dev/null
++++ b/apps/mobile/e2e/pair-revoked.yaml
+@@ -0,0 +1,26 @@
++# 宸ュ崟 9.3 Maestro 鐢ㄤ緥鈶ｏ細閰嶅鎾ら攢琚嫆锛堝彧鍏ュ簱涓嶆墽琛屸€斺€旂湡鏈鸿蛋鏌ョ敱鐢ㄦ埛鍋氾級
++# 渚濇嵁锛歞oc/06-testing-plan.md 搂1 鍒嗗眰琛?L5 琛岋紙绉诲姩绔?E2E 鐢?Maestro锛孻AML 鍏ュ簱 apps/mobile/e2e/锛?+# 璧版煡鏂瑰紡锛氭湰娴佺▼缁欐搷浣滆€呯暀鍑轰汉宸ョ獥鍙ｂ€斺€旀墽琛屽埌绛夊緟绐楀彛鏃跺湪妗岄潰绔缃〉銆岃澶囦笌閰嶅銆?+#   鎾ら攢鏈満璁惧锛堟挙閿€鍗虫柇锛夛紝App 渚?401 璧?E_AUTH 鏀舵暃鍛堢幇浜鸿瘽鏂囨銆?+#   maestro test apps/mobile/e2e/pair-revoked.yaml
++appId: com.sparkapp.mobile
++---
++- launchApp:
++    clearState: false
++- assertVisible: "鍏ㄩ儴浼氳瘽"
++- tapOn:
++    text: ".*"
++    index: 1
++- assertVisible: "娑堟伅杈撳叆妗?
++# 鎿嶄綔鑰呭湪姝ょ獥鍙ｄ簬妗岄潰绔挙閿€鏈澶囷紙鎾ら攢鍗虫柇锛氬凡杩?SSE 绔嬪嵆鏂紑锛?+# App 渚ч噸杩炴寔缁?401 鈫?E_AUTH 鏀舵暃缁堟€侊紝浜鸿瘽鏂囨璧?ERROR_COPY锛圖22锛?+- extendedWaitUntil:
++    visible: "杩炴帴鏈€氳繃閴存潈锛氳閲嶆柊閰嶅璁惧鎴栨鏌?token"
++    timeout: 60000
++# 鎾ら攢鍚庡彂娑堟伅搴斿悓鏍疯鎷掞紙澶辫触闂悎锛屼笉闈欓粯锛?+- tapOn: "娑堟伅杈撳叆妗?
++- inputText: "鎾ら攢鍚庝粛灏濊瘯鍙戦€?
++- tapOn: "鍙戦€佹秷鎭?
++- extendedWaitUntil:
++    visible: "杩炴帴鏈€氳繃閴存潈锛氳閲嶆柊閰嶅璁惧鎴栨鏌?token"
++    timeout: 30000
+diff --git a/apps/mobile/e2e/reconnect.yaml b/apps/mobile/e2e/reconnect.yaml
+new file mode 100644
+index 0000000..c5bd02f
+--- /dev/null
++++ b/apps/mobile/e2e/reconnect.yaml
+@@ -0,0 +1,26 @@
++# 宸ュ崟 9.3 Maestro 鐢ㄤ緥鈶細鏂綉鎭㈠锛堝彧鍏ュ簱涓嶆墽琛屸€斺€旂湡鏈鸿蛋鏌ョ敱鐢ㄦ埛鍋氾級
++# 渚濇嵁锛歞oc/06-testing-plan.md 搂1 鍒嗗眰琛?L5 琛岋紙绉诲姩绔?E2E 鐢?Maestro锛孻AML 鍏ュ簱 apps/mobile/e2e/锛?+# 璧版煡鏂瑰紡锛氭湰娴佺▼缁欐搷浣滆€呯暀鍑轰汉宸ョ獥鍙ｂ€斺€旀墽琛屽埌绛夊緟鏂嚎鏉℃椂鎵嬪姩寮€椋炶妯″紡锛?+#   鐪嬪埌鈥滃凡鏂嚎锛岄噸杩炰腑鈥︹€濆悗鍏抽棴椋炶妯″紡锛屾祦绋嬬户缁柇瑷€鎭㈠銆?+#   maestro test apps/mobile/e2e/reconnect.yaml
++appId: com.sparkapp.mobile
++---
++- launchApp:
++    clearState: false
++- assertVisible: "鍏ㄩ儴浼氳瘽"
++- tapOn:
++    text: ".*"
++    index: 1
++- assertVisible: "娑堟伅杈撳叆妗?
++# 鍙戣捣涓€杞繘琛屼腑鐨勪换鍔★紝淇濊瘉鏂綉鏃舵祦澶勪簬娲诲姩鎬?+- tapOn: "娑堟伅杈撳叆妗?
++- inputText: "璇锋參鎱㈡暟鍒颁簩鍗?
++- tapOn: "鍙戦€佹秷鎭?
++# 鎿嶄綔鑰呭湪姝ゅ埢寮€鍚琛屾ā寮忥紙绾?10s 瀹介檺绐楀彛锛夛紱鏂嚎缁嗘潯搴斿憟鐜帮紙J.2.3锛?+- extendedWaitUntil:
++    visible: "宸叉柇绾匡紝閲嶈繛涓€?
++    timeout: 30000
++# 鎿嶄綔鑰呭叧闂琛屾ā寮忥紱鎭㈠鍚庣粏鏉℃秷澶便€佸洖鍒版甯告€?+- assertNotVisible:
++    text: "宸叉柇绾匡紝閲嶈繛涓€?
++    # 閫€閬?1/2/5/10s 灏侀《锛岀暀鍑哄厖瓒虫仮澶嶇獥鍙?diff --git a/apps/mobile/e2e/send-message.yaml b/apps/mobile/e2e/send-message.yaml
+new file mode 100644
+index 0000000..fe5833e
+--- /dev/null
++++ b/apps/mobile/e2e/send-message.yaml
+@@ -0,0 +1,27 @@
++# 宸ュ崟 9.3 Maestro 鐢ㄤ緥鈶狅細姝ｅ父鍙戞秷鎭紙鍙叆搴撲笉鎵ц鈥斺€旂湡鏈鸿蛋鏌ョ敱鐢ㄦ埛鍋氾級
++# 渚濇嵁锛歞oc/06-testing-plan.md 搂1 鍒嗗眰琛?L5 琛岋紙绉诲姩绔?E2E 鐢?Maestro锛孻AML 鍏ュ簱 apps/mobile/e2e/锛?+# 杩愯锛氬凡瑁?Maestro锛坔ttps://maestro.mobile.dev锛? 宸查厤瀵瑰彲杩炵殑 Spark server + 宸插畨瑁呮瀯寤哄寘鍚?+#   maestro test apps/mobile/e2e/send-message.yaml
++appId: com.sparkapp.mobile
++---
++- launchApp:
++    clearState: false
++# 棣栭〉浼氳瘽鍒楄〃灏辩华锛圝.2.2锛?+- assertVisible: "鍏ㄩ儴浼氳瘽"
++# 杩涘叆浠讳竴宸叉湁浼氳瘽锛堝垪琛ㄩ琛岋級
++- tapOn:
++    text: ".*"
++    index: 1
++# 浼氳瘽椤靛氨缁細杈撳叆妗嗕笌鍙戦€侀挳鍦ㄥ満锛圝.2.3 Composer锛?+- assertVisible: "娑堟伅杈撳叆妗?
++- assertVisible: "鍙戦€佹秷鎭?
++# 杈撳叆浠诲姟鏂囨骞跺彂閫?+- tapOn: "娑堟伅杈撳叆妗?
++- inputText: "Maestro 鍐掔儫锛氳鍥炲鏀跺埌"
++- tapOn: "鍙戦€佹秷鎭?
++# user 鑳跺泭鍗虫椂鍛堢幇锛堝彂閫佸悗娓呯┖杈撳叆锛?+- assertVisible: "Maestro 鍐掔儫锛氳鍥炲鏀跺埌"
++# 绛夊緟 assistant 搴旂瓟鍛堢幇锛堝惈鍚堣鏍囨敞锛孞.2.3 鎿嶄綔琛岋級
++- extendedWaitUntil:
++    visible: "鍐呭鐢?AI 鐢熸垚"
++    timeout: 60000
+diff --git a/apps/mobile/package.json b/apps/mobile/package.json
+index 15bc5c3..9025c0d 100644
+--- a/apps/mobile/package.json
++++ b/apps/mobile/package.json
+@@ -17,6 +17,7 @@
+     "@spark/protocol": "workspace:*",
+     "babel-preset-expo": "~57.0.0",
+     "expo": "~57.0.18",
++    "expo-clipboard": "~57.0.1",
+     "expo-linking": "~57.0.8",
+     "expo-secure-store": "~57.0.2",
+     "expo-status-bar": "~57.0.1",
+diff --git a/apps/mobile/src/components/composer.tsx b/apps/mobile/src/components/composer.tsx
+new file mode 100644
+index 0000000..912eedc
+--- /dev/null
++++ b/apps/mobile/src/components/composer.tsx
+@@ -0,0 +1,117 @@
++/**
++ * Composer 澶氳鑷鑳跺泭锛堝伐鍗?9.3锛孞.2.1/J.2.3锛夛細
++ * 宸﹀彸杈硅窛 16銆侀珮 52 璧枫€乺adius full銆佺櫧搴曪紱鍗犱綅"鎻忚堪浣犵殑浠诲姟鈥?13 meta锛?+ * 鍙冲彂閫侀粦鍦嗛挳 40鈥斺€攖urn 杩愯涓彉鍋滄 鈻狅紙涓柇璧?Transport.interrupt锛夈€?+ * 楂樺害/琛屾暟绾嚱鏁板湪 src/session/session-rows.ts锛圝est 鎶婂叧锛夈€?+ */
++import { useState } from 'react'
++import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native'
++import type { NativeSyntheticEvent, TextInputContentSizeChangeEventData } from 'react-native'
++import { Feather } from '@expo/vector-icons'
++import { useTheme } from '../theme/use-theme'
++import { mobileMetrics } from '../theme/tokens'
++import { composerHeight, composerLinesFromContentSize } from '../session/session-rows'
++
++export interface ComposerProps {
++  /** turn 杩愯涓細鍙抽挳鍛堝仠姝?鈻狅紙鎸?= 涓柇锛?*/
++  running: boolean
++  /** 鍙戦€佽姹傚湪閫旓紙闃查噸澶嶆彁浜わ級 */
++  busy: boolean
++  onSend: (text: string) => void
++  onStop: () => void
++}
++
++export function Composer({ running, busy, onSend, onStop }: ComposerProps) {
++  const t = useTheme()
++  const [text, setText] = useState('')
++  const [lines, setLines] = useState(1)
++
++  const onContentSizeChange = (
++    e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
++  ): void => {
++    setLines(composerLinesFromContentSize(e.nativeEvent.contentSize.height))
++  }
++
++  const submit = (): void => {
++    const trimmed = text.trim()
++    if (trimmed === '' || busy) return
++    onSend(trimmed)
++    setText('')
++    setLines(1)
++  }
++
++  const sendDisabled = text.trim() === '' || busy
++  return (
++    <View style={[styles.capsule, { backgroundColor: t.card }]}>
++      <TextInput
++        accessibilityLabel="娑堟伅杈撳叆妗?
++        style={[styles.input, { color: t.foreground, height: composerHeight(lines) - 20 }]}
++        value={text}
++        onChangeText={setText}
++        placeholder="鎻忚堪浣犵殑浠诲姟鈥?
++        placeholderTextColor={t.mutedForeground}
++        multiline
++        onContentSizeChange={onContentSizeChange}
++        onSubmitEditing={submit}
++        blurOnSubmit={false}
++      />
++      {running ? (
++        <TouchableOpacity
++          accessibilityRole="button"
++          accessibilityLabel="鍋滄褰撳墠浠诲姟"
++          onPress={onStop}
++          activeOpacity={0.7}
++          style={[styles.sendButton, { backgroundColor: t.primary }]}
++        >
++          {/* 鍋滄 鈻狅細鐧芥柟鍧楄嚜缁橈紙鍙?AI 鍛斥€斺€斾笉寮曞浘鏍囧瓧浣撲吉閫犲疄蹇冩柟鍧楋級 */}
++          <View style={[styles.stopSquare, { backgroundColor: t.primaryForeground }]} />
++        </TouchableOpacity>
++      ) : (
++        <TouchableOpacity
++          accessibilityRole="button"
++          accessibilityLabel="鍙戦€佹秷鎭?
++          onPress={submit}
++          disabled={sendDisabled}
++          activeOpacity={0.7}
++          style={[
++            styles.sendButton,
++            { backgroundColor: t.primary, opacity: sendDisabled ? 0.35 : 1 },
++          ]}
++        >
++          <Feather name="arrow-up" size={20} color={t.primaryForeground} />
++        </TouchableOpacity>
++      )}
++    </View>
++  )
++}
++
++const styles = StyleSheet.create({
++  capsule: {
++    flexDirection: 'row',
++    alignItems: 'flex-end',
++    minHeight: mobileMetrics.ctaHeight,
++    borderRadius: mobileMetrics.ctaHeight,
++    paddingHorizontal: 10,
++    paddingVertical: 6,
++    gap: 8,
++  },
++  input: {
++    flex: 1,
++    fontSize: mobileMetrics.rowTitle,
++    lineHeight: 20,
++    paddingTop: 10,
++    paddingBottom: 10,
++  },
++  sendButton: {
++    width: 40,
++    height: 40,
++    borderRadius: 20,
++    alignItems: 'center',
++    justifyContent: 'center',
++  },
++  stopSquare: {
++    width: 14,
++    height: 14,
++    borderRadius: 2,
++  },
++})
+diff --git a/apps/mobile/src/components/session-items.tsx b/apps/mobile/src/components/session-items.tsx
+new file mode 100644
+index 0000000..1bcf572
+--- /dev/null
++++ b/apps/mobile/src/components/session-items.tsx
+@@ -0,0 +1,331 @@
++/**
++ * 浼氳瘽椤垫秷鎭祦瀛愮粍浠讹紙宸ュ崟 9.3锛孌ESIGN 搂13.J.2.3 瀹炴祴瀹氭褰㈡€侊級锛?+ * user 鍙冲榻愭祬鐏拌兌鍥婏紙鏃犲ご鍍忥級/ assistant 鍏ㄥ绾枃鏈?鎿嶄綔琛岋紙澶嶅埗+"鍐呭鐢?AI 鐢熸垚"锛?
++ * 宸ュ叿鍗″崟琛屾姌鍙?/ 鎬濊€冨潡鎶樺彔锛埪?3.H 杩佺Щ锛? 瀹℃壒鍗＄櫧鍗?warn 宸﹁竟鏉?涓夐敭绾靛悜鍏ㄥ锛圝.3锛夈€?+ * 鍙?AI 鍛筹紙搂13.I/J.5锛夛細绯荤粺瀛椾綋銆佸崟妗ｉ槾褰便€佺娓愬彉/emoji锛屽姩鏁堜粎寰姩鏁堛€?+ */
++import { useEffect, useRef, useState } from 'react'
++import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
++import { Feather } from '@expo/vector-icons'
++import * as Clipboard from 'expo-clipboard'
++import type { UiItem } from '@spark/protocol'
++import { useTheme } from '../theme/use-theme'
++import { Card, Hairline } from './ui'
++import { mobileMetrics } from '../theme/tokens'
++
++/** user 娑堟伅锛氬彸瀵归綈娴呯伆鑳跺泭锛坺inc-100 搴曘€乺adius 18銆佸唴杈硅窛 10/14銆佹渶澶у 80%銆?6px銆佹棤澶村儚锛?*/
++export function UserBubble({ text }: { text: string }) {
++  const t = useTheme()
++  return (
++    <View style={styles.userRow}>
++      <View style={[styles.userBubble, { backgroundColor: t.muted }]}>
++        <Text style={[styles.userText, { color: t.foreground }]}>{text}</Text>
++      </View>
++    </View>
++  )
++}
++
++/** 娴佸紡澧為噺鏂囧瓧娓愭樉锛坥pacity 寰姩鏁?120ms鈥斺€擩.2.3锛涗粎鎸傝浇鏃朵竴娆★紝涓嶉€愬瓧閲嶆斁锛?*/
++function StreamingText({ text, color }: { text: string; color: string }) {
++  const opacity = useRef(new Animated.Value(0)).current
++  useEffect(() => {
++    Animated.timing(opacity, { toValue: 1, duration: 120, useNativeDriver: true }).start()
++  }, [opacity])
++  return <Animated.Text style={[styles.assistantText, { color, opacity }]}>{text}</Animated.Text>
++}
++
++/** assistant 娑堟伅锛氬叏瀹界函鏂囨湰 17銆佹钀介棿绌鸿銆佹棤搴曡壊鏃犺竟妗嗭紱灏鹃儴鎿嶄綔琛?澶嶅埗+"鍐呭鐢?AI 鐢熸垚" */
++export function AssistantBlock({
++  item,
++  streaming,
++}: {
++  item: Extract<UiItem, { kind: 'assistant' }>
++  streaming: boolean
++}) {
++  const t = useTheme()
++  const [copied, setCopied] = useState(false)
++  const texts: string[] = []
++  for (const c of item.content) {
++    if (c.type === 'text') texts.push(c.text)
++  }
++  const finalized = texts.join('\n\n')
++  const buf = item.streaming?.textBuf ?? ''
++  const fullText = finalized !== '' && buf !== '' ? `${finalized}\n\n${buf}` : finalized + buf
++
++  const onCopy = (): void => {
++    void Clipboard.setStringAsync(fullText).then(() => {
++      setCopied(true)
++      setTimeout(() => setCopied(false), 1500)
++    })
++  }
++
++  return (
++    <View style={styles.assistantBlock}>
++      {finalized !== '' && <Text style={[styles.assistantText, { color: t.foreground }]}>{finalized}</Text>}
++      {buf !== '' && <StreamingText text={buf} color={t.foreground} />}
++      {/* 鎿嶄綔琛岋紙J.2.3锛歷1 鍙仛澶嶅埗+鍚堣鏍囨敞锛涴煈嶐煈?璁?v2 闇€鍙嶉瀛樺偍锛?*/}
++      {!streaming && (
++        <View style={styles.actionRow}>
++          <TouchableOpacity
++            accessibilityRole="button"
++            accessibilityLabel="澶嶅埗娑堟伅"
++            onPress={onCopy}
++            style={styles.copyButton}
++            activeOpacity={0.7}
++          >
++            <Feather name={copied ? 'check' : 'copy'} size={14} color={t.mutedForeground} />
++            <Text style={[styles.meta, { color: t.mutedForeground }]}>
++              {copied ? '宸插鍒? : '澶嶅埗'}
++            </Text>
++          </TouchableOpacity>
++          <Text style={[styles.meta, { color: t.mutedForeground }]}>鍐呭鐢?AI 鐢熸垚</Text>
++        </View>
++      )}
++    </View>
++  )
++}
++
++/** 鎬濊€冨潡鎶樺彔锛埪?3.H 杩佺Щ锛氭祦寮忎腑鑷姩灞曞紑锛岀粨鏉熷悗鏀惰捣锛涙墜鍔ㄦ搷浣滀紭鍏堬級 */
++export function ReasoningCard({ item }: { item: Extract<UiItem, { kind: 'reasoning' }> }) {
++  const t = useTheme()
++  const streaming = item.streaming ?? false
++  const [override, setOverride] = useState<boolean | null>(null)
++  const expanded = override ?? streaming
++  return (
++    <Card style={styles.tightCard}>
++      <TouchableOpacity
++        accessibilityRole="button"
++        accessibilityLabel={expanded ? '鏀惰捣鎬濊€冭繃绋? : '灞曞紑鎬濊€冭繃绋?}
++        onPress={() => setOverride(!expanded)}
++        style={styles.cardHeaderRow}
++        activeOpacity={0.7}
++      >
++        <Text style={[styles.cardTitle, { color: t.mutedForeground }]}>
++          {streaming ? '鎬濊€冧腑鈥? : '鎬濊€冭繃绋?}
++        </Text>
++        <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={t.mutedForeground} />
++      </TouchableOpacity>
++      {expanded && (
++        <Text style={[styles.reasoningText, { color: t.mutedForeground }]}>{item.text}</Text>
++      )}
++    </Card>
++  )
++}
++
++function toolStatusText(status: 'running' | 'completed' | 'error'): string {
++  if (status === 'running') return '杩愯涓?
++  if (status === 'error') return '澶辫触'
++  return '瀹屾垚'
++}
++
++/** 宸ュ叿鍗″崟琛屾姌鍙狅紙搂13.H 杩佺Щ锛氱櫧鍗＄揣鍑戣锛涢敊璇€侀粯璁ゅ睍寮€锛?*/
++export function ToolCard({ item }: { item: Extract<UiItem, { kind: 'tool' }> }) {
++  const t = useTheme()
++  const [override, setOverride] = useState<boolean | null>(null)
++  const expanded = override ?? item.status === 'error'
++  const statusColor =
++    item.status === 'error' ? t.sparkErr : item.status === 'running' ? t.sparkAccent : t.mutedForeground
++  const detail =
++    item.status === 'error'
++      ? typeof item.output === 'string'
++        ? item.output
++        : JSON.stringify(item.output)
++      : item.progressBuf !== ''
++        ? item.progressBuf
++        : typeof item.output === 'string'
++          ? item.output
++          : JSON.stringify(item.output ?? '')
++  return (
++    <Card style={styles.tightCard}>
++      <TouchableOpacity
++        accessibilityRole="button"
++        accessibilityLabel={`宸ュ叿 ${item.name}锛?{toolStatusText(item.status)}锛?{expanded ? '鏀惰捣' : '灞曞紑'}璇︽儏`}
++        onPress={() => setOverride(!expanded)}
++        style={styles.cardHeaderRow}
++        activeOpacity={0.7}
++      >
++        <Text numberOfLines={1} style={[styles.cardTitle, { color: t.foreground }]}>
++          {item.name}
++        </Text>
++        <Text style={[styles.meta, { color: statusColor }]}>{toolStatusText(item.status)}</Text>
++        <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={t.mutedForeground} />
++      </TouchableOpacity>
++      {expanded && detail !== '' && detail !== '""' && (
++        <Text numberOfLines={12} style={[styles.reasoningText, { color: t.mutedForeground }]}>
++          {detail}
++        </Text>
++      )}
++    </Card>
++  )
++}
++
++/** 瀹℃壒鍐崇瓥閿紙绾靛悜鍏ㄥ涓夐敭鈥斺€擩.3锛涘厑璁?涓婚粦鑳跺泭/濮嬬粓鍏佽=娴呭簳/鎷掔粷=绾㈠瓧锛?*/
++function ApprovalButton({
++  label,
++  variant,
++  onPress,
++}: {
++  label: string
++  variant: 'primary' | 'secondary' | 'danger'
++  onPress: () => void
++}) {
++  const t = useTheme()
++  const bg = variant === 'primary' ? t.primary : variant === 'secondary' ? t.secondary : t.card
++  const fg =
++    variant === 'primary'
++      ? t.primaryForeground
++      : variant === 'danger'
++        ? t.destructive
++        : t.foreground
++  return (
++    <TouchableOpacity
++      accessibilityRole="button"
++      accessibilityLabel={label}
++      onPress={onPress}
++      activeOpacity={0.7}
++      style={[styles.approvalButton, { backgroundColor: bg }]}
++    >
++      <Text style={[styles.approvalButtonText, { color: fg }]}>{label}</Text>
++    </TouchableOpacity>
++  )
++}
++
++function approvalResolvedText(reply: 'once' | 'always' | 'reject' | undefined): string {
++  if (reply === 'once') return '宸插厑璁告湰娆?
++  if (reply === 'always') return '宸插缁堝厑璁?
++  if (reply === 'reject') return '宸叉嫆缁?
++  return '宸插鐞?
++}
++
++/** 瀹℃壒鍗★細鐧藉崱 + warn 宸﹁竟鏉?+ 涓夐敭绾靛悜鍏ㄥ锛圝.3锛夛紱鍐崇瓥璧?Transport.replyPermission */
++export function ApprovalCard({
++  item,
++  busy,
++  onReply,
++}: {
++  item: Extract<UiItem, { kind: 'approval' }>
++  /** 鍐崇瓥璇锋眰鍦ㄩ€旓紙闃插弻鍑婚噸澶嶆彁浜わ級 */
++  busy: boolean
++  onReply: (reply: 'once' | 'always' | 'reject') => void
++}) {
++  const t = useTheme()
++  return (
++    <View style={[styles.approvalCard, { backgroundColor: t.card }]}>
++      <View style={[styles.approvalBar, { backgroundColor: t.sparkWarn }]} />
++      <View style={styles.approvalBody}>
++        <Text style={[styles.cardTitle, { color: t.foreground }]}>璇锋眰鎺堟潈</Text>
++        <Text style={[styles.approvalResource, { color: t.foreground }]}>{item.resource}</Text>
++        {item.reason !== '' && (
++          <Text style={[styles.meta, { color: t.mutedForeground }]}>{item.reason}</Text>
++        )}
++        {item.status === 'pending' ? (
++          <View style={styles.approvalButtons}>
++            <ApprovalButton label="鍏佽" variant="primary" onPress={() => onReply('once')} />
++            <ApprovalButton
++              label="濮嬬粓鍏佽"
++              variant="secondary"
++              onPress={() => onReply('always')}
++            />
++            <ApprovalButton label="鎷掔粷" variant="danger" onPress={() => onReply('reject')} />
++          </View>
++        ) : (
++          <>
++            <Hairline inset={0} />
++            <Text style={[styles.meta, { color: t.mutedForeground, paddingTop: 8 }]}>
++              {approvalResolvedText(item.reply)}
++              {busy ? '锛屾彁浜や腑鈥? : ''}
++            </Text>
++          </>
++        )}
++      </View>
++    </View>
++  )
++}
++
++const styles = StyleSheet.create({
++  userRow: {
++    flexDirection: 'row',
++    justifyContent: 'flex-end',
++  },
++  userBubble: {
++    maxWidth: '80%',
++    borderRadius: 18,
++    paddingVertical: 10,
++    paddingHorizontal: 14,
++  },
++  userText: {
++    fontSize: mobileMetrics.rowTitle,
++  },
++  assistantBlock: {
++    gap: 6,
++  },
++  assistantText: {
++    fontSize: mobileMetrics.headerTitle,
++    lineHeight: 24,
++  },
++  actionRow: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    gap: 12,
++  },
++  copyButton: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    gap: 4,
++    paddingVertical: 4,
++  },
++  meta: {
++    fontSize: mobileMetrics.caption,
++  },
++  tightCard: {
++    paddingVertical: 10,
++    gap: 6,
++  },
++  cardHeaderRow: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    gap: 8,
++  },
++  cardTitle: {
++    flex: 1,
++    fontSize: mobileMetrics.value,
++    fontWeight: '600',
++  },
++  reasoningText: {
++    fontSize: mobileMetrics.caption,
++    lineHeight: 18,
++  },
++  approvalCard: {
++    flexDirection: 'row',
++    borderRadius: mobileMetrics.cardRadius,
++    padding: mobileMetrics.cardPadding,
++    overflow: 'hidden',
++  },
++  approvalBar: {
++    width: 3,
++    alignSelf: 'stretch',
++  },
++  approvalBody: {
++    flex: 1,
++    backgroundColor: 'transparent',
++    gap: 8,
++    paddingLeft: 12,
++  },
++  approvalResource: {
++    fontSize: mobileMetrics.rowTitle,
++  },
++  approvalButtons: {
++    gap: 8,
++    paddingTop: 4,
++  },
++  approvalButton: {
++    height: 44,
++    borderRadius: 22,
++    alignItems: 'center',
++    justifyContent: 'center',
++  },
++  approvalButtonText: {
++    fontSize: mobileMetrics.rowTitle,
++    fontWeight: '600',
++  },
++})
+diff --git a/apps/mobile/src/screens/SessionScreen.tsx b/apps/mobile/src/screens/SessionScreen.tsx
+index 9b05d63..3849177 100644
+--- a/apps/mobile/src/screens/SessionScreen.tsx
++++ b/apps/mobile/src/screens/SessionScreen.tsx
+@@ -1,36 +1,344 @@
+ /**
+- * 浼氳瘽椤碉紙楠ㄦ灦澹斥€斺€斿伐鍗?9.2锛氬崰浣嶆秷鎭祦鍖哄煙锛屽唴瀹瑰伐鍗?9.3 濉級銆?- * 椤靛ご甯﹁繑鍥炲渾閽紙J.1锛夛紱鏍囬 17 semibold锛涚┖鎬佷袱琛屽紡绾帓鐗堬紙J.4锛夈€?+ * 浼氳瘽椤碉紙宸ュ崟 9.3 濉厖鈥斺€擠ESIGN 搂13.J.2.3/J.3 瀹炴祴瀹氭褰㈡€侊級銆?+ *
++ * 鏁版嵁閫氶亾锛氭墦寮€浼氳瘽 = REST 鏈€鏂颁竴椤碉紙?limit=锛夊崌搴忓洖鏀?+ RnSessionEventSource
++ * 缁挱娴侊紙since=鍥炴斁姘翠綅锛夛紱浜嬩欢缁?rAF 鎵瑰鐞嗚繘鏈湴鎶曞奖锛坅pplyEvent锛孌22 鍏变韩锛夈€?+ * 涓婃媺鍒伴《鍚戜笂缈婚〉锛?limit=&before=鏈€鏃﹕eq锛夛紝鏈湴鍗囧簭鍚堝苟鍚庡叏閲忛噸鏀鹃噸寤烘姇褰?+ * 锛坅pplyEvent 鍋囧畾鍗囧簭鈥斺€旇緝鏃ч〉涓嶅緱澧為噺鍙犲姞锛夛紝inverted FlatList 婊氬姩浣嶇疆涓嶈烦銆?+ * 鏃堕棿鎴冲垎闅旈渶浜嬩欢鏃堕棿鑰?UiItem 鏃?time 瀛楁鈥斺€斿睆骞曞眰缁存姢 eventId鈫抰ime 渚ц〃銆?+ * 閿欒鏂囨涓€寰?ERROR_COPY/errorMessageOf锛圓DR D22锛岀鑷€犳枃妗堬級銆?  */
+-import { StyleSheet, View } from 'react-native'
++import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
++import {
++  ActivityIndicator,
++  FlatList,
++  KeyboardAvoidingView,
++  Platform,
++  StyleSheet,
++  Text,
++  View,
++} from 'react-native'
+ import { useNavigation, useRoute } from '@react-navigation/native'
+ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+ import type { RouteProp } from '@react-navigation/native'
++import { useSafeAreaInsets } from 'react-native-safe-area-context'
++import type {
++  EventId,
++  PermissionReply,
++  ProjectionState,
++  RequestId,
++  SessionSlice,
++  SparkEventEnvelope,
++} from '@spark/protocol'
++import { applyEvent, emptySessionSlice, errorMessageOf, ids } from '@spark/protocol'
+ import { useTheme } from '../theme/use-theme'
+-import { EmptyState, ScreenHeader } from '../components/ui'
++import { mobileMetrics } from '../theme/tokens'
++import { EmptyState, RoundFloatButton, ScreenHeader } from '../components/ui'
++import {
++  ApprovalCard,
++  AssistantBlock,
++  ReasoningCard,
++  ToolCard,
++  UserBubble,
++} from '../components/session-items'
++import { Composer } from '../components/composer'
++import { useConfigStore } from '../store/config-store'
++import { createEventBatcher, useAppStore } from '../store/app-store'
++import type { EventBatcher } from '../store/app-store'
++import { getHttpTransport, openSessionStream } from '../transport/runtime'
++import type { RnSessionEventSource } from '../transport/rn-event-source'
++import {
++  buildSessionRows,
++  formatTimestamp,
++  mergeEventPage,
++} from '../session/session-rows'
++import type { SessionRow } from '../session/session-rows'
+ import type { SessionsStackParamList } from '../navigation/params'
+ 
++/** 涓婃媺缈婚〉椤甸暱锛堟湇鍔＄涓婇檺 200锛?0 鏉″吋椤鹃灞忛€熷害涓庣炕椤垫鏁帮級 */
++const PAGE_SIZE = 50
++
++/** 杩炴帴缁嗘潯浜鸿瘽鏂囨锛堝悓 web CONNECTION_TEXT 鍙ｅ緞锛孌22 鍚屽緥锛?*/
++const CONNECTION_TEXT: Record<'connecting' | 'reconnecting', string> = {
++  connecting: '杩炴帴涓€?,
++  reconnecting: '宸叉柇绾匡紝閲嶈繛涓€?,
++}
++
++/** 灞呬腑鏃堕棿鎴冲垎闅旓紙13 meta锛孞.2.3锛?*/
++function TimestampDivider({ time }: { time: number }) {
++  const t = useTheme()
++  return (
++    <View style={styles.divider}>
++      <Text style={[styles.dividerText, { color: t.mutedForeground }]}>
++        {formatTimestamp(time)}
++      </Text>
++    </View>
++  )
++}
++
+ export function SessionScreen() {
+   const t = useTheme()
++  const insets = useSafeAreaInsets()
+   const navigation = useNavigation<NativeStackNavigationProp<SessionsStackParamList>>()
+   const route = useRoute<RouteProp<SessionsStackParamList, 'Session'>>()
+-  const { sessionId, title } = route.params
++  const sid = ids.session(route.params.sessionId)
++
++  const serverUrl = useConfigStore((s) => s.serverUrl)
++  const token = useConfigStore((s) => s.token)
++  const status = useAppStore((s) => s.status)
++  const notice = useAppStore((s) => s.notice)
++  const setNotice = useAppStore((s) => s.setNotice)
++  const setStatus = useAppStore((s) => s.setStatus)
++
++  const [slice, setSlice] = useState<SessionSlice>(() => emptySessionSlice(sid))
++  const [sending, setSending] = useState(false)
++  const [approvalBusy, setApprovalBusy] = useState(false)
++  const [loadingOlder, setLoadingOlder] = useState(false)
++  const [atBottom, setAtBottom] = useState(true)
++
++  // 鏈湴浜嬩欢绐?+ 鏃堕棿渚ц〃锛堝垎椤靛悎骞?閲嶆斁/鏃堕棿鎴冲垎闅旂殑鏁版嵁婧愶紱ref 涓嶈Е鍙戞覆鏌擄級
++  const eventsRef = useRef<SparkEventEnvelope[]>([])
++  const timesRef = useRef<Map<EventId, number>>(new Map())
++  const watermarkRef = useRef(0)
++  const hasMoreRef = useRef(true)
++  const loadingOlderRef = useRef(false)
++  const batcherRef = useRef<EventBatcher | null>(null)
++  const streamRef = useRef<RnSessionEventSource | null>(null)
++  const listRef = useRef<FlatList<SessionRow>>(null)
++  const atBottomRef = useRef(true)
++  atBottomRef.current = atBottom
++
++  // 鎵撳紑浼氳瘽锛氭渶鏂颁竴椤靛洖鏀撅紙鎵瑰鐞嗘姇褰憋級鈫?浠ユ按浣嶅紑缁挱娴?+  useEffect(() => {
++    let cancelled = false
++    const transport = getHttpTransport(serverUrl, token)
++    if (transport === null) return () => undefined
++
++    const applyLocal = (e: SparkEventEnvelope): void => {
++      eventsRef.current.push(e)
++      timesRef.current.set(e.id, e.time)
++      if (e.seq !== undefined && e.seq > watermarkRef.current) watermarkRef.current = e.seq
++      setSlice((s) => applyEvent({ byId: { [sid]: s }, activeId: sid }, e).byId[sid] ?? s)
++    }
++    const batcher = createEventBatcher(applyLocal)
++    batcherRef.current = batcher
++
++    void (async () => {
++      try {
++        const dto = await transport.getSession(sid, { limit: PAGE_SIZE })
++        if (cancelled) return
++        const events = dto.events ?? []
++        if (events.length < PAGE_SIZE) hasMoreRef.current = false
++        for (const e of events) batcher.enqueue(e)
++        batcher.flushNow()
++      } catch (err: unknown) {
++        if (!cancelled) setNotice(errorMessageOf(err))
++        return
++      }
++      if (cancelled) return
++      // 缁挱娴侊細since=鍥炴斁姘翠綅锛堥噸鏀句笌鐩存挱閲嶅彔鐢?applyEvent seq 鍘婚噸锛?+      streamRef.current = openSessionStream({
++        sessionId: sid,
++        serverUrl,
++        token,
++        since: watermarkRef.current,
++        onEvent: (e) => batcherRef.current?.enqueue(e),
++        onStatus: (s) => setStatus(s),
++        onError: (err) => setNotice(errorMessageOf(err)),
++      })
++    })()
++
++    return () => {
++      cancelled = true
++      streamRef.current?.dispose()
++      streamRef.current = null
++      batcher.flushNow()
++      batcherRef.current = null
++    }
++  }, [sid, serverUrl, token, setNotice, setStatus])
++
++  // 涓婃媺鍒伴《 鈫?鍚戜笂缈婚〉锛氳緝鏃т竴椤靛崌搴忓悎骞?+ 鍏ㄩ噺閲嶆斁閲嶅缓鎶曞奖锛堟粴鍔ㄤ綅缃笉璺筹級
++  const loadOlder = useCallback(async (): Promise<void> => {
++    if (loadingOlderRef.current || !hasMoreRef.current) return
++    const oldest = eventsRef.current.find((e) => e.seq !== undefined)
++    if (oldest === undefined || oldest.seq === undefined) return
++    const transport = getHttpTransport(serverUrl, token)
++    if (transport === null) return
++    loadingOlderRef.current = true
++    setLoadingOlder(true)
++    try {
++      const dto = await transport.getSession(sid, { limit: PAGE_SIZE, before: oldest.seq })
++      const page = dto.events ?? []
++      if (page.length < PAGE_SIZE) hasMoreRef.current = false
++      if (page.length === 0) return
++      const merged = mergeEventPage(page, eventsRef.current)
++      // 鍏ㄩ噺閲嶆斁锛堝崌搴忕孩绾匡級锛氳緝鏃т簨浠朵笉寰楀閲忓彔鍔犲湪杈冩柊鎶曞奖涔嬪悗
++      let state: ProjectionState = { byId: {}, activeId: sid }
++      const times = new Map<EventId, number>()
++      for (const e of merged) {
++        times.set(e.id, e.time)
++        state = applyEvent(state, e)
++      }
++      eventsRef.current = merged
++      timesRef.current = times
++      setSlice(state.byId[sid] ?? emptySessionSlice(sid))
++    } catch (err: unknown) {
++      setNotice(errorMessageOf(err))
++    } finally {
++      loadingOlderRef.current = false
++      setLoadingOlder(false)
++    }
++  }, [sid, serverUrl, token, setNotice])
++
++  // 鍙戞秷鎭?/ 涓柇 / 瀹℃壒鍐崇瓥锛堝け璐ユ枃妗堣蛋 errorMessageOf锛屼笉鑷€狅級
++  const handleSend = useCallback(
++    async (text: string): Promise<void> => {
++      const transport = getHttpTransport(serverUrl, token)
++      if (transport === null) return
++      setSending(true)
++      try {
++        await transport.sendMessage(sid, text)
++      } catch (err: unknown) {
++        setNotice(errorMessageOf(err))
++      } finally {
++        setSending(false)
++      }
++    },
++    [sid, serverUrl, token, setNotice],
++  )
++
++  const handleStop = useCallback(async (): Promise<void> => {
++    const transport = getHttpTransport(serverUrl, token)
++    if (transport === null) return
++    try {
++      await transport.interrupt(sid)
++    } catch (err: unknown) {
++      setNotice(errorMessageOf(err))
++    }
++  }, [sid, serverUrl, token, setNotice])
++
++  const handleReply = useCallback(
++    async (requestId: RequestId, reply: PermissionReply): Promise<void> => {
++      const transport = getHttpTransport(serverUrl, token)
++      if (transport === null) return
++      setApprovalBusy(true)
++      try {
++        await transport.replyPermission(requestId, reply)
++      } catch (err: unknown) {
++        setNotice(errorMessageOf(err))
++      } finally {
++        setApprovalBusy(false)
++      }
++    },
++    [serverUrl, token, setNotice],
++  )
++
++  // 浜鸿瘽鎻愮ず鏉?5s 鑷竻锛堜笉鐣欓檲鏃ч敊璇啋鍏呯幇鐘讹級
++  useEffect(() => {
++    if (notice === null) return () => undefined
++    const timer = setTimeout(() => setNotice(null), 5000)
++    return () => clearTimeout(timer)
++  }, [notice, setNotice])
++
++  const rows = useMemo(
++    () => buildSessionRows(slice.items, (id) => timesRef.current.get(id)),
++    [slice],
++  )
++  const data = useMemo(() => [...rows].reverse(), [rows])
++
++  // 璐村簳鏃舵柊鍐呭鑷姩璺熼殢锛坕nverted锛氬簳閮?= offset 0锛?+  useEffect(() => {
++    if (atBottomRef.current) listRef.current?.scrollToOffset({ offset: 0, animated: false })
++  }, [rows.length])
++
++  const running = slice.activeTurn !== null
++
++  const renderRow = ({ item: row }: { item: SessionRow }) => {
++    if (row.kind === 'timestamp') return <TimestampDivider time={row.time} />
++    const it = row.item
++    switch (it.kind) {
++      case 'user':
++        return <UserBubble text={it.text} />
++      case 'assistant':
++        return <AssistantBlock item={it} streaming={it.streaming !== undefined} />
++      case 'reasoning':
++        return <ReasoningCard item={it} />
++      case 'tool':
++        return <ToolCard item={it} />
++      case 'approval':
++        return <ApprovalCard item={it} busy={approvalBusy} onReply={(r) => void handleReply(it.requestId, r)} />
++    }
++  }
++
++  const connectionText =
++    status === 'connecting' || status === 'reconnecting' ? CONNECTION_TEXT[status] : null
+ 
+   return (
+     <View style={[styles.screen, { backgroundColor: t.pageBackground }]}>
+       <ScreenHeader
+-        title={title !== '' ? title : '鏂颁細璇?}
++        title={route.params.title !== '' ? route.params.title : '鏂颁細璇?}
+         leftIcon="chevron-left"
+         leftLabel="杩斿洖浼氳瘽鍒楄〃"
+         onLeftPress={() => navigation.goBack()}
+       />
+-      {/* 娑堟伅娴佸崰浣嶅尯锛堝伐鍗?9.3锛氭姇褰辨覆鏌?user 鑳跺泭 / assistant 鍏ㄥ绾枃鏈?/ 宸ュ叿鍗★級 */}
+-      <View style={styles.stream} accessibilityLabel={`浼氳瘽 ${sessionId} 娑堟伅娴佸崰浣峘}>
+-        <EmptyState
+-          title="娑堟伅娴佸缓璁句腑"
+-          detail="浼氳瘽鍐呭灏嗗湪涓嬩竴宸ュ崟鎺ュ叆锛屽綋鍓嶄粎鎻愪緵楠ㄦ灦"
+-        />
+-      </View>
++      {/* 鏂嚎閲嶈繛缁嗘潯锛坥nStatus 璁㈤槄锛涙仮澶嶅悗鑷姩娑堝け锛?*/}
++      {connectionText !== null && (
++        <View style={[styles.connectionBar, { backgroundColor: t.card }]}>
++          <Text style={[styles.meta, { color: t.sparkWarn }]}>{connectionText}</Text>
++        </View>
++      )}
++      {/* 浜鸿瘽閿欒缁嗘潯锛圗RROR_COPY/errorMessageOf 鍗曚竴鏉ユ簮锛?*/}
++      {notice !== null && (
++        <View style={[styles.connectionBar, { backgroundColor: t.card }]}>
++          <Text style={[styles.meta, { color: t.sparkErr }]}>{notice}</Text>
++        </View>
++      )}
++      <KeyboardAvoidingView
++        style={styles.flex}
++        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
++        keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0}
++      >
++        <View style={styles.listWrap}>
++          <FlatList
++            ref={listRef}
++            inverted
++            data={data}
++            keyExtractor={(r) => r.key}
++            renderItem={renderRow}
++            contentContainerStyle={styles.listContent}
++            onEndReached={() => void loadOlder()}
++            onEndReachedThreshold={0.4}
++            keyboardDismissMode="on-drag"
++            scrollEventThrottle={100}
++            onScroll={(e) => setAtBottom(e.nativeEvent.contentOffset.y < 80)}
++            ListHeaderComponent={
++              loadingOlder ? (
++                <ActivityIndicator style={styles.pager} color={t.mutedForeground} />
++              ) : !hasMoreRef.current && eventsRef.current.length > 0 ? (
++                <Text style={[styles.meta, styles.pager, { color: t.mutedForeground }]}>
++                  宸插姞杞藉叏閮ㄥ巻鍙?+                </Text>
++              ) : null
++            }
++            ListEmptyComponent={
++              <EmptyState title="寮€濮嬪璇? detail="鎻忚堪浣犵殑浠诲姟锛孲park 鍗冲埢寮€宸? />
++            }
++          />
++          {/* 鍥炲埌搴曢儴娴姩鍦嗛挳锛堜笂婊?娴佸紡涓紱44 鐧藉簳 鈫擄紝J.2.3锛?*/}
++          {!atBottom && (
++            <View style={styles.backBottom}>
++              <RoundFloatButton
++                icon="arrow-down"
++                label="鍥炲埌搴曢儴"
++                onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
++              />
++            </View>
++          )}
++        </View>
++        <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
++          <Composer running={running} busy={sending} onSend={(text) => void handleSend(text)} onStop={() => void handleStop()} />
++        </View>
++      </KeyboardAvoidingView>
+     </View>
+   )
+ }
+@@ -39,8 +347,44 @@ const styles = StyleSheet.create({
+   screen: {
+     flex: 1,
+   },
+-  stream: {
++  flex: {
++    flex: 1,
++  },
++  connectionBar: {
++    paddingHorizontal: 16,
++    paddingVertical: 6,
++    alignItems: 'center',
++  },
++  meta: {
++    fontSize: mobileMetrics.caption,
++  },
++  listWrap: {
+     flex: 1,
++  },
++  listContent: {
++    paddingHorizontal: 16,
++    paddingVertical: 12,
++    gap: mobileMetrics.cardGap,
++    flexGrow: 1,
++  },
++  divider: {
++    alignItems: 'center',
++    paddingVertical: 4,
++  },
++  dividerText: {
++    fontSize: mobileMetrics.caption,
++  },
++  pager: {
++    paddingVertical: 12,
++    textAlign: 'center',
++  },
++  backBottom: {
++    position: 'absolute',
++    right: 16,
++    bottom: 12,
++  },
++  composerWrap: {
+     paddingHorizontal: 16,
++    paddingTop: 8,
+   },
+ })
+diff --git a/apps/mobile/src/session/session-rows.ts b/apps/mobile/src/session/session-rows.ts
+new file mode 100644
+index 0000000..1176cbd
+--- /dev/null
++++ b/apps/mobile/src/session/session-rows.ts
+@@ -0,0 +1,98 @@
++/**
++ * 浼氳瘽椤电函鍑芥暟闆嗭紙宸ュ崟 9.3鈥斺€斿彲娴嬮€昏緫鑷睆骞曠粍浠舵娊鍑猴紝Jest 鍗曟祴鎶婂叧锛夛細
++ * 鍒嗛〉鍘嗗彶鍗囧簭鍚堝苟 / 鏃堕棿鎴冲垎闅斿垽瀹氫笌鏍煎紡鍖?/ 娑堟伅琛屾瀯寤?/ Composer 鑷楂樺害銆?+ * 灞忓箷灞傚彧鍋氭覆鏌撲笌鎺ョ嚎锛屼笉鍚笟鍔¤绠楋紙AGENTS 搂2.7 绾€昏緫鍙祴鍖栧悓寰嬶級銆?+ */
++import type { EventId, SparkEventEnvelope, UiItem } from '@spark/protocol'
++
++/** 鏃堕棿鎴冲垎闅旈槇鍊硷細鐩搁偦娑堟伅闂撮殧 >30 鍒嗛挓锛圖ESIGN 搂13.J.2.3锛?*/
++export const TIMESTAMP_GAP_MS = 30 * 60 * 1000
++
++/** Composer 瑙勬牸锛圝.2.1锛夛細楂?52 璧枫€佽楂?20銆? 琛屼笂闄愶紙鍚?web Composer 绾緥锛?*/
++export const COMPOSER_BASE_HEIGHT = 52
++export const COMPOSER_LINE_HEIGHT = 20
++export const COMPOSER_MAX_LINES = 6
++
++/** 娓叉煋琛岋細娑堟伅/鍗＄墖椤?鎴?灞呬腑鏃堕棿鎴冲垎闅旓紙key 渚?FlatList锛?*/
++export type SessionRow =
++  | { kind: 'timestamp'; key: string; time: number }
++  | { kind: 'item'; key: string; item: UiItem }
++
++function seqOf(e: SparkEventEnvelope): number {
++  // live 浜嬩欢鏃?seq鈥斺€旂ǔ瀹氭帓搴忎笅淇濇寔鍒拌揪搴忕疆浜庡熬閮?+  return e.seq ?? Number.MAX_SAFE_INTEGER
++}
++
++/**
++ * 鍒嗛〉鍚堝苟锛氳緝鏃т竴椤碉紙鍗囧簭锛夊苟鍏ユ棦鏈夌獥鍙ｏ紙鍗囧簭锛夆€斺€旀寜 id 鍘婚噸銆佹寜 seq 鍗囧簭杈撳嚭銆?+ * 骞傜瓑锛氬悓椤甸噸澶嶅悎骞朵笉浜х敓閲嶅浜嬩欢锛堝急缃戦噸璇曞畨鍏級銆?+ */
++export function mergeEventPage(
++  olderPage: readonly SparkEventEnvelope[],
++  existing: readonly SparkEventEnvelope[],
++): SparkEventEnvelope[] {
++  const seen = new Set(existing.map((e) => e.id))
++  const merged = [...olderPage.filter((e) => !seen.has(e.id)), ...existing]
++  return merged.sort((a, b) => seqOf(a) - seqOf(b))
++}
++
++/** 鏃堕棿鎴冲垎闅斿垽瀹氾細鐩搁偦娑堟伅闂撮殧 >30 鍒嗛挓鎻掑垎闅旓紙鏃堕棿缂哄け涓嶆彃鈥斺€斾笉鎷跨己鏁版嵁鍐掑厖锛?*/
++export function shouldInsertTimestamp(
++  prevTime: number | undefined,
++  curTime: number | undefined,
++): boolean {
++  if (prevTime === undefined || curTime === undefined) return false
++  return curTime - prevTime > TIMESTAMP_GAP_MS
++}
++
++/** "7鏈?5鏃?18:30" 寮忔椂闂存埑鏂囨锛?3 meta锛孞.2.3 瀹炴祴褰㈡€侊級 */
++export function formatTimestamp(ms: number): string {
++  const d = new Date(ms)
++  const hh = String(d.getHours()).padStart(2, '0')
++  const mm = String(d.getMinutes()).padStart(2, '0')
++  return `${d.getMonth() + 1}鏈?{d.getDate()}鏃?${hh}:${mm}`
++}
++
++/** 琛?key锛歵ool/approval 浠?callId/requestId 绋冲畾鍖栵紙鍚屼簨浠跺彲娲剧敓澶氫釜宸ュ叿琛岋級 */
++export function rowKeyOf(item: UiItem): string {
++  if (item.kind === 'tool') return `tool-${item.callId}`
++  if (item.kind === 'approval') return `approval-${item.requestId}`
++  return item.eventId
++}
++
++/**
++ * UiItem 搴忓垪 鈫?娓叉煋琛岋紙鍚椂闂存埑鍒嗛殧锛夈€?+ * timeOf = eventId 鈫?浜嬩欢鏃堕棿渚ц〃锛堝睆骞曞眰鑷俊灏佹祦濉厖鈥斺€擴iItem 鏃?time 瀛楁锛夈€?+ * 闂撮殧鍙ｅ緞鍙畻娑堟伅锛坲ser/assistant锛夛細宸ュ叿鍗?鎬濊€冨潡/瀹℃壒鍗′笉鍙備笌闂撮殧鍒ゅ畾銆?+ */
++export function buildSessionRows(
++  items: readonly UiItem[],
++  timeOf: (eventId: EventId) => number | undefined,
++): SessionRow[] {
++  const rows: SessionRow[] = []
++  let lastMessageTime: number | undefined
++  for (const item of items) {
++    const time = timeOf(item.eventId)
++    const isMessage = item.kind === 'user' || item.kind === 'assistant'
++    if (isMessage && time !== undefined && shouldInsertTimestamp(lastMessageTime, time)) {
++      rows.push({ kind: 'timestamp', key: `ts-${item.eventId}`, time })
++    }
++    rows.push({ kind: 'item', key: rowKeyOf(item), item })
++    if (isMessage && time !== undefined) lastMessageTime = time
++  }
++  return rows
++}
++
++/**
++ * Composer 鑷楂樺害锛氬崟琛?52 璧枫€佹瘡澶氫竴琛?+20銆佸皝椤?6 琛岋紙瓒呭嚭婊氬姩杈撳叆锛夈€?+ */
++export function composerHeight(lineCount: number): number {
++  const lines = Math.max(1, Math.min(lineCount, COMPOSER_MAX_LINES))
++  return COMPOSER_BASE_HEIGHT + (lines - 1) * COMPOSER_LINE_HEIGHT
++}
++
++/** TextInput contentSize 楂樺害 鈫?琛屾暟锛? 璧锋銆? 灏侀《锛夆€斺€斾笌 composerHeight 閰嶅 */
++export function composerLinesFromContentSize(contentHeight: number): number {
++  const lines = Math.ceil(contentHeight / COMPOSER_LINE_HEIGHT)
++  return Math.max(1, Math.min(lines, COMPOSER_MAX_LINES))
++}
+diff --git a/apps/mobile/src/transport/runtime.ts b/apps/mobile/src/transport/runtime.ts
+index ab63e34..128e52b 100644
+--- a/apps/mobile/src/transport/runtime.ts
++++ b/apps/mobile/src/transport/runtime.ts
+@@ -57,6 +57,8 @@ export interface SessionStreamOptions {
+   since?: number
+   onEvent: (e: SparkEventEnvelope) => void
+   onStatus?: (s: RnConnectionStatus) => void
++  /** 閴存潈澶辫触锛?01/403锛変汉璇濋敊璇簮锛堝伐鍗?9.3锛氫細璇濋〉璧?ERROR_COPY 鍛堢幇锛?*/
++  onError?: (err: Error) => void
+ }
+ 
+ /** 鏂板缓浼氳瘽绾х画鎾祦锛堣皟鐢ㄦ柟鎸佹湁鐢熷懡鍛ㄦ湡锛氬垏鎹細璇?鍗歌浇鏃?dispose锛?*/
+@@ -69,6 +71,7 @@ export function openSessionStream(opts: SessionStreamOptions): RnSessionEventSou
+     ...(opts.since !== undefined ? { since: opts.since } : {}),
+     ...(opts.token !== '' ? { authToken: opts.token } : {}),
+     ...(opts.onStatus !== undefined ? { onStatus: opts.onStatus } : {}),
++    ...(opts.onError !== undefined ? { onError: opts.onError } : {}),
+     onEvent: opts.onEvent,
+   })
+ }
+diff --git a/apps/mobile/tests/__snapshots__/session-rows.test.ts.snap b/apps/mobile/tests/__snapshots__/session-rows.test.ts.snap
+new file mode 100644
+index 0000000..53a6007
+--- /dev/null
++++ b/apps/mobile/tests/__snapshots__/session-rows.test.ts.snap
+@@ -0,0 +1,38 @@
++// Jest Snapshot v1, https://goo.gl/fbAQLP
++
++exports[`buildSessionRows鈥斺€旀秷鎭鏋勫缓 瀹℃壒浜嬩欢鐨勬姇褰卞揩鐓э紙pending 鈫?resolved 琛屽舰绋冲畾锛?1`] = `
++[
++  {
++    "item": {
++      "action": "bash",
++      "eventId": "evt_rows_14",
++      "kind": "approval",
++      "reason": "鍛戒护鍚垹闄よ涔?,
++      "requestId": "req_rows_1",
++      "resource": "rm -rf /tmp/x",
++      "status": "pending",
++    },
++    "key": "approval-req_rows_1",
++    "kind": "item",
++  },
++]
++`;
++
++exports[`buildSessionRows鈥斺€旀秷鎭鏋勫缓 瀹℃壒浜嬩欢鐨勬姇褰卞揩鐓э紙pending 鈫?resolved 琛屽舰绋冲畾锛?2`] = `
++[
++  {
++    "item": {
++      "action": "bash",
++      "eventId": "evt_rows_14",
++      "kind": "approval",
++      "reason": "鍛戒护鍚垹闄よ涔?,
++      "reply": "once",
++      "requestId": "req_rows_1",
++      "resource": "rm -rf /tmp/x",
++      "status": "resolved",
++    },
++    "key": "approval-req_rows_1",
++    "kind": "item",
++  },
++]
++`;
+diff --git a/apps/mobile/tests/session-rows.test.ts b/apps/mobile/tests/session-rows.test.ts
+new file mode 100644
+index 0000000..381d60d
+--- /dev/null
++++ b/apps/mobile/tests/session-rows.test.ts
+@@ -0,0 +1,156 @@
++/**
++ * 浼氳瘽椤电函鍑芥暟鍗曟祴锛堝伐鍗?9.3锛夛細鍒嗛〉鍚堝苟 / 鏃堕棿鎴冲垎闅斿垽瀹氫笌鏍煎紡鍖?/
++ * 娑堟伅琛屾瀯寤猴紙鍚鎵逛簨浠舵姇褰卞揩鐓э級/ Composer 鑷楂樺害銆?+ */
++import type { SparkEventEnvelope } from '@spark/protocol'
++import { applyEvent, emptySessionSlice, ids } from '@spark/protocol'
++import type { ProjectionState } from '@spark/protocol'
++import {
++  COMPOSER_BASE_HEIGHT,
++  COMPOSER_LINE_HEIGHT,
++  TIMESTAMP_GAP_MS,
++  buildSessionRows,
++  composerHeight,
++  composerLinesFromContentSize,
++  formatTimestamp,
++  mergeEventPage,
++  shouldInsertTimestamp,
++} from '../src/session/session-rows'
++
++const SID = ids.session('ses_rows_test')
++const TID = ids.turn('trn_rows_test_1')
++
++let eventNo = 0
++function eid(): string {
++  eventNo += 1
++  return `evt_rows_${eventNo}`
++}
++
++function env(
++  type: SparkEventEnvelope['type'],
++  time: number,
++  seq: number | undefined,
++  data: SparkEventEnvelope['data'],
++): SparkEventEnvelope {
++  return {
++    id: ids.event(eid()),
++    sessionId: SID,
++    time,
++    ...(seq !== undefined ? { seq } : {}),
++    type,
++    data,
++  }
++}
++
++describe('mergeEventPage鈥斺€斿垎椤靛崌搴忓悎骞?, () => {
++  const mk = (seq: number) => env('user.message', 1000 + seq, seq, { text: `m${seq}` })
++
++  it('杈冩棫涓€椤靛苟鍏ユ棦鏈夌獥鍙ｏ細鎸?seq 鍗囧簭杈撳嚭', () => {
++    const older = [mk(1), mk(2)]
++    const existing = [mk(3), mk(4), mk(5)]
++    const merged = mergeEventPage(older, existing)
++    expect(merged.map((e) => e.seq)).toEqual([1, 2, 3, 4, 5])
++  })
++
++  it('鎸?id 鍘婚噸锛氶噸澶嶉〉骞傜瓑锛堝急缃戦噸璇曞畨鍏級', () => {
++    const page = [mk(1), mk(2)]
++    const once = mergeEventPage(page, [mk(3)])
++    const twice = mergeEventPage(page, once)
++    expect(twice.length).toBe(once.length)
++    expect(twice.map((e) => e.seq)).toEqual([1, 2, 3])
++  })
++
++  it('live 浜嬩欢锛堟棤 seq锛変繚鎸佸埌杈惧簭缃簬灏鹃儴', () => {
++    const live = env('assistant.delta', 9999, undefined, { turnId: TID, text: '澧為噺' })
++    const merged = mergeEventPage([mk(1)], [mk(2), live])
++    expect(merged.map((e) => e.seq)).toEqual([1, 2, undefined])
++  })
++})
++
++describe('鏃堕棿鎴冲垎闅斿垽瀹氫笌鏍煎紡鍖?, () => {
++  it('闂撮殧 >30 鍒嗛挓鎻掑垎闅旓紱鎭?30 鍒嗛挓涓嶆彃锛涙椂闂寸己澶变笉鎻?, () => {
++    const base = 1_700_000_000_000
++    expect(shouldInsertTimestamp(base, base + TIMESTAMP_GAP_MS + 1)).toBe(true)
++    expect(shouldInsertTimestamp(base, base + TIMESTAMP_GAP_MS)).toBe(false)
++    expect(shouldInsertTimestamp(undefined, base)).toBe(false)
++    expect(shouldInsertTimestamp(base, undefined)).toBe(false)
++  })
++
++  it('"7鏈?5鏃?18:30" 寮忔牸寮忥紙鏈満鏃跺尯锛?, () => {
++    const ms = new Date(2026, 6, 25, 18, 30).getTime()
++    expect(formatTimestamp(ms)).toBe('7鏈?5鏃?18:30')
++    const morning = new Date(2026, 11, 3, 8, 5).getTime()
++    expect(formatTimestamp(morning)).toBe('12鏈?鏃?08:05')
++  })
++})
++
++describe('buildSessionRows鈥斺€旀秷鎭鏋勫缓', () => {
++  it('鐩搁偦娑堟伅闂撮殧 >30 鍒嗛挓鎻掑眳涓椂闂存埑琛?, () => {
++    const t0 = 1_700_000_000_000
++    const u1 = env('user.message', t0, 1, { text: '鏃? })
++    const u2 = env('user.message', t0 + 40 * 60 * 1000, 2, { text: '鏅? })
++    let s: ProjectionState = { byId: {}, activeId: SID }
++    s = applyEvent(s, u1)
++    s = applyEvent(s, u2)
++    const slice = s.byId[SID] ?? emptySessionSlice(SID)
++    const timeOf = (id: string) => (id === u1.id ? t0 : t0 + 40 * 60 * 1000)
++    const rows = buildSessionRows(slice.items, (id) => timeOf(id))
++    expect(rows.map((r) => r.kind)).toEqual(['item', 'timestamp', 'item'])
++    const divider = rows[1]
++    expect(divider?.kind === 'timestamp' && divider.time).toBe(t0 + 40 * 60 * 1000)
++  })
++
++  it('瀹℃壒浜嬩欢鐨勬姇褰卞揩鐓э紙pending 鈫?resolved 琛屽舰绋冲畾锛?, () => {
++    const asked = env('permission.asked', 5000, 1, {
++      requestId: ids.request('req_rows_1'),
++      callId: ids.call('cal_rows_perm'),
++      action: 'bash',
++      resource: 'rm -rf /tmp/x',
++      reason: '鍛戒护鍚垹闄よ涔?,
++    })
++    const resolved = env('permission.resolved', 6000, 2, {
++      requestId: ids.request('req_rows_1'),
++      reply: 'once',
++    })
++    let s: ProjectionState = { byId: {}, activeId: SID }
++    s = applyEvent(s, asked)
++    const rowsPending = buildSessionRows((s.byId[SID] ?? emptySessionSlice(SID)).items, () => 5000)
++    expect(rowsPending).toMatchSnapshot()
++    s = applyEvent(s, resolved)
++    const rowsResolved = buildSessionRows((s.byId[SID] ?? emptySessionSlice(SID)).items, () => 5000)
++    expect(rowsResolved).toMatchSnapshot()
++  })
++
++  it('tool/approval 琛?key 浠?callId/requestId 绋冲畾鍖?, () => {
++    const msg = env(
++      'assistant.message',
++      1000,
++      1,
++      {
++        turnId: TID,
++        content: [{ type: 'toolCall', callId: ids.call('cal_rows_1'), name: 'bash', input: {} }],
++      },
++    )
++    let s: ProjectionState = { byId: {}, activeId: SID }
++    s = applyEvent(s, msg)
++    const rows = buildSessionRows((s.byId[SID] ?? emptySessionSlice(SID)).items, () => 1000)
++    expect(rows.map((r) => r.key)).toContain('tool-cal_rows_1')
++  })
++})
++
++describe('Composer 鑷楂樺害', () => {
++  it('鍗曡 52 璧枫€佹瘡琛?+20銆? 琛屽皝椤?, () => {
++    expect(composerHeight(1)).toBe(COMPOSER_BASE_HEIGHT)
++    expect(composerHeight(2)).toBe(COMPOSER_BASE_HEIGHT + COMPOSER_LINE_HEIGHT)
++    expect(composerHeight(6)).toBe(COMPOSER_BASE_HEIGHT + 5 * COMPOSER_LINE_HEIGHT)
++    expect(composerHeight(99)).toBe(COMPOSER_BASE_HEIGHT + 5 * COMPOSER_LINE_HEIGHT)
++    expect(composerHeight(0)).toBe(COMPOSER_BASE_HEIGHT)
++  })
++
++  it('contentSize 楂樺害 鈫?琛屾暟锛? 璧锋 6 灏侀《锛?, () => {
++    expect(composerLinesFromContentSize(20)).toBe(1)
++    expect(composerLinesFromContentSize(41)).toBe(3)
++    expect(composerLinesFromContentSize(400)).toBe(6)
++    expect(composerLinesFromContentSize(0)).toBe(1)
++  })
++})
+diff --git a/apps/server/src/routes.ts b/apps/server/src/routes.ts
+index fdf1ddc..0b8f462 100644
+--- a/apps/server/src/routes.ts
++++ b/apps/server/src/routes.ts
+@@ -73,6 +73,15 @@ const ListSessionsQuery = z.object({
+   cursor: SessionIdSchema.optional(),
+ })
+ 
++/**
++ * GET /api/sessions/:id 浜嬩欢鍒嗛〉鏌ヨ锛堝伐鍗?9.3锛夛細鍏ㄥ彲閫夆€斺€旂己鐪?= 鍏ㄩ噺鍥炴斁锛堝悜鍚庡吋瀹圭孩绾匡級銆?+ * limit 鍗囧簭灏鹃儴鍒囩墖锛堜笂闄?200锛夛紱before = seq 娓告爣锛堝彧杩斿洖 seq < before锛夈€?+ */
++const SessionDetailQuery = z.strictObject({
++  limit: z.coerce.number().int().positive().max(200).optional(),
++  before: z.coerce.number().int().positive().optional(),
++})
++
+ const SendMessageBody = z.strictObject({
+   text: z.string().min(1),
+   delivery: DeliverySchema.default('now'),
+@@ -220,8 +229,19 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts)
+   app.get('/api/sessions/:id', async (req, reply) => {
+     try {
+       const { id } = parseOr400(IdParams, req.params)
++      const query = parseOr400(SessionDetailQuery, req.query)
+       const handle = await requireHandle(engine, id)
+-      return reply.send({ ...toDto(engine, handle.meta), events: handle.events() })
++      // 浜嬩欢鍒嗛〉锛堝伐鍗?9.3锛夛細before 娓告爣杩囨护 + limit 鍗囧簭灏鹃儴鍒囩墖锛?+      // 涓ゅ弬缂虹渷 = 鐜扮姸鍏ㄩ噺锛堢己鐪佽涓轰笉鍙樼孩绾匡級
++      let events = handle.events()
++      if (query.before !== undefined) {
++        const before = query.before
++        events = events.filter((e) => e.seq !== undefined && e.seq < before)
++      }
++      if (query.limit !== undefined) {
++        events = events.slice(-query.limit)
++      }
++      return reply.send({ ...toDto(engine, handle.meta), events })
+     } catch (err) {
+       return sendError(req, reply, err)
+     }
+diff --git a/apps/server/tests/routes.test.ts b/apps/server/tests/routes.test.ts
+index 0536a4a..5c5716d 100644
+--- a/apps/server/tests/routes.test.ts
++++ b/apps/server/tests/routes.test.ts
+@@ -211,6 +211,83 @@ describe('GET /api/sessions/:id', () => {
+     const badBody: Json = bad.json()
+     expect(badBody['code']).toBe('E_VALIDATION')
+   })
++
++  // ---- 浜嬩欢鍒嗛〉锛堝伐鍗?9.3锛夛細缂虹渷鍏ㄩ噺绾㈢嚎 / limit 灏鹃儴鍒囩墖 / before 娓告爣 / 闈炴硶 400 ----
++
++  /** 寤轰竴涓畬鏁?turn 鐨勪細璇濓紙5 鏉?durable锛歝reated/user/turn.started/assistant/turn.completed锛?*/
++  async function makePagedSession(f: ServerFixture): Promise<string> {
++    const events = collectEvents(f)
++    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '鍒嗛〉绛斿' }] })
++    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
++    const id = created.json<Json>()['id'] as string
++    await f.app.inject({
++      method: 'POST',
++      url: `/api/sessions/${id}/messages`,
++      payload: { text: '鍒嗛〉鎻愰棶' },
++    })
++    await waitFor(() => (events.some((e) => e.type === 'turn.completed') ? true : undefined))
++    return id
++  }
++
++  test('鍒嗛〉缂虹渷鍙傛暟 = 鍏ㄩ噺鍥炴斁鍥炲綊锛堢孩绾匡級', async () => {
++    const f = await setup()
++    const id = await makePagedSession(f)
++    const res = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}` })
++    expect(res.statusCode).toBe(200)
++    const detail: Json = res.json()
++    const events = detail['events'] as Json[]
++    expect(events).toHaveLength(5)
++    expect(events.map((e) => e['seq'])).toEqual([1, 2, 3, 4, 5])
++  })
++
++  test('limit 鍗囧簭灏鹃儴鍒囩墖', async () => {
++    const f = await setup()
++    const id = await makePagedSession(f)
++    const res = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}?limit=2` })
++    expect(res.statusCode).toBe(200)
++    const events = (res.json<Json>())['events'] as Json[]
++    // 鍗囧簭涓嶅彉锛屽彇灏鹃儴 2 鏉★紙鍒嗛〉鍚戜笂缈?= 杈冩棭浜嬩欢椤碉級
++    expect(events.map((e) => e['seq'])).toEqual([4, 5])
++  })
++
++  test('before 娓告爣锛堝彧杩斿洖 seq < before锛変笌 limit 缁勫悎', async () => {
++    const f = await setup()
++    const id = await makePagedSession(f)
++    const res = await f.app.inject({
++      method: 'GET',
++      url: `/api/sessions/${id}?before=4`,
++    })
++    expect(res.statusCode).toBe(200)
++    const events = (res.json<Json>())['events'] as Json[]
++    expect(events.map((e) => e['seq'])).toEqual([1, 2, 3])
++
++    // 缁勫悎锛氭渶鏃╀竴椤靛悜鍓嶇炕 2 鏉★紙绉诲姩绔笂鎷夊姞杞藉舰鎬侊級
++    const combo = await f.app.inject({
++      method: 'GET',
++      url: `/api/sessions/${id}?limit=2&before=4`,
++    })
++    expect(combo.statusCode).toBe(200)
++    const comboEvents = (combo.json<Json>())['events'] as Json[]
++    expect(comboEvents.map((e) => e['seq'])).toEqual([2, 3])
++
++    // before 瓒婅繃鏈€鏃╀簨浠?鈫?绌洪〉锛堥潪閿欒锛?+    const empty = await f.app.inject({
++      method: 'GET',
++      url: `/api/sessions/${id}?before=1`,
++    })
++    expect(empty.statusCode).toBe(200)
++    expect((empty.json<Json>())['events']).toEqual([])
++  })
++
++  test('鍒嗛〉鍙傛暟闈炴硶 鈫?400 E_VALIDATION', async () => {
++    const f = await setup()
++    const id = await makePagedSession(f)
++    for (const qs of ['limit=abc', 'limit=0', 'limit=201', 'before=-1', 'before=xyz']) {
++      const res = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}?${qs}` })
++      expect(res.statusCode).toBe(400)
++      expect((res.json<Json>())['code']).toBe('E_VALIDATION')
++    }
++  })
+ })
+ 
+ describe('POST /api/sessions/:id/messages', () => {
+diff --git a/apps/web/src/transports/mock.ts b/apps/web/src/transports/mock.ts
+index 4dc9845..c56d1c8 100644
+--- a/apps/web/src/transports/mock.ts
++++ b/apps/web/src/transports/mock.ts
+@@ -36,6 +36,7 @@ import type {
+   RequestId,
+   SecretStatusDto,
+   SessionDto,
++  SessionEventsQuery,
+   SessionId,
+   SessionStatus,
+   SearchHitDto,
+@@ -1092,11 +1093,21 @@ export class MockTransport implements Transport {
+   }
+ 
+   /** 鎺ュ彛瀹屾暣鎬у疄鐜帮紙mock 涓?SessionPage 涓嶈蛋鍏ㄩ噺鍥炴斁鈥斺€旀祦寮忓洖鏀惧嵆澶瑰叿璇箟锛?*/
+-  getSession(sessionId: SessionId): Promise<SessionDto> {
++  getSession(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto> {
+     this.assertNotDisposed()
+     const fork = this.forkChildren.find((f) => f.dto.id === sessionId)
++    // 鍒嗛〉锛堝伐鍗?9.3锛夛細before 娓告爣杩囨护 + limit 鍗囧簭灏鹃儴鍒囩墖锛涘叏缂虹渷 = 鍏ㄩ噺锛堢孩绾匡級
++    const page = (events: SparkEventEnvelope[]): SparkEventEnvelope[] => {
++      let out = events
++      if (query?.before !== undefined) {
++        const before = query.before
++        out = out.filter((e) => e.seq !== undefined && e.seq < before)
++      }
++      if (query?.limit !== undefined) out = out.slice(-query.limit)
++      return out
++    }
+     if (fork !== undefined) {
+-      return Promise.resolve({ ...fork.dto, events: fork.events })
++      return Promise.resolve({ ...fork.dto, events: page(fork.events) })
+     }
+     if (sessionId !== this.script.sessionId) {
+       return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+@@ -1104,13 +1115,14 @@ export class MockTransport implements Transport {
+     // 宸插洖鏀剧殑浜嬩欢鍗?褰撳墠鎬?锛堝惈 rollbackCheckpoint 鎴柇鍚庣殑鐜扮姸锛夆€斺€?     // 鏈洖鏀捐剼鏈涓嶄笂杞︼紙mock 浼氳瘽鍐峰惎鍔ㄨ蛋娴佸紡鍥炴斁锛屼笉璧版湰鍏ㄩ噺璺緞锛?     const durable = this.emitted.filter((e) => e.seq !== undefined)
++    const events = page(durable)
+     const last = durable[durable.length - 1]
+     return Promise.resolve(
+       this.withModelOverride(sessionId, {
+         ...MockTransport.dtoOf(this.script, this.status()),
+         lastSeq: last?.seq ?? 0,
+         updatedAt: last?.time ?? this.script.meta.createdAt,
+-        events: durable,
++        events,
+       }),
+     )
+   }
+diff --git a/doc/02-development-plan.md b/doc/02-development-plan.md
+index fa7a53f..db0836a 100644
+--- a/doc/02-development-plan.md
++++ b/doc/02-development-plan.md
+@@ -73,6 +73,7 @@
+ | v3.24 | 2026-08-30 | AI 缂栧啓锛歈oder锛涘彂璧凤細鏅氶锛圵anfeng1028锛岄樁娈典竷閬楃暀淇鎸囦护锛?                                                          | **闃舵涓冮仐鐣欌€斺€旂幆澧冨吋瀹规€т慨澶嶅洓澶?*锛堟湰鏈烘棤鐪熷疄 bash銆佹參鐩樸€佸苟琛岃礋杞戒笅澶嶇幇锛孋I ubuntu 涓嶅彈褰卞搷锛夛細鈶?bash 宸ュ叿 `resolveShell` 閲嶅啓鈥斺€擿where bash` 鍒楀€欓€夐€愪釜浠?`-c "exit 0"` 鎺㈡祴锛堝師瀹炵幇鍙帰娴嬪瓨鍦ㄦ€э細System32 WSL 鍒悕 stub 鏃犲彂琛岀増鏃朵换浣曞懡浠ら兘闈為浂閫€鍑猴級锛孲ystem32/WindowsApps 璺緞涓€寰嬭烦杩囷紝鎺㈡祴缁撴灉杩涚▼鍐呯紦瀛橈紝鏃犵湡瀹?bash 鍥炶惤 powershell锛埪?.6.3 璺ㄥ钩鍙拌鍒欒鍚屾锛夛紱鈶?鍐呯疆宸ュ叿鍗曟祴 bash 缁勫懡浠ゆ敼 `node -e` 鍙Щ妞嶈〃杈撅紙鍘?`sleep`/`>&2` 涓?bash 鏂硅█锛宲owershell 鍥炶惤璺緞涓嶅彲鐢紱閫€鍑虹爜鐢ㄤ緥鏄惧紡 `exit 3`鈥斺€攑owershell -Command 涓嶄紶鎾唴閮ㄥ師鐢熷懡浠ら€€鍑虹爜锛夛紱鈶?SearchStore 寮€ WAL + synchronous=NORMAL锛堢储寮曟槸娲剧敓缂撳瓨锛孞SONL 鎭掍负鏉冨▉锛岄€愭潯 upsert 鍏嶆瘡娆?fsync鈥斺€斾慨鎱㈢洏涓婂崈浜嬩欢鍏ュ簱鎷栬繃 vitest 5s 涓婇檺锛夛紱鍙︼細Windows 鏍戞潃瀹介檺 5s鈫?s锛堜袱娆?taskkill 鍧?/F 寮烘潃锛岄鏉€鏃╀簬瀛愯繘绋嬫淳鐢熸椂琛ユ潃鍏煎仛瀛ゅ効鏀跺熬锛夛紱鈶?server search-routes 娴嬭瘯绔炴€佷慨澶嶁€斺€旀柇瑷€鍛戒腑琛?sessionTitle 鍓嶅厛绛?session.title 浜嬩欢锛堣嚜鍔ㄦ爣棰樻槸 turn 瀹屾垚鍚庡紓姝ョ敓鎴愶紝璐熻浇涓嬫湭钀界储寮曞嵆鏌ュ緱绌轰覆锛夛紱鍏ㄤ粨 typecheck/lint/test 鍏ㄧ豢 |
+ | v3.25 | 2026-08-30 | AI 缂栧啓锛歈oder锛涘彂璧凤細鏅氶锛圵anfeng1028锛岄樁娈典節寮€宸ユ寚浠わ級 | **闃舵涔濆伐鍗?9.1 閰嶅閴存潈瀹屾垚锛圓DR D24锛?*锛歴erver鈥斺€擿pairing.ts`锛圖eviceStore锛殈/.spark/devices.json 0600 鍘熷瓙鍐欙紝瀛樺湪鍗抽壌鏉冨惎鐢ㄦ€侊紱PairService锛? 浣嶇煭鐮?60s 涓€娆℃€с€侀暱鏁?token `spk_` 鍓嶇紑鍙瓨 sha256 鍝堝笇锛? `auth.ts`锛圧EST Bearer 澶翠笌 SSE `?token=` 鍙屽彛寰勬牎楠岄挬瀛愶紝璞佸厤 /api/healthz 涓庡厬鎹㈠彛锛屾湭杩?401 `E_AUTH` fail-closed锛? `pairing-routes.ts` 鍥涚鐐?+ 鍚姩鎶ゆ爮绾嚱鏁?`resolveBindTarget`锛圫PARK_HOST 浠呯幆鍥炶鐩栵紱闈炵幆鍥為』 spark.json server.host 鏄惧紡閰嶇疆涓旈壌鏉冨凡鍚敤锛屽惁鍒欐嫆鍚姩鈥斺€旂粦瀹氱邯寰嬪彲娴嬪寲锛? sse 鎾ら攢鍗虫柇锛坄sseRevokeToken`锛夛紱protocol鈥斺€擿Transport.redeemPair` + transport-node `authToken` 鍙屽彛寰勬敞鍏?+ `splitSseFrames` 鍒囧抚绾嚱鏁版娊鍑猴紙9.4 灏忕▼搴忓鐢級锛泈eb鈥斺€旇缃腑蹇冦€岃澶囦笌閰嶅銆嶉〉锛圦R 鍑虹ず + 鎵嬭緭 6 浣嶇爜鍏滃簳 + 鎾ら攢鍗虫柇锛? MockTransport 瀵圭瓑锛涙祴璇曪細鏂板閰嶅璺敱/鎶ゆ爮/鍏戞崲鍗曟祴锛坰erver 85 渚嬶級+ protocol pairing-transport 11 渚嬶紙鍒囧抚/authToken 鍙屽彛寰?鍏戞崲 round-trip锛夛紝鍏ㄤ粨 814 渚嬶紙engine 486/server 85/web 159/protocol 68/cli 16锛夛紝涓夊叧鍏ㄧ豢锛浡?.5 API 琛ㄥ洓琛?+ 搂7.2 瑕佺偣琛?+ 搂7.4 閿欒琛ㄤ笁琛岀櫥璁帮紱搂8 闃舵涔?9.1 鍕鹃€夛紙寮曠敤淇 搂13.J.9鈫捖?3.J.2.9锛夛紱鏂颁緷璧?qrcode锛圡IT锛孮R 鐢熸垚锛?|
+ | v3.26 | 2026-08-30 | AI 缂栧啓锛歈oder锛涘彂璧凤細鏅氶锛圵anfeng1028锛岄樁娈典節寮€宸ユ寚浠わ級 | **闃舵涔濆伐鍗?9.1 涓夌淮璇勫淇锛團1鈥揊7锛?*锛欶1 鐧惧垎鍙风紪鐮佽矾寰勭粫杩団€斺€旈壌鏉冩嫆缁濆垽瀹氳嚜 `onRequest` 鍘熷 `req.url` 鍓嶇紑鍒ゆ柇绉昏嚦 `preHandler` 鍩轰簬璺敱鍣ㄨВ鐮佸悗鍖归厤妯″紡 `req.routeOptions.url`锛坱oken 鐧昏浠嶇暀 `onRequest`锛涙湭鍖归厤璺敱 = 闈欐€?404 鍏滃簳璞佸厤锛夛紝琛ュ洓涓紪鐮佸彉浣撳洖褰掔敤渚嬶紱F2 閰嶅鐮佹毚鍔涚┓涓锯€斺€擿PairService` 杩炵画 5 娆″け璐ュ嵆浣滃簾鍦ㄩ€旂爜锛坄PAIR_CODE_MAX_FAILURES`锛夛紝鎴愬姛鍏戞崲/鏂扮鍙戝浣嶈鏁帮紱F3 鏃ュ織鑴辨晱鈥斺€攑ino 鑷畾涔?`serializers.req` 鎺╃爜 `?token=` 鍊硷紙`redactTokenQuery` 绾嚱鏁板彲娴嬶級锛汧4 鏂囨。鍕樿鈥斺€斅?.5/搂7.2/搂7.4 `E_PAIR_DISABLED` 褰掑洜淇锛堜粎鍏戞崲绔偣鍑虹幇锛岀鍙戝嵆鍚敤锛? `server.host/port` 鑷?9.1 璧峰叆鍙ｅ疄闄呮秷璐广€乣SPARK_HOST` 浠呯幆鍥炶鐩栧彛寰勫悓姝ワ紱F5 PairCodeDialog 浠ｉ檯鏍囧織闃插叧闂悗鍦ㄩ€斿洖璋冨啓鐘舵€佺珵鎬侊紱F6 `splitSseFrames` 鍒囧抚鍓嶅綊涓€鍖?`\r\n`鈫抈\n`锛?.4 灏忕▼搴忓鐢ㄥ绾︼紝琛?CRLF 鐢ㄤ緥锛夛紱F7 `new DeviceStore(...)` 绾冲叆鍏ュ彛鍚?`resolveBindTarget` 鐨?try/catch 浜鸿瘽閫€鍑猴紙`E_CONFIG: 鈥 + exit 1锛?|
++| v3.27 | 2026-08-30 | AI 缂栧啓锛歈oder锛涘彂璧凤細鏅氶锛圵anfeng1028锛岄樁娈典節寮€宸ユ寚浠わ級 | **闃舵涔濆伐鍗?9.3 绉诲姩绔細璇濅綋楠岋紙娴佸紡/瀹℃壒/閲嶈繛/鍒嗛〉/閿洏閬胯锛?*锛氬崗璁厛琛屽敮涓€鏈嶅姟绔拷鍔犫€斺€擿SessionEventsQuerySchema`锛坄?limit=&before=` 鍏ㄥ彲閫夛細limit 姝ｆ暣鏁颁笂闄?200銆佺己鐪?鍏ㄩ噺锛沚efore=seq 娓告爣锛岃繑鍥?seq < before 鍗囧簭鈥斺€?缂虹渷鍙傛暟=鐜扮姸鍏ㄩ噺"绾㈢嚎涓嶇牬锛? `Transport.getSession(id, query?)` 鏃犲弬鍏煎 + transport-node HttpTransport 涓?web MockTransport 涓夊鍚屾锛堣繃婊?鍗囧簭灏鹃儴鍒囩墖锛? server `GET /api/sessions/:id` 娑堣垂鏌ヨ鍙傛暟锛堢己鐪佸叏閲忓洖褰?4 渚嬭矾鐢卞崟娴嬶級锛沘pps/mobile 浼氳瘽椤佃惤鍦帮紙搂13.J.2.3/J.3锛夆€斺€旀秷鎭祦鎶曞奖锛坲ser 鍙冲榻愭祬鐏拌兌鍥?assistant 鍏ㄥ绾枃鏈?澶嶅埗+"鍐呭鐢?AI 鐢熸垚"鏍囨敞/鐩搁偦 >30min 鏃堕棿鎴冲垎闅旓級+ `RnSessionEventSource` 娴佸紡娓愭樉 + 鍥炲埌搴曢儴娴挳 + 宸ュ叿鍗?鎬濊€冨潡鎶樺彔 + 瀹℃壒鍗′笁閿旱鍚戝叏瀹斤紙璧?`replyPermission`锛? 涓柇鍋滄閽?+ 鏂嚎閲嶈繛鏉★紙onStatus 浜鸿瘽鏂囨锛? 涓嬫媺鍔犺浇鍘嗗彶锛堝悜涓婄炕椤靛崌搴忓悎骞跺閲忔姇褰变繚鎸佹粴鍔ㄤ綅缃級+ KeyboardAvoidingView/瀹夊叏鍖?+ Composer 澶氳鑷鑳跺泭锛涢敊璇枃妗堜竴寰?ERROR_COPY/errorMessageOf锛汳aestro 鍥涘箷 YAML 鍏ュ簱锛堝彧鍏ュ簱涓嶆墽琛岋級锛浡?.5 API 琛ㄥ悓姝?|
+ 
+ > 渚濇嵁锛歚01-research-report.md` 鍏ぇ椤圭洰婧愮爜绾ц皟鐮旂粨璁恒€? > 鍘熷垯锛?*鑳藉鐢ㄥ紑婧愬氨涓嶈嚜宸卞啓锛涘崗璁厛琛屻€佸墠绔厛琛岋紱鎶勮璁¤€屼笉鎶勬鏋?*銆?@@ -469,7 +470,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
+ | ---- | --------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
+ | POST | /api/sessions               | `{ title?, model?, cwd? }`                           | SessionDto                                           |
+ | GET  | /api/sessions               | `?limit&cursor&q`锛坬=鏍囬瀛愪覆杩囨护锛屽伐鍗?4.8锛?       | SessionDto[]                                         |
+-| GET  | /api/sessions/:id           | 鈥?                                                   | SessionDto锛堝惈 `events: SparkEvent[]` durable 鍥炴斁锛?|
++| GET  | /api/sessions/:id           | `?limit&before`锛堝潎鍙渷锛涚己鐪?鍏ㄩ噺鍥炴斁绾㈢嚎锛沚efore=seq 娓告爣杩斿洖 seq < before 鍗囧簭銆乴imit 缂虹渷鍏ㄩ噺涓婇檺 200鈥斺€斿伐鍗?9.3 绉诲姩绔悜涓婄炕椤碉級 | SessionDto锛堝惈 `events: SparkEvent[]` durable 鍥炴斁锛?|
+ | POST | /api/sessions/:id/messages  | `{ text, delivery? }`                                | `{ result:'started'\|'steered'\|'queued', turnId? }` |
+ | POST | /api/sessions/:id/interrupt | 鈥?                                                   | `{ ok:true }`                                        |
+ | POST | /api/sessions/:id/compact   | 鈥?                                                   | `{ ok:true }`锛坱urn 杩涜涓?鈫?409 `E_TURN_ACTIVE`锛?   |
+diff --git a/packages/protocol/src/api.ts b/packages/protocol/src/api.ts
+index 9543ed4..3f50f3e 100644
+--- a/packages/protocol/src/api.ts
++++ b/packages/protocol/src/api.ts
+@@ -26,6 +26,17 @@ export interface SessionDto extends SessionMetaDto {
+   events?: SparkEventEnvelope[]
+ }
+ 
++/**
++ * GET /api/sessions/:id 浜嬩欢鍒嗛〉鏌ヨ锛堥樁娈典節宸ュ崟 9.3鈥斺€旂Щ鍔ㄧ涓婃媺鍔犺浇鍘嗗彶锛夈€?+ * 鍏ㄥ彲閫夆€斺€旂己鐪佸弬鏁?= 鐜扮姸鍏ㄩ噺鍥炴斁锛堝悜鍚庡吋瀹圭孩绾匡級锛?+ * limit = 杩斿洖鏉℃暟涓婇檺锛堝崌搴忓熬閮ㄥ垏鐗囷紝涓婇檺 200锛夛紱before = seq 娓告爣锛堝彧杩斿洖 seq < before 鐨勪簨浠讹級銆?+ */
++export const SessionEventsQuerySchema = z.strictObject({
++  limit: z.number().int().positive().max(200).optional(),
++  before: z.number().int().positive().optional(),
++})
++export type SessionEventsQuery = z.infer<typeof SessionEventsQuerySchema>
++
+ /** POST /:id/messages 鍝嶅簲锛氫笁鎬佺洿閫氾紙HTTP 鍙〃杈?宸插彈鐞?锛屼笉绛?turn 缁撴灉锛?*/
+ export interface SubmitResult {
+   result: 'started' | 'steered' | 'queued'
+diff --git a/packages/protocol/src/transport-node.ts b/packages/protocol/src/transport-node.ts
+index a98e810..9e8cd25 100644
+--- a/packages/protocol/src/transport-node.ts
++++ b/packages/protocol/src/transport-node.ts
+@@ -34,6 +34,7 @@ import type {
+   SecretStatusDto,
+   SearchHitDto,
+   SessionDto,
++  SessionEventsQuery,
+   SkillDto,
+   TreeNodeDto,
+ } from './api.js'
+@@ -278,8 +279,17 @@ export class HttpTransport implements Transport {
+     }).then(() => undefined)
+   }
+ 
+-  async getSession(sessionId: SessionId): Promise<SessionDto> {
+-    const dto = await this.req<SessionDto>(`/api/sessions/${sessionId}`)
++  async getSession(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto> {
++    // 鍒嗛〉鍙傛暟鍏ㄧ己鐪?= 涓嶅甫鏌ヨ涓诧紙缂虹渷鍏ㄩ噺绾㈢嚎锛屼笌鏃犲弬璋冪敤瀹屽叏鍚屽舰锛?+    const params = new URLSearchParams()
++    if (query !== undefined) {
++      if (query.limit !== undefined) params.set('limit', String(query.limit))
++      if (query.before !== undefined) params.set('before', String(query.before))
++    }
++    const qs = params.toString()
++    const dto = await this.req<SessionDto>(
++      `/api/sessions/${sessionId}${qs !== '' ? `?${qs}` : ''}`,
++    )
+     this.noteOpenSession(sessionId)
+     return dto
+   }
+diff --git a/packages/protocol/src/transport.ts b/packages/protocol/src/transport.ts
+index 759fff6..76b2fca 100644
+--- a/packages/protocol/src/transport.ts
++++ b/packages/protocol/src/transport.ts
+@@ -29,6 +29,7 @@ import type {
+   SearchHitDto,
+   SecretStatusDto,
+   SessionDto,
++  SessionEventsQuery,
+   SkillDto,
+   TreeNodeDto,
+ } from './api.js'
+@@ -54,8 +55,11 @@ export interface Transport {
+   /** 鎵嬪姩鍘嬬缉锛坉oc/02 搂5.8.5锛夛細瑙﹀彂 compaction.* 浜嬩欢瀵癸紙SSE 鎺ㄩ€侊紱turn 杩涜涓嫆缁濓級 */
+   compact(sessionId: SessionId): Promise<void>
+   replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void>
+-  /** GET /api/sessions/:id锛歮eta + 鍏ㄩ儴 durable 浜嬩欢锛坰eq 鍗囧簭鈥斺€斿喎鍚姩鍥炴斁鏁版嵁婧愶級 */
+-  getSession(sessionId: SessionId): Promise<SessionDto>
++  /**
++   * GET /api/sessions/:id锛歮eta + durable 浜嬩欢锛坰eq 鍗囧簭鈥斺€斿喎鍚姩鍥炴斁鏁版嵁婧愶級銆?+   * query 鍒嗛〉锛堝伐鍗?9.3锛夛細limit 鍗囧簭灏鹃儴鍒囩墖 / before=seq 娓告爣锛涙棤鍙?= 鍏ㄩ噺锛堝悜鍚庡吋瀹癸級銆?+   */
++  getSession(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto>
+   listSessions(): Promise<SessionDto[]>
+   /** 鏂板缓浼氳瘽锛坢odel 涓?"provider/model"锛涚己鐪?= 寮曟搸 defaultModel锛?*/
+   createSession(opts?: { title?: string; model?: string }): Promise<SessionDto>
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 2e71752..620b589 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -102,6 +102,9 @@ importers:
+       expo:
+         specifier: ~57.0.18
+         version: 57.0.18(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(react-dom@19.2.8(react@19.2.3))(react-native-worklets@0.12.1(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
++      expo-clipboard:
++        specifier: ~57.0.1
++        version: 57.0.1(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+       expo-linking:
+         specifier: ~57.0.8
+         version: 57.0.8(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+@@ -4032,6 +4035,13 @@ packages:
+       react: '*'
+       react-native: '*'
+ 
++  expo-clipboard@57.0.1:
++    resolution: {integrity: sha512-HWICri4+1ao7S6QEfcorxVumXDiDnx1guGGewjZgGJWLGxFYs0RgH8ujBs+lkTzBkMmlwADaWSlaesR+nDJt5Q==}
++    peerDependencies:
++      expo: '*'
++      react: '*'
++      react-native: '*'
++
+   expo-constants@57.0.16:
+     resolution: {integrity: sha512-HG3yJjGZo2BPTo2F1sBoxdJZRwX7d9C554EhKn8m12K62pxGolCsvPSoh/lQf95OEP9vO34wwXB2C3QFs0KG0g==}
+     peerDependencies:
+@@ -11830,6 +11840,12 @@ snapshots:
+       - supports-color
+       - typescript
+ 
++  expo-clipboard@57.0.1(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3):
++    dependencies:
++      expo: 57.0.18(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(react-dom@19.2.8(react@19.2.3))(react-native-worklets@0.12.1(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
++      react: 19.2.3
++      react-native: 0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3)
++
+   expo-constants@57.0.16(expo@57.0.18)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3)):
+     dependencies:
+       '@expo/env': 2.4.3

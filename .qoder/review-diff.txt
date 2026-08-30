@@ -1,0 +1,253 @@
+commit effe1a548926d74ed34631a7f3277ea0af354c1f
+Author: Wanfeng1028 <dingyu_1028@163.com>
+Date:   Sun Aug 30 02:48:25 2026 +0800
+
+    feat(stage9): 宸ュ崟 9.1鈥斺€旈厤瀵归壌鏉冿紙鏈嶅姟绔?web+鍗忚+鏂囨。鐧昏锛?    
+    闃舵涔濋宸ュ崟锛圓DR D24锛夛細绉诲姩绔湡杩炵殑閴存潈鑷妇閾捐矾锛屼慨琛ヤ笉閲嶅啓銆?    
+    鏈嶅姟绔紙鏀瑰姩浠呴檺 9.1 澹版槑闈級锛?    - 鏂板 pairing.ts锛欴eviceStore锛垀/.spark/devices.json 0600 鍘熷瓙鍐欙紝
+      瀛樺湪鍗抽壌鏉冨惎鐢ㄦ€侊級+ PairService锛? 浣嶇煭鐮?60s 涓€娆℃€с€侀暱鏁?token
+      spk_ 鍓嶇紑鍙瓨 sha256 鍝堝笇锛? 鍚姩鎶ゆ爮绾嚱鏁?resolveBindTarget
+      锛圫PARK_HOST 浠呯幆鍥炶鐩栵紱闈炵幆鍥為』 spark.json server.host 鏄惧紡
+      閰嶇疆涓旈壌鏉冨凡鍚敤锛屽惁鍒欐嫆鍚姩鈥斺€旂粦瀹氱邯寰嬪彲娴嬪寲锛夈€?    - 鏂板 auth.ts锛歊EST Bearer 澶翠笌 SSE ?token= 鍙屽彛寰勬牎楠岄挬瀛愶紝
+      璞佸厤 /api/healthz 涓庡厬鎹㈠彛锛屾湭杩?401 E_AUTH锛坒ail-closed锛夈€?    - 鏂板 pairing-routes.ts 鍥涚鐐癸細GET /api/pair 鐘舵€併€丳OST /api/pair
+      鍏戞崲銆丳OST /api/pair/code 绛惧彂锛堝惈 QR 鍑虹ず鍐呭锛夈€?      DELETE /api/pair/devices/:id 鎾ら攢锛堟挙閿€鍗虫柇锛宻se.ts 澧?      sseRevokeToken锛夈€俥rrors.ts 琛?E_AUTH 涔嬪鐨?E_PAIR(401)/
+      E_PAIR_DISABLED(403) 鏄犲皠銆?    
+    鍗忚锛圓GENTS 搂2.5 浠?packages/protocol 寮€濮嬶級锛?    - Transport 鎺ュ彛澧?redeemPair锛泃ransport-node 澧?authToken 鍙屽彛寰?      娉ㄥ叆锛圧EST Bearer 澶?/ SSE URL ?token=锛夛紱鍒囧抚閫昏緫鎶芥垚瀵煎嚭绾嚱鏁?      splitSseFrames锛?.4 灏忕▼搴忓鐢紝琛屼负涓嶅彉锛夛紱api.ts 宸叉湁
+      PairRedeemBody/PairTokenDto/PairStatusDto/PairCodeDto schema銆?    
+    Web锛氳缃腑蹇冩柊澧炪€岃澶囦笌閰嶅銆嶉〉锛圦R 鍑虹ず qrcode MIT 渚濊禆 +
+    鎵嬭緭 6 浣嶇爜鍏滃簳 + 璁惧鍒楄〃鎾ら攢鍗虫柇锛夛紱MockTransport 瀵圭瓑 redeemPair锛?    error-copy 琛ラ厤瀵归敊鐮佷汉璇濇枃妗堛€?    
+    娴嬭瘯锛氭柊澧為厤瀵硅矾鐢?鎶ゆ爮/鍏戞崲鍗曟祴锛坰erver 64鈫?5 渚嬶級+
+    protocol pairing-transport 11 渚嬶紙splitSseFrames 鍒囧抚/authToken
+    鍙屽彛寰?鍏戞崲 round-trip锛宲rotocol 57鈫?8 渚嬶級銆?    
+    鏂囨。鐧昏锛坉ocs-update 娴佺▼锛夛細
+    - doc/02 v3.25锛毬?.5 API 琛ㄥ洓琛屻€伮?.2 瑕佺偣琛ㄣ€伮?.4 閿欒琛ㄤ笁琛屻€?      搂8 闃舵涔?9.1 鍕鹃€夛紙椤哄甫淇 搂13.J.9鈫捖?3.J.2.9 骞界伒寮曠敤锛屽叏浠撴竻闆讹級銆?    - AGENTS v1.22 / README v1.23锛氶樁娈典節宸插紑宸ャ€?.1 瀹屾垚寰呭悎鍏ュ彛寰勶紝
+      娴嬭瘯璁℃暟鍒锋柊 814 渚嬨€?    
+    绾㈢嚎淇濇寔锛氱己鐪?127.0.0.1 + 鏃犻壌鏉冭涓哄畬鍏ㄤ笉鍙橈紙缂虹渷鐜洖褰㈡€侀壌鏉冮挬瀛愬彧鐧昏
+    token 鍝堝笇渚涙挙閿€鍗虫柇銆佺粷涓嶆嫆缁濓紱鏃㈡湁鍥炲綊娴嬭瘯鍏ㄤ繚锛夈€備笁鍏冲叏缁匡細typecheck 8 鍖呫€乴int 0 鍛婅銆?    vitest 814 渚嬶紙engine 486/server 85/web 159/protocol 68/cli 16锛夈€?    
+    鍙︼細eslint ignores 涓?.gitignore 鍔?.qoder/better-harness/锛堟湰鍦?    skill 浜х墿锛屽垽渚嬪悓 .trae-html-preview-packages锛夈€?
+diff --git a/apps/server/src/errors.ts b/apps/server/src/errors.ts
+index 0b4ca22..a39ac5f 100644
+--- a/apps/server/src/errors.ts
++++ b/apps/server/src/errors.ts
+@@ -96,6 +96,14 @@ export function toApiError(err: unknown): ApiError {
+     // 宸ュ崟 7.6锛歝ron 琛ㄨ揪寮忚В鏋愬け璐?鈫?400
+     return new ApiError(400, 'E_CRON', msg.slice('E_CRON:'.length).trim())
+   }
++  if (msg.startsWith('E_PAIR_DISABLED')) {
++    // 宸ュ崟 9.1锛氶厤瀵归壌鏉冩湭鍚敤锛坉evices.json 涓嶅瓨鍦級鍗宠皟鍏戞崲鍙?鈫?403锛堥渶鍏堝湪妗岄潰绔紑鍚級
++    return new ApiError(403, 'E_PAIR_DISABLED', '閰嶅閴存潈鏈惎鐢細璇峰厛鍦ㄦ闈㈢璁剧疆椤垫坊鍔犺澶?)
++  }
++  if (msg.startsWith('E_PAIR')) {
++    // 宸ュ崟 9.1锛氶厤瀵圭爜涓嶇/杩囨湡/閲嶆斁锛堜笉鍖哄垎鍘熷洜锛岄伩鍏嶆硠闇插湪閫旂爜鐘舵€侊級鈫?401
++    return new ApiError(401, 'E_PAIR', '閰嶅鐮佹棤鏁堟垨宸茶繃鏈?)
++  }
+   return new ApiError(500, 'E_INTERNAL', 'internal error')
+ }
+ 
+diff --git a/apps/server/src/index.ts b/apps/server/src/index.ts
+index 86893ca..ab2959e 100644
+--- a/apps/server/src/index.ts
++++ b/apps/server/src/index.ts
+@@ -1,22 +1,46 @@
+ /**
+  * server 鍏ュ彛锛坉oc/02 搂7.1 缁勮涓庣敓鍛藉懆鏈燂級锛?- * Engine锛坮oot ~/.spark锛夆啋 Fastify 鈫?REST 璺敱 + SSE 鈫?闈欐€佹墭绠?鈫?listen 127.0.0.1:4318銆?+ * Engine锛坮oot ~/.spark锛夆啋 Fastify 鈫?閴存潈閽╁瓙锛堝伐鍗?9.1锛夆啋 REST 璺敱 + SSE 鈫?闈欐€佹墭绠?鈫?listen銆?+ * 缁戝畾绾緥锛堝伐鍗?9.1 / ADR D24锛夛細缂虹渷 127.0.0.1+鏃犻壌鏉冪孩绾夸笉鍙橈紱闈炵幆鍥炲繀椤荤粡
++ * spark.json `server.host` 鏄惧紡閰嶇疆锛圫PARK_HOST 鍙厑璁哥幆鍥炶鐩栤€斺€旀闈㈠３ sidecar锛夛紝
++ * 涓旈厤瀵归壌鏉冨凡鍚敤锛垀/.spark/devices.json 瀛樺湪锛夛紝鍚﹀垯鎷掔粷鍚姩锛坒ail-closed锛夈€?  * 浼橀泤閫€鍑猴細SIGINT/SIGTERM 鈫?1) SSE 杩炴帴鍙?bye 甯у悗鏂?2) server.close()锛堝仠鎺ユ柊杩炴帴锛?  *   3) engine.shutdown()锛坕nterrupt 鏀跺熬 + flush 鍏ㄩ儴浼氳瘽 fsync锛?) 杩涚▼閫€鍑恒€?  */
+ import { existsSync } from 'node:fs'
++import { homedir } from 'node:os'
++import { join } from 'node:path'
+ import { fileURLToPath } from 'node:url'
+ import Fastify from 'fastify'
+-import { Engine } from '@spark/engine'
++import { Engine, ConfigError, loadConfig } from '@spark/engine'
++import { registerAuth } from './auth.js'
++import { DeviceStore, PairService, isLoopbackHost, resolveBindTarget } from './pairing.js'
++import { registerPairingRoutes } from './pairing-routes.js'
+ import { registerRoutes } from './routes.js'
+ import { registerSse } from './sse.js'
+ import { registerStatic } from './static.js'
+ 
+-// 绔彛/闈欐€佽祫婧愭牴鍙敱妗岄潰澹虫敞鍏ワ紙闃舵浜斿伐鍗?5.1 sidecar锛歋PARK_PORT/SPARK_WEB_DIST锛?-// 缂虹渷淇濇寔鍘熻涓猴細4318 / web 鏋勫缓浜х墿鐩稿璺緞锛?-const PORT = Number(process.env.SPARK_PORT ?? 4318)
+-const HOST = process.env.SPARK_HOST ?? '127.0.0.1' // 浠呮湰鍦扮粦瀹氾紝鍒绘剰涓嶆毚闇诧紙doc/02 搂7.1锛?+const ROOT = join(homedir(), '.spark')
++const CONFIG = loadConfig(ROOT)
++
++// 閰嶅閴存潈锛堝伐鍗?9.1锛夛細璁惧浠?+ 閰嶅鐮佹湇鍔★紱閴存潈鍚敤鎬?= devices.json 瀛樺湪
++const deviceStore = new DeviceStore(join(ROOT, 'devices.json'))
++
++// 鐩戝惉鍦板潃绾緥锛堝伐鍗?9.1 / ADR D24锛夛細绾嚱鏁拌鍐筹紝杩濊鎷掑惎鍔紙fail-closed锛夆€斺€?+// SPARK_HOST 浠呯幆鍥炶鐩栵紱闈炵幆鍥為』 spark.json server.host 鏄惧紡閰嶇疆涓旈壌鏉冨凡鍚敤锛涘崟娴嬭 pairing.test.ts
++let HOST: string
++try {
++  HOST = resolveBindTarget(process.env.SPARK_HOST, CONFIG.spark.server.host, deviceStore.enabled)
++} catch (err) {
++  const prefix = err instanceof ConfigError ? `${err.code}: ` : ''
++  console.error(`${prefix}${err instanceof Error ? err.message : String(err)}`)
++  process.exit(1)
++}
++const LOOPBACK = isLoopbackHost(HOST)
++// 绔彛/闈欐€佽祫婧愭牴鍙敱妗岄潰澹虫敞鍏ワ紙闃舵浜斿伐鍗?5.1 sidecar锛歋PARK_PORT/SPARK_WEB_DIST锛?+const PORT = Number(process.env.SPARK_PORT ?? CONFIG.spark.server.port)
+ const WEB_DIST = process.env.SPARK_WEB_DIST ?? fileURLToPath(new URL('../../web/dist', import.meta.url))
++const pairService = new PairService(deviceStore)
+ 
+ const engine = new Engine()
+ // MCP 澶栭儴宸ュ叿娉ㄥ唽瀹屾垚鍚庡啀瀵瑰鏈嶅姟锛堟棤 mcp.json 绔嬪嵆杩斿洖锛涘崟 server 澶辫触宸?warn 璺宠繃锛?@@ -25,8 +49,17 @@ await engine.ready()
+ // Fastify 鍐呯疆 pino logger锛埪?.1 level info锛涗紶 pino 瀹炰緥涓?exactOptionalPropertyTypes 涓嶅吋瀹癸級
+ const app = Fastify({ logger: { level: 'info' } })
+ 
++// 閴存潈閽╁瓙鍏堜簬璺敱娉ㄥ唽锛堢幆鍥炵己鐪佺洿閫氾紝闈炵幆鍥?REST/SSE 鍚屽彛寰勶紱宸ュ崟 9.1锛?+await app.register(registerAuth, { required: !LOOPBACK, store: deviceStore })
+ await app.register(registerRoutes, { engine })
+ await app.register(registerSse, { engine })
++await app.register(registerPairingRoutes, {
++  store: deviceStore,
++  pair: pairService,
++  host: HOST,
++  port: PORT,
++  loopback: LOOPBACK,
++})
+ 
+ if (existsSync(WEB_DIST)) {
+   await app.register(registerStatic, { root: WEB_DIST })
+diff --git a/apps/server/src/sse.ts b/apps/server/src/sse.ts
+index 18e392e..0e4b120 100644
+--- a/apps/server/src/sse.ts
++++ b/apps/server/src/sse.ts
+@@ -24,6 +24,8 @@ declare module 'fastify' {
+   interface FastifyInstance {
+     /** 浼橀泤閫€鍑虹敤锛氬叏閮ㄦ椿璺?SSE 杩炴帴鍙?bye 甯у苟鏂紑锛埪?.1 搴忓垪绗?1 姝ワ級 */
+     sseCloseAll(): void
++    /** 鎾ら攢閰嶅璁惧鏃舵柇寮€鎼哄甫璇?token 鐨勫凡杩?SSE锛堝伐鍗?9.1 / D24锛氭挙閿€鍗虫柇锛?*/
++    sseRevokeToken(tokenHash: string): void
+   }
+ }
+ 
+@@ -39,15 +41,25 @@ function frame(e: SparkEventEnvelope): string {
+ const ssePlugin: FastifyPluginCallback<SseOptions> = (app, opts) => {
+   const { engine } = opts
+   const heartbeatMs = opts.heartbeatMs ?? 15_000
+-  const clients = new Set<ServerResponse>()
++  /** 娲昏穬杩炴帴 鈫?璁惧 token 鍝堝笇锛堟湭閴存潈璇锋眰涓?undefined锛涙挙閿€鏃舵寜鍝堝笇鏂繛锛?*/
++  const clients = new Map<ServerResponse, string | undefined>()
+ 
+   app.decorate('sseCloseAll', () => {
+-    for (const res of clients) {
++    for (const res of clients.keys()) {
+       res.write('event: bye\ndata: {}\n\n')
+       res.end()
+     }
+   })
+ 
++  app.decorate('sseRevokeToken', (tokenHash: string) => {
++    for (const [res, hash] of clients) {
++      if (hash !== tokenHash) continue
++      res.write('event: bye\ndata: {}\n\n')
++      res.end()
++      clients.delete(res)
++    }
++  })
++
+   app.get('/api/event', async (req, reply) => {
+     const parsed = Query.safeParse(req.query)
+     if (!parsed.success) {
+@@ -74,7 +86,7 @@ const ssePlugin: FastifyPluginCallback<SseOptions> = (app, opts) => {
+       'X-Accel-Buffering': 'no',
+       'X-Content-Type-Options': 'nosniff',
+     })
+-    clients.add(res)
++    clients.set(res, req.pairTokenHash)
+     // writeHead 涓嶄細绔嬪嵆鍙戝寘锛堥涓?write 鎵嶅埛澶达級鈥斺€斿厛鍐欐敞閲婂抚璁╁鎴风绔嬪埢鎷垮埌鍝嶅簲澶?     res.write(': connected\n\n')
+ 
+diff --git a/packages/protocol/src/api.ts b/packages/protocol/src/api.ts
+index a53b270..9543ed4 100644
+--- a/packages/protocol/src/api.ts
++++ b/packages/protocol/src/api.ts
+@@ -332,3 +332,48 @@ export const SearchHitDtoSchema = z.strictObject({
+   snippet: z.string(),
+ })
+ export type SearchHitDto = z.infer<typeof SearchHitDtoSchema>
++
++// ---------- 閰嶅閴存潈锛坉oc/02 搂8 闃舵涔濆伐鍗?9.1 / ADR D24锛?----------
++
++/** 宸查厤瀵硅澶囪锛圙ET /api/pair 璁惧鍒楄〃锛泃oken 姘镐笉涓婄嚎锛屼粎瀛樺搱甯岋級 */
++export const PairedDeviceDtoSchema = z.strictObject({
++  id: z.string().min(1),
++  name: z.string().min(1),
++  createdAt: z.number().int().nonnegative(),
++  lastSeenAt: z.number().int().nonnegative(),
++})
++export type PairedDeviceDto = z.infer<typeof PairedDeviceDtoSchema>
++
++/** 閰嶅鐘舵€侊紙GET /api/pair锛氱洃鍚湴鍧€ + 閴存潈鍚敤鎬?+ 璁惧鍒楄〃锛?*/
++export const PairStatusDtoSchema = z.strictObject({
++  host: z.string().min(1),
++  port: z.number().int().positive(),
++  /** true = 浠呯幆鍥炵洃鍚紙缂虹渷绾㈢嚎褰㈡€侊紝鏃犻渶閴存潈锛?*/
++  loopback: z.boolean(),
++  /** true = 閰嶅閴存潈宸插惎鐢紙~/.spark/devices.json 瀛樺湪锛?*/
++  authEnabled: z.boolean(),
++  devices: z.array(PairedDeviceDtoSchema),
++})
++export type PairStatusDto = z.infer<typeof PairStatusDtoSchema>
++
++/** 閰嶅鐮侊紙POST /api/pair/code锛? 浣嶇煭鐮?60s 鏈夋晥 + QR 鍑虹ず鍐呭锛?*/
++export const PairCodeDtoSchema = z.strictObject({
++  code: z.string().regex(/^\d{6}$/),
++  expiresAt: z.number().int().positive(),
++  /** QR 鍐呭锛歴park://pair?host=<host>&port=<port>&code=<鐭爜>锛圖ESIGN 搂13.J.2.9锛?*/
++  qr: z.string().min(1),
++})
++export type PairCodeDto = z.infer<typeof PairCodeDtoSchema>
++
++/** 绉诲姩绔崲闀挎晥 token锛圥OST /api/pair锛氭壂鐮?鎵嬭緭鐭爜鍏戞崲锛沶ame 涓鸿澶囧悕锛?*/
++export const PairRedeemBodySchema = z.strictObject({
++  code: z.string().regex(/^\d{6}$/),
++  name: z.string().min(1).max(64).optional(),
++})
++export type PairRedeemBody = z.infer<typeof PairRedeemBodySchema>
++
++/** 閰嶅鍏戞崲缁撴灉锛堥暱鏁?token 浠呮娆″洖浼狅紝姝ゅ悗鍙瓨鍝堝笇锛?*/
++export const PairTokenDtoSchema = z.strictObject({
++  token: z.string().min(1),
++})
++export type PairTokenDto = z.infer<typeof PairTokenDtoSchema>
+diff --git a/packages/protocol/src/error-copy.ts b/packages/protocol/src/error-copy.ts
+index ed19720..78808ce 100644
+--- a/packages/protocol/src/error-copy.ts
++++ b/packages/protocol/src/error-copy.ts
+@@ -20,6 +20,9 @@ export const ERROR_COPY: Record<string, string> = {
+   E_CHECKPOINT_ROLLBACK: '鍥炴粴澶辫触锛歡it 鎿嶄綔寮傚父锛岃鎯呰鏈嶅姟绔棩蹇?,
+   E_CONFIG: '妯″瀷閰嶇疆鏃犳晥锛氶』涓哄凡閰嶇疆渚涘簲鍟嗙殑 provider/model',
+   E_SHUTTING_DOWN: '寮曟搸姝ｅ湪鍏抽棴锛岃绋嶅悗閲嶅惎搴旂敤',
++  E_AUTH: '杩炴帴鏈€氳繃閴存潈锛氳閲嶆柊閰嶅璁惧鎴栨鏌?token',
++  E_PAIR: '閰嶅鐮佹棤鏁堟垨宸茶繃鏈燂紝璇峰湪妗岄潰绔噸鏂拌幏鍙?,
++  E_PAIR_DISABLED: '閰嶅閴存潈鏈惎鐢細璇峰厛鍦ㄦ闈㈢璁剧疆椤垫坊鍔犺澶?,
+   E_INTERNAL: '鏈嶅姟鍐呴儴閿欒锛岃閲嶈瘯锛涜嫢鎸佺画鍑虹幇璇锋煡鐪嬫湇鍔＄鏃ュ織',
+   // ---- transport / mock 鐗规湁 ----
+   E_MOCK_UNKNOWN_SESSION: '浼氳瘽涓嶅瓨鍦ㄦ垨宸茶娓呯悊',
+diff --git a/packages/protocol/src/transport.ts b/packages/protocol/src/transport.ts
+index 27bef97..759fff6 100644
+--- a/packages/protocol/src/transport.ts
++++ b/packages/protocol/src/transport.ts
+@@ -18,6 +18,10 @@ import type {
+   MemoryDto,
+   ModelTestResultDto,
+   ModelsDto,
++  PairCodeDto,
++  PairRedeemBody,
++  PairStatusDto,
++  PairTokenDto,
+   PermissionPreset,
+   PermissionRuleDto,
+   RoutingDto,
+@@ -121,5 +125,13 @@ export interface Transport {
+   listAudit(query?: AuditQuery): Promise<AuditEntryDto[]>
+   /** GET /api/search?q锛氫細璇濆叏鏂囨悳绱紙浜嬩欢鍐呭鍛戒腑锛涘伐鍗?7.13锛?*/
+   search(q: string, limit?: number): Promise<SearchHitDto[]>
++  /** GET /api/pair锛氶厤瀵圭姸鎬侊紙鐩戝惉鍦板潃/閴存潈鍚敤鎬?宸查厤瀵硅澶囷紱宸ュ崟 9.1 / ADR D24锛?*/
++  getPairStatus(): Promise<PairStatusDto>
++  /** POST /api/pair/code锛氱鍙戦厤瀵圭爜锛? 浣嶇煭鐮?60s 鏈夋晥 + QR 鍑虹ず鍐呭锛?*/
++  createPairCode(): Promise<PairCodeDto>
++  /** POST /api/pair锛氱煭鐮佸厬闀挎晥 token锛堢Щ鍔ㄧ鍏戞崲鍙ｏ紝閴存潈鑷妇锛涘伐鍗?9.1 / ADR D24锛?*/
++  redeemPair(body: PairRedeemBody): Promise<PairTokenDto>
++  /** DELETE /api/pair/devices/:id锛氭挙閿€璁惧锛堟挙閿€鍚庡凡杩?SSE 绔嬪嵆鏂紑锛?*/
++  revokePairDevice(id: string): Promise<void>
+   dispose(): void
+ }

@@ -1,0 +1,229 @@
+commit f400265f9716f5a119ce96311d8138d90573611b
+Author: Wanfeng1028 <dingyu_1028@163.com>
+Date:   Sun Aug 30 05:06:25 2026 +0800
+
+    feat(stage9): 工单 9.4——Taro 4 小程序壳（v1 开发者工具/体验版）
+    
+    新建 apps/miniapp（@spark/miniapp）：Taro 4.2.1 + React 18.3.1 小程序壳，
+    全量复用 @spark/protocol 逻辑层（applyEvent 投影 / 事件词表 / ERROR_COPY /
+    splitSseFrames / envelopeFromSseFrame），抄语义不抄 RN 代码。
+    
+    依赖许可证（ADR D23 纪律，全 MIT）：
+    - @tarojs/{cli,taro,components,runtime,react,shared,helper,webpack5-runner,
+      plugin-framework-react,plugin-platform-weapp} 4.2.1 MIT
+    - react 18.3.1 MIT（Taro 4 peer 上限，仅本包锁定；其余包保持 React 19，
+      pnpm 隔离实例天然支持）
+    - zustand ^5.0.15 MIT / babel-preset-taro 4.2.1 MIT /
+      @babel/preset-react 7.26.3 MIT（babel-preset-taro 的 react peer，
+      pnpm 隔离下须显式声明）
+    - webpack 固定 5.95.0 MIT（根 pnpm.overrides）：webpack 新版 ProgressPlugin
+      schema 校验拒绝 Taro webpackbar 的扩展选项（name/color/fancy），构建即崩；
+      全仓仅 miniapp 依赖 webpack，override 无扩散。
+    
+    体积纪律（ADR D21 主包 <2MB）：
+    - taro build --type weapp 通过；主包（dist，无分包）459,820 B ≈ 449 KB，
+      远低于 2MB 红线（大头：taro.js 130KB / vendors.js 95KB / app.js 94KB /
+      base.wxml 58KB）
+    - 组件库白名单制（§13.I）：零第三方小程序 UI 全家桶，基础组件全自绘；
+      构建产物落 dist/（根 .gitignore 已含，未入库）。
+    
+    SSE 主路径与降级路径：
+    - 主路径：Taro.request({ enableChunked: true }) + onChunkReceived →
+      手写 UTF-8 流式解码（不依赖小程序 TextDecoder 可用性）→ splitSseFrames →
+      envelopeFromSseFrame；基础库门槛 2.20.2（SDKVersion 检测）。
+    - 降级：分块异常/低基础库时单向退化为 since 水位轮询——定时
+      GET /api/sessions/:id?limit=200 取尾部、过滤 seq>水位（3s 间隔，不回试主路）；
+      两路共用同一帧解析与 applyEvent seq 去重口径。
+    - 退避重连复用 DEFAULT_BACKOFF_MS 语义，onStatus 三态契约对齐
+      RN 端 RnSessionEventSource；事件批处理 24ms 时间窗（setData 频次敏感）。
+    
+    三屏（§13.J，rpx 保持 4 的倍数）：
+    - 会话列表：下拉刷新 / 时间分组 / 状态点 / 行高 104rpx / FAB 112rpx
+    - 会话页：回放+续播流 / 上拉翻页 / user 右胶囊 / assistant 全宽 /
+      时间戳分隔 / 工具卡与思考块折叠 / 审批卡三键纵向全宽 88rpx / 中断 /
+      断线重连细条 / Composer 胶囊多行自增
+    - 设置页：配对（手输 6 位码主路径 + Taro.scanCode 解析 spark://pair 深链，
+      失败不阻塞）/ 服务器地址+token / 外观三档 / 断开连接红字
+    - 导航用原生页面栈（头部"设置"文字钮替代 RN 抽屉，形态按 §13.J 收敛）
+    
+    测试与管线：
+    - 逻辑层单测新增 44 例（投影快照 / SSE 分块解析 / 轮询过滤 / 配对深链与码解析 /
+      UTF-8 解码 / 基础库检测），vitest 无头可跑；miniprogram-simulate 未接入
+      （接入成本>收益，见汇报偏离项）
+    - ESLint 仅对 apps/miniapp/babel.config.js 加 CJS override（参照 9.2 mobile
+      判例，未装新插件）；不改 .github/workflows/ci.yml
+    - 根 typecheck / lint / test 三关全绿（合计 912 例 = 基线 868 + 新增 44）
+    
+    v1 口径（README 已述）：project.config.json urlCheck: false 仅开发态；
+    v1 = 开发者工具 + 体验版（局域网 IP），正式分发需中继服务记 v2
+    （ADR D21，届时补 ADR，本阶段不做）。
+    
+    零服务端改动；零删除；禁 any。
+
+diff --git a/.gitignore b/.gitignore
+index ce7d5a5..303066b 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -27,6 +27,9 @@ pnpm-debug.log*
+ coverage/
+ .vitest/
+ 
++# SWC 插件缓存（Taro/swc 构建运行时产物，工单 9.4）
++.swc/
++
+ # Playwright 运行产物（trace/失败上下文；__screenshots__ 基线截图入库）
+ apps/web/e2e/.artifacts/
+ apps/web/playwright/.cache/
+diff --git a/apps/miniapp/babel.config.js b/apps/miniapp/babel.config.js
+new file mode 100644
+index 0000000..8c06596
+--- /dev/null
++++ b/apps/miniapp/babel.config.js
+@@ -0,0 +1,4 @@
++// Taro babel 预设（framework=react / compiler=webpack5 与 config/index.ts 同口径）
++module.exports = {
++  presets: [['taro', { framework: 'react', compiler: 'webpack5', ts: true }]],
++}
+diff --git a/apps/miniapp/project.config.json b/apps/miniapp/project.config.json
+new file mode 100644
+index 0000000..1ee6194
+--- /dev/null
++++ b/apps/miniapp/project.config.json
+@@ -0,0 +1,17 @@
++{
++  "miniprogramRoot": "dist/",
++  "projectname": "spark-miniapp",
++  "description": "Spark 微信小程序（Taro 4 壳，ADR D21 工单 9.4）",
++  "appid": "touristappid",
++  "setting": {
++    "urlCheck": false,
++    "es6": false,
++    "enhance": false,
++    "postcss": false,
++    "minified": true
++  },
++  "compileHotReLoad": true,
++  "compileType": "miniprogram",
++  "libVersion": "3.8.0",
++  "condition": {}
++}
+diff --git a/apps/miniapp/src/global.d.ts b/apps/miniapp/src/global.d.ts
+new file mode 100644
+index 0000000..76efed0
+--- /dev/null
++++ b/apps/miniapp/src/global.d.ts
+@@ -0,0 +1,3 @@
++/** Taro 项目 CSS 旁路导入声明（tsc --noEmit 用；样式由 webpack 构建期处理） */
++declare module '*.css'
++declare module '*.scss'
+diff --git a/apps/miniapp/src/pages/session/index.config.ts b/apps/miniapp/src/pages/session/index.config.ts
+new file mode 100644
+index 0000000..784a64a
+--- /dev/null
++++ b/apps/miniapp/src/pages/session/index.config.ts
+@@ -0,0 +1,3 @@
++export default definePageConfig({
++  navigationBarTitleText: '会话',
++})
+diff --git a/apps/miniapp/src/pages/sessions/index.config.ts b/apps/miniapp/src/pages/sessions/index.config.ts
+new file mode 100644
+index 0000000..eaed616
+--- /dev/null
++++ b/apps/miniapp/src/pages/sessions/index.config.ts
+@@ -0,0 +1,5 @@
++export default definePageConfig({
++  navigationBarTitleText: 'Spark',
++  enablePullDownRefresh: true,
++  backgroundTextStyle: 'dark',
++})
+diff --git a/apps/miniapp/src/pages/settings/index.config.ts b/apps/miniapp/src/pages/settings/index.config.ts
+new file mode 100644
+index 0000000..ca71aee
+--- /dev/null
++++ b/apps/miniapp/src/pages/settings/index.config.ts
+@@ -0,0 +1,3 @@
++export default definePageConfig({
++  navigationBarTitleText: '设置',
++})
+diff --git a/apps/miniapp/tsconfig.json b/apps/miniapp/tsconfig.json
+new file mode 100644
+index 0000000..1cbaae2
+--- /dev/null
++++ b/apps/miniapp/tsconfig.json
+@@ -0,0 +1,10 @@
++{
++  "extends": "../../tsconfig.base.json",
++  "compilerOptions": {
++    "noEmit": true,
++    "jsx": "react-jsx",
++    "lib": ["ES2022", "DOM"],
++    "types": ["node"]
++  },
++  "include": ["src", "config", "tests", "vitest.config.ts"]
++}
+diff --git a/apps/miniapp/vitest.config.ts b/apps/miniapp/vitest.config.ts
+new file mode 100644
+index 0000000..e76a719
+--- /dev/null
++++ b/apps/miniapp/vitest.config.ts
+@@ -0,0 +1,9 @@
++/** vitest 配置——逻辑层单测（doc/06 L5.5）：纯函数/投影/解析，无小程序运行时依赖 */
++import { defineConfig } from 'vitest/config'
++
++export default defineConfig({
++  test: {
++    environment: 'node',
++    include: ['tests/**/*.test.ts'],
++  },
++})
+diff --git a/eslint.config.js b/eslint.config.js
+index f131845..42126bd 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -41,6 +41,21 @@ export default tseslint.config(
+       '@typescript-eslint/no-require-imports': 'off',
+     },
+   },
++  {
++    // apps/miniapp 的 Babel 配置：CJS（同 mobile 判例——工单 9.4）
++    files: ['apps/miniapp/babel.config.js'],
++    languageOptions: {
++      sourceType: 'commonjs',
++      globals: {
++        module: 'writable',
++        require: 'readonly',
++        __dirname: 'readonly',
++      },
++    },
++    rules: {
++      '@typescript-eslint/no-require-imports': 'off',
++    },
++  },
+   {
+     languageOptions: {
+       parserOptions: {
+@@ -50,6 +65,8 @@ export default tseslint.config(
+             // apps/mobile 的 Metro/Babel 配置（CJS，不在任何 tsconfig 项目内）
+             'apps/mobile/metro.config.js',
+             'apps/mobile/babel.config.js',
++            // apps/miniapp 的 Babel 配置（同判例）
++            'apps/miniapp/babel.config.js',
+           ],
+         },
+       },
+diff --git a/package.json b/package.json
+index 23853fc..c67748f 100644
+--- a/package.json
++++ b/package.json
+@@ -16,6 +16,11 @@
+     "format": "prettier --write .",
+     "eval": "pnpm --filter @spark/evals eval"
+   },
++  "pnpm": {
++    "overrides": {
++      "webpack": "5.95.0"
++    }
++  },
+   "devDependencies": {
+     "@eslint/js": "^9.30.0",
+     "eslint": "^9.30.0",
