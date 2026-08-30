@@ -49,14 +49,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       {status !== 'open' && <ReconnectBanner status={status} />}
       <div
         className={cn(
-          'grid min-h-0 grid-cols-[auto_1fr] transition-[grid-template-columns] duration-150',
+          'row-start-2 grid min-h-0 grid-cols-[auto_1fr] transition-[grid-template-columns] duration-150',
           !inSettings && collapsed ? 'grid-cols-[48px_1fr]' : 'grid-cols-[264px_1fr]',
         )}
       >
         {inSettings ? <SettingsSidebar /> : <Sidebar />}
         <main className="min-h-0 overflow-hidden">{children}</main>
       </div>
-      <StatusBar />
+      <div className="row-start-3">
+        <StatusBar />
+      </div>
       <SettingsDialog />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
@@ -73,7 +75,7 @@ function ReconnectBanner({ status }: { status: 'connecting' | 'reconnecting' | '
   return (
     <div
       role="status"
-      className="flex h-6 items-center justify-center border-b border-[var(--spark-err)]/40 bg-[var(--spark-err)]/[0.06] px-3 text-xs text-[var(--spark-err)]"
+      className="row-start-1 flex h-6 items-center justify-center border-b border-[var(--spark-err)]/40 bg-[var(--spark-err)]/[0.06] px-3 text-xs text-[var(--spark-err)]"
     >
       {text}
     </div>
