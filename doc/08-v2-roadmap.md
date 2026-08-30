@@ -5,8 +5,10 @@
 | 版本 | 日期       | 作者                                                                                  | 变更内容                                                                                                              |
 | ---- | ---------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | v1.0 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，四轮 v2 展望会话；MIT / npm CLI 优先 / 本文档交付形式三项已拍板） | 初稿：定位与使用说明 · 决策记录（已拍板/待拍板）· 阶段十一~十五共 34 张工单（每张含验收标准与开工提示词）· 后置观察池 · 提示词总则（附录 A） |
+| v1.1 | 2026-08-31 | 同上；核查：晚风（Wanfeng1028，对照四轮展望清单逐条核查指出缺漏） | **对照四轮展望补全六处**：§0.3 终点图景与差异化五牌；§4.0 五层开发者面表（修 14.6/11.8 悬空引用）；13.1 补「Spark as eval harness」定位句；新增 §7 生命力风险与对策（原不变量节顺延为 §8）；后置池补 LSP/会话导出分享/计划模式 todo/V2-21/V2-02/其余候选池归并行；新增附录 B 阶段十在途工单引用式提示词（治理注记：阶段十唯一来源 doc/02 §8） |
 
 > **定位**：本文是 v2 的**规划库与工单库**，不是执行规格。各阶段开工时，把对应工单 lift 进 doc/02 §8 建立正式阶段表（附版本记录），**执行以 doc/02 定稿为准**——与 doc/07 缺口编号（H01–H36）喂给阶段六~九同一模式。
+> **阶段十（在途）不进本库**：其工单规格、验收与勾选状态唯一来源是 doc/02 §8 阶段十表（含两项待拍板）；附录 B 只提供未勾工单的引用式提示词，不复制规格。
 > **编号规则**：工单号 = 阶段.序号（11.1…15.4）；既有缺口沿用原编号（doc/05 G*、doc/07 H*、doc/02 §8.7 V2-*）；doc/07 编号已冻结至 H36，**新缺口不再新增 H 号**，直接以工单号引用。规划中的未来路径（LICENSE、CONTRIBUTING.md、packages/sdk、apps/docs 等）以普通文字书写，不加反引号，落地后再按仓库惯例引用。
 > **本文与 CI**：遵守 scripts/check_doc_links.py 全部检查项（相对链接可解析、不触碰事实计数锚点、未存在路径不进反引号）。
 
@@ -31,6 +33,17 @@
 | Q-3 | 长任务/心跳 turn 是否立项 | 有真实多日任务诉求再立项，须迷你 ADR（防滑向显式 Planner） | 后置池 |
 | Q-4 | 任务级基准选型（自建 vs Terminal-Bench 类外部 harness） | 先自建场景集（13.1），外部 harness 出可行性报告再定（13.2） | 13.1/13.2 |
 | Q-5 | SDK 客户端包名 | @spark/sdk（与 @spark/protocol、@spark/engine 同谱） | 14.3 |
+
+## 0.3 终点图景与差异化五牌（v2 收官判据）
+
+**一句话愿景**：跑在你自己机器上、说中文、四端可达、每一步可审计的 Agent 工作台——对参考项目不差，且在"信任"与"多端"两维领先；阶段十五之后转入平台化（MCP 出站 / 协议出站适配 / 技能生态 / 长任务）。
+
+**差异化五牌**（README 身份宣言的素材，11.8 消费）：
+1. 四端同一协议——移动端与小程序端闭环（D20/D21/D24）；
+2. 审计级可观测——权限决策归因 + 独立审计流（7.12）；
+3. 事件溯源的彻底性——durable/live/surface 三属性编译期强制；
+4. 中文-first + 本地模型亲和（FTS5 trigram / Ollama+vLLM 可达）；
+5. 工程纪律本身——审计驱动立项、工单带规格行号验收、"不做"清单。
 
 ---
 
@@ -225,7 +238,7 @@ doc/02 §4.4（协议演进 fail-closed 与 ignorable——semver 承诺的技�
 任务：Spark 工单 11.8——README 重写（身份宣言 + Quick Start + 英文版）。
 
 前置阅读：README.md 现状（注意保留事实锚点行：事件词表计数行被 scripts/check_doc_links.py 正则锚定，措辞不可变）、
-doc/08 §2 差异化五牌、doc/01 §2、ARCHITECTURE.md §1/§2、doc/02 §1.4 安全模型。
+doc/08 §0.3 差异化五牌、doc/01 §2、ARCHITECTURE.md §1/§2、doc/02 §1.4 安全模型。
 要求：
 1. 重构 README.md：导语 = 身份宣言（一段话讲清 Spark 是什么/为谁/凭什么：本地运行数据不出机器、四端同一协议、
    每一步可审计、黑白克制的桌面感）；新增 Quick Start 节（npm 全局安装 CLI → spark up → 设置页配模型 →
@@ -498,7 +511,7 @@ packages/engine/src/model-catalog.ts（测试连接链路）。
 
 ## 13.1 任务级 eval 场景集（自建，Q-4 前半）
 
-- **目标**：真实模型评分从"2+2"（examples/evals/src/real.ts 现状仅此一场景）升级为多步任务级证据。
+- **目标**：真实模型评分从"2+2"（examples/evals/src/real.ts 现状仅此一场景）升级为多步任务级证据。本套件同时是「Spark as eval harness」的雏形——12.3 spark -p 落地后，场景可改由 Spark 自身驱动（自举闭环）。
 - **产出**：examples/evals 扩展 tasks 套件：10–20 个确定性场景，每个 = 临时 fixture 仓库（脚本生成）+ 任务指令 + 脚本化判分（文件存在/内容匹配/vitest 子集通过/git diff 形状）；覆盖能力维度：读代码→答问（3）、单文件修改（4）、多文件重构（3）、bash 调试修复（3）、审批拒绝下行为（2）、长任务压缩中途（2）；跑法 `pnpm eval --real --suite tasks`（缺 key 全 skip 不红，11.5 后 nightly 积累趋势）；判分失败输出结构化 diff 报告。
 - **验收**：全场景在 ScriptedLlm 下确定性可复跑（CI 冒烟）；真实模型下至少一次全量运行报告入库（examples/evals/reports/ 首份基线）；单场景平均墙钟 <60s。
 - **依赖**：11.5（nightly 真评接线）。
@@ -686,6 +699,18 @@ apps/server/src/routes.ts、DESIGN.md §13.G。
 > 主题：把"引擎 headless、UI 是投影"从内部架构升级为对外开发者合同。前置：阶段十一完成（有真实用户后再 SDK 化——没有用户就没有 SDK 的意义）；12.3（spark -p）已落地。
 > 四个 ADR 级决策已在展望会话定方向：包形态（protocol 即 SDK、新增薄 @spark/sdk、engine 只承诺嵌入）、稳定性分级（protocol semver 稳定 / engine 内部无承诺）、双通道 parity（InProcess 与 HTTP 过同一 Transport + 同一契约套件）、跨语言（生成物不手写）。落地时各补正式 ADR。
 
+## 4.0 五层开发者面（由内向外——14.1~14.6 逐层落地，15.x 为放大器）
+
+| 层 | 内容 | 现状 | 对应工单 |
+| -- | ---- | ---- | ---- |
+| L0 嵌入 | new Engine({root}) 进程内跑引擎 | eval harness 已实证此模式；export 面未治理 | 14.1 / 14.4 |
+| L1 协议 | 事件词表 + DTO + applyEvent + 文案表 + 键位表 | @spark/protocol 全部导出（12 模块） | 14.1 / 14.2 |
+| L2 客户端 | 连接运行中 server 的高层 client | transport-node 内核（web/cli 共用中） | 14.3 / 14.4 |
+| L3 脚本 | spark -p 一次性 JSON / CI 用法 | 未做 | 12.3（阶段十二前置） |
+| L4 扩展 | skills/commands/hooks/MCP 创作 | D18 声明式 + 7.3/7.4 | 15.1 / 15.3 |
+
+关键设计（opencode sdk-next 验证过的先例，doc/02 §9 已登记）：**L2 只有一个 client 实现、两个 transport**——HTTP 连远程 server，InProcess 直连本地 Engine；四端迁到同一 client 上吃狗粮，SDK 永远被四个真实客户端压着测。
+
 ## 14.1 公共面治理：engine 导出收窄 + protocol 公共 API 清单
 
 - **目标**：SDK 之前先把"承诺什么"定清楚——engine/index.ts 现裸露 EventTree、SessionRuntime、CompactorImpl、COMPACTION_PROMPT 等内部件。
@@ -819,7 +844,7 @@ examples/ 目录现有组织方式、examples/evals 的 ScriptedLlm 复用方式
 ## 14.6 开发者文档站
 
 - **目标**：SDK 的门面——五分钟跑通其中一例。
-- **产出**：apps/docs（VitePress 最小配置或纯 typedoc + markdown，按 boring 原则二选一，ADR 一行记录）：五页（Getting Started / L0–L4 分层模型（doc/08 §2 五层）/ Transport 双通道 / 事件词表参考（从 jsonSchemas 生成）/ FAQ）；deploy = GitHub Pages workflow（tag 触发，随 11.7 release 排）；typedoc 从公共导出（14.1 治理后）生成。
+- **产出**：apps/docs（VitePress 最小配置或纯 typedoc + markdown，按 boring 原则二选一，ADR 一行记录）：五页（Getting Started / L0–L4 分层模型（doc/08 §4.0 五层开发者面）/ Transport 双通道 / 事件词表参考（从 jsonSchemas 生成）/ FAQ）；deploy = GitHub Pages workflow（tag 触发，随 11.7 release 排）；typedoc 从公共导出（14.1 治理后）生成。
 - **验收**：站点本地构建 → 部署 → 外网可达；"五分钟"实测：新目录 npm init → 装 @spark/sdk → 跑通 viewer 示例。
 - **依赖**：14.1/14.3/14.5。
 
@@ -828,12 +853,12 @@ examples/ 目录现有组织方式、examples/evals 的 ScriptedLlm 复用方式
 ```text
 任务：Spark 工单 14.6——开发者文档站。
 
-前置阅读：doc/08 §2 五层模型与工单 14.6、14.1 治理后的公共导出清单、11.7 release workflow（部署挂点）、
+前置阅读：doc/08 §4.0 五层开发者面与工单 14.6、14.1 治理后的公共导出清单、11.7 release workflow（部署挂点）、
 DESIGN.md §12（文档站也守反 AI 味——禁渐变 hero/emoji 装饰）。
 要求：
 1. 形态二选一并留一行决策记录：a) VitePress（apps/docs，内容即 markdown）；b) typedoc HTML + 手写
    guide markdown，GitHub Pages 直发。选 a（boring 与生态惯例）除非构建依赖冲突。
-2. 五页内容：Getting Started（五分钟跑 sdk-viewer）/ 分层模型（L0 嵌入→L4 扩展，doc/08 §2 改写）/ 
+2. 五页内容：Getting Started（五分钟跑 sdk-viewer）/ 分层模型（L0 嵌入→L4 扩展，doc/08 §4.0 改写）/ 
    双通道（HTTP 与 InProcess 同契约）/ 事件词表参考（scripts 从 jsonSchemas 生成 markdown，CI 同步校验）/ 
    FAQ（审批语义/安全模型/稳定性承诺各一段）。
 3. deploy：release.yml 增 pages 步骤（tag 触发）。
@@ -962,10 +987,26 @@ apps/server/src/routes.ts（路由清单——考虑给路由加轻量元数据�
 | 验证闸技能（turn 收尾跑 lint/test 回喂） | 展望会话趋势项 #3 | 7.4 命令注册表上以技能/命令实现，不进引擎 |
 | IDE 集成（VS Code 扩展）/ GitHub Actions 集成 | 观察项 | 不立项；等 npm 分发后有社区信号再议 |
 | 单会话 token 预算闸 | doc/07 §2.4 遗留 | 与 13.6 看板联动评估 |
+| LSP 诊断接入 | 展望会话增量差距 #5 | opencode 有、pi 刻意无；edit 准确性下限保障——有真实误编辑证据再立项（P2） |
+| 会话导出/分享 | 展望会话增量差距 #7 | opencode share 先例；本地产品先做导出（markdown/json），分享上云需安全评审 |
+| 计划模式 todo 交互层 | 展望会话增量差距（低优先判决） | 现为权限预设层（D7 补记，无 todo 工具）；pi 证明极简可打——登记不立项，等用户信号 |
+| MCP HTTP/SSE transport | V2-21 / D16 后置 | 远程 server 真实诉求再立项；15.1 stdio 先行 |
+| 插件市场壳 | V2-02 | 依赖 Q-1 拍板（skills 边界）+ 12.6（V2-01）落地 |
+| 其余候选池项（V2-08 审查模式 / V2-09 辅助会话 / V2-13 数据管理 / V2-14 诊断页 / V2-22 keymap 等） | doc/02 §8.7 | 维持候选池身份；外部用户信号决定优先级，不阻塞阶段十一~十五 |
 
 ---
 
-# 7. 三条不变量（任何阶段不得违背）
+# 7. 生命力风险与对策（展望会话登记，本文建档）
+
+| #  | 风险 | 现状 | 对策（归口） |
+| -- | ---- | ---- | ---- |
+| 1  | Bus factor = 1（单人作者 + AI 会话流水线） | 文档与测试密度是最强补偿；缺贡献者入口 | 11.1 CONTRIBUTING 增"第一个工单怎么挑"入口（good-first-issue 式）；11.7 发版纪律降低外部参与门槛 |
+| 2  | 知识在会话里、不在人脑里（全仓 AI 生成） | doc/02 实现级规格覆盖核心算法（Projector/EventTree/SessionStore） | 任何"顺手重写"核心模块必须先过 doc/02 规格修订——先改规格再动码（AGENTS §7 纪律） |
+| 3  | 上游三件套（pi-ai 0.x / AI Elements Next.js 漂移 / Ink 6） | 隔离单点与 copy-in 对冲已在册（doc/02 §10） | 维持锁版本与隔离纪律；升级前全量回归 |
+| 4  | "不做"清单被展望腐蚀 | 正式判决收拢于 §8 不变量第 2 条 | 每季度重审一次，重审之外不推翻 |
+| 5  | 节奏风险（两个月十一阶段的惯性） | 阶段十一是发布化 | 刻意减速：验收尾巴真正关账（11.2）优先于开新工单 |
+
+# 8. 三条不变量（任何阶段不得违背）
 
 1. **引擎 headless，UI 是事件流的投影**——一切新面（SDK/MCP/适配器）走协议，不开旁路；
 2. **"不做"清单继续有效**（显式 Planner / 虚拟文件系统 / Python Worker / 短期 Scratchpad / 错误自修正回路 / 多用户公网）——每季度重审一次，重审之外不推翻；
@@ -980,3 +1021,20 @@ apps/server/src/routes.ts（路由清单——考虑给路由加轻量元数据�
 3. **通用红线**（已内嵌于各提示词，此处汇总）：文件删除保护（AGENTS §2.10）；参考项目禁克隆（§2.12）；TS strict 禁 any（§2.4）；文档变更走 docs-update 技能；工作区有非本会话未提交修改时先声明再动工，不夹带提交。
 4. **完成后**：按 AGENTS §2.2 commit + push；规划类工单（研究/报告）只动文档不动代码；实现类工单必须测试/typecheck/lint 全绿再提交。
 5. **立项动作**：阶段开工时，把本章对应工单 lift 进 doc/02 §8 新阶段表（工单号不变），本文相应行标注"已立项于 doc/02 vX.Y"；执行冲突时以 doc/02 定稿为准。
+
+---
+
+# 附录 B：阶段十在途工单速引提示词（引用式，不复制规格）
+
+> 阶段十（web 对照审计 + CLI 重构）在 feat/stage10-ui-batch1 进行中。其规格、验收、勾选状态与两项待拍板（水位大条删除 / 欢迎页权限档钮）**唯一来源是 doc/02 §8 阶段十表**（含 DESIGN §13 行号引用）——本附录不复制规格，只提供"引用式"开工提示词。以 doc/02 表勾选状态为准，未勾工单按下列模板开工：
+
+```text
+任务：Spark 阶段十工单 10.X——<工单名>。
+
+前置阅读：AGENTS.md、doc/02 §8 阶段十表 10.X 行（该行"产出/验收标准/依赖"三列即完整规格，逐项执行逐条验收）、
+DESIGN.md §13 对应行（10.X 验收标注的行号）、doc/08 附录 A（提示词总则与红线）。
+要求：按 doc/02 10.X 行产出列逐项实现；每条验收对照 §13 行号走查；涉及协议从 packages/protocol 开始（AGENTS §2.5）。
+完成后：测试/typecheck/lint 全绿 → conventional commits 中文提交 → push 当前分支 → doc/02 阶段十表勾选 + 版本表追加。
+```
+
+速引（一句话要点，规格以 doc/02 为准）：10.4 会话流呈现升级（余项见勾选）/ 10.5 侧栏与全局细节 / 10.6 跨端能力：分支 chip + 推理档位 / 10.7 CLI §13.K 视觉规格成文 / 10.8 CLI 纯单栏骨架重构（D19 修订随工单）/ 10.9 CLI 会话流块族 + 审批框 / 10.10 CLI 面板族 / 10.11 CLI 收口与验收。
