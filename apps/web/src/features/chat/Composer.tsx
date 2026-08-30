@@ -1,9 +1,9 @@
 /**
  * Composer（doc/02 §6.2.2 / §6.3 / DESIGN §13.E，工单 6.3 重做）：
- * 容器=圆角 12px + 1px border + 聚焦 ring 2px + 内边距 12px；多行 1→6 行自增后内滚。
+ * 容器=圆角 12px + 1px border + 聚焦态中性 border 轻微加深（§13.E v2.5，工单 10.3）；多行 1→6 行自增后内滚。
  * 三态——空闲：Enter 发送；运行中：**输入不禁用**（Enter 按分段档发送，插话/排队）；
  * 审批挂起：输入禁用（焦点交还上方 ApprovalCard）。
- * 底部工具条（§13.E）：左=[＋附件][权限档位]；右=[提交模式分段][发送/停止 32px 圆形主钮]。
+ * 底部工具条（§13.E）：左=[＋菜单四项（附件/@///$，工单 10.5⑤）][权限档位]；右=[提交模式分段][发送/停止 32px 圆形主钮]。
  * @ 菜单 / / 菜单（composer-menus.ts 纯逻辑）：↑↓ 选择、Enter 确认、Esc 关闭。
  * 提交三态（started/steered/queued）内联提示反馈（DESIGN §5：异步动作必须有反馈）。
  * 快捷 chips 填充走 imperative handle（fill）——空态页 chips「点击即填入输入框」（§13.E）。
@@ -11,9 +11,13 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import {
   ArrowUp,
+  AtSign,
   Check,
   ChevronsUpDown,
+  DollarSign,
   Paperclip,
+  Plus,
+  Slash,
   Square,
   X,
 } from 'lucide-react'
@@ -105,6 +109,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const dismissedSig = useRef<string | null>(null)
   const [segment, setSegment] = useState<SegmentValue>(defaultDelivery)
   const [presetMenuOpen, setPresetMenuOpen] = useState(false)
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false)
   const taRef = useRef<HTMLTextAreaElement>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -147,6 +152,23 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     document.addEventListener('mousedown', onDocMouseDown)
     return () => document.removeEventListener('mousedown', onDocMouseDown)
   }, [presetMenuOpen])
+
+  // ---- + 菜单（工单 10.5⑤，§13.E）：附件/@///$ 四入口 ----
+
+  /** + 菜单四项（工单 10.5⑤）：附件开关 + 三个触发词插入（@// /$） */
+  function insertTrigger(ch: string): void {
+    setPlusMenuOpen(false)
+    const el = taRef.current
+    const pos = el !== null ? (el.selectionStart ?? draft.length) : draft.length
+    setDraft(draft.slice(0, pos) + ch + draft.slice(pos))
+    requestAnimationFrame(() => {
+      const node = taRef.current
+      if (node === null) return
+      node.focus()
+      node.setSelectionRange(pos + 1, pos + 1)
+      updateCaret(node)
+    })
+  }
 
   function showHint(text: string): void {
     if (hintTimer.current !== null) clearTimeout(hintTimer.current)
@@ -274,6 +296,11 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
+    if (e.key === 'Escape' && plusMenuOpen) {
+      e.preventDefault()
+      setPlusMenuOpen(false)
+      return
+    }
     if (onMenuKeyDown(e)) return // 菜单开放时 ↑↓/Enter/Esc 归菜单
     if (e.key !== 'Enter' || e.shiftKey) return // Shift+Enter 换行走默认
     e.preventDefault()
@@ -484,18 +511,51 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           className="max-h-36 min-h-7 w-full resize-none bg-transparent px-0.5 text-[13px] leading-relaxed outline-none placeholder:text-muted-foreground/60 disabled:cursor-not-allowed disabled:opacity-60"
         />
 
-        {/* 底部工具条（§13.E）：左=[＋附件][权限档位]；右=[提交模式分段][发送/停止] */}
+        {/* 底部工具条（§13.E）：左=[＋菜单][权限档位]；右=[提交模式分段][发送/停止] */}
         <div className="mt-2 flex h-8 items-center gap-1.5">
-          <button
-            type="button"
-            aria-label="添加附件"
-            aria-pressed={attachOpen}
-            disabled={waiting}
-            onClick={() => setAttachOpen((v) => !v)}
-            className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
-          >
-            <Paperclip className="size-4" />
-          </button>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              data-plus-menu
+              aria-label="添加内容"
+              aria-haspopup="menu"
+              aria-expanded={plusMenuOpen}
+              disabled={waiting}
+              onClick={() => setPlusMenuOpen((v) => !v)}
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+            >
+              <Plus className="size-4" />
+            </button>
+            {plusMenuOpen && !waiting && (
+              <ul
+                role="menu"
+                aria-label="添加内容"
+                className="absolute bottom-full left-0 z-20 mb-1.5 w-60 overflow-hidden rounded-lg border border-border bg-popover py-1 shadow-md"
+              >
+                {(
+                  [
+                    { icon: Paperclip, label: '添加附件', run: () => { setPlusMenuOpen(false); setAttachOpen(true) } },
+                    { icon: AtSign, label: '使用 @ 添加上下文', run: () => insertTrigger('@') },
+                    { icon: Slash, label: '使用 / 选择命令或能力', run: () => insertTrigger('/') },
+                    { icon: DollarSign, label: '使用 $ 选择技能', run: () => insertTrigger('$') },
+                  ] as const
+                ).map((m) => (
+                  <li key={m.label} role="none">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onMouseDown={(e) => e.preventDefault()} // 保输入焦点
+                      onClick={m.run}
+                      className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] hover:bg-accent"
+                    >
+                      <m.icon className="size-3.5 shrink-0 text-muted-foreground" />
+                      {m.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           {permission !== undefined && (
             <button

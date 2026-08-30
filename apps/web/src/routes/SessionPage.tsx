@@ -28,8 +28,6 @@ import { useConnectionStore } from '@/stores/connection'
 import { useModelsStore } from '@/stores/models-store'
 import { useCommands } from '@/hooks/useCommands'
 import { useUiStore } from '@/stores/ui'
-import { contextRatio, contextTokensOf, contextWindowOf } from '@/features/chat/context-usage'
-import { UsageBar } from '@/features/chat/UsageBar'
 
 /** 打开会话：GET 全量 durable → resetSlice → 批量 apply（§6.10 时序①；mock 流式夹具不走此路径） */
 type LoadState = 'loading' | 'ready' | { error: string }
@@ -85,7 +83,6 @@ export function SessionPage() {
     useModelsStore.getState().load(transport)
   }, [transport])
   const sliceModel = useSessionStore((s) => s.byId[sid]?.meta.model)
-  const contextUsage = useSessionStore((s) => s.byId[sid]?.contextUsage ?? null)
   const [modelOverride, setModelOverride] = useState<string | null>(null)
   // 会话切换：换模型覆盖归零（新会话以 slice.meta 为准）
   useEffect(() => {
@@ -291,18 +288,8 @@ export function SessionPage() {
 
       <div className="shrink-0 border-t border-border px-6 py-3">
         <div className="mx-auto max-w-[768px]">
-          {/* 上下文用量条（工单 6.6）：最近一轮 usage ÷ contextWindow，>80% 变 warn */}
-          <UsageBar
-            ratio={contextRatio(
-              contextUsage,
-              contextWindowOf(models, modelOverride ?? sliceModel ?? ''),
-            )}
-            title={
-              contextUsage !== null
-                ? `上下文约 ${contextTokensOf(contextUsage)} tokens（按最近一轮 usage 估算，阈值 80%）`
-                : undefined
-            }
-          />
+          {/* 上下文水位只留 StatusBar 百分比（工单 10.5⑦，待拍板 a 按建议执行：大条与
+              StatusBar 重复、ZCode 无此元素——UsageBar 组件停用，文件删除留人工确认） */}
           <Composer
             busy={busy}
             waiting={waiting}
