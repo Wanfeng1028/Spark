@@ -3,6 +3,7 @@
  * 字符插入/退格/左右光标/Ctrl+U 清空/Enter 提交。
  * 全局键（Tab/Esc/Ctrl+C/审批键）由 App 层 useInput 处理，本组件一律忽略；
  * `active` 为 false 时不接收输入（审批挂起让位审批键）。
+ * `onPreview`（工单 10.10）：逐键上报输入预览——slash 菜单过滤数据源。
  * 编辑态以 ref 为权威源：同一批输入（粘贴/快速连击）逐键同步回调时，
  * 渲染闭包里的 state 尚未提交，读 state 会丢字符——ref 保证逐键累积正确。
  */
@@ -14,9 +15,10 @@ export interface InputBoxProps {
   prefix: string
   placeholder: string
   onSubmit: (text: string) => void
+  onPreview?: (value: string) => void
 }
 
-export function InputBox({ active, prefix, placeholder, onSubmit }: InputBoxProps) {
+export function InputBox({ active, prefix, placeholder, onSubmit, onPreview }: InputBoxProps) {
   const [value, setValue] = useState('')
   const [cursor, setCursor] = useState(0)
   const valueRef = useRef('')
@@ -28,6 +30,7 @@ export function InputBox({ active, prefix, placeholder, onSubmit }: InputBoxProp
     cursorRef.current = c
     setValue(v)
     setCursor(c)
+    onPreview?.(v)
   }
 
   useInput(

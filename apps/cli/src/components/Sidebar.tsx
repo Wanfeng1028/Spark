@@ -1,6 +1,7 @@
 /**
- * 会话列表侧栏（<80 列隐藏——工单 8.2 / ADR D19）：
- * 数据 = 连接/重连时刻的 listSessions 快照（按更新时间新→旧）；当前会话 `>` 标记。
+ * 会话列表侧栏——**工单 10.8 起停用**（ADR D19 修订：纯单栏，会话管理退 /new 与 /resume）。
+ * App 不再渲染本组件；文件按删除保护纪律保留（删除须人工五层级确认）。
+ * 原职责：数据 = 连接/重连时刻的 listSessions 快照（按更新时间新→旧）；当前会话 `>` 标记。
  */
 import { Box, Text } from 'ink'
 import { useCliStore } from '../store.js'

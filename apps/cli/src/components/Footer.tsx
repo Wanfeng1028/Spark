@@ -1,0 +1,104 @@
+/**
+ * footer 双行（工单 10.8 / §13.K K.4，决策④；取代阶段八单行状态细条）：
+ * 第 1 行：→项目名 · git:(分支) · 模型 · 上下文 N%（>80% 琥珀；分支取不到不渲染该段）
+ * 第 2 行：[提交模式] · 运行中指示（step/工具/等待审批/压缩中）· ? 帮助 · /stats 看水位明细
+ * 断线/重连异常时在第 1 行上方临时插红字行，恢复即消失（决策④）。
+ * seq 水位与 token 明细不在 footer——收 /stats（决策④）。
+ */
+import { Box, Text } from 'ink'
+import { CONTEXT_WARN_RATIO, contextRatio, contextWindowOf } from '@spark/protocol'
+import type { SessionSlice } from '@spark/protocol'
+import { useCliStore } from '../store.js'
+
+/** 项目名 = cwd 末段目录名（与 web projectOf 同口径的终端版） */
+function projectOf(cwd: string): string {
+  const seg = cwd.split(/[\\/]/).filter((s) => s.length > 0)
+  return seg[seg.length - 1] ?? '未分组'
+}
+
+export function Footer({ slice }: { slice: SessionSlice | null }) {
+  const status = useCliStore((s) => s.status)
+  const delivery = useCliStore((s) => s.delivery)
+  const models = useCliStore((s) => s.models)
+
+  const ratio =
+    slice === null ? null : contextRatio(slice.contextUsage, contextWindowOf(models, slice.meta.model))
+  const warn = ratio !== null && ratio > CONTEXT_WARN_RATIO
+  const turn = slice?.activeTurn ?? null
+
+  // 运行中工具名计数（同名 ×N，与 web TurnStatusBar 同口径）
+  const toolCounts = new Map<string, number>()
+  if (turn !== null) {
+    for (const it of slice?.items ?? []) {
+      if (it.kind === 'tool' && it.status === 'running') {
+        toolCounts.set(it.name, (toolCounts.get(it.name) ?? 0) + 1)
+      }
+    }
+  }
+
+  const abnormal = status !== 'open'
+  const cwd = slice === null || slice.meta.cwd === '' ? null : slice.meta.cwd
+  const branch = slice === null || slice.meta.branch === undefined ? null : slice.meta.branch
+
+  return (
+    <Box flexDirection="column">
+      {/* 异常插行（决策④）：断线/重连中临时红字，恢复即消失 */}
+      {abnormal ? (
+        <Text color="red">
+          {status === 'connecting'
+            ? '连接中...'
+            : status === 'reconnecting'
+              ? '已断线，重连中...'
+              : '连接已断开'}
+        </Text>
+      ) : null}
+      {/* 第 1 行：→项目 · git:(分支) · 模型 · 上下文 % */}
+      <Text color="gray">
+        →{cwd !== null ? projectOf(cwd) : '—'}
+        {branch !== null && branch !== '' ? (
+          <>
+            {' '}
+            <Text color="gray">git:(</Text>
+            {branch}
+            <Text color="gray">)</Text>
+          </>
+        ) : null}
+        {slice !== null && slice.meta.model !== '' ? (
+          <>
+            <Text color="gray"> · </Text>
+            {slice.meta.model}
+          </>
+        ) : null}
+        {ratio !== null ? (
+          <>
+            <Text color="gray"> · 上下文 </Text>
+            {warn ? (
+              <Text color="yellow">{Math.min(100, Math.round(ratio * 100))}%</Text>
+            ) : (
+              <Text>{Math.min(100, Math.round(ratio * 100))}%</Text>
+            )}
+          </>
+        ) : null}
+      </Text>
+      {/* 第 2 行：提交模式 · 运行中指示 · 帮助/统计入口 */}
+      <Text color="gray">
+        [{delivery}]
+        {slice?.compacting === true ? <Text color="yellow"> · 压缩中...</Text> : null}
+        {turn !== null ? (
+          <>
+            {' '}
+            step {turn.stepCount}
+            {[...toolCounts.entries()].map(([name, count]) => (
+              <Text key={name}>
+                {' '}
+                {count > 1 ? `${name}x${count}` : name}
+              </Text>
+            ))}
+            {turn.waiting ? <Text color="yellow"> · 请求授权</Text> : null}
+          </>
+        ) : null}
+        {' · ? 帮助 · /stats 明细'}
+      </Text>
+    </Box>
+  )
+}
