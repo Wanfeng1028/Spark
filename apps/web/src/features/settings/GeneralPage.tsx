@@ -227,7 +227,11 @@ export function GeneralSettingsPage() {
       </SettingGroupCard>
 
       <SettingGroupCard>
-        <SettingRow title="界面语言" description="多语言界面（i18n 框架未落地）" placeholderBadge="后续工单" />
+        <SettingRow
+          title="界面语言"
+          description="多语言界面——去向：v2 池 V2-12（i18n 框架）"
+          placeholderBadge="v2 挂池"
+        />
         <SettingRow
           title="显示思考过程"
           description="关闭时每轮仅展示第一次思考（会话域 §13.H 开关；即存即生效）"
@@ -260,26 +264,42 @@ export function GeneralSettingsPage() {
       <SettingGroupCard>
         <SettingRow
           title="HTTP 代理"
-          description="模型/MCP/命令工具出口流量经此代理（引擎缺口项）"
-          placeholderBadge="后续工单"
+          description="模型/MCP/命令工具出口流量代理——去向：v2 池 V2-06（代理/证书）"
+          placeholderBadge="v2 挂池"
         />
-        <SettingRow title="不使用代理的地址" description="逗号分隔规则，匹配主机直连" placeholderBadge="后续工单" />
+        <SettingRow
+          title="不使用代理的地址"
+          description="逗号分隔规则，匹配主机直连——去向：v2 池 V2-06（随代理能力）"
+          placeholderBadge="v2 挂池"
+        />
         <SettingRow
           title="自定义证书"
-          description="PEM 路径注入模型/MCP/命令工具（NODE_EXTRA_CA_CERTS）"
-          placeholderBadge="后续工单"
+          description="PEM 路径注入（NODE_EXTRA_CA_CERTS）——去向：v2 池 V2-06（代理/证书）"
+          placeholderBadge="v2 挂池"
         />
       </SettingGroupCard>
 
       <SettingGroupCard>
-        <SettingRow title="数据存储路径" description="会话与配置存储目录（~/.spark/）" placeholderBadge="后续工单" />
+        <SettingRow
+          title="数据存储路径"
+          description="现固定 ~/.spark/（启动期定）；多数据目录迁移去向：v2"
+          placeholderBadge="v2 挂池"
+        />
         <SettingRow
           title="自动归档旧任务"
-          description="已完成且超期会话自动归档（需会话归档后端支持）"
-          placeholderBadge="后续工单"
+          description="已完成且超期会话自动归档——去向：v2（需会话归档后端）"
+          placeholderBadge="v2 挂池"
         />
-        <SettingRow title="任务通知" description="完成/失败/需确认时系统通知" placeholderBadge="后续工单" />
-        <SettingRow title="通知声音" description="通知提示音" placeholderBadge="后续工单" />
+        <SettingRow
+          title="任务通知"
+          description="完成/失败/需确认时系统通知——去向：v2（通知体系）"
+          placeholderBadge="v2 挂池"
+        />
+        <SettingRow
+          title="通知声音"
+          description="通知提示音——去向：v2（随任务通知）"
+          placeholderBadge="v2 挂池"
+        />
       </SettingGroupCard>
 
       <SettingGroupCard>

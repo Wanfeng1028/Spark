@@ -1,8 +1,9 @@
 /**
  * 设置中心信息架构（DESIGN §13.D 三组 15 页 + 用户指令"Agent 能力组先迁入权限规则页"）：
  * 每页声明 group/id/title/description 与落地状态——ready 页在 SettingsPage 路由
- * 组件内映射真组件，其余统一渲染占位页（标注 desktop 特化/后续工单）。
+ * 组件内映射真组件，其余统一渲染占位页（标注去向：desktop 特化 / v2 挂池）。
  * 权限规则页为 §13.D 15 页之外的本阶段迁入项（原 SettingsDialog RulesSection）。
+ * 工单 10.20 C：占位页一律明示去向（v2 编号/桌面依赖），禁"后续工单"空占位。
  */
 
 export type SettingsPageStatus = 'ready' | 'placeholder'
@@ -14,7 +15,7 @@ export interface SettingsPageDef {
   description: string
   status: SettingsPageStatus
   /** 占位原因（badge 文案；ready 页为空） */
-  placeholderReason?: 'desktop 特化' | '后续工单'
+  placeholderReason?: 'desktop 特化' | '后续工单' | 'v2 挂池'
 }
 
 export interface SettingsGroupDef {
@@ -53,16 +54,16 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'browser',
         title: '浏览器',
-        description: '浏览器工具的数据与引擎设置',
+        description: '浏览器工具数据与引擎设置——去向：v2（工具数据/权限面）',
         status: 'placeholder',
-        placeholderReason: '后续工单',
+        placeholderReason: 'v2 挂池',
       },
       {
         id: 'computer',
         title: '电脑控制',
-        description: '系统级控制开关与审批档位',
+        description: '系统级控制开关与审批档位——去向：v2（桌面能力面）',
         status: 'placeholder',
-        placeholderReason: '后续工单',
+        placeholderReason: 'v2 挂池',
       },
     ],
   },
@@ -84,16 +85,16 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'subagents',
         title: '子智能体',
-        description: '自定义与内置子智能体',
+        description: '自定义与内置子智能体——去向：v2 池 V2-33（管理面板）',
         status: 'placeholder',
-        placeholderReason: '后续工单',
+        placeholderReason: 'v2 挂池',
       },
       {
         id: 'plugins',
         title: '插件',
-        description: '已安装插件与市场',
+        description: '已安装插件与市场——去向：v2 池 V2-01/V2-02（生态面）',
         status: 'placeholder',
-        placeholderReason: '后续工单',
+        placeholderReason: 'v2 挂池',
       },
       {
         id: 'mcp',
@@ -127,9 +128,9 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'index',
         title: '索引库',
-        description: '会话索引数据库',
+        description: '会话索引数据库（引擎 SQLite 索引已有；管理页）——去向：v2',
         status: 'placeholder',
-        placeholderReason: '后续工单',
+        placeholderReason: 'v2 挂池',
       },
       {
         id: 'usage',
@@ -146,9 +147,9 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'onboarding',
         title: '引导',
-        description: '重新打开新手引导',
+        description: '重新打开新手引导——去向：v2（引导体系）',
         status: 'placeholder',
-        placeholderReason: '后续工单',
+        placeholderReason: 'v2 挂池',
       },
     ],
   },
