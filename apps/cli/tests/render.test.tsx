@@ -12,6 +12,7 @@ import { MessagePane } from '../src/components/MessagePane.js'
 import { ApprovalPrompt } from '../src/components/ApprovalPrompt.js'
 import { InputBox } from '../src/components/InputBox.js'
 import { Footer } from '../src/components/Footer.js'
+import { BootHeader } from '../src/components/BootHeader.js'
 import { filterSlashCommands } from '../src/components/SlashMenu.js'
 import { ItemView, summarizeToolInput, toolCategoryOf, toolOutputText, toolOutputLines, ToolGroupLine } from '../src/components/items.js'
 import { flowRowsOf, rowSettled } from '../src/flow-rows.js'
@@ -337,6 +338,7 @@ describe('Footer（工单 10.8 / §13.K K.4 双行）', () => {
     expect(f).toContain('git:(main)')
     expect(f).toContain('deepseek/chat')
     expect(f).toContain('[now]')
+    expect(f).toContain('Tab 切换提交模式')
     expect(f).toContain('? 帮助')
     expect(f).toContain('/stats 明细')
   })
@@ -346,6 +348,40 @@ describe('Footer（工单 10.8 / §13.K K.4 双行）', () => {
     s.meta.cwd = '/home/wanfeng/Spark'
     const f = render(<Footer slice={s} />).lastFrame()
     expect(f).not.toContain('git:(')
+  })
+})
+
+describe('BootHeader（工单 10.23 / §13.K K.1 左右分栏）', () => {
+  it('宽屏双栏：logo 与信息盒同帧 + 模型提示 + 提示行前缀', () => {
+    const s = slice()
+    s.meta.cwd = '/home/wanfeng/Spark'
+    const f = render(<BootHeader slice={s} models={null} columns={120} />).lastFrame()
+    expect(f).toContain('/ __|') // logo 行在帧内
+    expect(f).toContain('>_')
+    expect(f).toContain('Spark')
+    expect(f).toContain('（/model 切换）')
+    expect(f).toContain('提示：')
+  })
+
+  it('窄屏隐藏 logo、信息盒保留（不堆叠）', () => {
+    const s = slice()
+    s.meta.cwd = '/home/wanfeng/Spark'
+    const f = render(<BootHeader slice={s} models={null} columns={60} />).lastFrame()
+    expect(f).not.toContain('/ __|')
+    expect(f).toContain('Spark')
+  })
+
+  it('禁假状态：slice=null 显 — 且无模型提示', () => {
+    const f = render(<BootHeader slice={null} models={null} columns={120} />).lastFrame()
+    expect(f).toContain('—')
+    expect(f).not.toContain('（/model 切换）')
+  })
+
+  it('cwd 超长截断带省略号', () => {
+    const s = slice()
+    s.meta.cwd = '/home/wanfeng/' + 'x'.repeat(200)
+    const f = render(<BootHeader slice={s} models={null} columns={120} />).lastFrame()
+    expect(f).toContain('…')
   })
 })
 

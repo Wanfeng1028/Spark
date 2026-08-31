@@ -646,7 +646,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
   if (bootError !== null) {
     return (
       <Box flexDirection="column" height={rows}>
-        <BootHeader slice={null} models={null} />
+        <BootHeader slice={null} models={null} columns={columns} />
         <Box flexDirection="column" marginTop={1}>
           <Text color="red">启动失败：{bootError}</Text>
           <Text color="gray">Ctrl+R 重试 · Ctrl+C ×2 退出</Text>
@@ -694,7 +694,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
           {slice === null || slice.items.length === 0 || bootEcho ? (
             // boot 骨架三态通吃（工单 10.17①）：连接中/空会话/resume 重现
             <Box flexGrow={1} justifyContent="center">
-              <BootHeader slice={slice} models={models} />
+              <BootHeader slice={slice} models={models} columns={columns} />
             </Box>
           ) : (
             <MessagePane slice={slice} />

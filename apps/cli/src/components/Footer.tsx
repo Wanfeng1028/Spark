@@ -97,7 +97,7 @@ export function Footer({ slice }: { slice: SessionSlice | null }) {
             {turn.waiting ? <Text color="yellow"> · 请求授权</Text> : null}
           </>
         ) : null}
-        {' · ? 帮助 · /stats 明细'}
+        {' · Tab 切换提交模式 · ? 帮助 · /stats 明细'}
       </Text>
     </Box>
   )
