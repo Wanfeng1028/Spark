@@ -39,7 +39,7 @@ import type {
   TreeNodeDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
-import type { PermissionReply } from './primitives.js'
+import type { PermissionReply, ReasoningEffort } from './primitives.js'
 import type { SendMessageOptions, SubmitOutcome, Transport } from './transport.js'
 
 /** §6.6：指数退避 1/2/5/10s 封顶 */
@@ -391,6 +391,13 @@ export class HttpTransport implements Transport {
       method: 'PUT',
       body: JSON.stringify({ model }),
     }).then((r) => r.model)
+  }
+
+  setSessionEffort(sessionId: SessionId, effort: ReasoningEffort): Promise<ReasoningEffort> {
+    return this.req<{ effort: ReasoningEffort }>(`/api/sessions/${sessionId}/effort`, {
+      method: 'PUT',
+      body: JSON.stringify({ effort }),
+    }).then((r) => r.effort)
   }
 
   getRouting(): Promise<RoutingDto> {

@@ -44,6 +44,7 @@ const VALID_MODELS = JSON.stringify({
   titleModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 128000 },
   subagentModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 128000 },
   costLimitUsd: undefined,
+  defaultEffort: undefined,
   models: [{ provider: 'deepseek', model: 'deepseek-chat', contextWindow: 128000 }],
 })
 

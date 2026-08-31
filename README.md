@@ -12,7 +12,7 @@ Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行�
 
 刻意不做：多用户、登录、公网部署（绑定 127.0.0.1 是设计而非缺省）。
 
-**当前状态**：**v1 —— 五阶段全部完成；阶段六（UI 重构 ZCode 化）、阶段七（Harness 补全）、阶段八（CLI TUI）与阶段九（移动端三端）均已完成待 PR 合入**。全仓测试 921 例全绿（engine 486 / server 92 / web 159 / protocol 69 / cli 16 / mobile 48 / miniapp 51）+ Playwright E2E 7 例 + typecheck 全绿；nightly 接 eval 回归（`pnpm eval`——examples/evals 确定性场景集，工单 7.11）。阶段七十二项工单全落地（7.9 Python worker 经审计判决删除，见 doc/07 §4.1）：secrets 管理 / I/O 护栏 / 用户侧 hooks / 命令注册表 / 长期记忆（ADR D25）/ 自动化触发器（ADR D26）/ model routing 增强 / 子代理增强 / browser 工具族（ADR D27）/ eval harness / 审计日志 / 会话全文搜索——doc/07 审计缺口 H01–H12 全部勾销，其余入 v2 候选池。阶段五四件套已落地：Electron sidecar 壳（ADR D14，NSIS 安装包走 GH Actions Windows runner）、bash 沙箱 wrapper（ADR D15 bwrap/Seatbelt）、MCP client（ADR D16 外部工具与内置工具同一管线）、子代理（ADR D17 独立子会话 + Steer turn 校验）、skills/插件（ADR D18 事件词表运行时扩展 + 声明式清单，示例 examples/skills/demo-ping）。待用户环境执行的现场验收：Windows 本机安装走查、真实外部 MCP server 演示、真实模型子代理演示、沙箱隔离效果验证（容器内 bwrap 不可用）。阶段八五工单全落地：transport/applyEvent/上下文水位/错误文案/键位表下沉 @spark/protocol（四端共享，D22）+ apps/cli Ink 6 四区形态（ADR D19）。**阶段九五工单全落地待合入（移动端三端）**：配对鉴权（ADR D24：扫码配对/双口径鉴权/启动护栏，缺省 127.0.0.1+无鉴权行为不变红线保持）+ apps/mobile Expo+RN（ADR D20：会话体验/流式/审批/断线重连/分页）+ apps/miniapp Taro 4 小程序壳（ADR D21：v1 开发者工具/体验版）；Maestro 四幕用例在库（`apps/mobile/e2e/`）；真机/模拟器四场景走查与小程序开发者工具走查由用户执行（留待记录）。测试体系规划见 doc/06。
+**当前状态**：**v1 —— 五阶段全部完成；阶段六（UI 重构 ZCode 化）、阶段七（Harness 补全）、阶段八（CLI TUI）与阶段九（移动端三端）均已完成待 PR 合入**。全仓测试 921 例全绿（engine 486 / server 92 / web 159 / protocol 69 / cli 16 / mobile 48 / miniapp 51）+ Playwright E2E 7 例 + typecheck 全绿；nightly 接 eval 回归（`pnpm eval`——examples/evals 确定性场景集，工单 7.11）。阶段七十二项工单全落地（7.9 Python worker 经审计判决删除，见 doc/07 §4.1）：secrets 管理 / I/O 护栏 / 用户侧 hooks / 命令注册表 / 长期记忆（ADR D25）/ 自动化触发器（ADR D26）/ model routing 增强 / 子代理增强 / browser 工具族（ADR D27）/ eval harness / 审计日志 / 会话全文搜索——doc/07 审计缺口 H01–H12 全部勾销，其余入 v2 候选池。阶段五四件套已落地：Electron sidecar 壳（ADR D14，NSIS 安装包走 GH Actions Windows runner）、bash 沙箱 wrapper（ADR D15 bwrap/Seatbelt）、MCP client（ADR D16 外部工具与内置工具同一管线）、子代理（ADR D17 独立子会话 + Steer turn 校验）、skills/插件（ADR D18 事件词表运行时扩展 + 声明式清单，示例 examples/skills/demo-ping）。待用户环境执行的现场验收：Windows 本机安装走查、真实外部 MCP server 演示、真实模型子代理演示、沙箱隔离效果验证（容器内 bwrap 不可用）。阶段八五工单全落地：transport/applyEvent/上下文水位/错误文案/键位表下沉 @spark/protocol（四端共享，D22）+ apps/cli Ink 6 形态（ADR D19；阶段十修订为纯单栏会话优先）。**阶段九五工单全落地待合入（移动端三端）**：配对鉴权（ADR D24：扫码配对/双口径鉴权/启动护栏，缺省 127.0.0.1+无鉴权行为不变红线保持）+ apps/mobile Expo+RN（ADR D20：会话体验/流式/审批/断线重连/分页）+ apps/miniapp Taro 4 小程序壳（ADR D21：v1 开发者工具/体验版）；Maestro 四幕用例在库（`apps/mobile/e2e/`）；真机/模拟器四场景走查与小程序开发者工具走查由用户执行（留待记录）。**阶段十进行中**（UI 对齐 + CLI 重构）：第一批规格修订/布局修复/聚焦环中性化 + 会话流呈现升级（尾操作行/回合头/工具块人话聚合）+ 侧栏与全局细节 + 跨端分支 chip/推理档位；CLI 按 §13.K 重构为纯单栏（ADR D19 修订：会话管理退 /new 与 /resume，footer 双行，面板族）。测试体系规划见 doc/06。
 
 ## 架构一览
 
@@ -36,7 +36,7 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | 前端 | Vite 7 · React 19 · TypeScript(strict) · Tailwind CSS v4 · shadcn/ui · Vercel AI Elements（copy-in）· streamdown · react-virtuoso · zustand |
 | 后端 | Node 22+ · `@earendil-works/pi-ai` / `pi-agent-core` · Fastify · SSE · 自写 append-only JSONL 会话日志                                      |
-| 布局 | pnpm monorepo：`packages/protocol`（唯一合同）· `packages/engine` · `apps/server` · `apps/web` · `apps/desktop`（阶段五）· `apps/cli`（阶段八）· `apps/mobile`（阶段九，Expo+RN）· `apps/miniapp`（阶段九，Taro 4 小程序） |
+| 布局 | pnpm monorepo：`packages/protocol`（唯一合同）· `packages/engine` · `apps/server` · `apps/web` · `apps/desktop`（阶段五）· `apps/cli`（阶段八）· `apps/mobile`（阶段九，Expo+RN）· `apps/miniapp`（阶段九，Taro 4 小程序）；另 `official/`=Spark 产品官网代码（仅前端，不在 pnpm workspace，独立于产品各端） |
 
 ## 文档
 
@@ -51,6 +51,7 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 | [doc/05-completion-audit.md](./doc/05-completion-audit.md)   | 完成度审计（阶段三后）：源码级核查实测结果 · 缺口清单 G1–G7 · 动工顺序                          |
 | [doc/06-testing-plan.md](./doc/06-testing-plan.md)           | 测试体系补全计划：五层+契约分层 · CI 流水线 · 性能基线 · 456 例归属 · 四端走查模板              |
 | [doc/07-harness-audit.md](./doc/07-harness-audit.md)         | Harness 模块审计：十九条学科×三态 · 六大类源码级证据 · 缺口 H01–H36 · Python Worker 判决        |
+| [doc/08-v2-roadmap.md](./doc/08-v2-roadmap.md)               | v2 展望与工单库：阶段十一~十五规划（发布化/可日用/可证明/SDK 化/生态面）· 34 张工单含开工提示词 |
 | [.agents/skills/](./.agents/skills/)                         | 可重复任务流程：docs-update · new-event-type · new-tool · frontend-component                    |
 
 ## 开发
@@ -105,3 +106,7 @@ pnpm eval                   # eval 回归（工单 7.11：确定性场景集；-
 | v1.22 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段八开工指令——CLI TUI 全量）                                                                                   | **阶段八完成登记**：当前状态行刷新为阶段六/七/八完成待合入（工单 8.1–8.5；测试计数 782 例含 protocol 57/cli 16）；技术栈布局行补 `apps/cli`（阶段八）；开发区补 `pnpm --filter cli dev` 并清理阶段一过时占位（`pnpm dev` 行改按包 --filter 实际命令）；与 AGENTS v1.21、doc/02 v3.23 同步 |
 | v1.23 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段九开工指令）                                                                                   | **当前状态行刷新为阶段九已开工：工单 9.1 配对鉴权完成待合入**（ADR D24：扫码配对为主手输兜底/双口径鉴权/启动护栏/撤销即断；缺省 127.0.0.1+无鉴权行为不变红线保持）；测试计数 814 例（server 64→85、protocol 57→68）；与 AGENTS v1.22、doc/02 v3.25 同步 |
 | v1.24 | 2026-08-30 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段九开工指令）                                                                                   | **阶段九完成登记**：当前状态行刷新为阶段六/七/八/九完成待合入（工单 9.1–9.5：配对鉴权 + apps/mobile Expo+RN + apps/miniapp Taro 4 小程序壳，ADR D20–D24）；测试计数 921 例（新增 mobile 48/miniapp 51，server 85→92、protocol 68→69）；技术栈布局行补 `apps/mobile`/`apps/miniapp`；开发区补 `pnpm --filter mobile dev`/`miniapp dev`；真机/模拟器与小程序开发者工具走查由用户执行（留待记录）；与 AGENTS v1.23、doc/02 v3.29 同步 |
+| v1.25 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，v2 展望会话）                        | 文档导航新增 doc/08 v2 展望与工单库（阶段十一~十五：发布化/可日用/可证明/SDK 化/生态面，34 张工单含开工提示词；决策已拍板：MIT / npm CLI 优先） |
+| v1.26 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段十全量开工指令）                        | 当前状态段登记阶段十进展（规格修订/会话流升级/侧栏细节/分支 chip+推理档位/CLI §13.K 纯单栏重构——ADR D19 修订）；阶段八描述同步"纯单栏会话优先" |
+| v1.27 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028）                        | 技术栈布局行登记 `offical/`——Spark 产品官网代码（仅前端，不在 pnpm workspace，独立于产品各端）；与 doc/02 v3.35 §3 目录树同步 |
+| v1.28 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028）                        | 官网文件夹拼写改名 `offical/` → `official/`（v1.27 登记名系笔误；仓库内重命名，历史行不改）；布局行引用同步；与 doc/02 v3.36、检查器 SKIP_DIRS 同步 |

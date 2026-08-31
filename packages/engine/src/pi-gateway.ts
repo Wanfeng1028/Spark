@@ -22,6 +22,7 @@ import type {
   Context as PiContext,
   Message as PiMessage,
   Model,
+  SimpleStreamOptions,
   StreamOptions,
   TextContent,
   ThinkingContent,
@@ -322,10 +323,12 @@ export class PiGateway implements LlmGateway {
       messages: toPiMessages(req.messages),
       ...(req.tools.length > 0 ? { tools: toPiTools(req.tools) } : {}),
     }
-    const options: StreamOptions = {
+    const options: SimpleStreamOptions = {
       apiKey: req.model.apiKey,
       signal: req.signal,
       ...(req.maxTokens !== undefined ? { maxTokens: req.maxTokens } : {}),
+      // 工单 10.6：推理档位透传（ThinkingLevel 子集；不支持的 provider 由 pi-ai 忽略）
+      ...(req.effort !== undefined ? { reasoning: req.effort } : {}),
     }
 
     let attempt = 0

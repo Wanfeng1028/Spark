@@ -68,6 +68,21 @@ describe('session.created / resumed / title', () => {
     expect(s2.byId[OTHER]).toBeDefined()
   })
 
+  it('created：branch/effort 透传（工单 10.6；未携带则缺省——禁假状态）', () => {
+    const s1 = applyEvent(
+      fresh(),
+      ev(
+        'session.created',
+        { cwd: '/w', model: 'm', branch: 'main', effort: 'high' },
+        { seq: 1 },
+      ),
+    )
+    expect(s1.byId[SID]?.meta).toMatchObject({ branch: 'main', effort: 'high' })
+    const s2 = applyEvent(fresh(), ev('session.created', { cwd: '/w', model: 'm' }, { seq: 1 }))
+    expect(s2.byId[SID]?.meta.branch).toBeUndefined()
+    expect(s2.byId[SID]?.meta.effort).toBeUndefined()
+  })
+
   it('resumed：未知会话也建 slice（回放随后逐条应用）', () => {
     const s = applyEvent(fresh(), ev('session.resumed', { fromSeq: 0 }, { seq: 1 }))
     expect(s.byId[SID]).toBeDefined()
@@ -80,25 +95,27 @@ describe('session.created / resumed / title', () => {
 })
 
 describe('turn 生命周期', () => {
-  it('turn.started：建 activeTurn，清上轮错误横幅', () => {
+  it('turn.started：建 activeTurn，清上轮错误横幅，turn 项入列（工单 10.4 回合头）', () => {
     let s = seeded()
     s = applyEvent(s, ev('turn.completed', { turnId: TURN, finish: 'error' }, { seq: 2 }))
     expect(s.byId[SID]?.topBanner).toEqual({ kind: 'turn-error', turnId: TURN })
-    s = applyEvent(
-      s,
-      ev(
-        'turn.started',
-        { turnId: ids.turn('trn_t2'), delivery: 'now', userEventId: ids.event('evt_u2') },
-        { seq: 3 },
-      ),
+    const e2 = ev(
+      'turn.started',
+      { turnId: ids.turn('trn_t2'), delivery: 'now', userEventId: ids.event('evt_u2') },
+      { seq: 3 },
     )
+    s = applyEvent(s, e2)
     const at = s.byId[SID]?.activeTurn
     expect(at).toMatchObject({ turnId: ids.turn('trn_t2'), stepCount: 0, waiting: false })
     expect(at?.runningTools.size).toBe(0)
     expect(s.byId[SID]?.topBanner).toBeNull()
+    // turn 项：入列带 startedAt；此前无对应项的 completed 回填静默跳过不崩
+    const t = itemsOf(s).find((i) => i.kind === 'turn')
+    expect(t).toMatchObject({ kind: 'turn', turnId: ids.turn('trn_t2'), startedAt: e2.time })
+    if (t !== undefined && t.kind === 'turn') expect(t.finishedAt).toBeUndefined()
   })
 
-  it('turn.completed：activeTurn 清空 + usage 累计 + finish=error 设横幅', () => {
+  it('turn.completed：activeTurn 清空 + usage 累计 + finish=error 设横幅 + 回合头回填', () => {
     let s = seeded()
     s = applyEvent(
       s,
@@ -108,19 +125,24 @@ describe('turn 生命周期', () => {
         { seq: 2 },
       ),
     )
-    s = applyEvent(
-      s,
-      ev(
-        'turn.completed',
-        {
-          turnId: TURN,
-          finish: 'stop',
-          usage: { inputTokens: 10, outputTokens: 5, cacheRead: 1 },
-        },
-        { seq: 3 },
-      ),
+    const e3 = ev(
+      'turn.completed',
+      {
+        turnId: TURN,
+        finish: 'stop',
+        usage: { inputTokens: 10, outputTokens: 5, cacheRead: 1 },
+      },
+      { seq: 3 },
     )
+    s = applyEvent(s, e3)
     expect(s.byId[SID]?.activeTurn).toBeNull()
+    const t = itemsOf(s).find((i) => i.kind === 'turn')
+    if (t !== undefined && t.kind === 'turn') {
+      expect(t.finishedAt).toBe(e3.time)
+      expect(t.finish).toBe('stop')
+    } else {
+      expect.unreachable('turn 项应存在')
+    }
     expect(s.byId[SID]?.usageTotal).toMatchObject({
       inputTokens: 10,
       outputTokens: 5,
@@ -172,13 +194,14 @@ describe('消息流：user / assistant / reasoning', () => {
     expect(items[0]).toMatchObject({ kind: 'user', text: '你好' })
   })
 
-  it('assistant.delta→message：streaming 缓冲累积后定稿清 streaming', () => {
+  it('assistant.delta→message：streaming 缓冲累积后定稿清 streaming（含定稿时间，工单 10.4①）', () => {
     let s = seeded()
-    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: 'He' }))
+    const e1 = ev('assistant.delta', { turnId: TURN, text: 'He' })
+    s = applyEvent(s, e1)
     s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: 'llo' }))
     let items = itemsOf(s)
     expect(items).toHaveLength(1)
-    expect(items[0]).toMatchObject({ kind: 'assistant', streaming: { textBuf: 'Hello' } })
+    expect(items[0]).toMatchObject({ kind: 'assistant', streaming: { textBuf: 'Hello' }, time: e1.time })
 
     s = applyEvent(
       s,
@@ -194,6 +217,7 @@ describe('消息流：user / assistant / reasoning', () => {
     if (a?.kind === 'assistant') {
       expect(a.streaming).toBeUndefined()
       expect(a.content).toEqual([{ type: 'text', text: 'Hello!' }])
+      expect(a.time).toBe(e1.time) // 定稿保留首帧时间（尾操作行时间戳数据源）
     }
   })
 
@@ -236,16 +260,24 @@ describe('消息流：user / assistant / reasoning', () => {
     expect(s.byId[SID]?.activeTurn?.stepCount).toBe(1)
   })
 
-  it('reasoning.delta→ended：流式累积后以 ended 定稿全文', () => {
+  it('reasoning.delta→ended：流式累积后以 ended 定稿全文（含计时，工单 10.4③）', () => {
     let s = seeded()
-    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '想一' }))
+    const e1 = ev('reasoning.delta', { turnId: TURN, text: '想一' })
+    s = applyEvent(s, e1)
     s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '想' }))
-    expect(itemsOf(s)[0]).toMatchObject({ kind: 'reasoning', text: '想一想', streaming: true })
-    s = applyEvent(s, ev('reasoning.ended', { turnId: TURN, text: '想一想（完整）' }, { seq: 2 }))
+    expect(itemsOf(s)[0]).toMatchObject({
+      kind: 'reasoning',
+      text: '想一想',
+      streaming: true,
+      startedAt: e1.time,
+    })
+    const e2 = ev('reasoning.ended', { turnId: TURN, text: '想一想（完整）' }, { seq: 2 })
+    s = applyEvent(s, e2)
     expect(itemsOf(s)[0]).toMatchObject({
       kind: 'reasoning',
       text: '想一想（完整）',
       streaming: false,
+      durationMs: e2.time - e1.time,
     })
   })
 
@@ -281,7 +313,7 @@ describe('tool 状态机', () => {
 
   it('tool.started：push running + runningTools.add', () => {
     const s = started()
-    expect(itemsOf(s)[0]).toMatchObject({
+    expect(itemsOf(s).find((i) => i.kind === 'tool')).toMatchObject({
       kind: 'tool',
       callId: CALL,
       status: 'running',
@@ -327,11 +359,14 @@ describe('tool 状态机', () => {
   it('tool.progress：chunk 追加；>2000 行截头保尾', () => {
     let s = started()
     s = applyEvent(s, ev('tool.progress', { turnId: TURN, callId: CALL, chunk: 'a\nb\n' }))
-    expect(itemsOf(s)[0]).toMatchObject({ kind: 'tool', progressBuf: 'a\nb\n' })
+    expect(itemsOf(s).find((i) => i.kind === 'tool')).toMatchObject({
+      kind: 'tool',
+      progressBuf: 'a\nb\n',
+    })
 
     const big = Array.from({ length: 2100 }, (_, i) => `line-${i}`).join('\n')
     s = applyEvent(s, ev('tool.progress', { turnId: TURN, callId: CALL, chunk: big }))
-    const tool = itemsOf(s)[0]
+    const tool = itemsOf(s).find((i) => i.kind === 'tool')
     if (tool?.kind !== 'tool') throw new Error('unreachable')
     // 已有 'a\nb\n' 的尾 \n 成为分隔符：拼接后 2+2100=2102 行 → 截 102 保 2000
     expect(tool.progressBuf.startsWith('…（前 102 行已截断）')).toBe(true)
@@ -349,7 +384,9 @@ describe('tool 状态机', () => {
         { seq: 4 },
       ),
     )
-    expect(itemsOf(s)[0]).toMatchObject({ kind: 'tool', status: 'completed', output: 'done' })
+    expect(
+      itemsOf(s).find((i) => i.kind === 'tool' && i.callId === CALL),
+    ).toMatchObject({ kind: 'tool', status: 'completed', output: 'done' })
     expect(s.byId[SID]?.activeTurn?.runningTools.has(CALL)).toBe(false)
 
     const CALL2 = ids.call('cal_tool0002')
@@ -366,7 +403,11 @@ describe('tool 状态机', () => {
       ),
     )
     const items = itemsOf(s)
-    expect(items[1]).toMatchObject({ kind: 'tool', status: 'error', output: 'boom' })
+    expect(items.find((i) => i.kind === 'tool' && i.callId === CALL2)).toMatchObject({
+      kind: 'tool',
+      status: 'error',
+      output: 'boom',
+    })
   })
 })
 
@@ -451,13 +492,14 @@ describe('io.warning（工单 7.2 I/O 护栏）', () => {
         { seq: 4 },
       ),
     )
-    expect(itemsOf(s)[0]).toMatchObject({
+    const guarded = itemsOf(s).find((i) => i.kind === 'tool' && i.callId === CALL)
+    expect(guarded).toMatchObject({
       kind: 'tool',
       callId: CALL,
       guard: { kind: 'injection', rules: ['injection.ignore-instructions'] },
     })
     // 告警不改状态机：tool 仍 running、activeTurn 保持
-    expect(itemsOf(s)[0]).toMatchObject({ status: 'running' })
+    expect(guarded).toMatchObject({ status: 'running' })
     expect(s.byId[SID]?.activeTurn?.runningTools.has(CALL)).toBe(true)
   })
 
@@ -479,7 +521,7 @@ describe('io.warning（工单 7.2 I/O 护栏）', () => {
         { seq: 5 },
       ),
     )
-    expect(itemsOf(s)[0]).toMatchObject({
+    expect(itemsOf(s).find((i) => i.kind === 'tool' && i.callId === CALL)).toMatchObject({
       guard: { kind: 'secret', rules: ['secret.sk-token'], redacted: 3 },
     })
   })
@@ -494,8 +536,9 @@ describe('io.warning（工单 7.2 I/O 护栏）', () => {
         { seq: 4 },
       ),
     )
-    expect(itemsOf(out)).toHaveLength(1) // 只有原 tool 项
-    expect(itemsOf(out)[0]).not.toHaveProperty('guard')
+    const tools = itemsOf(out).filter((i) => i.kind === 'tool')
+    expect(tools).toHaveLength(1) // 只有原 tool 项（turn 项不计入）
+    expect(tools[0]).not.toHaveProperty('guard')
   })
 })
 
@@ -663,6 +706,7 @@ describe('全链路：normal 场景形状串联', () => {
     expect(slice?.usageTotal).toMatchObject({ inputTokens: 3, outputTokens: 4 })
     expect(itemsOf(s).map((i) => i.kind)).toEqual([
       'user',
+      'turn',
       'reasoning',
       'assistant',
       'tool',

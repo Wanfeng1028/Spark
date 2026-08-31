@@ -5,7 +5,7 @@
  * 去重规则（回放×直播重叠）：durable（有 seq）且 seq <= lastSeq → 跳过；live（无 seq）无条件应用。
  */
 import type { SparkEventEnvelope } from './events.js'
-import type { Usage, ContentItem } from './primitives.js'
+import type { Usage, ContentItem, TurnFinish, ReasoningEffort } from './primitives.js'
 import type { CallId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
 // ---------- UiItem（§6.4 类型表） ----------
@@ -17,8 +17,31 @@ interface UiItemBase {
 
 export type UiItem =
   | ({ kind: 'user'; text: string } & UiItemBase)
-  | ({ kind: 'assistant'; content: ContentItem[]; streaming?: { textBuf: string } } & UiItemBase)
-  | ({ kind: 'reasoning'; text: string; streaming?: boolean } & UiItemBase)
+  | ({
+      kind: 'turn'
+      turnId: TurnId
+      /** turn.started 信封时间——回合头"已工作 N 秒"数据源（工单 10.4） */
+      startedAt: number
+      /** turn.completed 回填；缺省 = 进行中（渲染侧实时计时） */
+      finishedAt?: number
+      finish?: TurnFinish
+    } & UiItemBase)
+  | ({
+      kind: 'assistant'
+      content: ContentItem[]
+      streaming?: { textBuf: string }
+      /** 定稿（或首帧）信封时间——尾操作行时间戳数据源（工单 10.4①） */
+      time?: number
+    } & UiItemBase)
+  | ({
+      kind: 'reasoning'
+      text: string
+      streaming?: boolean
+      /** 首帧 reasoning.delta 信封时间——流式实时计时数据源（工单 10.4③） */
+      startedAt?: number
+      /** reasoning.ended 回填（信封时间差）——"持续了 N 秒"定格 */
+      durationMs?: number
+    } & UiItemBase)
   | ({
       kind: 'tool'
       callId: CallId
@@ -27,6 +50,10 @@ export type UiItem =
       status: 'running' | 'completed' | 'error'
       progressBuf: string
       output?: unknown
+      /** tool.completed 自带耗时——摘要行"完成 · 耗时"数据源（工单 10.4④） */
+      durationMs?: number
+      /** 起始信封时间——运行中时长实时显示数据源（工单 10.9 / §13.K K.2） */
+      startedAt?: number
       /** io.warning（工单 7.2）：护栏告警挂对应工具项（保留最后一条；UI 角标数据源） */
       guard?: { kind: 'injection' | 'secret'; rules: string[]; redacted?: number }
     } & UiItemBase)
@@ -52,6 +79,10 @@ export interface SessionMeta {
   cwd: string
   createdAt: number
   updatedAt: number
+  /** 创建时 cwd 的 git 分支（缺省 = 取不到，前端不渲染——工单 10.6） */
+  branch?: string
+  /** 创建时生效的推理档位（缺省 = 未配置——工单 10.6） */
+  effort?: ReasoningEffort
 }
 
 export interface ActiveTurn {
@@ -145,6 +176,15 @@ function appendProgress(buf: string, chunk: string): string {
   return `…（前 ${lines.length - PROGRESS_MAX_LINES} 行已截断）\n${lines.slice(-PROGRESS_MAX_LINES).join('\n')}`
 }
 
+/** 反向查找最近一条同 turnId 的 turn 项（工单 10.4 回合头回填）；未命中返 -1 */
+function findLastTurn(items: UiItem[], turnId: TurnId): number {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i]
+    if (it !== undefined && it.kind === 'turn' && it.turnId === turnId) return i
+  }
+  return -1
+}
+
 export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): ProjectionState {
   const existing = s.byId[e.sessionId]
   // 去重入口（§6.4）：durable 且 seq <= lastSeq → 跳过（回放×直播重叠吸附）
@@ -166,6 +206,8 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
       cwd: e.data.cwd,
       createdAt: e.time,
       updatedAt: e.time,
+      ...(e.data.branch !== undefined ? { branch: e.data.branch } : {}),
+      ...(e.data.effort !== undefined ? { effort: e.data.effort } : {}),
     }
     return {
       ...s,
@@ -192,6 +234,10 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
       waiting: false,
     }
     next.topBanner = null // 新 turn 清上一轮的错误横幅
+    next.items = [
+      ...next.items,
+      { kind: 'turn', eventId: e.id, turnId: e.data.turnId, startedAt: e.time },
+    ]
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
@@ -200,6 +246,16 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
     next.usageTotal = addUsage(next.usageTotal, e.data.usage)
     if (e.data.usage !== undefined) next.contextUsage = e.data.usage
     if (e.data.finish === 'error') next.topBanner = { kind: 'turn-error', turnId: e.data.turnId }
+    // 回合头回填：最近一条同 turnId 的 turn 项补 finishedAt/finish（工单 10.4）
+    const ti = findLastTurn(next.items, e.data.turnId)
+    if (ti >= 0) {
+      const cur = next.items[ti]
+      if (cur !== undefined && cur.kind === 'turn') {
+        const items = [...next.items]
+        items[ti] = { ...cur, finishedAt: e.time, finish: e.data.finish }
+        next.items = items
+      }
+    }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
@@ -218,7 +274,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
     } else {
       items = [
         ...items,
-        { kind: 'assistant', eventId: e.id, content: [], streaming: { textBuf: e.data.text } },
+        { kind: 'assistant', eventId: e.id, content: [], streaming: { textBuf: e.data.text }, time: e.time },
       ]
     }
     next.items = items
@@ -235,7 +291,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
       void finalized
       items[items.length - 1] = { ...rest, content: e.data.content }
     } else {
-      items.push({ kind: 'assistant', eventId: e.id, content: e.data.content })
+      items.push({ kind: 'assistant', eventId: e.id, content: e.data.content, time: e.time })
     }
     for (const c of e.data.content) {
       if (c.type === 'toolCall') {
@@ -247,6 +303,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
           input: c.input,
           status: 'running',
           progressBuf: '',
+          startedAt: e.time,
         })
       }
     }
@@ -264,7 +321,10 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
       items = [...items]
       items[items.length - 1] = { ...cur, text: cur.text + e.data.text, streaming: true }
     } else {
-      items = [...items, { kind: 'reasoning', eventId: e.id, text: e.data.text, streaming: true }]
+      items = [
+        ...items,
+        { kind: 'reasoning', eventId: e.id, text: e.data.text, streaming: true, startedAt: e.time },
+      ]
     }
     next.items = items
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
@@ -274,7 +334,9 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
     const cur = lastItem()
     if (cur !== undefined && cur.kind === 'reasoning') {
       items = [...items]
-      items[items.length - 1] = { ...cur, text: e.data.text, streaming: false }
+      const base = { ...cur, text: e.data.text, streaming: false }
+      items[items.length - 1] =
+        cur.startedAt !== undefined ? { ...base, durationMs: e.time - cur.startedAt } : base
     } else {
       items = [...items, { kind: 'reasoning', eventId: e.id, text: e.data.text, streaming: false }]
     }
@@ -295,6 +357,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
         input: e.data.input,
         status: 'running',
         progressBuf: '',
+        startedAt: e.time,
       })
     }
     if (next.activeTurn !== null) {
@@ -329,6 +392,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
           ...cur,
           status: e.data.isError ? 'error' : 'completed',
           output: e.data.output,
+          durationMs: e.data.durationMs,
         }
         next.items = items
       }

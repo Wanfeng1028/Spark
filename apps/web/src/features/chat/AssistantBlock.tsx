@@ -18,6 +18,12 @@ export interface AssistantBlockProps {
   usage?: Usage | undefined
 }
 
+/** 代码块控件（工单 10.4⑤）：语言标签 + 复制钮（streamdown 内建能力）；表格/图表控件不开 */
+const CODE_CONTROLS = { code: { copy: true, download: false } }
+
+/** 控件文案中文化（库缺省英文） */
+const CONTROLS_ZH = { copyCode: '复制代码', copied: '已复制' }
+
 export function AssistantBlock({ content, streaming, usage }: AssistantBlockProps) {
   const codeThemeLight = useSettingsStore((s) => s.codeThemeLight)
   const codeThemeDark = useSettingsStore((s) => s.codeThemeDark)
@@ -35,6 +41,8 @@ export function AssistantBlock({ content, streaming, usage }: AssistantBlockProp
             animated={false}
             shikiTheme={shikiTheme}
             lineNumbers={showLineNumbers}
+            controls={CODE_CONTROLS}
+            translations={CONTROLS_ZH}
           >
             {streaming.textBuf}
           </Streamdown>
@@ -52,6 +60,8 @@ export function AssistantBlock({ content, streaming, usage }: AssistantBlockProp
                 animated={false}
                 shikiTheme={shikiTheme}
                 lineNumbers={showLineNumbers}
+                controls={CODE_CONTROLS}
+                translations={CONTROLS_ZH}
               >
                 {c.text}
               </Streamdown>

@@ -15,6 +15,7 @@ import {
   ContentItemSchema,
   DeliverySchema,
   PermissionReplySchema,
+  ReasoningEffortSchema,
   TurnFinishSchema,
   UsageSchema,
 } from './primitives.js'
@@ -25,6 +26,10 @@ export const EventSchemas = {
     title: z.string().optional(),
     cwd: z.string(),
     model: z.string(),
+    /** 会话创建时 cwd 的 git 当前分支（只读探测；取不到不携带——禁假状态，工单 10.6） */
+    branch: z.string().optional(),
+    /** 创建时生效的推理档位（缺省 = 未配置，工单 10.6） */
+    effort: ReasoningEffortSchema.optional(),
   }),
   'session.resumed': z.strictObject({ fromSeq: z.number().int().nonnegative() }),
   'session.title': z.strictObject({ title: z.string() }),

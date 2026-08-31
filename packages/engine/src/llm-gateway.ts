@@ -11,7 +11,7 @@
  *   只回调不落协议——定稿事件由 run-loop emit。
  * - system 提示词独立字段（v2.7 修正：pi-ai Context.systemPrompt 非 messages[0]）。
  */
-import type { ContentItem, Usage } from '@spark/protocol'
+import type { ContentItem, ReasoningEffort, Usage } from '@spark/protocol'
 
 /** 零用量（usage 字段必填，流前初始值） */
 export const ZERO_USAGE: Usage = { inputTokens: 0, outputTokens: 0 }
@@ -63,6 +63,8 @@ export interface StreamRequest {
   onThinking: (text: string) => void
   /** 输出上限（generateOnce 压缩路径透传；缺省用 provider 默认） */
   maxTokens?: number
+  /** 推理档位（工单 10.6；缺省 = 不设置，按 provider 默认） */
+  effort?: ReasoningEffort
 }
 
 export type StopReason = 'stop' | 'length' | 'error' | 'aborted'

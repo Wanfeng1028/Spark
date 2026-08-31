@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { FolderGit2, GitBranch, History } from 'lucide-react'
 import { ids } from '@spark/protocol'
-import type { PermissionPreset } from '@spark/protocol'
+import type { PermissionPreset, ReasoningEffort } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
 import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
@@ -28,8 +28,6 @@ import { useConnectionStore } from '@/stores/connection'
 import { useModelsStore } from '@/stores/models-store'
 import { useCommands } from '@/hooks/useCommands'
 import { useUiStore } from '@/stores/ui'
-import { contextRatio, contextTokensOf, contextWindowOf } from '@/features/chat/context-usage'
-import { UsageBar } from '@/features/chat/UsageBar'
 
 /** 打开会话：GET 全量 durable → resetSlice → 批量 apply（§6.10 时序①；mock 流式夹具不走此路径） */
 type LoadState = 'loading' | 'ready' | { error: string }
@@ -50,9 +48,11 @@ export function SessionPage() {
   const items = useSessionItems(sid)
   const topBanner = useSessionStore((s) => s.byId[sid]?.topBanner ?? null)
   const compacting = useSessionStore((s) => s.byId[sid]?.compacting ?? false)
-  // 顶栏数据：标题/项目来自 slice.meta（事件流推导；undefined = 尚未加载）
+  // 顶栏数据：标题/项目/分支来自 slice.meta（事件流推导；undefined = 尚未加载/取不到）
   const sliceTitle = useSessionStore((s) => s.byId[sid]?.meta.title)
   const sliceCwd = useSessionStore((s) => s.byId[sid]?.meta.cwd)
+  const sliceBranch = useSessionStore((s) => s.byId[sid]?.meta.branch)
+  const sliceEffort = useSessionStore((s) => s.byId[sid]?.meta.effort)
   const connStatus = useConnectionStore((s) => s.status)
   const setConnStatus = useConnectionStore((s) => s.setStatus)
   // http 打开态（加载/错误呈现；mock 即挂即用）。函数式初值防 sid 切换时沿用旧态
@@ -85,11 +85,13 @@ export function SessionPage() {
     useModelsStore.getState().load(transport)
   }, [transport])
   const sliceModel = useSessionStore((s) => s.byId[sid]?.meta.model)
-  const contextUsage = useSessionStore((s) => s.byId[sid]?.contextUsage ?? null)
   const [modelOverride, setModelOverride] = useState<string | null>(null)
-  // 会话切换：换模型覆盖归零（新会话以 slice.meta 为准）
+  // 推理档位覆盖（工单 10.6）：引擎内存态不持久，与换模型同纪律
+  const [effortOverride, setEffortOverride] = useState<ReasoningEffort | null>(null)
+  // 会话切换：换模型/档位覆盖归零（新会话以 slice.meta 为准）
   useEffect(() => {
     setModelOverride(null)
+    setEffortOverride(null)
   }, [sid])
 
   const busy = turn !== null
@@ -159,8 +161,8 @@ export function SessionPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* 顶栏 44px（§13.A）：会话标题（13px semibold 截断）+ 项目 chip（24px，cwd 目录名）；
-          分支 chip 无数据源（事件流/DTO 不含 git 分支）暂不渲染，禁假状态 */}
+      {/* 顶栏 44px（§13.A）：会话标题（13px semibold 截断）+ 项目 chip（24px，cwd 目录名）
+          + 分支 chip（工单 10.6：创建时 git 只读探测真值；取不到不渲染，禁假状态） */}
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-4">
         <h1 className="min-w-0 shrink truncate text-[13px] font-semibold">
           {sliceTitle === undefined ? '…' : sliceTitle === '' ? '新会话' : sliceTitle}
@@ -172,6 +174,15 @@ export function SessionPage() {
           >
             <FolderGit2 className="size-3" />
             {projectOf(sliceCwd)}
+          </span>
+        )}
+        {sliceBranch !== undefined && sliceBranch !== '' && (
+          <span
+            className="flex h-6 shrink-0 items-center gap-1 rounded-full border border-border px-2 font-mono text-[11px] text-muted-foreground"
+            title={`git 分支（会话创建时探测）：${sliceBranch}`}
+          >
+            <GitBranch className="size-3" />
+            {sliceBranch}
           </span>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -291,18 +302,8 @@ export function SessionPage() {
 
       <div className="shrink-0 border-t border-border px-6 py-3">
         <div className="mx-auto max-w-[768px]">
-          {/* 上下文用量条（工单 6.6）：最近一轮 usage ÷ contextWindow，>80% 变 warn */}
-          <UsageBar
-            ratio={contextRatio(
-              contextUsage,
-              contextWindowOf(models, modelOverride ?? sliceModel ?? ''),
-            )}
-            title={
-              contextUsage !== null
-                ? `上下文约 ${contextTokensOf(contextUsage)} tokens（按最近一轮 usage 估算，阈值 80%）`
-                : undefined
-            }
-          />
+          {/* 上下文水位只留 StatusBar 百分比（工单 10.5⑦，待拍板 a 按建议执行：大条与
+              StatusBar 重复、ZCode 无此元素——UsageBar 组件停用，文件删除留人工确认） */}
           <Composer
             busy={busy}
             waiting={waiting}
@@ -328,6 +329,14 @@ export function SessionPage() {
                   }
                 : undefined
             }
+            effort={{
+              current: effortOverride ?? sliceEffort,
+              onChange: (v) =>
+                transport.setSessionEffort(sid, v).then((applied) => {
+                  setEffortOverride(applied)
+                  return applied
+                }),
+            }}
             onSend={(text, delivery, attachments) =>
               transport.sendMessage(sid, text, {
                 delivery,

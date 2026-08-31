@@ -14,6 +14,7 @@ import {
   PermissionPresetSchema,
   PermissionReplySchema,
   PermissionRuleDtoSchema,
+  ReasoningEffortSchema,
   RequestIdSchema,
   RoutingUpdateSchema,
   SessionIdSchema,
@@ -45,6 +46,9 @@ function toDto(engine: Engine, meta: SessionMeta): SessionMetaDto {
     updatedAt: meta.updatedAt,
     lastSeq: meta.lastSeq,
     status: engine.statusOf(meta.id),
+    // 工单 10.6：分支/档位真值透传（缺省不携带——前端禁假状态不渲染）
+    ...(meta.branch !== undefined ? { branch: meta.branch } : {}),
+    ...(meta.effort !== undefined ? { effort: meta.effort } : {}),
   }
 }
 
@@ -112,6 +116,9 @@ const PresetBody = z.strictObject({ preset: PermissionPresetSchema })
 /** 模型管理（工单 6.5）：供应商连通测试参数 + 会话级换模型 body */
 const ProviderIdParams = z.strictObject({ providerId: z.string().min(1).max(64) })
 const SetModelBody = z.strictObject({ model: z.string().min(1) })
+
+/** 推理档位（工单 10.6）：会话级换档 body */
+const SetEffortBody = z.strictObject({ effort: ReasoningEffortSchema })
 
 /** 命令注册表（阶段七工单 7.4 / H04）：命令名与执行 body */
 const CommandNameParams = z.strictObject({
@@ -462,6 +469,19 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
       await requireHandle(engine, id) // 存在性校验（未加载会话先 resume，与其他 :id 端点同纪律）
       const model = await engine.setSessionModel(id, body.model)
       return reply.send({ model })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 推理档位（工单 10.6）：会话级内存态，下一 turn 生效；重启回 models.json 缺省
+  app.put('/api/sessions/:id/effort', async (req, reply) => {
+    try {
+      const { id } = parseOr400(IdParams, req.params)
+      const body = parseOr400(SetEffortBody, req.body)
+      await requireHandle(engine, id) // 存在性校验（同 :id 端点纪律）
+      const effort = await engine.setSessionEffort(id, body.effort)
+      return reply.send({ effort })
     } catch (err) {
       return sendError(req, reply, err)
     }

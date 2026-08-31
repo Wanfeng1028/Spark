@@ -281,6 +281,9 @@ export function SessionScreen() {
         return <ToolCard item={it} />
       case 'approval':
         return <ApprovalCard item={it} busy={approvalBusy} onReply={(r) => void handleReply(it.requestId, r)} />
+      case 'turn':
+        // 回合头暂无移动端形态（§13.J 未定义），穷尽分支渲染空
+        return null
     }
   }
 

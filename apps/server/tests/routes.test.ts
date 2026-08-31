@@ -1082,5 +1082,39 @@ describe('模型管理（工单 6.5：GET /api/models、POST /api/models/:id/tes
     expect(missing.statusCode).toBe(404)
     expect((missing.json<Json>())['code']).toBe('E_NOT_FOUND')
   })
+
+  test('PUT effort：换档 200 回显 + meta 跟随；坏档位 400；未知会话 404（工单 10.6）', async () => {
+    const f = await setup()
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const id = (created.json<Json>())['id'] as string
+
+    const ok = await f.app.inject({
+      method: 'PUT',
+      url: `/api/sessions/${id}/effort`,
+      payload: { effort: 'high' },
+    })
+    expect(ok.statusCode).toBe(200)
+    expect((ok.json<Json>())['effort']).toBe('high')
+    // 内存 meta 跟随（GET 详情可见——档位真值呈现）
+    const detail = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}` })
+    expect((detail.json<Json>())['effort']).toBe('high')
+
+    // 坏档位 → 400
+    const bad = await f.app.inject({
+      method: 'PUT',
+      url: `/api/sessions/${id}/effort`,
+      payload: { effort: 'ultra' },
+    })
+    expect(bad.statusCode).toBe(400)
+
+    // 未知会话 → 404
+    const missing = await f.app.inject({
+      method: 'PUT',
+      url: '/api/sessions/ses_unknown/effort',
+      payload: { effort: 'low' },
+    })
+    expect(missing.statusCode).toBe(404)
+    expect((missing.json<Json>())['code']).toBe('E_NOT_FOUND')
+  })
 })
 

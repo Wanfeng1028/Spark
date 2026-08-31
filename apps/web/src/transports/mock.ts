@@ -33,6 +33,7 @@ import type {
   PermissionPreset,
   PermissionReply,
   PermissionRuleDto,
+  ReasoningEffort,
   RequestId,
   SecretStatusDto,
   SessionDto,
@@ -617,6 +618,9 @@ export class MockTransport implements Transport {
   /** 会话级换模型内存表（引擎同款：内存态，进程生命周期内有效） */
   private readonly modelOverrides = new Map<SessionId, string>()
 
+  /** 会话级推理档位内存表（工单 10.6；同引擎内存态纪律） */
+  private readonly effortOverrides = new Map<SessionId, ReasoningEffort>()
+
   listModels(): Promise<ModelsDto> {
     this.assertNotDisposed()
     return Promise.resolve(MockTransport.MODELS)
@@ -672,6 +676,17 @@ export class MockTransport implements Transport {
     }
     this.modelOverrides.set(sessionId, model)
     return Promise.resolve(model)
+  }
+
+  setSessionEffort(sessionId: SessionId, effort: ReasoningEffort): Promise<ReasoningEffort> {
+    this.assertNotDisposed()
+    const known =
+      sessionId === this.script.sessionId || this.forkChildren.some((f) => f.dto.id === sessionId)
+    if (!known) {
+      return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
+    }
+    this.effortOverrides.set(sessionId, effort)
+    return Promise.resolve(effort)
   }
 
   // ---- 模型路由（工单 7.7 / H07）：内存态 mock——回放路由热更新语义 ----
@@ -1068,10 +1083,14 @@ export class MockTransport implements Transport {
     return Promise.resolve()
   }
 
-  /** dtoOf 后叠加会话级换模型（内存态覆盖脚本 meta.model） */
-  private withModelOverride(sid: SessionId, dto: SessionDto): SessionDto {
+  /** dtoOf 后叠加会话级覆盖（工单 10.6：换模型 + 推理档位两内存态） */
+  private withSessionOverrides(sid: SessionId, dto: SessionDto): SessionDto {
+    let out = dto
     const m = this.modelOverrides.get(sid)
-    return m === undefined ? dto : { ...dto, model: m }
+    if (m !== undefined) out = { ...out, model: m }
+    const e = this.effortOverrides.get(sid)
+    if (e !== undefined) out = { ...out, effort: e }
+    return out
   }
 
   /** 由脚本静态构造 SessionDto（listSessions / createSession 共用） */
@@ -1089,6 +1108,9 @@ export class MockTransport implements Transport {
       updatedAt: last?.time ?? script.meta.createdAt,
       lastSeq: last?.seq ?? 0,
       status,
+      // 工单 10.6：脚本 session.created 携带的分支/档位真值透传（缺省不携带）
+      ...(script.created.data.branch !== undefined ? { branch: script.created.data.branch } : {}),
+      ...(script.created.data.effort !== undefined ? { effort: script.created.data.effort } : {}),
     }
   }
 
@@ -1118,7 +1140,7 @@ export class MockTransport implements Transport {
     const events = page(durable)
     const last = durable[durable.length - 1]
     return Promise.resolve(
-      this.withModelOverride(sessionId, {
+      this.withSessionOverrides(sessionId, {
         ...MockTransport.dtoOf(this.script, this.status()),
         lastSeq: last?.seq ?? 0,
         updatedAt: last?.time ?? this.script.meta.createdAt,
@@ -1130,7 +1152,7 @@ export class MockTransport implements Transport {
   listSessions(): Promise<SessionDto[]> {
     return Promise.resolve([
       ...MOCK_SCENARIOS.map((s) =>
-        this.withModelOverride(
+        this.withSessionOverrides(
           this.parseFor(s).sessionId,
           MockTransport.dtoOf(this.parseFor(s), 'idle'),
         ),

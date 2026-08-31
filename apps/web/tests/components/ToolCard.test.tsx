@@ -69,7 +69,7 @@ describe('ToolCard 展开区', () => {
         isError={false}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /bash/ }))
+    fireEvent.click(screen.getByRole('button', { name: /终端/ }))
     expect(screen.getByText(/100 行/)).toBeTruthy()
     expect(screen.getByText(/exit 0/)).toBeTruthy()
     expect(screen.getByText(/中间输出已截断/)).toBeTruthy()
@@ -92,7 +92,7 @@ describe('ToolCard 展开区', () => {
     render(
       <ToolCard name="bash" input={{ command: 'true' }} status="completed" isError={false} />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /bash/ }))
+    fireEvent.click(screen.getByRole('button', { name: /终端/ }))
     expect(screen.getByText('无输出')).toBeTruthy()
   })
 
@@ -146,7 +146,7 @@ describe('ToolCard browser 工具族（工单 7.10 / ADR D27）', () => {
         isError={false}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /browser\.open/ }))
+    fireEvent.click(screen.getByRole('button', { name: /浏览/ }))
     expect(screen.getByText(/示例域名/)).toBeTruthy()
   })
 
@@ -160,7 +160,7 @@ describe('ToolCard browser 工具族（工单 7.10 / ADR D27）', () => {
         isError={false}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /browser\.screenshot/ }))
+    fireEvent.click(screen.getByRole('button', { name: /浏览/ }))
     const img = screen.getByRole('img', { name: /shot-1700000000000-0\.png/ })
     expect(img.getAttribute('src')).toBe('/api/artifacts/shot-1700000000000-0.png')
     expect(screen.getByText(/2\.0 KB/)).toBeTruthy()
@@ -176,7 +176,7 @@ describe('ToolCard browser 工具族（工单 7.10 / ADR D27）', () => {
         isError={false}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /browser\.screenshot/ }))
+    fireEvent.click(screen.getByRole('button', { name: /浏览/ }))
     const img = screen.getByRole('img', { name: /shot-1700000000000-0\.png/ })
     fireEvent.error(img)
     expect(screen.getByText(/截图不可预览/)).toBeTruthy()
@@ -192,8 +192,26 @@ describe('ToolCard browser 工具族（工单 7.10 / ADR D27）', () => {
         isError={false}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /browser\.read/ }))
+    fireEvent.click(screen.getByRole('button', { name: /浏览/ }))
     expect(screen.getByText('页面正文内容')).toBeTruthy()
     expect(screen.getByText(/正文已截断/)).toBeTruthy()
+  })
+})
+
+describe('ToolCard 拒绝态（工单 10.4④）', () => {
+  it('审批拒绝（output.code=E_PERMISSION）：显示「已拒绝」+整行删除线，不默认展开', () => {
+    const { container } = render(
+      <ToolCard
+        name="bash"
+        input={{ command: 'echo hi' }}
+        status="error"
+        output={{ code: 'E_PERMISSION' }}
+        isError
+      />,
+    )
+    expect(screen.getByText('已拒绝')).toBeTruthy()
+    expect(screen.queryByText(/exit/)).toBeNull() // 拒绝非失败：不默认展开
+    // 类别词与资源均带删除线（整行删除线语义）
+    expect(container.querySelectorAll('.line-through').length).toBeGreaterThanOrEqual(2)
   })
 })

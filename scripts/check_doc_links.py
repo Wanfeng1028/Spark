@@ -27,7 +27,7 @@ from pathlib import Path
 # ---------------------------------------------------------------- 常量
 
 MD_GLOB = "**/*.md"
-SKIP_DIRS = {".git", "node_modules", "dist", ".pnpm-store", ".zcode"}
+SKIP_DIRS = {".git", "node_modules", "dist", ".pnpm-store", ".zcode", "official"}
 
 # 反引号路径只查这些根前缀（仓库自身结构）；其余视为外部引用或噪声
 REPO_PATH_ROOTS = (

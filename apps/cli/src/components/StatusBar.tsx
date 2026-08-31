@@ -1,8 +1,8 @@
 /**
- * 状态细条（字段同 web StatusBar 口径——doc/02 §6.2 / DESIGN §13.A）：
- * 连接点+文案 · 模型 · seq 水位 · token 累计 ·上下文水位 · 提交模式；
- * turn 进行中追加 step/工具/等待审批（web TurnStatusBar 同行并入——终端单行高密度）。
- * 颜色仅命名色（灰/绿/红/黄——弱终端自动降级，ADR D19）。
+ * 状态细条——**工单 10.8 起停用**（§13.K K.4 决策④：footer 双行 Footer.tsx 取代，
+ * seq 水位与 token 明细收 /stats）。文件按删除保护纪律保留（删除须人工五层级确认）。
+ * 原职责（字段同 web StatusBar 口径）：连接点+文案 · 模型 · seq 水位 · token 累计 ·
+ * 上下文水位 · 提交模式；turn 进行中追加 step/工具/等待审批。
  */
 import { Box, Text } from 'ink'
 import { CONTEXT_WARN_RATIO, contextRatio, contextWindowOf } from '@spark/protocol'

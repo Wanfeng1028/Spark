@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
+import type { ReasoningEffort } from '@spark/protocol'
 import type { UserHooksConfig } from './hooks/runner.js'
 
 /** E_CONFIG（§5.10）：进程退出 + stderr 的载体由启动方（server）负责 */
@@ -134,6 +135,8 @@ const modelsSchema = z.object({
   subagentModel: routingModelSchema.optional(),
   /** 工单 7.7：成本上限美元值（usage.costUsd 聚合到阈值即熔断；缺省不限） */
   costLimitUsd: z.number().positive().optional(),
+  /** 工单 10.6：推理档位缺省（会话未显式选档时生效；缺省 = 不设置，按 provider 默认） */
+  defaultEffort: z.enum(['low', 'medium', 'high']).optional(),
   /** 可选模型清单（工单 6.5）：选择器级联与设置页模型列表的数据源；defaultModel/compactionModel 自动并入 */
   models: z
     .array(
@@ -164,6 +167,8 @@ export interface ModelsConfig {
   subagentModel: ModelRef
   /** 工单 7.7：成本上限美元值（undefined = 不限） */
   costLimitUsd: number | undefined
+  /** 工单 10.6：推理档位缺省（undefined = 不设置，按 provider 默认） */
+  defaultEffort: ReasoningEffort | undefined
   /** 显式 models[] + defaultModel/compactionModel 合并去重（provider/model 键） */
   models: ModelRef[]
 }
@@ -302,6 +307,7 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
     titleModel,
     subagentModel,
     costLimitUsd: modelsParsed.costLimitUsd,
+    defaultEffort: modelsParsed.defaultEffort,
     models: merged,
   }
 

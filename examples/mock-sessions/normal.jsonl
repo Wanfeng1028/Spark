@@ -1,5 +1,5 @@
-{"sparkVersion":"0.1.0","cwd":"E:/code/demo","createdAt":1761280000000,"model":"deepseek/deepseek-chat"}
-{"id":"evt_01HXMOCKNRML0000000001","type":"session.created","sessionId":"ses_01HXMOCKNRML0000000000","seq":1,"version":1,"time":1761280000030,"parentId":null,"data":{"title":"重构重试常量","cwd":"E:/code/demo","model":"deepseek/deepseek-chat"}}
+{"sparkVersion":"0.1.0","cwd":"E:/code/demo","createdAt":1761280000000,"model":"deepseek/deepseek-chat","branch":"main"}
+{"id":"evt_01HXMOCKNRML0000000001","type":"session.created","sessionId":"ses_01HXMOCKNRML0000000000","seq":1,"version":1,"time":1761280000030,"parentId":null,"data":{"title":"重构重试常量","cwd":"E:/code/demo","model":"deepseek/deepseek-chat","branch":"main"}}
 {"id":"evt_01HXMOCKNRML0000000002","type":"user.message","sessionId":"ses_01HXMOCKNRML0000000000","seq":2,"version":1,"time":1761280005430,"parentId":"evt_01HXMOCKNRML0000000001","surface":true,"data":{"text":"读一下 src/index.ts，把 MAX_RETRY 改名为 RETRY_LIMIT，然后跑测试确认"}}
 {"id":"evt_01HXMOCKNRML0000000003","type":"turn.started","sessionId":"ses_01HXMOCKNRML0000000000","seq":3,"version":1,"time":1761280005440,"parentId":"evt_01HXMOCKNRML0000000002","data":{"turnId":"trn_01HXMOCKNRMLT00000010000000","delivery":"now","userEventId":"evt_01HXMOCKNRML0000000002"}}
 {"id":"evt_01HXMOCKNRML0000000004","type":"reasoning.delta","sessionId":"ses_01HXMOCKNRML0000000000","version":1,"time":1761280005455,"data":{"turnId":"trn_01HXMOCKNRMLT00000010000000","text":"用户要求改名并验证。"}}

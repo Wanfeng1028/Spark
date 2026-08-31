@@ -1,15 +1,16 @@
 /**
- * 空态页 /welcome（DESIGN.md §13.A，取代 §7.1「紧凑引导块」形态）：
- * 垂直居中——问候语（15px semibold）+ 居中 Composer 560px + 4 枚建议 chips（§13.B chip 规格）。
- * chip「点击即填入输入框」（§13.E）——经 ComposerHandle.fill 聚焦填词，用户确认后再发送；
- * 发送（Enter/发送钮）即新建会话并直发首条消息；失败闭合——错误进 Composer 提示并回填草稿
- * （§6.2.1 不丢用户输入）。
+ * 空态页 /welcome（DESIGN.md §13.A v2.5，取代 §7.1「紧凑引导块」形态）：
+ * 垂直居中——问候语（≈28px semibold 大字，工单 10.1 修订）+ 居中 Composer 560px + 4 枚建议
+ * chips（§13.B chip 规格）。chip「点击即填入输入框」（§13.E）——经 ComposerHandle.fill
+ * 聚焦填词，用户确认后再发送；发送（Enter/发送钮）即新建会话并直发首条消息；
+ * 失败闭合——错误进 Composer 提示并回填草稿（§6.2.1 不丢用户输入）。
+ * 权限档钮（工单 10.5⑥）：欢迎页选档为真实状态——建会话后即落档（setPermissionPreset）。
  */
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Blocks, Eraser, GitCommitHorizontal, PlayCircle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { SubmitOutcome } from '@spark/protocol'
+import type { PermissionPreset, SubmitOutcome } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { Composer, type ComposerHandle } from '@/features/chat/Composer'
 import { CLIENT_ACTIONS } from '@/features/chat/client-commands'
@@ -42,10 +43,13 @@ export function WelcomePage() {
   const { commands } = useCommands()
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen)
   const composerRef = useRef<ComposerHandle>(null)
+  // 权限档位（工单 10.5⑥）：欢迎页可选档，建会话后落档——真实状态非展示摆设
+  const [preset, setPreset] = useState<PermissionPreset>('confirm-each')
 
-  /** 新建会话并直发首条消息（新会话无活动轮，delivery 恒为 now 语义） */
+  /** 新建会话并直发首条消息（新会话无活动轮，delivery 恒为 now 语义）；选档先落档再发送 */
   async function start(text: string, attachments?: string[]): Promise<SubmitOutcome> {
     const dto = await transport.createSession()
+    await transport.setPermissionPreset(dto.id, preset)
     const outcome = await transport.sendMessage(dto.id, text, attachments ? { attachments } : {})
     void navigate(`/session/${dto.id}`)
     return outcome
@@ -53,12 +57,19 @@ export function WelcomePage() {
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-5 px-6">
-      <h1 className="text-[15px] font-semibold tracking-tight">{greeting()}</h1>
+      <h1 className="text-[28px] font-semibold tracking-tight">{greeting()}</h1>
       <div className="w-full max-w-[560px]">
         <Composer
           ref={composerRef}
           busy={false}
           waiting={false}
+          permission={{
+            preset,
+            onChange: (p) => {
+              setPreset(p)
+              return Promise.resolve()
+            },
+          }}
           onSend={(text, _delivery, attachments) => start(text, attachments)}
           onInterrupt={() => undefined}
           {...(commands !== null ? { commands } : {})}
