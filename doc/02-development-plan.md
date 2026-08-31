@@ -86,6 +86,7 @@
 | v3.36 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028） | 官网文件夹拼写改名 `offical/` → `official/`（v3.35 登记名系笔误；仓库内重命名，历史行不改）；§3 目录树引用同步；与 README v1.28、检查器 SKIP_DIRS 同步 |
 | v3.37 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十合并后 11 项实测缺陷反馈；三路源码级核查子代理 + Qwen Code 官方文档命令清单在线调研） | **新增 阶段十·验收批次 2（工单 10.12–10.21）——11 项实测缺陷修复与命令面/设置面全量落地**：10.12 HTTP transport 空 body 修复（一处改动解锁 11 个调用点：配对签发/测试连接/中断/压缩/回滚/删密钥/撤销设备/删自动化/清零成本/webhook/手动触发——`transport-node.ts req()` 无条件强发 `content-type: application/json` 头，无 body 的 POST/DELETE 被 Fastify 拒 `FST_ERR_CTP_EMPTY_JSON_BODY`；单测用 `app.inject` 不带头故掩盖）；10.13 会话流去重（apply-event.ts 定稿配对按 `lastItem()` 位置判断失效于真实发射序 `reasoning.delta*→assistant.delta*→reasoning.ended→assistant.message`，流式项永不闭合、定稿另 push 新项=双份；+ web `AssistantBlock.tsx` 对 `content` 内 `reasoning` 块再渲染一次=刷新后也双份）；10.14 设置中心导航修复（`navigate(-1)` 逐页回退 + 分区互切 push 堆栈）；10.15 web 全局焦点环中性化（theme.css `:focus-visible` 用 indigo `--spark-accent` 且未分层压过 `outline-none` utility——§13.E 与 §13.C/§5 规格矛盾须先拍板）；10.16 切会话即时化（SessionPage 无条件 `setLoad('loading')`，已有缓存 slice 也白屏）；10.17 CLI 启动首屏与 resume 修复；10.18 CLI 面板族与命令面扩容（Qwen Code 官方 78 命令清单登记，v1 落 15+5 面）；10.19 CLI 宽字符/错位修复；10.20 设置项全量落地（新增 `GET|PUT /api/settings` spark.json 读写 API 解锁引擎行为类设置）；10.21 hook（user-hooks）读取 API——路径分歧待拍板。Qwen Code 调研依据官方文档站 `users/features/commands`（AGENTS §2.12 在线访问纪律） |
 | v3.38 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`） | 批次 2 节尾补**开工提示词 5 份**（v3.37 提交时承诺，本行补齐）：① 10.12 transport 空 body；② 10.13 定稿配对去重；③ 10.14/10.15/10.16 web 三修复；④ 10.17/10.18/10.19 CLI 三张；⑤ 10.20/10.21 设置全量——每份含前置阅读清单/逐条要求/红线/验收/commit 口径，新会话可直接粘贴开工 |
+| v3.39 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，并行会话交叉验证与"无对应能力命令可否做"追问） | **批次 2 合并并行会话（千问）交叉验证增量 + 命令面全量判决**：① 八张工单合入其独有发现（已逐条核实）——10.12 附带 setErrorHandler/createSession 丢 model 漂移/hasKeyOf 只查 env 与 resolveApiKey store>env 的状态误报；10.13 补"未闭合 reasoning 计时器永不停（假 578 秒）"与四端回归口径；10.14 根因改三层（历史栈回退+列宽过渡+**Virtuoso 未设 initialTopMostItemIndex 逐行测高滑底——逐项位移的真正视觉来源**）；10.17 补版本号 require 路径恒显 0.0.0/模型行提示缺失/resume 后 boot 头重现/resize 错行四项；10.18 升级为**命令描述符架构**（protocol commands.ts 单一词表+四端删平行表+clientAction-surface 不变量单测——防 /model 坏掉复发）+ slash 选中项覆盖裸输入 bug；10.19 补 IME 组字期 App 全局键劫持（? 开面板/1/2/y/n 触审批）与键位分层；10.20 重排为 A（零后端接线）/B（/api/settings+ADR 前置）/C（去向明示）三分类——"显示待办"开关删除（无 Todo 工具，不留无效开关）；② 新增 10.18a 附表：Qwen Code 78 命令全量判决表（v1 落 15/已有对应物 8/v2 挂池 11/新机制挂池 9/不做 35——voice/arena/lsp/trust/extensions/agents/plan/goal/remember 九条新机制全部挂池不进 v1，先有真实诉求再立项）；③ §8.7 池补 V2-27~V2-35 九条；④ 5 份开工提示词同步修订。结论：两份独立诊断核心根因收敛，并行会话多抓 5 处独有缺陷全部坐实合入 |
 
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
@@ -1986,44 +1987,68 @@ app.get('/api/event', async (req, reply) => {
 
 | #     | 工单                            | 对应用户问题 | 产出（根因 + 涉及包）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 验收标准                                                                                     | 依赖 |
 | ----- | ------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ---- |
-| 10.12 | HTTP transport 空 body 修复     | 7/8          | `packages/protocol/src/transport-node.ts` `req()`（226-235 行）无条件给所有请求加 `content-type: application/json` 头，即使 body 为 undefined——Fastify 5 对"带 json 头的空 body"一律 400 `FST_ERR_CTP_EMPTY_JSON_BODY`。修法=仅当 `init?.body !== undefined` 才带该头。**一处修复解锁 11 个坏调用点**：`createPairCode`/`testModelProvider`（用户已踩到）/`interrupt`/`compact`/`rollbackCheckpoint`/`removeSecret`/`resetUsage`/`removeAutomation`/`fireAutomationWebhook`/`fireAutomationManual`/`revokePairDevice`（transport-node.ts 263–523 行逐个）。server 端 11 条路由本身无恙（routes.ts/pairing-routes.ts 不读 body），engine 不动。补测：protocol transport 单测对"POST 无 body"路径断言请求头不含 content-type（或 server 测试改用带头的 inject 复现真实浏览器口径——二选一或都做） | 真实浏览器：添加移动设备弹窗能出码、测试连接返回真实结果（不再是空 body 400）；11 个调用点逐一冒烟；`pnpm test` 全绿 | —    |
-| 10.13 | 会话流去重（applyEvent 定稿配对） | 5            | 双重复来源：① `packages/protocol/src/apply-event.ts` 定稿事件（`reasoning.ended` L333-345、`assistant.message` L284-295）用 `lastItem()` 判断"是否吸附到流式项"——真实发射序为 `reasoning.delta* → assistant.delta* → reasoning.ended → assistant.message`（run-loop.ts L253-304：thinking 先流、定稿对后置），定稿时 lastItem 必不是自己的流式项 → push 新项、原流式项（全文 textBuf）永不闭合=回答与思考各显示两份；② web `AssistantBlock.tsx` L71-73 把 `content` 内 `reasoning` 块再渲染一次（pi-gateway 定稿把 thinking 写进 content，L233），与 reducer 已生成的 reasoning UiItem 叠加=纯 durable 回放（刷新后）也固定双份（CLI 端 items.tsx L101-104 已正确跳过，对齐即可）。修法：定稿配对改"本 turn 内最近的未闭合流式项（按 kind + activeTurn 反向扫描）"；AssistantBlock 跳过 reasoning content 块。reducer 为四端共享（ADR D22），web/cli 双端回归 + 单测补交错发射序用例（现有用例只测理想序 delta→message） | 真实模型一回合：流式渲染到定稿无双份；刷新回放无双份；`apps/web/tests/applyEvent.test.ts` 补 `reasoning.delta→assistant.delta→reasoning.ended→assistant.message` 序断言；CLI render 测试回归 | 10.12 无关，可先行 |
-| 10.14 | 设置中心导航修复              | 6            | `SettingsSidebar.tsx` L23-30 返回按钮 `navigate(-1)` 逐条回退历史栈，而设置分区互切（L43）与全部入口（Sidebar/AppShell/SettingsDialog）都是 push——历史里堆一串 `/settings/x`，"返回"逐页回退=用户看到"一项一项往前移"。修法：分区互切改 `replace: true`（同层平级页不堆历史），返回按钮改确定性导航（记录进入前路由或 `navigate('/')`）；折叠态侧栏（48px 图标态）无会话可点的盲区一并评估（可给最近会话直点或记 v2） | 进入设置→逐个点开 5+ 个分区→点"返回"一步回主界面（无逐页动画）；浏览器后退不无限回退设置内部 | —    |
+| 10.12 | HTTP transport 空 body 修复     | 7/8          | `packages/protocol/src/transport-node.ts` `req()`（226-235 行）无条件给所有请求加 `content-type: application/json` 头，即使 body 为 undefined——Fastify 5 对"带 json 头的空 body"一律 400 `FST_ERR_CTP_EMPTY_JSON_BODY`，**路由 handler 从未进入、上游请求从未发出**。修法=仅当 `init?.body !== undefined` 才带该头。**一处修复解锁 11 个坏调用点**：`createPairCode`/`testModelProvider`（用户已踩到）/`interrupt`/`compact`/`rollbackCheckpoint`/`removeSecret`/`resetUsage`/`removeAutomation`/`fireAutomationWebhook`/`fireAutomationManual`/`revokePairDevice`（transport-node.ts 263–523 行逐个）。server 端 11 条路由本身无恙（不读 body），engine 不动。**附带三项**（并行会话增量，均已验证）：① server `index.ts` 注册 `setErrorHandler`，Fastify 原生码（`FST_ERR_*`）映射进 errors.ts 统一 `{code,message}`，错误文案表不再被绕过；② 修 `transport.ts:65 createSession` 声明 `opts.model` 但实现丢弃的漂移（以接口为准补请求体）；③ 问题 8 语义澄清+真修：`hasKeyOf` 只查 env 而 `resolveApiKey` 是 store>env——经设置页存 secrets.json 的 key 会误显"缺少 API Key"（model-catalog.ts:32-36 vs secrets/store.ts:100），状态判定改走 resolveApiKey 单点；"已启用/已就绪"语义本不含连通性，UI tooltip 注明。补测：protocol 断言"无 body 不带 content-type"；server 补"带头+空 body"的 inject 用例（现 inject 不带头，掩盖缺陷的裂缝，写进用例注释） | 真实浏览器：配对出码、测试连接返回真实结果；CLI /compact、中断、回滚、删密钥链路可用；createSession 带 model 生效；secrets key 状态不再误报；`pnpm test` 全绿 | —    |
+| 10.13 | 会话流去重（applyEvent 定稿配对） | 5            | 双重复来源：① `packages/protocol/src/apply-event.ts` 定稿事件（`reasoning.ended` L333-345、`assistant.message` L284-295）用 `lastItem()` 判断"是否吸附到流式项"——真实发射序为 `reasoning.delta* → assistant.delta* → reasoning.ended → assistant.message`（run-loop.ts L253-304：thinking 先流、定稿对后置），定稿时 lastItem 必不是自己的流式项 → push 新项、原流式项（全文 textBuf）永不闭合=回答与思考各显示两份；**未闭合 reasoning 项计时器永不停（实测"578 秒"假时长——ReasoningCollapsible.tsx:35-49）**；② web `AssistantBlock.tsx` L71-73 把 `content` 内 `reasoning` 块再渲染一次（pi-gateway 定稿把 thinking 写进 content，L233），与 reducer 已生成的 reasoning UiItem 叠加=纯 durable 回放（刷新后）也固定双份（CLI 端 items.tsx L101-104 已正确跳过，对齐即可）。修法：定稿配对改"按 turnId 反向查找最近**未闭合**同类流式项"（仿既有 findLastTurn 模式加 findLastReasoning/findLastStreamingAssistant），找不到才新建（失败闭合保留，不静默丢弃）；AssistantBlock 跳过 reasoning content 块（渲染层去重，不改协议词表不改引擎 emit）；**迟到 delta（定稿后到达）不再新建 item**。已排除项（免复查）：非 StrictMode 双写（transports/context.tsx cleanup 完整、订阅恒 1）、非 SSE 重放双发（seq 水位去重）。reducer 为四端共享（ADR D22）：web/cli/mobile/miniapp 四端测试全跑（miniapp 投影快照核对，normal.jsonl 含 reasoning 块基线如实更新并说明） | 真实模型一回合：流式到定稿无双份、思考计时器会停；刷新回放无双份；`apps/web/tests/applyEvent.test.ts` 补交错序断言（reasoning 恰 1 条、assistant 恰 1 条）+ 迟到 delta 用例；四端 `pnpm test` 全绿 | —    |
+| 10.14 | 设置中心导航修复              | 6            | 根因三层叠加（非退场动画——全仓 web 无 stagger/exit 动画）：① `SettingsSidebar.tsx` L23-30 返回按钮 `navigate(-1)` 逐历史回退，而设置分区互切（L43）与全部入口（Sidebar/AppShell/SettingsDialog）都是 push——逛过 N 个分区要按 N 次返回；② `AppShell.tsx:75` `transition-[grid-template-columns] duration-150` 在进出设置时让内容列持续重排；③ **`ChatView.tsx:60-83` Virtuoso 未设 `initialTopMostItemIndex`**——返回会话页从 index 0 逐行测高 + `followOutput='smooth'` 平滑滑到底=用户看到的"一项一项往前移动"的真正视觉来源。修法：返回改直达目的地（`navigate('/session/'+activeId ?? '/welcome')`）+ 分区互切改 `replace: true`；进出设置的那一帧禁用列宽过渡；Virtuoso 补 `initialTopMostItemIndex`（或首帧定位末尾）；折叠态侧栏（48px 图标态）无会话可点的盲区一并评估（挂 V2 或给最近会话直点） | 从设置任意分区一次点击回会话主界面，无逐行位移无逐页回退；浏览器后退不无限回退设置内部 | —    |
 | 10.15 | web 全局焦点环中性化          | 11           | `theme.css` L25-28 全局 `:focus-visible { outline: 2px solid var(--spark-accent) }`——indigo（#4f46e5/#818cf8）且**规则在 `@layer` 之外，永远压过分层后的 `outline-none` utility**（Tailwind v4 utilities 在 layer 内），Composer textarea 的 outline-none 失效=蓝框常驻。工单 10.3 只收口了组件级 focus-within ring，漏了全局层。**前置规格拍板（晚风）**：DESIGN §13.C L87/L104 规定焦点环用 accent，与 §13.E v2.5（L431"聚焦不加高饱和 ring"）+ §12.1（禁 indigo 系）矛盾——本工单按实测验收口径（后者）执行：焦点环改 `var(--ring)` 中性色，规则移入 `@layer base` 让 utility 可覆盖；`--spark-accent` 其他职责（运行中状态点等）不动。DESIGN 版本表登记该拍板。`tests/theme-contrast.test.ts` 对比度断言复核 | 设置任意输入框/按钮：Tab 聚焦与鼠标点击均无蓝色 outline（中性色可）；`outline-none` 的元素真正无环；theme-contrast 测试通过 | —    |
-| 10.16 | 切会话即时化（缓存优先）      | 5（切对话）  | `SessionPage.tsx` L105-120 effect 无条件 `setLoad('loading')` 后全量回放，即使目标会话 slice 已在 store（曾打开过）→ 先清空再 loading 白屏一下。修法：slice 已有 items 时立即渲染缓存投影，回放放后台合并（回放完成后 durable 全量覆写对齐 seq）；仅 `lastSeq===0`（真正冷会话）才显示 loading 态 | 已打开过的会话切换：右侧原位即时切换无 loading 白屏；冷会话仍显示加载态；切回后再切走不丢新事件 | —    |
-| 10.17 | CLI 启动首屏与 resume 修复    | 1/4（半）    | ① 黑屏：BootHeader 只挂在"slice 已建立且空会话"分支（app.tsx L475-478），而 slice 只能由事件流建立——启动到 SSE 首事件之间是纯空窗（一行灰字），server 不可达时永远停在近乎全空。修法：BootHeader 不依赖 slice（连接中/失败态都渲染 boot 骨架+状态行），listSessions 失败给显式错误屏（含重试键位）；② resume 点不进去：ResumePanel 空过滤词直接 Enter 时 InputBox `text.trim()===''` 不触发 onSubmit（InputBox.tsx L47-51）→ confirmResume 永不执行=面板选中但无反应。修法：面板激活态下 Enter 由 App 层接管（或 InputBox 支持"面板态空值提交"回调） | 冷启动连上 server：立即见 boot 头部（logo/信息盒/提示行）无黑屏；server 未开：见明确错误+重试而非空屏；/resume 列表非空时 Enter 直接恢复选中会话（无需先输入过滤词） | —    |
-| 10.18 | CLI 命令面扩容（v1 基线 15+5） | 2/4          | 现状：本地命令仅 new/resume/stats/help + 引擎 action 仅 compact 生效；菜单里 model/mcp/skills/usage 四个 client 命令**CLI 无面板无本地分支**，输入落引擎即 400 `E_COMMAND_CLIENT`；协议/server 侧能力全部就绪（`PUT /api/sessions/:id/model`、`GET /api/mcp`、`GET /api/skills`、`GET /api/routing`、listModels/setSessionModel 均已存在，**纯前端缺接**）。产出：① 新面板 ModelPicker（store.models+slice.meta.model，确认调 `setSessionModel`）/ McpPanel（listMcpServers 只读清单）/ SkillsPanel（listSkills 只读清单）/ UsagePanel（slice.usageTotal 或 GET /api/routing），`/usage` 可先指 StatsPanel 增强；② app.tsx 本地分支拦截 client 命令（无参=开面板；`/model <id>` 带参=直调 setSessionModel）；③ `ERROR_COPY` 补 E_COMMAND_CLIENT 人话条目（error-copy.ts）；④ 命令词表按 Qwen Code 官方清单（78 个，docs users/features/commands）逐条登记"Spark v1 落/不落（理由）"，v1 基线 15 命令：现有 5（new/resume/stats/help/compact）+ 本工单 4（model/mcp/skills/usage）+ 补 6（`/title 改名`（engine setTitle 已有）/`/fork 分支`（fork 端点已有）/`/checkpoint 列表`（已有）/`/rollback <id>`（已有）/`/effort <档>`（setSessionEffort 已有）/`/tree 会话树`（已有））——全部走既有端点，零新后端；⑤ SlashMenu 分组（会话/模型/信息/帮助） | 命令对账表入 DESIGN §13.K 附表或本表附录；15 命令逐一可用（真实 server 冒烟）；菜单不再列出"本端不可用"命令或列表标注；交错序单测含 setSessionModel 路径 | 10.17 |
-| 10.19 | CLI 宽字符与输入错位修复      | 3            | ① InputBox.tsx L96-99 光标按 UTF-16 code unit 切片（`slice(cursor, cursor+1)`），emoji/代理对被半个 surrogate 反显；② items.tsx 截断按 code unit 计数（`length > 60`），与 Ink 按显示宽度的换行不一致=中文行错位换行；③ IME 合成中间态被当普通字符插入（ConPTY 中文输入法）——v3.35 已判决"终端/系统层职责，应用层无实现面"，本工单只做应用层可及项：码点切片（`Array.from`）、string-width 统一截断口径（放 @spark/protocol 共享或 CLI 本地，倾向 protocol 四端共享）、输入行上方条件块（slash 菜单/错误条/审批条）重绘稳定性；IME 深层修复挂 v2 候选池 V2-26 | 中文/emoji 输入：光标不反显半字符；中文长行截断与终端实际换行一致；输入期间菜单开合不错位（用户现场走查）；单测补中文用例（现有仅 ASCII） | —    |
-| 10.20 | 设置项全量落地（占位清零）    | 9/10         | 设置中心 16 页中 6 页整体占位、常规页 15 行中 14 行占位。**后端最大缺口：server 无 spark.json 读写 API**——engine/config.ts 可配置项全量存在（maxStepsPerTurn/toolTimeoutMs/compactionThreshold/bashSandbox/checkpoints/hooks 等）只是没有暴露。产出：① 新增 `GET|PUT /api/settings`（GET 返回脱敏全量 config；PUT 部分字段更新+原子写盘+重启生效字段标注；engine config 读写函数 + zod 校验）；② 前端逐页落地：常规页引擎行为行接真值（压缩阈值/最大步数/工具超时/沙箱档/保留模型 I/O=compactionThreshold=1 语义）；命令页（GET /api/commands 已有，纯前端）；hooks 页（配置已在 spark.json，读写走 ① API）；MCP/技能页从只读升管理（启停落 mcp.json——若 v1 不做管理则 UI 明示只读，禁假状态）；③ 纯本地项（i18n 界面语言/通知声音/思考过程显示开关等）接 web settings store 落地或明示 v2（V2-12）；④ desktop 特化项（托盘/终端字体/自动更新）迁移至"桌面版"分区明示依赖 Electron，不在 web 假装可配。**红线：每个设置项要么真落地要么明示去向（v2 编号/桌面依赖），禁"后续工单"空占位** | 设置中心 16 页逐页走查：无"后续工单"占位行；每个控件操作真实生效或标注去向；`GET /api/settings` 脱敏（无 apiKey 值）；PUT 后 spark.json 落盘且重启生效；server 单测覆盖新路由 | 10.12（测试连接修复后走查才准） |
+| 10.16 | 切会话即时化（缓存优先）      | 5（切对话）  | `SessionPage.tsx` L105-120 effect 无条件 `setLoad('loading')` 后全量回放，即使目标会话 slice 已在 store（曾打开过）→ 先清空再 loading 白屏一下。修法：slice 已有 items 时立即渲染缓存投影，回放放后台合并（回放完成后 durable 全量覆写对齐 seq，不先 resetSlice 造成闪空）；仅 `lastSeq===0`（真正冷会话）才显示 loading 态。**与 10.14 的 Virtuoso 修复联动**（回会话页不再从 0 滑到底）。**"左右式横向切换过渡"另立**：DESIGN 无既有条款（grep 无对应规格），属新增期望且与 §12"仅微动效"总则有张力——若晚风要横向滑动，先在 DESIGN §13 补规格（位移量/时长/缓动/方向感知/reduced-motion 降级）后实现，本工单只消白屏与卡顿 | 已打开过的会话切换：右侧原位即时切换无 loading 白屏；冷会话仍显示加载态；切回后再切走不丢新事件 | 10.14（Virtuoso 联动，可并行） |
+| 10.17 | CLI 启动首屏与 resume 修复    | 1/4（半）    | ① 黑屏：BootHeader 只挂在"slice 已建立且空会话"分支（app.tsx L475-478），而启动时自动激活"最近更新会话"（L112-121）——有历史会话时 emptySession 永为 false，BootHeader 永不再现；slice 只能由事件流建立，启动到 SSE 首事件之间是纯空窗（一行灰字），server 不可达时永远近乎全空。**另有三处（并行会话发现，已验证）**：BootHeader.tsx:29-36 版本号 `require('../package.json')` 相对组件目录解析到不存在的路径**恒显 0.0.0**；模型行缺"(/model 切换)"提示（DESIGN K.1 不符）；DESIGN 要求 resume 后 boot 头部重现一次，代码未实现；根 Box 固定 `height={rows}` 在 Windows Terminal resize 时错行清屏。修法：BootHeader 不依赖 slice（连接中/失败/空会话三态都渲染 boot 骨架+状态行），启动策略二选一（默认新建空会话 vs 空态判定不依赖 items 长度——执行时说明取舍）；版本号构建注入或读正确路径（禁 0.0.0 兜底）；resume 后 bootStamp 重现一次头部；resize 重订阅；listSessions 失败给显式错误屏（含重试键位）；② resume 点不进去：ResumePanel 空过滤词直接 Enter 时 InputBox `text.trim()===''` 不触发 onSubmit（InputBox.tsx L47-51）→ confirmResume 永不执行=面板选中但无反应。修法：面板激活态下 Enter 由 App 层接管（或 InputBox 支持"面板态空值提交"回调——别加布尔地狱，也别改成全局空回车都提交，主输入区会误发空消息） | 冷启动连上 server：立即见 boot 头部（含正确版本号）无黑屏；server 未开：见明确错误+重试而非空屏；/resume 列表非空时 Enter 直接恢复选中会话；cmd 与 Windows Terminal 两终端 + resize 后不错行 | —    |
+| 10.18 | CLI 命令面扩容（描述符架构 + v1 基线 15） | 2/4 | 现状：本地命令仅 new/resume/stats/help + 引擎 action 仅 compact 生效；菜单里 model/mcp/skills/usage 四个 client 命令 CLI 无面板无本地分支，输入落引擎即 400 `E_COMMAND_CLIENT`；协议/server 侧能力全部就绪（`PUT /api/sessions/:id/model`、`GET /api/mcp`、`GET /api/skills`、`GET /api/routing` 均已存在，**纯前端缺接**）。**且四端各有平行硬编码命令表**（web composer-menus.ts:55 SLASH_COMMANDS、client-commands.ts CLIENT_ACTIONS、mock.ts:745 COMMANDS、cli app.tsx:271-286 if 链）——同词表五处维护是复发温床。**副产物 bug（已验证）**：slash 菜单开着时执行"选中项"而非输入文本（app.tsx:262-268）——输 `/s` 回车实跑 /skills。产出（严格协议先行 §2.5）：① `packages/protocol` 新建 commands.ts：`CommandDescriptorSchema`（strictObject）+ BUILTIN_COMMANDS 常量——name/description/kind(action\|prompt\|client)/group/surface: ('web'\|'cli'\|'mobile'\|'miniapp')[]/sessionRequired/args{placeholder,hint}/clientAction 封闭枚举（词表模式照抄本仓 keymap.ts 先例，四端共享单一来源）；api.ts CommandDto 增量加可选字段（向后兼容，勿破 mock/快照）；engine loader 改 import BUILTIN_COMMANDS（只留 .md prompt 扫描与 $ARGUMENTS 展开）；② 四端删平行表，全部由描述符+clientAction 分派 map 生成；**某端未实现该 clientAction 就不渲染该命令**（禁假状态）；③ 协议不变量单测：名字唯一 + **每条 client 命令的 clientAction 在其 surface 声明的每端都有实现映射**——防 /model 在 CLI 坏掉复发的回归网；④ CLI 实装：/model（ModelPicker 面板，store.models 数据源，确认调 setSessionModel，带参直调）/mcp（listMcpServers 只读）/skills（listSkills 只读）/usage（GET /api/routing）；修选中项覆盖逻辑（仅当输入文本等于该命令名时才用选中项）；⑤ `ERROR_COPY` 补 E_COMMAND_CLIENT 人话条目；⑥ v1 基线 15 命令（现有 5 + 本工单 4 + 补 6：/title（setTitle 已有）/fork（fork 端点已有）/checkpoint（列表已有）/rollback <id>（已有）/effort（setSessionEffort 已有）/tree（GET tree 已有））——**全部走既有端点，零新后端**；⑦ SlashMenu 分组（会话/模型/信息/帮助）；⑧ 78 命令全量判决表见 10.18a 附表 | 描述符单测（名字唯一/clientAction 全 surface 映射）；15 命令逐一可用（真实 server 冒烟）；菜单不再列出本端不可用命令；单测含 setSessionModel 路径 | 10.17 |
+| 10.18a | Qwen Code 78 命令全量判决表（文档） | 2 | 对 Qwen Code 官方 78 命令（docs users/features/commands）逐条登记判决：**v1 落地 15**（10.18 ⑧）/ **Spark 已有对应物 8**（/help≈帮助面板、/mcp、/skills、/usage≈/stats、/compact、/memory≈记忆页、/permissions≈权限规则页、/theme≈外观页——经 slash 直达或已有 UI）/ **v2 挂池 16**（/clear、/context、/status、/tools、/doctor、/rewind、/restore、/branch、/export、/rename、/forget、/copy、/effort 已有、/init、/summary、/settings——部分批 2 扩容）/ **新机制项挂池 9**（/voice 语音听写、/arena 多模型竞答、/lsp、/trust、/extensions、/agents 子代理管理、/plan 计划模式、/remember+memory 管理、/goal 持续目标——详见 §8.7 V2-27~V2-35）/ **不做判决 30**（/vim、/editor、/ide、/connect、/login、/auth、/statusline、/vim 模式、/btw、/advisor、/curator、/dream、/insight、/learn、/loop、/coordinate、/review、/simplify、/workflows、/tag、/recap、/language、/log、/quit、/exit、/docs、/bug、/cd、/directory、/diff、/history——逐条写"不做"理由，照 7.9 Python worker 留档格式，避免为凑数做假实现）。本表为命令面**单一来源**，10.18 实现以此为准 | 判决表落 doc/02 本批次节尾（本附表即验收物）；每条可指认判决与理由；与 §8.7 池编号一致 | 10.18 同 PR |
+| 10.19 | CLI 宽字符与输入错位修复      | 3            | 四点根因（均在 apps/cli）：① InputBox.tsx L96-99 光标按 UTF-16 code unit 切片（`slice(cursor, cursor+1)`），CJK 一字占 2 列、emoji/代理对被半个 surrogate 反显；退格 c-1、左右 ±1、插入 c+input.length 同病；② items.tsx 截断按 code unit 计数（`length > 60`）、HelpPanel.tsx:58/65/90 padEnd——与 Ink 按显示宽度的换行不一致=中文行错位换行（反例参照：ResumePanel.tsx:61、SlashMenu.tsx:37 已正确用 wrap="truncate-end"）；③ 整行无列宽截断，超过 columns 时 Ink 自动折行压在 Footer 上=输入内容与状态栏重叠；④ **IME 组字期 App 全局键劫持**（并行会话发现）：App 顶层 useInput（app.tsx:302）在候选串里见 `?` 开帮助面板（L345-348）、挂审批时把 1/2/y/n 当审批键（L428-439）——组字串被当快捷键。修法：显示宽度计算（string-width + Intl.Segmenter grapheme 数组）统一一个 displayWidth/truncateByWidth 工具（放 @spark/protocol 四端共享，新增依赖说明理由与许可证：string-width MIT）；键位分层：输入框有焦点时 InputBox 先消费、App 全局键只识别单码元输入、组字串作原子文本插入不猜键；输入行按 columns-prefixWidth 截断或改多行增高（择一）；候选窗交终端自绘（本仓无法接管）。IME 深层残余挂 V2-26。单测补中文/emoji 用例（render.test.tsx 现仅 ASCII） | 中文/emoji 输入：光标不反显半字符、不错列；中文长行截断与终端实际换行一致；组字期间不误开面板/误触审批键（用户现场走查）；新增依赖理由登记 | —    |
+| 10.20 | 设置项全量落地（占位清零，三分类推进） | 9/10 | 设置中心 16 页中 6 页整体占位、常规页 15 行中 14 行占位。缺口三分类，**按性价比顺序推进**：**A 类零后端成本先清**（端点+transport 已在、纯缺接线）：① 成本上限可编辑（PUT /api/routing + RoutingUpdate.costLimitUsd + updateRouting 全在）；② "清零累计"按钮（DELETE /api/routing/usage + resetUsage 已暴露、页面文案写了"清零累计后恢复"却没接）；③ 模型页补 4 档位（fallback 链/压缩档/标题档/子代理档——RoutingDto 四字段可读写）；④ "显示思考过程/工具分组"开关（渲染层 ReasoningCollapsible/ToolGroupRow 已实现，纯缺 stores/settings.ts 字段+消费点）——**"显示待办"开关删除**：tools/builtin 仅 7 工具无 Todo 工具，不留无效开关，登记独立缺口；⑤ 自定义命令只读页（GET /api/commands 已有，形态照 McpSettingsPage）；**B 类引擎有字段缺端点**（本工单核心新增）：`GET|PUT /api/settings`（协议 DTO 在 protocol/src/api.ts 定义——§2.5 协议先行；GET 返回脱敏全量 spark.json+engine 行为配置，**绝不回 apiKey 值**；PUT 部分字段更新+zod 校验+原子写盘+重启生效字段 DTO 标注 restartRequired）——解锁：压缩阈值/最大步数/工具超时/沙箱档 bashSandbox/保留模型 I/O=compactionThreshold 语义/工具输出上限/toolOutputLimitKB/新建默认模型与默认推理档（从 localStorage 迁 models.json）；**热生效 vs 重启生效策略先写 ADR 入 ARCHITECTURE.md**（这正是 doc/02 v3.4 遗留"沙箱读写分歧留决策"未结项）经晚风确认后再实现；**C 类明示去向**：desktop 特化项（托盘/终端字体/自动更新/保持运行）迁"桌面版"分区明示依赖 Electron；纯本地项（i18n 界面语言 V2-12/通知声音）接 settings store 或明示 v2 编号；MCP/技能页管理功能挂 V2-01；代理/证书挂 V2-06。**红线：每个设置项要么真落地要么明示去向（v2 编号/桌面依赖），禁"后续工单"空占位；所有写入走 Transport 禁组件直接 fetch** | 设置中心 16 页逐页走查：无占位行；A 类控件即时生效；`GET /api/settings` 响应 grep 不到 key 值；PUT 落盘且重启生效（需重启项 UI 标注"下次启动生效"）；server 单测覆盖新路由（含脱敏断言） | 10.12（测试连接修复后走查才准） |
 | 10.21 | hook 读取 API（路径分歧拍板） | 10（子项）   | user-hooks（工单 7.3）引擎已实现、spark.json `hooks` 配置存在，但无读取端点，前端 hooks 页无数据源。若走 10.20 的 `GET /api/settings` 全量返回则**本工单并入 10.20**（推荐）；若单独 `GET /api/hooks` 则本工单独立实现。**开工前由晚风拍板路径**。验收同 10.20 hooks 行 | hooks 页真值呈现（配置的事件类型/命令清单）；编辑后写盘生效 | 10.20 |
 
-> 备注：① 问题 4 的"/model 无法切换"与问题 2 的"命令太少"根因同源（client 命令无前端实现面），分别由 10.17/10.18 修复；② 问题 5"回答思考双份"（10.13）与"切对话体验"（10.16）是两个独立缺陷；③ IME 深层修复（ConPTY 合成中间态）与用户hooks 独立端点两项为待拍板/挂池项；④ 10.20 涉及新 API 须走"协议从 @spark/protocol 开始"纪律（API DTO 在 protocol/src/api.ts 定义，两端同步）。
+### 10.18a 附表：Qwen Code 78 命令全量判决表（命令面单一来源；v1=批次 2，v2=§8.7 池）
+
+> 依据：Qwen Code 官方文档站 `users/features/commands`（2026-08-31 在线核对，AGENTS §2.12 纪律）。判决五档：**v1 落**（批次 2 工单 10.18，全部走既有端点零新后端）/ **已有对应物**（Spark 已有该能力，slash 直达或既有 UI）/ **v2 挂池**（能力缺口小，挂 §8.7）/ **新机制挂池**（需新机制立项，挂 §8.7）/ **不做**（写明理由，照 7.9 Python worker 留档格式——避免为凑数做假实现）。
+
+| 判决 | 命令 | 说明/理由 |
+| --- | --- | --- |
+| **v1 落（15）** | /new /resume /stats /help /compact /model /mcp /skills /usage /title /fork /checkpoint /rollback /effort /tree | 现有 5 + 10.18 新增 4 + 补 6——端点全部既有（PUT model、GET mcp/skills/tree/checkpoints、POST fork/rollback、setSessionEffort、setTitle） |
+| **已有对应物（8）** | /permissions /memory /theme /settings /config /clear /context /status | 权限规则页/记忆页/外观页/设置中心已存在（10.20 落地后 /settings 直达）；/clear≈/new 新建；/context≈StatusBar 水位+/stats；/status≈footer+boot 头——slash 别名直达即可，无需新建机制 |
+| **v2 挂池（11）** | /rewind /restore /branch /export /rename /delete /forget /copy /init /summary /recap | rewind/restore≈checkpoint 回退 UI 化（rollback 已落，历史级回退 UI 挂池）；branch/fork 已落、/branch 为交互式分支管理挂池；export 会话导出（V2-13）；rename≈/title 别名（v2 统一命名）；delete 会话删除（**V2-23 已在池**）；forget 记忆条目删除（记忆页已有删，slash 化挂池）；copy 回复/代码块复制（部分已有复制钮，全局 /copy 挂池）；init 项目上下文文件生成（**挂 V2-27**：需文件生成工具+AGENTS 模板）；summary/recap 需模型出力（挂池，走 prompt 命令通道） |
+| **新机制挂池（9）** | /voice /arena /lsp /trust /extensions /agents /plan /goal /remember | **V2-28** voice 语音听写（需音频采集+STT，桌面/移动端能力）；**V2-29** arena 多模型并行竞答（引擎跨会话并发已有底子，需对比视图）；**V2-30** lsp（LSP 客户端整条链路，大件）；**V2-31** trust 文件夹信任（需 trust store+首启判定机制）；**V2-32** extensions 扩展管理（依赖 V2-01/V2-02）；**V2-33** agents 子代理管理面板（引擎子代理已落地，缺管理 UI——可批 2 扩容）；**V2-34** plan 计划模式（读-only 模式开关，与审批档位联动，需引擎 run-loop 模式位）；**V2-35** goal 持续目标（turn 循环判定，需新机制）；remember≈memory.save 直通道（记忆工具已有，slash 直达 UI 挂池） |
+| **不做（35）** | /vim /editor /ide /connect /login /auth /statusline /btw /advisor /curator /dream /insight /learn /loop /coordinate /review /simplify /workflows /tag /tasks /log /quit /exit /docs /bug /cd /directory /diff /history /language /effort-max /compress /summarize-fast /advisor-mode /arena-mode | 逐条理由：/vim Vim 输入模式（CLI 输入自有形态，无 Vim 用户基础，不做）；/editor /ide（无 IDE 集成线，Spark 定位 headless+多端，不做）；/connect /login /auth（无账号体系——AGENTS §2.9 不做多用户/登录，本地 127.0.0.1 是刻意的）；/statusline（CLI 无状态栏自定义需求，footer 双行已定 K.4）；/btw /advisor /curator /dream /insight /learn（Qwen 特有的第二意见/顾问/技能策展/auto-memory 整合/洞察/学习——与 Spark 的记忆/技能机制重叠但形态不同，等真实诉求再评估，当前不做）；/loop /coordinate /workflows /tasks（定时/多代理协调/后台任务——Spark 的自动化与子代理走既有 UI，不做 slash 形态）；/review /simplify（多代理审查/清理编辑——挂 eval 后评估，当前无对应能力不做）；/tag≈/title 已覆盖；/log（logs 已有脱敏输出，无 UI 需求）；/quit /exit（CLI Ctrl+C/Ctrl+D 已有——keymap 既有）；/docs /bug（文档站=doc/、issue 走 GitHub，无内置需求）；/cd（会话 cwd 是创建期属性，运行中切换破坏 durable 一致性，不做）；/directory（单 cwd 红线——路径硬边界是安全模型，不做多目录）；/diff（checkpoint 回滚已有差分预览，独立 /diff 无端点不做）；/history（转录即历史，/resume 面板已覆盖）；/language（i18n V2-12 后再议） |
+
+> 计数核对：15 + 8 + 11 + 9 + 35 = 78（与官方文档 `<code>` 命令清单一致，个别别名去重）；"不做"35 条里 /tag /log 等与已有对应物重叠的按主判决归档。**执行纪律**：10.18 实现以本表为准；新机制 9 条全部挂池不进 v1——先有真实用户诉求再立项（AGENTS §2.9 MVP 边界纪律）。
+
+> 批次 2 备注：① 问题 4 的"/model 无法切换"与问题 2 的"命令太少"根因同源（client 命令无前端实现面），分别由 10.17/10.18 修复；② 问题 5"回答思考双份"（10.13）与"切对话体验"（10.16）是两个独立缺陷；③ IME 深层修复挂 V2-26、hooks 端点路径（10.21）为待拍板项；④ 10.20 的新 API 须走"协议从 @spark/protocol 开始"纪律（DTO 在 protocol/src/api.ts 定义，两端同步）；⑤ 横向小项（createSession 丢 model 已并入 10.12 附带②；SubmitResult/SubmitOutcome 语义重复——批次 2 期间顺带清理或挂池，不单列工单）；⑥ 本批次工单表与提示词已经并行会话（千问）交叉验证，其独有发现（版本号 0.0.0/slash 选中项覆盖/Virtuoso 逐行测高/secrets-env 状态不一致/App 全局键劫持组字串）已逐条核实合入对应工单。
 
 ### 批次 2 开工提示词（5 份，按执行顺序；新会话直接粘贴）
 
-**提示词 1（工单 10.12——transport 空 body 修复）**：
+**提示词 1（工单 10.12——transport 空 body 修复 + 附带三项）**：
 
 ```text
 任务：Spark 工单 10.12——HTTP transport 空 body 修复（阶段十验收批次 2 第 1 张，最高优先）。
 
 前置阅读：AGENTS.md（硬性约定 + 红线）、doc/02-development-plan.md 阶段十·验收批次 2 表 10.12 行、
 packages/protocol/src/transport-node.ts（重点 req() 226-235 行）、apps/server/src/routes.ts 与 pairing-routes.ts 的 POST/DELETE 路由、
+apps/server/src/errors.ts、packages/engine/src/model-catalog.ts（hasKeyOf）与 secrets/store.ts（resolveApiKey）、
 packages/protocol/tests/ 现有 transport 测试。
 
 背景：transport-node.ts 的 req() 无条件给所有请求加 content-type: application/json 头；无 body 的 POST/DELETE
-被 Fastify 拒 400 "Body cannot be empty when content-type is set to 'application/json'"（FST_ERR_CTP_EMPTY_JSON_BODY）。
-用户已踩到两处（配对签发 createPairCode、供应商测试连接 testModelProvider）；同根因还有 interrupt/compact/
-rollbackCheckpoint/removeSecret/resetUsage/removeAutomation/fireAutomationWebhook/fireAutomationManual/revokePairDevice。
+被 Fastify 拒 400 "Body cannot be empty when content-type is set to 'application/json'"（FST_ERR_CTP_EMPTY_JSON_BODY），
+路由 handler 从未进入。用户已踩到两处（配对签发 createPairCode、供应商测试连接 testModelProvider）；同根因共 11 个
+调用点（interrupt/compact/rollbackCheckpoint/removeSecret/resetUsage/removeAutomation/fireAutomationWebhook/
+fireAutomationManual/revokePairDevice）。
 
 要求：
-1. 修 req()：仅当 init?.body !== undefined 时才带 content-type 头。一处修复，不改任何 server 路由与 engine。
-2. 补测试：protocol 侧对"POST 无 body"路径断言请求头不含 content-type；并在 apps/server/tests 里为至少
-   POST /api/pair/code 与 POST /api/models/:providerId/test 补"带 content-type 头 + 空 body"的 inject 用例
-   （复现真实浏览器口径——现有 inject 用例不带该头，这正是缺陷被掩盖的原因，写进用例注释）。
-3. 全部 11 个调用点逐一冒烟（起 server 后 curl 带 json 头空 body 与不带头两种口径各打一遍，记录结果到提交说明）。
-红线：TypeScript strict 禁 any；不改 wire 类型；不删任何文件。
-验收：真实浏览器点"添加移动设备"能出 6 位码/二维码；点"测试连接"返回真实测试结果；pnpm test/typecheck/lint 全绿。
-提交：fix(protocol): 工单 10.12——req() 仅在有 body 时带 content-type，空 body POST/DELETE 修复（解锁 11 调用点）。
+1. 修 req()：仅当 init?.body !== undefined 时才带 content-type 头。一处修复，不在各调用点打补丁。
+2. server index.ts 注册 setErrorHandler：Fastify 原生码（FST_ERR_*）映射进 errors.ts 错误码表，统一 {code,message}
+   返回，使协议 error-copy.ts 文案表不再被绕过。
+3. 修 createSession 漂移：transport.ts:65 接口声明 opts.model 但 transport-node.ts:301-306 实现丢弃——以接口为准
+   补请求体，并加断言单测。
+4. 修 key 状态误报：hasKeyOf 只查 env 而 resolveApiKey 优先级 store>env——经设置页存 secrets.json 的 key 会误显
+   "缺少 API Key"。model-catalog 状态判定改走 resolveApiKey 单点；"已启用/已就绪"语义（不含连通性）在 UI tooltip 注明。
+5. 补测试：protocol 断言"无 body 不带 content-type、有 body 必须带"；apps/server/tests 为 POST /api/pair/code 与
+   POST /api/models/:providerId/test 补"带 content-type 头 + 空 body"的 inject 用例（复现真实浏览器口径——现有 inject
+   不带该头，这正是缺陷被掩盖的原因，写进用例注释）。
+6. 11 个调用点逐一冒烟（起 server 后 curl 两种口径各打一遍，结果记入提交说明）。
+红线：TypeScript strict 禁 any；不改 wire 类型语义；不删任何文件。
+验收：真实浏览器点"添加移动设备"能出 6 位码/二维码；点"测试连接"真实发出上游请求并显示结果；CLI /compact、中断、
+回滚、删密钥链路可用；secrets key 状态不再误报；pnpm test/typecheck/lint 全绿。
+提交：fix(protocol+server+engine): 工单 10.12——req() 条件化 content-type + setErrorHandler + createSession 漂移与 key 状态修复。
 ```
 
 **提示词 2（工单 10.13——会话流去重）**：
@@ -2038,17 +2063,21 @@ apps/web/src/features/chat/AssistantBlock.tsx（L71-73 对 content 内 reasoning
 （L101-104 已正确跳过，对齐参照）、apps/web/tests/applyEvent.test.ts。
 
 要求：
-1. apply-event.ts：reasoning.ended / assistant.message 的定稿配对从 lastItem() 改为"本 turn 内最近的未闭合流式项"
-   （按事件 kind + activeTurn 反向扫描）；找到则闭合该流式项（剥离 streaming 态），找不到再 push 新项（保留现兜底）。
-   同时对"定稿之后才到达的迟到 delta"做防护（不再新建 item）。
+1. apply-event.ts：reasoning.ended / assistant.message 的定稿配对从 lastItem() 改为"按 turnId 反向查找最近未闭合同类
+   流式项"（仿既有 findLastTurn 模式加 findLastReasoning/findLastStreamingAssistant）；找到则闭合该流式项（剥离
+   streaming 态），找不到再 push 新项（保留失败闭合兜底，不静默丢弃）。同时验证修复效果：未闭合 reasoning 项的
+   计时器必须停（实测曾显示假"578 秒"）。对"定稿之后才到达的迟到 delta"做防护（不再新建 item）。
 2. AssistantBlock.tsx：content 里的 reasoning 块跳过渲染（对齐 CLI items.tsx 口径），避免与 reducer 生成的
-   reasoning UiItem 双份（这是刷新后仍双份的独立来源）。
+   reasoning UiItem 双份（这是刷新后仍双份的独立来源）。渲染层去重——不改协议词表、不改引擎 emit。
 3. 单测：apps/web/tests/applyEvent.test.ts 补交错发射序用例（reasoning.delta→assistant.delta→reasoning.ended→
-   assistant.message 断言单项闭合）；迟到 delta 用例；纯 durable 回放（含 content reasoning 块）无重复渲染。
-4. reducer 是四端共享资产（ADR D22）：apps/cli/tests/render.test.tsx 全量回归 + miniapp 快照核对（有 reasoning 块的
-   mock 会话 normal.jsonl 注意基线变化要如实更新并说明）。
+   assistant.message 断言 reasoning 恰 1 条、assistant 恰 1 条）；迟到 delta 用例；纯 durable 回放（含 content
+   reasoning 块）无重复渲染。
+4. reducer 是四端共享资产（ADR D22）：web/cli/mobile/miniapp 四端测试全跑；miniapp 投影快照核对（normal.jsonl 含
+   reasoning 块，基线变化如实更新并说明）。
+已排除项（免复查，别浪费时间）：非 StrictMode 双写（transports/context.tsx cleanup 完整、订阅恒 1）、非 SSE 重放双发
+（seq 水位去重）。
 红线：不引入"跳过事件"类吞数据逻辑；失败闭合纪律保持。
-验收：起 server+web 真实模型一回合：流式→定稿无双份；F5 刷新无双份；CLI 同会话无双份；pnpm test/typecheck/lint 全绿。
+验收：起 server+web 真实模型一回合：流式→定稿无双份、思考计时器会停；F5 刷新无双份；CLI 同会话无双份；pnpm -r test/typecheck/lint 全绿。
 提交：fix(protocol+web): 工单 10.13——定稿按 turn 配对流式项 + web reasoning 块去重渲染。
 ```
 
@@ -2058,82 +2087,107 @@ apps/web/src/features/chat/AssistantBlock.tsx（L71-73 对 content 内 reasoning
 任务：Spark 工单 10.14/10.15/10.16——web 设置导航、焦点环、切会话三修复（可同分支，分三个 commit）。
 
 前置阅读：AGENTS.md、DESIGN.md §12/§13.E、doc/02 阶段十·验收批次 2 三行、apps/web/src/features/settings/SettingsSidebar.tsx
-（L23-30 navigate(-1)、L43 分区互切 push）、apps/web/src/styles/theme.css（L25-28 全局 :focus-visible 用 --spark-accent
-且未分层）与 tokens.css、apps/web/src/routes/SessionPage.tsx（L105-120 无条件 setLoad('loading')、L277-279 loading 白屏）、
-apps/web/tests/theme-contrast.test.ts。
+（L23-30 navigate(-1)、L43 分区互切 push）、apps/web/src/components/layout/AppShell.tsx（L75 列宽 transition-150）、
+apps/web/src/features/chat/ChatView.tsx（L60-83 Virtuoso 未设 initialTopMostItemIndex）、apps/web/src/styles/theme.css
+（L25-28 全局 :focus-visible 用 --spark-accent 且未分层）与 tokens.css、apps/web/src/routes/SessionPage.tsx
+（L105-120 无条件 setLoad('loading')、L277-279 loading 白屏）、apps/web/tests/theme-contrast.test.ts。
 
-要求（10.14）：设置分区互切 navigate 改 replace: true（同层平级不堆历史）；返回按钮改确定性导航（进入设置时记录来源
-路由，返回一步回去；无来源时回 '/'）。验收：连点 5 个分区后点返回一步回主界面。
-要求（10.15）：theme.css 全局 :focus-visible 的 outline 颜色从 --spark-accent 改 --ring（中性），规则移入 @layer base
-（恢复 utility 覆盖能力）；DESIGN.md 需同步拍板登记——§13.C L87/L104 "焦点环用 accent"与 §13.E v2.5 "聚焦不加高饱和
+要求（10.14，三层根因都要修）：① 返回按钮改直达目的地 navigate('/session/'+activeId ?? '/welcome')，分区互切改
+replace: true（同层平级不堆历史）；② 进出设置的那一帧禁用 grid-template-columns 过渡；③ Virtuoso 补
+initialTopMostItemIndex（或首帧定位末尾）——这是"一项一项往前移"的真正视觉来源，别只修历史栈。
+要求（10.15）：theme.css 全局 :focus-visible 的 outline 颜色从 --spark-accent 改 --ring（中性），**规则移入
+@layer base**（关键：规则未分层时永远压过分层后的 outline-none utility——只换颜色不修分层，textarea 的
+outline-none 仍然失效）；DESIGN.md 同步拍板登记——§13.C L87/L104"焦点环用 accent"与 §13.E v2.5"聚焦不加高饱和
 ring"矛盾，按后者执行，DESIGN 版本表 +0.1 并注明决策；--spark-accent 其他职责（运行中状态点等）不动；
-theme-contrast.test.ts 复核过。
-要求（10.16）：SessionPage 已有缓存 slice（store 里有 items）时立即渲染、回放后台完成后全量覆写；仅 lastSeq===0
-冷会话才显示 loading。验收：已打开过的会话左右切换无白屏；切走再切回不丢新事件。
-红线：不改协议；不删文件；三修复各带单测或可复现走查步骤。
-验收：pnpm --filter web test + typecheck/lint 全绿；设置页/输入框/会话切换三处现场走查留用户执行。
-提交：三个独立 commit（fix(web): 工单 10.14 设置导航一步返回 / fix(web): 工单 10.15 全局焦点环中性化+分层 /
-fix(web): 工单 10.16 切会话缓存优先渲染）。
+theme-contrast.test.ts 复核过；grep 全仓确认无其它 indigo/violet 系聚焦发光；doc/02 阶段十 10.3 行按"勾选虚高"
+格式追加勘误说明（10.3 只修了组件级 ring，全局层漏了）。
+要求（10.16）：SessionPage 已有缓存 slice（store 里有 items）时立即渲染、回放后台完成后全量覆写（不先 resetSlice
+造成闪空）；仅 lastSeq===0 冷会话才显示 loading。验收：已打开过的会话左右切换无白屏；切走再切回不丢新事件。
+红线：不改协议；不删文件；三修复各带单测或可复现走查步骤；不实现"横向滑动切换"——那是新增期望，需先在 DESIGN
+补规格经晚风确认（本工单只消白屏与逐行滑）。
+验收：pnpm --filter web test + typecheck/lint 全绿；设置页返回/输入框聚焦/会话切换三处现场走查留用户执行。
+提交：三个独立 commit（fix(web): 工单 10.14 设置导航直达返回+Virtuoso 定位 / fix(web): 工单 10.15 全局焦点环
+中性化+@layer 分层+10.3 勘误 / fix(web): 工单 10.16 切会话缓存优先渲染）。
 ```
 
 **提示词 4（工单 10.17/10.18/10.19——CLI 三张，一张会话内顺序完成）**：
 
 ```text
-任务：Spark 工单 10.17/10.18/10.19——CLI 启动首屏、命令面扩容、宽字符错位修复。
+任务：Spark 工单 10.17/10.18/10.19——CLI 启动首屏、命令面扩容（描述符架构）、宽字符错位修复。
 
-前置阅读：AGENTS.md、DESIGN.md §13.K、doc/02 阶段十·验收批次 2 三行、apps/cli/src/app.tsx（L105-143 启动时序、
-L147-171 SSE effect、L271-291 本地命令分支、L470-482 渲染三分支）、apps/cli/src/components/{BootHeader,InputBox,
-items,SlashMenu,StatsPanel}.tsx、apps/cli/src/store.ts（panel 类型）、packages/protocol/src/transport-node.ts
-（listModels/setSessionModel/listMcpServers/listSkills 已存在）、packages/protocol/src/error-copy.ts、
+前置阅读：AGENTS.md、DESIGN.md §13.K、doc/02 阶段十·验收批次 2 三行 + 10.18a 附表（78 命令判决表——实现以此为准）、
+apps/cli/src/app.tsx（L105-143 启动时序、L147-171 SSE effect、L262-268 slash 选中项覆盖、L271-291 本地命令分支、
+L470-482 渲染三分支、L302 全局 useInput、L345-348/L428-439 全局键劫持）、apps/cli/src/components/{BootHeader,InputBox,
+items,SlashMenu,StatsPanel,HelpPanel}.tsx、apps/cli/src/store.ts（panel 类型）、packages/protocol/src/{keymap.ts（四端
+共享词表先例）、transport-node.ts、error-copy.ts、api.ts}、packages/engine/src/commands/loader.ts、
+apps/web/src/features/chat/{composer-menus.ts,client-commands.ts}（待删平行表）、apps/web/src/transports/mock.ts:745、
 apps/cli/tests/render.test.tsx。
 
-要求（10.17）：① BootHeader 不依赖 slice——连接中/失败/空会话三态都渲染 boot 骨架（logo+信息盒+状态行），
-listSessions 失败给显式错误屏+重试键位；② resume 面板激活时 Enter 由 App 层接管（修复空过滤词 Enter 不触发的短路，
-InputBox.tsx L47-51 空文本不提交语义保持给普通输入态）。
-要求（10.18）：① 新面板：ModelPicker（store.models 数据源，确认调 setSessionModel，/model <id> 带参直调）、
-McpPanel（listMcpServers 只读）、SkillsPanel（listSkills 只读）、UsagePanel（GET /api/routing 数据源）；
-② app.tsx 本地分支拦截 model/mcp/skills/usage（无参开面板）；③ error-copy.ts 补 E_COMMAND_CLIENT 人话条目；
-④ 命令词表对账：Qwen Code 官方 78 命令（docs users/features/commands）逐条登记"Spark v1 落/不落（理由）"成附录表
-（放 doc/02 批次 2 节尾或 DESIGN §13.K 附表，选一处为单一来源）；v1 基线 15 命令全部走既有端点零新后端：
-现有 new/resume/stats/help/compact + model/mcp/skills/usage + title(setTitle 已有)/fork(fork 端点)/checkpoint(列表已有)/
-rollback(rollbackCheckpoint)/effort(setSessionEffort)/tree(GET tree 已有)；⑤ SlashMenu 分组（会话/模型/信息/帮助）。
-要求（10.19）：① InputBox 光标改码点切片（Array.from，修代理对半字符反显）；② items.tsx 截断与计数改显示宽度口径
-（string-width 放 @spark/protocol 四端共享，CLI 依赖 protocol 不新增直依赖）；③ 输入行上方条件块重绘稳定性走查记录；
-IME 深层残余挂 V2-26 不在本工单。单测补中文/emoji 输入与 15 命令各路径用例（render.test.tsx 现仅 ASCII）。
-验收：起 server+cli——启动即见 boot 头不黑屏；server 停掉时见错误屏；/resume 直接 Enter 可恢复；15 命令逐一冒烟可用；
-中文输入不错位；pnpm -r test/typecheck/lint 全绿。
-提交：三个独立 commit（fix(cli): 工单 10.17 启动首屏与 resume Enter / feat(cli): 工单 10.18 命令面扩容 v1 基线 15 /
-fix(cli+protocol): 工单 10.19 宽字符光标与截断口径）。
+要求（10.17）：① BootHeader 不依赖 slice——连接中/失败/空会话三态都渲染 boot 骨架（logo+信息盒+状态行）；启动策略
+二选一（默认新建空会话 vs 空态判定不依赖 items 长度），提交说明里写清取舍；② 修版本号：BootHeader.tsx:29-36 读
+../package.json 相对组件目录恒显 0.0.0——改构建注入或读正确路径，禁 0.0.0 兜底；模型行补"(/model 切换)"提示；
+③ resume 后 boot 头部重现一次（DESIGN K.1 要求）；resize 重订阅（Windows Terminal resize 后不错行）；
+④ listSessions 失败给显式错误屏+重试键位；⑤ resume 面板激活时 Enter 由 App 层接管（修复空过滤词 Enter 被吞——
+InputBox.tsx L47-51 空文本不提交语义保持给普通输入态，别加布尔地狱）。
+要求（10.18，描述符架构——严格协议先行 §2.5）：① packages/protocol 新建 commands.ts：CommandDescriptorSchema
+（strictObject）+ BUILTIN_COMMANDS——name/description/kind(action|prompt|client)/group/surface('web'|'cli'|
+'mobile'|'miniapp')[]/sessionRequired/args/clientAction 封闭枚举（词表模式照抄 keymap.ts 先例）；api.ts CommandDto
+增量加可选字段（向后兼容勿破 mock/快照）；engine loader 改 import BUILTIN_COMMANDS（只留 .md 扫描与 $ARGUMENTS）；
+② 四端删平行表（web composer-menus/client-commands、mock.ts COMMANDS、cli if 链），全部由描述符+clientAction
+分派 map 生成；某端未实现该 clientAction 就不渲染该命令（禁假状态）；③ 协议不变量单测：名字唯一 + 每条 client 命令
+的 clientAction 在 surface 声明的每端都有实现映射（防 /model 在 CLI 坏掉复发的回归网）；④ CLI 实装四面板：
+ModelPicker（store.models，确认调 setSessionModel，/model <id> 带参直调）/McpPanel（listMcpServers 只读）/
+SkillsPanel（listSkills 只读）/UsagePanel（GET /api/routing）；修 slash 选中项覆盖 bug：仅当输入文本等于该命令名时
+才用选中项（现输 /s 回车实跑 /skills）；⑤ error-copy.ts 补 E_COMMAND_CLIENT 人话条目；⑥ v1 基线 15 命令（现有 5 +
+新 4 + title/fork/checkpoint/rollback/effort/tree）全部走既有端点零新后端——清单以 10.18a 判决表为准，不做表外命令；
+⑦ SlashMenu 分组（会话/模型/信息/帮助）。
+要求（10.19）：① 显示宽度工具（string-width MIT + Intl.Segmenter grapheme）放 @spark/protocol 四端共享（CLI 不新增
+直依赖，依赖理由与许可证写提交说明）；InputBox 光标/退格/左右移改显示宽度口径（修 CJK 2 列与代理对半字符反显）；
+② items.tsx/HelpPanel.tsx 的 .length/padEnd 截断全部改 truncateByWidth（反例参照 ResumePanel.tsx:61、SlashMenu.tsx:37
+已正确用 wrap="truncate-end"）；③ 输入行按 columns-prefixWidth 截断（或改多行增高，择一）；④ 键位分层：输入框有焦点
+时 InputBox 先消费、App 全局键只识别单码元输入、组字串作原子文本插入不猜键——修复组字期 ? 开面板/1/2/y/n 触审批键
+的劫持；IME 深层残余挂 V2-26 不在本工单。单测补中文/emoji 输入与 15 命令各路径用例（render.test.tsx 现仅 ASCII）。
+验收：起 server+cli——启动即见 boot 头（含正确版本号）不黑屏；server 停掉见错误屏；/resume 直接 Enter 可恢复；
+15 命令逐一冒烟可用；中文输入不错位；cmd 与 Windows Terminal 两终端走查；pnpm -r test/typecheck/lint 全绿。
+提交：三个独立 commit（fix(cli): 工单 10.17 启动首屏/版本号/resize + resume Enter / feat(protocol+cli): 工单 10.18
+命令描述符架构 + v1 基线 15 / fix(cli+protocol): 工单 10.19 显示宽度口径与键位分层）。
 ```
 
 **提示词 5（工单 10.20/10.21——设置面全量落地）**：
 
 ```text
-任务：Spark 工单 10.20/10.21——设置项全量落地（占位清零）。
+任务：Spark 工单 10.20/10.21——设置项全量落地（占位清零，A→B→C 三分类推进）。
 
 前置阅读：AGENTS.md（协议改动从 @spark/protocol 开始）、doc/02 阶段十·验收批次 2 两行 + §5.1 配置 schema、
 packages/engine/src/config.ts（spark.json/models.json/permissions.json 全量可配项）、apps/server/src/routes.ts
 （现有 46 路由清单）、apps/web/src/features/settings/（settings-pages.ts 16 页、GeneralPage.tsx 15 行逐条、
-各 ready/占位页）、apps/web/src/stores/settings.ts。
+UsageSettingsPage/ModelSettingsPage 各 ready 项、各占位页）、apps/web/src/stores/settings.ts、
+apps/web/src/transports/mock.ts（命令数据源）。
 
-要求：
-1. 新增 GET|PUT /api/settings（协议 DTO 在 @spark/protocol/src/api.ts 定义——纪律：先协议后两端）：GET 返回脱敏
-   全量 spark.json+engine 行为配置（绝不回 apiKey 值）；PUT 部分字段更新 + zod 校验 + 原子写盘；需重启生效的字段在
-   DTO 标注 restartRequired。engine 侧加 config 读写函数。
-2. 前端逐页落地（红线：每个设置项要么真落地要么明示去向，禁"后续工单"空占位）：
-   - 常规页：引擎行为行接真值（压缩阈值/最大步数/工具超时/沙箱档 bashSandbox/保留模型 I/O=compactionThreshold 语义）；
-     纯本地项（界面语言 V2-12、通知声音等）接 settings store 或 UI 明示 v2 编号；desktop 特化项（托盘/终端字体/
-     自动更新/集成终端 Shell）迁"桌面版"分区明示依赖 Electron。
-   - 命令页：GET /api/commands 已有，纯前端接。
-   - hooks 页：走 GET/PUT /api/settings 的 hooks 字段（10.21 并入推荐路径——若晚风拍板独立 GET /api/hooks 则另立，
-     先问再动）。
-   - MCP/技能页：v1 只读则 UI 明示"只读"（禁假状态），管理功能挂 V2-01。
-   - 子智能体/插件/索引库/引导四页：数据源不存在的明示 v2 去向（doc/08 编号），不放假控件。
-3. server 单测覆盖新路由（含脱敏断言：响应不含任何 key 值）。
-红线：不暴露密钥值；PUT 校验失败 fail-closed 返回 400 带字段名；不删文件。
-验收：设置中心 16 页逐页走查无占位行；每个可操作控件真实生效（写盘+重启生效路径标注）；GET /api/settings 响应
-grep 不到 key 值；pnpm -r test/typecheck/lint 全绿；16 页走查留用户执行。
-提交：feat(protocol+engine+server+web): 工单 10.20/10.21——GET|PUT /api/settings + 设置占位清零。
+要求（A 类零后端成本先清——端点+transport 已在纯缺接线）：
+1. UsageSettingsPage 成本上限改可编辑（PUT /api/routing + updateRouting）；接"清零累计"按钮（DELETE /api/routing/usage +
+   resetUsage 已暴露、页面文案写了"清零累计后恢复"却没接）。
+2. 模型设置页补 4 档位：fallback 链/压缩档/标题档/子代理档（RoutingDto 四字段可读写）。
+3. "显示思考过程/工具分组"两开关接 stores/settings.ts 字段+消费点（渲染层 ReasoningCollapsible/ToolGroupRow 已实现）；
+   "显示待办"开关从 GeneralPage 移除并登记独立缺口——tools/builtin 仅 7 工具无 Todo 工具，不留无效开关。
+4. 自定义命令只读页（GET /api/commands 已有，形态照 McpSettingsPage）；hooks 页走 GET/PUT /api/settings 的 hooks
+   字段（10.21 并入推荐路径——若晚风拍板独立 GET /api/hooks 则另立，先问再动）。
+要求（B 类引擎有字段缺端点——核心新增）：
+5. 新增 GET|PUT /api/settings（协议 DTO 在 @spark/protocol/src/api.ts 定义——先协议后两端）：GET 返回脱敏全量
+   spark.json+engine 行为配置（绝不回 apiKey 值）；PUT 部分字段更新 + zod 校验 + 原子写盘；需重启生效的字段 DTO
+   标注 restartRequired。engine 侧加 config 读写函数。
+6. 热生效 vs 重启生效策略先写成 ADR 追加到 ARCHITECTURE.md（哪些字段可热生效、哪些必须重启、原子写盘与并发、
+   写失败回滚）——经晚风确认后再实现，不要自行发明与文档冲突的机制。这正是 doc/02 v3.4 遗留"沙箱读写分歧留决策"未结项。
+7. GeneralPage 接真值：压缩阈值/最大步数/工具超时/沙箱档 bashSandbox/保留模型 I/O=compactionThreshold 语义/工具输出
+   上限/新建默认模型与默认推理档（从 localStorage 迁 models.json）；需重启项 UI 标注"下次启动生效"。
+要求（C 类明示去向——禁空占位）：
+8. desktop 特化项（托盘/终端字体/自动更新/保持运行/集成终端 Shell）迁"桌面版"分区，明示依赖 Electron；纯本地项
+   （界面语言 V2-12、通知声音）接 settings store 或明示 v2 编号；MCP/技能页管理功能挂 V2-01；代理/证书挂 V2-06；
+   子智能体/插件/索引库/引导四页数据源不存在的明示 v2 去向（doc/08 编号），不放假控件。
+红线：不暴露密钥值；PUT 校验失败 fail-closed 返回 400 带字段名；所有写入走 Transport 禁组件直接 fetch；不删文件。
+验收：设置中心 16 页逐页走查无"后续工单"占位行；每个可操作控件真实生效（写盘+重启生效路径标注）；GET /api/settings
+响应 grep 不到 key 值；server 单测覆盖新路由（含脱敏断言）；pnpm -r test/typecheck/lint 全绿；16 页走查留用户执行。
+提交：feat(protocol+engine+server+web): 工单 10.20/10.21——A 类接线 + GET|PUT /api/settings（B 类）+ C 类去向明示。
 ```
 
 ## 8.6 测试矩阵（各阶段验收的测试面；框架 vitest）
@@ -2182,6 +2236,15 @@ grep 不到 key 值；pnpm -r test/typecheck/lint 全绿；16 页走查留用户
 | V2-24 | assistant 链接预览卡（正文 URL → 图标+域名+标题+打开钮卡片） | P3     | 阶段十截图评审新发现（ZCode 实测）；streamdown 渲染层扩展 |
 | V2-25 | 👍👎 反馈存储（会话/回合级反馈表） | P3     | §13.H:519 既定 v2 项：引擎需反馈存储表+端点；阶段十 10.4 UI 先行置灰 |
 | V2-26 | CLI IME 合成深层修复（ConPTY 中间态防插入/防御重绘） | P2     | 阶段十批次 2（10.19）新登记：v3.35 已判决合成态=终端层职责；应用层码点切片与宽度口径已修后残余的合成中间态错位归此项（需终端事件层能力，待调研 Windows Terminal/ConPTY 事件面） |
+| V2-27 | /init 项目上下文文件生成（AGENTS.md 模板 + 代码库扫描） | P2     | 10.18a 判决表 v2 挂池项：需文件生成工具与模板，Qwen /init 对应 |
+| V2-28 | /voice 语音听写输入 | P3     | 10.18a 新机制项：音频采集+STT，桌面（Electron）/移动端能力，web 麦克风权限 |
+| V2-29 | /arena 多模型并行竞答对比视图 | P3     | 10.18a 新机制项：引擎跨会话并发已有底子，缺"同 prompt 多模型并行+对比呈现"视图与用量归并 |
+| V2-30 | /lsp LSP 客户端集成 | P3     | 10.18a 新机制项：LSP 全链路（下载/连接/诊断数据源），大件；诊断信息现由 grep/read 工具覆盖 |
+| V2-31 | /trust 文件夹信任设置 | P2     | 10.18a 新机制项：trust store + 首启信任判定（Spark 本地单用户模型下优先级低，真实诉求出现再立项） |
+| V2-32 | /extensions 扩展管理 | P3     | 10.18a 新机制项：依赖 V2-01/V2-02（MCP/技能管理页与插件市场壳） |
+| V2-33 | /agents 子代理管理面板 | P2     | 10.18a 新机制项：引擎子代理（阶段五）已落地，缺管理 UI（预设档/运行中子代理查看）——可与 doc/08 §13.5 agent presets 合并立项 |
+| V2-34 | /plan 计划模式（read-only 档位） | P2     | 10.18a 新机制项：run-loop 只读模式位 + 审批档位联动；参考 ZCode Plan Mode 语义（AGENTS §8.1 工具差异已登记） |
+| V2-35 | /goal 持续目标（条件满足前循环工作） | P3     | 10.18a 新机制项：turn 循环判定 + 防失控护栏（与 maxSteps 交互需设计） |
 
 ---
 
@@ -2255,4 +2318,4 @@ grep 不到 key 值；pnpm -r test/typecheck/lint 全绿；16 页走查留用户
 
 ---
 
-_方案完（v3.0）。阶段一~五已完成（Spark v1）；阶段六~十已完成合入（PR #10，2026-08-31）；阶段十·验收批次 2（10.12–10.21，合并后实测缺陷修复）已立项待开工；开工顺序 10.12 → 10.13 → 10.14/10.15/10.16（并行）→ 10.17 → 10.18/10.19 → 10.20/10.21；v2 候选池不阻塞；每次完成按版本记录表追加记录并 push。_
+_方案完（v3.0）。阶段一~五已完成（Spark v1）；阶段六~十已完成合入（PR #10，2026-08-31）；阶段十·验收批次 2（10.12–10.21，已并入并行会话交叉验证增量与 10.18a 命令判决表）已立项待开工；开工顺序 10.12 → 10.13 → 10.14/10.15/10.16（并行）→ 10.17 → 10.18/10.19 → 10.20/10.21；v2 候选池不阻塞；每次完成按版本记录表追加记录并 push。_
