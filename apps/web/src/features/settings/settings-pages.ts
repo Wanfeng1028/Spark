@@ -116,9 +116,8 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'hooks',
         title: '钩子',
-        description: '生命周期事件钩子',
-        status: 'placeholder',
-        placeholderReason: '后续工单',
+        description: '生命周期事件钩子（四挂点清单与 JSON 编辑；经 /api/settings 读写）',
+        status: 'ready',
       },
     ],
   },

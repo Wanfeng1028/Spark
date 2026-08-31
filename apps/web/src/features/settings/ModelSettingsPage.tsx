@@ -462,7 +462,10 @@ export function ModelSettingsPage() {
                 <span className={cn('size-2 shrink-0 rounded-full', statusDotClass(detail))} />
                 <h3 className="text-[13px] font-semibold">{detail.label}</h3>
                 {detail.configured ? (
-                  <span className="rounded border border-border px-1.5 text-[11px] text-muted-foreground">
+                  <span
+                    className="rounded border border-border px-1.5 text-[11px] text-muted-foreground"
+                    title="已启用 = 已写入 models.json providers；不代表连通，请用「测试连接」确认"
+                  >
                     已启用
                   </span>
                 ) : (
@@ -478,7 +481,12 @@ export function ModelSettingsPage() {
               <dl className="divide-y divide-border text-[13px]">
                 <div className="flex items-center gap-3 px-4 py-2.5">
                   <dt className="w-24 shrink-0 text-muted-foreground">状态</dt>
-                  <dd className="min-w-0 flex-1">{statusText(detail)}</dd>
+                  <dd
+                    className="min-w-0 flex-1"
+                    title="已就绪 = API Key 已配置（密钥仓或环境变量）；不代表连通，请用「测试连接」确认"
+                  >
+                    {statusText(detail)}
+                  </dd>
                 </div>
                 <div className="flex items-center gap-3 px-4 py-2.5">
                   <dt className="w-24 shrink-0 text-muted-foreground">Base URL</dt>

@@ -3,8 +3,10 @@
  * zod 校验失败 400（issues 透出）；未知会话/请求/快照 404；审批已答复 409；
  * turn 进行中（手动压缩/回滚）409；分叉三拒绝码 400/409；引擎 shutdown 503；
  * 回滚 git 失败 500（详情只进日志）；其余一律 500 E_INTERNAL（详情只进日志，不透出）。
+ * 工单 10.12：Fastify 原生错误（FST_ERR_*，路由前即拒）同样收编进统一形态——
+ * setErrorHandler 走 sendError，协议端 error-copy 不再被框架默认形状绕过。
  */
-import type { FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
 export interface ErrorBody {
   code: string
@@ -36,6 +38,81 @@ export function replyOutcomeError(outcome: 'already-resolved' | 'unknown'): ApiE
     return new ApiError(409, 'E_ALREADY_RESOLVED', '审批请求已答复过')
   }
   return NOT_FOUND
+}
+
+/** Fastify 原生错误形态（FST_ERR_* 框架层错误，在路由处理前即拒） */
+interface FastifyNativeError extends Error {
+  code: string
+  statusCode?: number
+}
+
+function isFastifyError(err: unknown): err is FastifyNativeError {
+  if (!(err instanceof Error)) return false
+  const code: unknown = (err as { code?: unknown }).code
+  return typeof code === 'string' && code.startsWith('FST_')
+}
+
+/**
+ * Fastify 原生错误 → 统一形态（工单 10.12）。对外码不越 error-copy 词表：
+ * 客户端入参类问题一律 E_VALIDATION（HTTP 状态码承载细分语义），路由未命中 404。
+ */
+const FASTIFY_ERROR_MAP: Record<string, { status: number; code: string; message: string }> = {
+  FST_ERR_CTP_EMPTY_JSON_BODY: {
+    status: 400,
+    code: 'E_VALIDATION',
+    message: '请求体为空但声明了 JSON content-type',
+  },
+  FST_ERR_CTP_INVALID_JSON_BODY: {
+    status: 400,
+    code: 'E_VALIDATION',
+    message: '请求体不是合法 JSON',
+  },
+  FST_ERR_CTP_BODY_TOO_LARGE: {
+    status: 413,
+    code: 'E_VALIDATION',
+    message: '请求体超出大小上限',
+  },
+  FST_ERR_CTP_INVALID_MEDIA_TYPE: {
+    status: 415,
+    code: 'E_VALIDATION',
+    message: '请求媒体类型不受支持',
+  },
+  FST_ERR_CTP_INVALID_TYPE: {
+    status: 400,
+    code: 'E_VALIDATION',
+    message: '请求内容类型无效',
+  },
+  FST_ERR_VALIDATION: {
+    status: 400,
+    code: 'E_VALIDATION',
+    message: '请求参数校验失败',
+  },
+}
+
+/**
+ * 统一硬化登记（工单 10.12）——index.ts 与测试夹具共用同一份，口径一致：
+ * 1) 宽容 JSON 解析器：content-type=application/json 而 body 为空 → 按未带 body 处理
+ *    （= undefined），带 header 的无 body 请求不再被框架层拒；坏 JSON 仍 400。
+ * 2) setErrorHandler：FST_ERR_* 等框架层错误经 sendError 收编为统一 {code, message}。
+ */
+export function registerErrorHandling(app: FastifyInstance): void {
+  app.removeContentTypeParser('application/json')
+  app.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    // 返回 thenable 即按承诺风格执行（同步返回会挂等 done 回调）；不用 async 是函数内无 await
+    (_req: FastifyRequest, body: string): Promise<unknown> => {
+      if (body === '') return Promise.resolve(undefined)
+      try {
+        return Promise.resolve(JSON.parse(body) as unknown)
+      } catch {
+        return Promise.reject(validationError('请求体不是合法 JSON', undefined))
+      }
+    },
+  )
+  app.setErrorHandler((err, req, reply) => {
+    sendError(req, reply, err)
+  })
 }
 
 /** Error → ApiError（按前缀识别语义错误；E_INTERNAL 不透出详情） */
@@ -103,6 +180,14 @@ export function toApiError(err: unknown): ApiError {
   if (msg.startsWith('E_PAIR')) {
     // 工单 9.1：配对码不符/过期/重放（不区分原因，避免泄露在途码状态）→ 401
     return new ApiError(401, 'E_PAIR', '配对码无效或已过期')
+  }
+  if (isFastifyError(err)) {
+    // Fastify 框架层错误（路由前即拒，工单 10.12）：收编进统一形态，不走框架默认形状
+    if (err.code === 'FST_ERR_NOT_FOUND') return NOT_FOUND
+    const mapped = FASTIFY_ERROR_MAP[err.code]
+    if (mapped !== undefined) return new ApiError(mapped.status, mapped.code, mapped.message)
+    // 未登记的 FST_ERR_*：fail-closed 归内部错误（详情经 sendError >=500 规则进日志）
+    return new ApiError(err.statusCode ?? 500, 'E_INTERNAL', 'internal error')
   }
   return new ApiError(500, 'E_INTERNAL', 'internal error')
 }

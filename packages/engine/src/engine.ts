@@ -1004,12 +1004,90 @@ export class Engine {
 
   /** GET /api/models：供应商清单（内置/自定义）+ 可选模型 + defaultModel */
   listModels(): ModelsDto {
-    return listModels(this.config.models)
+    // hasKey 走 secrets 仓口径（工单 10.12）：只写密钥仓的供应商不得误报「缺 Key」
+    return listModels(this.config.models, (provider, apiKeyEnv) =>
+      resolveApiKey(this.secrets, provider, apiKeyEnv),
+    )
   }
 
   /** POST /api/models/:id/test：连通测试（时延/错误人话文案；ok=false 仍 200） */
   testModel(providerId: string): Promise<ModelTestResultDto> {
-    return testProvider(providerId, this.config.models)
+    return testProvider(providerId, this.config.models, {
+      resolveKey: (provider, apiKeyEnv) => resolveApiKey(this.secrets, provider, apiKeyEnv),
+    })
+  }
+
+  // ---- 设置读写（工单 10.20 B / 10.21 / ADR D28） ----
+
+  /** GET /api/settings：脱敏全量（掩码红线——绝不回 apiKey 值；models.json 只读参考） */
+  getSettings(): SettingsDto {
+    const e = this.config.spark.engine
+    const dto: SettingsDto = {
+      server: { port: this.config.spark.server.port, host: this.config.spark.server.host },
+      engine: {
+        maxStepsPerTurn: e.maxStepsPerTurn,
+        maxToolParallel: e.maxToolParallel,
+        toolTimeoutMs: e.toolTimeoutMs,
+        permissionTimeoutMs: e.permissionTimeoutMs,
+        progressThrottleMs: e.progressThrottleMs,
+        toolOutputLimitKB: e.toolOutputLimitKB,
+        compactionThreshold: e.compactionThreshold,
+        checkpoints: e.checkpoints,
+        bashSandbox: e.bashSandbox,
+      },
+      restartRequired: [...SETTINGS_RESTART_REQUIRED],
+      models: {
+        defaultModel: `${this.config.models.defaultModel.provider}/${this.config.models.defaultModel.model}`,
+        defaultEffort: this.config.models.defaultEffort ?? null,
+      },
+      ...(this.config.spark.hooks !== undefined ? { hooks: this.config.spark.hooks } : {}),
+    }
+    return dto
+  }
+
+  /**
+   * PUT /api/settings：部分字段更新（D28 写纪律，fail-closed）。
+   * 合并 spark.json raw → 启动同款 schema 再校验 → 原子写盘（tmp+rename）→
+   * 成功后重载内存 config（热档字段 turn 边界注入，下一 turn 生效；重启档字段
+   * 构造期注入不受影响）+ 重建 hooks runner。校验/写盘失败 → 内存与磁盘都不动。
+   */
+  updateSettings(patch: SettingsUpdate): SettingsDto {
+    this.assertNotShutdown()
+    const sparkPath = join(this.root, 'spark.json')
+    let raw: Record<string, unknown> = {}
+    if (existsSync(sparkPath)) {
+      try {
+        raw = JSON.parse(readFileSync(sparkPath, 'utf8')) as Record<string, unknown>
+      } catch (err) {
+        throw new Error(
+          `E_CONFIG: spark.json 不是合法 JSON：${err instanceof Error ? err.message : String(err)}`,
+        )
+      }
+    }
+    if (patch.server !== undefined) {
+      const cur = (raw['server'] as Record<string, unknown> | undefined) ?? {}
+      raw['server'] = { ...cur, ...patch.server }
+    }
+    if (patch.engine !== undefined) {
+      const cur = (raw['engine'] as Record<string, unknown> | undefined) ?? {}
+      raw['engine'] = { ...cur, ...patch.engine }
+    }
+    if (patch.hooks !== undefined) {
+      if (patch.hooks === null) delete raw['hooks']
+      else raw['hooks'] = patch.hooks
+    }
+    validateSparkWrite(raw)
+    const tmp = `${sparkPath}.tmp`
+    writeFileSync(tmp, `${JSON.stringify(raw, null, 2)}\n`)
+    renameSync(tmp, sparkPath)
+    this.config = loadConfig(this.root)
+    this.hooks = new UserHookRunner(this.config.spark.hooks ?? {}, {
+      bus: this.bus,
+      logger: this.logger,
+      skills: () => this.loadedSkills,
+      defaultTimeoutMs: DEFAULT_HOOK_TIMEOUT_MS,
+    })
+    return this.getSettings()
   }
 
   /**

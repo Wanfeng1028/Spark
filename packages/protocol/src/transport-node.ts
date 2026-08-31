@@ -230,7 +230,10 @@ export class HttpTransport implements Transport {
     const res = await fetch(`${this.base}${path}`, {
       ...init,
       headers: {
-        'content-type': 'application/json',
+        // 仅带 body 时才声明 content-type：Fastify 5 对 application/json + 空 body
+        // 在路由前即拒（FST_ERR_CTP_EMPTY_JSON_BODY），无 body 的 11 处调用点
+        // （interrupt/compact/rollback/删密钥/测连接/签发配对码…）因此不得带头
+        ...(init?.body !== undefined ? { 'content-type': 'application/json' } : {}),
         ...init?.headers,
         ...(this.authToken !== undefined ? { authorization: `Bearer ${this.authToken}` } : {}),
       },
@@ -300,10 +303,13 @@ export class HttpTransport implements Transport {
     return this.req<SessionDto[]>('/api/sessions')
   }
 
-  createSession(opts?: { title?: string }): Promise<SessionDto> {
+  createSession(opts?: { title?: string; model?: string }): Promise<SessionDto> {
+    const body: Record<string, string> = {}
+    if (opts?.title !== undefined) body['title'] = opts.title
+    if (opts?.model !== undefined) body['model'] = opts.model
     return this.req<SessionDto>('/api/sessions', {
       method: 'POST',
-      body: JSON.stringify(opts?.title !== undefined ? { title: opts.title } : {}),
+      body: JSON.stringify(body),
     })
   }
 

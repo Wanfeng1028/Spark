@@ -2,13 +2,16 @@
  * 常规页（DESIGN §13.D① 按 Spark 落点裁剪）：
  * 交互行为=提交三模式默认档（落地，Composer 初始段位）；
  * 会话域显示开关（显示思考过程/工具分组）接 settings-store 即存即生效（工单 10.20 A③）；
- * 其余字段分卡占位——语言/网络为平台缺口项（后续工单），
- * 终端/托盘/更新为 desktop 特化。「显示待办」不设开关：引擎无 Todo 工具，
- * 不留无效开关（工单 10.20 拍板；待 Todo 工具落地后再挂池立项）。
+ * 引擎行为卡（压缩阈值/最大步数/工具超时/输出上限/沙箱档）走 GET|PUT /api/settings
+ * （工单 10.20 B / D28：热档下一 turn 生效，重启档标注"下次启动生效"）；
+ * 其余字段分卡明示去向——语言/网络为平台缺口项（后续工单），终端/托盘/更新为 desktop 特化。
+ * 「显示待办」不设开关：引擎无 Todo 工具，不留无效开关（工单 10.20 拍板）。
  */
-import { useMemo } from 'react'
-import type { Delivery } from '@spark/protocol'
+import { useEffect, useMemo, useState } from 'react'
+import type { Delivery, SettingsDto } from '@spark/protocol'
 import { useSettingsStore } from '@/stores/settings'
+import { useTransport } from '@/transports/context'
+import { errorMessageOf } from '@/lib/error-copy'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { SettingRow, SettingGroupCard } from './SettingRow'
@@ -18,6 +21,184 @@ const DELIVERY_OPTIONS: { value: Delivery; label: string }[] = [
   { value: 'steer', label: '插话' },
   { value: 'queue', label: '排队' },
 ]
+
+const SANDBOX_OPTIONS: { value: 'off' | 'on'; label: string }[] = [
+  { value: 'off', label: '关闭' },
+  { value: 'on', label: '开启（平台 wrapper 隔离）' },
+]
+
+/** 重启档徽标（D28：构造期注入字段，写盘成功、下次启动生效） */
+function RestartBadge() {
+  return (
+    <span
+      className="shrink-0 rounded border border-border px-1.5 text-[10px] text-muted-foreground"
+      title="该字段构造期注入引擎子系统，保存写盘后下次启动生效"
+    >
+      下次启动生效
+    </span>
+  )
+}
+
+/** 引擎行为设置（工单 10.20 B / D28）：spark.json engine 段读写，全走 Transport */
+function EngineBehaviorSection() {
+  const { transport } = useTransport()
+  const [settings, setSettings] = useState<SettingsDto | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [opError, setOpError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [maxSteps, setMaxSteps] = useState('')
+  const [threshold, setThreshold] = useState('')
+  const [toolTimeout, setToolTimeout] = useState('')
+  const [outputLimit, setOutputLimit] = useState('')
+  const [sandbox, setSandbox] = useState<'off' | 'on'>('off')
+
+  useEffect(() => {
+    let cancelled = false
+    transport
+      .getSettings()
+      .then((s) => {
+        if (cancelled) return
+        setSettings(s)
+        setMaxSteps(String(s.engine.maxStepsPerTurn))
+        setThreshold(String(s.engine.compactionThreshold))
+        setToolTimeout(String(s.engine.toolTimeoutMs))
+        setOutputLimit(String(s.engine.toolOutputLimitKB))
+        setSandbox(s.engine.bashSandbox)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(errorMessageOf(err))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [transport])
+
+  async function save(): Promise<void> {
+    const steps = Number(maxSteps)
+    const th = Number(threshold)
+    const timeout = Number(toolTimeout)
+    const limit = Number(outputLimit)
+    if (
+      !Number.isInteger(steps) || steps < 1 ||
+      Number.isNaN(th) || th <= 0 || th >= 1 ||
+      !Number.isInteger(timeout) || timeout <= 0 ||
+      !Number.isInteger(limit) || limit <= 0
+    ) {
+      setOpError('数值不合法：步数/超时/上限为正整数，压缩阈值取 0–1 之间小数')
+      return
+    }
+    setBusy(true)
+    setOpError(null)
+    try {
+      const next = await transport.updateSettings({
+        engine: {
+          maxStepsPerTurn: steps,
+          compactionThreshold: th,
+          toolTimeoutMs: timeout,
+          toolOutputLimitKB: limit,
+          bashSandbox: sandbox,
+        },
+      })
+      setSettings(next)
+    } catch (err) {
+      setOpError(errorMessageOf(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const inputCls =
+    'h-8 w-28 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring disabled:opacity-40'
+  const sandboxOptions = useMemo(() => SANDBOX_OPTIONS, [])
+
+  return (
+    <SettingGroupCard>
+      <SettingRow
+        title="引擎行为"
+        description="spark.json engine 段；压缩阈值/最大步数下一轮生效，超时/上限/沙箱下次启动生效（D28）"
+      />
+      {error !== null && (
+        <p className="px-4 py-3 font-mono text-xs text-[var(--spark-err)]">{error}</p>
+      )}
+      {error === null && settings === null && (
+        <p className="px-4 py-3 text-xs text-muted-foreground">加载引擎设置…</p>
+      )}
+      {error === null && settings !== null && (
+        <>
+          <SettingRow title="压缩阈值" description="上下文占比超阈值触发压缩（0–1，如 0.8）；下一轮生效">
+            <input
+              value={threshold}
+              onChange={(e) => setThreshold(e.target.value)}
+              aria-label="压缩阈值"
+              disabled={busy}
+              className={inputCls}
+            />
+          </SettingRow>
+          <SettingRow title="每轮最大步数" description="单轮工具/模型往返上限；下一轮生效">
+            <input
+              value={maxSteps}
+              onChange={(e) => setMaxSteps(e.target.value)}
+              aria-label="每轮最大步数"
+              disabled={busy}
+              className={inputCls}
+            />
+          </SettingRow>
+          <SettingRow title="工具超时（毫秒）" description="单工具执行上限">
+            <div className="flex items-center gap-1.5">
+              <input
+                value={toolTimeout}
+                onChange={(e) => setToolTimeout(e.target.value)}
+                aria-label="工具超时毫秒"
+                disabled={busy}
+                className={inputCls}
+              />
+              <RestartBadge />
+            </div>
+          </SettingRow>
+          <SettingRow title="工具输出上限（KB）" description="超限截断（防输出打爆上下文）">
+            <div className="flex items-center gap-1.5">
+              <input
+                value={outputLimit}
+                onChange={(e) => setOutputLimit(e.target.value)}
+                aria-label="工具输出上限 KB"
+                disabled={busy}
+                className={inputCls}
+              />
+              <RestartBadge />
+            </div>
+          </SettingRow>
+          <SettingRow title="bash 沙箱" description="平台 wrapper 前缀隔离；不可用时拒跑（ADR D15）">
+            <div className="flex items-center gap-1.5">
+              <Select
+                aria-label="bash 沙箱"
+                value={sandbox}
+                options={sandboxOptions}
+                onChange={setSandbox}
+                className="w-44"
+              />
+              <RestartBadge />
+            </div>
+          </SettingRow>
+          <div className="flex items-center gap-2 px-4 py-3">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void save()}
+              className="h-8 rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              保存
+            </button>
+            {opError !== null && (
+              <span className="min-w-0 truncate font-mono text-xs text-[var(--spark-err)]">
+                {opError}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </SettingGroupCard>
+  )
+}
 
 export function GeneralSettingsPage() {
   const defaultDelivery = useSettingsStore((s) => s.defaultDelivery)
@@ -69,10 +250,12 @@ export function GeneralSettingsPage() {
         </SettingRow>
         <SettingRow
           title="完整保留模型 I/O"
-          description="关闭自动压缩/限长/清理（与 Compaction 策略互斥）"
-          placeholderBadge="后续工单"
+          description="与压缩阈值同源（下方「引擎行为」）：阈值调高即保留更多；schema 上限 <1，不设独立开关"
         />
       </SettingGroupCard>
+
+      {/* 引擎行为（工单 10.20 B / D28）：GET|PUT /api/settings */}
+      <EngineBehaviorSection />
 
       <SettingGroupCard>
         <SettingRow
@@ -89,11 +272,6 @@ export function GeneralSettingsPage() {
       </SettingGroupCard>
 
       <SettingGroupCard>
-        <SettingRow
-          title="bash 沙箱"
-          description="wrapper 前缀隔离（spark.json engine.bashSandbox）——读写配置需引擎 API（工单分歧待决策）"
-          placeholderBadge="后续工单"
-        />
         <SettingRow title="数据存储路径" description="会话与配置存储目录（~/.spark/）" placeholderBadge="后续工单" />
         <SettingRow
           title="自动归档旧任务"

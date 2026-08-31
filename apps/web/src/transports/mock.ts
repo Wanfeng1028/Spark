@@ -8,7 +8,7 @@
  *   {"@speed":N}         全局倍率（实际间隔 = delay / speed）
  * sendMessage 不合成事件——脚本预录的 user.message 原样回放（假对话：文本以脚本为准）。
  */
-import { BUILTIN_COMMANDS, ids, parseEnvelope } from '@spark/protocol'
+import { BUILTIN_COMMANDS, SETTINGS_RESTART_REQUIRED, ids, parseEnvelope } from '@spark/protocol'
 import type {
   AuditEntryDto,
   AuditQuery,
@@ -41,6 +41,8 @@ import type {
   SessionId,
   SessionStatus,
   SearchHitDto,
+  SettingsDto,
+  SettingsUpdate,
   SkillDto,
   SparkEventEnvelope,
   SparkEventType,
@@ -738,6 +740,57 @@ export class MockTransport implements Transport {
       usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, exceeded: false },
     }
     return Promise.resolve(this.routing)
+  }
+
+  // ---- 全局设置（工单 10.20 B 类对等演示：GET/PUT /api/settings） ----
+
+  private settings: SettingsDto = {
+    server: { port: 4318, host: '127.0.0.1' },
+    engine: {
+      maxStepsPerTurn: 50,
+      maxToolParallel: 4,
+      toolTimeoutMs: 120_000,
+      permissionTimeoutMs: 300_000,
+      progressThrottleMs: 250,
+      toolOutputLimitKB: 64,
+      compactionThreshold: 0.8,
+      checkpoints: true,
+      bashSandbox: 'on',
+    },
+    restartRequired: [...SETTINGS_RESTART_REQUIRED],
+    models: { defaultModel: 'deepseek/deepseek-chat', defaultEffort: null },
+  }
+
+  getSettings(): Promise<SettingsDto> {
+    this.assertNotDisposed()
+    return Promise.resolve(this.settings)
+  }
+
+  updateSettings(patch: SettingsUpdate): Promise<SettingsDto> {
+    this.assertNotDisposed()
+    const s = patch.server ?? {}
+    const e = patch.engine ?? {}
+    const prev = this.settings
+    this.settings = {
+      ...prev,
+      server: {
+        port: s.port ?? prev.server.port,
+        host: s.host ?? prev.server.host,
+      },
+      engine: {
+        maxStepsPerTurn: e.maxStepsPerTurn ?? prev.engine.maxStepsPerTurn,
+        maxToolParallel: e.maxToolParallel ?? prev.engine.maxToolParallel,
+        toolTimeoutMs: e.toolTimeoutMs ?? prev.engine.toolTimeoutMs,
+        permissionTimeoutMs: e.permissionTimeoutMs ?? prev.engine.permissionTimeoutMs,
+        progressThrottleMs: e.progressThrottleMs ?? prev.engine.progressThrottleMs,
+        toolOutputLimitKB: e.toolOutputLimitKB ?? prev.engine.toolOutputLimitKB,
+        compactionThreshold: e.compactionThreshold ?? prev.engine.compactionThreshold,
+        checkpoints: e.checkpoints ?? prev.engine.checkpoints,
+        bashSandbox: e.bashSandbox ?? prev.engine.bashSandbox,
+      },
+      ...(patch.hooks !== undefined ? { ...(patch.hooks === null ? {} : { hooks: patch.hooks }) } : {}),
+    }
+    return Promise.resolve(this.settings)
   }
 
   // ---- 命令注册表（工单 7.4 / 10.18 对等演示：内置词表 = 协议描述符单一来源 + mock 自定义命令） ----
