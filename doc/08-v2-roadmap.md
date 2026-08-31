@@ -1,4 +1,4 @@
-# Spark v2 展望与工单库——阶段十一~十五（发布化 / 可日用 / 可证明 / SDK 化 / 生态面）
+# Spark v2 展望与工单库——阶段十一~十六（发布化 / 可日用 / 可证明 / SDK 化 / 生态面 / 命令面新机制）
 
 ## 版本记录
 
@@ -6,6 +6,7 @@
 | ---- | ---------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | v1.0 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，四轮 v2 展望会话；MIT / npm CLI 优先 / 本文档交付形式三项已拍板） | 初稿：定位与使用说明 · 决策记录（已拍板/待拍板）· 阶段十一~十五共 34 张工单（每张含验收标准与开工提示词）· 后置观察池 · 提示词总则（附录 A） |
 | v1.1 | 2026-08-31 | 同上；核查：晚风（Wanfeng1028，对照四轮展望清单逐条核查指出缺漏） | **对照四轮展望补全六处**：§0.3 终点图景与差异化五牌；§4.0 五层开发者面表（修 14.6/11.8 悬空引用）；13.1 补「Spark as eval harness」定位句；新增 §7 生命力风险与对策（原不变量节顺延为 §8）；后置池补 LSP/会话导出分享/计划模式 todo/V2-21/V2-02/其余候选池归并行；新增附录 B 阶段十在途工单引用式提示词（治理注记：阶段十唯一来源 doc/02 §8） |
+| v1.2 | 2026-09-01 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"九条新机制命令全部做成"指令 + 批次 2 四项拍板落定） | **新增 阶段十六：命令面新机制九工单（16.1–16.9，消解 doc/02 §8.7 V2-27~V2-35 挂池项）**——/agents /plan /trust /init /goal /arena /voice /lsp /extensions；每张含开源参考（在线调研 2026-09-01：qwen-code/gemini-cli 均 Apache-2.0、opencode MIT、复用路线与精确文件路径）+ 提示词；优先级排序（/init 最先——零依赖纯提示词工程；/lsp /arena 最后——大件与需设计）；§0.1 已拍板表补三行（九命令全做成/许可兼容/复用优先）；附录 B 速引表补批次 2 十一张 |
 
 > **定位**：本文是 v2 的**规划库与工单库**，不是执行规格。各阶段开工时，把对应工单 lift 进 doc/02 §8 建立正式阶段表（附版本记录），**执行以 doc/02 定稿为准**——与 doc/07 缺口编号（H01–H36）喂给阶段六~九同一模式。
 > **阶段十（在途）不进本库**：其工单规格、验收与勾选状态唯一来源是 doc/02 §8 阶段十表（含两项待拍板）；附录 B 只提供未勾工单的引用式提示词，不复制规格。
@@ -16,13 +17,16 @@
 
 # 0. 决策记录
 
-## 0.1 已拍板（晚风，2026-08-31）
+## 0.1 已拍板（晚风；2026-08-31 首三行 / 2026-09-01 追加三行）
 
 | 决策 | 结论 | 影响 |
 | ---- | ---- | ---- |
 | LICENSE | **MIT** | 11.1 按 MIT 落地；ARCHITECTURE D23 补记同步消解（"倾向 MIT"→"已定 MIT"） |
 | 分发主形态 | **npm CLI 优先**（protocol/engine 发库 + apps/cli 发 CLI 包；桌面安装包降为次要轨道） | 11.6/11.7 按 npm 主线排布；NSIS release 后置 |
 | 交付形式 | 本规划库入 doc/08 | 本文即工单单一来源，立项时 lift doc/02 |
+| 命令面新机制（2026-09-01） | **九条全做成**（/agents /plan /trust /init /goal /arena /voice /lsp /extensions——晚风："既然能做那我们就是要做成的，即使从 0 开始"） | 立项为阶段十六（16.1–16.9），消解 doc/02 §8.7 V2-27~V2-35 挂池项；执行排在批次 2（10.12–10.22）之后 |
+| 开源参考纪律（2026-09-01） | **复用优先**：能复用开源就复用（qwen-code/gemini-cli 均 Apache-2.0、opencode MIT，与 Spark MIT 单向兼容；复用须保留原版权声明） | 各工单"开源参考"为必读前置；一律在线访问禁克隆（AGENTS §2.12） |
+| 批次 2 四项拍板（2026-09-01，晚风） | ① 10.15 焦点环按 §13.E/§12.1 中性化执行（DESIGN 登记改判）② 10.21 hooks 并入 10.20 `GET /api/settings` ③ 10.16 本批不做切换动画 ④ 10.20 B 类 ADR 开工时停下先问 | doc/02 批次 2 对应行同步；另按晚风澄清新增 **10.22 消息气泡布局**（用户消息靠右/AI 靠左、一上一下错开——是布局形态不是切换动画） |
 
 ## 0.2 待拍板（触发相应工单前由人定，本文先按建议方向写）
 
@@ -971,6 +975,89 @@ apps/server/src/routes.ts（路由清单——考虑给路由加轻量元数据�
 ```
 
 ---
+
+# 5A. 阶段十六：命令面新机制（九工单 16.1–16.9；消解 doc/02 §8.7 V2-27~V2-35）
+
+> 立项依据：晚风 2026-09-01 指令——九条新机制命令（/agents /plan /trust /init /goal /arena /voice /lsp /extensions）全部做成，"即使从 0 开始也可以"；开源参考能复用就复用。在线调研（2026-09-01，AGENTS §2.12 纪律）结论：**qwen-code 与 gemini-cli 均 Apache-2.0**（与 Spark MIT 单向兼容，复用须保留原版权声明）、opencode MIT；/goal 与 /arena 为 qwen-code 独有只能参考设计，/init 可直抄 opencode MIT 模板。执行排在 doc/02 批次 2（10.12–10.22）之后；与阶段十一~十五无强依赖，可交叉。
+> 开工顺序（按成本升序）：16.1 /init（零依赖纯提示词工程，最先）→ 16.2 /agents → 16.3 /plan → 16.4 /trust → 16.5 /extensions → 16.6 /voice → 16.7 /goal → 16.8 /arena → 16.9 /lsp（大件殿后）。
+> 每张提示词按附录 A 六段式现场生成（本阶段不预置全文——开源参考文件多，提示词统一要求"前置阅读含开源参考列，在线访问参考路径，禁克隆"）。
+
+## 16.1 /init 项目上下文文件生成（消解 V2-27）
+
+- **目标**：`/init` 命令分析当前目录生成 AGENTS.md 初稿——Spark 版项目上下文文件生成。
+- **开源参考（复用优先）**：sst/opencode（MIT）`packages/opencode/src/command/template/initialize.txt`——**可整段复用+版权声明**（理念：每行内容都须回答"没有它代理会不会踩坑"，否则删掉；只在仓库答不出时才集中问一批问题）；qwen-code `packages/cli/src/ui/commands/initCommand.ts`（Apache-2.0，抄流程：先建空文件保证模型写入有落点 + 已存在非空则覆盖确认）；gemini-cli `packages/core/src/context/initializer.ts` 同源对照。
+- **产出**：① 命令进 10.18 描述符体系（kind=prompt，走 prompt 命令通道——零新引擎机制）；② 提示词模板入引擎提示词存放处（照 doc/02 §5.11 组装纪律），加"遵守四类约束框架（AGENTS 管项目/DESIGN 管视觉/SKILL 管流程/专属文件管工具差异）"引导；③ 生成走 write 工具天然过审批；④ 覆盖确认（AGENTS.md 已存在且非空 → 前端确认后注入"改写既有文件，保留其中仍有效的约束"提示词）。
+- **验收**：空目录跑 /init 生成三段式（项目概览/构建运行命令/开发约定）AGENTS.md；已有文件时弹确认；产物经审批链落盘。
+- **依赖**：10.18。
+
+## 16.2 /agents 子代理管理（消解 V2-33）
+
+- **目标**：子代理配置文件化管理——Markdown+frontmatter 定义子代理，分层加载，面板查看/启停。
+- **开源参考**：qwen-code `packages/core/src/subagents/subagent-manager.ts`（1751 行，**直译结构**：五级分层 session>project>user>extension>builtin、带缓存 CRUD、写前校验+防重+assertCanCommit 提交护栏）；`subagents/types.ts`（SubagentConfig 完整接口）；frontmatter 宽容解析（无效字段丢弃不炸）。opencode `packages/opencode/src/config/agent.ts`（MIT，glob 扫描 `{agent,agents}/**/*.md`）轻量对照。
+- **产出**：① 子代理定义文件两层：`.spark/agents/*.md`（项目）+ `~/.spark/agents/*.md`（用户），frontmatter 字段对齐 Spark 既有子代理运行时（模型/提示词/工具白名单）；② engine loader 扫描两层（复用 skills loader 模式）；③ 协议+server：GET /api/agents 只读清单 + 启停写 spark.json（走 10.20 的 /api/settings——本工单即 10.20"子智能体页"的后端）；④ web 设置子智能体页从占位升真值；⑤ CLI `/agents` 面板只读清单。
+- **红线**：agent 定义文件写入须过审批；审批一律冒泡回主会话（Spark 既有单口径，qwen 的 bubble 模式仅作语义理解参考不引入双轨）。
+- **验收**：放置 .md 后 /agents 与 web 页面立即可见；启停生效；引擎 spawn 子代理读定义成功。
+- **依赖**：10.18、10.20。
+
+## 16.3 /plan 计划模式（消解 V2-34）
+
+- **目标**：read-only 档位——计划模式下写类工具全 DENY，模型产出计划经用户批准后退出恢复执行。
+- **开源参考**：gemini-cli `packages/core/src/policy/policies/plan.toml`（**优先级规则直接翻译**：plan 兜底 DENY 40 / 只读工具 ALLOW 50 / 模式转换 70）；qwen-code `packages/core/src/tools/exitPlanMode.ts` 两个细节必抄：① approvalModeRevision 快照——审批期间用户手动切档则批准过期作废；② enter_plan_mode 视为执行边界——同批后续工具调用跳过，留待下一轮模型观察新模式。二者天然契合失败闭合铁律。
+- **产出**：① 落在**既有审批规则引擎**（permission/rules.ts）加 mode 前置条件 + 写类 DENY（不做独立状态机——qwen 也只是 ApprovalMode 的一个值）；② run-loop 模式位 `session.mode: default|plan`，新事件 `session.mode.changed`（durable，走 new-event-type skill 六处同步）；③ /plan 进入（记 prePlanMode）与 /plan exit 恢复；④ 模型侧退出计划=产出计划文本+用户批准（走审批链）回 default；⑤ 四端 mode 指示（CLI footer 行/web 状态条/移动端）。
+- **验收**：plan 模式下 write/edit/bash 写操作全拒（含提示词注入诱导场景）；exit 须用户批准；审批期间切档则批准作废；mock/四端 applyEvent 单测。
+- **依赖**：10.18；new-event-type 流程。
+
+## 16.4 /trust 文件夹信任（消解 V2-31）
+
+- **目标**：目录级信任分级——首启进入新 cwd 判定信任档，未信任目录下敏感操作收紧审批。
+- **开源参考**：qwen-code `packages/cli/src/config/trustedFolders.ts`（435 行）+ `trust-precedence.ts`（**算法精华只参考设计**：路径变体集合（大小写/分隔符归一）+ 包含深度最深者胜 + 同深度 untrusted 压过 trusted + 结果与规则插入顺序无关——防恶意项目靠顺序效应绕过）；proper-lockfile 跨进程锁 + 原子写。
+- **产出**：① `~/.spark/trusted.json`：path→三档（trusted/parent/none）；② 引擎侧 cwd 未信任时：bash 写操作与外部 MCP 收紧到 ask 档（不新增拒绝面——收紧审批而非扩权）；③ /trust 面板：当前目录信任档查看/修改；④ 首启判定：新 cwd 时四端信任询问（web 横幅/CLI 询问/移动端弹窗）。
+- **动机登记（迷你 ADR 前置）**：Spark 本地单用户，信任机制动机=打开陌生仓库时收紧默认档（对应 doc/02 §1.4 提示词注入威胁模型）——ADR 经晚风确认后再实现（§0.2 增 Q-6）。
+- **验收**：未信任目录 bash 默认 ask；最深匹配算法单测（含顺序无关性断言）；信任变更原子写。
+- **依赖**：10.18；ADR 前置。
+
+## 16.5 /extensions 扩展管理（消解 V2-32；含 V2-01/V2-02 的启停半边）
+
+- **目标**：声明式内容包——扩展=目录（清单 spark-extension.json：skills/agents/命令/MCP servers 声明），**不执行任意代码**（比 opencode 的 TS 插件更契合 Spark 禁黑盒运行时红线）。
+- **开源参考**：qwen-code `packages/core/src/extension/extensionManager.ts`（3375 行，**参考设计大幅裁剪**：只取发现/启停/热刷新三动作；三阶段事务日志简化为 staging+原子 rename 两步）；`extension-store.ts` 三层激活（override>workspace>default）值得翻。v1 **不做安装/下载/网络源**（Spark 无 marketplace——qwen 四路安装源不进）。
+- **产出**：① 扩展清单 schema（@spark/protocol zod strict）；② engine loader 发现 `~/.spark/extensions/<id>/`，启停三层激活写 spark.json（走 /api/settings）；③ /extensions 面板 + web 设置页（同时点亮 MCP/技能页的启停半边）；④ 热刷新：激活变更重扫注册表不重启引擎；⑤ symlink 安全检查照抄 qwen（防 staging 目录逃逸）。
+- **验收**：放置含 skill+agent 的扩展目录→清单可见→启停生效→热刷新；symlink 攻击用例拒绝。
+- **依赖**：10.18、16.2、10.20。
+
+## 16.6 /voice 语音听写（消解 V2-28）
+
+- **目标**：Composer 语音输入——hold/tap 两模式，转写文本入输入框。
+- **开源参考**：qwen-code `packages/cli/src/ui/voice/`（**参考设计**：FallbackVoiceRecorder 降级链 native→arecord→sox；sox 静音自动停止参数 `['silence','1','0.1','3%','1','2.0','3%']` 可直抄；`voice-transcriber.ts` 的 **DNS 解析后 SSRF 防护**（IPv6 过渡地址 BlockList）必须抄）；gemini-cli `packages/core/src/voice/`（Apache-2.0，TranscriptionProvider 接口形状 connect/sendAudioChunk/disconnect/getTranscription 值得翻）。
+- **产出**：① STT 后端走 **OpenAI 兼容转写 API**（models.json 供应商可配 transcription 端点——无 DashScope 依赖最现实；本地 whisper.cpp 分发模型太重不进首期）；② 采集分层：web 端 getUserMedia+MediaRecorder（浏览器原生，v1 优先落地）；CLI 端 SoX 子进程降级（Windows 无 SoX 时明确提示不裸降——fail-closed）；③ /voice hold/tap/off 模式切换；④ 音频不经模型上下文=live 不落盘（只有转写结果进 user.message——durable/live 二分无冲突）。
+- **验收**：web 端按住说话→松开→文字入 Composer；CLI SoX 环境（用户现场走查）同链路；无 SoX 明确提示不静默；SSRF 防护单测。
+- **依赖**：10.18、10.20（供应商配置面）。
+
+## 16.7 /goal 持续目标（消解 V2-35；qwen 独有，自研设计）
+
+- **目标**：设定目标条件，引擎循环工作直到条件满足或护栏触发。
+- **开源参考**：qwen-code `packages/core/src/goals/`（**只参考设计**——体量约 20 文件不整体移植）。必移植三护栏：① **迭代硬上限**（MAX_GOAL_ITERATIONS=50——防 judge 永远说不满足的 token 焚烧）+ judge 超时（25s）即暂停循环保留目标；② **evidenceRefs 证据引用**——完成主张须引用会话记录中的证据条目（与 surface 纪律"模型可见必被记录"同构；判据=JSONL 工具结果事件，"送达不等于状态改变"规则写死提示词）；③ **token 预算 + wind-down 交接**——预算耗尽前最后回合要求交接总结不裸断。
+- **产出**：① run-loop goal 循环：turn.completed 时旁路 LLM judge（不占主上下文），未满足→注入续跑提示（合成输入走 durable 且**如实标注 synthetic**——不伪造用户意图，目标内容即用户先前指令）；② 新事件 goal.set/updated/completed/paused（durable，六处同步）；③ /goal set <条件>/clear/status；④ 护栏：50 迭代上限+每目标 token 预算（默认值开工时迷你 ADR 定）+用户 Esc/interrupt 立即停。
+- **红线**：续跑不绕过审批（每 turn 照常走审批链）。
+- **验收**：小目标 2-3 迭代完成；上限触发暂停不清目标；interrupt 即停；事件回放恢复 goal 状态。
+- **依赖**：10.18、new-event-type 流程。
+
+## 16.8 /arena 多模型竞答（消解 V2-29；qwen 独有，参考设计+选译）
+
+- **目标**：同一 prompt 并行 N 个模型（≤5）各自独立改代码，对比产出+用量，选定胜者应用其改动。
+- **开源参考**：qwen-code `packages/core/src/agents/arena/ArenaManager.ts`（850 行，**参考设计**：git worktree 文件级隔离、InProcessBackend 进程内并行比 PTY 轻——Spark headless 采 InProcess 路线，复用阶段五子代理设施）；`arena/types.ts`（ARENA_MAX_AGENTS=5；ArenaAgentStats 用量归并字段：tokens 输入输出/时长/工具调用数）；会话结束旁路 LLM 生成 diff 对比总结。
+- **产出**：① 命令与引擎：并发 spawn N 个子代理式会话（各自 root git worktree `~/.spark/arena/<sid>/<model>`）；② diff 汇总（对比总结可后置阶段内二批）；③ web/CLI 卡片呈现（状态/tokens/时长/文件增删行）；④ 胜者应用：applyWorktreeChanges 前逐文件过审批 + **删除类改动按 §2.10 拒绝**（Spark 比 qwen 加严处）；⑤ 用量归并走各会话 JSONL delta 聚合；⑥ 清理：无论成败全量清 worktree（~/.spark 下引擎自管目录，非仓库文件——边界写进 ADR）。
+- **验收**：2 模型竞答一回合：并行运行、卡片实时更新、选胜者后主工作区出现其改动（经审批）；无胜者不改主工作区；用量归并正确。
+- **依赖**：16.2、simple-git 新依赖（MIT，提交说明登记理由）。
+
+## 16.9 /lsp LSP 集成（消解 V2-30；大件殿后）
+
+- **目标**：语言服务器集成——诊断/定义跳转/引用查找作为模型工具与开发者面板。
+- **开源参考**：qwen-code `packages/core/src/lsp/`（**参考设计+换基座**：其自研 330 行 JsonRpcConnection 不值得重复——改用 `vscode-languageserver-protocol`+`vscode-jsonrpc`（MIT 微软官方）省掉；**必抄两安全细节**：spawn 前剥离 LD_PRELOAD/NODE_OPTIONS 等敏感环境变量；config hash 不变不重启进程）；统一单工具 12 操作枚举（goToDefinition/findReferences/hover/documentSymbol/diagnostics 等）设计照抄。
+- **产出**：① engine 新模块 lsp/：连接管理（stdio 子进程）+诊断缓存；② 新事件 `lsp.diagnostics`（durable——诊断进模型上下文即模型可见必被记录，六处同步）；③ 模型侧单 `lsp` 工具 operation 枚举（new-tool skill 四路径单测）；④ 配置 `.spark/lsp.json`（语言→command，v1 手写配置无自动发现）；⑤ /lsp 面板：连接状态+诊断摘要；⑥ web 诊断呈现进会话流。
+- **验收**：TS/Python 各接一个真实 server（typescript-language-server/pyright）；诊断事件流正确；模型经 lsp 工具查定义成功；敏感环境变量剥离单测。
+- **依赖**：new-tool + new-event-type 两个 skill 流程；vscode-languageserver-protocol 新依赖（MIT，登记）。
+
+> 阶段十六治理注记：九工单消解既有挂池项（doc/02 §8.7 V2-27~35 对应行开工时标"已立项 16.x"）；逐张 lift 进 doc/02 §8 建阶段表（工单号不变，附录 A 第 5 条流程）；新事件/新工具分别走 new-event-type 与 new-tool skill 全流程；所有参考项目在线访问禁克隆（AGENTS §2.12），复用片段保留原版权声明（qwen-code/gemini-cli Apache-2.0、opencode MIT）。
 
 # 6. 后置池与观察项（不设工单号；每项含触发条件）
 

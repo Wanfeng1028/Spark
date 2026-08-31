@@ -52,3 +52,7 @@ tool-outputs/
 
 # mock 录制的大文件按需排除
 # examples/mock-sessions/*.large.json
+
+# 临时产物落地区：各 AI 会话的调试输出统一丢这里，最终由人类整目录删除
+# （单列 + 忽略——防多会话并行时 git add -A 把临时产物扫进提交）
+_scratch/

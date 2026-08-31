@@ -41,7 +41,7 @@ describe('纯逻辑', () => {
     expect(summarizeToolInput({ other: 1 })).toBe('')
     expect(summarizeToolInput(null)).toBe('')
     const long = 'x'.repeat(80)
-    expect(summarizeToolInput({ query: long })).toBe(`${'x'.repeat(57)}...`)
+    expect(summarizeToolInput({ query: long })).toBe(`${'x'.repeat(59)}…`)
   })
 
   it('toolCategoryOf：内置映射人话类别词；未知保留原名（禁假状态）', () => {
@@ -528,13 +528,15 @@ describe('InputBox 宽字符口径（工单 10.19①）', () => {
 
   it('emoji 代理对：整字位插入与退格，不切半', () => {
     const submitted: string[] = []
-    const { stdin, lastFrame } = render(
+    const { stdin } = render(
       <InputBox active prefix="> " placeholder="输入" onSubmit={(t) => submitted.push(t)} />,
     )
     stdin.write('👍')
-    expect(lastFrame()).toContain('👍')
-    stdin.write('\x7F') // 代理对应整字位删除
     stdin.write('\r')
-    expect(submitted).toEqual([''])
+    expect(submitted).toEqual(['👍']) // 切半则提交的是半个代理对
+    stdin.write('👍')
+    stdin.write('\x7F') // 一次退格删掉整个字位
+    stdin.write('\r')
+    expect(submitted).toEqual(['👍']) // 退到空 → InputBox 不提交
   })
 })

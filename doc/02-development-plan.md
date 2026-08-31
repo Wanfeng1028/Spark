@@ -2004,6 +2004,7 @@ app.get('/api/event', async (req, reply) => {
 | 10.19 | ✅ CLI 宽字符与输入错位修复      | 3            | 四点根因（均在 apps/cli）：① InputBox.tsx L96-99 光标按 UTF-16 code unit 切片（`slice(cursor, cursor+1)`），CJK 一字占 2 列、emoji/代理对被半个 surrogate 反显；退格 c-1、左右 ±1、插入 c+input.length 同病；② items.tsx 截断按 code unit 计数（`length > 60`）、HelpPanel.tsx:58/65/90 padEnd——与 Ink 按显示宽度的换行不一致=中文行错位换行（反例参照：ResumePanel.tsx:61、SlashMenu.tsx:37 已正确用 wrap="truncate-end"）；③ 整行无列宽截断，超过 columns 时 Ink 自动折行压在 Footer 上=输入内容与状态栏重叠；④ **IME 组字期 App 全局键劫持**（并行会话发现）：App 顶层 useInput（app.tsx:302）在候选串里见 `?` 开帮助面板（L345-348）、挂审批时把 1/2/y/n 当审批键（L428-439）——组字串被当快捷键。修法：显示宽度计算（string-width + Intl.Segmenter grapheme 数组）统一一个 displayWidth/truncateByWidth 工具（放 @spark/protocol 四端共享，新增依赖说明理由与许可证：string-width MIT）；键位分层：输入框有焦点时 InputBox 先消费、App 全局键只识别单码元输入、组字串作原子文本插入不猜键；输入行按 columns-prefixWidth 截断或改多行增高（择一）；候选窗交终端自绘（本仓无法接管）。IME 深层残余挂 V2-26。单测补中文/emoji 用例（render.test.tsx 现仅 ASCII） | 中文/emoji 输入：光标不反显半字符、不错列；中文长行截断与终端实际换行一致；组字期间不误开面板/误触审批键（用户现场走查）；新增依赖理由登记 | —    |
 | 10.20 | ✅ 设置项全量落地（占位清零，三分类推进） | 9/10 | 设置中心 16 页中 6 页整体占位、常规页 15 行中 14 行占位。缺口三分类，**按性价比顺序推进**：**A 类零后端成本先清**（端点+transport 已在、纯缺接线）：① 成本上限可编辑（PUT /api/routing + RoutingUpdate.costLimitUsd + updateRouting 全在）；② "清零累计"按钮（DELETE /api/routing/usage + resetUsage 已暴露、页面文案写了"清零累计后恢复"却没接）；③ 模型页补 4 档位（fallback 链/压缩档/标题档/子代理档——RoutingDto 四字段可读写）；④ "显示思考过程/工具分组"开关（渲染层 ReasoningCollapsible/ToolGroupRow 已实现，纯缺 stores/settings.ts 字段+消费点）——**"显示待办"开关删除**：tools/builtin 仅 7 工具无 Todo 工具，不留无效开关，登记独立缺口；⑤ 自定义命令只读页（GET /api/commands 已有，形态照 McpSettingsPage）；**B 类引擎有字段缺端点**（本工单核心新增）：`GET|PUT /api/settings`（协议 DTO 在 protocol/src/api.ts 定义——§2.5 协议先行；GET 返回脱敏全量 spark.json+engine 行为配置，**绝不回 apiKey 值**；PUT 部分字段更新+zod 校验+原子写盘+重启生效字段 DTO 标注 restartRequired）——解锁：压缩阈值/最大步数/工具超时/沙箱档 bashSandbox/保留模型 I/O=compactionThreshold 语义/工具输出上限/toolOutputLimitKB/新建默认模型与默认推理档（从 localStorage 迁 models.json）；**热生效 vs 重启生效策略先写 ADR 入 ARCHITECTURE.md**（这正是 doc/02 v3.4 遗留"沙箱读写分歧留决策"未结项）经晚风确认后再实现（**ADR 已成稿：ARCHITECTURE D28 / v1.22，提案待晚风确认**）；**C 类明示去向**：desktop 特化项（托盘/终端字体/自动更新/保持运行）迁"桌面版"分区明示依赖 Electron；纯本地项（i18n 界面语言 V2-12/通知声音）接 settings store 或明示 v2 编号；MCP/技能页管理功能挂 V2-01；代理/证书挂 V2-06。**红线：每个设置项要么真落地要么明示去向（v2 编号/桌面依赖），禁"后续工单"空占位；所有写入走 Transport 禁组件直接 fetch** | 设置中心 16 页逐页走查：无占位行；A 类控件即时生效；`GET /api/settings` 响应 grep 不到 key 值；PUT 落盘且重启生效（需重启项 UI 标注"下次启动生效"）；server 单测覆盖新路由（含脱敏断言） | 10.12（测试连接修复后走查才准） |
 | 10.21 | ✅ hook 读取 API（**已拍板：并入 10.20**） | 10（子项）   | user-hooks（工单 7.3）引擎已实现、spark.json `hooks` 配置存在，但无读取端点，前端 hooks 页无数据源。**路径拍板（晚风 2026-09-01）：并入 10.20 的 `GET /api/settings` 全量返回（hooks 字段同响应下发），不单独设 `GET /api/hooks`**——随 10.20 B 类落地（ADR 先经确认再实现）。验收同 10.20 hooks 行 | hooks 页真值呈现（配置的事件类型/命令清单）；编辑后写盘生效 | 10.20 |
+| 10.22 | 会话流消息气泡布局（用户右/AI 左） | 5（消息形态） | **晚风澄清的形态**：期望"用户消息靠右、AI 回复靠左、一上一下错开"的聊天式布局（不是切换动画——10.16 的横向滑动已拍板本批不做）。现状：问题与回复一上一下但**都靠左**（MessageItem 左对齐单列）。产出：apps/web `MessageItem.tsx`/`AssistantBlock.tsx`——① user 消息行右对齐（max-w 限宽，`justify-end`+右圆角气泡态或右侧强调底色——按 DESIGN §13.H 既有密度，禁蓝紫渐变/毛玻璃，黑白中性 token）；② assistant 行保持左对齐全宽（阅读宽度优先，气泡化会伤代码块/表格呈现——assistant 不做窄气泡，工具块/思考块照旧全宽左）；③ CLI/移动端/小程序不改（CLI 转录式是 §13.K 既定形态；本工单只改 web）；④ DESIGN §13.H 补消息布局条款（规格先行：对齐/限宽/气泡底色 token 三点成文，版本表 +0.1）。**注意**：web 会话流是工作台形态（含工具块/审批卡/差分等重块），用户气泡仅作用于 user 消息行，不动其他块族的左锚——避免把整个会话流做成 IM 形态 | web 走查：用户消息右置、AI 回复左置、一上一下错开；工具/思考/审批块不回归；DESIGN §13.H 条款可指认；mock 快照更新如实 | 10.13（双份修复后走查才准） |
 
 ### 10.18a 附表：Qwen Code 78 命令全量判决表（命令面单一来源；v1=批次 2，v2=§8.7 池）
 
@@ -2196,6 +2197,47 @@ apps/web/src/transports/mock.ts（命令数据源）。
 提交：feat(protocol+engine+server+web): 工单 10.20/10.21——A 类接线 + GET|PUT /api/settings（B 类）+ C 类去向明示。
 ```
 
+**提示词 6（工单 10.22——会话流消息气泡布局）**：
+
+```text
+任务：Spark 工单 10.22——web 会话流消息气泡布局（用户消息靠右、AI 回复靠左、一上一下错开）。
+
+背景：晚风 2026-09-01 澄清——期望是聊天式布局形态，不是切换动画（10.16 横向滑动已拍板本批不做）。
+现状：问题与回复一上一下但都靠左（MessageItem 单列左对齐）。
+
+前置阅读：AGENTS.md、DESIGN.md §12（黑名单）/§13.H（会话流规格）、doc/02 批次 2 表 10.22 行、
+apps/web/src/features/chat/{MessageItem,AssistantBlock,ToolCard,ReasoningCollapsible}.tsx、
+apps/web/src/features/chat/chat-flow-rows.ts、apps/web/tests/（既有快照基线）。
+
+要求：
+1. DESIGN §13.H 先补消息布局条款（规格先行，版本表 +0.1）：user 消息行右对齐（max-w 限宽 + 中性底色气泡态，
+   键位对齐/圆角/底色 token 三点成文）；assistant 保持左对齐全宽（阅读宽度优先——气泡化会伤代码块/表格/工具块呈现）。
+   视觉红线照 §12：黑白中性 token，禁蓝紫渐变、禁毛玻璃、禁 emoji 装饰。
+2. web 实现：MessageItem 中 user 消息行右对齐（justify-end + 限宽），assistant/工具块/思考块/审批卡保持左锚不动
+   ——会话流是工作台形态，只动 user 消息行的对齐，不改其他块族。
+3. 只改 web：CLI（§13.K 转录式既定形态）、mobile、miniapp 本工单不动。
+4. 快照基线更新如实（mock 会话截图基线变化在提交说明写明）。
+红线：不动协议/reducer（纯渲染层）；不删文件；不引入新依赖。
+验收：web 走查——用户消息右置、AI 回复左置、一上一下错开；工具/思考/审批块不回归；长代码块在 assistant 全宽呈现不窄化；
+pnpm --filter web test + typecheck/lint 全绿；现场走查留用户执行。
+提交：feat(web): 工单 10.22——user 消息右对齐气泡布局（DESIGN §13.H 条款先行）。
+```
+
+**阶段十六开工提示词模板（16.1–16.9，doc/08 阶段十六逐张 lift 后使用）**：
+
+```text
+任务：Spark 阶段十六工单 16.X——<机制名>。
+
+前置阅读：AGENTS.md（十二条硬性约定）、doc/08-v2-roadmap.md 阶段十六 16.X 行（目标/开源参考/产出/验收/依赖五列即完整规格）、
+doc/02 §8.7 V2-XX 行（消解对应项）、开源参考文件（按 16.X 行"开源参考"列，gh api/raw 在线访问——禁克隆，AGENTS §2.12；
+复用片段保留原版权声明：qwen-code/gemini-cli Apache-2.0、opencode MIT）。
+要求：按 doc/08 16.X 行逐项实现；涉及新事件类型走 .agents/skills/new-event-type 全流程（六处同步）、新工具走 new-tool
+（四路径单测）；命令注册走批次 2 已落地的描述符体系（packages/protocol commands.ts——BUILTIN_COMMANDS 单一来源，
+勿在端侧私加硬编码表）；配置读写走既有 GET|PUT /api/settings（勿另设端点，10.21 已拍板并入）。
+完成后：测试/typecheck/lint 全绿 → conventional commits 中文提交 → push → doc/02 阶段表勾选 + 双文档版本表追加
+（doc/02 与 doc/08 各一行，doc/08 该行标"已立项于 doc/02 vX.Y"）。
+```
+
 ## 8.6 测试矩阵（各阶段验收的测试面；框架 vitest）
 
 | 模块               | 用例要点                                                                                                                                                         |
@@ -2242,15 +2284,15 @@ apps/web/src/transports/mock.ts（命令数据源）。
 | V2-24 | assistant 链接预览卡（正文 URL → 图标+域名+标题+打开钮卡片） | P3     | 阶段十截图评审新发现（ZCode 实测）；streamdown 渲染层扩展 |
 | V2-25 | 👍👎 反馈存储（会话/回合级反馈表） | P3     | §13.H:519 既定 v2 项：引擎需反馈存储表+端点；阶段十 10.4 UI 先行置灰 |
 | V2-26 | CLI IME 合成深层修复（ConPTY 中间态防插入/防御重绘） | P2     | 阶段十批次 2（10.19）新登记：v3.35 已判决合成态=终端层职责；应用层码点切片与宽度口径已修后残余的合成中间态错位归此项（需终端事件层能力，待调研 Windows Terminal/ConPTY 事件面） |
-| V2-27 | /init 项目上下文文件生成（AGENTS.md 模板 + 代码库扫描） | P2     | 10.18a 判决表 v2 挂池项：需文件生成工具与模板，Qwen /init 对应 |
-| V2-28 | /voice 语音听写输入 | P3     | 10.18a 新机制项：音频采集+STT，桌面（Electron）/移动端能力，web 麦克风权限 |
-| V2-29 | /arena 多模型并行竞答对比视图 | P3     | 10.18a 新机制项：引擎跨会话并发已有底子，缺"同 prompt 多模型并行+对比呈现"视图与用量归并 |
-| V2-30 | /lsp LSP 客户端集成 | P3     | 10.18a 新机制项：LSP 全链路（下载/连接/诊断数据源），大件；诊断信息现由 grep/read 工具覆盖 |
-| V2-31 | /trust 文件夹信任设置 | P2     | 10.18a 新机制项：trust store + 首启信任判定（Spark 本地单用户模型下优先级低，真实诉求出现再立项） |
-| V2-32 | /extensions 扩展管理 | P3     | 10.18a 新机制项：依赖 V2-01/V2-02（MCP/技能管理页与插件市场壳） |
-| V2-33 | /agents 子代理管理面板 | P2     | 10.18a 新机制项：引擎子代理（阶段五）已落地，缺管理 UI（预设档/运行中子代理查看）——可与 doc/08 §13.5 agent presets 合并立项 |
-| V2-34 | /plan 计划模式（read-only 档位） | P2     | 10.18a 新机制项：run-loop 只读模式位 + 审批档位联动；参考 ZCode Plan Mode 语义（AGENTS §8.1 工具差异已登记） |
-| V2-35 | /goal 持续目标（条件满足前循环工作） | P3     | 10.18a 新机制项：turn 循环判定 + 防失控护栏（与 maxSteps 交互需设计） |
+| V2-27 | /init 项目上下文文件生成（AGENTS.md 模板 + 代码库扫描） | P2     | 10.18a 判决表 v2 挂池项：需文件生成工具与模板，Qwen /init 对应。**已立项：doc/08 阶段十六 16.1**（开源参考：opencode MIT 模板可整段复用） |
+| V2-28 | /voice 语音听写输入 | P3     | 10.18a 新机制项：音频采集+STT，桌面（Electron）/移动端能力，web 麦克风权限。**已立项：doc/08 阶段十六 16.6**（web getUserMedia 优先/CLI SoX 降级/OpenAI 兼容转写 API） |
+| V2-29 | /arena 多模型并行竞答对比视图 | P3     | 10.18a 新机制项：引擎跨会话并发已有底子，缺"同 prompt 多模型并行+对比呈现"视图与用量归并。**已立项：doc/08 阶段十六 16.8**（git worktree 隔离+InProcess 并行，胜者应用过审批） |
+| V2-30 | /lsp LSP 客户端集成 | P3     | 10.18a 新机制项：LSP 全链路（下载/连接/诊断数据源），大件；诊断信息现由 grep/read 工具覆盖。**已立项：doc/08 阶段十六 16.9**（换基座 vscode-languageserver-protocol） |
+| V2-31 | /trust 文件夹信任设置 | P2     | 10.18a 新机制项：trust store + 首启信任判定。**已立项：doc/08 阶段十六 16.4**（迷你 ADR 前置） |
+| V2-32 | /extensions 扩展管理 | P3     | 10.18a 新机制项：依赖 V2-01/V2-02（MCP/技能管理页与插件市场壳）。**已立项：doc/08 阶段十六 16.5**（声明式内容包不执行代码，v1 本地目录无网络安装） |
+| V2-33 | /agents 子代理管理面板 | P2     | 10.18a 新机制项：引擎子代理（阶段五）已落地，缺管理 UI（预设档/运行中子代理查看）。**已立项：doc/08 阶段十六 16.2**（frontmatter 分层，最便宜可最先做） |
+| V2-34 | /plan 计划模式（read-only 档位） | P2     | 10.18a 新机制项：run-loop 只读模式位 + 审批档位联动。**已立项：doc/08 阶段十六 16.3**（落在既有审批规则引擎，gemini plan.toml 优先级直接翻） |
+| V2-35 | /goal 持续目标（条件满足前循环工作） | P3     | 10.18a 新机制项：turn 循环判定 + 防失控护栏。**已立项：doc/08 阶段十六 16.7**（三护栏：50 迭代上限/证据引用/token 预算） |
 | V2-36 | 折叠态侧栏会话直点（工单 10.14 盲区评估） | P3     | 48px 图标态无会话可点（只能先展开）；评估结论挂 v2——图标态弹最近会话列表或 hover 浮层，涉及浮层规格先在 DESIGN 补条款 |
 | V2-37 | 新建会话默认模型/默认推理档迁 models.json（工单 10.20 B 遗留） | P2 | D28 第三态：`/api/settings` 只写 spark.json；默认模型/档位迁移需与 `PUT /api/routing` 的 models.json 写路径统一（避免双写者），随路由写路径整合立项 |
 | V2-38 | 「显示待办」开关（工单 10.20 拍板移除的无效开关） | P3 | 引擎 tools/builtin 无 Todo 工具，开关无消费面——工单 10.20 拍板不留无效开关；待 Todo 工具落地后再挂池立项 |
