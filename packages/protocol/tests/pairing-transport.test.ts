@@ -109,8 +109,8 @@ describe('authToken 注入双口径（工单 9.1：与服务端 tokenOf 一致�
       authToken: 'spk_abc',
     })
     await t.listSessions()
+    // 工单 10.12：无 body 请求不带 content-type（避免 Fastify 空 body 拒绝）
     expect(headersOf(calls[0])).toEqual({
-      'content-type': 'application/json',
       authorization: 'Bearer spk_abc',
     })
     t.dispose()
@@ -120,7 +120,8 @@ describe('authToken 注入双口径（工单 9.1：与服务端 tokenOf 一致�
     const { calls } = stubFetch(() => jsonResponse([]))
     const t = new HttpTransport({ baseUrl: 'http://127.0.0.1:1', eventStream: false })
     await t.listSessions()
-    expect(headersOf(calls[0])).toEqual({ 'content-type': 'application/json' })
+    // 工单 10.12：无 body 请求连 content-type 也不带——头集合为空
+    expect(headersOf(calls[0])).toEqual({})
     t.dispose()
   })
 

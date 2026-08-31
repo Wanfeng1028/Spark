@@ -3,9 +3,11 @@
  * - listModels：内置/自定义合成、掩码原则（key 永不进 DTO）、hasKey 环境变量判定；
  * - testProvider：配置缺失各失败分支（不发网络请求）+ 注入 fetch 的网络路径
  *   （200/429/401/404/网络错误/超时；anthropic 探针 URL 与头）。
+ * 工单 10.12 追加：KeyResolver 注入（状态判定与实际取用同口径，密钥仓不误报）。
  */
 import { afterEach, describe, expect, test } from 'vitest'
 import { listModels, PROVIDER_CATALOG, testProvider } from '../src/model-catalog.js'
+import type { KeyResolver } from '../src/model-catalog.js'
 import type { ModelsConfig } from '../src/config.js'
 
 function makeConfig(over: Partial<ModelsConfig> = {}): ModelsConfig {
@@ -283,5 +285,48 @@ describe('testProvider 网络路径', () => {
     } finally {
       delete process.env['ANTHROPIC_API_KEY']
     }
+  })
+})
+
+// ---- 解析器注入（工单 10.12：状态判定与实际取用同口径，密钥仓不得被误报「缺 Key」） ----
+
+/** 只给 deepseek 密钥仓条目的解析器（模拟 secrets.json 已录入、环境变量未设） */
+const storeResolver: KeyResolver = (provider, _apiKeyEnv) =>
+  provider === 'deepseek'
+    ? { apiKey: 'sk-store-value', source: 'store' as const }
+    : { source: 'none' as const }
+
+describe('KeyResolver 注入（工单 10.12）', () => {
+  test('listModels：密钥仓点亮 hasKey（环境变量未设）；掩码原则——值不进 DTO', () => {
+    const dto = listModels(makeConfig(), storeResolver)
+    const deepseek = dto.providers.find((p) => p.id === 'deepseek')
+    expect(deepseek?.hasKey).toBe(true)
+    const custom = dto.providers.find((p) => p.id === 'custom')
+    expect(custom?.hasKey).toBe(false) // 解析器未给 custom 条目
+    expect(JSON.stringify(dto)).not.toContain('sk-store-value')
+  })
+
+  test('testProvider：密钥仓值直达探针（Bearer 用仓值，不看环境变量）', async () => {
+    const fetcher = fakeFetch(200)
+    const r = await testProvider('deepseek', withKeyConfig(), {
+      fetchImpl: fetcher.impl as unknown as typeof fetch,
+      now: fixedClock().now,
+      resolveKey: storeResolver,
+    })
+    expect(r.ok).toBe(true)
+    expect(fetcher.calls[0]?.headers['authorization']).toBe('Bearer sk-store-value')
+  })
+
+  test('testProvider：解析器判无 → 缺 Key 文案说明密钥仓亦无条目（不发网络请求）', async () => {
+    const noneResolver: KeyResolver = () => ({ source: 'none' as const })
+    const r = await testProvider('deepseek', withKeyConfig(), { resolveKey: noneResolver })
+    expect(r.ok).toBe(false)
+    expect(r.message).toContain('缺少 API Key')
+    expect(r.message).toContain('环境变量 DEEPSEEK_API_KEY')
+    expect(r.message).toContain('密钥仓亦无条目')
+    // 自定义供应商（无 baseUrl 也到不了探针）同口径
+    const r2 = await testProvider('custom', makeConfig(), { resolveKey: noneResolver })
+    expect(r2.ok).toBe(false)
+    expect(r2.message).toContain('密钥仓亦无条目')
   })
 })

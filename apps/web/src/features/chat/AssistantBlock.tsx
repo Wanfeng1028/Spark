@@ -1,16 +1,18 @@
 /**
  * AssistantBlock（doc/02 §6.3）：助手消息内容块序列。
  * text 块用 streamdown 流式渲染（工单 3）——流式期间 streaming.textBuf（定稿前 content 为空），
- * 末尾 ▮ 闪烁光标（DESIGN §6）；定稿后渲染 content 中的 text/reasoning 块。
+ * 末尾 ▮ 闪烁光标（DESIGN §6）；定稿后渲染 content 中的 text 块。
  * animated=false：关 streamdown 入场动画（DESIGN §6 只允许微动效）。
  * toolCall/toolResult 由 store 投影展开为独立 tool UiItem（applyEvent 处理表 §6.4），此处跳过以免双渲染。
+ * reasoning 块同样跳过（工单 10.13）：pi-gateway 定稿把 thinking 写进 content，reducer 已生成
+ * 独立 reasoning UiItem 呈现，此处再渲染即双份——渲染层去重（数据仍在 content 内，不丢），
+ * 对齐 CLI items.tsx 只取 text 块的口径。
  * 代码主题对与行号来自外观设置（工单 6.4 §13.D②）：浅深两主题 + 显示行号即存即生效。
  */
 import type { BundledTheme } from 'shiki'
 import type { ContentItem, Usage } from '@spark/protocol'
 import { Streamdown } from 'streamdown'
 import { useSettingsStore } from '@/stores/settings'
-import { ReasoningCollapsible } from './ReasoningCollapsible'
 
 export interface AssistantBlockProps {
   content: ContentItem[]
@@ -68,9 +70,8 @@ export function AssistantBlock({ content, streaming, usage }: AssistantBlockProp
             </div>
           )
         }
-        if (c.type === 'reasoning') {
-          return <ReasoningCollapsible key={i} text={c.text} />
-        }
+        // reasoning 块跳过（工单 10.13，见文件头注释——渲染层去重，数据仍保留在 content 内）
+        if (c.type === 'reasoning') return null
         return null // toolCall / toolResult：独立 tool UiItem 呈现（见文件头注释）
       })}
       {usage !== undefined && (

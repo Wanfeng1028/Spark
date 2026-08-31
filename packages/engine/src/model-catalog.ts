@@ -7,6 +7,7 @@
  */
 import type { ModelProviderDto, ModelTestResultDto, ModelsDto } from '@spark/protocol'
 import type { ModelsConfig } from './config.js'
+import type { SecretSource } from './secrets/store.js'
 
 export type ProviderApiKind = 'openai-completions' | 'anthropic-messages'
 
@@ -28,15 +29,24 @@ export const PROVIDER_CATALOG: Record<string, CatalogEntry> = {
   anthropic: { label: 'Anthropic', api: 'anthropic-messages', defaultBaseUrl: 'https://api.anthropic.com' },
 }
 
-/** 环境变量是否已设置（空串视为未设置——与 resolveModel 注入判定一致） */
-function hasKeyOf(apiKeyEnv: string | null): boolean {
-  if (apiKeyEnv === null) return false
+/**
+ * apiKey 解析注入点（工单 10.12）：状态判定必须与实际取用同一口径——
+ * 引擎注入 secrets 仓解析器（store > env），否则只写密钥仓的供应商被误报「缺 Key」。
+ */
+export type KeyResolver = (
+  provider: string,
+  apiKeyEnv: string | null,
+) => { apiKey?: string; source: SecretSource }
+
+/** 缺省解析器：仅看环境变量（纯目录语义，等价原 hasKeyOf——空串视为未设置） */
+export const envKeyResolver: KeyResolver = (_provider, apiKeyEnv) => {
+  if (apiKeyEnv === null) return { source: 'none' }
   const v = process.env[apiKeyEnv]
-  return v !== undefined && v !== ''
+  return v !== undefined && v !== '' ? { apiKey: v, source: 'env' } : { source: 'none' }
 }
 
 /** models.json → GET /api/models 线上形状 */
-export function listModels(config: ModelsConfig): ModelsDto {
+export function listModels(config: ModelsConfig, resolveKey: KeyResolver = envKeyResolver): ModelsDto {
   // 目录全量在前（含未配置的内置供应商），models.json 独有的自定义在后
   const ids: string[] = [
     ...Object.keys(PROVIDER_CATALOG),
@@ -56,7 +66,7 @@ export function listModels(config: ModelsConfig): ModelsDto {
           ? { baseUrl: entry.defaultBaseUrl }
           : {}),
       apiKeyEnv: configured ? (config.providers[id]?.apiKeyEnv ?? null) : null,
-      hasKey: configured ? hasKeyOf(config.providers[id]?.apiKeyEnv ?? null) : false,
+      hasKey: configured ? resolveKey(id, config.providers[id]?.apiKeyEnv ?? null).source !== 'none' : false,
       api: entry?.api ?? 'openai-completions',
     }
   })
@@ -76,6 +86,8 @@ export interface TestDeps {
   timeoutMs?: number
   /** 计时器（缺省 Date.now；测试注入固定时延） */
   now?: () => number
+  /** apiKey 解析器（缺省仅环境变量；引擎注入 secrets 仓口径——工单 10.12） */
+  resolveKey?: KeyResolver
 }
 
 /** 测试探针端点：openai 系 /models；anthropic /v1/models（两系均支持廉价 GET 鉴权探测） */
@@ -117,13 +129,19 @@ export async function testProvider(
   if (provider === undefined) {
     return failure(providerId, '未配置：该供应商未写入 models.json providers')
   }
-  if (provider.apiKeyEnv === null) {
-    return failure(providerId, '缺少 API Key：models.json 未设置 apiKeyEnv')
+  const resolveKey = deps.resolveKey ?? envKeyResolver
+  const resolved = resolveKey(providerId, provider.apiKeyEnv)
+  if (resolved.apiKey === undefined) {
+    // 缺 Key：文案区分「未配 apiKeyEnv」与「环境变量未设置」，并如实说明密钥仓亦无条目
+    if (provider.apiKeyEnv === null) {
+      return failure(providerId, '缺少 API Key：models.json 未设置 apiKeyEnv，密钥仓亦无条目')
+    }
+    return failure(
+      providerId,
+      `缺少 API Key：环境变量 ${provider.apiKeyEnv} 未设置，密钥仓亦无条目`,
+    )
   }
-  const apiKey = process.env[provider.apiKeyEnv]
-  if (apiKey === undefined || apiKey === '') {
-    return failure(providerId, `环境变量 ${provider.apiKeyEnv} 未设置`)
-  }
+  const apiKey = resolved.apiKey
   const entry = PROVIDER_CATALOG[providerId.toLowerCase()]
   const baseUrl = provider.baseUrl ?? entry?.defaultBaseUrl
   if (baseUrl === undefined) {
