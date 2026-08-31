@@ -6,6 +6,8 @@
  * 外观区字段（§13.D②）：uiFontSize/codeThemeLight/codeThemeDark/showLineNumbers/
  * wrapLongLines/codeFontSize——经 applyAppearance 落 CSS 变量与 html class，
  * AssistantBlock/Streamdown 与代码块样式即时消费。
+ * 会话域开关（工单 10.20 A③）：showReasoning（关=每轮仅首条思考）/
+ * showToolGroups（关=连续同类工具不聚合）——ChatView flow rows 消费。
  */
 import { create } from 'zustand'
 import type { Delivery } from '@spark/protocol'
@@ -58,6 +60,10 @@ export interface SettingsState {
   wrapLongLines: boolean
   /** 代码字号（默认 12） */
   codeFontSize: (typeof CODE_FONT_SIZES)[number]
+  /** 显示思考过程（默认开；关 = 每轮仅展示第一条思考——工单 10.20 A③） */
+  showReasoning: boolean
+  /** 连续同类工具聚合为分组卡（默认开——工单 10.20 A③） */
+  showToolGroups: boolean
   setTheme: (t: Theme) => void
   toggleTheme: () => void
   setDefaultDelivery: (d: Delivery) => void
@@ -68,6 +74,8 @@ export interface SettingsState {
   setShowLineNumbers: (b: boolean) => void
   setWrapLongLines: (b: boolean) => void
   setCodeFontSize: (n: (typeof CODE_FONT_SIZES)[number]) => void
+  setShowReasoning: (b: boolean) => void
+  setShowToolGroups: (b: boolean) => void
 }
 
 const STORAGE_KEY = 'spark.settings'
@@ -82,6 +90,8 @@ interface PersistedSettings {
   showLineNumbers: boolean
   wrapLongLines: boolean
   codeFontSize: (typeof CODE_FONT_SIZES)[number]
+  showReasoning: boolean
+  showToolGroups: boolean
 }
 
 const DEFAULTS: PersistedSettings = {
@@ -94,6 +104,8 @@ const DEFAULTS: PersistedSettings = {
   showLineNumbers: true,
   wrapLongLines: true,
   codeFontSize: 12,
+  showReasoning: true,
+  showToolGroups: true,
 }
 
 function load(): PersistedSettings {
@@ -129,6 +141,10 @@ function load(): PersistedSettings {
       codeFontSize: CODE_FONT_SIZES.includes(parsed.codeFontSize as (typeof CODE_FONT_SIZES)[number])
         ? (parsed.codeFontSize as (typeof CODE_FONT_SIZES)[number])
         : DEFAULTS.codeFontSize,
+      showReasoning:
+        typeof parsed.showReasoning === 'boolean' ? parsed.showReasoning : DEFAULTS.showReasoning,
+      showToolGroups:
+        typeof parsed.showToolGroups === 'boolean' ? parsed.showToolGroups : DEFAULTS.showToolGroups,
     }
   } catch {
     // 坏数据按默认处理（本地偏好，不值得 fail loudly）
@@ -207,5 +223,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
       applyAppearance({ ...get(), codeFontSize })
       save({ codeFontSize })
     },
+    setShowReasoning: (showReasoning) => save({ showReasoning }),
+    setShowToolGroups: (showToolGroups) => save({ showToolGroups }),
   }
 })

@@ -110,9 +110,8 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'commands',
         title: '命令',
-        description: '自定义命令管理',
-        status: 'placeholder',
-        placeholderReason: '后续工单',
+        description: '内置与自定义命令清单（只读；增改走 ~/.spark/commands）',
+        status: 'ready',
       },
       {
         id: 'hooks',

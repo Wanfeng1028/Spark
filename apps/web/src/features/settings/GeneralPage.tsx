@@ -1,13 +1,16 @@
 /**
  * 常规页（DESIGN §13.D① 按 Spark 落点裁剪）：
  * 交互行为=提交三模式默认档（落地，Composer 初始段位）；
+ * 会话域显示开关（显示思考过程/工具分组）接 settings-store 即存即生效（工单 10.20 A③）；
  * 其余字段分卡占位——语言/网络为平台缺口项（后续工单），
- * 终端/托盘/更新为 desktop 特化，会话域开关归 §13.H 后续工单。
+ * 终端/托盘/更新为 desktop 特化。「显示待办」不设开关：引擎无 Todo 工具，
+ * 不留无效开关（工单 10.20 拍板；待 Todo 工具落地后再挂池立项）。
  */
 import { useMemo } from 'react'
 import type { Delivery } from '@spark/protocol'
 import { useSettingsStore } from '@/stores/settings'
 import { Select } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { SettingRow, SettingGroupCard } from './SettingRow'
 
 const DELIVERY_OPTIONS: { value: Delivery; label: string }[] = [
@@ -19,6 +22,10 @@ const DELIVERY_OPTIONS: { value: Delivery; label: string }[] = [
 export function GeneralSettingsPage() {
   const defaultDelivery = useSettingsStore((s) => s.defaultDelivery)
   const setDefaultDelivery = useSettingsStore((s) => s.setDefaultDelivery)
+  const showReasoning = useSettingsStore((s) => s.showReasoning)
+  const setShowReasoning = useSettingsStore((s) => s.setShowReasoning)
+  const showToolGroups = useSettingsStore((s) => s.showToolGroups)
+  const setShowToolGroups = useSettingsStore((s) => s.setShowToolGroups)
   const deliveryOptions = useMemo(() => DELIVERY_OPTIONS, [])
 
   return (
@@ -42,15 +49,24 @@ export function GeneralSettingsPage() {
         <SettingRow title="界面语言" description="多语言界面（i18n 框架未落地）" placeholderBadge="后续工单" />
         <SettingRow
           title="显示思考过程"
-          description="关闭时每轮仅展示第一次思考（会话域 §13.H 开关）"
-          placeholderBadge="后续工单"
-        />
-        <SettingRow title="显示待办" description="Todo 工具卡片显隐（会话域 §13.H）" placeholderBadge="后续工单" />
+          description="关闭时每轮仅展示第一次思考（会话域 §13.H 开关；即存即生效）"
+        >
+          <Switch
+            aria-label="显示思考过程"
+            checked={showReasoning}
+            onChange={setShowReasoning}
+          />
+        </SettingRow>
         <SettingRow
           title="分组探索工具 / 终端命令 / 文件更改"
-          description="连续同类工具聚合为分组卡（会话域 §13.H）"
-          placeholderBadge="后续工单"
-        />
+          description="连续同类工具聚合为分组卡（会话域 §13.H；即存即生效）"
+        >
+          <Switch
+            aria-label="分组探索工具、终端命令与文件更改"
+            checked={showToolGroups}
+            onChange={setShowToolGroups}
+          />
+        </SettingRow>
         <SettingRow
           title="完整保留模型 I/O"
           description="关闭自动压缩/限长/清理（与 Compaction 策略互斥）"

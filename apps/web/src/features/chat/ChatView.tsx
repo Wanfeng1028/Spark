@@ -10,6 +10,7 @@ import type { Components, VirtuosoHandle } from 'react-virtuoso'
 import { ids } from '@spark/protocol'
 import type { SessionId } from '@spark/protocol'
 import { useSessionItems, useSessionMeta } from '@/stores/session'
+import { useSettingsStore } from '@/stores/settings'
 import { useTransport } from '@/transports/context'
 import { flowRowsOf, rowIndexOfEvent, type FlowRow } from './chat-flow-rows'
 import { MessageItem } from './MessageItem'
@@ -29,8 +30,18 @@ export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
   const items = useSessionItems(sid)
   const meta = useSessionMeta(sid)
   const model = meta.model === '' ? 'assistant' : meta.model
+  // 会话域显示开关（工单 10.20 A③）：思考过程/工具分组，常规页即存即生效
+  const showReasoning = useSettingsStore((s) => s.showReasoning)
+  const showToolGroups = useSettingsStore((s) => s.showToolGroups)
   // 显示行（工单 10.4④）：连续同类工具聚合成组行，其余逐项
-  const rows = useMemo(() => flowRowsOf(items), [items])
+  const rows = useMemo(
+    () =>
+      flowRowsOf(items, {
+        groupTools: showToolGroups,
+        firstReasoningPerTurn: !showReasoning,
+      }),
+    [items, showReasoning, showToolGroups],
+  )
   const [atBottom, setAtBottom] = useState(true)
   const ref = useRef<VirtuosoHandle>(null)
   const [highlightId, setHighlightId] = useState<string | null>(null)
