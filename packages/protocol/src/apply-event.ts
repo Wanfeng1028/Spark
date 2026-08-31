@@ -32,6 +32,8 @@ export type UiItem =
       streaming?: { textBuf: string }
       /** 定稿（或首帧）信封时间——尾操作行时间戳数据源（工单 10.4①） */
       time?: number
+      /** 所属 turn——定稿配对按 turnId 查找（工单 10.13） */
+      turnId?: TurnId
     } & UiItemBase)
   | ({
       kind: 'reasoning'
@@ -41,6 +43,8 @@ export type UiItem =
       startedAt?: number
       /** reasoning.ended 回填（信封时间差）——"持续了 N 秒"定格 */
       durationMs?: number
+      /** 所属 turn——定稿配对按 turnId 查找（工单 10.13） */
+      turnId?: TurnId
     } & UiItemBase)
   | ({
       kind: 'tool'
@@ -185,6 +189,67 @@ function findLastTurn(items: UiItem[], turnId: TurnId): number {
   return -1
 }
 
+/**
+ * 工单 10.13：按 turnId 反向查找最近一条**未闭合**的同类流式项（定稿配对）。
+ * 真实发射序为 reasoning.delta* → assistant.delta* → reasoning.ended → assistant.message
+ * （run-loop：thinking 先流、定稿对后置）——定稿时列表末项往往不是自己的流式项，
+ * 位置判断（lastItem）必然失效；按 turnId 反查未闭合项才是正确配对。
+ */
+function findOpenReasoning(items: UiItem[], turnId: TurnId): number {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i]
+    if (it !== undefined && it.kind === 'reasoning' && it.streaming === true && it.turnId === turnId) {
+      return i
+    }
+  }
+  return -1
+}
+
+function findOpenAssistant(items: UiItem[], turnId: TurnId): number {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i]
+    if (
+      it !== undefined &&
+      it.kind === 'assistant' &&
+      it.streaming !== undefined &&
+      it.turnId === turnId
+    ) {
+      return i
+    }
+  }
+  return -1
+}
+
+/** 该 turn 是否已有同类项（无论闭合与否）——迟到 delta 判定用（工单 10.13） */
+function hasKindOfTurn(items: UiItem[], turnId: TurnId, kind: 'reasoning' | 'assistant'): boolean {
+  return items.some((it) => it.kind === kind && it.turnId === turnId)
+}
+
+/**
+ * 工单 10.13 失败闭合清扫：turn 结束时仍有未闭合流式项（aborted/error 路径无对应定稿
+ * 事件）→ 就地定稿——剥离 streaming 态（计时器停止）、已交付内容保留为真值。
+ * 返回 null = 无变更（调用方保持原引用）。
+ */
+function closeStreamingOfTurn(items: UiItem[], turnId: TurnId, at: number): UiItem[] | null {
+  let changed = false
+  const out = items.map((it) => {
+    if (it.kind === 'reasoning' && it.streaming === true && it.turnId === turnId) {
+      changed = true
+      const base = { ...it, streaming: false }
+      return it.startedAt !== undefined ? { ...base, durationMs: at - it.startedAt } : base
+    }
+    if (it.kind === 'assistant' && it.streaming !== undefined && it.turnId === turnId) {
+      changed = true
+      const { streaming, ...rest } = it
+      const text = streaming.textBuf
+      // 已交付前缀转 text 块保留（dsh 截断定稿同思路——不丢内容）；空前缀维持空 content
+      return text !== '' ? { ...rest, content: [{ type: 'text' as const, text }] } : rest
+    }
+    return it
+  })
+  return changed ? out : null
+}
+
 export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): ProjectionState {
   const existing = s.byId[e.sessionId]
   // 去重入口（§6.4）：durable 且 seq <= lastSeq → 跳过（回放×直播重叠吸附）
@@ -196,7 +261,6 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
   if (e.time > next.meta.updatedAt) next.meta.updatedAt = e.time
 
   let items = next.items
-  const lastItem = (): UiItem | undefined => items[items.length - 1]
 
   if (ofType(e, 'session.created')) {
     next.meta = {
@@ -251,11 +315,15 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
     if (ti >= 0) {
       const cur = next.items[ti]
       if (cur !== undefined && cur.kind === 'turn') {
-        const items = [...next.items]
-        items[ti] = { ...cur, finishedAt: e.time, finish: e.data.finish }
-        next.items = items
+        const items2 = [...next.items]
+        items2[ti] = { ...cur, finishedAt: e.time, finish: e.data.finish }
+        next.items = items2
       }
     }
+    // 工单 10.13 失败闭合：turn 结束仍敞口的流式项（aborted/error 无对应定稿事件）
+    // 就地闭合——未闭合 reasoning 计时器必停（实测假"578 秒"），已交付前缀不丢
+    const swept = closeStreamingOfTurn(next.items, e.data.turnId, e.time)
+    if (swept !== null) next.items = swept
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
@@ -266,32 +334,58 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
   }
 
   if (ofType(e, 'assistant.delta')) {
-    const cur = lastItem()
-    if (cur !== undefined && cur.kind === 'assistant') {
-      const streaming = cur.streaming ?? { textBuf: '' }
-      items = [...items]
-      items[items.length - 1] = { ...cur, streaming: { textBuf: streaming.textBuf + e.data.text } }
+    // 工单 10.13：追加到本 turn 未闭合的流式项（位置判断改 turnId 配对）
+    const oi = findOpenAssistant(next.items, e.data.turnId)
+    if (oi >= 0) {
+      const cur = next.items[oi]
+      if (cur !== undefined && cur.kind === 'assistant') {
+        const streaming = cur.streaming ?? { textBuf: '' }
+        const arr = [...next.items]
+        arr[oi] = { ...cur, streaming: { textBuf: streaming.textBuf + e.data.text } }
+        next.items = arr
+      }
+    } else if (hasKindOfTurn(next.items, e.data.turnId, 'assistant')) {
+      // 迟到 delta（定稿后到达）：本 turn 已有 assistant 项——定稿携带全文，
+      // delta 仅流式预览，不新建项防双份（工单 10.13）；多步 turn 后续 step 的
+      // 首帧同被拦截，由其定稿事件照常成项（宁不流式也不双份，不丢持久内容）
+      return s
     } else {
-      items = [
-        ...items,
-        { kind: 'assistant', eventId: e.id, content: [], streaming: { textBuf: e.data.text }, time: e.time },
+      next.items = [
+        ...next.items,
+        {
+          kind: 'assistant',
+          eventId: e.id,
+          content: [],
+          streaming: { textBuf: e.data.text },
+          time: e.time,
+          turnId: e.data.turnId,
+        },
       ]
     }
-    next.items = items
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
   if (ofType(e, 'assistant.message')) {
-    // 定稿：清 streaming；按 content 展开——text 定稿，toolCall → push tool running（§6.4 处理表）
+    // 定稿：按 turnId 反查未闭合流式项并吸附（工单 10.13——真实发射序下定稿后置，
+    // lastItem 位置判断失效）；未命中才新建（失败闭合兜底——纯回放无 delta 也成单项，不静默丢弃）
     items = [...items]
-    const last = items[items.length - 1]
-    if (last !== undefined && last.kind === 'assistant') {
-      // 定稿即清除 streaming（解构剥离，勿留 undefined 键——exactOptionalPropertyTypes）
-      const { streaming: finalized, ...rest } = last
-      void finalized
-      items[items.length - 1] = { ...rest, content: e.data.content }
+    const oi = findOpenAssistant(items, e.data.turnId)
+    if (oi >= 0) {
+      const cur = items[oi]
+      if (cur !== undefined && cur.kind === 'assistant') {
+        // 定稿即清除 streaming（解构剥离，勿留 undefined 键——exactOptionalPropertyTypes）
+        const { streaming: finalized, ...rest } = cur
+        void finalized
+        items[oi] = { ...rest, content: e.data.content }
+      }
     } else {
-      items.push({ kind: 'assistant', eventId: e.id, content: e.data.content, time: e.time })
+      items.push({
+        kind: 'assistant',
+        eventId: e.id,
+        content: e.data.content,
+        time: e.time,
+        turnId: e.data.turnId,
+      })
     }
     for (const c of e.data.content) {
       if (c.type === 'toolCall') {
@@ -316,29 +410,56 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
   }
 
   if (ofType(e, 'reasoning.delta')) {
-    const cur = lastItem()
-    if (cur !== undefined && cur.kind === 'reasoning') {
-      items = [...items]
-      items[items.length - 1] = { ...cur, text: cur.text + e.data.text, streaming: true }
+    // 工单 10.13：追加到本 turn 未闭合的流式项（位置判断改 turnId 配对）
+    const oi = findOpenReasoning(next.items, e.data.turnId)
+    if (oi >= 0) {
+      const cur = next.items[oi]
+      if (cur !== undefined && cur.kind === 'reasoning') {
+        const arr = [...next.items]
+        arr[oi] = { ...cur, text: cur.text + e.data.text, streaming: true }
+        next.items = arr
+      }
+    } else if (hasKindOfTurn(next.items, e.data.turnId, 'reasoning')) {
+      // 迟到 delta（reasoning.ended 已定稿后到达）：ended 携带全文，
+      // delta 仅流式预览——不新建项防双份与"假计时"（工单 10.13）
+      return s
     } else {
-      items = [
-        ...items,
-        { kind: 'reasoning', eventId: e.id, text: e.data.text, streaming: true, startedAt: e.time },
+      next.items = [
+        ...next.items,
+        {
+          kind: 'reasoning',
+          eventId: e.id,
+          text: e.data.text,
+          streaming: true,
+          startedAt: e.time,
+          turnId: e.data.turnId,
+        },
       ]
     }
-    next.items = items
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
   if (ofType(e, 'reasoning.ended')) {
-    const cur = lastItem()
-    if (cur !== undefined && cur.kind === 'reasoning') {
-      items = [...items]
-      const base = { ...cur, text: e.data.text, streaming: false }
-      items[items.length - 1] =
-        cur.startedAt !== undefined ? { ...base, durationMs: e.time - cur.startedAt } : base
+    // 按 turnId 反查未闭合流式项并定稿（工单 10.13——真实发射序下 reasoning.ended
+    // 到达时末项往往是 assistant 流式项，位置判断失效）；未命中才新建定稿项
+    // （失败闭合兜底——纯回放无 delta 也成单项，不静默丢弃）
+    items = [...items]
+    const oi = findOpenReasoning(items, e.data.turnId)
+    if (oi >= 0) {
+      const cur = items[oi]
+      if (cur !== undefined && cur.kind === 'reasoning') {
+        const base = { ...cur, text: e.data.text, streaming: false }
+        items[oi] =
+          cur.startedAt !== undefined ? { ...base, durationMs: e.time - cur.startedAt } : base
+      }
     } else {
-      items = [...items, { kind: 'reasoning', eventId: e.id, text: e.data.text, streaming: false }]
+      items.push({
+        kind: 'reasoning',
+        eventId: e.id,
+        text: e.data.text,
+        streaming: false,
+        turnId: e.data.turnId,
+      })
     }
     next.items = items
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }

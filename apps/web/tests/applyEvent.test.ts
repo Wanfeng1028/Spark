@@ -186,6 +186,131 @@ describe('turn 生命周期', () => {
   })
 })
 
+describe('工单 10.13：定稿按 turn 配对流式项（会话流去重）', () => {
+  it('交错发射序（真实序：reasoning.delta→assistant.delta→reasoning.ended→assistant.message）：reasoning 恰 1 条、assistant 恰 1 条，无未闭合流式项', () => {
+    let s = seeded()
+    s = applyEvent(s, ev('turn.started', { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_u1') }, { seq: 2 }))
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '先想' }))
+    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: '先答' }))
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '——想完' }))
+    const ended = ev('reasoning.ended', { turnId: TURN, text: '先想——想完' }, { seq: 3 })
+    s = applyEvent(s, ended)
+    s = applyEvent(
+      s,
+      ev(
+        'assistant.message',
+        { turnId: TURN, content: [{ type: 'text', text: '先答——答完' }] },
+        { seq: 4 },
+      ),
+    )
+    const items = itemsOf(s)
+    const reasonings = items.filter((i) => i.kind === 'reasoning')
+    const assistants = items.filter((i) => i.kind === 'assistant')
+    expect(reasonings).toHaveLength(1) // 不再双份
+    expect(assistants).toHaveLength(1)
+    const r = reasonings[0]
+    if (r === undefined || r.kind !== 'reasoning') throw new Error('unreachable')
+    expect(r.streaming).toBe(false) // 已闭合——计时器停
+    expect(r.text).toBe('先想——想完') // 定稿全文（不是 delta 拼接的重复）
+    const a = assistants[0]
+    if (a === undefined || a.kind !== 'assistant') throw new Error('unreachable')
+    expect(a.streaming).toBeUndefined()
+    expect(a.content).toEqual([{ type: 'text', text: '先答——答完' }])
+  })
+
+  it('迟到 delta（定稿后到达）：不再新建流式项，投影不回归', () => {
+    let s = seeded()
+    s = applyEvent(s, ev('turn.started', { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_u1') }, { seq: 2 }))
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '想' }))
+    s = applyEvent(s, ev('reasoning.ended', { turnId: TURN, text: '想' }, { seq: 3 }))
+    s = applyEvent(
+      s,
+      ev('assistant.message', { turnId: TURN, content: [{ type: 'text', text: '答' }] }, { seq: 4 }),
+    )
+    const before = s
+    // 两条迟到 delta（传输乱序/重放残余）：不新建项、不改已定稿内容
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '迟到的想' }))
+    expect(s).toBe(before) // 同一引用 = 投影零变更
+    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: '迟到的答' }))
+    expect(s).toBe(before)
+    expect(itemsOf(s).filter((i) => i.kind === 'reasoning')).toHaveLength(1)
+    expect(itemsOf(s).filter((i) => i.kind === 'assistant')).toHaveLength(1)
+  })
+
+  it('多步 turn（两轮交错循环）：每步各成一项，无双份无未闭合', () => {
+    let s = seeded()
+    s = applyEvent(s, ev('turn.started', { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_u1') }, { seq: 2 }))
+    // step1
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '想1' }))
+    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: '答1' }))
+    s = applyEvent(s, ev('reasoning.ended', { turnId: TURN, text: '想1' }, { seq: 3 }))
+    s = applyEvent(
+      s,
+      ev('assistant.message', { turnId: TURN, content: [{ type: 'text', text: '答1' }] }, { seq: 4 }),
+    )
+    // step2（后续 step 首帧被迟到防护拦截——不流式也不双份；定稿照常成项）
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '想2' }))
+    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: '答2' }))
+    s = applyEvent(s, ev('reasoning.ended', { turnId: TURN, text: '想2' }, { seq: 5 }))
+    s = applyEvent(
+      s,
+      ev('assistant.message', { turnId: TURN, content: [{ type: 'text', text: '答2' }] }, { seq: 6 }),
+    )
+    const reasonings = itemsOf(s).filter((i) => i.kind === 'reasoning')
+    const assistants = itemsOf(s).filter((i) => i.kind === 'assistant')
+    expect(reasonings).toHaveLength(2)
+    expect(assistants).toHaveLength(2)
+    for (const it of [...reasonings, ...assistants]) {
+      if (it.kind === 'reasoning') expect(it.streaming).toBe(false)
+      if (it.kind === 'assistant') expect(it.streaming).toBeUndefined()
+    }
+  })
+
+  it('纯 durable 回放（content 含 reasoning 块）：reducer 单项成立，reasoning 数据保留在 content 内（渲染层去重不丢数据）', () => {
+    let s = seeded()
+    s = applyEvent(s, ev('turn.started', { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_u1') }, { seq: 2 }))
+    s = applyEvent(s, ev('reasoning.ended', { turnId: TURN, text: '回放思考' }, { seq: 3 }))
+    s = applyEvent(
+      s,
+      ev(
+        'assistant.message',
+        {
+          turnId: TURN,
+          content: [
+            { type: 'reasoning', text: '回放思考' },
+            { type: 'text', text: '回放回答' },
+          ],
+        },
+        { seq: 4 },
+      ),
+    )
+    const reasonings = itemsOf(s).filter((i) => i.kind === 'reasoning')
+    const assistants = itemsOf(s).filter((i) => i.kind === 'assistant')
+    expect(reasonings).toHaveLength(1) // ended 兜底成单项——回放无双份
+    expect(assistants).toHaveLength(1)
+    const a = assistants[0]
+    if (a === undefined || a.kind !== 'assistant') throw new Error('unreachable')
+    // content 内 reasoning 块数据仍在（渲染层跳过是去重不是删数据）
+    expect(a.content).toContainEqual({ type: 'reasoning', text: '回放思考' })
+  })
+
+  it('aborted turn 失败闭合：未定稿的流式项就地闭合（计时器必停），已交付前缀不丢', () => {
+    let s = seeded()
+    s = applyEvent(s, ev('turn.started', { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_u1') }, { seq: 2 }))
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '想了一半' }))
+    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: '答了一半' }))
+    s = applyEvent(s, ev('turn.completed', { turnId: TURN, finish: 'aborted' }, { seq: 3 }))
+    const r = itemsOf(s).find((i) => i.kind === 'reasoning')
+    const a = itemsOf(s).find((i) => i.kind === 'assistant')
+    if (r === undefined || r.kind !== 'reasoning') throw new Error('unreachable')
+    if (a === undefined || a.kind !== 'assistant') throw new Error('unreachable')
+    expect(r.streaming).toBe(false) // 闭合——计时器停（实测假"578 秒"修复）
+    expect(r.text).toBe('想了一半') // 已流内容保留
+    expect(a.streaming).toBeUndefined()
+    expect(a.content).toEqual([{ type: 'text', text: '答了一半' }]) // 已交付前缀转 text 块
+  })
+})
+
 describe('消息流：user / assistant / reasoning', () => {
   it('user.message：push user item', () => {
     const s = applyEvent(seeded(), ev('user.message', { text: '你好' }, { seq: 2 }))
