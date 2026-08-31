@@ -182,12 +182,16 @@ function PreviewPane({
           </span>
         )}
       </div>
-      <div
-        className="min-h-16 overflow-x-auto p-3 font-mono text-[var(--spark-code-font-size,12px)] leading-relaxed [&_pre]:whitespace-pre-wrap [&_pre]:break-words"
-        // shiki codeToHtml 产物（本页自建，无用户输入注入面）
-        dangerouslySetInnerHTML={html === null ? undefined : { __html: html }}
-      >
-        {html === null && <p className="text-xs text-muted-foreground/60">加载预览…</p>}
+      <div className="min-h-16 overflow-x-auto p-3 font-mono text-[var(--spark-code-font-size,12px)] leading-relaxed [&_pre]:whitespace-pre-wrap [&_pre]:break-words">
+        {html === null ? (
+          <p className="text-xs text-muted-foreground/60">加载预览…</p>
+        ) : (
+          <div
+            // shiki codeToHtml 产物（本页自建，无用户输入注入面）；
+            // 内层专职承接 innerHTML，外层 children 与 dSIH 永不共存于同一元素
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        )}
       </div>
     </div>
   )
