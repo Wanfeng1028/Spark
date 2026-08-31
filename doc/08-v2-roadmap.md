@@ -985,7 +985,7 @@ apps/server/src/routes.ts（路由清单——考虑给路由加轻量元数据�
 ## 16.1 /init 项目上下文文件生成（消解 V2-27）
 
 - **目标**：`/init` 命令分析当前目录生成 AGENTS.md 初稿——Spark 版项目上下文文件生成。
-- **开源参考（复用优先）**：sst/opencode（MIT）`packages/opencode/src/command/template/initialize.txt`——**可整段复用+版权声明**（理念：每行内容都须回答"没有它代理会不会踩坑"，否则删掉；只在仓库答不出时才集中问一批问题）；qwen-code 仓库 `packages/cli/src/ui/commands/initCommand.ts`（Apache-2.0，抄流程：先建空文件保证模型写入有落点 + 已存在非空则覆盖确认）；gemini-cli `packages/core/src/context/initializer.ts` 同源对照。
+- **开源参考（复用优先）**：sst/opencode（MIT）仓库 packages/opencode/src/command/template/initialize.txt——**可整段复用+版权声明**（理念：每行内容都须回答"没有它代理会不会踩坑"，否则删掉；只在仓库答不出时才集中问一批问题）；qwen-code 仓库（initCommand.ts，Apache-2.0，抄流程：先建空文件保证模型写入有落点 + 已存在非空则覆盖确认）；gemini-cli 仓库 packages/core/src/context/initializer.ts 同源对照。
 - **产出**：① 命令进 10.18 描述符体系（kind=prompt，走 prompt 命令通道——零新引擎机制）；② 提示词模板入引擎提示词存放处（照 doc/02 §5.11 组装纪律），加"遵守四类约束框架（AGENTS 管项目/DESIGN 管视觉/SKILL 管流程/专属文件管工具差异）"引导；③ 生成走 write 工具天然过审批；④ 覆盖确认（AGENTS.md 已存在且非空 → 前端确认后注入"改写既有文件，保留其中仍有效的约束"提示词）。
 - **验收**：空目录跑 /init 生成三段式（项目概览/构建运行命令/开发约定）AGENTS.md；已有文件时弹确认；产物经审批链落盘。
 - **依赖**：10.18。

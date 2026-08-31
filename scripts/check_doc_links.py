@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
@@ -28,6 +29,11 @@ from pathlib import Path
 
 MD_GLOB = "**/*.md"
 SKIP_DIRS = {".git", "node_modules", "dist", ".pnpm-store", ".zcode", "official"}
+
+
+def _is_skipped(path: Path) -> bool:
+    """目录级黑名单 + `.wt-*` 前缀临时工作目录（并行会话的仓库副本，扫描会撞不完整 node_modules）"""
+    return any(part in SKIP_DIRS or part.startswith(".wt-") for part in path.parts)
 
 # 反引号路径只查这些根前缀（仓库自身结构）；其余视为外部引用或噪声
 REPO_PATH_ROOTS = (
@@ -103,7 +109,14 @@ class Report:
 
 
 def iter_md_files(root: Path) -> list[Path]:
-    return sorted(p for p in root.rglob("*.md") if not any(part in SKIP_DIRS for part in p.parts))
+    """os.walk 容忍遍历中途目录消失（并行会话的 .wt-* 临时目录随时增删）；prune 掉跳过目录不进入。"""
+    out: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root, onerror=lambda _e: None):
+        dirnames[:] = [d for d in dirnames if not _is_skipped(Path(dirpath, d))]
+        for name in filenames:
+            if name.endswith(".md"):
+                out.append(Path(dirpath, name))
+    return sorted(out)
 
 
 def strip_anchor(link: str) -> str:
