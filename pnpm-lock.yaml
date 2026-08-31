@@ -414,6 +414,9 @@ importers:
 
   packages/protocol:
     dependencies:
+      string-width:
+        specifier: ^8.2.2
+        version: 8.2.2
       zod:
         specifier: ^4.1.5
         version: 4.4.3

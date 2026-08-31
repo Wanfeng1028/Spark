@@ -14,15 +14,25 @@ import type {
   SessionId,
   SparkEventEnvelope,
 } from '@spark/protocol'
-import { applyEvent } from '@spark/protocol'
+import { applyEvent, emptySessionSlice } from '@spark/protocol'
 
 export type CliConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
 
 /** Tab 循环顺序（与 web Composer 的 now/steer/queue 分段同口径） */
 export const DELIVERY_ORDER: readonly Delivery[] = ['now', 'steer', 'queue']
 
-/** 面板族（工单 10.10/10.11，§13.K）：同时至多一个开放 */
-export type CliPanel = 'none' | 'help' | 'resume' | 'stats'
+/** 面板族（工单 10.10/10.11/10.18，§13.K）：同时至多一个开放 */
+export type CliPanel =
+  | 'none'
+  | 'help'
+  | 'resume'
+  | 'stats'
+  | 'model'
+  | 'mcp'
+  | 'skills'
+  | 'usage'
+  | 'checkpoints'
+  | 'tree'
 
 export interface CliState extends ProjectionState {
   status: CliConnectionStatus
@@ -42,14 +52,22 @@ export interface CliState extends ProjectionState {
   expandedGroups: ReadonlySet<string>
   /** 最近一条人话提示（REST 失败/引擎 error 事件；ErrorBanner 同思路的细条数据源） */
   notice: string | null
-  /** 面板开关（工单 10.10/10.11） */
+  /** 面板开关（工单 10.10/10.11/10.18） */
   panel: CliPanel
   /** 帮助面板 tab（0 概览 / 1 命令 / 2 键位；Tab/Shift+Tab 切换） */
   helpTab: number
   /** 输入预览（InputBox 逐键上报；slash 菜单可见性与过滤数据源） */
   draftPreview: string
+  /** 启动失败态（工单 10.17④：显式错误屏+重试，不再只挂 notice） */
+  bootError: string | null
+  /** resume/回滚后 boot 头部重现一次（工单 10.17③ / DESIGN K.1） */
+  bootEcho: boolean
+  /** 回放重订阅 nonce（工单 10.18 rollback：seq 倒退后 since=0 重放需重订阅） */
+  replayNonce: number
 
   apply: (e: SparkEventEnvelope) => void
+  /** 清会话投影（回滚后 seq 倒退，重放重建——工单 10.18 /rollback） */
+  resetSlice: (sid: SessionId) => void
   setStatus: (s: CliConnectionStatus) => void
   setSessions: (list: SessionDto[]) => void
   setActiveSession: (sid: SessionId | null) => void
@@ -63,6 +81,9 @@ export interface CliState extends ProjectionState {
   setPanel: (p: CliPanel) => void
   cycleHelpTab: (dir: 1 | -1) => void
   setDraftPreview: (v: string) => void
+  setBootError: (msg: string | null) => void
+  setBootEcho: (v: boolean) => void
+  bumpReplay: () => void
 }
 
 function toggle(set: ReadonlySet<string>, key: string): ReadonlySet<string> {
@@ -88,9 +109,13 @@ export const useCliStore = create<CliState>()((set) => ({
   panel: 'none',
   helpTab: 0,
   draftPreview: '',
+  bootError: null,
+  bootEcho: false,
+  replayNonce: 0,
 
   // ProjectionState 部分交共享 reducer（zustand set 接受 Partial——byId/activeId 即全部所需）
   apply: (e) => set((s) => applyEvent(s, e)),
+  resetSlice: (sid) => set((s) => ({ byId: { ...s.byId, [sid]: emptySessionSlice(sid) } })),
   setStatus: (status) => set({ status }),
   setSessions: (sessions) => set({ sessions }),
   setActiveSession: (activeSessionId) => set({ activeSessionId }),
@@ -110,4 +135,7 @@ export const useCliStore = create<CliState>()((set) => ({
   setPanel: (panel) => set({ panel, ...(panel === 'help' ? { helpTab: 0 } : {}) }),
   cycleHelpTab: (dir) => set((s) => ({ helpTab: (s.helpTab + dir + 3) % 3 })),
   setDraftPreview: (draftPreview) => set({ draftPreview }),
+  setBootError: (bootError) => set({ bootError }),
+  setBootEcho: (bootEcho) => set({ bootEcho }),
+  bumpReplay: () => set((s) => ({ replayNonce: s.replayNonce + 1 })),
 }))

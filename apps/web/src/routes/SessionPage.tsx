@@ -16,7 +16,7 @@ import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
 import { ChatView } from '@/features/chat/ChatView'
 import { Composer } from '@/features/chat/Composer'
-import { CLIENT_ACTIONS } from '@/features/chat/client-commands'
+import { clientActionOf } from '@/features/chat/client-commands'
 import { TurnStatusBar } from '@/features/chat/TurnStatusBar'
 import { ErrorToast } from '@/features/chat/ErrorToast'
 import { ErrorBanner } from '@/features/chat/ErrorBanner'
@@ -354,7 +354,7 @@ export function SessionPage() {
             onCommand={(name, args) => {
               // 命令分发（工单 7.4）：client 命令本地执行（导航/面板）；
               // action（compact）/prompt（自定义 .md）走引擎统一入口
-              const client = CLIENT_ACTIONS[name]
+              const client = clientActionOf(name)
               if (client !== undefined) {
                 if (client.kind === 'palette') setPaletteOpen(true)
                 else void navigate(client.path)

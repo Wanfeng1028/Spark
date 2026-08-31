@@ -9,6 +9,7 @@
  */
 import { Box, Text } from 'ink'
 import { useEffect, useState } from 'react'
+import { truncateByWidth } from '@spark/protocol'
 import type { UiItem } from '@spark/protocol'
 import { toolCategoryOf } from '../flow-rows.js'
 import type { FlowRow } from '../flow-rows.js'
@@ -27,9 +28,10 @@ export function summarizeToolInput(input: unknown): string {
     return ''
   }
   const s = pick('command', 'file_path', 'path', 'query', 'prompt')
-  // 单行化：空白压一格，超长截断（展开态看全量）
+  // 单行化：空白压一格，超长按**显示宽度**截断（工单 10.19②：CJK 占 2 列，
+  // code unit 计数与终端换行不一致=错列；展开态看全量）
   const one = s.replace(/\s+/g, ' ')
-  return one.length > 60 ? `${one.slice(0, 57)}...` : one
+  return truncateByWidth(one, 60)
 }
 
 /** 工具输出 → 文本（字符串原样；对象紧凑 JSON；截头保尾同 reducer 纪律） */

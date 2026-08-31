@@ -11,7 +11,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useSessionList } from '@/hooks/useSessionList'
 import { useCommands } from '@/hooks/useCommands'
-import { CLIENT_ACTIONS } from '@/features/chat/client-commands'
+import { clientActionOf } from '@/features/chat/client-commands'
 import { mergeSlashCommands } from '@/features/chat/composer-menus'
 import { useSettingsStore } from '@/stores/settings'
 import { useSessionStore } from '@/stores/session'
@@ -74,7 +74,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   async function runSlashCommand(name: string): Promise<void> {
     close()
-    const client = CLIENT_ACTIONS[name]
+    const client = clientActionOf(name)
     if (client !== undefined) {
       if (client.kind === 'palette') return // resume 已在面板内过滤，防御性兜底
       void navigate(client.path)

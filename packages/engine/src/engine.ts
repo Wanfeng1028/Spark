@@ -12,7 +12,7 @@
  * 退出 → 审批 pending 全部 fail-closed → 全量 flush + close。
  */
 import { readdir } from 'node:fs/promises'
-import { readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type {
@@ -34,12 +34,15 @@ import type {
   RoutingDto,
   RoutingUpdate,
   SessionId,
+  SettingsDto,
+  SettingsUpdate,
   SkillDto,
   SparkEventEnvelope,
   SparkEventMap,
   TurnFinish,
   TurnId,
 } from '@spark/protocol'
+import { SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
 import type { SessionStatus } from '@spark/protocol'
 import { EventBus } from './bus.js'
 import type { EventSink, SubscribeHandle } from './bus.js'
@@ -47,7 +50,7 @@ import { CompactorImpl } from './compaction.js'
 import { GitCheckpointer } from './checkpoint.js'
 import type { CheckpointRecord } from './checkpoint.js'
 import { gitBranchOf } from './git.js'
-import { loadConfig, loadProjectRules } from './config.js'
+import { loadConfig, loadProjectRules, validateSparkWrite } from './config.js'
 import type { PermissionRule } from './config.js'
 import type { EngineConfig, ModelRef } from './config.js'
 import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
@@ -210,7 +213,8 @@ interface SessionEntry {
 export class Engine {
   private readonly root: string
   private readonly defaultCwd: string
-  private readonly config: EngineConfig
+  /** 可在设置写盘成功后整体重载（工单 10.20 B / D28；启动期注入的子系统不受影响=重启档语义） */
+  private config: EngineConfig
   private readonly now: () => number
   private readonly newSessionId: () => SessionId
   private readonly bus: EventBus
@@ -260,8 +264,8 @@ export class Engine {
   private readonly skillsReady: Promise<LoadedSkill[]>
   /** 已加载 skills 快照（skillsReady 完成后非空；用户侧 hooks 的 skill 触发现读） */
   private loadedSkills: readonly LoadedSkill[] = []
-  /** 用户侧 hooks（阶段七工单 7.3 / H03）：spark.json hooks 段四挂点 fire-and-forget 触发 */
-  private readonly hooks: UserHookRunner
+  /** 用户侧 hooks（阶段七工单 7.3 / H03）：spark.json hooks 段四挂点 fire-and-forget 触发；设置写盘后重建（工单 10.21） */
+  private hooks: UserHookRunner
   /** 自定义命令（阶段七工单 7.4 / H04）：~/.spark/commands/*.md；commandsReady 完成后填充 */
   private customCommands: readonly LoadedCommand[] = []
   /** 自定义命令加载任务（坏文件 warn 跳过，不阻塞启动；ready() 等待） */

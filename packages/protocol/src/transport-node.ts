@@ -35,6 +35,8 @@ import type {
   SearchHitDto,
   SessionDto,
   SessionEventsQuery,
+  SettingsDto,
+  SettingsUpdate,
   SkillDto,
   TreeNodeDto,
 } from './api.js'
@@ -413,6 +415,17 @@ export class HttpTransport implements Transport {
 
   resetUsage(): Promise<RoutingDto> {
     return this.req<RoutingDto>('/api/routing/usage', { method: 'DELETE' })
+  }
+
+  getSettings(): Promise<SettingsDto> {
+    return this.req<SettingsDto>('/api/settings')
+  }
+
+  updateSettings(patch: SettingsUpdate): Promise<SettingsDto> {
+    return this.req<SettingsDto>('/api/settings', {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    })
   }
 
   listCommands(): Promise<CommandDto[]> {

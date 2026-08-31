@@ -4,6 +4,7 @@
 import { z } from 'zod'
 import { CheckpointIdSchema, EventIdSchema, SessionIdSchema, TurnIdSchema } from './ids.js'
 import { ReasoningEffortSchema } from './primitives.js'
+import { ClientActionSchema, CommandArgsSchema, CommandSurfaceSchema } from './commands.js'
 import type { SparkEventEnvelope } from './events.js'
 import type { TurnId } from './ids.js'
 
@@ -203,19 +204,108 @@ export const RoutingUpdateSchema = z.strictObject({
 })
 export type RoutingUpdate = z.infer<typeof RoutingUpdateSchema>
 
+// ---------- settings（工单 10.20 B / 10.21 / ADR D28） ----------
+
+/** 引擎行为设置九项（热/重启分档见 SETTINGS_RESTART_REQUIRED，D28） */
+export const EngineSettingsSchema = z.strictObject({
+  maxStepsPerTurn: z.number().int().min(1),
+  maxToolParallel: z.number().int().min(1),
+  toolTimeoutMs: z.number().int().positive(),
+  permissionTimeoutMs: z.number().int().positive(),
+  progressThrottleMs: z.number().int().positive(),
+  toolOutputLimitKB: z.number().int().positive(),
+  compactionThreshold: z.number().gt(0).lt(1),
+  checkpoints: z.boolean(),
+  bashSandbox: z.enum(['off', 'on']),
+})
+export type EngineSettings = z.infer<typeof EngineSettingsSchema>
+
+/** 单条用户侧 hook（镜像 engine config：外部命令或 skill 触发，二选一） */
+export const SettingsHookDefSchema = z.union([
+  z.strictObject({
+    command: z.string().min(1),
+    timeoutMs: z.number().int().positive().optional(),
+  }),
+  z.strictObject({ skill: z.string().min(1), emit: z.string().min(1) }),
+])
+export type SettingsHookDef = z.infer<typeof SettingsHookDefSchema>
+
+/** hooks 四挂点（工单 7.3 词表；10.21 拍板经 GET /api/settings 下发；只读数组对齐引擎 UserHooksConfig） */
+export const SettingsHooksSchema = z.strictObject({
+  'turn.before': z.array(SettingsHookDefSchema).readonly().optional(),
+  'turn.after': z.array(SettingsHookDefSchema).readonly().optional(),
+  'permission.resolved': z.array(SettingsHookDefSchema).readonly().optional(),
+  'tool.completed': z.array(SettingsHookDefSchema).readonly().optional(),
+})
+export type SettingsHooks = z.infer<typeof SettingsHooksSchema>
+
+/**
+ * 需重启生效的字段（D28 分类：构造期注入子系统 / listen 绑定级）。
+ * 热档五项（maxStepsPerTurn/maxToolParallel/compactionThreshold/
+ * progressThrottleMs/checkpoints——均 turn 边界注入）在下一 turn 生效，不在本表。
+ */
+export const SETTINGS_RESTART_REQUIRED: readonly string[] = [
+  'engine.toolTimeoutMs',
+  'engine.toolOutputLimitKB',
+  'engine.permissionTimeoutMs',
+  'engine.bashSandbox',
+  'server.port',
+  'server.host',
+]
+
+/** GET /api/settings 响应（掩码红线：绝不回 apiKey 值——D28） */
+export const SettingsDtoSchema = z.strictObject({
+  server: z.strictObject({
+    port: z.number().int().min(1).max(65535),
+    host: z.string().min(1),
+  }),
+  engine: EngineSettingsSchema,
+  /** hooks 按 spark.json 原样（缺省 = 未配置） */
+  hooks: SettingsHooksSchema.optional(),
+  /** 需重启生效字段清单（前端标注"下次启动生效"；单一来源 SETTINGS_RESTART_REQUIRED） */
+  restartRequired: z.array(z.string()),
+  /** models.json 只读参考（写路径不经本端点——默认模型/档位迁移记录见工单） */
+  models: z.strictObject({
+    defaultModel: z.string(),
+    defaultEffort: z.enum(['low', 'medium', 'high']).nullable(),
+  }),
+})
+export type SettingsDto = z.infer<typeof SettingsDtoSchema>
+
+/** PUT /api/settings 请求体（部分字段更新；缺省保持现值；校验失败 400 带字段名） */
+export const SettingsUpdateSchema = z.strictObject({
+  server: z
+    .strictObject({
+      port: z.number().int().min(1).max(65535).optional(),
+      host: z.string().min(1).optional(),
+    })
+    .optional(),
+  engine: EngineSettingsSchema.partial().optional(),
+  /** 整体替换；null = 清空 hooks 段 */
+  hooks: SettingsHooksSchema.nullable().optional(),
+})
+export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>
+
 // ---------- commands / mcp / skills（doc/02 §8 阶段七工单 7.4 / H04） ----------
 
 /**
- * 命令注册表行（GET /api/commands）。命令面基线对齐 Claude Code
- * （/compact /model /mcp /skills /usage /resume），命令名可不同、覆盖面以此为下限。
+ * 命令注册表行（GET /api/commands）。命令面基线 = commands.ts BUILTIN_COMMANDS
+ * 描述符（工单 10.18 描述符架构，10.18a 判决表为准），命令名可不同、覆盖面以此为下限。
  * kind：action = 引擎动作（compact，POST /api/sessions/:id/commands/:name 执行）；
  * prompt = ~/.spark/commands/*.md 自定义命令（正文展开为 prompt 走正常 turn 通道）；
- * client = 前端 UI 动作（model/mcp/skills/usage/resume——导航/打开面板，不经引擎执行）。
+ * client = 客户端动作（按 clientAction 各端分派；某端未实现即不渲染——禁假状态）。
+ * 描述符字段（group/surface/sessionRequired/args/clientAction）为可选增量——
+ * 旧载荷无这些字段照常解析（向后兼容）。
  */
 export const CommandDtoSchema = z.strictObject({
   name: z.string().min(1),
   description: z.string(),
   kind: z.enum(['action', 'prompt', 'client']),
+  group: z.enum(['session', 'model', 'info', 'help']).optional(),
+  surface: z.array(CommandSurfaceSchema).min(1).optional(),
+  sessionRequired: z.boolean().optional(),
+  args: CommandArgsSchema.optional(),
+  clientAction: ClientActionSchema.optional(),
 })
 export type CommandDto = z.infer<typeof CommandDtoSchema>
 

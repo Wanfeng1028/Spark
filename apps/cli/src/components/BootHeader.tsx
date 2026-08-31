@@ -25,14 +25,14 @@ function logoColor(i: number, total: number): string {
   return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`
 }
 
-/** 版本（构建时从包清单现读——真值不硬编码） */
+/** 版本（从包清单现读——真值不硬编码；工单 10.17②：相对组件目录 ../../=apps/cli） */
 const require = createRequire(import.meta.url)
 function versionOf(): string {
   try {
-    const pkg = require('../package.json') as { version?: unknown }
-    return typeof pkg.version === 'string' ? pkg.version : '0.0.0'
+    const pkg = require('../../package.json') as { version?: unknown }
+    return typeof pkg.version === 'string' ? pkg.version : '未知版本'
   } catch {
-    return '0.0.0'
+    return '未知版本'
   }
 }
 
@@ -66,6 +66,7 @@ export function BootHeader({
         <Text>
           <Text color="gray">   model: </Text>
           {model ?? '—'}
+          {model !== null ? <Text color="gray">  （/model 切换）</Text> : null}
         </Text>
         <Text>
           <Text color="gray">   cwd:   </Text>
