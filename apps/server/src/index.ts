@@ -15,6 +15,7 @@ import Fastify from 'fastify'
 import type { FastifyRequest } from 'fastify'
 import { Engine, ConfigError, loadConfig } from '@spark/engine'
 import { registerAuth, redactTokenQuery } from './auth.js'
+import { registerErrorHandling } from './errors.js'
 import { DeviceStore, PairService, isLoopbackHost, resolveBindTarget } from './pairing.js'
 import { registerPairingRoutes } from './pairing-routes.js'
 import { registerRoutes } from './routes.js'
@@ -62,6 +63,9 @@ const app = Fastify({
     },
   },
 })
+
+// 统一错误硬化（工单 10.12）：宽容 JSON 空 body + FST_ERR_* 收编进 {code, message}
+registerErrorHandling(app)
 
 // 鉴权钩子先于路由注册（环回缺省直通，非环回 REST/SSE 同口径；工单 9.1）
 await app.register(registerAuth, { required: !LOOPBACK, store: deviceStore })

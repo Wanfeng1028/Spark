@@ -1000,12 +1000,17 @@ export class Engine {
 
   /** GET /api/models：供应商清单（内置/自定义）+ 可选模型 + defaultModel */
   listModels(): ModelsDto {
-    return listModels(this.config.models)
+    // hasKey 走 secrets 仓口径（工单 10.12）：只写密钥仓的供应商不得误报「缺 Key」
+    return listModels(this.config.models, (provider, apiKeyEnv) =>
+      resolveApiKey(this.secrets, provider, apiKeyEnv),
+    )
   }
 
   /** POST /api/models/:id/test：连通测试（时延/错误人话文案；ok=false 仍 200） */
   testModel(providerId: string): Promise<ModelTestResultDto> {
-    return testProvider(providerId, this.config.models)
+    return testProvider(providerId, this.config.models, {
+      resolveKey: (provider, apiKeyEnv) => resolveApiKey(this.secrets, provider, apiKeyEnv),
+    })
   }
 
   /**

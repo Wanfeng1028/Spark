@@ -11,6 +11,7 @@ import type { FastifyInstance } from 'fastify'
 import type { EngineConfig } from '@spark/engine'
 import { Engine, ScriptedLlm } from '@spark/engine'
 import { registerAuth } from '../src/auth.js'
+import { registerErrorHandling } from '../src/errors.js'
 import { DeviceStore, PairService } from '../src/pairing.js'
 import { registerPairingRoutes } from '../src/pairing-routes.js'
 import { registerRoutes } from '../src/routes.js'
@@ -71,6 +72,7 @@ export async function makeServer(
   if (opts?.checkpoints === true) config.spark.engine.checkpoints = true // 工单 4.6 专项集成用例
   const engine = new Engine({ root, gateway, config })
   const app = Fastify({ logger: false })
+  registerErrorHandling(app) // 与 index.ts 同口径（工单 10.12）：宽容空 body + FST_ERR_* 收编
   let deviceStore: DeviceStore | undefined
   let pairService: PairService | undefined
   if (opts?.pairing !== undefined) {
