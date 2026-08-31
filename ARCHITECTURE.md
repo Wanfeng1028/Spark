@@ -29,6 +29,7 @@
 | v1.19 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | **D17 补记**：子代理并行解除（task 工具 `parallelizable` 改 true——独立子会话并行互不串扰，单层限制/中断级联语义不变）+ 树状运行监控（`ToolContext.sourceEventId` → 子会话 header.parentEventId → 树视图锚定；`ForkChildDto.status` 运行态快照，前端复用 SessionStatusDot）（阶段七工单 7.8）；事件词表不变；与 doc/02 v3.16、doc/07 v1.8 同步 |
 | v1.20 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | 新增 **D27 browser 工具族 = BrowserDriver 端口 + 引擎级单页共享 + 截图落盘走静态面**（阶段七工单 7.10 迷你 ADR：playwright-core 懒启动 fail-closed / 四工具 parallelizable=false 串行互斥 / 审批三 action 缺省 ask / 截图文件名白名单供图）；事件词表不变；与 doc/02 v3.19、doc/07 v1.11 同步 |
 | v1.21 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段十全量开工指令） | **D19 修订**（阶段十工单 10.8，晚风拍板）：CLI 形态四区→纯单栏会话优先——砍会话列表侧栏，会话管理退 /new 与 /resume 面板；状态细条改 footer 双行（§13.K K.4 决策④）；技术选型（Ink v6）与降级策略不变，`<80 列隐藏侧栏`条款随侧栏移除自然失效；依据 2026-08-30 Qwen Code CLI 实测截图对照 |
+| v1.22 | 2026-09-01 | AI 编写：Qoder；发起：晚风（Wanfeng1028，批次 2 工单 10.20 B「先写 ADR 经确认再实现」） | 新增 **D28 设置读写 API 提案（待确认）**：`GET|PUT /api/settings` 热生效/重启两档策略——分类按引擎实际消费点（turn 边界注入四项热生效；构造期注入四项重启档 `restartRequired`），fail-closed 写纪律（zod 校验→原子写盘→才改内存），掩码红线（apiKey 值永不进响应）；10.21 hooks 并入同一端点（拍板见 doc/02 v3.43）；doc/02 v3.4 沙箱读写分歧结案口径=可读写归重启档。与 doc/02 v3.43 同步 |
 
 ---
 
@@ -239,6 +240,17 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 候选：① 每会话独立浏览器实例——资源放大且无必要（浏览器页面本就是进程级副作用面）；② MCP browser server 外挂（Playwright MCP 形态）——多一个子进程生命周期与一条审批旁路，而引擎审批管线已是一等公民通道；③ **引擎内置工具族 + BrowserDriver 端口**——与 MCP 工具同管线一视同仁（D16 判例），测试以假驱动替身。
 结论：`BrowserDriver` 端口（open/click/readText/screenshot/currentUrl/close），生产实现 = `playwright-core` headless chromium **懒启动**（首次 browser.open 才 launch，构造期零依赖；缺浏览器二进制/包 → 执行期 E_BROWSER_LAUNCH fail-closed）；**引擎级单例单页**——四工具一律 `parallelizable: false` 走串行 barrier，天然互斥；跨会话共享同一页是刻意语义（同进程同权限面）。审批：`browser.navigate`（resource `url:<目标>`）/ `browser.interact`（click）/ `browser.read`（read/screenshot），resource 均含当前页 URL——空规则表缺省 ask，域名白名单可 always 固化（`url:https://docs.**` 风格）。中断：`ctx.signal` race 即返 E_ABORTED（底层 Playwright 操作跑到静默，同"已启动工具不硬杀"纪律）。**截图不进事件流**：PNG 落 `~/.spark/browser-shots/`，工具输出只回文件名+字节数（天然过 32KB 限界），GET /api/artifacts/:file 白名单文件名校验后供图（前端 BrowserCard 展示；路径逃逸零面）。
 后果：事件词表不变（工具事件走既有 tool.started/completed）；`playwright-core` 入引擎依赖（安装不自动下载浏览器——`npx playwright install chromium` 是显式前置，缺失时工具报错而非静默降级）；read 输出正文截断 + 管线输出限界双重保护；多页/有头模式/网络隔离（D15 同源后置）进 v2 候选池。
+
+### D28 设置读写 API = GET|PUT /api/settings，热生效/重启两档策略（2026-09-01，阶段十工单 10.20 B；提案，待晚风确认）
+
+背景：设置中心的引擎行为类设置（压缩阈值/最大步数/工具超时/沙箱档/工具输出上限等）在 spark.json 有字段、无端点——doc/02 v3.4 遗留「沙箱读写分歧留决策」未结项；工单 10.20 B 新增 `GET|PUT /api/settings` 解锁；10.21 hooks 拍板并入同一端点的 `hooks` 字段（doc/02 v3.43），不单设 `GET /api/hooks`。
+候选：① 全部字段热生效——需把构造期注入的子系统（ToolExecutor/PermissionService/沙箱装配）重构为配置活引用，改动面大、收益仅四个低频字段；② 全部重启生效——压缩阈值/最大步数这类调参场景每次重启，体验差；③ **按引擎实际消费点分两档**——分类依据是代码事实而非期望。
+结论（提案）：
+1. **分类**（以 engine 实际消费点为准）：**热生效**（写盘+改内存后下一 turn 生效）= `maxStepsPerTurn`/`compactionThreshold`/`progressThrottleMs`/`checkpoints`——四者均在 turn 边界注入（引擎按 turn 创建 RunLoop 时读 `config.spark.engine.*`）；**重启生效**（DTO 标 `restartRequired`，UI 注「下次启动生效」）= `toolTimeoutMs`/`toolOutputLimitKB`/`permissionTimeoutMs`/`bashSandbox`——四者构造期注入 ToolExecutor/PermissionService/沙箱装配（engine.ts L442-496），运行期改值需子系统重构不值得；`server.host`/`port` 为 listen 绑定级，天然重启档。模型路由（fallback 链/压缩/标题/子代理档/成本上限）已有 `PUT /api/routing` 热通道不重复建设；新建会话默认模型/默认推理档迁 models.json 属「下一新建会话生效」第三态，DTO 如实标注。
+2. **写纪律（fail-closed）**：PUT 部分字段 → zod strictObject 校验（失败 400 `E_VALIDATION` 带字段名）→ 原子写盘（tmp+rename，secrets.json 同纪律）→ 写盘成功后才改引擎内存配置；写盘失败如实报错、内存不动（不留内存/磁盘不一致态）。
+3. **并发口径**：本地单进程单实例（桌面壳 sidecar 与手工 server 皆单进程），Node 事件循环串行 PUT 处理，不引入文件锁——与 SessionStore 单写者纪律同据。
+4. **掩码红线**：GET 响应绝不回 apiKey 值——models.json providers 只回 `apiKeyEnv`/`baseUrl`（listModels 掩码纪律延续）；secrets.json 值永不进响应；`hooks` 字段按 spark.json 原样返回（用户本地命令行配置，本身不含密钥值）。
+后果（确认后实施）：protocol 增 `SettingsDto`/`SettingsUpdate` + Transport 两方法（协议先行，AGENTS §2.5）；engine config.ts 增字段级读写函数；server 两路由（单测含脱敏断言）；web 常规页 B 类行接线（重启档标注）；v3.4 沙箱分歧结案=可读写、归重启档。事件词表不变。
 
 ## 6. 模块速览（职责边界）
 
