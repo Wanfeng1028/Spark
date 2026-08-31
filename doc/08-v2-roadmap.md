@@ -985,7 +985,7 @@ apps/server/src/routes.ts（路由清单——考虑给路由加轻量元数据�
 ## 16.1 /init 项目上下文文件生成（消解 V2-27）
 
 - **目标**：`/init` 命令分析当前目录生成 AGENTS.md 初稿——Spark 版项目上下文文件生成。
-- **开源参考（复用优先）**：sst/opencode（MIT）`packages/opencode/src/command/template/initialize.txt`——**可整段复用+版权声明**（理念：每行内容都须回答"没有它代理会不会踩坑"，否则删掉；只在仓库答不出时才集中问一批问题）；qwen-code `packages/cli/src/ui/commands/initCommand.ts`（Apache-2.0，抄流程：先建空文件保证模型写入有落点 + 已存在非空则覆盖确认）；gemini-cli `packages/core/src/context/initializer.ts` 同源对照。
+- **开源参考（复用优先）**：sst/opencode（MIT）`packages/opencode/src/command/template/initialize.txt`——**可整段复用+版权声明**（理念：每行内容都须回答"没有它代理会不会踩坑"，否则删掉；只在仓库答不出时才集中问一批问题）；qwen-code 仓库 `packages/cli/src/ui/commands/initCommand.ts`（Apache-2.0，抄流程：先建空文件保证模型写入有落点 + 已存在非空则覆盖确认）；gemini-cli `packages/core/src/context/initializer.ts` 同源对照。
 - **产出**：① 命令进 10.18 描述符体系（kind=prompt，走 prompt 命令通道——零新引擎机制）；② 提示词模板入引擎提示词存放处（照 doc/02 §5.11 组装纪律），加"遵守四类约束框架（AGENTS 管项目/DESIGN 管视觉/SKILL 管流程/专属文件管工具差异）"引导；③ 生成走 write 工具天然过审批；④ 覆盖确认（AGENTS.md 已存在且非空 → 前端确认后注入"改写既有文件，保留其中仍有效的约束"提示词）。
 - **验收**：空目录跑 /init 生成三段式（项目概览/构建运行命令/开发约定）AGENTS.md；已有文件时弹确认；产物经审批链落盘。
 - **依赖**：10.18。
@@ -1010,7 +1010,7 @@ apps/server/src/routes.ts（路由清单——考虑给路由加轻量元数据�
 ## 16.4 /trust 文件夹信任（消解 V2-31）
 
 - **目标**：目录级信任分级——首启进入新 cwd 判定信任档，未信任目录下敏感操作收紧审批。
-- **开源参考**：qwen-code `packages/cli/src/config/trustedFolders.ts`（435 行）+ `trust-precedence.ts`（**算法精华只参考设计**：路径变体集合（大小写/分隔符归一）+ 包含深度最深者胜 + 同深度 untrusted 压过 trusted + 结果与规则插入顺序无关——防恶意项目靠顺序效应绕过）；proper-lockfile 跨进程锁 + 原子写。
+- **开源参考**：qwen-code 仓库（trustedFolders.ts 435 行 + trust-precedence.ts——路径见本行下方行文）（435 行）+ `trust-precedence.ts`（**算法精华只参考设计**：路径变体集合（大小写/分隔符归一）+ 包含深度最深者胜 + 同深度 untrusted 压过 trusted + 结果与规则插入顺序无关——防恶意项目靠顺序效应绕过）；proper-lockfile 跨进程锁 + 原子写。
 - **产出**：① `~/.spark/trusted.json`：path→三档（trusted/parent/none）；② 引擎侧 cwd 未信任时：bash 写操作与外部 MCP 收紧到 ask 档（不新增拒绝面——收紧审批而非扩权）；③ /trust 面板：当前目录信任档查看/修改；④ 首启判定：新 cwd 时四端信任询问（web 横幅/CLI 询问/移动端弹窗）。
 - **动机登记（迷你 ADR 前置）**：Spark 本地单用户，信任机制动机=打开陌生仓库时收紧默认档（对应 doc/02 §1.4 提示词注入威胁模型）——ADR 经晚风确认后再实现（§0.2 增 Q-6）。
 - **验收**：未信任目录 bash 默认 ask；最深匹配算法单测（含顺序无关性断言）；信任变更原子写。
@@ -1027,7 +1027,7 @@ apps/server/src/routes.ts（路由清单——考虑给路由加轻量元数据�
 ## 16.6 /voice 语音听写（消解 V2-28）
 
 - **目标**：Composer 语音输入——hold/tap 两模式，转写文本入输入框。
-- **开源参考**：qwen-code `packages/cli/src/ui/voice/`（**参考设计**：FallbackVoiceRecorder 降级链 native→arecord→sox；sox 静音自动停止参数 `['silence','1','0.1','3%','1','2.0','3%']` 可直抄；`voice-transcriber.ts` 的 **DNS 解析后 SSRF 防护**（IPv6 过渡地址 BlockList）必须抄）；gemini-cli `packages/core/src/voice/`（Apache-2.0，TranscriptionProvider 接口形状 connect/sendAudioChunk/disconnect/getTranscription 值得翻）。
+- **开源参考**：qwen-code 仓库 qwen-code 仓库 ui/voice/ 目录（voice-recorder / sox-recorder / voice-transcriber）（**参考设计**：FallbackVoiceRecorder 降级链 native→arecord→sox；sox 静音自动停止参数 `['silence','1','0.1','3%','1','2.0','3%']` 可直抄；`voice-transcriber.ts` 的 **DNS 解析后 SSRF 防护**（IPv6 过渡地址 BlockList）必须抄）；gemini-cli `packages/core/src/voice/`（Apache-2.0，TranscriptionProvider 接口形状 connect/sendAudioChunk/disconnect/getTranscription 值得翻）。
 - **产出**：① STT 后端走 **OpenAI 兼容转写 API**（models.json 供应商可配 transcription 端点——无 DashScope 依赖最现实；本地 whisper.cpp 分发模型太重不进首期）；② 采集分层：web 端 getUserMedia+MediaRecorder（浏览器原生，v1 优先落地）；CLI 端 SoX 子进程降级（Windows 无 SoX 时明确提示不裸降——fail-closed）；③ /voice hold/tap/off 模式切换；④ 音频不经模型上下文=live 不落盘（只有转写结果进 user.message——durable/live 二分无冲突）。
 - **验收**：web 端按住说话→松开→文字入 Composer；CLI SoX 环境（用户现场走查）同链路；无 SoX 明确提示不静默；SSRF 防护单测。
 - **依赖**：10.18、10.20（供应商配置面）。
