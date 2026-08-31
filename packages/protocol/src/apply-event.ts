@@ -261,7 +261,6 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
   if (e.time > next.meta.updatedAt) next.meta.updatedAt = e.time
 
   let items = next.items
-  const lastItem = (): UiItem | undefined => items[items.length - 1]
 
   if (ofType(e, 'session.created')) {
     next.meta = {
