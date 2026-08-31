@@ -21,10 +21,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* 键盘可达基线（DESIGN.md §5）：全部可交互元素 2px accent 焦点环 */
-:focus-visible {
-  outline: 2px solid var(--spark-accent);
-  outline-offset: 1px;
+/*
+ * 键盘可达基线（DESIGN.md §5）：全部可交互元素 2px 中性焦点环（工单 10.15 / 晚风拍板）。
+ * 两条纪律缺一不可：
+ * - 颜色走 --ring 中性色——§13.E v2.5「聚焦不加高饱和 ring」压过 §13.C 旧规「焦点环用 accent」
+ *   （v2.8 登记改判；--spark-accent 其他职责——运行中状态点等——不动）；
+ * - 规则入 @layer base——未分层规则永远压过分层后的 outline-none utility（Tailwind v4
+ *   utilities 在层内），不分层则 Composer 等处的 outline-none 失效、环常驻。
+ */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
 }
 
 ::selection {

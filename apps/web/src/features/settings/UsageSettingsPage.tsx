@@ -1,6 +1,8 @@
 /**
- * 使用统计只读页（工单 7.4 / H04）：GET /api/routing 的 usage 区——成本累计与
- * 成本上限（熔断状态）。数据源与 /usage 命令同一入口；趋势图与看板归 H23（v2）。
+ * 使用统计页（工单 7.4 / H04 + 工单 10.20 A①②）：GET /api/routing 的 usage 区——
+ * 成本累计与成本上限（熔断状态）；成本上限可编辑（PUT /api/routing + updateRouting，
+ * 留空 = 清除上限）；「清零累计」接 DELETE /api/routing/usage + resetUsage
+ * （此前页面文案写了"清零累计后恢复"却没接线）。趋势图与看板归 H23（v2）。
  */
 import { useEffect, useState } from 'react'
 import type { RoutingDto } from '@spark/protocol'
@@ -12,13 +14,19 @@ export function UsageSettingsPage() {
   const { transport } = useTransport()
   const [routing, setRouting] = useState<RoutingDto | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // 成本上限编辑态（工单 10.20 A①）：失焦/保存时解析；空串 = 清除上限（永不熔断）
+  const [limitDraft, setLimitDraft] = useState('')
+  const [opError, setOpError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     transport
       .getRouting()
       .then((r) => {
-        if (!cancelled) setRouting(r)
+        if (cancelled) return
+        setRouting(r)
+        setLimitDraft(r.costLimitUsd === null ? '' : String(r.costLimitUsd))
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(errorMessageOf(err))
@@ -27,6 +35,39 @@ export function UsageSettingsPage() {
       cancelled = true
     }
   }, [transport])
+
+  async function saveLimit(): Promise<void> {
+    const text = limitDraft.trim()
+    if (text !== '' && (Number.isNaN(Number(text)) || Number(text) <= 0)) {
+      setOpError('成本上限须为正数（美元）；留空 = 不设上限')
+      return
+    }
+    setBusy(true)
+    setOpError(null)
+    try {
+      const next = await transport.updateRouting({
+        costLimitUsd: text === '' ? null : Number(text),
+      })
+      setRouting(next)
+      setLimitDraft(next.costLimitUsd === null ? '' : String(next.costLimitUsd))
+    } catch (err) {
+      setOpError(errorMessageOf(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function resetAll(): Promise<void> {
+    setBusy(true)
+    setOpError(null)
+    try {
+      setRouting(await transport.resetUsage())
+    } catch (err) {
+      setOpError(errorMessageOf(err))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   if (error !== null) return <p className="text-xs text-destructive">{error}</p>
   if (routing === null) return <p className="text-xs text-muted-foreground">加载中…</p>
@@ -44,12 +85,42 @@ export function UsageSettingsPage() {
       </SettingRow>
       <SettingRow
         title="成本上限"
-        description={usage.exceeded ? '已达到上限——新 turn 被拒绝，清零累计后恢复' : '达到上限即熔断新 turn'}
+        description={usage.exceeded ? '已达到上限——新 turn 被拒绝，清零累计后恢复' : '达到上限即熔断新 turn；留空 = 不设上限'}
       >
-        <span className="font-mono text-[13px]">
-          {routing.costLimitUsd === null ? '未设置' : `$${routing.costLimitUsd}`}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-xs text-muted-foreground">$</span>
+          <input
+            value={limitDraft}
+            onChange={(e) => setLimitDraft(e.target.value)}
+            onBlur={() => void saveLimit()}
+            placeholder="未设置"
+            aria-label="成本上限（美元）"
+            disabled={busy}
+            className="h-8 w-24 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring disabled:opacity-40"
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void saveLimit()}
+            className="h-8 rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            保存
+          </button>
+        </div>
       </SettingRow>
+      <SettingRow title="清零累计" description="成本与 token 计数归零；熔断状态随之解除">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void resetAll()}
+          className="h-8 rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          清零累计
+        </button>
+      </SettingRow>
+      {opError !== null && (
+        <p className="px-4 pb-3 font-mono text-xs text-[var(--spark-err)]">{opError}</p>
+      )}
     </SettingGroupCard>
   )
 }

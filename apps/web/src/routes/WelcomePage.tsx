@@ -13,7 +13,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { PermissionPreset, SubmitOutcome } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { Composer, type ComposerHandle } from '@/features/chat/Composer'
-import { CLIENT_ACTIONS } from '@/features/chat/client-commands'
+import { clientActionOf } from '@/features/chat/client-commands'
 import { useCommands } from '@/hooks/useCommands'
 import { useUiStore } from '@/stores/ui'
 
@@ -76,7 +76,7 @@ export function WelcomePage() {
           onCommand={(name) => {
             // 欢迎页无会话上下文：client 命令本地执行（导航/面板）；
             // action/prompt（compact/自定义）需会话——如实拒绝
-            const client = CLIENT_ACTIONS[name]
+            const client = clientActionOf(name)
             if (client === undefined) {
               return Promise.reject(new Error(`会话尚未创建——/${name} 需在会话中使用`))
             }

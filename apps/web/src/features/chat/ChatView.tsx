@@ -10,6 +10,7 @@ import type { Components, VirtuosoHandle } from 'react-virtuoso'
 import { ids } from '@spark/protocol'
 import type { SessionId } from '@spark/protocol'
 import { useSessionItems, useSessionMeta } from '@/stores/session'
+import { useSettingsStore } from '@/stores/settings'
 import { useTransport } from '@/transports/context'
 import { flowRowsOf, rowIndexOfEvent, type FlowRow } from './chat-flow-rows'
 import { MessageItem } from './MessageItem'
@@ -29,8 +30,18 @@ export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
   const items = useSessionItems(sid)
   const meta = useSessionMeta(sid)
   const model = meta.model === '' ? 'assistant' : meta.model
+  // 会话域显示开关（工单 10.20 A③）：思考过程/工具分组，常规页即存即生效
+  const showReasoning = useSettingsStore((s) => s.showReasoning)
+  const showToolGroups = useSettingsStore((s) => s.showToolGroups)
   // 显示行（工单 10.4④）：连续同类工具聚合成组行，其余逐项
-  const rows = useMemo(() => flowRowsOf(items), [items])
+  const rows = useMemo(
+    () =>
+      flowRowsOf(items, {
+        groupTools: showToolGroups,
+        firstReasoningPerTurn: !showReasoning,
+      }),
+    [items, showReasoning, showToolGroups],
+  )
   const [atBottom, setAtBottom] = useState(true)
   const ref = useRef<VirtuosoHandle>(null)
   const [highlightId, setHighlightId] = useState<string | null>(null)
@@ -59,8 +70,13 @@ export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
     <div className="relative h-full">
       <Virtuoso
         ref={ref}
+        // 工单 10.14③：按会话重挂载——初始定位与滚动态随会话切换重置
+        key={sessionId}
         className="h-full"
         data={rows}
+        // 工单 10.14③：挂载即定位末尾（不设则从 index 0 逐行测高，再被
+        // followOutput='smooth' 平滑滑底=用户看到的"一项一项往前移动"）
+        initialTopMostItemIndex={Math.max(rows.length - 1, 0)}
         itemContent={(_, row) =>
           row.kind === 'item' ? (
             <MessageItem

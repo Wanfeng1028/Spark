@@ -1,9 +1,9 @@
 /**
  * 命令注册表（阶段七工单 7.4 / H04 / doc/02 §8.6）：/命令 解析框架。
- * 命令面基线对齐 Claude Code（compact/model/mcp/skills/usage/resume）。
+ * 内置词表单一来源 = @spark/protocol commands.ts BUILTIN_COMMANDS（工单 10.18
+ * 描述符架构——四端删平行表；本文件只保留 .md prompt 扫描与 $ARGUMENTS 展开）。
  * - action：引擎动作（compact——手动压缩，§5.8.5）；
- * - client：前端 UI 动作（model/mcp/skills/usage/resume——导航/打开面板，
- *   引擎只声明清单不执行；统一经 GET /api/commands 下发保证两端清单同源）；
+ * - client：客户端动作（各端按 clientAction 分派；引擎只声明清单不执行）；
  * - prompt：~/.spark/commands/*.md 自定义命令（文件名即命令名，frontmatter
  *   可选 description；正文为 prompt 模板，$ARGUMENTS 占位符替换用户补充文本，
  *   无占位符则追加——Claude Code 自定义命令同语义）。展开后走正常 turn 通道
@@ -13,20 +13,13 @@
  */
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { CommandDto } from '@spark/protocol'
+import { BUILTIN_COMMANDS } from '@spark/protocol'
+
+/** 词表再导出（兼容既有引用；单一来源仍是 @spark/protocol commands.ts） */
+export { BUILTIN_COMMANDS } from '@spark/protocol'
 
 /** 命令名约束（同 skill name：小写字母/数字/连字符，防路径与注入花样） */
 export const COMMAND_NAME_RE = /^[a-z0-9][a-z0-9-]*$/
-
-/** 内置基线（Claude Code 命令面下限；client 命令的执行体在 web/CLI 各端） */
-export const BUILTIN_COMMANDS: readonly CommandDto[] = [
-  { name: 'compact', description: '压缩上下文（保留摘要，释放窗口）', kind: 'action' },
-  { name: 'model', description: '查看或切换会话模型', kind: 'client' },
-  { name: 'mcp', description: '查看 MCP 服务器与工具', kind: 'client' },
-  { name: 'skills', description: '查看已加载技能', kind: 'client' },
-  { name: 'usage', description: '查看本轮与累计用量', kind: 'client' },
-  { name: 'resume', description: '恢复历史会话', kind: 'client' },
-]
 
 /** 已加载的自定义命令（prompt 正文随行携带——执行时无需再读盘） */
 export interface LoadedCommand {

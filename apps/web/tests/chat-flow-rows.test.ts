@@ -90,3 +90,44 @@ describe('rowIndexOfEvent（搜索跳转行定位）', () => {
     expect(rowIndexOfEvent(rows, 'evt_none000')).toBe(-1)
   })
 })
+
+// ---- 显示选项（工单 10.20 A③：常规页两开关的消费层） ----
+
+function reasoning(n: number): UiItem {
+  return { kind: 'reasoning', eventId: ids.event(`evt_reas00${n}`), text: '思考' }
+}
+
+function turn(n: number): UiItem {
+  return {
+    kind: 'turn',
+    eventId: ids.event(`evt_turn00${n}`),
+    turnId: ids.turn(`trn_000${n}`),
+    startedAt: 0,
+  }
+}
+
+describe('flowRowsOf 显示选项（工单 10.20 A③）', () => {
+  it('groupTools=false：连续同类工具不聚合，逐项成行', () => {
+    const rows = flowRowsOf([tool('bash', 1), tool('bash', 2), tool('bash', 3)], {
+      groupTools: false,
+    })
+    expect(rows.map((r) => r.kind)).toEqual(['item', 'item', 'item'])
+  })
+
+  it('firstReasoningPerTurn：每轮仅保留首条思考；跨轮各自保留', () => {
+    const rows = flowRowsOf(
+      [turn(1), reasoning(1), reasoning(2), turn(2), reasoning(3)],
+      { firstReasoningPerTurn: true },
+    )
+    // 保留：turn1 + trn1 首条思考 + turn2 + trn2 首条思考；trn1 第二条思考被隐藏
+    expect(rows).toHaveLength(4)
+    const kept = rows[1]
+    if (kept === undefined || kept.kind !== 'item') throw new Error('unreachable')
+    expect(kept.item.eventId).toBe('evt_reas001')
+  })
+
+  it('firstReasoningPerTurn 缺省关：全部思考照常展示', () => {
+    const rows = flowRowsOf([turn(1), reasoning(1), reasoning(2)])
+    expect(rows).toHaveLength(3)
+  })
+})

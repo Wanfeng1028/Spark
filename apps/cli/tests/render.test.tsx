@@ -4,7 +4,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { render } from 'ink-testing-library'
-import { emptySessionSlice, ids } from '@spark/protocol'
+import { BUILTIN_COMMANDS, emptySessionSlice, ids } from '@spark/protocol'
+import { displayWidth } from '../src/text-width.js'
 import type { SessionSlice, UiItem } from '@spark/protocol'
 import { StatusBar } from '../src/components/StatusBar.js'
 import { MessagePane } from '../src/components/MessagePane.js'
@@ -41,7 +42,7 @@ describe('纯逻辑', () => {
     expect(summarizeToolInput({ other: 1 })).toBe('')
     expect(summarizeToolInput(null)).toBe('')
     const long = 'x'.repeat(80)
-    expect(summarizeToolInput({ query: long })).toBe(`${'x'.repeat(57)}...`)
+    expect(summarizeToolInput({ query: long })).toBe(`${'x'.repeat(59)}…`)
   })
 
   it('toolCategoryOf：内置映射人话类别词；未知保留原名（禁假状态）', () => {
@@ -61,6 +62,16 @@ describe('纯逻辑', () => {
     const out = toolOutputText(big, 50)
     expect(out.startsWith('...（前 10 行已截断）')).toBe(true)
     expect(out.endsWith('l59')).toBe(true)
+  })
+
+  it('summarizeToolInput：CJK 按显示宽度截断（工单 10.19②：一字 2 列）', () => {
+    // 30 个 CJK = 60 列，恰好不截
+    const exact = '测'.repeat(30)
+    expect(summarizeToolInput({ query: exact })).toBe(exact)
+    // 31 个 CJK = 62 列 → 截到 59 列内 + …（不切半字）
+    const over = summarizeToolInput({ query: '测'.repeat(31) })
+    expect(over.endsWith('…')).toBe(true)
+    expect(displayWidth(over)).toBeLessThanOrEqual(60)
   })
 })
 
@@ -484,5 +495,49 @@ describe('slash 菜单过滤（工单 10.10）', () => {
     expect(filterSlashCommands(commands, 'com').map((c) => c.name)).toEqual(['compact'])
     expect(filterSlashCommands(commands, '评审').map((c) => c.name)).toEqual(['review'])
     expect(filterSlashCommands(commands, 'zzz')).toEqual([])
+  })
+
+  it('协议词表基线 14 条可过滤（工单 10.18：单一词表下发）', () => {
+    expect(BUILTIN_COMMANDS).toHaveLength(14)
+    expect(filterSlashCommands([...BUILTIN_COMMANDS], 'effort').map((c) => c.name)).toEqual([
+      'effort',
+    ])
+  })
+})
+
+describe('InputBox 宽字符口径（工单 10.19①）', () => {
+  it('中文输入：整字插入，Enter 提交全文', () => {
+    const submitted: string[] = []
+    const { stdin } = render(
+      <InputBox active prefix="> " placeholder="输入" onSubmit={(t) => submitted.push(t)} />,
+    )
+    stdin.write('中文输入')
+    stdin.write('\r')
+    expect(submitted).toEqual(['中文输入'])
+  })
+
+  it('中文退格：一次删一个整字（字位口径）', () => {
+    const submitted: string[] = []
+    const { stdin } = render(
+      <InputBox active prefix="> " placeholder="输入" onSubmit={(t) => submitted.push(t)} />,
+    )
+    stdin.write('中文')
+    stdin.write('\x7F')
+    stdin.write('\r')
+    expect(submitted).toEqual(['中'])
+  })
+
+  it('emoji 代理对：整字位插入与退格，不切半', () => {
+    const submitted: string[] = []
+    const { stdin } = render(
+      <InputBox active prefix="> " placeholder="输入" onSubmit={(t) => submitted.push(t)} />,
+    )
+    stdin.write('👍')
+    stdin.write('\r')
+    expect(submitted).toEqual(['👍']) // 切半则提交的是半个代理对
+    stdin.write('👍')
+    stdin.write('\x7F') // 一次退格删掉整个字位
+    stdin.write('\r')
+    expect(submitted).toEqual(['👍']) // 退到空 → InputBox 不提交
   })
 })

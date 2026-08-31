@@ -30,6 +30,8 @@ import type {
   SecretStatusDto,
   SessionDto,
   SessionEventsQuery,
+  SettingsDto,
+  SettingsUpdate,
   SkillDto,
   TreeNodeDto,
 } from './api.js'
@@ -101,6 +103,10 @@ export interface Transport {
   updateRouting(patch: RoutingUpdate): Promise<RoutingDto>
   /** DELETE /api/routing/usage：清零成本累计（解除熔断） */
   resetUsage(): Promise<RoutingDto>
+  /** GET /api/settings：spark.json 全量脱敏读取（工单 10.20 B / D28；绝不回 apiKey 值） */
+  getSettings(): Promise<SettingsDto>
+  /** PUT /api/settings：部分字段更新（校验失败 400 带字段名；热/重启分档见 D28） */
+  updateSettings(patch: SettingsUpdate): Promise<SettingsDto>
   /** GET /api/commands：命令注册表（内置 action/client + ~/.spark/commands/*.md prompt，工单 7.4） */
   listCommands(): Promise<CommandDto[]>
   /** POST /api/sessions/:id/commands/:name：执行引擎命令（action=compact / prompt=自定义展开，工单 7.4） */

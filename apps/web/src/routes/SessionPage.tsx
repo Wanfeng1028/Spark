@@ -16,14 +16,14 @@ import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
 import { ChatView } from '@/features/chat/ChatView'
 import { Composer } from '@/features/chat/Composer'
-import { CLIENT_ACTIONS } from '@/features/chat/client-commands'
+import { clientActionOf } from '@/features/chat/client-commands'
 import { TurnStatusBar } from '@/features/chat/TurnStatusBar'
 import { ErrorToast } from '@/features/chat/ErrorToast'
 import { ErrorBanner } from '@/features/chat/ErrorBanner'
 import { SessionTreeDialog } from '@/features/chat/SessionTreeDialog'
 import { CheckpointDialog } from '@/features/chat/CheckpointDialog'
 import { projectOf } from '@/components/layout/Sidebar'
-import { useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
+import { hasCachedProjection, useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
 import { useConnectionStore } from '@/stores/connection'
 import { useModelsStore } from '@/stores/models-store'
 import { useCommands } from '@/hooks/useCommands'
@@ -55,8 +55,11 @@ export function SessionPage() {
   const sliceEffort = useSessionStore((s) => s.byId[sid]?.meta.effort)
   const connStatus = useConnectionStore((s) => s.status)
   const setConnStatus = useConnectionStore((s) => s.setStatus)
-  // http 打开态（加载/错误呈现；mock 即挂即用）。函数式初值防 sid 切换时沿用旧态
-  const [load, setLoad] = useState<LoadState>(() => (mock ? 'ready' : 'loading'))
+  // http 打开态（加载/错误呈现；mock 即挂即用）。函数式初值防 sid 切换时沿用旧态；
+  // 工单 10.16：缓存会话（投影已在 store）初值即 ready，不进加载白屏
+  const [load, setLoad] = useState<LoadState>(() =>
+    mock || hasCachedProjection(useSessionStore.getState().byId[sid]) ? 'ready' : 'loading',
+  )
   const [reloadKey, setReloadKey] = useState(0)
   // 会话树浮层（工单 4.5）：分叉入口 + 树视图
   const [treeOpen, setTreeOpen] = useState(false)
@@ -106,7 +109,10 @@ export function SessionPage() {
     // mock：脚本会话走流式回放（全量 replay 会剧透未回放事件）；fork 子会话无流，走全量回放
     if (mock && transport instanceof MockTransport && transport.isLiveScriptSession(sid)) return
     let cancelled = false
-    setLoad('loading')
+    // 工单 10.16：缓存会话（lastSeq>0）原位即时渲染，后台全量回放取回后同步覆写对齐——
+    // 不先 resetSlice、不闪空；仅 lastSeq===0 的真冷会话进加载态。错误态切换也经此复位
+    if (hasCachedProjection(useSessionStore.getState().byId[sid])) setLoad('ready')
+    else setLoad('loading')
     replaySessionEvents(transport, sid)
       .then(() => {
         if (!cancelled) setLoad('ready')
@@ -348,7 +354,7 @@ export function SessionPage() {
             onCommand={(name, args) => {
               // 命令分发（工单 7.4）：client 命令本地执行（导航/面板）；
               // action（compact）/prompt（自定义 .md）走引擎统一入口
-              const client = CLIENT_ACTIONS[name]
+              const client = clientActionOf(name)
               if (client !== undefined) {
                 if (client.kind === 'palette') setPaletteOpen(true)
                 else void navigate(client.path)

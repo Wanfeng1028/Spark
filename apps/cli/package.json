@@ -13,6 +13,7 @@
     "@spark/protocol": "workspace:*",
     "ink": "^6.2.0",
     "react": "^19.1.0",
+    "string-width": "^8.2.2",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

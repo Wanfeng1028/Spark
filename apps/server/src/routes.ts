@@ -18,6 +18,7 @@ import {
   RequestIdSchema,
   RoutingUpdateSchema,
   SessionIdSchema,
+  SettingsUpdateSchema,
   TurnIdSchema,
 } from '@spark/protocol'
 import type { CheckpointDto, SessionId, SparkEventEnvelope, TreeNodeDto } from '@spark/protocol'
@@ -505,6 +506,20 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
   app.delete('/api/routing/usage', async (req, reply) => {
     try {
       return reply.send(engine.resetUsage())
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  // 设置读写（工单 10.20 B / 10.21 / ADR D28）：spark.json 脱敏读 + 部分字段写
+  app.get('/api/settings', () => {
+    return engine.getSettings()
+  })
+
+  app.put('/api/settings', async (req, reply) => {
+    try {
+      const patch = parseOr400(SettingsUpdateSchema, req.body)
+      return reply.send(engine.updateSettings(patch))
     } catch (err) {
       return sendError(req, reply, err)
     }

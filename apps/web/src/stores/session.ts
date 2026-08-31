@@ -62,6 +62,15 @@ export const useSessionMeta = (sid: SessionId): SessionMeta =>
 export const useLastSeq = (sid: SessionId): number =>
   useSessionStore((s) => s.byId[sid]?.lastSeq ?? 0)
 
+/**
+ * 缓存会话判定（工单 10.16，纯函数可单测）：lastSeq>0 = store 已有该会话的持久投影。
+ * 命中即立即渲染缓存、后台照常全量回放（replaySessionEvents 取回后同步覆写对齐
+ * seq——不先 resetSlice，无闪空）；仅 lastSeq===0 的真冷会话才显示加载态。
+ */
+export function hasCachedProjection(slice: SessionSlice | undefined): boolean {
+  return slice !== undefined && slice.lastSeq > 0
+}
+
 /** StatusBar：当前激活会话 slice（无会话时 null——如实显示，不造假） */
 export const useActiveSlice = (): SessionSlice | null =>
   useSessionStore((s) => (s.activeId === null ? null : (s.byId[s.activeId] ?? null)))

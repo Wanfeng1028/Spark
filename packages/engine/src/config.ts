@@ -327,3 +327,11 @@ export function loadProjectRules(cwd: string): PermissionRule[] {
   if (raw === undefined) return []
   return parseOrThrow(permissionsSchema, raw, 'permissions.json').rules
 }
+
+/**
+ * spark.json 写侧校验（工单 10.20 B / D28）：合并后的 raw 整体过启动同款 schema——
+ * 非法补丁在写盘前即拒（fail-closed），磁盘永不落坏配置。
+ */
+export function validateSparkWrite(raw: unknown): void {
+  parseOrThrow(sparkSchema, raw, 'spark.json')
+}

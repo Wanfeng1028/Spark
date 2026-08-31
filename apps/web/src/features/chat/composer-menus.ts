@@ -10,7 +10,9 @@
  *   技能行用 $ 前缀与 / 命令区分（实测 ZCode 同款）。
  */
 import { FileEdit, ListTodo, ShieldAlert, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { BUILTIN_COMMANDS } from '@spark/protocol'
 import type { CommandDto, Delivery, PermissionPreset } from '@spark/protocol'
+import { CLIENT_ACTIONS } from './client-commands'
 
 // ---- 触发检测 ----
 
@@ -51,15 +53,17 @@ export interface SlashCommand {
   kind: CommandDto['kind']
 }
 
-/** 静态基线（与引擎 BUILTIN_COMMANDS 同源约定；清单加载前/失败时的回退显示） */
-export const SLASH_COMMANDS: readonly SlashCommand[] = [
-  { name: 'compact', description: '压缩上下文（保留摘要，释放窗口）', kind: 'action' },
-  { name: 'model', description: '查看或切换会话模型', kind: 'client' },
-  { name: 'mcp', description: '查看 MCP 服务器与工具', kind: 'client' },
-  { name: 'skills', description: '查看已加载技能', kind: 'client' },
-  { name: 'usage', description: '查看本轮与累计用量', kind: 'client' },
-  { name: 'resume', description: '恢复历史会话', kind: 'client' },
-]
+/**
+ * web 端显示基线（工单 10.18②：协议描述符单一来源派生，删平行表）——
+ * surface 含 web 才进清单；client 命令本端未实现其 clientAction 则不显示（禁假状态）。
+ */
+export const SLASH_COMMANDS: readonly SlashCommand[] = BUILTIN_COMMANDS.filter((c) => {
+  if (!c.surface.includes('web')) return false
+  if (c.kind === 'client') {
+    return c.clientAction !== undefined && c.clientAction in CLIENT_ACTIONS
+  }
+  return true
+}).map((c) => ({ name: c.name, description: c.description, kind: c.kind }))
 
 /** 基线 + 引擎动态清单合并（内置优先，重名自定义丢弃——与引擎加载纪律一致） */
 export function mergeSlashCommands(dynamic: readonly CommandDto[]): readonly SlashCommand[] {

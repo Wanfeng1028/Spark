@@ -8,7 +8,7 @@
  *   {"@speed":N}         全局倍率（实际间隔 = delay / speed）
  * sendMessage 不合成事件——脚本预录的 user.message 原样回放（假对话：文本以脚本为准）。
  */
-import { ids, parseEnvelope } from '@spark/protocol'
+import { BUILTIN_COMMANDS, SETTINGS_RESTART_REQUIRED, ids, parseEnvelope } from '@spark/protocol'
 import type {
   AuditEntryDto,
   AuditQuery,
@@ -41,6 +41,8 @@ import type {
   SessionId,
   SessionStatus,
   SearchHitDto,
+  SettingsDto,
+  SettingsUpdate,
   SkillDto,
   SparkEventEnvelope,
   SparkEventType,
@@ -740,15 +742,62 @@ export class MockTransport implements Transport {
     return Promise.resolve(this.routing)
   }
 
-  // ---- 命令注册表（工单 7.4 对等演示：内置基线 + mock 自定义命令） ----
+  // ---- 全局设置（工单 10.20 B 类对等演示：GET/PUT /api/settings） ----
+
+  private settings: SettingsDto = {
+    server: { port: 4318, host: '127.0.0.1' },
+    engine: {
+      maxStepsPerTurn: 50,
+      maxToolParallel: 4,
+      toolTimeoutMs: 120_000,
+      permissionTimeoutMs: 300_000,
+      progressThrottleMs: 250,
+      toolOutputLimitKB: 64,
+      compactionThreshold: 0.8,
+      checkpoints: true,
+      bashSandbox: 'on',
+    },
+    restartRequired: [...SETTINGS_RESTART_REQUIRED],
+    models: { defaultModel: 'deepseek/deepseek-chat', defaultEffort: null },
+  }
+
+  getSettings(): Promise<SettingsDto> {
+    this.assertNotDisposed()
+    return Promise.resolve(this.settings)
+  }
+
+  updateSettings(patch: SettingsUpdate): Promise<SettingsDto> {
+    this.assertNotDisposed()
+    const s = patch.server ?? {}
+    const e = patch.engine ?? {}
+    const prev = this.settings
+    this.settings = {
+      ...prev,
+      server: {
+        port: s.port ?? prev.server.port,
+        host: s.host ?? prev.server.host,
+      },
+      engine: {
+        maxStepsPerTurn: e.maxStepsPerTurn ?? prev.engine.maxStepsPerTurn,
+        maxToolParallel: e.maxToolParallel ?? prev.engine.maxToolParallel,
+        toolTimeoutMs: e.toolTimeoutMs ?? prev.engine.toolTimeoutMs,
+        permissionTimeoutMs: e.permissionTimeoutMs ?? prev.engine.permissionTimeoutMs,
+        progressThrottleMs: e.progressThrottleMs ?? prev.engine.progressThrottleMs,
+        toolOutputLimitKB: e.toolOutputLimitKB ?? prev.engine.toolOutputLimitKB,
+        compactionThreshold: e.compactionThreshold ?? prev.engine.compactionThreshold,
+        checkpoints: e.checkpoints ?? prev.engine.checkpoints,
+        bashSandbox: e.bashSandbox ?? prev.engine.bashSandbox,
+      },
+      ...(patch.hooks !== undefined ? { ...(patch.hooks === null ? {} : { hooks: patch.hooks }) } : {}),
+    }
+    return Promise.resolve(this.settings)
+  }
+
+  // ---- 命令注册表（工单 7.4 / 10.18 对等演示：内置词表 = 协议描述符单一来源 + mock 自定义命令） ----
 
   private static readonly COMMANDS: readonly CommandDto[] = [
-    { name: 'compact', description: '压缩上下文（保留摘要，释放窗口）', kind: 'action' },
-    { name: 'model', description: '查看或切换会话模型', kind: 'client' },
-    { name: 'mcp', description: '查看 MCP 服务器与工具', kind: 'client' },
-    { name: 'skills', description: '查看已加载技能', kind: 'client' },
-    { name: 'usage', description: '查看本轮与累计用量', kind: 'client' },
-    { name: 'resume', description: '恢复历史会话', kind: 'client' },
+    // 内置词表（工单 10.18：描述符随行下发，四端同源；不再本地平行维护）
+    ...BUILTIN_COMMANDS.map((c) => ({ ...c })),
     { name: 'review', description: '审查当前工作区改动（mock 自定义命令）', kind: 'prompt' },
   ]
 

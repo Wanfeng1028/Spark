@@ -23,6 +23,7 @@ export const ERROR_COPY: Record<string, string> = {
   E_AUTH: '连接未通过鉴权：请重新配对设备或检查 token',
   E_PAIR: '配对码无效或已过期，请在桌面端重新获取',
   E_PAIR_DISABLED: '配对鉴权未启用：请先在桌面端设置页添加设备',
+  E_COMMAND_CLIENT: '这是界面命令，由界面执行——不经引擎（检查命令面分派）',
   E_INTERNAL: '服务内部错误，请重试；若持续出现请查看服务端日志',
   // ---- transport / mock 特有 ----
   E_MOCK_UNKNOWN_SESSION: '会话不存在或已被清理',

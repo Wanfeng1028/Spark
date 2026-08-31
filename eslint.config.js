@@ -15,6 +15,8 @@ export default tseslint.config(
       'examples/spike-pi-ai/**',
       // 本地工具产物（Qoder better-harness 报告等，同 .trae-html-share-packages 判例）
       '.qoder/better-harness/**',
+      // 临时产物落地区（多会话调试输出，.gitignore 同口径）——非项目成员，不入类型感知
+      '_scratch/**',
       // 测试夹具：由测试用例 spawn 的独立 Node 脚本（非 TS 项目成员）
       'packages/engine/tests/fixtures/*.mjs',
     ],

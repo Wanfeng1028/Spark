@@ -5,6 +5,7 @@
  */
 import { Box, Text } from 'ink'
 import { KEYMAP } from '@spark/protocol'
+import { displayWidth, padEndByWidth } from '../text-width.js'
 import type { CommandDto, KeyBinding } from '@spark/protocol'
 import { useCliStore } from '../store.js'
 
@@ -53,16 +54,16 @@ function Overview() {
 
 function Commands({ commands, columns }: { commands: CommandDto[]; columns: number }) {
   if (commands.length === 0) return <Text color="gray">（命令清单未装载——服务不可达时为空）</Text>
+  // 显示宽度口径（工单 10.19②）：列宽与补齐按终端列数，不按 code unit
   const nameWidth = Math.min(
     24,
-    Math.max(...commands.map((c) => c.name.length)) + 2,
+    Math.max(...commands.map((c) => displayWidth(`/${c.name}`))) + 2,
   )
   return (
     <Box flexDirection="column">
       {commands.map((c) => (
         <Text key={c.name} wrap="truncate-end">
-          <Text color="cyan">/{c.name}</Text>
-          {' '.repeat(Math.max(1, nameWidth - c.name.length))}
+          <Text color="cyan">{padEndByWidth(`/${c.name}`, nameWidth)}</Text>
           <Text color="gray">{c.description}</Text>
         </Text>
       ))}
@@ -84,10 +85,10 @@ const SURFACE_COPY: Record<KeyBinding['surface'], string> = {
 function Keymap() {
   return (
     <Box flexDirection="column">
-      <Text color="gray">{'键'.padEnd(14)}行为（生效区 · 备注）</Text>
+      <Text color="gray">{padEndByWidth('键', 14)}行为（生效区 · 备注）</Text>
       {KEYMAP.filter((k) => k.surface !== 'web').map((k) => (
         <Text key={k.keys} wrap="truncate-end">
-          <Text color="cyan">{k.keys.padEnd(16)}</Text>
+          <Text color="cyan">{padEndByWidth(k.keys, 16)}</Text>
           {k.action}
           <Text color="gray">
             {' '}
