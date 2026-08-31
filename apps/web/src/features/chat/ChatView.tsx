@@ -59,8 +59,13 @@ export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
     <div className="relative h-full">
       <Virtuoso
         ref={ref}
+        // 工单 10.14③：按会话重挂载——初始定位与滚动态随会话切换重置
+        key={sessionId}
         className="h-full"
         data={rows}
+        // 工单 10.14③：挂载即定位末尾（不设则从 index 0 逐行测高，再被
+        // followOutput='smooth' 平滑滑底=用户看到的"一项一项往前移动"）
+        initialTopMostItemIndex={Math.max(rows.length - 1, 0)}
         itemContent={(_, row) =>
           row.kind === 'item' ? (
             <MessageItem

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { Sidebar } from './Sidebar'
@@ -19,6 +19,8 @@ import { cn } from '@/lib/utils'
  * 全局浮层与快捷键挂这里：Cmd/Ctrl+K 命令面板、Cmd/Ctrl+, 设置（doc/02 §6.3）；
  * 单键 c 新建会话 / / 搜索（工单 10.5①，非输入态生效，§6.11 登记）。
  * 断线重连条（DESIGN §9 顶部强提示）占一行 auto 行高，仅断线时出现。
+ * 列宽过渡只服务侧栏折叠/展开（工单 10.14②）：进出设置的那一帧禁用过渡——
+ * 否则内容列随 264px 列切换持续重排（视觉上的"逐行位移"来源之一）。
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const status = useConnectionStore((s) => s.status)
@@ -29,6 +31,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const { transport } = useTransport()
   const inSettings = location.pathname.startsWith('/settings')
+
+  // 工单 10.14②：进出设置帧抑制列宽过渡。切换提交后移除 transition-property，
+  // 进行中的过渡立即收敛到终值；≥duration-150 后恢复（折叠/展开动画不受影响）
+  const [suppressColTransition, setSuppressColTransition] = useState(false)
+  const prevInSettings = useRef(inSettings)
+  useEffect(() => {
+    if (prevInSettings.current === inSettings) return
+    prevInSettings.current = inSettings
+    setSuppressColTransition(true)
+    const t = setTimeout(() => setSuppressColTransition(false), 200)
+    return () => clearTimeout(t)
+  }, [inSettings])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -72,7 +86,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       {status !== 'open' && <ReconnectBanner status={status} />}
       <div
         className={cn(
-          'row-start-2 grid min-h-0 grid-cols-[auto_1fr] transition-[grid-template-columns] duration-150',
+          'row-start-2 grid min-h-0 grid-cols-[auto_1fr]',
+          !suppressColTransition && 'transition-[grid-template-columns] duration-150',
           !inSettings && collapsed ? 'grid-cols-[48px_1fr]' : 'grid-cols-[264px_1fr]',
         )}
       >
