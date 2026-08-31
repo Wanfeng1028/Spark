@@ -1,11 +1,13 @@
 /**
- * 显示宽度工具（工单 10.19，D22 四端共享资产）：终端按显示宽度排版——
- * CJK 一字占 2 列、emoji/代理对是单字位，UTF-16 code unit 口径（length/slice/padEnd）
- * 与终端实际换行不一致=中文行错位。本模块统一四端口径：
+ * 显示宽度工具（工单 10.19）：终端按显示宽度排版——CJK 一字占 2 列、emoji/代理对
+ * 是单字位，UTF-16 code unit 口径（length/slice/padEnd）与终端实际换行不一致=中文行错位。
+ * 口径清单：
  * - displayWidth：string-width（MIT；依赖理由见 package.json——终端宽度事实表，
  *   自维护宽度表是复发温床，能复用开源就不自己写）；
  * - graphemesOf：Intl.Segmenter 字位数组（光标/退格按字位移动，代理对不被切半）；
  * - truncateByWidth / padEndByWidth：宽度口径截断/补齐（截断补 …）。
+ * 落位＝cli 本地而非 @spark/protocol 出口：终端宽度只有 CLI 用；置于共享 index 会让
+ * ESM-only 的 string-width 被动进入 web/mobile/miniapp 依赖图（mobile Jest 解析不了）。
  */
 import stringWidth from 'string-width'
 

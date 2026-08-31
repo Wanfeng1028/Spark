@@ -4,7 +4,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { render } from 'ink-testing-library'
-import { BUILTIN_COMMANDS, displayWidth, emptySessionSlice, ids } from '@spark/protocol'
+import { BUILTIN_COMMANDS, emptySessionSlice, ids } from '@spark/protocol'
+import { displayWidth } from '../src/text-width.js'
 import type { SessionSlice, UiItem } from '@spark/protocol'
 import { StatusBar } from '../src/components/StatusBar.js'
 import { MessagePane } from '../src/components/MessagePane.js'

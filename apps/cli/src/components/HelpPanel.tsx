@@ -4,7 +4,8 @@
  * 键位数据源=单一键位表 @spark/protocol KEYMAP（§6.11.1 纪律：只读同一来源不复制）。
  */
 import { Box, Text } from 'ink'
-import { KEYMAP, displayWidth, padEndByWidth } from '@spark/protocol'
+import { KEYMAP } from '@spark/protocol'
+import { displayWidth, padEndByWidth } from '../text-width.js'
 import type { CommandDto, KeyBinding } from '@spark/protocol'
 import { useCliStore } from '../store.js'
 

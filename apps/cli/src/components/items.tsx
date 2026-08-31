@@ -9,8 +9,8 @@
  */
 import { Box, Text } from 'ink'
 import { useEffect, useState } from 'react'
-import { truncateByWidth } from '@spark/protocol'
 import type { UiItem } from '@spark/protocol'
+import { truncateByWidth } from '../text-width.js'
 import { toolCategoryOf } from '../flow-rows.js'
 import type { FlowRow } from '../flow-rows.js'
 

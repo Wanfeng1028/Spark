@@ -2,7 +2,7 @@
  * 显示宽度工具单测（工单 10.19）：CJK 双列 / emoji 字位 / 截断补齐口径。
  */
 import { describe, expect, it } from 'vitest'
-import { displayWidth, graphemesOf, padEndByWidth, truncateByWidth } from '../src/text-width'
+import { displayWidth, graphemesOf, padEndByWidth, truncateByWidth } from '../src/text-width.js'
 
 describe('displayWidth', () => {
   it('ASCII 一字符一列', () => {

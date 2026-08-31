@@ -14,7 +14,7 @@
  */
 import { Text, useInput } from 'ink'
 import { useRef, useState } from 'react'
-import { displayWidth, graphemesOf } from '@spark/protocol'
+import { displayWidth, graphemesOf } from '../text-width.js'
 
 export interface InputBoxProps {
   active: boolean
