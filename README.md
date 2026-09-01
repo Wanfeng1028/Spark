@@ -2,17 +2,55 @@
 
 > 引擎 headless，UI 是事件流的投影。
 
-![status](https://img.shields.io/badge/status-v1_五阶段完成-green) ![node](https://img.shields.io/badge/node-%E2%89%A5_22-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
+简体中文 · [English](./README.en.md)
 
-Spark 是一个跑在本机的 **Agent 工作台**：Node/TS 引擎负责运行循环、工具执行与审批，Web 前端（Electron 桌面壳复用同一传输）只做一件事——把事件流投影成界面。核心体验三件事：
+![status](https://img.shields.io/badge/status-v1_完成-green) ![license](https://img.shields.io/badge/license-MIT-3f3f46) ![node](https://img.shields.io/badge/node-%E2%89%A5_24-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
+
+**Spark 是一个跑在你自己机器上的 Agent 工作台**——数据不出机器，四端连着同一个引擎，每一步可审计、可回放。它为"想要一个能看懂、能管住的编码 Agent"的人而做：不是云服务，没有账号体系，引擎负责运行循环、工具执行与审批，界面只做一件事——把事件流投影成你看到的样子。
+
+核心体验四件事：
 
 - **流式对话** —— token 级 delta 增量渲染
 - **工具调用可视化** —— 每次调用是会话流里可折叠的执行块（含 diff / 终端输出）
 - **人工审批** —— 审批卡内联在工具调用位置，超时与异常一律拒绝（fail-closed）
+- **四端同一协议** —— web / 桌面 / CLI / 移动端与小程序，看到同一条 durable 事件流
 
 刻意不做：多用户、登录、公网部署（绑定 127.0.0.1 是设计而非缺省）。
 
-**当前状态**：**v1 —— 五阶段全部完成；阶段六（UI 重构 ZCode 化）、阶段七（Harness 补全）、阶段八（CLI TUI）与阶段九（移动端三端）均已完成待 PR 合入**。全仓测试 921 例全绿（engine 486 / server 92 / web 159 / protocol 69 / cli 16 / mobile 48 / miniapp 51）+ Playwright E2E 7 例 + typecheck 全绿；nightly 接 eval 回归（`pnpm eval`——examples/evals 确定性场景集，工单 7.11）。阶段七十二项工单全落地（7.9 Python worker 经审计判决删除，见 doc/07 §4.1）：secrets 管理 / I/O 护栏 / 用户侧 hooks / 命令注册表 / 长期记忆（ADR D25）/ 自动化触发器（ADR D26）/ model routing 增强 / 子代理增强 / browser 工具族（ADR D27）/ eval harness / 审计日志 / 会话全文搜索——doc/07 审计缺口 H01–H12 全部勾销，其余入 v2 候选池。阶段五四件套已落地：Electron sidecar 壳（ADR D14，NSIS 安装包走 GH Actions Windows runner）、bash 沙箱 wrapper（ADR D15 bwrap/Seatbelt）、MCP client（ADR D16 外部工具与内置工具同一管线）、子代理（ADR D17 独立子会话 + Steer turn 校验）、skills/插件（ADR D18 事件词表运行时扩展 + 声明式清单，示例 examples/skills/demo-ping）。待用户环境执行的现场验收：Windows 本机安装走查、真实外部 MCP server 演示、真实模型子代理演示、沙箱隔离效果验证（容器内 bwrap 不可用）。阶段八五工单全落地：transport/applyEvent/上下文水位/错误文案/键位表下沉 @spark/protocol（四端共享，D22）+ apps/cli Ink 6 形态（ADR D19；阶段十修订为纯单栏会话优先）。**阶段九五工单全落地待合入（移动端三端）**：配对鉴权（ADR D24：扫码配对/双口径鉴权/启动护栏，缺省 127.0.0.1+无鉴权行为不变红线保持）+ apps/mobile Expo+RN（ADR D20：会话体验/流式/审批/断线重连/分页）+ apps/miniapp Taro 4 小程序壳（ADR D21：v1 开发者工具/体验版）；Maestro 四幕用例在库（`apps/mobile/e2e/`）；真机/模拟器四场景走查与小程序开发者工具走查由用户执行（留待记录）。**阶段十进行中**（UI 对齐 + CLI 重构）：第一批规格修订/布局修复/聚焦环中性化 + 会话流呈现升级（尾操作行/回合头/工具块人话聚合）+ 侧栏与全局细节 + 跨端分支 chip/推理档位；CLI 按 §13.K 重构为纯单栏（ADR D19 修订：会话管理退 /new 与 /resume，footer 双行，面板族）。测试体系规划见 doc/06。
+## Quick Start
+
+```bash
+# ① 安装 CLI（npm 包随 v1.0.0 发布——见 CHANGELOG；发布前可从源码跑，见「开发」节）
+npm i -g @spark/cli
+
+# ② 一条命令本机可用：拉起 server + 进入 TUI（退出连带回收 server）
+spark up
+
+# ③ 配模型（首回合前一次性）：~/.spark/models.json 声明 OpenAI 兼容供应商，
+#    API key 经环境变量注入（不落盘、不入日志），例如：
+#    { "providers": { "deepseek": { "apiKeyEnv": "DEEPSEEK_API_KEY",
+#        "baseUrl": "https://api.deepseek.com/v1" } },
+#      "defaultModel": { "provider": "deepseek", "model": "deepseek-chat", "contextWindow": 128000 } }
+#    export DEEPSEEK_API_KEY=sk-xxx
+
+# ④ 发第一条消息——写类工具会弹审批卡：1 允许一次 / 2 本项目总是 / 3 该用户总是 / 4 拒绝
+```
+
+## 四端一览
+
+| 端                | 位置         | 形态                                                       |
+| ----------------- | ------------ | ---------------------------------------------------------- |
+| Web（默认入口）   | `apps/web`   | React 19 工作台：会话流、审批卡、差分预览、设置中心         |
+| 桌面              | `apps/desktop` | Electron 壳：sidecar 复用同一 server（NSIS 安装包经 Actions 构建） |
+| CLI               | `apps/cli`   | Ink 6 终端 TUI：纯单栏、footer 双行、`spark up` 一条命令可用 |
+| 移动端            | `apps/mobile` · `apps/miniapp` | Expo+RN App 与 Taro 4 微信小程序：扫码配对后接入同一会话 |
+
+## 安全模型（摘要）
+
+- **本地优先**：默认只监听 `127.0.0.1`；非环回绑定强制开启配对鉴权（6 位码换长效 token，ADR D24），缺省行为不变是红线。
+- **审批 fail-closed**：超时、异常、中断一律拒绝而非放行；bash 工具默认全审批。
+- **硬边界先行**：路径越界在审批之前直接拒绝；密钥只从环境变量与本机密钥仓读取，日志与审计流统一脱敏。
+- **每一步可审计**：durable 事件 append-only 落盘 `~/.spark/sessions/`——可回放、可分叉、可回滚（checkpoint）。
 
 ## 架构一览
 
@@ -35,23 +73,25 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 | 端   | 技术                                                                                                                                        |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | 前端 | Vite 7 · React 19 · TypeScript(strict) · Tailwind CSS v4 · shadcn/ui · Vercel AI Elements（copy-in）· streamdown · react-virtuoso · zustand |
-| 后端 | Node 22+ · `@earendil-works/pi-ai` / `pi-agent-core` · Fastify · SSE · 自写 append-only JSONL 会话日志                                      |
+| 后端 | Node 24+ · `@earendil-works/pi-ai` / `pi-agent-core` · Fastify · SSE · 自写 append-only JSONL 会话日志                                      |
 | 布局 | pnpm monorepo：`packages/protocol`（唯一合同）· `packages/engine` · `apps/server` · `apps/web` · `apps/desktop`（阶段五）· `apps/cli`（阶段八）· `apps/mobile`（阶段九，Expo+RN）· `apps/miniapp`（阶段九，Taro 4 小程序）；另 `official/`=Spark 产品官网代码（仅前端，不在 pnpm workspace，独立于产品各端） |
 
 ## 文档
 
 | 文档                                                         | 内容                                                                                            |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| [AGENTS.md](./AGENTS.md)                                     | AI 代理工作规范——任何 AI 助手进入本仓库先读；十一条硬性约定 + 规则放置规范                      |
+| [CHANGELOG.md](./CHANGELOG.md)                               | 用户可见变更（Keep a Changelog）——版本与里程碑看这里                                            |
+| [CONTRIBUTING.md](./CONTRIBUTING.md)                         | 贡献入口：环境要求 · 工单认领 · PR 自查 · 发版纪律                                              |
+| [AGENTS.md](./AGENTS.md)                                     | AI 代理工作规范——任何 AI 助手进入本仓库先读；硬性约定 + 规则放置规范                            |
 | [ARCHITECTURE.md](./ARCHITECTURE.md)                         | 架构总览 · 关键决策记录（ADR）· 代码"AI 生成味"黑名单（§9，后端/通用）                          |
 | [DESIGN.md](./DESIGN.md)                                     | 视觉与交互规则——桌面应用感（对标 Codex/ZCode）· token/密度 · "AI 生成风"黑名单（§12）· 组件 DoD |
 | [doc/01-research-report.md](./doc/01-research-report.md)     | 调研档案：10 个参考项目源码级调研 + 前后端生态选型                                              |
-| [doc/02-development-plan.md](./doc/02-development-plan.md)   | 完整开发方案：协议 / 引擎 / 前端 / 服务端实现级规格 + 五阶段路线图                              |
+| [doc/02-development-plan.md](./doc/02-development-plan.md)   | 完整开发方案：协议 / 引擎 / 前端 / 服务端实现级规格 + 阶段路线图与工单表                        |
 | [doc/03-frontend-approach.md](./doc/03-frontend-approach.md) | 前端专题：参考实现分析 · 我方前端思路 · 与传统 Web 开发的差异                                   |
 | [doc/05-completion-audit.md](./doc/05-completion-audit.md)   | 完成度审计（阶段三后）：源码级核查实测结果 · 缺口清单 G1–G7 · 动工顺序                          |
-| [doc/06-testing-plan.md](./doc/06-testing-plan.md)           | 测试体系补全计划：五层+契约分层 · CI 流水线 · 性能基线 · 456 例归属 · 四端走查模板              |
+| [doc/06-testing-plan.md](./doc/06-testing-plan.md)           | 测试体系补全计划：五层+契约分层 · CI 流水线 · 性能基线 · 走查模板                               |
 | [doc/07-harness-audit.md](./doc/07-harness-audit.md)         | Harness 模块审计：十九条学科×三态 · 六大类源码级证据 · 缺口 H01–H36 · Python Worker 判决        |
-| [doc/08-v2-roadmap.md](./doc/08-v2-roadmap.md)               | v2 展望与工单库：阶段十一~十五规划（发布化/可日用/可证明/SDK 化/生态面）· 34 张工单含开工提示词 |
+| [doc/08-v2-roadmap.md](./doc/08-v2-roadmap.md)               | v2 展望与工单库：阶段十一~十六（发布化/可日用/可证明/SDK 化/生态面/命令面新机制）                |
 | [.agents/skills/](./.agents/skills/)                         | 可重复任务流程：docs-update · new-event-type · new-tool · frontend-component                    |
 
 ## 开发
@@ -61,11 +101,11 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 pnpm install
 pnpm --filter server dev    # 后端（tsx watch；缺省 127.0.0.1:4318）
 pnpm --filter web dev       # 仅前端（VITE_SPARK_MOCK=1 可脱离后端跑 Mock）
-pnpm --filter cli dev       # CLI TUI（Ink，工单 8.2；需 server 在跑；--api <url>/SPARK_API 指基址，缺省 127.0.0.1:4318）
-pnpm --filter mobile dev    # 移动端 App（Expo，工单 9.2；需 server 在跑，配对后连接）
-pnpm --filter miniapp dev   # 微信小程序（Taro 4 watch 构建，工单 9.4；微信开发者工具导入 dist）
+pnpm --filter cli dev       # CLI TUI（Ink；需 server 在跑；--api <url>/SPARK_API 指基址，缺省 127.0.0.1:4318）
+pnpm --filter mobile dev    # 移动端 App（Expo；需 server 在跑，配对后连接）
+pnpm --filter miniapp dev   # 微信小程序（Taro 4 watch 构建；微信开发者工具导入 dist）
 pnpm test / typecheck / lint
-pnpm eval                   # eval 回归（工单 7.11：确定性场景集；--real 可选真实模型评分）
+pnpm eval                   # eval 回归（确定性场景集；--real 可选真实模型评分）
 ```
 
 ## 设计原则
@@ -77,7 +117,16 @@ pnpm eval                   # eval 回归（工单 7.11：确定性场景集；-
 - **能复用开源就不自己写** —— 参考项目各取所长（决策记录见 ARCHITECTURE.md ADR）
 - **无聊的代码，克制的界面** —— 前后端各有"AI 生成味"黑名单（DESIGN.md §12 / ARCHITECTURE.md §9）
 
+## 当前状态
+
+- **v1 已完成合入 main**：五阶段（骨架/前端/引擎/深度体验/产品化）+ 阶段六~十（UI ZCode 化 / Harness 补全 / CLI TUI / 移动端三端 / UI 对齐与 CLI 重构）+ 质量收尾批次；全量测试与 e2e 由 CI 执行（本地开发只跑 typecheck/lint）。
+- 用户可见变更与里程碑：[CHANGELOG.md](./CHANGELOG.md)。
+- 下一程：阶段十一（发布化，doc/02 §8）→ 阶段十二~十六（[doc/08](./doc/08-v2-roadmap.md) 工单库）。
+
 ## 版本记录
+
+<details>
+<summary>展开版本记录（编年史）</summary>
 
 | 版本 | 日期       | 作者                                                                                                                                                      | 变更内容                                                                                                                                                                        |
 | ---- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -110,3 +159,6 @@ pnpm eval                   # eval 回归（工单 7.11：确定性场景集；-
 | v1.26 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段十全量开工指令）                        | 当前状态段登记阶段十进展（规格修订/会话流升级/侧栏细节/分支 chip+推理档位/CLI §13.K 纯单栏重构——ADR D19 修订）；阶段八描述同步"纯单栏会话优先" |
 | v1.27 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028）                        | 技术栈布局行登记 `offical/`——Spark 产品官网代码（仅前端，不在 pnpm workspace，独立于产品各端）；与 doc/02 v3.35 §3 目录树同步 |
 | v1.28 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028）                        | 官网文件夹拼写改名 `offical/` → `official/`（v1.27 登记名系笔误；仓库内重命名，历史行不改）；布局行引用同步；与 doc/02 v3.36、检查器 SKIP_DIRS 同步 |
+| v1.29 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十一 11.8 指令） | **README 手册化重写（工单 11.8）**：导语改身份宣言（本地运行数据不出机器/四端同一协议/每一步可审计/反 AI 味克制界面）；新增 Quick Start（`npm i -g @spark/cli` → `spark up` → 配模型 → 首回合审批）与四端一览、安全模型摘要；"当前状态"编年史长段收缩为三行内并移交 [CHANGELOG.md]；版本记录表折叠至尾部；badges 补 license MIT、node ≥24（与 engines 对齐）；中英双版头部互链（[README.en.md]）。事实锚点行"21 种事件词表"不动 |
+
+</details>
