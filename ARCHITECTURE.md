@@ -29,6 +29,7 @@
 | v1.19 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | **D17 补记**：子代理并行解除（task 工具 `parallelizable` 改 true——独立子会话并行互不串扰，单层限制/中断级联语义不变）+ 树状运行监控（`ToolContext.sourceEventId` → 子会话 header.parentEventId → 树视图锚定；`ForkChildDto.status` 运行态快照，前端复用 SessionStatusDot）（阶段七工单 7.8）；事件词表不变；与 doc/02 v3.16、doc/07 v1.8 同步 |
 | v1.20 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | 新增 **D27 browser 工具族 = BrowserDriver 端口 + 引擎级单页共享 + 截图落盘走静态面**（阶段七工单 7.10 迷你 ADR：playwright-core 懒启动 fail-closed / 四工具 parallelizable=false 串行互斥 / 审批三 action 缺省 ask / 截图文件名白名单供图）；事件词表不变；与 doc/02 v3.19、doc/07 v1.11 同步 |
 | v1.21 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段十全量开工指令） | **D19 修订**（阶段十工单 10.8，晚风拍板）：CLI 形态四区→纯单栏会话优先——砍会话列表侧栏，会话管理退 /new 与 /resume 面板；状态细条改 footer 双行（§13.K K.4 决策④）；技术选型（Ink v6）与降级策略不变，`<80 列隐藏侧栏`条款随侧栏移除自然失效；依据 2026-08-30 Qwen Code CLI 实测截图对照 |
+| v1.23 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十一开工指令） | **D23 补记**：G6 已消解（工单 10.28/11.1）——LICENSE 落地 MIT（2026-08-31 拍板），全部 workspace manifest 补 license 字段；CONTRIBUTING.md/CHANGELOG.md 随 11.1 建立，上句"倾向 MIT"定案 |
 | v1.22 | 2026-09-01 | AI 编写：Qoder；发起：晚风（Wanfeng1028，批次 2 工单 10.20 B「先写 ADR 经确认再实现」） | 新增 **D28 设置读写 API 提案（待确认）**：`GET|PUT /api/settings` 热生效/重启两档策略——分类按引擎实际消费点（turn 边界注入四项热生效；构造期注入四项重启档 `restartRequired`），fail-closed 写纪律（zod 校验→原子写盘→才改内存），掩码红线（apiKey 值永不进响应）；10.21 hooks 并入同一端点（拍板见 doc/02 v3.43）；doc/02 v3.4 沙箱读写分歧结案口径=可读写归重启档。与 doc/02 v3.43 同步 |
 
 ---
@@ -211,6 +212,7 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 决策：AGENTS 第十二条（参考项目禁止克隆本地）**维持不变**，多端阶段同样在线调研；允许的复用=①成熟 npm 依赖（pi-ai 先例，D3）+②MIT 许可代码片段（注明出处与许可证）。多端新增依赖逐项许可核验：Electron（MIT）、Ink（MIT）、Expo/React Native（MIT）、Taro（MIT）、Playwright（Apache-2.0）、@modelcontextprotocol/sdk（MIT）——与既有栈（React MIT、Fastify MIT、pi-ai MIT、zod MIT）同谱。
 理由：Apache-2.0 与 MIT 均允许商用闭源集成（保留版权声明即可）；引入 GPL/AGPL 依赖会传染本仓许可选择（LICENSE 缺口 doc/05 G6 悬而未决，落地前必须先定——倾向 MIT）。
 后果：新增依赖进 PR 时附许可证行；claude-code-analysis（泄露源码）红线不变——只读理解，一行不抄。
+**补记（2026-09-01，工单 10.28/11.1）**：G6 已消解——根目录 LICENSE 落地为 **MIT**（2026-08-31 晚风拍板），全部 workspace package.json 补 `"license": "MIT"`；CONTRIBUTING.md 与 CHANGELOG.md 随 11.1 建立（发版纪律见 11.7）。上句"倾向 MIT"就此定案。
 
 ### D24 配对鉴权 = 非环回强制 token + 6 位配对码换长效 token，缺省行为不变为红线（2026-08-26，阶段九工单 9.1 架构依据）
 
