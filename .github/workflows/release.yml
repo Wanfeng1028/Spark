@@ -1,0 +1,45 @@
+# 发布流水线（工单 11.7）：push tag（v*）触发 → 校验 → 构建 → npm publish → GitHub Release。
+# 发版纪律（版本策略/CHANGELOG 维护）见 CONTRIBUTING.md「发版」节；首发版本 v1.0.0（三包同版本）。
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # GitHub Release 产物
+      id-token: write # npm provenance（OIDC 签名；trust publishing 时可替代 NPM_TOKEN）
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        # 版本以 package.json 的 packageManager 为唯一来源（同 ci.yml 纪律）
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+      - run: pnpm install --frozen-lockfile
+      - run: python scripts/check_doc_links.py
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: 构建（protocol/engine 产 dist+d.ts；cli 产 TUI bundle + server bundle）
+        run: |
+          pnpm --filter @spark/protocol build
+          pnpm --filter @spark/engine build
+          pnpm --filter @spark/cli build
+      # 认证二选一（CONTRIBUTING 发版节有操作说明）：
+      #   A. NPM_TOKEN secret（当前默认）——npmjs 生成 publish token 配进仓库 secrets；
+      #   B. npm Trusted Publishing（OIDC）——npmjs 配置 GitHub 工作流信任后，删除下方
+      #      NODE_AUTH_TOKEN 环境即可（id-token: write 已就位）。
+      - name: npm publish（三包同版本；private 包自动跳过）
+        run: pnpm -r publish --access public --no-git-checks --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: GitHub Release（自动生成变更说明）
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true

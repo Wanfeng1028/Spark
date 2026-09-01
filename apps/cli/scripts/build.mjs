@@ -34,5 +34,3 @@ await build({
   banner: { js: serverBanner },
   external: ['playwright-core'],
 })
-
-console.log('cli build done: dist/main.js + dist/server/index.mjs')

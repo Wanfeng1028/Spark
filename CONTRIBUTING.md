@@ -34,4 +34,32 @@
 
 ## 发版
 
-见本文件「[发版](#发版)」节以下内容（工单 11.7 落地后补全）：三包版本策略、CHANGELOG 维护纪律、tag 触发的 release workflow。
+### 三包版本策略（工单 11.7 定稿）
+
+| 包                | 承诺                                                                        |
+| ----------------- | --------------------------------------------------------------------------- |
+| `@spark/protocol` | **semver 稳定**——事件词表/API 形状只增不破；演进走 ignorable/extend 机制（doc/02 §4.4 fail-closed 纪律） |
+| `@spark/engine`   | **minor 版本内兼容**；内部 API 无稳定承诺（SDK 化 14.1 前的过渡口径）        |
+| `@spark/cli`      | 跟随 minor——与 protocol/engine 同版本发布，不做独立版本矩阵（boring 原则）   |
+
+首发版本 **v1.0.0**，三包同版本起步。
+
+### CHANGELOG 维护纪律
+
+每张工单完成时，把**用户可见**变更写入 [CHANGELOG.md](./CHANGELOG.md) 的 `[Unreleased]` 段；
+内部重构/纯文档/测试基建不入表。发版日把 `[Unreleased]` 定稿为版本段（附日期）。
+
+### 发版流程（tag 触发 release workflow）
+
+1. 定稿 CHANGELOG：`[Unreleased]` → `[x.y.z] - 日期`。
+2. 三包 `package.json` 的 `version` 改为同一版本（`packages/protocol`、`packages/engine`、`apps/cli`）。
+3. 提交（`chore(release): v x.y.z`）→ 打 tag `vx.y.z` → push main 与 tag。
+4. `.github/workflows/release.yml` 自动：check_doc_links → typecheck → test → 三包 build → `pnpm -r publish`（provenance）→ GitHub Release。
+5. 验证：`npm i -g @spark/cli@x.y.z` 安装成功且 `spark --help` 可用；GitHub Release 页有产物与说明。
+
+### npm 凭据（一次性配置）
+
+- **方案 A（当前默认）**：npmjs.com → Access Tokens → Generate New Token（Classic，publish 权限）→
+  仓库 Settings → Secrets and variables → Actions → 新建 `NPM_TOKEN`。
+- **方案 B（可演进）**：npm Trusted Publishing——npmjs 包设置页绑定本仓库与 workflow
+  （`release.yml`/`publish` job），然后删除 workflow 中的 `NODE_AUTH_TOKEN` 环境即可（OIDC 已就位）。

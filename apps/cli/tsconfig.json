@@ -8,5 +8,5 @@
     "allowJs": true,
     "checkJs": false
   },
-  "include": ["src", "tests", "bin"]
+  "include": ["src", "tests", "bin", "scripts"]
 }
