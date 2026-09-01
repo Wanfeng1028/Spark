@@ -1,7 +1,8 @@
 /**
- * MessageItem（doc/02 §6.3）：UiItem 按 kind 分发的全宽行（转录式，DESIGN §3）。
- * user/assistant 带角色标签行（12px 灰标签 YOU/模型名）；user 浅背景块 4px 圆角全宽；
- * assistant 无背景由 AssistantBlock 排内容块；tool→ToolCard、approval→ApprovalCard。
+ * MessageItem（doc/02 §6.3）：UiItem 按 kind 分发的行（转录式，DESIGN §3）。
+ * user/assistant 带角色标签行（12px 灰标签 YOU/模型名）；user 右对齐限宽气泡
+ * （radius 18、右下角 4px 收角、最大宽 80%——工单 10.22 / DESIGN §13.H v2.10）；
+ * assistant 左锚全宽无背景由 AssistantBlock 排内容块；tool→ToolCard、approval→ApprovalCard。
  */
 import { memo } from 'react'
 import type { ContentItem, PermissionReply, SessionId } from '@spark/protocol'
@@ -30,9 +31,9 @@ export const MessageItem = memo(function MessageItem({ item, model, sid, highlig
   switch (item.kind) {
     case 'user':
       return (
-        <article className={cn('w-full', hl)}>
+        <article className={cn('flex w-full flex-col items-end', hl)}>
           <RoleLabel>YOU</RoleLabel>
-          <div className="mt-1 w-full rounded-[4px] bg-accent px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap">
+          <div className="mt-1 max-w-[80%] rounded-[18px] rounded-br-[4px] bg-accent px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap">
             {item.text}
           </div>
         </article>
