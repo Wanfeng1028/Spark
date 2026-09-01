@@ -1,6 +1,7 @@
 {
   "name": "@spark/evals",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "Spark eval harness（阶段七工单 7.11 / H10，doc/06 §2）：ScriptedLlm 回归场景集 + 可选真实模型评分（--real），根脚本 pnpm eval 入口，nightly workflow 调用",

@@ -1,6 +1,7 @@
 {
   "name": "@spark/desktop",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "description": "Spark 桌面壳（阶段五工单 5.1，ADR D14 sidecar 模式）：拉起 server sidecar + 加载 Web UI",
   "author": "Wanfeng1028",

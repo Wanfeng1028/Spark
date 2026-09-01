@@ -1,6 +1,7 @@
 {
   "name": "@spark/miniapp",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "description": "Spark 微信小程序壳（Taro 4 + React 语法，ADR D21；阶段九工单 9.4）。v1=开发者工具+体验版（局域网 IP），正式分发中继服务记 v2",
   "templateInfo": {

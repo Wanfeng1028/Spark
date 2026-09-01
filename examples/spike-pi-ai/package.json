@@ -2,6 +2,7 @@
   "name": "spike-pi-ai",
   "private": true,
   "version": "0.0.0",
+  "license": "MIT",
   "description": "pi-ai 集成 spike（doc/02 §5.9 假设验证）——独立目录，不进 workspace/主构建/CI",
   "type": "module",
   "scripts": {

@@ -6,6 +6,7 @@
 | ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
 | v1.0 | 2026-08-25 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；人作者：晚风（Wanfeng1028，发起与审核，附外部评审意见） | 初稿：验证方法与实测结果 · 各阶段完成度判定 · 缺口清单（G1–G7）· 对外部评审的采纳与保留意见 · 动工顺序建议 |
 | v1.1 | 2026-08-25 | 同上；指误：晚风（Wanfeng1028）                                                    | **v1.0 作者栏勘误**：初稿误沿既有文档版本表的"GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）"署名——该标签系历史会话所留，本会话无法核实；本会话可确证的标识仅为 ox-alpha 与上列 model id。历史行的署名不回改（见 docs-update 规范），此后新增行一律以可确证标识署名 |
+| v1.2 | 2026-09-01 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，批次 3 立单指令） | **缺口清单状态更新（仅登记，正文审计时点历史不改）**：G6 已消解——doc/02 批次 3 工单 10.28 落地 LICENSE（MIT，2026-08-31 拍板选型）与全部 workspace package.json license 字段；G3/G4/G5 已随阶段四~七消解（2026-09-01 源码级核查复核：title.ts/checkpoint.ts emit 点、permission/store.ts 持久化、routes.ts fork/tree 路由均在）；G7 维持冻结待五层级确认 |
 
 > 本文回答三个问题：**①远端代码是不是与提交日志声称的一致（真实现还是骨架）？②缺口具体在哪？③下一步按什么顺序动工？**
 > 编号说明：原 doc/04-frontend-rules.md 已并入 DESIGN.md 退役（见 README v1.4），本文顺延为 doc/05。
@@ -74,7 +75,7 @@
 | G3   | P1     | `session.title` 与 `checkpoint.created` 协议已定义、前端 reducer 已支持，**引擎侧 0 个 emit 点** | 全仓 emit 扫描：17/19 种事件有 emit 点，此两种为零  | 阶段四工单（自动标题/checkpoint）——接口就绪、实现未动 |
 | G4   | P1     | 审批 always 规则仅存内存 Map，跨会话/重启即失效                      | `packages/engine/src/permission/service.ts` sessionRules 字段 | 阶段四工单（权限持久化 + 规则管理 UI） |
 | G5   | P2     | fork/tree REST 路由未注册                                            | `apps/server/src/routes.ts` 头注明示"tree/fork 阶段四，不注册" | 计划内缺口               |
-| G6   | P2     | 仓库根目录无 LICENSE 文件，各 package.json 亦无 license 字段         | 根目录与各 manifest 实测（外部评审提出，本次审计核实属实）   | 法律合规；选型 MIT 或 Apache-2.0 由人定 |
+| G6   | P2     | 仓库根目录无 LICENSE 文件，各 package.json 亦无 license 字段         | 根目录与各 manifest 实测（外部评审提出，本次审计核实属实）   | 法律合规；选型 MIT 或 Apache-2.0 由人定。**已消解**（doc/02 批次 3 / 工单 10.28：LICENSE MIT + 全部 workspace manifest 补 license 字段，2026-09-01） |
 | G7   | P3     | `examples/spike-pi-ai/pnpm-lock.yaml`（42KB）实验残留                | 目录实测；CI lint 已排除 spike 目录故不影响构建      | 清理属删除操作，须走 AGENTS §2.10 五层级确认，AI 不得自行删 |
 
 ---

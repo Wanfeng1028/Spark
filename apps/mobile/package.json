@@ -1,6 +1,7 @@
 {
   "name": "@spark/mobile",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "description": "Spark 移动端 App（Expo + React Native，ADR D20；阶段九工单 9.2 骨架）",
   "main": "index.ts",
