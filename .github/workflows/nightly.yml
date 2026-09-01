@@ -21,5 +21,46 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: eval 回归（ScriptedLlm 确定性场景集——审批/中断/压缩/基线）
         run: pnpm eval
-      - name: 可选真实模型评分（仓库无 secrets → 恒 skip 不红）
-        run: pnpm eval --real
+      - name: 可选真实模型评分（secrets 缺省 skip 不红——配置三步见 doc/eval-secrets.md）
+        env:
+          SPARK_EVAL_API_KEY: ${{ secrets.SPARK_EVAL_API_KEY }}
+          SPARK_EVAL_BASE_URL: ${{ vars.SPARK_EVAL_BASE_URL }}
+          SPARK_EVAL_MODEL: ${{ vars.SPARK_EVAL_MODEL }}
+        run: |
+          if [ -z "${SPARK_EVAL_API_KEY}" ]; then
+            echo "::notice::SPARK_EVAL_API_KEY 未配置——真实评分 skip（配置方法见 doc/eval-secrets.md）"
+          fi
+          # real.ts 经 loadConfig() 读 ~/.spark/models.json——此处生成引用 secret 环境变量的
+          # 最小模型配置；provider 名固定 eval，baseUrl/model 可用仓库 variables 覆盖（缺省 deepseek）
+          mkdir -p "$HOME/.spark"
+          cat > "$HOME/.spark/models.json" <<JSON
+          {
+            "providers": {
+              "eval": { "apiKeyEnv": "SPARK_EVAL_API_KEY", "baseUrl": "${SPARK_EVAL_BASE_URL:-https://api.deepseek.com/v1}" }
+            },
+            "defaultModel": { "provider": "eval", "model": "${SPARK_EVAL_MODEL:-deepseek-chat}", "contextWindow": 128000 }
+          }
+          JSON
+          pnpm eval --real
+
+  # 工单 11.4（doc/06 §3 第一批）：性能基线断言——用例以 SPARK_PERF=1 门控，
+  # 主 CI 不跑（时间与抖动噪声），仅 nightly 出数记趋势。
+  performance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        # 版本以 package.json 的 packageManager 为唯一来源（同 ci.yml 纪律）
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 千事件全量回放 <500ms（server，GET /api/sessions/:id）
+        run: pnpm -C apps/server exec vitest run tests/perf-replay.test.ts
+        env:
+          SPARK_PERF: "1"
+      - name: 十万事件回放 RSS <512MB（engine，SessionStore.resume）
+        run: pnpm -C packages/engine exec vitest run tests/perf-memory.test.ts
+        env:
+          SPARK_PERF: "1"

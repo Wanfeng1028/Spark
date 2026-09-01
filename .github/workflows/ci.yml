@@ -22,3 +22,21 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+
+  # 工单 11.3（doc/06 §2 目标表 PR 行）：PR/push 上的浏览器测试——mock 四场景 + 断线两例。
+  # 与主 ci job 并行，失败即红；不跑视觉基线断言（用例本身只产出截图，无跨平台 diff）。
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        # 版本以 package.json 的 packageManager 为唯一来源（同主 job）
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # GitHub runner 可直连 Playwright 官方 CDN——不设 SPARK_E2E_BROWSER
+      # （该兜底留给本地沙箱网络受限环境，见 apps/web/playwright.config.ts 与 doc/06 v1.1）
+      - run: pnpm --filter @spark/web exec playwright install chromium --with-deps
+      - run: pnpm --filter @spark/web e2e

@@ -7,6 +7,7 @@
 | v1.0 | 2026-08-26 | AI 编写：ZCode CLI · ox-alpha（model id `57d26d76-3d24-4c1c-95b3-88fcc03173f9/stealth/ox-alpha`）；发起：晚风（Wanfeng1028，D5 测试计划指令） | 初稿：五层分层与选型 / CI 流水线 / 性能基线表 / 既有 456 例分层归属与升级建议 / 四端手工走查清单模板；workflow 随各阶段落地（6.8 首批、7.11 eval、阶段八 CLI、阶段九移动端） |
 | v1.1 | 2026-08-26 | AI 编写：Trae · GLM-5.3；发起：晚风（Wanfeng1028，阶段六开工指令） | **阶段六工单 6.8 首批落地**：L2 组件测试 22 例（tests/components/——ApprovalCard 三键+feedback+resolved 收起 / ToolCard 三态+展开区 / Composer 三态优先+发送失败回填，vitest+Testing Library+jsdom，dom-stubs 补 matchMedia/rAF）；L3 E2E 7 例（apps/web/e2e/——mock 四场景回归+断线两例+三视口截图，Playwright chromium 单档，`pnpm --filter @spark/web e2e`）；L3.5 基线截图 6 张入 apps/web/e2e/__screenshots__/（welcome+session × 1280/1440/375）。**落地差异两条**：①沙箱内 PLAYWRIGHT 官方 CDN 被网关拦截——playwright.config.ts 支持 SPARK_E2E_BROWSER 指向系统 Chrome executablePath 兜底（CI 有官方浏览器时不设该变量即可）；②E2E 虚拟列表（react-virtuoso）节点回收会重置 ToolCard 展开态——展开断言留在 L2，E2E 以 TurnStatusBar（role=status 恒在 DOM）为就绪信号+「回到底部」滚屏后再断言下方内容。web 用例总数 122→144（vitest）+7（Playwright） |
 | v1.2 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | **阶段七工单 7.11 eval harness 落地（H10，P2）**：`examples/evals`（@spark/evals 工作区成员，进 `pnpm -r` typecheck/lint 覆盖）——`harness.ts` 临时 root + ScriptedLlm + 真实 Engine 夹具（与引擎单测同款装配，脱离 vitest 经 tsx 直跑）+ 四场景：审批（缺省 ask 形状 → once 执行落库 / reject → E_PERMISSION 零副作用）· 中断（挂起途中 interrupt → finish=aborted + 已交付前缀定稿落盘）· 压缩（手动 /compact 时序/摘要/提示词形状 + 下一 turn 上下文首条 = 摘要）· 基线（durable seq 单调 / started-completed 配对 / turn 时序）；`--real` 可选真实模型评分（用户 ~/.spark 配置 + env 密钥，会话落临时 root；配置/凭据/传输问题 → skip 不红，仅应答内容错 → fail）；根脚本 `pnpm eval` + `.github/workflows/nightly.yml`（每日北京时间 02:30，eval 恒跑 + --real 追加）；§2 表 nightly 行更新 |
+| v1.3 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十一 11.3/11.4/11.5 指令） | **性能基线第一批断言化 + PR e2e + real 评分接 secrets（工单 11.3/11.4/11.5）**：§3 表加"接入状态"列——第一批两项 ✅（server 千事件回放 <500ms 断言 `apps/server/tests/perf-replay.test.ts`；engine 十万事件 RSS <512MB 断言 `packages/engine/tests/perf-memory.test.ts`；均 SPARK_PERF=1 门控，仅 nightly performance job 与本地显式跑，主 CI 无时间/抖动成本），web 侧两项与其余登记待 11.4b；ci.yml 增 e2e job（chromium 单档与主 job 并行，SPARK_E2E_BROWSER 兜底按 v1.1 不设）；nightly.yml 增 performance job + eval --real 步骤 secrets 注入（`SPARK_EVAL_API_KEY` secret + BASE_URL/MODEL variables，步骤内动态生成 models.json，fail-soft skip 保持，配置三步见 doc/eval-secrets.md） |
 
 > **定位**：本文是测试体系的**规划文档**——只定分层、选型、命令、基线与入库位置；workflow 与代码随 doc/02 §8 各阶段工单落地（阶段六工单 6.8 落首批组件/E2E，阶段七工单 7.11 接 eval 与 nightly，阶段八补 CLI 层，阶段九补移动端层）。落地时若与本文冲突，先改本文（附版本记录）再写代码。
 > **现状基线**（2026-08-26 实测，main=`ace77d5`）：456 例单测全绿 + typecheck/lint 全绿 + CI（`check_doc_links.py` → typecheck → lint → test）；测试框架 vitest ^3.2.4 全仓统一。
@@ -53,14 +54,16 @@
 
 # 3. 性能基线表（有数值有测法，nightly 断言）
 
-| 指标 | 基线 | 测法 | 入 CI 方式 |
-| ---- | ---- | ---- | ---- |
-| SSE 千事件回放 | <500ms（墙钟，含 applyEvent 全量） | server 测试扩展：预置 1000 条 durable 事件会话，`GET /api/sessions/:id` 全量回放计时；web 侧同批 applyEvent 计时 | vitest 断言上限 500ms（留 2 倍抖动余量，nightly 记趋势） |
-| 10k 消息虚拟列表 | 60fps（滚动掉帧 <5%） | mock long-output 场景扩到 10k 项；Playwright `page.trace` 采样 rAF 帧间隔，统计 >16.7ms 帧占比 | nightly Playwright 脚本，超 5% 红灯 |
-| CLI 冷启 | <1s（进程起到首帧渲染） | `node apps/cli` 计时到 Ink 首帧回调 | 阶段八起 vitest 断言 |
-| 移动端冷启 | <2s（点击图标到会话列表可交互） | Maestro `launchApp` 计时 | 阶段九起 nightly Maestro 断言 |
-| 长会话内存上限 | 引擎常驻 RSS <512MB（10 万 durable 事件会话回放后静置 5min）；web 渲染 10k 项 heap <1GB | engine：测试进程 `process.memoryUsage()` 断言；web：Playwright CDP `Performance.getMetrics` | nightly 断言 |
-| 压缩触发及时性 | tokens 越阈值后下一 step 前必触发（0.8×contextWindow） | 既有 run-loop 单测覆盖（ScriptedLlm 构造超限序列） | 已在 L1（不新增） |
+> "接入状态"列为工单 11.4 增补（v1.2）：第一批两项已断言化（SPARK_PERF=1 门控，仅 nightly performance job 与本地显式跑）；其余登记待 11.4b。
+
+| 指标 | 基线 | 测法 | 入 CI 方式 | 接入状态 |
+| ---- | ---- | ---- | ---- | ---- |
+| SSE 千事件回放 | <500ms（墙钟，含 applyEvent 全量） | server 测试扩展：预置 1000 条 durable 事件会话，`GET /api/sessions/:id` 全量回放计时；web 侧同批 applyEvent 计时 | vitest 断言上限 500ms（留 2 倍抖动余量，nightly 记趋势） | ✅ server 侧已断言（`apps/server/tests/perf-replay.test.ts`，11.4）；web 侧 applyEvent 计时待 11.4b |
+| 10k 消息虚拟列表 | 60fps（滚动掉帧 <5%） | mock long-output 场景扩到 10k 项；Playwright `page.trace` 采样 rAF 帧间隔，统计 >16.7ms 帧占比 | nightly Playwright 脚本，超 5% 红灯 | 待 11.4b |
+| CLI 冷启 | <1s（进程起到首帧渲染） | `node apps/cli` 计时到 Ink 首帧回调 | 阶段八起 vitest 断言 | 待 11.4b |
+| 移动端冷启 | <2s（点击图标到会话列表可交互） | Maestro `launchApp` 计时 | 阶段九起 nightly Maestro 断言 | 待 11.4b |
+| 长会话内存上限 | 引擎常驻 RSS <512MB（10 万 durable 事件会话回放后静置 5min）；web 渲染 10k 项 heap <1GB | engine：测试进程 `process.memoryUsage()` 断言；web：Playwright CDP `Performance.getMetrics` | nightly 断言 | ✅ engine 侧已断言（`packages/engine/tests/perf-memory.test.ts`，11.4）；web heap 待 11.4b |
+| 压缩触发及时性 | tokens 越阈值后下一 step 前必触发（0.8×contextWindow） | 既有 run-loop 单测覆盖（ScriptedLlm 构造超限序列） | 已在 L1（不新增） | ✅ 既有覆盖 |
 
 ---
 
