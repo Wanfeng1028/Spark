@@ -11,6 +11,7 @@
  * （可能超大或含敏感内容，脱敏口径不外泄）。
  */
 import { spawn } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
 import type { EventId, SessionId } from '@spark/protocol'
 import type { EventBus } from '../bus.js'
 import type { LoadedSkill } from '../skills/loader.js'
@@ -64,13 +65,33 @@ export interface UserHookRunnerDeps {
 }
 
 export class UserHookRunner {
+  /** shutdown 收口（工单 10.24）：置位后所有 warn 出口静默——迟到的子进程 close 回调
+   * 不再写已关闭的 logger 流（pino "write after end"，全套件并发下曾致 user-hooks.test 偶发红） */
+  private disposed = false
+  /** 在途命令子进程（dispose 时逐一 kill；close/error 回调里移除） */
+  private readonly inflight = new Set<ChildProcess>()
+
   constructor(
     private readonly defs: UserHooksConfig,
     private readonly deps: UserHookRunnerDeps,
   ) {}
 
+  /** 引擎 shutdown / 配置重建时调用：先于 logger.close 执行（engine.ts doShutdown 步骤 6.8） */
+  dispose(): void {
+    this.disposed = true
+    for (const child of this.inflight) child.kill()
+    this.inflight.clear()
+  }
+
+  /** 统一 warn 出口：disposed 后静默（收口纪律，见类注释） */
+  private warn(msg: string, fields?: Record<string, unknown>): void {
+    if (this.disposed) return
+    this.deps.logger.warn(msg, fields)
+  }
+
   /** 同步入口：内部异步自闭合，调用点不 await（不阻断主流程是规格要求） */
   fire(point: HookPoint, payload: HookFirePayload): void {
+    if (this.disposed) return
     const defs = this.defs[point]
     if (defs === undefined) return
     for (const def of defs) {
@@ -95,27 +116,30 @@ export class UserHookRunner {
         windowsHide: true,
       })
     } catch (err) {
-      this.deps.logger.warn('userhook.error', { ...fields, err })
+      this.warn('userhook.error', { ...fields, err })
       return
     }
+    this.inflight.add(child)
     const timer = setTimeout(() => {
       child.kill()
-      this.deps.logger.warn('userhook.timeout', { ...fields, timeoutMs })
+      this.warn('userhook.timeout', { ...fields, timeoutMs })
     }, timeoutMs)
     child.on('error', (err) => {
       clearTimeout(timer)
-      this.deps.logger.warn('userhook.error', { ...fields, err: err.message })
+      this.inflight.delete(child)
+      this.warn('userhook.error', { ...fields, err: err.message })
     })
     child.on('close', (code) => {
       clearTimeout(timer)
+      this.inflight.delete(child)
       // code=null = 被信号杀死（超时 kill 路径已有 timeout warn，此处不重复）
       if (code !== 0 && code !== null) {
-        this.deps.logger.warn('userhook.exit', { ...fields, code: String(code) })
+        this.warn('userhook.exit', { ...fields, code: String(code) })
       }
     })
     if (child.stdin === null) {
       clearTimeout(timer)
-      this.deps.logger.warn('userhook.error', { ...fields, err: 'stdin 不可用' })
+      this.warn('userhook.error', { ...fields, err: 'stdin 不可用' })
       return
     }
     // EPIPE = 命令先行退出（不读 stdin）：忽略——退出码语义已由 close 承担
@@ -127,11 +151,11 @@ export class UserHookRunner {
     const fields = { point, skill: def.skill, emit: def.emit, sid: payload.sessionId }
     const skill = this.deps.skills().find((s) => s.name === def.skill)
     if (skill === undefined) {
-      this.deps.logger.warn('userhook.skill.unknown', fields)
+      this.warn('userhook.skill.unknown', fields)
       return
     }
     if (!skill.events.includes(def.emit)) {
-      this.deps.logger.warn('userhook.emit.unknown', fields)
+      this.warn('userhook.emit.unknown', fields)
       return
     }
     void this.deps.bus
@@ -141,7 +165,7 @@ export class UserHookRunner {
         sourceType: point,
       })
       .catch((err: unknown) => {
-        this.deps.logger.warn('userhook.skill.error', { ...fields, err })
+        this.warn('userhook.skill.error', { ...fields, err })
       })
   }
 }

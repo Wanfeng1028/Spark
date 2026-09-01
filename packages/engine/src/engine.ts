@@ -1081,6 +1081,8 @@ export class Engine {
     writeFileSync(tmp, `${JSON.stringify(raw, null, 2)}\n`)
     renameSync(tmp, sparkPath)
     this.config = loadConfig(this.root)
+    // 旧 runner 先收口（工单 10.24）：在途子进程 kill + disposed 置位，防迟到回调写日志
+    this.hooks.dispose()
     this.hooks = new UserHookRunner(this.config.spark.hooks ?? {}, {
       bus: this.bus,
       logger: this.logger,
@@ -1675,6 +1677,9 @@ export class Engine {
       } catch (err) {
         this.logger.warn('browser.close.error', { err })
       }
+      // 6.8) hooks runner 收口（工单 10.24）：kill 在途子进程 + 置 disposed——迟到的
+      //      close 回调不再写已关闭的 logger 流（pino "write after end"，先于 finally 关日志）
+      this.hooks.dispose()
       this.logger.info('engine.shutdown.done')
     } catch (err) {
       this.logger.error('engine.shutdown.error', { err })
