@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@spark/protocol": ["../protocol/dist/index.d.ts"]
+    }
+  },
+  "include": ["src"]
+}

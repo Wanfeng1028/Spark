@@ -4,7 +4,9 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "lib": ["ES2022"],
-    "types": ["node"]
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": false
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests", "bin"]
 }

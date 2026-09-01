@@ -2,10 +2,32 @@
   "name": "@spark/cli",
   "version": "0.1.0",
   "license": "MIT",
-  "private": true,
   "type": "module",
-  "description": "Spark CLI TUI（Ink v6，ADR D19；阶段八）",
+  "description": "Spark CLI TUI（Ink v6，ADR D19）——spark up 一条命令本地可用",
+  "bin": {
+    "spark": "bin/spark.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wanfeng1028/Spark.git",
+    "directory": "apps/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/Wanfeng1028/Spark/issues"
+  },
+  "homepage": "https://github.com/Wanfeng1028/Spark#readme",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
+    "build": "node scripts/build.mjs",
     "dev": "tsx src/main.tsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
@@ -13,6 +35,7 @@
   "dependencies": {
     "@spark/protocol": "workspace:*",
     "ink": "^6.2.0",
+    "playwright-core": "^1.62.1",
     "react": "^19.1.0",
     "string-width": "^8.2.2",
     "zustand": "^5.0.15"
@@ -20,6 +43,7 @@
   "devDependencies": {
     "@types/node": "^24",
     "@types/react": "^19.1.0",
+    "esbuild": "^0.25.0",
     "ink-testing-library": "^4.0.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.3",

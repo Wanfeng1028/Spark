@@ -2,11 +2,43 @@
   "name": "@spark/protocol",
   "version": "0.1.0",
   "license": "MIT",
-  "private": true,
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wanfeng1028/Spark.git",
+    "directory": "packages/protocol"
+  },
+  "bugs": {
+    "url": "https://github.com/Wanfeng1028/Spark/issues"
+  },
+  "homepage": "https://github.com/Wanfeng1028/Spark#readme",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
