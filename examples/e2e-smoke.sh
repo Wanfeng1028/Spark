@@ -100,14 +100,10 @@ if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
 fi
 
 start_server() {
-  # 以 HOME 指向的隔离目录启动 server
+  # 以 HOME 指向的隔离目录启动 server；端口/绑定来自 fake HOME 的 spark.json（server 段，上方写入 4319），
+  # engine loadConfig 读取——入口不读 SPARK_PORT/SPARK_HOST 环境变量（桌面壳 sidecar 才用）。
   (
     cd "${ROOT}"
-    # server 入口写死 PORT=4318/H0ST=127.0.0.1，需要用 env 覆盖？入口没实现。
-    # 解法：让本脚本直接启动 engine + REST/SSE 薄壳不可行，所以把 server 入口改成读 SPARK_PORT / SPARK_HOST。
-    # 但当前入口是硬编码。退一步：用 apps/server/src/index.ts 的 tsx 启动，
-    # 先看入口是否支持 env 变量，不支持就 patch（不在本脚本做代码修改，只临时改）。
-    # 更简单：给 4318 空闲就用 4318（前面 PORT 变量改 4318 并清理占用）。
     echo $$ > "${PID_FILE}"
     exec npx --yes tsx apps/server/src/index.ts
   ) >"${SERVER_LOG}" 2>&1 &
@@ -183,12 +179,12 @@ echo "  首次 SSE 最大已见 seq = $MAX_SEQ"
 curl_json -X POST "${BASE}/api/sessions/${B_ID}/messages" -d '{"text":"hello 3"}' >/dev/null
 sleep 1
 
-# 重连 SSE（带 since=$MAX_SEQ——水位语义：last-event-id 设为 seq）
-# 我们的 server 端支持 Last-Event-ID 或 query ?since=
+# 重连 SSE（工单 11.2 口径修正）：server 的 since 回放仅对"sessionId+since 同时给出"启用
+# （sse.ts：全局订阅=纯直播，不读 Last-Event-ID 头）——显式带会话与水位才能真正测到
+# "seq>since 回放、≤since 不重复"的断线重连语义，而不是纯直播的假通过。
 SINCE=$(( MAX_SEQ + 0 ))
 curl -s -N -H "accept: text/event-stream" \
-     -H "Last-Event-ID: ${SINCE}" \
-     "${BASE}/api/event" >"${SSE2}" &
+     "${BASE}/api/event?sessionId=${B_ID}&since=${SINCE}" >"${SSE2}" &
 CURL2=$!
 sleep 2
 kill "${CURL2}" 2>/dev/null || true
