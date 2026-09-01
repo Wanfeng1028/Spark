@@ -31,9 +31,11 @@ export const compactionScenario: EvalScenario = {
       if (completed?.data.summary !== 'eval-压缩摘要') {
         return fail(`摘要未落事件：${JSON.stringify(completed?.data)}`)
       }
-      const once = f.gateway.onceCalls[0]
-      if (once === undefined || !once.prompt.startsWith(COMPACTION_PROMPT)) {
-        return fail('压缩提示词形状错（未经 COMPACTION_PROMPT 起手）')
+      // 按前缀定位压缩的 once 调用（工单 10.31）：标题生成器（工单 4.4）在 turn.completed 后
+      // 同走 generateOnce 通道，onceCalls[0] 位置敏感断言在真实发射序下必然失效（Nightly 连败根因）
+      const once = f.gateway.onceCalls.find((c) => c.prompt.startsWith(COMPACTION_PROMPT))
+      if (once === undefined) {
+        return fail('压缩提示词形状错（未找到经 COMPACTION_PROMPT 起手的 once 调用）')
       }
       if (!once.prompt.includes('讨论内容')) return fail('转录未进压缩提示词')
 

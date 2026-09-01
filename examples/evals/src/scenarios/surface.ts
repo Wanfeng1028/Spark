@@ -28,7 +28,9 @@ export const surfaceScenario: EvalScenario = {
         ],
       })
       f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '读完了' }] })
-      const h = await f.engine.createSession()
+      // 会话 cwd = 夹具根（工单 10.31）：read 的路径硬边界以会话 cwd 为允许根——
+      // 夹具在 tmpdir 而会话用缺省 cwd（examples/evals）时探针文件必然被 E_PATH_OUTSIDE 拒读
+      const h = await f.engine.createSession({ cwd: f.root })
       await h.send('读文件')
       await waitFor(() => f.events.some((e) => e.type === 'turn.completed'), 'turn.completed')
 
