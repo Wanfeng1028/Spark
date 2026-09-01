@@ -1,7 +1,8 @@
 /**
  * settings-store 外观字段单测（工单 6.4 / DESIGN §13.D②）：
  * 坏数据收窄（非法字号/主题槽错配/非布尔开关回默认）、setter 持久化全量、
- * applyAppearance 副作用（CSS 变量 + html class）。
+ * applyAppearance 副作用（CSS 变量 + html class）；会话域开关 showReasoning /
+ * showToolGroups（工单 10.20 A③，单测随 10.26 补齐）。
  * node 环境无 DOM——stubGlobal 注入 document/window/localStorage 后动态 import
  * （store 模块级副作用在 import 时执行）。
  */
@@ -125,6 +126,18 @@ describe('settings-store 外观字段', () => {
     expect(dom.classes.has('spark-code-wrap')).toBe(false)
     store.getState().setWrapLongLines(true)
     expect(dom.classes.has('spark-code-wrap')).toBe(true)
+  })
+
+  it('会话域开关（10.20 A③ / 10.26 补测）：默认开、坏数据收窄、setter 持久化', async () => {
+    dom.kv.set('spark.settings', JSON.stringify({ showReasoning: 'off', showToolGroups: 0 }))
+    const store = await freshStore()
+    const s = store.getState()
+    expect(s.showReasoning).toBe(true)
+    expect(s.showToolGroups).toBe(true)
+    s.setShowReasoning(false)
+    s.setShowToolGroups(false)
+    const saved = JSON.parse(dom.kv.get('spark.settings') ?? '{}') as Record<string, unknown>
+    expect(saved).toMatchObject({ showReasoning: false, showToolGroups: false })
   })
 
   it('坏 JSON 整体回默认（不抛错）', async () => {

@@ -35,7 +35,10 @@ export class MiniRestClient {
 
   /** 统一请求：非 2xx 抛 `code: message`（与 HttpTransport.req 同形） */
   private async req<T>(path: string, init?: { method?: 'GET' | 'POST'; body?: string }): Promise<T> {
-    const header: Record<string, string> = { 'content-type': 'application/json' }
+    // content-type 仅随 body 携带（工单 10.27 口径对齐 transport-node）：带 json 头的空 body
+    // 会被 Fastify 5 拒 400 FST_ERR_CTP_EMPTY_JSON_BODY，不依赖 server 宽容解析器兜底
+    const header: Record<string, string> = {}
+    if (init?.body !== undefined) header['content-type'] = 'application/json'
     if (this.opts.token !== undefined) header['Authorization'] = `Bearer ${this.opts.token}`
     let res: Taro.request.SuccessCallbackResult
     try {

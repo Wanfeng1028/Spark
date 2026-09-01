@@ -12,7 +12,7 @@
  */
 import { Box, Text, useApp, useInput, useStdout } from 'ink'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { HttpTransport, SessionEventSource, errorMessageOf, humanizeError } from '@spark/protocol'
+import { HttpTransport, SessionEventSource, errorMessageOf, humanizeError, ids } from '@spark/protocol'
 import type {
   ClientAction,
   ReasoningEffort,
@@ -332,7 +332,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
       return
     }
     transport
-      .rollbackCheckpoint(sid, arg as never)
+      .rollbackCheckpoint(sid, ids.checkpoint(arg))
       .then(() => {
         const st2 = useCliStore.getState()
         st2.resetSlice(sid) // 清旧投影，重放重建（回滚后 seq 倒退）

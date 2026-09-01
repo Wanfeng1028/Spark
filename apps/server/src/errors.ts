@@ -149,10 +149,6 @@ export function toApiError(err: unknown): ApiError {
     // git 失败详情只进日志（sendError 对 >=500 记 req.log.error）
     return new ApiError(500, 'E_CHECKPOINT_ROLLBACK', '回滚失败：git 操作异常')
   }
-  if (msg.startsWith('E_CONFIG')) {
-    // 模型形状/供应商未配置（工单 6.5 setSessionModel/createSession）：客户端入参问题
-    return new ApiError(400, 'E_CONFIG', '模型配置无效：须为已配置供应商的 provider/model')
-  }
   if (msg.startsWith('E_COMMAND_CLIENT')) {
     // 界面命令打到引擎（工单 7.4）：客户端调用方式错误 → 400
     return new ApiError(400, 'E_COMMAND_CLIENT', '界面命令由前端执行，不经引擎')
