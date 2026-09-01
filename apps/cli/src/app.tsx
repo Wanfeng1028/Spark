@@ -703,7 +703,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
               ? '输入关键词过滤会话，↑↓ 选择，Space 预览，Enter 恢复'
               : pendingApproval !== null
                 ? '等待审批——1 允许一次 / 2 总是允许 / 3 拒绝'
-                : '输入任务，Enter 发送；/ 命令；? 帮助'
+                : '输入您的消息或 @ 文件路径'
           }
           onSubmit={submit}
           onPreview={(v) => useCliStore.getState().setDraftPreview(v)}

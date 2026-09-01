@@ -351,14 +351,14 @@ describe('Footer（工单 10.8 / §13.K K.4 双行）', () => {
   })
 })
 
-describe('BootHeader（工单 10.23 / §13.K K.1 左右分栏）', () => {
-  it('宽屏双栏：logo 与信息盒同帧 + 模型提示 + 提示行前缀', () => {
+describe('BootHeader（工单 10.32 / §13.K K.1 Qwen 首屏还原）', () => {
+  it('宽屏双栏：SPARK 渐变 logo 与信息盒同帧 + API Key 行 + 模型提示 + 提示行', () => {
     const s = slice()
     s.meta.cwd = '/home/wanfeng/Spark'
     const f = render(<BootHeader slice={s} models={null} columns={120} />).lastFrame()
-    expect(f).toContain('/ __|') // logo 行在帧内
-    expect(f).toContain('>_')
-    expect(f).toContain('Spark')
+    expect(f).toContain('██╔════╝') // logo 字形行（ANSI Regular 风格）在帧内
+    expect(f).toContain('>_ Spark')
+    expect(f).toContain('API Key |')
     expect(f).toContain('（/model 切换）')
     expect(f).toContain('提示：')
   })
@@ -367,14 +367,36 @@ describe('BootHeader（工单 10.23 / §13.K K.1 左右分栏）', () => {
     const s = slice()
     s.meta.cwd = '/home/wanfeng/Spark'
     const f = render(<BootHeader slice={s} models={null} columns={60} />).lastFrame()
-    expect(f).not.toContain('/ __|')
-    expect(f).toContain('Spark')
+    expect(f).not.toContain('██╔════╝')
+    expect(f).toContain('_ Spark')
   })
 
-  it('禁假状态：slice=null 显 — 且无模型提示', () => {
+  it('禁假状态：slice=null 且无模型目录显 — 且无模型提示；有缺省模型则显缺省', () => {
     const f = render(<BootHeader slice={null} models={null} columns={120} />).lastFrame()
     expect(f).toContain('—')
     expect(f).not.toContain('（/model 切换）')
+    const m = render(
+      <BootHeader
+        slice={null}
+        models={{
+          providers: [
+            {
+              id: 'fake',
+              label: 'fake',
+              builtin: false,
+              configured: true,
+              apiKeyEnv: null,
+              hasKey: true,
+              api: 'openai-completions',
+            },
+          ],
+          models: [{ provider: 'fake', model: 'fake-chat', contextWindow: 100_000 }],
+          defaultModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+        }}
+        columns={120}
+      />).lastFrame()
+    expect(m).toContain('API Key | fake/fake-chat')
+    expect(m).toContain('（/model 切换）')
   })
 
   it('cwd 超长截断带省略号', () => {
