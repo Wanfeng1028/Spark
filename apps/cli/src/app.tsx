@@ -21,6 +21,7 @@ import type {
   SparkEventEnvelope,
 } from '@spark/protocol'
 import { flowRowsOf } from './flow-rows.js'
+import { createCliActionHandlers } from './client-actions.js'
 import { useCliStore } from './store.js'
 import { MessagePane } from './components/MessagePane.js'
 import { InputBox } from './components/InputBox.js'
@@ -358,59 +359,19 @@ export function App({ baseUrl }: { baseUrl: string }) {
   }
 
   /**
-   * client 命令分派（工单 10.18②）：按描述符 clientAction 映射到本端实现；
-   * sessionRequired 命令无激活会话时拒绝（禁假状态）。返回已处理。
+   * client 命令分派（工单 10.18② / 10.25）：映射表抽至 client-actions.ts——Record 键
+   * 穷举由编译期强制，覆盖不变量由 tests/client-actions.test.ts 断言（10.18③ 残项收口）；
+   * sessionRequired 命令无激活会话时拒绝（禁假状态）。
    */
   function runClientAction(action: ClientAction, args: string | undefined): void {
-    const st = useCliStore.getState()
-    const needSession = (fn: () => void): void => {
-      if (st.activeSessionId === null) {
-        st.setNotice('该命令需要激活会话')
-        return
-      }
-      fn()
-    }
-    switch (action) {
-      case 'new':
-        newSession()
-        return
-      case 'resume':
-        st.setPanel('resume')
-        return
-      case 'stats':
-        st.setPanel('stats')
-        return
-      case 'help':
-        st.setPanel('help')
-        return
-      case 'model':
-        needSession(() => st.setPanel('model'))
-        return
-      case 'mcp':
-        st.setPanel('mcp')
-        return
-      case 'skills':
-        st.setPanel('skills')
-        return
-      case 'usage':
-        st.setPanel('usage')
-        return
-      case 'fork':
-        needSession(forkAtLast)
-        return
-      case 'checkpoint':
-        needSession(() => st.setPanel('checkpoints'))
-        return
-      case 'rollback':
-        needSession(() => rollbackTo(args))
-        return
-      case 'effort':
-        needSession(() => setEffort(args))
-        return
-      case 'tree':
-        needSession(() => st.setPanel('tree'))
-        return
-    }
+    const handlers = createCliActionHandlers({
+      getState: useCliStore.getState,
+      newSession,
+      forkAtLast,
+      rollbackTo,
+      setEffort,
+    })
+    handlers[action](args)
   }
 
   function submit(text: string): void {

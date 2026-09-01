@@ -2,7 +2,7 @@
  * 命令描述符不变量单测（工单 10.18③）：词表单一来源的回归网——
  * 名字唯一 / 描述符过 schema / client 命令必带 clientAction / 带参命令必有 args /
  * surface 非空。各端"该端 surface 的 client 命令都有实现映射"的覆盖不变量
- * 由各端自己的测试断言（web: tests/client-commands 覆盖；cli: tests/render 分派表）。
+ * 由各端自己的测试断言（web: tests/client-commands 覆盖；cli: tests/client-actions 覆盖）。
  */
 import { describe, expect, it } from 'vitest'
 import {
