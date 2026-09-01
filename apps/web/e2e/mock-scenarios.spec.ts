@@ -90,7 +90,8 @@ test.describe('mock 场景 long-output：工具长输出', () => {
     // 工具卡完成态（125 条 progress 回放完；@speed 4 加速）
     // 就绪信号用 TurnStatusBar（悬浮条恒在 DOM：bash 徽标=工具运行中）→ 滚到底让工具卡进渲染窗口
     // （展开区断言在 L2 组件测试覆盖——E2E 虚拟列表节点回收会重置卡片展开态，不在此断言）
-    const toolCard = page.locator('button[aria-expanded]').filter({ hasText: 'bash' })
+    // 卡片头部自 10.4 起为人话类别词（bash→终端），raw name 只在 title——定位器按头部文本
+    const toolCard = page.locator('button[aria-expanded]').filter({ hasText: '终端' })
     await expect(page.getByRole('status').filter({ hasText: 'bash' })).toBeVisible({
       timeout: 15_000,
     })
