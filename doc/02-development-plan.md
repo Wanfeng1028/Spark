@@ -2311,7 +2311,24 @@ doc/02 §8.7 V2-XX 行（消解对应项）、开源参考文件（按 16.X 行"
 | v3.71 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`） | **批次 4 前两张完成（10.42/10.43）**：10.42 物理光标（absolutePosition 爬树 + useCursor，IME 组字窗跟随输入框；边框修 qwen 无左右竖线形态）；10.43 组件化拆分（app.tsx 757→339 行；hooks/use-cli-actions 263 + use-cli-keys 227 + use-session-stream 41 + effort/constants；纯搬移行为零变化，43/43 过、lint/typecheck 绿）。10.44–10.46 待下轮执行 |
 | v3.72 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`） | **批次 4 后三张完成（10.44/10.45/10.46）**：10.44 工具组行改 qwen 动词句（`✓ 运行了 ls, ls` / >3 `以及其他 N 个` / 活动态进行时+…尾缀；未知类别保计数式）；10.45 footer 右列补 contextWindow K 格式（`200.0k 上下文 · 36% 已用`）+ delivery 主档蓝 + 审批挂起输入框横线变黄；10.46 思考文案 `Thought for 1s`/`Thought briefly`/`Thinking…1s`（qwen formatDuration）。render.test 41/41 断言同步 |
 
-> 批次 4 备注：
+
+## 阶段十·收尾批次 5（CLI Qwen 化三期：Markdown 渲染/行拆分/状态行）——工单级
+
+> 立项依据：晚风"继续"指令。对照 qwen-code 实机截图：Spark CLI 模型输出的 \`**加粗**\`、\`\`code\`\` 全部原样显示星号/反引号（qwen 用 MarkdownDisplay 渲染成粗体/彩色 code）——当前最大体验差。另：10.43 承诺的 items.tsx 拆 rows/ 未落地、qwen 的状态行前缀体系（●/✓/△/✕）未对齐。
+> 执行顺序：10.47 → 10.48 → 10.49。
+
+| #     | 工单                                   | 产出（目标 + 涉及文件）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 验收标准                                                                     | 依赖        |
+| ----- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- | ----------- |
+| 10.47 | items.tsx 行组件拆分（qwen messages/ 同构） | items.tsx（310 行）拆分：ItemView 分发留原文件；ReasoningLine/ToolLine/ToolGroupLine/TurnLine 移 \`components/rows/\`（qwen messages/ 目录同构）；markdown 渲染器独立 \`components/markdown.tsx\`（10.48） | typecheck/lint/测试全绿；行为零变化（纯搬移）                                | —           |
+| 10.48 | CLI Markdown-lite 渲染（qwen MarkdownDisplay lite 版） | 新建 \`components/markdown.tsx\`（不引依赖，纯 Ink 实现 qwen MarkdownDisplay 的常用子集）：① 行内 \`code\` → code 色（蓝）；② \`**bold**\` → bold；③ \`\`# 标题\`\` → bold 行；④ \`\`\` 围栏代码块 → 缩进+mono 块（未闭合围栏流式降级为普通文本）；⑤ -/1. 列表保留缩进。assistant 回复（含流式 textBuf）经 markdown 渲染；user 消息保持纯文本（qwen UserMessage 同款） | render.test：行内 code 蓝色分段/bold/围栏块/列表用例；桌面实测模型输出渲染效果   | 10.47      |
+| 10.49 | 状态行前缀体系（qwen StatusMessages 同构） | ① 启动加载 AGENTS.md 成功后消息流顶部打印 \`● 已加载项目指引：{路径}\`（qwen Read context files 行同款——路径来源 buildSystemPrompt 的向上查找结果）；② 引擎 error 事件行前缀 ✕ 红（现为纯红字）；③ notice 提示行前缀 △ 黄。前缀统一带 U+FE0E 锁宽 | render.test 断言；桌面实测                                                    | 10.47      |
+| v3.73 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，“继续”指令） | **批次 5 立项（10.47–10.49：CLI Qwen 化三期）**：10.47 items.tsx 行组件拆分（rows/ 目录，qwen messages/ 同构）/ 10.48 CLI Markdown-lite 渲染（行内 code 蓝色/bold/围栏块/列表——qwen MarkdownDisplay 常用子集纯 Ink 实现，修模型输出星号原样显示的体验差）/ 10.49 状态行前缀体系（● 已加载项目指引/✕ 错误/△ 提示，U+FE0E 锁宽） |
+
+> 批次 5 备注：
+
+> 批次 5 备注：① markdown-lite 只覆盖 qwen 常用子集（qwen MarkdownDisplay 依赖 marked+highlight.js 级别的完整渲染，Spark 不引依赖）；② 代码块底色用 \`bg-gray\` 反白视终端；③ 流式 textBuf 的未闭合围栏如实按文本呈现，定稿后正常成块。
+
+## 8.6 测试矩阵（各阶段验收的测试面；框架 vitest）> 批次 4 备注：
 
 > 批次 4 备注：① 10.42 的 yogaNode 爬树是 ink 6.8 内部结构的等价封装（qwen ink7 已 API 化 getAbsolutePosition）——升 ink 7 时替换为官方 API；② 10.43 为纯搬移重构，行为零变化，**先重构后对齐**避免在大文件上叠加改动；③ IME 深层残余（组字中间态防插入）仍挂 V2-26；④ StatusBar.tsx 死文件仍冻结待五级确认（10.30）。
 
