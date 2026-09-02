@@ -158,6 +158,8 @@ export function App({ baseUrl }: { baseUrl: string }) {
   // ---------- 动作 / 事件流 / 全局键位（10.43 抽取的 hooks） ----------
 
   const actions = useCliActions({ transport, clearScreen, resumeFiltered, resumeSelected })
+  // 启动流程（10.43 重构回补：listSessions/createSession/models/commands 装载）
+  useEffect(() => actions.boot(), [actions])
   useSessionStream(baseUrl, transport)
 
   const lastFailedRef = useRef<string | null>(null)
