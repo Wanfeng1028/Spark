@@ -220,11 +220,13 @@ export function App({ baseUrl }: { baseUrl: string }) {
     // replayNonce：回滚后 seq 倒退，需 since=0 重订阅重放（工单 10.18 /rollback）
   }, [activeSessionId, baseUrl, transport, replayNonce])
 
-  // 清屏 + Static 重挂（工单 10.38，qwen refreshStatic 同款）：/new、/resume、/rollback 时
-  // ANSI 清屏归位 + staticEpoch++，BootHeader 首项与历史整屏重印——"回到欢迎首屏"统一机制
+  // 清屏 + Static 重挂（工单 10.38/10.40，qwen refreshStatic 同款）：/new、/resume、/rollback 时
+  // ANSI 清屏归位 + staticEpoch++，BootHeader 首项与历史整屏重印——"回到欢迎首屏"统一机制。
+  // 转义序列 = ansi-escapes.clearTerminal 同款：2J 清视口 + **3J 清 scrollback** + H 归位——
+  // 缺 3J 时光标归位到 scrollback 内，后续输出插在旧消息中间（实测 /new 后 logo 错位到对话中部）
   const [staticEpoch, setStaticEpoch] = useState(0)
   const clearScreen = (): void => {
-    stdout?.write('\x1b[2J\x1b[H')
+    stdout?.write('\x1b[2J\x1b[3J\x1b[H')
     setStaticEpoch((n) => n + 1)
   }
 
