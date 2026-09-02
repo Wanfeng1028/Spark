@@ -137,21 +137,30 @@ function gitSection(cwd: string): string {
  * 项目指引（10.39 修缺陷）：从 cwd **向上查找最近的 AGENTS.md**（到用户目录或文件系统
  * 根为止——仓库根的 AGENTS.md 对子目录会话同样生效），找不到才 "none"。
  */
-function projectInstructions(cwd: string): string {
+/** 向上查找最近 AGENTS.md（10.49：路径供 CLI 状态行显示——qwen Read context files 同款） */
+export function locateProjectInstructions(cwd: string): string | null {
   const home = homedir()
   let dir = resolve(cwd)
   while (true) {
     try {
-      const raw = readFileSync(join(dir, 'AGENTS.md'), 'utf8')
-      const trimmed = raw.length > AGENTS_MAX_CHARS ? `${raw.slice(0, AGENTS_MAX_CHARS)}\n[truncated]` : raw
-      return `From ${join(dir, 'AGENTS.md')}:\n\n${trimmed}`
+      const p = join(dir, 'AGENTS.md')
+      readFileSync(p, 'utf8')
+      return p
     } catch {
       // 继续向上
     }
     if (dir === home || dir === dirname(dir)) break
     dir = dirname(dir)
   }
-  return 'none'
+  return null
+}
+
+function projectInstructions(cwd: string): string {
+  const path = locateProjectInstructions(cwd)
+  if (path === null) return 'none'
+  const raw = readFileSync(path, 'utf8')
+  const trimmed = raw.length > AGENTS_MAX_CHARS ? `${raw.slice(0, AGENTS_MAX_CHARS)}\n[truncated]` : raw
+  return `From ${path}:\n\n${trimmed}`
 }
 
 /** §5.11 system 组装：基座 + git + 环境块 + 项目指引（每次会话组装一次） */

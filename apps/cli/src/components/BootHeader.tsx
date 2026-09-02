@@ -102,10 +102,13 @@ export function BootHeader({
   slice,
   models,
   columns,
+  agentsPath,
 }: {
   slice: SessionSlice | null
   models: ModelsDto | null
   columns: number
+  /** 已加载项目指引的 AGENTS.md 路径（工单 10.49——qwen Read context files 行同款；null=未找到） */
+  agentsPath?: string | null
 }) {
   // 模型真值：会话模型优先；无会话用模型目录缺省（Qwen 首屏同口径——无会话也显示模型）
   const sessionModel = slice === null || slice.meta.model === '' ? null : slice.meta.model
@@ -165,8 +168,11 @@ export function BootHeader({
           <Text color="gray">{displayCwd}</Text>
         </Box>
       </Box>
-      <Box marginTop={1}>
+      <Box marginTop={1} flexDirection="column">
         <Text color="gray">提示： 试 /resume，接着上次的会话聊。</Text>
+        {agentsPath !== undefined && agentsPath !== null ? (
+          <Text color="gray">●︎ 已加载项目指引：{agentsPath}</Text>
+        ) : null}
       </Box>
     </Box>
   )

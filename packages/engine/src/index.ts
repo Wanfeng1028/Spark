@@ -161,7 +161,7 @@ export {
   type EngineDeps,
   type ReplyOutcome,
 } from './engine.js'
-export { buildSystemPrompt } from './prompts.js'
+export { buildSystemPrompt, locateProjectInstructions } from './prompts.js'
 export {
   SecretStore,
   resolveApiKey,

@@ -5,6 +5,9 @@
  */
 import { Box, Text, useApp, useStdout } from 'ink'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { existsSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
 import { HttpTransport, humanizeError } from '@spark/protocol'
 import type { RequestId } from '@spark/protocol'
 import { useCliStore } from './store.js'
@@ -190,6 +193,22 @@ export function App({ baseUrl }: { baseUrl: string }) {
 
   // ---------- 提示行：REST 失败优先；引擎 error 事件人话化（共享文案表，§13.K K.8） ----------
 
+  // 已加载项目指引路径（10.49 状态行——qwen Read context files 同款）；查找逻辑与
+  // engine locateProjectInstructions 同构（不引 engine——避免 CLI 依赖树膨胀）
+  const agentsPath = useMemo(() => {
+    const cwd = slice?.meta.cwd
+    if (cwd === undefined || cwd === '') return null
+    let dir = dirname(resolve(cwd))
+    const home = homedir()
+    while (true) {
+      const p = join(dir, 'AGENTS.md')
+      if (existsSync(p)) return p
+      if (dir === home || dir === dirname(dir)) break
+      dir = dirname(dir)
+    }
+    return null
+  }, [slice])
+
   const errorInfo = useMemo(() => {
     if (notice !== null) return { title: notice, code: null as string | null, detail: null as string | null }
     const le = slice?.lastError
@@ -276,7 +295,9 @@ export function App({ baseUrl }: { baseUrl: string }) {
           slice={slice}
           maxLiveRows={liveBudget}
           staticKey={staticEpoch + replayNonce}
-          header={<BootHeader slice={slice} models={models} columns={columns} />}
+          header={
+            <BootHeader slice={slice} models={models} columns={columns} agentsPath={agentsPath} />
+          }
         />
       )}
       {slashOpen && slashItems.length > 0 && panel === 'none' ? (
@@ -288,7 +309,9 @@ export function App({ baseUrl }: { baseUrl: string }) {
       ) : null}
       {errorInfo !== null ? (
         <Box flexDirection="column">
-          <Text color="red">{errorInfo.title}</Text>
+          <Text color="red">
+            ✕︎ {errorInfo.title}
+          </Text>
           {/* 细节行（§13.K K.8）：原错误码折叠呈现 + 重试键位提示 */}
           <Text color="gray">
             {errorInfo.code !== null ? `${errorInfo.detail ?? errorInfo.code} · ` : ''}Ctrl+R 重试
