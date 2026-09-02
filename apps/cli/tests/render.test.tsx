@@ -291,6 +291,27 @@ describe('MessagePane', () => {
     // 挂起审批由 ApprovalPrompt 专渲——消息流不重复出现资源串
     expect(all).not.toContain('/b.txt')
   })
+
+  it('高度预算（工单 10.33）：live 超预算只渲染尾部 + 折叠提示行；不超则原样', () => {
+    const s = slice()
+    // 全部未定稿（streaming 带 textBuf——流式文本源；rowSettled 判假）→ 8 行都在 live 区
+    const streaming: SessionSlice['items'] = Array.from({ length: 8 }, (_, i) => ({
+      kind: 'assistant',
+      eventId: ids.event(`evt_l${i}`),
+      content: [],
+      streaming: { textBuf: `流式片段 ${i}` },
+    }))
+    s.items = streaming
+    const clipped = render(<MessagePane slice={s} maxLiveRows={3} />).lastFrame() ?? ''
+    expect(clipped).toContain('↑ 5 行已折叠')
+    expect(clipped).toContain('流式片段 7')
+    expect(clipped).not.toContain('流式片段 1')
+    const full = render(<MessagePane slice={s} maxLiveRows={20} />).lastFrame() ?? ''
+    expect(full).toContain('流式片段 1')
+    expect(full).not.toContain('行已折叠')
+    const unbudget = render(<MessagePane slice={s} />).lastFrame() ?? ''
+    expect(unbudget).toContain('流式片段 1')
+  })
 })
 
 describe('InputBox', () => {

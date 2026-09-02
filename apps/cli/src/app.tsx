@@ -62,6 +62,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
   const exitingRef = useRef(false)
 
   const activeSessionId = useCliStore((s) => s.activeSessionId)
+  const connStatus = useCliStore((s) => s.status)
   const delivery = useCliStore((s) => s.delivery)
   const notice = useCliStore((s) => s.notice)
   const panel = useCliStore((s) => s.panel)
@@ -604,6 +605,22 @@ export function App({ baseUrl }: { baseUrl: string }) {
 
   // ---------- 渲染：启动错误屏优先 / 面板族 / boot 骨架 / 会话流 ----------
 
+  /**
+   * live 区行数预算（工单 10.33）：终端行数 − 底部固定件（menu 模式面板按行计不进
+   * 此列——面板态 MessagePane 不渲染；此处只算与会话流同帧共存的件）：
+   * InputBox 1 行 + Footer 2 行（+断线异常行 1）+ slash 菜单（开着才计，1 页 8 行 +
+   * 计数行）+ 错误区 2 行（出现才计）+ 审批框（挂起才计，3-6 行按保守 6）。
+   * live 折叠提示行也占预算——再减 1。floor 到 1 保证最窄终端仍渲染最新一行。
+   */
+  const slashRows = slashOpen && slashItems.length > 0 && panel === 'none' ? SLASH_PAGE_SIZE + 1 : 0
+  const errorRows = errorInfo !== null ? 2 : 0
+  const approvalRows = pendingApproval !== null ? 6 : 0
+  const abnormalRows = connStatus !== 'open' ? 1 : 0
+  const liveBudget = Math.max(
+    1,
+    rows - 1 - 2 - abnormalRows - slashRows - errorRows - approvalRows - 1,
+  )
+
   if (bootError !== null) {
     return (
       <Box flexDirection="column" height={rows}>
@@ -658,7 +675,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
               <BootHeader slice={slice} models={models} columns={columns} />
             </Box>
           ) : (
-            <MessagePane slice={slice} />
+            <MessagePane slice={slice} maxLiveRows={liveBudget} />
           )}
         </Box>
       )}
