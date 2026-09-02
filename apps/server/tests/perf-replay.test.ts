@@ -53,6 +53,10 @@ describe.skipIf(!PERF)(`性能基线：千事件回放（工单 11.4；SPARK_PER
     }
     writeFileSync(path, `${lines.join('\n')}\n`)
 
+    // warmup：一次不计时的预读——resume 路径含冷启动成本（fs 句柄/EventTree 首建/DTO
+    // 首装配），CI 首跑曾因冷态计入 617ms 红灯（2026-09-01 nightly）；断言只测热态回放
+    await f.app.inject({ method: 'GET', url: `/api/sessions/${sid}` })
+
     const t0 = Date.now()
     const res = await f.app.inject({ method: 'GET', url: `/api/sessions/${sid}` })
     const ms = Date.now() - t0
