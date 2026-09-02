@@ -48,13 +48,19 @@ export function useCliActions({ transport, clearScreen, resumeFiltered, resumeSe
         // 工单 10.17④：显式错误屏+重试键位，不再只挂 notice
         if (!disposed) useCliStore.getState().setBootError(errorMessageOf(err))
       })
-    // 模型目录：水位计算用；失败静默（水位如实缺省，不阻塞）
-    transport
-      .listModels()
-      .then((m) => {
-        if (!disposed) useCliStore.getState().setModels(m)
-      })
-      .catch(() => undefined)
+    // 模型目录：水位 + 信息盒真值数据源（工单 10.38 门控下 models===null 会阻塞面板
+    // 渲染）——失败每 2s 重试直至成功（10.42 实测：启动期瞬时失败曾致界面永久"连接中"）
+    const loadModels = (): void => {
+      transport
+        .listModels()
+        .then((m) => {
+          if (!disposed) useCliStore.getState().setModels(m)
+        })
+        .catch(() => {
+          if (!disposed) setTimeout(loadModels, 2000)
+        })
+    }
+    loadModels()
     // 命令注册表（工单 10.10/10.18）：帮助面板与 slash 菜单数据源；失败如实空清单
     transport
       .listCommands()
