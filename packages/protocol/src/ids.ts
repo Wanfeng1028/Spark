@@ -10,7 +10,10 @@ export type Brand<T, B extends string> = T & { readonly [brand]: B }
 export type SessionId = Brand<string, 'SessionId'> // ses_<uuid>
 export type TurnId = Brand<string, 'TurnId'> // trn_<ulid>
 export type EventId = Brand<string, 'EventId'> // evt_<ulid>
-export type CallId = Brand<string, 'CallId'> // cal_<ulid>
+/** 工具调用关联 id：引擎自产为 cal_<ulid>；上游模型返回的 id（OpenAI `call_xxx` 等）
+ * 原样透传不重写——CallId 是不透明关联 token，只要求可回环匹配，不做前缀断言（工单 10.39：
+ * 实测 stepfun 返回 `call_xxx` 被 cal_ 前缀闸门拒收，整条 assistant.message 落盘失败） */
+export type CallId = Brand<string, 'CallId'>
 export type RequestId = Brand<string, 'RequestId'> // req_<ulid>
 export type CheckpointId = Brand<string, 'CheckpointId'> // ckp_<ulid>
 
@@ -20,7 +23,8 @@ const branded = <B>(schema: z.ZodType<string>): z.ZodType<B> => schema as unknow
 export const SessionIdSchema = branded<SessionId>(idOf('ses'))
 export const TurnIdSchema = branded<TurnId>(idOf('trn'))
 export const EventIdSchema = branded<EventId>(idOf('evt'))
-export const CallIdSchema = branded<CallId>(idOf('cal'))
+/** 不透明 token：引擎自产 cal_<ulid> 或上游原样（call_xxx / toolu_xxx 等），1..128 位 url-safe */
+export const CallIdSchema = branded<CallId>(z.string().regex(/^[A-Za-z0-9_-]{1,128}$/))
 export const RequestIdSchema = branded<RequestId>(idOf('req'))
 export const CheckpointIdSchema = branded<CheckpointId>(idOf('ckp'))
 

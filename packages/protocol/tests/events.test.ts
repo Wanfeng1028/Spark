@@ -108,6 +108,16 @@ describe('事件词表', () => {
     expect(Object.keys(EventSchemas)).toHaveLength(21)
   })
 
+  it('CallId 透传上游 id（工单 10.39：OpenAI call_xxx / Anthropic toolu_xxx 过闸，不重写）', () => {
+    for (const upstream of ['call_abc123XYZ', 'toolu_01AbCdEfG', 'cal_01HXSPARK0000000000000000']) {
+      const e = envelopeOf('tool.completed', { ...samples['tool.completed'], callId: ids.call(upstream) }, 3)
+      expect(parseEnvelope(e).type).toBe('tool.completed')
+    }
+    // 明显越界（空白/超长）仍 fail-closed
+    const bad = envelopeOf('tool.completed', { ...samples['tool.completed'], callId: ids.call('has space') }, 3)
+    expect(() => parseEnvelope(bad)).toThrow()
+  })
+
   it('surface 事件类型层强制标记（编译期断言的运行时副本）', () => {
     const e = envelopeOf('user.message', samples['user.message'], 2)
     // @ts-expect-error —— SurfaceEnvelope 要求 surface:true，缺标记应编译报错
