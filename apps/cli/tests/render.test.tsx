@@ -105,7 +105,7 @@ describe('ItemView', () => {
       text: '想一想',
       streaming: false,
     })
-    expect(collapsed).toContain('思考（3 字）')
+    expect(collapsed).toContain('Thinking')
     expect(collapsed).toContain('ctrl+o 展开/收起')
 
     const expanded = render(
@@ -126,7 +126,7 @@ describe('ItemView', () => {
       streaming: false,
       durationMs: 3200,
     })
-    expect(f).toContain('Thought for 3 秒')
+    expect(f).toContain('Thought for 3s')
     expect(f).toContain('∴')
   })
 
@@ -507,7 +507,7 @@ describe('聚合与折叠提示（工单 10.9 补齐 / §13.K K.2）', () => {
         expandedTools={NO_EXPAND}
       />,
     ).lastFrame()
-    expect(folded).toContain('终端 · 2 次')
+    expect(folded).toContain('运行了 ls, ls')
     expect(folded).toContain('含拒绝')
 
     const opened = render(
@@ -528,7 +528,7 @@ describe('聚合与折叠提示（工单 10.9 补齐 / §13.K K.2）', () => {
       toolItem('cal_e2', 'bash', 'completed'),
     ]
     const { frames } = render(<MessagePane slice={s} />)
-    expect(frames.join('\n')).toContain('终端 · 2 次')
+    expect(frames.join('\n')).toContain('运行了 ls, ls')
   })
 })
 

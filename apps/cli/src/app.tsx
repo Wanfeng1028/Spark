@@ -314,6 +314,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
           key={panel}
           active={inputBoxActive}
           maxWidth={columns}
+          border={pendingApproval !== null && rejecting === null ? 'yellow' : 'gray'}
           prefix={panel === 'resume' ? '过滤：' : `[${delivery}] > `}
           placeholder={
             panel === 'resume'

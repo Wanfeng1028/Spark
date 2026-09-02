@@ -26,6 +26,8 @@ export interface InputBoxProps {
   onSpace?: () => void
   /** 输入行可用显示宽度（缺省不限——超宽由终端折行；工单 10.19③） */
   maxWidth?: number
+  /** 边框/横线颜色（工单 10.45：审批挂起黄，缺省灰） */
+  border?: 'gray' | 'yellow'
 }
 
 /** 渲染窗口：含光标的字位区间，宽度不超 maxW（光标优先可见，剩余宽度回填头部） */
@@ -79,6 +81,7 @@ export function InputBox({
   onPreview,
   onSpace,
   maxWidth,
+  border = 'gray',
 }: InputBoxProps) {
   const [value, setValue] = useState('')
   /** 光标语义 = 字位下标（工单 10.19①：非 UTF-16 code unit） */
@@ -187,13 +190,13 @@ export function InputBox({
     <Box flexDirection="column" width={maxWidth}>
       {/* Qwen 对齐（工单 10.36/10.38，BaseTextInput 同款）：顶横线与底边框盒同宽——
           不约束宽度时 Yoga 让 border 盒收缩到内容宽，与全宽横线错位（实测占位重叠） */}
-      <Text color="gray" wrap="truncate-end">
+      <Text color={border} wrap="truncate-end">
         {'─'.repeat(Math.max(0, maxWidth ?? 80))}
       </Text>
       <Box
         ref={boxRef}
         borderStyle="single"
-        borderColor="gray"
+        borderColor={border}
         borderBottom
         borderTop={false}
         borderLeft={false}

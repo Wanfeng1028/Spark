@@ -169,15 +169,18 @@ function ReasoningLine({
         ? Math.max(0, Math.round((now - item.startedAt) / 1000))
         : null
   if (!expanded) {
-    const label =
-      sec !== null
-        ? streaming
-          ? `Thinking…${sec} 秒`
-          : `Thought for ${sec} 秒`
-        : streaming
-          ? 'Thinking…'
-          : `思考（${item.text.length} 字）`
-    // Qwen 对齐（工单 10.36）：∴ 完成 / ∵ 进行中，dimColor italic（ThinkMessage 同款）
+    // Qwen 对齐（工单 10.46，ThinkMessage 同款）：<1s → Thought briefly；完成 →
+    // Thought for {N}s（formatDuration 数字+s）；进行中 → Thinking…{N}s
+    let label: string
+    if (streaming) {
+      label = sec !== null ? `Thinking…${sec}s` : 'Thinking…'
+    } else if (item.durationMs !== undefined && item.durationMs < 1000) {
+      label = 'Thought briefly'
+    } else if (sec !== null) {
+      label = `Thought for ${sec}s`
+    } else {
+      label = 'Thinking'
+    }
     return (
       <Text color="gray" italic>
         {streaming ? '∵' : '∴'} {label} (ctrl+o 展开/收起)
@@ -287,15 +290,37 @@ export function ToolGroupLine({
   const running = tools.some((t) => t.status === 'running')
   const denied = tools.some((t) => isDenied(t))
   const failed = tools.some((t) => t.status === 'error')
+
+  // 汇总句式（工单 10.44，qwen CompactToolGroupDisplay 同款）：动词 + 对象列表 + 计数尾缀
+  // ——≤3 全列对象、>3 前 3 + `以及其他 N 个`；活动态用进行时并尾缀 …（qwen 活动态句式）
+  const VERBS: Record<string, [string, string]> = {
+    终端: ['运行了', '正在运行'],
+    读取: ['读取了', '正在读取'],
+    写入: ['写入了', '正在写入'],
+    改写: ['编辑了', '正在编辑'],
+    子代理: ['派发了', '正在派发'],
+    浏览: ['浏览了', '正在浏览'],
+  }
+  const verb = VERBS[category]
+  const objects = tools.map((t) => truncateByWidth(summarizeToolInput(t.input) || t.name, 28))
+  let summaryLine: string
+  if (verb === undefined) {
+    summaryLine = `${category} · ${tools.length} 次` // 未知类别保计数式（原形态）
+  } else {
+    const verbNow = running ? verb[1] ?? verb[0] : verb[0] ?? ''
+    const list = objects.slice(0, 3).join(', ')
+    const more = objects.length > 3 ? ` ... 以及其他 ${objects.length - 3} 个` : ''
+    summaryLine = `${verbNow} ${list}${more}${running ? ' …' : ''}`
+  }
+
   return (
     <Box flexDirection="column">
       <Text color={running ? 'gray' : 'green'}>
         {expanded ? 'v ' : '> '}
         {running ? '… ' : '✓ '}
-        {category}
-        <Text color="gray"> · {tools.length} 次</Text>
-        {!running && denied ? <Text color="red"> 含拒绝</Text> : null}
-        {!running && !denied && failed ? <Text color="red"> 含失败</Text> : null}
+        {summaryLine}
+        {!running && denied ? <Text color="red"> · 含拒绝</Text> : null}
+        {!running && !denied && failed ? <Text color="red"> · 含失败</Text> : null}
         {running ? <Text color="gray"> · esc to cancel</Text> : null}
       </Text>
       {expanded

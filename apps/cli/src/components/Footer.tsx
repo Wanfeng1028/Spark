@@ -36,6 +36,13 @@ export function Footer({ slice }: { slice: SessionSlice | null }) {
     }
   }
 
+
+/** token 数 K 格式化（qwen 200.0k 同款）：≥1000 显示一位小数 k */
+function kFormat(n: number): string {
+  if (n < 1000) return String(n)
+  return `${(n / 1000).toFixed(1)}k`
+}
+
   const abnormal = status !== 'open'
   const cwd = slice === null || slice.meta.cwd === '' ? null : slice.meta.cwd
   const branch = slice === null || slice.meta.branch === undefined ? null : slice.meta.branch
@@ -66,13 +73,14 @@ export function Footer({ slice }: { slice: SessionSlice | null }) {
         </Text>
         {ratio !== null ? (
           <Text color={warn ? 'red' : 'gray'}>
-            {Math.min(100, Math.round(ratio * 100))}% 上下文已用
+            {kFormat(contextWindowOf(models, slice?.meta.model ?? '') ?? 0)} 上下文 ·{' '}
+            {Math.min(100, Math.round(ratio * 100))}% 已用
           </Text>
         ) : null}
       </Box>
       {/* 第 2 行（Spark 保留件）：提交模式 · 运行指示 · 帮助/统计入口 */}
       <Text color="gray">
-        [{delivery}]
+        <Text color={delivery === 'now' ? '#89B4FA' : 'gray'}>[{delivery}]</Text>
         {slice?.compacting === true ? <Text color="yellow"> · 压缩中...</Text> : null}
         {turn !== null ? (
           <>
