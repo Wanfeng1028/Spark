@@ -148,10 +148,13 @@ export function InputBox({
       : graphemes.slice(safeCursor + 1).join('')
 
   return (
-    <Box flexDirection="column">
-      {/* Qwen 对齐（工单 10.36，BaseTextInput 同款）：顶横线全宽（灰），内容区仅底边单线框 */}
-      <Text color="gray">{'─'.repeat(Math.max(0, (maxWidth ?? 80)))}</Text>
-      <Box borderStyle="single" borderColor="gray" borderBottom>
+    <Box flexDirection="column" width={maxWidth}>
+      {/* Qwen 对齐（工单 10.36/10.38，BaseTextInput 同款）：顶横线与底边框盒同宽——
+          不约束宽度时 Yoga 让 border 盒收缩到内容宽，与全宽横线错位（实测占位重叠） */}
+      <Text color="gray" wrap="truncate-end">
+        {'─'.repeat(Math.max(0, maxWidth ?? 80))}
+      </Text>
+      <Box borderStyle="single" borderColor="gray" borderBottom width={maxWidth}>
         <Text>
           <Text color="#CBA6F7">{prefix}</Text>
           {value === '' ? (

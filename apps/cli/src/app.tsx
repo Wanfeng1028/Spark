@@ -72,7 +72,6 @@ export function App({ baseUrl }: { baseUrl: string }) {
   const commands = useCliStore((s) => s.commands)
   const draftPreview = useCliStore((s) => s.draftPreview)
   const bootError = useCliStore((s) => s.bootError)
-  const bootEcho = useCliStore((s) => s.bootEcho)
   const replayNonce = useCliStore((s) => s.replayNonce)
   const slice = useCliStore((s) =>
     s.activeSessionId === null ? null : (s.byId[s.activeSessionId] ?? null),
@@ -94,8 +93,6 @@ export function App({ baseUrl }: { baseUrl: string }) {
   /** 最近一次发送失败的文本（Ctrl+R 重试数据源——发送失败时引擎无 user 事件可回溯） */
   const lastFailedRef = useRef<string | null>(null)
   const lastCtrlCRef = useRef(0)
-  /** resume/回滚后 boot 重现的基准水位（新事件到达即退场——工单 10.17③） */
-  const echoBaseSeqRef = useRef(0)
 
   // ---------- resize 重渲染（工单 10.17③：终端尺寸变化即时重排，不错行） ----------
 
@@ -223,12 +220,13 @@ export function App({ baseUrl }: { baseUrl: string }) {
     // replayNonce：回滚后 seq 倒退，需 since=0 重订阅重放（工单 10.18 /rollback）
   }, [activeSessionId, baseUrl, transport, replayNonce])
 
-  // boot 重现退场：新事件到达（水位越过基准）即让位会话流（工单 10.17③）。
-  // 新建会话（工单 10.35）基准取空会话现值——新会话首条事件（session.created 等）即触发退场。
-  useEffect(() => {
-    if (!bootEcho || slice === null) return
-    if (slice.lastSeq > echoBaseSeqRef.current) useCliStore.getState().setBootEcho(false)
-  }, [bootEcho, slice])
+  // 清屏 + Static 重挂（工单 10.38，qwen refreshStatic 同款）：/new、/resume、/rollback 时
+  // ANSI 清屏归位 + staticEpoch++，BootHeader 首项与历史整屏重印——"回到欢迎首屏"统一机制
+  const [staticEpoch, setStaticEpoch] = useState(0)
+  const clearScreen = (): void => {
+    stdout?.write('\x1b[2J\x1b[H')
+    setStaticEpoch((n) => n + 1)
+  }
 
   // ---------- 优雅退出（工单 8.4：无悬挂 turn） ----------
 
@@ -278,16 +276,12 @@ export function App({ baseUrl }: { baseUrl: string }) {
         const st = useCliStore.getState()
         st.setSessions([...st.sessions, dto])
         st.setActiveSession(dto.id)
-        // /new 语义对齐 Qwen clearCommand（工单 10.35）：新会话 = 整屏清空回到欢迎首屏。
-        // 终端 ANSI 清屏+归位（清掉已写入 scrollback 视口的旧渲染帧），UI 态全部重置——
-        // 展开集合/草稿预览/错误提示/面板归位；bootEcho 置 true 让 BootHeader 重现一次
-        // （新会话 items 为空本身也走 boot 分支，双保险）。旧会话保留在 /resume 可回。
-        stdout?.write('\x1b[2J\x1b[H')
+        // /new 语义对齐 Qwen clearCommand（工单 10.35/10.38）：新会话 = 整屏清空回到
+        // 欢迎首屏——ANSI 清屏 + Static 重挂（BootHeader 首项重印）+ UI 态归位。
+        // 旧会话保留在 /resume 可回。
         const s2 = useCliStore.getState()
         s2.resetUi()
-        s2.setBootEcho(true)
-        // 基准取新会话投影现值（新建会话通常为 0——首个事件即越过，boot 让位）
-        echoBaseSeqRef.current = useCliStore.getState().byId[dto.id]?.lastSeq ?? 0
+        clearScreen()
       })
       .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
   }
@@ -301,16 +295,16 @@ export function App({ baseUrl }: { baseUrl: string }) {
     if (next !== undefined) setActiveSession(next.id)
   }
 
-  /** 恢复会话（工单 10.11）：切激活即触发事件流 since=0 全量重放 + boot 头重现一次 */
+  /** 恢复会话（工单 10.11）：切激活触发 since=0 全量重放；10.38 起清屏重印（header+历史） */
   function confirmResume(): void {
     const target = resumeFiltered[resumeSelected]
     if (target === undefined) return
     const st = useCliStore.getState()
-    echoBaseSeqRef.current = st.byId[target.id]?.lastSeq ?? 0
     st.setActiveSession(target.id)
     st.setPanel('none')
     st.setDraftPreview('')
-    st.setBootEcho(true) // DESIGN K.1：resume 后 boot 头部重现一次（工单 10.17③）
+    st.resetUi()
+    clearScreen()
   }
 
   /** 从最近事件分叉（/fork）：走引擎既有端点（工单 4.5），成功后切新会话 */
@@ -448,9 +442,6 @@ export function App({ baseUrl }: { baseUrl: string }) {
   }
 
   useInput((input, key) => {
-    // boot 重现态：任意键退场（工单 10.17③）
-    if (bootEcho) useCliStore.getState().setBootEcho(false)
-
     // Ctrl+C 双击退出（工单 8.3）；单击提示
     if (key.ctrl && input === 'c') {
       const now = Date.now()
@@ -635,7 +626,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
 
   if (bootError !== null) {
     return (
-      <Box flexDirection="column" height={rows}>
+      <Box flexDirection="column">
         <BootHeader slice={null} models={null} columns={columns} />
         <Box flexDirection="column" marginTop={1}>
           <Text color="red">启动失败：{bootError}</Text>
@@ -646,7 +637,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
   }
 
   return (
-    <Box flexDirection="column" height={rows}>
+    <Box flexDirection="column">
       {panel === 'help' ? (
         <HelpPanel columns={columns} />
       ) : panel === 'resume' ? (
@@ -679,17 +670,20 @@ export function App({ baseUrl }: { baseUrl: string }) {
         activeSessionId !== null ? (
           <TreePanel transport={transport} sessionId={activeSessionId} />
         ) : null
-      ) : (
-        <Box flexDirection="column" flexGrow={1}>
-          {slice === null || slice.items.length === 0 || bootEcho ? (
-            // boot 骨架三态通吃（工单 10.17①）：连接中/空会话/resume 重现
-            <Box flexGrow={1} justifyContent="center">
-              <BootHeader slice={slice} models={models} columns={columns} />
-            </Box>
-          ) : (
-            <MessagePane slice={slice} maxLiveRows={liveBudget} />
-          )}
+      ) : models === null ? (
+        // 10.38：Static 首印不可更新——models 到位后才挂面板，信息盒首印即真值
+        <Box marginLeft={2}>
+          <Text color="gray">连接中...</Text>
         </Box>
+      ) : (
+        // 10.38：BootHeader 恒为 Static 首项（MessagePane 内），消息紧随其后——
+        // 帧内不再有居中 boot 分支；staticEpoch 变化时 Static 重挂整屏重印
+        <MessagePane
+          slice={slice}
+          maxLiveRows={liveBudget}
+          staticKey={staticEpoch + replayNonce}
+          header={<BootHeader slice={slice} models={models} columns={columns} />}
+        />
       )}
       {slashOpen && slashItems.length > 0 && panel === 'none' ? (
         <SlashMenu

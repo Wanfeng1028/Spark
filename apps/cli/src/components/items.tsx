@@ -84,11 +84,17 @@ export function ItemView({
   expandedReasoning: ReadonlySet<string>
 }) {
   if (item.kind === 'user') {
-    // Qwen 对齐（工单 10.36）：前缀 > 与正文同为 accent 紫（UserMessage 同款）
+    // Qwen 对齐（工单 10.38，PrefixedTextMessage 同构）：前缀列固定 2 列（符号+1 空隙），
+    // 正文 flexGrow 换行后对齐前缀列右侧；前缀与正文同为 accent 紫
     return (
-      <Text color="#CBA6F7">
-        &gt; {item.text}
-      </Text>
+      <Box flexDirection="row">
+        <Box width={2} flexShrink={0}>
+          <Text color="#CBA6F7">&gt;</Text>
+        </Box>
+        <Box flexGrow={1}>
+          <Text color="#CBA6F7">{item.text}</Text>
+        </Box>
+      </Box>
     )
   }
 
@@ -104,12 +110,17 @@ export function ItemView({
             .map((c) => (c.type === 'text' ? c.text : ''))
             .filter((t) => t !== '')
             .join('\n')
-    // Qwen 对齐（工单 10.36）：◆ 前缀（VS15 锁 1 列宽）accent 紫，正文默认前景
+    // Qwen 对齐（工单 10.38，PrefixedMarkdownMessage 同构）：◆ 前缀列 2 列（VS15 锁 1 列宽），
+    // 正文列 flexGrow——多行正文整体对齐前缀列右侧
     return (
-      <Text>
-        <Text color="#CBA6F7">{'◆︎ '}</Text>
-        {text}
-      </Text>
+      <Box flexDirection="row">
+        <Box width={2} flexShrink={0}>
+          <Text color="#CBA6F7">◆︎</Text>
+        </Box>
+        <Box flexGrow={1}>
+          <Text>{text}</Text>
+        </Box>
+      </Box>
     )
   }
 

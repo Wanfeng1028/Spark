@@ -1,17 +1,16 @@
 /**
- * 消息流面板：`<Static>` 承载已定稿显示行（写入终端 scrollback——保留原生滚动/搜索），
- * 底部活动区渲染仍在变化的尾部（流式 delta / 运行中工具 / 挂起审批前的过渡条目）。
- * 显示行=聚合行（工单 10.9 补齐：连续同类工具聚合「· N 次」，与 web 同套语义）——
- * 组行以整组为单位定稿入 scrollback（组内首条入 Static 后不可收回，见 flow-rows.rowSettled）。
- * 定稿判定与 web 投影同语义：条目只会由"活动"转"定稿"，前缀单调增长。
- *
- * 高度预算（工单 10.33——用户实测缺陷修复）：live 区必须装进"终端行数 − 底部固定件"
- * 的预算内，超预算只渲染尾部（保留最新内容），顶部以 `↑ N 行`折叠行明示——否则帧高
- * 超过终端，Ink 的交替帧重绘会推动终端滚动，底部固定件被顶出屏幕且光标错位不可恢复
- * （实测：发消息后界面拉长、输入框沉底；退出时残帧乱串同根因）。
+ * 消息流面板（工单 10.38 重构——qwen MainContent 同构）：
+ * `<Static>` items = [BootHeader 首项, ...已定稿显示行]——Header 恒为第一项印在终端
+ * scrollback 顶部（qwen AppHeader 同款），消息紧随其后，输入区紧跟内容下方（紧凑贴顶，
+ * 不再垂直居中/沉底）。staticKey 变化（/new 清屏、/resume、/rollback）强制 Static 重挂
+ * 重打（qwen historyRemountKey 同款机制，配合 ANSI 清屏实现"整屏回到欢迎首屏"）。
+ * 显示行=聚合行（工单 10.9：连续同类工具聚合「· N 次」）；行级定稿判定见 flow-rows.rowSettled。
+ * 高度预算（工单 10.33）：live 区只渲染尾部 maxLiveRows 行，顶部「↑ N 行已折叠」明示。
+ * 密度/缩进（HistoryItemDisplay 同构）：全行 marginX=2；user/assistant/reasoning 首块
+ * marginTop=1，tool/turn/组行紧贴。
  */
 import { Box, Static, Text } from 'ink'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import type { SessionSlice } from '@spark/protocol'
 import { flowRowsOf, rowSettled } from '../flow-rows.js'
 import type { FlowRow } from '../flow-rows.js'
@@ -23,32 +22,38 @@ function keyOf(row: FlowRow): string {
 }
 
 export interface MessagePaneProps {
-  /** live 区行数预算 = 终端 rows − 底部固定件行数（输入框/footer/审批框/菜单——app 计算后传入） */
+  slice: SessionSlice | null
+  /** live 区行数预算 = 终端 rows − 底部固定件行数（app 计算后传入） */
   maxLiveRows?: number
+  /** BootHeader 渲染所需 props（Static 首项恒印一次——qwen AppHeader 同款） */
+  header?: ReactNode
+  /** Static 重挂键：/new 清屏、/resume、/rollback 时 +1（配合 ANSI 清屏整屏重印） */
+  staticKey?: number
 }
 
-export function MessagePane({ slice, maxLiveRows }: MessagePaneProps & { slice: SessionSlice | null }) {
+interface StaticEntry {
+  key: string
+  row?: FlowRow
+  header?: ReactNode
+}
+
+export function MessagePane({ slice, maxLiveRows, header, staticKey = 0 }: MessagePaneProps) {
   const expandedTools = useExpandedTools()
   const expandedReasoning = useExpandedReasoning()
   const expandedGroups = useExpandedGroups()
 
-  if (slice === null) {
-    return (
-      <Box flexGrow={1} justifyContent="center" alignItems="center">
-        <Text color="gray">无会话——Ctrl+N 新建</Text>
-      </Box>
-    )
-  }
-
-  const rows = flowRowsOf(slice.items)
+  const rows =
+    slice === null
+      ? []
+      : flowRowsOf(slice.items).filter(
+          (r) => r.kind !== 'item' || r.item.kind !== 'approval' || r.item.status !== 'pending',
+        )
   let committedCount = 0
   while (committedCount < rows.length && rowSettled(rows[committedCount] as FlowRow)) {
     committedCount++
   }
   const committed = rows.slice(0, committedCount)
-  const allLive = rows
-    .slice(committedCount)
-    .filter((r) => r.kind !== 'item' || r.item.kind !== 'approval' || r.item.status === 'resolved')
+  const allLive = rows.slice(committedCount)
 
   // 高度预算：只装得下尾部 maxLiveRows 行时，裁掉头部并明示折叠行（预算缺省不裁——
   // 渲染测试/无 stdin 场景高度未知，保持原行为）
@@ -62,9 +67,26 @@ export function MessagePane({ slice, maxLiveRows }: MessagePaneProps & { slice: 
     live = allLive
   }
 
+  const staticItems: StaticEntry[] = [
+    ...(header !== undefined ? [{ key: 'boot-header', header }] : []),
+    ...committed.map((row) => ({ key: keyOf(row), row })),
+  ]
+
   return (
     <Box flexDirection="column" flexGrow={1}>
-      <Static items={committed}>{(row) => renderRow(row)}</Static>
+      {/* staticKey 作为 Static 组件自身的 React key：变化时整个 Static 卸载重建
+          （index 游标归零）——配合 ANSI 清屏实现"整屏重印"。items 内部 key 恒定。 */}
+      <Static key={staticKey} items={staticItems}>
+        {(entry) =>
+          entry.header !== undefined ? (
+            <Box key={entry.key} marginLeft={2} marginRight={2}>
+              {entry.header}
+            </Box>
+          ) : (
+            renderRow(entry.row as FlowRow)
+          )
+        }
+      </Static>
       {clipped > 0 ? (
         <Text color="gray">↑ {clipped} 行已折叠（定稿后进上方滚动区）</Text>
       ) : null}
@@ -83,8 +105,12 @@ export function MessagePane({ slice, maxLiveRows }: MessagePaneProps & { slice: 
       ) : (
         <ToolGroupLine row={row} expanded={expandedGroups.has(row.key)} expandedTools={expandedTools} />
       )
+    // 密度与缩进（HistoryItemDisplay 同构）：全行 marginX=2；行距按类——
+    // user/assistant/reasoning 首块 marginTop=1，tool/turn/组行紧贴
+    const kind = row.kind === 'item' ? row.item.kind : 'toolGroup'
+    const marginTop = kind === 'user' || kind === 'assistant' || kind === 'reasoning' ? 1 : 0
     return (
-      <Box key={keyOf(row)} marginBottom={1}>
+      <Box key={keyOf(row)} marginLeft={2} marginRight={2} marginTop={marginTop}>
         {content}
       </Box>
     )
