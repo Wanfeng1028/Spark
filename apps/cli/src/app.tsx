@@ -1,27 +1,12 @@
 /**
- * App（阶段十工单 10.8 纯单栏 / 10.10 面板族 / 10.11 收口 / 10.17 启动强化 /
- * 10.18 命令描述符分派，§13.K）：
- * 单栏会话优先（ADR D19 修订）：消息流 / 输入框 / footer 双行；会话管理退 /new 与
- * /resume；面板族（帮助/恢复/统计 + 10.18 模型/MCP/技能/用量/快照/树）覆盖内容区。
- * 命令分派（工单 10.18）：词表单一来源 = 注册表快照（协议描述符经 GET /api/commands
- * 下发），按 clientAction 分派；未实现动作不可达（清单即注册表面向），禁假状态。
- * 启动策略（工单 10.17，取舍见提交说明）：装载会话快照——有则激活最近更新会话，
- * 无则新建空会话；三态（连接中/失败/就绪）一律渲染 boot 骨架，失败给显式错误屏+重试。
- * 键位分层（工单 10.19④）：输入框有焦点时文本键由 InputBox 消费，App 全局键只识别
- * 单码元输入（组字串作原子文本插入，不猜键）；面板激活时 ↑↓/Enter 归面板。
+ * CLI 主组件（工单 10.43 拆分后=组装壳）：store 订阅 / 派生态 / 优雅退出 / 清屏机制 /
+ * 渲染组装。职责分布：全局键位=hooks/use-cli-keys；会话事件流=hooks/use-session-stream；
+ * 会话与命令操作=hooks/use-cli-actions；消息流=components/MessagePane。
  */
-import { Box, Text, useApp, useInput, useStdout } from 'ink'
+import { Box, Text, useApp, useStdout } from 'ink'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { HttpTransport, SessionEventSource, errorMessageOf, humanizeError, ids } from '@spark/protocol'
-import type {
-  ClientAction,
-  ReasoningEffort,
-  RequestId,
-  SessionId,
-  SparkEventEnvelope,
-} from '@spark/protocol'
-import { flowRowsOf } from './flow-rows.js'
-import { createCliActionHandlers } from './client-actions.js'
+import { HttpTransport, humanizeError } from '@spark/protocol'
+import type { RequestId } from '@spark/protocol'
 import { useCliStore } from './store.js'
 import { MessagePane } from './components/MessagePane.js'
 import { InputBox } from './components/InputBox.js'
@@ -42,15 +27,9 @@ import {
   UsagePanel,
 } from './components/CommandPanels.js'
 import { SlashMenu, SLASH_PAGE_SIZE, filterSlashCommands } from './components/SlashMenu.js'
-
-/** 双击 Ctrl+C 判定窗口 */
-const CTRL_C_WINDOW_MS = 800
-
-/** effort 参数解析（/effort <low|medium|high>） */
-function parseEffort(arg: string | undefined): ReasoningEffort | null {
-  if (arg === 'low' || arg === 'medium' || arg === 'high') return arg
-  return null
-}
+import { useCliKeys } from './hooks/use-cli-keys.js'
+import { useSessionStream } from './hooks/use-session-stream.js'
+import { useCliActions } from './hooks/use-cli-actions.js'
 
 export function App({ baseUrl }: { baseUrl: string }) {
   const { exit } = useApp()
@@ -90,9 +69,6 @@ export function App({ baseUrl }: { baseUrl: string }) {
   const [rejecting, setRejecting] = useState<RequestId | null>(null)
   /** /resume 预览态（工单 10.11 / §13.K K.7：Space 切换，选中即预览对象） */
   const [resumePreview, setResumePreview] = useState(false)
-  /** 最近一次发送失败的文本（Ctrl+R 重试数据源——发送失败时引擎无 user 事件可回溯） */
-  const lastFailedRef = useRef<string | null>(null)
-  const lastCtrlCRef = useRef(0)
 
   // ---------- resize 重渲染（工单 10.17③：终端尺寸变化即时重排，不错行） ----------
 
@@ -140,95 +116,15 @@ export function App({ baseUrl }: { baseUrl: string }) {
     if (panel !== 'resume') setResumePreview(false)
   }, [panel])
 
-  // ---------- 启动（工单 10.17①④）：快照装载，失败显式错误屏+重试 ----------
+  // ---------- 清屏 + Static 重挂（工单 10.38/10.40，qwen refreshStatic 同款） ----------
 
-  /**
-   * 启动策略（工单 10.17①，取舍见提交说明）：装载会话快照——有则激活最近更新会话，
-   * 无则新建空会话（不采用"一律新建"：会丢用户上次工作现场）。
-   */
-  const boot = useCallback((): (() => void) => {
-    let disposed = false
-    const st = useCliStore.getState()
-    st.setBootError(null)
-    transport
-      .listSessions()
-      .then((list) => {
-        if (disposed) return
-        useCliStore.getState().setSessions(list)
-        const first = [...list].sort((a, b) => b.updatedAt - a.updatedAt)[0]
-        if (first !== undefined) {
-          useCliStore.getState().setActiveSession(first.id)
-        } else {
-          return transport.createSession().then((dto) => {
-            if (disposed) return
-            useCliStore.getState().setSessions([dto])
-            useCliStore.getState().setActiveSession(dto.id)
-          })
-        }
-      })
-      .catch((err: unknown) => {
-        // 工单 10.17④：显式错误屏+重试键位，不再只挂 notice
-        if (!disposed) useCliStore.getState().setBootError(errorMessageOf(err))
-      })
-    // 模型目录：水位计算用；失败静默（水位如实缺省，不阻塞）
-    transport
-      .listModels()
-      .then((m) => {
-        if (!disposed) useCliStore.getState().setModels(m)
-      })
-      .catch(() => undefined)
-    // 命令注册表（工单 10.10/10.18）：帮助面板与 slash 菜单数据源；失败如实空清单
-    transport
-      .listCommands()
-      .then((c) => {
-        if (!disposed) useCliStore.getState().setCommands(c)
-      })
-      .catch(() => undefined)
-    return () => {
-      disposed = true
-    }
-  }, [transport])
-
-  useEffect(() => boot(), [boot])
-
-  // ---------- 会话级事件流（含断线退避重连 + since=seq 续播） ----------
-
-  useEffect(() => {
-    if (activeSessionId === null) return
-    const store = useCliStore.getState()
-    const source = new SessionEventSource({
-      baseUrl,
-      sessionId: activeSessionId,
-      since: 0,
-      onStatus: (s) => {
-        useCliStore.getState().setStatus(s)
-        // 连接/重连成功：刷新会话快照（自动化等外部新建会话于此可见）
-        if (s === 'open') {
-          transport
-            .listSessions()
-            .then((list) => useCliStore.getState().setSessions(list))
-            .catch(() => undefined)
-        }
-      },
-      onEvent: (e: SparkEventEnvelope) => {
-        store.apply(e)
-      },
-    })
-    return () => {
-      source.dispose()
-    }
-    // replayNonce：回滚后 seq 倒退，需 since=0 重订阅重放（工单 10.18 /rollback）
-  }, [activeSessionId, baseUrl, transport, replayNonce])
-
-  // 清屏 + Static 重挂（工单 10.38/10.40，qwen refreshStatic 同款）：/new、/resume、/rollback 时
-  // ANSI 清屏归位 + staticEpoch++，BootHeader 首项与历史整屏重印——"回到欢迎首屏"统一机制。
-  // 转义序列 = ansi-escapes.clearTerminal 同款：2J 清视口 + **3J 清 scrollback** + H 归位——
-  // 缺 3J 时光标归位到 scrollback 内，后续输出插在旧消息中间（实测 /new 后 logo 错位到对话中部）
+  // ANSI 清屏归位（2J 视口 + 3J scrollback + H 归位——缺 3J 输出会插在旧消息中间）
+  // + staticEpoch++，BootHeader 首项与历史整屏重印——"回到欢迎首屏"统一机制
   const [staticEpoch, setStaticEpoch] = useState(0)
-  const clearScreen = (): void => {
+  const clearScreen = useCallback((): void => {
     stdout?.write('\x1b[2J\x1b[3J\x1b[H')
     setStaticEpoch((n) => n + 1)
-  }
+  }, [stdout])
 
   // ---------- 优雅退出（工单 8.4：无悬挂 turn） ----------
 
@@ -259,349 +155,35 @@ export function App({ baseUrl }: { baseUrl: string }) {
     }
   }, [quit])
 
-  // ---------- 动作 ----------
+  // ---------- 动作 / 事件流 / 全局键位（10.43 抽取的 hooks） ----------
 
-  function replyApproval(
-    requestId: RequestId,
-    reply: 'once' | 'always' | 'reject',
-    feedback?: string,
-  ): void {
-    transport
-      .replyPermission(requestId, reply, feedback)
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
-  }
+  const actions = useCliActions({ transport, clearScreen, resumeFiltered, resumeSelected })
+  useSessionStream(baseUrl, transport)
 
-  function newSession(): void {
-    transport
-      .createSession()
-      .then((dto) => {
-        const st = useCliStore.getState()
-        st.setSessions([...st.sessions, dto])
-        st.setActiveSession(dto.id)
-        // /new 语义对齐 Qwen clearCommand（工单 10.35/10.38）：新会话 = 整屏清空回到
-        // 欢迎首屏——ANSI 清屏 + Static 重挂（BootHeader 首项重印）+ UI 态归位。
-        // 旧会话保留在 /resume 可回。
-        const s2 = useCliStore.getState()
-        s2.resetUi()
-        clearScreen()
-      })
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
-  }
-
-  function switchSession(offset: 1 | -1): void {
-    const { sessions: list, activeSessionId: sid, setActiveSession } = useCliStore.getState()
-    if (list.length === 0) return
-    const sorted = [...list].sort((a, b) => b.updatedAt - a.updatedAt)
-    const i = sorted.findIndex((s) => s.id === sid)
-    const next = sorted[(i + offset + sorted.length) % sorted.length]
-    if (next !== undefined) setActiveSession(next.id)
-  }
-
-  /** 恢复会话（工单 10.11）：切激活触发 since=0 全量重放；10.38 起清屏重印（header+历史） */
-  function confirmResume(): void {
-    const target = resumeFiltered[resumeSelected]
-    if (target === undefined) return
-    const st = useCliStore.getState()
-    st.setActiveSession(target.id)
-    st.setPanel('none')
-    st.setDraftPreview('')
-    st.resetUi()
-    clearScreen()
-  }
-
-  /** 从最近事件分叉（/fork）：走引擎既有端点（工单 4.5），成功后切新会话 */
-  function forkAtLast(): void {
-    const st = useCliStore.getState()
-    const sid = st.activeSessionId
-    if (sid === null) return
-    const items = st.byId[sid]?.items ?? []
-    const last = items[items.length - 1]
-    if (last === undefined) {
-      st.setNotice('空会话无可分叉事件')
-      return
-    }
-    transport
-      .fork(sid, last.eventId)
-      .then((dto) => {
-        const st2 = useCliStore.getState()
-        st2.setSessions([...st2.sessions, dto])
-        st2.setActiveSession(dto.id)
-        st2.setNotice(`已分叉新会话 ${dto.id}`)
-      })
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
-  }
-
-  /** 回滚到快照（/rollback <id>）：回滚后 seq 倒退，resetSlice + 重订阅重放 */
-  function rollbackTo(arg: string | undefined): void {
-    const st = useCliStore.getState()
-    const sid = st.activeSessionId
-    if (sid === null) return
-    if (arg === undefined || arg === '') {
-      st.setNotice('用法：/rollback <checkpoint-id>（/checkpoint 查看列表）')
-      return
-    }
-    transport
-      .rollbackCheckpoint(sid, ids.checkpoint(arg))
-      .then(() => {
-        const st2 = useCliStore.getState()
-        st2.resetSlice(sid) // 清旧投影，重放重建（回滚后 seq 倒退）
-        st2.bumpReplay() // 事件流 since=0 重订阅
-        st2.setNotice('已回滚，重放中')
-      })
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
-  }
-
-  /** 设置推理档位（/effort <low|medium|high>）：走既有 setSessionEffort 端点 */
-  function setEffort(arg: string | undefined): void {
-    const st = useCliStore.getState()
-    const sid = st.activeSessionId
-    if (sid === null) return
-    const effort = parseEffort(arg)
-    if (effort === null) {
-      st.setNotice('用法：/effort low|medium|high')
-      return
-    }
-    transport
-      .setSessionEffort(sid, effort)
-      .then((applied) => useCliStore.getState().setNotice(`推理档位已设 ${applied}（下一轮生效）`))
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
-  }
-
-  /**
-   * client 命令分派（工单 10.18② / 10.25）：映射表抽至 client-actions.ts——Record 键
-   * 穷举由编译期强制，覆盖不变量由 tests/client-actions.test.ts 断言（10.18③ 残项收口）；
-   * sessionRequired 命令无激活会话时拒绝（禁假状态）。
-   */
-  function runClientAction(action: ClientAction, args: string | undefined): void {
-    const handlers = createCliActionHandlers({
-      getState: useCliStore.getState,
-      newSession,
-      forkAtLast,
-      rollbackTo,
-      setEffort,
-    })
-    handlers[action](args)
-  }
-
-  function submit(text: string): void {
-    const { delivery: mode, setNotice } = useCliStore.getState()
-    setNotice(null)
-
-    // /resume 面板内：Enter = 恢复选中会话（过滤文本不入命令通道）
-    if (panel === 'resume') {
-      confirmResume()
-      return
-    }
-
-    const sid = useCliStore.getState().activeSessionId
-    if (sid === null) return
-
-    // 命令（工单 10.18 描述符分派）：词表单一来源 = 注册表快照（协议描述符下发）
-    if (text.startsWith('/')) {
-      const body = text.slice(1)
-      const sp = body.indexOf(' ')
-      // 工单 10.18④：选中项不再覆盖裸输入——执行的就是输入的文本
-      // （原实现输 /s 回车实跑 /skills；选中项只是视觉引导）
-      const name = sp === -1 ? body : body.slice(0, sp)
-      const args = sp === -1 ? undefined : body.slice(sp + 1).trim()
-      if (name === '') return
-      const cmd = commands.find((c) => c.name === name)
-      if (cmd !== undefined && cmd.kind === 'client') {
-        if (cmd.clientAction !== undefined) {
-          runClientAction(cmd.clientAction, args !== '' ? args : undefined)
-        } else {
-          setNotice('该命令本端未实现') // 清单面向本端过滤后不应出现——兜底不假执行
-        }
-        return
-      }
-      // action（compact）与 prompt（.md 自定义）走引擎统一入口（工单 7.4）
-      transport
-        .executeCommand(sid, name, args !== '' ? args : undefined)
-        .catch((err: unknown) => setNotice(errorMessageOf(err)))
-      return
-    }
-
-    transport
-      .sendMessage(sid, text, { delivery: mode })
-      .catch((err: unknown) => {
-        lastFailedRef.current = text // Ctrl+R 重试数据源（工单 10.11 / §13.K K.8）
-        useCliStore.getState().setNotice(errorMessageOf(err))
-      })
-  }
-
-  /** 面板内模型切换（/model 面板确认——走既有 setSessionModel 端点） */
-  function pickModel(model: string): void {
-    const st = useCliStore.getState()
-    const sid = st.activeSessionId
-    if (sid === null) return
-    transport
-      .setSessionModel(sid, model)
-      .then((applied) => {
-        useCliStore.getState().setPanel('none')
-        useCliStore.getState().setNotice(`模型已切 ${applied}（下一轮生效）`)
-      })
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
-  }
-
-  useInput((input, key) => {
-    // Ctrl+C 双击退出（工单 8.3）；单击提示
-    if (key.ctrl && input === 'c') {
-      const now = Date.now()
-      if (now - lastCtrlCRef.current < CTRL_C_WINDOW_MS) {
-        quit()
-      } else {
-        lastCtrlCRef.current = now
-        // 10.41：turn 运行中首击 Ctrl+C = 中断当前回合（生成立即停止），并提示可再击退出——
-        // 用户直觉"Ctrl+C 让它停下"；双击窗口内仍按退出流程
-        const s = useCliStore.getState()
-        const sid = s.activeSessionId
-        if (sid !== null && (s.byId[sid]?.activeTurn ?? null) !== null) {
-          void transport.interrupt(sid).catch(() => undefined)
-          useCliStore.getState().setNotice('已请求中断当前回合 · 再按一次 Ctrl+C 退出')
-        } else {
-          useCliStore.getState().setNotice('再按一次 Ctrl+C 退出')
-        }
-      }
-      return
-    }
-    // Ctrl+R 重试（工单 10.11 / §13.K K.8）：启动失败重试优先（工单 10.17④）
-    if (key.ctrl && input === 'r') {
-      if (bootError !== null) {
-        boot()
-        return
-      }
-      const s = useCliStore.getState()
-      const sid: SessionId | null = s.activeSessionId
-      if (sid === null) return
-      if ((s.byId[sid]?.activeTurn ?? null) !== null) return
-      const text =
-        lastFailedRef.current ??
-        (() => {
-          const items2 = s.byId[sid]?.items ?? []
-          for (let i = items2.length - 1; i >= 0; i--) {
-            const it = items2[i]
-            if (it !== undefined && it.kind === 'user') return it.text
-          }
-          return null
-        })()
-      if (text === null || text === '') return
-      s.setNotice(null)
-      transport
-        .sendMessage(sid, text, { delivery: s.delivery })
-        .catch((err: unknown) => {
-          lastFailedRef.current = text
-          useCliStore.getState().setNotice(errorMessageOf(err))
-        })
-      return
-    }
-    if (key.escape) {
-      // 面板优先关闭（键位表纪律：Esc 面板开放时先关面板）
-      if (panel !== 'none') {
-        useCliStore.getState().setPanel('none')
-        useCliStore.getState().setDraftPreview('')
-        return
-      }
-      if (rejecting !== null) {
-        setRejecting(null) // 拒绝反馈中途取消
-        return
-      }
-      // Esc 中断 turn（工单 8.3）；无 turn 时清提示
-      const st = useCliStore.getState()
-      if (st.activeSessionId !== null) {
-        transport.interrupt(st.activeSessionId).catch((err: unknown) => {
-          st.setNotice(errorMessageOf(err))
-        })
-      }
-      st.setNotice(null)
-      return
-    }
-    if (key.tab) {
-      // 帮助面板内 Tab/Shift+Tab 切 tab（§13.K K.6）；面板外循环提交模式
-      if (panel === 'help') {
-        useCliStore.getState().cycleHelpTab(key.shift ? -1 : 1)
-        return
-      }
-      if (panel === 'none') useCliStore.getState().cycleDelivery()
-      return
-    }
-    // /resume 面板：Enter 由 App 层接管（工单 10.17⑤——修空过滤词 Enter 被吞）
-    if (key.return && panel === 'resume') {
-      confirmResume()
-      return
-    }
-    // ? 帮助面板（工单 10.10）：仅输入为空时唤起——避免吞掉正文输入
-    if (input === '?' && panel === 'none' && draftPreview === '' && pendingApproval === null) {
-      useCliStore.getState().setPanel('help')
-      return
-    }
-    // ↑↓：slash 菜单 / resume 面板导航；其余面板 ↑↓ 归面板自身（CommandPanels）
-    if (key.upArrow || key.downArrow) {
-      const dir = key.upArrow ? -1 : 1
-      if (slashOpen && slashItems.length > 0) {
-        const total = slashItems.length
-        const next = (slashSelected + dir + total) % total
-        setSlashSelected(next)
-        return
-      }
-      if (panel === 'resume' && resumeFiltered.length > 0) {
-        const total = resumeFiltered.length
-        const next = (resumeSelected + dir + total) % total
-        setResumeSelected(next)
-        return
-      }
-      return
-    }
-    if (key.ctrl && input === 'n') {
-      newSession()
-      return
-    }
-    if (key.pageUp || key.pageDown) {
-      switchSession(key.pageUp ? -1 : 1)
-      return
-    }
-    if (key.ctrl && input === 'o') {
-      // 展开/折叠最近一个工具或思考条目（工单 8.3）；工具在聚合组内时切换整组（工单 10.9）
-      const s = useCliStore.getState()
-      const items2 = s.activeSessionId === null ? [] : (s.byId[s.activeSessionId]?.items ?? [])
-      const rows = flowRowsOf(items2)
-      for (let i = items2.length - 1; i >= 0; i--) {
-        const it = items2[i]
-        if (it === undefined) continue
-        if (it.kind === 'tool') {
-          const group = rows.find(
-            (r) => r.kind === 'toolGroup' && r.tools.some((t) => t.callId === it.callId),
-          )
-          if (group !== undefined) {
-            s.toggleToolGroup(group.key)
-            return
-          }
-          s.toggleTool(it.callId)
-          return
-        }
-        if (it.kind === 'reasoning') {
-          s.toggleReasoning(it.eventId)
-          return
-        }
-      }
-      return
-    }
-    // 审批键（工单 10.9：1/2/3 数字键直达，y/a/n 别名；挂起且非反馈模式时接管）。
-    // 键位分层（工单 10.19④）：只识别单码元输入——组字串（多字符块）作原子文本
-    // 由 InputBox 插入，不猜键（防组字期 1/2/y/n 劫持；? 同口径见上；
-    // IME 深层残余挂 V2-26 不在本工单）
-    if (pendingApproval !== null && rejecting === null && [...input].length === 1) {
-      if (input === '1' || input === 'y') {
-        replyApproval(pendingApproval.requestId, 'once')
-        return
-      }
-      if (input === '2' || input === 'a') {
-        replyApproval(pendingApproval.requestId, 'always')
-        return
-      }
-      if (input === '3' || input === 'n') {
-        setRejecting(pendingApproval.requestId)
-      }
-    }
+  const lastFailedRef = useRef<string | null>(null)
+  useCliKeys({
+    transport,
+    boot: actions.boot,
+    quit,
+    resumeFiltered,
+    resumeSelected,
+    setResumeSelected,
+    slashOpen,
+    slashItems,
+    slashSelected,
+    setSlashSelected,
+    lastFailedRef,
+    pendingApproval,
+    rejecting,
+    setRejecting,
+    actions: {
+      replyApproval: actions.replyApproval,
+      newSession: actions.newSession,
+      switchSession: actions.switchSession,
+      confirmResume: actions.confirmResume,
+    },
+    panel,
+    draftPreview,
   })
 
   // ---------- 提示行：REST 失败优先；引擎 error 事件人话化（共享文案表，§13.K K.8） ----------
@@ -617,14 +199,11 @@ export function App({ baseUrl }: { baseUrl: string }) {
   // 输入框只在主界面与 resume 过滤态激活（其余面板 ↑↓/Enter 归面板——键位分层）
   const inputBoxActive = inputActive && (panel === 'none' || panel === 'resume')
 
-  // ---------- 渲染：启动错误屏优先 / 面板族 / boot 骨架 / 会话流 ----------
-
   /**
    * live 区行数预算（工单 10.33）：终端行数 − 底部固定件（menu 模式面板按行计不进
    * 此列——面板态 MessagePane 不渲染；此处只算与会话流同帧共存的件）：
-   * InputBox 1 行 + Footer 2 行（+断线异常行 1）+ slash 菜单（开着才计，1 页 8 行 +
-   * 计数行）+ 错误区 2 行（出现才计）+ 审批框（挂起才计，3-6 行按保守 6）。
-   * live 折叠提示行也占预算——再减 1。floor 到 1 保证最窄终端仍渲染最新一行。
+   * InputBox 2 行（顶横线+内容行）+ Footer 2 行（+断线异常行 1）+ slash 菜单（开着才计）
+   * + 错误区 2 行（出现才计）+ 审批框（挂起才计，保守 6）。live 折叠提示行也占预算——再减 1。
    */
   const slashRows = slashOpen && slashItems.length > 0 && panel === 'none' ? SLASH_PAGE_SIZE + 1 : 0
   const errorRows = errorInfo !== null ? 2 : 0
@@ -632,8 +211,10 @@ export function App({ baseUrl }: { baseUrl: string }) {
   const abnormalRows = connStatus !== 'open' ? 1 : 0
   const liveBudget = Math.max(
     1,
-    rows - 1 - 2 - abnormalRows - slashRows - errorRows - approvalRows - 1,
+    rows - 2 - 2 - abnormalRows - slashRows - errorRows - approvalRows - 1,
   )
+
+  // ---------- 渲染：启动错误屏优先 / 面板族 / boot 骨架 / 会话流 ----------
 
   if (bootError !== null) {
     return (
@@ -665,7 +246,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
         <ModelPanel
           models={models}
           current={slice !== null && slice.meta.model !== '' ? slice.meta.model : null}
-          onPick={pickModel}
+          onPick={actions.pickModel}
         />
       ) : panel === 'mcp' ? (
         <McpPanel transport={transport} />
@@ -724,7 +305,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
           placeholder="填写后 Enter 确认拒绝，Esc 取消"
           maxWidth={columns}
           onSubmit={(text) => {
-            replyApproval(rejecting, 'reject', text)
+            actions.replyApproval(rejecting, 'reject', text)
             setRejecting(null)
           }}
         />
@@ -741,7 +322,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
                 ? '等待审批——1 允许一次 / 2 总是允许 / 3 拒绝'
                 : '输入您的消息或 @ 文件路径'
           }
-          onSubmit={submit}
+          onSubmit={(text) => actions.submit(text)}
           onPreview={(v) => useCliStore.getState().setDraftPreview(v)}
           {...(panel === 'resume'
             ? {
@@ -754,4 +335,5 @@ export function App({ baseUrl }: { baseUrl: string }) {
       <Footer slice={slice} />
     </Box>
   )
+
 }

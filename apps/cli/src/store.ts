@@ -86,6 +86,12 @@ export interface CliState extends ProjectionState {
   bumpReplay: () => void
   /** 新建会话的 UI 态归位（工单 10.35）：展开集合/草稿/提示/面板/错误全部回到初始 */
   resetUi: () => void
+  /** 最近一次发送失败的文本（Ctrl+R 重试数据源——工单 10.11） */
+  lastFailed: string | null
+  setLastFailed: (v: string | null) => void
+  /** Ctrl+C 双击窗口基准（10.43 移入 store——keys hook 与 app 共享） */
+  lastCtrlC: number
+  setLastCtrlC: (n: number) => void
 }
 
 function toggle(set: ReadonlySet<string>, key: string): ReadonlySet<string> {
@@ -140,6 +146,10 @@ export const useCliStore = create<CliState>()((set) => ({
   setBootError: (bootError) => set({ bootError }),
   setBootEcho: (bootEcho) => set({ bootEcho }),
   bumpReplay: () => set((s) => ({ replayNonce: s.replayNonce + 1 })),
+  lastFailed: null,
+  setLastFailed: (lastFailed) => set({ lastFailed }),
+  lastCtrlC: 0,
+  setLastCtrlC: (lastCtrlC) => set({ lastCtrlC }),
   resetUi: () =>
     set({
       expandedTools: new Set<string>(),

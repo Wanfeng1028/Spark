@@ -12,7 +12,7 @@
  * IME 组合态（§13.K K.9）：候选窗由终端/系统绘制；组合确认文本整段到达时
  * 按原子文本插入（不猜键；键位分层见 App 层，深层残余挂 V2-26）。
  */
-import { Box, Text, useInput } from 'ink'
+import { Box, Text, useCursor, useInput, type DOMElement } from 'ink'
 import { useRef, useState } from 'react'
 import { displayWidth, graphemesOf } from '../text-width.js'
 
@@ -57,6 +57,20 @@ function renderWindow(
   return { start, end }
 }
 
+/** 帧内绝对坐标（工单 10.42）：沿 yogaNode.parent 链向上累加 computed left/top——
+ * qwen ink7 getAbsolutePosition 的 ink 6.8 等价实现（ink7 已将其 API 化） */
+function absolutePosition(el: DOMElement): { left: number; top: number } {
+  let left = 0
+  let top = 0
+  let node: DOMElement | undefined = el
+  while (node !== undefined) {
+    left += node.yogaNode?.getComputedLeft() ?? 0
+    top += node.yogaNode?.getComputedTop() ?? 0
+    node = node.parentNode
+  }
+  return { left, top }
+}
+
 export function InputBox({
   active,
   prefix,
@@ -71,6 +85,11 @@ export function InputBox({
   const [cursor, setCursor] = useState(0)
   const valueRef = useRef('')
   const cursorRef = useRef(0)
+  // 物理光标定位（工单 10.42，qwen BaseTextInput 同模式）：IME 组字窗跟随终端物理光标——
+  // 软光标（inverse）不移动物理光标，组字串会画到帧外（实测左下角）。渲染期 setter +
+  // getter 延迟求值（布局完成后再读 yoga 坐标），active=false / 未挂载时隐藏。
+  const boxRef = useRef<DOMElement | null>(null)
+  const { setCursorPosition } = useCursor()
 
   /** 写权威源 + 触发渲染（两源同步——渲染只读 state，键处理只读 ref） */
   function commit(v: string, c: number): void {
@@ -147,6 +166,23 @@ export function InputBox({
       ? graphemes.slice(safeCursor + 1, win.end).join('')
       : graphemes.slice(safeCursor + 1).join('')
 
+  // 物理光标位置（工单 10.42）：渲染期计算并 setter（qwen：Ink 在 commit 布局完成后才读
+  // getter）；y = 内容行帧内行号，x = 前缀 + 光标前文本的显示宽度（borderBottom 无左右框）
+  const abs = boxRef.current !== null ? absolutePosition(boxRef.current) : null
+  if (active && abs !== null) {
+    const col = displayWidth(prefix) + displayWidth(before)
+    setCursorPosition({
+      get x() {
+        return abs.left + col
+      },
+      get y() {
+        return abs.top
+      },
+    })
+  } else {
+    setCursorPosition(undefined)
+  }
+
   return (
     <Box flexDirection="column" width={maxWidth}>
       {/* Qwen 对齐（工单 10.36/10.38，BaseTextInput 同款）：顶横线与底边框盒同宽——
@@ -154,7 +190,16 @@ export function InputBox({
       <Text color="gray" wrap="truncate-end">
         {'─'.repeat(Math.max(0, maxWidth ?? 80))}
       </Text>
-      <Box borderStyle="single" borderColor="gray" borderBottom width={maxWidth}>
+      <Box
+        ref={boxRef}
+        borderStyle="single"
+        borderColor="gray"
+        borderBottom
+        borderTop={false}
+        borderLeft={false}
+        borderRight={false}
+        width={maxWidth}
+      >
         <Text>
           <Text color="#CBA6F7">{prefix}</Text>
           {value === '' ? (
