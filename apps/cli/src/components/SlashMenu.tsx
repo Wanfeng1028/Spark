@@ -64,9 +64,13 @@ export function SlashMenu({ items, selected, page }: SlashMenuProps) {
         </Text>,
       )
     }
+    // Qwen 对齐（工单 10.36，SuggestionsDisplay 同款）：活动行 `> ` 紫标记列，普通行两空格；
+    // 命令名 accent 紫；描述 gray。不再整行反色（保留 8 项截图里的"> 标记+右移"形态）
+    const active = idx === selected
     rows.push(
-      <Text key={c.name} inverse={idx === selected} wrap="truncate-end">
-        <Text color="cyan">/{c.name}</Text>
+      <Text key={c.name} wrap="truncate-end">
+        <Text color={active ? '#CBA6F7' : 'gray'}>{active ? '> ' : '  '}</Text>
+        <Text color="#CBA6F7">/{c.name}</Text>
         {'  '}
         <Text color="gray">{c.description}</Text>
       </Text>,

@@ -52,35 +52,25 @@ export function Footer({ slice }: { slice: SessionSlice | null }) {
               : '连接已断开'}
         </Text>
       ) : null}
-      {/* 第 1 行：→项目 · git:(分支) · 模型 · 上下文 % */}
-      <Text color="gray">
-        →{cwd !== null ? projectOf(cwd) : '—'}
-        {branch !== null && branch !== '' ? (
-          <>
-            {' '}
-            <Text color="gray">git:(</Text>
-            {branch}
-            <Text color="gray">)</Text>
-          </>
-        ) : null}
-        {slice !== null && slice.meta.model !== '' ? (
-          <>
-            <Text color="gray"> · </Text>
-            {slice.meta.model}
-          </>
-        ) : null}
+      {/* Qwen 对齐（工单 10.37，Footer space-between 单行形态）：左=工作区+git 分支，右=上下文占用 */}
+      <Box flexDirection="row" justifyContent="space-between" width="100%" paddingLeft={2} paddingRight={2} gap={1}>
+        <Text color="gray" wrap="truncate">
+          →{cwd !== null ? projectOf(cwd) : '—'}
+          {branch !== null && branch !== '' ? (
+            <>
+              {' '}
+              git:({branch})
+            </>
+          ) : null}
+          {slice !== null && slice.meta.model !== '' ? ` · ${slice.meta.model}` : ''}
+        </Text>
         {ratio !== null ? (
-          <>
-            <Text color="gray"> · 上下文 </Text>
-            {warn ? (
-              <Text color="yellow">{Math.min(100, Math.round(ratio * 100))}%</Text>
-            ) : (
-              <Text>{Math.min(100, Math.round(ratio * 100))}%</Text>
-            )}
-          </>
+          <Text color={warn ? 'red' : 'gray'}>
+            {Math.min(100, Math.round(ratio * 100))}% 上下文已用
+          </Text>
         ) : null}
-      </Text>
-      {/* 第 2 行：提交模式 · 运行中指示 · 帮助/统计入口 */}
+      </Box>
+      {/* 第 2 行（Spark 保留件）：提交模式 · 运行指示 · 帮助/统计入口 */}
       <Text color="gray">
         [{delivery}]
         {slice?.compacting === true ? <Text color="yellow"> · 压缩中...</Text> : null}

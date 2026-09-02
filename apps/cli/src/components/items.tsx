@@ -59,7 +59,7 @@ function isDenied(item: Extract<UiItem, { kind: 'tool' }>): boolean {
 }
 
 /** 秒级时长（进行中每秒自刷——终端重绘由 state 驱动） */
-function useNow(active: boolean): number {
+export function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!active) return
@@ -84,10 +84,10 @@ export function ItemView({
   expandedReasoning: ReadonlySet<string>
 }) {
   if (item.kind === 'user') {
+    // Qwen 对齐（工单 10.36）：前缀 > 与正文同为 accent 紫（UserMessage 同款）
     return (
-      <Text>
-        <Text bold>&gt; </Text>
-        {item.text}
+      <Text color="#CBA6F7">
+        &gt; {item.text}
       </Text>
     )
   }
@@ -104,7 +104,13 @@ export function ItemView({
             .map((c) => (c.type === 'text' ? c.text : ''))
             .filter((t) => t !== '')
             .join('\n')
-    return <Text>{text}</Text>
+    // Qwen 对齐（工单 10.36）：◆ 前缀（VS15 锁 1 列宽）accent 紫，正文默认前景
+    return (
+      <Text>
+        <Text color="#CBA6F7">{'◆︎ '}</Text>
+        {text}
+      </Text>
+    )
   }
 
   if (item.kind === 'reasoning') {
@@ -155,20 +161,23 @@ function ReasoningLine({
     const label =
       sec !== null
         ? streaming
-          ? `思考 · ${sec} 秒`
-          : `思考 · 持续 ${sec} 秒`
+          ? `Thinking…${sec} 秒`
+          : `Thought for ${sec} 秒`
         : streaming
-          ? '思考中...'
+          ? 'Thinking…'
           : `思考（${item.text.length} 字）`
+    // Qwen 对齐（工单 10.36）：∴ 完成 / ∵ 进行中，dimColor italic（ThinkMessage 同款）
     return (
-      <Text color="gray">
-        .: {label} (ctrl+o 展开/收起)
+      <Text color="gray" italic>
+        {streaming ? '∵' : '∴'} {label} (ctrl+o 展开/收起)
       </Text>
     )
   }
   return (
     <Box flexDirection="column">
-      <Text color="gray">.: 思考：</Text>
+      <Text color="gray" italic>
+        {streaming ? '∵' : '∴'} 思考：
+      </Text>
       {item.text.split('\n').map((line, i) => (
         <Text key={i} color="gray">
           {'  '}

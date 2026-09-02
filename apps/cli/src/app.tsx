@@ -27,6 +27,7 @@ import { MessagePane } from './components/MessagePane.js'
 import { InputBox } from './components/InputBox.js'
 import { Footer } from './components/Footer.js'
 import { BootHeader } from './components/BootHeader.js'
+import { LoadingIndicator } from './components/LoadingIndicator.js'
 import { ApprovalPrompt } from './components/ApprovalPrompt.js'
 import type { ApprovalItem } from './components/ApprovalPrompt.js'
 import { HelpPanel } from './components/HelpPanel.js'
@@ -222,7 +223,8 @@ export function App({ baseUrl }: { baseUrl: string }) {
     // replayNonce：回滚后 seq 倒退，需 since=0 重订阅重放（工单 10.18 /rollback）
   }, [activeSessionId, baseUrl, transport, replayNonce])
 
-  // boot 重现退场：新事件到达（水位越过基准）即让位会话流（工单 10.17③）
+  // boot 重现退场：新事件到达（水位越过基准）即让位会话流（工单 10.17③）。
+  // 新建会话（工单 10.35）基准取空会话现值——新会话首条事件（session.created 等）即触发退场。
   useEffect(() => {
     if (!bootEcho || slice === null) return
     if (slice.lastSeq > echoBaseSeqRef.current) useCliStore.getState().setBootEcho(false)
@@ -276,6 +278,16 @@ export function App({ baseUrl }: { baseUrl: string }) {
         const st = useCliStore.getState()
         st.setSessions([...st.sessions, dto])
         st.setActiveSession(dto.id)
+        // /new 语义对齐 Qwen clearCommand（工单 10.35）：新会话 = 整屏清空回到欢迎首屏。
+        // 终端 ANSI 清屏+归位（清掉已写入 scrollback 视口的旧渲染帧），UI 态全部重置——
+        // 展开集合/草稿预览/错误提示/面板归位；bootEcho 置 true 让 BootHeader 重现一次
+        // （新会话 items 为空本身也走 boot 分支，双保险）。旧会话保留在 /resume 可回。
+        stdout?.write('\x1b[2J\x1b[H')
+        const s2 = useCliStore.getState()
+        s2.resetUi()
+        s2.setBootEcho(true)
+        // 基准取新会话投影现值（新建会话通常为 0——首个事件即越过，boot 让位）
+        echoBaseSeqRef.current = useCliStore.getState().byId[dto.id]?.lastSeq ?? 0
       })
       .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
   }
@@ -695,6 +707,8 @@ export function App({ baseUrl }: { baseUrl: string }) {
           </Text>
         </Box>
       ) : null}
+      {/* Qwen 对齐（工单 10.36，Composer 同构）：运行中指示行在输入框上方 */}
+      {slice !== null && slice.activeTurn !== null ? <LoadingIndicator slice={slice} /> : null}
       {pendingApproval !== null && rejecting === null ? (
         <ApprovalPrompt item={pendingApproval} />
       ) : null}

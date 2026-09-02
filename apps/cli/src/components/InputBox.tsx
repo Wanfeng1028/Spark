@@ -12,7 +12,7 @@
  * IME 组合态（§13.K K.9）：候选窗由终端/系统绘制；组合确认文本整段到达时
  * 按原子文本插入（不猜键；键位分层见 App 层，深层残余挂 V2-26）。
  */
-import { Text, useInput } from 'ink'
+import { Box, Text, useInput } from 'ink'
 import { useRef, useState } from 'react'
 import { displayWidth, graphemesOf } from '../text-width.js'
 
@@ -148,19 +148,25 @@ export function InputBox({
       : graphemes.slice(safeCursor + 1).join('')
 
   return (
-    <Text>
-      <Text color="gray">{prefix}</Text>
-      {value === '' ? (
-        <Text color="gray" dimColor>
-          {placeholder}
+    <Box flexDirection="column">
+      {/* Qwen 对齐（工单 10.36，BaseTextInput 同款）：顶横线全宽（灰），内容区仅底边单线框 */}
+      <Text color="gray">{'─'.repeat(Math.max(0, (maxWidth ?? 80)))}</Text>
+      <Box borderStyle="single" borderColor="gray" borderBottom>
+        <Text>
+          <Text color="#CBA6F7">{prefix}</Text>
+          {value === '' ? (
+            <Text color="gray" dimColor>
+              {placeholder}
+            </Text>
+          ) : (
+            <>
+              {before}
+              <Text inverse>{cursorGrapheme === undefined ? ' ' : cursorGrapheme}</Text>
+              {after}
+            </>
+          )}
         </Text>
-      ) : (
-        <>
-          {before}
-          <Text inverse>{cursorGrapheme === undefined ? ' ' : cursorGrapheme}</Text>
-          {after}
-        </>
-      )}
-    </Text>
+      </Box>
+    </Box>
   )
 }

@@ -84,6 +84,8 @@ export interface CliState extends ProjectionState {
   setBootError: (msg: string | null) => void
   setBootEcho: (v: boolean) => void
   bumpReplay: () => void
+  /** 新建会话的 UI 态归位（工单 10.35）：展开集合/草稿/提示/面板/错误全部回到初始 */
+  resetUi: () => void
 }
 
 function toggle(set: ReadonlySet<string>, key: string): ReadonlySet<string> {
@@ -138,4 +140,15 @@ export const useCliStore = create<CliState>()((set) => ({
   setBootError: (bootError) => set({ bootError }),
   setBootEcho: (bootEcho) => set({ bootEcho }),
   bumpReplay: () => set((s) => ({ replayNonce: s.replayNonce + 1 })),
+  resetUi: () =>
+    set({
+      expandedTools: new Set<string>(),
+      expandedReasoning: new Set<string>(),
+      expandedGroups: new Set<string>(),
+      notice: null,
+      panel: 'none',
+      helpTab: 0,
+      draftPreview: '',
+      bootError: null,
+    }),
 }))
