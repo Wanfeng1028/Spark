@@ -267,9 +267,9 @@ describe('StatusBar', () => {
 })
 
 describe('MessagePane', () => {
-  it('无会话：提示新建', () => {
-    const f = render(<MessagePane slice={null} />).lastFrame()
-    expect(f).toContain('无会话')
+  it('无会话且无 header：空帧（boot 头由 app 层经 header prop 恒印——工单 10.38）', () => {
+    const f = render(<MessagePane slice={null} />).lastFrame() ?? ''
+    expect(f).not.toContain('ERROR')
   })
 
   it('定稿条目进 Static，挂起审批不在消息流重复', () => {
