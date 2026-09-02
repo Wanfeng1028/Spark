@@ -118,7 +118,7 @@ describe('ItemView', () => {
     expect(expanded).toContain('全文')
   })
 
-  it('reasoning：有 durationMs 时显示「持续 N 秒」（工单 10.9）', () => {
+  it('reasoning：有 durationMs 时显示「Thought for N 秒」（工单 10.36 Qwen 对齐）', () => {
     const f = itemOf({
       kind: 'reasoning',
       eventId: ids.event('evt_r2'),
@@ -126,7 +126,8 @@ describe('ItemView', () => {
       streaming: false,
       durationMs: 3200,
     })
-    expect(f).toContain('持续 3 秒')
+    expect(f).toContain('Thought for 3 秒')
+    expect(f).toContain('∴')
   })
 
   it('turn：完成定格「已工作 N 秒」；进行中「工作中」（工单 10.9 回合头）', () => {
