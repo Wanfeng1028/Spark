@@ -451,7 +451,16 @@ export function App({ baseUrl }: { baseUrl: string }) {
         quit()
       } else {
         lastCtrlCRef.current = now
-        useCliStore.getState().setNotice('再按一次 Ctrl+C 退出')
+        // 10.41：turn 运行中首击 Ctrl+C = 中断当前回合（生成立即停止），并提示可再击退出——
+        // 用户直觉"Ctrl+C 让它停下"；双击窗口内仍按退出流程
+        const s = useCliStore.getState()
+        const sid = s.activeSessionId
+        if (sid !== null && (s.byId[sid]?.activeTurn ?? null) !== null) {
+          void transport.interrupt(sid).catch(() => undefined)
+          useCliStore.getState().setNotice('已请求中断当前回合 · 再按一次 Ctrl+C 退出')
+        } else {
+          useCliStore.getState().setNotice('再按一次 Ctrl+C 退出')
+        }
       }
       return
     }
