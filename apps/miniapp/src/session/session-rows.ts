@@ -44,14 +44,6 @@ export function shouldInsertTimestamp(
   return curTime - prevTime > TIMESTAMP_GAP_MS
 }
 
-/** "7月25日 18:30" 式时间戳文案（13 meta，J.2.3 实测形态） */
-export function formatTimestamp(ms: number): string {
-  const d = new Date(ms)
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mm = String(d.getMinutes()).padStart(2, '0')
-  return `${d.getMonth() + 1}月${d.getDate()}日 ${hh}:${mm}`
-}
-
 /** 行 key：tool/approval 以 callId/requestId 稳定化（同事件可派生多个工具行） */
 export function rowKeyOf(item: UiItem): string {
   if (item.kind === 'tool') return `tool-${item.callId}`

@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Monitor, Moon, Settings, Sun } from 'lucide-react'
+import { fmtTokens } from '@spark/protocol'
 import { useConnectionStore } from '@/stores/connection'
 import { useSettingsStore } from '@/stores/settings'
 import { useActiveSlice } from '@/stores/session'
@@ -39,11 +40,6 @@ function ConnectionDot({ status }: { status: keyof typeof CONNECTION_TEXT }) {
         ? 'bg-muted-foreground/50'
         : 'bg-[var(--spark-err)]'
   return <span aria-hidden className={cn('size-2 shrink-0 rounded-full', cls)} />
-}
-
-/** token 累计的紧凑展示（k=千位截断；title 悬浮给精确值） */
-function fmtTokens(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
 }
 
 /** checkpoint.created 的短暂徽标（§6.4：StatusBar 短暂显示后淡出） */

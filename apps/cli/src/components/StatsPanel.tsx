@@ -4,11 +4,7 @@
  * Esc 关闭（App 层键处理）。
  */
 import { Box, Text } from 'ink'
-import type { SessionSlice } from '@spark/protocol'
-
-function fmtTokens(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
-}
+import { fmtTokens, type SessionSlice } from '@spark/protocol'
 
 export function StatsPanel({ slice }: { slice: SessionSlice | null }) {
   const usage = slice?.usageTotal

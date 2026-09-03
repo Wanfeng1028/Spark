@@ -6,13 +6,12 @@ import { describe, expect, it } from 'vitest'
 import { sdkSupportsChunked, sdkVersionAtLeast } from '../src/transport/support'
 import {
   TIMESTAMP_GAP_MS,
-  formatTimestamp,
   isReplayedDuplicate,
   mergeEventPage,
   shouldInsertTimestamp,
 } from '../src/session/session-rows'
 import type { SparkEventEnvelope } from '@spark/protocol'
-import { ids } from '@spark/protocol'
+import { formatTimestamp, ids } from '@spark/protocol'
 
 describe('sdkVersionAtLeast / sdkSupportsChunked——分块能力门槛', () => {
   it('逐段数字比较（10 > 9 不字符串比较）', () => {

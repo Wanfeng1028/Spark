@@ -30,7 +30,7 @@ import type {
   SessionSlice,
   SparkEventEnvelope,
 } from '@spark/protocol'
-import { applyEvent, emptySessionSlice, errorMessageOf, ids } from '@spark/protocol'
+import { applyEvent, emptySessionSlice, errorMessageOf, formatTimestamp, ids } from '@spark/protocol'
 import { useTheme } from '../theme/use-theme'
 import { mobileMetrics } from '../theme/tokens'
 import { EmptyState, RoundFloatButton, ScreenHeader } from '../components/ui'
@@ -49,7 +49,6 @@ import { getHttpTransport, openSessionStream } from '../transport/runtime'
 import type { RnSessionEventSource } from '../transport/rn-event-source'
 import {
   buildSessionRows,
-  formatTimestamp,
   isReplayedDuplicate,
   mergeEventPage,
 } from '../session/session-rows'

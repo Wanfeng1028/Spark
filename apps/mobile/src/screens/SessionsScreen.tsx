@@ -21,7 +21,7 @@ import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { DrawerNavigationProp } from '@react-navigation/drawer'
 import type { SessionDto, SessionStatus } from '@spark/protocol'
-import { errorMessageOf } from '@spark/protocol'
+import { errorMessageOf, fmtDate, isToday } from '@spark/protocol'
 import { useAppStore } from '../store/app-store'
 import { useConfigStore } from '../store/config-store'
 import { getHttpTransport } from '../transport/runtime'
@@ -45,25 +45,6 @@ function dotColor(status: SessionStatus, t: ThemeTokens): string {
     case 'idle':
       return t.sparkOk
   }
-}
-
-function isToday(ts: number): boolean {
-  const d = new Date(ts)
-  const now = new Date()
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  )
-}
-
-/** 右侧日期 13 meta：今天=时分，更早=月/日 */
-function fmtDate(ts: number): string {
-  const d = new Date(ts)
-  if (isToday(ts)) {
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  }
-  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
 /** “按项目”档分组键：cwd 目录名（数据面=现有 listSessions 返回字段；取不到归“未分组”） */

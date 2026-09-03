@@ -24,7 +24,7 @@ import type {
   SessionSlice,
   SparkEventEnvelope,
 } from '@spark/protocol'
-import { applyEvent, emptySessionSlice, errorMessageOf, ids } from '@spark/protocol'
+import { applyEvent, emptySessionSlice, errorMessageOf, formatTimestamp, ids } from '@spark/protocol'
 import { useConfigStore } from '../../store/config-store'
 import { useTheme } from '../../store/theme-store'
 import { createEventBatcher, useAppStore } from '../../store/app-store'
@@ -33,7 +33,6 @@ import { getRestClient, openSessionStream } from '../../transport/runtime'
 import type { MiniSessionEventSource } from '../../transport/mini-event-source'
 import {
   buildSessionRows,
-  formatTimestamp,
   isReplayedDuplicate,
   mergeEventPage,
 } from '../../session/session-rows'
