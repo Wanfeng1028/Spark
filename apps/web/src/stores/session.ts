@@ -59,9 +59,6 @@ export const useActiveTurn = (sid: SessionId): ActiveTurn | null =>
 export const useSessionMeta = (sid: SessionId): SessionMeta =>
   useSessionStore((s) => s.byId[sid]?.meta ?? EMPTY_META)
 
-export const useLastSeq = (sid: SessionId): number =>
-  useSessionStore((s) => s.byId[sid]?.lastSeq ?? 0)
-
 /**
  * 缓存会话判定（工单 10.16，纯函数可单测）：lastSeq>0 = store 已有该会话的持久投影。
  * 命中即立即渲染缓存、后台照常全量回放（replaySessionEvents 取回后同步覆写对齐

@@ -9,8 +9,6 @@ import { errorMessageOf } from '@/lib/error-copy'
 import { cn } from '@/lib/utils'
 import { SettingGroupCard, SettingRow } from './SettingRow'
 
-type LoadState = 'loading' | { error: string }
-
 export function McpSettingsPage() {
   const { transport } = useTransport()
   const [servers, setServers] = useState<McpServerDto[] | null>(null)
@@ -65,5 +63,3 @@ export function McpSettingsPage() {
     </SettingGroupCard>
   )
 }
-
-export type { LoadState }

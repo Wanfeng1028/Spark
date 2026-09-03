@@ -5,7 +5,6 @@
  * （10.18③ 不变量：surface 含 cli 的 client 命令必有本端实现映射）。
  */
 import type { ClientAction } from '@spark/protocol'
-export type { ClientAction }
 import type { useCliStore } from './store.js'
 
 /** 分派依赖：store 取态器 + 组件侧动作（状态全部经 getState() 快照读写，无 hook 依赖） */

@@ -12,15 +12,3 @@ export function formatRelative(ts: number, now: number = Date.now()): string {
   const d = new Date(ts)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-
-/** 是否「今天」（Sidebar 分组：今天 / 更早） */
-export function isToday(ts: number, now: number = Date.now()): boolean {
-  if (ts <= 0) return false
-  const a = new Date(ts)
-  const b = new Date(now)
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
-}

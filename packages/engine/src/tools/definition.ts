@@ -27,7 +27,6 @@ export interface ToolContext {
 export interface ToolOutput {
   output: unknown
   isError: boolean
-  display?: string
 }
 
 export interface ToolDefinition<I = unknown> {

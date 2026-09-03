@@ -33,7 +33,11 @@ export function parseEnvelope(raw: unknown): SparkEventEnvelope {
   return { ...env, data } as SparkEventEnvelope
 }
 
-/** jsonSchema 导出（给模型工具清单与 DTO 文档化用；zod 4 内建） */
+/**
+ * jsonSchema 导出（给模型工具清单与 DTO 文档化用；zod 4 内建）。
+ * 现状：仅 tests/events.test.ts 消费（序列化冒烟），生产零调用；14.2 契约生成 /
+ * 15.2 OpenAPI 落地后转生产用——R-A 复核后保留（非死导出）。
+ */
 export const jsonSchemas = {
   envelope: z.toJSONSchema(EnvelopeSchema),
 } as const

@@ -29,13 +29,6 @@ export interface LoadedSkill {
   hooks: SkillHookDef[]
 }
 
-/** hooks 发射的固定 data 形状（ADR D18：声明式钩子不写自定义数据构造器） */
-export interface SkillHookPayload {
-  skill: string
-  sourceEventId: string
-  sourceType: string
-}
-
 export interface SkillLogger {
   warn(msg: string, fields?: Record<string, unknown>): void
   info(msg: string, fields?: Record<string, unknown>): void

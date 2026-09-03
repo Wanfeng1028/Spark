@@ -10,9 +10,7 @@ export type ConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
 export interface ConnectionState {
   status: ConnectionStatus
   lastSeq: number
-  retryCount: number
   setStatus: (s: ConnectionStatus) => void
-  setRetryCount: (n: number) => void
   /** 直播事件水位上报（durable 有 seq；取最大防乱序） */
   noteSeq: (seq: number) => void
 }
@@ -20,9 +18,7 @@ export interface ConnectionState {
 export const useConnectionStore = create<ConnectionState>()((set, get) => ({
   status: 'connecting',
   lastSeq: 0,
-  retryCount: 0,
   setStatus: (status) => set({ status }),
-  setRetryCount: (retryCount) => set({ retryCount }),
   noteSeq: (seq) => {
     if (seq > get().lastSeq) set({ lastSeq: seq })
   },

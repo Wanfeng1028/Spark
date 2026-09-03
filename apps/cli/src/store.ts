@@ -19,7 +19,7 @@ import { applyEvent, emptySessionSlice } from '@spark/protocol'
 export type CliConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
 
 /** Tab 循环顺序（与 web Composer 的 now/steer/queue 分段同口径） */
-export const DELIVERY_ORDER: readonly Delivery[] = ['now', 'steer', 'queue']
+const DELIVERY_ORDER: readonly Delivery[] = ['now', 'steer', 'queue']
 
 /** 面板族（工单 10.10/10.11/10.18，§13.K）：同时至多一个开放 */
 export type CliPanel =
@@ -60,8 +60,6 @@ export interface CliState extends ProjectionState {
   draftPreview: string
   /** 启动失败态（工单 10.17④：显式错误屏+重试，不再只挂 notice） */
   bootError: string | null
-  /** resume/回滚后 boot 头部重现一次（工单 10.17③ / DESIGN K.1） */
-  bootEcho: boolean
   /** 回放重订阅 nonce（工单 10.18 rollback：seq 倒退后 since=0 重放需重订阅） */
   replayNonce: number
 
@@ -82,7 +80,6 @@ export interface CliState extends ProjectionState {
   cycleHelpTab: (dir: 1 | -1) => void
   setDraftPreview: (v: string) => void
   setBootError: (msg: string | null) => void
-  setBootEcho: (v: boolean) => void
   bumpReplay: () => void
   /** 新建会话的 UI 态归位（工单 10.35）：展开集合/草稿/提示/面板/错误全部回到初始 */
   resetUi: () => void
@@ -118,7 +115,6 @@ export const useCliStore = create<CliState>()((set) => ({
   helpTab: 0,
   draftPreview: '',
   bootError: null,
-  bootEcho: false,
   replayNonce: 0,
 
   // ProjectionState 部分交共享 reducer（zustand set 接受 Partial——byId/activeId 即全部所需）
@@ -144,7 +140,6 @@ export const useCliStore = create<CliState>()((set) => ({
   cycleHelpTab: (dir) => set((s) => ({ helpTab: (s.helpTab + dir + 3) % 3 })),
   setDraftPreview: (draftPreview) => set({ draftPreview }),
   setBootError: (bootError) => set({ bootError }),
-  setBootEcho: (bootEcho) => set({ bootEcho }),
   bumpReplay: () => set((s) => ({ replayNonce: s.replayNonce + 1 })),
   lastFailed: null,
   setLastFailed: (lastFailed) => set({ lastFailed }),

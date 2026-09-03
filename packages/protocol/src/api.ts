@@ -6,7 +6,6 @@ import { CheckpointIdSchema, EventIdSchema, SessionIdSchema, TurnIdSchema } from
 import { ReasoningEffortSchema } from './primitives.js'
 import { ClientActionSchema, CommandArgsSchema, CommandSurfaceSchema } from './commands.js'
 import type { SparkEventEnvelope } from './events.js'
-import type { TurnId } from './ids.js'
 
 export const SessionStatusSchema = z.enum(['idle', 'running', 'waiting-approval'])
 export type SessionStatus = z.infer<typeof SessionStatusSchema>
@@ -37,16 +36,9 @@ export interface SessionDto extends SessionMetaDto {
  * 全可选——缺省参数 = 现状全量回放（向后兼容红线）：
  * limit = 返回条数上限（升序尾部切片，上限 200）；before = seq 游标（只返回 seq < before 的事件）。
  */
-export const SessionEventsQuerySchema = z.strictObject({
-  limit: z.number().int().positive().max(200).optional(),
-  before: z.number().int().positive().optional(),
-})
-export type SessionEventsQuery = z.infer<typeof SessionEventsQuerySchema>
-
-/** POST /:id/messages 响应：三态直通（HTTP 只表达"已受理"，不等 turn 结果） */
-export interface SubmitResult {
-  result: 'started' | 'steered' | 'queued'
-  turnId?: TurnId
+export interface SessionEventsQuery {
+  limit?: number
+  before?: number
 }
 
 // ---------- fork 与树视图（doc/02 §5.8.6 / §4.5，阶段四） ----------
@@ -178,7 +170,6 @@ export const RoutingUsageDtoSchema = z.strictObject({
   outputTokens: z.number().int().nonnegative(),
   exceeded: z.boolean(),
 })
-export type RoutingUsageDto = z.infer<typeof RoutingUsageDtoSchema>
 
 /** 模型路由状态：fallback 链 + 任务路由四档（主档=会话模型，不在此表）+ 成本上限 */
 export const RoutingDtoSchema = z.strictObject({
@@ -218,7 +209,6 @@ export const EngineSettingsSchema = z.strictObject({
   checkpoints: z.boolean(),
   bashSandbox: z.enum(['off', 'on']),
 })
-export type EngineSettings = z.infer<typeof EngineSettingsSchema>
 
 /** 单条用户侧 hook（镜像 engine config：外部命令或 skill 触发，二选一） */
 export const SettingsHookDefSchema = z.union([
@@ -448,7 +438,6 @@ export const PairedDeviceDtoSchema = z.strictObject({
   createdAt: z.number().int().nonnegative(),
   lastSeenAt: z.number().int().nonnegative(),
 })
-export type PairedDeviceDto = z.infer<typeof PairedDeviceDtoSchema>
 
 /** 配对状态（GET /api/pair：监听地址 + 鉴权启用态 + 设备列表） */
 export const PairStatusDtoSchema = z.strictObject({

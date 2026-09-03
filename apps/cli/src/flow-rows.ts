@@ -61,7 +61,7 @@ export function flowRowsOf(items: readonly UiItem[]): FlowRow[] {
 }
 
 /** 条目定稿（与 MessagePane 既有判定同语义：只会由活动转定稿，前缀单调） */
-export function itemSettled(it: UiItem): boolean {
+function itemSettled(it: UiItem): boolean {
   switch (it.kind) {
     case 'user':
       return true

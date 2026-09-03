@@ -27,27 +27,6 @@ export function Card({
   )
 }
 
-/** 分组行（J.3：高 56；行间 hairline 由父级按位控） */
-export function Row({
-  children,
-  onPress,
-  height = mobileMetrics.rowHeight,
-}: {
-  children: ReactNode
-  onPress?: () => void
-  height?: number
-}) {
-  const inner = (
-    <View style={[styles.row, { height }]}>{children}</View>
-  )
-  if (onPress === undefined) return inner
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
-      {inner}
-    </TouchableOpacity>
-  )
-}
-
 /** 行内 hairline 分隔（缩进对齐文案，J.0） */
 export function Hairline({ inset = 0 }: { inset?: number }) {
   const t = useTheme()
@@ -149,11 +128,6 @@ const styles = StyleSheet.create({
     borderRadius: mobileMetrics.cardRadius,
     padding: mobileMetrics.cardPadding,
     overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
   },
   hairline: {
     height: StyleSheet.hairlineWidth,

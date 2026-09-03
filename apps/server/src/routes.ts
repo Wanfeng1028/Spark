@@ -34,7 +34,7 @@ import type {
 } from '@spark/engine'
 import { resolveInRoot } from '@spark/engine'
 import type { SessionMetaDto } from '@spark/protocol'
-import { sendError, validationError } from './errors.js'
+import { replyOutcomeError, sendError, validationError } from './errors.js'
 
 export interface RoutesOptions {
   engine: Engine
@@ -389,10 +389,8 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
         ...(body.feedback !== undefined ? [body.feedback] : []),
       )
       if (outcome !== 'ok') {
-        return reply.code(outcome === 'already-resolved' ? 409 : 404).send({
-          code: outcome === 'already-resolved' ? 'E_ALREADY_RESOLVED' : 'E_NOT_FOUND',
-          message: outcome === 'already-resolved' ? '审批请求已答复过' : 'not found',
-        })
+        // 409/404 三态映射收敛到 errors.ts replyOutcomeError（R-A：消除路由内联与前缀版重复）
+        return sendError(req, reply, replyOutcomeError(outcome))
       }
       return reply.send({ ok: true })
     } catch (err) {

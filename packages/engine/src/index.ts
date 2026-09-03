@@ -17,9 +17,7 @@ export {
 export {
   EventBus,
   type EventSink,
-  type EventHandler,
   type SubscribeHandle,
-  type EventBusOptions,
 } from './bus.js'
 export { ulid, newIds } from './ulid.js'
 export {
@@ -73,7 +71,7 @@ export {
   type ToolOutput,
   type ToolDefinition,
 } from './tools/definition.js'
-export { ToolRegistry, type AdvertisedTool } from './tools/registry.js'
+export { ToolRegistry } from './tools/registry.js'
 export {
   ToolPipelineImpl,
   type PipelineDeps,

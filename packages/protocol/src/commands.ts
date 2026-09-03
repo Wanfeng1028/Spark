@@ -11,7 +11,6 @@
 import { z } from 'zod'
 
 export const CommandSurfaceSchema = z.enum(['web', 'cli', 'mobile', 'miniapp'])
-export type CommandSurface = z.infer<typeof CommandSurfaceSchema>
 
 /** client 命令动作封闭枚举（各端分派 map 的键；未声明者不渲染） */
 export const ClientActionSchema = z.enum([

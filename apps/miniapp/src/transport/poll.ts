@@ -7,7 +7,7 @@
  */
 import type { SparkEventEnvelope } from '@spark/protocol'
 
-export interface PollFilterResult {
+interface PollFilterResult {
   /** 新事件（保持到达序——服务端按 seq 升序返回，不得重排） */
   fresh: SparkEventEnvelope[]
   /** 推进后的水位 */
