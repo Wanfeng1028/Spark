@@ -2325,6 +2325,83 @@ doc/02 §8.7 V2-XX 行（消解对应项）、开源参考文件（按 16.X 行"
 | v3.73 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，“继续”指令） | **批次 5 立项（10.47–10.49：CLI Qwen 化三期）**：10.47 items.tsx 行组件拆分（rows/ 目录，qwen messages/ 同构）/ 10.48 CLI Markdown-lite 渲染（行内 code 蓝色/bold/围栏块/列表——qwen MarkdownDisplay 常用子集纯 Ink 实现，修模型输出星号原样显示的体验差）/ 10.49 状态行前缀体系（● 已加载项目指引/✕ 错误/△ 提示，U+FE0E 锁宽） |
 | v3.74 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`） | **批次 5 全部完成（10.47/10.48/10.49）**：10.47 items.tsx 拆分（rows/ 目录：shared/turn/reasoning/tool——qwen messages/ 同构；items.tsx 留分发壳 + 兼容 re-export）；10.48 Markdown-lite（markdown.tsx：行内 code 蓝/bold 粗/围栏块缩进灰/流式未闭合围栏降级——模型输出 `**加粗**` 星号原样显示的体验差消除）；10.49 状态行（BootHeader `●︎ 已加载项目指引：{AGENTS.md 路径}`——engine locateProjectInstructions 同构逻辑 CLI 本地化；errorInfo ✕︎ 红/△ 黄前缀）。41/41、lint/typecheck 绿 |
 
+## 阶段十·收尾批次 6 候选池（Qwen 化四期——按 qwen 差距优先级排期）——工单级
+
+> 立项依据：批次 4/5 合入后对照 qwen-code 的剩余差距盘点（含晚风"没完成的写成工单和提示词"指令）。排序原则：用户可感知 > 基建。
+> 执行约束沿用：本机 typecheck+lint、远端 CI 裁决测试、直接 main、逐单提交。
+
+| #     | 工单                                   | 产出（目标 + 涉及文件）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 验收标准                                                                     | 依赖        |
+| ----- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- | ----------- |
+| 10.50 | CLI dead-key IME 深层防御（V2-26 首步） | qwen 对组字中间态的防御（ink7 patch 的 terminalRedrawOptimizer + redraw 拦截）在 Spark ink 6.8 的可移植子集：InputBox 在 stdin data 事件含 IME 组字标志（Windows ConPTY 的 ESC[?...）时置 composingRef，期间跳过渲染窗口重算只追加原文；解除后重算。先做事件层探测 spike（记录真实组字序列形状）再实现——**spike 产物决定实现口径** | 桌面实测：中文组字期不出现半字符/光标跳列；spike 记录入工单提交说明            | —           |
+| 10.51 | Footer 第 2 行压缩至一行（qwen 单行形态） | qwen Footer 实际单行：左=状态短语（`Enter 追加到当前任务 · Ctrl+Q 排到下一轮`/`按 ? 查看快捷键`）+ 右=模式 pill。Spark 现 footer=2 行固定 → 改 1 行：左=提交模式+运行指示+`? 帮助 · /stats 明细`，右=`{n}% 已用`（第 1 行已有则并入）；liveBudget 相应 +1 行回收 | render.test Footer 断言更新；桌面实测两行变一行不丢信息                        | —           |
+| 10.52 | LoadingIndicator 超时预警（上游慢链路） | 晚风实测"发消息卡顿"（stepfun 36s/88s 才 201 tokens）——上游慢时无反馈。LoadingIndicator 超 10s 追加 secondary `(已 {N}s · 上游响应中，Ctrl+C 可中断)`；同时把秒级刷新提到 500ms（spinner 帧动画可见） | 桌面实测：慢上游时指示行持续动且提示可中断                                     | —           |
+| 10.53 | @ 文件路径补全（qwen useAtCompletion） | 输入 `@` 后按 cwd 做相对路径补全（目录列举走轻后端端点或 engine fs；仅补路径不含内容），复用 SlashMenu 的下拉形态（左=路径段 右=目录/文件标记）。协议无改动（纯 CLI 前端） | 桌面实测 @ 触发补全、目录/文件区分、Enter 追加路径不关闭（qwen 目录不加尾空格） | —           |
+| 10.54 | 会话标题注入 ResumePanel（qwen SessionPicker 行 2） | ResumePanel 每条 2 行：行 1=prompt 首句（现有），行 2=`{相对时间} · {n} messages · {git 分支}`（qwen SessionPicker 第二行同款；数据源 SessionDto.updatedAt/events 计数——messages 数=会话 items 数或快照新增字段，禁假状态） | 桌面实测 /resume 列表两行形态；数据全部真值                                   | —           |
+| 10.55 | ink 7 升级 spike（V2-26 治本前置） | qwen 体验的底座=ink 7.0.3 + 其 patches/ink+7.0.3.patch（virtual-viewport/光标 API/redraw optimizer）。spike：分支上升 ink 7 + 跑 CLI 全量测试，记录 API 断点清单（Static/useCursor/useBoxMetrics/getAbsolutePosition 差异）与移植 patch 的可行性报告——**只调研不改 main** | 报告入 doc/（v 版本行登记）；若可行则立 10.56 升级实施单                      | —           |
+
+> 批次 6 备注：① 10.50/10.55 是 V2-26 的两步走（防御子集 / 治本评估）；② 10.51 是对批次 3"footer 双行"决策的修正（qwen 实际单行——决策记录见 v3.75）；③ 10.53/10.54 均为纯 CLI 前端工单（协议零改动）。
+
+### 批次 6 开工提示词（按执行顺序；新会话直接粘贴）
+
+**提示词（工单 10.50——IME 深层防御 spike+实现）**：
+
+```text
+任务：Spark 工单 10.50——CLI IME 组字深层防御（批次 6 第 1 张）。
+
+前置阅读：AGENTS.md、doc/02 批次 6 表 10.50 行、apps/cli/src/components/InputBox.tsx（现 grapheme 光标
+与渲染窗口）、qwen-code 在线源码 patches/ink+7.0.3.patch 的 terminalRedrawOptimizer 段（gh api
+repos/QwenLM/qwen-code/contents/patches/ink+7.0.3.patch -H "Accept: application/vnd.github.raw"，
+AGENTS §2.12 禁克隆）。
+要求：
+1. 先 spike：写临时脚本（scripts/ 下，完成后删除走五层级确认或留作 preview 工具）在 Windows Terminal
+   真实终端记录中文组字期间 stdin 收到的原始序列（data 事件逐条 console.error 到文件），识别 ConPTY
+   组字标志序列的形状。
+2. 依据 spike 产物实现：InputBox 检测组字态（stdin raw data 匹配标志）→ composingRef 置位期间不做
+   渲染窗口重算（光标列冻结），解除后重算一次。禁猜键（10.19④口径不变）。
+3. render.test 补 composing 模拟用例（伪造标志序列注入）。
+4. 本机只 typecheck+lint；测试由 CI 裁决。
+红线：不引新依赖；不改 wire 类型；不删文件。
+提交：fix(cli): 工单 10.50——IME 组字态防御（spike 产物见提交说明）。
+```
+
+**提示词（工单 10.51–10.54 合并批——纯前端四小张）**：
+
+```text
+任务：Spark 工单 10.51–10.54（批次 6 纯 CLI 前端四张连做）。
+
+前置阅读：AGENTS.md、doc/02 批次 6 表 10.51–10.54 各行、apps/cli/src/components/Footer.tsx、
+LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（liveBudget 计算）。
+要求（逐张执行逐张提交）：
+1. 10.51 Footer 单行化：第 2 行并入第 1 行右侧（左=→项目 git:(分支)·模型·[now]·运行指示·? 帮助；
+   右={n}% 已用），liveBudget 回收 1 行；render.test 断言更新。
+2. 10.52 LoadingIndicator：秒刷改 500ms（spinner 动画）；>10s 追加 (已 Ns · 上游响应中 · Ctrl+C 可中断)。
+3. 10.53 @ 补全：@ 触发路径补全面板（复用 SlashMenu 形态：活动行 > 紫标记；目录/文件区分标记；
+   Enter 选中目录不关闭不加尾空格——qwen 口径）；数据源=GET /api/sessions/:id 所在 cwd 的列举
+   （apps/server 若无目录列举端点则加 GET /api/fs?path= 轻端点——协议先行 DTO 入 protocol/src/api.ts）。
+4. 10.54 ResumePanel 双行：行 2={相对时间} · {n} messages（items 计数真值；SessionDto 若无则
+   GET /api/sessions 分页 events 数现算，禁假状态）。
+5. 每张：typecheck+lint 绿 → conventional commits 中文 → push → 盯 CI。
+红线：禁假状态（数据源必须有真值）；不引新依赖；文件删除走五层级确认。
+```
+
+**提示词（工单 10.55——ink 7 升级 spike）**：
+
+```text
+任务：Spark 工单 10.55——ink 7 升级可行性 spike（只调研不改 main）。
+
+前置阅读：AGENTS.md、doc/02 批次 6 表 10.55 行、qwen-code 在线源码 packages/cli/package.json
+（ink 版本）与 patches/ink+7.0.3.patch 全文（在线访问禁克隆）。
+要求：
+1. 开 spike 分支（不推 main）：pnpm 升 ink@7 → 跑 apps/cli 全量测试 + typecheck → 记录全部断点
+   （Static/useCursor/useInput/measureElement/DOMElement 差异逐条）。
+2. 评估 patches/ink+7.0.3.patch 移植可行性：逐 hunk 标注"可直接套用/需改写/不适用"。
+3. 产出报告 doc/spike-ink7.md（版本行登记）：结论=升/不升/缓升 + 实施工单草案（若可行则列 10.56
+   步骤与风险）。分支删除前报告先合 main。
+红线：spike 分支不进 main；报告如实（包括"不可行"结论——那是有效结论）。
+```
+
+| v3.75 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，“完成的部分提交 push，没完成的写成工单和提示词”指令） | **批次 5 收尾登记 + 批次 6 候选池立项（10.50–10.55，含三段开工提示词）**：批次 5（10.47–10.49 行拆分/Markdown-lite/状态行）已合入 CI 绿；批次 6 立 Qwen 化四期六张——10.50 IME 深层防御 spike/10.51 Footer 单行化（修正批次 3 双行决策——qwen 实际单行）/10.52 Loading 超时预警（上游慢链路反馈）/10.53 @ 路径补全/10.54 ResumePanel 双行/10.55 ink 7 升级 spike（V2-26 治本前置，只调研不改 main）；每张附开工提示词（附录见批次 6 节） |
+
 > 批次 5 备注：
 
 > 批次 5 备注：
