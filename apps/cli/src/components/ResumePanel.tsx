@@ -1,8 +1,10 @@
 /**
- * /resume 恢复面板（工单 10.11 / §13.K K.7）：会话列表（标题+相对时间+项目名），
+ * /resume 恢复面板（工单 10.11 / §13.K K.7；10.54 双行化 qwen SessionPicker 同款）：
+ * 会话列表每条 2 行——行1=标题（prompt 首句），行2=相对时间 · 事件数 · git 分支。
  * / 过滤、↑↓ 移动、Space 预览（选中项详情——列表快照字段如实呈现）、Enter 恢复
  * （=切激活会话，事件流 since=0 全量重放——引擎既有回放路径，durable 事件重放呈现）、
  * Esc 关闭。数据源=连接/重连时刻的 listSessions 快照（store.sessions，如实呈现）。
+ * 事件数取 SessionDto.lastSeq（durable 事件计数真值——非 message 数，禁假状态如实标注“条事件”）。
  */
 import { Box, Text } from 'ink'
 import type { SessionDto } from '@spark/protocol'
@@ -57,16 +59,22 @@ export function ResumePanel({ sessions, selected, filter, activeId, preview }: R
       <Box flexDirection="column" marginTop={1}>
         {sessions.map((s, i) => {
           const title = s.title === '' ? '新会话' : s.title
+          const active = i === selected
           return (
-            <Text key={s.id} inverse={i === selected} wrap="truncate-end">
-              {i === selected ? '> ' : '  '}
-              {title}
-              <Text color="gray">
-                {'  '}
-                {relative(s.updatedAt)} · {projectOf(s.cwd)}
-                {s.id === activeId ? '（当前）' : ''}
+            <Box key={s.id} flexDirection="column">
+              {/* 行 1（工单 10.54）：标题（prompt 首句）；选中行反色 + > 标记 */}
+              <Text inverse={active} wrap="truncate-end">
+                {active ? '> ' : '  '}
+                {title}
               </Text>
-            </Text>
+              {/* 行 2（工单 10.54，qwen SessionPicker 第二行同款）：相对时间 · 事件数 · git 分支（缺省不渲染该段） */}
+              <Text color="gray" wrap="truncate-end">
+                {'  '}
+                {relative(s.updatedAt)} · {s.lastSeq} 条事件
+                {s.branch !== undefined && s.branch !== '' ? ` · git:(${s.branch})` : ''}
+                {s.id === activeId ? ' · （当前）' : ''}
+              </Text>
+            </Box>
           )
         })}
         {sessions.length === 0 ? <Text color="gray">（无匹配会话）</Text> : null}

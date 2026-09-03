@@ -558,7 +558,7 @@ describe('聚合与折叠提示（工单 10.9 补齐 / §13.K K.2）', () => {
   })
 })
 
-describe('ResumePanel Space 预览（工单 10.11 补齐 / §13.K K.7）', () => {
+describe('ResumePanel（工单 10.11 Space 预览 / §13.K K.7；10.54 双行）', () => {
   const dto = {
     id: ids.session('ses_res0000000000000001'),
     title: '',
@@ -586,6 +586,16 @@ describe('ResumePanel Space 预览（工单 10.11 补齐 / §13.K K.7）', () =>
   it('preview 未传不渲染预览块', () => {
     const f = render(<ResumePanel sessions={[dto]} selected={0} filter="" activeId={null} />).lastFrame()
     expect(f).not.toContain('— 预览')
+  })
+
+  it('列表行双行（工单 10.54）：行1标题，行2 相对时间·事件数·git 分支真值', () => {
+    const f = render(<ResumePanel sessions={[dto]} selected={0} filter="" activeId={null} />).lastFrame() ?? ''
+    expect(f).toContain('新会话')
+    expect(f).toContain('7 条事件') // dto.lastSeq=7 真值（非 message 数，如实标注）
+    expect(f).toContain('git:(main)') // dto.branch=main
+    // 双行：标题与事件数分处两行（不再同一行）
+    const titleLine = f.split('\n').find((l) => l.includes('新会话')) ?? ''
+    expect(titleLine).not.toContain('条事件')
   })
 })
 
