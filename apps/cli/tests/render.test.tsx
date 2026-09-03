@@ -12,6 +12,7 @@ import { MessagePane } from '../src/components/MessagePane.js'
 import { ApprovalPrompt } from '../src/components/ApprovalPrompt.js'
 import { InputBox } from '../src/components/InputBox.js'
 import { Footer } from '../src/components/Footer.js'
+import { LoadingIndicator } from '../src/components/LoadingIndicator.js'
 import { BootHeader } from '../src/components/BootHeader.js'
 import { filterSlashCommands } from '../src/components/SlashMenu.js'
 import { ItemView, summarizeToolInput, toolCategoryOf, toolOutputText, toolOutputLines, ToolGroupLine } from '../src/components/items.js'
@@ -372,6 +373,29 @@ describe('Footer（工单 10.51 单行化，qwen 形态）', () => {
     s.meta.cwd = '/home/wanfeng/Spark'
     const f = render(<Footer slice={s} />).lastFrame()
     expect(f).not.toContain('git:(')
+  })
+})
+
+describe('LoadingIndicator（工单 10.52 上游慢链路预警）', () => {
+  function runningSlice(startedAgoMs: number): SessionSlice {
+    const s = slice()
+    s.activeTurn = { turnId: TURN, stepCount: 1, runningTools: new Set(), waiting: false }
+    s.items = [
+      { kind: 'turn', eventId: ids.event('evt_li1'), turnId: TURN, startedAt: Date.now() - startedAgoMs },
+    ]
+    return s
+  }
+
+  it('>10s 追加上游响应中 + Ctrl+C 可中断（慢链路可感知反馈）', () => {
+    const f = render(<LoadingIndicator slice={runningSlice(15000)} />).lastFrame() ?? ''
+    expect(f).toContain('上游响应中')
+    expect(f).toContain('Ctrl+C 可中断')
+  })
+
+  it('<=10s 不出现慢链路预警（禁假状态：未慢不提示），基础尾缀仍在', () => {
+    const f = render(<LoadingIndicator slice={runningSlice(2000)} />).lastFrame() ?? ''
+    expect(f).not.toContain('上游响应中')
+    expect(f).toContain('esc to cancel')
   })
 })
 
