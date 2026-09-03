@@ -1,4 +1,4 @@
-# Spark v2 展望与工单库——阶段十一~十六（发布化 / 可日用 / 可证明 / SDK 化 / 生态面 / 命令面新机制）
+# Spark v2 展望与工单库——阶段十一~十七（发布化 / 可日用 / 可证明 / SDK 化 / 生态面 / 命令面新机制 / 冗余整改）
 
 ## 版本记录
 
@@ -6,13 +6,14 @@
 | ---- | ---------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | v1.0 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，四轮 v2 展望会话；MIT / npm CLI 优先 / 本文档交付形式三项已拍板） | 初稿：定位与使用说明 · 决策记录（已拍板/待拍板）· 阶段十一~十五共 34 张工单（每张含验收标准与开工提示词）· 后置观察池 · 提示词总则（附录 A） |
 | v1.1 | 2026-08-31 | 同上；核查：晚风（Wanfeng1028，对照四轮展望清单逐条核查指出缺漏） | **对照四轮展望补全六处**：§0.3 终点图景与差异化五牌；§4.0 五层开发者面表（修 14.6/11.8 悬空引用）；13.1 补「Spark as eval harness」定位句；新增 §7 生命力风险与对策（原不变量节顺延为 §8）；后置池补 LSP/会话导出分享/计划模式 todo/V2-21/V2-02/其余候选池归并行；新增附录 B 阶段十在途工单引用式提示词（治理注记：阶段十唯一来源 doc/02 §8） |
+| v1.5 | 2026-09-03 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"全仓冗余审计 + 工单与提示词立项"指令） | **新增 阶段十七：代码冗余整改八工单 R-A～R-H（§5B，含 §5B.0 审计发现汇总）**——当日全仓源码级审计（约 5.4 万行）结论：分层与 D22 纪律总体良好，问题集中四类（巨石文件 / 跨端重复已漂移含 memory LIKE 转义真 bug / 包内样板 / 死代码）；§0.2 新增 Q-7（六死文件 + _scratch 两产物五层级确认）与 Q-8（共享 controller 落点，R-H 开工时问）；建议整体排在 14.1 之前（先消肿再定 SDK 承诺面）；每工单附六段式开工提示词 |
 | v1.4 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令——批次 3 收账后开下一程） | **阶段十一已 lift 进 doc/02 v3.56 建正式阶段表（11.1–11.8），执行以 doc/02 为准**；11.1 的 LICENSE/package.json 字段/doc/05 G6 注记已由批次 3/工单 10.28 提前落地（余量=CONTRIBUTING/CHANGELOG/ARCHITECTURE D23 补记）；11.2 现场执行、11.5 secrets 配置、11.7 真实 tag 发版标注为用户侧动作。本库阶段十一行文不变（历史不动），阶段十二~十六待各自 lift |
 | v1.3 | 2026-09-01 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，批次 3 立单指令） | **阶段十状态对账（本库只改陈旧表述，工单库不变）**：§0.1 后注与附录 B"feat/stage10-ui-batch1 在途/两项待拍板"更新——阶段十批次 2 已全勾合入 main（doc/02 v3.44/v3.45），待拍板两项已按建议执行收口（v3.33）；收尾批次 3（10.22 + 10.24–10.30，含 hooks flaky P1 修复与 CLI clientAction 不变量网补齐）立项于 doc/02 v3.48。阶段十一~十六工单与排序不变 |
 | v1.2 | 2026-09-01 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"九条新机制命令全部做成"指令 + 批次 2 四项拍板落定） | **新增 阶段十六：命令面新机制九工单（16.1–16.9，消解 doc/02 §8.7 V2-27~V2-35 挂池项）**——/agents /plan /trust /init /goal /arena /voice /lsp /extensions；每张含开源参考（在线调研 2026-09-01：qwen-code/gemini-cli 均 Apache-2.0、opencode MIT、复用路线与精确文件路径）+ 提示词；优先级排序（/init 最先——零依赖纯提示词工程；/lsp /arena 最后——大件与需设计）；§0.1 已拍板表补三行（九命令全做成/许可兼容/复用优先）；附录 B 速引表补批次 2 十一张 |
 
 > **定位**：本文是 v2 的**规划库与工单库**，不是执行规格。各阶段开工时，把对应工单 lift 进 doc/02 §8 建立正式阶段表（附版本记录），**执行以 doc/02 定稿为准**——与 doc/07 缺口编号（H01–H36）喂给阶段六~九同一模式。
 > **阶段十不进本库**：其工单规格、验收与勾选状态唯一来源是 doc/02 §8 阶段十表（批次 2 已全勾合入 main；收尾批次 3 = 10.22/10.24–10.30，2026-09-01 立项）；附录 B 只提供引用式提示词，不复制规格。
-> **编号规则**：工单号 = 阶段.序号（11.1…15.4）；既有缺口沿用原编号（doc/05 G*、doc/07 H*、doc/02 §8.7 V2-*）；doc/07 编号已冻结至 H36，**新缺口不再新增 H 号**，直接以工单号引用。规划中的未来路径（LICENSE、CONTRIBUTING.md、packages/sdk、apps/docs 等）以普通文字书写，不加反引号，落地后再按仓库惯例引用。
+> **编号规则**：工单号 = 阶段.序号（11.1…15.4）；阶段十七为批次字母工单（R-A～R-H，因同章工单间存在并行与依赖交错，字母比序号更能表达"批次"语义）；既有缺口沿用原编号（doc/05 G*、doc/07 H*、doc/02 §8.7 V2-*）；doc/07 编号已冻结至 H36，**新缺口不再新增 H 号**，直接以工单号引用。规划中的未来路径（LICENSE、CONTRIBUTING.md、packages/sdk、apps/docs 等）以普通文字书写，不加反引号，落地后再按仓库惯例引用。
 > **本文与 CI**：遵守 scripts/check_doc_links.py 全部检查项（相对链接可解析、不触碰事实计数锚点、未存在路径不进反引号）。
 
 ---
@@ -39,6 +40,8 @@
 | Q-3 | 长任务/心跳 turn 是否立项 | 有真实多日任务诉求再立项，须迷你 ADR（防滑向显式 Planner） | 后置池 |
 | Q-4 | 任务级基准选型（自建 vs Terminal-Bench 类外部 harness） | 先自建场景集（13.1），外部 harness 出可行性报告再定（13.2） | 13.1/13.2 |
 | Q-5 | SDK 客户端包名 | @spark/sdk（与 @spark/protocol、@spark/engine 同谱） | 14.3 |
+| Q-7 | 阶段十七死文件删除（2026-09-03 登记）：apps/web/src/features/chat/UsageBar.tsx（49 行，注释已写"停用留人工确认"）、apps/web/src/components/layout/Titlebar.tsx（34 行零 import）、apps/cli/src/components/Sidebar.tsx（41 行停用）、apps/cli/src/components/StatusBar.tsx（89 行仅测试引用）、apps/mobile/src/components/ui.tsx 的 Row、packages/engine/src/scripted-llm.ts（CI 测试夹具，或移 testing 入口不删）、_scratch/lint-plain.txt 与 lint-report.json（git 追踪中的暂存产物） | 按建议方向删前六个 + _scratch 两份（scripted-llm 建议移 `packages/engine` 测试入口或维持冻结）；走 AGENTS §2.10 五层级确认后由 R-H 前置动作或独立小工单执行 | R-H 前置 |
+| Q-8 | mobile/miniapp 会话页共享 controller 落点（R-H 开工时问） | 缺省建议：两端各自薄 hook 文件 + 纯逻辑块入 `@spark/protocol`（protocol 无 React 依赖，controller 整体进 protocol 需引 React——不取）；备选新建共享包（过度工程嫌疑，不倾向） | R-H |
 
 ## 0.3 终点图景与差异化五牌（v2 收官判据）
 
@@ -1060,6 +1063,233 @@ apps/server/src/routes.ts（路由清单——考虑给路由加轻量元数据�
 - **依赖**：new-tool + new-event-type 两个 skill 流程；vscode-languageserver-protocol 新依赖（MIT，登记）。
 
 > 阶段十六治理注记：九工单消解既有挂池项（doc/02 §8.7 V2-27~35 对应行开工时标"已立项 16.x"）；逐张 lift 进 doc/02 §8 建阶段表（工单号不变，附录 A 第 5 条流程）；新事件/新工具分别走 new-event-type 与 new-tool skill 全流程；所有参考项目在线访问禁克隆（AGENTS §2.12），复用片段保留原版权声明（qwen-code/gemini-cli Apache-2.0、opencode MIT）。
+
+# 5B. 阶段十七：代码冗余整改（八工单 R-A～R-H；2026-09-03 全仓源码级冗余审计立项）
+
+> 立项依据：晚风 2026-09-03 指令——"检查所有代码有没有冗余、有没有堆在一个文件里，能封装的封装、能复用的复用"。当日完成全仓源码级审计（packages/engine 9966 行 / packages/protocol 2578 行 / apps/web 10338 行 / apps/server 1579 行 / apps/cli 3093 行 / apps/mobile 2809 行 / apps/miniapp 2630 行，共约 5.4 万行）：**总体分层与 D22 四端共享纪律良好、engine 无循环依赖、协议面无私设 wire 类型；问题集中在四类**——巨石文件（engine.ts 2028 行六职责叠加 / mock.ts 1374 / routes.ts 702 / Composer 682 等）、跨端纯逻辑与文案重复（部分已漂移成 bug）、包内样板重复（加载 effect×12 / try-catch×40 等）、死代码（零使用导出一批 + 整文件级六项待五层级确认）。
+> 执行原则：**行为等价重构**——全部工单不改任何对外行为/协议/事件语义；每批次独立 commit；测试全绿是提交前置。与阶段十一~十六无强依赖，可交叉执行；**建议整体排在 14.1（公共面治理）之前**——先消肿再定 SDK 承诺面，14.1 的导出裁决会因此更省力（14.1 本工单库行文不改动，开工时由该工单会话自行核对残留量）。
+> 开工顺序（收益大 × 风险低优先）：R-A 死导出清理 → R-B protocol 共享资产下沉 → R-C engine util 收敛（含真 bug）→ R-D engine.ts 拆分 → R-E web 收敛 → R-F server 去样板 → R-G cli 收敛 → R-H 移动双端共享 controller。R-B/R-C 可并行；R-D 依赖 R-C（util 先就位）；R-H 依赖 R-B（文案表/格式化先单源）。
+> 审计证据（file:line）在 §5B.0 汇总登记，**工单执行时以 grep 现场复核为准**（行号会随批次推进漂移）；本阶段不为消缺登记 H 号（doc/07 编号冻结）。
+
+## 5B.0 审计发现汇总（2026-09-03；执行时现场复核行号）
+
+**巨石文件**：engine.ts 2028 行=门面+会话仓储+索引维护+搜索+设置持久化+子代理执行体+组装根；apps/web/src/transports/mock.ts 1374 行=40+ Transport 方法（约 180 行静态夹具内联）；apps/server/src/routes.ts 702 行=46 路由；Composer.tsx 682 行=6 职责；ModelSettingsPage.tsx 572 行=三个零共享 section；mobile 三屏（SessionsScreen 468/SessionScreen 407/SettingsScreen 334）；miniapp session/index.tsx 412 行=settings/index.tsx 312 行。
+
+**跨端重复（已漂移/已分叉）**：① SSE 会话流状态机三写——packages/protocol/src/transport-node.ts 内 HttpTransport.loop 与 SessionEventSource.loop 同构两份，apps/mobile/src/transport/rn-event-source.ts 与 apps/miniapp/src/transport/mini-event-source.ts 又各一份（重连循环+401/403 鉴权收敛+水位）；② toolCategoryOf/flowRowsOf 双份——apps/cli/src/flow-rows.ts 与 apps/web/src/features/chat/chat-flow-rows.ts 同源，web 侧 groupTools/firstReasoningPerTurn 参数已漂移；③ fmtTokens 三份逐字同（web/cli×2）；formatTimestamp、isToday/fmtDate、dotColor、projectOf、toolStatusText、approvalResolvedText、CONNECTION_TEXT 两到四份；④ **真 bug**：FTS 召回链复制分叉——packages/engine/src/search/store.ts LIKE 查询有 %_\ 转义，packages/engine/src/memory/store.ts 同款没有（含 %/_ 查询误匹配）；⑤ 文案漂移：mobile 复制态"已复制" vs miniapp"✓ 已复制"；⑥ 会话页控制器——mobile SessionScreen 与 miniapp session 页约 200 行逻辑级复制（H2/H4/I2 评审修复曾两端各打一遍补丁）；⑦ hooks/EngineSettings zod 双定义——packages/engine/src/config.ts 与 packages/protocol/src/api.ts 各一份。
+
+**包内样板重复**：web settings 族 12 处加载 effect + 9 处错误/加载三件套 + 7 处保存 try-catch + 7 处手写保存按钮 class（ui/button.tsx outline 复制品）；web chat 三份外点关闭 effect + 两份 copy/1500ms 态 + fmtDuration 同名异义双定义；engine errText 模式 12+ 处、tmp+rename 原子写 5 处、"读 JSON+E_CONFIG 包装+zod issue 拼装"6 处、JSONL append/读 2 处、sleep 3 份；server 40 条路由 try/catch 纯冗余（全局 setErrorHandler 已兜底）+ parseOr400 三种写法 + 404 形体 7 处硬编码；cli items.tsx 纯逻辑混组件文件 + projectOf/fmtTokens/运行中工具计数组件间重复 + render.test 手写 render 15 处。
+
+**死代码**：零使用导出一批（protocol SubmitResult/SessionEventsQuerySchema 运行时无 parse/SkillHookPayload/ToolOutput.display 字段等；cli bootEcho、DELIVERY_ORDER/itemSettled 冗余 export；server replyOutcomeError 且同 409/404 语义三份实现；web isToday/useLastSeq/retryCount/LoadState 再导出/DEFAULT_BACKOFF_MS 再导出；mobile ui.tsx Row）；**整文件级六项 + _scratch 两份 lint 产物（git 追踪中）受 AGENTS §2.10 删除保护约束——见 §0.2 Q-7 待拍板**；mobile/miniapp app-store 投影面生产零调用（store 投影与屏幕本地投影双路径并存）。
+
+**刻意保留（不做，boring code 纪律）**：platform 被迫重复——miniapp 手写 UTF-8 解码器、Taro 分块双路 401 闸门、MiniRestClient 整类、react-native-sse G4 偏离处理、desktop/cli healthz 轮询骨架；protocol apply-event.ts 21 事件 if 链（词表穷尽性决定，不超载）；scripted-llm.ts 维持 10.30 冻结（经核实是 CI 假 provider 测试夹具而非 spike 残留）；engine ZERO_USAGE 与 protocol addUsage 语义有差只钉注释不强并。
+
+## R-A 死导出与死状态清理（零行为风险纯减法）
+
+- **目标**：删除全仓 grep 验证为零使用点的导出/类型/状态（**只删导出与状态，不删任何文件**——整文件级清理归 Q-7 拍板后的独立动作）。
+- **产出**：① protocol：SubmitResult、SessionEventsQuerySchema（类型 SessionEventsQuery 保留）、RoutingUsageDto/EngineSettings/PairedDeviceDto/CommandSurface 死类型别名、jsonSchemas 的 tests-only 现状注明（保留）；② engine：SkillHookPayload、ToolOutput.display 死字段、index.ts over-export 收窄首轮（AdvertisedTool/EventBusOptions/EventHandler 等仅再导出无外部消费的——**逐个 grep 复核后删，14.1 正式裁决前只做无损收窄**）；③ cli：store.ts bootEcho/setBootEcho 死状态、DELIVERY_ORDER 与 itemSettled 冗余 export、client-actions.ts 纯转口 re-export；④ server：errors.ts replyOutcomeError（连带把 409/404 语义三份实现收敛为一份）；⑤ web：lib/time.ts isToday、stores/session.ts useLastSeq、stores/connection.ts retryCount 死状态、McpSettingsPage LoadState 再导出、transports/http.ts DEFAULT_BACKOFF_MS 再导出；⑥ mobile：ui.tsx Row 组件（零引用）；⑦ miniapp：poll.ts PollFilterResult 冗余 export。
+- **验收**：每删一项前 grep 全仓（含 tests）确认零使用；删除处若有测试断言同步删除；`pnpm -r typecheck && pnpm -r lint && pnpm test` 全绿；**禁止触碰 10.30 冻结清单文件**。
+- **依赖**：无。
+
+**提示词**：
+
+```text
+任务：Spark 工单 R-A——死导出与死状态清理（阶段十七批次 A，零行为风险纯减法）。
+
+前置阅读：AGENTS.md、doc/08 §5B（阶段十七）与 §5B.0 审计发现汇总、doc/02 §8 工单 10.30 冻结清单（以下死代码对象
+中属整文件的均不在本工单范围——本工单只删"导出/类型/状态"，不删任何文件）。
+要求：
+1. 按 doc/08 §5B.0"死代码"条目逐项现场 grep 复核（含 tests）——行号以现场为准，审计记录行号已漂移时以 grep 结果为准；
+   复核为零使用才删，有任何使用点的（哪怕仅测试）保留并在提交信息注明。
+2. protocol：SubmitResult / SessionEventsQuerySchema（保留 SessionEventsQuery 类型）/ RoutingUsageDto / EngineSettings /
+   PairedDeviceDto / CommandSurface 死类型别名；engine：SkillHookPayload / ToolOutput.display 死字段 / index.ts 中
+   grep 复核为零外部消费的再导出（逐项列表入提交信息，存疑不删）。
+3. cli：store.ts bootEcho/setBootEcho/DELIVERY_ORDER/itemSettled 冗余 export、client-actions.ts 纯转口；server：
+   errors.ts replyOutcomeError（routes.ts:351 附近内联实现与 errors.ts:123 前缀版三份同语义，收敛为一份）；web：
+   isToday / useLastSeq / retryCount / LoadState 再导出 / DEFAULT_BACKOFF_MS 再导出；mobile：ui.tsx Row；miniapp：
+   PollFilterResult 冗余 export。
+4. 每删一项：grep 零使用确认 → 删定义与测试断言 → 单测改绿。禁止 rm/git rm 任何文件（AGENTS §2.10）。
+验收：pnpm -r typecheck / pnpm lint / pnpm test 全绿；提交信息逐项列出所删导出与复核结论。
+提交：refactor(全仓): 工单 R-A——死导出与死状态清理。完成后 doc/02 版本表追加（本工单不建阶段表行，见 §5B 注记）。
+```
+
+## R-B @spark/protocol 共享资产下沉（四端复用；协议改动从 protocol 开始）
+
+- **目标**：把四端各自维护、已出现漂移的纯逻辑/格式化/文案收敛到 @spark/protocol 单源（D22 共享资产纪律的自然延伸，与 error-copy/keymap 同列）。
+- **产出**：① packages/protocol/src 下新 format.ts：fmtTokens（≥1000 一位小数 k）、formatTimestamp（M月D日 HH:MM）、isToday、fmtDate、formatDateTime——收敛 web/cli/mobile/miniapp 的 10+ 处（web StatusBar.tsx、cli StatusBar.tsx/StatsPanel.tsx、两端 sessions 页与 session-rows.ts）；② `toolCategoryOf/flowRowsOf` 上移 protocol（protocol 新 flow-rows.ts，cli flow-rows.ts 与 web chat-flow-rows.ts 删本地版并对齐 groupTools/firstReasoningPerTurn 参数——止住漂移，两端消费点改 import）；③ `SessionStreamCore` 会话流状态机：重连循环+401/403 鉴权收敛（连续 3 次终态）+水位推进+dispose/generation，注入平台 connectOnce 钩子——transport-node.ts 的 HttpTransport.loop/SessionEventSource.loop 两份合一、mobile rn-event-source.ts / miniapp mini-event-source.ts 各 −80 行（**平台被迫部分不进 Core**：react-native-sse G4 偏离处理、Taro 分块双路闸门、轮询降级留两端本地）；④ `errorFromResponse(status, body)` 纯函数（transport-node req 与 miniapp rest.ts 合一）+ `parsePairLink` 下沉（mobile pair-link.ts / miniapp pair.ts 逐字双份）；⑤ 文案表单源：CONNECTION_TEXT（四处）、toolStatusText、approvalResolvedText、dotColor 进 protocol 文案邻域（error-copy 同目录或新 ui-copy.ts）；⑥ hooks/EngineSettings zod 统一——engine config.ts 改为复用 protocol api.ts 导出（顺带消除 config.ts→hooks/runner.js 反向依赖边）。
+- **验收**：每条新导出配 protocol 单测；四端 typecheck 全绿；"已复制"文案漂移在两端统一后走查确认；SSE 行为四端 e2e（web Playwright 7 例 + cli/mobile/miniapp 单测）零回归；**缺省 127.0.0.1+无鉴权行为不变红线保持**。
+- **依赖**：R-A（死导出先清，避免收窄后再改）。
+
+**提示词**：
+
+```text
+任务：Spark 工单 R-B——@spark/protocol 共享资产下沉（阶段十七批次 B）。
+
+前置阅读：AGENTS.md、doc/08 §5B.0 跨端重复条目（现场 grep 复核行号）、packages/protocol/src/error-copy.ts 与 keymap.ts
+（D22 共享资产先例——新资产照此目录归属与导出面）、ARCHITECTURE.md D22（四端共享纪律）。
+要求：
+1. protocol 先行（AGENTS §2.5）：format.ts / flow-rows.ts / SessionStreamCore / errorFromResponse / parsePairLink /
+   ui-copy 文案表逐个落 packages/protocol/src，各配单测；protocol tests 全绿后再动四端。
+2. 四端替换：web/cli/mobile/miniapp 各消费点改 import 共享版，删本地版；flowRowsOf 对齐时把 cli 缺的 groupTools /
+   firstReasoningPerTurn 参数补齐（以 web 版为准）；transport-node 内 HttpTransport.loop 与 SessionEventSource.loop
+   合一为 SessionStreamCore 消费者，mobile/miniapp 注入平台 connectOnce。
+3. 平台被迫部分留在各端本地（不强行抽象）：miniapp utf8 解码器/Taro 分块闸门/轮询降级、mobile react-native-sse G4。
+4. 文案漂移统一：复制态"已复制"两端统一（去 emoji，AGENTS §2.6）；CONNECTION_TEXT/dotColor 等 grep 四端确认替换后零残留。
+验收：pnpm -r typecheck/lint/test 全绿；pnpm eval 零回归；四端 SSE 走查（mock 或本地 server）确认重连/鉴权/水位行为不变。
+提交：refactor(protocol+四端): 工单 R-B——共享资产下沉（format/flow-rows/SessionStreamCore/ui-copy）。
+```
+
+## R-C engine util 收敛（含 memory LIKE 转义真 bug 修复）
+
+- **目标**：engine 包内五类样板收敛为 util 单源；修复 FTS 召回链分叉 bug。
+- **产出**：① `errText()` 无依赖叶子 util（吸取 session/store.ts:186 注释教训放叶子文件，pipeline 的 mapError 保留包装层）替换 12+ 处 `err instanceof Error ? err.message : String(err)`；② `atomicWriteJson(path, doc, opts?)` 收敛 5 处 tmp+rename（permission/store、secrets/store 的 0600 mode 保留为 opts、cost-tracker、automation/registry、engine.ts 两处）；③ config.ts 的 readJsonFile/parseOrThrow 导出复用 6 处"读 JSON+E_CONFIG 包装+zod issue 拼装"（secrets/mcp/cost-tracker/automation/engine）；④ `jsonl.ts`（appendLine/readLast）合并 audit/log 与 automation/registry 两份；⑤ **FTS 召回链合一**：提取共享模块（longestToken/matchFts/matchLike 三份二份），**统一转义行为到 search/store.ts 的 %_\ 转义版**——memory 搜索修复即行为变更，补单测断言查询含 %/_ 字符时按字面量匹配；⑥ engine 三份 sleep 合一（mcp/manager withTimeout 保留，语义不同）；⑦ 顺带消重复：engine.ts E_MEMORY_UNAVAILABLE 双写/E_SHUTTING_DOWN 三处 reject/resolveApiKey lambda 双写。
+- **验收**：行为等价（⑤除外——明示的 bug 修复）；engine 486 例全绿 + ⑤新单测；grep 确认旧样板零残留；doc/02 §5.8 若描述了 memory 搜索行为需同步更新（先查再改）。
+- **依赖**：无（与 R-B 可并行；R-D 的前置）。
+
+**提示词**：
+
+```text
+任务：Spark 工单 R-C——engine util 收敛 + memory LIKE 转义修复（阶段十七批次 C）。
+
+前置阅读：AGENTS.md、doc/08 §5B.0 包内样板条目、doc/02 §5.8（会话持久化——确认 JSONL 行为描述是否需随 ⑤同步）、
+packages/engine/src/session/store.ts:186 附近注释（util 放叶子文件避免循环依赖的先例）。
+要求：
+1. 逐类收敛：errText / atomicWriteJson（secrets 的 0600 保留为 opts）/ readJsonConfig+zod issue 拼装 / jsonl.ts /
+   sleep 合一——每类先 grep 全量清单（以现场为准），替换后 grep 零残留入提交信息。
+2. FTS 召回链合一：提取 memory/store.ts 与 search/store.ts 的共享召回模块，统一 LIKE 转义到 %_\ 版（search 版为准）；
+   这是行为修复——补单测：查询含 % 或 _ 的记忆搜索按字面量匹配不误配。
+3. engine.ts 内部小重复顺手消（E_MEMORY_UNAVAILABLE/E_SHUTTING_DOWN/resolveApiKey lambda）；不动 engine.ts 整体结构（那是 R-D）。
+4. boring code 纪律：util 只做这五件事，不顺手发明抽象层（AGENTS §2.11）。
+验收：pnpm --filter engine test 全绿（486 例+新增）；全仓 typecheck/lint；grep 旧样板零残留。
+提交：refactor(engine): 工单 R-C——util 收敛（errText/atomicWriteJson/readJsonConfig/jsonl/sleep）+ memory LIKE 转义修复。
+```
+
+## R-D engine.ts 拆分（2028 → 约 600 行门面；五刀各自独立 commit）
+
+- **目标**：把六职责叠加的 engine.ts 拆为单向依赖的门面+领域模块；拆分不引入任何新环（现状已是无环 DAG，engine.ts 唯一被引用点是 index.ts）。
+- **产出**（五刀，每刀独立 commit 便于回滚与 review）：① `engine-types.ts`（现 107–211 行类型区+SessionEntry，零依赖纯类型）；② SearchIndexer（indexSearchEvent/syncSearch/searchSessions/sessionTitleOf/searchSnippet/searchSnippet 部分与 engine.ts 搜索块）入 search/ 目录 + 会话索引维护五法（openIndex/rebuildIndex/touchIndex/titleIndex/disableIndex+syncIndex）为 SessionIndexMaintainer；③ `session-lifecycle.ts`（createSession/resumeSession/requireEntry/loadSession/locate/findSessionFile/forkSession/treeOf/scanForkChildren/scanDiskSessions/listSessions/statusOf/idOfFileName/titleOf）；④ `settings-store.ts`（getSettings/updateSettings/persistRouting/getRouting/updateRouting/resetUsage，依赖 config+secrets+onHooksReload 回调）；⑤ `subagent.ts`（runSubagent → makeSubagentRunner(deps) 注入，engine 构造器组装 makeTaskTool）；⑥ engine.ts 残部=类字段+构造器组装+wireSession+handleOf+各管理面只读透传+shutdown（约 600 行）；⑦ 同批拆 transport-node.ts 的 SSE 纯函数出 `sse-frames.ts`（若 R-B 已做 SessionStreamCore 则本项自然完成）。
+- **验收**：每刀后 engine 486 例全绿 + 全仓 typecheck；engine 对外导出面与 API 签名**不变**（index.ts re-export 保持）；单写者 JSONL 纪律不触碰（SessionStore 写路径不动）；shutdown 时序零变化（12 步顺序表对照测试）。
+- **依赖**：R-C（util 先就位）；**触碰单写者/关停敏感区，建议每刀之间晚风过目一眼再续**。
+
+**提示词**：
+
+```text
+任务：Spark 工单 R-D——engine.ts 拆分第 N 刀（<类型区|搜索与索引|会话生命周期|设置与路由|子代理>，阶段十七批次 D；
+一工单会话只做一刀，连续执行请逐刀开新会话）。
+
+前置阅读：AGENTS.md、doc/08 §5B.0 巨石文件条目与 §5B 开工顺序注记、packages/engine/src/engine.ts 头注释（组装根自述）、
+doc/02 §5.8（SessionStore 单写者——拆分不得触碰其写路径）、本刀目标函数清单（grep 现场定位，审计行号已漂移）。
+要求：
+1. 只做本刀：函数整段搬家不改逻辑；依赖以构造注入或参数对象传递，子模块禁止反向 import 门面 engine.ts；
+   engine.ts 保留同签名方法委托（对外 API 不变，index.ts re-export 不动）。
+2. 搬家后 grep 确认：无残留私有方法引用旧位置；engine 包 import 图仍为 DAG（无新环）。
+3. 触碰关停/单写者敏感区时零语义变化（对照 doc/02 §5.8 与 shutdown 十二步）。
+4. 完成一刀即 commit（refactor(engine): 工单 R-D 第 N 刀——<块名>），不跨刀夹带。
+验收：pnpm --filter engine test 全绿（486 例）+ pnpm -r typecheck；engine 对外导出与 API 签名 diff 为零
+（node --experimental 或 tsc 导出面对比，或 grep 消费方零改动佐证）。
+提交：refactor(engine): 工单 R-D 第 N 刀——<块名> 拆出。
+```
+
+## R-E web 前端收敛（useTransportQuery / ModelSettingsPage 三分 / Composer 拆分 / mock 夹具外置）
+
+- **目标**：收敛 web 包内四大样板与两个巨石组件。
+- **产出**：① `useTransportQuery(fetcher, deps)` hook：收敛 settings 族 12 处逐字加载 effect + 9 处错误/加载三件套 + hooks/useSessionList 与 useCommands 同构（估删 200–250 行）；② ModelSettingsPage 三分（Page / SecretsSection / RoutingSection + 供应商列表组件——三个 section 零共享状态，纯移动）；③ Composer 拆分（ComposerMenu 约 150 行 @// 菜单状态机 / PermissionTierMenu / AttachmentChips / useDismissOnOutsideClick 收敛三份 / useCopy 收敛两份 copy+1500ms）；④ mock.ts 静态夹具外置 `mock-data.ts`（MODELS 目录 50 行/审计演示条目/settings 默认值/COMMANDS 表）+ `removeBy` 收敛四份同构 CRUD——tests/mock-transport.test.ts 只 import 回放层，夹具外移对测试零影响；⑤ lib/time 统一（fmtDuration 同名异义双定义改不同名或删旧、formatDateTime 收敛 5 处自拼、timeGroupOf/isToday 合流）；⑥ PROMPTS 常量单源（ChatView 3 条 vs WelcomePage 4 条已漂移——合并为 4 条版本）；⑦ 保存按钮 class 复用 ui/button.tsx outline、settingInputCls 共享常量；⑧ routes/ 页头 PageHeader（SearchPage/AutomationPage 同构）；⑨ settings 保存模式（busy/opError/try-catch-finally）视 ①落地后的残留量决定是否再抽（估 7 处，收益中）。
+- **验收**：web 159 例 + Composer.test.tsx 全绿；VITE_SPARK_MOCK=1 手动走查设置三页（Model/General/Hooks）与 Composer 菜单交互零回归；视觉零变化（黑白中性基调，无 AI 生成风——AGENTS §2.6 自查）。
+- **依赖**：R-B（fmtTokens/formatDateTime 若已下沉则改 import）。
+
+**提示词**：
+
+```text
+任务：Spark 工单 R-E——web 前端收敛（阶段十七批次 E；一工单会话可整体做，内部按 ①→⑨ 顺序逐项 commit 或分批）。
+
+前置阅读：AGENTS.md、doc/08 §5B.0 包内样板条目、DESIGN.md §12（反 AI 生成风自查）、apps/web/tests/ 既有测试（Composer 与
+mock-transport 是回归网）、packages/protocol format.ts（若 R-B 已落地，格式化直接 import）。
+要求：
+1. useTransportQuery：签名 (fetcher, deps) 返回 {data, error, refresh}；12 处 effect 与 useSessionList/useCommands 逐个替换，
+   grep 零残留；错误/加载三件套随之收敛为统一小组件。
+2. ModelSettingsPage 三分纯移动零逻辑改动；Composer 拆分对照 apps/cli 既有 InputBox/SlashMenu 分离模式（commit 66cdcde 先例）；
+   外点关闭三份与 copy 态两份收敛 hook 后删除本地版。
+3. mock.ts 夹具外置 mock-data.ts（纯数据移动）+ removeBy 四份同构 CRUD 收敛——先读 tests/mock-transport.test.ts 确认
+   只 import 回放层再动；场景脚本 examples/mock-sessions/*.jsonl 不动。
+4. 视觉零变化走查 + §12 黑名单 grep 自查；不引新依赖。
+验收：pnpm --filter web test 全绿（159 例+）；VITE_SPARK_MOCK=1 走查设置页与 Composer 交互；pnpm typecheck/lint 全绿。
+提交：分项 refactor(web): 工单 R-E——useTransportQuery/ModelSettings 三分/Composer 拆分/mock 夹具外置…（每项一条）。
+```
+
+## R-F server 路由去样板 + 域拆分
+
+- **目标**：routes.ts 702 行去 40 条冗余 try/catch（约 −120 行）+ 按域拆插件。
+- **产出**：① 删 40 条 `catch (err) { return sendError(...) }`——全局 setErrorHandler 已兜底（errors.ts:113–115），async handler 直接 throw；② `parseOr400`/`notFound`/`requireHandle` 收敛进 errors.ts 单一导出（routes.ts:62 与 pairing-routes.ts:27 双实现 + sse.ts:64 第三种写法合一；404 形体 7 处硬编码换 notFound(reply)；sse.ts 内联 requireHandle 复用）；③ 按域拆 6 个路由子插件：sessions（11 条）/permissions+presets（6）/secrets（3）/models+routing+effort（7）/automation（6）/readonly（mcp/skills/settings/commands/memories/audit/search/artifacts/metrics）——zod schema 随域走，routes.ts 收敛为组装入口；④ `labelOf`（事件→人话摘要）预备上移 protocol 的评估小注（不动代码，只在 protocol 相关文档登记观察项——与 web 树视图潜在共享）。
+- **验收**：server 92 例（routes.test 16 describe 全程护航）全绿；46 条路由 path 与响应 shape 零变化（测试即合同）；配对鉴权行为不变。
+- **依赖**：无。
+
+**提示词**：
+
+```text
+任务：Spark 工单 R-F——server 路由去样板与域拆分（阶段十七批次 F）。
+
+前置阅读：AGENTS.md、doc/08 §5B.0 server 样板条目、apps/server/src/errors.ts:113 附近（全局 setErrorHandler——try/catch
+冗余的依据）、apps/server/tests/routes.test.ts（16 个 describe 是行为合同）。
+要求：
+1. 先删 40 条 try/catch（每删一条对照 routes.test 对应 describe 绿）；再收敛 parseOr400/notFound/requireHandle 三助手进
+   errors.ts（pairing-routes.ts 与 sse.ts 同步改用，删各自本地版）。
+2. 域拆 6 子插件（routes/ 目录或单文件均可，以路由文件数不爆炸为准）；路由 path/DTO/状态码零变化；
+   labelOf 只登记观察项不动代码。
+3. 行为等价：任何 handler 语义改动（哪怕看似等价）单测必先红后绿证明。
+验收：pnpm --filter server test 全绿（92 例）；pnpm -r typecheck/lint；curl 冒烟三条核心路由（sessions 列表/审批/搜索）。
+提交：refactor(server): 工单 R-F——路由去样板（40 try/catch）+ 三助手收敛 + 域拆分。
+```
+
+## R-G cli 收敛（纯逻辑搬家 / app.tsx 二次拆分 / 测试助手提取）
+
+- **目标**：cli 包内组件与纯逻辑分层归位 + app.tsx 余下派生态拆分。
+- **产出**：① items.tsx 四个纯函数（summarizeToolInput/toolOutputText/toolOutputLines/isDenied）搬家至 flow-rows.ts（头注释自述"纯逻辑可独立单测"）+ `useNow` 入 hooks/ + 删 items.tsx:17 冗余 re-export（toolCategoryOf 若 R-B 已上移 protocol 则此处改 import）；② app.tsx 二次拆分：useSlashMenu（app.tsx:84–98 派生态）/ useResumePanel（100–117）/ PanelRouter（233–279 面板渲染 11 分支三元链）——liveBudget 与 MessagePane 的 maxLiveRows 契约注释保持；③ 组件间重复收敛：Footer/ResumePanel 的 projectOf、Footer/StatsPanel 的 fmtTokens（R-B 后改 import）、运行中工具计数循环（与 web TurnStatusBar 同口径——R-B flow-rows.ts 归属时一并评估上移）；④ tests/render.test.tsx 提取 4 个助手（renderFrame / toolItem 提升到文件顶 / typeInto / sessionDto 工厂）+ **移除 describe('StatusBar') 死组件用例（组件文件本身留 Q-7 拍板，测试先停喂）**。
+- **验收**：cli 16 例全绿（render.test 重构后断言语义零变化）；§13.K 纯单栏视觉走查（footer 双行/面板族/尾操作行）零回归。
+- **依赖**：R-B（fmtTokens/flowRowsOf 单源后改 import）。
+
+**提示词**：
+
+```text
+任务：Spark 工单 R-G——cli 收敛（阶段十七批次 G）。
+
+前置阅读：AGENTS.md、doc/08 §5B.0 cli 条目、DESIGN.md §13.K（CLI 纯单栏规格——拆分不得改视觉）、apps/cli/src/app.tsx 头注释
+（66cdcde 拆分后的职责分布自述）、packages/protocol flow-rows.ts 与 format.ts（若 R-B 已落地）。
+要求：
+1. items.tsx 纯函数搬 flow-rows.ts（搬不改逻辑，补纯逻辑单测）；useNow 入 hooks/；删 items.tsx 冗余 re-export。
+2. app.tsx 三拆（useSlashMenu/useResumePanel/PanelRouter）——渲染分支三元链改组件路由；键位行为零变化
+   （use-cli-keys 不动）。
+3. projectOf/fmtTokens/工具计数：protocol 已有则 import，没有则本包单源（入 flow-rows.ts）——避免第三份。
+4. render.test.tsx 助手提取后断言语义零变化；describe('StatusBar') 用例删除（组件文件留 Q-7，不删文件）。
+验收：pnpm --filter cli test 全绿；TUI 冒烟（本地 server + 三面板/斜杠菜单/翻页）零回归。
+提交：refactor(cli): 工单 R-G——纯逻辑归位 + app.tsx 二次拆分 + 测试助手提取。
+```
+
+## R-H mobile/miniapp 会话页共享 controller（最大单块去重）
+
+- **目标**：消灭两端会话页约 200 行逻辑级复制（评审补丁曾两端各打一遍的漂移高发区），拆分剩余巨石屏。
+- **产出**：① 平台无关 `useSessionPageController`（装载回放+开流 / loadOlder 合并重放 / send/stop/reply / notice 5s 自清 / isReplayedDuplicate 闸门 / PAGE_SIZE 常量）——入共享位置（`@spark/protocol` 不含 React，故入两端可达的共享 hooks 形态：优先各端薄壳 + protocol 纯逻辑块拆分评估；**开工时先向晚风确认落点**：protocol utils/ vs mobile/miniapp 各自 hook 文件 vs 新建共享包，见 §0.2 Q-8）；② 巨石屏拆分：mobile SessionsScreen 纯函数（dotColor/isToday/fmtDate/projectOf）入 session-list-model.ts + FilterMenu/SessionRow 出组件 + StyleSheet 考虑外置；miniapp settings 四卡拆分（PairCard/ServerFormCard/AppearanceCard）；③ app-store 投影双路径收口（**方向二选一，开工时问晚风**：A 会话页改用 store 投影 / B store 收窄为连接态+notice+列表去掉 ProjectionState 继承——默认建议 B，屏幕本地投影现状即事实单一来源）；④ mobile SettingsScreen 内联的短码兑 token 逻辑对齐 miniapp 已抽的 redeemPairCode 形态；⑤ Maestro 四用例共享 e2e/lib/preamble.yaml（runFlow）；⑥ "已复制"文案统一（R-B ui-copy 落地后此处改 import 收尾）。
+- **验收**：mobile 48 例 + miniapp 51 例全绿；两端单测覆盖 controller 全路径（装载/翻页/发送/审批/notice）；Maestro 四幕可跑（或用户现场走查记录）；**RN/Taro 平台被迫重复不动**（utf8 解码器/Taro 分块闸门/轮询降级）。
+- **依赖**：R-B（文案/格式化先单源）；Q-8 落点拍板。
+
+**提示词**：
+
+```text
+任务：Spark 工单 R-H——mobile/miniapp 会话页共享 controller 与巨石屏拆分（阶段十七批次 H；开工前先问晚风 Q-7/Q-8）。
+
+前置阅读：AGENTS.md、doc/08 §5B.0 移动双端条目与 §0.2 Q-7/Q-8（两个待拍板项）、apps/mobile/src/screens/SessionScreen.tsx
+与 apps/miniapp/src/pages/session/index.tsx 对照读（同构段现场确认）、packages/protocol applyEvent（两端会话页现状即用
+共享 reducer——controller 只收"页面编排"层，不碰投影）。
+要求：
+1. 开工先问晚风：Q-8 controller 落点（protocol utils vs 两端 hook 文件 vs 共享包）与 Q-7 死文件处置——未答先做 ②③④⑤
+   不依赖拍板的部分。
+2. useSessionPageController：入参注入 getSession/openStream 平台差异；两端页只剩渲染与平台特有逻辑（贴底/视口测量/导航标题）；
+   controller 全路径单测两端各跑一遍。
+3. app-store 投影双路径：按晚风拍板方向收口（缺省建议 B）；未拍板不动 store。
+4. 平台被迫重复不动（utf8/分块闸门/轮询降级/react-native-sse G4）；Maestro preamble 用 runFlow。
+验收：pnpm --filter mobile test / --filter miniapp test 全绿；真机或模拟器四场景走查（用户侧留记录）；controller 单测全路径。
+提交：refactor(mobile+miniapp): 工单 R-H——共享会话页 controller + 巨石屏拆分。
+```
+
+---
 
 # 6. 后置池与观察项（不设工单号；每项含触发条件）
 
