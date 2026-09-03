@@ -76,7 +76,9 @@ async function makeEngine(
 }
 
 async function waitFor(pred: () => boolean, what: string): Promise<void> {
-  const deadline = Date.now() + 2000
+  // 死线 2s→8s：CI runner 并发下父/子两级 run-loop 级联曾超时（2026-09-03 CI 红实例，
+  // 本地三连过——时序余量问题非功能缺陷；同 user-hooks 10.24 先例）
+  const deadline = Date.now() + 8000
   for (;;) {
     if (pred()) return
     if (Date.now() > deadline) throw new Error(`等待 ${what} 超时`)
