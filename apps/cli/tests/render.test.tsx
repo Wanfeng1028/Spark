@@ -350,19 +350,21 @@ describe('InputBox', () => {
   })
 })
 
-describe('Footer（工单 10.8 / §13.K K.4 双行）', () => {
-  it('第 1 行：→项目 · 模型 · 分支真值；第 2 行：提交模式 + 帮助/统计入口', () => {
+describe('Footer（工单 10.51 单行化，qwen 形态）', () => {
+  it('单行：→项目 · 分支 · 模型 · 提交模式 · 帮助/统计入口同帧同行', () => {
     const s = slice()
     s.meta.cwd = '/home/wanfeng/Spark'
     s.meta.branch = 'main'
-    const f = render(<Footer slice={s} />).lastFrame()
+    const f = render(<Footer slice={s} />).lastFrame() ?? ''
     expect(f).toContain('→Spark')
     expect(f).toContain('git:(main)')
     expect(f).toContain('deepseek/chat')
     expect(f).toContain('[now]')
-    expect(f).toContain('Tab 切换提交模式')
     expect(f).toContain('? 帮助')
     expect(f).toContain('/stats 明细')
+    // 单行化（工单 10.51）：项目信息与提交模式在同一行（不再分两行）
+    const footerLine = f.split('\n').find((l) => l.includes('→Spark')) ?? ''
+    expect(footerLine).toContain('[now]')
   })
 
   it('分支缺省不渲染该段（禁假状态）', () => {

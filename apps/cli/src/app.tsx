@@ -221,9 +221,9 @@ export function App({ baseUrl }: { baseUrl: string }) {
   const inputBoxActive = inputActive && (panel === 'none' || panel === 'resume')
 
   /**
-   * live 区行数预算（工单 10.33）：终端行数 − 底部固定件（menu 模式面板按行计不进
-   * 此列——面板态 MessagePane 不渲染；此处只算与会话流同帧共存的件）：
-   * InputBox 2 行（顶横线+内容行）+ Footer 2 行（+断线异常行 1）+ slash 菜单（开着才计）
+   * live 区行数预算（工单 10.33；10.51 Footer 单行化后回收 1 行）：终端行数 − 底部固定件
+   * （menu 模式面板按行计不进此列——面板态 MessagePane 不渲染；此处只算与会话流同帧共存的件）：
+   * InputBox 2 行（顶横线+内容行）+ Footer 1 行（+断线异常行 1）+ slash 菜单（开着才计）
    * + 错误区 2 行（出现才计）+ 审批框（挂起才计，保守 6）。live 折叠提示行也占预算——再减 1。
    */
   const slashRows = slashOpen && slashItems.length > 0 && panel === 'none' ? SLASH_PAGE_SIZE + 1 : 0
@@ -232,7 +232,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
   const abnormalRows = connStatus !== 'open' ? 1 : 0
   const liveBudget = Math.max(
     1,
-    rows - 2 - 2 - abnormalRows - slashRows - errorRows - approvalRows - 1,
+    rows - 2 - 1 - abnormalRows - slashRows - errorRows - approvalRows - 1,
   )
 
   // ---------- 渲染：启动错误屏优先 / 面板族 / boot 骨架 / 会话流 ----------
