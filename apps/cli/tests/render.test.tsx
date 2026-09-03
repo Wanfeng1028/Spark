@@ -4,17 +4,19 @@
  */
 import { describe, expect, it } from 'vitest'
 import { render } from 'ink-testing-library'
+import { act, createRef } from 'react'
 import { BUILTIN_COMMANDS, emptySessionSlice, ids } from '@spark/protocol'
 import { displayWidth } from '../src/text-width.js'
 import type { SessionSlice, UiItem } from '@spark/protocol'
 import { StatusBar } from '../src/components/StatusBar.js'
 import { MessagePane } from '../src/components/MessagePane.js'
 import { ApprovalPrompt } from '../src/components/ApprovalPrompt.js'
-import { InputBox } from '../src/components/InputBox.js'
+import { InputBox, type InputBoxHandle } from '../src/components/InputBox.js'
 import { Footer } from '../src/components/Footer.js'
 import { LoadingIndicator } from '../src/components/LoadingIndicator.js'
 import { BootHeader } from '../src/components/BootHeader.js'
 import { filterSlashCommands } from '../src/components/SlashMenu.js'
+import { FsMenu, parseAtToken } from '../src/components/FsMenu.js'
 import { ItemView, summarizeToolInput, toolCategoryOf, toolOutputText, toolOutputLines, ToolGroupLine } from '../src/components/items.js'
 import { flowRowsOf, rowSettled } from '../src/flow-rows.js'
 import { ResumePanel } from '../src/components/ResumePanel.js'
@@ -655,5 +657,75 @@ describe('InputBox 宽字符口径（工单 10.19①）', () => {
     stdin.write('\x7F') // 一次退格删掉整个字位
     stdin.write('\r')
     expect(submitted).toEqual(['👍']) // 退到空 → InputBox 不提交
+  })
+})
+
+describe('@ token 解析（工单 10.53 parseAtToken）', () => {
+  it('尾部 @ 词触发：返回 @ 下标与其后部分路径', () => {
+    expect(parseAtToken('@')).toEqual({ start: 0, query: '' })
+    expect(parseAtToken('@src/comp')).toEqual({ start: 0, query: 'src/comp' })
+  })
+
+  it('句中尾部 @ 词触发：start 指向该词 @（与 web detectMenu 词首语义一致）', () => {
+    expect(parseAtToken('解释 @src/foo.ts')).toEqual({ start: 3, query: 'src/foo.ts' })
+  })
+
+  it('无 @ / @ 非词首 / 尾部空白 / slash 词 → null（不误触发）', () => {
+    expect(parseAtToken('hello')).toBeNull()
+    expect(parseAtToken('a@b')).toBeNull() // @ 非词首
+    expect(parseAtToken('@src ')).toBeNull() // 尾部空白 → 无活动词（文件补全后关闭）
+    expect(parseAtToken('/stats')).toBeNull() // slash 词
+    expect(parseAtToken('')).toBeNull()
+  })
+})
+
+describe('FsMenu 渲染（工单 10.53）', () => {
+  const entries = [
+    { name: 'src', path: 'src', isDir: true },
+    { name: 'package.json', path: 'package.json', isDir: false },
+  ]
+
+  it('活动行 > 标记；目录带 / 后缀 + 目录标记，文件 + 文件标记', () => {
+    const f = render(<FsMenu entries={entries} selected={0} page={0} />).lastFrame() ?? ''
+    expect(f).toContain('> ') // 活动行标记
+    expect(f).toContain('src/') // 目录带 / 后缀
+    expect(f).toContain('目录')
+    expect(f).toContain('package.json')
+    expect(f).toContain('文件')
+  })
+
+  it('空清单显示无匹配占位（防御性——fsOpen 门控下实际不渲染）', () => {
+    const f = render(<FsMenu entries={[]} selected={0} page={0} />).lastFrame() ?? ''
+    expect(f).toContain('无匹配路径')
+  })
+})
+
+describe('InputBox 命令式回写（工单 10.53 setValue）', () => {
+  it('外部 setValue 回写值 + 上报 preview（@ 补全选中路径回写）', () => {
+    const ref = createRef<InputBoxHandle>()
+    const previews: string[] = []
+    const { lastFrame } = render(
+      <InputBox
+        ref={ref}
+        active
+        prefix="> "
+        placeholder="输入"
+        onSubmit={() => {}}
+        onPreview={(v) => previews.push(v)}
+      />,
+    )
+    // 命令式 ref 更新在 Ink 输入循环外，需 act 环境 + act 包裹才同步 flush（仅本用例开启，避免全局噪声）
+    const env = globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean | undefined }
+    const prev = env.IS_REACT_ACT_ENVIRONMENT
+    env.IS_REACT_ACT_ENVIRONMENT = true
+    try {
+      act(() => {
+        ref.current?.setValue('@src/')
+      })
+    } finally {
+      env.IS_REACT_ACT_ENVIRONMENT = prev
+    }
+    expect(lastFrame()).toContain('@src/')
+    expect(previews).toEqual(['@src/'])
   })
 })

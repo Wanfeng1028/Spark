@@ -13,7 +13,7 @@
  * 按原子文本插入（不猜键；键位分层见 App 层，深层残余挂 V2-26）。
  */
 import { Box, Text, useCursor, useInput, type DOMElement } from 'ink'
-import { useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { displayWidth, graphemesOf } from '../text-width.js'
 
 export interface InputBoxProps {
@@ -28,6 +28,12 @@ export interface InputBoxProps {
   maxWidth?: number
   /** 边框/横线颜色（工单 10.45：审批挂起黄，缺省灰） */
   border?: 'gray' | 'yellow'
+}
+
+/** 外部命令式句柄（工单 10.53）：@ 补全选中路径后回写输入框——不扰动 ref 权威打字模型 */
+export interface InputBoxHandle {
+  /** 置 value 并把光标移到末尾（字位口径），同步上报 preview */
+  setValue: (text: string) => void
 }
 
 /** 渲染窗口：含光标的字位区间，宽度不超 maxW（光标优先可见，剩余宽度回填头部） */
@@ -73,16 +79,19 @@ function absolutePosition(el: DOMElement): { left: number; top: number } {
   return { left, top }
 }
 
-export function InputBox({
-  active,
-  prefix,
-  placeholder,
-  onSubmit,
-  onPreview,
-  onSpace,
-  maxWidth,
-  border = 'gray',
-}: InputBoxProps) {
+export const InputBox = forwardRef<InputBoxHandle, InputBoxProps>(function InputBox(
+  {
+    active,
+    prefix,
+    placeholder,
+    onSubmit,
+    onPreview,
+    onSpace,
+    maxWidth,
+    border = 'gray',
+  },
+  ref,
+) {
   const [value, setValue] = useState('')
   /** 光标语义 = 字位下标（工单 10.19①：非 UTF-16 code unit） */
   const [cursor, setCursor] = useState(0)
@@ -102,6 +111,11 @@ export function InputBox({
     setCursor(c)
     onPreview?.(v)
   }
+
+  // @ 补全回写（工单 10.53）：外部选中路径 → 整段替换草稿，光标落末尾（字位）
+  useImperativeHandle(ref, () => ({
+    setValue: (text: string) => commit(text, graphemesOf(text).length),
+  }))
 
   useInput(
     (input, key) => {
@@ -220,4 +234,4 @@ export function InputBox({
       </Box>
     </Box>
   )
-}
+})

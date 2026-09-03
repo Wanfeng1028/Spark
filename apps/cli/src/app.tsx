@@ -9,10 +9,10 @@ import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { HttpTransport, humanizeError } from '@spark/protocol'
-import type { RequestId } from '@spark/protocol'
+import type { FsEntryDto, RequestId } from '@spark/protocol'
 import { useCliStore } from './store.js'
 import { MessagePane } from './components/MessagePane.js'
-import { InputBox } from './components/InputBox.js'
+import { InputBox, type InputBoxHandle } from './components/InputBox.js'
 import { Footer } from './components/Footer.js'
 import { BootHeader } from './components/BootHeader.js'
 import { LoadingIndicator } from './components/LoadingIndicator.js'
@@ -30,7 +30,9 @@ import {
   UsagePanel,
 } from './components/CommandPanels.js'
 import { SlashMenu, SLASH_PAGE_SIZE, filterSlashCommands } from './components/SlashMenu.js'
+import { FsMenu, FS_PAGE_SIZE, parseAtToken } from './components/FsMenu.js'
 import { useCliKeys } from './hooks/use-cli-keys.js'
+import { useFsCompletion } from './hooks/use-fs-completion.js'
 import { useSessionStream } from './hooks/use-session-stream.js'
 import { useCliActions } from './hooks/use-cli-actions.js'
 
@@ -99,6 +101,30 @@ export function App({ baseUrl }: { baseUrl: string }) {
     setSlashSelected(0) // 过滤词变化回位首项
   }, [slashQuery])
   const slashOpen = slashQuery !== null && slashItems.length > 0
+
+  // ---------- @ 文件路径补全派生态（工单 10.53）：尾部 @ token 触发，cwd 目录列举 ----------
+
+  // 与 slash 互斥（草稿不会同时以 / 开头又以 @ 尾词触发）；panel!=='none' 时不触发
+  const atToken = panel === 'none' ? parseAtToken(draftPreview) : null
+  const fsQuery = atToken === null ? null : atToken.query
+  const fsItems = useFsCompletion(transport, activeSessionId, fsQuery)
+  const [fsSelected, setFsSelected] = useState(0)
+  // Esc 关闭后的隐藏位（过滤词变化重现——同 slashSelected 回位机制）
+  const [fsHidden, setFsHidden] = useState(false)
+  useEffect(() => {
+    setFsSelected(0)
+    setFsHidden(false)
+  }, [fsQuery])
+  const fsOpen = atToken !== null && !fsHidden && fsItems.length > 0
+  // @ 补全回写句柄（工单 10.53）：InputBox 提交前会清空自身，故用 onSubmit 传入的 text 解析 token
+  const inputRef = useRef<InputBoxHandle>(null)
+  const acceptFsEntry = useCallback((baseText: string, entry: FsEntryDto): void => {
+    const tok = parseAtToken(baseText)
+    if (tok === null) return
+    // qwen 口径：目录补全后不关闭不加尾空格（继续下钻）；文件加尾空格并关闭（尾部空白使 token 失效）
+    const suffix = entry.isDir ? '/' : ' '
+    inputRef.current?.setValue(`${baseText.slice(0, tok.start)}@${entry.path}${suffix}`)
+  }, [])
 
   // ---------- /resume 面板派生态（工单 10.11）：过滤 = 输入框内容 ----------
 
@@ -177,6 +203,11 @@ export function App({ baseUrl }: { baseUrl: string }) {
     slashItems,
     slashSelected,
     setSlashSelected,
+    fsOpen,
+    fsCount: fsItems.length,
+    fsSelected,
+    setFsSelected,
+    onFsDismiss: () => setFsHidden(true),
     lastFailedRef,
     pendingApproval,
     rejecting,
@@ -224,15 +255,17 @@ export function App({ baseUrl }: { baseUrl: string }) {
    * live 区行数预算（工单 10.33；10.51 Footer 单行化后回收 1 行）：终端行数 − 底部固定件
    * （menu 模式面板按行计不进此列——面板态 MessagePane 不渲染；此处只算与会话流同帧共存的件）：
    * InputBox 2 行（顶横线+内容行）+ Footer 1 行（+断线异常行 1）+ slash 菜单（开着才计）
-   * + 错误区 2 行（出现才计）+ 审批框（挂起才计，保守 6）。live 折叠提示行也占预算——再减 1。
+   * + @ 补全面板（开着才计，与 slash 互斥）+ 错误区 2 行（出现才计）+ 审批框（挂起才计，保守 6）。
+   * live 折叠提示行也占预算——再减 1。
    */
   const slashRows = slashOpen && slashItems.length > 0 && panel === 'none' ? SLASH_PAGE_SIZE + 1 : 0
+  const fsRows = fsOpen ? FS_PAGE_SIZE + 1 : 0
   const errorRows = errorInfo !== null ? 2 : 0
   const approvalRows = pendingApproval !== null ? 6 : 0
   const abnormalRows = connStatus !== 'open' ? 1 : 0
   const liveBudget = Math.max(
     1,
-    rows - 2 - 1 - abnormalRows - slashRows - errorRows - approvalRows - 1,
+    rows - 2 - 1 - abnormalRows - slashRows - fsRows - errorRows - approvalRows - 1,
   )
 
   // ---------- 渲染：启动错误屏优先 / 面板族 / boot 骨架 / 会话流 ----------
@@ -307,6 +340,13 @@ export function App({ baseUrl }: { baseUrl: string }) {
           page={Math.floor(slashSelected / SLASH_PAGE_SIZE)}
         />
       ) : null}
+      {fsOpen ? (
+        <FsMenu
+          entries={fsItems}
+          selected={fsSelected}
+          page={Math.floor(fsSelected / FS_PAGE_SIZE)}
+        />
+      ) : null}
       {errorInfo !== null ? (
         <Box flexDirection="column">
           <Text color="red">
@@ -336,6 +376,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
         />
       ) : (
         <InputBox
+          ref={inputRef}
           key={panel}
           active={inputBoxActive}
           maxWidth={columns}
@@ -348,7 +389,15 @@ export function App({ baseUrl }: { baseUrl: string }) {
                 ? '等待审批——1 允许一次 / 2 总是允许 / 3 拒绝'
                 : '输入您的消息或 @ 文件路径'
           }
-          onSubmit={(text) => actions.submit(text)}
+          onSubmit={(text) => {
+            // @ 补全面板开启：Enter = 选中路径回写，不发送（工单 10.53；同 resume 拦截模型）
+            if (fsOpen) {
+              const entry = fsItems[fsSelected]
+              if (entry !== undefined) acceptFsEntry(text, entry)
+              return
+            }
+            actions.submit(text)
+          }}
           onPreview={(v) => useCliStore.getState().setDraftPreview(v)}
           {...(panel === 'resume'
             ? {

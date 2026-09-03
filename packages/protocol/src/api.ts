@@ -483,3 +483,30 @@ export const PairTokenDtoSchema = z.strictObject({
   token: z.string().min(1),
 })
 export type PairTokenDto = z.infer<typeof PairTokenDtoSchema>
+
+// ---------- 目录列举（doc/02 批次 6 工单 10.53：CLI @ 文件路径补全数据源） ----------
+
+/**
+ * 目录列举查询（GET /api/sessions/:id/fs?path=）：path = 相对会话 cwd 的部分路径，
+ * 末段可为正在输入的前缀（如 `src/comp`）。服务端取 dirname 列举、basename 前缀过滤，
+ * 并经 resolveInRoot 硬边界（§6.4：越出 cwd → E_PATH_OUTSIDE）。缺省空串 = 列举 cwd 根。
+ */
+export const FsQuerySchema = z.strictObject({
+  path: z.string().default(''),
+})
+export type FsQuery = z.infer<typeof FsQuerySchema>
+
+/** 单个目录项：name = 项名；path = 相对 cwd 的 posix 路径（补全回写用）；isDir 目录/文件区分 */
+export const FsEntryDtoSchema = z.strictObject({
+  name: z.string().min(1),
+  path: z.string().min(1),
+  isDir: z.boolean(),
+})
+export type FsEntryDto = z.infer<typeof FsEntryDtoSchema>
+
+/** 目录列举结果：path = 实际列举的目录（相对 cwd，根为空串）；entries 目录优先再字典序 */
+export const FsListDtoSchema = z.strictObject({
+  path: z.string(),
+  entries: z.array(FsEntryDtoSchema),
+})
+export type FsListDto = z.infer<typeof FsListDtoSchema>

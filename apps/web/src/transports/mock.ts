@@ -20,6 +20,7 @@ import type {
   CommandDto,
   ContentItem,
   EventId,
+  FsListDto,
   McpServerDto,
   MemoryDto,
   ModelTestResultDto,
@@ -1097,6 +1098,23 @@ export class MockTransport implements Transport {
     }
     hits.sort((a, b) => b.time - a.time)
     return Promise.resolve(hits.slice(0, limit ?? 20))
+  }
+
+  /** 目录列举（工单 10.53）：mock 固定小树——web @ 菜单壳的占位数据源（真实列举见 server /api/sessions/:id/fs） */
+  listFs(_sessionId: SessionId, path = ''): Promise<FsListDto> {
+    this.assertNotDisposed()
+    // 镜像服务端语义：path 末段为前缀，列举其父目录；mock 只回固定三项（目录优先）
+    const slash = path.lastIndexOf('/')
+    const dir = slash === -1 ? '' : path.slice(0, slash)
+    const base = dir === '' ? '' : `${dir}/`
+    return Promise.resolve({
+      path: dir,
+      entries: [
+        { name: 'src', path: `${base}src`, isDir: true },
+        { name: 'README.md', path: `${base}README.md`, isDir: false },
+        { name: 'package.json', path: `${base}package.json`, isDir: false },
+      ],
+    })
   }
 
   fireAutomationWebhook(id: string): Promise<void> {

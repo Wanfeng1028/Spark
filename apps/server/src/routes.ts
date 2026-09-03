@@ -3,6 +3,8 @@
  * 端点清单 = §4.5 表（tree/fork 工单 4.5、checkpoints/rollback 工单 4.6、
  * permission rules 工单 4.7 注册）；并发安全由引擎单写者保证，路由层无锁。
  */
+import { readdir } from 'node:fs/promises'
+import type { Dirent } from 'node:fs'
 import type { FastifyPluginCallback } from 'fastify'
 import { z } from 'zod'
 import {
@@ -11,6 +13,7 @@ import {
   DeliverySchema,
   EventIdSchema,
   ExecuteCommandBodySchema,
+  FsQuerySchema,
   PermissionPresetSchema,
   PermissionReplySchema,
   PermissionRuleDtoSchema,
@@ -29,6 +32,7 @@ import type {
   SessionTreeInfo,
   SessionTreeNode,
 } from '@spark/engine'
+import { resolveInRoot } from '@spark/engine'
 import type { SessionMetaDto } from '@spark/protocol'
 import { sendError, validationError } from './errors.js'
 
@@ -99,6 +103,8 @@ const ReplyBody = z.strictObject({
 })
 
 const IdParams = z.strictObject({ id: SessionIdSchema })
+/** @ 文件路径补全目录列举上限（工单 10.53）：防大目录（node_modules 根）巨响应；目录优先字典序后截断 */
+const FS_LIST_LIMIT = 200
 const RequestIdParams = z.strictObject({ requestId: RequestIdSchema })
 const RollbackParams = z.strictObject({ id: SessionIdSchema, cid: CheckpointIdSchema })
 
@@ -250,6 +256,40 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
         events = events.slice(-query.limit)
       }
       return reply.send({ ...toDto(engine, handle.meta), events })
+    } catch (err) {
+      return sendError(req, reply, err)
+    }
+  })
+
+  /**
+   * GET /api/sessions/:id/fs?path=（工单 10.53）：@ 文件路径补全的目录列举。
+   * path = 相对会话 cwd 的部分路径，末段作前缀过滤，列举其父目录。硬边界经 resolveInRoot：
+   * 越出 cwd（如 ../）或目录不存在一律如实空清单（补全 UI 不报错打断输入，且不泄露 cwd 外任何项）。
+   */
+  app.get('/api/sessions/:id/fs', async (req, reply) => {
+    try {
+      const { id } = parseOr400(IdParams, req.params)
+      const query = parseOr400(FsQuerySchema, req.query)
+      const handle = await requireHandle(engine, id)
+      const rel = query.path.replace(/\\/g, '/') // Windows 反斜杠归一为 posix（@ token 用 /）
+      const slash = rel.lastIndexOf('/')
+      const dirRel = slash === -1 ? '' : rel.slice(0, slash)
+      const prefix = slash === -1 ? rel : rel.slice(slash + 1)
+      const base = dirRel === '' ? '' : `${dirRel}/`
+      let dirents: Dirent[]
+      try {
+        // 硬边界（§6.4）：resolveInRoot 越出 cwd 抛 E_PATH_OUTSIDE → 落 catch 回空清单
+        const absDir = resolveInRoot(handle.meta.cwd, dirRel === '' ? '.' : dirRel)
+        dirents = await readdir(absDir, { withFileTypes: true })
+      } catch {
+        return reply.send({ path: dirRel, entries: [] })
+      }
+      const entries = dirents
+        .filter((d) => d.name.startsWith(prefix))
+        .map((d) => ({ name: d.name, path: `${base}${d.name}`, isDir: d.isDirectory() }))
+        .sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1))
+        .slice(0, FS_LIST_LIMIT)
+      return reply.send({ path: dirRel, entries })
     } catch (err) {
       return sendError(req, reply, err)
     }

@@ -14,6 +14,7 @@ import type {
   AutomationTriggerDto,
   CheckpointDto,
   CommandDto,
+  FsListDto,
   McpServerDto,
   MemoryDto,
   ModelTestResultDto,
@@ -137,6 +138,11 @@ export interface Transport {
   listAudit(query?: AuditQuery): Promise<AuditEntryDto[]>
   /** GET /api/search?q：会话全文搜索（事件内容命中；工单 7.13） */
   search(q: string, limit?: number): Promise<SearchHitDto[]>
+  /**
+   * GET /api/sessions/:id/fs?path=：列举会话 cwd 下目录（@ 文件路径补全数据源，工单 10.53）。
+   * path = 相对 cwd 的部分路径（末段作前缀过滤）；服务端硬边界越界/不存在如实空清单。
+   */
+  listFs(sessionId: SessionId, path?: string): Promise<FsListDto>
   /** GET /api/pair：配对状态（监听地址/鉴权启用态/已配对设备；工单 9.1 / ADR D24） */
   getPairStatus(): Promise<PairStatusDto>
   /** POST /api/pair/code：签发配对码（6 位短码 60s 有效 + QR 出示内容） */

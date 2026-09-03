@@ -19,6 +19,7 @@ import type {
   AutomationTriggerDto,
   CheckpointDto,
   CommandDto,
+  FsListDto,
   McpServerDto,
   MemoryDto,
   ModelTestResultDto,
@@ -522,6 +523,12 @@ export class HttpTransport implements Transport {
     const params = new URLSearchParams({ q })
     if (limit !== undefined) params.set('limit', String(limit))
     return this.req<SearchHitDto[]>(`/api/search?${params.toString()}`)
+  }
+
+  listFs(sessionId: SessionId, path = ''): Promise<FsListDto> {
+    // path 空串 = 列举 cwd 根（不带查询串，与缺省同形）
+    const qs = path === '' ? '' : `?path=${encodeURIComponent(path)}`
+    return this.req<FsListDto>(`/api/sessions/${sessionId}/fs${qs}`)
   }
 
   getPairStatus(): Promise<PairStatusDto> {

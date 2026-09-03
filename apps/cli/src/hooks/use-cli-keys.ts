@@ -27,6 +27,12 @@ export interface UseCliKeysOptions {
   slashItems: ReadonlyArray<{ name: string }>
   slashSelected: number
   setSlashSelected: (n: number) => void
+  /** @ 文件路径补全派生态（工单 10.53；与 slash 互斥） */
+  fsOpen: boolean
+  fsCount: number
+  fsSelected: number
+  setFsSelected: (n: number) => void
+  onFsDismiss: () => void
   /** 挂起审批与拒绝反馈模式（审批键位接管判定） */
   pendingApproval: { requestId: RequestId } | null
   rejecting: RequestId | null
@@ -57,6 +63,11 @@ export function useCliKeys(opts: UseCliKeysOptions): void {
     slashItems,
     slashSelected,
     setSlashSelected,
+    fsOpen,
+    fsCount,
+    fsSelected,
+    setFsSelected,
+    onFsDismiss,
     lastFailedRef,
     pendingApproval,
     rejecting,
@@ -123,6 +134,11 @@ export function useCliKeys(opts: UseCliKeysOptions): void {
         useCliStore.getState().setDraftPreview('')
         return
       }
+      // @ 补全面板关闭（工单 10.53；panel==='none' 时才可能开，优先于中断 turn）
+      if (fsOpen) {
+        onFsDismiss()
+        return
+      }
       if (rejecting !== null) {
         setRejecting(null) // 拒绝反馈中途取消
         return
@@ -156,9 +172,14 @@ export function useCliKeys(opts: UseCliKeysOptions): void {
       useCliStore.getState().setPanel('help')
       return
     }
-    // ↑↓：slash 菜单 / resume 面板导航
+    // ↑↓：@ 补全 / slash 菜单 / resume 面板导航
     if (key.upArrow || key.downArrow) {
       const dir = key.upArrow ? -1 : 1
+      if (fsOpen && fsCount > 0) {
+        const next = (fsSelected + dir + fsCount) % fsCount
+        setFsSelected(next)
+        return
+      }
       if (slashOpen && slashItems.length > 0) {
         const total = slashItems.length
         const next = (slashSelected + dir + total) % total
