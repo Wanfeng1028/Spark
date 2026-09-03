@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import { render } from 'ink-testing-library'
 import { act, createRef } from 'react'
-import { BUILTIN_COMMANDS, emptySessionSlice, ids } from '@spark/protocol'
+import { BUILTIN_COMMANDS, emptySessionSlice, flowRowsOf, ids } from '@spark/protocol'
 import { displayWidth } from '../src/text-width.js'
 import type { SessionSlice, UiItem } from '@spark/protocol'
 import { StatusBar } from '../src/components/StatusBar.js'
@@ -17,8 +17,8 @@ import { LoadingIndicator } from '../src/components/LoadingIndicator.js'
 import { BootHeader } from '../src/components/BootHeader.js'
 import { filterSlashCommands } from '../src/components/SlashMenu.js'
 import { FsMenu, parseAtToken } from '../src/components/FsMenu.js'
-import { ItemView, summarizeToolInput, toolCategoryOf, toolOutputText, toolOutputLines, ToolGroupLine } from '../src/components/items.js'
-import { flowRowsOf, rowSettled } from '../src/flow-rows.js'
+import { ItemView, summarizeToolInput, toolOutputText, toolOutputLines, ToolGroupLine } from '../src/components/items.js'
+import { rowSettled } from '../src/flow-rows.js'
 import { ResumePanel } from '../src/components/ResumePanel.js'
 
 const SID = ids.session('ses_cli00001')
@@ -47,17 +47,6 @@ describe('纯逻辑', () => {
     expect(summarizeToolInput(null)).toBe('')
     const long = 'x'.repeat(80)
     expect(summarizeToolInput({ query: long })).toBe(`${'x'.repeat(59)}…`)
-  })
-
-  it('toolCategoryOf：内置映射人话类别词；未知保留原名（禁假状态）', () => {
-    expect(toolCategoryOf('bash')).toBe('终端')
-    expect(toolCategoryOf('read')).toBe('读取')
-    expect(toolCategoryOf('write')).toBe('写入')
-    expect(toolCategoryOf('edit')).toBe('改写')
-    expect(toolCategoryOf('task')).toBe('子代理')
-    expect(toolCategoryOf('memory.save')).toBe('记忆')
-    expect(toolCategoryOf('browser.open')).toBe('浏览')
-    expect(toolCategoryOf('mcp__github__search')).toBe('mcp__github__search')
   })
 
   it('toolOutputText：短输出原样；超长截头保尾', () => {
@@ -475,21 +464,6 @@ describe('聚合与折叠提示（工单 10.9 补齐 / §13.K K.2）', () => {
       output,
     }
   }
-
-  it('flowRowsOf：连续同类别聚合组行（≥2），异类别/孤立不组，顺序不变', () => {
-    const items = [
-      { kind: 'user', eventId: ids.event('evt_u0'), text: '前情' } as UiItem,
-      toolItem('cal_a1', 'bash', 'completed'),
-      toolItem('cal_a2', 'bash', 'completed'),
-      toolItem('cal_a3', 'read', 'completed'),
-      toolItem('cal_a4', 'bash', 'completed'),
-    ]
-    const rows = flowRowsOf(items)
-    expect(rows.map((r) => r.kind)).toEqual(['item', 'toolGroup', 'item', 'item'])
-    const group = rows[1]
-    expect(group?.kind === 'toolGroup' && group.category).toBe('终端')
-    expect(group?.kind === 'toolGroup' && group.tools.length).toBe(2)
-  })
 
   it('rowSettled：组行需全组定稿（运行中组滞留活动区——组以整组入 scrollback）', () => {
     const rows = flowRowsOf([toolItem('cal_b1', 'bash', 'completed'), toolItem('cal_b2', 'bash', 'running')])

@@ -11,9 +11,9 @@
  */
 import { Box, Static, Text } from 'ink'
 import type { ReactElement, ReactNode } from 'react'
-import type { SessionSlice } from '@spark/protocol'
-import { flowRowsOf, rowSettled } from '../flow-rows.js'
-import type { FlowRow } from '../flow-rows.js'
+import { flowRowsOf } from '@spark/protocol'
+import type { FlowRow, SessionSlice } from '@spark/protocol'
+import { rowSettled } from '../flow-rows.js'
 import { ItemView, ToolGroupLine } from './items.js'
 import { useCliStore } from '../store.js'
 

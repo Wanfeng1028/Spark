@@ -5,9 +5,9 @@
  */
 import { useState } from 'react'
 import { ChevronRight, Loader2 } from 'lucide-react'
+import type { ToolItem } from '@spark/protocol'
 import { cn } from '@/lib/utils'
 import { ToolCard } from './ToolCard'
-import type { ToolItem } from './chat-flow-rows'
 
 export interface ToolGroupRowProps {
   category: string

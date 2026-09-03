@@ -5,14 +5,12 @@
  */
 import { Box, Text } from 'ink'
 import type { UiItem } from '@spark/protocol'
-import { toolCategoryOf } from '../flow-rows.js'
 import { TurnLine } from './rows/turn.js'
 import { ReasoningLine } from './rows/reasoning.js'
 import { ToolLine } from './rows/tool.js'
 import { Markdown } from './markdown.js'
 import { strike } from './rows/shared.js'
 
-export { toolCategoryOf }
 export { summarizeToolInput, toolOutputText, toolOutputLines, useNow } from './rows/shared.js'
 export { ToolLine, ToolGroupLine } from './rows/tool.js'
 

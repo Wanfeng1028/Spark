@@ -19,8 +19,8 @@ import {
   Terminal,
   Wrench,
 } from 'lucide-react'
+import { toolCategoryOf } from '@spark/protocol'
 import { cn } from '@/lib/utils'
-import { toolCategoryOf } from './chat-flow-rows'
 
 export interface ToolCardProps {
   name: string

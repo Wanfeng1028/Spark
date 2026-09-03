@@ -4,10 +4,9 @@
  * （≤3 全列、>3 前三 + 以及其他 N 个；活动态进行时 + …）；拒绝整行删除线。
  */
 import { Box, Text } from 'ink'
-import type { UiItem } from '@spark/protocol'
+import { toolCategoryOf } from '@spark/protocol'
+import type { FlowRow, UiItem } from '@spark/protocol'
 import { truncateByWidth } from '../../text-width.js'
-import { toolCategoryOf } from '../../flow-rows.js'
-import type { FlowRow } from '../../flow-rows.js'
 import { summarizeToolInput, toolOutputText, toolOutputLines, isDenied, useNow, strike } from './shared.js'
 
 const HIDDEN_LINES_MIN = 10

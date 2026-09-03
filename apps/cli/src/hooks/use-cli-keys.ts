@@ -7,8 +7,7 @@
  */
 import { useInput } from 'ink'
 import type { SessionId } from '@spark/protocol'
-import { errorMessageOf, type HttpTransport, type RequestId } from '@spark/protocol'
-import { flowRowsOf } from '../flow-rows.js'
+import { errorMessageOf, flowRowsOf, type HttpTransport, type RequestId } from '@spark/protocol'
 import { useCliStore } from '../store.js'
 import { CTRL_C_WINDOW_MS } from './constants.js'
 
