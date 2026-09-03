@@ -3,7 +3,7 @@
  * 渲染组装。职责分布：全局键位=hooks/use-cli-keys；会话事件流=hooks/use-session-stream；
  * 会话与命令操作=hooks/use-cli-actions；消息流=components/MessagePane。
  */
-import { Box, Text, useApp, useStdout } from 'ink'
+import { Box, Text, useApp, useStdout, useWindowSize } from 'ink'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -38,9 +38,10 @@ import { useCliActions } from './hooks/use-cli-actions.js'
 
 export function App({ baseUrl }: { baseUrl: string }) {
   const { exit } = useApp()
-  const { stdout } = useStdout()
-  const columns = stdout?.columns ?? 80
-  const rows = stdout?.rows ?? 24
+  const { stdout } = useStdout() // clearScreen 写 ANSI 用（尺寸改由 useWindowSize 提供）
+  // 终端尺寸（工单 10.17③ resize 即时重排 · 10.56 §6：useWindowSize 原生封装——内部订阅
+  // stdout resize 自动重渲，替代原手搓 columns/rows 读取 + resize nonce 监听）
+  const { columns, rows } = useWindowSize()
 
   // REST-only transport（事件流走会话级 SessionEventSource——since=seq 续播，工单 8.4）
   const transport = useMemo(() => new HttpTransport({ baseUrl, eventStream: false }), [baseUrl])
@@ -74,17 +75,6 @@ export function App({ baseUrl }: { baseUrl: string }) {
   const [rejecting, setRejecting] = useState<RequestId | null>(null)
   /** /resume 预览态（工单 10.11 / §13.K K.7：Space 切换，选中即预览对象） */
   const [resumePreview, setResumePreview] = useState(false)
-
-  // ---------- resize 重渲染（工单 10.17③：终端尺寸变化即时重排，不错行） ----------
-
-  const [, setResizeNonce] = useState(0)
-  useEffect(() => {
-    const onResize = () => setResizeNonce((n) => n + 1)
-    stdout?.on('resize', onResize)
-    return () => {
-      stdout?.off('resize', onResize)
-    }
-  }, [stdout])
 
   // ---------- slash 菜单派生态（工单 10.10）：/ 前缀且未含空格即开 ----------
 

@@ -7,6 +7,7 @@
 | 版本 | 日期       | 作者                                                    | 变更内容                                                                                                                                       |
 | ---- | ---------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | v1.0 | 2026-09-02 | AI 编写：Qoder；发起：晚风（Wanfeng1028，“继续”指令） | 初稿：ink 6.8.0 → 7.1.1 升级可行性 spike——API 面 diff + 7.0.0 breaking 映射 + qwen ink+7.0.3.patch 分析 + 结论「升」+ 10.56 实施单草案 + 10.50 口径外溢修正 |
+| v1.1 | 2026-09-04 | AI 编写：Qoder；发起：晚风（Wanfeng1028，“继续”指令） | **10.56 实施结果登记（§9）**：最小升级 commit ec8bca5 CI 双绿（frozen-lockfile + typecheck + lint + test 62/62 + e2e，断点 0 得证）；§6 简化重构落地 2 项——**API 名修正**：absolutePosition 的原生等价是 `measureElement`（x/y=沿布局树累加祖先偏移的绝对坐标）而非 §6 原写的 `useBoxMetrics`（经 getComputedLayout 返回**父相对** left/top，会破坏物理光标——核装 ink7 源码判定不可用）；app.tsx columns/rows+resize nonce → `useWindowSize`。**跳过** `useAnimation`（LoadingIndicator useNow 提供墙钟 now 算 `sec=(now-turn.startedAt)/1000`，animation.time 挂载相对非墙钟，替换回归 resume/重连耗时秒数） |
 
 ## 0. 结论（先读这个）
 
@@ -119,3 +120,32 @@ patch 面：15 文件，**全改 `node_modules/ink/build/*.js`**（patch-package
 - 回退：`git revert` 升级提交（package.json + lockfile）→ ink 6.8.0 恢复。10.56 独立提交，零 main 污染。
 
 **红线**：不引 qwen patch（§5 判定不需要）；升级独立提交便于回退；不改 wire 类型；真机走查由人类执行。
+
+## 9. 10.56 实施结果（v1.1 追加——升级已落地）
+
+### 9.1 最小升级（commit ec8bca5，CI run 33791777856 双绿）
+
+- `apps/cli/package.json`：ink `^6.2.0→^7.1.1`、react `^19.1.0→^19.2.0`；`pnpm-lock.yaml` 解析 `ink@7.1.1`（engines node>=22 已满足；cli react 解析 19.2.3，各包独立声明范围互不影响）。
+- CI：`pnpm install --frozen-lockfile` ✓ + `check_doc_links` ✓ + typecheck ✓ + lint ✓ + test ✓（cli 62/62）+ e2e ✓——**断点 0 得证**（§3 静态判断经运行时验证）。唯一 annotation 是预存 Node20 弃用告警（与本次无关）。
+
+### 9.2 §6 简化重构（独立提交）——2 项落地 + 2 项跳过（核装 ink7 源码后修正 §6）
+
+**落地**：
+
+| 改动 | 原生 API | 核装证据 |
+| ---- | ---- | ---- |
+| InputBox `absolutePosition()` 手搓（13 行）删除 | `measureElement(boxRef.current)` → `{x,y}` | **§6 API 名修正**：真正等价的是 `measureElement` 不是 `useBoxMetrics`。核 `measure-element.js`：`x/y` = 从自身 `getComputedLeft/Top` 起沿 `parentNode` 链累加各祖先偏移——与手搓 `absolutePosition` **逐行同构**（渲染期读上一帧 yoga 布局的行为也一致，getter 延迟求值不变）。`abs.left/top`→`abs.x/y`。 |
+| app.tsx `columns/rows` 手读 + resize nonce useState/useEffect（8 行）删除 | `useWindowSize()` → `{columns,rows}` | 核 `use-window-size.js`：内部 `getWindowSize(stdout)` + 订阅 `stdout.on('resize')` 自动 setSize 重渲——与原手搓模式同构；`getWindowSize`（utils.js）缺省 `terminal-size()\|\|80×24`，兼容原 `?? 80/24`。`stdout` 仍留（clearScreen 写 ANSI）。 |
+
+**跳过（附核装证据——非臆断）**：
+
+| §6 原建议 | 判定 | 依据 |
+| ---- | ---- | ---- |
+| `useBoxMetrics` 替 absolutePosition | **不可用** | `use-box-metrics.js` 经 `yogaNode.getComputedLayout()` 返回 `left/top`，类型文档明写「All positions are relative to the element's **parent**」——**父相对**非绝对。物理光标 `setCursorPosition` 需帧内绝对 y（InputBox 在 MessagePane/菜单/错误区之后的布局深处，累加必不可少），换用会把 IME 组字窗画到帧顶。真正绝对坐标 API 是 `measureElement`（见上）。 |
+| `useAnimation` 替 LoadingIndicator spinner | **不划算（回归风险）** | `useNow`（components/rows/shared.ts）返回 `Date.now()` 墙钟；LoadingIndicator `sec=(now-turn.startedAt)/1000` **依赖墙钟**。`useAnimation.time` 是「挂载/上次 reset 起的相对毫秒」非墙钟，替换后 resume/重连（组件晚于 turn 挂载）耗时秒数会错。且 `now` 一值三用（spinner 帧/短语 seed/耗时），单换帧需并存两 timer = 复杂度不降反升。 |
+
+**净结果**：删 21 行手搓（absolutePosition 13 + resize 块 8），换 2 处原生 API；跳过 2 项经源码核实的误配。§6「简化机会」5 项：2 落地、2 证伪、1（usePaste/alternateScreen）留给 10.50/未来全屏。本机 cli typecheck + test 62/62 + 双文件 eslint 全绿。
+
+### 9.3 真机走查（晚风执行——留待记录）
+
+中文组字 / emoji 退格 / CJK 截断（#930）/ 尾换行（#910）/ @ 补全 / resume 双行 / 慢链路 spinner / **物理光标定位（measureElement 换后重点验 IME 组字窗跟随）** / **resize 重排（useWindowSize 换后重点验终端缩放不错行）**。

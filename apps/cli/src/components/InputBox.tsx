@@ -12,7 +12,7 @@
  * IME 组合态（§13.K K.9）：候选窗由终端/系统绘制；组合确认文本整段到达时
  * 按原子文本插入（不猜键；键位分层见 App 层，深层残余挂 V2-26）。
  */
-import { Box, Text, useCursor, useInput, type DOMElement } from 'ink'
+import { Box, Text, measureElement, useCursor, useInput, type DOMElement } from 'ink'
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { displayWidth, graphemesOf } from '../text-width.js'
 
@@ -63,20 +63,6 @@ function renderWindow(
     start -= 1
   }
   return { start, end }
-}
-
-/** 帧内绝对坐标（工单 10.42）：沿 yogaNode.parent 链向上累加 computed left/top——
- * qwen ink7 getAbsolutePosition 的 ink 6.8 等价实现（ink7 已将其 API 化） */
-function absolutePosition(el: DOMElement): { left: number; top: number } {
-  let left = 0
-  let top = 0
-  let node: DOMElement | undefined = el
-  while (node !== undefined) {
-    left += node.yogaNode?.getComputedLeft() ?? 0
-    top += node.yogaNode?.getComputedTop() ?? 0
-    node = node.parentNode
-  }
-  return { left, top }
 }
 
 export const InputBox = forwardRef<InputBoxHandle, InputBoxProps>(function InputBox(
@@ -183,17 +169,18 @@ export const InputBox = forwardRef<InputBoxHandle, InputBoxProps>(function Input
       ? graphemes.slice(safeCursor + 1, win.end).join('')
       : graphemes.slice(safeCursor + 1).join('')
 
-  // 物理光标位置（工单 10.42）：渲染期计算并 setter（qwen：Ink 在 commit 布局完成后才读
-  // getter）；y = 内容行帧内行号，x = 前缀 + 光标前文本的显示宽度（borderBottom 无左右框）
-  const abs = boxRef.current !== null ? absolutePosition(boxRef.current) : null
+  // 物理光标位置（工单 10.42；10.56 §6 换 ink7 原生 measureElement——x/y 为沿布局树累加
+  // 各祖先偏移的帧内绝对坐标，等价原手搓 absolutePosition）：渲染期计算并 setter（Ink 在
+  // commit 布局完成后才读 getter）；y = 内容行帧内行号，x = 前缀 + 光标前文本的显示宽度
+  const abs = boxRef.current !== null ? measureElement(boxRef.current) : null
   if (active && abs !== null) {
     const col = displayWidth(prefix) + displayWidth(before)
     setCursorPosition({
       get x() {
-        return abs.left + col
+        return abs.x + col
       },
       get y() {
-        return abs.top
+        return abs.y
       },
     })
   } else {
