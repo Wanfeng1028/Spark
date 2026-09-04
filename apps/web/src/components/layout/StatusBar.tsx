@@ -7,8 +7,8 @@
  */
 import { useEffect, useState } from 'react'
 import { Monitor, Moon, Settings, Sun } from 'lucide-react'
-import { fmtTokens } from '@spark/protocol'
-import { useConnectionStore } from '@/stores/connection'
+import { CONNECTION_TEXT, fmtTokens } from '@spark/protocol'
+import { useConnectionStore, type ConnectionStatus } from '@/stores/connection'
 import { useSettingsStore } from '@/stores/settings'
 import { useActiveSlice } from '@/stores/session'
 import { useModelsStore } from '@/stores/models-store'
@@ -17,12 +17,8 @@ import { useUiStore } from '@/stores/ui'
 import { CONTEXT_WARN_RATIO, contextRatio, contextTokensOf, contextWindowOf } from '@/features/chat/context-usage'
 import { cn } from '@/lib/utils'
 
-const CONNECTION_TEXT = {
-  connecting: '连接中…',
-  open: '已连接',
-  reconnecting: '已断线，重连中…',
-  closed: '已断开',
-} as const
+/** closed 态文案留本地：三态已下沉 protocol CONNECTION_TEXT（工单 R-B），closed 的两个触发源语义分叉，见 ui-copy.ts 头注释边界说明 1 */
+const CLOSED_TEXT = '已断开'
 
 /** 主题三档循环（§13.C）：light → dark → system */
 const THEME_META = {
@@ -31,7 +27,7 @@ const THEME_META = {
   system: { label: '跟随系统', next: '浅色', icon: Monitor },
 } as const
 
-function ConnectionDot({ status }: { status: keyof typeof CONNECTION_TEXT }) {
+function ConnectionDot({ status }: { status: ConnectionStatus }) {
   // DESIGN §8 状态点：绿=连接、红=断线；connecting 灰
   const cls =
     status === 'open'
@@ -87,7 +83,7 @@ export function StatusBar() {
         <span className="flex shrink-0 items-center gap-1.5">
           <ConnectionDot status={status} />
           <span className={status === 'reconnecting' || status === 'closed' ? 'text-[var(--spark-err)]' : undefined}>
-            {CONNECTION_TEXT[status]}
+            {status === 'closed' ? CLOSED_TEXT : CONNECTION_TEXT[status]}
           </span>
         </span>
         <span className="shrink-0 font-mono" title="当前会话模型">

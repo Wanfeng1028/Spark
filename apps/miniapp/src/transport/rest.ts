@@ -1,11 +1,12 @@
 /**
  * REST 客户端（工单 9.4——小程序无 fetch，Taro.request 封装）。
  * 只实现本壳用到的方法子集（不引 HttpTransport 全家桶——体积纪律，D21）。
- * 错误映射与 HttpTransport.req 同口径：非 2xx 读错误体 {code, message}
- * 抛 `Error("code: message")`——调用方经 errorMessageOf/ERROR_COPY 人话化。
+ * 错误映射走 @spark/protocol errorFromResponse 单源（工单 R-B：原与 HttpTransport.req 两份同构）：
+ * 非 2xx 读错误体 {code, message} 抛 `Error("code: message")`——调用方经 errorMessageOf/ERROR_COPY 人话化。
  * 鉴权：Authorization: Bearer 头（REST 口径；SSE 走 ?token= 查询，双口径同 9.1）。
  */
 import Taro from '@tarojs/taro'
+import { errorFromResponse } from '@spark/protocol'
 import type {
   PairRedeemBody,
   PairTokenDto,
@@ -25,15 +26,10 @@ export interface MiniRestOptions {
   timeoutMs?: number
 }
 
-interface ErrorBody {
-  code?: unknown
-  message?: unknown
-}
-
 export class MiniRestClient {
   constructor(private readonly opts: MiniRestOptions) {}
 
-  /** 统一请求：非 2xx 抛 `code: message`（与 HttpTransport.req 同形） */
+  /** 统一请求：非 2xx 抛 `code: message`（与 HttpTransport.req 同一 errorFromResponse 单源） */
   private async req<T>(path: string, init?: { method?: 'GET' | 'POST'; body?: string }): Promise<T> {
     // content-type 仅随 body 携带（工单 10.27 口径对齐 transport-node）：带 json 头的空 body
     // 会被 Fastify 5 拒 400 FST_ERR_CTP_EMPTY_JSON_BODY，不依赖 server 宽容解析器兜底
@@ -57,14 +53,8 @@ export class MiniRestClient {
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return res.data as T
     }
-    let code = `HTTP_${res.statusCode}`
-    let message = ''
-    const body = res.data as ErrorBody | null
-    if (typeof body === 'object' && body !== null) {
-      if (typeof body.code === 'string') code = body.code
-      if (typeof body.message === 'string') message = body.message
-    }
-    throw new Error(`${code}: ${message}`)
+    // Taro 已自动解析响应体（无 statusText——缺省空串，与原实现逐字同）
+    throw errorFromResponse(res.statusCode, res.data)
   }
 
   listSessions(): Promise<SessionDto[]> {

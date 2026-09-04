@@ -10,7 +10,7 @@
  * 代码主题对与行号来自外观设置（工单 6.4 §13.D②）：浅深两主题 + 显示行号即存即生效。
  */
 import type { BundledTheme } from 'shiki'
-import type { ContentItem, Usage } from '@spark/protocol'
+import { COPY_TEXT, type ContentItem, type Usage } from '@spark/protocol'
 import { Streamdown } from 'streamdown'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -23,8 +23,8 @@ export interface AssistantBlockProps {
 /** 代码块控件（工单 10.4⑤）：语言标签 + 复制钮（streamdown 内建能力）；表格/图表控件不开 */
 const CODE_CONTROLS = { code: { copy: true, download: false } }
 
-/** 控件文案中文化（库缺省英文） */
-const CONTROLS_ZH = { copyCode: '复制代码', copied: '已复制' }
+/** 控件文案中文化（库缺省英文）；copied 接 protocol COPY_TEXT 单源（工单 R-B），copyCode 是库特有键留本地 */
+const CONTROLS_ZH = { copyCode: '复制代码', copied: COPY_TEXT.copied }
 
 export function AssistantBlock({ content, streaming, usage }: AssistantBlockProps) {
   const codeThemeLight = useSettingsStore((s) => s.codeThemeLight)

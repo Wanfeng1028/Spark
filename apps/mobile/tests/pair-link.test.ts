@@ -1,102 +1,108 @@
 /**
- * 配对深链解析单测（工单 9.2 要求：合法/非法/缺参三类）。
+ * RN 配对深链接线单测（工单 9.2 建 / 工单 R-B 改）：解析本体已下沉 @spark/protocol
+ * pair-link 并由 packages/protocol/tests/pair-link.test.ts 承接两端用例并集；
+ * 本文件只测端侧接线——冷启动 getInitialURL 与运行期 addEventListener 双路径
+ * 共用同一处理、解析失败静默忽略（不做半截配置）、取消订阅后回调不再驱动。
+ * expo-linking 以可驱动的 mock 替换（不落原生模块）。
  */
-import { baseUrlOf, parsePairLink } from '../src/transport/pair-link'
+import * as Linking from 'expo-linking'
+import type { PairLink } from '@spark/protocol'
+import { subscribePairLink } from '../src/transport/pair-link'
 
-describe('parsePairLink', () => {
-  describe('合法输入', () => {
-    it('解析标准 spark://pair 深链', () => {
-      expect(
-        parsePairLink('spark://pair?host=192.168.1.10&port=4318&code=123456'),
-      ).toEqual({ host: '192.168.1.10', port: 4318, code: '123456' })
-    })
+jest.mock('expo-linking', () => {
+  // jest.mock 工厂禁止引用外部变量（参数名也扫描）——状态一律定义在工厂内，经 __ 前缀测试面暴露
+  type MockUrlListener = (e: { url: string }) => void
+  const mockListeners: MockUrlListener[] = []
+  let mockInitialUrl: string | null = null
+  return {
+    __esModule: true,
+    getInitialURL: (): Promise<string | null> => Promise.resolve(mockInitialUrl),
+    addEventListener: (_type: string, fn: MockUrlListener) => {
+      mockListeners.push(fn)
+      return {
+        remove: (): void => {
+          const i = mockListeners.indexOf(fn)
+          if (i >= 0) mockListeners.splice(i, 1)
+        },
+      }
+    },
+    __setInitialURL: (url: string | null): void => {
+      mockInitialUrl = url
+    },
+    __emitUrl: (url: string): void => {
+      for (const fn of [...mockListeners]) fn({ url })
+    },
+    __listenerCount: (): number => mockListeners.length,
+    __resetListeners: (): void => {
+      mockListeners.length = 0
+    },
+  }
+})
 
-    it('容忍首尾空白', () => {
-      expect(
-        parsePairLink('  spark://pair?host=spark.local&port=80&code=000111  '),
-      ).toEqual({ host: 'spark.local', port: 80, code: '000111' })
-    })
+interface MockLinking {
+  __setInitialURL: (url: string | null) => void
+  __emitUrl: (url: string) => void
+  __listenerCount: () => number
+  __resetListeners: () => void
+}
 
-    it('URL 编码的值可还原', () => {
-      expect(
-        parsePairLink('spark://pair?host=10.0.0.1&port=4318&code=654321&extra=x'),
-      ).toEqual({ host: '10.0.0.1', port: 4318, code: '654321' })
-    })
+const mock = Linking as unknown as MockLinking
+
+const VALID = 'spark://pair?host=192.168.1.10&port=4318&code=123456'
+const EXPECTED: PairLink = { host: '192.168.1.10', port: 4318, code: '123456' }
+
+/** getInitialURL 的 then 回调落在微任务队列——flush 一轮再断言 */
+async function flush(): Promise<void> {
+  await Promise.resolve()
+}
+
+beforeEach(() => {
+  mock.__setInitialURL(null)
+  // 监听器在工厂闭包内跨用例存活——不清则计数与 emit 会被上例遗留订阅污染
+  mock.__resetListeners()
+})
+
+describe('subscribePairLink', () => {
+  it('冷启动 URL 合法：解析产物交给回调', async () => {
+    mock.__setInitialURL(VALID)
+    const onPair = jest.fn()
+    subscribePairLink(onPair)
+    await flush()
+    expect(onPair).toHaveBeenCalledTimes(1)
+    expect(onPair).toHaveBeenCalledWith(EXPECTED)
   })
 
-  describe('非法输入', () => {
-    it('错误协议拒绝', () => {
-      expect(parsePairLink('http://pair?host=a&port=1&code=123456')).toBeNull()
-    })
-
-    it('错误主机段拒绝', () => {
-      expect(parsePairLink('spark://redeem?host=a&port=1&code=123456')).toBeNull()
-    })
-
-    it('端口越界拒绝', () => {
-      expect(parsePairLink('spark://pair?host=a&port=70000&code=123456')).toBeNull()
-      expect(parsePairLink('spark://pair?host=a&port=0&code=123456')).toBeNull()
-    })
-
-    it('端口非数字拒绝', () => {
-      expect(parsePairLink('spark://pair?host=a&port=abc&code=123456')).toBeNull()
-    })
-
-    it('配对码非 6 位数字拒绝', () => {
-      expect(parsePairLink('spark://pair?host=a&port=4318&code=12345')).toBeNull()
-      expect(parsePairLink('spark://pair?host=a&port=4318&code=1234567')).toBeNull()
-      expect(parsePairLink('spark://pair?host=a&port=4318&code=12a456')).toBeNull()
-    })
-
-    it('host 含注入字符拒绝', () => {
-      expect(parsePairLink('spark://pair?host=a/b&port=1&code=123456')).toBeNull()
-      expect(parsePairLink('spark://pair?host=a%20b&port=1&code=123456')).toBeNull()
-    })
-
-    it('host 白名单拒绝黑名单漏网字符（评审 G7）', () => {
-      // IPv6 字面量（含冒号）：当前配对协议仅支持主机名/IPv4
-      expect(parsePairLink('spark://pair?host=::1&port=1&code=123456')).toBeNull()
-      // 反斜杠（黑名单漏网）
-      expect(parsePairLink('spark://pair?host=a\\b&port=1&code=123456')).toBeNull()
-      // 冒号（黑名单漏网；防 host:port 拼接歧义）
-      expect(parsePairLink('spark://pair?host=a:8080&port=1&code=123456')).toBeNull()
-    })
-
-    it('合法域名/IPv4 通过（白名单不误伤）', () => {
-      expect(
-        parsePairLink('spark://pair?host=my-server.local&port=4318&code=123456'),
-      ).toEqual({ host: 'my-server.local', port: 4318, code: '123456' })
-      expect(
-        parsePairLink('spark://pair?host=172.16.0.2&port=4318&code=123456'),
-      ).toEqual({ host: '172.16.0.2', port: 4318, code: '123456' })
-    })
-
-    it('乱序转义拒绝', () => {
-      expect(parsePairLink('spark://pair?host=%E0%A4%A&port=1&code=123456')).toBeNull()
-    })
-
-    it('非 URL 文本拒绝', () => {
-      expect(parsePairLink('')).toBeNull()
-      expect(parsePairLink('不是链接')).toBeNull()
-    })
+  it('冷启动 URL 为 null（非深链启动）：不触发回调', async () => {
+    const onPair = jest.fn()
+    subscribePairLink(onPair)
+    await flush()
+    expect(onPair).not.toHaveBeenCalled()
   })
 
-  describe('缺参输入', () => {
-    it('缺 host', () => {
-      expect(parsePairLink('spark://pair?port=4318&code=123456')).toBeNull()
-    })
-    it('缺 port', () => {
-      expect(parsePairLink('spark://pair?host=a&code=123456')).toBeNull()
-    })
-    it('缺 code', () => {
-      expect(parsePairLink('spark://pair?host=a&port=4318')).toBeNull()
-    })
-    it('无查询段', () => {
-      expect(parsePairLink('spark://pair')).toBeNull()
-    })
+  it('冷启动 URL 非法：静默忽略（不做半截配置）', async () => {
+    mock.__setInitialURL('http://pair?host=a&port=1&code=123456')
+    const onPair = jest.fn()
+    subscribePairLink(onPair)
+    await flush()
+    expect(onPair).not.toHaveBeenCalled()
   })
 
-  it('baseUrlOf 口径与设置页一致', () => {
-    expect(baseUrlOf('192.168.1.10', 4318)).toBe('http://192.168.1.10:4318')
+  it('运行期新 URL 与冷启动走同一处理', () => {
+    const onPair = jest.fn()
+    subscribePairLink(onPair)
+    mock.__emitUrl(VALID)
+    expect(onPair).toHaveBeenCalledWith(EXPECTED)
+    mock.__emitUrl('spark://pair?host=a&port=1&code=12345') // 码 5 位
+    expect(onPair).toHaveBeenCalledTimes(1)
+  })
+
+  it('返回的取消订阅移除监听：此后深链不再驱动回调', () => {
+    const onPair = jest.fn()
+    const unsubscribe = subscribePairLink(onPair)
+    expect(mock.__listenerCount()).toBe(1)
+    unsubscribe()
+    expect(mock.__listenerCount()).toBe(0)
+    mock.__emitUrl(VALID)
+    expect(onPair).not.toHaveBeenCalled()
   })
 })

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
+import { CONNECTION_TEXT } from '@spark/protocol'
 import { Sidebar } from './Sidebar'
 import { StatusBar } from './StatusBar'
 import { SettingsDialog } from '@/features/settings/SettingsDialog'
@@ -103,13 +104,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   )
 }
 
+/** closed 态文案留本地（同 StatusBar CLOSED_TEXT）：三态已下沉 protocol，closed 触发源语义分叉，见 ui-copy.ts 头注释边界说明 1 */
+const BANNER_CLOSED_TEXT = '连接已断开'
+
 function ReconnectBanner({ status }: { status: 'connecting' | 'reconnecting' | 'closed' }) {
-  const text =
-    status === 'reconnecting'
-      ? '已断线，重连中…'
-      : status === 'connecting'
-        ? '连接中…'
-        : '连接已断开'
+  const text = status === 'closed' ? BANNER_CLOSED_TEXT : CONNECTION_TEXT[status]
   return (
     <div
       role="status"

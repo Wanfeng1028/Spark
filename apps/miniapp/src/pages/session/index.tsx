@@ -24,7 +24,7 @@ import type {
   SessionSlice,
   SparkEventEnvelope,
 } from '@spark/protocol'
-import { applyEvent, emptySessionSlice, errorMessageOf, formatTimestamp, ids } from '@spark/protocol'
+import { CONNECTION_TEXT, applyEvent, emptySessionSlice, errorMessageOf, formatTimestamp, ids } from '@spark/protocol'
 import { useConfigStore } from '../../store/config-store'
 import { useTheme } from '../../store/theme-store'
 import { createEventBatcher, useAppStore } from '../../store/app-store'
@@ -50,13 +50,9 @@ import './index.css'
 /** 上拉翻页页长（服务端上限 200；50 条兼顾首屏速度与翻页次数） */
 const PAGE_SIZE = 50
 
-/** 连接细条人话文案（同 web CONNECTION_TEXT 口径，D22 同律；
- * closed 态文案同 ERROR_COPY 风格——鉴权终态不静默，评审 I2） */
-const CONNECTION_TEXT: Record<'connecting' | 'reconnecting' | 'closed', string> = {
-  connecting: '连接中…',
-  reconnecting: '已断线，重连中…',
-  closed: '连接已停止：鉴权失败，请到设置页重新配对',
-}
+/** closed 态文案留本地（评审 I2：鉴权终态不静默）——三态已下沉 protocol CONNECTION_TEXT（工单 R-B）；
+ * closed 的两个触发源（鉴权终态 / 配置变更 invalidate）语义分叉，单份共享文案无法如实覆盖，见 ui-copy.ts 头注释边界说明 1 */
+const CLOSED_TEXT = '连接已停止：鉴权失败，请到设置页重新配对'
 
 /** 贴底判定阈值（px）：距底 40 以内视作贴底 */
 const BOTTOM_THRESHOLD = 40
@@ -286,9 +282,11 @@ export default function SessionPage() {
   const running = slice.activeTurn !== null
 
   const connectionText =
-    status === 'connecting' || status === 'reconnecting' || status === 'closed'
-      ? CONNECTION_TEXT[status]
-      : null
+    status === 'closed'
+      ? CLOSED_TEXT
+      : status === 'connecting' || status === 'reconnecting'
+        ? CONNECTION_TEXT[status]
+        : null
 
   return (
     <View className="sp-screen" style={{ backgroundColor: t.pageBackground }}>

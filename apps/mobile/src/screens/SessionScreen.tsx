@@ -30,7 +30,7 @@ import type {
   SessionSlice,
   SparkEventEnvelope,
 } from '@spark/protocol'
-import { applyEvent, emptySessionSlice, errorMessageOf, formatTimestamp, ids } from '@spark/protocol'
+import { CONNECTION_TEXT, applyEvent, emptySessionSlice, errorMessageOf, formatTimestamp, ids } from '@spark/protocol'
 import { useTheme } from '../theme/use-theme'
 import { mobileMetrics } from '../theme/tokens'
 import { EmptyState, RoundFloatButton, ScreenHeader } from '../components/ui'
@@ -57,12 +57,6 @@ import type { SessionsStackParamList } from '../navigation/params'
 
 /** 上拉翻页页长（服务端上限 200；50 条兼顾首屏速度与翻页次数） */
 const PAGE_SIZE = 50
-
-/** 连接细条人话文案（同 web CONNECTION_TEXT 口径，D22 同律） */
-const CONNECTION_TEXT: Record<'connecting' | 'reconnecting', string> = {
-  connecting: '连接中…',
-  reconnecting: '已断线，重连中…',
-}
 
 /** 居中时间戳分隔（13 meta，J.2.3） */
 function TimestampDivider({ time }: { time: number }) {
@@ -286,6 +280,7 @@ export function SessionScreen() {
     }
   }
 
+  // closed 态无文案 → 细条不显示（已知缺口，同 miniapp 评审 I2 修复前形态；待工单 R-B.5 让 closed 带原因后统一）
   const connectionText =
     status === 'connecting' || status === 'reconnecting' ? CONNECTION_TEXT[status] : null
 

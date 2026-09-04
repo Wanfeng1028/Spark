@@ -20,8 +20,8 @@ import { Feather } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { DrawerNavigationProp } from '@react-navigation/drawer'
-import type { SessionDto, SessionStatus } from '@spark/protocol'
-import { errorMessageOf, fmtDate, isToday } from '@spark/protocol'
+import type { SessionDto } from '@spark/protocol'
+import { dotColor, errorMessageOf, fmtDate, isToday } from '@spark/protocol'
 import { useAppStore } from '../store/app-store'
 import { useConfigStore } from '../store/config-store'
 import { getHttpTransport } from '../transport/runtime'
@@ -34,18 +34,6 @@ import type { DrawerParamList } from '../navigation/params'
 
 /** 筛选档（J.2.2；“已归档”无后端支撑（V2-23），菜单项置灰禁用占位） */
 type FilterMode = 'all' | 'project'
-
-/** 状态点配色（J.2.2：绿空闲/accent 运行/amber 待审批；灰=完成态 v2 归档预留） */
-function dotColor(status: SessionStatus, t: ThemeTokens): string {
-  switch (status) {
-    case 'running':
-      return t.sparkAccent
-    case 'waiting-approval':
-      return t.sparkWarn
-    case 'idle':
-      return t.sparkOk
-  }
-}
 
 /** “按项目”档分组键：cwd 目录名（数据面=现有 listSessions 返回字段；取不到归“未分组”） */
 function projectOf(dto: SessionDto): string {

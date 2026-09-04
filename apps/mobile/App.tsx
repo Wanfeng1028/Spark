@@ -1,13 +1,12 @@
 /**
  * App 根（工单 9.2 骨架）：配置装载 → 主题解析（§13.C 三档 × 系统色）→
  * NavigationContainer（token 映射导航主题）→ 单栈+抽屉。
- * 配对深链：spark://pair 经 parsePairLink 解析后落 config.pendingPair，
+ * 配对深链：spark://pair 经 subscribePairLink（解析本体在 @spark/protocol pair-link）落 config.pendingPair，
  * 设置页呈现确认卡（冷启动 getInitialURL + 运行期 addEventListener 双路径）。
  */
 import { useEffect } from 'react'
 import { useColorScheme } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
-import * as Linking from 'expo-linking'
 import {
   DefaultTheme,
   NavigationContainer,
@@ -17,7 +16,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AppNavigator } from './src/navigation/AppNavigator'
 import { useConfigStore } from './src/store/config-store'
 import { resolveTheme } from './src/theme/tokens'
-import { parsePairLink } from './src/transport/pair-link'
+import { subscribePairLink } from './src/transport/pair-link'
 
 /** §13.C token → react-navigation 主题（导航容器背景/文本与屏幕同口径） */
 function navTheme(dark: boolean, colors: NavTheme['colors']): NavTheme {
@@ -37,17 +36,8 @@ export default function App() {
     void useConfigStore.getState().load()
   }, [])
 
-  // 配对深链：冷启动 + 运行期同一路径（解析失败 = 未识别，静默忽略）
-  useEffect(() => {
-    const handle = (url: string | null): void => {
-      if (url === null) return
-      const pair = parsePairLink(url)
-      if (pair !== null) useConfigStore.getState().setPendingPair(pair)
-    }
-    void Linking.getInitialURL().then(handle)
-    const sub = Linking.addEventListener('url', (e) => handle(e.url))
-    return () => sub.remove()
-  }, [])
+  // 配对深链：冷启动 + 运行期同一路径（接线在 transport/pair-link；解析失败 = 未识别，静默忽略）
+  useEffect(() => subscribePairLink((pair) => useConfigStore.getState().setPendingPair(pair)), [])
 
   if (!hydrated) return null
 

@@ -4,6 +4,8 @@
  * 一律从 @spark/protocol 导入。
  * 约定：传输层错误统一形如 "E_CODE: 原始消息"（transport-node req / 各端 mock 同构）；
  * 引擎 error 事件的 message 本就是人话（无码前缀原样返回）。
+ * 该形状 Error 的构造亦在此单源：errorFromResponse（工单 R-B 下沉——transport-node req
+ * 与 miniapp rest.ts req 两份同构收敛）。
  */
 
 /** 错误码 → 人话文案（title 级，一句可行动的描述） */
@@ -64,4 +66,21 @@ export function humanizeError(msg: string): ErrorCopy {
 export function errorMessageOf(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err)
   return humanizeError(msg).title
+}
+
+/**
+ * 非 2xx 响应 → `Error("code: message")`（工单 R-B 下沉：transport-node HttpTransport.req
+ * 与 miniapp MiniRestClient.req 两份同构收敛单源）。server 错误体（§7.4）{code, message} 字段为 string 则取用，
+ * 否则落 `HTTP_<status>` + statusText（Taro 无 statusText，缺省空串即与现状逐字同）。
+ * 出口形状与本文件 parseCode 的前缀解析配套——调用方一律经 errorMessageOf/ERROR_COPY 人话化。
+ */
+export function errorFromResponse(status: number, body: unknown, statusText = ''): Error {
+  let code = `HTTP_${status}`
+  let message = statusText
+  if (typeof body === 'object' && body !== null) {
+    const b = body as { code?: unknown; message?: unknown }
+    if (typeof b.code === 'string') code = b.code
+    if (typeof b.message === 'string') message = b.message
+  }
+  return new Error(`${code}: ${message}`)
 }

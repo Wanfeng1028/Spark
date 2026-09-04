@@ -9,6 +9,7 @@
  * 3) REST 错误映射：非 2xx 读错误体 {code, message} 抛 `Error("code: message")`（文案表单一来源）。
  */
 import { eventSchemaOf } from './extend.js'
+import { errorFromResponse } from './error-copy.js'
 import { parseEnvelope } from './schema.js'
 import type { SparkEventEnvelope } from './events.js'
 import type {
@@ -63,12 +64,6 @@ export interface HttpTransportOptions {
   eventStream?: boolean
   /** 配对长效 token（工单 9.1 / D24）：REST 附 Bearer 头，SSE URL 附 ?token=（与服务端 tokenOf 双口径一致） */
   authToken?: string
-}
-
-/** server 错误体（§7.4）：{code, message} */
-interface ErrorBody {
-  code?: string
-  message?: string
 }
 
 /**
@@ -240,16 +235,13 @@ export class HttpTransport implements Transport {
       },
     })
     if (!res.ok) {
-      let code = `HTTP_${res.status}`
-      let message = res.statusText
+      let body: unknown = null
       try {
-        const body = (await res.json()) as ErrorBody
-        if (typeof body.code === 'string') code = body.code
-        if (typeof body.message === 'string') message = body.message
+        body = await res.json()
       } catch {
         // 非 JSON 错误体：保留 HTTP 状态信息（状态码与 statusText 已足够定位）
       }
-      throw new Error(`${code}: ${message}`)
+      throw errorFromResponse(res.status, body, res.statusText)
     }
     return (await res.json()) as T
   }

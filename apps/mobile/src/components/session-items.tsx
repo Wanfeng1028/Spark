@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import * as Clipboard from 'expo-clipboard'
-import type { UiItem } from '@spark/protocol'
+import { COPY_TEXT, approvalResolvedText, toolStatusText, type UiItem } from '@spark/protocol'
 import { useTheme } from '../theme/use-theme'
 import { Card, Hairline } from './ui'
 import { mobileMetrics } from '../theme/tokens'
@@ -75,7 +75,7 @@ export function AssistantBlock({
           >
             <Feather name={copied ? 'check' : 'copy'} size={14} color={t.mutedForeground} />
             <Text style={[styles.meta, { color: t.mutedForeground }]}>
-              {copied ? '已复制' : '复制'}
+              {copied ? COPY_TEXT.copied : COPY_TEXT.copy}
             </Text>
           </TouchableOpacity>
           <Text style={[styles.meta, { color: t.mutedForeground }]}>内容由 AI 生成</Text>
@@ -110,12 +110,6 @@ export function ReasoningCard({ item }: { item: Extract<UiItem, { kind: 'reasoni
       )}
     </Card>
   )
-}
-
-function toolStatusText(status: 'running' | 'completed' | 'error'): string {
-  if (status === 'running') return '运行中'
-  if (status === 'error') return '失败'
-  return '完成'
 }
 
 /** 工具卡单行折叠（§13.H 迁移：白卡紧凑行；错误态默认展开） */
@@ -192,13 +186,6 @@ function ApprovalButton({
       <Text style={[styles.approvalButtonText, { color: fg }]}>{label}</Text>
     </TouchableOpacity>
   )
-}
-
-function approvalResolvedText(reply: 'once' | 'always' | 'reject' | undefined): string {
-  if (reply === 'once') return '已允许本次'
-  if (reply === 'always') return '已始终允许'
-  if (reply === 'reject') return '已拒绝'
-  return '已处理'
 }
 
 /** 审批卡：白卡 + warn 左边条 + 三键纵向全宽（J.3）；决策走 Transport.replyPermission */

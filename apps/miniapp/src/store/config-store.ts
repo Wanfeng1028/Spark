@@ -6,8 +6,8 @@
  */
 import Taro from '@tarojs/taro'
 import { create } from 'zustand'
+import type { PairLink } from '@spark/protocol'
 import type { AppearancePreference } from '../theme/tokens'
-import type { PairLink } from '../transport/pair'
 
 const CONFIG_KEY = 'spark.config'
 

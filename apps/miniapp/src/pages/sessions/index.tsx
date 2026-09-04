@@ -12,27 +12,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Text, View } from '@tarojs/components'
 import Taro, { usePullDownRefresh } from '@tarojs/taro'
-import type { SessionDto, SessionStatus } from '@spark/protocol'
-import { errorMessageOf, fmtDate, isToday } from '@spark/protocol'
+import type { SessionDto } from '@spark/protocol'
+import { dotColor, errorMessageOf, fmtDate, isToday } from '@spark/protocol'
 import { useAppStore } from '../../store/app-store'
 import { useConfigStore } from '../../store/config-store'
 import { useTheme } from '../../store/theme-store'
-import type { ThemeTokens } from '../../theme/tokens'
 import { getRestClient } from '../../transport/runtime'
 import { Card, EmptyState, FloatButton, Hairline } from '../../components/ui'
 import './index.css'
-
-/** 状态点配色（J.2.2：绿空闲/accent 运行/amber 待审批） */
-function dotColor(status: SessionStatus, t: ThemeTokens): string {
-  switch (status) {
-    case 'running':
-      return t.sparkAccent
-    case 'waiting-approval':
-      return t.sparkWarn
-    case 'idle':
-      return t.sparkOk
-  }
-}
 
 type Section = { key: string; title: string; items: SessionDto[] }
 

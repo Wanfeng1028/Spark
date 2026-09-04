@@ -7,8 +7,8 @@
  */
 import { create } from 'zustand'
 import * as SecureStore from 'expo-secure-store'
+import type { PairLink } from '@spark/protocol'
 import type { AppearancePreference } from '../theme/tokens'
-import type { PairLink } from '../transport/pair-link'
 
 const CONFIG_KEY = 'spark.config'
 
