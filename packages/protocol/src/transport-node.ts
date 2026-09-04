@@ -7,10 +7,14 @@
  * 2) envelopeFromSseFrame：SSE 单帧 → 信封的共享解析（注释帧/无 data 帧 → null；
  *    ignorable 未知扩展事件跳过；坏帧抛错由调用方驱动断开重连——失败闭合）。
  * 3) REST 错误映射：非 2xx 读错误体 {code, message} 抛 `Error("code: message")`（文案表单一来源）。
+ *
+ * 退避序列（DEFAULT_BACKOFF_MS）与可打断延时（abortableSleep）的定义在
+ * session-stream-core.ts（工单 R-B.5）——本文件导入后由 index.ts 一并再导出，四端导入点不变。
  */
 import { eventSchemaOf } from './extend.js'
 import { errorFromResponse } from './error-copy.js'
 import { parseEnvelope } from './schema.js'
+import { DEFAULT_BACKOFF_MS, abortableSleep } from './session-stream-core.js'
 import type { SparkEventEnvelope } from './events.js'
 import type {
   AuditEntryDto,
@@ -45,9 +49,6 @@ import type {
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
 import type { PermissionReply, ReasoningEffort } from './primitives.js'
 import type { SendMessageOptions, SubmitOutcome, Transport } from './transport.js'
-
-/** §6.6：指数退避 1/2/5/10s 封顶 */
-export const DEFAULT_BACKOFF_MS: readonly number[] = [1000, 2000, 5000, 10_000]
 
 export type HttpConnectionStatus = 'connecting' | 'open' | 'reconnecting'
 
@@ -86,21 +87,6 @@ export function envelopeFromSseFrame(frame: string): SparkEventEnvelope | null {
     return null
   }
   return parseEnvelope(payload)
-}
-
-/** 可被 abort 打断的延时（退避重连用） */
-export function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    const t = setTimeout(() => {
-      signal.removeEventListener('abort', onAbort)
-      resolve()
-    }, ms)
-    const onAbort = (): void => {
-      clearTimeout(t)
-      resolve()
-    }
-    signal.addEventListener('abort', onAbort, { once: true })
-  })
 }
 
 /**
