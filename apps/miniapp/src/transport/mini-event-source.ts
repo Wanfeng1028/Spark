@@ -1,5 +1,6 @@
 /**
- * 小程序会话级事件流（工单 9.4——SessionEventSource 的微信小程序适配）。
+ * 小程序会话级事件流（工单 9.4——SessionEventSource 的微信小程序适配；
+ * 工单 R-B.5d 起重连状态机下沉 @spark/protocol 的 SessionStreamCore）。
  *
  * 主路径（SSE）：小程序无 EventSource/fetch/ReadableStream——用
  * `Taro.request({ enableChunked: true })` 的 onChunkReceived（ArrayBuffer 分块）
@@ -12,20 +13,35 @@
  * seq 去重口径（applyEvent 去重），切换重叠期不重复投影。进入轮询后本实例生命期内
  * 不再回试 SSE（避免在两路间振荡；重建实例即重新探测）。
  *
- * 契约对齐 RN 端 RnSessionEventSource：connecting/open/reconnecting/closed 四态 +
- * since 水位续播 + 退避序列 1/2/5/10s（DEFAULT_BACKOFF_MS）+ 鉴权收敛（连续 3 次
- * 401/403 进终态；同一错误码 onError 只上抛一次，重连成功复位）。终态发 'closed'
- * （不再静默滞留 reconnecting——评审 I2），UI 据此呈现"连接已停止"。
+ * 留在本端的只有平台差异（doc/08 §5B 产品③「平台被迫部分不进 Core」）：分块双路
+ * 鉴权闸门（评审 I1：onHeadersReceived 与 requestTask.then 可能各见一次 401/403，
+ * 局部 authCounted 防双计）、分块回调缺失的单向降级（评审 I7）、轮询降级的实现本体、
+ * 轮询路从 REST 错误消息解析真实鉴权状态码（评审 I6：`HTTP_403: ...` → 403）。
+ *
+ * 四态 / since 水位续播 / 退避序列 1/2/5/10s / 鉴权收敛（同码 onError 只上抛一次、
+ * 重连成功复位、连续 3 次进 closed 终态——评审 I2：不静默滞留 reconnecting，UI 据此
+ * 呈现「连接已停止」）一律由 SessionStreamCore 承担，与四端同口径；轮询成功一轮 =
+ * 健康空闲，内核按 idleDelayMs（= pollIntervalMs）续轮，不退避不报断线。
  */
 import Taro from '@tarojs/taro'
-import type { SessionId, SparkEventEnvelope } from '@spark/protocol'
-import { DEFAULT_BACKOFF_MS, abortableSleep } from '@spark/protocol'
+import type {
+  ConnectOutcome,
+  SessionId,
+  SparkEventEnvelope,
+  StreamConnectionStatus,
+  StreamCoreContext,
+} from '@spark/protocol'
+import { SessionStreamCore } from '@spark/protocol'
 import { MiniRestClient } from './rest'
 import { SseFramePump } from './sse-pump'
 import { filterFreshEvents } from './poll'
 import { sdkSupportsChunked } from './support'
 
-export type MiniConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
+/**
+ * 连接态（工单 R-B.5d 起 = SessionStreamCore 的 StreamConnectionStatus）——本端此前已是
+ * 同字面量的四态本地副本（评审 I2 要求终态发 closed），现改为直接引用单源。
+ */
+export type MiniConnectionStatus = StreamConnectionStatus
 
 /** 轮询降级参数：3s 一轮（时延与开销折中）；尾部切片 200（服务端上限） */
 const POLL_INTERVAL_MS = 3000
@@ -60,24 +76,13 @@ interface ChunkRequestTask {
 
 export class MiniSessionEventSource {
   private readonly opts: MiniSessionEventSourceOptions
-  private readonly backoffMs: readonly number[]
-  private readonly abort = new AbortController()
   private readonly rest: MiniRestClient
-  private watermark: number
-  private disposed = false
-  private retries = 0
-  /** 代际计数：close 后残余回调不再驱动状态机（防竞态，同 RN 口径） */
-  private generation = 0
-  /** 鉴权收敛：连续失败计数（≥3 进终态）；同一错误码去重标记（重连成功复位） */
-  private authFailures = 0
-  private lastAuthErrorCode: string | null = null
-  /** 传输模式：SSE 主路径 / 轮询降级（生命期内单向降级，不回试） */
+  /** 传输模式：SSE 主路径 / 轮询降级（生命期内单向降级，不回试）——内核不管模式，端侧持有 */
   private mode: 'sse' | 'polling'
+  private readonly core: SessionStreamCore
 
   constructor(opts: MiniSessionEventSourceOptions) {
     this.opts = opts
-    this.backoffMs = opts.backoffMs ?? DEFAULT_BACKOFF_MS
-    this.watermark = opts.since ?? 0
     this.rest = new MiniRestClient({
       baseUrl: opts.baseUrl,
       ...(opts.authToken !== undefined ? { token: opts.authToken } : {}),
@@ -85,99 +90,50 @@ export class MiniSessionEventSource {
     const chunked =
       opts.chunkedSupported ?? sdkSupportsChunked(Taro.getSystemInfoSync().SDKVersion ?? '')
     this.mode = opts.forcePolling === true || !chunked ? 'polling' : 'sse'
-    this.setStatus('connecting')
-    void this.loop()
+    // 内核必须在 rest/mode 之后构造：其构造函数同步启动 loop，首轮 connectOnce 立即读这两者
+    this.core = new SessionStreamCore({
+      baseUrl: opts.baseUrl,
+      sessionId: opts.sessionId,
+      ...(opts.since !== undefined ? { since: opts.since } : {}),
+      ...(opts.backoffMs !== undefined ? { backoffMs: opts.backoffMs } : {}),
+      // 轮询成功一轮 = 健康空闲：按此间隔续轮（原 pollIntervalMs 语义，缺省 3s）
+      idleDelayMs: opts.pollIntervalMs ?? POLL_INTERVAL_MS,
+      ...(opts.authToken !== undefined ? { authToken: opts.authToken } : {}),
+      ...(opts.onStatus !== undefined ? { onStatus: opts.onStatus } : {}),
+      ...(opts.onEvent !== undefined ? { onEvent: opts.onEvent } : {}),
+      ...(opts.onError !== undefined ? { onError: opts.onError } : {}),
+      connectOnce: (ctx) =>
+        this.mode === 'polling' ? this.pollOnce(ctx) : this.connectOnceSse(ctx),
+    })
   }
 
   /** 当前回放水位（已收最大 seq）——切换会话/重建流时作 since */
   get since(): number {
-    return this.watermark
+    return this.core.since
   }
 
   dispose(): void {
-    this.disposed = true
-    this.generation++
-    this.abort.abort()
-  }
-
-  private setStatus(s: MiniConnectionStatus): void {
-    this.opts.onStatus?.(s)
-  }
-
-  private async loop(): Promise<void> {
-    while (!this.disposed) {
-      const gen = this.generation
-      if (this.mode === 'polling') {
-        const ok = await this.pollOnce(gen)
-        if (this.disposed || this.abort.signal.aborted) return
-        if (this.generation !== gen) continue
-        if (ok) {
-          // 轮询成功：正常间隔续轮，不退避
-          await abortableSleep(this.opts.pollIntervalMs ?? POLL_INTERVAL_MS, this.abort.signal)
-          continue
-        }
-      } else {
-        await this.connectOnceSse(gen)
-        if (this.disposed || this.abort.signal.aborted) return
-        if (this.generation !== gen) continue
-      }
-      // 失败闭合：任何断开/失败一律退避重连（退避序列四端同口径）
-      this.setStatus('reconnecting')
-      const delay = this.backoffMs[Math.min(this.retries, this.backoffMs.length - 1)] ?? 1000
-      this.retries++
-      await abortableSleep(delay, this.abort.signal)
-    }
-  }
-
-  /** 鉴权失败处理（SSE 响应码与轮询错误码共用；收敛纪律同 RN G5） */
-  private handleAuthFailure(status: number): void {
-    const code = `E_AUTH_${status}`
-    if (this.lastAuthErrorCode !== code) {
-      this.lastAuthErrorCode = code
-      this.opts.onError?.(new Error(`E_AUTH: 事件流鉴权失败（HTTP ${status}）`))
-    }
-    this.authFailures++
-    if (this.authFailures >= 3) {
-      this.disposed = true
-      // 终态：发 closed 让 UI 收敛（不滞留 reconnecting 谎报——评审 I2）
-      this.setStatus('closed')
-    }
-  }
-
-  /** 连接建立成功：退避/鉴权计数复位 + open 状态 */
-  private noteOpen(): void {
-    this.retries = 0
-    this.authFailures = 0
-    this.lastAuthErrorCode = null
-    this.setStatus('open')
+    this.core.dispose()
   }
 
   // ---------- SSE 主路径 ----------
 
   /** 单次 SSE 连接：分块收帧直到流结束/失败后返回 */
-  private connectOnceSse(gen: number): Promise<void> {
+  private connectOnceSse(ctx: StreamCoreContext): Promise<void> {
     return new Promise<void>((resolve) => {
-      let url = `${this.opts.baseUrl}/api/event?sessionId=${this.opts.sessionId}&since=${this.watermark}`
-      if (this.opts.authToken !== undefined) {
-        url += `&token=${encodeURIComponent(this.opts.authToken)}`
-      }
-      const stale = (): boolean => this.disposed || this.generation !== gen
       let settled = false
       let chunkReceived = false
       let authBlocked = false
       // 同一响应的鉴权失败只计一次：onHeadersReceived 与 requestTask.then 两条
-      // 路径可能各见一次 401/403——局部闸门防双计（评审 I1）
+      // 路径可能各见一次 401/403——局部闸门防双计（评审 I1，平台特有，不入内核）
       let authCounted = false
       const countAuthOnce = (status: number): void => {
         if (authCounted) return
         authCounted = true
-        this.handleAuthFailure(status)
+        ctx.noteAuthFailure(status)
       }
 
-      const pump = new SseFramePump((e) => {
-        if (e.seq !== undefined && e.seq > this.watermark) this.watermark = e.seq
-        this.opts.onEvent?.(e)
-      })
+      const pump = new SseFramePump((e) => ctx.noteEnvelope(e))
 
       let task: ChunkRequestTask | null = null
       const finish = (): void => {
@@ -194,7 +150,7 @@ export class MiniSessionEventSource {
       }
 
       const requestTask = Taro.request({
-        url,
+        url: ctx.url(),
         method: 'GET',
         header: { accept: 'text/event-stream' },
         responseType: 'arraybuffer',
@@ -206,7 +162,7 @@ export class MiniSessionEventSource {
       requestTask
         .then((res) => {
           // 流正常结束（服务端关流）：状态码鉴权检查后走重连循环
-          if (stale()) {
+          if (ctx.stale()) {
             finish()
             return
           }
@@ -218,7 +174,7 @@ export class MiniSessionEventSource {
           finish()
         })
         .catch(() => {
-          if (stale()) {
+          if (ctx.stale()) {
             finish()
             return
           }
@@ -233,25 +189,25 @@ export class MiniSessionEventSource {
       const headersOf = task as Partial<ChunkRequestTask>
       if (typeof headersOf.onHeadersReceived === 'function') {
         headersOf.onHeadersReceived((res) => {
-          if (stale()) return
+          if (ctx.stale()) return
           if (res.statusCode === 401 || res.statusCode === 403) {
             authBlocked = true
             countAuthOnce(res.statusCode)
             finish()
             return
           }
-          if (res.statusCode >= 200 && res.statusCode < 300) this.noteOpen()
+          if (res.statusCode >= 200 && res.statusCode < 300) ctx.noteOpen()
         })
       }
       const chunkOf = task as Partial<ChunkRequestTask>
       if (typeof chunkOf.onChunkReceived === 'function') {
         chunkOf.onChunkReceived((res) => {
-          if (stale()) {
+          if (ctx.stale()) {
             finish()
             return
           }
           chunkReceived = true
-          this.noteOpen()
+          ctx.noteOpen()
           try {
             pump.feedBytes(new Uint8Array(res.data))
           } catch {
@@ -268,38 +224,38 @@ export class MiniSessionEventSource {
       }
 
       // dispose 的 abort 信号接线：空闲（心跳是注释帧、无回调）也能即刻断开
-      if (this.abort.signal.aborted) {
+      if (ctx.signal.aborted) {
         finish()
         return
       }
-      this.abort.signal.addEventListener('abort', finish, { once: true })
+      ctx.signal.addEventListener('abort', finish, { once: true })
     })
   }
 
   // ---------- 轮询降级路径 ----------
 
-  /** 单轮轮询：尾部切片过滤水位后补发；成功返回 true */
-  private async pollOnce(gen: number): Promise<boolean> {
-    const stale = (): boolean => this.disposed || this.generation !== gen
+  /** 单轮轮询：尾部切片过滤水位后补发。成功 → 'idle'（内核按 idleDelayMs 续轮，不退避） */
+  private async pollOnce(ctx: StreamCoreContext): Promise<ConnectOutcome> {
     try {
       const dto = await this.rest.getSession(this.opts.sessionId, { limit: POLL_PAGE_LIMIT })
-      if (stale()) return true
-      const { fresh, watermark } = filterFreshEvents(dto.events ?? [], this.watermark)
-      this.watermark = watermark
-      this.noteOpen()
-      for (const e of fresh) this.opts.onEvent?.(e)
-      return true
+      if (ctx.stale()) return 'idle'
+      // 只取 fresh：返回的 watermark 不再取用——内核 noteEnvelope 逐条推进水位，与一次性
+      // 赋值等价（fresh 按 seq 升序，服务端不重排；无 seq 的 live 不推水位但原样放行）
+      const { fresh } = filterFreshEvents(dto.events ?? [], ctx.since())
+      ctx.noteOpen()
+      for (const e of fresh) ctx.noteEnvelope(e)
+      return 'idle'
     } catch (err: unknown) {
-      if (stale()) return true
+      if (ctx.stale()) return 'idle'
       // REST 鉴权失败（`E_AUTH: ...`）走同一收敛纪律；其余错误静默进退避重试。
       // 状态码从错误消息解析真实值（`HTTP_401: ...`，与 SSE 路去重口径一致），
       // 解析不到再落 401（评审 I6）
       const msg = err instanceof Error ? err.message : String(err)
       if (/^E_AUTH/.test(msg) || /^HTTP_(40[13])/.test(msg)) {
         const parsed = /^HTTP_(40[13])/.exec(msg)?.[1]
-        this.handleAuthFailure(parsed !== undefined ? Number(parsed) : 401)
+        ctx.noteAuthFailure(parsed !== undefined ? Number(parsed) : 401)
       }
-      return false
+      return 'disconnected'
     }
   }
 }
