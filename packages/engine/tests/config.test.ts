@@ -249,3 +249,85 @@ describe('ConfigError 形态', () => {
     }
   })
 })
+
+describe('spark.json engine/hooks 段单一来源（工单 R-B.4：复用 @spark/protocol schema）', () => {
+  it('engine 段九项全覆盖：逐项解析', () => {
+    const dir = tempDir()
+    write(dir, 'spark.json', JSON.stringify({
+      engine: {
+        maxStepsPerTurn: 12,
+        maxToolParallel: 3,
+        toolTimeoutMs: 5_000,
+        permissionTimeoutMs: 6_000,
+        progressThrottleMs: 50,
+        toolOutputLimitKB: 8,
+        compactionThreshold: 0.25,
+        checkpoints: false,
+        bashSandbox: 'on',
+      },
+    }))
+    write(dir, 'models.json', VALID_MODELS)
+
+    expect(loadConfig(dir).spark.engine).toEqual({
+      maxStepsPerTurn: 12,
+      maxToolParallel: 3,
+      toolTimeoutMs: 5_000,
+      permissionTimeoutMs: 6_000,
+      progressThrottleMs: 50,
+      toolOutputLimitKB: 8,
+      compactionThreshold: 0.25,
+      checkpoints: false,
+      bashSandbox: 'on',
+    })
+  })
+
+  it('engine 段未知键剥离 → 该字段落默认值（宽松口径刻意保留；收紧属行为变更须另立工单）', () => {
+    const dir = tempDir()
+    write(dir, 'spark.json', JSON.stringify({
+      engine: { maxStepPerTurn: 99, checkpoints: false }, // 首项拼错（少 s）
+    }))
+    write(dir, 'models.json', VALID_MODELS)
+
+    const cfg = loadConfig(dir)
+    expect(cfg.spark.engine.maxStepsPerTurn).toBe(40) // 默认值，非 99
+    expect(cfg.spark.engine.checkpoints).toBe(false) // 同段合法键照常生效
+  })
+
+  it('hooks 段两种触发原样透传；数组被冻结（protocol .readonly() 语义，runner 只读遍历）', () => {
+    const dir = tempDir()
+    write(dir, 'spark.json', JSON.stringify({
+      hooks: {
+        'turn.before': [{ command: 'echo hi', timeoutMs: 1_000 }],
+        'tool.completed': [{ skill: 'demo', emit: 'demo.done' }],
+      },
+    }))
+    write(dir, 'models.json', VALID_MODELS)
+
+    const hooks = loadConfig(dir).spark.hooks
+    expect(hooks?.['turn.before']).toEqual([{ command: 'echo hi', timeoutMs: 1_000 }])
+    expect(hooks?.['tool.completed']).toEqual([{ skill: 'demo', emit: 'demo.done' }])
+    expect(Object.isFrozen(hooks?.['turn.before'])).toBe(true)
+  })
+
+  it('hooks 缺省 = undefined（引擎侧 `?? {}`）', () => {
+    const dir = tempDir()
+    write(dir, 'models.json', VALID_MODELS)
+    expect(loadConfig(dir).spark.hooks).toBeUndefined()
+  })
+
+  it('hooks 未知挂点名 → ConfigError（strictObject 拒未知键）', () => {
+    const dir = tempDir()
+    write(dir, 'spark.json', JSON.stringify({ hooks: { 'turn.mid': [{ command: 'x' }] } }))
+    write(dir, 'models.json', VALID_MODELS)
+    expect(() => loadConfig(dir)).toThrow(/turn\.mid/)
+  })
+
+  it('hooks 单条 command+skill 混写 → ConfigError（union 两支各自 strict）', () => {
+    const dir = tempDir()
+    write(dir, 'spark.json', JSON.stringify({
+      hooks: { 'turn.after': [{ command: 'x', skill: 'demo', emit: 'demo.done' }] },
+    }))
+    write(dir, 'models.json', VALID_MODELS)
+    expect(() => loadConfig(dir)).toThrow(ConfigError)
+  })
+})

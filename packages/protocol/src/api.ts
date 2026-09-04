@@ -197,8 +197,13 @@ export type RoutingUpdate = z.infer<typeof RoutingUpdateSchema>
 
 // ---------- settings（工单 10.20 B / 10.21 / ADR D28） ----------
 
-/** 引擎行为设置九项（热/重启分档见 SETTINGS_RESTART_REQUIRED，D28） */
-export const EngineSettingsSchema = z.strictObject({
+/**
+ * 引擎行为设置九项的**宽松基形**（未知键剥离）：给 spark.json 的 `engine` 段用——
+ * 用户手写配置逐字段合并默认值（engine config.ts），字段名拼错 = 该字段落默认值，
+ * 与同文件 `server` 段口径一致。API 边界一律用下面的 strict 版。
+ * 两档共用这一份字段定义（工单 R-B.4：原 engine config.ts 逐字重抄九项 + interface 再抄一遍，共三份）。
+ */
+export const EngineSettingsShape = z.object({
   maxStepsPerTurn: z.number().int().min(1),
   maxToolParallel: z.number().int().min(1),
   toolTimeoutMs: z.number().int().positive(),
@@ -206,11 +211,20 @@ export const EngineSettingsSchema = z.strictObject({
   progressThrottleMs: z.number().int().positive(),
   toolOutputLimitKB: z.number().int().positive(),
   compactionThreshold: z.number().gt(0).lt(1),
+  /** turn 边界 checkpoint（阶段四工单 4.6）：git 快照开关（测试夹具关掉提速） */
   checkpoints: z.boolean(),
+  /** bash 沙箱（阶段五工单 5.2，ADR D15）：on = 平台 wrapper 前缀 + 不可用即拒跑 */
   bashSandbox: z.enum(['off', 'on']),
 })
 
-/** 单条用户侧 hook（镜像 engine config：外部命令或 skill 触发，二选一） */
+/** 引擎行为设置九项（strict：API 边界拒未知键；热/重启分档见 SETTINGS_RESTART_REQUIRED，D28） */
+export const EngineSettingsSchema = EngineSettingsShape.strict()
+export type EngineSettings = z.infer<typeof EngineSettingsSchema>
+
+/**
+ * 单条用户侧 hook（工单 7.3：外部命令或 skill 触发，二选一——strictObject 防混写）。
+ * 工单 R-B.4 起为单一来源：engine config.ts 的 spark.json `hooks` 段复用本组 schema。
+ */
 export const SettingsHookDefSchema = z.union([
   z.strictObject({
     command: z.string().min(1),
@@ -220,7 +234,12 @@ export const SettingsHookDefSchema = z.union([
 ])
 export type SettingsHookDef = z.infer<typeof SettingsHookDefSchema>
 
-/** hooks 四挂点（工单 7.3 词表；10.21 拍板经 GET /api/settings 下发；只读数组对齐引擎 UserHooksConfig） */
+/**
+ * hooks 四挂点（工单 7.3 词表；10.21 拍板经 GET /api/settings 下发；只读数组对齐引擎 UserHooksConfig）。
+ * 工单 R-B.4 起 spark.json 的 `hooks` 段也走本 schema（原 engine config.ts 另有一份逐字同的声明）。
+ * 注意 `.readonly()` 会 Object.freeze 解析产物的数组（zod v4 语义）——引擎侧 UserHookRunner 只读遍历，
+ * 冻结正好让运行时值兑现 `readonly UserHookDef[]` 的类型契约。
+ */
 export const SettingsHooksSchema = z.strictObject({
   'turn.before': z.array(SettingsHookDefSchema).readonly().optional(),
   'turn.after': z.array(SettingsHookDefSchema).readonly().optional(),

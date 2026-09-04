@@ -1021,20 +1021,11 @@ export class Engine {
 
   /** GET /api/settings：脱敏全量（掩码红线——绝不回 apiKey 值；models.json 只读参考） */
   getSettings(): SettingsDto {
-    const e = this.config.spark.engine
     const dto: SettingsDto = {
       server: { port: this.config.spark.server.port, host: this.config.spark.server.host },
-      engine: {
-        maxStepsPerTurn: e.maxStepsPerTurn,
-        maxToolParallel: e.maxToolParallel,
-        toolTimeoutMs: e.toolTimeoutMs,
-        permissionTimeoutMs: e.permissionTimeoutMs,
-        progressThrottleMs: e.progressThrottleMs,
-        toolOutputLimitKB: e.toolOutputLimitKB,
-        compactionThreshold: e.compactionThreshold,
-        checkpoints: e.checkpoints,
-        bashSandbox: e.bashSandbox,
-      },
+      // 九项展开即得（工单 R-B.4：SparkConfig.engine 已复用 protocol EngineSettings 类型，
+      // 与 SettingsDto['engine'] 同形——原九行逐字段抄写随之消除；展开而非直接引用，不外泄内部 config）
+      engine: { ...this.config.spark.engine },
       restartRequired: [...SETTINGS_RESTART_REQUIRED],
       models: {
         defaultModel: `${this.config.models.defaultModel.provider}/${this.config.models.defaultModel.model}`,

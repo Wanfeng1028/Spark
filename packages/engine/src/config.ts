@@ -7,8 +7,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
-import type { ReasoningEffort } from '@spark/protocol'
-import type { UserHooksConfig } from './hooks/runner.js'
+import { EngineSettingsShape, SettingsHooksSchema } from '@spark/protocol'
+import type { EngineSettings, ReasoningEffort, SettingsHooks } from '@spark/protocol'
 
 /** E_CONFIG（§5.10）：进程退出 + stderr 的载体由启动方（server）负责 */
 export class ConfigError extends Error {
@@ -22,22 +22,13 @@ export class ConfigError extends Error {
 
 // ---- spark.json ----
 
-/** 工单 7.3：单条用户侧 hook——外部命令或 skill 触发（二选一，strictObject 防混写） */
-const userHookDefSchema = z.union([
-  z.strictObject({
-    command: z.string().min(1),
-    timeoutMs: z.number().int().positive().optional(),
-  }),
-  z.strictObject({ skill: z.string().min(1), emit: z.string().min(1) }),
-])
-
-const userHooksSchema = z.strictObject({
-  'turn.before': z.array(userHookDefSchema).optional(),
-  'turn.after': z.array(userHookDefSchema).optional(),
-  'permission.resolved': z.array(userHookDefSchema).optional(),
-  'tool.completed': z.array(userHookDefSchema).optional(),
-})
-
+/**
+ * spark.json 顶层。engine 段与 hooks 段的字段定义单一来源 = @spark/protocol（工单 R-B.4：
+ * 原两处在此逐字重抄 api.ts，共三份定义漂移风险）。
+ * 口径刻意保留现状：`server`/`engine` 用宽松 z.object（未知键剥离 → 该字段落默认值），
+ * API 边界另走 protocol 的 strict 版，分档理由见 EngineSettingsShape 注释；
+ * `hooks` 复用 protocol SettingsHooksSchema（strictObject，未知挂点名 = E_CONFIG）。
+ */
 const sparkSchema = z.object({
   version: z.literal(1).optional(),
   server: z
@@ -47,41 +38,17 @@ const sparkSchema = z.object({
     })
     .partial()
     .optional(),
-  engine: z
-    .object({
-      maxStepsPerTurn: z.number().int().min(1),
-      maxToolParallel: z.number().int().min(1),
-      toolTimeoutMs: z.number().int().positive(),
-      permissionTimeoutMs: z.number().int().positive(),
-      progressThrottleMs: z.number().int().positive(),
-      toolOutputLimitKB: z.number().int().positive(),
-      compactionThreshold: z.number().gt(0).lt(1),
-      /** turn 边界 checkpoint（阶段四工单 4.6）：git 快照开关（测试夹具关掉提速） */
-      checkpoints: z.boolean(),
-      /** bash 沙箱（阶段五工单 5.2，ADR D15）：on = 平台 wrapper 前缀 + 不可用即拒跑 */
-      bashSandbox: z.enum(['off', 'on']),
-    })
-    .partial()
-    .optional(),
+  engine: EngineSettingsShape.partial().optional(),
   /** 用户侧 hooks（阶段七工单 7.3 / H03）：四挂点 → 外部命令或 skill 触发 */
-  hooks: userHooksSchema.optional(),
+  hooks: SettingsHooksSchema.optional(),
 })
 
 export interface SparkConfig {
   server: { port: number; host: string }
-  engine: {
-    maxStepsPerTurn: number
-    maxToolParallel: number
-    toolTimeoutMs: number
-    permissionTimeoutMs: number
-    progressThrottleMs: number
-    toolOutputLimitKB: number
-    compactionThreshold: number
-    checkpoints: boolean
-    bashSandbox: 'off' | 'on'
-  }
+  /** 引擎行为设置九项（字段定义见 protocol EngineSettingsShape；默认值见 SPARK_DEFAULTS） */
+  engine: EngineSettings
   /** 用户侧 hooks（工单 7.3；可选——直注入配置的测试夹具可省，引擎侧 `?? {}`） */
-  hooks?: UserHooksConfig | undefined
+  hooks?: SettingsHooks | undefined
 }
 
 const SPARK_DEFAULTS: SparkConfig = {
@@ -241,6 +208,8 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
       : (() => {
           const p = parseOrThrow(sparkSchema, sparkRaw, 'spark.json')
           return {
+            // 字段级覆盖。逐行 `??` 而不写 `{ ...SPARK_DEFAULTS.engine, ...p.engine }`：
+            // 后者运行时等价但 TS 把 spread 里的可选属性推成 `T | undefined`，不得不用 as 兜底。
             server: {
               port: p.server?.port ?? SPARK_DEFAULTS.server.port,
               host: p.server?.host ?? SPARK_DEFAULTS.server.host,
