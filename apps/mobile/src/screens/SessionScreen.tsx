@@ -58,6 +58,14 @@ import type { SessionsStackParamList } from '../navigation/params'
 /** 上拉翻页页长（服务端上限 200；50 条兼顾首屏速度与翻页次数） */
 const PAGE_SIZE = 50
 
+/**
+ * closed 态文案留本地，与 miniapp session 页逐字同（工单 R-B.5c）——两个靠配对 token
+ * 连 server 的远端，closed 唯一持久可见的触发源就是鉴权终态（配置变更 invalidate 是瞬态，
+ * 随即被新实例的 connecting 覆盖）。三态已下沉 protocol CONNECTION_TEXT（工单 R-B）；
+ * closed 不入共享表的理由见 ui-copy.ts 头注释边界说明 1。
+ */
+const CLOSED_TEXT = '连接已停止：鉴权失败，请到设置页重新配对'
+
 /** 居中时间戳分隔（13 meta，J.2.3） */
 function TimestampDivider({ time }: { time: number }) {
   const t = useTheme()
@@ -280,9 +288,12 @@ export function SessionScreen() {
     }
   }
 
-  // closed 态无文案 → 细条不显示（已知缺口，同 miniapp 评审 I2 修复前形态；待工单 R-B.5 让 closed 带原因后统一）
   const connectionText =
-    status === 'connecting' || status === 'reconnecting' ? CONNECTION_TEXT[status] : null
+    status === 'closed'
+      ? CLOSED_TEXT
+      : status === 'connecting' || status === 'reconnecting'
+        ? CONNECTION_TEXT[status]
+        : null
 
   return (
     <View style={[styles.screen, { backgroundColor: t.pageBackground }]}>

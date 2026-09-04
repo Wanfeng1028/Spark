@@ -2,8 +2,10 @@
  * RnSessionEventSource 单测（评审 G1/G4/G5）：
  * - G1：dispose 即刻关闭底层 EventSource（abort 接线），残余回调不再驱动状态机；
  * - G4：同实例第二次 open（库轮询重开）补报 reconnecting → open；
- * - G5：401/403 onError 去重；连续 3 次进终态停止重连。
- * react-native-sse 以可回放事件的 Mock 类替换（不落真实网络）。
+ * - G5：401/403 onError 去重；连续 3 次进终态停止重连（工单 R-B.5c 起终态发 'closed'）。
+ * react-native-sse 以可回放事件的 Mock 类替换（不落真实网络）；重连状态机已下沉
+ * SessionStreamCore（packages/protocol/tests/session-stream-core.test.ts 测内核契约），
+ * 本文件只测 RN 侧的平台接线（库事件 → 内核事实上报）。
  */
 import { ids } from '@spark/protocol'
 import EventSource from 'react-native-sse'
@@ -138,10 +140,12 @@ describe('G5：鉴权失败收敛（去重 + 终态）', () => {
 
   it('连续 3 次 401：onError 只上抛一次，第 3 次后进终态不再重连', async () => {
     const errors: string[] = []
+    const statuses: RnConnectionStatus[] = []
     new RnSessionEventSource({
       baseUrl: 'http://h:8080',
       sessionId: SID,
       backoffMs: [0],
+      onStatus: (s) => statuses.push(s),
       onError: (e) => errors.push(e.message),
     })
 
@@ -152,8 +156,10 @@ describe('G5：鉴权失败收敛（去重 + 终态）', () => {
     esAt(2).emit('error', auth401)
     await tick()
 
-    expect(errors).toEqual(['E_AUTH: SSE 鉴权失败（HTTP 401）']) // 同码去重
+    // 文案单源在 SessionStreamCore（工单 R-B.5）：与传输无关的「事件流」口径（四端逐字同）
+    expect(errors).toEqual(['E_AUTH: 事件流鉴权失败（HTTP 401）']) // 同码去重
     expect(MockEventSource.instances).toHaveLength(3) // 终态：无第 4 次请求
+    expect(statuses[statuses.length - 1]).toBe('closed') // 终态如实上报（不滞留 reconnecting）
   })
 
   it('重连成功后复位：再次鉴权失败可再次上抛', async () => {

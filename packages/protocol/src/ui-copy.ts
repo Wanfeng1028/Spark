@@ -9,9 +9,13 @@
  * 边界（刻意不入此表）：
  * 1) closed 态文案留各端。closed 有两个语义不同的触发源——鉴权连续 3 次 401/403 进终态、
  *    与配置变更主动 invalidate（mobile invalidateTransport / miniapp invalidateRest 同型）；
- *    单份文案无法如实覆盖两者，强并即造假状态（AGENTS §2.7）。待 SessionStreamCore 让
- *    closed 带原因后再统一（工单 R-B.5）。现状三份 closed 文案各异（web 两处不可达、
- *    miniapp 偏鉴权口径、mobile 无键故静默）如实保留，不在行为等价重构内擅改。
+ *    单份文案无法如实覆盖两者，强并即造假状态（AGENTS §2.7）。SessionStreamCore（工单 R-B.5）
+ *    只让 closed 真正可达、未让它带原因，故仍不并入本表。现状四份 closed 文案：
+ *    web StatusBar「已断开」与 web AppShell 横幅「连接已断开」（两者均自 R-B.5b 把连接态
+ *    3 态扩为 4 态起才可达，此前写了也显示不出来）；miniapp 与 mobile 逐字同的
+ *    「连接已停止：鉴权失败，请到设置页重新配对」（mobile 自 R-B.5c 补齐）——两个靠配对
+ *    token 连 server 的远端取鉴权口径：closed 唯一持久可见的触发源即鉴权终态
+ *    （配置变更那条是瞬态，随即被新实例的 connecting 覆盖）。
  * 2) miniapp 复制态的 ✓ 是「无图标组件平台」的视觉补偿记号（同 cli ✓/… 排版记号先例，
  *    非 emoji 装饰，AGENTS §2.6），留渲染层附加，不进文案表——文案本体两端已统一。
  */
