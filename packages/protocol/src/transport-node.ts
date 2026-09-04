@@ -8,13 +8,15 @@
  *    ignorable 未知扩展事件跳过；坏帧抛错由调用方驱动断开重连——失败闭合）。
  * 3) REST 错误映射：非 2xx 读错误体 {code, message} 抛 `Error("code: message")`（文案表单一来源）。
  *
- * 退避序列（DEFAULT_BACKOFF_MS）与可打断延时（abortableSleep）的定义在
- * session-stream-core.ts（工单 R-B.5）——本文件导入后由 index.ts 一并再导出，四端导入点不变。
+ * 重连状态机（退避序列 / 水位推进 / 鉴权收敛 / dispose 防竞态）在 session-stream-core.ts
+ * （工单 R-B.5）：本文件的 HttpTransport 与 SessionEventSource 都是 SessionStreamCore 的消费者，
+ * 各自只注入一个单次连接钩子（下方共享的 connectSseOnce）。index.ts 一并再导出，四端导入点不变。
  */
 import { eventSchemaOf } from './extend.js'
 import { errorFromResponse } from './error-copy.js'
 import { parseEnvelope } from './schema.js'
-import { DEFAULT_BACKOFF_MS, abortableSleep } from './session-stream-core.js'
+import { SessionStreamCore } from './session-stream-core.js'
+import type { StreamConnectionStatus, StreamCoreContext } from './session-stream-core.js'
 import type { SparkEventEnvelope } from './events.js'
 import type {
   AuditEntryDto,
@@ -50,7 +52,12 @@ import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
 import type { PermissionReply, ReasoningEffort } from './primitives.js'
 import type { SendMessageOptions, SubmitOutcome, Transport } from './transport.js'
 
-export type HttpConnectionStatus = 'connecting' | 'open' | 'reconnecting'
+/**
+ * 连接态（工单 R-B.5b 起 = SessionStreamCore 的 StreamConnectionStatus，3 态 → 4 态）。
+ * closed 此前不在本类型里，导致 cli Footer 的「连接已断开」与 web StatusBar/AppShell 的
+ * CLOSED_TEXT 运行时永不可达（静默缺陷——文案写了却显示不出来）；现已由内核的鉴权收敛发出。
+ */
+export type HttpConnectionStatus = StreamConnectionStatus
 
 export interface HttpTransportOptions {
   /** API 基址：缺省空串（浏览器同源；Node 侧调用方显式给 127.0.0.1 地址） */
@@ -126,27 +133,58 @@ export async function pumpSseStream(
   }
 }
 
+/**
+ * SSE 单次连接（全局流与会话级流共用——两形态的 URL 差异全在内核）：fetch → 报 open → 泵读分发。
+ * 非 2xx / 无响应体 / 坏帧 / 流异常一律冒泡，SessionStreamCore 接住后退避重连（失败闭合）；
+ * 401/403 先交 ctx.noteAuthFailure 走鉴权收敛（连续 3 次进 closed 终态）再冒泡。
+ */
+async function connectSseOnce(ctx: StreamCoreContext): Promise<void> {
+  // SSE 无法自定义头：token 走 ?token= 查询参数（服务端 tokenOf 双口径，工单 9.1）
+  const res = await fetch(ctx.url(), {
+    signal: ctx.signal,
+    headers: { accept: 'text/event-stream' },
+  })
+  if (!res.ok || res.body === null) {
+    if (res.status === 401 || res.status === 403) ctx.noteAuthFailure(res.status)
+    throw new Error(`SSE 连接失败：HTTP ${res.status}`)
+  }
+  ctx.noteOpen()
+  // 流正常结束（server 优雅退出 bye 帧后关闭）——返回，内核走重连
+  await pumpSseStream(res.body, (e) => ctx.noteEnvelope(e))
+}
+
 export class HttpTransport implements Transport {
   protected readonly base: string
-  private readonly backoffMs: readonly number[]
   private readonly opts: HttpTransportOptions
   private readonly authToken: string | undefined
   private readonly handlers = new Set<(e: SparkEventEnvelope) => void>()
-  private readonly abort = new AbortController()
   private readonly openSessions = new Set<SessionId>()
+  /**
+   * 全局 SSE 直播的重连状态机（工单 R-B.5b：原 HttpTransport.loop 与 SessionEventSource.loop
+   * 两份逐字近似，现合一到 SessionStreamCore）。eventStream:false 时为 null（cli 仅用 REST）。
+   */
+  private readonly stream: SessionStreamCore | null
   private disposed = false
-  private everOpen = false
-  private retries = 0
 
   constructor(opts: HttpTransportOptions = {}) {
     this.opts = opts
     this.base = opts.baseUrl ?? ''
     this.authToken = opts.authToken
-    this.backoffMs = opts.backoffMs ?? DEFAULT_BACKOFF_MS
-    if (opts.eventStream !== false) {
-      this.setStatus('connecting')
-      void this.loop()
-    }
+    this.stream =
+      opts.eventStream === false
+        ? null
+        : new SessionStreamCore({
+            baseUrl: this.base,
+            ...(opts.backoffMs !== undefined ? { backoffMs: opts.backoffMs } : {}),
+            ...(opts.authToken !== undefined ? { authToken: opts.authToken } : {}),
+            onStatus: (s) => this.setStatus(s),
+            onEvent: (e) => {
+              for (const h of [...this.handlers]) h(e)
+            },
+            // 首连无需重放（无旧快照）；重连成功才 resync 已打开会话集合（§6.10 时序④）
+            onReopen: () => this.opts.onResync?.([...this.openSessions]),
+            connectOnce: connectSseOnce,
+          })
   }
 
   // ---------- 事件流 ----------
@@ -161,42 +199,6 @@ export class HttpTransport implements Transport {
 
   protected setStatus(s: HttpConnectionStatus): void {
     this.opts.onStatus?.(s)
-  }
-
-  /** SSE 主循环：连接 → 泵读 → 断开 → 退避重连（dispose 或 abort 退出） */
-  protected async loop(): Promise<void> {
-    while (!this.disposed) {
-      try {
-        // SSE 无法自定义头：token 走 ?token= 查询参数（服务端 tokenOf 双口径，工单 9.1）
-        const url = `${this.base}/api/event${
-          this.authToken !== undefined ? `?token=${encodeURIComponent(this.authToken)}` : ''
-        }`
-        const res = await fetch(url, {
-          signal: this.abort.signal,
-          headers: { accept: 'text/event-stream' },
-        })
-        if (!res.ok || res.body === null) {
-          throw new Error(`SSE 连接失败：HTTP ${res.status}`)
-        }
-        this.retries = 0
-        this.setStatus('open')
-        // 首连无需重放（无旧快照）；重连成功才 resync（§6.10 时序④）
-        if (this.everOpen) this.opts.onResync?.([...this.openSessions])
-        this.everOpen = true
-        await pumpSseStream(res.body, (e) => {
-          for (const h of [...this.handlers]) h(e)
-        })
-        // 流正常结束（server 优雅退出 bye 帧后关闭）——走重连
-      } catch {
-        if (this.disposed || this.abort.signal.aborted) return
-      }
-      if (this.disposed) return
-      this.setStatus('reconnecting')
-      const delay = this.backoffMs[Math.min(this.retries, this.backoffMs.length - 1)] ?? 1000
-      this.retries++
-      await abortableSleep(delay, this.abort.signal)
-      if (this.disposed) return
-    }
   }
 
   /** 记录已打开会话（重连 resync 集合，§6.6 要点 2） */
@@ -532,7 +534,8 @@ export class HttpTransport implements Transport {
 
   dispose(): void {
     this.disposed = true
-    this.abort.abort()
+    // Core 内部 abort 的正是 connectSseOnce 交给 fetch 的那条 signal
+    this.stream?.dispose()
     this.handlers.clear()
   }
 
@@ -556,66 +559,31 @@ export interface SessionEventSourceOptions {
 /**
  * 会话级 SSE 续播流（server §7.3 /api/event?sessionId&since，opencode 语义）：
  * 首连 = 回放 seq>since 的 durable + 直播；断线自动退避重连，since = 已收 durable 水位
- * （取最大 seq）——续播不丢不重、无需全量重放。帧解析/泵读/退避与全局通道同一实现，
- * 失败闭合同纪律（坏帧断开重连；dispose 后不再重连）。
+ * （取最大 seq）——续播不丢不重、无需全量重放。帧解析/泵读/退避与全局通道同一实现
+ * （SessionStreamCore + connectSseOnce），失败闭合同纪律（坏帧断开重连；dispose 后不再重连）。
  */
 export class SessionEventSource {
-  private readonly opts: SessionEventSourceOptions
-  private readonly backoffMs: readonly number[]
-  private readonly abort = new AbortController()
-  private watermark: number
-  private disposed = false
-  private retries = 0
+  private readonly core: SessionStreamCore
 
   constructor(opts: SessionEventSourceOptions) {
-    this.opts = opts
-    this.backoffMs = opts.backoffMs ?? DEFAULT_BACKOFF_MS
-    this.watermark = opts.since ?? 0
-    this.setStatus('connecting')
-    void this.loop()
+    this.core = new SessionStreamCore({
+      baseUrl: opts.baseUrl,
+      sessionId: opts.sessionId,
+      ...(opts.since !== undefined ? { since: opts.since } : {}),
+      ...(opts.backoffMs !== undefined ? { backoffMs: opts.backoffMs } : {}),
+      ...(opts.authToken !== undefined ? { authToken: opts.authToken } : {}),
+      ...(opts.onStatus !== undefined ? { onStatus: opts.onStatus } : {}),
+      ...(opts.onEvent !== undefined ? { onEvent: opts.onEvent } : {}),
+      connectOnce: connectSseOnce,
+    })
   }
 
   /** 当前回放水位（已收 durable 最大 seq）——切换会话/重建流时作 since */
   get since(): number {
-    return this.watermark
+    return this.core.since
   }
 
   dispose(): void {
-    this.disposed = true
-    this.abort.abort()
-  }
-
-  private setStatus(s: HttpConnectionStatus): void {
-    this.opts.onStatus?.(s)
-  }
-
-  private async loop(): Promise<void> {
-    while (!this.disposed) {
-      try {
-        let url = `${this.opts.baseUrl}/api/event?sessionId=${this.opts.sessionId}&since=${this.watermark}`
-        if (this.opts.authToken !== undefined) url += `&token=${encodeURIComponent(this.opts.authToken)}`
-        const res = await fetch(url, {
-          signal: this.abort.signal,
-          headers: { accept: 'text/event-stream' },
-        })
-        if (!res.ok || res.body === null) {
-          throw new Error(`SSE 连接失败：HTTP ${res.status}`)
-        }
-        this.retries = 0
-        this.setStatus('open')
-        await pumpSseStream(res.body, (e) => {
-          if (e.seq !== undefined && e.seq > this.watermark) this.watermark = e.seq
-          this.opts.onEvent?.(e)
-        })
-      } catch {
-        if (this.disposed || this.abort.signal.aborted) return
-      }
-      if (this.disposed) return
-      this.setStatus('reconnecting')
-      const delay = this.backoffMs[Math.min(this.retries, this.backoffMs.length - 1)] ?? 1000
-      this.retries++
-      await abortableSleep(delay, this.abort.signal)
-      if (this.disposed) return
-    }
+    this.core.dispose()
   }
 }
