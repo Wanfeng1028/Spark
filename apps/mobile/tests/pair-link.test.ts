@@ -10,8 +10,8 @@ import type { PairLink } from '@spark/protocol'
 import { subscribePairLink } from '../src/transport/pair-link'
 
 jest.mock('expo-linking', () => {
-  // jest.mock 工厂禁止引用外部变量（参数名也扫描）——状态一律定义在工厂内，经 __ 前缀测试面暴露
-  type MockUrlListener = (e: { url: string }) => void
+  // jest.mock 工厂禁止引用外部变量（类型注解里的参数名也被扫描）——一律 mock 前缀（先例 rn-event-source.test.ts）
+  type MockUrlListener = (mockEvent: { url: string }) => void
   const mockListeners: MockUrlListener[] = []
   let mockInitialUrl: string | null = null
   return {
