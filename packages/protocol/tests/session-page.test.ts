@@ -27,12 +27,12 @@ function env(partial: Partial<SparkEventEnvelope> = {}): SparkEventEnvelope {
     seq: seqCounter,
     data: { text: `m${seqCounter}` },
     ...partial,
-  } as SparkEventEnvelope
+  }
 }
 
 /** 最小会话 DTO（controller 只读 events 字段） */
 function sessionDto(events: SparkEventEnvelope[]): { events: SparkEventEnvelope[] } {
-  return { events } as unknown as { events: SparkEventEnvelope[] }
+  return { events }
 }
 
 interface Harness {
