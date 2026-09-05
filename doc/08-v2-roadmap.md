@@ -1,4 +1,4 @@
-# Spark v2 展望与工单库——阶段十一~十七（发布化 / 可日用 / 可证明 / SDK 化 / 生态面 / 命令面新机制 / 冗余整改）
+# Spark v2 展望与工单库——阶段十一~十八（发布化 / 可日用 / 可证明 / SDK 化 / 生态面 / 命令面新机制 / 冗余整改 / web 观感对齐）
 
 ## 版本记录
 
@@ -6,6 +6,7 @@
 | ---- | ---------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | v1.0 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，四轮 v2 展望会话；MIT / npm CLI 优先 / 本文档交付形式三项已拍板） | 初稿：定位与使用说明 · 决策记录（已拍板/待拍板）· 阶段十一~十五共 34 张工单（每张含验收标准与开工提示词）· 后置观察池 · 提示词总则（附录 A） |
 | v1.1 | 2026-08-31 | 同上；核查：晚风（Wanfeng1028，对照四轮展望清单逐条核查指出缺漏） | **对照四轮展望补全六处**：§0.3 终点图景与差异化五牌；§4.0 五层开发者面表（修 14.6/11.8 悬空引用）；13.1 补「Spark as eval harness」定位句；新增 §7 生命力风险与对策（原不变量节顺延为 §8）；后置池补 LSP/会话导出分享/计划模式 todo/V2-21/V2-02/其余候选池归并行；新增附录 B 阶段十在途工单引用式提示词（治理注记：阶段十唯一来源 doc/02 §8） |
+| v1.9 | 2026-09-05 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"web 组件观感对齐 shadcn 官网"指令 + ui.shadcn.com 首页截图） | **新增 阶段十八：web 观感对齐 shadcn 官网新一代风（§5C，五工单 18.1–18.5）**——胶囊控件 / 12-16px 分层卡 / 浅灰底输入，与移动端 §13.J 白卡口径合流；不变项：密度 13px 体系与会话流转录形态；§3 圆角封顶与 §12.4"模板大圆角"判据由 18.1 规格先行修订（ADR D29 随之登记）；标题行扩至阶段十八；§0.1 已拍板表补一行；排序建议先于 11.8 |
 | v1.5 | 2026-09-03 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"全仓冗余审计 + 工单与提示词立项"指令） | **新增 阶段十七：代码冗余整改八工单 R-A～R-H（§5B，含 §5B.0 审计发现汇总）**——当日全仓源码级审计（约 5.4 万行）结论：分层与 D22 纪律总体良好，问题集中四类（巨石文件 / 跨端重复已漂移含 memory LIKE 转义真 bug / 包内样板 / 死代码）；§0.2 新增 Q-7（六死文件 + _scratch 两产物五层级确认）与 Q-8（共享 controller 落点，R-H 开工时问）；建议整体排在 14.1 之前（先消肿再定 SDK 承诺面）；每工单附六段式开工提示词 |
 | v1.6 | 2026-09-05 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"未完成部分全部完成"指令） | §5B 登记进度：R-A ✅（Qoder 会话 c3af73d，doc/02 v3.80）/ R-B ✅（Qoder 会话五子批次 + 本会话收口登记，doc/02 v3.81）；R-C～R-H 本会话续作，逐工单回写此行 |
 | v1.7 | 2026-09-05 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；拍板：晚风（Q-7/Q-8 AskUserQuestion） | **阶段十七收官登记**：R-C～R-H 全部完成（doc/02 v3.82；engine.ts 2028→1499、routes.ts 702→575、mock.ts 夹具外置、mobile/miniapp 会话页各减约 140 行入 protocol session-page controller、memory LIKE 转义真 bug 修复）；§0.2 Q-7 判决**全部保留继续冻结**、Q-8 判决**状态机入 protocol**（均已关闭）；余量池登记（R-E① 第二批/R-E⑦⑧⑨/R-D 门面残部/Q-7 死文件） |
@@ -33,6 +34,7 @@
 | 命令面新机制（2026-09-01） | **九条全做成**（/agents /plan /trust /init /goal /arena /voice /lsp /extensions——晚风："既然能做那我们就是要做成的，即使从 0 开始"） | 立项为阶段十六（16.1–16.9），消解 doc/02 §8.7 V2-27~V2-35 挂池项；执行排在批次 2（10.12–10.22）之后 |
 | 开源参考纪律（2026-09-01） | **复用优先**：能复用开源就复用（qwen-code/gemini-cli 均 Apache-2.0、opencode MIT，与 Spark MIT 单向兼容；复用须保留原版权声明） | 各工单"开源参考"为必读前置；一律在线访问禁克隆（AGENTS §2.12） |
 | 批次 2 四项拍板（2026-09-01，晚风） | ① 10.15 焦点环按 §13.E/§12.1 中性化执行（DESIGN 登记改判）② 10.21 hooks 并入 10.20 `GET /api/settings` ③ 10.16 本批不做切换动画 ④ 10.20 B 类 ADR 开工时停下先问 | doc/02 批次 2 对应行同步；另按晚风澄清新增 **10.22 消息气泡布局**（用户消息靠右/AI 靠左、一上一下错开——是布局形态不是切换动画） |
+| web 观感对齐 shadcn 官网风（2026-09-05） | **胶囊控件（rounded-full）+ 12/16px 分层卡 + 浅灰底输入**（晚风，对照 ui.shadcn.com 首页组件演示拍板："我比较喜欢人家官网列出来的这些"）；不变项：密度 13px 体系、会话流转录形态、禁渐变/禁阴影/禁毛玻璃 | 立项阶段十八（18.1–18.5，§5C）；§3 圆角封顶与 §12.4"模板大圆角"判据修订走 18.1 规格先行 + ARCHITECTURE ADR（编号顺延现表末张，下称 D29）；与移动端 §13.J 白卡口径合流；建议先于 11.8（README 重写配新视觉截图） |
 
 ## 0.2 待拍板（触发相应工单前由人定，本文先按建议方向写）
 
@@ -1291,6 +1293,131 @@ mock-transport 是回归网）、packages/protocol format.ts（若 R-B 已落地
 4. 平台被迫重复不动（utf8/分块闸门/轮询降级/react-native-sse G4）；Maestro preamble 用 runFlow。
 验收：pnpm --filter mobile test / --filter miniapp test 全绿；真机或模拟器四场景走查（用户侧留记录）；controller 单测全路径。
 提交：refactor(mobile+miniapp): 工单 R-H——共享会话页 controller + 巨石屏拆分。
+```
+
+---
+
+# 5C. 阶段十八：web 观感对齐 shadcn 官网新一代风（五工单 18.1–18.5；2026-09-05 立项）
+
+> **发起与依据**：晚风 2026-09-05 拍板（对照 ui.shadcn.com 首页组件演示："我比较喜欢人家官网列出来的这些"）。目标观感 = shadcn 官网新一代演示风：**胶囊控件（rounded-full）+ 大圆角分层卡 + 浅灰底输入**。与移动端 §13.J 实测规格（白卡 radius 16 无边框无阴影、黑胶囊 CTA radius full）同族——本批次同时完成 web 与移动端的视觉口径合流（ADR 于 18.1 登记，编号顺延现表末张，下称 D29）。
+> **不变项（边界）**：密度体系不动（13px 基础字号 / sm28-md32-lg38 高度档 / 4-8px 网格）；会话流转录形态不动（§13.H v2.10——user 气泡 radius 18 本就在新口径内，assistant 全宽不变）；禁渐变 / 禁阴影 / 禁毛玻璃 / mono 纪律 / 中性焦点环全部照旧。冲突点预先声明：现行 §3"控件 6px；卡片 8px；最大不超过 12px"封顶与 §12.4"模板大圆角（rounded-2xl/3xl）"一刀切判据，与本批次目标观感直接相抵——由 18.1 **规格先行**修订，先改规格再动代码，防执行会话与黑名单 grep 互相打架。
+> **排序与依赖**：与阶段十七 R 批次无冲突（R 系收敛逻辑结构、本批只动样式层；R-E 已收官）；建议整体先于 11.8（README 重写需配新视觉截图）与未来官网/发布物料——先定应用内视觉语言，官网直接继承。工单规格唯一来源 = 修订后 DESIGN.md，本库不复制数字规格，只定方向、边界与验收。
+
+## 18.1 规格先行：DESIGN.md 口径修订 + ADR D29（纯文档，不动代码）
+
+- **目标**：把"胶囊化 + 大圆角卡"写成正式规格，作废旧圆角封顶；后续四张工单以修订后 DESIGN 为唯一依据。
+- **产出**：① §3 圆角行改判：控件=胶囊（full）与小件 8px 两档；卡片=12px（分组卡）/16px（大信息卡，对齐 §13.J）；最大 16px；"分隔优先边框与留白、不用阴影"不变。② §13.B 控件规格表逐行改：按钮/输入框/下拉/分段 → full；输入框补浅灰底规格（--secondary/--muted 系、弱化边框）与焦点态（全局 2px 中性环不变）；卡片行 8~12px → 12/16 两档；弹层菜单 8→12px；chip/徽章 full 本就合规不动。③ §12.4 与 §12.8 判据修订：`rounded-2xl/rounded-3xl` 行由一刀切禁止改为"**脱离 §13.B 登记档位的大圆角**"——grep 词不改，命中后按 §13.B 档位判放行（白名单口径写进 §12.8 注记）。④ ARCHITECTURE ADR 表新增 D29：背景（用户拍板 + §13.J 同族证据）/ 决策 / 影响（含上栏不变项全清单）。⑤ 交叉口径清扫：rg 扫 DESIGN.md 全文"6px"硬规格行（含组件 DoD 表"6px 圆角"格、§13 各页行号引用），逐一改齐，不留新旧口径并存。
+- **验收**：DESIGN/ARCHITECTURE 版本表各追加一行；rg "控件 6px" DESIGN.md 零命中；§13.B 表与 §3 行数字自洽；AGENTS.md 不动（视觉规则唯一来源在 DESIGN——AGENTS §8 规则放置规范）。
+- **依赖**：无。
+
+**提示词**：
+
+```text
+任务：Spark 工单 18.1——web 观感对齐 shadcn 官网风的规格先行（阶段十八首张；决策已拍板：胶囊控件 + 12/16px
+分层卡 + 浅灰底输入；密度 13px 与会话流转录形态不变）。
+
+前置阅读：AGENTS.md、doc/08 §5C 批次总说明与 18.1 产出清单、DESIGN.md §3/§13.B/§12.4/§12.8/§13.C/§13.J（现行
+口径与移动端同族证据）、ARCHITECTURE.md ADR 表（末张现为大 D28，本单顺延新增 D29）、.agents/skills/docs-update。
+要求：
+1. 按 18.1 产出①~⑤逐处修订 DESIGN.md 与 ARCHITECTURE.md；只动规格文字，任何代码不动。
+2. 判据修订自洽：§3 行 / §13.B 表 / §12.4 表 / §12.8 清单 / 组件 DoD 表五处口径一致，"6px 控件"残留清零。
+3. ADR D29 三段式：背景（晚风 2026-09-05 拍板 + §13.J 已是同风格的合流证据）/ 决策（新圆角档位全数字）/
+   影响（不变项清单 + 对 §12 黑名单判据的修订说明）。
+4. 两文档版本表各追加一行（docs-update 流程）；不做其余文档的顺带修改。
+验收：rg "控件 6px" DESIGN.md 零命中；§13.B 表与 §3 自洽；DESIGN/ARCHITECTURE 版本行齐。
+提交：docs(design): 工单 18.1——胶囊化与大圆角卡规格先行（§3/§13.B/§12.4 修订 + ADR D29）。
+```
+
+## 18.2 现有八组件胶囊化（apps/web/src/components/ui）
+
+- **目标**：存量 ui 八件换新口径，页面不动的条件下控件层先到位。
+- **产出**：① button / select 触发器 / segmented / command 触发类 → rounded-full；dialog / popover 容器与 alert 卡 8px → 12px；confirmation 随卡片档。② select 触发器与 command 输入区对齐新输入观感（浅灰底 / 弱边框，按修订后 §13.B）。③ 桌面化密度全部保留：sm28/md32/lg38、13px、disabled 无 hover、焦点环走全局 :focus-visible；各件头注释的规格引用同步改指修订后档位。④ 亮暗双态逐件走查；相关测试断言/快照同步。
+- **验收**：pnpm --filter web test 全绿；VITE_SPARK_MOCK=1 双主题走查全页控件；§12.8 grep 自查零未登记档位。
+- **依赖**：18.1。
+
+**提示词**：
+
+```text
+任务：Spark 工单 18.2——web 现有八组件胶囊化（阶段十八；规格以 18.1 修订后 DESIGN §13.B 为准，本单不自行
+发明数字）。
+
+前置阅读：AGENTS.md、DESIGN.md §13.B（修订后）/§12、apps/web/src/components/ui/ 全部八件及其头注释（桌面化
+改造先例）、apps/web/tests/（theme-contrast 与组件测试是回归网）、doc/08 附录 A。
+要求：
+1. 逐件改类不改 API：variant/size/props 签名零变化，只动圆角/底色/边框类名与头注释规格引用；不整文件重写。
+2. input/textarea 尚无 ui 件（18.3 补），页面手搓控件一律不动（归 18.4）。
+3. 双主题逐件核对（.dark 翻转）；灰底与文字对比度不回退（theme-contrast 测试护航）。
+4. 不引新依赖；守 AGENTS §2.10 禁删文件。
+验收：pnpm --filter web test 全绿；mock 模式走查设置页/审批卡/命令面板双主题；grep 自查零命中。
+提交：refactor(web): 工单 18.2——ui 八组件胶囊化（对齐 §13.B 修订档）。
+```
+
+## 18.3 补件 copy-in：input / textarea / badge / card / checkbox / radio-group / separator
+
+- **目标**：把手搓控件的面补齐，让 18.4 的迁移"只换标签不改样式"。
+- **产出**：① 先 rg 盘点页面手搓 `<input>/<textarea>`、chip、卡片的实需清单（13 文件 24 处起，见 18.4），按需定件数与变体——**未用上的件不引**（防死代码，Q-7 判决在案）。② 按 frontend-component SKILL 流程从 registry 在线取 new-york 源 copy-in（引用 URL 进文件头注释，同 button.tsx 先例；禁克隆整仓——AGENTS §2.12）。③ 桌面化改造对齐修订后 §13.B：input/textarea=胶囊+浅灰底+38px（textarea 多行 auto）；badge=full/24px/11px；card=12 与 16 双档 variant（含 §13.J 同款"无边框底色差"形态可选）；checkbox/radio=18px；separator=1px --border。
+- **验收**：新件配基础渲染单测（对齐现有 ui 件测试模式）；双主题走查；DESIGN §10 组件 DoD 九项自查。
+- **依赖**：18.1（与 18.2 可并行）。
+
+**提示词**：
+
+```text
+任务：Spark 工单 18.3——web 补件 copy-in（候选七件：input/textarea/badge/card/checkbox/radio-group/separator；
+阶段十八；按实需裁剪，未用上的不引）。
+
+前置阅读：AGENTS.md、.agents/skills/frontend-component/SKILL.md（copy-in 全流程）、DESIGN.md §13.B（修订后）
+/§10 组件 DoD/§12 黑名单、apps/web/src/components/ui/button.tsx 头注释（桌面化+来源注记先例）。
+要求：
+1. 先 rg -n "<input|<textarea" 与 chip/卡片用法盘点，定最终件清单与变体（如 card 是否要 16px 无边框形态）。
+2. registry 在线取 new-york 源（gh api / raw 直读，禁克隆整仓——AGENTS §2.12）；文件头注释记来源 URL 与改造点。
+3. 桌面化密度对齐修订后 §13.B；焦点态用全局 :focus-visible 环；每件配基础渲染单测。
+4. §12.8 grep 自查；不引黑盒运行时依赖（Radix 底座除外，同既有八件）；守 §2.10 禁删文件。
+验收：pnpm --filter web test 全绿；typecheck/lint 全绿；双主题走查新件。
+提交：feat(web): 工单 18.3——ui 补件 copy-in（<实引清单>）。
+```
+
+## 18.4 页面清扫：手搓控件迁移 + 卡片化（apps/web 各页）
+
+- **目标**：页面层吃掉 18.2/18.3 产出，观感一次到位。
+- **产出**：① 手搓控件迁移 ui/input、ui/textarea——盘点基线 13 文件 24 处（RoutingSection 4 / GeneralPage 4 / AutomationPage 4 / SecretsSection 2 / PermissionRulesPage 2 / SearchPage 1 / UsageSettingsPage 1 / ModelSettingsPage 1 / HooksSettingsPage 1 / Composer 1 / AttachmentChips 1 / ApprovalCard 1 / Sidebar 1；执行时 rg 复核为准）。② 卡片化：设置族分组卡统一 12px + 1px border；配对/自动化页信息卡 16px（可采 §13.J 无边框底色差形态）；空态/页头对齐（PageHeader 已有，R-E⑧）。③ Composer 输入区多行形态特殊，圆角按修订后 §13.E 执行（若 18.1 未覆盖，按 16px 并在 PR 注明）。④ 逐页双主题走查，分页 commit。
+- **验收**：web 全测护航零回归（159 例+）；键盘可达不回退（焦点环在浅灰底输入上仍 2px 可见）；§12 全量 grep 自查。
+- **依赖**：18.2 + 18.3。
+
+**提示词**：
+
+```text
+任务：Spark 工单 18.4——web 页面清扫（手搓控件迁移 + 卡片化；阶段十八）。
+
+前置阅读：AGENTS.md、DESIGN.md §13.A/§13.B/§13.D/§13.E（修订后）、doc/08 18.4 产出清单、apps/web/src/features/
+各页与 routes/。
+要求：
+1. 先 rg -n "<input|<textarea" 复核迁移清单再动手；只换控件不挪逻辑，diff 逐页可读。
+2. 卡片化按 18.1 档位：分组卡 12px border、信息卡 16px（§13.J 底色差形态可选）；禁阴影禁渐变照旧。
+3. Composer 输入区按修订后 §13.E 口径执行；规格未覆盖处按 16px 并在提交信息注明。
+4. 分页 commit；每页双主题走查通过再动下一页；守 §2.10 禁删文件。
+验收：pnpm --filter web test 全绿；mock 模式全页走查（设置四页/自动化/搜索/配对/审批卡/Composer）；grep 自查零命中。
+提交：refactor(web): 工单 18.4——<页名> 控件迁移与卡片化（每页一条）。
+```
+
+## 18.5 收口：验收走查 + 文档对账
+
+- **目标**：批次闭环，四端口径合流结论落档。
+- **产出**：① 双主题 × 1280/1440 全页截图走查（用户过目留档）。② theme-contrast 测试 AA 复核（浅灰底输入/placeholder/禁用态）。③ Playwright e2e 全绿。④ 文档对账三处：DESIGN 版本行终态、doc/08 本节勾选、doc/02（阶段十八 lift 后勾选；未 lift 不动）。⑤ ADR D29 补记走查结论（若发现移动端也需微调，另立单不夹带）。
+- **验收**：pnpm -r typecheck / lint / test 全绿；§12 六类黑名单全量自查零命中；AGENTS §2.6 自查通过。
+- **依赖**：18.4。
+
+**提示词**：
+
+```text
+任务：Spark 工单 18.5——阶段十八收口（验收走查 + 文档对账）。
+
+前置阅读：AGENTS.md、DESIGN.md §12（全量黑名单）/§13.B（修订后）、doc/08 §5C、doc/06 测试计划（L2/L3 对应）。
+要求：
+1. 跑 pnpm -r typecheck/lint/test 与 web e2e；双主题双视口截图走查全部路由，问题即修（限样式层）。
+2. 文档对账三处：DESIGN 版本行终态、doc/08 §5C 勾选、doc/02（已 lift 则勾选，未 lift 不动）。
+3. ADR D29 补记走查结论；任何超出样式层的改动（逻辑/协议）绝不夹带，发现即回退另立单。
+验收：全绿 + 走查记录 + 文档三处一致。
+提交：docs(web): 工单 18.5——阶段十八收口（走查记录 + 文档对账）。
 ```
 
 ---
