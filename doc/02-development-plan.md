@@ -162,7 +162,7 @@ Agent 工作台：引擎（Node 进程）+ 事件流驱动的 Web 前端，后�
 │  packages/engine                                                  │
 │    ├─ 输入队列（now/steer/queue 三通道）                             │
 │    ├─ RunLoop（抄 pi 骨架 + Codex steering 语义）                   │
-│    ├─ ToolRegistry + 四工具（read/write/edit/bash）                 │
+│    ├─ ToolRegistry + 内置工具（read/grep/write/edit/bash…）         │
 │    ├─ Permission 引擎（wildcard 规则 + fail-closed）                │
 │    ├─ SessionManager（JSONL 树 + durable/live 二分）                │
 │    └─ LlmGateway → @earendil-works/pi-ai（30+ provider）           │
@@ -967,6 +967,7 @@ runOne(call):
 | edit  | `{path, oldString, newString, replaceAll?=false}` | action='fs.write'，resource='file:<abs>'         | **oldString 唯一性校验**（0 命中→E_NOT_FOUND；>1 且未 replaceAll→E_AMBIGUOUS）；返回 unified diff（供前端 DiffViewer）                             | E_NOT_FOUND、E_AMBIGUOUS、E_PATH_OUTSIDE                         |
 | bash  | `{command, timeoutMs?≤120000, cwd?}`              | action='shell.exec'，resource='cmd:<前 80 字符>' | 每次独立 shell（v1 不做常驻）；stdout+stderr 合流 progress 流式（16KB/帧截断，Grok）；退出码非 0 → isError 但 output 保留；超时 SIGTERM→5s→SIGKILL | E_TIMEOUT、E_EXIT_CODE（附 code）、E_SPAWN                       |
 | task  | `{prompt, title?}`                                | action='agent.task'，resource='task'             | 阶段五工单 5.4 / ADR D17：派生独立子会话（header.parentSession）跑一轮，返回最终 assistant 文本；执行体 = Engine.runSubagent（工具层不感知会话管理）；单层限制；父中断级联 interrupt 子会话 | E_SUBAGENT_DEPTH（子会话再派生）、E_ABORTED（父中断级联）        |
+| grep | `{pattern, path?, glob?, maxResults?≤200 默认50}` | action='fs.read'，resource='file:<abs>' | 阶段十二工单 12.1：结构化检索一等公民——纯 Node 递归逐行正则（不用 rg 二进制零新依赖）；相对路径基于 cwd（可为单文件）；glob 片段按文件名后缀/子串过滤；自动跳过 node_modules/.git/dist/build、二进制（NUL 采样）与超 2MB 文件；输出 `{matches:[{file,line,text≤500}], truncated}`（行命中按 maxResults 截断置位）；parallelizable=true | E_PATH_OUTSIDE、E_NOT_FOUND、E_BAD_PATTERN、E_ABORTED |
 | browser.open | `{url, timeoutMs?≤120000 默认30000}`      | action='browser.navigate'，resource='url:<目标>' | 阶段七工单 7.10 / ADR D27：playwright-core headless chromium **懒启动**（首次调用才 launch；缺包/缺浏览器二进制 → 执行期 E_BROWSER_LAUNCH，`npx playwright install chromium` 前置）；URL 必须合法且仅 http/https（校验先于驱动副作用）；引擎级单例单页跨会话共享（刻意语义），返回 `{url（最终）, title}` | E_BROWSER_LAUNCH、E_BROWSER_NAVIGATION（非法 URL/加载失败） |
 | browser.click | `{selector, timeoutMs?}`                    | action='browser.interact'，resource='url:<当前页>' | 在无打开页面时**不触发启动**直接 E_BROWSER_NO_PAGE；选择器超时未命中 → E_BROWSER_SELECTOR；返回 `{url（最终）}` | E_BROWSER_NO_PAGE、E_BROWSER_SELECTOR |
 | browser.read | `{selector?}`                               | action='browser.read'，resource='url:<当前页>' | 读取页面文本（缺省全文，选择器限定元素）；正文 >20000 字符截断 + `truncated` 标记；无页面同 click 拒绝 | E_BROWSER_NO_PAGE、E_BROWSER_SELECTOR |
@@ -1242,6 +1243,7 @@ export interface ResolvedModel {
 | E_INTERNAL                                       | 未分类内部异常（详情只进日志）                | HTTP 500                           |
 | E_PATH_OUTSIDE                                   | 路径越出允许根（硬边界，先于审批）            | tool output                        |
 | E_BINARY / E_TOO_LARGE                           | read 遇二进制 / 超大文件                      | tool output                        |
+| E_BAD_PATTERN                                    | grep 正则表达式非法（工单 12.1）              | tool output                        |
 | E_WRITE_DENIED                                   | 只读挂载/OS 权限拒绝写                        | tool output                        |
 | E_AMBIGUOUS                                      | edit 的 oldString 多命中且未 replaceAll       | tool output                        |
 | E_TIMEOUT / E_EXIT_CODE / E_SPAWN                | bash 超时 / 非零退出（附 code）/ spawn 失败   | tool output                        |

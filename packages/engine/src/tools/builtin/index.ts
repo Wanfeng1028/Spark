@@ -6,6 +6,7 @@
 import type { ToolRegistry } from '../registry.js'
 import type { BashSandboxMode } from '../sandbox.js'
 import { readTool } from './read.js'
+import { grepTool } from './grep.js'
 import { writeTool } from './write.js'
 import { editTool } from './edit.js'
 import { makeBashTool, bashTool } from './bash.js'
@@ -13,7 +14,7 @@ import type { BashToolOptions } from './bash.js'
 import { makeTaskTool } from './task.js'
 import type { TaskInput, TaskRunner } from './task.js'
 
-export { readTool, writeTool, editTool, makeBashTool, bashTool, makeTaskTool }
+export { readTool, grepTool, writeTool, editTool, makeBashTool, bashTool, makeTaskTool }
 export type { BashToolOptions, TaskInput, TaskRunner }
 
 export interface BuiltinToolsOptions {
@@ -23,6 +24,7 @@ export interface BuiltinToolsOptions {
 
 export function registerBuiltinTools(registry: ToolRegistry, opts: BuiltinToolsOptions = {}): void {
   registry.register(readTool)
+  registry.register(grepTool)
   registry.register(writeTool)
   registry.register(editTool)
   registry.register(makeBashTool({ sandbox: opts.bashSandbox ?? 'off' }))
