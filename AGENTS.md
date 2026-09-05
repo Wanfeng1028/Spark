@@ -34,6 +34,7 @@
 | v1.25 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，v2 展望四轮会话；MIT / npm CLI 优先已拍板） | §1 必读索引新增 doc/08 v2 展望与工单库（阶段十一~十五 34 张工单含开工提示词；立项时 lift 进 doc/02 §8，执行以彼处为准） |
 | v1.26 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十验收核查指令） | §1 项目上下文刷新：**阶段十完成（UI 对齐+CLI §13.K 纯单栏重构，工单 10.1–10.11 全落地，ADR D19 修订）**；阶段十源码级核查后补完三处勾选虚高与两处缺漏（first N lines hidden/同类聚合//resume Space 预览/Ctrl+R 重试/帮助四列），判决登记见 doc/02 v3.35；与 doc/02 v3.35、DESIGN v2.7、README v1.26 同步 |
 | v1.27 | 2026-09-01 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，批次 3 立单+开工指令） | §1 项目上下文刷新：**阶段十全部完成并已合 main（工单 10.1–10.23 + 收尾批次 3：10.22 消息气泡布局 / 10.24 hooks 关闭时序 P1 修复 / 10.25 CLI clientAction 不变量网 / 10.26–10.27 对账与卫生 / 10.28 LICENSE MIT=G6 消解）**；§2.8 事件词表 21 种经源码复核不变。同日源码级核查：批次 2 已勾工单全部落地属实（0 any/0 ts-ignore/21 事件 reducer 单测全覆盖）。与 doc/02 v3.48–v3.53（批次 3 立单与勾选）、doc/08 v1.3、doc/05 v1.2、DESIGN v2.10 同步 |
+| v1.28 | 2026-09-02 | AI 编写：Jules (AI Assistant)；发起：晚风（Wanfeng1028） | 更新 package.json 贡献者（contributors）字段 |
 
 ## 1. 项目上下文（30 秒版）
 
