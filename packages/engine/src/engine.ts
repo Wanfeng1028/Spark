@@ -64,8 +64,7 @@ import { runSessionLoop } from './run-loop.js'
 import type { RunLoopDeps } from './run-loop.js'
 import { PermissionServiceImpl } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
-import { SessionIndex } from './session/index.js'
-import type { SessionIndexRow } from './session/index.js'
+import { SessionIndexMaintainer } from './session/index-maintainer.js'
 import { Metrics } from './observability/metrics.js'
 import { SessionRuntime } from './session/runtime.js'
 import { SessionStore, danglingTurnIds, mungeDir, sessionFileName } from './session/store.js'
@@ -95,10 +94,9 @@ import { DEFAULT_HOOK_TIMEOUT_MS, UserHookRunner } from './hooks/runner.js'
 import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
 import { AuditLog, type AuditEntry, type AuditQuery } from './audit/log.js'
-import { SearchStore, type SearchEntry, type SearchEntryType } from './search/store.js'
+import { SearchIndexer } from './search/indexer.js'
 import { asError, errText } from './errs.js'
 import { atomicWriteJson } from './fsutil.js'
-import { longestToken } from './db/fts-recall.js'
 import { BrowserManager } from './browser/driver.js'
 import { createPlaywrightDriver, SHOT_FILE_RE } from './browser/playwright.js'
 import { makeBrowserTools } from './tools/builtin/browser.js'
@@ -128,7 +126,6 @@ export type {
   SessionTreeNode,
 } from './engine-types.js'
 
-
 export class Engine {
   private readonly root: string
   private readonly defaultCwd: string
@@ -147,9 +144,8 @@ export class Engine {
   private readonly ioGuard: IoGuard
   /** 审计日志（阶段七工单 7.12 / H11）：~/.spark/audit.jsonl 明细流 */
   private readonly audit: AuditLog
-  /** 全文搜索索引（阶段七工单 7.13 / H12）：~/.spark/search.db（打开失败 null 降级） */
-  private readonly search: SearchStore | null
-  private searchClosed = false
+  /** 全文搜索索引器（阶段七工单 7.13 / H12）：句柄生命周期与降级纪律单点（R-D 第②刀拆出） */
+  private readonly search: SearchIndexer
   /** browser 工具族（阶段七工单 7.10 / H09 / ADR D27）：引擎级单例单页，驱动懒启动 */
   private readonly browser: BrowserManager
   /** 截图落盘目录（~/.spark/browser-shots；GET /api/artifacts/:file 供图） */
@@ -169,10 +165,8 @@ export class Engine {
   }
   /** 进程内指标计数器（§5.10 清单；GET /api/metrics 数据源，工单 4.8） */
   private readonly metrics = new Metrics()
-  /** 会话索引（node:sqlite；JSONL 恒为权威——损坏即降级磁盘扫描，工单 4.8） */
-  private readonly index: SessionIndex | null
-  private indexBroken = false
-  private indexClosed = false
+  /** 会话索引维护器（node:sqlite；JSONL 恒为权威——损坏即降级磁盘扫描，工单 4.8；R-D 第②刀拆出） */
+  private readonly index: SessionIndexMaintainer
   private readonly indexReady: Promise<void>
   private readonly registry: ToolRegistry
   /** MCP 外部工具管理（阶段五工单 5.3 / ADR D16）：与内置工具同一注册表同一管线 */
@@ -236,9 +230,9 @@ export class Engine {
     this.logger.info('engine.start', { root: this.root, cwd: this.defaultCwd })
 
     // 会话索引：建库失败即降级（JSONL 权威不受影响）；启动重建对齐磁盘
-    this.index = this.openIndex()
-    this.indexReady = this.rebuildIndex().catch((err: unknown) => {
-      this.disableIndex(err, 'session.index.rebuild.error')
+    this.index = new SessionIndexMaintainer(this.root, this.logger)
+    this.indexReady = this.index.rebuild(() => this.scanDiskSessions()).catch((err: unknown) => {
+      this.index.disable(err, 'session.index.rebuild.error')
     })
 
     // sink 路由：EventBus 单例 → 按 sessionId 找到对应 SessionStore（单写者）
@@ -332,16 +326,7 @@ export class Engine {
     this.memory = memoryStore
 
     // 工单 7.13 / H12：会话全文搜索索引（打开失败 null 降级——检索不可用不阻塞引擎）
-    let searchStore: SearchStore | null = null
-    try {
-      searchStore = new SearchStore(join(this.root, 'search.db'))
-      if (!searchStore.fts) {
-        this.logger.warn('search.fts.unavailable', { path: join(this.root, 'search.db') })
-      }
-    } catch (err) {
-      this.logger.warn('search.store.error', { err })
-    }
-    this.search = searchStore
+    this.search = new SearchIndexer(this.root, this.logger, (id) => this.sessionTitleOf(id))
 
     // 工单 7.10 / H09 / ADR D27：browser 工具族——引擎级单例单页；
     // 驱动（playwright-core）首次 browser.open 才启动，构造期零依赖
@@ -437,15 +422,15 @@ export class Engine {
       if (e.seq !== undefined && e.seq > entry.meta.lastSeq) {
         entry.meta.lastSeq = e.seq
         entry.meta.updatedAt = e.time
-        this.touchIndex(e.sessionId, e.seq, e.time) // 索引增量（工单 4.8）
+        this.index.touch(e.sessionId, e.seq, e.time) // 索引增量（工单 4.8）
       }
       if (e.seq !== undefined) {
         this.metrics.inc('spark_events_durable_total')
-        this.indexSearchEvent(e) // 全文搜索增量（工单 7.13；旁路——失败只 warn）
+        this.search.indexEvent(e) // 全文搜索增量（工单 7.13；旁路——失败只 warn）
       }
       if (e.type === 'session.title') {
         entry.meta.title = (e.data as { title: string }).title
-        this.titleIndex(e.sessionId, entry.meta.title)
+        this.index.setTitle(e.sessionId, entry.meta.title)
       }
       // 会话自动标题（§5.11 / 工单 4.4）：turn 完成后异步触发（无标题且无在途任务；
       // 失败不 emit error——空标题不悬空 UI，下一 turn.completed 重触发）
@@ -804,16 +789,7 @@ export class Engine {
    * 索引不可用（打开失败降级）→ 空数组——搜索失败不阻塞主流程（同 SessionIndex 纪律）。
    */
   searchSessions(q: string, limit: number): SearchHit[] {
-    if (this.search === null || this.searchClosed) return []
-    return this.search.search(q, limit).map((r) => ({
-      sessionId: r.sessionId,
-      sessionTitle: this.sessionTitleOf(r.sessionId),
-      eventId: r.eventId,
-      seq: r.seq,
-      type: r.type,
-      time: r.time,
-      snippet: searchSnippet(r.content, q),
-    }))
+    return this.search.search(q, limit)
   }
 
   // ---- 浏览器截图供图（工单 7.10 / H09 / ADR D27）----
@@ -831,80 +807,11 @@ export class Engine {
     }
   }
 
-  /** durable 事件增量入搜索索引（bus 钩子；旁路——失败只 warn，不碰事件流） */
-  private indexSearchEvent(e: SparkEventEnvelope): void {
-    if (this.search === null || this.searchClosed || e.seq === undefined) return
-    let content: string | null = null
-    let type: SearchEntryType | null = null
-    if (e.type === 'user.message') {
-      content = (e.data as SparkEventMap['user.message']).text
-      type = 'user.message'
-    } else if (e.type === 'assistant.message') {
-      // 只索引 text 块（reasoning/工具调用输出不入全文索引——噪声远大于召回价值）
-      const blocks = (e.data as SparkEventMap['assistant.message']).content
-      const text = blocks
-        .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-        .map((b) => b.text)
-        .join('\n')
-      if (text !== '') {
-        content = text
-        type = 'assistant.message'
-      }
-    } else if (e.type === 'session.title') {
-      const title = (e.data as SparkEventMap['session.title']).title
-      if (title !== '') {
-        content = title
-        type = 'session.title'
-      }
-    }
-    if (content === null || type === null) return
-    const entry: SearchEntry = {
-      sessionId: e.sessionId,
-      eventId: e.id,
-      seq: e.seq,
-      type,
-      time: e.time,
-      content,
-    }
-    try {
-      this.search.upsert(entry)
-    } catch (err) {
-      this.logger.warn('search.index.error', { sid: e.sessionId, eid: e.id, err })
-    }
-  }
-
-  /**
-   * 装载点同步（create/resume/fork/rollback 重载共用单点）：水位幂等——
-   * 持平跳过；水位 > 当前尾（回滚截断）先删界外行再补差量；水位 < 当前尾只补增量。
-   */
-  private syncSearch(sessionId: SessionId, events: readonly SparkEventEnvelope[]): void {
-    if (this.search === null || this.searchClosed) return
-    try {
-      const lastSeq = events.length === 0 ? 0 : (events[events.length - 1]?.seq ?? 0)
-      const wm = this.search.watermark(sessionId)
-      if (wm !== null && wm === lastSeq) return
-      if (wm !== null && wm > lastSeq) this.search.removeAfter(sessionId, lastSeq)
-      const from = wm !== null && wm <= lastSeq ? wm : 0
-      for (const e of events) {
-        if (e.seq !== undefined && e.seq > from) this.indexSearchEvent(e)
-      }
-      this.search.setWatermark(sessionId, lastSeq)
-    } catch (err) {
-      this.logger.warn('search.sync.error', { sid: sessionId, err })
-    }
-  }
-
-  /** 命中行的会话标题：已装载 meta → SessionIndex（boot 重建）→ 空串兜底 */
+  /** 命中行的会话标题：已装载 meta → 会话索引（boot 重建）→ 空串兜底 */
   private sessionTitleOf(id: SessionId): string {
     const loaded = this.sessions.get(id)
     if (loaded !== undefined) return loaded.meta.title
-    if (this.index === null || this.indexClosed) return ''
-    try {
-      return this.index.titleOf(id) ?? ''
-    } catch (err) {
-      this.logger.warn('search.title.error', { sid: id, err })
-      return ''
-    }
+    return this.index.titleOf(id)
   }
 
   // ---- 权限档位（DESIGN §13.E 四档 / D7 补记预设层，阶段六工单 6.3） ----
@@ -1012,7 +919,7 @@ export class Engine {
     entry.setModel(this.resolveModel(modelRef))
     // 内存 meta 跟随（header 不动——持久真相仍是会话文件；DTO/索引用内存值）
     entry.meta.model = `${modelRef.provider}/${modelRef.model}`
-    this.syncIndex(entry.meta)
+    this.index.upsert(entry.meta)
     return entry.meta.model
   }
 
@@ -1220,60 +1127,6 @@ export class Engine {
     atomicWriteJson(path, doc)
   }
 
-  // ---- 会话索引（工单 4.8：node:sqlite；JSONL 恒为权威，损坏降级磁盘扫描） ----
-
-  private openIndex(): SessionIndex | null {
-    try {
-      return new SessionIndex(join(this.root, 'index.db'))
-    } catch (err) {
-      this.logger.error('session.index.open.error', { err })
-      this.indexBroken = true
-      return null
-    }
-  }
-
-  /** boot 重建：磁盘扫描 → 全量写入（对齐 JSONL 权威）；已关闭（shutdown 先至）则跳过 */
-  private async rebuildIndex(): Promise<void> {
-    if (this.index === null || this.indexClosed) return
-    const rows = await this.scanDiskSessions()
-    this.index.rebuild(
-      rows.map((m) => ({
-        id: m.id,
-        title: m.title,
-        model: m.model,
-        cwd: m.cwd,
-        createdAt: m.createdAt,
-        updatedAt: m.updatedAt,
-        lastSeq: m.lastSeq,
-      })),
-    )
-  }
-
-  private touchIndex(id: SessionId, seq: number, time: number): void {
-    if (this.index === null || this.indexBroken || this.indexClosed) return
-    try {
-      this.index.touch(id, seq, time)
-    } catch (err) {
-      this.disableIndex(err, 'session.index.touch.error')
-    }
-  }
-
-  private titleIndex(id: SessionId, title: string): void {
-    if (this.index === null || this.indexBroken || this.indexClosed) return
-    try {
-      this.index.setTitle(id, title)
-    } catch (err) {
-      this.disableIndex(err, 'session.index.title.error')
-    }
-  }
-
-  /** 索引写失败：置降级标记并落结构化日志——主流程不受影响（JSONL 权威） */
-  private disableIndex(err: unknown, msg: string): void {
-    if (this.indexBroken) return
-    this.indexBroken = true
-    this.logger.error(msg, { err })
-  }
-
   // ---- 指标（§5.10 清单 / 工单 4.8） ----
 
   /** Prometheus exposition 文本（sessions_active 为快照时点 gauge） */
@@ -1359,8 +1212,8 @@ export class Engine {
   async listSessions(opts?: { q?: string }): Promise<SessionMeta[]> {
     await this.indexReady
     let out: SessionMeta[]
-    if (this.index !== null && !this.indexBroken && !this.indexClosed) {
-      const rows = this.index.list(opts?.q)
+    const rows = this.index.list(opts?.q)
+    if (rows !== null) {
       const byId = new Map<SessionId, SessionMeta>(rows.map((r) => [r.id, { ...r }]))
       // 已加载会话内存态覆盖（同样过 q 过滤）；索引缺失的已加载会话防御性补充
       const lower =
@@ -1553,14 +1406,7 @@ export class Engine {
       // 6) 会话索引收尾（工单 4.8）：先等 boot 重建完成再关库——防迟到的重建写库
       //    撞上已关闭句柄；closed 标记使后续增量写全部短路
       await this.indexReady
-      if (this.index !== null && !this.indexClosed) {
-        try {
-          this.index.close()
-        } catch (err) {
-          this.logger.warn('session.index.close.error', { err })
-        }
-        this.indexClosed = true
-      }
+      this.index.close()
       // 6.5) 长期记忆仓收尾（工单 7.5）：关闭 memory.db 句柄
       if (this.memory !== null) {
         try {
@@ -1570,15 +1416,8 @@ export class Engine {
         }
       }
       // 6.6) 全文搜索索引收尾（工单 7.13）：关闭 search.db 句柄；
-      //      searchClosed 先行置位——迟到的 bus 增量写全部短路（同 indexClosed 纪律）
-      this.searchClosed = true
-      if (this.search !== null) {
-        try {
-          this.search.close()
-        } catch (err) {
-          this.logger.warn('search.close.error', { err })
-        }
-      }
+      //      closed 先行置位——迟到的 bus 增量写全部短路（同索引关闭纪律）
+      this.search.close()
       // 6.7) browser 工具族收尾（工单 7.10 / ADR D27）：关闭 chromium（未启动则为空操作）
       try {
         await this.browser.close()
@@ -1736,9 +1575,9 @@ export class Engine {
     }
     const loop = runSessionLoop(runtime, deps)
     // 装载点同步索引（create/resume/fork/rollback 重载共用本单点，工单 4.8）
-    this.syncIndex(meta)
+    this.index.upsert(meta)
     // 装载点同步搜索索引（工单 7.13）：历史事件入 FTS（增量钩子只覆盖本进程新事件）
-    this.syncSearch(meta.id, store.tree.pathToRoot())
+    this.search.sync(meta.id, store.tree.pathToRoot())
     return {
       store,
       runtime,
@@ -1751,25 +1590,6 @@ export class Engine {
       titler,
       titleTask: null,
       loop,
-    }
-  }
-
-  /** 装载点 upsert：以内存 meta 全量覆盖索引行 */
-  private syncIndex(meta: SessionMeta): void {
-    if (this.index === null || this.indexBroken || this.indexClosed) return
-    try {
-      const row: SessionIndexRow = {
-        id: meta.id,
-        title: meta.title,
-        model: meta.model,
-        cwd: meta.cwd,
-        createdAt: meta.createdAt,
-        updatedAt: meta.updatedAt,
-        lastSeq: meta.lastSeq,
-      }
-      this.index.upsert(row)
-    } catch (err) {
-      this.disableIndex(err, 'session.index.upsert.error')
     }
   }
 
@@ -1914,23 +1734,3 @@ function titleOf(events: readonly SparkEventEnvelope[]): string {
   return title
 }
 
-/**
- * 命中摘要（工单 7.13）：整串命中取命中处窗口（前 30 / 后 90 字符，越界加省略号）；
- * 整串不中退最长词（≥2 字符）同法开窗；全不中取前 120 字符。只做展示截断，不改索引。
- */
-function searchSnippet(content: string, q: string): string {
-  const query = q.trim()
-  let idx = query === '' ? -1 : content.indexOf(query)
-  let needleLen = query.length
-  if (idx === -1) {
-    const best = longestToken(query)
-    if (best !== null) {
-      idx = content.indexOf(best)
-      needleLen = best.length
-    }
-  }
-  if (idx === -1) return content.length <= 120 ? content : `${content.slice(0, 120)}…`
-  const start = Math.max(0, idx - 30)
-  const end = Math.min(content.length, idx + needleLen + 90)
-  return `${start > 0 ? '…' : ''}${content.slice(start, end)}${end < content.length ? '…' : ''}`
-}
