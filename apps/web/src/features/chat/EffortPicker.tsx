@@ -5,7 +5,8 @@
  * 切换走 PUT /api/sessions/:id/effort（引擎内存态，下一 turn 生效）；
  * 显示态只随父级 onChange 成功后的 props 更新（禁乐观更新）。
  */
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { useDismissOnOutsideClick } from '@/hooks/useDismissOnOutsideClick'
 import { Check, ChevronsUpDown, Gauge } from 'lucide-react'
 import type { ReasoningEffort } from '@spark/protocol'
 
@@ -27,17 +28,12 @@ export function EffortPicker({ current, onChange, disabled }: EffortPickerProps)
   const [busy, setBusy] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  // 容器外点击关闭（同 ModelPicker 兜底纪律）
-  useEffect(() => {
-    if (!open) return
-    function onDocMouseDown(e: MouseEvent): void {
-      if (rootRef.current !== null && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onDocMouseDown)
-    return () => document.removeEventListener('mousedown', onDocMouseDown)
-  }, [open])
+  // 容器外点击关闭（hook 合一——工单 R-E③）
+  useDismissOnOutsideClick(
+    open,
+    () => setOpen(false),
+    (t) => rootRef.current !== null && rootRef.current.contains(t),
+  )
 
   const label = EFFORT_OPTIONS.find((o) => o.value === current)?.label ?? '自动'
 

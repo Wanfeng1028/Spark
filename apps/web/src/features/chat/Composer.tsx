@@ -30,6 +30,7 @@ import type {
   ReasoningEffort,
   SubmitOutcome,
 } from '@spark/protocol'
+import { useDismissOnOutsideClick } from '@/hooks/useDismissOnOutsideClick'
 import { Segmented } from '@/components/ui/segmented'
 import { ModelPicker } from './ModelPicker'
 import { EffortPicker } from './EffortPicker'
@@ -149,16 +150,11 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   }, [])
 
   // 档位菜单在容器失焦/外部点击时关闭（onMouseDown preventDefault 保焦点，仍需兜底）
-  useEffect(() => {
-    if (!presetMenuOpen) return
-    function onDocMouseDown(e: MouseEvent): void {
-      if (e.target instanceof Element && !e.target.closest('[data-preset-menu]')) {
-        setPresetMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onDocMouseDown)
-    return () => document.removeEventListener('mousedown', onDocMouseDown)
-  }, [presetMenuOpen])
+  useDismissOnOutsideClick(
+    presetMenuOpen,
+    () => setPresetMenuOpen(false),
+    (t) => t instanceof Element && t.closest('[data-preset-menu]') !== null,
+  )
 
   // ---- + 菜单（工单 10.5⑤，§13.E）：附件/@///$ 四入口 ----
 

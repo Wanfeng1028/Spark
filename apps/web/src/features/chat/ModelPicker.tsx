@@ -4,7 +4,8 @@
  * 数据源=GET /api/models（ModelsDto）；切换走 PUT /api/sessions/:id/model（下一 turn 生效）。
  * 显示态只随父级 onChange 成功后的 props 更新（禁乐观更新）；失败由调用方 hint 反馈。
  */
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { useDismissOnOutsideClick } from '@/hooks/useDismissOnOutsideClick'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import type { ModelEntryDto, ModelProviderDto } from '@spark/protocol'
 import { cn } from '@/lib/utils'
@@ -30,17 +31,12 @@ export function ModelPicker({ current, models, providers, onChange, disabled }: 
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  // 容器外点击关闭（与 Composer 档位菜单同兜底纪律）
-  useEffect(() => {
-    if (!open) return
-    function onDocMouseDown(e: MouseEvent): void {
-      if (rootRef.current !== null && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onDocMouseDown)
-    return () => document.removeEventListener('mousedown', onDocMouseDown)
-  }, [open])
+  // 容器外点击关闭（hook 合一——工单 R-E③）
+  useDismissOnOutsideClick(
+    open,
+    () => setOpen(false),
+    (t) => rootRef.current !== null && rootRef.current.contains(t),
+  )
 
   const label = providers.find((p) => current.startsWith(`${p.id}/`))?.label
   const modelName = current.slice(current.indexOf('/') + 1)

@@ -11,6 +11,7 @@ import { Check, Copy, GitFork, ThumbsDown, ThumbsUp } from 'lucide-react'
 import type { EventId, SessionId } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { errorMessageOf } from '@/lib/error-copy'
+import { useCopy } from '@/hooks/useCopy'
 import { cn } from '@/lib/utils'
 
 export interface AssistantActionsProps {
@@ -29,19 +30,9 @@ const ICON_BTN =
 export function AssistantActions({ sid, eventId, time, copyText }: AssistantActionsProps) {
   const { transport } = useTransport()
   const navigate = useNavigate()
-  const [copied, setCopied] = useState(false)
+  const { copied, copy } = useCopy()
   const [forking, setForking] = useState(false)
   const [forkError, setForkError] = useState<string | null>(null)
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(copyText)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {
-      setCopied(false)
-    }
-  }
 
   /** fork 到分支会话：引擎既有端点（工单 4.5）——成功后导航；失败如实呈现不跳转 */
   async function fork() {
@@ -65,7 +56,7 @@ export function AssistantActions({ sid, eventId, time, copyText }: AssistantActi
     <div className="mt-1.5 flex items-center gap-1">
       <button
         type="button"
-        onClick={() => void copy()}
+        onClick={() => void copy(copyText)}
         title="复制正文"
         aria-label="复制正文"
         className={ICON_BTN}

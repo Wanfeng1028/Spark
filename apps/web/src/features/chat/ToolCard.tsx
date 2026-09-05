@@ -20,6 +20,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { toolCategoryOf } from '@spark/protocol'
+import { useCopy } from '@/hooks/useCopy'
 import { cn } from '@/lib/utils'
 
 export interface ToolCardProps {
@@ -354,20 +355,11 @@ function ReadMeta({ output }: { output: unknown }) {
 
 /** 复制按钮（Terminal 右上角，DESIGN §8） */
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {
-      setCopied(false)
-    }
-  }
+  const { copied, copy } = useCopy()
   return (
     <button
       type="button"
-      onClick={() => void copy()}
+      onClick={() => void copy(text)}
       title="复制输出"
       className="absolute right-2 top-1.5 flex size-6 items-center justify-center rounded-md text-muted-foreground/70 hover:bg-accent hover:text-accent-foreground"
     >
