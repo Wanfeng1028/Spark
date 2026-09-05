@@ -11,7 +11,6 @@
  * shutdown 序列（§5.2）：拒新 → 逐会话 interrupt + 关输入队列 → 等待 run-loop
  * 退出 → 审批 pending 全部 fail-closed → 全量 flush + close。
  */
-import { readdir } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -65,6 +64,7 @@ import type { RunLoopDeps } from './run-loop.js'
 import { PermissionServiceImpl } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
 import { SessionIndexMaintainer } from './session/index-maintainer.js'
+import { findSessionFile as findSessionFileOnDisk, scanDiskSessions as scanDiskSessionsOnDisk, scanForkChildren as scanForkChildrenOnDisk, titleOf } from './session/scan.js'
 import { Metrics } from './observability/metrics.js'
 import { SessionRuntime } from './session/runtime.js'
 import { SessionStore, danglingTurnIds, mungeDir, sessionFileName } from './session/store.js'
@@ -606,21 +606,8 @@ export class Engine {
   }
 
   /** 同 locateSessionFile 但未找到返回 null（fork 的 ALREADY_EXISTS 碰撞检测用） */
-  private async findSessionFile(id: SessionId): Promise<string | null> {
-    const sessionsRoot = join(this.root, 'sessions')
-    let dirs: string[]
-    try {
-      dirs = await readdir(sessionsRoot)
-    } catch {
-      return null
-    }
-    const suffix = `_${id}.jsonl`
-    for (const dir of dirs) {
-      const files = await readdir(join(sessionsRoot, dir))
-      const hit = files.find((f) => f.endsWith(suffix))
-      if (hit !== undefined) return join(sessionsRoot, dir, hit)
-    }
-    return null
+  private findSessionFile(id: SessionId): Promise<string | null> {
+    return findSessionFileOnDisk(join(this.root, 'sessions'), id)
   }
 
   /**
@@ -1175,37 +1162,12 @@ export class Engine {
   }
 
   /** 磁盘扫描 header.parentSession === id 的会话 → 边界事件 + 子会话信息（标题须读事件） */
-  private async scanForkChildren(
+  private scanForkChildren(
     id: SessionId,
   ): Promise<{ fromEventId: EventId; child: ForkChildInfo }[]> {
-    const out: { fromEventId: EventId; child: ForkChildInfo }[] = []
-    const sessionsRoot = join(this.root, 'sessions')
-    try {
-      const dirs = await readdir(sessionsRoot, { withFileTypes: true })
-      for (const dir of dirs) {
-        if (!dir.isDirectory()) continue
-        for (const file of await readdir(join(sessionsRoot, dir.name))) {
-          if (!file.endsWith('.jsonl')) continue
-          const childId = idOfFileName(file)
-          if (childId === null) continue
-          const file_ = await SessionStore.read(join(sessionsRoot, dir.name, file))
-          const h = file_.header
-          if (h.parentSession !== id || h.parentEventId === undefined) continue
-          out.push({
-            fromEventId: h.parentEventId,
-            child: {
-              sessionId: childId,
-              title: titleOf(file_.events),
-              createdAt: h.createdAt,
-              status: this.statusOf(childId),
-            },
-          })
-        }
-      }
-    } catch {
-      // sessions 目录缺失 = 无分叉（首次运行）
-    }
-    return out
+    return scanForkChildrenOnDisk(join(this.root, 'sessions'), id, (childId) =>
+      this.statusOf(childId),
+    )
   }
 
   /** §5.2.1 listSessions：索引驱动（工单 4.8）；已加载会话以内存 meta 为准；q = 标题子串过滤 */
@@ -1238,36 +1200,8 @@ export class Engine {
    * 磁盘全量扫描（§5.2.1 v1 路径）：boot 索引重建与索引不可用降级共用。
    * 单用户本地量级全量读即可；文件名即 id（列表排序免读 header，pi 做法）。
    */
-  private async scanDiskSessions(): Promise<SessionMeta[]> {
-    const out: SessionMeta[] = []
-    const sessionsRoot = join(this.root, 'sessions')
-    try {
-      const dirs = await readdir(sessionsRoot, { withFileTypes: true })
-      for (const dir of dirs) {
-        if (!dir.isDirectory()) continue
-        for (const file of await readdir(join(sessionsRoot, dir.name))) {
-          if (!file.endsWith('.jsonl')) continue
-          const path = join(sessionsRoot, dir.name, file)
-          const id = idOfFileName(file)
-          if (id === null) continue
-          const file_ = await SessionStore.read(path)
-          const events = file_.events
-          const last = events[events.length - 1]
-          out.push({
-            id,
-            title: titleOf(events),
-            model: file_.header.model,
-            cwd: file_.header.cwd,
-            createdAt: file_.header.createdAt,
-            updatedAt: last?.time ?? file_.header.createdAt,
-            lastSeq: last?.seq ?? 0,
-          })
-        }
-      }
-    } catch {
-      // sessions 目录缺失 = 空列表（首次运行）
-    }
-    return out
+  private scanDiskSessions(): Promise<SessionMeta[]> {
+    return scanDiskSessionsOnDisk(join(this.root, 'sessions'))
   }
 
   getSession(id: SessionId): SessionHandle | undefined {
@@ -1714,23 +1648,4 @@ function shutdownError(): Error {
   return new Error('E_SHUTTING_DOWN: 引擎正在关闭，拒绝新请求')
 }
 
-function idOfFileName(file: string): SessionId | null {
-  if (!file.endsWith('.jsonl')) return null
-  const stem = file.slice(0, -'.jsonl'.length)
-  const sep = stem.indexOf('_')
-  // ISO 时间戳含 '-' 不含 '_'；首个 '_' 即分隔（ses_id 本身无 '_'）
-  if (sep <= 0 || sep === stem.length - 1) return null
-  return stem.slice(sep + 1) as SessionId
-}
-
-/** 路径上 session.created/session.title 的最新标题（无 → 空字符串） */
-function titleOf(events: readonly SparkEventEnvelope[]): string {
-  let title = ''
-  for (const e of events) {
-    if (e.type === 'session.created' || e.type === 'session.title') {
-      title = (e.data as { title?: string }).title ?? ''
-    }
-  }
-  return title
-}
 
