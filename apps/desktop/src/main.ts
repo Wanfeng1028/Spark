@@ -17,7 +17,8 @@ import { existsSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { app, BrowserWindow, net } from 'electron'
+import { app, BrowserWindow, net, Notification } from 'electron'
+import { startNotifications } from './notify-wiring.js'
 
 const START_TIMEOUT_MS = 20_000
 const PROBE_INTERVAL_MS = 250
@@ -111,6 +112,14 @@ async function main(): Promise<void> {
     title: 'Spark',
   })
   await win.loadURL(`http://127.0.0.1:${port}`)
+
+  // 工单 12.7：回合完成/审批等待系统通知（壳层第四件事——D14 补记）
+  startNotifications({
+    port,
+    win,
+    NotificationCtor: Notification,
+    configPath: join(homedir(), '.spark', 'desktop.json'),
+  })
 }
 
 app.on('window-all-closed', () => {

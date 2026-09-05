@@ -7,23 +7,28 @@
   "author": "Wanfeng1028",
   "main": "dist/main.js",
   "scripts": {
-    "build:main": "tsc -p tsconfig.json",
+    "build:main": "tsc -p tsconfig.build.json",
     "build:server": "esbuild ../../apps/server/src/index.ts --bundle --platform=node --format=esm --outfile=build/server/index.mjs --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
     "build": "pnpm build:server && pnpm --filter @spark/web build && pnpm build:main",
     "start": "electron .",
     "dist:win": "pnpm build && electron-builder --win nsis --x64",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "electron": "^44.0.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.25.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   },
   "contributors": [
     "Jules (AI Assistant)",
     "Doubao (AI Assistant)",
     "opencode (AI Assistant)"
-  ]
+  ],
+  "dependencies": {
+    "zod": "^3.25.76"
+  }
 }

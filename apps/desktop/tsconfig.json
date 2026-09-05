@@ -3,10 +3,14 @@
   "compilerOptions": {
     "module": "commonjs",
     "moduleResolution": "node",
-    "verbatimModuleSyntax": false,
-    "outDir": "dist",
-    "rootDir": "src",
-    "types": ["node"]
+    "noEmit": true,
+    "types": [
+      "node"
+    ],
+    "verbatimModuleSyntax": false
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "tests"
+  ]
 }

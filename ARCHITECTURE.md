@@ -31,6 +31,7 @@
 | v1.21 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段十全量开工指令） | **D19 修订**（阶段十工单 10.8，晚风拍板）：CLI 形态四区→纯单栏会话优先——砍会话列表侧栏，会话管理退 /new 与 /resume 面板；状态细条改 footer 双行（§13.K K.4 决策④）；技术选型（Ink v6）与降级策略不变，`<80 列隐藏侧栏`条款随侧栏移除自然失效；依据 2026-08-30 Qwen Code CLI 实测截图对照 |
 | v1.23 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十一开工指令） | **D23 补记**：G6 已消解（工单 10.28/11.1）——LICENSE 落地 MIT（2026-08-31 拍板），全部 workspace manifest 补 license 字段；CONTRIBUTING.md/CHANGELOG.md 随 11.1 建立，上句"倾向 MIT"定案 |
 | v1.22 | 2026-09-01 | AI 编写：Qoder；发起：晚风（Wanfeng1028，批次 2 工单 10.20 B「先写 ADR 经确认再实现」） | 新增 **D28 设置读写 API 提案（待确认）**：`GET|PUT /api/settings` 热生效/重启两档策略——分类按引擎实际消费点（turn 边界注入四项热生效；构造期注入四项重启档 `restartRequired`），fail-closed 写纪律（zod 校验→原子写盘→才改内存），掩码红线（apiKey 值永不进响应）；10.21 hooks 并入同一端点（拍板见 doc/02 v3.43）；doc/02 v3.4 沙箱读写分歧结案口径=可读写归重启档。与 doc/02 v3.43 同步 |
+| v1.32 | 2026-09-05 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十二开工指令） | **D14 补记（阶段十二工单 12.7）**：壳层职责扩第四件事——`/api/event` 全局直播流通知订阅（turn.completed / permission.asked → 系统通知；脱敏红线=body 只含会话标题与状态词；`~/.spark/desktop.json` 坏 JSON fail-closed 回缺省）——纯壳层，不进引擎/协议面 |
 
 ---
 
@@ -143,6 +144,8 @@
 理由：pi 无步数计数器（终止靠 terminate 钩子），但其场景有上层产品兜底；我们是本地长驻进程，保留硬上限防模型死循环烧 token。v2 可演化出 shouldStopAfterTurn 式钩子。依据：doc/02 §5.5 对照决策注记。
 
 ### D14 Electron 壳 = sidecar 独立 server 进程（2026-08-25，阶段五工单 5.1）
+
+> **2026-09-05 补记（阶段十二工单 12.7）**：壳层职责扩第四件事——对 `/api/event` 全局直播流的通知订阅（turn.completed / permission.asked → 系统通知，body 只含会话标题与状态词的脱敏红线；配置 `~/.spark/desktop.json` 坏 JSON fail-closed 回缺省）。仍是纯壳层，不进引擎/协议面。
 
 决策：Electron 主进程不 import 引擎，只做三件事——①以 `ELECTRON_RUN_AS_NODE=1` 用 Electron 自带二进制拉起 server 单文件 bundle（esbuild 全量打包，用户机零 Node 依赖）；②轮询 `GET /api/healthz` 探活；③BrowserWindow 加载 `http://127.0.0.1:<动态端口>`。端口/静态资源根经 `SPARK_PORT`/`SPARK_WEB_DIST` 环境变量注入（server 三行改动）。
 理由：HttpTransport 与协议零改动复用（doc/02 §1.2 架构图原设计）；崩溃隔离——壳/渲染崩溃不伤 JSONL 单写者，sidecar 崩溃即整壳退出、重启 resume 恢复（durable 日志 + 补闭合语义复用阶段三 kill -9 验收路径）；与 web 开发态同构（同一 server 同一前端）；引擎可独立于 Electron 测试（CI 无需 GUI）。
