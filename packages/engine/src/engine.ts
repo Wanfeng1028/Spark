@@ -11,7 +11,7 @@
  * shutdown 序列（§5.2）：拒新 → 逐会话 interrupt + 关输入队列 → 等待 run-loop
  * 退出 → 审批 pending 全部 fail-closed → 全量 flush + close。
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type {
@@ -48,7 +48,7 @@ import { CompactorImpl } from './compaction.js'
 import { GitCheckpointer } from './checkpoint.js'
 import type { CheckpointRecord } from './checkpoint.js'
 import { gitBranchOf } from './git.js'
-import { loadConfig, loadProjectRules, validateSparkWrite } from './config.js'
+import { loadConfig, loadProjectRules } from './config.js'
 import type { PermissionRule } from './config.js'
 import type { EngineConfig, ModelRef } from './config.js'
 import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
@@ -95,8 +95,8 @@ import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
 import { AuditLog, type AuditEntry, type AuditQuery } from './audit/log.js'
 import { SearchIndexer } from './search/indexer.js'
-import { asError, errText } from './errs.js'
-import { atomicWriteJson } from './fsutil.js'
+import { asError } from './errs.js'
+import { persistSparkPatch, SettingsStore, type RoutingState } from './settings-store.js'
 import { BrowserManager } from './browser/driver.js'
 import { createPlaywrightDriver, SHOT_FILE_RE } from './browser/playwright.js'
 import { makeBrowserTools } from './tools/builtin/browser.js'
@@ -153,15 +153,13 @@ export class Engine {
   /** 成本累计（阶段七工单 7.7 / H07）：~/.spark/usage.json 持久化，熔断判定数据源 */
   private readonly costTracker: CostTracker
   /**
-   * 模型路由状态（阶段七工单 7.7 / H07）：fallback 链 + 任务路由档 + 成本上限。
-   * 就地可变（updateRouting 改属性不换对象）——已装接线闭包持同一引用，热生效。
+   * 设置与路由（阶段七工单 7.7 / H07；R-D 第④刀拆出）：路由状态所有权在
+   * SettingsStore（就地可变——已装接线闭包经 getter 持同一引用，热生效）。
    */
-  private readonly routing: {
-    fallbacks: ResolvedModel[]
-    compactionModel: ResolvedModel
-    titleModel: ResolvedModel
-    subagentModel: ResolvedModel
-    costLimitUsd: number | undefined
+  private readonly settings: SettingsStore
+
+  private get routing(): RoutingState {
+    return this.settings.routing
   }
   /** 进程内指标计数器（§5.10 清单；GET /api/metrics 数据源，工单 4.8） */
   private readonly metrics = new Metrics()
@@ -390,13 +388,10 @@ export class Engine {
     this.audit = new AuditLog(this.root, () => this.secrets.values())
     // 工单 7.7：成本熔断计量（usage.json 跨进程延续）+ 路由状态（ResolvedModel 化）
     this.costTracker = new CostTracker(join(this.root, 'usage.json'))
-    this.routing = {
-      fallbacks: this.config.models.fallbacks.map((r) => this.resolveModel(r)),
-      compactionModel: this.resolveModel(this.config.models.compactionModel),
-      titleModel: this.resolveModel(this.config.models.titleModel),
-      subagentModel: this.resolveModel(this.config.models.subagentModel),
-      costLimitUsd: this.config.models.costLimitUsd,
-    }
+    this.settings = new SettingsStore(this.root, this.logger, this.costTracker, {
+      resolveModelRef: (model) => this.resolveModelRef(model),
+      resolveModel: (ref) => this.resolveModel(ref),
+    }, this.config)
     this.permission = new PermissionServiceImpl({
       bus: this.bus,
       ruleStore: this.ruleStore,
@@ -857,32 +852,8 @@ export class Engine {
    */
   updateSettings(patch: SettingsUpdate): SettingsDto {
     this.assertNotShutdown()
-    const sparkPath = join(this.root, 'spark.json')
-    let raw: Record<string, unknown> = {}
-    if (existsSync(sparkPath)) {
-      try {
-        raw = JSON.parse(readFileSync(sparkPath, 'utf8')) as Record<string, unknown>
-      } catch (err) {
-        throw new Error(
-          `E_CONFIG: spark.json 不是合法 JSON：${errText(err)}`,
-        )
-      }
-    }
-    if (patch.server !== undefined) {
-      const cur = (raw['server'] as Record<string, unknown> | undefined) ?? {}
-      raw['server'] = { ...cur, ...patch.server }
-    }
-    if (patch.engine !== undefined) {
-      const cur = (raw['engine'] as Record<string, unknown> | undefined) ?? {}
-      raw['engine'] = { ...cur, ...patch.engine }
-    }
-    if (patch.hooks !== undefined) {
-      if (patch.hooks === null) delete raw['hooks']
-      else raw['hooks'] = patch.hooks
-    }
-    validateSparkWrite(raw)
-    atomicWriteJson(sparkPath, raw)
-    this.config = loadConfig(this.root)
+    // 校验/写盘失败 → 内存与磁盘都不动（fail-closed，D28）；成功后重载内存 config
+    this.config = persistSparkPatch(this.root, patch)
     // 旧 runner 先收口（工单 10.24）：在途子进程 kill + disposed 置位，防迟到回调写日志
     this.hooks.dispose()
     this.hooks = new UserHookRunner(this.config.spark.hooks ?? {}, {
@@ -1033,21 +1004,7 @@ export class Engine {
 
   /** GET /api/routing：路由状态 + 成本累计（apiKey 永不进 DTO） */
   getRouting(): RoutingDto {
-    const spend = this.costTracker.spend()
-    const id = (m: ResolvedModel): string => `${m.provider}/${m.model}`
-    return {
-      fallbacks: this.routing.fallbacks.map(id),
-      compactionModel: id(this.routing.compactionModel),
-      titleModel: id(this.routing.titleModel),
-      subagentModel: id(this.routing.subagentModel),
-      costLimitUsd: this.routing.costLimitUsd ?? null,
-      usage: {
-        costUsd: spend.costUsd,
-        inputTokens: spend.inputTokens,
-        outputTokens: spend.outputTokens,
-        exceeded: this.costTracker.exceeded(this.routing.costLimitUsd),
-      },
-    }
+    return this.settings.getRouting()
   }
 
   /**
@@ -1056,62 +1013,13 @@ export class Engine {
    */
   updateRouting(patch: RoutingUpdate): RoutingDto {
     this.assertNotShutdown()
-    if (patch.fallbacks !== undefined) {
-      this.routing.fallbacks = patch.fallbacks.map((m) => this.resolveModel(this.resolveModelRef(m)))
-    }
-    if (patch.compactionModel !== undefined) {
-      this.routing.compactionModel = this.resolveModel(this.resolveModelRef(patch.compactionModel))
-    }
-    if (patch.titleModel !== undefined) {
-      this.routing.titleModel = this.resolveModel(this.resolveModelRef(patch.titleModel))
-    }
-    if (patch.subagentModel !== undefined) {
-      this.routing.subagentModel = this.resolveModel(this.resolveModelRef(patch.subagentModel))
-    }
-    if (patch.costLimitUsd !== undefined) {
-      this.routing.costLimitUsd = patch.costLimitUsd ?? undefined
-    }
-    this.persistRouting()
-    this.logger.info('routing.update', {
-      fallbacks: this.routing.fallbacks.length,
-      costLimitUsd: this.routing.costLimitUsd ?? null,
-    })
-    return this.getRouting()
+    return this.settings.updateRouting(patch)
   }
 
   /** DELETE /api/routing/usage：清零成本累计（解除熔断的唯一入口） */
   resetUsage(): RoutingDto {
     this.assertNotShutdown()
-    this.costTracker.reset()
-    this.logger.info('routing.usage.reset')
-    return this.getRouting()
-  }
-
-  /** 路由字段写回 models.json（原子写；其余字段原样保留） */
-  private persistRouting(): void {
-    const path = join(this.root, 'models.json')
-    let raw: unknown
-    try {
-      raw = JSON.parse(readFileSync(path, 'utf8')) as unknown
-    } catch (err) {
-      // 不兜底重写空文档——那会抹掉 providers/defaultModel；内存已更新，持久化显式失败
-      throw new Error(
-        `E_CONFIG: models.json 读取失败，路由配置仅内存生效未持久化：${errText(err)}`,
-      )
-    }
-    const doc = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
-    const toRef = (m: ResolvedModel): { provider: string; model: string; contextWindow: number } => ({
-      provider: m.provider,
-      model: m.model,
-      contextWindow: m.contextWindow,
-    })
-    doc.fallbacks = this.routing.fallbacks.map(toRef)
-    doc.compactionModel = toRef(this.routing.compactionModel)
-    doc.titleModel = toRef(this.routing.titleModel)
-    doc.subagentModel = toRef(this.routing.subagentModel)
-    if (this.routing.costLimitUsd === undefined) delete doc.costLimitUsd
-    else doc.costLimitUsd = this.routing.costLimitUsd
-    atomicWriteJson(path, doc)
+    return this.settings.resetUsage()
   }
 
   // ---- 指标（§5.10 清单 / 工单 4.8） ----
