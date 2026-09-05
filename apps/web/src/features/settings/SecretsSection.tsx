@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { SecretStatusDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
-import { errorMessageOf } from '@/lib/error-copy'
+import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { SettingRow, SettingGroupCard, settingInputCls } from './SettingRow'
 
 /** 密钥管理（工单 7.1）：providers 状态列表 + 单条录入（保存即生效，值不回显） */
@@ -21,39 +21,26 @@ export function SecretsSection() {
   const { transport } = useTransport()
   // 加载走 useTransportQuery（R-E① 二批）；set/remove 错误走本地 opError（同条展示）
   const { data: secrets, error: loadError, refresh } = useTransportQuery((t) => t.listSecrets())
-  const [opError, setOpError] = useState<string | null>(null)
+  const { busy, opError, run } = useAsyncOp()
   const error = loadError ?? opError
   const [provider, setProvider] = useState('')
   const [value, setValue] = useState('')
-  const [busy, setBusy] = useState(false)
 
   async function save() {
     if (provider.trim() === '' || value.trim() === '') return
-    setBusy(true)
-    setOpError(null)
-    try {
-      const p = provider.trim()
-      await transport.setSecret(p, value.trim())
-      await refresh()
-      setValue('')
-    } catch (err) {
-      setOpError(errorMessageOf(err))
-    } finally {
-      setBusy(false)
-    }
+    await run(async () => {
+    const p = provider.trim()
+    await transport.setSecret(p, value.trim())
+    await refresh()
+    setValue('')
+    })
   }
 
   async function remove(p: string) {
-    setBusy(true)
-    setOpError(null)
-    try {
-      await transport.removeSecret(p)
-      await refresh()
-    } catch (err) {
-      setOpError(errorMessageOf(err))
-    } finally {
-      setBusy(false)
-    }
+    await run(async () => {
+    await transport.removeSecret(p)
+    await refresh()
+    })
   }
 
   return (

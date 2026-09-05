@@ -14,7 +14,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { settingInputCls } from './SettingRow'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
-import { errorMessageOf } from '@/lib/error-copy'
+import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { SettingRow, SettingGroupCard } from './SettingRow'
@@ -47,8 +47,6 @@ function RestartBadge() {
 function EngineBehaviorSection() {
   const { transport } = useTransport()
   const [settings, setSettings] = useState<SettingsDto | null>(null)
-  const [opError, setOpError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
   const [maxSteps, setMaxSteps] = useState('')
   const [threshold, setThreshold] = useState('')
   const [toolTimeout, setToolTimeout] = useState('')
@@ -67,6 +65,8 @@ function EngineBehaviorSection() {
     setSandbox(data.engine.bashSandbox)
   }, [data])
 
+  const { busy, opError, setOpError, run } = useAsyncOp()
+
   async function save(): Promise<void> {
     const steps = Number(maxSteps)
     const th = Number(threshold)
@@ -81,9 +81,7 @@ function EngineBehaviorSection() {
       setOpError('数值不合法：步数/超时/上限为正整数，压缩阈值取 0–1 之间小数')
       return
     }
-    setBusy(true)
-    setOpError(null)
-    try {
+    await run(async () => {
       const next = await transport.updateSettings({
         engine: {
           maxStepsPerTurn: steps,
@@ -95,11 +93,7 @@ function EngineBehaviorSection() {
       })
       await refresh()
       setSettings(next)
-    } catch (err) {
-      setOpError(errorMessageOf(err))
-    } finally {
-      setBusy(false)
-    }
+    })
   }
 
   const inputCls = settingInputCls + ' w-28 disabled:opacity-40'

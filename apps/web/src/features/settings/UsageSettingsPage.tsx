@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
-import { errorMessageOf } from '@/lib/error-copy'
+import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { Button } from '@/components/ui/button'
 import { SettingGroupCard, SettingRow, settingInputCls } from './SettingRow'
 
@@ -17,8 +17,7 @@ export function UsageSettingsPage() {
   const { data: routing, error, refresh } = useTransportQuery((t) => t.getRouting())
   // 成本上限编辑态（工单 10.20 A①）：失焦/保存时解析；空串 = 清除上限（永不熔断）
   const [limitDraft, setLimitDraft] = useState('')
-  const [opError, setOpError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const { busy, opError, setOpError, run } = useAsyncOp()
 
   useEffect(() => {
     if (routing !== null) setLimitDraft(routing.costLimitUsd === null ? '' : String(routing.costLimitUsd))
@@ -30,32 +29,20 @@ export function UsageSettingsPage() {
       setOpError('成本上限须为正数（美元）；留空 = 不设上限')
       return
     }
-    setBusy(true)
-    setOpError(null)
-    try {
-      const next = await transport.updateRouting({
-        costLimitUsd: text === '' ? null : Number(text),
-      })
-      await refresh()
-      setLimitDraft(next.costLimitUsd === null ? '' : String(next.costLimitUsd))
-    } catch (err) {
-      setOpError(errorMessageOf(err))
-    } finally {
-      setBusy(false)
-    }
+    await run(async () => {
+    const next = await transport.updateRouting({
+      costLimitUsd: text === '' ? null : Number(text),
+    })
+    await refresh()
+    setLimitDraft(next.costLimitUsd === null ? '' : String(next.costLimitUsd))
+    })
   }
 
   async function resetAll(): Promise<void> {
-    setBusy(true)
-    setOpError(null)
-    try {
-      await transport.resetUsage()
-      await refresh()
-    } catch (err) {
-      setOpError(errorMessageOf(err))
-    } finally {
-      setBusy(false)
-    }
+    await run(async () => {
+    await transport.resetUsage()
+    await refresh()
+    })
   }
 
   if (error !== null) return <p className="text-xs text-destructive">{error}</p>

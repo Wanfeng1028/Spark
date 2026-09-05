@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import type { SettingsDto, SettingsHookDef, SettingsHooks } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
+import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { errorMessageOf } from '@/lib/error-copy'
 import { Button } from '@/components/ui/button'
 import { SettingGroupCard, SettingRow } from './SettingRow'
@@ -30,8 +31,7 @@ export function HooksSettingsPage() {
   const { transport } = useTransport()
   const [settings, setSettings] = useState<SettingsDto | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [opError, setOpError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const { busy, opError, setOpError, run } = useAsyncOp()
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
 
@@ -58,17 +58,11 @@ export function HooksSettingsPage() {
       setOpError('不是合法 JSON：请检查引号与逗号')
       return
     }
-    setBusy(true)
-    setOpError(null)
-    try {
-      const next = await transport.updateSettings({ hooks: parsed })
-      setSettings(next)
-      setEditing(false)
-    } catch (err) {
-      setOpError(errorMessageOf(err))
-    } finally {
-      setBusy(false)
-    }
+    await run(async () => {
+    const next = await transport.updateSettings({ hooks: parsed })
+    setSettings(next)
+    setEditing(false)
+    })
   }
 
   if (error !== null) return <p className="text-xs text-destructive">{error}</p>

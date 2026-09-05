@@ -7,8 +7,8 @@ import { useState } from 'react'
 import type { PermissionRuleDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
+import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { SettingGroupCard, settingInputCls } from './SettingRow'
-import { errorMessageOf } from '@/lib/error-copy'
 
 const EFFECTS = ['allow', 'deny', 'ask'] as const
 
@@ -18,45 +18,32 @@ export function PermissionRulesPage() {
   const { transport } = useTransport()
   // 加载走 useTransportQuery；增删操作错误走本地 opError（同一错误条展示——原单 error 态语义）
   const { data: rules, error: loadError, refresh } = useTransportQuery((t) => t.listPermissionRules())
-  const [opError, setOpError] = useState<string | null>(null)
+  const { busy, opError, run } = useAsyncOp()
   const error = loadError ?? opError
   const [action, setAction] = useState('')
   const [resource, setResource] = useState('')
   const [effect, setEffect] = useState<PermissionRuleDto['effect']>('allow')
-  const [busy, setBusy] = useState(false)
 
   async function addRule() {
     if (action.trim() === '' || resource.trim() === '') return
-    setBusy(true)
-    setOpError(null)
-    try {
-      const rule: PermissionRuleDto = {
-        action: action.trim(),
-        resource: resource.trim(),
-        effect,
-      }
-      await transport.addPermissionRule(rule)
-      await refresh()
-      setAction('')
-      setResource('')
-    } catch (err) {
-      setOpError(errorMessageOf(err))
-    } finally {
-      setBusy(false)
+    await run(async () => {
+    const rule: PermissionRuleDto = {
+      action: action.trim(),
+      resource: resource.trim(),
+      effect,
     }
+    await transport.addPermissionRule(rule)
+    await refresh()
+    setAction('')
+    setResource('')
+    })
   }
 
   async function removeRule(rule: PermissionRuleDto) {
-    setBusy(true)
-    setOpError(null)
-    try {
-      await transport.removePermissionRule(rule.action, rule.resource)
-      await refresh()
-    } catch (err) {
-      setOpError(errorMessageOf(err))
-    } finally {
-      setBusy(false)
-    }
+    await run(async () => {
+    await transport.removePermissionRule(rule.action, rule.resource)
+    await refresh()
+    })
   }
 
   return (

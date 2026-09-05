@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
+import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { useTransport } from '@/transports/context'
-import { errorMessageOf } from '@/lib/error-copy'
 import { SettingRow, SettingGroupCard } from './SettingRow'
 import { Button } from '@/components/ui/button'
 
@@ -16,8 +16,7 @@ export function RoutingSection() {
   const { transport } = useTransport()
   // 加载走 useTransportQuery（R-E① 二批）；保存成功 refresh 对齐单源
   const { data: routing, error, refresh } = useTransportQuery((t) => t.getRouting())
-  const [opError, setOpError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const { busy, opError, run } = useAsyncOp()
   const [fallbacksDraft, setFallbacksDraft] = useState('')
   const [compactionDraft, setCompactionDraft] = useState('')
   const [titleDraft, setTitleDraft] = useState('')
@@ -37,25 +36,19 @@ export function RoutingSection() {
       .split('\n')
       .map((l) => l.trim())
       .filter((l) => l !== '')
-    setBusy(true)
-    setOpError(null)
-    try {
-      const next = await transport.updateRouting({
-        fallbacks,
-        compactionModel: compactionDraft.trim(),
-        titleModel: titleDraft.trim(),
-        subagentModel: subagentDraft.trim(),
-      })
-      await refresh()
-      setFallbacksDraft(next.fallbacks.join('\n'))
-      setCompactionDraft(next.compactionModel)
-      setTitleDraft(next.titleModel)
-      setSubagentDraft(next.subagentModel)
-    } catch (err) {
-      setOpError(errorMessageOf(err))
-    } finally {
-      setBusy(false)
-    }
+    await run(async () => {
+    const next = await transport.updateRouting({
+      fallbacks,
+      compactionModel: compactionDraft.trim(),
+      titleModel: titleDraft.trim(),
+      subagentModel: subagentDraft.trim(),
+    })
+    await refresh()
+    setFallbacksDraft(next.fallbacks.join('\n'))
+    setCompactionDraft(next.compactionModel)
+    setTitleDraft(next.titleModel)
+    setSubagentDraft(next.subagentModel)
+    })
   }
 
   const slotsReady =
