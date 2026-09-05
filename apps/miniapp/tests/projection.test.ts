@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ProjectionState, SparkEventEnvelope } from '@spark/protocol'
 import { applyEvent, emptySessionSlice, ids } from '@spark/protocol'
-import { BATCH_WINDOW_MS, createEventBatcher } from '../src/store/app-store'
+import { BATCH_WINDOW_MS } from '../src/store/app-store'
 import { buildSessionRows } from '../src/session/session-rows'
 
 const SID = ids.session('ses_mini_proj_1')
@@ -89,63 +89,9 @@ describe('applyEvent 序列快照（小程序逻辑层复用口径）', () => {
   })
 })
 
-describe('createEventBatcher——时间窗合并（24ms 缺省，任务口径 16–32ms）', () => {
+describe('BATCH_WINDOW_MS（setData 频次口径——miniapp 专属约束）', () => {
   it('缺省时间窗落在任务口径内', () => {
     expect(BATCH_WINDOW_MS).toBeGreaterThanOrEqual(16)
     expect(BATCH_WINDOW_MS).toBeLessThanOrEqual(32)
-  })
-
-  it('窗口内多事件一次提交：按到达序、一窗一次', () => {
-    const applied: number[] = []
-    const scheduled: Array<() => void> = []
-    const batcher = createEventBatcher(
-      (e) => applied.push(e.time),
-      (fn) => {
-        scheduled.push(fn)
-      },
-    )
-    batcher.enqueue(env('user.message', 1, 1, { text: 'a' }))
-    batcher.enqueue(env('user.message', 2, 2, { text: 'b' }))
-    batcher.enqueue(env('user.message', 3, 3, { text: 'c' }))
-    // 三事件同窗：只调度一次
-    expect(scheduled).toHaveLength(1)
-    expect(applied).toHaveLength(0)
-    scheduled[0]?.()
-    expect(applied).toEqual([1, 2, 3])
-  })
-
-  it('窗口到期后新事件另起一窗', () => {
-    const applied: number[] = []
-    const scheduled: Array<() => void> = []
-    const batcher = createEventBatcher(
-      (e) => applied.push(e.time),
-      (fn) => {
-        scheduled.push(fn)
-      },
-    )
-    batcher.enqueue(env('user.message', 1, 1, { text: 'a' }))
-    scheduled[0]?.()
-    batcher.enqueue(env('user.message', 2, 2, { text: 'b' }))
-    expect(scheduled).toHaveLength(2)
-    scheduled[1]?.()
-    expect(applied).toEqual([1, 2])
-  })
-
-  it('flushNow 立即提交挂起缓冲（卸载/测试断言用）', () => {
-    const applied: number[] = []
-    const batcher = createEventBatcher(
-      (e) => applied.push(e.time),
-      () => {
-        /* 调度器永不到期——仅靠 flushNow */
-      },
-    )
-    batcher.enqueue(env('user.message', 7, 1, { text: 'x' }))
-    batcher.enqueue(env('user.message', 8, 2, { text: 'y' }))
-    expect(applied).toHaveLength(0)
-    batcher.flushNow()
-    expect(applied).toEqual([7, 8])
-    // flush 幂等：无挂起时再调不重复提交
-    batcher.flushNow()
-    expect(applied).toEqual([7, 8])
   })
 })

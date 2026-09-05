@@ -51,38 +51,3 @@ export const useAppStore = create<AppState>()((set) => ({
 
 /** 批处理时间窗（ms）：setData 频次敏感，窗口内事件一次提交 */
 export const BATCH_WINDOW_MS = 24
-
-export interface EventBatcher {
-  enqueue: (e: SparkEventEnvelope) => void
-  /** 立即 flush 挂起缓冲（卸载/测试断言用） */
-  flushNow: () => void
-}
-
-/**
- * 事件批处理入队：缓冲按到达序、时间窗到期统一 flush（顺序不乱、一窗一次提交）。
- * 调度器可注入（测试用同步调度）；缺省 setTimeout(BATCH_WINDOW_MS)。
- */
-export function createEventBatcher(
-  apply: (e: SparkEventEnvelope) => void,
-  schedule: (fn: () => void) => void = (fn) => {
-    setTimeout(fn, BATCH_WINDOW_MS)
-  },
-): EventBatcher {
-  const buf: SparkEventEnvelope[] = []
-  let pending = false
-  const flush = (): void => {
-    pending = false
-    const batch = buf.splice(0)
-    for (const e of batch) apply(e)
-  }
-  return {
-    enqueue: (e) => {
-      buf.push(e)
-      if (!pending) {
-        pending = true
-        schedule(flush)
-      }
-    },
-    flushNow: flush,
-  }
-}
