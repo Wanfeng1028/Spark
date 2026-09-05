@@ -37,7 +37,6 @@ import type {
   SkillDto,
   SparkEventEnvelope,
   SparkEventMap,
-  TurnFinish,
   TurnId,
 } from '@spark/protocol'
 import { SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
@@ -97,6 +96,7 @@ import { AuditLog, type AuditEntry, type AuditQuery } from './audit/log.js'
 import { SearchIndexer } from './search/indexer.js'
 import { asError } from './errs.js'
 import { persistSparkPatch, SettingsStore, type RoutingState } from './settings-store.js'
+import { makeSubagentRunner } from './subagent.js'
 import { BrowserManager } from './browser/driver.js'
 import { createPlaywrightDriver, SHOT_FILE_RE } from './browser/playwright.js'
 import { makeBrowserTools } from './tools/builtin/browser.js'
@@ -195,6 +195,8 @@ export class Engine {
   private readonly settledRequests = new Set<RequestId>()
   /** 子代理派生出的会话（深度限制：子会话不可再派生，工单 5.4；进程生命周期内有效） */
   private readonly subagentChildren = new Set<SessionId>()
+  /** 子代理执行体（subagent.ts 工厂；依赖引擎 Map/Set 引用——构造器内装配） */
+  private readonly runSubagentFn: (input: TaskInput, ctx: ToolContext) => Promise<ToolOutput>
   private shuttingDown = false
   private shutdownPromise: Promise<void> | null = null
   private readonly logger: SparkLogger
@@ -255,6 +257,14 @@ export class Engine {
           err,
         })
       },
+    })
+
+    // 子代理执行体（subagent.ts 工厂；依赖引擎 Map/Set 引用——bus 就绪后装配）
+    this.runSubagentFn = makeSubagentRunner({
+      createSession: (opts) => this.createSession(opts),
+      sessions: this.sessions,
+      bus: this.bus,
+      children: this.subagentChildren,
     })
 
     // skills/插件（工单 5.5 / ADR D18）：声明式清单 → 事件词表扩展 + hooks 订阅；
@@ -1141,78 +1151,8 @@ export class Engine {
     return this.settledRequests.has(requestId) ? 'already-resolved' : 'unknown'
   }
 
-  /**
-   * Task 工具执行体（工单 5.4 / ADR D17）：独立子会话（header.parentSession）
-   * 跑一轮任务，返回最终 assistant 文本。父 turn 中断级联 interrupt 子会话；
-   * 单层限制——正在派生子代理的会话不可再派生（E_SUBAGENT_DEPTH）。
-   */
-  private async runSubagent(input: TaskInput, ctx: ToolContext): Promise<ToolOutput> {
-    if (this.subagentChildren.has(ctx.sessionId)) {
-      throw new Error('E_SUBAGENT_DEPTH: 子会话不可再派生子代理（单层）')
-    }
-    const parent = this.sessions.get(ctx.sessionId)
-    if (parent === undefined) {
-      throw new Error(`E_ENGINE_NO_SESSION: 父会话 ${ctx.sessionId} 未加载，拒绝派生子代理`)
-    }
-    const child = await this.createSession({
-      title: input.title ?? '子代理',
-      cwd: parent.meta.cwd,
-      parentId: ctx.sessionId,
-      // 工单 7.8：锚定派生它的 tool.started 事件 → 树视图可见子代理运行态
-      ...(ctx.sourceEventId !== undefined ? { parentEventId: ctx.sourceEventId } : {}),
-    })
-    this.subagentChildren.add(child.id)
-    try {
-      // 父 turn 中断 → 级联 interrupt 子会话（子 turn 收尾后本工具返回 E_ABORTED）
-      const onAbort = (): void => {
-        void child.interrupt()
-      }
-      ctx.signal.addEventListener('abort', onAbort, { once: true })
-      let lastText = ''
-      // holder 对象：闭包内赋值不触发控制流窄化（TS let 闭包窄化限制的绕法）
-      const done = { finish: 'stop' as TurnFinish }
-      try {
-        // 订阅先于提交：user.message/turn.* 事件不漏
-        await new Promise<void>((resolve) => {
-          const sub = this.bus.subscribe(
-            (e) => {
-              // 父先中断、子 turn 后开始：turn.started 时补一次 interrupt
-              //（interrupt 在 turn 未开始时是 no-op——本行关闭该竞态）
-              if (e.type === 'turn.started' && ctx.signal.aborted) {
-                void child.interrupt()
-              }
-              if (e.type === 'assistant.message') {
-                const texts = (e.data as { content: Array<{ type: string; text?: string }> })
-                  .content.filter((c) => c.type === 'text' && typeof c.text === 'string')
-                  .map((c) => c.text as string)
-                if (texts.length > 0) lastText = texts.join('\n')
-              }
-              if (e.type === 'turn.completed') {
-                done.finish = (e.data as { finish: TurnFinish }).finish
-                sub.unsubscribe()
-                resolve()
-              }
-            },
-            { sessionId: child.id },
-          )
-          void child.send(input.prompt, 'now')
-        })
-      } finally {
-        ctx.signal.removeEventListener('abort', onAbort)
-      }
-      if (ctx.signal.aborted || done.finish === 'aborted') {
-        return { output: { code: 'E_ABORTED' }, isError: true }
-      }
-      return {
-        output: lastText.length > 0 ? lastText : '(子代理无文本输出)',
-        isError: done.finish === 'error',
-      }
-    } catch (err) {
-      // 子会话创建成功后异常（send 拒绝等）：interrupt 收尾，不让子 turn 悬挂
-      const childHandle = this.sessions.get(child.id)
-      childHandle?.runtime.interrupt()
-      throw err
-    }
+  private runSubagent(input: TaskInput, ctx: ToolContext): Promise<ToolOutput> {
+    return this.runSubagentFn(input, ctx)
   }
 
   /** §5.2 shutdown 序列（幂等） */
