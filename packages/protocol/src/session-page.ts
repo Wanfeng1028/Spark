@@ -309,8 +309,7 @@ export function createSessionPageController(opts: {
       }
     },
 
-    timeOf(id: EventId) {
-      return times.get(id)
-    },
+    // 箭头属性：端侧可安全解绑引用（闭包取 times，不经 this）
+    timeOf: (id: EventId): number | undefined => times.get(id),
   }
 }

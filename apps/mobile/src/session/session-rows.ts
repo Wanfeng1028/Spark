@@ -4,7 +4,7 @@
  * 消息行构建 / Composer 自增高度。
  * 屏幕层只做渲染与接线，不含业务计算（AGENTS §2.7 纯逻辑可测化同律）。
  */
-import type { EventId, SparkEventEnvelope, UiItem } from '@spark/protocol'
+import type { EventId, UiItem } from '@spark/protocol'
 
 /** 时间戳分隔阈值：相邻消息间隔 >30 分钟（DESIGN §13.J.2.3） */
 export const TIMESTAMP_GAP_MS = 30 * 60 * 1000

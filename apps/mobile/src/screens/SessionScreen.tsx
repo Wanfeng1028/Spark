@@ -22,12 +22,11 @@ import { useNavigation, useRoute } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { RouteProp } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import type { ProjectionState, RequestId } from '@spark/protocol'
+import type { RequestId } from '@spark/protocol'
 import {
   CONNECTION_TEXT,
   createSessionPageController,
   emptySessionSlice,
-  errorMessageOf,
   formatTimestamp,
   ids,
   type PermissionReply,
@@ -143,10 +142,9 @@ export function SessionScreen() {
   }, [])
 
 
-  const timeOf = controller?.timeOf
   const rows = useMemo(
-    () => buildSessionRows(slice.items, (id) => timeOf?.(id)),
-    [slice, timeOf],
+    () => buildSessionRows(slice.items, (id) => controller?.timeOf(id)),
+    [slice, controller],
   )
   const data = useMemo(() => [...rows].reverse(), [rows])
 

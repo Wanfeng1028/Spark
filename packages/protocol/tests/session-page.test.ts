@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  createEventBatcher,
   createSessionPageController,
   ids,
   type SessionPageController,
@@ -189,5 +190,44 @@ describe('session-page controller（R-H 内核契约）', () => {
     await Promise.resolve()
     expect(h.streamDisposed).toBe(1)
     expect(h.restCalls).toBe(1)
+  })
+})
+
+describe('createEventBatcher（两端 store 同构实现收敛——R-H）', () => {
+  it('同帧多事件仅一次调度、按到达序应用', () => {
+    const applied: string[] = []
+    const scheduled: Array<() => void> = []
+    const batcher = createEventBatcher(
+      (e) => {
+        applied.push(e.type)
+      },
+      (fn) => {
+        scheduled.push(fn)
+      },
+    )
+    batcher.enqueue(env())
+    batcher.enqueue(env())
+    expect(scheduled).toHaveLength(1)
+    expect(applied).toEqual([])
+    scheduled[0]?.()
+    expect(applied).toEqual(['user.message', 'user.message'])
+    // 下一事件重新调度（帧边界复位）
+    batcher.enqueue(env())
+    expect(scheduled).toHaveLength(2)
+    scheduled[1]?.()
+    expect(applied).toEqual(['user.message', 'user.message', 'user.message'])
+  })
+
+  it('flushNow 立即排空缓冲', () => {
+    const applied: number[] = []
+    const batcher = createEventBatcher(
+      (e) => applied.push(e.time),
+      () => undefined, // 永不调度——只靠 flushNow
+    )
+    const e = env()
+    batcher.enqueue(e)
+    expect(applied).toEqual([])
+    batcher.flushNow()
+    expect(applied).toEqual([e.time])
   })
 })
