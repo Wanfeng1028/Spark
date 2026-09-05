@@ -3,9 +3,10 @@
  * 即存即生效——原 SettingsDialog RulesSection 迁至设置中心 Agent 能力组
  * （用户指令"Agent 能力组先迁入权限规则页"；§13.D 15 页之外的 Spark 既有能力）。
  */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { PermissionRuleDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { SettingGroupCard } from './SettingRow'
 import { errorMessageOf } from '@/lib/error-copy'
 
@@ -16,28 +17,14 @@ const ruleInputClass =
 
 export function PermissionRulesPage() {
   const { transport } = useTransport()
-  const [rules, setRules] = useState<PermissionRuleDto[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // 加载走 useTransportQuery；增删操作错误走本地 opError（同一错误条展示——原单 error 态语义）
+  const { data: rules, error: loadError, refresh } = useTransportQuery((t) => t.listPermissionRules())
   const [opError, setOpError] = useState<string | null>(null)
+  const error = loadError ?? opError
   const [action, setAction] = useState('')
   const [resource, setResource] = useState('')
   const [effect, setEffect] = useState<PermissionRuleDto['effect']>('allow')
   const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    transport
-      .listPermissionRules()
-      .then((rs) => {
-        if (!cancelled) setRules(rs)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(errorMessageOf(err))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [transport])
 
   async function addRule() {
     if (action.trim() === '' || resource.trim() === '') return
@@ -50,11 +37,7 @@ export function PermissionRulesPage() {
         effect,
       }
       await transport.addPermissionRule(rule)
-      setRules((rs) => {
-        const next = rs ?? []
-        const idx = next.findIndex((r) => r.action === rule.action && r.resource === rule.resource)
-        return idx >= 0 ? next.map((r, i) => (i === idx ? rule : r)) : [...next, rule]
-      })
+      await refresh()
       setAction('')
       setResource('')
     } catch (err) {
@@ -69,9 +52,7 @@ export function PermissionRulesPage() {
     setOpError(null)
     try {
       await transport.removePermissionRule(rule.action, rule.resource)
-      setRules((rs) =>
-        (rs ?? []).filter((r) => !(r.action === rule.action && r.resource === rule.resource)),
-      )
+      await refresh()
     } catch (err) {
       setOpError(errorMessageOf(err))
     } finally {

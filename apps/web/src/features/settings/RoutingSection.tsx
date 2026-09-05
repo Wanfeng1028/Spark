@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { RoutingDto } from '@spark/protocol'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useTransport } from '@/transports/context'
 import { errorMessageOf } from '@/lib/error-copy'
 import { SettingRow, SettingGroupCard } from './SettingRow'
@@ -13,8 +13,8 @@ import { SettingRow, SettingGroupCard } from './SettingRow'
  */
 export function RoutingSection() {
   const { transport } = useTransport()
-  const [routing, setRouting] = useState<RoutingDto | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // 加载走 useTransportQuery（R-E① 二批）；保存成功 refresh 对齐单源
+  const { data: routing, error, refresh } = useTransportQuery((t) => t.getRouting())
   const [opError, setOpError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [fallbacksDraft, setFallbacksDraft] = useState('')
@@ -23,24 +23,13 @@ export function RoutingSection() {
   const [subagentDraft, setSubagentDraft] = useState('')
 
   useEffect(() => {
-    let cancelled = false
-    transport
-      .getRouting()
-      .then((r) => {
-        if (cancelled) return
-        setRouting(r)
-        setFallbacksDraft(r.fallbacks.join('\n'))
-        setCompactionDraft(r.compactionModel)
-        setTitleDraft(r.titleModel)
-        setSubagentDraft(r.subagentModel)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(errorMessageOf(err))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [transport])
+    // 四草稿编辑态从数据播种（R-E① 二批）
+    if (routing === null) return
+    setFallbacksDraft(routing.fallbacks.join('\n'))
+    setCompactionDraft(routing.compactionModel)
+    setTitleDraft(routing.titleModel)
+    setSubagentDraft(routing.subagentModel)
+  }, [routing])
 
   async function save(): Promise<void> {
     const fallbacks = fallbacksDraft
@@ -56,7 +45,7 @@ export function RoutingSection() {
         titleModel: titleDraft.trim(),
         subagentModel: subagentDraft.trim(),
       })
-      setRouting(next)
+      await refresh()
       setFallbacksDraft(next.fallbacks.join('\n'))
       setCompactionDraft(next.compactionModel)
       setTitleDraft(next.titleModel)

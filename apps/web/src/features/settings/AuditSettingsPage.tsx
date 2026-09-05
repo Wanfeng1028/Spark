@@ -3,10 +3,9 @@
  * 转录式明细流——时间+主体+工具/资源+决策+来源；顶部过滤器（时间/决策/工具/类型）。
  * 数据源 GET /api/audit（新→旧）；只读视图，无写操作。
  */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { AuditEntryDto, AuditQuery } from '@spark/protocol'
-import { useTransport } from '@/transports/context'
-import { errorMessageOf } from '@/lib/error-copy'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { cn } from '@/lib/utils'
 
 const inputClass =
@@ -96,16 +95,12 @@ function AuditRow({ e }: { e: AuditEntryDto }): React.JSX.Element {
 }
 
 export function AuditSettingsPage(): React.JSX.Element {
-  const { transport } = useTransport()
   const [range, setRange] = useState<RangeKey>('all')
   const [result, setResult] = useState<ResultKey>('all')
   const [kind, setKind] = useState<KindKey>('all')
   const [tool, setTool] = useState('')
-  const [entries, setEntries] = useState<AuditEntryDto[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
+  // 筛选变化即重查（useTransportQuery deps 驱动——原 cancelled effect 同语义）
+  const { data: entries, error } = useTransportQuery((t) => {
     const since = sinceOf(range)
     const query: AuditQuery = {
       limit: 200,
@@ -114,18 +109,8 @@ export function AuditSettingsPage(): React.JSX.Element {
       ...(tool.trim() !== '' ? { tool: tool.trim() } : {}),
       ...(since !== undefined ? { since } : {}),
     }
-    transport
-      .listAudit(query)
-      .then((list) => {
-        if (!cancelled) setEntries(list)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(errorMessageOf(err))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [transport, range, result, kind, tool])
+    return t.listAudit(query)
+  }, [range, result, kind, tool])
 
   return (
     <div className="flex flex-col gap-3">

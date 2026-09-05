@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { SecretStatusDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { errorMessageOf } from '@/lib/error-copy'
 import { SettingRow, SettingGroupCard } from './SettingRow'
 
@@ -18,27 +19,13 @@ const SOURCE_LABEL: Record<SecretStatusDto['source'], string> = {
 
 export function SecretsSection() {
   const { transport } = useTransport()
-  const [secrets, setSecrets] = useState<SecretStatusDto[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // 加载走 useTransportQuery（R-E① 二批）；set/remove 错误走本地 opError（同条展示）
+  const { data: secrets, error: loadError, refresh } = useTransportQuery((t) => t.listSecrets())
   const [opError, setOpError] = useState<string | null>(null)
+  const error = loadError ?? opError
   const [provider, setProvider] = useState('')
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    transport
-      .listSecrets()
-      .then((ss) => {
-        if (!cancelled) setSecrets(ss)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(errorMessageOf(err))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [transport])
 
   async function save() {
     if (provider.trim() === '' || value.trim() === '') return
@@ -47,12 +34,7 @@ export function SecretsSection() {
     try {
       const p = provider.trim()
       await transport.setSecret(p, value.trim())
-      setSecrets((ss) => {
-        const next = ss ?? []
-        return next.some((s) => s.provider === p)
-          ? next.map((s) => (s.provider === p ? { ...s, source: 'store' as const } : s))
-          : [...next, { provider: p, source: 'store' as const }]
-      })
+      await refresh()
       setValue('')
     } catch (err) {
       setOpError(errorMessageOf(err))
@@ -66,9 +48,7 @@ export function SecretsSection() {
     setOpError(null)
     try {
       await transport.removeSecret(p)
-      setSecrets((ss) =>
-        (ss ?? []).map((s) => (s.provider === p ? { ...s, source: 'none' as const } : s)),
-      )
+      await refresh()
     } catch (err) {
       setOpError(errorMessageOf(err))
     } finally {

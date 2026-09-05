@@ -28,6 +28,7 @@ import { useConnectionStore } from '@/stores/connection'
 import { useModelsStore } from '@/stores/models-store'
 import { useCommands } from '@/hooks/useCommands'
 import { useUiStore } from '@/stores/ui'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
 
 /** 打开会话：GET 全量 durable → resetSlice → 批量 apply（§6.10 时序①；mock 流式夹具不走此路径） */
 type LoadState = 'loading' | 'ready' | { error: string }
@@ -68,18 +69,12 @@ export function SessionPage() {
   // 权限档位（§13.E 四档；会话级内存态）。装载失败保持缺省档 confirm-each——
   // 与引擎缺省一致且最安全（fail-closed 方向），切档失败由 Composer hint 如实反馈
   const [preset, setPreset] = useState<PermissionPreset>('confirm-each')
+  // 档位装载（R-E① 二批）：错误刻意吞（缺省 confirm-each 即引擎缺省，fail-closed
+  // 方向最安全）——hook 的 error 不渲染，装载成功才覆盖
+  const { data: presetLoaded } = useTransportQuery((t) => t.getPermissionPreset(sid), [sid])
   useEffect(() => {
-    let cancelled = false
-    transport
-      .getPermissionPreset(sid)
-      .then((p) => {
-        if (!cancelled) setPreset(p)
-      })
-      .catch(() => undefined)
-    return () => {
-      cancelled = true
-    }
-  }, [transport, sid])
+    if (presetLoaded !== null) setPreset(presetLoaded)
+  }, [presetLoaded])
 
   // 模型管理（工单 6.5）：目录一次装载（models-store 缓存，与 StatusBar 水位共用）；
   // 当前模型以 slice.meta 为基线 + 换模型内存覆盖。装载失败不渲染选择器（禁假状态）

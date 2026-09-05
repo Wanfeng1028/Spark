@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Delivery, SettingsDto } from '@spark/protocol'
 import { useSettingsStore } from '@/stores/settings'
 import { useTransport } from '@/transports/context'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { errorMessageOf } from '@/lib/error-copy'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
@@ -44,7 +45,6 @@ function RestartBadge() {
 function EngineBehaviorSection() {
   const { transport } = useTransport()
   const [settings, setSettings] = useState<SettingsDto | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [opError, setOpError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [maxSteps, setMaxSteps] = useState('')
@@ -53,26 +53,17 @@ function EngineBehaviorSection() {
   const [outputLimit, setOutputLimit] = useState('')
   const [sandbox, setSandbox] = useState<'off' | 'on'>('off')
 
+  // 加载走 useTransportQuery；五字段编辑态从数据播种（R-E① 二批）
+  const { data, error, refresh } = useTransportQuery((t) => t.getSettings())
   useEffect(() => {
-    let cancelled = false
-    transport
-      .getSettings()
-      .then((s) => {
-        if (cancelled) return
-        setSettings(s)
-        setMaxSteps(String(s.engine.maxStepsPerTurn))
-        setThreshold(String(s.engine.compactionThreshold))
-        setToolTimeout(String(s.engine.toolTimeoutMs))
-        setOutputLimit(String(s.engine.toolOutputLimitKB))
-        setSandbox(s.engine.bashSandbox)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(errorMessageOf(err))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [transport])
+    if (data === null) return
+    setSettings(data)
+    setMaxSteps(String(data.engine.maxStepsPerTurn))
+    setThreshold(String(data.engine.compactionThreshold))
+    setToolTimeout(String(data.engine.toolTimeoutMs))
+    setOutputLimit(String(data.engine.toolOutputLimitKB))
+    setSandbox(data.engine.bashSandbox)
+  }, [data])
 
   async function save(): Promise<void> {
     const steps = Number(maxSteps)
@@ -100,6 +91,7 @@ function EngineBehaviorSection() {
           bashSandbox: sandbox,
         },
       })
+      await refresh()
       setSettings(next)
     } catch (err) {
       setOpError(errorMessageOf(err))

@@ -5,36 +5,23 @@
  * （此前页面文案写了"清零累计后恢复"却没接线）。趋势图与看板归 H23（v2）。
  */
 import { useEffect, useState } from 'react'
-import type { RoutingDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { errorMessageOf } from '@/lib/error-copy'
 import { SettingGroupCard, SettingRow } from './SettingRow'
 
 export function UsageSettingsPage() {
   const { transport } = useTransport()
-  const [routing, setRouting] = useState<RoutingDto | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // 加载走 useTransportQuery；上限编辑态从数据播种（保存后 refresh 对齐单源）
+  const { data: routing, error, refresh } = useTransportQuery((t) => t.getRouting())
   // 成本上限编辑态（工单 10.20 A①）：失焦/保存时解析；空串 = 清除上限（永不熔断）
   const [limitDraft, setLimitDraft] = useState('')
   const [opError, setOpError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    let cancelled = false
-    transport
-      .getRouting()
-      .then((r) => {
-        if (cancelled) return
-        setRouting(r)
-        setLimitDraft(r.costLimitUsd === null ? '' : String(r.costLimitUsd))
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(errorMessageOf(err))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [transport])
+    if (routing !== null) setLimitDraft(routing.costLimitUsd === null ? '' : String(routing.costLimitUsd))
+  }, [routing])
 
   async function saveLimit(): Promise<void> {
     const text = limitDraft.trim()
@@ -48,7 +35,7 @@ export function UsageSettingsPage() {
       const next = await transport.updateRouting({
         costLimitUsd: text === '' ? null : Number(text),
       })
-      setRouting(next)
+      await refresh()
       setLimitDraft(next.costLimitUsd === null ? '' : String(next.costLimitUsd))
     } catch (err) {
       setOpError(errorMessageOf(err))
@@ -61,7 +48,8 @@ export function UsageSettingsPage() {
     setBusy(true)
     setOpError(null)
     try {
-      setRouting(await transport.resetUsage())
+      await transport.resetUsage()
+      await refresh()
     } catch (err) {
       setOpError(errorMessageOf(err))
     } finally {

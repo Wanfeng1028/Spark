@@ -12,17 +12,15 @@ import { Eye, EyeOff, PlugZap } from 'lucide-react'
 import type {
   ModelProviderDto,
   ModelTestResultDto,
-  ModelsDto,
 } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useSettingsStore } from '@/stores/settings'
 import { errorMessageOf } from '@/lib/error-copy'
 import { cn } from '@/lib/utils'
 import { SettingRow, SettingGroupCard } from './SettingRow'
 import { SecretsSection } from './SecretsSection'
 import { RoutingSection } from './RoutingSection'
-
-type LoadState = 'loading' | { error: string }
 
 /** 供应商行状态点：已配置且 Key 就绪=ok；已配置缺 Key=warn；未配置=灰 */
 function statusDotClass(p: ModelProviderDto): string {
@@ -44,30 +42,19 @@ export function ModelSettingsPage() {
   const [touched, setTouched] = useState(false)
   const invalid = draft.trim() === ''
 
-  const [dto, setDto] = useState<ModelsDto | LoadState | null>(null)
+  // 加载走 useTransportQuery（R-E① 二批）：原 LoadState union 由 data/error 两态替代
+  const { data: models, error: loadError } = useTransportQuery((t) => t.listModels())
   const [selected, setSelected] = useState<string | null>(null)
   // 测试结果表（providerId → 最近一次）；进行中集合（防连点）
   const [results, setResults] = useState<Record<string, ModelTestResultDto>>({})
   const [testing, setTesting] = useState<Set<string>>(new Set())
   const [showEnv, setShowEnv] = useState(false)
 
+  // 初始选中：第一个已配置供应商（装载即定；用户手选后不覆盖——cur ?? 回调保手选）
   useEffect(() => {
-    let cancelled = false
-    transport
-      .listModels()
-      .then((m) => {
-        if (cancelled) return
-        setDto(m)
-        // 初始选中：第一个已配置供应商
-        setSelected((cur) => cur ?? m.providers.find((p) => p.configured)?.id ?? null)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setDto({ error: errorMessageOf(err) })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [transport])
+    const first = models?.providers.find((p) => p.configured)?.id ?? null
+    if (first !== null) setSelected((cur) => cur ?? first)
+  }, [models])
 
   async function testProvider(p: ModelProviderDto): Promise<void> {
     setTesting((s) => new Set(s).add(p.id))
@@ -89,7 +76,7 @@ export function ModelSettingsPage() {
     }
   }
 
-  const providers = dto !== null && dto !== 'loading' && !('error' in dto) ? dto.providers : []
+  const providers = models?.providers ?? []
   const builtin = providers.filter((p) => p.builtin)
   const custom = providers.filter((p) => !p.builtin)
   const detail = providers.find((p) => p.id === selected) ?? null
@@ -146,13 +133,13 @@ export function ModelSettingsPage() {
       {/* 模型路由（工单 10.20 A②）：fallback 链 + 压缩/标题/子代理三档位 */}
       <RoutingSection />
 
-      {dto === 'loading' || dto === null ? (
+      {models === null && loadError === null ? (
         <SettingGroupCard>
           <SettingRow title="供应商列表" description="加载中…" />
         </SettingGroupCard>
-      ) : 'error' in dto ? (
+      ) : loadError !== null ? (
         <SettingGroupCard>
-          <SettingRow title="供应商列表" description={`加载失败：${dto.error}`}>
+          <SettingRow title="供应商列表" description={`加载失败：${loadError}`}>
             <span className="font-mono text-xs text-[var(--spark-warn)]">不可用</span>
           </SettingRow>
         </SettingGroupCard>
