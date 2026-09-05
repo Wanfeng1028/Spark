@@ -8,6 +8,7 @@ import { render } from 'ink'
 import { cliKeymapText } from '@spark/protocol'
 import { App } from './app.js'
 import { startUp } from './up.js'
+import { PRINT_USAGE, parsePrintArgs, runPrint } from './print.js'
 
 const USAGE = `Spark CLI（Ink TUI）
 
@@ -23,6 +24,7 @@ const USAGE = `Spark CLI（Ink TUI）
 
 键位（单一来源 @spark/protocol keymap）：
 ${cliKeymapText()}
+${PRINT_USAGE}
 `
 
 function baseUrlOf(argv: readonly string[]): string {
@@ -38,6 +40,22 @@ const argv = process.argv.slice(2)
 if (argv.includes('-h') || argv.includes('--help')) {
   process.stdout.write(USAGE)
   process.exit(0)
+}
+
+// 一次性模式（工单 12.3）：spark -p "prompt"——进程内跑完即出，不进 TUI
+{
+  let parsed
+  try {
+    parsed = parsePrintArgs(argv)
+  } catch (err) {
+    process.stderr.write(`spark: ${err instanceof Error ? err.message : String(err)}
+`)
+    process.exit(1)
+  }
+  if (parsed !== null) {
+    const { exitCode } = await runPrint(parsed)
+    process.exit(exitCode)
+  }
 }
 
 // exitOnCtrlC:false——双击 Ctrl+C 退出由 App 层接管（在途 turn 先中断，工单 8.4）

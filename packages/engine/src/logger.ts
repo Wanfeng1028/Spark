@@ -81,6 +81,8 @@ interface LoggerDeps {
   logger?: BaseLogger
   /** 测试注入：文件输出流替代磁盘文件 */
   fileStream?: WriteStream
+  /** stdout 路开关（工单 12.3：spark -p 机器可读 stdout 需 file-only；缺省 true 现行为不变） */
+  stdout?: boolean
 }
 
 /** 递归遍历对象所有字符串值并做脱敏（不修改原对象） */
@@ -141,7 +143,7 @@ export class Logger implements SparkLogger {
     this.inner = pino(
       { level, formatters: { level: (label) => ({ level: label }) } },
       pino.multistream([
-        { stream: process.stdout, level },
+        ...(deps.stdout === false ? [] : [{ stream: process.stdout, level }]),
         { stream: this.fileStream, level },
       ]),
     )
