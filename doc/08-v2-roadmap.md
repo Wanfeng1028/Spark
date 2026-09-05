@@ -8,6 +8,7 @@
 | v1.1 | 2026-08-31 | 同上；核查：晚风（Wanfeng1028，对照四轮展望清单逐条核查指出缺漏） | **对照四轮展望补全六处**：§0.3 终点图景与差异化五牌；§4.0 五层开发者面表（修 14.6/11.8 悬空引用）；13.1 补「Spark as eval harness」定位句；新增 §7 生命力风险与对策（原不变量节顺延为 §8）；后置池补 LSP/会话导出分享/计划模式 todo/V2-21/V2-02/其余候选池归并行；新增附录 B 阶段十在途工单引用式提示词（治理注记：阶段十唯一来源 doc/02 §8） |
 | v1.5 | 2026-09-03 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）；发起：晚风（Wanfeng1028，"全仓冗余审计 + 工单与提示词立项"指令） | **新增 阶段十七：代码冗余整改八工单 R-A～R-H（§5B，含 §5B.0 审计发现汇总）**——当日全仓源码级审计（约 5.4 万行）结论：分层与 D22 纪律总体良好，问题集中四类（巨石文件 / 跨端重复已漂移含 memory LIKE 转义真 bug / 包内样板 / 死代码）；§0.2 新增 Q-7（六死文件 + _scratch 两产物五层级确认）与 Q-8（共享 controller 落点，R-H 开工时问）；建议整体排在 14.1 之前（先消肿再定 SDK 承诺面）；每工单附六段式开工提示词 |
 | v1.6 | 2026-09-05 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"未完成部分全部完成"指令） | §5B 登记进度：R-A ✅（Qoder 会话 c3af73d，doc/02 v3.80）/ R-B ✅（Qoder 会话五子批次 + 本会话收口登记，doc/02 v3.81）；R-C～R-H 本会话续作，逐工单回写此行 |
+| v1.7 | 2026-09-05 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；拍板：晚风（Q-7/Q-8 AskUserQuestion） | **阶段十七收官登记**：R-C～R-H 全部完成（doc/02 v3.82；engine.ts 2028→1499、routes.ts 702→575、mock.ts 夹具外置、mobile/miniapp 会话页各减约 140 行入 protocol session-page controller、memory LIKE 转义真 bug 修复）；§0.2 Q-7 判决**全部保留继续冻结**、Q-8 判决**状态机入 protocol**（均已关闭）；余量池登记（R-E① 第二批/R-E⑦⑧⑨/R-D 门面残部/Q-7 死文件） |
 | v1.4 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令——批次 3 收账后开下一程） | **阶段十一已 lift 进 doc/02 v3.56 建正式阶段表（11.1–11.8），执行以 doc/02 为准**；11.1 的 LICENSE/package.json 字段/doc/05 G6 注记已由批次 3/工单 10.28 提前落地（余量=CONTRIBUTING/CHANGELOG/ARCHITECTURE D23 补记）；11.2 现场执行、11.5 secrets 配置、11.7 真实 tag 发版标注为用户侧动作。本库阶段十一行文不变（历史不动），阶段十二~十六待各自 lift |
 | v1.3 | 2026-09-01 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，批次 3 立单指令） | **阶段十状态对账（本库只改陈旧表述，工单库不变）**：§0.1 后注与附录 B"feat/stage10-ui-batch1 在途/两项待拍板"更新——阶段十批次 2 已全勾合入 main（doc/02 v3.44/v3.45），待拍板两项已按建议执行收口（v3.33）；收尾批次 3（10.22 + 10.24–10.30，含 hooks flaky P1 修复与 CLI clientAction 不变量网补齐）立项于 doc/02 v3.48。阶段十一~十六工单与排序不变 |
 | v1.2 | 2026-09-01 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"九条新机制命令全部做成"指令 + 批次 2 四项拍板落定） | **新增 阶段十六：命令面新机制九工单（16.1–16.9，消解 doc/02 §8.7 V2-27~V2-35 挂池项）**——/agents /plan /trust /init /goal /arena /voice /lsp /extensions；每张含开源参考（在线调研 2026-09-01：qwen-code/gemini-cli 均 Apache-2.0、opencode MIT、复用路线与精确文件路径）+ 提示词；优先级排序（/init 最先——零依赖纯提示词工程；/lsp /arena 最后——大件与需设计）；§0.1 已拍板表补三行（九命令全做成/许可兼容/复用优先）；附录 B 速引表补批次 2 十一张 |
@@ -41,8 +42,8 @@
 | Q-3 | 长任务/心跳 turn 是否立项 | 有真实多日任务诉求再立项，须迷你 ADR（防滑向显式 Planner） | 后置池 |
 | Q-4 | 任务级基准选型（自建 vs Terminal-Bench 类外部 harness） | 先自建场景集（13.1），外部 harness 出可行性报告再定（13.2） | 13.1/13.2 |
 | Q-5 | SDK 客户端包名 | @spark/sdk（与 @spark/protocol、@spark/engine 同谱） | 14.3 |
-| Q-7 | 阶段十七死文件删除（2026-09-03 登记）：apps/web/src/features/chat/UsageBar.tsx（49 行，注释已写"停用留人工确认"）、apps/web/src/components/layout/Titlebar.tsx（34 行零 import）、apps/cli/src/components/Sidebar.tsx（41 行停用）、apps/cli/src/components/StatusBar.tsx（89 行仅测试引用）、apps/mobile/src/components/ui.tsx 的 Row、packages/engine/src/scripted-llm.ts（CI 测试夹具，或移 testing 入口不删）、_scratch/lint-plain.txt 与 lint-report.json（git 追踪中的暂存产物） | 按建议方向删前六个 + _scratch 两份（scripted-llm 建议移 `packages/engine` 测试入口或维持冻结）；走 AGENTS §2.10 五层级确认后由 R-H 前置动作或独立小工单执行 | R-H 前置 |
-| Q-8 | mobile/miniapp 会话页共享 controller 落点（R-H 开工时问） | 缺省建议：两端各自薄 hook 文件 + 纯逻辑块入 `@spark/protocol`（protocol 无 React 依赖，controller 整体进 protocol 需引 React——不取）；备选新建共享包（过度工程嫌疑，不倾向） | R-H |
+| Q-7 | 阶段十七死文件删除（2026-09-03 登记；2026-09-05 五层级确认） | **已拍板：全部保留继续冻结**（晚风——UsageBar/Titlebar/Sidebar/StatusBar/Row/scripted-llm/_scratch 两产物均不删） | 已关闭 |
+| Q-8 | mobile/miniapp 会话页共享 controller 落点 | **已拍板：纯逻辑状态机入 protocol**（晚风；回调式零 React 依赖，已实施为 session-page.ts createSessionPageController——R-H①） | 已关闭 |
 
 ## 0.3 终点图景与差异化五牌（v2 收官判据）
 
@@ -1071,7 +1072,7 @@ apps/server/src/routes.ts（路由清单——考虑给路由加轻量元数据�
 > 执行原则：**行为等价重构**——全部工单不改任何对外行为/协议/事件语义；每批次独立 commit；测试全绿是提交前置。与阶段十一~十六无强依赖，可交叉执行；**建议整体排在 14.1（公共面治理）之前**——先消肿再定 SDK 承诺面，14.1 的导出裁决会因此更省力（14.1 本工单库行文不改动，开工时由该工单会话自行核对残留量）。
 > 开工顺序（收益大 × 风险低优先）：R-A 死导出清理 → R-B protocol 共享资产下沉 → R-C engine util 收敛（含真 bug）→ R-D engine.ts 拆分 → R-E web 收敛 → R-F server 去样板 → R-G cli 收敛 → R-H 移动双端共享 controller。R-B/R-C 可并行；R-D 依赖 R-C（util 先就位）；R-H 依赖 R-B（文案表/格式化先单源）。
 > 审计证据（file:line）在 §5B.0 汇总登记，**工单执行时以 grep 现场复核为准**（行号会随批次推进漂移）；本阶段不为消缺登记 H 号（doc/07 编号冻结）。
-> 进度（2026-09-05）：R-A ✅（c3af73d；doc/02 v3.80）/ R-B ✅（五子批次 7d28fd4→36fc88d，含修复 aec8e5d；doc/02 v3.81；末批 CI run 33843746928 双绿；closed 态文案经晚风拍板）——R-B.5 SessionStreamCore 已落地，R-D 第⑦刀 SSE 纯函数拆分随之自然完成 / R-C～R-H 进行中。
+> 进度（2026-09-05）：**R-A～R-H 全部完成，阶段十七收官**（R-A/R-B 为 Qoder 会话 c3af73d·7d28fd4→36fc88d；R-C～R-H 为 ZCode 会话 3df460e→bbebf5a；doc/02 v3.80–v3.82；HEAD CI 绿）。拍板：Q-7 死文件**全部保留继续冻结**（晚风）；Q-8 会话页控制器落点**纯逻辑状态机入 protocol**（已实施）。余量池：R-E① 第二批（复杂装载面 SessionPage/Dialogs/Audit/General 的 useTransportQuery 化）与 R-E⑦⑧⑨（保存按钮 outline 复用/PageHeader/保存模式收敛）、R-D 门面残部（管理面透传 30 法可为 Mixin 再减）、Q-7 死文件（待未来删除确认）。
 
 ## 5B.0 审计发现汇总（2026-09-03；执行时现场复核行号）
 
