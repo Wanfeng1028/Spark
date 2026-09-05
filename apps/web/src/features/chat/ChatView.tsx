@@ -10,6 +10,7 @@ import type { Components, VirtuosoHandle } from 'react-virtuoso'
 import { flowRowsOf, ids } from '@spark/protocol'
 import type { FlowRow, SessionId } from '@spark/protocol'
 import { useSessionItems, useSessionMeta } from '@/stores/session'
+import { PROMPT_CHIPS } from '@/lib/prompts'
 import { useSettingsStore } from '@/stores/settings'
 import { useTransport } from '@/transports/context'
 import { rowIndexOfEvent } from './chat-flow-rows'
@@ -23,7 +24,7 @@ export interface ChatViewProps {
   focusEventId?: string
 }
 
-const PROMPTS = ['总结这个项目的架构', '跑一遍测试并修复失败项', '把 src 里的 any 清理掉']
+const PROMPTS = PROMPT_CHIPS
 
 export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
   const sid = ids.session(sessionId)

@@ -4,6 +4,7 @@
  * 回合内容收折，随后续工单交付，本版只做时长呈现（提交说明已注记）。
  */
 import { useEffect, useState } from 'react'
+import { formatTurnDuration } from '@/lib/time'
 
 export interface TurnHeaderProps {
   startedAt: number
@@ -24,12 +25,8 @@ export function TurnHeader({ startedAt, finishedAt }: TurnHeaderProps) {
   const ms = Math.max(0, (finishedAt ?? now) - startedAt)
   return (
     <p className="py-0.5 font-mono text-xs text-muted-foreground/70">
-      {running ? `工作中 · ${fmtDuration(ms)}` : `已工作 ${fmtDuration(ms)}`}
+      {running ? `工作中 · ${formatTurnDuration(ms)}` : `已工作 ${formatTurnDuration(ms)}`}
     </p>
   )
 }
 
-function fmtDuration(ms: number): string {
-  const s = Math.floor(ms / 1000)
-  return s < 60 ? `${s} 秒` : `${Math.floor(s / 60)} 分 ${s % 60} 秒`
-}

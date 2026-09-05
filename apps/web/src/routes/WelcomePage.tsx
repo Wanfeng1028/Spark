@@ -9,6 +9,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Blocks, Eraser, GitCommitHorizontal, PlayCircle } from 'lucide-react'
+import { PROMPT_CHIPS } from '@/lib/prompts'
 import type { LucideIcon } from 'lucide-react'
 import type { PermissionPreset, SubmitOutcome } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
@@ -22,12 +23,9 @@ interface PromptChip {
   text: string
 }
 
-const PROMPTS: readonly PromptChip[] = [
-  { icon: Blocks, text: '总结这个项目的架构' },
-  { icon: PlayCircle, text: '跑一遍测试并修复失败项' },
-  { icon: Eraser, text: '把 src 里的 any 清理掉' },
-  { icon: GitCommitHorizontal, text: '为当前改动写一条提交信息' },
-]
+const CHIP_ICONS = [Blocks, PlayCircle, Eraser, GitCommitHorizontal] as const
+
+const PROMPTS: readonly PromptChip[] = PROMPT_CHIPS.map((text, i) => ({ icon: CHIP_ICONS[i] ?? Blocks, text }))
 
 function greeting(): string {
   const h = new Date().getHours()
