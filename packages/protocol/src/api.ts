@@ -23,6 +23,8 @@ export const SessionMetaDtoSchema = z.strictObject({
   branch: z.string().optional(),
   /** 当前生效推理档位（缺省 = 未配置，工单 10.6） */
   effort: ReasoningEffortSchema.optional(),
+  /** 归档时刻 ISO 串（工单 12.4：仅已归档会话携带——禁假状态） */
+  archivedAt: z.string().optional(),
 })
 export type SessionMetaDto = z.infer<typeof SessionMetaDtoSchema>
 

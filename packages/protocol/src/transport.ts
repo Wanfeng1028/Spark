@@ -63,7 +63,12 @@ export interface Transport {
    * query 分页（工单 9.3）：limit 升序尾部切片 / before=seq 游标；无参 = 全量（向后兼容）。
    */
   getSession(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto>
-  listSessions(): Promise<SessionDto[]>
+  /** archived=true 只列已归档会话（工单 12.4 抽屉数据源；缺省排除归档） */
+  listSessions(archived?: boolean): Promise<SessionDto[]>
+  /** 归档/恢复（工单 12.4）：archived=true 归档，false 恢复 */
+  archiveSession(sessionId: SessionId, archived: boolean): Promise<SessionDto>
+  /** 两段式删除：JSONL 移入 ~/.spark/trash/（可人工找回）；运行中会话 409 */
+  deleteSession(sessionId: SessionId): Promise<void>
   /** 新建会话（model 为 "provider/model"；缺省 = 引擎 defaultModel） */
   createSession(opts?: { title?: string; model?: string }): Promise<SessionDto>
   /** GET /api/sessions/:id/tree：树视图数据（doc/02 §5.8.6，阶段四工单 4.5） */

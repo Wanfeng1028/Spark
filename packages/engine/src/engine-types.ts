@@ -31,6 +31,8 @@ export interface SessionMeta {
   branch?: string
   /** 会话级推理档位（内存态，下一 turn 生效；缺省 = models.json defaultEffort——工单 10.6） */
   effort?: ReasoningEffort
+  /** 归档时刻（工单 12.4：归档标记文件的 ISO 串；未归档不携带——禁假状态） */
+  archivedAt?: string
 }
 
 export interface SessionHandle {

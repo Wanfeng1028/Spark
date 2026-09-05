@@ -43,6 +43,8 @@ export function toDto(engine: Engine, meta: SessionMeta): SessionMetaDto {
     // 工单 10.6：分支/档位真值透传（缺省不携带——前端禁假状态不渲染）
     ...(meta.branch !== undefined ? { branch: meta.branch } : {}),
     ...(meta.effort !== undefined ? { effort: meta.effort } : {}),
+    // 工单 12.4：归档时刻透传（仅已归档携带）
+    ...(meta.archivedAt !== undefined ? { archivedAt: meta.archivedAt } : {}),
   }
 }
 
@@ -58,9 +60,16 @@ export const CreateSessionBody = z.strictObject({
   cwd: z.string().optional(),
 })
 
+export const ArchiveBody = z.strictObject({ archived: z.boolean() })
+
+/** 工单 12.4：DELETE 需显式 confirm: true（防误删——两层护栏的第一层） */
+export const DeleteSessionBody = z.strictObject({ confirm: z.literal(true) })
+
 export const ListSessionsQuery = z.object({
   limit: z.coerce.number().int().positive().default(50),
   cursor: SessionIdSchema.optional(),
+  /** 工单 12.4：archived=true 只列已归档（缺省排除） */
+  archived: z.coerce.boolean().optional(),
 })
 
 /**

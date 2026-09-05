@@ -1084,16 +1084,48 @@ export class MockTransport implements Transport {
     )
   }
 
-  listSessions(): Promise<SessionDto[]> {
-    return Promise.resolve([
-      ...MOCK_SCENARIOS.map((s) =>
-        this.withSessionOverrides(
-          this.parseFor(s).sessionId,
-          MockTransport.dtoOf(this.parseFor(s), 'idle'),
+  /** 归档登记（工单 12.4 mock 对等）+ 列表过滤开关（archived=true 只列归档） */
+  private readonly archived = new Set<string>()
+  private archivedFilter = false
+
+  archiveSession(sessionId: string, archived: boolean): Promise<SessionDto> {
+    if (archived) this.archived.add(sessionId)
+    else this.archived.delete(sessionId)
+    const dto = [...this.listAllDtos()].find((d) => d.id === sessionId)
+    if (dto === undefined) return Promise.reject(new Error(`E_NOT_FOUND: 会话 ${sessionId} 不存在`))
+    return Promise.resolve(archived ? { ...dto, archivedAt: new Date().toISOString() } : dto)
+  }
+
+  deleteSession(sessionId: string): Promise<void> {
+    const idx = this.forkChildren.findIndex((f) => f.dto.id === sessionId)
+    if (idx !== -1) this.forkChildren.splice(idx, 1)
+    this.archived.delete(sessionId)
+    return Promise.resolve()
+  }
+
+  private *listAllDtos(): Generator<SessionDto> {
+    for (const s of MOCK_SCENARIOS) {
+      yield this.withSessionOverrides(
+        this.parseFor(s).sessionId,
+        MockTransport.dtoOf(this.parseFor(s), 'idle'),
+      )
+    }
+    for (const f of this.forkChildren) yield f.dto
+  }
+
+  listSessions(archived = false): Promise<SessionDto[]> {
+    this.archivedFilter = archived
+    return Promise.resolve(
+      [
+        ...MOCK_SCENARIOS.map((s) =>
+          this.withSessionOverrides(
+            this.parseFor(s).sessionId,
+            MockTransport.dtoOf(this.parseFor(s), 'idle'),
+          ),
         ),
-      ),
-      ...this.forkChildren.map((f) => f.dto),
-    ])
+        ...this.forkChildren.map((f) => f.dto),
+      ].filter((d) => this.archived.has(d.id) === this.archivedFilter),
+    )
   }
 
   /** 场景脚本取用（当前场景用已解析实例，其余按需解析） */

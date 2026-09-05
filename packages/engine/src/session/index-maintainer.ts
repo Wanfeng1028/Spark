@@ -91,6 +91,16 @@ export class SessionIndexMaintainer {
     }
   }
 
+  /** 索引行删除（工单 12.4：两段式删除的第二段） */
+  remove(id: SessionId): void {
+    if (this.index === null || this.closed) return
+    try {
+      this.index.remove(id)
+    } catch (err) {
+      this.disable(err, 'session.index.remove.error')
+    }
+  }
+
   /** 索引写失败：置降级标记并落结构化日志——主流程不受影响（JSONL 权威） */
   disable(err: unknown, msg: string): void {
     if (this.broken) return

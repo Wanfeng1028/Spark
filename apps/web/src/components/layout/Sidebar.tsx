@@ -14,12 +14,13 @@
  */
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { CalendarClock, ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, User } from 'lucide-react'
+import { Archive, CalendarClock, ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, Trash2, Undo2, User } from 'lucide-react'
 import type { SessionDto, SessionStatus } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useActiveSlice } from '@/stores/session'
 import { useSessionList } from '@/hooks/useSessionList'
 import { useUiStore } from '@/stores/ui'
+import { errorMessageOf } from '@/lib/error-copy'
 import { formatRelative } from '@/lib/time'
 import { cn } from '@/lib/utils'
 
@@ -72,6 +73,49 @@ export function Sidebar() {
   const [query, setQuery] = useState('')
   const [foldedGroups, setFoldedGroups] = useState<Set<string>>(new Set())
   const activeSlice = useActiveSlice()
+  // 工单 12.4：归档/删除动作 + 已归档抽屉（列表按需拉取）
+  const [archivedOpen, setArchivedOpen] = useState(false)
+  const [archived, setArchived] = useState<SessionDto[] | null>(null)
+  const [opError, setOpError] = useState<string | null>(null)
+
+  const loadArchived = async (): Promise<void> => {
+    try {
+      setArchived(await transport.listSessions(true))
+    } catch (err) {
+      setOpError(errorMessageOf(err))
+    }
+  }
+
+  const archiveSession = async (s: SessionDto, archived: boolean): Promise<void> => {
+    try {
+      await transport.archiveSession(s.id, archived)
+      await refresh()
+      if (archivedOpen) await loadArchived()
+    } catch (err) {
+      setOpError(errorMessageOf(err))
+    }
+  }
+
+  const deleteSession = async (s: SessionDto): Promise<void> => {
+    const title = s.title === '' ? '新会话' : s.title
+    // 二次确认文案明示去向：移入 ~/.spark/trash/ 可人工找回（两段式，非硬删）
+    if (!window.confirm(`删除会话「${title}」？
+其记录将移入 ~/.spark/trash/（可在文件系统人工找回）。`)) {
+      return
+    }
+    try {
+      await transport.deleteSession(s.id)
+      await refresh()
+      if (archivedOpen) await loadArchived()
+    } catch (err) {
+      setOpError(errorMessageOf(err))
+    }
+  }
+
+  const toggleArchived = (): void => {
+    if (!archivedOpen && archived === null) void loadArchived()
+    setArchivedOpen((v) => !v)
+  }
 
   const routeSessionId = location.pathname.startsWith('/session/')
     ? (location.pathname.split('/')[2] ?? '')
@@ -309,9 +353,57 @@ export function Sidebar() {
               activeId={routeSessionId}
               statusOf={liveStatus}
               titleOf={liveTitle}
+              onArchive={(s) => void archiveSession(s, true)}
+              onDelete={(s) => void deleteSession(s)}
             />
           ))}
       </div>
+
+      {/* 已归档抽屉（工单 12.4）：按需拉取，列出/恢复/删除（删除走两段式 confirm） */}
+      <button
+        type="button"
+        onClick={toggleArchived}
+        aria-expanded={archivedOpen}
+        className="flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+      >
+        <Archive className="size-3.5" />
+        <span className="flex-1 text-left">已归档</span>
+        {archived !== null && archived.length > 0 && (
+          <span className="text-[11px] text-muted-foreground/70">{archived.length}</span>
+        )}
+      </button>
+      {opError !== null && (
+        <p className="px-2 py-1 font-mono text-xs text-destructive">{opError}</p>
+      )}
+      {archivedOpen && archived !== null && archived.length > 0 && (
+        <ul aria-label="已归档会话" className="max-h-40 shrink-0 overflow-y-auto rounded-md border border-border p-1">
+          {archived.map((s) => (
+            <li key={s.id} className="flex h-8 items-center gap-1 rounded-md px-2 hover:bg-accent">
+              <span className="min-w-0 flex-1 truncate text-[13px]">
+                {s.title === '' ? '新会话' : s.title}
+              </span>
+              <button
+                type="button"
+                aria-label={`恢复会话 ${s.title === '' ? '新会话' : s.title}`}
+                title="恢复到会话列表"
+                onClick={() => void archiveSession(s, false)}
+                className="rounded p-1 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+              >
+                <Undo2 className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                aria-label={`删除会话 ${s.title === '' ? '新会话' : s.title}`}
+                title="删除（移入 trash，可人工找回）"
+                onClick={() => void deleteSession(s)}
+                className="rounded p-1 text-muted-foreground/70 hover:bg-accent hover:text-destructive"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* 全文搜索入口（工单 7.13 / H12；快捷键提示工单 10.5①） */}
       <button
@@ -386,10 +478,21 @@ interface SidebarGroupProps {
   activeId: string
   statusOf: (dto: SessionDto) => SessionStatus
   titleOf: (dto: SessionDto) => string
+  onArchive: (s: SessionDto) => void
+  onDelete: (s: SessionDto) => void
 }
 
 /** 分组头 28px（12px 字号，▸/▾ 折叠）+ 会话项 32px（§13.A 数值清单）；组内渐进展开（工单 10.5③：5 条起步，逐次 +5） */
-function SidebarGroup({ group, folded, onToggle, activeId, statusOf, titleOf }: SidebarGroupProps) {
+function SidebarGroup({
+  group,
+  folded,
+  onToggle,
+  activeId,
+  statusOf,
+  titleOf,
+  onArchive,
+  onDelete,
+}: SidebarGroupProps) {
   const navigate = useNavigate()
   const [visible, setVisible] = useState(GROUP_VISIBLE_STEP)
   const shown = Math.min(visible, group.sessions.length)
@@ -412,23 +515,48 @@ function SidebarGroup({ group, folded, onToggle, activeId, statusOf, titleOf }: 
         <ul className="flex flex-col">
           {group.sessions.slice(0, shown).map((s) => (
             <li key={s.id}>
-              <button
-                type="button"
-                onClick={() => void navigate(`/session/${s.id}`)}
-                aria-current={s.id === activeId ? 'page' : undefined}
+              <div
                 className={cn(
-                  'flex h-8 w-full items-center gap-2 rounded-md border border-transparent px-3 text-left hover:bg-accent',
+                  'group flex h-8 w-full items-center gap-2 rounded-md border border-transparent pl-3 pr-1 text-left hover:bg-accent',
                   s.id === activeId && 'border-border bg-secondary',
                 )}
               >
-                <SessionStatusDot status={statusOf(s)} />
-                <span className="min-w-0 flex-1 truncate text-[13px]">
-                  {titleOf(s) === '' ? '新会话' : titleOf(s)}
+                <button
+                  type="button"
+                  onClick={() => void navigate(`/session/${s.id}`)}
+                  aria-current={s.id === activeId ? 'page' : undefined}
+                  className="flex h-full min-w-0 flex-1 items-center gap-2 text-left"
+                >
+                  <SessionStatusDot status={statusOf(s)} />
+                  <span className="min-w-0 flex-1 truncate text-[13px]">
+                    {titleOf(s) === '' ? '新会话' : titleOf(s)}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground/70 group-hover:hidden">
+                    {formatRelative(s.updatedAt)}
+                  </span>
+                </button>
+                {/* 悬停动作（工单 12.4）：归档 / 删除（删除确认在 deleteSession 内） */}
+                <span className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+                  <button
+                    type="button"
+                    aria-label={`归档会话 ${titleOf(s) === '' ? '新会话' : titleOf(s)}`}
+                    title="归档"
+                    onClick={() => onArchive(s)}
+                    className="rounded p-1 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+                  >
+                    <Archive className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`删除会话 ${titleOf(s) === '' ? '新会话' : titleOf(s)}`}
+                    title="删除（移入 trash，可人工找回）"
+                    onClick={() => onDelete(s)}
+                    className="rounded p-1 text-muted-foreground/70 hover:bg-accent hover:text-destructive"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
                 </span>
-                <span className="shrink-0 text-xs text-muted-foreground/70">
-                  {formatRelative(s.updatedAt)}
-                </span>
-              </button>
+              </div>
             </li>
           ))}
           {rest > 0 && (

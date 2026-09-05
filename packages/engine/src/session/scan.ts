@@ -3,7 +3,7 @@
  * 只依赖文件系统与 SessionStore 读路径，不持有引擎状态）。
  * 状态相关判定（运行中子会话的实时 status）经回调注入。
  */
-import { readdir } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { EventId, SessionId, SessionStatus, SparkEventEnvelope } from '@spark/protocol'
 import { SessionStore } from './store.js'
@@ -80,6 +80,37 @@ export async function scanDiskSessions(sessionsRoot: string): Promise<SessionMet
     // sessions 目录缺失 = 空列表（首次运行）
   }
   return out
+}
+
+/**
+ * 归档标记扫描（工单 12.4）：`<file>.archived` 标记 = 归档状态的单一事实源
+ * （不入事件流——管理面 REST；内容为归档时刻 ISO 串）。
+ */
+export async function scanArchivedMarkers(
+  sessionsRoot: string,
+): Promise<{ ids: SessionId[]; at: Map<SessionId, string> }> {
+  const ids: SessionId[] = []
+  const at = new Map<SessionId, string>()
+  try {
+    const dirs = await readdir(sessionsRoot, { withFileTypes: true })
+    for (const dir of dirs) {
+      if (!dir.isDirectory()) continue
+      for (const file of await readdir(join(sessionsRoot, dir.name))) {
+        if (!file.endsWith('.jsonl.archived')) continue
+        const id = idOfFileName(file.slice(0, -'.archived'.length))
+        if (id === null) continue
+        try {
+          at.set(id, (await readFile(join(sessionsRoot, dir.name, file), 'utf8')).trim())
+        } catch {
+          at.set(id, new Date().toISOString())
+        }
+        ids.push(id)
+      }
+    }
+  } catch {
+    // sessions 目录缺失 = 无归档
+  }
+  return { ids, at }
 }
 
 /** 磁盘扫描 header.parentSession === id 的会话 → 边界事件 + 子会话信息（标题须读事件） */

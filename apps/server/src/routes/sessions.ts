@@ -7,8 +7,8 @@ import type { Dirent } from 'node:fs'
 import { resolveInRoot } from '@spark/engine'
 import type { CheckpointDto } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
-import { notFound, parseOr400 } from '../errors.js'
-import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FS_LIST_LIMIT, treeToDto } from './shared.js'
+import { notFound, parseOr400, validationError } from '../errors.js'
+import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, DeleteSessionBody } from './shared.js'
 
 export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
   const { engine } = opts
@@ -25,7 +25,9 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
 
   app.get('/api/sessions', async (req, reply) => {
     const query = parseOr400(ListSessionsQuery, req.query)
-    const all = await engine.listSessions() // 已按 updatedAt 倒序
+    const all = await engine.listSessions({
+      ...(query.archived !== undefined ? { archived: query.archived } : {}),
+    }) // 已按 updatedAt 倒序
     let start = 0
     if (query.cursor !== undefined) {
       const idx = all.findIndex((m) => m.id === query.cursor)
@@ -138,6 +140,27 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
     // 回滚后 seq 回退：响应只回 meta，前端走 GET /:id 全量重放（§4.5 表注）
     const handle = await engine.rollbackToCheckpoint(id, cid)
     return reply.send(toDto(engine, handle.meta))
+  })
+
+  // ---- 会话归档与两段式删除（工单 12.4 / V2-23） ----
+
+  /** PUT /api/sessions/:id/archive {archived: boolean}：归档/恢复（返回更新后的 DTO） */
+  app.put('/api/sessions/:id/archive', async (req, reply) => {
+    const { id } = parseOr400(IdParams, req.params)
+    const body = parseOr400(ArchiveBody, req.body)
+    const meta = await engine.archiveSession(id, body.archived)
+    return reply.send(toDto(engine, meta))
+  })
+
+  /** DELETE /api/sessions/:id {confirm: true}：两段式删除（JSONL 移入 trash 可找回；缺 confirm 400） */
+  app.delete('/api/sessions/:id', async (req, reply) => {
+    const { id } = parseOr400(IdParams, req.params)
+    const body = parseOr400(DeleteSessionBody, req.body)
+    if (body.confirm !== true) {
+      throw validationError('删除需显式确认（confirm: true）', undefined)
+    }
+    await engine.deleteSession(id)
+    return reply.code(204).send()
   })
 
 }

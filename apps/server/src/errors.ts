@@ -135,6 +135,12 @@ export function toApiError(err: unknown): ApiError {
   if (err instanceof ApiError) return err
   const msg = err instanceof Error ? err.message : String(err)
   if (msg.startsWith('E_NOT_FOUND')) return NOT_FOUND
+  if (msg.startsWith('E_SESSION_ACTIVE')) {
+    return new ApiError(409, 'E_SESSION_ACTIVE', '会话运行中——先等待回合结束或中断')
+  }
+  if (msg.startsWith('E_DELETE_FAILED')) {
+    return new ApiError(500, 'E_DELETE_FAILED', msg)
+  }
   if (msg.startsWith('E_ALREADY_RESOLVED')) {
     return new ApiError(409, 'E_ALREADY_RESOLVED', '审批请求已答复过')
   }

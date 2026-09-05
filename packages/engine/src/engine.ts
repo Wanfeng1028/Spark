@@ -11,9 +11,9 @@
  * shutdown 序列（§5.2）：拒新 → 逐会话 interrupt + 关输入队列 → 等待 run-loop
  * 退出 → 审批 pending 全部 fail-closed → 全量 flush + close。
  */
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import type {
   AutomationCreate,
   AutomationRunDto,
@@ -63,7 +63,7 @@ import type { RunLoopDeps } from './run-loop.js'
 import { PermissionServiceImpl } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
 import { SessionIndexMaintainer } from './session/index-maintainer.js'
-import { findSessionFile as findSessionFileOnDisk, scanDiskSessions as scanDiskSessionsOnDisk, scanForkChildren as scanForkChildrenOnDisk, titleOf } from './session/scan.js'
+import { findSessionFile as findSessionFileOnDisk, scanArchivedMarkers, scanDiskSessions as scanDiskSessionsOnDisk, scanForkChildren as scanForkChildrenOnDisk, titleOf } from './session/scan.js'
 import { Metrics } from './observability/metrics.js'
 import { SessionRuntime } from './session/runtime.js'
 import { SessionStore, danglingTurnIds, mungeDir, sessionFileName } from './session/store.js'
@@ -94,7 +94,7 @@ import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
 import { AuditLog, type AuditEntry, type AuditQuery } from './audit/log.js'
 import { SearchIndexer } from './search/indexer.js'
-import { asError } from './errs.js'
+import { asError, errText } from './errs.js'
 import { persistSparkPatch, SettingsStore, type RoutingState } from './settings-store.js'
 import { makeSubagentRunner } from './subagent.js'
 import { BrowserManager } from './browser/driver.js'
@@ -166,6 +166,8 @@ export class Engine {
   /** 会话索引维护器（node:sqlite；JSONL 恒为权威——损坏即降级磁盘扫描，工单 4.8；R-D 第②刀拆出） */
   private readonly index: SessionIndexMaintainer
   private readonly indexReady: Promise<void>
+  /** 归档标记扫描任务（工单 12.4：boot 填充 archivedIds/archivedAtById——ready 前完成） */
+  private readonly archivedReady: Promise<void>
   private readonly registry: ToolRegistry
   /** MCP 外部工具管理（阶段五工单 5.3 / ADR D16）：与内置工具同一注册表同一管线 */
   private readonly mcp: McpManager
@@ -195,6 +197,9 @@ export class Engine {
   private readonly settledRequests = new Set<RequestId>()
   /** 子代理派生出的会话（深度限制：子会话不可再派生，工单 5.4；进程生命周期内有效） */
   private readonly subagentChildren = new Set<SessionId>()
+  /** 归档会话登记（工单 12.4：标记文件为事实源，本 Set 为内存加速；boot 扫描填充） */
+  private readonly archivedIds = new Set<SessionId>()
+  private readonly archivedAtById = new Map<SessionId, string>()
   /** 子代理执行体（subagent.ts 工厂；依赖引擎 Map/Set 引用——构造器内装配） */
   private readonly runSubagentFn: (input: TaskInput, ctx: ToolContext) => Promise<ToolOutput>
   private shuttingDown = false
@@ -233,6 +238,14 @@ export class Engine {
     this.index = new SessionIndexMaintainer(this.root, this.logger)
     this.indexReady = this.index.rebuild(() => this.scanDiskSessions()).catch((err: unknown) => {
       this.index.disable(err, 'session.index.rebuild.error')
+    })
+    // 工单 12.4：归档标记扫描填充内存登记（标记文件 = 事实源）
+    this.archivedReady = scanArchivedMarkers(join(this.root, 'sessions')).then(({ ids, at }) => {
+      for (const id of ids) {
+        this.archivedIds.add(id)
+        const ts = at.get(id)
+        if (ts !== undefined) this.archivedAtById.set(id, ts)
+      }
     })
 
     // sink 路由：EventBus 单例 → 按 sessionId 找到对应 SessionStore（单写者）
@@ -459,10 +472,12 @@ export class Engine {
 
   /** MCP 连接与 skills/自定义命令加载完成（server 入口 listen 前等待；缺省项立即返回） */
   ready(): Promise<void> {
-    return Promise.all([this.mcpReady, this.skillsReady, this.commandsReady]).then(() => {
-      // 工单 7.6：tick 循环在 server listen 前启动（幂等；unref 不阻止进程退出）
-      this.automation.start()
-    })
+    return Promise.all([this.mcpReady, this.skillsReady, this.commandsReady, this.archivedReady]).then(
+      () => {
+        // 工单 7.6：tick 循环在 server listen 前启动（幂等；unref 不阻止进程退出）
+        this.automation.start()
+      },
+    )
   }
 
   /** §5.3 订阅透传（server SSE 的数据源；resume 供 SSE 背压 drain 恢复） */
@@ -543,6 +558,78 @@ export class Engine {
       ...(meta.effort !== undefined ? { effort: meta.effort } : {}),
     })
     return this.handleOf(entry)
+  }
+
+  // ---- 会话归档与两段式删除（阶段十二工单 12.4 / V2-23） ----
+
+  /**
+   * 归档/恢复：写删 `<jsonl>.archived` 标记（事实源）+ 内存登记同步；
+   * 会话文件原地不动（resume 不受影响）。幂等：重复归档/恢复无副作用。
+   */
+  async archiveSession(id: SessionId, archived: boolean): Promise<SessionMeta> {
+    this.assertNotShutdown()
+    const path = await this.locateSessionFile(id)
+    const marker = `${path}.archived`
+    if (archived) {
+      const at = new Date().toISOString()
+      writeFileSync(marker, at, 'utf8')
+      this.archivedIds.add(id)
+      this.archivedAtById.set(id, at)
+    } else {
+      rmSync(marker, { force: true })
+      this.archivedIds.delete(id)
+      this.archivedAtById.delete(id)
+    }
+    this.logger.info(archived ? 'session.archived' : 'session.unarchived', { sid: id })
+    const base: SessionMeta = this.sessions.get(id)?.meta ?? {
+      id,
+      title: '',
+      model: '',
+      cwd: '',
+      createdAt: 0,
+      updatedAt: 0,
+      lastSeq: 0,
+    }
+    const at = this.archivedAtById.get(id)
+    return archived && at !== undefined ? { ...base, archivedAt: at } : base
+  }
+
+  /**
+   * 两段式安全删除（与 AGENTS §2.10 不删除哲学同构）：① 关闭在途（loaded 先停
+   * run-loop + flush close——Windows 文件锁）；② JSONL rename 进 ~/.spark/trash/
+   * （同盘原子，可人工找回）→ 成功才清标记与索引行；移动失败原样保留（失败闭合）。
+   * 运行中会话拒绝（E_SESSION_ACTIVE）。
+   */
+  async deleteSession(id: SessionId): Promise<void> {
+    this.assertNotShutdown()
+    const entry = this.sessions.get(id)
+    if (entry !== undefined && entry.runtime.state === 'running') {
+      throw new Error('E_SESSION_ACTIVE: 会话运行中，不可删除——先等待回合结束或中断')
+    }
+    const path = await this.locateSessionFile(id)
+    if (entry !== undefined) {
+      // 已装载：先收口再移动（单写者纪律 + Windows 打开句柄阻止 rename）
+      entry.runtime.interrupt()
+      entry.runtime.shutdown()
+      await entry.loop
+      await entry.store.close()
+      this.sessions.delete(id)
+      this.bus.forgetSession(id)
+    }
+    const trashDir = join(this.root, 'trash')
+    mkdirSync(trashDir, { recursive: true })
+    const dest = join(trashDir, `${basename(path)}.${Date.now()}.jsonl`)
+    try {
+      renameSync(path, dest)
+    } catch (err) {
+      // 失败闭合：移动失败不动索引与标记——原会话照常可用
+      throw new Error(`E_DELETE_FAILED: 会话文件移入 trash 失败：${errText(err)}`)
+    }
+    rmSync(`${path}.archived`, { force: true })
+    this.index.remove(id)
+    this.archivedIds.delete(id)
+    this.archivedAtById.delete(id)
+    this.logger.info('session.deleted', { sid: id, trash: dest })
   }
 
   /** §5.2.1：定位文件 → read（坏行策略）→ 重建树 → 补闭合 → resumed{fromSeq} */
@@ -1094,9 +1181,13 @@ export class Engine {
     )
   }
 
-  /** §5.2.1 listSessions：索引驱动（工单 4.8）；已加载会话以内存 meta 为准；q = 标题子串过滤 */
-  async listSessions(opts?: { q?: string }): Promise<SessionMeta[]> {
-    await this.indexReady
+  /**
+   * §5.2.1 listSessions：索引驱动（工单 4.8）；已加载会话以内存 meta 为准；q = 标题子串过滤。
+   * 工单 12.4：opts.archived 缺省 false 排除已归档；true 时只列已归档（抽屉数据源）。
+   */
+  async listSessions(opts?: { q?: string; archived?: boolean }): Promise<SessionMeta[]> {
+    const wantArchived = opts?.archived === true
+    await this.archivedReady
     let out: SessionMeta[]
     const rows = this.index.list(opts?.q)
     if (rows !== null) {
@@ -1115,6 +1206,14 @@ export class Engine {
         const needle = opts.q.toLowerCase()
         out = out.filter((m) => m.title.toLowerCase().includes(needle))
       }
+    }
+    // 归档过滤（标记文件为事实源，内存 Set 加速）+ archivedAt 注入（未归档不携带——禁假状态）
+    out = out.filter((m) => this.archivedIds.has(m.id) === wantArchived)
+    if (wantArchived) {
+      out = out.map((m) => {
+        const at = this.archivedAtById.get(m.id)
+        return at !== undefined ? { ...m, archivedAt: at } : m
+      })
     }
     out.sort((a, b) => b.updatedAt - a.updatedAt)
     return out

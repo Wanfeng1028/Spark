@@ -280,8 +280,24 @@ export class HttpTransport implements Transport {
     return dto
   }
 
-  listSessions(): Promise<SessionDto[]> {
-    return this.req<SessionDto[]>('/api/sessions')
+  listSessions(archived?: boolean): Promise<SessionDto[]> {
+    return this.req<SessionDto[]>(archived === true ? '/api/sessions?archived=true' : '/api/sessions')
+  }
+
+  /** 归档/恢复（工单 12.4） */
+  archiveSession(sessionId: SessionId, archived: boolean): Promise<SessionDto> {
+    return this.req<SessionDto>(`/api/sessions/${sessionId}/archive`, {
+      method: 'PUT',
+      body: JSON.stringify({ archived }),
+    })
+  }
+
+  /** 两段式删除（工单 12.4）：confirm 由本方法恒带（客户端 API 不裸删） */
+  deleteSession(sessionId: SessionId): Promise<void> {
+    return this.req<void>(`/api/sessions/${sessionId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ confirm: true }),
+    })
   }
 
   createSession(opts?: { title?: string; model?: string }): Promise<SessionDto> {

@@ -109,6 +109,11 @@ export class SessionIndex {
     return this.all(`${base} WHERE title LIKE ? ESCAPE '\\' ORDER BY updated_at DESC, id DESC`, `%${escaped}%`)
   }
 
+  /** 删除索引行（工单 12.4 两段式删除：JSONL 已移入 trash 后调） */
+    remove(id: string): void {
+      this.db.prepare('DELETE FROM sessions WHERE id = ?').run(id)
+    }
+
   close(): void {
     this.db.close()
   }
