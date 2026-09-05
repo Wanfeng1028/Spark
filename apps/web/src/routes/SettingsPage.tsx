@@ -18,6 +18,7 @@ import { MemorySettingsPage } from '@/features/settings/MemorySettingsPage'
 import { DevicesSettingsPage } from '@/features/settings/DevicesSettingsPage'
 import { AuditSettingsPage } from '@/features/settings/AuditSettingsPage'
 import { PlaceholderPage } from '@/features/settings/PlaceholderPage'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 /** ready 页 → 真组件（settings-pages.ts 只承载数据，映射单一来源在此） */
 const READY_COMPONENTS = {
@@ -46,10 +47,7 @@ export function SettingsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto flex w-full max-w-[768px] flex-col gap-5 px-6 py-6">
-        <header className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold leading-tight">{def.title}</h1>
-          <p className="text-xs text-muted-foreground">{def.description}</p>
-        </header>
+        <PageHeader title={def.title} description={def.description} titleSize="lg" />
         {def.status === 'ready' && Ready !== undefined ? (
           <Ready />
         ) : (

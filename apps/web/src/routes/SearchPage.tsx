@@ -13,6 +13,7 @@ import type { SearchHitDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { errorMessageOf } from '@/lib/error-copy'
 import { formatRelative } from '@/lib/time'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 type SearchState =
   | { phase: 'idle' }
@@ -56,12 +57,10 @@ export function SearchPage() {
 
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col gap-4 overflow-y-auto p-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-base font-semibold">搜索</h1>
-        <p className="text-xs text-muted-foreground">
-          检索所有会话的用户消息、助手回复与标题，点击命中行直达原文。
-        </p>
-      </header>
+      <PageHeader
+        title="搜索"
+        description="检索所有会话的用户消息、助手回复与标题，点击命中行直达原文。"
+      />
 
       <form onSubmit={onSubmit} className="relative shrink-0">
         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
