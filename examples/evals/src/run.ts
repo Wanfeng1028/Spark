@@ -3,8 +3,11 @@
  * 恒跑 ScriptedLlm 回归场景集（无网络、无真实模型）；--real 追加可选真实模型评分
  * （无配置/凭据 → skip 不红）。退出码：任一 fail → 1（nightly 红灯依据）。
  */
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { scenarios } from './scenarios/index.js'
 import { realScenarios } from './real.js'
+import { taskScenarios } from './tasks/scenarios.js'
 import type { EvalOutcome, EvalScenario } from './harness.js'
 
 interface Row {
@@ -49,10 +52,27 @@ function printReport(rows: Row[]): void {
 
 async function main(): Promise<void> {
   const real = process.argv.includes('--real')
-  const rows = await runAll(scenarios)
-  if (real) rows.push(...(await runAll(realScenarios)))
+  const suiteIndex = process.argv.indexOf('--suite')
+  const suite = suiteIndex !== -1 ? (process.argv[suiteIndex + 1] ?? 'core') : 'core'
+
+  const rows: Row[] = []
+  if (suite === 'core' || suite === 'all') rows.push(...(await runAll(scenarios)))
+  if (real && (suite === 'real' || suite === 'all')) rows.push(...(await runAll(realScenarios)))
+  if (real && (suite === 'tasks' || suite === 'all')) rows.push(...(await runAll(taskScenarios)))
+
   printReport(rows)
   if (rows.some((r) => r.outcome.status === 'fail')) process.exitCode = 1
+  // 真评报告落盘（工单 13.1）：examples/evals/reports/<date>-<suite>.json——基线与趋势素材
+  if (real && rows.length > 0) {
+    const dir = join(process.cwd(), 'examples', 'evals', 'reports')
+    mkdirSync(dir, { recursive: true })
+    const report = {
+      date: new Date().toISOString(),
+      suite,
+      rows: rows.map((r) => ({ name: r.name, ...r.outcome })),
+    }
+    writeFileSync(join(dir, `${report.date.slice(0, 10)}-${suite}.json`), JSON.stringify(report, null, 2))
+  }
 }
 
 await main()
