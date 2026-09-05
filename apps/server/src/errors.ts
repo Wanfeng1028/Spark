@@ -7,6 +7,7 @@
  * setErrorHandler 走 sendError，协议端 error-copy 不再被框架默认形状绕过。
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import type { ZodType } from 'zod'
 
 export interface ErrorBody {
   code: string
@@ -30,6 +31,20 @@ const NOT_FOUND = new ApiError(404, 'E_NOT_FOUND', 'not found')
 
 export function validationError(message: string, issues: unknown): ApiError {
   return new ApiError(400, 'E_VALIDATION', message, issues)
+}
+
+/** zod 失败 → 400（issues 透出，§7.4；routes 与 pairing-routes 共用单点——R-F） */
+export function parseOr400<T>(schema: ZodType<T>, input: unknown): T {
+  const parsed = schema.safeParse(input)
+  if (!parsed.success) {
+    throw validationError('参数校验失败', parsed.error.issues)
+  }
+  return parsed.data
+}
+
+/** 404 统一形体（R-F：7 处内联硬编码收敛） */
+export function notFound(reply: FastifyReply): FastifyReply {
+  return reply.code(404).send({ code: 'E_NOT_FOUND', message: 'not found' })
 }
 
 /** POST /api/permissions/:requestId 三态 → 200 / 409 / 404 */

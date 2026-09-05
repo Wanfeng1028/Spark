@@ -34,7 +34,7 @@ import type {
 } from '@spark/engine'
 import { resolveInRoot } from '@spark/engine'
 import type { SessionMetaDto } from '@spark/protocol'
-import { replyOutcomeError, sendError, validationError } from './errors.js'
+import { notFound, parseOr400, replyOutcomeError, sendError } from './errors.js'
 
 export interface RoutesOptions {
   engine: Engine
@@ -60,15 +60,6 @@ function toDto(engine: Engine, meta: SessionMeta): SessionMetaDto {
 /** :id 路由通用入口：已加载直接用，未加载先 resumeSession（§7.2 GET 规格） */
 async function requireHandle(engine: Engine, id: SessionId): Promise<SessionHandle> {
   return engine.getSession(id) ?? engine.resumeSession(id)
-}
-
-/** zod 失败 → 400（issues 透出，§7.4） */
-function parseOr400<T>(schema: z.ZodType<T>, input: unknown): T {
-  const parsed = schema.safeParse(input)
-  if (!parsed.success) {
-    throw validationError('参数校验失败', parsed.error.issues)
-  }
-  return parsed.data
 }
 
 const CreateSessionBody = z.strictObject({
@@ -209,56 +200,44 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
   app.get('/api/healthz', () => ({ ok: true }))
 
   app.post('/api/sessions', async (req, reply) => {
-    try {
-      const body = parseOr400(CreateSessionBody, req.body)
-      const handle = await engine.createSession({
-        ...(body.title !== undefined ? { title: body.title } : {}),
-        ...(body.model !== undefined ? { model: body.model } : {}),
-        ...(body.cwd !== undefined ? { cwd: body.cwd } : {}),
-      })
-      return reply.code(201).send(toDto(engine, handle.meta))
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const body = parseOr400(CreateSessionBody, req.body)
+    const handle = await engine.createSession({
+      ...(body.title !== undefined ? { title: body.title } : {}),
+      ...(body.model !== undefined ? { model: body.model } : {}),
+      ...(body.cwd !== undefined ? { cwd: body.cwd } : {}),
+    })
+    return reply.code(201).send(toDto(engine, handle.meta))
   })
 
   app.get('/api/sessions', async (req, reply) => {
-    try {
-      const query = parseOr400(ListSessionsQuery, req.query)
-      const all = await engine.listSessions() // 已按 updatedAt 倒序
-      let start = 0
-      if (query.cursor !== undefined) {
-        const idx = all.findIndex((m) => m.id === query.cursor)
-        if (idx === -1) {
-          return reply.code(404).send({ code: 'E_NOT_FOUND', message: 'not found' })
-        }
-        start = idx + 1
+    const query = parseOr400(ListSessionsQuery, req.query)
+    const all = await engine.listSessions() // 已按 updatedAt 倒序
+    let start = 0
+    if (query.cursor !== undefined) {
+      const idx = all.findIndex((m) => m.id === query.cursor)
+      if (idx === -1) {
+        return notFound(reply)
       }
-      return reply.send(all.slice(start, start + query.limit).map((m) => toDto(engine, m)))
-    } catch (err) {
-      return sendError(req, reply, err)
+      start = idx + 1
     }
+    return reply.send(all.slice(start, start + query.limit).map((m) => toDto(engine, m)))
   })
 
   app.get('/api/sessions/:id', async (req, reply) => {
-    try {
-      const { id } = parseOr400(IdParams, req.params)
-      const query = parseOr400(SessionDetailQuery, req.query)
-      const handle = await requireHandle(engine, id)
-      // 事件分页（工单 9.3）：before 游标过滤 + limit 升序尾部切片；
-      // 两参缺省 = 现状全量（缺省行为不变红线）
-      let events = handle.events()
-      if (query.before !== undefined) {
-        const before = query.before
-        events = events.filter((e) => e.seq !== undefined && e.seq < before)
-      }
-      if (query.limit !== undefined) {
-        events = events.slice(-query.limit)
-      }
-      return reply.send({ ...toDto(engine, handle.meta), events })
-    } catch (err) {
-      return sendError(req, reply, err)
+    const { id } = parseOr400(IdParams, req.params)
+    const query = parseOr400(SessionDetailQuery, req.query)
+    const handle = await requireHandle(engine, id)
+    // 事件分页（工单 9.3）：before 游标过滤 + limit 升序尾部切片；
+    // 两参缺省 = 现状全量（缺省行为不变红线）
+    let events = handle.events()
+    if (query.before !== undefined) {
+      const before = query.before
+      events = events.filter((e) => e.seq !== undefined && e.seq < before)
     }
+    if (query.limit !== undefined) {
+      events = events.slice(-query.limit)
+    }
+    return reply.send({ ...toDto(engine, handle.meta), events })
   })
 
   /**
@@ -267,222 +246,154 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
    * 越出 cwd（如 ../）或目录不存在一律如实空清单（补全 UI 不报错打断输入，且不泄露 cwd 外任何项）。
    */
   app.get('/api/sessions/:id/fs', async (req, reply) => {
+    const { id } = parseOr400(IdParams, req.params)
+    const query = parseOr400(FsQuerySchema, req.query)
+    const handle = await requireHandle(engine, id)
+    const rel = query.path.replace(/\\/g, '/') // Windows 反斜杠归一为 posix（@ token 用 /）
+    const slash = rel.lastIndexOf('/')
+    const dirRel = slash === -1 ? '' : rel.slice(0, slash)
+    const prefix = slash === -1 ? rel : rel.slice(slash + 1)
+    const base = dirRel === '' ? '' : `${dirRel}/`
+    let dirents: Dirent[]
     try {
-      const { id } = parseOr400(IdParams, req.params)
-      const query = parseOr400(FsQuerySchema, req.query)
-      const handle = await requireHandle(engine, id)
-      const rel = query.path.replace(/\\/g, '/') // Windows 反斜杠归一为 posix（@ token 用 /）
-      const slash = rel.lastIndexOf('/')
-      const dirRel = slash === -1 ? '' : rel.slice(0, slash)
-      const prefix = slash === -1 ? rel : rel.slice(slash + 1)
-      const base = dirRel === '' ? '' : `${dirRel}/`
-      let dirents: Dirent[]
-      try {
-        // 硬边界（§6.4）：resolveInRoot 越出 cwd 抛 E_PATH_OUTSIDE → 落 catch 回空清单
-        const absDir = resolveInRoot(handle.meta.cwd, dirRel === '' ? '.' : dirRel)
-        dirents = await readdir(absDir, { withFileTypes: true })
-      } catch {
-        return reply.send({ path: dirRel, entries: [] })
-      }
-      const entries = dirents
-        .filter((d) => d.name.startsWith(prefix))
-        .map((d) => ({ name: d.name, path: `${base}${d.name}`, isDir: d.isDirectory() }))
-        .sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1))
-        .slice(0, FS_LIST_LIMIT)
-      return reply.send({ path: dirRel, entries })
-    } catch (err) {
-      return sendError(req, reply, err)
+      // 硬边界（§6.4）：resolveInRoot 越出 cwd 抛 E_PATH_OUTSIDE → 落 catch 回空清单
+      const absDir = resolveInRoot(handle.meta.cwd, dirRel === '' ? '.' : dirRel)
+      dirents = await readdir(absDir, { withFileTypes: true })
+    } catch {
+      return reply.send({ path: dirRel, entries: [] })
     }
+    const entries = dirents
+      .filter((d) => d.name.startsWith(prefix))
+      .map((d) => ({ name: d.name, path: `${base}${d.name}`, isDir: d.isDirectory() }))
+      .sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1))
+      .slice(0, FS_LIST_LIMIT)
+    return reply.send({ path: dirRel, entries })
   })
 
   app.post('/api/sessions/:id/messages', async (req, reply) => {
-    try {
-      const { id } = parseOr400(IdParams, req.params)
-      const body = parseOr400(SendMessageBody, req.body)
-      const handle = await requireHandle(engine, id)
-      // 三态直通：HTTP 只表达"已受理"，不等 turn 结果（§7.2）
-      return reply.send(
-        await handle.send(body.text, body.delivery, body.expectedTurnId),
-      )
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id } = parseOr400(IdParams, req.params)
+    const body = parseOr400(SendMessageBody, req.body)
+    const handle = await requireHandle(engine, id)
+    // 三态直通：HTTP 只表达"已受理"，不等 turn 结果（§7.2）
+    return reply.send(
+      await handle.send(body.text, body.delivery, body.expectedTurnId),
+    )
   })
 
   app.post('/api/sessions/:id/interrupt', async (req, reply) => {
-    try {
-      const { id } = parseOr400(IdParams, req.params)
-      const handle = await requireHandle(engine, id)
-      await handle.interrupt() // idle 时同样 200（幂等，§7.2）
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id } = parseOr400(IdParams, req.params)
+    const handle = await requireHandle(engine, id)
+    await handle.interrupt() // idle 时同样 200（幂等，§7.2）
+    return reply.send({ ok: true })
   })
 
   app.post('/api/sessions/:id/compact', async (req, reply) => {
-    try {
-      const { id } = parseOr400(IdParams, req.params)
-      const handle = await requireHandle(engine, id)
-      // 等压缩完成再返回：started/completed 经 SSE 直播（§5.8.5 手动 /compact）
-      await handle.compact()
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id } = parseOr400(IdParams, req.params)
+    const handle = await requireHandle(engine, id)
+    // 等压缩完成再返回：started/completed 经 SSE 直播（§5.8.5 手动 /compact）
+    await handle.compact()
+    return reply.send({ ok: true })
   })
 
   app.get('/api/sessions/:id/tree', async (req, reply) => {
-    try {
-      const { id } = parseOr400(IdParams, req.params)
-      return reply.send(treeToDto(await engine.treeOf(id)))
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id } = parseOr400(IdParams, req.params)
+    return reply.send(treeToDto(await engine.treeOf(id)))
   })
 
   app.post('/api/sessions/:id/fork', async (req, reply) => {
-    try {
-      const { id } = parseOr400(IdParams, req.params)
-      const body = parseOr400(ForkBody, req.body)
-      const handle = await engine.forkSession(id, body.fromEventId)
-      return reply.code(201).send(toDto(engine, handle.meta))
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id } = parseOr400(IdParams, req.params)
+    const body = parseOr400(ForkBody, req.body)
+    const handle = await engine.forkSession(id, body.fromEventId)
+    return reply.code(201).send(toDto(engine, handle.meta))
   })
 
   app.get('/api/sessions/:id/checkpoints', async (req, reply) => {
-    try {
-      const { id } = parseOr400(IdParams, req.params)
-      // commit sha 不上线（CheckpointDto §4.5.1：checkpointId/turnId/createdAt/files）
-      const rows: CheckpointDto[] = (await engine.checkpointsOf(id)).map((r) => ({
-        checkpointId: r.checkpointId,
-        turnId: r.turnId,
-        createdAt: r.createdAt,
-        files: r.files,
-      }))
-      return reply.send(rows)
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id } = parseOr400(IdParams, req.params)
+    // commit sha 不上线（CheckpointDto §4.5.1：checkpointId/turnId/createdAt/files）
+    const rows: CheckpointDto[] = (await engine.checkpointsOf(id)).map((r) => ({
+      checkpointId: r.checkpointId,
+      turnId: r.turnId,
+      createdAt: r.createdAt,
+      files: r.files,
+    }))
+    return reply.send(rows)
   })
 
   app.post('/api/sessions/:id/checkpoints/:cid/rollback', async (req, reply) => {
-    try {
-      const { id, cid } = parseOr400(RollbackParams, req.params)
-      // 回滚后 seq 回退：响应只回 meta，前端走 GET /:id 全量重放（§4.5 表注）
-      const handle = await engine.rollbackToCheckpoint(id, cid)
-      return reply.send(toDto(engine, handle.meta))
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id, cid } = parseOr400(RollbackParams, req.params)
+    // 回滚后 seq 回退：响应只回 meta，前端走 GET /:id 全量重放（§4.5 表注）
+    const handle = await engine.rollbackToCheckpoint(id, cid)
+    return reply.send(toDto(engine, handle.meta))
   })
 
   app.post('/api/permissions/:requestId', async (req, reply) => {
-    try {
-      const { requestId } = parseOr400(RequestIdParams, req.params)
-      const body = parseOr400(ReplyBody, req.body)
-      const outcome = await engine.replyPermission(
-        requestId,
-        body.reply,
-        ...(body.feedback !== undefined ? [body.feedback] : []),
-      )
-      if (outcome !== 'ok') {
-        // 409/404 三态映射收敛到 errors.ts replyOutcomeError（R-A：消除路由内联与前缀版重复）
-        return sendError(req, reply, replyOutcomeError(outcome))
-      }
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
+    const { requestId } = parseOr400(RequestIdParams, req.params)
+    const body = parseOr400(ReplyBody, req.body)
+    const outcome = await engine.replyPermission(
+      requestId,
+      body.reply,
+      ...(body.feedback !== undefined ? [body.feedback] : []),
+    )
+    if (outcome !== 'ok') {
+      // 409/404 三态映射收敛到 errors.ts replyOutcomeError（R-A：消除路由内联与前缀版重复）
+      return sendError(req, reply, replyOutcomeError(outcome))
     }
+    return reply.send({ ok: true })
   })
 
   // 权限规则管理（§5.7 规则表 / 工单 4.7）：用户级 permissions.json 的线上 CRUD
   app.get('/api/permissions/rules', async (req, reply) => {
-    try {
-      return reply.send({ rules: engine.listPermissionRules() })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    return reply.send({ rules: engine.listPermissionRules() })
   })
 
   app.post('/api/permissions/rules', async (req, reply) => {
-    try {
-      const rule = parseOr400(PermissionRuleDtoSchema, req.body)
-      engine.addPermissionRule(rule)
-      return reply.code(201).send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const rule = parseOr400(PermissionRuleDtoSchema, req.body)
+    engine.addPermissionRule(rule)
+    return reply.code(201).send({ ok: true })
   })
 
   app.delete('/api/permissions/rules', async (req, reply) => {
-    try {
-      const { action, resource } = parseOr400(RemoveRuleBody, req.body)
-      if (!engine.removePermissionRule(action, resource)) {
-        return reply.code(404).send({ code: 'E_NOT_FOUND', message: '规则不存在' })
-      }
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
+    const { action, resource } = parseOr400(RemoveRuleBody, req.body)
+    if (!engine.removePermissionRule(action, resource)) {
+      return reply.code(404).send({ code: 'E_NOT_FOUND', message: '规则不存在' })
     }
+    return reply.send({ ok: true })
   })
 
   // 密钥管理（阶段七工单 7.1 / H01）：~/.spark/secrets.json 的线上 CRUD——
   // 值只进不回（GET 只报来源，PUT 写入后立即生效于后续 resolveModel）
   app.get('/api/secrets', async (req, reply) => {
-    try {
-      return reply.send({ secrets: engine.listSecrets() })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    return reply.send({ secrets: engine.listSecrets() })
   })
 
   app.put('/api/secrets/:provider', async (req, reply) => {
-    try {
-      const { provider } = parseOr400(SecretProviderParams, req.params)
-      const body = parseOr400(SetSecretBody, req.body)
-      engine.setSecret(provider, body.value)
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { provider } = parseOr400(SecretProviderParams, req.params)
+    const body = parseOr400(SetSecretBody, req.body)
+    engine.setSecret(provider, body.value)
+    return reply.send({ ok: true })
   })
 
   app.delete('/api/secrets/:provider', async (req, reply) => {
-    try {
-      const { provider } = parseOr400(SecretProviderParams, req.params)
-      if (!engine.removeSecret(provider)) {
-        return reply.code(404).send({ code: 'E_NOT_FOUND', message: '密钥仓中无此 provider' })
-      }
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
+    const { provider } = parseOr400(SecretProviderParams, req.params)
+    if (!engine.removeSecret(provider)) {
+      return reply.code(404).send({ code: 'E_NOT_FOUND', message: '密钥仓中无此 provider' })
     }
+    return reply.send({ ok: true })
   })
 
   // 权限档位（DESIGN §13.E 四档 / D7 补记：规则引擎之上的预设层，工单 6.3）
   app.get('/api/sessions/:id/permission-preset', async (req, reply) => {
-    try {
-      const { id } = parseOr400(IdParams, req.params)
-      await requireHandle(engine, id) // 存在性校验（未加载会话先 resume，与其他 :id 端点同纪律）
-      return reply.send({ preset: engine.permissionPresetOf(id) })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id } = parseOr400(IdParams, req.params)
+    await requireHandle(engine, id) // 存在性校验（未加载会话先 resume，与其他 :id 端点同纪律）
+    return reply.send({ preset: engine.permissionPresetOf(id) })
   })
 
   app.put('/api/sessions/:id/permission-preset', async (req, reply) => {
-    try {
-      const { id } = parseOr400(IdParams, req.params)
-      const body = parseOr400(PresetBody, req.body)
-      await requireHandle(engine, id)
-      engine.setPermissionPreset(id, body.preset)
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id } = parseOr400(IdParams, req.params)
+    const body = parseOr400(PresetBody, req.body)
+    await requireHandle(engine, id)
+    engine.setPermissionPreset(id, body.preset)
+    return reply.send({ ok: true })
   })
 
   // 模型管理（DESIGN §13.D③ / 工单 6.5 轻后端例外——本阶段唯一 engine/server 改动）
@@ -492,38 +403,26 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
   })
 
   app.post('/api/models/:providerId/test', async (req, reply) => {
-    try {
-      const { providerId } = parseOr400(ProviderIdParams, req.params)
-      // ok=false 不是传输失败：连通/鉴权问题走 200 + 人话文案（工单 6.5 验收）
-      return reply.send(await engine.testModel(providerId))
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { providerId } = parseOr400(ProviderIdParams, req.params)
+    // ok=false 不是传输失败：连通/鉴权问题走 200 + 人话文案（工单 6.5 验收）
+    return reply.send(await engine.testModel(providerId))
   })
 
   app.put('/api/sessions/:id/model', async (req, reply) => {
-    try {
-      const { id } = parseOr400(IdParams, req.params)
-      const body = parseOr400(SetModelBody, req.body)
-      await requireHandle(engine, id) // 存在性校验（未加载会话先 resume，与其他 :id 端点同纪律）
-      const model = await engine.setSessionModel(id, body.model)
-      return reply.send({ model })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id } = parseOr400(IdParams, req.params)
+    const body = parseOr400(SetModelBody, req.body)
+    await requireHandle(engine, id) // 存在性校验（未加载会话先 resume，与其他 :id 端点同纪律）
+    const model = await engine.setSessionModel(id, body.model)
+    return reply.send({ model })
   })
 
   // 推理档位（工单 10.6）：会话级内存态，下一 turn 生效；重启回 models.json 缺省
   app.put('/api/sessions/:id/effort', async (req, reply) => {
-    try {
-      const { id } = parseOr400(IdParams, req.params)
-      const body = parseOr400(SetEffortBody, req.body)
-      await requireHandle(engine, id) // 存在性校验（同 :id 端点纪律）
-      const effort = await engine.setSessionEffort(id, body.effort)
-      return reply.send({ effort })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id } = parseOr400(IdParams, req.params)
+    const body = parseOr400(SetEffortBody, req.body)
+    await requireHandle(engine, id) // 存在性校验（同 :id 端点纪律）
+    const effort = await engine.setSessionEffort(id, body.effort)
+    return reply.send({ effort })
   })
 
   // 模型路由（阶段七工单 7.7 / H07）：fallback 链 + 任务路由档 + 成本熔断（热生效）
@@ -533,20 +432,12 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
   })
 
   app.put('/api/routing', async (req, reply) => {
-    try {
-      const patch = parseOr400(RoutingUpdateSchema, req.body)
-      return reply.send(engine.updateRouting(patch))
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const patch = parseOr400(RoutingUpdateSchema, req.body)
+    return reply.send(engine.updateRouting(patch))
   })
 
   app.delete('/api/routing/usage', async (req, reply) => {
-    try {
-      return reply.send(engine.resetUsage())
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    return reply.send(engine.resetUsage())
   })
 
   // 设置读写（工单 10.20 B / 10.21 / ADR D28）：spark.json 脱敏读 + 部分字段写
@@ -555,12 +446,8 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
   })
 
   app.put('/api/settings', async (req, reply) => {
-    try {
-      const patch = parseOr400(SettingsUpdateSchema, req.body)
-      return reply.send(engine.updateSettings(patch))
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const patch = parseOr400(SettingsUpdateSchema, req.body)
+    return reply.send(engine.updateSettings(patch))
   })
 
   // 命令注册表（阶段七工单 7.4 / H04）：/命令 解析框架的线上入口
@@ -570,18 +457,14 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
   })
 
   app.post('/api/sessions/:id/commands/:name', async (req, reply) => {
-    try {
-      const { id, name } = parseOr400(CommandNameParams, req.params)
-      // body 可空（无补充参数的命令调用）——ExecuteCommandBody 对 undefined 原样通过
-      const body =
-        req.body === undefined || req.body === null
-          ? undefined
-          : parseOr400(ExecuteCommandBodySchema, req.body)
-      await engine.executeCommand(id, name, body?.args)
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id, name } = parseOr400(CommandNameParams, req.params)
+    // body 可空（无补充参数的命令调用）——ExecuteCommandBody 对 undefined 原样通过
+    const body =
+      req.body === undefined || req.body === null
+        ? undefined
+        : parseOr400(ExecuteCommandBodySchema, req.body)
+    await engine.executeCommand(id, name, body?.args)
+    return reply.send({ ok: true })
   })
 
   app.get('/api/mcp', () => {
@@ -596,138 +479,90 @@ export const registerRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) 
 
   // 长期记忆（阶段七工单 7.5 / H05 / ADR D25）：设置页管理的线上入口
   app.get('/api/memories', async (req, reply) => {
-    try {
-      return reply.send(engine.listMemories())
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    return reply.send(engine.listMemories())
   })
 
   app.delete('/api/memories/:id', async (req, reply) => {
-    try {
-      const { id } = parseOr400(MemoryIdParams, req.params)
-      if (!engine.removeMemory(id)) {
-        return reply.code(404).send({ code: 'E_NOT_FOUND', message: `记忆 ${id} 不存在` })
-      }
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
+    const { id } = parseOr400(MemoryIdParams, req.params)
+    if (!engine.removeMemory(id)) {
+      return reply.code(404).send({ code: 'E_NOT_FOUND', message: `记忆 ${id} 不存在` })
     }
+    return reply.send({ ok: true })
   })
 
   // 自动化触发器（阶段七工单 7.6 / H06 / ADR D26）：cron/watch/webhook → 自动建会话执行 prompt
   app.get('/api/automation', async (req, reply) => {
-    try {
-      return reply.send(engine.listAutomations())
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    return reply.send(engine.listAutomations())
   })
 
   app.post('/api/automation', async (req, reply) => {
-    try {
-      const input = parseOr400(AutomationCreateSchema, req.body)
-      return reply.code(201).send(engine.createAutomation(input))
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const input = parseOr400(AutomationCreateSchema, req.body)
+    return reply.code(201).send(engine.createAutomation(input))
   })
 
   app.delete('/api/automation/:id', async (req, reply) => {
-    try {
-      const { id } = parseOr400(AutomationIdParams, req.params)
-      if (!engine.removeAutomation(id)) {
-        return reply.code(404).send({ code: 'E_NOT_FOUND', message: `触发器 ${id} 不存在` })
-      }
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
+    const { id } = parseOr400(AutomationIdParams, req.params)
+    if (!engine.removeAutomation(id)) {
+      return reply.code(404).send({ code: 'E_NOT_FOUND', message: `触发器 ${id} 不存在` })
     }
+    return reply.send({ ok: true })
   })
 
   app.put('/api/automation/:id/enabled', async (req, reply) => {
-    try {
-      const { id } = parseOr400(AutomationIdParams, req.params)
-      const { enabled } = parseOr400(AutomationEnabledBody, req.body)
-      if (!engine.setAutomationEnabled(id, enabled)) {
-        return reply.code(404).send({ code: 'E_NOT_FOUND', message: `触发器 ${id} 不存在` })
-      }
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
+    const { id } = parseOr400(AutomationIdParams, req.params)
+    const { enabled } = parseOr400(AutomationEnabledBody, req.body)
+    if (!engine.setAutomationEnabled(id, enabled)) {
+      return reply.code(404).send({ code: 'E_NOT_FOUND', message: `触发器 ${id} 不存在` })
     }
+    return reply.send({ ok: true })
   })
 
   app.get('/api/automation/runs', async (req, reply) => {
-    try {
-      const { limit } = parseOr400(AutomationRunsQuery, req.query)
-      return reply.send(engine.listAutomationRuns(limit ?? 100))
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { limit } = parseOr400(AutomationRunsQuery, req.query)
+    return reply.send(engine.listAutomationRuns(limit ?? 100))
   })
 
   // 审计日志（阶段七工单 7.12 / H11）：permission 决策 / 规则变更 / rollback 明细流
   app.get('/api/audit', async (req, reply) => {
-    try {
-      const q = parseOr400(AuditQuery, req.query)
-      return reply.send(
-        engine.listAudit({
-          limit: q.limit ?? 200,
-          ...(q.kind !== undefined ? { kind: q.kind } : {}),
-          ...(q.result !== undefined ? { result: q.result } : {}),
-          ...(q.tool !== undefined ? { tool: q.tool } : {}),
-          ...(q.since !== undefined ? { since: q.since } : {}),
-        }),
-      )
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const q = parseOr400(AuditQuery, req.query)
+    return reply.send(
+      engine.listAudit({
+        limit: q.limit ?? 200,
+        ...(q.kind !== undefined ? { kind: q.kind } : {}),
+        ...(q.result !== undefined ? { result: q.result } : {}),
+        ...(q.tool !== undefined ? { tool: q.tool } : {}),
+        ...(q.since !== undefined ? { since: q.since } : {}),
+      }),
+    )
   })
 
   // 会话全文搜索（阶段七工单 7.13 / H12）：用户/助手消息 + 会话标题入 FTS5
   app.get('/api/search', async (req, reply) => {
-    try {
-      const q = parseOr400(SearchQuery, req.query)
-      return reply.send(engine.searchSessions(q.q, q.limit ?? 20))
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const q = parseOr400(SearchQuery, req.query)
+    return reply.send(engine.searchSessions(q.q, q.limit ?? 20))
   })
 
   // 浏览器截图供图（阶段七工单 7.10 / H09 / ADR D27）：
   // 文件名白名单（shot-<ts>-<seq>.png）校验在引擎侧，路径逃逸零面
   app.get('/api/artifacts/:file', async (req, reply) => {
-    try {
-      const { file } = parseOr400(ArtifactParams, req.params)
-      const buf = engine.readScreenshot(file)
-      if (buf === null) {
-        return reply.code(404).send({ code: 'E_NOT_FOUND', message: 'not found' })
-      }
-      return reply.type('image/png').send(buf)
-    } catch (err) {
-      return sendError(req, reply, err)
+    const { file } = parseOr400(ArtifactParams, req.params)
+    const buf = engine.readScreenshot(file)
+    if (buf === null) {
+      return notFound(reply)
     }
+    return reply.type('image/png').send(buf)
   })
 
   app.post('/api/automation/webhook/:id', async (req, reply) => {
-    try {
-      const { id } = parseOr400(AutomationIdParams, req.params)
-      await engine.fireAutomationWebhook(id)
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id } = parseOr400(AutomationIdParams, req.params)
+    await engine.fireAutomationWebhook(id)
+    return reply.send({ ok: true })
   })
 
   app.post('/api/automation/:id/run', async (req, reply) => {
-    try {
-      const { id } = parseOr400(AutomationIdParams, req.params)
-      await engine.fireAutomationManual(id)
-      return reply.send({ ok: true })
-    } catch (err) {
-      return sendError(req, reply, err)
-    }
+    const { id } = parseOr400(AutomationIdParams, req.params)
+    await engine.fireAutomationManual(id)
+    return reply.send({ ok: true })
   })
 
   // 指标端点（§5.10 清单 / 工单 4.8）：Prometheus exposition 文本

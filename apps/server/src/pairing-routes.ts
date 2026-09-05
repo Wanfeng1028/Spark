@@ -9,7 +9,7 @@ import type { FastifyPluginCallback } from 'fastify'
 import { z } from 'zod'
 import { PairRedeemBodySchema } from '@spark/protocol'
 import type { PairCodeDto, PairStatusDto } from '@spark/protocol'
-import { sendError, validationError } from './errors.js'
+import { parseOr400, sendError, validationError } from './errors.js'
 import type { DeviceStore, PairService } from './pairing.js'
 
 export interface PairingRoutesOptions {
@@ -22,15 +22,6 @@ export interface PairingRoutesOptions {
 }
 
 const DeviceIdParams = z.strictObject({ id: z.string().min(1) })
-
-/** zod 失败 → 400（与 routes.ts 同构） */
-function parseOr400<T>(schema: z.ZodType<T>, input: unknown): T {
-  const parsed = schema.safeParse(input)
-  if (!parsed.success) {
-    throw validationError('参数校验失败', parsed.error.issues)
-  }
-  return parsed.data
-}
 
 export const registerPairingRoutes: FastifyPluginCallback<PairingRoutesOptions> = (app, opts) => {
   const { store, pair, host, port, loopback } = opts
