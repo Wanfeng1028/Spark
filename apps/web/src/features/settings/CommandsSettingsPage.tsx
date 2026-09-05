@@ -3,10 +3,8 @@
  * 形态照 McpSettingsPage：只读真值呈现，不假装可写——自定义 .md 命令的
  * 增改走 ~/.spark/commands 目录，页面如实说明。
  */
-import { useEffect, useState } from 'react'
 import type { CommandDto } from '@spark/protocol'
-import { useTransport } from '@/transports/context'
-import { errorMessageOf } from '@/lib/error-copy'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { SettingGroupCard, SettingRow } from './SettingRow'
 
 /** kind → 人话徽标（action=引擎动作 / prompt=自定义提示词 / client=界面命令） */
@@ -17,24 +15,7 @@ const KIND_LABEL: Record<CommandDto['kind'], string> = {
 }
 
 export function CommandsSettingsPage() {
-  const { transport } = useTransport()
-  const [commands, setCommands] = useState<CommandDto[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    transport
-      .listCommands()
-      .then((list) => {
-        if (!cancelled) setCommands(list)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(errorMessageOf(err))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [transport])
+  const { data: commands, error } = useTransportQuery((t) => t.listCommands())
 
   if (error !== null) return <p className="text-xs text-destructive">{error}</p>
   if (commands === null) return <p className="text-xs text-muted-foreground">加载中…</p>

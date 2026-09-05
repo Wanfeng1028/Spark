@@ -2,41 +2,28 @@
  * 记忆管理页（工单 7.5 / H05 / ADR D25）：GET /api/memories 列表 + 逐条删除。
  * 保存路径 = 会话中模型调 memory.save 工具（审批卡可见内容）；页面只做查看与删除。
  */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
-import type { MemoryDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { errorMessageOf } from '@/lib/error-copy'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { SettingGroupCard, SettingRow } from './SettingRow'
 
 export function MemorySettingsPage() {
   const { transport } = useTransport()
-  const [memories, setMemories] = useState<MemoryDto[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { data: memories, error: loadError, refresh } = useTransportQuery((t) => t.listMemories())
+  const [opError, setOpError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<number | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    transport
-      .listMemories()
-      .then((list) => {
-        if (!cancelled) setMemories(list)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(errorMessageOf(err))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [transport])
+  // 加载失败与删除失败共用同一错误条（原单 error 态语义保持）
+  const error = loadError ?? opError
 
   async function remove(id: number): Promise<void> {
     setDeleting(id)
     try {
       await transport.removeMemory(id)
-      setMemories((ms) => (ms ?? []).filter((m) => m.id !== id))
+      await refresh()
     } catch (err) {
-      setError(errorMessageOf(err))
+      setOpError(errorMessageOf(err))
     } finally {
       setDeleting(null)
     }

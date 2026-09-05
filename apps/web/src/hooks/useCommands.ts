@@ -1,37 +1,17 @@
 /**
- * useCommands（工单 7.4 / H04）：命令注册表加载 hook。
- * GET /api/commands 一次性拉取（内置基线 + ~/.spark/commands/*.md 自定义）；
- * / 菜单与 CommandPalette 共用。null = 加载中（菜单先显示静态基线）。
+ * useCommands（命令注册表数据源：transport.listCommands()——工单 7.4）：
+ * / 菜单静态基线 + 引擎动态清单合并的加载 hook。R-E① 起改为 useTransportQuery 消费者。
  */
-import { useCallback, useEffect, useState } from 'react'
 import type { CommandDto } from '@spark/protocol'
-import { useTransport } from '@/transports/context'
-import { errorMessageOf } from '@/lib/error-copy'
+import { useTransportQuery } from './useTransportQuery'
 
 export interface CommandsState {
-  commands: CommandDto[] | null
+  commands: CommandDto[] | null // null = 加载中
   error: string | null
   refresh: () => Promise<void>
 }
 
 export function useCommands(): CommandsState {
-  const { transport } = useTransport()
-  const [commands, setCommands] = useState<CommandDto[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  const refresh = useCallback(async () => {
-    setError(null)
-    try {
-      setCommands(await transport.listCommands())
-    } catch (err) {
-      // 失败闭合：清单不可用时 / 菜单回退静态基线（client 命令仍可用）
-      setError(errorMessageOf(err))
-    }
-  }, [transport])
-
-  useEffect(() => {
-    void refresh()
-  }, [refresh])
-
+  const { data: commands, error, refresh } = useTransportQuery((t) => t.listCommands())
   return { commands, error, refresh }
 }

@@ -3,31 +3,11 @@
  * 技能来自 ~/.spark/skills/&lt;name&gt;/skill.json 声明式清单（ADR D18：插件是数据
  * 不是程序）；管理页与市场属 v2 候选池 H17/H18。
  */
-import { useEffect, useState } from 'react'
-import type { SkillDto } from '@spark/protocol'
-import { useTransport } from '@/transports/context'
-import { errorMessageOf } from '@/lib/error-copy'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { SettingGroupCard, SettingRow } from './SettingRow'
 
 export function SkillsSettingsPage() {
-  const { transport } = useTransport()
-  const [skills, setSkills] = useState<SkillDto[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    transport
-      .listSkills()
-      .then((list) => {
-        if (!cancelled) setSkills(list)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(errorMessageOf(err))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [transport])
+  const { data: skills, error } = useTransportQuery((t) => t.listSkills())
 
   if (error !== null) return <p className="text-xs text-destructive">{error}</p>
   if (skills === null) return <p className="text-xs text-muted-foreground">加载中…</p>
