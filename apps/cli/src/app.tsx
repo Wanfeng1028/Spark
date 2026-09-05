@@ -11,29 +11,20 @@ import { dirname, join, resolve } from 'node:path'
 import { HttpTransport, humanizeError } from '@spark/protocol'
 import type { FsEntryDto, RequestId } from '@spark/protocol'
 import { useCliStore } from './store.js'
-import { MessagePane } from './components/MessagePane.js'
 import { InputBox, type InputBoxHandle } from './components/InputBox.js'
 import { Footer } from './components/Footer.js'
 import { BootHeader } from './components/BootHeader.js'
 import { LoadingIndicator } from './components/LoadingIndicator.js'
 import { ApprovalPrompt } from './components/ApprovalPrompt.js'
 import type { ApprovalItem } from './components/ApprovalPrompt.js'
-import { HelpPanel } from './components/HelpPanel.js'
-import { ResumePanel } from './components/ResumePanel.js'
-import { StatsPanel } from './components/StatsPanel.js'
-import {
-  CheckpointsPanel,
-  McpPanel,
-  ModelPanel,
-  SkillsPanel,
-  TreePanel,
-  UsagePanel,
-} from './components/CommandPanels.js'
-import { SlashMenu, SLASH_PAGE_SIZE, filterSlashCommands } from './components/SlashMenu.js'
+import { SlashMenu, SLASH_PAGE_SIZE } from './components/SlashMenu.js'
 import { FsMenu, FS_PAGE_SIZE, parseAtToken } from './components/FsMenu.js'
 import { useCliKeys } from './hooks/use-cli-keys.js'
 import { useFsCompletion } from './hooks/use-fs-completion.js'
 import { useSessionStream } from './hooks/use-session-stream.js'
+import { PanelRouter } from './components/PanelRouter.js'
+import { useSlashMenu } from './hooks/use-slash-menu.js'
+import { useResumePanel } from './hooks/use-resume-panel.js'
 import { useCliActions } from './hooks/use-cli-actions.js'
 
 export function App({ baseUrl }: { baseUrl: string }) {
@@ -73,24 +64,13 @@ export function App({ baseUrl }: { baseUrl: string }) {
 
   /** 拒绝反馈模式（3 之后展开——工单 8.3/10.9） */
   const [rejecting, setRejecting] = useState<RequestId | null>(null)
-  /** /resume 预览态（工单 10.11 / §13.K K.7：Space 切换，选中即预览对象） */
-  const [resumePreview, setResumePreview] = useState(false)
+  // ---------- slash 菜单派生态（R-G②：use-slash-menu hook） ----------
 
-  // ---------- slash 菜单派生态（工单 10.10）：/ 前缀且未含空格即开 ----------
-
-  const slashQuery =
-    panel === 'none' && draftPreview.startsWith('/') && !draftPreview.includes(' ')
-      ? draftPreview.slice(1)
-      : null
-  const slashItems = useMemo(
-    () => (slashQuery === null ? [] : filterSlashCommands(commands, slashQuery)),
-    [slashQuery, commands],
-  )
-  const [slashSelected, setSlashSelected] = useState(0)
-  useEffect(() => {
-    setSlashSelected(0) // 过滤词变化回位首项
-  }, [slashQuery])
-  const slashOpen = slashQuery !== null && slashItems.length > 0
+  const slash = useSlashMenu(panel, draftPreview, commands)
+  const slashItems = slash.items
+  const slashSelected = slash.selected
+  const setSlashSelected = slash.setSelected
+  const slashOpen = slash.open
 
   // ---------- @ 文件路径补全派生态（工单 10.53）：尾部 @ token 触发，cwd 目录列举 ----------
 
@@ -116,24 +96,14 @@ export function App({ baseUrl }: { baseUrl: string }) {
     inputRef.current?.setValue(`${baseText.slice(0, tok.start)}@${entry.path}${suffix}`)
   }, [])
 
-  // ---------- /resume 面板派生态（工单 10.11）：过滤 = 输入框内容 ----------
+  // ---------- /resume 面板派生态（R-G②：use-resume-panel hook） ----------
 
-  const resumeFiltered = useMemo(() => {
-    const q = panel === 'resume' ? draftPreview.trim().toLowerCase() : ''
-    const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)
-    if (q === '') return sorted
-    return sorted.filter((s) =>
-      (s.title === '' ? '新会话' : s.title).toLowerCase().includes(q),
-    )
-  }, [panel, draftPreview, sessions])
-  const [resumeSelected, setResumeSelected] = useState(0)
-  useEffect(() => {
-    setResumeSelected(0)
-  }, [panel, draftPreview])
-  // 预览态随面板关闭复位（预览对象只在 resume 面板内有意义）
-  useEffect(() => {
-    if (panel !== 'resume') setResumePreview(false)
-  }, [panel])
+  const resume = useResumePanel(panel, draftPreview, sessions)
+  const resumeFiltered = resume.filtered
+  const resumeSelected = resume.selected
+  const setResumeSelected = resume.setSelected
+  const resumePreview = resume.preview
+  const setResumePreview = resume.setPreview
 
   // ---------- 清屏 + Static 重挂（工单 10.38/10.40，qwen refreshStatic 同款） ----------
 
@@ -274,55 +244,22 @@ export function App({ baseUrl }: { baseUrl: string }) {
 
   return (
     <Box flexDirection="column">
-      {panel === 'help' ? (
-        <HelpPanel columns={columns} />
-      ) : panel === 'resume' ? (
-        <ResumePanel
-          sessions={resumeFiltered}
-          selected={resumeSelected}
-          filter={panel === 'resume' ? draftPreview : ''}
-          activeId={activeSessionId}
-          preview={resumePreview ? resumeFiltered[resumeSelected] : undefined}
-        />
-      ) : panel === 'stats' ? (
-        <StatsPanel slice={slice} />
-      ) : panel === 'model' ? (
-        <ModelPanel
-          models={models}
-          current={slice !== null && slice.meta.model !== '' ? slice.meta.model : null}
-          onPick={actions.pickModel}
-        />
-      ) : panel === 'mcp' ? (
-        <McpPanel transport={transport} />
-      ) : panel === 'skills' ? (
-        <SkillsPanel transport={transport} />
-      ) : panel === 'usage' ? (
-        <UsagePanel transport={transport} />
-      ) : panel === 'checkpoints' ? (
-        activeSessionId !== null ? (
-          <CheckpointsPanel transport={transport} sessionId={activeSessionId} />
-        ) : null
-      ) : panel === 'tree' ? (
-        activeSessionId !== null ? (
-          <TreePanel transport={transport} sessionId={activeSessionId} />
-        ) : null
-      ) : models === null ? (
-        // 10.38：Static 首印不可更新——models 到位后才挂面板，信息盒首印即真值
-        <Box marginLeft={2}>
-          <Text color="gray">连接中...</Text>
-        </Box>
-      ) : (
-        // 10.38：BootHeader 恒为 Static 首项（MessagePane 内），消息紧随其后——
-        // 帧内不再有居中 boot 分支；staticEpoch 变化时 Static 重挂整屏重印
-        <MessagePane
-          slice={slice}
-          maxLiveRows={liveBudget}
-          staticKey={staticEpoch + replayNonce}
-          header={
-            <BootHeader slice={slice} models={models} columns={columns} agentsPath={agentsPath} />
-          }
-        />
-      )}
+      <PanelRouter
+        panel={panel}
+        draft={panel === 'resume' ? draftPreview : ''}
+        columns={columns}
+        sessions={resumeFiltered}
+        resumeSelected={resumeSelected}
+        resumePreview={resumePreview}
+        activeSessionId={activeSessionId}
+        slice={slice}
+        models={models}
+        actions={actions}
+        transport={transport}
+        liveBudget={liveBudget}
+        staticKey={staticEpoch + replayNonce}
+        {...(agentsPath !== undefined ? { agentsPath } : {})}
+      />
       {slashOpen && slashItems.length > 0 && panel === 'none' ? (
         <SlashMenu
           items={slashItems}
