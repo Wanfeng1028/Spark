@@ -27,23 +27,6 @@ export type SessionRow =
  * `before=最早seq` 语义保证较旧页整体早于既有窗口且页内升序——直接前置即得正确重放序。
  * 幂等：同页重复合并不产生重复事件（弱网重试安全）。
  */
-export function mergeEventPage(
-  olderPage: readonly SparkEventEnvelope[],
-  existing: readonly SparkEventEnvelope[],
-): SparkEventEnvelope[] {
-  const seen = new Set(existing.map((e) => e.id))
-  return [...olderPage.filter((e) => !seen.has(e.id)), ...existing]
-}
-
-/**
- * 重放重复帧判定（评审 H4，与 applyEvent 去重同口径）：
- * durable（带 seq）且 seq 已在水位内 → 重复帧（库轮询重开时服务端按旧水位重放）。
- * 窗口去重同律，防重复信封入窗致 FlatList 重复 key。
- */
-export function isReplayedDuplicate(e: { seq?: number }, watermark: number): boolean {
-  return e.seq !== undefined && e.seq <= watermark
-}
-
 /** 时间戳分隔判定：相邻消息间隔 >30 分钟插分隔（时间缺失不插——不拿缺数据冒充） */
 export function shouldInsertTimestamp(
   prevTime: number | undefined,

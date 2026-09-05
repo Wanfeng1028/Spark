@@ -47,37 +47,5 @@ export const useAppStore = create<AppState>()((set) => ({
   setNotice: (notice) => set({ notice }),
 }))
 
-/**
- * 事件批处理入队：缓冲按到达序、rAF 帧边界统一 flush（顺序不乱、一帧一次渲染）。
- * 调度器可注入（测试用同步调度）；缺省 requestAnimationFrame（RN 全局）。
- */
-export interface EventBatcher {
-  enqueue: (e: SparkEventEnvelope) => void
-  /** 立即 flush 挂起缓冲（卸载/测试断言用） */
-  flushNow: () => void
-}
 
-export function createEventBatcher(
-  apply: (e: SparkEventEnvelope) => void,
-  schedule: (fn: () => void) => void = (fn) => {
-    requestAnimationFrame(fn)
-  },
-): EventBatcher {
-  const buf: SparkEventEnvelope[] = []
-  let pending = false
-  const flush = (): void => {
-    pending = false
-    const batch = buf.splice(0)
-    for (const e of batch) apply(e)
-  }
-  return {
-    enqueue: (e) => {
-      buf.push(e)
-      if (!pending) {
-        pending = true
-        schedule(flush)
-      }
-    },
-    flushNow: flush,
-  }
-}
+  

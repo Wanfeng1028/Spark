@@ -4,6 +4,7 @@
  * 消息行构建（含审批事件投影快照）/ Composer 自增高度。
  */
 import type { SparkEventEnvelope } from '@spark/protocol'
+import { isReplayedDuplicate, mergeEventPage } from '@spark/protocol'
 import { applyEvent, emptySessionSlice, formatTimestamp, ids } from '@spark/protocol'
 import type { ProjectionState } from '@spark/protocol'
 import {
@@ -12,10 +13,7 @@ import {
   TIMESTAMP_GAP_MS,
   buildSessionRows,
   composerHeight,
-  composerLinesFromContentSize,
-  isReplayedDuplicate,
-  mergeEventPage,
-  shouldInsertTimestamp,
+  composerLinesFromContentSize,  shouldInsertTimestamp,
 } from '../src/session/session-rows'
 
 const SID = ids.session('ses_rows_test')

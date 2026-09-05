@@ -5,7 +5,7 @@
  */
 import type { EventId, SparkEventEnvelope } from '@spark/protocol'
 import { ids } from '@spark/protocol'
-import { createEventBatcher, useAppStore } from '../src/store/app-store'
+import { useAppStore } from '../src/store/app-store'
 
 const SID = ids.session('ses_store_test')
 const TID = ids.turn('trn_store_test_1')
@@ -128,50 +128,5 @@ describe('applyEvent 投影（典型事件序列快照）', () => {
     expect(s.sessions).toHaveLength(1)
     expect(s.activeSessionId).toBe(SID)
     expect(s.notice).toBe('提示')
-  })
-})
-
-describe('createEventBatcher（rAF 批处理）', () => {
-  it('同帧多事件仅一次调度、按到达序应用', () => {
-    const applied: string[] = []
-    const scheduled: Array<() => void> = []
-    const batcher = createEventBatcher(
-      (e) => {
-        applied.push(e.type)
-      },
-      (fn) => {
-        scheduled.push(fn)
-      },
-    )
-
-    batcher.enqueue(assistantDelta('一'))
-    batcher.enqueue(assistantDelta('二'))
-    expect(scheduled).toHaveLength(1)
-    expect(applied).toEqual([])
-
-    scheduled[0]?.()
-    expect(applied).toEqual(['assistant.delta', 'assistant.delta'])
-
-    // 下一事件重新调度（帧边界复位）
-    batcher.enqueue(assistantDelta('三'))
-    expect(scheduled).toHaveLength(2)
-    scheduled[1]?.()
-    expect(applied).toEqual(['assistant.delta', 'assistant.delta', 'assistant.delta'])
-  })
-
-  it('flushNow 立即排空缓冲', () => {
-    const applied: string[] = []
-    const batcher = createEventBatcher(
-      (e) => {
-        applied.push(e.type)
-      },
-      () => {
-        // 永不调度——只靠 flushNow
-      },
-    )
-    batcher.enqueue(turnCompleted(9))
-    expect(applied).toEqual([])
-    batcher.flushNow()
-    expect(applied).toEqual(['turn.completed'])
   })
 })

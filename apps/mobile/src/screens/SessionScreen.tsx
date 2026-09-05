@@ -22,15 +22,18 @@ import { useNavigation, useRoute } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { RouteProp } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import type {
-  EventId,
-  PermissionReply,
-  ProjectionState,
-  RequestId,
-  SessionSlice,
-  SparkEventEnvelope,
+import type { ProjectionState, RequestId } from '@spark/protocol'
+import {
+  CONNECTION_TEXT,
+  createSessionPageController,
+  emptySessionSlice,
+  errorMessageOf,
+  formatTimestamp,
+  ids,
+  type PermissionReply,
+  type SessionPageController,
+  type SessionPageSnapshot,
 } from '@spark/protocol'
-import { CONNECTION_TEXT, applyEvent, emptySessionSlice, errorMessageOf, formatTimestamp, ids } from '@spark/protocol'
 import { useTheme } from '../theme/use-theme'
 import { mobileMetrics } from '../theme/tokens'
 import { EmptyState, RoundFloatButton, ScreenHeader } from '../components/ui'
@@ -43,15 +46,8 @@ import {
 } from '../components/session-items'
 import { Composer } from '../components/composer'
 import { useConfigStore } from '../store/config-store'
-import { createEventBatcher, useAppStore } from '../store/app-store'
-import type { EventBatcher } from '../store/app-store'
 import { getHttpTransport, openSessionStream } from '../transport/runtime'
-import type { RnSessionEventSource } from '../transport/rn-event-source'
-import {
-  buildSessionRows,
-  isReplayedDuplicate,
-  mergeEventPage,
-} from '../session/session-rows'
+import { buildSessionRows } from '../session/session-rows'
 import type { SessionRow } from '../session/session-rows'
 import type { SessionsStackParamList } from '../navigation/params'
 
@@ -87,177 +83,70 @@ export function SessionScreen() {
 
   const serverUrl = useConfigStore((s) => s.serverUrl)
   const token = useConfigStore((s) => s.token)
-  const status = useAppStore((s) => s.status)
-  const notice = useAppStore((s) => s.notice)
-  const setNotice = useAppStore((s) => s.setNotice)
-  const setStatus = useAppStore((s) => s.setStatus)
-
-  const [slice, setSlice] = useState<SessionSlice>(() => emptySessionSlice(sid))
-  const [sending, setSending] = useState(false)
-  const [approvalBusy, setApprovalBusy] = useState(false)
-  // 防抖闸门用 ref（回调闭包内即时可读；state 仅供三键 disabled 渲染，评审 H3）
-  const approvalBusyRef = useRef(false)
-  const [loadingOlder, setLoadingOlder] = useState(false)
   const [atBottom, setAtBottom] = useState(true)
 
-  // 本地事件窗 + 时间侧表（分页合并/重放/时间戳分隔的数据源；ref 不触发渲染）
-  const eventsRef = useRef<SparkEventEnvelope[]>([])
-  const timesRef = useRef<Map<EventId, number>>(new Map())
-  const watermarkRef = useRef(0)
-  const hasMoreRef = useRef(true)
-  const loadingOlderRef = useRef(false)
-  const batcherRef = useRef<EventBatcher | null>(null)
-  const streamRef = useRef<RnSessionEventSource | null>(null)
+  // R-H：装载/翻页/发送/审批/notice 逻辑收敛 protocol session-page controller——
+  // 屏幕只持快照渲染与薄接线（rest/开流工厂注入）
+  const controllerRef = useRef<SessionPageController | null>(null)
+  const [snap, setSnap] = useState<SessionPageSnapshot>(() => ({
+    slice: emptySessionSlice(sid),
+    status: 'connecting',
+    notice: null,
+    hasMore: true,
+    loadingOlder: false,
+    sending: false,
+    approvalBusy: false,
+  }))
+  const controller = controllerRef.current
+  const slice = snap.slice
+  const notice = snap.notice
+  const status = snap.status
+  const loadingOlder = snap.loadingOlder
   const listRef = useRef<FlatList<SessionRow>>(null)
   const atBottomRef = useRef(true)
   atBottomRef.current = atBottom
 
-  // 打开会话：最新一页回放（批处理投影）→ 以水位开续播流
+  // R-H：装载回放+开流/翻页/发送/审批/notice 全在 controller——本 effect 只做装配与收口
   useEffect(() => {
-    let cancelled = false
-    const transport = getHttpTransport(serverUrl, token)
-    if (transport === null) return () => undefined
-
-    const applyLocal = (e: SparkEventEnvelope): void => {
-      // 评审 H4：库轮询重开时服务端按旧水位重放——带 seq 且已在水位内即重复帧，
-      // 不入窗（与 applyEvent 去重同口径），防重复信封致 FlatList 重复 key。
-      if (isReplayedDuplicate(e, watermarkRef.current)) return
-      eventsRef.current.push(e)
-      timesRef.current.set(e.id, e.time)
-      if (e.seq !== undefined && e.seq > watermarkRef.current) watermarkRef.current = e.seq
-      setSlice((s) => applyEvent({ byId: { [sid]: s }, activeId: sid }, e).byId[sid] ?? s)
-    }
-    const batcher = createEventBatcher(applyLocal)
-    batcherRef.current = batcher
-
-    void (async () => {
-      let replayOk = false
-      try {
-        const dto = await transport.getSession(sid, { limit: PAGE_SIZE })
-        if (cancelled) return
-        const events = dto.events ?? []
-        if (events.length < PAGE_SIZE) hasMoreRef.current = false
-        for (const e of events) batcher.enqueue(e)
-        batcher.flushNow()
-        replayOk = true
-      } catch (err: unknown) {
-        if (!cancelled) setNotice(errorMessageOf(err))
-      }
-      if (cancelled) return
-      // 续播流：since=回放水位（重放与直播重叠由 applyEvent seq 去重）；
-      // 评审 H2：取页失败退化为 since=0 直接开流（服务端补全量，SSE 自带退避重连）——
-      // 不留“取页失败即永不开流”的空白卡死路径。
-      streamRef.current = openSessionStream({
-        sessionId: sid,
-        serverUrl,
-        token,
-        since: replayOk ? watermarkRef.current : 0,
-        onEvent: (e) => batcherRef.current?.enqueue(e),
-        onStatus: (s) => setStatus(s),
-        onError: (err) => setNotice(errorMessageOf(err)),
-      })
-    })()
-
+    const c = createSessionPageController({
+      sessionId: sid,
+      pageSize: PAGE_SIZE,
+      rest: () => getHttpTransport(serverUrl, token),
+      openStream: (since, handlers) => {
+        const src = openSessionStream({ sessionId: sid, serverUrl, token, since, ...handlers })
+        return src ?? { dispose: () => undefined }
+      },
+      // 批处理同帧合并（RN=RAF，原 batcher 同款调度）
+      schedule: (fn) => requestAnimationFrame(fn),
+      onUpdate: setSnap,
+    })
+    controllerRef.current = c
+    c.start()
     return () => {
-      cancelled = true
-      streamRef.current?.dispose()
-      streamRef.current = null
-      batcher.flushNow()
-      batcherRef.current = null
+      c.dispose()
+      controllerRef.current = null
     }
-  }, [sid, serverUrl, token, setNotice, setStatus])
+  }, [sid, serverUrl, token])
 
-  // 上拉到顶 → 向上翻页：较旧一页升序合并 + 全量重放重建投影（滚动位置不跳）
-  const loadOlder = useCallback(async (): Promise<void> => {
-    if (loadingOlderRef.current || !hasMoreRef.current) return
-    const oldest = eventsRef.current.find((e) => e.seq !== undefined)
-    if (oldest === undefined || oldest.seq === undefined) return
-    const transport = getHttpTransport(serverUrl, token)
-    if (transport === null) return
-    loadingOlderRef.current = true
-    setLoadingOlder(true)
-    try {
-      const dto = await transport.getSession(sid, { limit: PAGE_SIZE, before: oldest.seq })
-      const page = dto.events ?? []
-      if (page.length < PAGE_SIZE) hasMoreRef.current = false
-      if (page.length === 0) return
-      const merged = mergeEventPage(page, eventsRef.current)
-      // 全量重放（升序红线）：较旧事件不得增量叠加在较新投影之后
-      let state: ProjectionState = { byId: {}, activeId: sid }
-      const times = new Map<EventId, number>()
-      for (const e of merged) {
-        times.set(e.id, e.time)
-        state = applyEvent(state, e)
-      }
-      eventsRef.current = merged
-      timesRef.current = times
-      setSlice(state.byId[sid] ?? emptySessionSlice(sid))
-    } catch (err: unknown) {
-      setNotice(errorMessageOf(err))
-    } finally {
-      loadingOlderRef.current = false
-      setLoadingOlder(false)
-    }
-  }, [sid, serverUrl, token, setNotice])
-
-  // 发消息 / 中断 / 审批决策（失败文案走 errorMessageOf，不自造）
+  // 发消息 / 中断 / 审批决策（防抖闸门 H3 在 controller 内）
   const handleSend = useCallback(
-    async (text: string): Promise<void> => {
-      const transport = getHttpTransport(serverUrl, token)
-      if (transport === null) return
-      setSending(true)
-      try {
-        await transport.sendMessage(sid, text)
-      } catch (err: unknown) {
-        setNotice(errorMessageOf(err))
-      } finally {
-        setSending(false)
-      }
+    (text: string): void => {
+      void controllerRef.current?.send(text)
     },
-    [sid, serverUrl, token, setNotice],
+    [],
   )
+  const handleStop = useCallback((): void => {
+    void controllerRef.current?.stop()
+  }, [])
+  const handleReply = useCallback((requestId: RequestId, reply: PermissionReply): void => {
+    void controllerRef.current?.reply(requestId, reply)
+  }, [])
 
-  const handleStop = useCallback(async (): Promise<void> => {
-    const transport = getHttpTransport(serverUrl, token)
-    if (transport === null) return
-    try {
-      await transport.interrupt(sid)
-    } catch (err: unknown) {
-      setNotice(errorMessageOf(err))
-    }
-  }, [sid, serverUrl, token, setNotice])
 
-  const handleReply = useCallback(
-    async (requestId: RequestId, reply: PermissionReply): Promise<void> => {
-      // 评审 H3：防抖闸门——快速双击不二次发 replyPermission
-      // （服务端 409 安全，但用户会看到误导性错误条）
-      if (approvalBusyRef.current) return
-      const transport = getHttpTransport(serverUrl, token)
-      if (transport === null) return
-      approvalBusyRef.current = true
-      setApprovalBusy(true)
-      try {
-        await transport.replyPermission(requestId, reply)
-      } catch (err: unknown) {
-        setNotice(errorMessageOf(err))
-      } finally {
-        approvalBusyRef.current = false
-        setApprovalBusy(false)
-      }
-    },
-    [serverUrl, token, setNotice],
-  )
-
-  // 人话提示条 5s 自清（不留陈旧错误冒充现状）
-  useEffect(() => {
-    if (notice === null) return () => undefined
-    const timer = setTimeout(() => setNotice(null), 5000)
-    return () => clearTimeout(timer)
-  }, [notice, setNotice])
-
+  const timeOf = controller?.timeOf
   const rows = useMemo(
-    () => buildSessionRows(slice.items, (id) => timesRef.current.get(id)),
-    [slice],
+    () => buildSessionRows(slice.items, (id) => timeOf?.(id)),
+    [slice, timeOf],
   )
   const data = useMemo(() => [...rows].reverse(), [rows])
 
@@ -281,7 +170,7 @@ export function SessionScreen() {
       case 'tool':
         return <ToolCard item={it} />
       case 'approval':
-        return <ApprovalCard item={it} busy={approvalBusy} onReply={(r) => void handleReply(it.requestId, r)} />
+        return <ApprovalCard item={it} busy={snap.approvalBusy} onReply={(r) => void handleReply(it.requestId, r)} />
       case 'turn':
         // 回合头暂无移动端形态（§13.J 未定义），穷尽分支渲染空
         return null
@@ -328,7 +217,7 @@ export function SessionScreen() {
             keyExtractor={(r) => r.key}
             renderItem={renderRow}
             contentContainerStyle={styles.listContent}
-            onEndReached={() => void loadOlder()}
+            onEndReached={() => void controllerRef.current?.loadOlder()}
             onEndReachedThreshold={0.4}
             keyboardDismissMode="on-drag"
             scrollEventThrottle={100}
@@ -336,7 +225,7 @@ export function SessionScreen() {
             ListHeaderComponent={
               loadingOlder ? (
                 <ActivityIndicator style={styles.pager} color={t.mutedForeground} />
-              ) : !hasMoreRef.current && eventsRef.current.length > 0 ? (
+              ) : !snap.hasMore && snap.slice.items.length > 0 ? (
                 <Text style={[styles.meta, styles.pager, { color: t.mutedForeground }]}>
                   已加载全部历史
                 </Text>
@@ -358,7 +247,7 @@ export function SessionScreen() {
           )}
         </View>
         <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-          <Composer running={running} busy={sending} onSend={(text) => void handleSend(text)} onStop={() => void handleStop()} />
+          <Composer running={running} busy={snap.sending} onSend={(text) => void handleSend(text)} onStop={() => void handleStop()} />
         </View>
       </KeyboardAvoidingView>
     </View>
