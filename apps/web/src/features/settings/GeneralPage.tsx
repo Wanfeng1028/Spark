@@ -11,12 +11,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Delivery, SettingsDto } from '@spark/protocol'
 import { useSettingsStore } from '@/stores/settings'
+import { settingInputCls } from './SettingRow'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { errorMessageOf } from '@/lib/error-copy'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { SettingRow, SettingGroupCard } from './SettingRow'
+import { Button } from '@/components/ui/button'
 
 const DELIVERY_OPTIONS: { value: Delivery; label: string }[] = [
   { value: 'now', label: '立即' },
@@ -100,8 +102,7 @@ function EngineBehaviorSection() {
     }
   }
 
-  const inputCls =
-    'h-8 w-28 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring disabled:opacity-40'
+  const inputCls = settingInputCls + ' w-28 disabled:opacity-40'
   const sandboxOptions = useMemo(() => SANDBOX_OPTIONS, [])
 
   return (
@@ -173,14 +174,14 @@ function EngineBehaviorSection() {
             </div>
           </SettingRow>
           <div className="flex items-center gap-2 px-4 py-3">
-            <button
+            <Button
               type="button"
+              variant="outline"
               disabled={busy}
               onClick={() => void save()}
-              className="h-8 rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
-            >
+              >
               保存
-            </button>
+            </Button>
             {opError !== null && (
               <span className="min-w-0 truncate font-mono text-xs text-[var(--spark-err)]">
                 {opError}

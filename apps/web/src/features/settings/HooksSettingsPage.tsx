@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import type { SettingsDto, SettingsHookDef, SettingsHooks } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { errorMessageOf } from '@/lib/error-copy'
+import { Button } from '@/components/ui/button'
 import { SettingGroupCard, SettingRow } from './SettingRow'
 
 const HOOK_POINTS: { key: keyof SettingsHooks; label: string }[] = [
@@ -83,8 +84,9 @@ export function HooksSettingsPage() {
           title="生命周期钩子"
           description="spark.json hooks 段（工单 7.3 四挂点）；经 GET|PUT /api/settings 读写（工单 10.21 拍板并入）"
         >
-          <button
+          <Button
             type="button"
+            variant="outline"
             disabled={busy}
             onClick={() => {
               setDraft(JSON.stringify(hooks ?? {}, null, 2))
@@ -93,7 +95,7 @@ export function HooksSettingsPage() {
             className="h-7 rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:opacity-40"
           >
             {editing ? '收起编辑' : '编辑'}
-          </button>
+          </Button>
         </SettingRow>
         {configured.length === 0 && !editing && (
           <p className="px-4 py-3 text-xs text-muted-foreground">
@@ -128,14 +130,14 @@ export function HooksSettingsPage() {
               className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs outline-none focus:border-ring disabled:opacity-40"
             />
             <div className="mt-2 flex items-center gap-2">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 disabled={busy}
                 onClick={() => void save()}
-                className="h-8 rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
-              >
+                >
                 保存
-              </button>
+              </Button>
               {opError !== null && (
                 <span className="min-w-0 truncate font-mono text-xs text-[var(--spark-err)]">{opError}</span>
               )}

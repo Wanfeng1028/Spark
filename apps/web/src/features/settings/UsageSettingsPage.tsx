@@ -8,7 +8,8 @@ import { useEffect, useState } from 'react'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { errorMessageOf } from '@/lib/error-copy'
-import { SettingGroupCard, SettingRow } from './SettingRow'
+import { Button } from '@/components/ui/button'
+import { SettingGroupCard, SettingRow, settingInputCls } from './SettingRow'
 
 export function UsageSettingsPage() {
   const { transport } = useTransport()
@@ -84,27 +85,27 @@ export function UsageSettingsPage() {
             placeholder="未设置"
             aria-label="成本上限（美元）"
             disabled={busy}
-            className="h-8 w-24 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring disabled:opacity-40"
+            className={settingInputCls + ' w-24 disabled:opacity-40'}
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
             disabled={busy}
             onClick={() => void saveLimit()}
-            className="h-8 rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
           >
             保存
-          </button>
+          </Button>
         </div>
       </SettingRow>
       <SettingRow title="清零累计" description="成本与 token 计数归零；熔断状态随之解除">
-        <button
+        <Button
           type="button"
+          variant="outline"
           disabled={busy}
           onClick={() => void resetAll()}
-          className="h-8 rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
         >
           清零累计
-        </button>
+        </Button>
       </SettingRow>
       {opError !== null && (
         <p className="px-4 pb-3 font-mono text-xs text-[var(--spark-err)]">{opError}</p>

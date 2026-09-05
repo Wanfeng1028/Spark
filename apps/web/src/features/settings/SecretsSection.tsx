@@ -3,7 +3,7 @@ import type { SecretStatusDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { errorMessageOf } from '@/lib/error-copy'
-import { SettingRow, SettingGroupCard } from './SettingRow'
+import { SettingRow, SettingGroupCard, settingInputCls } from './SettingRow'
 
 /** 密钥管理（工单 7.1）：providers 状态列表 + 单条录入（保存即生效，值不回显） */
 /**
@@ -97,7 +97,7 @@ export function SecretsSection() {
           onChange={(e) => setProvider(e.target.value)}
           placeholder="provider（如 deepseek）"
           aria-label="密钥 provider"
-          className="h-8 w-36 min-w-0 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring"
+          className={settingInputCls + ' w-36'}
         />
         <input
           value={value}

@@ -7,13 +7,12 @@ import { useState } from 'react'
 import type { PermissionRuleDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
-import { SettingGroupCard } from './SettingRow'
+import { SettingGroupCard, settingInputCls } from './SettingRow'
 import { errorMessageOf } from '@/lib/error-copy'
 
 const EFFECTS = ['allow', 'deny', 'ask'] as const
 
-const ruleInputClass =
-  'h-8 min-w-0 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring'
+const ruleInputClass = settingInputCls
 
 export function PermissionRulesPage() {
   const { transport } = useTransport()

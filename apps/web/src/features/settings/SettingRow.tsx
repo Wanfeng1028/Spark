@@ -48,3 +48,7 @@ export function SettingGroupCard({ children, className }: SettingGroupCardProps)
     </section>
   )
 }
+
+/** 设置页输入框统一底串（mono；宽度与禁用态由使用处追加 w-* / disabled:opacity-40——工单 R-E⑦） */
+export const settingInputCls =
+  'h-8 min-w-0 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring'

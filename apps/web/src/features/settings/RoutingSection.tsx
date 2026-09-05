@@ -3,6 +3,7 @@ import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useTransport } from '@/transports/context'
 import { errorMessageOf } from '@/lib/error-copy'
 import { SettingRow, SettingGroupCard } from './SettingRow'
+import { Button } from '@/components/ui/button'
 
 
 
@@ -118,14 +119,14 @@ export function RoutingSection() {
             />
           </SettingRow>
           <div className="flex items-center gap-2 px-4 py-3">
-            <button
+            <Button
               type="button"
+              variant="outline"
               disabled={busy || !slotsReady}
               onClick={() => void save()}
-              className="h-8 rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
-            >
+              >
               保存
-            </button>
+            </Button>
             {opError !== null && (
               <span className="min-w-0 truncate font-mono text-xs text-[var(--spark-err)]">
                 {opError}
