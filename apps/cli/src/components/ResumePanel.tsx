@@ -8,6 +8,7 @@
  */
 import { Box, Text } from 'ink'
 import type { SessionDto } from '@spark/protocol'
+import { projectOf } from '../flow-rows.js'
 
 /** 相对时间（与 web formatRelative 同口径的终端简版） */
 function relative(ts: number): string {
@@ -20,10 +21,6 @@ function relative(ts: number): string {
   return `${Math.floor(h / 24)} 天前`
 }
 
-function projectOf(cwd: string): string {
-  const seg = cwd.split(/[\\/]/).filter((s) => s.length > 0)
-  return seg[seg.length - 1] ?? '未分组'
-}
 
 const STATUS_COPY: Record<SessionDto['status'], string> = {
   idle: '空闲',

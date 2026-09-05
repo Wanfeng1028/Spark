@@ -31,3 +31,9 @@ function itemSettled(it: UiItem): boolean {
 export function rowSettled(row: FlowRow): boolean {
   return row.kind === 'item' ? itemSettled(row.item) : row.tools.every((t) => t.status !== 'running')
 }
+
+/** 项目名 = cwd 末段目录名（与 web 同口径的终端版；Footer/ResumePanel 共用——R-G 单源） */
+export function projectOf(cwd: string): string {
+  const seg = cwd.split(/[\\/]/).filter((seg_) => seg_.length > 0)
+  return seg[seg.length - 1] ?? '未分组'
+}

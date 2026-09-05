@@ -8,7 +8,6 @@ import { act, createRef } from 'react'
 import { BUILTIN_COMMANDS, emptySessionSlice, flowRowsOf, ids } from '@spark/protocol'
 import { displayWidth } from '../src/text-width.js'
 import type { SessionSlice, UiItem } from '@spark/protocol'
-import { StatusBar } from '../src/components/StatusBar.js'
 import { MessagePane } from '../src/components/MessagePane.js'
 import { ApprovalPrompt } from '../src/components/ApprovalPrompt.js'
 import { InputBox, type InputBoxHandle } from '../src/components/InputBox.js'
@@ -232,29 +231,6 @@ describe('ApprovalPrompt', () => {
     expect(f).toContain('2 总是允许（a）')
     expect(f).toContain('3 否，建议更改（n，esc 取消）')
     expect(f).toContain('清理临时目录')
-  })
-})
-
-describe('StatusBar', () => {
-  it('口径字段齐：连接 · 模型 · seq · 提交模式；水位缺省不渲染', () => {
-    const f = render(<StatusBar slice={slice()} />).lastFrame()
-    expect(f).toContain('deepseek/chat')
-    expect(f).toContain('seq 5')
-    expect(f).toContain('[now]')
-    expect(f).not.toContain('水位') // models 未装载 → 窗口未知，禁假状态
-  })
-
-  it('无会话：模型位显 — 不断言其他', () => {
-    const f = render(<StatusBar slice={null} />).lastFrame()
-    expect(f).toContain('—')
-  })
-
-  it('turn 进行中：step 与等待审批', () => {
-    const s = slice()
-    s.activeTurn = { turnId: TURN, stepCount: 2, runningTools: new Set(), waiting: true }
-    const f = render(<StatusBar slice={s} />).lastFrame()
-    expect(f).toContain('step 2')
-    expect(f).toContain('等待审批')
   })
 })
 

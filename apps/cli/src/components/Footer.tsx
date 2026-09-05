@@ -8,13 +8,9 @@
 import { Box, Text } from 'ink'
 import { CONTEXT_WARN_RATIO, contextRatio, contextWindowOf } from '@spark/protocol'
 import type { SessionSlice } from '@spark/protocol'
+import { projectOf } from '../flow-rows.js'
 import { useCliStore } from '../store.js'
 
-/** 项目名 = cwd 末段目录名（与 web projectOf 同口径的终端版） */
-function projectOf(cwd: string): string {
-  const seg = cwd.split(/[\\/]/).filter((s) => s.length > 0)
-  return seg[seg.length - 1] ?? '未分组'
-}
 
 /** token 数 K 格式化（qwen 200.0k 同款）：≥1000 显示一位小数 k */
 function kFormat(n: number): string {
