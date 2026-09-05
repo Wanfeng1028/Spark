@@ -12,14 +12,12 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import {
   ArrowUp,
   AtSign,
-  Check,
   ChevronsUpDown,
   DollarSign,
   Paperclip,
   Plus,
   Slash,
   Square,
-  X,
 } from 'lucide-react'
 import type {
   CommandDto,
@@ -32,13 +30,15 @@ import type {
 } from '@spark/protocol'
 import { useDismissOnOutsideClick } from '@/hooks/useDismissOnOutsideClick'
 import { Segmented } from '@/components/ui/segmented'
+import { AttachmentChips } from './AttachmentChips'
+import { ComposerMenu } from './ComposerMenu'
+import { PermissionTierMenu } from './PermissionTierMenu'
 import { ModelPicker } from './ModelPicker'
 import { EffortPicker } from './EffortPicker'
 import { useSettingsStore } from '@/stores/settings'
 import { cn } from '@/lib/utils'
 import { errorMessageOf } from '@/lib/error-copy'
 import {
-  PERMISSION_TIERS,
   detectMenu,
   filterCommands,
   mergeSlashCommands,
@@ -374,134 +374,34 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           'focus-within:border-ring',
         )}
       >
-        {/* @ / / 菜单（§13.E）：容器上方浮层，Enter 确认/Esc 关闭 */}
+        {/* @ / / 菜单浮层（§13.E；展示层已拆 ComposerMenu——R-E③） */}
         {menu !== null && !waiting && (
-          <div className="absolute inset-x-3 bottom-full z-20 mb-1.5 overflow-hidden rounded-lg border border-border bg-popover shadow-md">
-            <ul
-              role="listbox"
-              aria-label={menu.kind === 'at' ? '提及菜单' : '命令菜单'}
-              className="max-h-64 overflow-y-auto py-1"
-            >
-              {menu.kind === 'slash' ? (
-                slashItems.length > 0 ? (
-                  <>
-                    <li className="px-2.5 py-1 text-[11px] text-muted-foreground">命令</li>
-                    {slashItems.map((c, i) => (
-                      <li
-                        key={c.name}
-                        role="option"
-                        aria-selected={i === menuIndex}
-                        onMouseDown={(e) => {
-                          e.preventDefault() // 保输入焦点
-                          setMenuIndex(i)
-                          requestAnimationFrame(() => confirmMenu())
-                        }}
-                        className={cn(
-                          'flex cursor-pointer items-center gap-2 px-2.5 py-1.5 text-[13px]',
-                          i === menuIndex && 'bg-accent',
-                        )}
-                      >
-                        <span className="font-mono text-xs text-muted-foreground">/{c.name}</span>
-                        <span className="min-w-0 truncate text-xs text-muted-foreground">
-                          {c.description}
-                        </span>
-                      </li>
-                    ))}
-                  </>
-                ) : (
-                  <li className="px-2.5 py-2 text-xs text-muted-foreground">没有匹配的命令</li>
-                )
-              ) : (
-                <>
-                  <li className="px-2.5 py-1 text-[11px] text-muted-foreground">文件</li>
-                  <li className="px-2.5 py-2 text-xs text-muted-foreground">
-                    文件搜索将在阶段七接入（引擎目录 API）
-                  </li>
-                  <li className="px-2.5 py-1 text-[11px] text-muted-foreground">技能</li>
-                  <li className="px-2.5 py-2 text-xs text-muted-foreground">暂无已加载技能</li>
-                </>
-              )}
-            </ul>
-            <p className="border-t border-border px-2.5 py-1.5 text-[11px] text-muted-foreground">
-              {menu.kind === 'at'
-                ? '输入内容以搜索文件或技能'
-                : '输入内容以搜索命令、技能或子智能体'}
-            </p>
-          </div>
+          <ComposerMenu
+            menu={menu}
+            slashItems={slashItems}
+            menuIndex={menuIndex}
+            onSelect={(i) => {
+              setMenuIndex(i)
+              requestAnimationFrame(() => confirmMenu())
+            }}
+          />
         )}
 
-        {/* 权限档位菜单（§13.E 四档；当前档右侧勾选，full-access 图标 warn） */}
+        {/* 权限档位菜单浮层（§13.E 四档；展示层已拆 PermissionTierMenu——R-E③） */}
         {permission !== undefined && presetMenuOpen && (
-          <div
-            data-preset-menu
-            className="absolute bottom-full left-3 z-20 mb-1.5 w-64 overflow-hidden rounded-lg border border-border bg-popover shadow-md"
-          >
-            <ul>
-              {PERMISSION_TIERS.map((t) => (
-                <li key={t.id}>
-                  <button
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={t.id === preset}
-                    onMouseDown={(e) => e.preventDefault()} // 保输入焦点
-                    onClick={() => void choosePreset(t.id)}
-                    className="flex w-full items-start gap-2 px-2.5 py-2 text-left hover:bg-accent"
-                  >
-                    <t.icon
-                      className={cn('mt-0.5 size-4 shrink-0', t.warn && 'text-[var(--spark-warn)]')}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[13px] leading-tight">{t.label}</span>
-                      <span className="block text-xs leading-tight text-muted-foreground">
-                        {t.description}
-                      </span>
-                    </span>
-                    {t.id === preset && <Check className="mt-0.5 size-4 shrink-0" />}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <PermissionTierMenu preset={preset} onChoose={(id) => void choosePreset(id)} />
         )}
 
-        {/* 附件路径 chips（v1 只收路径文本） */}
+        {/* 附件路径 chips（展示层已拆 AttachmentChips——R-E③） */}
         {(attachOpen || attachments.length > 0) && !waiting && (
-          <div className="mb-2 flex flex-col gap-1.5">
-            {attachments.length > 0 && (
-              <ul className="flex flex-wrap gap-1.5" aria-label="附件路径">
-                {attachments.map((p) => (
-                  <li
-                    key={p}
-                    className="flex h-6 items-center gap-1 rounded-md border border-border px-1.5 font-mono text-xs text-muted-foreground"
-                  >
-                    <span className="max-w-56 truncate">{p}</span>
-                    <button
-                      type="button"
-                      aria-label={`移除附件 ${p}`}
-                      onClick={() => setAttachments((a) => a.filter((x) => x !== p))}
-                      className="text-muted-foreground/60 hover:text-foreground"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {attachOpen && (
-              <input
-                value={attachInput}
-                onChange={(e) => setAttachInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    addAttachment()
-                  }
-                }}
-                placeholder="输入文件路径后回车添加（v1 只收路径文本）"
-                className="h-7 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:font-sans placeholder:text-muted-foreground/60 focus:border-ring"
-              />
-            )}
-          </div>
+          <AttachmentChips
+            attachments={attachments}
+            attachOpen={attachOpen}
+            attachInput={attachInput}
+            onAttachInput={setAttachInput}
+            onAdd={addAttachment}
+            onRemove={(p) => setAttachments((a) => a.filter((x) => x !== p))}
+          />
         )}
 
         <textarea
