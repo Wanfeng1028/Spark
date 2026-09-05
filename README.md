@@ -160,5 +160,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.27 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028）                        | 技术栈布局行登记 `offical/`——Spark 产品官网代码（仅前端，不在 pnpm workspace，独立于产品各端）；与 doc/02 v3.35 §3 目录树同步 |
 | v1.28 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028）                        | 官网文件夹拼写改名 `offical/` → `official/`（v1.27 登记名系笔误；仓库内重命名，历史行不改）；布局行引用同步；与 doc/02 v3.36、检查器 SKIP_DIRS 同步 |
 | v1.29 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十一 11.8 指令） | **README 手册化重写（工单 11.8）**：导语改身份宣言（本地运行数据不出机器/四端同一协议/每一步可审计/反 AI 味克制界面）；新增 Quick Start（`npm i -g @spark/cli` → `spark up` → 配模型 → 首回合审批）与四端一览、安全模型摘要；"当前状态"编年史长段收缩为三行内并移交 [CHANGELOG.md]；版本记录表折叠至尾部；badges 补 license MIT、node ≥24（与 engines 对齐）；中英双版头部互链（[README.en.md]）。事实锚点行"21 种事件词表"不动 |
+| v1.30 | 2026-09-02 | AI 编写：Jules (AI Assistant)；发起：晚风（Wanfeng1028） | **添加贡献者名单**：在 package.json 及各子包 package.json 中新增 `contributors` 字段并添加 Jules (AI Assistant) |
 
 </details>

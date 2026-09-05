@@ -40,5 +40,8 @@
     "typescript": "^5.9.3",
     "vitest": "^3.2.4",
     "webpack": "5.95.0"
-  }
+  },
+  "contributors": [
+    "Jules (AI Assistant)"
+  ]
 }
