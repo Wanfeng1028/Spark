@@ -93,7 +93,9 @@ describe('session-page controller（R-H 内核契约）', () => {
     await Promise.resolve()
     await Promise.resolve()
     expect(h.openedSince).toEqual([2]) // since = 回放水位
-    expect(h.controller.timeOf(page[0].id)).toBe(page[0].time)
+    const first = page[0]
+    if (first === undefined) throw new Error('unreachable')
+    expect(h.controller.timeOf(first.id)).toBe(first.time)
     h.controller.dispose()
   })
 
@@ -114,9 +116,11 @@ describe('session-page controller（R-H 内核契约）', () => {
     h.controller.start()
     await Promise.resolve()
     await Promise.resolve()
-    const before = h.controller.timeOf(page[0].id)
-    h.emitFromStream(page[0]) // 同 seq 重放帧
-    expect(h.controller.timeOf(page[0].id)).toBe(before)
+    const first = page[0]
+    if (first === undefined) throw new Error('unreachable')
+    const before = h.controller.timeOf(first.id)
+    h.emitFromStream(first) // 同 seq 重放帧
+    expect(h.controller.timeOf(first.id)).toBe(before)
     const fresh = env()
     h.emitFromStream(fresh)
     expect(h.controller.timeOf(fresh.id)).toBe(fresh.time)
@@ -138,7 +142,7 @@ describe('session-page controller（R-H 内核契约）', () => {
   })
 
   it('H3：审批复读闸门——忙碌期第二次 reply 不出网', async () => {
-    let resolveReply: (() => void) | null = null
+    const gate = { resolve: () => {} }
     let replyCalls = 0
     const rest = (): Pick<Transport, 'getSession' | 'sendMessage' | 'interrupt' | 'replyPermission'> | null => ({
       getSession: () => Promise.resolve(sessionDto([]) as never),
@@ -147,7 +151,7 @@ describe('session-page controller（R-H 内核契约）', () => {
       replyPermission: () => {
         replyCalls += 1
         return new Promise<void>((resolve) => {
-          resolveReply = resolve
+          gate.resolve = resolve
         })
       },
     })
@@ -159,10 +163,10 @@ describe('session-page controller（R-H 内核契约）', () => {
       openStream: () => ({ dispose: () => undefined }),
       onUpdate: (s) => updates.push(s.approvalBusy),
     })
-    const first = controller.reply(ids.request('reqPageCtrl000000001'), 'once')
+    const firstReply = controller.reply(ids.request('reqPageCtrl000000001'), 'once')
     const second = controller.reply(ids.request('reqPageCtrl000000002'), 'once')
-    resolveReply?.()
-    await Promise.all([first, second])
+    gate.resolve()
+    await Promise.all([firstReply, second])
     expect(replyCalls).toBe(1) // 第二次被闸门吞掉
     expect(updates).toContain(true)
   })
