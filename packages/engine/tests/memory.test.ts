@@ -96,6 +96,18 @@ describe('MemoryStore（~/.spark/memory.db：FTS5 trigram + LIKE 降级）', () 
     expect(store.search('独有的关键词', 5)).toEqual([])
     store.close()
   })
+
+  test('LIKE 通配符按字面量匹配（escapeLike 回归：含 %/_ 查询不得误配，工单 R-C）', () => {
+    const store = new MemoryStore(join(tempDir(), 'memory.db'))
+    store.save(SID, '折扣 50 percent off 全场', 1000)
+    store.save(SID, '标记 aXb 混淆样本', 2000)
+    // '50%'：FTS trigram 不命中（内容无 '50%' 连续三字组）→ LIKE 兜底——
+    // 未转义时 '%50%%' 等价 '%50%'，会误命中 '50 percent'（R-C 前的真实缺陷）
+    expect(store.search('50%', 5)).toEqual([])
+    // 'a_b'：同链路——未转义时 '%a_b%' 的 _ 是单字符通配，会误命中 'aXb'
+    expect(store.search('a_b', 5)).toEqual([])
+    store.close()
+  })
 })
 
 // ---------- Engine 端到端 ----------

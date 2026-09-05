@@ -5,7 +5,7 @@
  * 密钥仓动态值，与 IoGuard 同模式）。读端坏行跳过（只追加不改写——单行损坏不
  * 阻塞列表）。
  */
-import { appendFileSync, existsSync, readFileSync } from 'node:fs'
+import { appendJsonLine, readJsonLines } from '../fsutil.js'
 import { join } from 'node:path'
 import {
   BEARER_RE,
@@ -66,7 +66,7 @@ export class AuditLog {
   /** 追加一条明细（写前脱敏；审计失败不阻断主流程——内部自闭合） */
   record(entry: AuditEntry): void {
     try {
-      appendFileSync(this.filePath, `${this.redact(JSON.stringify(entry))}\n`)
+      appendJsonLine(this.filePath, this.redact(JSON.stringify(entry)))
     } catch {
       // 审计是旁路记录：写盘失败吞掉不影响审批/回滚主链路
     }
@@ -74,16 +74,7 @@ export class AuditLog {
 
   /** 读最近明细（新→旧）：过滤 since/kind/result/tool 后取末 limit 条 */
   entries(query: AuditQuery): AuditEntry[] {
-    if (!existsSync(this.filePath)) return []
-    const lines = readFileSync(this.filePath, 'utf8').split('\n').filter((l) => l !== '')
-    const rows: AuditEntry[] = []
-    for (const line of lines) {
-      try {
-        rows.push(JSON.parse(line) as AuditEntry)
-      } catch {
-        // 坏行跳过（历史文件只追加不改写——单行损坏不阻塞列表）
-      }
-    }
+    const rows = readJsonLines<AuditEntry>(this.filePath)
     const filtered = rows.filter((e) => {
       if (query.since !== undefined && e.time < query.since) return false
       if (query.kind !== undefined && e.kind !== query.kind) return false

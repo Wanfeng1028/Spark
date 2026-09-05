@@ -10,6 +10,7 @@
  */
 import { DatabaseSync } from 'node:sqlite'
 import type { MemoryDto, SessionId } from '@spark/protocol'
+import { escapeLike, longestToken, TRIGRAM_MIN } from '../db/fts-recall.js'
 
 /** node:sqlite 行（列名与 DDL 一致；prepare.all 返回 unknown 需收窄） */
 interface MemoryRowRaw {
@@ -22,18 +23,6 @@ interface MemoryRowRaw {
 function toDto(r: MemoryRowRaw): MemoryDto {
   return { id: r.id, content: r.content, createdAt: r.created_at }
 }
-
-/** 按空白拆词取最长词（≥2 字符；自然语句兜底召回——整串不命中时句中主词 LIKE） */
-function longestToken(q: string): string | null {
-  let best: string | null = null
-  for (const t of q.split(/\s+/)) {
-    if (t.length >= 2 && (best === null || t.length > best.length)) best = t
-  }
-  return best
-}
-
-/** FTS trigram 可用的最短查询长度（<3 字符走 LIKE——trigram 语义要求） */
-const TRIGRAM_MIN = 3
 
 export class MemoryStore {
   private readonly db: DatabaseSync
@@ -98,7 +87,7 @@ export class MemoryStore {
     if (rows.length === 0) rows = this.matchLike(q, k)
     if (rows.length === 0) {
       const token = longestToken(q)
-      if (token !== null) rows = this.matchLike(token, k)
+      if (token !== null && token !== q) rows = this.matchLike(token, k)
     }
     return rows.map(toDto)
   }
@@ -119,11 +108,12 @@ export class MemoryStore {
   }
 
   private matchLike(q: string, k: number): MemoryRowRaw[] {
+    const escaped = escapeLike(q)
     const stmt = this.db.prepare(
       `SELECT id, content, created_at, session_id FROM memories
-       WHERE content LIKE ? ORDER BY created_at DESC LIMIT ?`,
+       WHERE content LIKE ? ESCAPE '\\' ORDER BY created_at DESC LIMIT ?`,
     )
-    return stmt.all(`%${q}%`, k) as unknown as MemoryRowRaw[]
+    return stmt.all(`%${escaped}%`, k) as unknown as MemoryRowRaw[]
   }
 
   list(): MemoryDto[] {

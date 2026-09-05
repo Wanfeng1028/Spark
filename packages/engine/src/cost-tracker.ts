@@ -10,9 +10,10 @@
  * - exceeded(limit)：limit undefined = 不限；累计 ≥ limit 即熔断（≥ 而非 >——
  *   阈值语义"花到这个数就停"）。
  */
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import type { Usage } from '@spark/protocol'
 import { ConfigError } from './config.js'
+import { atomicWriteJson } from './fsutil.js'
 
 export interface UsageTotal {
   costUsd: number
@@ -83,8 +84,6 @@ export class CostTracker {
   }
 
   private persist(): void {
-    const tmp = `${this.path}.tmp`
-    writeFileSync(tmp, `${JSON.stringify(this.total, null, 2)}\n`, { mode: 0o600 })
-    renameSync(tmp, this.path)
+    atomicWriteJson(this.path, this.total, { mode: 0o600 })
   }
 }

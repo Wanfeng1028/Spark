@@ -5,9 +5,10 @@
  * - 原子写（tmp + rename）+ 0600（Windows 无 chmod 时尽力而为）；
  * - 坏 JSON / 形状不符 → ConfigError（E_CONFIG，与 loadConfig 同纪律：不带病运行）。
  */
-import { chmodSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { z } from 'zod'
-import { ConfigError } from '../config.js'
+import { ConfigError, parseOrThrow, readJsonFile } from '../config.js'
+import { atomicWriteJson } from '../fsutil.js'
+import { basename, dirname } from 'node:path'
 
 const secretsSchema = z.strictObject({
   version: z.literal(1),
@@ -23,23 +24,10 @@ export class SecretStore {
 
   constructor(path: string) {
     this.path = path
-    if (!existsSync(path)) return
-    let raw: unknown
-    try {
-      raw = JSON.parse(readFileSync(path, 'utf8')) as unknown
-    } catch (err) {
-      throw new ConfigError(
-        `secrets.json 不是合法 JSON：${err instanceof Error ? err.message : String(err)}`,
-      )
-    }
-    const parsed = secretsSchema.safeParse(raw)
-    if (!parsed.success) {
-      const issues = parsed.error.issues
-        .map((i) => `${i.path.join('.') || '<root>'}: ${i.message}`)
-        .join('; ')
-      throw new ConfigError(`secrets.json 校验失败：${issues}`)
-    }
-    for (const [k, v] of Object.entries(parsed.data.secrets)) {
+    const raw = readJsonFile(dirname(path), basename(path))
+    if (raw === undefined) return
+    const parsed = parseOrThrow(secretsSchema, raw, 'secrets.json')
+    for (const [k, v] of Object.entries(parsed.secrets)) {
       this.secrets.set(k, v)
     }
   }
@@ -82,14 +70,7 @@ export class SecretStore {
       version: 1,
       secrets: Object.fromEntries(this.secrets),
     }
-    const tmp = `${this.path}.tmp`
-    writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`, { mode: 0o600 })
-    try {
-      chmodSync(tmp, 0o600)
-    } catch {
-      // Windows 无 POSIX chmod（D15 同判：平台差异尽力而为，不 fail）
-    }
-    renameSync(tmp, this.path)
+    atomicWriteJson(this.path, doc, { mode: 0o600 })
   }
 }
 

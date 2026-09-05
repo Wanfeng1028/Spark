@@ -24,6 +24,7 @@ import type {
   Usage,
 } from '@spark/protocol'
 import type { EventBus } from './bus.js'
+import { errText } from './errs.js'
 import type { UserHookRunner } from './hooks/runner.js'
 import type { LlmGateway, LlmMessage, ResolvedModel, ToolSpec } from './llm-gateway.js'
 import { ZERO_USAGE, addUsage } from './llm-gateway.js'
@@ -149,10 +150,6 @@ function toPending(c: Extract<ContentItem, { type: 'toolCall' }>): ToolCallPendi
   return { callId: c.callId, name: c.name, input: c.input }
 }
 
-function errMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
-}
-
 /**
  * 会话常驻循环：take 输入 → runTurn → 续跑。
  * 退出路径：输入队列关闭（引擎 shutdown，rt.shutdown()）——挂起的 take reject。
@@ -172,7 +169,7 @@ export async function runSessionLoop(rt: SessionRuntime, deps: RunLoopDeps): Pro
       // 兜底的兜底：runTurn 只在 turn.started 之前抛（其后内部已闭合）
       await deps.bus.emit(deps.sessionId, 'error', {
         scope: 'engine',
-        message: errMessage(err),
+        message: errText(err),
       })
     }
   }
@@ -368,7 +365,7 @@ export async function runTurn(
     }
   } catch (err) {
     finish = 'error'
-    await deps.bus.emit(sid, 'error', { scope: 'engine', message: errMessage(err) })
+    await deps.bus.emit(sid, 'error', { scope: 'engine', message: errText(err) })
   } finally {
     // 失败闭合：started 已发则必有 completed；endTurn 转移 steer 残留并处理 idle
     if (started) {

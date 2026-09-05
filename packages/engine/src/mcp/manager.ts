@@ -14,6 +14,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { z } from 'zod'
+import { asError, errText } from '../errs.js'
 import type { SparkLogger } from '../logger.js'
 import type { ToolDefinition } from '../tools/definition.js'
 import type { ToolRegistry } from '../tools/registry.js'
@@ -82,7 +83,7 @@ export function makeMcpToolDef(
         if (ctx.signal.aborted) {
           return { output: { code: 'E_ABORTED' }, isError: true }
         }
-        throw new Error(`E_MCP_CALL: ${err instanceof Error ? err.message : String(err)}`)
+        throw new Error(`E_MCP_CALL: ${errText(err)}`)
       }
     },
   }
@@ -170,7 +171,7 @@ function withTimeout(p: Promise<unknown>, ms: number, server: string): Promise<v
       },
       (err: unknown) => {
         clearTimeout(timer)
-        reject(err instanceof Error ? err : new Error(String(err)))
+        reject(asError(err))
       },
     )
   })

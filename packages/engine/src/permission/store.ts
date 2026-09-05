@@ -4,9 +4,10 @@
  * 留脏文件）；同步 fs（小文件本地单用户，与 config 加载同风格）。落盘失败向上抛——
  * reply(always) 先固化后放行，写盘失败审批仍挂起（fail-closed，可重试或超时拒绝）。
  */
-import { mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import type { PermissionRule } from '../config.js'
+import { atomicWriteFile } from '../fsutil.js'
 
 /** 规则仓端口（service/engine 只依赖本接口；测试可换内存实现） */
 export interface RuleStore {
@@ -53,8 +54,6 @@ export class UserRuleStore implements RuleStore {
   private persist(rules: readonly PermissionRule[]): void {
     const body = JSON.stringify({ version: 1, rules }, null, 2)
     mkdirSync(dirname(this.filePath), { recursive: true })
-    const tmp = `${this.filePath}.tmp`
-    writeFileSync(tmp, body, 'utf8')
-    renameSync(tmp, this.filePath)
+    atomicWriteFile(this.filePath, body)
   }
 }

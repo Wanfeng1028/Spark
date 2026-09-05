@@ -11,6 +11,7 @@
  * turn.usage 即达成）。
  */
 import type { EventId, SessionId, SparkEventEnvelope, SparkEventType } from '@spark/protocol'
+import { errText } from './errs.js'
 import type { EventBus } from './bus.js'
 import type { LlmGateway, LlmMessage, ResolvedModel } from './llm-gateway.js'
 import type { Compactor, Projector } from './run-loop.js'
@@ -84,7 +85,7 @@ export class CompactorImpl implements Compactor {
         tokensBefore: ctx.tokens,
       })
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
+      const message = errText(err)
       await this.deps.bus.emit(sid, 'error', {
         scope: 'llm',
         message: `E_LLM_COMPACTION: ${message}`,

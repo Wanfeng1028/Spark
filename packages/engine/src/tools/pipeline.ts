@@ -11,6 +11,7 @@
  * 永不晚于 completed 乱序到达。
  */
 import type { CallId, SessionId } from '@spark/protocol'
+import { errText } from '../errs.js'
 import type { EventBus } from '../bus.js'
 import type { UserHookRunner } from '../hooks/runner.js'
 import type { MemoryStore } from '../memory/store.js'
@@ -46,7 +47,7 @@ export interface PipelineDeps {
 
 /** 错误 → {code, message}：提取 E_* 前缀码，未分类 → E_INTERNAL（§5.10） */
 function mapError(err: unknown): { code: string; message: string } {
-  const message = err instanceof Error ? err.message : String(err)
+  const message = errText(err)
   const code = /^E_[A-Z_]+/.exec(message)?.[0] ?? 'E_INTERNAL'
   return { code, message }
 }

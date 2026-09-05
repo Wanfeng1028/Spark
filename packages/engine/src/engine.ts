@@ -12,7 +12,7 @@
  * 退出 → 审批 pending 全部 fail-closed → 全量 flush + close。
  */
 import { readdir } from 'node:fs/promises'
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type {
@@ -99,6 +99,9 @@ import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
 import { AuditLog, type AuditEntry, type AuditQuery } from './audit/log.js'
 import { SearchStore, type SearchEntry, type SearchEntryType } from './search/store.js'
+import { asError, errText } from './errs.js'
+import { atomicWriteJson } from './fsutil.js'
+import { longestToken } from './db/fts-recall.js'
 import { BrowserManager } from './browser/driver.js'
 import type { BrowserDriver } from './browser/driver.js'
 import { createPlaywrightDriver, SHOT_FILE_RE } from './browser/playwright.js'
@@ -1051,7 +1054,7 @@ export class Engine {
         raw = JSON.parse(readFileSync(sparkPath, 'utf8')) as Record<string, unknown>
       } catch (err) {
         throw new Error(
-          `E_CONFIG: spark.json 不是合法 JSON：${err instanceof Error ? err.message : String(err)}`,
+          `E_CONFIG: spark.json 不是合法 JSON：${errText(err)}`,
         )
       }
     }
@@ -1068,9 +1071,7 @@ export class Engine {
       else raw['hooks'] = patch.hooks
     }
     validateSparkWrite(raw)
-    const tmp = `${sparkPath}.tmp`
-    writeFileSync(tmp, `${JSON.stringify(raw, null, 2)}\n`)
-    renameSync(tmp, sparkPath)
+    atomicWriteJson(sparkPath, raw)
     this.config = loadConfig(this.root)
     // 旧 runner 先收口（工单 10.24）：在途子进程 kill + disposed 置位，防迟到回调写日志
     this.hooks.dispose()
@@ -1163,20 +1164,22 @@ export class Engine {
 
   // ---- 长期记忆（阶段七工单 7.5 / H05 / ADR D25：设置页管理的线上入口） ----
 
-  /** GET /api/memories：全量列表（新→旧）；仓不可用 → E_MEMORY_UNAVAILABLE */
-  listMemories(): MemoryDto[] {
+  /** 记忆仓守卫（list/remove 共用；未启用 → E_MEMORY_UNAVAILABLE） */
+  private requireMemory(): MemoryStore {
     if (this.memory === null) {
       throw new Error('E_MEMORY_UNAVAILABLE: 长期记忆未启用（memory.db 打开失败）')
     }
-    return this.memory.list()
+    return this.memory
+  }
+
+  /** GET /api/memories：全量列表（新→旧）；仓不可用 → E_MEMORY_UNAVAILABLE */
+  listMemories(): MemoryDto[] {
+    return this.requireMemory().list()
   }
 
   /** DELETE /api/memories/:id：删除一条（无此条 false → 路由层 404） */
   removeMemory(id: number): boolean {
-    if (this.memory === null) {
-      throw new Error('E_MEMORY_UNAVAILABLE: 长期记忆未启用（memory.db 打开失败）')
-    }
-    return this.memory.remove(id)
+    return this.requireMemory().remove(id)
   }
 
   // ---- 自动化触发器（阶段七工单 7.6 / H06 / ADR D26：任务列表与运行历史的线上入口） ----
@@ -1283,7 +1286,7 @@ export class Engine {
     } catch (err) {
       // 不兜底重写空文档——那会抹掉 providers/defaultModel；内存已更新，持久化显式失败
       throw new Error(
-        `E_CONFIG: models.json 读取失败，路由配置仅内存生效未持久化：${err instanceof Error ? err.message : String(err)}`,
+        `E_CONFIG: models.json 读取失败，路由配置仅内存生效未持久化：${errText(err)}`,
       )
     }
     const doc = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
@@ -1298,9 +1301,7 @@ export class Engine {
     doc.subagentModel = toRef(this.routing.subagentModel)
     if (this.routing.costLimitUsd === undefined) delete doc.costLimitUsd
     else doc.costLimitUsd = this.routing.costLimitUsd
-    const tmp = `${path}.tmp`
-    writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`)
-    renameSync(tmp, path)
+    atomicWriteJson(path, doc)
   }
 
   // ---- 会话索引（工单 4.8：node:sqlite；JSONL 恒为权威，损坏降级磁盘扫描） ----
@@ -1864,14 +1865,14 @@ export class Engine {
       },
       send: (text, delivery, expectedTurnId) => {
         if (this.shuttingDown) {
-          return Promise.reject(new Error('E_SHUTTING_DOWN: 引擎正在关闭，拒绝新请求'))
+          return Promise.reject(shutdownError())
         }
         // submit 同步抛（E_INPUT_EMPTY/E_TURN_MISMATCH）也走 rejected promise——接口语义一致
         try {
           return Promise.resolve(entry.runtime.submit(text, delivery, undefined, expectedTurnId))
         } catch (err) {
           // reject 理由必须是 Error（prefer-promise-reject-errors）；submit 抛的均为 Error
-          return Promise.reject(err instanceof Error ? err : new Error(String(err)))
+          return Promise.reject(asError(err))
         }
       },
       interrupt: () => {
@@ -1880,7 +1881,7 @@ export class Engine {
       },
       compact: () => {
         if (this.shuttingDown) {
-          return Promise.reject(new Error('E_SHUTTING_DOWN: 引擎正在关闭，拒绝新请求'))
+          return Promise.reject(shutdownError())
         }
         // 压缩读全路径并落锚点事件——运行中 turn 会与之竞态，idle 才受理（§5.8.5）
         if (entry.runtime.state === 'running') {
@@ -1892,7 +1893,7 @@ export class Engine {
       },
       fork: (fromEventId) => {
         if (this.shuttingDown) {
-          return Promise.reject(new Error('E_SHUTTING_DOWN: 引擎正在关闭，拒绝新请求'))
+          return Promise.reject(shutdownError())
         }
         return this.forkSession(entry.meta.id, fromEventId)
       },
@@ -1902,9 +1903,7 @@ export class Engine {
   }
 
   private assertNotShutdown(): void {
-    if (this.shuttingDown) {
-      throw new Error('E_SHUTTING_DOWN: 引擎正在关闭，拒绝新请求')
-    }
+    if (this.shuttingDown) throw shutdownError()
   }
 
   /** "provider/model" → ModelRef（缺省 defaultModel；provider 未配置 → E_CONFIG；contextWindow 优先取 models[] 条目） */
@@ -1974,6 +1973,11 @@ export class Engine {
 }
 
 /** 文件名 `<ts>_<ses_id>.jsonl` → SessionId；不匹配返回 null */
+/** E_SHUTTING_DOWN 恒定文案（handle 三动作与 assertNotShutdown 共用，避免四份复制漂移） */
+function shutdownError(): Error {
+  return new Error('E_SHUTTING_DOWN: 引擎正在关闭，拒绝新请求')
+}
+
 function idOfFileName(file: string): SessionId | null {
   if (!file.endsWith('.jsonl')) return null
   const stem = file.slice(0, -'.jsonl'.length)
@@ -2003,10 +2007,7 @@ function searchSnippet(content: string, q: string): string {
   let idx = query === '' ? -1 : content.indexOf(query)
   let needleLen = query.length
   if (idx === -1) {
-    let best: string | null = null
-    for (const t of query.split(/\s+/)) {
-      if (t.length >= 2 && (best === null || t.length > best.length)) best = t
-    }
+    const best = longestToken(query)
     if (best !== null) {
       idx = content.indexOf(best)
       needleLen = best.length

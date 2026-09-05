@@ -6,6 +6,7 @@
  *   返回时延或人话错误文案——ok=false 不是传输失败，走 200。
  */
 import type { ModelProviderDto, ModelTestResultDto, ModelsDto } from '@spark/protocol'
+import { errText } from './errs.js'
 import type { ModelsConfig } from './config.js'
 import type { SecretSource } from './secrets/store.js'
 
@@ -160,7 +161,7 @@ export async function testProvider(
     const latencyMs = now() - started
     return resultOfStatus(providerId, res.status, latencyMs)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errText(err)
     const isAbort = err instanceof Error && err.name === 'TimeoutError'
     return failure(
       providerId,

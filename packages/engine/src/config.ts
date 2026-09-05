@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import { EngineSettingsShape, SettingsHooksSchema } from '@spark/protocol'
 import type { EngineSettings, ReasoningEffort, SettingsHooks } from '@spark/protocol'
+import { errText } from './errs.js'
 
 /** E_CONFIG（§5.10）：进程退出 + stderr 的载体由启动方（server）负责 */
 export class ConfigError extends Error {
@@ -170,19 +171,19 @@ export interface EngineConfig {
   permissions: PermissionsConfig
 }
 
-/** 读单个 JSON 文件：不存在 → undefined；坏 JSON / 读失败 → ConfigError */
-function readJsonFile(dir: string, name: string): unknown {
+/** 读单个 JSON 文件：不存在 → undefined；坏 JSON / 读失败 → ConfigError（secrets/mcp 等仓复用） */
+export function readJsonFile(dir: string, name: string): unknown {
   const path = join(dir, name)
   if (!existsSync(path)) return undefined
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as unknown
   } catch (err) {
-    throw new ConfigError(`${name} 不是合法 JSON：${err instanceof Error ? err.message : String(err)}`)
+    throw new ConfigError(`${name} 不是合法 JSON：${errText(err)}`)
   }
 }
 
-/** zod 校验：失败 → ConfigError（带字段路径，便于定位） */
-function parseOrThrow<T>(schema: z.ZodType<T>, raw: unknown, name: string): T {
+/** zod 校验：失败 → ConfigError（带字段路径，便于定位；secrets/mcp 等仓复用） */
+export function parseOrThrow<T>(schema: z.ZodType<T>, raw: unknown, name: string): T {
   const result = schema.safeParse(raw)
   if (!result.success) {
     const issues = result.error.issues

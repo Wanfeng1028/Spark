@@ -19,6 +19,7 @@ import { promisify } from 'node:util'
 import type { CheckpointId, SessionId, TurnId } from '@spark/protocol'
 import type { EventBus } from './bus.js'
 import type { SparkLogger } from './logger.js'
+import { errText } from './errs.js'
 import { newIds } from './ulid.js'
 
 const execFileAsync = promisify(execFile)
@@ -52,10 +53,6 @@ export interface GitCheckpointerDeps {
   logger: SparkLogger
   now?: () => number
   newCheckpointId?: () => CheckpointId
-}
-
-function errMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
 }
 
 export class GitCheckpointer {
@@ -117,7 +114,7 @@ export class GitCheckpointer {
       try {
         await this.deps.bus.emit(this.deps.sessionId, 'error', {
           scope: 'io',
-          message: `E_CHECKPOINT_SNAPSHOT: ${errMessage(err)}`,
+          message: `E_CHECKPOINT_SNAPSHOT: ${errText(err)}`,
         })
       } catch (emitErr) {
         // 连 error 事件都落不了盘（如 shutdown 中 store 已关）：只剩日志
@@ -158,7 +155,7 @@ export class GitCheckpointer {
       const blob = await this.gitShow(`${record.commit}:${SESSION_ALIAS}`)
       await writeFile(this.deps.sessionPath, blob)
     } catch (err) {
-      throw new Error(`E_CHECKPOINT_ROLLBACK: ${errMessage(err)}`)
+      throw new Error(`E_CHECKPOINT_ROLLBACK: ${errText(err)}`)
     }
   }
 

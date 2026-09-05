@@ -5,8 +5,10 @@
  *   失败错误结构化留存——失败闭合：每次触发必有一行终态记录）。
  * 触发执行体不在本模块（AutomationManager 职责）；本模块只管持久化形状。
  */
-import { existsSync, readFileSync, renameSync, writeFileSync, appendFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
+import { errText } from '../errs.js'
+import { appendJsonLine, atomicWriteJson, readJsonLines } from '../fsutil.js'
 import type { AutomationRunDto, AutomationTriggerDto } from '@spark/protocol'
 
 /** 触发器内部形状（wire DTO + 启用开关与创建元数据） */
@@ -65,16 +67,14 @@ export class AutomationRegistry {
     } catch (err) {
       // 配置错误不带病运行（同 loadConfig 纪律）——启动即败交给调用方决定
       throw new Error(
-        `E_CONFIG: automation.json 不是合法触发器清单：${err instanceof Error ? err.message : String(err)}`,
+        `E_CONFIG: automation.json 不是合法触发器清单：${errText(err)}`,
       )
     }
   }
 
   private persist(): void {
     const doc: AutomationDoc = { version: 1, triggers: this.triggers }
-    const tmp = `${this.triggersPath}.tmp`
-    writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`)
-    renameSync(tmp, this.triggersPath)
+    atomicWriteJson(this.triggersPath, doc)
   }
 
   list(): AutomationTriggerDto[] {
@@ -126,21 +126,12 @@ export class AutomationRegistry {
   /** 运行历史：追加一行（返回带 id 的记录）；limit 读最近 N 行（新→旧） */
   appendRun(run: Omit<TriggerRun, 'id'>): TriggerRun {
     const rec: TriggerRun = { id: randomUUID(), ...run }
-    appendFileSync(this.runsPath, `${JSON.stringify(rec)}\n`)
+    appendJsonLine(this.runsPath, JSON.stringify(rec))
     return rec
   }
 
   runs(limit: number): AutomationRunDto[] {
-    if (!existsSync(this.runsPath)) return []
-    const lines = readFileSync(this.runsPath, 'utf8').split('\n').filter((l) => l !== '')
-    const rows: TriggerRun[] = []
-    for (const line of lines) {
-      try {
-        rows.push(JSON.parse(line) as TriggerRun)
-      } catch {
-        // 坏行跳过（历史文件只追加不改写——单行损坏不阻塞列表）
-      }
-    }
+    const rows = readJsonLines<TriggerRun>(this.runsPath)
     return rows.slice(-limit).reverse().map((r) => ({
       id: r.id,
       triggerId: r.triggerId,

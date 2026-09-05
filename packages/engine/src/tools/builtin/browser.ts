@@ -6,6 +6,7 @@
  * 审批默认 ask（空规则表缺省）：域名白名单可 always 固化（`url:https://docs.**`）。
  */
 import { z } from 'zod'
+import { asError } from '../../errs.js'
 import type { BrowserManager } from '../../browser/driver.js'
 import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 
@@ -41,7 +42,7 @@ async function withAbort<T>(signal: AbortSignal, op: Promise<T>): Promise<T> {
       },
       (err: unknown) => {
         signal.removeEventListener('abort', onAbort)
-        reject(err instanceof Error ? err : new Error(String(err)))
+        reject(asError(err))
       },
     )
   })

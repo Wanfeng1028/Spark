@@ -10,6 +10,7 @@
  */
 import { stat } from 'node:fs/promises'
 import type { AutomationRunDto, AutomationTriggerDto, SessionId } from '@spark/protocol'
+import { errText } from '../errs.js'
 import type { AutomationRegistry, TriggerDef, TriggerRun } from './registry.js'
 import { cronMatches, parseCron } from './cron.js'
 
@@ -115,7 +116,7 @@ export class AutomationManager {
     } catch (err) {
       // 首见即不存在 = 记失败行（如实留痕），下一 tick 重试同样路径
       this.recordRun(t, 'watch', 'error', {
-        error: `E_WATCH: 路径不可访问 ${path}：${err instanceof Error ? err.message : String(err)}`,
+        error: `E_WATCH: 路径不可访问 ${path}：${errText(err)}`,
       })
       return
     }
@@ -154,7 +155,7 @@ export class AutomationManager {
       this.recordRun(t, kind, 'ok', { sessionId: handle.id })
     } catch (err) {
       this.recordRun(t, kind, 'error', {
-        error: err instanceof Error ? err.message : String(err),
+        error: errText(err),
       })
     }
   }

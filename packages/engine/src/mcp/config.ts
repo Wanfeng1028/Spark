@@ -3,10 +3,8 @@
  * 声明外部 MCP server（stdio transport）。缺省无文件 = 无外部工具；坏 JSON 或
  * 校验失败 → ConfigError（与三配置文件同纪律：不带病运行）。
  */
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { z } from 'zod'
-import { ConfigError } from '../config.js'
+import { parseOrThrow, readJsonFile } from '../config.js'
 
 export interface McpServerConfig {
   command: string
@@ -32,22 +30,8 @@ const mcpSchema = z.object({
 
 /** mcp.json 不存在 → 空表（引擎零外部工具照常启动） */
 export function loadMcpConfig(dir: string): McpConfig {
-  const path = join(dir, 'mcp.json')
-  if (!existsSync(path)) return { servers: {} }
-  let raw: unknown
-  try {
-    raw = JSON.parse(readFileSync(path, 'utf8')) as unknown
-  } catch (err) {
-    throw new ConfigError(
-      `mcp.json 不是合法 JSON：${err instanceof Error ? err.message : String(err)}`,
-    )
-  }
-  const result = mcpSchema.safeParse(raw)
-  if (!result.success) {
-    const issues = result.error.issues
-      .map((i) => `${i.path.join('.') || '<root>'}: ${i.message}`)
-      .join('; ')
-    throw new ConfigError(`mcp.json 校验失败：${issues}`)
-  }
-  return { servers: result.data.servers }
+  const raw = readJsonFile(dir, 'mcp.json')
+  if (raw === undefined) return { servers: {} }
+  const parsed = parseOrThrow(mcpSchema, raw, 'mcp.json')
+  return { servers: parsed.servers }
 }

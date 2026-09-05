@@ -18,6 +18,7 @@ import type {
   StreamRequest,
   StreamResult,
 } from './llm-gateway.js'
+import { errText } from './errs.js'
 
 /** fallback 发生的可观测出口（engine 传 logger.warn；缺省静默） */
 export interface FallbackLogger {
@@ -93,6 +94,3 @@ export class FallbackGateway implements LlmGateway {
   }
 }
 
-function errText(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
-}

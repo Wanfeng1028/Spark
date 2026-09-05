@@ -11,6 +11,7 @@
  */
 import { DatabaseSync } from 'node:sqlite'
 import type { EventId, SessionId } from '@spark/protocol'
+import { escapeLike, longestToken, TRIGRAM_MIN } from '../db/fts-recall.js'
 
 export type SearchEntryType = 'user.message' | 'assistant.message' | 'session.title'
 
@@ -32,18 +33,6 @@ interface EntryRowRaw {
   time: number
   content: string
 }
-
-/** 按空白拆词取最长词（≥2 字符；自然语句兜底召回——整串不命中时句中主词 LIKE） */
-function longestToken(q: string): string | null {
-  let best: string | null = null
-  for (const t of q.split(/\s+/)) {
-    if (t.length >= 2 && (best === null || t.length > best.length)) best = t
-  }
-  return best
-}
-
-/** FTS trigram 可用的最短查询长度（<3 字符走 LIKE——trigram 语义要求） */
-const TRIGRAM_MIN = 3
 
 export class SearchStore {
   private readonly db: DatabaseSync
@@ -177,7 +166,7 @@ export class SearchStore {
   }
 
   private matchLike(q: string, limit: number): EntryRowRaw[] {
-    const escaped = q.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')
+    const escaped = escapeLike(q)
     const stmt = this.db.prepare(
       `SELECT event_id, session_id, seq, type, time, content FROM search_entries
        WHERE content LIKE ? ESCAPE '\\' ORDER BY time DESC LIMIT ?`,

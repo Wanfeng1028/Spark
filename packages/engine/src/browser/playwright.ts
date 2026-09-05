@@ -5,6 +5,7 @@
  */
 import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { errText } from '../errs.js'
 import type { SparkLogger } from '../logger.js'
 import type {
   BrowserActionResult,
@@ -46,7 +47,7 @@ export function createPlaywrightDriver(
       ({ chromium } = await import('playwright-core'))
     } catch (err) {
       throw new Error(
-        `E_BROWSER_LAUNCH: playwright-core 不可用（${err instanceof Error ? err.message : String(err)}）`,
+        `E_BROWSER_LAUNCH: playwright-core 不可用（${errText(err)}）`,
       )
     }
 
@@ -55,7 +56,7 @@ export function createPlaywrightDriver(
       browser = await chromium.launch({ headless: true })
     } catch (err) {
       throw new Error(
-        `E_BROWSER_LAUNCH: chromium 启动失败——请先运行 npx playwright install chromium（${err instanceof Error ? err.message : String(err)}）`,
+        `E_BROWSER_LAUNCH: chromium 启动失败——请先运行 npx playwright install chromium（${errText(err)}）`,
       )
     }
 
@@ -74,7 +75,7 @@ export function createPlaywrightDriver(
           await p.goto(url, { timeout: timeoutMs })
         } catch (err) {
           throw new Error(
-            `E_BROWSER_NAVIGATION: 页面加载失败（${err instanceof Error ? err.message : String(err)}）`,
+            `E_BROWSER_NAVIGATION: 页面加载失败（${errText(err)}）`,
           )
         }
         return { title: await p.title(), finalUrl: p.url() }
@@ -86,7 +87,7 @@ export function createPlaywrightDriver(
           await p.click(selector, { timeout: timeoutMs })
         } catch (err) {
           throw new Error(
-            `E_BROWSER_SELECTOR: 点击失败——选择器 ${selector} 未命中或不可交互（${err instanceof Error ? err.message : String(err)}）`,
+            `E_BROWSER_SELECTOR: 点击失败——选择器 ${selector} 未命中或不可交互（${errText(err)}）`,
           )
         }
         return { finalUrl: p.url() }
@@ -101,7 +102,7 @@ export function createPlaywrightDriver(
             : await p.evaluate(() => document.body.innerText)
         } catch (err) {
           throw new Error(
-            `E_BROWSER_SELECTOR: 读取失败——选择器 ${selector} 未命中（${err instanceof Error ? err.message : String(err)}）`,
+            `E_BROWSER_SELECTOR: 读取失败——选择器 ${selector} 未命中（${errText(err)}）`,
           )
         }
         return { text, finalUrl: p.url() }
@@ -121,7 +122,7 @@ export function createPlaywrightDriver(
           }
         } catch (err) {
           throw new Error(
-            `E_BROWSER_SELECTOR: 截图失败——选择器 ${selector} 未命中（${err instanceof Error ? err.message : String(err)}）`,
+            `E_BROWSER_SELECTOR: 截图失败——选择器 ${selector} 未命中（${errText(err)}）`,
           )
         }
         const bytes = (await readFile(path)).length
