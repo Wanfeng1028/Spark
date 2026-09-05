@@ -12,6 +12,7 @@ import Fastify from 'fastify'
 import type { FastifyInstance } from 'fastify'
 import type { SparkEventEnvelope } from '@spark/protocol'
 import { Engine, ScriptedLlm } from '@spark/engine'
+import { registerErrorHandling } from '../src/errors.js'
 import { registerRoutes } from '../src/routes.js'
 import { makeConfig } from './helpers.js'
 
@@ -39,6 +40,8 @@ async function makeCommandServer(files: Record<string, string>): Promise<Fixture
   const engine = new Engine({ root, gateway, config: makeConfig() })
   await engine.ready()
   const app = Fastify({ logger: false })
+  // 与生产 index.ts 同口径：全局错误形状收编（R-F 起路由 handler 直接 throw）
+  registerErrorHandling(app)
   await app.register(registerRoutes, { engine })
   const events: SparkEventEnvelope[] = []
   engine.subscribe((e) => {
