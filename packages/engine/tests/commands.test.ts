@@ -172,8 +172,8 @@ describe('Engine 命令注册表（工单 7.4）', () => {
     const cmds = engine.listCommands()
     expect(cmds.slice(0, BUILTIN_COMMANDS.length)).toEqual(BUILTIN_COMMANDS)
     expect(cmds[cmds.length - 1]).toEqual({ name: 'review', description: '审查改动', kind: 'prompt' })
-    // 基线验收下限：六条命令名逐条在册
-    for (const name of ['compact', 'model', 'mcp', 'skills', 'usage', 'resume']) {
+    // 基线验收下限：七条命令名逐条在册（工单 16.1 加 /init）
+    for (const name of ['compact', 'model', 'mcp', 'skills', 'usage', 'resume', 'init']) {
       expect(cmds.some((c) => c.name === name)).toBe(true)
     }
   })
@@ -190,6 +190,22 @@ describe('Engine 命令注册表（工单 7.4）', () => {
       | SparkEventEnvelope<'user.message'>
       | undefined
     expect(userMsg?.data.text).toBe('请审查以下内容：src/index.ts')
+  })
+
+  test('executeCommand /init：INIT_PROMPT 进 turn 通道（工单 16.1；write 落盘走审批链）', async () => {
+    const { engine, gateway, events } = await makeCommandEngine({})
+    const handle = await engine.createSession({})
+    gateway.scriptStep({ deltas: [{ kind: 'text', text: '已生成 AGENTS.md' }] })
+    gateway.scriptOnce('初稿')
+    await engine.executeCommand(handle.id, 'init')
+    await waitTurnDone(events) // send 异步成 turn——等闭合再断言
+    // 断言：发给模型的 user 消息即 INIT_PROMPT（含三段式与四类约束框架引导）
+    const sent = gateway.calls[0]?.messages.find((m) => m.role === 'user')
+    const text = (sent?.content ?? [])
+      .map((c) => (c.type === 'text' ? c.text : ''))
+      .join('\n')
+    expect(text).toContain('AGENTS.md')
+    expect(text).toContain('四类约束框架')
   })
 
   test('executeCommand compact：走压缩入口（回归 §5.8.5——E_TURN_ACTIVE 语义保留）', async () => {

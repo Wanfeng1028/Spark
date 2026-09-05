@@ -565,8 +565,8 @@ describe('slash 菜单过滤（工单 10.10）', () => {
     expect(filterSlashCommands(commands, 'zzz')).toEqual([])
   })
 
-  it('协议词表基线 14 条可过滤（工单 10.18：单一词表下发）', () => {
-    expect(BUILTIN_COMMANDS).toHaveLength(14)
+  it('协议词表基线 15 条可过滤（工单 10.18 单一词表 + 16.1 /init）', () => {
+    expect(BUILTIN_COMMANDS).toHaveLength(15)
     expect(filterSlashCommands([...BUILTIN_COMMANDS], 'effort').map((c) => c.name)).toEqual([
       'effort',
     ])

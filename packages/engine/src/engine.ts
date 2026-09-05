@@ -55,7 +55,7 @@ import { listModels, testProvider } from './model-catalog.js'
 import { PiGateway } from './pi-gateway.js'
 import { FallbackGateway } from './fallback-gateway.js'
 import { CostTracker } from './cost-tracker.js'
-import { buildSystemPrompt, PLAN_MODE_DIRECTIVE } from './prompts.js'
+import { buildSystemPrompt, INIT_PROMPT, PLAN_MODE_DIRECTIVE } from './prompts.js'
 import { ProjectorImpl } from './projector.js'
 import { reasoningIncluded } from './projector.js'
 import { runSessionLoop } from './run-loop.js'
@@ -926,6 +926,12 @@ export class Engine {
     const handle = this.handleOf(await this.requireEntry(id))
     if (name === 'compact') {
       await handle.compact() // turn 进行中 → E_TURN_ACTIVE（§5.8.5 既有拒绝码）
+      return
+    }
+    if (name === 'init') {
+      // 工单 16.1：/init 项目上下文生成——prompt 命令通道（零新引擎机制），
+      // 模型经 write 工具落盘天然过审批链；已有文件覆盖确认在模板内约束
+      await handle.send(INIT_PROMPT)
       return
     }
     const cmd = this.customCommands.find((c) => c.name === name)

@@ -53,6 +53,14 @@ export type CommandDescriptor = z.infer<typeof CommandDescriptorSchema>
 /** v1 基线命令（10.18a 判决表"v1 落地"列；全部走既有端点，零新后端） */
 export const BUILTIN_COMMANDS: readonly CommandDescriptor[] = [
   {
+    name: 'init',
+    description: '分析当前目录生成 AGENTS.md 初稿（工单 16.1；生成走 write 审批链）',
+    kind: 'action',
+    group: 'session',
+    surface: ['web', 'cli'],
+    sessionRequired: true,
+  },
+  {
     name: 'compact',
     description: '压缩上下文（保留摘要，释放窗口）',
     kind: 'action',

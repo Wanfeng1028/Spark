@@ -47,9 +47,10 @@ describe('detectMenu（§13.E 触发词检测）', () => {
 })
 
 describe('filterCommands（/ 菜单命令过滤）', () => {
-  test('空查询 → 全量内置基线（六条，全部可用）', () => {
+  test('空查询 → 全量内置基线（七条 = 14 基线 + 工单 16.1 /init，全部可用）', () => {
     expect(filterCommands('')).toEqual(SLASH_COMMANDS)
-    expect(SLASH_COMMANDS).toHaveLength(6)
+    expect(SLASH_COMMANDS).toHaveLength(7)
+    expect(SLASH_COMMANDS.some((c) => c.name === 'init')).toBe(true)
   })
 
   test('按名称过滤（大小写不敏感）', () => {
@@ -76,7 +77,7 @@ describe('mergeSlashCommands（工单 7.4：基线 + 引擎动态清单合并）
     ]
     const merged = mergeSlashCommands(dynamic)
     expect(merged.map((c) => c.name)).toEqual([
-      'compact', 'resume', 'model', 'mcp', 'skills', 'usage', 'review',
+      'init', 'compact', 'resume', 'model', 'mcp', 'skills', 'usage', 'review',
     ])
     expect(merged.find((c) => c.name === 'compact')?.description).toBe(
       '压缩上下文（保留摘要，释放窗口）',

@@ -42,11 +42,12 @@ describe('BUILTIN_COMMANDS 不变量（工单 10.18③）', () => {
     }
   })
 
-  it('surface 至少一端；v1 基线数量与 10.18a 判决表一致（14 条）', () => {
+  it('surface 至少一端；基线数量 = 10.18a 判决表 14 条 + 工单 16.1 /init（15 条）', () => {
     for (const c of BUILTIN_COMMANDS) {
       expect(c.surface.length).toBeGreaterThanOrEqual(1)
     }
-    expect(BUILTIN_COMMANDS).toHaveLength(14)
+    expect(BUILTIN_COMMANDS).toHaveLength(15)
+    expect(BUILTIN_COMMANDS.some((c) => c.name === 'init' && c.kind === 'action')).toBe(true)
   })
 
   it('clientAction 与命令名封闭映射（分派表键空间）', () => {

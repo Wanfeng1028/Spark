@@ -186,3 +186,20 @@ export const PLAN_MODE_DIRECTIVE = `
 The user enabled plan mode for this session. For any non-trivial request, first draft a concise
 plan (goal, steps, files to touch) and ask the user to confirm it. Do not call write / edit / bash
 tools until the plan is confirmed. Read-only exploration is allowed.`
+
+/** /init 提示词模板（阶段十六工单 16.1）：分析当前目录生成 AGENTS.md 初稿。
+ * 结构参考 sst/opencode initialize.txt 的设计哲学（MIT：每行内容都须回答
+ * "没有它代理会不会踩坑，否则删掉"；只在仓库答不出时才集中问一批）——
+ * 原文未复制，按 Spark 四类约束框架改写。生成经 write 工具天然过审批链。 */
+export const INIT_PROMPT = `分析当前工作目录，为本项目生成 AGENTS.md 初稿（给任何 AI 编码代理的
+项目上下文文件）。流程与纪律：
+
+1. 先勘察：读 package.json/README/目录结构与关键配置，弄清技术栈、构建与测试命令、目录约定。
+2. 若已存在非空 AGENTS.md：不要静默覆盖——先读出其中仍然有效的约束，向用户列出
+   "将保留/将改写/将删除"三类清单，经确认后再改写（改写提示需包含保留项）。
+3. 生成的文件固定三段（缺内容的段写"未探明"并说明缺什么，不编造）：
+   - 项目概览：一句话定位 + 技术栈 + 目录速览；
+   - 构建与运行：安装/开发/测试/类型检查命令（必须与仓库实际脚本一致，逐条验证过再写）；
+   - 开发约定：规则按四类约束框架归位——项目级工作规则 / 视觉与交互决策 /
+     可重复多步骤流程 / 工具专属差异；只写"没有它代理一定会踩坑"的内容。
+4. 写文件用 write 工具（会走审批链）；写完后向用户摘要生成结果并指出未探明项。`
