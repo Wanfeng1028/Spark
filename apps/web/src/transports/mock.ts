@@ -8,7 +8,8 @@
  *   {"@speed":N}         全局倍率（实际间隔 = delay / speed）
  * sendMessage 不合成事件——脚本预录的 user.message 原样回放（假对话：文本以脚本为准）。
  */
-import { BUILTIN_COMMANDS, SETTINGS_RESTART_REQUIRED, ids, parseEnvelope } from '@spark/protocol'
+import { SETTINGS_RESTART_REQUIRED, ids, parseEnvelope } from '@spark/protocol'
+import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
 import type {
   AuditEntryDto,
   AuditQuery,
@@ -248,7 +249,7 @@ export class MockTransport implements Transport {
    */
   private emitCheckpoint(turnId: TurnId): void {
     const n = this.emitted.filter((e) => e.type === 'turn.completed').length
-    const rand = `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    const rand = mockRandom()
     this.emit({
       id: ids.event(`evt_mock_ckpt_${n}_${rand}`),
       sessionId: this.script.sessionId,
@@ -266,7 +267,7 @@ export class MockTransport implements Transport {
   private scheduleAutoTitle(): void {
     if (this.titleEmitted) return
     this.titleEmitted = true
-    const rand = `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    const rand = mockRandom()
     setTimeout(() => {
       if (this.disposed) return
       this.emit({
@@ -361,7 +362,7 @@ export class MockTransport implements Transport {
 
   interrupt(_sessionId: SessionId): Promise<void> {
     this.stopTimer()
-    const rand = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    const rand = mockRandom
     // 失败闭合（引擎铁律）：挂起中的审批合成拒绝、进行中的 turn 合成 aborted——事件流不悬空
     if (this.suspended === 'approval') {
       const req = this.lastAskedRequestId
@@ -402,7 +403,7 @@ export class MockTransport implements Transport {
   /** 手动压缩（工单 4.3）：合成 started → 600ms → completed 事件对（假摘要） */
   compact(_sessionId: SessionId): Promise<void> {
     this.assertNotDisposed()
-    const rand = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    const rand = mockRandom
     this.emit({
       id: ids.event(`evt_mock_compact_start_${rand()}`),
       sessionId: this.script.sessionId,
@@ -486,13 +487,7 @@ export class MockTransport implements Transport {
   }
 
   removePermissionRule(action: string, resource: string): Promise<void> {
-    this.assertNotDisposed()
-    const idx = this.rules.findIndex((r) => r.action === action && r.resource === resource)
-    if (idx < 0) {
-      return Promise.reject(new Error(`E_NOT_FOUND: 规则 ${action} ${resource} 不存在`))
-    }
-    this.rules.splice(idx, 1)
-    return Promise.resolve()
+    return this.removeBy(this.rules, (r) => r.action === action && r.resource === resource, `规则 ${action} ${resource}`)
   }
 
   /** 精确匹配 action+resource 覆盖，否则追加（与引擎 UserRuleStore.add 同语义） */
@@ -566,58 +561,6 @@ export class MockTransport implements Transport {
 
   // ---- 模型管理（工单 6.5 对等演示：内置目录副本 + 内存换模型，引擎同款语义） ----
 
-  /** mock 目录（引擎 PROVIDER_CATALOG 子集 + 一家自定义；DTO 永不含 key 值） */
-  private static readonly MODELS: ModelsDto = {
-    providers: [
-      {
-        id: 'deepseek',
-        label: 'DeepSeek',
-        builtin: true,
-        configured: true,
-        baseUrl: 'https://api.deepseek.com/v1',
-        apiKeyEnv: 'DEEPSEEK_API_KEY',
-        hasKey: true,
-        api: 'openai-completions',
-      },
-      {
-        id: 'openai',
-        label: 'OpenAI',
-        builtin: true,
-        configured: false,
-        baseUrl: 'https://api.openai.com/v1',
-        apiKeyEnv: null,
-        hasKey: false,
-        api: 'openai-completions',
-      },
-      {
-        id: 'anthropic',
-        label: 'Anthropic',
-        builtin: true,
-        configured: false,
-        baseUrl: 'https://api.anthropic.com',
-        apiKeyEnv: null,
-        hasKey: false,
-        api: 'anthropic-messages',
-      },
-      {
-        id: 'ollama-local',
-        label: 'ollama-local',
-        builtin: false,
-        configured: true,
-        baseUrl: 'http://127.0.0.1:11434/v1',
-        apiKeyEnv: null,
-        hasKey: false,
-        api: 'openai-completions',
-      },
-    ],
-    models: [
-      { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
-      { provider: 'deepseek', model: 'deepseek-reasoner', contextWindow: 65536 },
-      { provider: 'ollama-local', model: 'qwen3:8b', contextWindow: 32768 },
-    ],
-    defaultModel: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
-  }
-
   /** 会话级换模型内存表（引擎同款：内存态，进程生命周期内有效） */
   private readonly modelOverrides = new Map<SessionId, string>()
 
@@ -626,12 +569,12 @@ export class MockTransport implements Transport {
 
   listModels(): Promise<ModelsDto> {
     this.assertNotDisposed()
-    return Promise.resolve(MockTransport.MODELS)
+    return Promise.resolve(MOCK_MODELS)
   }
 
   testModelProvider(providerId: string): Promise<ModelTestResultDto> {
     this.assertNotDisposed()
-    const p = MockTransport.MODELS.providers.find((x) => x.id === providerId)
+    const p = MOCK_MODELS.providers.find((x) => x.id === providerId)
     if (p === undefined) {
       return Promise.resolve({
         provider: providerId,
@@ -673,7 +616,7 @@ export class MockTransport implements Transport {
       return Promise.reject(new Error(`E_CONFIG: model "${model}" 须为 provider/model 形式`))
     }
     const provider = model.slice(0, slash)
-    const configured = MockTransport.MODELS.providers.find((x) => x.id === provider)
+    const configured = MOCK_MODELS.providers.find((x) => x.id === provider)
     if (configured === undefined || !configured.configured) {
       return Promise.reject(new Error(`E_CONFIG: models.json 未配置 provider "${provider}"`))
     }
@@ -716,7 +659,7 @@ export class MockTransport implements Transport {
         throw new Error(`E_CONFIG: model "${m}" 须为 provider/model 形式`)
       }
       const provider = m.slice(0, slash)
-      const configured = MockTransport.MODELS.providers.find((x) => x.id === provider)
+      const configured = MOCK_MODELS.providers.find((x) => x.id === provider)
       if (configured === undefined || !configured.configured) {
         throw new Error(`E_CONFIG: models.json 未配置 provider "${provider}"`)
       }
@@ -794,17 +737,9 @@ export class MockTransport implements Transport {
     return Promise.resolve(this.settings)
   }
 
-  // ---- 命令注册表（工单 7.4 / 10.18 对等演示：内置词表 = 协议描述符单一来源 + mock 自定义命令） ----
-
-  private static readonly COMMANDS: readonly CommandDto[] = [
-    // 内置词表（工单 10.18：描述符随行下发，四端同源；不再本地平行维护）
-    ...BUILTIN_COMMANDS.map((c) => ({ ...c })),
-    { name: 'review', description: '审查当前工作区改动（mock 自定义命令）', kind: 'prompt' },
-  ]
-
   listCommands(): Promise<CommandDto[]> {
     this.assertNotDisposed()
-    return Promise.resolve([...MockTransport.COMMANDS])
+    return Promise.resolve([...MOCK_COMMANDS])
   }
 
   executeCommand(sessionId: SessionId, name: string, _args?: string): Promise<void> {
@@ -817,7 +752,7 @@ export class MockTransport implements Transport {
       // 对等演示：自定义命令展开为 prompt 走正常 turn（sendMessage 假对话回放）
       return this.sendMessage(sessionId).then(() => undefined)
     }
-    if (MockTransport.COMMANDS.some((c) => c.name === name && c.kind === 'client')) {
+    if (MOCK_COMMANDS.some((c) => c.name === name && c.kind === 'client')) {
       return Promise.reject(new Error(`E_COMMAND_CLIENT: /${name} 是界面命令，由前端执行`))
     }
     return Promise.reject(new Error(`E_NOT_FOUND: 未知命令 /${name}`))
@@ -866,11 +801,7 @@ export class MockTransport implements Transport {
   }
 
   revokePairDevice(id: string): Promise<void> {
-    this.assertNotDisposed()
-    const idx = this.pairDevices.findIndex((d) => d.id === id)
-    if (idx < 0) return Promise.reject(new Error(`E_NOT_FOUND: 配对设备 ${id} 不存在`))
-    this.pairDevices.splice(idx, 1)
-    return Promise.resolve()
+    return this.removeBy(this.pairDevices, (d) => d.id === id, `配对设备 ${id}`)
   }
 
   listMcpServers(): Promise<McpServerDto[]> {
@@ -905,11 +836,7 @@ export class MockTransport implements Transport {
   }
 
   removeMemory(id: number): Promise<void> {
-    this.assertNotDisposed()
-    const idx = this.memories.findIndex((m) => m.id === id)
-    if (idx < 0) return Promise.reject(new Error(`E_NOT_FOUND: 记忆 ${id} 不存在`))
-    this.memories.splice(idx, 1)
-    return Promise.resolve()
+    return this.removeBy(this.memories, (m) => m.id === id, `记忆 ${id}`)
   }
 
   // ---- 自动化触发器（工单 7.6 对等演示：内存表，进程生命周期内有效） ----
@@ -949,11 +876,7 @@ export class MockTransport implements Transport {
   }
 
   removeAutomation(id: string): Promise<void> {
-    this.assertNotDisposed()
-    const idx = this.automations.findIndex((t) => t.id === id)
-    if (idx < 0) return Promise.reject(new Error(`E_NOT_FOUND: 触发器 ${id} 不存在`))
-    this.automations.splice(idx, 1)
-    return Promise.resolve()
+    return this.removeBy(this.automations, (t) => t.id === id, `触发器 ${id}`)
   }
 
   setAutomationEnabled(id: string, enabled: boolean): Promise<void> {
@@ -974,63 +897,8 @@ export class MockTransport implements Transport {
   listAudit(query?: AuditQuery): Promise<AuditEntryDto[]> {
     this.assertNotDisposed()
     const now = Date.now()
-    const h = 3_600_000
     const sid = this.script.sessionId
-    const entries: AuditEntryDto[] = [
-      {
-        time: now - 48 * h,
-        kind: 'permission.rule',
-        actor: 'user',
-        result: 'applied',
-        op: 'add',
-        effect: 'allow',
-        action: 'Bash',
-        resource: 'npm test:*',
-        source: 'settings-ui',
-      },
-      {
-        time: now - 30 * h,
-        kind: 'permission.decision',
-        actor: 'system',
-        result: 'deny',
-        sessionId: sid,
-        tool: 'Bash',
-        action: 'bash',
-        resource: 'rm -rf node_modules',
-        source: 'rule:user',
-      },
-      {
-        time: now - 6 * h,
-        kind: 'permission.decision',
-        actor: 'user',
-        result: 'allow',
-        sessionId: sid,
-        tool: 'Write',
-        action: 'write',
-        resource: 'src/index.ts',
-        source: 'reply:once',
-      },
-      {
-        time: now - 3 * h,
-        kind: 'session.rollback',
-        actor: 'user',
-        result: 'ok',
-        sessionId: sid,
-        checkpointId: 'ckpt-mock-1',
-        source: 'checkpoint',
-      },
-      {
-        time: now - h,
-        kind: 'permission.decision',
-        actor: 'system',
-        result: 'allow',
-        sessionId: sid,
-        tool: 'Read',
-        action: 'read',
-        resource: 'package.json',
-        source: 'rule:preset',
-      },
-    ]
+    const entries: AuditEntryDto[] = auditSeed(now, sid)
     const filtered = entries.filter(
       (e) =>
         (query?.since === undefined || e.time >= query.since) &&
@@ -1296,7 +1164,7 @@ export class MockTransport implements Transport {
       return Promise.reject(new Error(`E_INVALID_BOUNDARY: 分叉边界事件 ${fromEventId} 不存在`))
     }
     const kept = durable.slice(0, idx + 1)
-    const rand = `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+    const rand = mockRandom()
     const forkId = ids.session(`ses_mock_fork_${rand}`)
     const last = kept[kept.length - 1]
     const dto: SessionDto = {
@@ -1384,6 +1252,15 @@ export class MockTransport implements Transport {
     this.disposed = true
     this.stopTimer()
     this.handlers.clear()
+  }
+
+  /** 同构删除单点（工单 R-E④）：findIndex 未命中 → E_NOT_FOUND（label 进文案）；命中则移除 */
+  private removeBy<T>(list: T[], pred: (item: T) => boolean, label: string): Promise<void> {
+    this.assertNotDisposed()
+    const idx = list.findIndex(pred)
+    if (idx < 0) return Promise.reject(new Error(`E_NOT_FOUND: ${label} 不存在`))
+    list.splice(idx, 1)
+    return Promise.resolve()
   }
 
   private assertNotDisposed(): void {
