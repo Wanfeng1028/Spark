@@ -91,6 +91,8 @@ const modelsSchema = z.object({
     z.object({
       apiKeyEnv: z.string().min(1).nullable(),
       baseUrl: z.url().optional(),
+      /** 出网代理 URL（工单 12.9 / ADR D28 方案 A：per-provider ProxyAgent） */
+      proxy: z.string().regex(/^https?:\/\//).optional(),
     }),
   ),
   defaultModel: defaultModelSchema,
@@ -124,7 +126,12 @@ export interface ModelRef {
 }
 
 export interface ModelsConfig {
-  providers: Record<string, { apiKeyEnv: string | null; baseUrl?: string | undefined }>
+  providers: Record<string, {
+    apiKeyEnv: string | null
+    baseUrl?: string | undefined
+    /** 出网代理 URL（工单 12.9 / ADR D28） */
+    proxy?: string | undefined
+  }>
   defaultModel: ModelRef
   compactionModel: ModelRef
   /** 工单 7.7：fallback 链（主模型失败且无已交付内容时逐个切换；空链 = 不切换） */

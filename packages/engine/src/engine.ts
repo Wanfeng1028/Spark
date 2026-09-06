@@ -1578,6 +1578,7 @@ export class Engine {
       contextWindow: ref.contextWindow,
       ...(apiKey !== undefined ? { apiKey } : {}),
       ...(provider.baseUrl !== undefined ? { baseUrl: provider.baseUrl } : {}),
+      ...(provider.proxy !== undefined ? { proxy: provider.proxy } : {}),
     }
   }
 

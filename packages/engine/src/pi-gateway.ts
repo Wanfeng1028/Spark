@@ -33,6 +33,7 @@ import type {
 import { anthropicMessagesApi } from '@earendil-works/pi-ai/api/anthropic-messages.lazy'
 import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy'
 import { ids, type ContentItem, type Usage } from '@spark/protocol'
+import { proxyFetchFor } from './proxy-fetch.js'
 import {
   ZERO_USAGE,
   type LlmGateway,
@@ -325,12 +326,15 @@ export class PiGateway implements LlmGateway {
       messages: toPiMessages(req.messages),
       ...(req.tools.length > 0 ? { tools: toPiTools(req.tools) } : {}),
     }
+    const proxiedFetch = proxyFetchFor(req.model.proxy)
     const options: SimpleStreamOptions = {
       apiKey: req.model.apiKey,
       signal: req.signal,
       ...(req.maxTokens !== undefined ? { maxTokens: req.maxTokens } : {}),
       // 工单 10.6：推理档位透传（ThinkingLevel 子集；不支持的 provider 由 pi-ai 忽略）
       ...(req.effort !== undefined ? { reasoning: req.effort } : {}),
+      // 工单 12.9 / ADR D28 方案 A：per-provider 代理 fetch（undefined = 缺省直连零变化）
+      ...(proxiedFetch !== undefined ? { fetch: proxiedFetch } : {}),
     }
 
     let attempt = 0

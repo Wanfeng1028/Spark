@@ -32,6 +32,7 @@
 | v1.23 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十一开工指令） | **D23 补记**：G6 已消解（工单 10.28/11.1）——LICENSE 落地 MIT（2026-08-31 拍板），全部 workspace manifest 补 license 字段；CONTRIBUTING.md/CHANGELOG.md 随 11.1 建立，上句"倾向 MIT"定案 |
 | v1.22 | 2026-09-01 | AI 编写：Qoder；发起：晚风（Wanfeng1028，批次 2 工单 10.20 B「先写 ADR 经确认再实现」） | 新增 **D28 设置读写 API 提案（待确认）**：`GET|PUT /api/settings` 热生效/重启两档策略——分类按引擎实际消费点（turn 边界注入四项热生效；构造期注入四项重启档 `restartRequired`），fail-closed 写纪律（zod 校验→原子写盘→才改内存），掩码红线（apiKey 值永不进响应）；10.21 hooks 并入同一端点（拍板见 doc/02 v3.43）；doc/02 v3.4 沙箱读写分歧结案口径=可读写归重启档。与 doc/02 v3.43 同步 |
 | v1.32 | 2026-09-05 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十二开工指令） | **D14 补记（阶段十二工单 12.7）**：壳层职责扩第四件事——`/api/event` 全局直播流通知订阅（turn.completed / permission.asked → 系统通知；脱敏红线=body 只含会话标题与状态词；`~/.spark/desktop.json` 坏 JSON fail-closed 回缺省）——纯壳层，不进引擎/协议面 |
+| v1.33 | 2026-09-06 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **新增 D28 LLM 出网代理 = 方案 A per-provider ProxyAgent**（阶段十二工单 12.9：pi-ai ProviderRequestOptions.fetch 调研结论支持注入→方案 A 成立；models.json provider.proxy 字段 + proxyFetchFor（undici ProxyAgent 模块级缓存）+ HTTPS_PROXY env 兜底 + 测试连接同代理；缺省直连零变化红线） |
 
 ---
 
@@ -245,6 +246,13 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 候选：① 每会话独立浏览器实例——资源放大且无必要（浏览器页面本就是进程级副作用面）；② MCP browser server 外挂（Playwright MCP 形态）——多一个子进程生命周期与一条审批旁路，而引擎审批管线已是一等公民通道；③ **引擎内置工具族 + BrowserDriver 端口**——与 MCP 工具同管线一视同仁（D16 判例），测试以假驱动替身。
 结论：`BrowserDriver` 端口（open/click/readText/screenshot/currentUrl/close），生产实现 = `playwright-core` headless chromium **懒启动**（首次 browser.open 才 launch，构造期零依赖；缺浏览器二进制/包 → 执行期 E_BROWSER_LAUNCH fail-closed）；**引擎级单例单页**——四工具一律 `parallelizable: false` 走串行 barrier，天然互斥；跨会话共享同一页是刻意语义（同进程同权限面）。审批：`browser.navigate`（resource `url:<目标>`）/ `browser.interact`（click）/ `browser.read`（read/screenshot），resource 均含当前页 URL——空规则表缺省 ask，域名白名单可 always 固化（`url:https://docs.**` 风格）。中断：`ctx.signal` race 即返 E_ABORTED（底层 Playwright 操作跑到静默，同"已启动工具不硬杀"纪律）。**截图不进事件流**：PNG 落 `~/.spark/browser-shots/`，工具输出只回文件名+字节数（天然过 32KB 限界），GET /api/artifacts/:file 白名单文件名校验后供图（前端 BrowserCard 展示；路径逃逸零面）。
 后果：事件词表不变（工具事件走既有 tool.started/completed）；`playwright-core` 入引擎依赖（安装不自动下载浏览器——`npx playwright install chromium` 是显式前置，缺失时工具报错而非静默降级）；read 输出正文截断 + 管线输出限界双重保护；多页/有头模式/网络隔离（D15 同源后置）进 v2 候选池。
+
+
+### D28 LLM 出网代理 = 方案 A per-provider ProxyAgent（2026-09-06，阶段十二工单 12.9）
+
+**调研结论**：pi-ai `ProviderRequestOptions.fetch?: FetchFunction` 原生支持 per-request fetch 注入（各 provider adapter 统一走该面）——**方案 A 成立**，无需方案 B（全局 setGlobalDispatcher 兜底）。
+
+**落地**：models.json provider 条目增 `proxy`（http/https URL，zod 校验）→ `proxy-fetch.ts proxyFetchFor`：undici `ProxyAgent` 构造 per-provider fetch（模块级缓存复用连接池）注入 pi-ai `options.fetch`；测试连接（6.5）同代理。env 兜底：无显式 proxy 时回退 `HTTPS_PROXY`/`https_proxy`。两者皆无 → 不注入，缺省 fetch 直连零变化（红线）。mitm 代理实流验证=用户侧。
 
 ### D28 设置读写 API = GET|PUT /api/settings，热生效/重启两档策略（2026-09-01，阶段十工单 10.20 B；晚风已确认执行）
 

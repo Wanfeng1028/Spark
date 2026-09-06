@@ -37,6 +37,8 @@ export interface ResolvedModel {
   contextWindow: number
   apiKey?: string
   baseUrl?: string
+  /** 出网代理 URL（工单 12.9 / ADR D28；缺省 = 直连零变化） */
+  proxy?: string
 }
 
 /** 模型上下文消息（Projector 投影输出；system 走 StreamRequest.system） */

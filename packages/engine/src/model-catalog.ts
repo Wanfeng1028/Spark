@@ -7,6 +7,7 @@
  */
 import type { ModelProviderDto, ModelTestResultDto, ModelsDto } from '@spark/protocol'
 import { errText } from './errs.js'
+import { proxyFetchFor } from './proxy-fetch.js'
 import type { ModelsConfig } from './config.js'
 import type { SecretSource } from './secrets/store.js'
 
@@ -150,7 +151,8 @@ export async function testProvider(
   }
   const api = entry?.api ?? 'openai-completions'
   const url = probeUrl(api, baseUrl)
-  const doFetch = deps.fetchImpl ?? fetch
+  // 工单 12.9：测试连接走 provider 同款代理（env 兜底在 helper 内）
+  const doFetch = deps.fetchImpl ?? proxyFetchFor(provider.proxy) ?? fetch
   const now = deps.now ?? Date.now
   const started = now()
   try {
