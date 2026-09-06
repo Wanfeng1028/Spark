@@ -10,6 +10,7 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Blocks, Eraser, GitCommitHorizontal, PlayCircle } from 'lucide-react'
 import { PROMPT_CHIPS } from '@/lib/prompts'
+import { ONBOARDING_DONE_KEY } from '@/routes/OnboardingPage'
 import type { LucideIcon } from 'lucide-react'
 import type { PermissionPreset, SubmitOutcome } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
@@ -84,6 +85,15 @@ export function WelcomePage() {
           }}
         />
       </div>
+      {/* 首启引导入口（工单 12.8）：未完成且未跳过时展示一行链接 */}
+      {localStorage.getItem(ONBOARDING_DONE_KEY) !== '1' && (
+        <p className="text-xs text-muted-foreground">
+          新用户？{' '}
+          <a href="/onboarding" className="underline hover:text-foreground">
+            运行三步引导
+          </a>
+        </p>
+      )}
       <ul className="flex max-w-[560px] flex-wrap justify-center gap-2" aria-label="快捷提示词">
         {PROMPTS.map((p) => (
           <li key={p.text}>

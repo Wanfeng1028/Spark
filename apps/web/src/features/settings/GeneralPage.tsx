@@ -10,15 +10,15 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import type { Delivery, SettingsDto } from '@spark/protocol'
+import { Button } from '@/components/ui/button'
+import { clearOnboarding } from '@/routes/OnboardingPage'
 import { useSettingsStore } from '@/stores/settings'
-import { settingInputCls } from './SettingRow'
+import { settingInputCls, SettingRow, SettingGroupCard } from './SettingRow'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { SettingRow, SettingGroupCard } from './SettingRow'
-import { Button } from '@/components/ui/button'
 
 const DELIVERY_OPTIONS: { value: Delivery; label: string }[] = [
   { value: 'now', label: '立即' },
@@ -291,6 +291,17 @@ export function GeneralSettingsPage() {
       </SettingGroupCard>
 
       <SettingGroupCard>
+        <SettingRow title="首启引导" description="重新运行三步引导（欢迎 / 配模型 / 建会话）">
+          <Button
+            variant="outline"
+            onClick={() => {
+              clearOnboarding()
+              location.assign('/onboarding')
+            }}
+          >
+            重跑引导
+          </Button>
+        </SettingRow>
         <SettingRow title="集成终端 Shell" description="Git Bash 优先，回退 cmd.exe" placeholderBadge="desktop 特化" />
         <SettingRow title="终端字体" description="留空自动探测" placeholderBadge="desktop 特化" />
         <SettingRow title="关闭窗口时隐藏到托盘" description="后台驻留" placeholderBadge="desktop 特化" />
