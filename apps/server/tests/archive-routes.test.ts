@@ -14,10 +14,6 @@ function jsonOf(res: { json: () => unknown }): Json {
   return res.json() as Json
 }
 
-function idOf(res: { json: () => unknown }): string {
-  return (res.json() as { id: string }).id
-}
-
 describe('会话归档（工单 12.4）', () => {
   it('归档 → 默认列表消失 → ?archived=true 可见（archivedAt 透传）→ 恢复', async () => {
     const f = await makeServer()
@@ -26,7 +22,7 @@ describe('会话归档（工单 12.4）', () => {
       url: '/api/sessions',
       payload: { title: '归档我' },
     })
-    const sid = idOf(created)
+    const sid = (jsonOf(created) as { id: string }).id
 
     const archived = await f.app.inject({
       method: 'PUT',
@@ -69,7 +65,7 @@ describe('两段式删除（工单 12.4）', () => {
   it('缺 confirm → 400；confirm:true → 204 + trash 落盘 + 列表消失', async () => {
     const f = await makeServer()
     const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
-    const sid = idOf(created)
+    const sid = (jsonOf(created) as { id: string }).id
 
     const noConfirm = await f.app.inject({ method: 'DELETE', url: `/api/sessions/${sid}` })
     expect(noConfirm.statusCode).toBe(400)
@@ -89,10 +85,28 @@ describe('两段式删除（工单 12.4）', () => {
     expect(list.some((s) => s.id === sid)).toBe(false)
   })
 
+  it('fs/tree：合法路径枚举 / 越界 400 / 深度与上限封顶', async () => {
+    const f = await makeServer()
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const sid = (jsonOf(created) as { id: string }).id
+
+    const tree = await f.app.inject({ method: 'GET', url: `/api/sessions/${sid}/fs/tree` })
+    expect(tree.statusCode).toBe(200)
+    const dto = jsonOf(tree)
+    expect(dto['truncated']).toBe(false)
+    expect(Array.isArray(dto['entries'])).toBe(true)
+
+    const outside = await f.app.inject({
+      method: 'GET',
+      url: '/api/sessions/' + sid + '/fs/tree?path=' + encodeURIComponent('../../..'),
+    })
+    expect(outside.statusCode).toBe(400)
+  })
+
   it('删除后 GET 详情 → 404', async () => {
     const f = await makeServer()
     const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
-    const sid = idOf(created)
+    const sid = (jsonOf(created) as { id: string }).id
     await f.app.inject({ method: 'DELETE', url: `/api/sessions/${sid}`, payload: { confirm: true } })
     const detail = await f.app.inject({ method: 'GET', url: `/api/sessions/${sid}` })
     expect(detail.statusCode).toBe(404)

@@ -21,7 +21,9 @@ import type {
   CommandDto,
   ContentItem,
   EventId,
+  FsEntryDto,
   FsListDto,
+  FsTreeDto,
   McpServerDto,
   MemoryDto,
   ModelTestResultDto,
@@ -969,6 +971,25 @@ export class MockTransport implements Transport {
   }
 
   /** 目录列举（工单 10.53）：mock 固定小树——web @ 菜单壳的占位数据源（真实列举见 server /api/sessions/:id/fs） */
+  /** 递归文件树（工单 12.5 mock 对等）：静态示例树（mock 无真实 fs；UI 开发用） */
+  listFsTree(_sessionId: SessionId, path = ''): Promise<FsTreeDto> {
+    const entries: FsEntryDto[] = [
+      { name: 'src', path: 'src', isDir: true },
+      { name: 'main.tsx', path: 'src/main.tsx', isDir: false },
+      { name: 'app.tsx', path: 'src/app.tsx', isDir: false },
+      { name: 'components', path: 'src/components', isDir: true },
+      { name: 'InputBox.tsx', path: 'src/components/InputBox.tsx', isDir: false },
+      { name: 'package.json', path: 'package.json', isDir: false },
+      { name: 'README.md', path: 'README.md', isDir: false },
+    ]
+    const prefix = path === '' ? '' : path + '/'
+    return Promise.resolve({
+      path,
+      entries: entries.filter((e) => e.path.startsWith(prefix)),
+      truncated: false,
+    })
+  }
+
   listFs(_sessionId: SessionId, path = ''): Promise<FsListDto> {
     this.assertNotDisposed()
     // 镜像服务端语义：path 末段为前缀，列举其父目录；mock 只回固定三项（目录优先）

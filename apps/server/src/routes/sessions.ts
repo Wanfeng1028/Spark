@@ -2,13 +2,14 @@
  * 会话核心域（创建/列表/详情/文件树/消息/中断/压缩/树/fork/checkpoints/回滚）（工单 R-F③ 域拆分：自 routes.ts 机械搬移，路由与行为零变化）。
  */
 import type { FastifyPluginCallback } from 'fastify'
-import { readdir } from 'node:fs/promises'
+import { readdir, stat } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
 import { resolveInRoot } from '@spark/engine'
+import { join } from 'node:path'
 import type { CheckpointDto } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
-import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, DeleteSessionBody } from './shared.js'
+import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FsTreeQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, DeleteSessionBody } from './shared.js'
 
 export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
   const { engine } = opts
@@ -61,6 +62,54 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
    * path = 相对会话 cwd 的部分路径，末段作前缀过滤，列举其父目录。硬边界经 resolveInRoot：
    * 越出 cwd（如 ../）或目录不存在一律如实空清单（补全 UI 不报错打断输入，且不泄露 cwd 外任何项）。
    */
+  /** GET /api/sessions/:id/fs/tree?path=：递归文件树（工单 12.5；深度 ≤4、条目 ≤500、目录优先） */
+  app.get('/api/sessions/:id/fs/tree', async (req, reply) => {
+    const { id } = parseOr400(IdParams, req.params)
+    const query = parseOr400(FsTreeQuerySchema, req.query)
+    const handle = await requireHandle(engine, id)
+    const absRoot = resolveInRoot(handle.meta.cwd, query.path === '' ? '.' : query.path)
+    const entries: { name: string; path: string; isDir: boolean }[] = []
+    let truncated = false
+    const SKIP = new Set(['node_modules', '.git', 'dist', 'build'])
+    const walk = async (abs: string, rel: string, depth: number): Promise<void> => {
+      if (depth > 4 || truncated) return
+      const dirents = await readdir(abs, { withFileTypes: true })
+      dirents.sort((a, b) => {
+        if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1
+        return a.name.localeCompare(b.name)
+      })
+      for (const d of dirents) {
+        if (truncated) return
+        if (d.name.startsWith('.')) continue
+        const relPath = rel === '' ? d.name : rel + '/' + d.name
+        if (d.isDirectory()) {
+          if (SKIP.has(d.name)) continue
+          if (entries.length >= 500) {
+            truncated = true
+            return
+          }
+          entries.push({ name: d.name, path: relPath, isDir: true })
+          await walk(join(abs, d.name), relPath, depth + 1)
+        } else if (d.isFile()) {
+          if (entries.length >= 500) {
+            truncated = true
+            return
+          }
+          entries.push({ name: d.name, path: relPath, isDir: false })
+        }
+      }
+    }
+    try {
+      const info = await stat(absRoot)
+      if (info.isDirectory()) await walk(absRoot, query.path, 1)
+    } catch (err) {
+      // 越界（resolveInRoot 在 requireHandle 后才可能抛——此处 stat ENOENT 即空树）
+      if (err instanceof Error && err.message.startsWith('E_PATH_OUTSIDE')) throw err
+      return reply.send({ path: query.path, entries: [], truncated: false })
+    }
+    return reply.send({ path: query.path, entries, truncated })
+  })
+
   app.get('/api/sessions/:id/fs', async (req, reply) => {
     const { id } = parseOr400(IdParams, req.params)
     const query = parseOr400(FsQuerySchema, req.query)

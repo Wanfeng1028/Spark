@@ -27,6 +27,7 @@ import type {
   CheckpointDto,
   CommandDto,
   FsListDto,
+  FsTreeDto,
   McpServerDto,
   MemoryDto,
   ModelTestResultDto,
@@ -527,6 +528,13 @@ export class HttpTransport implements Transport {
     return this.req<FsListDto>(`/api/sessions/${sessionId}/fs${qs}`)
   }
 
+
+  /** GET /api/sessions/:id/fs/tree?path=：递归文件树（工单 12.5；深度 ≤4、条目 ≤500） */
+  listFsTree(sessionId: SessionId, path = ''): Promise<FsTreeDto> {
+    // path 空串 = 树根（不带查询串，与 listFs 同形）
+    const qs = path === '' ? '' : `?path=${encodeURIComponent(path)}`
+    return this.req<FsTreeDto>(`/api/sessions/${sessionId}/fs/tree${qs}`)
+  }
   getPairStatus(): Promise<PairStatusDto> {
     return this.req<PairStatusDto>('/api/pair')
   }

@@ -308,6 +308,7 @@ export function SessionPage() {
           <Composer
             busy={busy}
             waiting={waiting}
+            sessionId={sid}
             initialDraft={initialDraft}
             permission={{
               preset,

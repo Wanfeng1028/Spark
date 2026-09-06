@@ -14,6 +14,7 @@ import {
   AtSign,
   ChevronsUpDown,
   DollarSign,
+  FolderTree,
   Paperclip,
   Plus,
   Slash,
@@ -22,15 +23,19 @@ import {
 import type {
   CommandDto,
   Delivery,
+  FsEntryDto,
   ModelEntryDto,
   ModelProviderDto,
   PermissionPreset,
   ReasoningEffort,
+  SessionId,
   SubmitOutcome,
 } from '@spark/protocol'
+import { useTransport } from '@/transports/context'
 import { useDismissOnOutsideClick } from '@/hooks/useDismissOnOutsideClick'
 import { Segmented } from '@/components/ui/segmented'
 import { AttachmentChips } from './AttachmentChips'
+import { FileTreePopover } from './FileTreePopover'
 import { ComposerMenu } from './ComposerMenu'
 import { PermissionTierMenu } from './PermissionTierMenu'
 import { ModelPicker } from './ModelPicker'
@@ -67,6 +72,8 @@ export interface ComposerProps {
     /** 返回生效的 "provider/model"（成功后父级更新 current） */
     onChange: (model: string) => Promise<string>
   } | undefined
+  /** 会话 id（工单 12.5：@ 补全与文件树浮层的 fs 数据源；缺省不启用——欢迎页无会话上下文） */
+  sessionId?: SessionId
   /** 推理档位（§13.E 工具条中位 / 工单 10.6；缺省不渲染——同 model 纪律） */
   effort?: {
     current: ReasoningEffort | undefined
@@ -101,7 +108,7 @@ const OUTCOME_TEXT: Record<SubmitOutcome['result'], string> = {
 type SegmentValue = Delivery
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
-  { busy, waiting, initialDraft = '', permission, model, effort, onSend, onInterrupt, onCommand, commands },
+  { busy, waiting, initialDraft = '', permission, model, effort, sessionId, onSend, onInterrupt, onCommand, commands },
   ref,
 ) {
   const defaultDelivery = useSettingsStore((s) => s.defaultDelivery)
@@ -117,6 +124,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const dismissedSig = useRef<string | null>(null)
   const [segment, setSegment] = useState<SegmentValue>(defaultDelivery)
   const [presetMenuOpen, setPresetMenuOpen] = useState(false)
+  const [treeOpen, setTreeOpen] = useState(false)
   const [plusMenuOpen, setPlusMenuOpen] = useState(false)
   const taRef = useRef<HTMLTextAreaElement>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -206,8 +214,26 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   /** / 菜单当前命令行（过滤后；技能组阶段七接入，空组壳） */
   const slashItems = menu?.kind === 'slash' ? filterCommands(menu.query, allCommands) : []
 
-  /** 扁平可选行数（@ 菜单两组皆空壳 → 0，仅浏览结构与底部提示） */
-  const menuItemCount = menu?.kind === 'slash' ? slashItems.length : 0
+  /** @ 补全远程数据源（工单 12.5）：query 变化防抖 150ms 拉 listFs；路径 token 插入用 path */
+  const [atEntries, setAtEntries] = useState<FsEntryDto[]>([])
+  const { transport } = useTransport()
+  useEffect(() => {
+    if (sessionId === undefined || menu?.kind !== 'at' || menu.query === '') {
+      setAtEntries([])
+      return
+    }
+    const q = menu.query
+    const timer = setTimeout(() => {
+      void transport
+        .listFs(sessionId, q)
+        .then((r) => setAtEntries(r.entries.slice(0, 20)))
+        .catch(() => setAtEntries([]))
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [menu, sessionId, transport])
+  const atItems = atEntries
+
+  const menuItemCount = menu?.kind === 'slash' ? slashItems.length : atItems.length
 
   function closeMenu(): void {
     if (menu !== null) dismissedSig.current = `${menu.kind}:${menu.start}:${menu.query}`
@@ -233,6 +259,23 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         })
         return
       }
+    }
+    if (menu.kind === 'at') {
+      // 工单 12.5：@ 补全确认——插入 @<相对路径> token（只作文本引用，内容由模型经 read 自取）
+      const picked = atItems[menuIndex]
+      const el = taRef.current
+      if (picked === undefined || el === null) return
+      const token = `@${picked.path} `
+      const next = `${draft.slice(0, menu.start)}${token}${draft.slice(caret)}`
+      setDraft(next)
+      setMenu(null)
+      dismissedSig.current = null
+      requestAnimationFrame(() => {
+        const pos = menu.start + token.length
+        el.setSelectionRange(pos, pos)
+        setCaret(pos)
+      })
+      return
     }
     closeMenu()
   }
@@ -378,7 +421,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         {menu !== null && !waiting && (
           <ComposerMenu
             menu={menu}
-            slashItems={slashItems}
+            slashItems={menu.kind === 'slash' ? slashItems : []}
+            atItems={menu.kind === 'at' ? atItems : []}
             menuIndex={menuIndex}
             onSelect={(i) => {
               setMenuIndex(i)
@@ -441,6 +485,26 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             >
               <Plus className="size-4" />
             </button>
+            <button
+              type="button"
+              aria-label="文件树"
+              aria-expanded={treeOpen}
+              disabled={waiting}
+              onClick={() => setTreeOpen((v) => !v)}
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+            >
+              <FolderTree className="size-4" />
+            </button>
+            {treeOpen && !waiting && sessionId !== undefined && (
+              <FileTreePopover
+                sessionId={sessionId}
+                transport={transport}
+                onPick={(path) => {
+                  setTreeOpen(false)
+                  insertTrigger('@' + path + ' ')
+                }}
+              />
+            )}
             {plusMenuOpen && !waiting && (
               <ul
                 role="menu"

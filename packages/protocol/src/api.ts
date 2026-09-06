@@ -504,6 +504,11 @@ export type PairTokenDto = z.infer<typeof PairTokenDtoSchema>
 export const FsQuerySchema = z.strictObject({
   path: z.string().default(''),
 })
+
+/** 工单 12.5：文件树查询（深度 ≤4 / 条目 ≤500 由服务端封顶） */
+export const FsTreeQuerySchema = z.strictObject({
+  path: z.string().default(''),
+})
 export type FsQuery = z.infer<typeof FsQuerySchema>
 
 /** 单个目录项：name = 项名；path = 相对 cwd 的 posix 路径（补全回写用）；isDir 目录/文件区分 */
@@ -513,6 +518,15 @@ export const FsEntryDtoSchema = z.strictObject({
   isDir: z.boolean(),
 })
 export type FsEntryDto = z.infer<typeof FsEntryDtoSchema>
+
+/** 递归文件树（工单 12.5）：path = 请求的根目录（相对 cwd，根为空串）；entries 平铺
+ * （含目录项，客户端按 path 建层级）；truncated = 条目达上限截断。深度 ≤4、条目 ≤500。 */
+export const FsTreeDtoSchema = z.strictObject({
+  path: z.string(),
+  entries: z.array(FsEntryDtoSchema),
+  truncated: z.boolean(),
+})
+export type FsTreeDto = z.infer<typeof FsTreeDtoSchema>
 
 /** 目录列举结果：path = 实际列举的目录（相对 cwd，根为空串）；entries 目录优先再字典序 */
 export const FsListDtoSchema = z.strictObject({

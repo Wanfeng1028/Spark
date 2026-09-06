@@ -97,6 +97,8 @@ export const IdParams = z.strictObject({ id: SessionIdSchema })
 // 协议同形（原 routes.ts 直接 import @spark/protocol 的 FsQuerySchema——域拆分后改为
 // 本地定义会漂移；此处 re-export 协议原件保持单一来源）
 export { FsQuerySchema } from '@spark/protocol'
+export { FsTreeQuerySchema } from '@spark/protocol'
+export type { FsEntryDto, FsTreeDto } from '@spark/protocol'
 
 export const FS_LIST_LIMIT = 200
 export const RequestIdParams = z.strictObject({ requestId: RequestIdSchema })

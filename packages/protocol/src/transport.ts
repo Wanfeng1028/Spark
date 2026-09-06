@@ -15,6 +15,7 @@ import type {
   CheckpointDto,
   CommandDto,
   FsListDto,
+  FsTreeDto,
   McpServerDto,
   MemoryDto,
   ModelTestResultDto,
@@ -148,6 +149,8 @@ export interface Transport {
    * path = 相对 cwd 的部分路径（末段作前缀过滤）；服务端硬边界越界/不存在如实空清单。
    */
   listFs(sessionId: SessionId, path?: string): Promise<FsListDto>
+  /** GET /api/sessions/:id/fs/tree?path=：递归文件树（工单 12.5；深度 ≤4 条目 ≤500） */
+  listFsTree(sessionId: SessionId, path?: string): Promise<FsTreeDto>
   /** GET /api/pair：配对状态（监听地址/鉴权启用态/已配对设备；工单 9.1 / ADR D24） */
   getPairStatus(): Promise<PairStatusDto>
   /** POST /api/pair/code：签发配对码（6 位短码 60s 有效 + QR 出示内容） */

@@ -36,6 +36,8 @@ export interface TransportContextValue {
 }
 
 const TransportContext = createContext<TransportContextValue | null>(null)
+/** 测试与 story 注入用（工单 12.5：Composer 直渲染用例需要 transport 上下文） */
+export const TestTransportContext = TransportContext
 
 export function TransportProvider({ children }: { children: ReactNode }) {
   const mock = import.meta.env.VITE_SPARK_MOCK === '1'

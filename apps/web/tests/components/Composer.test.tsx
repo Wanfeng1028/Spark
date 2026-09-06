@@ -7,6 +7,8 @@ import './dom-stubs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { SubmitOutcome } from '@spark/protocol'
+import { TestTransportContext } from '@/transports/context'
+import { MockTransport } from '@/transports/mock'
 import { Composer } from '@/features/chat/Composer'
 
 afterEach(cleanup)
@@ -20,15 +22,20 @@ function renderComposer(
 ): { onSend: ReturnType<typeof vi.fn>; onInterrupt: ReturnType<typeof vi.fn> } {
   const onSend = vi.fn().mockResolvedValue(STARTED)
   const onInterrupt = vi.fn()
+  const mock = new MockTransport('normal')
   render(
-    <Composer
-      busy={false}
-      waiting={false}
-      onSend={onSend}
-      onInterrupt={onInterrupt}
-      onCommand={() => Promise.resolve()}
-      {...props}
-    />,
+    <TestTransportContext.Provider
+      value={{ transport: mock, mock: true, scenario: 'normal', setScenario: () => {} }}
+    >
+      <Composer
+        busy={false}
+        waiting={false}
+        onSend={onSend}
+        onInterrupt={onInterrupt}
+        onCommand={() => Promise.resolve()}
+        {...props}
+      />
+    </TestTransportContext.Provider>,
   )
   return { onSend, onInterrupt }
 }
