@@ -5,7 +5,8 @@ import type { FastifyPluginCallback } from 'fastify'
 import { ExecuteCommandBodySchema } from '@spark/protocol'
 import { SettingsUpdateSchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
-import { notFound, parseOr400 } from '../errors.js'
+import { notFound, parseOr400, validationError } from '../errors.js'
+import { writeMcpConfig } from '@spark/engine'
 import { CommandNameParams, MemoryIdParams, AuditQuery, SearchQuery, ArtifactParams } from './shared.js'
 
 export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
@@ -35,6 +36,23 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
         : parseOr400(ExecuteCommandBodySchema, req.body)
     await engine.executeCommand(id, name, body?.args)
     return reply.send({ ok: true })
+  })
+
+  /** PUT /api/mcp：整文件校验后原子写 mcp.json（工单 12.6；重启后生效——响应如实标注） */
+  app.put('/api/mcp', async (req, reply) => {
+    const body = req.body as { version?: number; servers?: Record<string, unknown> } | undefined
+    if (body === undefined || typeof body !== 'object' || body.version !== 1) {
+      throw validationError('mcp 配置须为 {version: 1, servers: {...}}', undefined)
+    }
+    try {
+      writeMcpConfig(engine.dataRoot, {
+        servers: body.servers as Record<string, { command: string; args?: string[]; env?: Record<string, string> }>,
+      })
+    } catch (err) {
+      // zod 校验失败（ConfigError）→ 400 人话（坏配置不落盘——工单 12.6 验收）
+      throw validationError(err instanceof Error ? err.message : String(err), undefined)
+    }
+    return reply.send({ ok: true, restartRequired: true })
   })
 
   app.get('/api/mcp', () => {

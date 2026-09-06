@@ -17,6 +17,7 @@ import type {
   FsListDto,
   AttachmentDto,
   FsTreeDto,
+  McpConfigInput,
   McpServerDto,
   MemoryDto,
   ModelTestResultDto,
@@ -152,6 +153,8 @@ export interface Transport {
   listFs(sessionId: SessionId, path?: string): Promise<FsListDto>
   /** GET /api/sessions/:id/fs/tree?path=：递归文件树（工单 12.5；深度 ≤4 条目 ≤500） */
   listFsTree(sessionId: SessionId, path?: string): Promise<FsTreeDto>
+  /** PUT /api/mcp：整文件校验后原子写（工单 12.6；重启后生效——调用方如实提示） */
+  updateMcpConfig(config: McpConfigInput): Promise<{ ok: true }>
   /** POST /api/sessions/:id/attachments：上传图片（工单 12.2a；≤10MB image/* 白名单） */
   uploadAttachment(
     sessionId: SessionId,

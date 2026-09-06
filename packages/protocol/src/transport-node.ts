@@ -29,6 +29,7 @@ import type {
   FsListDto,
   AttachmentDto,
   FsTreeDto,
+  McpConfigInput,
   McpServerDto,
   MemoryDto,
   ModelTestResultDto,
@@ -552,7 +553,18 @@ export class HttpTransport implements Transport {
       // Uint8Array 在 Node/DOM/RN 三套 lib 下均为合法 fetch body（类型面差异用宽化收口）
       body: file.bytes as unknown as Parameters<typeof fetch>[1] extends infer I ? I extends { body?: infer B } ? B : never : never,
     })
-  }  getPairStatus(): Promise<PairStatusDto> {
+  }
+
+  /** PUT /api/mcp：整文件校验后原子写（工单 12.6） */
+  updateMcpConfig(config: McpConfigInput): Promise<{ ok: true }> {
+    return this.req<{ ok: true }>('/api/mcp', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(config),
+    })
+  }
+
+  getPairStatus(): Promise<PairStatusDto> {
     return this.req<PairStatusDto>('/api/pair')
   }
 

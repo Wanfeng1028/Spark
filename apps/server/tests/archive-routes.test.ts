@@ -112,3 +112,39 @@ describe('两段式删除（工单 12.4）', () => {
     expect(detail.statusCode).toBe(404)
   })
 })
+
+
+describe('PUT /api/mcp（工单 12.6）', () => {
+  it('合法 body → ok + mcp.json 落盘；坏 body → 400', async () => {
+    const f = await makeServer()
+    const ok = await f.app.inject({
+      method: 'PUT',
+      url: '/api/mcp',
+      payload: {
+        version: 1,
+        servers: { filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp'] } },
+      },
+    })
+    expect(ok.statusCode).toBe(200)
+    expect(ok.json()).toEqual({ ok: true, restartRequired: true })
+    expect(existsSync(join(f.root, 'mcp.json'))).toBe(true)
+
+    const bad = await f.app.inject({
+      method: 'PUT',
+      url: '/api/mcp',
+      payload: { version: 2, servers: {} },
+    })
+    expect(bad.statusCode).toBe(400)
+  })
+
+  it('server 形状不符（缺 command）→ zod 拦截不落盘', async () => {
+    const f = await makeServer()
+    const res = await f.app.inject({
+      method: 'PUT',
+      url: '/api/mcp',
+      payload: { version: 1, servers: { broken: { args: [] } } },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(existsSync(join(f.root, 'mcp.json'))).toBe(false)
+  })
+})

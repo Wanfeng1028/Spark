@@ -25,6 +25,7 @@ import type {
   FsEntryDto,
   FsListDto,
   FsTreeDto,
+  McpConfigInput,
   McpServerDto,
   MemoryDto,
   ModelTestResultDto,
@@ -994,6 +995,11 @@ export class MockTransport implements Transport {
   private readonly attachmentStore = new Map<string, { mime: string; bytes: Buffer }>()
 
   /** 上传（mock 对等）：内存存储，返回 dto（缩略渲染走 objectURL 由调用方处理） */
+  /** PUT /api/mcp（工单 12.6 mock 对等）：内存无持久——重启后生效语义如实为不生效 */
+  updateMcpConfig(_config: McpConfigInput): Promise<{ ok: true }> {
+    return Promise.resolve({ ok: true })
+  }
+
   uploadAttachment(
     _sessionId: SessionId,
     file: { name: string; mime: string; bytes: Uint8Array },

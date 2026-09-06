@@ -530,6 +530,12 @@ export const AttachmentDtoSchema = z.strictObject({
 })
 export type AttachmentDto = z.infer<typeof AttachmentDtoSchema>
 
+/** MCP 服务器配置条目（PUT /api/mcp body 形状；与 ~/.spark/mcp.json 同构） */
+export interface McpConfigInput {
+  version: 1
+  servers: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>
+}
+
 /** 递归文件树（工单 12.5）：path = 请求的根目录（相对 cwd，根为空串）；entries 平铺
  * （含目录项，客户端按 path 建层级）；truncated = 条目达上限截断。深度 ≤4、条目 ≤500。 */
 export const FsTreeDtoSchema = z.strictObject({

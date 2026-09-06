@@ -5,6 +5,8 @@
  */
 import { z } from 'zod'
 import { parseOrThrow, readJsonFile } from '../config.js'
+import { join } from 'node:path'
+import { atomicWriteJson } from '../fsutil.js'
 
 export interface McpServerConfig {
   command: string
@@ -34,4 +36,11 @@ export function loadMcpConfig(dir: string): McpConfig {
   if (raw === undefined) return { servers: {} }
   const parsed = parseOrThrow(mcpSchema, raw, 'mcp.json')
   return { servers: parsed.servers }
+}
+
+/** 写回 mcp.json（工单 12.6）：zod 校验后原子写——校验失败抛 ConfigError 不落盘。
+ * 运行中改动需重启引擎重连生效（调用方如实提示，禁假状态）。 */
+export function writeMcpConfig(dir: string, config: McpConfig): void {
+  parseOrThrow(mcpSchema, { version: 1, servers: config.servers }, 'mcp.json')
+  atomicWriteJson(join(dir, 'mcp.json'), { version: 1, servers: config.servers })
 }
