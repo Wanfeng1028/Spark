@@ -22,7 +22,7 @@ description: Spark 项目规范（指针摘要版，冲突以根目录 AGENTS.md
 
 ## 命令
 
-骨架未建（见 AGENTS.md §4 占位）：规划为 `pnpm install / pnpm dev / pnpm test / pnpm typecheck / pnpm lint`。
+命令唯一来源是根 `AGENTS.md` §4（本文件不复制——§8 单一来源纪律）。要点：**根目录无 `pnpm dev`**，dev 按包 `--filter` 启；提交前跑 `python scripts/check_doc_links.py` + `pnpm typecheck` + `pnpm lint`。
 
 ## 红线
 

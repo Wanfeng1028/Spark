@@ -525,8 +525,10 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | 方法 | 路径                        | 请求                                                 | 响应                                                 |
 | ---- | --------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
 | POST | /api/sessions               | `{ title?, model?, cwd? }`                           | SessionDto                                           |
-| GET  | /api/sessions               | `?limit&cursor&q`（q=标题子串过滤，工单 4.8）        | SessionDto[]                                         |
+| GET  | /api/sessions               | `?limit&cursor&q&archived`（q=标题子串过滤，工单 4.8；archived 缺省排除已归档——工单 12.4） | SessionDto[]                                         |
 | GET  | /api/sessions/:id           | `?limit&before`（均可省；缺省=全量回放红线；before=seq 游标返回 seq < before 升序、limit 缺省全量上限 200——工单 9.3 移动端向上翻页） | SessionDto（含 `events: SparkEvent[]` durable 回放） |
+| GET  | /api/sessions/:id/fs        | `?path=`（相对 cwd 的部分路径，末段作前缀）           | `FsListDto { path, entries[] }`（工单 10.53：@ 补全目录列举，上限 FS_LIST_LIMIT；越界或目录不存在一律如实空清单——不报错打断输入，且不泄露 cwd 外任何项） |
+| GET  | /api/sessions/:id/fs/tree   | `?path=`（缺省 = 会话 cwd 根）                        | `FsTreeDto { path, entries[]（平铺含目录项）, truncated }`（工单 12.5：深度 ≤4、条目 ≤500 截断置位、目录优先字典序、跳过 node_modules/.git/dist/build 与点前缀；越界 → 400 `E_PATH_OUTSIDE`；path 不存在 → 空树如实） |
 | POST | /api/sessions/:id/messages  | `{ text, delivery? }`                                | `{ result:'started'\|'steered'\|'queued', turnId? }` |
 | POST | /api/sessions/:id/interrupt | —                                                    | `{ ok:true }`                                        |
 | POST | /api/sessions/:id/compact   | —                                                    | `{ ok:true }`（turn 进行中 → 409 `E_TURN_ACTIVE`）    |
@@ -534,15 +536,24 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | GET  | /api/permissions/rules      | —                                                    | `{ rules: PermissionRuleDto[] }`（阶段四工单 4.7）   |
 | POST | /api/permissions/rules      | `PermissionRuleDto`                                  | 201 `{ ok:true }`（action+resource 同键覆盖）        |
 | DELETE | /api/permissions/rules    | `{ action, resource }`                               | `{ ok:true }`；无此规则 → 404 `E_NOT_FOUND`          |
+| GET  | /api/sessions/:id/permission-preset | —                                          | `{ preset }`（阶段六工单 6.x / ADR D7：权限四档预设层，会话级内存态） |
+| PUT  | /api/sessions/:id/permission-preset | `{ preset }`                                 | `{ ok:true }`；非法档位 → 400 `E_VALIDATION`         |
 | GET  | /api/secrets                | —                                                    | `{ secrets: SecretStatusDto[] }`（阶段七工单 7.1；值永不回传） |
 | PUT  | /api/secrets/:provider      | `{ value }`                                          | `{ ok:true }`；provider 未配置 → 400 `E_CONFIG`      |
 | DELETE | /api/secrets/:provider    | —                                                    | `{ ok:true }`；store 无此条 → 404 `E_NOT_FOUND`      |
+| GET  | /api/models                 | —                                                    | `ModelsDto`（工单 6.5 轻后端例外：纯读配置合成——供应商清单/模型/defaultModel；**apiKey 掩码，值永不上线**） |
+| POST | /api/models/:providerId/test | —                                                   | `{ ok, message }`（工单 6.5：连通/鉴权问题走 200 + 人话文案，不当传输失败；工单 12.9 走同一出网代理） |
+| PUT  | /api/sessions/:id/model     | `{ model }`                                          | `{ model }`（工单 6.5 会话级模型；provider 未配置 → 400 `E_CONFIG`） |
+| PUT  | /api/sessions/:id/effort    | `{ effort }`                                         | `{ effort }`（工单 10.6 推理档位：会话级内存态，下一 turn 生效，重启回 models.json 缺省） |
 | GET  | /api/routing                | —                                                    | `RoutingDto`（阶段七工单 7.7：fallback 链/任务路由档/成本上限/usage 累计） |
 | PUT  | /api/routing                | `RoutingUpdate`（任一字段可选）                      | `RoutingDto`（热生效——下一请求；写回 models.json；坏形状/provider 未配置 → 400） |
 | DELETE | /api/routing/usage       | —                                                    | `RoutingDto`（usage 清零——解除成本熔断的唯一入口）  |
+| GET  | /api/settings               | —                                                    | `SettingsDto`（工单 10.20 B / ADR D28：spark.json 脱敏读；hooks 并入同一端点=工单 10.21） |
+| PUT  | /api/settings               | `SettingsUpdate`（任一字段可选）                      | `SettingsDto`（zod 校验 → 原子写盘 → 才改内存；重启档字段带 `restartRequired`；坏形状 → 400 `E_VALIDATION`） |
 | GET  | /api/commands               | —                                                    | `CommandDto[]`（阶段七工单 7.4 / H04：内置基线 action/client + `~/.spark/commands/*.md` 自定义 prompt） |
 | POST | /api/sessions/:id/commands/:name | `{ args? }`（body 可空）                       | `{ ok:true }`；action（compact）走压缩入口 / prompt 展开走 turn 通道；client 命令 → 400 `E_COMMAND_CLIENT`，未知命令 → 404 `E_NOT_FOUND` |
 | GET  | /api/mcp                    | —                                                    | `McpServerDto[]`（工单 7.4 只读状态；连接失败也列出 connected:false） |
+| PUT  | /api/mcp                    | `{ version:1, servers:{...} }`                        | `{ ok:true, restartRequired:true }`（工单 12.6：整文件 zod 校验后原子写 `~/.spark/mcp.json`，坏配置不落盘 → 400；运行中改动需重启重连——响应与页面横幅如实标注） |
 | GET  | /api/skills                 | —                                                    | `SkillDto[]`（工单 7.4 已加载技能只读清单）          |
 | GET  | /api/memories               | —                                                    | `MemoryDto[]`（工单 7.5 / ADR D25：长期记忆列表，设置页管理数据源） |
 | DELETE | /api/memories/:id         | —                                                    | `{ ok:true }`；无此条 → 404 `E_NOT_FOUND`            |
@@ -560,8 +571,14 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | GET  | /api/audit                | `?limit&kind&result&tool&since`（均可省；limit 缺省 200 上限 500） | `AuditEntryDto[]`（工单 7.12 / H11：审计明细流新→旧；三类 kind——permission.decision / permission.rule / session.rollback） |
 | GET  | /api/search               | `?q&limit`（q 必填；limit 缺省 20 上限 100）                        | `SearchHitDto[]`（工单 7.13 / H12：会话全文搜索新→旧；索引范围 = user.message / assistant.message / session.title，引擎侧截窗摘要） |
 | GET  | /api/artifacts/:file      | —                                                                   | `image/png`（工单 7.10 / H09 / ADR D27：browser.screenshot 截图供图；文件名白名单 `shot-<ts>-<seq>.png` 校验在引擎侧，非法名/缺文件 404） |
+| POST | /api/sessions/:id/attachments | raw 图片字节（`content-type: image/*` + `x-file-name` 头；bodyLimit 11MB） | 201 `AttachmentDto { id, file, mime, size, name }`（工单 12.2a：白名单 png/jpeg/gif/webp → 415 `E_ATTACHMENT_TYPE`；>10MB → 413 `E_ATTACHMENT_TOO_LARGE`；空体 → 400；落 `~/.spark/attachments/<id>.<ext>`，multipart 依赖不引） |
+| GET  | /api/attachments/:file    | —                                                                   | 图片字节 + content-type（工单 12.2a：32hex 文件名 + 扩展名白名单校验，非法名/缺文件 → 404；事件流只存文件名不存字节） |
 | GET  | /api/sessions/:id/tree      | —                                                    | TreeNode[]（阶段四）                                 |
 | POST | /api/sessions/:id/fork      | `{ fromEventId }`                                    | SessionDto（阶段四）                                 |
+| GET  | /api/sessions/:id/checkpoints | —                                                  | `CheckpointDto[]`（工单 4.6：`checkpointId/turnId/createdAt/files`——**commit sha 不上线**） |
+| POST | /api/sessions/:id/checkpoints/:cid/rollback | —                                | SessionDto（工单 4.6：仅 idle 受理，turn 进行中 → 409 `E_TURN_ACTIVE`；快照不存在 → 404；git 失败 → 500 `E_CHECKPOINT_ROLLBACK`；回滚后 seq 回退，前端走 GET /:id 全量重放） |
+| PUT  | /api/sessions/:id/archive   | `{ archived }`                                       | SessionDto（工单 12.4 / V2-23：`<jsonl>.archived` 标记文件为事实源，幂等；归档后 resume 不受影响；管理面 REST，不进事件流） |
+| DELETE | /api/sessions/:id         | `{ confirm:true }`                                   | 204（工单 12.4 两段式删除：缺 confirm → 400；运行中 → 409 `E_SESSION_ACTIVE`；JSONL rename 进 `~/.spark/trash/<原名>.<ts>.jsonl`（同盘原子，可人工找回）→ 成功才清标记与索引行；移动失败 → 500 `E_DELETE_FAILED` 且原样保留） |
 | GET  | /api/event                  | `?sessionId&since`（均可省略，语义见 §4.6 订阅语义） | SSE 流                                               |
 | GET  | /api/metrics                | —                                                    | Prometheus exposition 文本（工单 4.8，§5.10 清单）   |
 
@@ -1857,6 +1874,14 @@ app.get('/api/event', async (req, reply) => {
 | 未通过鉴权（非环回） | 401 `E_AUTH`（工单 9.1：REST Bearer / SSE `?token=` 双口径钩子，fail-closed；豁免 /api/healthz 与 POST /api/pair 兑换口） |
 | 配对码无效或已过期 | 401 `E_PAIR`（工单 9.1：不符/过期/重放不区分原因——避免泄露在途码状态） |
 | 配对鉴权未启用 | 403 `E_PAIR_DISABLED`（工单 9.1：鉴权未启用时调**兑换端点**（POST /api/pair）出现；签发端点签发即启用，不返回此码） |
+| 路径越界（cwd 外） | 400 `E_PATH_OUTSIDE`（工单 12.5：fs/tree 越界；工具侧同码——硬边界先于审批） |
+| 附件超限           | 413 `E_ATTACHMENT_TOO_LARGE`（工单 12.2a：图片 >10MB） |
+| 附件类型不支持   | 415 `E_ATTACHMENT_TYPE`（工单 12.2a：非 png/jpeg/gif/webp） |
+| 会话运行中不可删 | 409 `E_SESSION_ACTIVE`（工单 12.4：先等回合结束或中断） |
+| 会话文件移动失败 | 500 `E_DELETE_FAILED`（工单 12.4：原样保留，失败闭合不谎报已删） |
+| 期望 turn 不符     | 409 `E_TURN_MISMATCH`（steer 带 expectedTurnId 与活动 turn 不一致） |
+| 界面命令打到引擎 | 400 `E_COMMAND_CLIENT`（工单 7.4：client 命令由前端执行，不经引擎） |
+| Fastify 框架层错误 | 400/413/415 `E_VALIDATION`（工单 10.12：FST_ERR_CTP_* 经 setErrorHandler 收编进统一形态，对外码不越 error-copy 词表；FST_ERR_NOT_FOUND → 404 `E_NOT_FOUND`；未登记 FST_ERR_* fail-closed 归 500） |
 | 引擎已 shutdown  | 503 `E_SHUTTING_DOWN`                        |
 | 内部异常         | 500 `E_INTERNAL`（详情只进日志，不透出）     |
 
@@ -1864,7 +1889,7 @@ app.get('/api/event', async (req, reply) => {
 
 - **生产模式**：`fastifyStatic` 托管 `apps/web/dist`；SPA fallback——`setNotFoundHandler` 回 `index.html`（**排除 `/api` 前缀**：API 404 仍返回 JSON，不回 HTML）；Vite 内容哈希文件 `Cache-Control: public, max-age=31536000, immutable`，`index.html` 一律 `no-cache`（保证发版即生效）。
 - **开发模式**：前端 Vite dev server（5173）+ `server.proxy['/api'] → 127.0.0.1:4318`（§6.9）；引擎独立进程 `pnpm --filter server dev`（tsx watch）。
-- **命令**（阶段一回填 package.json scripts）：`pnpm dev` = 并行 web+server；`pnpm build` = web 构建产物供 server 托管；`pnpm start` = build + `node apps/server/dist/index.js`。无 Docker/CDN/域名（本地产品，§4.5 host=127.0.0.1）。
+- **命令**：根目录**无** `pnpm dev` / `pnpm start`——开发命令一律按包 `--filter` 启，唯一来源是 AGENTS.md §4（含单包/单文件/单条用例过滤与 `python scripts/check_doc_links.py`）。server 侧：`dev`（tsx watch src/index.ts）/ `build`（esbuild bundle 至 dist/index.js）/ `start`（`node dist/index.js`）；web 构建产物供 server 静态托管。无 Docker/CDN/域名（本地产品，§4.5 host=127.0.0.1）。
 
 ---
 
@@ -2421,6 +2446,8 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v3.90 | 2026-09-06 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **工单 12.6 完成并勾选：MCP/技能管理页（V2-01）**。engine mcp/config.ts 增 writeMcpConfig（zod 校验后原子写 mcp.json，坏配置不落盘）+ index 导出；server：PUT /api/mcp（version/形状检查 + ConfigError→400 人话）→ {ok, restartRequired:true}（运行中改动需重启重连——响应与页面横幅如实标注，状态点保持运行快照禁假状态）。protocol：Transport.updateMcpConfig（McpConfigInput wire 形状归 api.ts）+ Http/Mock 实现（mock 内存不持久——重启语义如实为不生效）。web McpSettingsPage 只读页升级管理页：状态点/工具数保留 + 停用（移除条目）+ 添加/编辑表单（name/command/args 每行/env KEY=VALUE 脱敏不回显）+ 保存重启横幅。规格③核对：~/.spark/mcp.json 已是单一来源（spark.json 无 mcp 段——既成事实，登记说明）。测试：PUT /api/mcp 2 例（合法落盘+restartRequired/version 与形状不符 400 不落盘）；真实 stdio server 点亮走查=用户侧；全仓 typecheck/lint/test EXIT=0 |
 | v3.91 | 2026-09-06 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **工单 12.9 完成并勾选：LLM 出网代理（V2-06，ADR D28 方案 A）**。调研结论：pi-ai ProviderRequestOptions.fetch 原生支持 per-request fetch 注入（各 provider adapter 统一走该面）——方案 A 成立，无需方案 B 全局兜底。实现：proxy-fetch.ts proxyFetchFor（undici ProxyAgent per-provider fetch，模块级缓存复用连接池；env 兜底 HTTPS_PROXY/https_proxy；两者皆无返回 undefined=缺省直连零变化红线）+ models.json provider 条目 proxy 字段（http/https zod 校验）+ resolveModel 透传 + pi-gateway stream options 注入 + model-catalog testProvider 走同代理。ARCHITECTURE D28 + v1.33。单测 3 例（零变化/缓存复用/env 兜底）；mitm 代理实流验证=用户侧；全仓 typecheck/lint/test EXIT=0 |
 | v3.92 | 2026-09-06 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"把这个工单做完"指令） | **工单 12.8 完成并勾选：首启 onboarding 三步引导（V2-17）——阶段十二功能件全部落地**。/onboarding 路由三步：欢迎与安全姿态（本地优先/Key 只进密钥仓/敏感操作默认审批）→ 配模型（供应商选择 → API Key password 域录入 → setSecret + 测试连接 6.5 链路）→ 建首个会话直达。App FirstRunRedirect：无完成标记且服务端无已配置供应商自动进引导（server 未就绪 fail-soft 不弹）；步骤进度 localStorage 中断续跑；可跳过（完成后不再自动弹）；设置中心通用页「重跑引导」入口（清标记）；欢迎页未完成一行入口链接。清空 ~/.spark 全新走查=用户侧；全仓 typecheck/lint/test EXIT=0 |
+| v3.93 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"所有的没做完的都要做完，拿不准的跳过"指令） | **文档欠账清账（无代码变更）：§4.5 HTTP API 表与 §7.4 错误映射表对源码逐条补齐**。§4.5 新增 16 行（此前只登记到阶段九）：`GET /:id/fs`（10.53）/`GET /:id/fs/tree`（12.5）/`GET\|PUT /:id/permission-preset`（D7 四档）/`GET /api/models`/`POST /api/models/:providerId/test`/`PUT /:id/model`/`PUT /:id/effort`（6.5、10.6）/`GET\|PUT /api/settings`（10.20 B、10.21）/`PUT /api/mcp`（12.6）/`POST /:id/attachments`/`GET /api/attachments/:file`（12.2a）/`GET /:id/checkpoints`/`POST /:id/checkpoints/:cid/rollback`（4.6）/`PUT /:id/archive`/`DELETE /:id`（12.4）；`GET /api/sessions` 补 `archived` 参数。§7.4 新增 8 行（E_PATH_OUTSIDE/E_ATTACHMENT_TOO_LARGE 413/E_ATTACHMENT_TYPE 415/E_SESSION_ACTIVE 409/E_DELETE_FAILED 500/E_TURN_MISMATCH/E_COMMAND_CLIENT/FST_ERR_* 收编）——与 `apps/server/src/errors.ts` 逐行核对。§7.5 命令行修正：删除已不存在的根 `pnpm dev`/`pnpm start` 描述，改指 AGENTS §4 为唯一来源。§8.7 挂池十一行标状态：V2-01/03/04/05/06/17 已落地（12.6/12.2/12.5/12.7/12.9/12.8）、V2-23 部分落地（置顶未做）、V2-27 已落地（16.1）、V2-07/11/16 已立项（13.6/13.7/13.3）。同批修复 `scripts/check_doc_links.py` 事件词表锚点正则（ARCHITECTURE 表行多空格导致失配，该路核对自 v1.17 后静默失效）与三份 shim 命令节陈旧占位（.cursor/.qoder/.windsurf/.trae）、README CLI 措辞 Ink 6→7。待人类拍板项本批未动：ARCHITECTURE 两张 D28 重号、v1.0.0 tag 与 npm publish、CHANGELOG [Unreleased] 口径 |
+| v3.94 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"所有的没做完的都要做完，拿不准的跳过"指令） | **工单 13.1 第二批：任务级 eval 场景 7→17（六维配比达 doc/08 §13.1 规格）**。新增十场景：单文件修改 +2（off-by-one 边界修复 / 新增导出函数不伤原有）、多文件重构 +3（跨文件重命名无旧名残留 / 重复常量抽共享模块两处改导入 / 签名加必填参数且全调用点同步——形状判分 add(...) 恰 4 处且每处≥两逗号）、bash 调试 +2（语法错修复 / 让 node --test 全绿——两者均由判分侧 **独立重跑子进程**定调，不信任模型自述；夹具用 .mjs 不依赖 Node 类型剥离）、审批拒绝 +1（bash 默认全审批：拒绝后零副作用且挂起项 action=shell.exec）、压缩中途 +2（compact 后凭摘要回忆错误码 / compact 后据摘要追加写 README）。**同批修正第一批装配三处不可运行**（否则七场景恒 fail 并误红 nightly）：① config 改取用户 `~/.spark`（同 real.ts）——原 `new Engine({root: repo.root})` 使 loadConfig(fixture) 因 models.json 缺失抛 E_CONFIG；② 会话数据 root 与 fixture 仓库分离（原将 sessions/logs 落在 fixture 内，模型会读到自己的会话日志）；③ fixture 作用域预置 allow 规则（fs.read/fs.write 限仓库路径、shell.exec 全放行；缺省 ask 会挂到 permissionTimeoutMs 300s），审批维度两场景走 `manualApproval: true` 空规则表；provider 错误/环境缺配置转 **skip**（fail-soft，原为 fail），checkpoints 关（fixture 非 git 仓），waitFor 120s→180s（多文件重构与双 turn 场景）。验证：`pnpm --filter @spark/evals typecheck` + `pnpm lint` + `pnpm eval`（core 4/4 PASS）全绿；tasks 套件需真实模型，本机未跑。**余量（第三批，doc/08 §13.1 已登记）**：验收第 1 条 ScriptedLlm 确定性冒烟未满足（需拆 seed/prompt/judge 三段 + 预录终态）；首份真评基线报告 = 用户侧。**治理欠账**：阶段十三尚未 lift 建本文件 §8 阶段表（13.1/13.2–13.7 仅存于 doc/08 与本版本行） |
 
 > 批次 5 备注：
 
@@ -2474,33 +2501,33 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 
 | 编号  | 项                       | 优先级 | 依赖 / 备注                                   |
 | ----- | ------------------------ | ------ | --------------------------------------------- |
-| V2-01 | MCP/技能管理页（列表/启停/连接状态） | P1     | 依赖 6.4 设置骨架；数据源 mcp.json/loader 已就绪 |
+| V2-01 | MCP/技能管理页（列表/启停/连接状态） | P1     | 依赖 6.4 设置骨架；数据源 mcp.json/loader 已就绪。**已落地：工单 12.6**（MCP 管理页：状态点/工具数/停用/添加编辑表单 + `PUT /api/mcp` 重启生效；技能页仍只读） |
 | V2-02 | 插件市场壳               | P2     | 依赖 V2-01；loader（5.5）已就绪               |
-| V2-03 | 附件/图片粘贴 + @file 引用 | P1     | protocol attachments 字段已预留；需后端接收端点+工具读图 |
-| V2-04 | 文件树抽屉               | P1     | 轻后端目录列举端点；UI 规格见 DESIGN §J       |
-| V2-05 | 通知推送（turn 完成/审批等待） | P1     | Electron notification + 托盘                  |
-| V2-06 | LLM 出网代理（HTTP proxy/自定义证书） | P1     | 公司网必需；pi-ai baseUrl 已支持              |
-| V2-07 | 成本看板（按日/供应商聚合） | P1     | 依赖 6.6 用量条 + 7.7 熔断的 usage 聚合       |
+| V2-03 | 附件/图片粘贴 + @file 引用 | P1     | protocol attachments 字段已预留；需后端接收端点+工具读图。**已落地：工单 12.2a/12.2b**（上传与展示链路 + Projector `attachmentReader` 投影进模型、pi-gateway image 块直通）；@file 引用随 **12.5** 落地 |
+| V2-04 | 文件树抽屉               | P1     | 轻后端目录列举端点；UI 规格见 DESIGN §J。**已落地：工单 12.5**（形态改 Composer 工具条浮层 FileTreePopover，非抽屉；根目录即载 + 子目录懒加载 + 点击插 @path） |
+| V2-05 | 通知推送（turn 完成/审批等待） | P1     | Electron notification + 托盘。**已落地：工单 12.7**（壳层订阅 `/api/event` 直播流；NotifyGate 同类 2s 合并 + 审批一次一发；脱敏红线 body 只含会话标题与状态词；ADR D14 补记壳层第四件事） |
+| V2-06 | LLM 出网代理（HTTP proxy/自定义证书） | P1     | 公司网必需；pi-ai baseUrl 已支持。**已落地：工单 12.9**（ADR D28 方案 A：`proxyFetchFor` per-provider undici ProxyAgent + models.json `provider.proxy` + `HTTPS_PROXY` env 兜底；缺省直连零变化为红线。自定义证书未做） |
+| V2-07 | 成本看板（按日/供应商聚合） | P1     | 依赖 6.6 用量条 + 7.7 熔断的 usage 聚合。**已立项：doc/08 阶段十三 13.6** |
 | V2-08 | 审查模式（多文件 diff 聚合+批量放行） | P2     | checkpoint git 底子已有；形态参考 Codex Diff/Logs 双栏 |
 | V2-09 | 辅助会话抽屉             | P2     | 纯前端形态；引擎跨会话并发已有                |
 | V2-10 | 内置终端面板             | P2     | 桌面 pty；需 Electron preload/IPC 首次引入    |
-| V2-11 | trace 视图               | P2     | JSONL 即 trace 潜质；聚合查询先行             |
+| V2-11 | trace 视图               | P2     | JSONL 即 trace 潜质；聚合查询先行。**已立项：doc/08 阶段十三 13.7** |
 | V2-12 | i18n 框架                | P2     | 文案表先集中（6.7）再抽取                     |
 | V2-13 | 数据管理（占用/清理/导出导入） | P2     | ~/.spark 目录统计 + 清理须走确认纪律          |
 | V2-14 | 诊断页（日志查看器/导出） | P2     | logs/engine.log 已有                          |
 | V2-15 | 自更新                   | P2     | electron-updater；代码签名前置                |
-| V2-16 | 用户可配提示词模板       | P2     | 三处硬编码（doc/07 §2.1）                     |
-| V2-17 | onboarding 引导流        | P2     | 首启配 Key→选模型→建会话                      |
+| V2-16 | 用户可配提示词模板       | P2     | 三处硬编码（doc/07 §2.1）。**已立项：doc/08 阶段十三 13.3** |
+| V2-17 | onboarding 引导流        | P2     | 首启配 Key→选模型→建会话。**已落地：工单 12.8**（`/onboarding` 三步引导 + 无完成标记且无已配置供应商时自动进（server 未就绪 fail-soft 不弹）+ localStorage 续步 + 设置页「重跑引导」） |
 | V2-18 | 代码库语义索引（RAG）    | P3     | 大件；与会话索引（4.8）分离                   |
 | V2-19 | 沙箱网络隔离             | P2     | ADR D15 后置项                                |
 | V2-20 | 多窗口多会话             | P3     | Electron 多 BrowserWindow                     |
 | V2-21 | MCP HTTP/SSE transport   | P2     | ADR D16：远程 server 有真实诉求再立项         |
 | V2-22 | 快捷键 keymap 自定义（web） | P2     | 8.3 CLI 键位表成文后共享同一来源              |
-| V2-23 | 会话管理增强（删除/归档/置顶） | P2     | 移动端截图评审新发现（DESIGN §13.J.3）：后端无 DELETE /api/sessions/:id（server routes 实测），归档/置顶需 meta 标记与索引列；UI 形态=会话菜单+已归档抽屉 |
+| V2-23 | 会话管理增强（删除/归档/置顶） | P2     | 移动端截图评审新发现（DESIGN §13.J.3）。**部分已落地：工单 12.4**——归档（`PUT /:id/archive`，`<jsonl>.archived` 标记文件为事实源）与两段式删除（`DELETE /:id`，JSONL 移入 `~/.spark/trash/` 可人工找回）+ 侧栏已归档抽屉；**置顶未做**（需 meta 标记与索引列） |
 | V2-24 | assistant 链接预览卡（正文 URL → 图标+域名+标题+打开钮卡片） | P3     | 阶段十截图评审新发现（ZCode 实测）；streamdown 渲染层扩展 |
 | V2-25 | 👍👎 反馈存储（会话/回合级反馈表） | P3     | §13.H:519 既定 v2 项：引擎需反馈存储表+端点；阶段十 10.4 UI 先行置灰 |
 | V2-26 | CLI IME 合成深层修复（ConPTY 中间态防插入/防御重绘） | P2     | 阶段十批次 2（10.19）新登记：v3.35 已判决合成态=终端层职责；应用层码点切片与宽度口径已修后残余的合成中间态错位归此项（需终端事件层能力，待调研 Windows Terminal/ConPTY 事件面） |
-| V2-27 | /init 项目上下文文件生成（AGENTS.md 模板 + 代码库扫描） | P2     | 10.18a 判决表 v2 挂池项：需文件生成工具与模板，Qwen /init 对应。**已立项：doc/08 阶段十六 16.1**（开源参考：opencode MIT 模板可整段复用） |
+| V2-27 | /init 项目上下文文件生成（AGENTS.md 模板 + 代码库扫描） | P2     | 10.18a 判决表 v2 挂池项：需文件生成工具与模板，Qwen /init 对应。**已落地：工单 16.1**（INIT_PROMPT 勘察→已有文件保留清单确认→三段式→四类约束归位；基线命令 14→15 条） |
 | V2-28 | /voice 语音听写输入 | P3     | 10.18a 新机制项：音频采集+STT，桌面（Electron）/移动端能力，web 麦克风权限。**已立项：doc/08 阶段十六 16.6**（web getUserMedia 优先/CLI SoX 降级/OpenAI 兼容转写 API） |
 | V2-29 | /arena 多模型并行竞答对比视图 | P3     | 10.18a 新机制项：引擎跨会话并发已有底子，缺"同 prompt 多模型并行+对比呈现"视图与用量归并。**已立项：doc/08 阶段十六 16.8**（git worktree 隔离+InProcess 并行，胜者应用过审批） |
 | V2-30 | /lsp LSP 客户端集成 | P3     | 10.18a 新机制项：LSP 全链路（下载/连接/诊断数据源），大件；诊断信息现由 grep/read 工具覆盖。**已立项：doc/08 阶段十六 16.9**（换基座 vscode-languageserver-protocol） |

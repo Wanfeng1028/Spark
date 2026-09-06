@@ -42,7 +42,7 @@ spark up
 | ----------------- | ------------ | ---------------------------------------------------------- |
 | Web（默认入口）   | `apps/web`   | React 19 工作台：会话流、审批卡、差分预览、设置中心         |
 | 桌面              | `apps/desktop` | Electron 壳：sidecar 复用同一 server（NSIS 安装包经 Actions 构建） |
-| CLI               | `apps/cli`   | Ink 6 终端 TUI：纯单栏、footer 双行、`spark up` 一条命令可用 |
+| CLI               | `apps/cli`   | Ink 7 终端 TUI：纯单栏、footer 单行（工单 10.51/10.56）、`spark up` 一条命令可用 |
 | 移动端            | `apps/mobile` · `apps/miniapp` | Expo+RN App 与 Taro 4 微信小程序：扫码配对后接入同一会话 |
 
 ## 安全模型（摘要）
@@ -120,8 +120,9 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 ## 当前状态
 
 - **v1 已完成合入 main**：五阶段（骨架/前端/引擎/深度体验/产品化）+ 阶段六~十（UI ZCode 化 / Harness 补全 / CLI TUI / 移动端三端 / UI 对齐与 CLI 重构）+ 质量收尾批次；全量测试与 e2e 由 CI 执行（本地开发只跑 typecheck/lint）。
+- **v2 已开工**：阶段十一（可发布：LICENSE/CONTRIBUTING/CHANGELOG、CI 接 Playwright、nightly 性能基线与 eval secrets、npm 发包准备与 `spark up`、README 手册化）与阶段十二（Agent 能力补全：grep 工具 / 图片附件与 @file / 会话归档与两段式删除 / 文件树浮层 / MCP 管理页 / 桌面通知 / 首启 onboarding / LLM 出网代理）已完成；阶段十七（代码冗余整改 R-A~R-H）已收官；13.1 第一批（任务级 eval 场景集）与 16.1（`/init`）已落地。
 - 用户可见变更与里程碑：[CHANGELOG.md](./CHANGELOG.md)。
-- 下一程：阶段十一（发布化，doc/02 §8）→ 阶段十二~十六（[doc/08](./doc/08-v2-roadmap.md) 工单库）。
+- 下一程：阶段十三余下（13.2–13.7：可证明与上下文工程）→ 阶段十四（SDK 化）→ 阶段十六余下（16.2–16.9 命令面新机制）→ 阶段十八（web 观感对齐），工单库见 [doc/08](./doc/08-v2-roadmap.md)。
 
 ## 版本记录
 
@@ -161,5 +162,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.28 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028）                        | 官网文件夹拼写改名 `offical/` → `official/`（v1.27 登记名系笔误；仓库内重命名，历史行不改）；布局行引用同步；与 doc/02 v3.36、检查器 SKIP_DIRS 同步 |
 | v1.29 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十一 11.8 指令） | **README 手册化重写（工单 11.8）**：导语改身份宣言（本地运行数据不出机器/四端同一协议/每一步可审计/反 AI 味克制界面）；新增 Quick Start（`npm i -g @spark/cli` → `spark up` → 配模型 → 首回合审批）与四端一览、安全模型摘要；"当前状态"编年史长段收缩为三行内并移交 [CHANGELOG.md]；版本记录表折叠至尾部；badges 补 license MIT、node ≥24（与 engines 对齐）；中英双版头部互链（[README.en.md]）。事实锚点行"21 种事件词表"不动 |
 | v1.30 | 2026-09-02 | AI 编写：Jules (AI Assistant)；发起：晚风（Wanfeng1028） | **添加贡献者名单**：在 package.json 及各子包 package.json 中新增 `contributors` 字段并添加 Jules (AI Assistant) |
+| v1.31 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"所有没做完的都要做完"指令） | **两处事实漂移修正 + 当前状态刷新**：四端一览 CLI 行 **Ink 6→Ink 7**（工单 10.56 已升 `ink ^7.1.1`）与 **footer 双行→单行**（工单 10.51 已修正批次 3 双行决策）；"当前状态"补 **v2 已开工** 一行（阶段十一/十二完成、十七收官、13.1 第一批与 16.1 落地），"下一程"改指 13.2–13.7 / 十四 / 16.2–16.9 / 十八。与 AGENTS v1.29、doc/02 v3.93 同批；事实锚点行（21 种事件词表）不动 |
 
 </details>

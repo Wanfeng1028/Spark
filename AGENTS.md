@@ -35,12 +35,24 @@
 | v1.26 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十验收核查指令） | §1 项目上下文刷新：**阶段十完成（UI 对齐+CLI §13.K 纯单栏重构，工单 10.1–10.11 全落地，ADR D19 修订）**；阶段十源码级核查后补完三处勾选虚高与两处缺漏（first N lines hidden/同类聚合//resume Space 预览/Ctrl+R 重试/帮助四列），判决登记见 doc/02 v3.35；与 doc/02 v3.35、DESIGN v2.7、README v1.26 同步 |
 | v1.27 | 2026-09-01 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，批次 3 立单+开工指令） | §1 项目上下文刷新：**阶段十全部完成并已合 main（工单 10.1–10.23 + 收尾批次 3：10.22 消息气泡布局 / 10.24 hooks 关闭时序 P1 修复 / 10.25 CLI clientAction 不变量网 / 10.26–10.27 对账与卫生 / 10.28 LICENSE MIT=G6 消解）**；§2.8 事件词表 21 种经源码复核不变。同日源码级核查：批次 2 已勾工单全部落地属实（0 any/0 ts-ignore/21 事件 reducer 单测全覆盖）。与 doc/02 v3.48–v3.53（批次 3 立单与勾选）、doc/08 v1.3、doc/05 v1.2、DESIGN v2.10 同步 |
 | v1.28 | 2026-09-02 | AI 编写：Jules (AI Assistant)；发起：晚风（Wanfeng1028） | 更新 package.json 贡献者（contributors）字段 |
+| v1.29 | 2026-09-07 | AI 编写：Qoder；发起：Qoder 会话（AGENTS.md 复核指令，对照源码逐项核实） | §1 项目上下文刷新至**阶段十二全部落地**（12.1–12.9 + 13.1 第一批 + 16.1；doc/02 v3.92），CLI 措辞修正 **Ink 6→Ink 7**（工单 10.56 已升 `ink ^7.1.1`）；新增 **§1.1 四端共享核**（protocol 是运行时代码而非类型包 + MockTransport 对等纪律 + 数据落点）；§3 任务表补 Transport 新方法 / 命令描述符 / 设置项三行；§4 开发命令回填（单包与单条用例过滤、`check_doc_links.py`、Playwright e2e、`pnpm -r build`、eval `--suite`）并新增 **§4.1 文档锚点与同步面**（CI 正则锚定的措辞不得改写）；§2.9 过时指涉（"排到阶段五之后"）改指挂池与立项流程。只改本文件，交叉引用漂移项登记待人类决策：ARCHITECTURE ADR 表出现**两张 D28**、`.cursor`/`.qoder` shim 命令节仍留"骨架未建"占位、doc/02 §4.5/§7.4 缺 12.4/12.2a/12.5 三路由登记 |
 
 ## 1. 项目上下文（30 秒版）
 
-Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端 + Electron 桌面壳（sidecar 复用同一 HTTP+SSE 事件流协议）+ CLI TUI（阶段八落地，Ink 6）+ 移动端三端（阶段九落地：apps/mobile Expo+RN App / apps/miniapp Taro 4 微信小程序）。当前处于 **v1（五阶段全部完成：骨架/前端/引擎/深度体验/产品化——Electron 壳、沙箱、MCP client、子代理、skills 插件均已落地，ADR D14–D18）；阶段六（UI 重构 ZCode 化）、阶段七（Harness 补全——7.1–7.8/7.10–7.13 共十二项，7.9 判决删除，ADR D25–D27）、阶段八（CLI TUI——transport/applyEvent/水位/键位表下沉 @spark/protocol 四端共享，工单 8.1–8.5，ADR D19）与阶段九（移动端三端——工单 9.1–9.5 全落地：配对鉴权 ADR D24 + apps/mobile Expo+RN ADR D20 + apps/miniapp Taro 4 ADR D21）均已完成合入；**阶段十全部完成并已合 main**（UI 对齐与 CLI 重构：工单 10.1–10.23 全落地——批次 2 命令描述符/设置面/transport 修复，ADR D19 修订、D28 设置写策略；收尾批次 3 质量收尾：10.22 消息气泡布局、10.24 hooks 关闭时序 P1 修复、10.25 CLI clientAction 不变量网、10.26–10.27 对账与代码卫生、10.28 LICENSE MIT=doc/05 G6 消解；10.30 死代码文件与 spike 残留**冻结待人类五层级确认**，AGENTS §2.10）。下一程为 v2（阶段十一~十六：发布化/可日用/可证明/SDK 化/生态面/命令面新机制，工单库见 doc/08——执行时逐张 lift 进 doc/02）。完整规格见 `doc/02-development-plan.md`。
+Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端 + Electron 桌面壳（sidecar 复用同一 HTTP+SSE 事件流协议）+ CLI TUI（Ink 7，工单 10.56 升级）+ 移动端三端（apps/mobile Expo+RN / apps/miniapp Taro 4 微信小程序）。
 
-**必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD/ZCode 化四端规格 §13）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；完成度审计（阶段三后源码级核查）→ `doc/05-completion-audit.md`；测试体系规划 → `doc/06-testing-plan.md`；Harness 模块审计（缺口 H01–H36 与"不做"判决）→ `doc/07-harness-audit.md`；v2 展望与工单库（阶段十一~十五：发布化/可日用/可证明/SDK 化/生态面，工单与开工提示词）→ `doc/08-v2-roadmap.md`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
+**当前状态（编年史细节见 doc/02 §8 阶段表与版本行，本文件只留一句话）**：v1（阶段一~十）已全量合 main 并记入 CHANGELOG `1.0.0`；**阶段十一（可发布）与阶段十二（Agent 能力补全 12.1–12.9）已完成**，同批落地 13.1 第一批（任务级 eval 场景集）与 16.1（`/init`）；**阶段十七（冗余整改 R-A~R-H）已收官**；未开工：阶段十三余下（13.2–13.7）、阶段十四（SDK 化）、阶段十五（生态面，待外部使用者）、阶段十六余下（16.2–16.9）、阶段十八（web 观感对齐 shadcn 风 18.1–18.5）。**下一程顺序与依赖见 doc/08**，工单状态唯一来源是 doc/02 §8 阶段表（行首 `✅` = 已落地，无标记 = 未开工；每批完成在 doc/02 文末版本表追加 v3.x 行）。
+
+**必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD/ZCode 化四端规格 §13）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；完成度审计（阶段三后源码级核查）→ `doc/05-completion-audit.md`；测试体系规划 → `doc/06-testing-plan.md`；Harness 模块审计（缺口 H01–H36 与"不做"判决）→ `doc/07-harness-audit.md`；v2 展望与工单库（阶段十一~十八：发布化/可日用/可证明/SDK 化/生态面/命令面新机制/冗余整改/观感对齐，工单与开工提示词）→ `doc/08-v2-roadmap.md`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
+
+### 1.1 四端共享核（改任何一端前先读这段；这是本仓库最大的隐形契约）
+
+- **`@spark/protocol` 不是类型包，是运行时共享核**。除类型（`events.ts`/`api.ts`）外还承载四端复用的实现：`apply-event.ts`（会话流 reducer）、`transport-node.ts`（HttpTransport）、`session-stream-core.ts`（连接/退避/水位/鉴权状态机内核）、`session-page.ts`（会话页纯逻辑 controller，RN 与小程序共同消费者）、`flow-rows.ts`（投影行分组与 tool 归类单源）、`ui-copy.ts`/`error-copy.ts`（文案表单源）、`keymap.ts`、`commands.ts`（`BUILTIN_COMMANDS` 命令描述符单一来源）、`format.ts`（fmtTokens 等）。**这些能力在某个端里另写一份 = 制造漂移**（阶段十七审计已抓到三例真实漂移：closed 态文案、toolCategoryOf、PROMPT_CHIPS 缺第 4 条）；新增跨端能力的正确落点是 protocol，端侧只留平台被迫部分（RN SSE、Taro 分块等）。约束：零依赖 `@spark/engine`，只依赖 zod。
+- **事件流是 UI 的唯一状态源**：引擎 emit → 单写者 JSONL（durable）→ EventBus → SSE（全局直播 + `since=seq` 回放，去重靠 seq）→ 各端 `applyEvent`。live-only 三类（`assistant.delta`/`reasoning.delta`/`tool.progress`）不落盘。回滚/fork 后的标准动作是 `resetSlice()` + 全量重放，不做局部乐观修补。
+- **引擎侧入口**：公共面在 `packages/engine/src/index.ts`（17.x 批次已收窄）；`engine.ts` 是门面巨石（1.6k 行级，管理面透传属对外 API，R-D 判决不再拆），改引擎先定位到 `run-loop.ts`/`tools/pipeline.ts`/`permission/service.ts`/`session/`/`pi-gateway.ts`/`projector.ts` 各模块。工具实现只进 `packages/engine/src/tools/builtin/`（`grep.ts` 是新工具的标准样板）。
+- **服务端是薄壳**：`apps/server/src/routes/` 已目录化为六子插件（sessions/permissions/secrets-models/automation/readonly + shared），路由 handler 不写 try/catch（全局 `setErrorHandler` 兜底），错误码→HTTP 映射进 `errors.ts` 单源。轻后端例外（模型管理、settings 读写）在 ARCHITECTURE ADR 有登记，不得随意扩面。
+- **MockTransport 对等纪律（前端能脱离后端跑的前提）**：`Transport` 接口每加一个方法，`apps/web/src/transports/mock.ts` 必须给出行为一致的假实现（含回放与内存持久化语义），否则 mock 走查与 Playwright e2e 立刻断链。
+- **数据落点**：`~/.spark/`（`models.json`/secrets/`mcp.json`/settings/`sessions/<cwd 派生目录>/<sid>.jsonl`/`logs/`/`trash/`/`checkpoints/`）——密钥只从环境变量与 secrets 仓读，日志与审计流统一脱敏；一切文件访问经 `resolveInRoot` 做 cwd 硬边界，越界优先于审批。临时产物一律落 `_scratch/`（已 gitignore）。
 
 ## 2. 硬性约定（违反即返工）
 
@@ -52,7 +64,7 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 6. **前端样式**：Tailwind + shadcn token 体系；视觉基调：黑白中性极简。**禁止一切"AI 生成风"外观**：蓝紫渐变玻璃拟态、暖棕/米色等暖调配色、实线细描边 + 内部 backdrop-blur 毛玻璃的按钮/卡片、超大标题字体、emoji 装饰、bento/三卡模板布局等——完整六类特征清单见 DESIGN.md §12（判例与决策记录见 ARCHITECTURE.md D2）；组件改造走 copy-in（源码进 `components/ui/`），不引黑盒运行时依赖。
 7. **引擎铁律**（写代码时时刻对照）：durable/live 二分（delta 不落盘）；surface 纪律（模型可见必被记录）；失败闭合（事件流永不悬空）；审批 fail-closed（超时/异常一律拒绝）；单写者 JSONL（会话文件只经 SessionStore 写）。
 8. **测试**：`applyEvent` reducer 对全部事件类型逐一单测（21 种）；新增事件类型必须同步新增单测，否则 PR 不完整。
-9. **不做的事**：不加多用户/登录/公网暴露（本地 127.0.0.1 是刻意的）；不上 Effect/RxJS 等响应式框架（抄设计不抄框架）；MVP 边界外（MCP/子代理/skills/沙箱）的功能一律排到阶段五之后，即使"顺手"。
+9. **不做的事**：不加多用户/登录/公网暴露（本地 127.0.0.1 是刻意的）；不上 Effect/RxJS 等响应式框架（抄设计不抄框架）；**不做当前工单之外的事**——新想法即使"顺手"也不夹带，登记进 doc/02 §8.7 v2 候选池或 doc/08 立项后再动（v1 阶段的 MVP 边界约束已由阶段五完成交付，不再适用）。
 10. **文件删除保护**：AI 编程助手**无权删除任何文件**——不得直接或间接执行删除（`rm`/`del`/`git rm`/`git clean`/移动出仓库/清空目录等），提交中也不得夹带删除。任何文件（含临时文件、生成物）的删除都必须由人类发起或确认，并完成**五层级确认**（逐级明示确认，缺一不可）：① 意图确认（为何删）→ ② 对象确认（逐个列出精确路径）→ ③ 影响确认（全仓引用与构建影响）→ ④ 替代确认（归档/移动/改名能否替代删除）→ ⑤ 终确认（人类明示"确认删除"）。五级全部通过后，方可由人类执行或明确授权 AI 执行；重命名/移动不在此列，但移动出仓库视同删除。
 11. **禁止"AI 生成味"代码**（前端与后端都算）：前端外观六类黑名单 + 文案语气 + 代码级 grep 硬检查见 DESIGN.md §12；后端/通用代码六类黑名单（无据设计模式、吞异常/空 catch、幻觉防御、冗余注释、泛化命名、any 逃逸/幻觉依赖）见 ARCHITECTURE.md §9——其中吞异常与假实现直接违反引擎铁律（失败闭合/禁止假状态）。总原则 **boring code**：无聊、可读、只做好一件事；删掉一层抽象若不破坏功能，就删。
 12. **参考项目禁止克隆到本地**：调研或参考任何参考项目（doc/01 §10 全部 10 项、Claude Code 泄露源码仓 `Wanfeng1028/claude-code-analysis`、以及未来新增的参考）时，一律**在线访问**——`gh api repos/<owner>/<repo>/contents/<path>`（列目录/读文件，可加 `Accept: application/vnd.github.raw` 取原文）、raw 文件直读、npm registry（版本/依赖/tarball 清单）、pkg.go.dev / 官方文档站。**禁止 `git clone`、下载整仓压缩包、或把参考项目副本放进本仓库/本机工作目录**。理由：在线读取足以完成源码级调研（本仓库全部调研均以此模式完成）；克隆整仓浪费磁盘且有误引入代码的许可证风险。派调研子代理时必须在提示词中写明本条。
@@ -67,19 +79,47 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 | 新增/改造前端组件 | AI Elements copy-in 到 `components/ui/` → 删 `"use client"` → 数据源换 `useSessionItems()` selector → 样式走 token                   |
 | 改 SSE/API        | `protocol/src/api.ts` DTO → server 路由 + zod → 前端 Transport → 02 §4.5 表同步                                                      |
 | 会话持久化变更    | `session/` 对应文件 → 02 §5.8 算法描述同步 → 坏行/迁移策略评估                                                                       |
+| 新增 Transport 方法 | `protocol/src/api.ts` DTO + `transport.ts` 接口 → **`transport-node.ts` HttpTransport 与 `apps/web/src/transports/mock.ts` 双实现（Mock 对等不得漏，见 §1.1）**→ server 路由（`apps/server/src/routes/` 对应子插件 + `errors.ts` 映射）→ 端侧消费 → 02 §4.5/§7.4 表同步 |
+| 新增/改命令（四端） | `protocol/src/commands.ts` 的 `BUILTIN_COMMANDS` 描述符（单一来源：名称/描述/surface/clientAction）→ engine `executeCommand` 分支或端侧 clientAction 消费 → 基线条数断言同步（改基线要四包同改） |
+| 新增设置项        | `protocol` settings schema（唯一来源，engine `config.ts` 复用）→ `settings-store.ts` 消费点归类（**turn 边界注入=热生效 / 构造期注入=重启档 `restartRequired`**，ADR 登记）→ web 设置页走 `useTransportQuery` + `useAsyncOp`；apiKey 类永不进响应 |
 
 ## 4. 开发命令
 
+**根目录没有 `pnpm dev`**——dev 只能按包 `--filter` 启（包名可用短名：`server`/`web`/`cli`/`mobile`/`miniapp`）。
+
 ```bash
-pnpm install
-pnpm --filter server dev     # 后端（tsx watch；缺省 127.0.0.1:4318）
-pnpm --filter web dev        # 前端（VITE_SPARK_MOCK=1 可脱离后端）
-pnpm --filter cli dev        # CLI TUI（Ink；需 server 在跑；--api <url>/SPARK_API 指基址）
-pnpm --filter mobile dev     # 移动端 App（Expo；需 server 在跑，配对后连接）
-pnpm --filter miniapp dev    # 微信小程序（Taro 4 watch 构建；微信开发者工具导入 dist）
-pnpm test / pnpm typecheck / pnpm lint
-pnpm eval                    # eval 回归（doc/02 工单 7.11；--real 可选真实模型）
+pnpm install                                  # Node >=24，pnpm 9（packageManager 为唯一来源）
+pnpm --filter server dev                      # 后端（tsx watch；缺省 127.0.0.1:4318）
+pnpm --filter web dev                         # 前端（VITE_SPARK_MOCK=1 可脱离后端）
+pnpm --filter cli dev                         # CLI TUI（Ink 7；需 server 在跑；--api <url>/SPARK_API 指基址）
+pnpm --filter mobile dev                      # 移动端 App（Expo；需 server 在跑，配对后连接）
+pnpm --filter miniapp dev                     # 微信小程序（Taro 4 watch 构建；微信开发者工具导入 dist）
+
+# 质量闸（与 ci.yml 四步同序：文档检查器 → typecheck → lint → test；本机按此顺序跑齐再提交）
+python scripts/check_doc_links.py             # CI 第一关；改过任何 .md 必跑（--strict 把 warn 也计失败）
+pnpm typecheck                                # = pnpm -r typecheck（9 个项目）
+pnpm lint                                     # eslint .
+pnpm test                                     # = pnpm -r test（vitest；全量测试由 CI 承担，本机按包跑）
+pnpm --filter @spark/engine test              # 单包
+pnpm --filter @spark/engine exec vitest run tests/tools-grep.test.ts   # 单文件
+pnpm --filter @spark/engine exec vitest run -t "用例描述片段"            # 单条用例
+pnpm --filter @spark/web e2e                  # Playwright（首次需：pnpm --filter @spark/web exec playwright install chromium --with-deps）
+pnpm -r build                                 # engine/protocol tsc 直出 + server/cli esbuild bundle；examples/evals 等内部包不发布
+pnpm eval                                     # ScriptedLlm 回归集；pnpm eval -- --suite tasks --real 为真实模型评分（需 key，见 doc/eval-secrets.md）
 ```
+
+> 环境提示（Windows + cmd 实跑踩过）：本仓库开发机 shell 为 cmd，`rg`/管道内的引号会被执行器吞掉——模式匹配一律用检索工具而非 shell；临时产物落 `_scratch/`（已 gitignore），别处不写文件。
+
+### 4.1 文档锚点与同步面（软约束之外还有硬检查）
+
+`scripts/check_doc_links.py` 用**正则锚定**跨文档核对两个计数，措辞改了就会报"所有锚点正则都未命中——正则可能已过时"：
+
+| 计数 | 四处锚定句式（必须同时存在且值相等） | 事实源 |
+| ---- | ---------------------------------- | ------ |
+| 事件词表种数 | doc/02 §4.3 标题行、ARCHITECTURE 事件模型行、本文件 §2.8 的"逐一单测（……种）"括注、README 架构图行 | `packages/protocol/src/events.ts` 的 `EventSchemas` 条目实数 |
+| 参考速查表条数 | doc/02 §9 标题行、本文件 §5 首句"完整 …… 条速查表在" | doc/02 §9 表实数 |
+
+所以：**新增事件类型的计数同步是六处活**（protocol 词表 → 前端 reducer + 单测 → 引擎 emit 点 → mock 对等 → 四处文档计数 → 必要时更新检查器正则），走 `.agents/skills/new-event-type/SKILL.md`；计数以源码实数为准，**不凭记忆写**（历史上"21/19/20"反复飘移过三次，每次都是先改文档后改代码）。另：反引号内的仓库路径会被检查存在性（warn），引用文件前确认路径已存在。
 
 ## 5. 参考项目速查（遇到问题先查这里）
 

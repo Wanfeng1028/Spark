@@ -56,6 +56,7 @@ EXTERNAL_PREFIXES = (
     "packages/core/src/",     # dsh
     "packages/schema/",       # opencode-ai/schema
     "packages/client/",       # dsh
+    "packages/cli/",          # qwen-code（doc/02 工单 10.23 在线源码引用）
     "core/src/",              # opencode/codex
     "schema/src/",            # opencode-ai/schema
     "rollout/src/",           # codex
@@ -65,6 +66,8 @@ EXTERNAL_PREFIXES = (
 # 外部参考项目的确切路径（无尾斜杠形式）
 EXTERNAL_PATHS = {
     "packages/app", "packages/ui", "packages/session-ui", "packages/web",
+    # dsh 的入口文件（doc/03 §2.1 引用）——本仓同名路径是 apps/web/src/main.tsx，不混淆
+    "apps/web/src/main.ts",
 }
 
 # 目录式简写引用（如 doc/02、doc/01/02——指文档编号而非文件路径）
@@ -80,7 +83,7 @@ BACKTICK_RE = re.compile(r"`([^`\n]+)`")
 FACT_RULES: dict[str, dict[str, str]] = {
     "事件词表计数": {
         "doc/02-development-plan.md": r"# 4\.3 事件词表（(\d+) 种",
-        "ARCHITECTURE.md": r"\*\*事件模型\*\* \| (\d+) 种",
+        "ARCHITECTURE.md": r"\*\*事件模型\*\*\s*\|\s*(\d+) 种",
         "AGENTS.md": r"逐一单测（(\d+) 种）",
         "README.md": r"(\d+) 种事件词表",
     },
