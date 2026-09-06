@@ -33,6 +33,22 @@ export const MessageItem = memo(function MessageItem({ item, model, sid, highlig
       return (
         <article className={cn('flex w-full flex-col items-end', hl)}>
           <RoleLabel>YOU</RoleLabel>
+          {/* 附件缩略（工单 12.2a）：id 对应 server attachments/ 平铺文件；加载失败隐藏 img 保文字 */}
+          {item.attachments !== undefined && item.attachments.length > 0 && (
+            <div className="mt-1 flex max-w-[80%] flex-wrap justify-end gap-1.5">
+              {item.attachments.map((a) => (
+                <img
+                  key={a}
+                  src={`/api/attachments/${a}`}
+                  alt={`附件 ${a.slice(0, 8)}`}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                  }}
+                  className="h-20 rounded-lg border border-border object-cover"
+                />
+              ))}
+            </div>
+          )}
           <div className="mt-1 max-w-[80%] rounded-[18px] rounded-br-[4px] bg-accent px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap">
             {item.text}
           </div>

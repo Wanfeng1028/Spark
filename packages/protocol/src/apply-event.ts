@@ -16,7 +16,7 @@ interface UiItemBase {
 }
 
 export type UiItem =
-  | ({ kind: 'user'; text: string } & UiItemBase)
+  | ({ kind: 'user'; text: string; attachments?: string[] } & UiItemBase)
   | ({
       kind: 'turn'
       turnId: TurnId
@@ -328,7 +328,13 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
   }
 
   if (ofType(e, 'user.message')) {
-    items = [...items, { kind: 'user', eventId: e.id, text: e.data.text }]
+    const userItem: { kind: 'user'; eventId: EventId; text: string; attachments?: string[] } = {
+      kind: 'user',
+      eventId: e.id,
+      text: e.data.text,
+    }
+    if (e.data.attachments !== undefined) userItem.attachments = e.data.attachments
+    items = [...items, userItem]
     next.items = items
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }

@@ -15,6 +15,7 @@ import type {
   CheckpointDto,
   CommandDto,
   FsListDto,
+  AttachmentDto,
   FsTreeDto,
   McpServerDto,
   MemoryDto,
@@ -151,6 +152,11 @@ export interface Transport {
   listFs(sessionId: SessionId, path?: string): Promise<FsListDto>
   /** GET /api/sessions/:id/fs/tree?path=：递归文件树（工单 12.5；深度 ≤4 条目 ≤500） */
   listFsTree(sessionId: SessionId, path?: string): Promise<FsTreeDto>
+  /** POST /api/sessions/:id/attachments：上传图片（工单 12.2a；≤10MB image/* 白名单） */
+  uploadAttachment(
+    sessionId: SessionId,
+    file: { name: string; mime: string; bytes: Uint8Array },
+  ): Promise<AttachmentDto>
   /** GET /api/pair：配对状态（监听地址/鉴权启用态/已配对设备；工单 9.1 / ADR D24） */
   getPairStatus(): Promise<PairStatusDto>
   /** POST /api/pair/code：签发配对码（6 位短码 60s 有效 + QR 出示内容） */

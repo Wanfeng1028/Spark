@@ -21,6 +21,7 @@ import type {
   CommandDto,
   ContentItem,
   EventId,
+  AttachmentDto,
   FsEntryDto,
   FsListDto,
   FsTreeDto,
@@ -988,6 +989,19 @@ export class MockTransport implements Transport {
       entries: entries.filter((e) => e.path.startsWith(prefix)),
       truncated: false,
     })
+  }
+
+  private readonly attachmentStore = new Map<string, { mime: string; bytes: Buffer }>()
+
+  /** 上传（mock 对等）：内存存储，返回 dto（缩略渲染走 objectURL 由调用方处理） */
+  uploadAttachment(
+    _sessionId: SessionId,
+    file: { name: string; mime: string; bytes: Uint8Array },
+  ): Promise<AttachmentDto> {
+    const id = globalThis.crypto.randomUUID().replaceAll('-', '')
+    const fileKey = id + '.' + (file.mime.split('/')[1] ?? 'png')
+    this.attachmentStore.set(fileKey, { mime: file.mime, bytes: Buffer.from(file.bytes) })
+    return Promise.resolve({ id, file: fileKey, mime: file.mime, size: file.bytes.length, name: file.name })
   }
 
   listFs(_sessionId: SessionId, path = ''): Promise<FsListDto> {

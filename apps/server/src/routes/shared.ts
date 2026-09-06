@@ -65,6 +65,11 @@ export const ArchiveBody = z.strictObject({ archived: z.boolean() })
 /** 工单 12.4：DELETE 需显式 confirm: true（防误删——两层护栏的第一层） */
 export const DeleteSessionBody = z.strictObject({ confirm: z.literal(true) })
 
+/** 工单 12.2a：取图文件名白名单参数（32 位 hex id + 扩展名） */
+export const AttachmentFileParams = z.strictObject({
+  file: z.string().regex(/^[a-f0-9]{32}\.(png|jpg|gif|webp)$/),
+})
+
 export const ListSessionsQuery = z.object({
   limit: z.coerce.number().int().positive().default(50),
   cursor: SessionIdSchema.optional(),

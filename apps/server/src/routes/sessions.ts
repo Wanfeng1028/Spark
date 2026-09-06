@@ -2,14 +2,16 @@
  * 会话核心域（创建/列表/详情/文件树/消息/中断/压缩/树/fork/checkpoints/回滚）（工单 R-F③ 域拆分：自 routes.ts 机械搬移，路由与行为零变化）。
  */
 import type { FastifyPluginCallback } from 'fastify'
-import { readdir, stat } from 'node:fs/promises'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import type { Dirent } from 'node:fs'
 import { resolveInRoot } from '@spark/engine'
 import { join } from 'node:path'
+import { readdir, readFile, stat } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import type { CheckpointDto } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
-import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FsTreeQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, DeleteSessionBody } from './shared.js'
+import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FsTreeQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, DeleteSessionBody, AttachmentFileParams } from './shared.js'
 
 export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
   const { engine } = opts
@@ -189,6 +191,62 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
     // 回滚后 seq 回退：响应只回 meta，前端走 GET /:id 全量重放（§4.5 表注）
     const handle = await engine.rollbackToCheckpoint(id, cid)
     return reply.send(toDto(engine, handle.meta))
+  })
+
+  // ---- 图片附件（工单 12.2a：上传 → attachments/ 平铺存储 → GET 取图） ----
+
+  const MIME_EXT: Record<string, string> = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+  }
+  const EXT_MIME: Record<string, string> = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+  }
+
+  /** POST /api/sessions/:id/attachments：raw 图片字节（≤10MB，image/* 白名单）→ {id,mime,size,name} */
+  app.post('/api/sessions/:id/attachments', { bodyLimit: 11 * 1024 * 1024 }, async (req, reply) => {
+    const { id } = parseOr400(IdParams, req.params)
+    await requireHandle(engine, id) // 会话存在性（未加载先 resume——与其他 :id 端点同纪律）
+    const mime = req.headers['content-type'] ?? ''
+    const ext = MIME_EXT[mime]
+    if (ext === undefined) {
+      throw new Error('E_ATTACHMENT_TYPE: 仅支持 png/jpeg/gif/webp 图片')
+    }
+    const body = req.body as Buffer | undefined
+    if (body === undefined || body.length === 0) {
+      throw validationError('请求体为空——请携带图片字节', undefined)
+    }
+    if (body.length > 10 * 1024 * 1024) {
+      throw new Error('E_ATTACHMENT_TOO_LARGE: 图片超过 10MB 上限')
+    }
+    const nameHeader = req.headers['x-file-name']
+    const name = typeof nameHeader === 'string' ? decodeURIComponent(nameHeader) : 'image.' + ext
+    const attachmentId = randomUUID().replaceAll('-', '')
+    const dir = join(engine.dataRoot, 'attachments')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, attachmentId + '.' + ext), body)
+    const file = attachmentId + '.' + ext
+    return reply.code(201).send({ id: attachmentId, file, mime, size: body.length, name })
+  })
+
+  /** GET /api/attachments/:file：白名单文件名取图（缩略渲染数据源） */
+  app.get('/api/attachments/:file', async (req, reply) => {
+    const { file } = parseOr400(AttachmentFileParams, req.params)
+    const ext = file.split('.').pop() ?? ''
+    const mime = EXT_MIME[ext]
+    if (mime === undefined) return notFound(reply)
+    const abs = join(engine.dataRoot, 'attachments', file)
+    try {
+      const bytes = await readFile(abs)
+      return reply.type(mime).send(bytes)
+    } catch {
+      return notFound(reply)
+    }
   })
 
   // ---- 会话归档与两段式删除（工单 12.4 / V2-23） ----

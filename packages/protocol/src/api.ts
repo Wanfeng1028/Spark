@@ -519,6 +519,17 @@ export const FsEntryDtoSchema = z.strictObject({
 })
 export type FsEntryDto = z.infer<typeof FsEntryDtoSchema>
 
+/** 图片附件（工单 12.2a）：id = 32 位 hex（取图 URL 用）；name 原始文件名仅供 chips 展示 */
+export const AttachmentDtoSchema = z.strictObject({
+  id: z.string().min(1),
+  /** 取图文件名（<id>.<ext>）——GET /api/attachments/:file 直用；事件 attachments 数组存本值 */
+  file: z.string().min(1),
+  mime: z.string(),
+  size: z.number().int().nonnegative(),
+  name: z.string(),
+})
+export type AttachmentDto = z.infer<typeof AttachmentDtoSchema>
+
 /** 递归文件树（工单 12.5）：path = 请求的根目录（相对 cwd，根为空串）；entries 平铺
  * （含目录项，客户端按 path 建层级）；truncated = 条目达上限截断。深度 ≤4、条目 ≤500。 */
 export const FsTreeDtoSchema = z.strictObject({

@@ -112,6 +112,14 @@ const FASTIFY_ERROR_MAP: Record<string, { status: number; code: string; message:
  */
 export function registerErrorHandling(app: FastifyInstance): void {
   app.removeContentTypeParser('application/json')
+  // 工单 12.2a：图片附件原始字节（multipart 依赖不引——客户端直接 raw body + x-file-name 头）
+  app.addContentTypeParser(
+    /^image\//,
+    { parseAs: 'buffer', bodyLimit: 11 * 1024 * 1024 },
+    (_req: FastifyRequest, body: Buffer, done: (err: Error | null, result?: unknown) => void) => {
+      done(null, body)
+    },
+  )
   app.addContentTypeParser(
     'application/json',
     { parseAs: 'string' },
@@ -137,6 +145,12 @@ export function toApiError(err: unknown): ApiError {
   if (msg.startsWith('E_NOT_FOUND')) return NOT_FOUND
   if (msg.startsWith('E_PATH_OUTSIDE')) {
     return new ApiError(400, 'E_PATH_OUTSIDE', msg)
+  }
+  if (msg.startsWith('E_ATTACHMENT_TOO_LARGE')) {
+    return new ApiError(413, 'E_ATTACHMENT_TOO_LARGE', '图片超过 10MB 上限')
+  }
+  if (msg.startsWith('E_ATTACHMENT_TYPE')) {
+    return new ApiError(415, 'E_ATTACHMENT_TYPE', '仅支持 png/jpeg/gif/webp 图片')
   }
   if (msg.startsWith('E_SESSION_ACTIVE')) {
     return new ApiError(409, 'E_SESSION_ACTIVE', '会话运行中——先等待回合结束或中断')

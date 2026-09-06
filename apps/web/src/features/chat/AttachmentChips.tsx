@@ -6,6 +6,7 @@ import { X } from 'lucide-react'
 
 export function AttachmentChips({
   attachments,
+  attachmentNames,
   attachOpen,
   attachInput,
   onAttachInput,
@@ -13,6 +14,8 @@ export function AttachmentChips({
   onRemove,
 }: {
   attachments: readonly string[]
+  /** 附件 id → 原始文件名（工单 12.2a 图片上传后的 chips 展示；无映射按路径条目渲染） */
+  attachmentNames?: ReadonlyMap<string, string>
   attachOpen: boolean
   attachInput: string
   onAttachInput: (v: string) => void
@@ -28,7 +31,7 @@ export function AttachmentChips({
               key={p}
               className="flex h-6 items-center gap-1 rounded-md border border-border px-1.5 font-mono text-xs text-muted-foreground"
             >
-              <span className="max-w-56 truncate">{p}</span>
+              <span className="max-w-56 truncate">{attachmentNames?.get(p) ?? p}</span>
               <button
                 type="button"
                 aria-label={`移除附件 ${p}`}

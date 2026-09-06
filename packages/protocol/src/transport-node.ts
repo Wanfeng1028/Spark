@@ -27,6 +27,7 @@ import type {
   CheckpointDto,
   CommandDto,
   FsListDto,
+  AttachmentDto,
   FsTreeDto,
   McpServerDto,
   MemoryDto,
@@ -535,7 +536,23 @@ export class HttpTransport implements Transport {
     const qs = path === '' ? '' : `?path=${encodeURIComponent(path)}`
     return this.req<FsTreeDto>(`/api/sessions/${sessionId}/fs/tree${qs}`)
   }
-  getPairStatus(): Promise<PairStatusDto> {
+
+
+  /** POST /api/sessions/:id/attachments：raw 图片字节（工单 12.2a；x-file-name 头带原始名） */
+  uploadAttachment(
+    sessionId: SessionId,
+    file: { name: string; mime: string; bytes: Uint8Array },
+  ): Promise<AttachmentDto> {
+    return this.req<AttachmentDto>(`/api/sessions/${sessionId}/attachments`, {
+      method: 'POST',
+      headers: {
+        'content-type': file.mime,
+        'x-file-name': encodeURIComponent(file.name),
+      },
+      // Uint8Array 在 Node/DOM/RN 三套 lib 下均为合法 fetch body（类型面差异用宽化收口）
+      body: file.bytes as unknown as Parameters<typeof fetch>[1] extends infer I ? I extends { body?: infer B } ? B : never : never,
+    })
+  }  getPairStatus(): Promise<PairStatusDto> {
     return this.req<PairStatusDto>('/api/pair')
   }
 

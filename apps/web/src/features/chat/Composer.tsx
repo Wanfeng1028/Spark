@@ -127,6 +127,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const [treeOpen, setTreeOpen] = useState(false)
   const [plusMenuOpen, setPlusMenuOpen] = useState(false)
   const taRef = useRef<HTMLTextAreaElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useImperativeHandle(ref, () => ({
@@ -367,6 +368,31 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     setAttachInput('')
   }
 
+  /** 图片上传（工单 12.2a）：uploadAttachment → 附件 id 进 attachments；名称映射供 chips 展示 */
+  const [attachmentNames, setAttachmentNames] = useState<Map<string, string>>(new Map())
+  const uploadingRef = useRef(false)
+  async function uploadImages(files: FileList | File[]): Promise<void> {
+    if (sessionId === undefined || uploadingRef.current) return
+    uploadingRef.current = true
+    for (const f of Array.from(files)) {
+      if (!f.type.startsWith('image/')) continue
+      try {
+        const bytes = new Uint8Array(await f.arrayBuffer())
+        const dto = await transport.uploadAttachment(sessionId, {
+          name: f.name,
+          mime: f.type,
+          bytes,
+        })
+        setAttachments((a) => (a.includes(dto.file) ? a : [...a, dto.file]))
+        setAttachmentNames((m) => new Map(m).set(dto.file, dto.name))
+        showHint(`已上传 ${dto.name}`)
+      } catch (err) {
+        showHint(errorMessageOf(err))
+      }
+    }
+    uploadingRef.current = false
+  }
+
   async function choosePreset(p: PermissionPreset): Promise<void> {
     if (permission === undefined || p === permission.preset) return
     setPresetMenuOpen(false)
@@ -440,6 +466,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         {(attachOpen || attachments.length > 0) && !waiting && (
           <AttachmentChips
             attachments={attachments}
+            attachmentNames={attachmentNames}
             attachOpen={attachOpen}
             attachInput={attachInput}
             onAttachInput={setAttachInput}
@@ -448,9 +475,30 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           />
         )}
 
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/webp"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files !== null) void uploadImages(e.target.files)
+            e.target.value = '' // 允许重复选同一文件
+          }}
+        />
         <textarea
           ref={taRef}
           value={draft}
+          onPaste={(e) => {
+            // 工单 12.2a：剪贴板图片直接上传（文本粘贴不受影响）
+            const images = Array.from(e.clipboardData.files).filter((f) =>
+              f.type.startsWith('image/'),
+            )
+            if (images.length > 0) {
+              e.preventDefault()
+              void uploadImages(images)
+            }
+          }}
           onChange={(e) => {
             setDraft(e.target.value)
             updateCaret(e.target)
@@ -513,7 +561,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               >
                 {(
                   [
-                    { icon: Paperclip, label: '添加附件', run: () => { setPlusMenuOpen(false); setAttachOpen(true) } },
+                    { icon: Paperclip, label: '添加图片附件', run: () => { setPlusMenuOpen(false); imageInputRef.current?.click() } },
                     { icon: AtSign, label: '使用 @ 添加上下文', run: () => insertTrigger('@') },
                     { icon: Slash, label: '使用 / 选择命令或能力', run: () => insertTrigger('/') },
                     { icon: DollarSign, label: '使用 $ 选择技能', run: () => insertTrigger('$') },
