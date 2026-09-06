@@ -22,6 +22,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      # 工单 13.1 第三批（doc/08 §13.1 验收第 1 条、提示词第 4 条："CI（非 nightly）用 ScriptedLlm 冒烟"）：
+      # core 四场景 + 任务级判分双向自检 13 场景，无 key 无网络（约 10s）
+      - run: pnpm eval
 
   # 工单 11.3（doc/06 §2 目标表 PR 行）：PR/push 上的浏览器测试——mock 四场景 + 断线两例。
   # 与主 ci job 并行，失败即红；不跑视觉基线断言（用例本身只产出截图，无跨平台 diff）。

@@ -1,13 +1,16 @@
 /**
  * pnpm eval 入口（阶段七工单 7.11 / H10，doc/06 §2 nightly 层）：
- * 恒跑 ScriptedLlm 回归场景集（无网络、无真实模型）；--real 追加可选真实模型评分
- * （无配置/凭据 → skip 不红）。退出码：任一 fail → 1（nightly 红灯依据）。
+ * 恒跑 ScriptedLlm 确定性场景集（无网络、无真实模型；含工单 13.1 第三批的判分双向冒烟）；
+ * --real 追加真实模型评分（无配置/凭据 → skip 不红）。退出码：任一 fail → 1（nightly 红灯依据）。
+ * suite 缺省：不带 --real 时 = core；带 --real 时 = all——否则 `--real` 单独给会因
+ * suite=core 而一个真实场景也不跑（nightly 曾因此空转，工单 13.1 第三批修正）。
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { scenarios } from './scenarios/index.js'
 import { realScenarios } from './real.js'
 import { taskScenarios } from './tasks/scenarios.js'
+import { taskSmokeScenarios } from './tasks/smoke.js'
 import type { EvalOutcome, EvalScenario } from './harness.js'
 
 interface Row {
@@ -53,10 +56,15 @@ function printReport(rows: Row[]): void {
 async function main(): Promise<void> {
   const real = process.argv.includes('--real')
   const suiteIndex = process.argv.indexOf('--suite')
-  const suite = suiteIndex !== -1 ? (process.argv[suiteIndex + 1] ?? 'core') : 'core'
+  // 显式 --suite 优先；缺省时 --real 走 all（不然真实场景永不执行），否则只跑 core
+  const suite = suiteIndex !== -1 ? (process.argv[suiteIndex + 1] ?? 'core') : real ? 'all' : 'core'
 
   const rows: Row[] = []
-  if (suite === 'core' || suite === 'all') rows.push(...(await runAll(scenarios)))
+  if (suite === 'core' || suite === 'all') {
+    rows.push(...(await runAll(scenarios)))
+    // 任务级判分确定性冒烟（工单 13.1 第三批）：ScriptedLlm 驱动同一份 taskDefs，无 key 无网络
+    rows.push(...(await runAll(taskSmokeScenarios)))
+  }
   if (real && (suite === 'real' || suite === 'all')) rows.push(...(await runAll(realScenarios)))
   if (real && (suite === 'tasks' || suite === 'all')) rows.push(...(await runAll(taskScenarios)))
 

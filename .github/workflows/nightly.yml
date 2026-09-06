@@ -19,9 +19,9 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: eval 回归（ScriptedLlm 确定性场景集——审批/中断/压缩/基线）
+      - name: eval 回归（ScriptedLlm 确定性场景集——审批/中断/压缩/基线 + 任务级判分双向冒烟 13 场景）
         run: pnpm eval
-      - name: 可选真实模型评分（secrets 缺省 skip 不红——配置三步见 doc/eval-secrets.md）
+      - name: 真实模型评分（--real 缺省 suite=all：core 4 + 判分冒烟 13 + real 1 + tasks 17；secrets 缺省 skip 不红——配置三步见 doc/eval-secrets.md）
         env:
           SPARK_EVAL_API_KEY: ${{ secrets.SPARK_EVAL_API_KEY }}
           SPARK_EVAL_BASE_URL: ${{ vars.SPARK_EVAL_BASE_URL }}
