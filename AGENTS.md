@@ -36,6 +36,7 @@
 | v1.27 | 2026-09-01 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，批次 3 立单+开工指令） | §1 项目上下文刷新：**阶段十全部完成并已合 main（工单 10.1–10.23 + 收尾批次 3：10.22 消息气泡布局 / 10.24 hooks 关闭时序 P1 修复 / 10.25 CLI clientAction 不变量网 / 10.26–10.27 对账与卫生 / 10.28 LICENSE MIT=G6 消解）**；§2.8 事件词表 21 种经源码复核不变。同日源码级核查：批次 2 已勾工单全部落地属实（0 any/0 ts-ignore/21 事件 reducer 单测全覆盖）。与 doc/02 v3.48–v3.53（批次 3 立单与勾选）、doc/08 v1.3、doc/05 v1.2、DESIGN v2.10 同步 |
 | v1.28 | 2026-09-02 | AI 编写：Jules (AI Assistant)；发起：晚风（Wanfeng1028） | 更新 package.json 贡献者（contributors）字段 |
 | v1.29 | 2026-09-07 | AI 编写：Qoder；发起：Qoder 会话（AGENTS.md 复核指令，对照源码逐项核实） | §1 项目上下文刷新至**阶段十二全部落地**（12.1–12.9 + 13.1 第一批 + 16.1；doc/02 v3.92），CLI 措辞修正 **Ink 6→Ink 7**（工单 10.56 已升 `ink ^7.1.1`）；新增 **§1.1 四端共享核**（protocol 是运行时代码而非类型包 + MockTransport 对等纪律 + 数据落点）；§3 任务表补 Transport 新方法 / 命令描述符 / 设置项三行；§4 开发命令回填（单包与单条用例过滤、`check_doc_links.py`、Playwright e2e、`pnpm -r build`、eval `--suite`）并新增 **§4.1 文档锚点与同步面**（CI 正则锚定的措辞不得改写）；§2.9 过时指涉（"排到阶段五之后"）改指挂池与立项流程。只改本文件，交叉引用漂移项登记待人类决策：ARCHITECTURE ADR 表出现**两张 D28**、`.cursor`/`.qoder` shim 命令节仍留"骨架未建"占位、doc/02 §4.5/§7.4 缺 12.4/12.2a/12.5 三路由登记 |
+| v1.30 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | §1 必读文档索引新增 **doc/09 外部任务基准可行性评估**（工单 13.2 产出：Terminal-Bench（经 Harbor）/ SWE-bench Lite / 自建容器三候选 × 四维度对比，判决**不接** + 三个重评触发条件 + 若接的 installed-agent 最小接线草图）；同批事实修正：§1 "未开工：阶段十三余下（13.2–13.7）" 中 13.1 已三批收官、13.2 已出报告（详见 doc/02 v3.95–v3.96）。与 README v1.32、doc/08 v1.12 同步 |
 
 ## 1. 项目上下文（30 秒版）
 
@@ -43,7 +44,7 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 
 **当前状态（编年史细节见 doc/02 §8 阶段表与版本行，本文件只留一句话）**：v1（阶段一~十）已全量合 main 并记入 CHANGELOG `1.0.0`；**阶段十一（可发布）与阶段十二（Agent 能力补全 12.1–12.9）已完成**，同批落地 13.1 第一批（任务级 eval 场景集）与 16.1（`/init`）；**阶段十七（冗余整改 R-A~R-H）已收官**；未开工：阶段十三余下（13.2–13.7）、阶段十四（SDK 化）、阶段十五（生态面，待外部使用者）、阶段十六余下（16.2–16.9）、阶段十八（web 观感对齐 shadcn 风 18.1–18.5）。**下一程顺序与依赖见 doc/08**，工单状态唯一来源是 doc/02 §8 阶段表（行首 `✅` = 已落地，无标记 = 未开工；每批完成在 doc/02 文末版本表追加 v3.x 行）。
 
-**必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD/ZCode 化四端规格 §13）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；完成度审计（阶段三后源码级核查）→ `doc/05-completion-audit.md`；测试体系规划 → `doc/06-testing-plan.md`；Harness 模块审计（缺口 H01–H36 与"不做"判决）→ `doc/07-harness-audit.md`；v2 展望与工单库（阶段十一~十八：发布化/可日用/可证明/SDK 化/生态面/命令面新机制/冗余整改/观感对齐，工单与开工提示词）→ `doc/08-v2-roadmap.md`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
+**必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD/ZCode 化四端规格 §13）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；完成度审计（阶段三后源码级核查）→ `doc/05-completion-audit.md`；测试体系规划 → `doc/06-testing-plan.md`；Harness 模块审计（缺口 H01–H36 与"不做"判决）→ `doc/07-harness-audit.md`；v2 展望与工单库（阶段十一~十八：发布化/可日用/可证明/SDK 化/生态面/命令面新机制/冗余整改/观感对齐，工单与开工提示词）→ `doc/08-v2-roadmap.md`；外部任务基准评估（Terminal-Bench/SWE-bench/自建容器三候选与"不接"判决）→ `doc/09-benchmark-feasibility.md`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
 
 ### 1.1 四端共享核（改任何一端前先读这段；这是本仓库最大的隐形契约）
 

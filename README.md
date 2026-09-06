@@ -92,6 +92,7 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 | [doc/06-testing-plan.md](./doc/06-testing-plan.md)           | 测试体系补全计划：五层+契约分层 · CI 流水线 · 性能基线 · 走查模板                               |
 | [doc/07-harness-audit.md](./doc/07-harness-audit.md)         | Harness 模块审计：十九条学科×三态 · 六大类源码级证据 · 缺口 H01–H36 · Python Worker 判决        |
 | [doc/08-v2-roadmap.md](./doc/08-v2-roadmap.md)               | v2 展望与工单库：阶段十一~十六（发布化/可日用/可证明/SDK 化/生态面/命令面新机制）                |
+| [doc/09-benchmark-feasibility.md](./doc/09-benchmark-feasibility.md) | 外部任务基准可行性评估（工单 13.2）：Terminal-Bench/SWE-bench/自建容器三候选对比与"不接"判决 |
 | [.agents/skills/](./.agents/skills/)                         | 可重复任务流程：docs-update · new-event-type · new-tool · frontend-component                    |
 
 ## 开发
@@ -163,5 +164,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.29 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十一 11.8 指令） | **README 手册化重写（工单 11.8）**：导语改身份宣言（本地运行数据不出机器/四端同一协议/每一步可审计/反 AI 味克制界面）；新增 Quick Start（`npm i -g @spark/cli` → `spark up` → 配模型 → 首回合审批）与四端一览、安全模型摘要；"当前状态"编年史长段收缩为三行内并移交 [CHANGELOG.md]；版本记录表折叠至尾部；badges 补 license MIT、node ≥24（与 engines 对齐）；中英双版头部互链（[README.en.md]）。事实锚点行"21 种事件词表"不动 |
 | v1.30 | 2026-09-02 | AI 编写：Jules (AI Assistant)；发起：晚风（Wanfeng1028） | **添加贡献者名单**：在 package.json 及各子包 package.json 中新增 `contributors` 字段并添加 Jules (AI Assistant) |
 | v1.31 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"所有没做完的都要做完"指令） | **两处事实漂移修正 + 当前状态刷新**：四端一览 CLI 行 **Ink 6→Ink 7**（工单 10.56 已升 `ink ^7.1.1`）与 **footer 双行→单行**（工单 10.51 已修正批次 3 双行决策）；"当前状态"补 **v2 已开工** 一行（阶段十一/十二完成、十七收官、13.1 第一批与 16.1 落地），"下一程"改指 13.2–13.7 / 十四 / 16.2–16.9 / 十八。与 AGENTS v1.29、doc/02 v3.93 同批；事实锚点行（21 种事件词表）不动 |
+| v1.32 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | 文档导航新增 doc/09 外部任务基准可行性评估（工单 13.2 产出：三候选 × 四维度对比、判决"不接"与三个重评触发条件、若接的 Harbor installed-agent 最小接线草图）；与 doc/02 v3.96、doc/08 v1.12、AGENTS v1.30 同批 |
 
 </details>
