@@ -20,8 +20,10 @@ import { dirname, join, resolve } from 'node:path'
 /** AGENTS.md 原文注入上限（§5.11 第 3 条：截断至 8K 字符并注明） */
 const AGENTS_MAX_CHARS = 8 * 1024
 
-/** 基座提示词（10.41：逐段照搬 qwen-code buildDefaultBasePrompt，替换身份/工具名） */
-const BASE_PROMPT = `You are Spark, an interactive CLI agent, specializing in software engineering tasks. Your primary goal is to help users safely and efficiently, adhering strictly to the following instructions and utilizing your available tools.
+/** 基座提示词（10.41：逐段照搬 qwen-code buildDefaultBasePrompt，替换身份/工具名）。
+ * 工单 13.3：作为**缺省模板**导出——spark.json `prompts.base` 可指向模板文件覆盖它，
+ * 未配置时渲染结果与本常量逐字节相同（同一性单测锁死）。 */
+export const BASE_PROMPT = `You are Spark, an interactive CLI agent, specializing in software engineering tasks. Your primary goal is to help users safely and efficiently, adhering strictly to the following instructions and utilizing your available tools.
 
 # Core Mandates
 
@@ -163,10 +165,16 @@ function projectInstructions(cwd: string): string {
   return `From ${path}:\n\n${trimmed}`
 }
 
-/** §5.11 system 组装：基座 + git + 环境块 + 项目指引（每次会话组装一次） */
-export function buildSystemPrompt(cwd: string, now: Date = new Date()): string {
+/** §5.11 system 组装：基座 + git + 环境块 + 项目指引（每次会话组装一次）。
+ * base 缺省 = 内置 BASE_PROMPT；工单 13.3 下由引擎传入**已渲染**的可配模板
+ * （渲染在调用点做——{{model}} 随会话级换模型热变，不得提前冻结）。 */
+export function buildSystemPrompt(
+  cwd: string,
+  now: Date = new Date(),
+  base: string = BASE_PROMPT,
+): string {
   const shell = process.env['SHELL'] ?? (platform() === 'win32' ? 'cmd' : 'sh')
-  return `${BASE_PROMPT}
+  return `${base}
 ${gitSection(cwd)}
 
 # Environment

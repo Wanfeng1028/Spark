@@ -7,8 +7,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { EngineSettingsShape, SettingsHooksSchema } from '@spark/protocol'
-import type { EngineSettings, ReasoningEffort, SettingsHooks } from '@spark/protocol'
+import { EngineSettingsShape, SettingsHooksSchema, SettingsPromptsSchema } from '@spark/protocol'
+import type { EngineSettings, ReasoningEffort, SettingsHooks, SettingsPrompts } from '@spark/protocol'
 import { errText } from './errs.js'
 
 /** E_CONFIG（§5.10）：进程退出 + stderr 的载体由启动方（server）负责 */
@@ -42,6 +42,8 @@ const sparkSchema = z.object({
   engine: EngineSettingsShape.partial().optional(),
   /** 用户侧 hooks（阶段七工单 7.3 / H03）：四挂点 → 外部命令或 skill 触发 */
   hooks: SettingsHooksSchema.optional(),
+  /** 提示词模板文件路径（工单 13.3 / V2-16）：缺省 = 内置模板，输出逐字节不变 */
+  prompts: SettingsPromptsSchema.optional(),
 })
 
 export interface SparkConfig {
@@ -50,6 +52,8 @@ export interface SparkConfig {
   engine: EngineSettings
   /** 用户侧 hooks（工单 7.3；可选——直注入配置的测试夹具可省，引擎侧 `?? {}`） */
   hooks?: SettingsHooks | undefined
+  /** 提示词模板路径（工单 13.3；可选——缺省用引擎内置模板） */
+  prompts?: SettingsPrompts | undefined
 }
 
 const SPARK_DEFAULTS: SparkConfig = {
@@ -234,6 +238,7 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
               bashSandbox: p.engine?.bashSandbox ?? SPARK_DEFAULTS.engine.bashSandbox,
             },
             hooks: p.hooks, // 工单 7.3：原样透传（undefined = 无挂点）
+            prompts: p.prompts, // 工单 13.3：原样透传（undefined = 用内置模板）
           }
         })()
 

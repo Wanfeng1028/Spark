@@ -251,6 +251,27 @@ export const SettingsHooksSchema = z.strictObject({
 export type SettingsHooks = z.infer<typeof SettingsHooksSchema>
 
 /**
+ * 提示词模板段（工单 13.3 / V2-16）：三处硬编码提示词（base/compaction/title）的可配覆盖。
+ * 值 = 模板文件路径（相对 spark.json 所在目录）；缺省 = 用引擎内置模板，输出逐字节不变。
+ * 占位符白名单是封闭集（PROMPT_PLACEHOLDERS）——非白名单的 `{{...}}` 一律 E_CONFIG 拒启动
+ * （校验在引擎 prompt-templates.ts，宁拒启不静默降级）。**不经 GET|PUT /api/settings**：
+ * 手工改 spark.json 后重启生效（构造期注入 = D28 重启档语义）。
+ */
+export const SettingsPromptsSchema = z.strictObject({
+  base: z.string().min(1).optional(),
+  compaction: z.string().min(1).optional(),
+  title: z.string().min(1).optional(),
+})
+export type SettingsPrompts = z.infer<typeof SettingsPromptsSchema>
+
+/**
+ * 模板占位符白名单（封闭集，**精确匹配**：带空格的 `{{ cwd }}` 也算非白名单 → E_CONFIG）。
+ * cwd = 会话工作目录；model = `provider/model`；platform = node:os platform()。
+ */
+export const PROMPT_PLACEHOLDERS = ['{{cwd}}', '{{model}}', '{{platform}}'] as const
+export type PromptPlaceholder = (typeof PROMPT_PLACEHOLDERS)[number]
+
+/**
  * 需重启生效的字段（D28 分类：构造期注入子系统 / listen 绑定级）。
  * 热档五项（maxStepsPerTurn/maxToolParallel/compactionThreshold/
  * progressThrottleMs/checkpoints——均 turn 边界注入）在下一 turn 生效，不在本表。

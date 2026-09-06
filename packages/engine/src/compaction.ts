@@ -25,7 +25,9 @@ function isOfType<K extends SparkEventType>(
   return e.type === type
 }
 
-/** §5.11 辅助提示词：压缩（maxTokens 2000 经 OnceRequest 传递） */
+/** §5.11 辅助提示词：压缩（maxTokens 2000 经 OnceRequest 传递）。
+ * 工单 13.3：作为**缺省模板**——spark.json `prompts.compaction` 可指向模板文件覆盖，
+ * 覆盖值经 CompactorDeps.prompt 以已渲染文本传入（未配置时逐字节等于本常量）。 */
 export const COMPACTION_PROMPT =
   'Summarize the conversation so far so work can continue with this summary alone. ' +
   'Keep: goals, key decisions, current task state, open TODOs, important file paths. ' +
@@ -35,6 +37,9 @@ export interface CompactorDeps {
   sessionId: SessionId
   bus: EventBus
   gateway: LlmGateway
+  /** 压缩提示词（工单 13.3：可配模板的渲染结果；缺省 = COMPACTION_PROMPT）。
+   * 用 thunk 而非字符串：每次压缩现渲染，{{model}} 跟随路由档热变不落假状态 */
+  prompt?: () => string
   /** 被压缩上下文的投影（摘要输入与 tokensBefore 来源） */
   projector: Projector
   tree: EventTree
@@ -75,7 +80,7 @@ export class CompactorImpl implements Compactor {
     try {
       const summary = await this.deps.gateway.generateOnce({
         model: this.deps.model,
-        prompt: `${COMPACTION_PROMPT}\n\n${serializeTranscript(ctx.messages)}`,
+        prompt: `${this.deps.prompt?.() ?? COMPACTION_PROMPT}\n\n${serializeTranscript(ctx.messages)}`,
         maxTokens: 2000,
       })
       const keptFromEventId = this.computeKeptFromEventId()

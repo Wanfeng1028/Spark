@@ -43,7 +43,7 @@ import { SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
 import type { SessionStatus } from '@spark/protocol'
 import { EventBus } from './bus.js'
 import type { EventSink, SubscribeHandle } from './bus.js'
-import { CompactorImpl } from './compaction.js'
+import { CompactorImpl, COMPACTION_PROMPT } from './compaction.js'
 import { GitCheckpointer } from './checkpoint.js'
 import type { CheckpointRecord } from './checkpoint.js'
 import { gitBranchOf } from './git.js'
@@ -55,7 +55,12 @@ import { listModels, testProvider } from './model-catalog.js'
 import { PiGateway } from './pi-gateway.js'
 import { FallbackGateway } from './fallback-gateway.js'
 import { CostTracker } from './cost-tracker.js'
-import { buildSystemPrompt, INIT_PROMPT, PLAN_MODE_DIRECTIVE } from './prompts.js'
+import { BASE_PROMPT, buildSystemPrompt, INIT_PROMPT, PLAN_MODE_DIRECTIVE } from './prompts.js'
+import {
+  loadPromptTemplates,
+  renderPromptTemplate,
+  type PromptTemplates,
+} from './prompt-templates.js'
 import { ProjectorImpl } from './projector.js'
 import { reasoningIncluded } from './projector.js'
 import { runSessionLoop } from './run-loop.js'
@@ -67,7 +72,7 @@ import { findSessionFile as findSessionFileOnDisk, scanArchivedMarkers, scanDisk
 import { Metrics } from './observability/metrics.js'
 import { SessionRuntime } from './session/runtime.js'
 import { SessionStore, danglingTurnIds, mungeDir, sessionFileName } from './session/store.js'
-import { TitleGenerator } from './title.js'
+import { TitleGenerator, TITLE_PROMPT } from './title.js'
 import { ToolOutputStore } from './tools/output-store.js'
 import { ToolPipelineImpl } from './tools/pipeline.js'
 import { IoGuard } from './tools/guard.js'
@@ -131,6 +136,8 @@ export class Engine {
   private readonly defaultCwd: string
   /** 可在设置写盘成功后整体重载（工单 10.20 B / D28；启动期注入的子系统不受影响=重启档语义） */
   private config: EngineConfig
+  /** 提示词模板（工单 13.3）：构造期装载一次（重启档语义）；渲染在使用点不提前冻结 */
+  private readonly promptTemplates: PromptTemplates
   private readonly now: () => number
   private readonly newSessionId: () => SessionId
   private readonly bus: EventBus
@@ -211,6 +218,12 @@ export class Engine {
     this.root = deps.root ?? join(homedir(), '.spark')
     this.defaultCwd = deps.cwd ?? process.cwd()
     this.config = deps.config ?? loadConfig(this.root)
+    // 工单 13.3：spark.json `prompts` 段 → 三处模板装载（缺文件/非白名单占位符 → E_CONFIG 拒启动）
+    this.promptTemplates = loadPromptTemplates(this.root, this.config.spark.prompts, {
+      base: BASE_PROMPT,
+      compaction: COMPACTION_PROMPT,
+      title: TITLE_PROMPT,
+    })
     this.now = deps.now ?? Date.now
     this.newSessionId = deps.newSessionId ?? newIds.session
     // 工单 7.7：网关包 fallback 装饰器（链每请求现读 this.routing——热生效）；
@@ -1369,6 +1382,12 @@ export class Engine {
       keepTokens: Math.round(
         (this.config.spark.engine.compactionThreshold * currentModel.contextWindow) / 2,
       ),
+      // 工单 13.3：可配压缩提示词——thunk 现渲染，{{model}} 跟随路由档热变不落假状态
+      prompt: () =>
+        renderPromptTemplate(this.promptTemplates.compaction, {
+          cwd: meta.cwd,
+          model: `${routing.compactionModel.provider}/${routing.compactionModel.model}`,
+        }),
     })
     const titler = new TitleGenerator({
       sessionId: meta.id,
@@ -1378,6 +1397,12 @@ export class Engine {
       get model(): ResolvedModel {
         return routing.titleModel
       },
+      // 工单 13.3：可配标题提示词（理由同压缩）
+      prompt: () =>
+        renderPromptTemplate(this.promptTemplates.title, {
+          cwd: meta.cwd,
+          model: `${routing.titleModel.provider}/${routing.titleModel.model}`,
+        }),
     })
     const checkpointer = this.config.spark.engine.checkpoints
       ? new GitCheckpointer({
@@ -1407,7 +1432,15 @@ export class Engine {
     // 计划模式 system 拼接的闭包依赖（见下方 deps.system getter）
     const permission = this.permission
     const sid = meta.id
-    const baseSystem = buildSystemPrompt(meta.cwd)
+    // 工单 13.3：base 模板在此渲染（会话级 system 组装一次，与既有 baseSystem 冻结口径一致）
+    const baseSystem = buildSystemPrompt(
+      meta.cwd,
+      undefined,
+      renderPromptTemplate(this.promptTemplates.base, {
+        cwd: meta.cwd,
+        model: `${currentModel.provider}/${currentModel.model}`,
+      }),
+    )
     const deps: RunLoopDeps = {
       sessionId: meta.id,
       bus: this.bus,

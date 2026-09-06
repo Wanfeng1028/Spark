@@ -10,8 +10,10 @@ import { describe, expect, it } from 'vitest'
 import {
   EngineSettingsSchema,
   EngineSettingsShape,
+  PROMPT_PLACEHOLDERS,
   SETTINGS_RESTART_REQUIRED,
   SettingsHooksSchema,
+  SettingsPromptsSchema,
 } from '../src/api'
 
 /** 九项（doc/02 §5.1 / D28；新增字段须同步 engine SPARK_DEFAULTS 与 doc） */
@@ -127,5 +129,34 @@ describe('SettingsHooksSchema（engine config.ts 复用）', () => {
 
   it('四挂点全部可选：空对象合法（引擎侧 `?? {}` 的缺省形态）', () => {
     expect(SettingsHooksSchema.parse({})).toEqual({})
+  })
+})
+
+describe('SettingsPromptsSchema / PROMPT_PLACEHOLDERS（工单 13.3）', () => {
+  it('三键全部可选：空对象合法（缺省 = 引擎内置模板，输出逐字节不变）', () => {
+    expect(SettingsPromptsSchema.parse({})).toEqual({})
+  })
+
+  it('三处提示词各自可单独指向模板文件', () => {
+    expect(SettingsPromptsSchema.parse({ base: 'prompts/base.md' })).toEqual({
+      base: 'prompts/base.md',
+    })
+    expect(
+      SettingsPromptsSchema.parse({ compaction: 'p/c.txt', title: 'p/t.txt' }),
+    ).toEqual({ compaction: 'p/c.txt', title: 'p/t.txt' })
+  })
+
+  it('空字符串路径拒收（min(1)）——空值不等于"用内置"，必须缺键', () => {
+    expect(SettingsPromptsSchema.safeParse({ base: '' }).success).toBe(false)
+  })
+
+  it('未知键拒收（strictObject）——防拼错静默失效，与 hooks 段同纪律', () => {
+    const r = SettingsPromptsSchema.safeParse({ base: 'a.md', system: 'b.md' })
+    expect(r.success).toBe(false)
+    if (!r.success) expect(r.error.issues[0]?.code).toBe('unrecognized_keys')
+  })
+
+  it('占位符白名单是封闭三元素集（新增占位符须同步 engine 校验与 doc/02 §5.11 清单）', () => {
+    expect([...PROMPT_PLACEHOLDERS].sort()).toEqual(['{{cwd}}', '{{model}}', '{{platform}}'].sort())
   })
 })

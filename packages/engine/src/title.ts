@@ -12,7 +12,9 @@ import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
 import type { Projector } from './run-loop.js'
 import { serializeTranscript } from './compaction.js'
 
-/** §5.11 辅助提示词：会话标题（首 turn 完成后异步触发） */
+/** §5.11 辅助提示词：会话标题（首 turn 完成后异步触发）。
+ * 工单 13.3：作为**缺省模板**——spark.json `prompts.title` 可指向模板文件覆盖，
+ * 覆盖值经 TitleGeneratorDeps.prompt 以已渲染文本传入（未配置时逐字节等于本常量）。 */
 export const TITLE_PROMPT =
   'Generate a 3-6 word title for this conversation. Reply with the title only.'
 
@@ -26,6 +28,8 @@ export interface TitleGeneratorDeps {
   sessionId: SessionId
   bus: EventBus
   gateway: LlmGateway
+  /** 标题提示词（工单 13.3：可配模板的渲染结果；缺省 = TITLE_PROMPT）——thunk 理由同 CompactorDeps.prompt */
+  prompt?: () => string
   /** 当前模型上下文（转录来源；含 compaction 摘要时同样适用） */
   projector: Projector
   /** 辅助模型（复用 compactionModel——§5.11 辅助提示词同一廉价通道） */
@@ -40,7 +44,7 @@ export class TitleGenerator {
     const ctx = this.deps.projector.modelContext()
     const raw = await this.deps.gateway.generateOnce({
       model: this.deps.model,
-      prompt: `${TITLE_PROMPT}\n\n${serializeTranscript(ctx.messages)}`,
+      prompt: `${this.deps.prompt?.() ?? TITLE_PROMPT}\n\n${serializeTranscript(ctx.messages)}`,
       maxTokens: TITLE_MAX_TOKENS,
     })
     const title = raw.trim().slice(0, TITLE_MAX_CHARS)
