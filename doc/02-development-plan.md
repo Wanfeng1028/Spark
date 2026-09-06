@@ -715,8 +715,15 @@ createEngine(config)
     "permissionTimeoutMs": 300000,      // 审批 5min fail-closed
     "progressThrottleMs": 200,          // tool.progress 节流
     "toolOutputLimitKB": 32,            // 超限溢写
-    "compactionThreshold": 0.8          // 上下文占用率触发
-  }
+    "compactionThreshold": 0.8,         // 上下文占用率触发
+    "checkpoints": true,                // turn 边界 git 快照（工单 4.6）
+    "bashSandbox": "off"                // bash 沙箱档（工单 5.2 / ADR D15）
+  },
+  // 工单 7.3：用户侧 hooks（四挂点，可选——缺省无挂点）
+  "hooks": { "turn.after": [{ "command": "notify-send Spark turn-done" }] },
+  // 工单 13.3：提示词模板文件路径（可选——缺省用引擎内置模板，输出逐字节不变；
+  // 占位符白名单 {{cwd}} {{model}} {{platform}}，非白名单一律 E_CONFIG 拒启动，详见 §5.11）
+  "prompts": { "base": "prompts/base.md" }
 }
 // models.json
 {
@@ -1343,6 +1350,23 @@ You are Spark, a coding agent working in the user's repository.
 
 - **compaction**（§5.8.5 用，`generateOnce`）："Summarize the conversation so far so work can continue with this summary alone. Keep: goals, key decisions, current task state, open TODOs, important file paths. Reply with the summary only."（maxTokens 2000）
 - **会话标题**（阶段四工单 4.4 已落地，首 turn 完成后异步触发）："Generate a 3-6 word title for this conversation. Reply with the title only."（maxTokens 50；复用 compactionModel 廉价通道，`engine/src/title.ts`——turn.completed 且无标题时经 meta 订阅器 fire-and-forget 触发，在途任务去重、失败只记日志不 emit error、shutdown 3.5 步收尾防 append-after-close；回串 trim+截 80 字符，空串不发）
+
+**可配性（工单 13.3 / V2-16）**：上述三处提示词可经 spark.json `prompts` 段指向模板文件覆盖；缺省 = 引擎内置常量，**渲染结果与改造前逐字节一致**（同一性单测锁死：`packages/engine/tests/prompt-templates.test.ts`）。
+
+| 提示词 | 缺省来源（内置常量） | spark.json 键 | 可配 | 装载 / 渲染点 |
+| ------ | -------------------- | ------------- | ---- | ------------- |
+| 基座 base | `packages/engine/src/prompts.ts` 的 BASE_PROMPT（10.41 逐段照搬 qwen-code 结构） | `prompts.base` | ✅ | 构造期装载；会话接线点渲染后经 `buildSystemPrompt(cwd, now, base)` 组装 |
+| 压缩 compaction | `packages/engine/src/compaction.ts` 的 COMPACTION_PROMPT | `prompts.compaction` | ✅ | 构造期装载；`CompactorDeps.prompt` thunk 每次压缩现渲染 |
+| 标题 title | `packages/engine/src/title.ts` 的 TITLE_PROMPT | `prompts.title` | ✅ | 构造期装载；`TitleGeneratorDeps.prompt` thunk 每次生成现渲染 |
+| 工具 description 四条 | `packages/engine/src/tools/builtin/*.ts` | — | ❌ 不可配 | 工具定义是代码的一部分（改它等于改工具语义，需走 new-tool skill 与单测） |
+| 计划模式指令 PLAN_MODE_DIRECTIVE / `/init` INIT_PROMPT | `packages/engine/src/prompts.ts` | — | ❌ 不可配（本工单范围外） | 前者是审批档位的交互层约定（D7），后者是命令面资产（16.1）——要可配需另立工单 |
+
+- **值 = 模板文件路径**（相对 spark.json 所在目录，缺省 `~/.spark`；绝对路径原样用）。**只支持路径，不支持内联文本**：doc/08 §13.3 产出① 曾写"文件路径 or 内联文本"，执行按同节提示词要求 1 的口径收敛为路径单形——内联会把多行提示词塞进 JSON 转义地狱，且与 commands/skills 的"文件即内容"惯例不一致。
+- **占位符白名单（封闭集，精确匹配）**：`{{cwd}}`（会话工作目录）· `{{model}}`（`provider/model`）· `{{platform}}`（node:os platform()）。单一来源 = protocol `PROMPT_PLACEHOLDERS`；带空格的 `{{ cwd }}` 与其他任何 `{{...}}` 一律算非白名单（新增占位符须同步改 protocol 常量 + 引擎渲染 + 本清单 + 单测，否则翻红）。
+- **fail-closed**：模板文件缺失/读取失败、含非白名单占位符、`prompts` 段形状非法（未知键/空串）→ `E_CONFIG` **拒启动**（宁拒启不静默降级，ARCHITECTURE §9.2）；引擎构造期即抛，不经事件流。
+- **生效档位 = 重启档**（构造期装载一次，同 D28 分类）；**不经 `GET|PUT /api/settings`**，设置中心无此项——手工改 spark.json 后重启生效（避免"改了不生效"的假状态）。
+- **渲染时机在使用点而非装载点**：`{{model}}` 随路由档（PUT /api/routing）与会话级换模型（PUT /:id/model）热变，构造期渲染会把旧模型名冻进提示词。
+- 纪律不变：提示词不进事件流、不进日志（本节开头口径），模板文件内容也不打印。
 
 ---
 
@@ -2450,6 +2474,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v3.94 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"所有的没做完的都要做完，拿不准的跳过"指令） | **工单 13.1 第二批：任务级 eval 场景 7→17（六维配比达 doc/08 §13.1 规格）**。新增十场景：单文件修改 +2（off-by-one 边界修复 / 新增导出函数不伤原有）、多文件重构 +3（跨文件重命名无旧名残留 / 重复常量抽共享模块两处改导入 / 签名加必填参数且全调用点同步——形状判分 add(...) 恰 4 处且每处≥两逗号）、bash 调试 +2（语法错修复 / 让 node --test 全绿——两者均由判分侧 **独立重跑子进程**定调，不信任模型自述；夹具用 .mjs 不依赖 Node 类型剥离）、审批拒绝 +1（bash 默认全审批：拒绝后零副作用且挂起项 action=shell.exec）、压缩中途 +2（compact 后凭摘要回忆错误码 / compact 后据摘要追加写 README）。**同批修正第一批装配三处不可运行**（否则七场景恒 fail 并误红 nightly）：① config 改取用户 `~/.spark`（同 real.ts）——原 `new Engine({root: repo.root})` 使 loadConfig(fixture) 因 models.json 缺失抛 E_CONFIG；② 会话数据 root 与 fixture 仓库分离（原将 sessions/logs 落在 fixture 内，模型会读到自己的会话日志）；③ fixture 作用域预置 allow 规则（fs.read/fs.write 限仓库路径、shell.exec 全放行；缺省 ask 会挂到 permissionTimeoutMs 300s），审批维度两场景走 `manualApproval: true` 空规则表；provider 错误/环境缺配置转 **skip**（fail-soft，原为 fail），checkpoints 关（fixture 非 git 仓），waitFor 120s→180s（多文件重构与双 turn 场景）。验证：`pnpm --filter @spark/evals typecheck` + `pnpm lint` + `pnpm eval`（core 4/4 PASS）全绿；tasks 套件需真实模型，本机未跑。**余量（第三批，doc/08 §13.1 已登记）**：验收第 1 条 ScriptedLlm 确定性冒烟未满足（需拆 seed/prompt/judge 三段 + 预录终态）；首份真评基线报告 = 用户侧。**治理欠账**：阶段十三尚未 lift 建本文件 §8 阶段表（13.1/13.2–13.7 仅存于 doc/08 与本版本行） |
 | v3.95 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部都做完"指令） | **工单 13.1 第三批完成（工单收官）：判分函数 ScriptedLlm 双向自检进主 CI**。重构：13 个单轮场景自 scenarios.ts 抽出为 `examples/evals/src/tasks/defs.ts` 的 **seed/prompt/judge/scripted 四段单一来源**（TaskDef），两个驱动共用——scenarios.ts（真实模型，--suite tasks）与新增 smoke.ts（ScriptedLlm，随 core 恒跑）；交互类四场景（审批拒绝 2 / 压缩中途 2）保留专写流程不进 defs（含人工回复与多轮压缩，同语义已由 core 的 approval/compaction 两场景在假模型下覆盖）。冒烟判分口径：① 未修状态 judge 必须 fail（判分函数恒 pass 在此暴露）；② 预录终态工具调用（write/read 经 ids.call 台本）走完整引擎链路（run-loop → 工具管线 → 权限规则 → 事件流）后 judge 必须 pass；turn.completed 且 finish=stop 才计。**接进主 CI**：ci.yml 主 job 补 `pnpm eval`（doc/08 §13.1 验收第 1 条与提示词第 4 条"CI（非 nightly）用 ScriptedLlm 冒烟"口径），17 场景约 10s。**附带修正两处静默失效**：① `pnpm eval --real` 在 suite 缺省时只跑 core——real 与 tasks 两套一个也不执行（nightly 真评步骤自 11.5 接线以来恒空转），run.ts 改为 `--real` 缺省 suite=all（显式 `--suite` 仍优先；参数转发已用 `--suite bogus` 得 0 场景实证）；② fixture 权限规则由拼绝对路径 `file:<root>/**` 改为 `file:**`——Windows 下 resolveInRoot 产出反斜杠资源与 pattern 里的字面 `/` 不匹配，导致全部写类场景落缺省 ask 并挂到 permissionTimeoutMs（本机实测 13 例全超时；硬边界仍由 resolveInRoot 兜住，与 core 套件 surface 场景同款写法）；runInRepo 显式 stdio 三项使子进程 stderr 不透到报告；bash-make-tests-pass 改用显式测试文件路径（Windows 不认 `--test test/` 目录形）。验证：`pnpm --filter @spark/evals typecheck` + `pnpm lint` + `pnpm eval`（**17/17 PASS**，退出码 0）全绿；tasks 套件（真实模型）本机未跑。与 doc/06 v1.4（CI 表同步）、doc/08 v1.11（§13.1 余量收官）同批；13.1 剩余余量只有首份真评基线报告（用户侧） |
 | v3.96 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部都做完"指令） | **工单 13.2 完成（研究工单，零产品代码）：外部任务基准可行性评估报告入库 `doc/09-benchmark-feasibility.md`**。三候选（Terminal-Bench 经 Harbor 框架、SWE-bench Lite 子集、自建容器方案）× 四维度（环境依赖/判分契约/运行成本/接线点）对比，**判决：不接**（照 doc/07 §4.1 格式：结论/理由/未来路径）。主因：容器与存储门槛（Harbor 任务缺省 storage_mb 示例 10240；SWE-bench ≥120GB + 16GB RAM + 8 核 + x86_64，GH-hosted runner 与开发机均不可达）、判分主权外移（reward.txt / 仓库测试套件，失败不可归因）、数据集易变（TB 1.0 因外部反爬漂移失效——官方自陈；2.0→4.0 快速换版）、成本与收益错配（未发布无对外可比诉求）。**正面发现**：工单 12.3 的 `spark -p` + `--output-format json`（全 durable 事件数组）恰好就是 Harbor installed-agent 形状（install/run/populate_context_post_run）——接线口已存在，已记入 doc/09 §4.1 最小接线草图（不改代码；含容器内 models.json/permissions.json 预置、weekly + self-hosted/Modal、数据集版本钉死、红灯不阻 main）；三个重评触发条件与"SWE-bench 任何情况不接"边界已写明。许可核实：Harbor Apache-2.0（与 Spark MIT 单向兼容）、SWE-bench 仓 MIT；TB 2.0 = 89 任务（arXiv 2601.11868）。调研全部在线访问（AGENTS §2.12：禁克隆），来源逐条列 doc/09 §6，未核实项（GH runner 实际磁盘/Harbor 在 Windows 下可用性/TB 任务对四工具面覆盖率）已标明不作判决依据。交叉引用同步：README v1.32（文档导航新增 doc/09 行）、AGENTS v1.30（必读索引）、doc/08 v1.12（§13.2 进度注记 + §0.2 Q-4 行补"报告已出：建议不接"）。**待人类拍板**：Q-4 据此关闭（建议口径：13.1 自建场景集为唯一回归门） |
+| v3.97 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部都做完"指令） | **工单 13.3 完成：提示词模板层（V2-16）**。protocol：`SettingsPromptsSchema`（base/compaction/title 三个可选文件路径，strictObject）+ `PROMPT_PLACEHOLDERS` 封闭白名单（`{{cwd}}`/`{{model}}`/`{{platform}}`）——占位符集单一来源在协议面。engine：新增 `prompt-templates.ts`（loadPromptTemplates 构造期装载 + assertPlaceholders 白名单校验 + renderPromptTemplate 精确替换）；config.ts 的 sparkSchema/SparkConfig/loadConfig 透传 `prompts` 段；prompts.ts 导出 BASE_PROMPT 作缺省模板且 `buildSystemPrompt(cwd, now, base)` 增第三参；compaction.ts/title.ts 各增可选 `prompt?: () => string` thunk（**现渲染而非构造期渲染**：`{{model}}` 随路由档与会话级换模型热变，提前渲染会冻旧模型名=假状态）；engine.ts 构造期装载三模板（缺省值 = 三内置常量）并在三使用点接线。fail-closed：缺文件/读失败/非白名单 `{{...}}`（含带空格的 `{{ cwd }}`）/`prompts` 段形状非法 → ConfigError（E_CONFIG）**引擎构造期拒启动**。生效档位=重启档，**不经 GET|PUT /api/settings**（设置中心无此项，避免"改了不生效"假状态）。**口径收敛一处**：doc/08 §13.3 产出① 写"路径 or 内联文本"而同节提示词要求 1 写"值是文件路径"——按提示词口径实现为**路径单形**（内联把多行提示词塞进 JSON 转义地狱，且与 commands/skills "文件即内容"惯例不一致），分歧已记入 §5.11。文档：§5.11 新增**可配性表**（三处提示词 × 缺省来源 × spark.json 键 × 可配 × 装载/渲染点，并明示工具 description 与 PLAN_MODE_DIRECTIVE/INIT_PROMPT **不可配**及理由）+ 占位符清单 + fail-closed/重启档/渲染时机五条纪律；§5.1 spark.json jsonc 示例补齐已落地但漏登的段（`checkpoints`/`bashSandbox`/`hooks`）并加 `prompts`。测试：新增 `packages/engine/tests/prompt-templates.test.ts` 16 例（缺省同一性三例——含 buildSystemPrompt 全链路逐字节相等；自定义生效四例；白名单四例；fail-closed 五例含 Engine 构造期拒启动）+ protocol `settings-schema.test.ts` 补 5 例（空对象合法/单键覆盖/空串拒收/未知键拒收/白名单封闭三元素）。验证：`pnpm typecheck`（9 项目）+ engine **539 通过/1 跳过** + protocol **183 通过** + `pnpm lint` + `pnpm eval`（17/17）全绿。README 不动（工单口径） |
 
 > 批次 5 备注：
 
