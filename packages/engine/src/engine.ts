@@ -480,6 +480,11 @@ export class Engine {
     )
   }
 
+  /** 数据根（工单 12.2a：server 附件存储目录定位用；同 this.root 的只读面） */
+  get dataRoot(): string {
+    return this.root
+  }
+
   /** §5.3 订阅透传（server SSE 的数据源；resume 供 SSE 背压 drain 恢复） */
   subscribe(
     handler: (e: SparkEventEnvelope) => void | false | Promise<void | false>,
