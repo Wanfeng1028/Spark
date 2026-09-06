@@ -346,3 +346,46 @@ describe('SessionStore 真实装配', () => {
     expect(texts(after.messages)).toEqual(['摘要', '第一答', '第二问'])
   })
 })
+
+
+describe('附件投影（工单 12.2b）', () => {
+  test('user.message.attachments → image 内容块前缀 + 文本主体；读盘失败/非图片如实跳过', async () => {
+    const { sink, bus } = makeFixture()
+    await bus.emit(SID, 'session.created', { cwd: '/tmp', model: 'fake/fake-chat' })
+    await bus.emit(SID, 'user.message', {
+      text: '看这张图',
+      attachments: ['a1.png', 'missing.png', 'b2.txt'],
+    })
+    const projector = new ProjectorImpl({
+      tree: sink.tree,
+      includeReasoning: false,
+      attachmentReader: (file) => {
+        if (file === 'a1.png') return { mime: 'image/png', bytes: Buffer.from('pngbytes') }
+        if (file === 'b2.txt') return { mime: 'text/plain', bytes: Buffer.from('text') }
+        return undefined
+      },
+    })
+    const { messages } = projector.modelContext()
+    const user = messages.find((m) => m.role === 'user')
+    expect(user).toBeDefined()
+    // 图片在前（a1 only——b2.txt 非 image mime 跳过，missing.png 读盘失败跳过）
+    expect(user?.content[0]).toEqual({
+      type: 'image',
+      mime: 'image/png',
+      dataBase64: Buffer.from('pngbytes').toString('base64'),
+    })
+    // 文本主体在后
+    const last = user?.content.at(-1)
+    expect(last).toEqual({ type: 'text', text: '看这张图' })
+  })
+
+  test('无 attachmentReader（缺省注入）→ 附件不进模型上下文，文本照常', async () => {
+    const { sink, bus } = makeFixture()
+    await bus.emit(SID, 'session.created', { cwd: '/tmp', model: 'fake/fake-chat' })
+    await bus.emit(SID, 'user.message', { text: '纯文本', attachments: ['a1.png'] })
+    const projector = new ProjectorImpl({ tree: sink.tree, includeReasoning: false })
+    const { messages } = projector.modelContext()
+    const user = messages.find((m) => m.role === 'user')
+    expect(user?.content).toEqual([{ type: 'text', text: '纯文本' }])
+  })
+})

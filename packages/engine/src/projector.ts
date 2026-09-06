@@ -34,6 +34,9 @@ export interface ProjectorDeps {
   includeReasoning: boolean
   /** 悬空锚点告警（§5.8.5 数据损坏兜底被触发时调用；实现方落结构化日志） */
   onDanglingAnchor?: (anchorId: EventId) => void
+  /** 附件读盘（工单 12.2b）：file 名（<id>.<ext>）→ 图片字节；读不到/非图片返回 undefined
+   *  （缺省不注入 = 附件不进模型上下文——用户消息文本照常投影） */
+  attachmentReader?: (file: string) => { mime: string; bytes: Buffer } | undefined
 }
 
 /** §5.8.3 第 5 步：reasoning 投影的 provider 判定（Anthropic thinking 块 / 其他丢弃） */
@@ -96,6 +99,7 @@ export function estimateTokens(messages: readonly LlmMessage[]): number {
 export function projectSurface(
   tree: EventTree,
   includeReasoning: boolean,
+  attachmentReader?: (file: string) => { mime: string; bytes: Buffer } | undefined,
   onDanglingAnchor?: (anchorId: EventId) => void,
 ): Projection {
   const path = tree.pathToRoot()
@@ -113,7 +117,17 @@ export function projectSurface(
     const e = path[i]
     if (e === undefined) continue
     if (isOfType(e, 'user.message')) {
-      entries.push({ eventId: e.id, message: { role: 'user', content: [{ type: 'text', text: e.data.text }] } })
+      // 工单 12.2b：附件投影为 image 内容块前缀（读盘失败/非图片的附件如实跳过——
+      // 不伪造占位；文本主体永远在后，附件在前符合多模态惯例）
+      const content: Array<{ type: 'image'; mime: string; dataBase64: string } | { type: 'text'; text: string }> = []
+      for (const file of e.data.attachments ?? []) {
+        const img = attachmentReader?.(file)
+        if (img !== undefined) {
+          content.push({ type: 'image', mime: img.mime, dataBase64: img.bytes.toString('base64') })
+        }
+      }
+      content.push({ type: 'text', text: e.data.text })
+      entries.push({ eventId: e.id, message: { role: 'user', content } })
     } else if (isOfType(e, 'assistant.message')) {
       const content = projectContent(e.data.content, includeReasoning)
       if (content.length === 0) continue // 空内容/全滤空不进转录（dsh 规则）
@@ -143,11 +157,16 @@ export class ProjectorImpl implements Projector {
   constructor(private readonly deps: ProjectorDeps) {}
 
   modelContext(): { messages: LlmMessage[]; tokens: number } {
-    const p = projectSurface(this.deps.tree, this.deps.includeReasoning, (anchorId) => {
-      if (this.danglingWarned.has(anchorId)) return
-      this.danglingWarned.add(anchorId)
-      this.deps.onDanglingAnchor?.(anchorId)
-    })
+    const p = projectSurface(
+      this.deps.tree,
+      this.deps.includeReasoning,
+      this.deps.attachmentReader,
+      (anchorId) => {
+        if (this.danglingWarned.has(anchorId)) return
+        this.danglingWarned.add(anchorId)
+        this.deps.onDanglingAnchor?.(anchorId)
+      },
+    )
     const messages: LlmMessage[] = []
     if (p.summary !== undefined) {
       messages.push({ role: 'user', content: [{ type: 'text', text: p.summary }] })

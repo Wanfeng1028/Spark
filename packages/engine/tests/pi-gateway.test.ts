@@ -692,3 +692,28 @@ describe('与 run-loop 的端到端契约（ScriptedLlm 同形断言）', () => 
     expect(piMsgs.map((m) => m.role)).toEqual(['user', 'assistant', 'toolResult'])
   })
 })
+
+
+describe('toPiMessages image 块（工单 12.2b）', () => {
+  test('user 消息 image ContentItem → pi ImageContent（data=base64 直通）', () => {
+    const out = toPiMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'image', mime: 'image/png', dataBase64: 'cG5n' },
+          { type: 'text', text: '这是什么' },
+        ],
+      },
+    ])
+    expect(out).toHaveLength(1)
+    const first = out[0]
+    if (first === undefined) throw new Error('unreachable')
+    expect(first.role).toBe('user')
+    // 顺序保序：image 在前（投影时 image 前缀）、text 在后——pi content 数组原样
+    const content = first.content
+    expect(content).toEqual([
+      { type: 'image', data: 'cG5n', mimeType: 'image/png' },
+      { type: 'text', text: '这是什么' },
+    ])
+  })
+})

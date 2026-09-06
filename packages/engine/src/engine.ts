@@ -1343,6 +1343,17 @@ export class Engine {
       onDanglingAnchor: (anchorId) => {
         this.logger.warn('projector.dangling_anchor', { sid: meta.id, anchorId })
       },
+      // 工单 12.2b：附件读盘 → image 内容块（读不到/非图片如实跳过）
+      attachmentReader: (file) => {
+        const ext = file.split('.').pop() ?? ''
+        const mime = ({ png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' })[ext]
+        if (mime === undefined) return undefined
+        try {
+          return { mime, bytes: readFileSync(join(this.dataRoot, 'attachments', file)) }
+        } catch {
+          return undefined
+        }
+      },
     })
     // 工单 7.7：路由档 getter 现读 routing（就地可变对象）——PUT /api/routing 热生效
     const routing = this.routing

@@ -18,6 +18,9 @@ export type Usage = z.infer<typeof UsageSchema>
 export const ContentItemSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('text'), text: z.string() }),
   z.strictObject({ type: z.literal('reasoning'), text: z.string() }),
+  // 工单 12.2b：图片内容块（仅 LlmMessage 表面——事件流不携带字节，user.message
+  // 只存 attachments 文件名，投影时由引擎读盘转 base64）
+  z.strictObject({ type: z.literal('image'), mime: z.string(), dataBase64: z.string() }),
   z.strictObject({
     type: z.literal('toolCall'),
     callId: CallIdSchema,

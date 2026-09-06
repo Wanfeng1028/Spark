@@ -182,10 +182,15 @@ export function toPiMessages(messages: readonly LlmMessage[]): PiMessage[] {
   }
   for (const m of messages) {
     if (m.role === 'user') {
-      const texts = m.content.filter((c): c is Extract<ContentItem, { type: 'text' }> => c.type === 'text')
+      // 工单 12.2b：image 内容块直通 pi ImageContent（data=base64）——解除 v1 不产出注释
+      const content: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> = []
+      for (const c of m.content) {
+        if (c.type === 'text') content.push({ type: 'text', text: c.text })
+        else if (c.type === 'image') content.push({ type: 'image', data: c.dataBase64, mimeType: c.mime })
+      }
       out.push({
         role: 'user',
-        content: texts.map((t) => ({ type: 'text' as const, text: t.text })),
+        content,
         timestamp: Date.now(),
       })
       continue
@@ -226,7 +231,7 @@ export function toPiMessages(messages: readonly LlmMessage[]): PiMessage[] {
   return out
 }
 
-/** pi AssistantMessage.content → Spark ContentItem[]（image 项 v1 不产出自模型侧） */
+/** pi AssistantMessage.content → Spark ContentItem[]（image 项不出自模型侧——输入面 12.2b 已支持） */
 export function toSparkContent(content: ReadonlyArray<TextContent | ThinkingContent | PiToolCall>): ContentItem[] {
   const out: ContentItem[] = []
   for (const c of content) {
