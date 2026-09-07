@@ -7,13 +7,17 @@
  *    （keptFromEventId，含）之后的 surface 事件（§5.8.5：fork 后路径序≠文件行序，
  *    锚定事件 id 而非 seq）；4. 无 → 全部 surface 事件
  * 5. 投影：user.message → user 消息；assistant.message → assistant 消息
- *    （content 逐字直通——dsh "framing is caller-owned"，投影层禁止二次加工）；
+ *    （content 逐字直通——dsh "framing is caller-owned"，投影层禁止二次加工；
+ *    **唯一例外（工单 13.4 / ADR D29）**：压缩锚点事件携带的 `distilled` 映射——
+ *    匹配的 toolResult 项换成蒸馏要点。不算自创加工：替换文本本身就存在
+ *    compaction.completed 这个 durable 事件里，模型可见即已记录（surface 纪律）；
  *    reasoning 项按 provider 配置保留（Anthropic thinking 块）或丢弃；
  *    空 content 的 assistant.message 不进转录（dsh：仅承载 usage 的 max-tokens step）
  * 6. 字符近似 token 估算（文本/结构项序列化长度 / 4）
  *
  * 摘要消息形状：system 走 StreamRequest 独立字段（v2.7），摘要作首条 user 消息
- * （§5.8.5 注：与 pi buildContextEntries 的"摘要条目"互证）。
+ * （§5.8.5 注：与 pi buildContextEntries 的"摘要条目"互证）；锚点带 keptFiles 时
+ * 作摘要消息的附加行注入（工单 13.4 第一层）。
  */
 import type { ContentItem, EventId, SparkEventEnvelope, SparkEventType } from '@spark/protocol'
 import type { LlmMessage } from './llm-gateway.js'
@@ -51,9 +55,11 @@ export interface SurfaceEntry {
 }
 
 export interface Projection {
-  /** 最新 compaction 摘要；无压缩时 undefined */
+  /** 最新 compaction 摘要（已剥离 kept-files 标记）；无压缩时 undefined */
   summary: string | undefined
-  /** 锚点之后的 surface 投影条目（root → leaf 序） */
+  /** 锚点携带的保留文件清单（工单 13.4 / D29 第一层）；无则 undefined */
+  keptFiles: string[] | undefined
+  /** 锚点之后的 surface 投影条目（root → leaf 序；超限工具输出已按 distilled 替换） */
   entries: SurfaceEntry[]
 }
 
@@ -72,6 +78,28 @@ function latestCompaction(
 function projectContent(content: readonly ContentItem[], includeReasoning: boolean): ContentItem[] {
   if (includeReasoning) return [...content]
   return content.filter((item) => item.type !== 'reasoning')
+}
+
+/** 蒸馏替换的标记前缀（工单 13.4）：如实告知模型这是要点而非原文，原文在会话 JSONL */
+const DISTILLED_PREFIX = '[工具输出蒸馏要点（原文超长，完整输出见会话记录）]'
+
+/**
+ * 工单 13.4 / ADR D29 第二层：锚点携带的 distilled 映射命中时，把 toolResult 项的输出
+ * 换成蒸馏要点（isError 与 callId 不变——工具语义不重写）。无映射时完全直通。
+ */
+function applyDistillation(
+  content: readonly ContentItem[],
+  distilled: Record<string, string> | undefined,
+  includeReasoning: boolean,
+): ContentItem[] {
+  const projected = projectContent(content, includeReasoning)
+  if (distilled === undefined) return projected
+  return projected.map((item) => {
+    if (item.type !== 'toolResult') return item
+    const notes = distilled[item.callId]
+    if (notes === undefined) return item
+    return { ...item, output: `${DISTILLED_PREFIX}\n${notes}` }
+  })
 }
 
 /** 单条消息字符近似 token：text/reasoning 取文本长度，结构项取 JSON 长度 */
@@ -129,7 +157,7 @@ export function projectSurface(
       content.push({ type: 'text', text: e.data.text })
       entries.push({ eventId: e.id, message: { role: 'user', content } })
     } else if (isOfType(e, 'assistant.message')) {
-      const content = projectContent(e.data.content, includeReasoning)
+      const content = applyDistillation(e.data.content, anchor?.data.distilled, includeReasoning)
       if (content.length === 0) continue // 空内容/全滤空不进转录（dsh 规则）
       entries.push({ eventId: e.id, message: { role: 'assistant', content } })
     } else if (isOfType(e, 'memory.injected')) {
@@ -141,13 +169,20 @@ export function projectSurface(
       })
     }
   }
-  return { summary: anchor?.data.summary, entries }
+  return { summary: anchor?.data.summary, keptFiles: anchor?.data.keptFiles, entries }
 }
 
 /** 记忆注入的投影文本（首条前缀消息形状；逐条列出命中内容） */
 function memoryPrompt(memories: ReadonlyArray<{ id: number; content: string }>): string {
   const lines = memories.map((m) => `- ${m.content}`)
   return [`[长期记忆检索命中 ${memories.length} 条]`, ...lines].join('\n')
+}
+
+/** 摘要消息文本（工单 13.4 第一层）：有保留文件清单时作附加行注入（模型可见 = 已记录在锚点事件） */
+function summaryMessageText(summary: string, keptFiles: readonly string[] | undefined): string {
+  if (keptFiles === undefined || keptFiles.length === 0) return summary
+  const lines = keptFiles.map((f) => `- ${f}`)
+  return `${summary}\n\n[保留文件清单（压缩时认定继续工作所需，需要时用 read 重取）]\n${lines.join('\n')}`
 }
 
 export class ProjectorImpl implements Projector {
@@ -169,7 +204,10 @@ export class ProjectorImpl implements Projector {
     )
     const messages: LlmMessage[] = []
     if (p.summary !== undefined) {
-      messages.push({ role: 'user', content: [{ type: 'text', text: p.summary }] })
+      messages.push({
+        role: 'user',
+        content: [{ type: 'text', text: summaryMessageText(p.summary, p.keptFiles) }],
+      })
     }
     for (const entry of p.entries) messages.push(entry.message)
     return { messages, tokens: estimateTokens(messages) }

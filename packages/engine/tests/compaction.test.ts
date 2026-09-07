@@ -8,7 +8,7 @@ import { describe, expect, test } from 'vitest'
 import { ids, type SparkEventEnvelope } from '@spark/protocol'
 import { EventBus, type EventSink } from '../src/bus.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
-import { CompactorImpl, COMPACTION_PROMPT } from '../src/compaction.js'
+import { CompactorImpl, COMPACTION_PROMPT, DISTILL_PROMPT } from '../src/compaction.js'
 import { ProjectorImpl } from '../src/projector.js'
 import { runTurn, type RunLoopDeps } from '../src/run-loop.js'
 import { SessionRuntime } from '../src/session/runtime.js'
@@ -39,7 +39,16 @@ interface Fixture {
   events: SparkEventEnvelope[]
 }
 
-function makeFixture(opts?: { keepTokens?: number }): Fixture {
+/** 结构化告警捕获（工单 13.4：蒸馏失败 / kept-files 标记坏不得静默） */
+interface WarnRecord {
+  msg: string
+  fields?: Record<string, unknown> | undefined
+}
+
+function makeFixture(opts?: {
+  keepTokens?: number
+  warns?: WarnRecord[]
+}): Fixture {
   const sink = new TreeSink()
   const bus = new EventBus({ sink })
   const gateway = new ScriptedLlm()
@@ -52,6 +61,15 @@ function makeFixture(opts?: { keepTokens?: number }): Fixture {
     tree: sink.tree,
     model: { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 128000 },
     keepTokens: opts?.keepTokens ?? 100_000,
+    ...(opts?.warns !== undefined
+      ? {
+          logger: {
+            warn: (msg: string, fields?: Record<string, unknown>): void => {
+              opts.warns?.push({ msg, fields })
+            },
+          },
+        }
+      : {}),
   })
   const events: SparkEventEnvelope[] = []
   bus.subscribe((e) => {
@@ -314,5 +332,113 @@ describe('run-loop 集成（§5.5 step ② 真组件接线）', () => {
     expect(first?.content).toEqual([{ type: 'text', text: '集成摘要' }])
     // turn 失败闭合
     expect(seqTypes[seqTypes.length - 1]).toBe('turn.completed')
+  })
+})
+
+describe('双层压缩（工单 13.4 / ADR D29）', () => {
+  const CALL = ids.call('cal_distill_test_00000001')
+  const BIG = 'x'.repeat(5 * 1024)
+
+  /** 造一个"锚点后含 toolResult"的会话：user → assistant(toolCall) → assistant(toolResult) */
+  async function seedWithToolOutput(f: Fixture, output: unknown): Promise<void> {
+    const trn = newIds.turn()
+    await f.bus.emit(SID, 'user.message', { text: '读大文件' })
+    await f.bus.emit(SID, 'assistant.message', {
+      turnId: trn,
+      content: [{ type: 'toolCall', callId: CALL, name: 'read', input: { path: 'big.txt' } }],
+    })
+    await f.bus.emit(SID, 'assistant.message', {
+      turnId: trn,
+      content: [{ type: 'toolResult', callId: CALL, output, isError: false }],
+    })
+  }
+
+  /** compaction.completed 的 data 序列化（字段**不携带**的断言用——禁空值充数） */
+  function completedJson(f: Fixture): string {
+    return JSON.stringify(lastEvent(f, 'compaction.completed')?.data)
+  }
+
+  test('第一层：kept-files 标记解析进事件并从摘要剥离；投影作附加行注入', async () => {
+    const f = makeFixture()
+    await f.bus.emit(SID, 'user.message', { text: '讨论内容甲' })
+    f.gateway.scriptOnce('摘要正文\n<!-- kept-files: ["src/a.ts","doc/b.md"] -->')
+    await f.compactor.compact()
+
+    expect(lastEvent(f, 'compaction.completed')?.data).toMatchObject({
+      summary: '摘要正文',
+      keptFiles: ['src/a.ts', 'doc/b.md'],
+    })
+    expect(f.projector.modelContext().messages[0]?.content).toEqual([
+      {
+        type: 'text',
+        text: '摘要正文\n\n[保留文件清单（压缩时认定继续工作所需，需要时用 read 重取）]\n- src/a.ts\n- doc/b.md',
+      },
+    ])
+  })
+
+  test('无标记 → 不携带 keptFiles，摘要消息无附加行（回归：缺省形状不变）', async () => {
+    const f = makeFixture()
+    await f.bus.emit(SID, 'user.message', { text: '讨论内容甲' })
+    f.gateway.scriptOnce('纯摘要')
+    await f.compactor.compact()
+    expect(completedJson(f)).not.toContain('keptFiles')
+    expect(f.projector.modelContext().messages[0]?.content).toEqual([{ type: 'text', text: '纯摘要' }])
+  })
+
+  test('标记坏（JSON 不合法）→ 剥离 + 结构化 warn + 无清单（压缩不失败）', async () => {
+    const warns: WarnRecord[] = []
+    const f = makeFixture({ warns })
+    await f.bus.emit(SID, 'user.message', { text: '讨论内容甲' })
+    f.gateway.scriptOnce('摘要正文\n<!-- kept-files: ["a",] -->')
+    await f.compactor.compact()
+    expect(lastEvent(f, 'compaction.completed')?.data).toMatchObject({ summary: '摘要正文' })
+    expect(completedJson(f)).not.toContain('keptFiles')
+    expect(warns.some((w) => w.msg === 'compaction.kept_files.invalid')).toBe(true)
+  })
+
+  test('第二层：超 4KB 的 toolResult 蒸馏进事件，投影换为要点，JSONL 原文完好', async () => {
+    const f = makeFixture()
+    await seedWithToolOutput(f, BIG)
+    f.gateway.scriptOnce('摘要甲') // 第 1 次 once = 压缩摘要
+    f.gateway.scriptOnce('要点：5KB 全是 x') // 第 2 次 once = 蒸馏
+    await f.compactor.compact()
+
+    expect(lastEvent(f, 'compaction.completed')?.data).toMatchObject({
+      distilled: { [CALL]: '要点：5KB 全是 x' },
+    })
+    // 蒸馏调用形状：走 compactionModel 辅助通道 + DISTILL_PROMPT 起手 + maxTokens 500
+    const distill = f.gateway.onceCalls[1]
+    expect(distill?.prompt.startsWith(DISTILL_PROMPT)).toBe(true)
+    expect(distill?.maxTokens).toBe(500)
+    // 投影：该 toolResult 换成要点，不含原文
+    const projected = JSON.stringify(f.projector.modelContext().messages)
+    expect(projected).toContain('工具输出蒸馏要点')
+    expect(projected).not.toContain(BIG)
+    // durable 原文完好（蒸馏只影响投影，不动 append-only 日志）
+    expect(JSON.stringify(f.sink.events)).toContain(BIG)
+  })
+
+  test('阈值：≤ 4KB 输出不蒸馏（只发生一次 generateOnce）', async () => {
+    const f = makeFixture()
+    await seedWithToolOutput(f, 'x'.repeat(4 * 1024))
+    f.gateway.scriptOnce('摘要甲')
+    await f.compactor.compact()
+    expect(completedJson(f)).not.toContain('distilled')
+    expect(f.gateway.onceCalls.length).toBe(1)
+  })
+
+  test('蒸馏失败 → 逐条降级为原文：warn + 不入表 + 压缩照常完成（失败闭合）', async () => {
+    const warns: WarnRecord[] = []
+    const f = makeFixture({ warns })
+    await seedWithToolOutput(f, BIG)
+    f.gateway.scriptOnce('摘要甲') // 只预录摘要——蒸馏那次 once 序列耗尽即失败注入
+    await f.compactor.compact()
+
+    expect(warns.some((w) => w.msg === 'compaction.distill.failed')).toBe(true)
+    expect(lastEvent(f, 'compaction.completed')?.data).toMatchObject({ summary: '摘要甲' })
+    expect(completedJson(f)).not.toContain('distilled')
+    expect(typesOf(f)).toContain('compaction.completed')
+    // 降级 = 不替换：原文照常投影
+    expect(JSON.stringify(f.projector.modelContext().messages)).toContain(BIG)
   })
 })

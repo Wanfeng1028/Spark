@@ -1,6 +1,7 @@
 /**
  * 事件词表（doc/02 §4.3）：schema registry 是唯一来源——SparkEventMap 由 infer 派生。
  * 词表当前 21 种（19 + io.warning 阶段七工单 7.2 + memory.injected 工单 7.5）；扩展走 declaration merging（dsh 手法，阶段五插件用）。
+ * 工单 13.4（ADR D29）在 compaction.completed 上扩两个**可选字段**（keptFiles/distilled）——双层压缩的载体，词表不增。
  */
 import { z } from 'zod'
 import type { EventId, SessionId } from './ids.js'
@@ -101,6 +102,12 @@ export const EventSchemas = {
     // §5.8.5：锚定事件 id（fork 后路径序≠文件行序，seq 比较会保留错误条目）
     keptFromEventId: EventIdSchema,
     tokensBefore: z.number().int().nonnegative(),
+    /** 工单 13.4 / ADR D29：摘要产出的保留文件清单（第一层）——模型可见因此必须被记录，
+     * 投影时作摘要消息的附加行注入；无清单时不携带（禁空数组充数） */
+    keptFiles: z.array(z.string().min(1)).optional(),
+    /** 工单 13.4 / ADR D29：超限工具输出的蒸馏要点（第二层）callId → 要点文本。
+     * **只影响投影，JSONL 原文不动**（append-only）；蒸馏失败的条目不入表 = 降级为原文 */
+    distilled: z.record(z.string().min(1), z.string().min(1)).optional(),
   }),
   'checkpoint.created': z.strictObject({
     checkpointId: CheckpointIdSchema,

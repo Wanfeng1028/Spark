@@ -163,3 +163,40 @@ describe('fail-closed 与边界', () => {
     expect(JSON.stringify(jsonSchemas.envelope)).toContain('sessionId')
   })
 })
+
+describe('compaction.completed 双层压缩扩展字段（工单 13.4 / ADR D29）', () => {
+  const schema = EventSchemas['compaction.completed']
+  const base = { summary: '摘要正文', keptFromEventId: evt(30), tokensBefore: 98000 }
+
+  it('keptFiles 与 distilled 可选扩展：解析 + JSON 往返 + 信封级 round-trip', () => {
+    const data = schema.parse({
+      ...base,
+      keptFiles: ['src/a.ts', 'doc/b.md'],
+      distilled: { cal_01HXSPARK0000000000000000: '要点：a.ts 共 42 行' },
+    })
+    expect(data.keptFiles).toEqual(['src/a.ts', 'doc/b.md'])
+    expect(data.distilled).toEqual({ cal_01HXSPARK0000000000000000: '要点：a.ts 共 42 行' })
+    expect(schema.parse(JSON.parse(JSON.stringify(data)))).toEqual(data)
+    const envelope = envelopeOf('compaction.completed', data, 31)
+    expect(parseEnvelope(JSON.parse(JSON.stringify(envelope)))).toEqual(parseEnvelope(envelope))
+  })
+
+  it('两字段可省：旧磁盘行与旧 wire 帧仍合法（可选字段演进不破坏既有会话）', () => {
+    const data = schema.parse(base)
+    expect(data.keptFiles).toBeUndefined()
+    expect(data.distilled).toBeUndefined()
+    expect(parseEnvelope(envelopeOf('compaction.completed', data, 31)).type).toBe(
+      'compaction.completed',
+    )
+  })
+
+  it('空值拒收（min(1) 双端）：keptFiles 空串条目 / distilled 空值 / distilled 空键', () => {
+    expect(schema.safeParse({ ...base, keptFiles: [''] }).success).toBe(false)
+    expect(schema.safeParse({ ...base, distilled: { cal_x: '' } }).success).toBe(false)
+    expect(schema.safeParse({ ...base, distilled: { '': 'x' } }).success).toBe(false)
+  })
+
+  it('strictObject 仍生效：加可选字段不等于开未知键口子', () => {
+    expect(schema.safeParse({ ...base, keptFiles: ['a'], droppedOriginals: true }).success).toBe(false)
+  })
+})

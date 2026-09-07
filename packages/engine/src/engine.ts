@@ -1388,6 +1388,8 @@ export class Engine {
           cwd: meta.cwd,
           model: `${routing.compactionModel.provider}/${routing.compactionModel.model}`,
         }),
+      // 工单 13.4：蒸馏失败 / kept-files 标记坏的结构化告警出口
+      logger: this.logger,
     })
     const titler = new TitleGenerator({
       sessionId: meta.id,
