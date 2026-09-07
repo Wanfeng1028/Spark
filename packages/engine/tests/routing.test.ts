@@ -185,11 +185,19 @@ describe('FallbackGateway.generateOnce', () => {
   })
 })
 
-describe('CostTracker', () => {
-  test('无 usage.json：零起点累计', () => {
+describe('CostTracker（工单 7.7 基础语义；明细桶与旧格式迁移见 tests/cost-tracker.test.ts）', () => {
+  const DIMS = { provider: 'fake', model: 'fake-chat' }
+
+  test('无 usage.json：零起点累计（且不提前建文件）', () => {
     const dir = tempDir()
     const t = new CostTracker(join(dir, 'usage.json'))
-    expect(t.spend()).toEqual({ costUsd: 0, inputTokens: 0, outputTokens: 0 })
+    expect(t.spend()).toEqual({
+      costUsd: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+    })
     expect(existsSync(join(dir, 'usage.json'))).toBe(false)
   })
 
@@ -197,18 +205,25 @@ describe('CostTracker', () => {
     const dir = tempDir()
     const path = join(dir, 'usage.json')
     const t = new CostTracker(path)
-    t.add({ inputTokens: 100, outputTokens: 50, costUsd: 0.01 })
-    t.add({ inputTokens: 30, outputTokens: 20 }) // costUsd 缺省计 0
-    expect(t.spend()).toEqual({ costUsd: 0.01, inputTokens: 130, outputTokens: 70 })
+    t.add({ inputTokens: 100, outputTokens: 50, costUsd: 0.01 }, DIMS)
+    t.add({ inputTokens: 30, outputTokens: 20 }, DIMS) // costUsd 缺省计 0
+    const expected = {
+      costUsd: 0.01,
+      inputTokens: 130,
+      outputTokens: 70,
+      cacheRead: 0,
+      cacheWrite: 0,
+    }
+    expect(t.spend()).toEqual(expected)
 
     const t2 = new CostTracker(path)
-    expect(t2.spend()).toEqual({ costUsd: 0.01, inputTokens: 130, outputTokens: 70 })
+    expect(t2.spend()).toEqual(expected)
   })
 
   test('exceeded：limit undefined 永不熔断；累计 ≥ limit 熔断', () => {
     const dir = tempDir()
     const t = new CostTracker(join(dir, 'usage.json'))
-    t.add({ inputTokens: 1, outputTokens: 1, costUsd: 0.5 })
+    t.add({ inputTokens: 1, outputTokens: 1, costUsd: 0.5 }, DIMS)
     expect(t.exceeded(undefined)).toBe(false)
     expect(t.exceeded(0.6)).toBe(false)
     expect(t.exceeded(0.5)).toBe(true) // ≥ 而非 >（花到阈值即停）
@@ -219,11 +234,12 @@ describe('CostTracker', () => {
     const dir = tempDir()
     const path = join(dir, 'usage.json')
     const t = new CostTracker(path)
-    t.add({ inputTokens: 10, outputTokens: 10, costUsd: 1 })
+    t.add({ inputTokens: 10, outputTokens: 10, costUsd: 1 }, DIMS)
     t.reset()
-    expect(t.spend()).toEqual({ costUsd: 0, inputTokens: 0, outputTokens: 0 })
+    const zero = { costUsd: 0, inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0 }
+    expect(t.spend()).toEqual(zero)
     const t2 = new CostTracker(path)
-    expect(t2.spend()).toEqual({ costUsd: 0, inputTokens: 0, outputTokens: 0 })
+    expect(t2.spend()).toEqual(zero)
     expect(t2.exceeded(0.01)).toBe(false)
   })
 
@@ -248,13 +264,23 @@ describe('CostTracker', () => {
     }
   })
 
-  test('持久化文件为紧凑可读 JSON（人可核对账目）', () => {
+  test('持久化文件为紧凑可读 JSON（人可核对账目；工单 13.6 起带 version 与明细桶）', () => {
     const dir = tempDir()
     const path = join(dir, 'usage.json')
     const t = new CostTracker(path)
-    t.add({ inputTokens: 7, outputTokens: 3, costUsd: 0.0025 })
-    const raw = JSON.parse(readFileSync(path, 'utf8')) as Record<string, number>
-    expect(raw).toEqual({ costUsd: 0.0025, inputTokens: 7, outputTokens: 3 })
+    t.add({ inputTokens: 7, outputTokens: 3, costUsd: 0.0025 }, DIMS)
+    const raw = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
+    expect(raw).toMatchObject({
+      version: 2,
+      costUsd: 0.0025,
+      inputTokens: 7,
+      outputTokens: 3,
+      cacheRead: 0,
+      cacheWrite: 0,
+    })
+    const buckets = raw['buckets'] as Array<Record<string, unknown>>
+    expect(buckets.length).toBe(1)
+    expect(buckets[0]).toMatchObject({ provider: 'fake', model: 'fake-chat', inputTokens: 7 })
   })
 })
 

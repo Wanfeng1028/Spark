@@ -12,6 +12,8 @@ import { SETTINGS_RESTART_REQUIRED, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
 import type {
   AgentPresetDto,
+  UsageBucketDto,
+  UsageSummaryDto,
   AuditEntryDto,
   AuditQuery,
   AutomationCreate,
@@ -844,6 +846,59 @@ export class MockTransport implements Transport {
         title: '编码子代理',
       },
     ])
+  }
+
+  /**
+   * 成本看板（工单 13.6 对等演示）：两日明细 + 一笔无明细旧账——total = buckets + unbucketed
+   * 恒成立（与引擎语义同形：since 只过滤明细，总账与差额仍是全量）。
+   */
+  usageSummary(since?: string): Promise<UsageSummaryDto> {
+    this.assertNotDisposed()
+    const buckets: UsageBucketDto[] = [
+      {
+        day: '2026-09-07',
+        provider: 'deepseek',
+        model: 'deepseek-chat',
+        inputTokens: 12000,
+        outputTokens: 3400,
+        cacheRead: 4200,
+        cacheWrite: 0,
+        costUsd: 0.0312,
+      },
+      {
+        day: '2026-09-08',
+        provider: 'deepseek',
+        model: 'deepseek-chat',
+        inputTokens: 20000,
+        outputTokens: 5100,
+        cacheRead: 9800,
+        cacheWrite: 1200,
+        costUsd: 0.0521,
+      },
+    ]
+    const unbucketed = {
+      costUsd: 0.0041,
+      inputTokens: 1500,
+      outputTokens: 400,
+      cacheRead: 0,
+      cacheWrite: 0,
+    }
+    const sum = (pick: (b: UsageBucketDto) => number): number =>
+      buckets.reduce((acc, b) => acc + pick(b), 0)
+    const total = {
+      costUsd: sum((b) => b.costUsd) + unbucketed.costUsd,
+      inputTokens: sum((b) => b.inputTokens) + unbucketed.inputTokens,
+      outputTokens: sum((b) => b.outputTokens) + unbucketed.outputTokens,
+      cacheRead: sum((b) => b.cacheRead) + unbucketed.cacheRead,
+      cacheWrite: sum((b) => b.cacheWrite) + unbucketed.cacheWrite,
+    }
+    return Promise.resolve({
+      total,
+      buckets: since !== undefined ? buckets.filter((b) => b.day >= since) : buckets,
+      unbucketed,
+      costLimitUsd: 5,
+      exceeded: false,
+    })
   }
 
   // ---- 长期记忆（工单 7.5 对等演示：内存表，进程生命周期内有效） ----

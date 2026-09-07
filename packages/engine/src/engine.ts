@@ -40,7 +40,7 @@ import type {
   TurnId,
 } from '@spark/protocol'
 import { SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
-import type { AgentPresetDto, SessionStatus } from '@spark/protocol'
+import type { AgentPresetDto, SessionStatus, UsageSummaryDto } from '@spark/protocol'
 import { EventBus } from './bus.js'
 import type { EventSink, SubscribeHandle } from './bus.js'
 import { CompactorImpl, COMPACTION_PROMPT } from './compaction.js'
@@ -436,7 +436,7 @@ export class Engine {
     // 工单 7.12：审计日志明细流——脱敏同纪律（密钥仓值动态注入）
     this.audit = new AuditLog(this.root, () => this.secrets.values())
     // 工单 7.7：成本熔断计量（usage.json 跨进程延续）+ 路由状态（ResolvedModel 化）
-    this.costTracker = new CostTracker(join(this.root, 'usage.json'))
+    this.costTracker = new CostTracker(join(this.root, 'usage.json'), this.now)
     this.settings = new SettingsStore(this.root, this.logger, this.costTracker, {
       resolveModelRef: (model) => this.resolveModelRef(model),
       resolveModel: (ref) => this.resolveModel(ref),
@@ -625,6 +625,20 @@ export class Engine {
       )
     }
     return found
+  }
+
+  // ---- 成本看板（工单 13.6 / V2-07） ----
+
+  /** GET /api/usage/summary 数据源：总账 + 明细桶 + 无明细差额（旧账）+ 熔断阈值状态 */
+  usageSummary(since?: string): UsageSummaryDto {
+    const summary = this.costTracker.summary(since)
+    return {
+      total: summary.total,
+      buckets: summary.buckets,
+      unbucketed: summary.unbucketed,
+      costLimitUsd: this.routing.costLimitUsd ?? null,
+      exceeded: this.costTracker.exceeded(this.routing.costLimitUsd),
+    }
   }
 
   // ---- 会话归档与两段式删除（阶段十二工单 12.4 / V2-23） ----
@@ -1554,9 +1568,14 @@ export class Engine {
           }
         : {}),
       // 工单 7.7：成本熔断——limitUsd 现读 routing（热生效），累计跨进程持久
+      // 工单 13.6：明细桶归因到会话当前档（fallback 切换步仍记在本档名下，局限已登记）
       budget: {
         limitUsd: () => this.routing.costLimitUsd,
-        add: (u) => this.costTracker.add(u),
+        add: (u) =>
+          this.costTracker.add(u, {
+            provider: currentModel.provider,
+            model: currentModel.model,
+          }),
         exceeded: () => this.costTracker.exceeded(this.routing.costLimitUsd),
         spendUsd: () => this.costTracker.spend().costUsd,
       },

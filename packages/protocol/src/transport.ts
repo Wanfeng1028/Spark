@@ -39,6 +39,7 @@ import type {
   SettingsUpdate,
   SkillDto,
   TreeNodeDto,
+  UsageSummaryDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
@@ -127,6 +128,8 @@ export interface Transport {
   listSkills(): Promise<SkillDto[]>
   /** GET /api/agents：子代理预设档只读清单（工单 13.5；写入靠用户改 ~/.spark/agents 后重启） */
   listAgentPresets(): Promise<AgentPresetDto[]>
+  /** GET /api/usage/summary：成本看板（总账 + 按日/供应商明细 + 旧账差额 + 熔断状态，工单 13.6） */
+  usageSummary(since?: string): Promise<UsageSummaryDto>
   /** GET /api/memories：长期记忆列表（设置页管理数据源，工单 7.5） */
   listMemories(): Promise<MemoryDto[]>
   /** DELETE /api/memories/:id：删除一条记忆（无此条 → E_NOT_FOUND） */

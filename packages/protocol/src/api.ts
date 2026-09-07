@@ -197,6 +197,49 @@ export const RoutingUpdateSchema = z.strictObject({
 })
 export type RoutingUpdate = z.infer<typeof RoutingUpdateSchema>
 
+// ---------- 成本看板（工单 13.6 / V2-07） ----------
+
+/** 成本用量五分量（总账 / 明细桶 / 无明细差额共用同一形状） */
+export const UsageAmountsSchema = z.strictObject({
+  costUsd: z.number().nonnegative(),
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  cacheRead: z.number().int().nonnegative(),
+  cacheWrite: z.number().int().nonnegative(),
+})
+export type UsageAmounts = z.infer<typeof UsageAmountsSchema>
+
+/** 明细桶：一日 × 一 provider × 一 model（day = 本地日历日 YYYY-MM-DD） */
+export const UsageBucketDtoSchema = UsageAmountsSchema.extend({
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  provider: z.string().min(1),
+  model: z.string().min(1),
+})
+export type UsageBucketDto = z.infer<typeof UsageBucketDtoSchema>
+
+/**
+ * GET /api/usage/summary 响应（工单 13.6）。
+ * `total` 是权威总账（含旧平铺格式时期的累计，与熔断判据同源）；`buckets` 只覆盖有明细
+ * 的部分；`unbucketed` = total − 明细合计，**如实呈现旧账而不摊进桶里伪造明细**。
+ * 上下文命中率由消费方算：cacheRead / (cacheRead + nonCachedInput)，其中
+ * nonCachedInput = inputTokens − cacheRead − cacheWrite（opencode 契约三分量恒等式）。
+ */
+export const UsageSummaryDtoSchema = z.strictObject({
+  total: UsageAmountsSchema,
+  buckets: z.array(UsageBucketDtoSchema),
+  unbucketed: UsageAmountsSchema,
+  /** 熔断上限（null = 未配置）与当前是否已熔断（工单 7.7 数据，看板同屏呈现） */
+  costLimitUsd: z.number().positive().nullable(),
+  exceeded: z.boolean(),
+})
+export type UsageSummaryDto = z.infer<typeof UsageSummaryDtoSchema>
+
+/** GET /api/usage/summary 查询（since = YYYY-MM-DD 含当日；缺省全量） */
+export const UsageSummaryQuerySchema = z.strictObject({
+  since: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+})
+export type UsageSummaryQuery = z.infer<typeof UsageSummaryQuerySchema>
+
 // ---------- settings（工单 10.20 B / 10.21 / ADR D28） ----------
 
 /**

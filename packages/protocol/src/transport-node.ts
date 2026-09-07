@@ -51,6 +51,7 @@ import type {
   SkillDto,
   TreeNodeDto,
   AgentPresetDto,
+  UsageSummaryDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
 import type { PermissionReply, ReasoningEffort } from './primitives.js'
@@ -457,6 +458,12 @@ export class HttpTransport implements Transport {
 
   listAgentPresets(): Promise<AgentPresetDto[]> {
     return this.req<AgentPresetDto[]>('/api/agents')
+  }
+
+  usageSummary(since?: string): Promise<UsageSummaryDto> {
+    // since 缺省 = 不带查询串（全量），与无参调用同形
+    const qs = since !== undefined ? `?since=${encodeURIComponent(since)}` : ''
+    return this.req<UsageSummaryDto>(`/api/usage/summary${qs}`)
   }
 
   listMemories(): Promise<MemoryDto[]> {

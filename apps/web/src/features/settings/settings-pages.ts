@@ -134,7 +134,7 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'usage',
         title: '使用统计',
-        description: '成本累计与上限（趋势看板归 v2）',
+        description: '成本累计与上限 + 按日/供应商看板与 cache 命中率（工单 13.6）',
         status: 'ready',
       },
       {

@@ -1,9 +1,9 @@
 /**
- * 只读与配置域（settings/commands/mcp/skills/memories/audit/search/artifacts/metrics）（工单 R-F③ 域拆分：自 routes.ts 机械搬移，路由与行为零变化）。
+ * 只读与配置域（settings/commands/mcp/skills/agents/usage/memories/audit/search/artifacts/metrics）（工单 R-F③ 域拆分：自 routes.ts 机械搬移，路由与行为零变化）。
  */
 import type { FastifyPluginCallback } from 'fastify'
 import { ExecuteCommandBodySchema } from '@spark/protocol'
-import { SettingsUpdateSchema } from '@spark/protocol'
+import { SettingsUpdateSchema, UsageSummaryQuerySchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
 import { writeMcpConfig } from '@spark/engine'
@@ -68,6 +68,12 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   // 子代理预设档（工单 13.5）：只读清单——写入靠用户改 ~/.spark/agents/<name>.json 后重启
   app.get('/api/agents', () => {
     return engine.listAgentPresets()
+  })
+
+  // 成本看板（工单 13.6 / V2-07）：总账 + 按日/供应商明细 + 旧账差额 + 熔断阈值状态
+  app.get('/api/usage/summary', (req) => {
+    const query = parseOr400(UsageSummaryQuerySchema, req.query)
+    return engine.usageSummary(query.since)
   })
 
   // 长期记忆（阶段七工单 7.5 / H05 / ADR D25）：设置页管理的线上入口

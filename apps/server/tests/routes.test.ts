@@ -960,6 +960,60 @@ describe('GET/PUT/DELETE /api/routing（阶段七工单 7.7 模型路由）', ()
   })
 })
 
+describe('GET /api/usage/summary（工单 13.6 成本看板）', () => {
+  test('空账（未跑回合）：总账全零、明细空、unbucketed 全零', async () => {
+    const f = await setup()
+    const res = await f.app.inject({ method: 'GET', url: '/api/usage/summary' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json<Json>()).toMatchObject({
+      total: { costUsd: 0, inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0 },
+      buckets: [],
+      unbucketed: { costUsd: 0, inputTokens: 0 },
+      exceeded: false,
+    })
+  })
+
+  test('一轮对话后：明细桶按会话当前档归因，unbucketed 为零（无旧账）', async () => {
+    const f = await setup()
+    const events = collectEvents(f)
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const id = created.json<Json>()['id'] as string
+    await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '问题' },
+    })
+    await waitFor(() => (events.some((e) => e.type === 'turn.completed') ? true : undefined))
+
+    const res = await f.app.inject({ method: 'GET', url: '/api/usage/summary' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json<Json>()
+    expect(body['exceeded']).toBe(false)
+    const buckets = body['buckets'] as Array<Record<string, unknown>>
+    // ScriptedLlm 回 ZERO_USAGE：量为零但**有调用即建桶**（归因到会话当前档）
+    expect(buckets.length).toBe(1)
+    expect(buckets[0]?.['provider']).toBe('fake')
+    expect(buckets[0]?.['model']).toBe('fake-chat')
+    expect(typeof buckets[0]?.['day']).toBe('string')
+    expect(body['unbucketed']).toMatchObject({ costUsd: 0, inputTokens: 0 })
+  })
+
+  test('since 形状非法 → 400 E_VALIDATION（zod 边界）', async () => {
+    const f = await setup()
+    const res = await f.app.inject({ method: 'GET', url: '/api/usage/summary?since=09-08-2026' })
+    expect(res.statusCode).toBe(400)
+    expect(res.json<Json>()['code']).toBe('E_VALIDATION')
+  })
+
+  test('since 合法但晚于所有明细 → 明细空而总账不变', async () => {
+    const f = await setup()
+    const res = await f.app.inject({ method: 'GET', url: '/api/usage/summary?since=2099-01-01' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json<Json>()).toMatchObject({ buckets: [] })
+  })
+})
+
 describe('GET /api/metrics（工单 4.8）', () => {
   test('Prometheus 文本：一轮对话后 turns_total/durable 计数与 active gauge', async () => {
     const f = await setup()
