@@ -17,6 +17,7 @@
 | v1.10 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.4 H12 勾销注记（H12 → 7.13 ✅ 已落地：~/.spark/search.db 会话全文索引——索引范围 user.message / assistant.message text 块 / session.title 三类，行主键（session_id, event_id）容 fork 同 event id 跨会话；检索链 = FTS5 trigram MATCH（≥3 字符）→ 整串 LIKE → 拆词最长词 LIKE（同 MemoryStore 先例），建表失败降级 LIKE；水位表装载点幂等同步（持平跳过/倒退截断/缺失全量补），增量钩子在 bus durable 订阅（旁路失败只 warn）；JSONL 恒为权威，库打开失败降级空结果不阻塞启动；GET /api/search（q 必填，limit 缺省 20 上限 100）+ /search 页（命中摘要查询词高亮、点击 `?event=` 直达 + ChatView 定位高亮）+ Sidebar 搜索入口；**千事件检索 <500ms** DoD 性能线入单测）；§2 遗留行全文搜索/审计明细指针补 ✅（学科计数不变——搜索未单列学科） |
 | v1.11 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.5 H09 勾销注记（H09 → 7.10 ✅ 已落地：browser.open/click/read/screenshot 工具族——BrowserDriver 端口 + 引擎级单例单页跨会话共享（playwright-core headless chromium **懒启动**，缺包/缺二进制执行期 E_BROWSER_LAUNCH fail-closed）；四工具 `parallelizable: false` 串行互斥；审批三 action（browser.navigate/interact/read，resource `url:<页>`，空规则表缺省 ask）；中断 race 即返 E_ABORTED；**截图不进事件流**——PNG 落 ~/.spark/browser-shots，输出只回文件名+字节数，GET /api/artifacts/:file 白名单供图；前端 ToolCard BrowserDetail（截图按需拉图/降级文案）；迷你 ADR D27 见 ARCHITECTURE v1.20）；§1 学科 19 改 ✅、小结计数 13/4/2→14/4/1（缺失仅剩 Python Worker，判决不做） |
 | v1.12 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.5 H10 勾销注记（H10 → 7.11 ✅ 已落地：`examples/evals`——ScriptedLlm 确定性场景集四场景（审批缺省 ask/拒绝零副作用 · 中断 finish=aborted 前缀定稿 · 手动压缩时序/摘要/重投影 · 基线 seq 单调/工具事件配对/turn 时序），真实 Engine 全链路经 tsx 直跑；`--real` 可选真实模型评分（用户 ~/.spark 配置，缺凭据 → skip 不红）；根脚本 `pnpm eval` + nightly.yml 每日接线，任一 fail 红灯出报告）；§2 Eval 小节翻 ✅；§1 学科 12 证据补 7.11（状态仍 🟡——trace/成本缺口在）；学科 10 残留 H02 指针修正（7.2 已勾销，证据补 I/O 护栏） |
+| v1.13 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部都做完"指令） | **缺口销账五条（工单 13.3 / 13.4 与阶段十二遗留）**：① §1 学科 4 Prompt 提示工程 🟡→✅（H20 用户可配提示词模板 → 13.3 落地：spark.json `prompts` 段 + 占位符白名单封闭集 + E_CONFIG 构造期拒启动，缺省逐字节不变）；② §1 学科 3 证据补双层压缩并**修正误指**——原"文件级挑选 → H19"指错（H19 实为附件粘贴=V2-03），压缩双层化无独立 H 号，已由 13.4 / ADR D29 消解；③ §2 Compaction 参考行“工具输出蒸馏未做”→已落地（13.4）；④ §2 I/O 护栏差距行拆分：蒸馏式压缩已落地（挂在压缩而非护栏），注入样本集仍后置；⑤ H19 勾销（V2-03 → 12.2a/12.2b + 12.5）与 H20 勾销（V2-16 → 13.3），§4 汇总表 H19/H21/H26 行同步标已落地（12.2/12.5/12.7）。本轮不新增 H 号（编号冻结纪律）；学科 4 翻✅后小结计数由 14/4/1 变 **15/3/1** |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
 > **方法**：三条证据链——①引擎/服务端/前端逐模块源码走读（本文所有路径均为当日实测，非转抄文档）；②协议词表 19 种逐条核对（含 `user.message.attachments?`、`assistant.message.usage` 等已预留未消费字段）；③既有审计（doc/05 缺口 G1–G7）与用户侧能力对照清单合并盘点。
@@ -33,8 +34,8 @@
 | -- | -------------------------- | --------- | ------------------------------------------------------------------------------------------------------ | ---------------------------- |
 | 1  | Harness 元学科             | ✅        | 项目本体：五阶段收官，456 例全绿，v1 已合并                                                            | —                            |
 | 2  | Loop 循环工程              | ✅        | steer 注入、E_TRUNCATED 回喂、maxSteps=40、finally 失败闭合                                            | —                            |
-| 3  | Context 上下文工程         | ✅        | Projector+Compaction：keptFromEventId 锚点、预算反推、二次压缩                                         | 文件级挑选 → H19（候选池）   |
-| 4  | Prompt 提示工程            | 🟡        | system/压缩/标题三处提示词硬编码；AGENTS.md 注入已具备（截 8K）                                        | 可配模板 → H20（候选池）     |
+| 3  | Context 上下文工程         | ✅        | Projector+Compaction：keptFromEventId 锚点、预算反推、二次压缩；**双层压缩（13.4 / ADR D29）——keptFiles 保留清单 + 超 4KB 工具输出蒸馏（只影响投影，JSONL 原文不动）** | —（原"文件级挑选 → H19"系误指：H19 实为附件粘贴=V2-03，已随 12.2 落地；压缩双层化无独立 H 号，13.4 消解 §2 两处蒸馏差距行） |
+| 4  | Prompt 提示工程            | ✅        | system/压缩/标题三处提示词**可配模板**（13.3 / V2-16：spark.json `prompts` 段 + 占位符白名单 {{cwd}}/{{model}}/{{platform}} + E_CONFIG fail-closed；缺省逐字节不变）；AGENTS.md 注入已具备（截 8K） | —（H20 已勾销；蒸馏提示词 DISTILL_PROMPT 未纳入可配面，13.4 已登记） |
 | 5  | Tool 治理                  | ✅        | Registry+Pipeline+PermissionService+UserRuleStore 多 pattern                                           | —                            |
 | 6  | Skills 技能工程            | 🟡        | 5.5 声明式清单 loader + plugin. 词表运行时扩展                                                         | 管理 UI/市场 → H17/H18       |
 | 7  | MCP 集成                   | ✅        | 5.3 McpManager stdio + 真实子进程 e2e                                                                  | 管理 UI → H17；HTTP → V2-21  |
@@ -51,7 +52,7 @@
 | 18 | Python Worker              | ❌→**不做** | 判决见 §4.1：主流本地编码 agent 均无此模块，bash + venv 已覆盖                                       | 未来以技能/MCP 外挂          |
 | 19 | Browser/Computer Use       | ✅        | browser.open/click/read/screenshot 工具族（7.10，ADR D27：懒启动/单页共享/截图落盘供图/审批三 action） | —                            |
 
-小结：扎实具备 14 项、部分具备 4 项、缺失 1 项（Python Worker），其中 Python Worker 经评估判决**不做**。
+小结：扎实具备 15 项、部分具备 3 项、缺失 1 项（Python Worker），其中 Python Worker 经评估判决**不做**。（计数变更：2026-09-08 学科 4 Prompt 提示工程由 🟡 翻 ✅——H20 随工单 13.3 落地，见 v1.13）
 
 ---
 
@@ -86,7 +87,7 @@
 **窗口管理** —— ✅ 已实现
 - 证据：`packages/engine/src/compaction.ts`（computeKeptFromEventId 锚点过滤 + 尾部预算反推）；`packages/engine/src/projector.ts` projectSurface（锚点定位、悬空退化 + onDanglingAnchor 告警）；触发判据 tokens > 0.8×contextWindow（config.ts）。
 - 差距：无（手动 /compact 4.3 已全链路）。
-- 参考：pi firstKeptEntryId / Gemini CLI 压缩双层（工具输出蒸馏未做——见 H02 关联）。工单：—。
+- 参考：pi firstKeptEntryId / Gemini CLI 压缩双层（**已落地：工单 13.4 / ADR D29**——keptFiles 保留清单 + 超 4KB toolResult 蒸馏，只影响投影、JSONL 原文不动）。工单：13.4 ✅。
 
 **短期 Scratchpad** —— 🟡 以摘要形态覆盖
 - 证据：compaction.completed 摘要作为投影首条 user 消息（`packages/engine/src/projector.ts` modelContext）；会话 JSONL 本身即工作记忆。
@@ -124,7 +125,7 @@
 
 **I/O 护栏** —— ✅ 已落地（H02 → 7.2 ✅）
 - 证据（7.2 已落地）：`packages/engine/src/tools/guard.ts` IoGuard（六条注入标记协议规则 + 敏感过滤四层——sk-token/Bearer/env 值/secrets store 值）挂 `tools/pipeline.ts` 成功路径输出限界之后，tool.completed 事件与 run-loop toolResult 回填同源一次过滤；脱敏正则抽至 `observability/redaction.ts` 单一来源与 pino logger 共用；告警走新增 `io.warning` 事件（log-only durable 不 surface，只含结构化规则名不含原文）；`/g` 正则 lastIndex 复位防跨调用漏检；guard 单测 14 例（含管线集成 e2e 与事件原文泄漏自检）。
-- 差距：注入模式集为保守小集（六条），更全面的样本集与蒸馏式压缩（Gemini CLI toolDistillationService）后置 v2 评估。
+- 差距：注入模式集为保守小集（六条），更全面的样本集后置 v2 评估；**蒸馏式压缩已落地**（工单 13.4 / ADR D29：Gemini CLI toolDistillationService 同位——挂在压缩而非护栏，输出限界后原文不动）。
 - 参考：Gemini CLI toolDistillationService（输出蒸馏位）；dsh surface 纪律。工单：H02 → **7.2 ✅ 已勾销（2026-08-27）**。
 
 **HITL 审批门** —— ✅ 已实现
@@ -180,17 +181,17 @@
 | H14 | 断线与错误态人话化 | 前端无错误码→文案映射表，各消费点直接渲染 `${code}: ${message}`（`apps/web/src/transports/http.ts` L170） | **6.7** |
 | H15 | 项目/工作区分组 | 数据源已就绪：mungeDir 按 cwd 分目录（`packages/engine/src/session/store.ts`）+ index.db sessions 表含 cwd 列（`packages/engine/src/session/index.ts`）——纯前端可点亮 | **6.2** |
 | H16 | 沙箱设置入口 | engine.bashSandbox 配置键存在（config.ts），设置界面无此项 | **6.4**（工具分区） |
-| H17 | MCP/技能管理页（列表/启停/连接状态） | 手编 ~/.spark/mcp.json；skills 无 UI | v2 候选池 V2-01（P1，依赖 6.4） |
+| H17 | MCP/技能管理页（列表/启停/连接状态） | 手编 ~/.spark/mcp.json；skills 无 UI | **部分勾销（2026-09-08）**：V2-01 → 工单 12.6 ✅ MCP 半边（管理页：状态点/工具数/停用/添加编辑 + `PUT /api/mcp` 重启生效）；**技能半边仍只读**（启停归 H18/V2-02） |
 | H18 | 插件市场壳 | skills loader 就绪（5.5），无市场/发现形态 | v2 候选池 V2-02（P2） |
-| H19 | 附件/图片粘贴 + @file 引用 | protocol `user.message.attachments?: string[]` 阶段一已预留；HttpTransport sendMessage 注释明确暂不发送（`apps/web/src/transports/http.ts`）；全库无 onPaste | v2 候选池 V2-03（P1，需后端接收端点+工具读图） |
-| H20 | 用户可配提示词模板 | 三处硬编码（§2.1 Prompt Builder） | v2 候选池 V2-16（P2） |
-| H21 | 文件树面板 | 无（会话页无目录列举端点） | v2 候选池 V2-04（P1，轻后端） |
+| H19 | 附件/图片粘贴 + @file 引用 | protocol `user.message.attachments?: string[]` 阶段一已预留；HttpTransport sendMessage 注释明确暂不发送（`apps/web/src/transports/http.ts`）；全库无 onPaste | **已勾销（2026-09-08）**：V2-03 → 工单 12.2a/12.2b（上传展示 + 投影进模型）+ 12.5（@file 引用）✅ |
+| H20 | 用户可配提示词模板 | 三处硬编码（§2.1 Prompt Builder） | **已勾销（2026-09-08）**：V2-16 → 工单 13.3 ✅（spark.json `prompts` 段 + 占位符白名单封闭集 + E_CONFIG 构造期拒启动；缺省逐字节不变） |
+| H21 | 文件树面板 | 无（会话页无目录列举端点） | **已勾销（2026-09-08）**：V2-04 → 工单 12.5 ✅（形态为 Composer 工具条浮层 FileTreePopover 而非抽屉；`GET /api/sessions/:id/fs/tree` 深度 ≤4/条目 ≤500/resolveInRoot 硬边界；另有 10.53 的 `GET /:id/fs` 支撑 @ 补全） |
 | H22 | 审查模式（多文件 diff 聚合+批量放行） | 仅工具级 ApprovalCard + ToolCard 内嵌 DiffViewer（`apps/web/src/features/chat/ToolCard.tsx` L210）；Codex app 已实证 Diff/Logs 双栏工作区形态 | v2 候选池 V2-08（P2） |
-| H23 | 成本看板 | §2.6 | v2 候选池 V2-07（P1） |
+| H23 | 成本看板 | §2.6 | v2 候选池 V2-07（P1）——**已立项：doc/08 阶段十三 13.6**（未开工） |
 | H24 | 辅助会话抽屉 | 引擎跨会话并发是阶段三既有能力（Engine 门面 per-session 循环），无 UI 形态 | v2 候选池 V2-09（P2，纯前端） |
 | H25 | 内置终端面板 | bash 是引擎工具非用户终端；Electron 无 preload/IPC（`apps/desktop/src/main.ts` 仅 142 行三件事） | v2 候选池 V2-10（P2，桌面 pty） |
-| H26 | 通知推送（turn 完成/审批等待） | 无 Notification API 使用；无托盘 | v2 候选池 V2-05（P1，Electron notification） |
-| H27 | trace 视图 | §2.6 | v2 候选池 V2-11（P2） |
+| H26 | 通知推送（turn 完成/审批等待） | 无 Notification API 使用；无托盘 | **已勾销（2026-09-08）**：V2-05 → 工单 12.7 ✅（壳层订阅 `/api/event` 直播流 → Electron Notification；NotifyGate 同类 2s 合并 + 审批一次一发；脱敏红线 body 只含会话标题与状态词；ADR D14 补记壳层第四件事。**托盘仍无**——归 V2-10/H25 同类桌面项） |
+| H27 | trace 视图 | §2.6 | v2 候选池 V2-11（P2）——**已立项：doc/08 阶段十三 13.7**（未开工） |
 | H28 | i18n | 前端文案全部硬编码中文 | v2 候选池 V2-12（P2） |
 | H29 | 数据管理（占用/清理/导出导入） | 无 | v2 候选池 V2-13（P2） |
 | H30 | 诊断页（日志查看器/导出） | logs/engine.log 存在但无 UI | v2 候选池 V2-14（P2） |
@@ -272,7 +273,7 @@
 | H11 | 审计日志明细流 | 7.12 ✅ 已勾销（2026-08-29） |
 | H08 | 并行子代理 + 树状监控 | 7.8 ✅ 已勾销（2026-08-29） |
 | H13/H14/H15/H16 | 设置中心/模型选择器/用量条/错误人话化/项目分组/沙箱入口 | 6.2–6.7 |
-| H19/H21/H26 | 附件粘贴/文件树/通知推送 | V2-03/V2-04/V2-05 |
+| H19/H21/H26 | 附件粘贴/文件树/通知推送 | V2-03/V2-04/V2-05 → 工单 12.2（+12.5 @file）/12.5/12.7 ✅ 已勾销（2026-09-08） |
 | H17/H23 | MCP·技能管理页/成本看板 | V2-01/V2-07 |
 
 ## 4.5 P2 —— 能力

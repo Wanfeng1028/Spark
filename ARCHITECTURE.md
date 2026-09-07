@@ -33,6 +33,7 @@
 | v1.22 | 2026-09-01 | AI 编写：Qoder；发起：晚风（Wanfeng1028，批次 2 工单 10.20 B「先写 ADR 经确认再实现」） | 新增 **D28 设置读写 API 提案（待确认）**：`GET|PUT /api/settings` 热生效/重启两档策略——分类按引擎实际消费点（turn 边界注入四项热生效；构造期注入四项重启档 `restartRequired`），fail-closed 写纪律（zod 校验→原子写盘→才改内存），掩码红线（apiKey 值永不进响应）；10.21 hooks 并入同一端点（拍板见 doc/02 v3.43）；doc/02 v3.4 沙箱读写分歧结案口径=可读写归重启档。与 doc/02 v3.43 同步 |
 | v1.32 | 2026-09-05 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十二开工指令） | **D14 补记（阶段十二工单 12.7）**：壳层职责扩第四件事——`/api/event` 全局直播流通知订阅（turn.completed / permission.asked → 系统通知；脱敏红线=body 只含会话标题与状态词；`~/.spark/desktop.json` 坏 JSON fail-closed 回缺省）——纯壳层，不进引擎/协议面 |
 | v1.33 | 2026-09-06 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **新增 D28 LLM 出网代理 = 方案 A per-provider ProxyAgent**（阶段十二工单 12.9：pi-ai ProviderRequestOptions.fetch 调研结论支持注入→方案 A 成立；models.json provider.proxy 字段 + proxyFetchFor（undici ProxyAgent 模块级缓存）+ HTTPS_PROXY env 兜底 + 测试连接同代理；缺省直连零变化红线） |
+| v1.34 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部都做完"指令） | **新增 D29 双层压缩 = keptFiles 结构化清单 + 超限工具输出蒸馏**（阶段十三工单 13.4，消解 doc/07 §2 Compaction 与 I/O 护栏两处“蒸馏未做”差距）：两个可选字段挂 `compaction.completed`（**词表不增**，仍 21 种）；蒸馏在压缩异步边界算一次并落 durable，投影只查表；JSONL 原文不动（append-only）；**投影层“逐字直通”的唯一例外**已论证（替换文本源自 durable 事件非凭空生成，surface 纪律双面成立）；成本上界每次压缩 8 条×500 tokens；失败闭合（蒸馏逐条降级为原文 + 结构化 warn）。被否备选：蒸馏落盘替换原文（违反 append-only）/ keptFiles 独立事件（词表膨胀）。**编号注记**：本 ADR 占 D29（顺延现表末张），doc/08 §5C 阶段十八 18.1 原预称的 D29 顺延为 D30；ADR 表现存**两张 D28** 的重号缺陷仍待人类判决（登记于 doc/02 v3.93，本单不擅改历史行）。与 doc/02 v3.98、doc/07 v1.13、doc/08 v1.14 同步 |
 
 ---
 
@@ -264,6 +265,19 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 3. **并发口径**：本地单进程单实例（桌面壳 sidecar 与手工 server 皆单进程），Node 事件循环串行 PUT 处理，不引入文件锁——与 SessionStore 单写者纪律同据。
 4. **掩码红线**：GET 响应绝不回 apiKey 值——models.json providers 只回 `apiKeyEnv`/`baseUrl`（listModels 掩码纪律延续）；secrets.json 值永不进响应；`hooks` 字段按 spark.json 原样返回（用户本地命令行配置，本身不含密钥值）。
 后果（晚风已确认，实施中）：protocol 增 `SettingsDto`/`SettingsUpdate` + Transport 两方法（协议先行，AGENTS §2.5）；engine config.ts 增字段级读写函数；server 两路由（单测含脱敏断言）；web 常规页 B 类行接线（重启档标注）；v3.4 沙箱分歧结案=可读写、归重启档。事件词表不变。
+
+### D29 双层压缩 = keptFiles 结构化清单 + 超限工具输出蒸馏（2026-09-08，阶段十三工单 13.4）
+
+背景：doc/07 §2 的 Compaction 与 I/O 护栏两处差距行指向同一件事——Gemini CLI 的压缩双层（toolDistillationService 输出蒸馏位）我们只有单层摘要；长会话里超大工具输出（读大文件、bash 长日志）在压缩后仍以原文形态占着保留尾部，摘要省下的预算被它们吃回去。工单 13.4 要求补两层，且**不改事件词表**（21 种是 CI 正则锚定的事实）。
+候选：① 蒸馏结果落盘替换 JSONL 原文——违反 append-only 与可回放/可审计（回滚与会话分享会看到被改写过的历史），否决；② keptFiles 注入为独立事件（如 compaction.kept_files）——词表膨胀，且与锚点事件天然同生命周期（同一次压缩产生、同时失效），否决；③ **两个可选字段挂 compaction.completed + 蒸馏在压缩时算一次**——词表不增、durable 记录模型可见面、投影层只查表，采纳。
+结论：
+1. **第一层 keptFiles**：压缩提示词尾部要求输出一行 `<!-- kept-files: ["path"...] -->`；解析后从摘要剥离并进事件，投影作摘要消息的附加行注入。fail-soft：标记缺失 = 无清单；标记坏 = 剥离 + 结构化 warn（压缩不因可选增强而失败）。
+2. **第二层 distilled**：锚点（含）之后 `assistant.message` 里超 4KB 的 `toolResult` 输出（工具输出经 run-loop 以 toolResult 项回填进 assistant.message——那才是模型可见面，tool.completed 只是同源日志），逐条走 compactionModel 辅助通道蒸馏（maxTokens 500，单次压缩上限 8 条成本护栏），`callId → 要点` 映射进事件；投影将命中项的输出换为要点（前缀如实标注“蒸馏要点，完整输出见会话记录”；callId/isError 不变）。**JSONL 原文不动**——蒸馏只影响投影。
+3. **蒸馏时机在压缩（异步边界）而非投影（同步高频）**：`Projector.modelContext()` 每 step 调一次，蒸馏需 LLM 往返——放压缩算一次、结果落 durable，后续投影只查表（无重复成本、可回放、可审计）。
+4. **投影层“逐字直通”的唯一例外**：§5.8.3 第 5 步禁止投影层二次加工（dsh framing is caller-owned）；蒸馏替换不算自创加工——替换文本本身就存在 `compaction.completed` 这个 durable 事件里，而非投影层凭空生成；surface 纪律（模型可见必被记录）双面成立。
+5. **失败闭合**：单条蒸馏失败 → 结构化 warn `compaction.distill.failed` + 不入表 = 降级为原文（pipeline 32KB 限界已生效），不推翻压缩；坏标记 → warn `compaction.kept_files.invalid`。蒸馏提示词 `DISTILL_PROMPT` **未纳入工单 13.3 的三键可配面**（要可配另立工单，doc/02 §5.11 可配性表已注明）。
+后果：protocol `compaction.completed` 增 `keptFiles?: string[]` 与 `distilled?: Record<CallId, string>` 两个**可选**字段（旧磁盘行与旧 wire 帧仍合法，round-trip 单测已钉）；词表计数不变（21 种）；engine compaction.ts 增 parseKeptFiles / distillKeptOutputs 与 logger 告警出口，projector.ts 增 applyDistillation 与摘要附加行；成本上界 = 每次压缩最多 8 次额外 generateOnce（各 500 tokens 上限）；四端 UI 零改动（两字段不进展示面；若未来要展示“本次压缩蒸馏 N 条”属另立工单）。
+编号注记：本 ADR 占用 **D29**（顺延现表末张）；doc/08 §5C 阶段十八 18.1 原预称的 D29 顺延为 **D30**。**已知缺陷待人类判决**：ADR 表现存两张 D28（LLM 出网代理 12.9 / 设置读写 API 10.20 B），登记于 doc/02 v3.93，本单不擅改历史行。
 
 ## 6. 模块速览（职责边界）
 
