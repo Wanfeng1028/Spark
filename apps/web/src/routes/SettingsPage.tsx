@@ -11,6 +11,7 @@ import { ModelSettingsPage } from '@/features/settings/ModelSettingsPage'
 import { PermissionRulesPage } from '@/features/settings/PermissionRulesPage'
 import { McpSettingsPage } from '@/features/settings/McpSettingsPage'
 import { SkillsSettingsPage } from '@/features/settings/SkillsSettingsPage'
+import { SubagentsSettingsPage } from '@/features/settings/SubagentsSettingsPage'
 import { CommandsSettingsPage } from '@/features/settings/CommandsSettingsPage'
 import { HooksSettingsPage } from '@/features/settings/HooksSettingsPage'
 import { UsageSettingsPage } from '@/features/settings/UsageSettingsPage'
@@ -29,6 +30,7 @@ const READY_COMPONENTS = {
   'permission-rules': PermissionRulesPage,
   mcp: McpSettingsPage,
   skills: SkillsSettingsPage,
+  subagents: SubagentsSettingsPage,
   commands: CommandsSettingsPage,
   hooks: HooksSettingsPage,
   usage: UsageSettingsPage,

@@ -65,6 +65,11 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
     return engine.listSkills()
   })
 
+  // 子代理预设档（工单 13.5）：只读清单——写入靠用户改 ~/.spark/agents/<name>.json 后重启
+  app.get('/api/agents', () => {
+    return engine.listAgentPresets()
+  })
+
   // 长期记忆（阶段七工单 7.5 / H05 / ADR D25）：设置页管理的线上入口
   app.get('/api/memories', async (req, reply) => {
     return reply.send(engine.listMemories())

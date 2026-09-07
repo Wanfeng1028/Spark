@@ -11,6 +11,7 @@
 import { SETTINGS_RESTART_REQUIRED, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
 import type {
+  AgentPresetDto,
   AuditEntryDto,
   AuditQuery,
   AutomationCreate,
@@ -823,6 +824,24 @@ export class MockTransport implements Transport {
         name: 'demo-ping',
         events: ['plugin.demo.ping'],
         hooks: [{ on: 'session.created', emit: 'plugin.demo.ping' }],
+      },
+    ])
+  }
+
+  /** 子代理预设档（工单 13.5 对等演示）：静态两档——真实数据源是 ~/.spark/agents/*.json */
+  listAgentPresets(): Promise<AgentPresetDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([
+      {
+        name: 'reader',
+        tools: { allow: ['read', 'grep'] },
+        systemAppend: '# 只读纪律\n不得修改任何文件，只做调研与汇报。',
+        title: '只读调研',
+      },
+      {
+        name: 'coder',
+        tools: { deny: ['bash'] },
+        title: '编码子代理',
       },
     ])
   }

@@ -50,6 +50,7 @@ import type {
   SettingsUpdate,
   SkillDto,
   TreeNodeDto,
+  AgentPresetDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
 import type { PermissionReply, ReasoningEffort } from './primitives.js'
@@ -452,6 +453,10 @@ export class HttpTransport implements Transport {
 
   listSkills(): Promise<SkillDto[]> {
     return this.req<SkillDto[]>('/api/skills')
+  }
+
+  listAgentPresets(): Promise<AgentPresetDto[]> {
+    return this.req<AgentPresetDto[]>('/api/agents')
   }
 
   listMemories(): Promise<MemoryDto[]> {

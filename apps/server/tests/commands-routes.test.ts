@@ -28,13 +28,22 @@ interface Fixture {
 
 let fixtures: Fixture[] = []
 
-/** 带自定义命令文件的 server 夹具（helpers.makeServer 不支持注入命令——本组专用） */
-async function makeCommandServer(files: Record<string, string>): Promise<Fixture> {
+/** 带自定义命令文件的 server 夹具（helpers.makeServer 不支持注入命令——本组专用）；
+ * agentFiles 写入 `<root>/agents/`（工单 13.5 预设档只读面的夹具） */
+async function makeCommandServer(
+  files: Record<string, string>,
+  agentFiles: Record<string, string> = {},
+): Promise<Fixture> {
   const root = await mkdtemp(join(tmpdir(), 'spark-cmdsrv-'))
   const dir = join(root, 'commands')
   await mkdir(dir, { recursive: true })
   for (const [name, content] of Object.entries(files)) {
     await writeFile(join(dir, name), content, 'utf8')
+  }
+  const agentsDir = join(root, 'agents')
+  await mkdir(agentsDir, { recursive: true })
+  for (const [name, content] of Object.entries(agentFiles)) {
+    await writeFile(join(agentsDir, name), content, 'utf8')
   }
   const gateway = new ScriptedLlm()
   const engine = new Engine({ root, gateway, config: makeConfig() })
@@ -192,5 +201,53 @@ describe('GET /api/mcp 与 GET /api/skills（只读数据面）', () => {
     const skills = await f.app.inject({ method: 'GET', url: '/api/skills' })
     expect(skills.statusCode).toBe(200)
     expect(skills.json()).toEqual([])
+  })
+})
+
+describe('GET /api/agents（工单 13.5：子代理预设档只读面）', () => {
+  test('无预设档 → 空表', async () => {
+    const f = await makeCommandServer({})
+    const res = await f.app.inject({ method: 'GET', url: '/api/agents' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual([])
+  })
+
+  test('放置 agents/reader.json → 清单回该档（name = 文件名去扩展名）', async () => {
+    const f = await makeCommandServer(
+      {},
+      {
+        'reader.json': JSON.stringify({
+          model: 'fake/fake-chat',
+          tools: { allow: ['read', 'grep'] },
+          systemAppend: '只做调研',
+          title: '只读调研',
+        }),
+      },
+    )
+    const res = await f.app.inject({ method: 'GET', url: '/api/agents' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual([
+      {
+        name: 'reader',
+        model: 'fake/fake-chat',
+        tools: { allow: ['read', 'grep'] },
+        systemAppend: '只做调研',
+        title: '只读调研',
+      },
+    ])
+  })
+
+  test('坏形状档跳过不列（逐档失败闭合，路由仍 200）', async () => {
+    const f = await makeCommandServer(
+      {},
+      {
+        'good.json': JSON.stringify({ title: '可用档' }),
+        'bad.json': JSON.stringify({ nope: true }),
+        'broken.json': '{ 不是 JSON',
+      },
+    )
+    const res = await f.app.inject({ method: 'GET', url: '/api/agents' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual([{ name: 'good', title: '可用档' }])
   })
 })

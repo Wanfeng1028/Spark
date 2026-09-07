@@ -15,6 +15,7 @@ import type {
   CheckpointDto,
   CommandDto,
   FsListDto,
+  AgentPresetDto,
   AttachmentDto,
   FsTreeDto,
   McpConfigInput,
@@ -124,6 +125,8 @@ export interface Transport {
   listMcpServers(): Promise<McpServerDto[]>
   /** GET /api/skills：已加载技能只读清单（工单 7.4） */
   listSkills(): Promise<SkillDto[]>
+  /** GET /api/agents：子代理预设档只读清单（工单 13.5；写入靠用户改 ~/.spark/agents 后重启） */
+  listAgentPresets(): Promise<AgentPresetDto[]>
   /** GET /api/memories：长期记忆列表（设置页管理数据源，工单 7.5） */
   listMemories(): Promise<MemoryDto[]>
   /** DELETE /api/memories/:id：删除一条记忆（无此条 → E_NOT_FOUND） */

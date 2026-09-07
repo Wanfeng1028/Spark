@@ -85,9 +85,8 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'subagents',
         title: '子智能体',
-        description: '自定义与内置子智能体——去向：v2 池 V2-33（管理面板）',
-        status: 'placeholder',
-        placeholderReason: 'v2 挂池',
+        description: '子代理预设档清单（只读；增改走 ~/.spark/agents，管理面板归工单 16.2）',
+        status: 'ready',
       },
       {
         id: 'plugins',
