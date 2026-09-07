@@ -4,6 +4,8 @@
  * assistant 文本。父 turn 中断级联 interrupt 子会话；单层限制——正在派生
  * 子代理的会话不可再派生（E_SUBAGENT_DEPTH）。
  * 会话派生与状态经 deps 注入（引擎门面持有 Map/Set 所有权）。
+ * 工单 13.5：task 入参 `preset` 只透传——预设解析、模型覆盖、工具面收窄与
+ * system 附加段均在 Engine.createSession（预设档所有权在引擎，本层不感知）。
  */
 import type { EventId, SessionId, TurnFinish } from '@spark/protocol'
 import type { EventBus } from './bus.js'
@@ -19,6 +21,8 @@ export interface SubagentDeps {
     cwd?: string
     parentId?: SessionId
     parentEventId?: EventId
+    /** 预设档名（工单 13.5）；解析与收窄均在 Engine.createSession，本层只透传 */
+    preset?: string
   }) => Promise<SessionHandle>
   /** 引擎进程内会话仓储（异常收尾 interrupt 用——引用同一 Map） */
   sessions: Map<SessionId, SessionEntry>
@@ -38,9 +42,11 @@ export function makeSubagentRunner(deps: SubagentDeps): (input: TaskInput, ctx: 
       throw new Error(`E_ENGINE_NO_SESSION: 父会话 ${ctx.sessionId} 未加载，拒绝派生子代理`)
     }
     const child = await deps.createSession({
-      title: input.title ?? '子代理',
+      // 标题：task 入参优先；缺省由 Engine.createSession 施加（预设档 title → '子代理'，工单 13.5）
+      ...(input.title !== undefined ? { title: input.title } : {}),
       cwd: parent.meta.cwd,
       parentId: ctx.sessionId,
+      ...(input.preset !== undefined ? { preset: input.preset } : {}),
       // 工单 7.8：锚定派生它的 tool.started 事件 → 树视图可见子代理运行态
       ...(ctx.sourceEventId !== undefined ? { parentEventId: ctx.sourceEventId } : {}),
     })

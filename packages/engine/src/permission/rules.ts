@@ -26,6 +26,14 @@ function matches(pattern: string, value: string): boolean {
 }
 
 /**
+ * 通配匹配的对外面（工单 13.5）：子代理预设档的**工具名 pattern** 复用同一语义
+ * （`*` 单段 / `**` 跨段）——单一来源，不另写一份匹配器。
+ */
+export function patternMatches(pattern: string, value: string): boolean {
+  return matches(pattern, value)
+}
+
+/**
  * 评估：rulesets 依序扁平化后 findLast 胜出（doc/02 §5.7 补强 4）。
  * 规则的 action 与 resource 都是 pattern，同一匹配器。
  */

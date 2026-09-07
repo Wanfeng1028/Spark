@@ -261,6 +261,17 @@ export class PermissionServiceImpl implements PermissionService {
     }
   }
 
+  /**
+   * 注入会话级规则（工单 13.5：子代理预设档的工具收窄 → deny 规则）。
+   * 与 always 写入同层（评估序在用户/项目层之后 = 优先级更高，findLast 语义），
+   * 生命周期同会话。预设档的收窄因此走**既有 deny 语义**：调用即拦（E_PERMISSION）
+   * 并进审计流归因（rule:session），不另建一套拦截机制。
+   */
+  addSessionRules(sessionId: SessionId, rules: readonly PermissionRule[]): void {
+    if (rules.length === 0) return
+    this.sessionRulesOf(sessionId).push(...rules)
+  }
+
   private sessionRulesOf(sid: SessionId): PermissionRule[] {
     let rules = this.sessionRules.get(sid)
     if (rules === undefined) {

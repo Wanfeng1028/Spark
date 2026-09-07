@@ -40,7 +40,7 @@ import type {
   TurnId,
 } from '@spark/protocol'
 import { SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
-import type { SessionStatus } from '@spark/protocol'
+import type { AgentPresetDto, SessionStatus } from '@spark/protocol'
 import { EventBus } from './bus.js'
 import type { EventSink, SubscribeHandle } from './bus.js'
 import { CompactorImpl, COMPACTION_PROMPT } from './compaction.js'
@@ -102,6 +102,7 @@ import { SearchIndexer } from './search/indexer.js'
 import { asError, errText } from './errs.js'
 import { persistSparkPatch, SettingsStore, type RoutingState } from './settings-store.js'
 import { makeSubagentRunner } from './subagent.js'
+import { loadAgentPresets, presetToolEffects } from './agents/presets.js'
 import { BrowserManager } from './browser/driver.js'
 import { createPlaywrightDriver, SHOT_FILE_RE } from './browser/playwright.js'
 import { makeBrowserTools } from './tools/builtin/browser.js'
@@ -190,6 +191,10 @@ export class Engine {
   private customCommands: readonly LoadedCommand[] = []
   /** 自定义命令加载任务（坏文件 warn 跳过，不阻塞启动；ready() 等待） */
   private readonly commandsReady: Promise<void>
+  /** 子代理预设档（工单 13.5）：~/.spark/agents/*.json；presetsReady 完成后填充 */
+  private agentPresets: readonly AgentPresetDto[] = []
+  /** 预设档加载任务（坏文件/坏形状 warn 跳过，不阻塞启动；ready() 等待） */
+  private readonly presetsReady: Promise<void>
   /**
    * 长期记忆仓（阶段七工单 7.5 / H05 / ADR D25）：~/.spark/memory.db（FTS5 trigram）。
    * 打开失败 → null 降级（memory 工具族不注册、注入端口不接线，引擎照常启动）。
@@ -347,6 +352,14 @@ export class Engine {
       },
     )
 
+    // 工单 13.5：子代理预设档（坏文件/坏形状 warn 跳过——同 commands/skills 纪律，不阻塞启动）
+    this.presetsReady = loadAgentPresets(this.root, this.logger).then((presets) => {
+      this.agentPresets = presets
+      for (const p of presets) {
+        this.logger.info('agents.preset.loaded', { name: p.name })
+      }
+    })
+
     // 工单 7.5 / H05 / ADR D25：长期记忆仓（打开失败 null 降级，引擎照常启动）
     let memoryStore: MemoryStore | null = null
     try {
@@ -485,7 +498,7 @@ export class Engine {
 
   /** MCP 连接与 skills/自定义命令加载完成（server 入口 listen 前等待；缺省项立即返回） */
   ready(): Promise<void> {
-    return Promise.all([this.mcpReady, this.skillsReady, this.commandsReady, this.archivedReady]).then(
+    return Promise.all([this.mcpReady, this.skillsReady, this.commandsReady, this.presetsReady, this.archivedReady]).then(
       () => {
         // 工单 7.6：tick 循环在 server listen 前启动（幂等；unref 不阻止进程退出）
         this.automation.start()
@@ -514,17 +527,28 @@ export class Engine {
       parentId?: SessionId
       /** 子代理锚点事件（工单 7.8：派生它的 tool.started；fork 走 forkSession 自记） */
       parentEventId?: EventId
+      /** 子代理预设档名（工单 13.5）：不存在 → E_CONFIG 人话（并列出可用档名） */
+      preset?: string
     } = {},
   ): Promise<SessionHandle> {
     this.assertNotShutdown()
     const cwd = opts.cwd ?? this.defaultCwd
+    // 工单 13.5：预设档解析（未指定 = undefined，行为与引入前逐字节一致）
+    const preset = opts.preset !== undefined ? this.requireAgentPreset(opts.preset) : undefined
+    const presetWiring =
+      preset !== undefined
+        ? {
+            ...(preset.systemAppend !== undefined ? { systemAppend: preset.systemAppend } : {}),
+            hiddenTools: presetToolEffects(this.registry, preset.tools).hiddenTools,
+          }
+        : undefined
     // 工单 7.7：子代理派生（parentId 存在）缺省用 subagentModel 路由档（热更新现读）；
-    // 显式 opts.model 优先（调用方指定即尊重）
+    // 优先级（工单 13.5）：显式 opts.model > 预设档 model > subagentModel 路由档
     const subagentDefault =
       opts.parentId !== undefined
         ? `${this.routing.subagentModel.provider}/${this.routing.subagentModel.model}`
         : undefined
-    const modelRef = this.resolveModelRef(opts.model ?? subagentDefault)
+    const modelRef = this.resolveModelRef(opts.model ?? preset?.model ?? subagentDefault)
     const modelStr = `${modelRef.provider}/${modelRef.model}`
     const sessionId = this.newSessionId()
     const createdAt = this.now()
@@ -555,9 +579,11 @@ export class Engine {
         },
       },
     )
+    // 标题（工单 13.5）：显式入参 > 预设档 title > 子代理缺省 '子代理'（该缺省原在 subagent.ts）
+    const title = opts.title ?? preset?.title ?? (opts.parentId !== undefined ? '子代理' : '')
     const meta: SessionMeta = {
       id: sessionId,
-      title: opts.title ?? '',
+      title,
       model: modelStr,
       cwd,
       createdAt,
@@ -566,16 +592,39 @@ export class Engine {
       ...(branch !== null ? { branch } : {}),
       ...(defaultEffort !== undefined ? { effort: defaultEffort } : {}),
     }
-    const entry = this.wireSession(store, meta, modelRef)
+    const entry = this.wireSession(store, meta, modelRef, presetWiring)
     this.sessions.set(sessionId, entry)
+    // 工单 13.5：预设档工具收窄 → 会话级 deny 规则（走既有权限门：调用即 E_PERMISSION + 审计归因）
+    if (preset !== undefined) {
+      this.permission.addSessionRules(sessionId, presetToolEffects(this.registry, preset.tools).rules)
+    }
     await this.bus.emit(sessionId, 'session.created', {
       cwd,
       model: modelStr,
-      ...(opts.title !== undefined ? { title: opts.title } : {}),
+      ...(title !== '' ? { title } : {}),
       ...(branch !== null ? { branch } : {}),
       ...(meta.effort !== undefined ? { effort: meta.effort } : {}),
     })
     return this.handleOf(entry)
+  }
+
+  // ---- 子代理预设档（工单 13.5） ----
+
+  /** GET /api/agents 数据源：已加载预设档清单（只读面——写入靠用户改文件后重启） */
+  listAgentPresets(): readonly AgentPresetDto[] {
+    return this.agentPresets
+  }
+
+  /** 预设档解析：不存在 → E_CONFIG 人话（列出可用档名，不静默回退到无预设） */
+  private requireAgentPreset(name: string): AgentPresetDto {
+    const found = this.agentPresets.find((p) => p.name === name)
+    if (found === undefined) {
+      const known = this.agentPresets.map((p) => p.name).join(', ')
+      throw new Error(
+        `E_CONFIG: 子代理预设档 ${name} 不存在（放 ~/.spark/agents/<name>.json；可用：${known === '' ? '无' : known}）`,
+      )
+    }
+    return found
   }
 
   // ---- 会话归档与两段式删除（阶段十二工单 12.4 / V2-23） ----
@@ -1344,7 +1393,13 @@ export class Engine {
   // ---- 组装辅助 ----
 
   /** per-session 组件接线：Runtime/Projector/Compactor/Pipeline + run-loop 启动 */
-  private wireSession(store: SessionStore, meta: SessionMeta, modelRef: ModelRef): SessionEntry {
+  private wireSession(
+    store: SessionStore,
+    meta: SessionMeta,
+    modelRef: ModelRef,
+    /** 子代理预设档接线（工单 13.5）：system 附加段 + 广告面隐藏工具集；缺省 = 无预设 */
+    presetWiring?: { systemAppend?: string; hiddenTools: ReadonlySet<string> },
+  ): SessionEntry {
     // 会话级换模型（工单 6.5）：deps.model getter 化持有可变引用（同 system 的档位先例）——
     // setSessionModel 替换引用，下一 turn 生效；Projector/Compactor 的接线参数仍取装载时值
     let currentModel = this.resolveModel(modelRef)
@@ -1429,19 +1484,25 @@ export class Engine {
       metrics: this.metrics,
       guard: this.ioGuard, // 工单 7.2：工具输出 → 模型上下文的注入检测与敏感过滤
       hooks: this.hooks, // 工单 7.3：tool.completed 挂点（载荷不含 output）
+      // 工单 13.5：预设档收窄的工具不进广告面（调用仍由会话级 deny 规则在权限门拦截）
+      ...(presetWiring !== undefined ? { hiddenTools: presetWiring.hiddenTools } : {}),
       ...(this.memory !== null ? { memory: this.memory, now: this.now } : {}),
     })
     // 计划模式 system 拼接的闭包依赖（见下方 deps.system getter）
     const permission = this.permission
     const sid = meta.id
     // 工单 13.3：base 模板在此渲染（会话级 system 组装一次，与既有 baseSystem 冻结口径一致）
+    // 工单 13.5：预设档 systemAppend 拼在基座之后（只作用于本子会话）
+    const renderedBase = renderPromptTemplate(this.promptTemplates.base, {
+      cwd: meta.cwd,
+      model: `${currentModel.provider}/${currentModel.model}`,
+    })
     const baseSystem = buildSystemPrompt(
       meta.cwd,
       undefined,
-      renderPromptTemplate(this.promptTemplates.base, {
-        cwd: meta.cwd,
-        model: `${currentModel.provider}/${currentModel.model}`,
-      }),
+      presetWiring?.systemAppend === undefined
+        ? renderedBase
+        : `${renderedBase}\n\n${presetWiring.systemAppend}`,
     )
     const deps: RunLoopDeps = {
       sessionId: meta.id,

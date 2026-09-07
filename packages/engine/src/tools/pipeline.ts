@@ -43,6 +43,9 @@ export interface PipelineDeps {
   memory?: MemoryStore
   /** 时间源（memory.save created_at；缺省 Date.now） */
   now?: () => number
+  /** 子代理预设档收窄掉的工具名（工单 13.5）：不进广告面；若模型仍调用，
+   * 由会话级 deny 规则在权限门拦截（E_PERMISSION）——两层各司其职，不重复建机制 */
+  hiddenTools?: ReadonlySet<string>
 }
 
 /** 错误 → {code, message}：提取 E_* 前缀码，未分类 → E_INTERNAL（§5.10） */
@@ -104,9 +107,10 @@ class ProgressGate {
 export class ToolPipelineImpl implements ToolPipeline {
   constructor(private readonly deps: PipelineDeps) {}
 
-  /** 广告清单：全域 deny 的工具不进模型可见面（§5.7 补强 5） */
+  /** 广告清单：全域 deny 的工具不进模型可见面（§5.7 补强 5）；预设档收窄的工具同不广告（工单 13.5） */
   materialize(): ToolSpec[] {
     return this.deps.registry.materialize().filter((spec) => {
+      if (this.deps.hiddenTools?.has(spec.name) === true) return false
       const def = this.deps.registry.resolve(spec.name)
       return def === undefined || !this.deps.permission.isDenied(def.permission.action)
     })

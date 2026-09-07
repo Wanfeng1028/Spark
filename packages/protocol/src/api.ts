@@ -318,6 +318,36 @@ export const SettingsUpdateSchema = z.strictObject({
 })
 export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>
 
+// ---------- 子代理预设档（工单 13.5） ----------
+
+/**
+ * 子代理预设档：`~/.spark/agents/<name>.json` 的声明式形状（工单 13.5）。
+ * 文件 schema 与列表 DTO 共用本定义（R-B.4 单一来源纪律）；**声明式不执行代码**（D18 同哲学）。
+ * `tools.allow/deny` 是**工具名 pattern**（复用审批规则的 `*` 单段 / `**` 跨段通配语义），
+ * **deny 胜出**；被排除的工具既不广告给模型，也会合成会话级 deny 规则（调用即 E_PERMISSION 拦截）。
+ * 口径说明：doc/08 §13.5 提示词写 `model?: ModelRef`，实现取 **`provider/model` 字符串**——
+ * 与 `PUT /api/sessions/:id/model`、`PUT /api/routing` 同口径，contextWindow 由 models.json
+ * 解析补全（避免用户在预设里重复声明窗口大小造成双源漂移）。
+ */
+export const AgentPresetSchema = z.strictObject({
+  model: z.string().min(1).optional(),
+  tools: z
+    .strictObject({
+      allow: z.array(z.string().min(1)).optional(),
+      deny: z.array(z.string().min(1)).optional(),
+    })
+    .optional(),
+  /** 拼入子会话 system prompt 的附加段（基座之后） */
+  systemAppend: z.string().min(1).optional(),
+  /** 缺省子会话标题（task 入参 title 优先） */
+  title: z.string().min(1).optional(),
+})
+export type AgentPreset = z.infer<typeof AgentPresetSchema>
+
+/** GET /api/agents 清单条目（name = 文件名去 .json；只读面——写入靠用户改文件） */
+export const AgentPresetDtoSchema = AgentPresetSchema.extend({ name: z.string().min(1) })
+export type AgentPresetDto = z.infer<typeof AgentPresetDtoSchema>
+
 // ---------- commands / mcp / skills（doc/02 §8 阶段七工单 7.4 / H04） ----------
 
 /**
