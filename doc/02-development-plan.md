@@ -698,7 +698,7 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 | `@spark/engine` | **公共（L0 嵌入面）**：随包 semver，破坏性改动走 major | apps/server、apps/cli、外部嵌入者 |
 | `@spark/engine/internal` | **无承诺**：随实现演进，不遵 semver | 只限本仓单测与 `examples/evals`；**生产代码（apps/\*/src、packages/\*/src）禁引**，`packages/engine/tests/public-surface.test.ts` 有断言 |
 
-公共入口的值导出（13 个，与不变量网白名单逐字对应）及其理由：
+公共入口的值导出（16 个，与不变量网白名单逐字对应）及其理由：
 
 | 符号 | 为何公共 |
 | ---- | ---- |
@@ -709,7 +709,8 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 | `ZERO_USAGE` / `addUsage` | 实现自定义 `LlmGateway` 时的 usage 累加助手（与公共类型同属一个面） |
 | `resolveInRoot` | 路径硬边界工具（apps/server 的 fs 路由直接用；嵌入者做安全边界也需要） |
 | `buildTrace` | 链路聚合纯函数（apps/server 的 trace 路由直接用；对嵌入者是只读分析件） |
-| `loadMcpConfig` / `writeMcpConfig` | MCP 配置读写（apps/server 的 GET/PUT /api/mcp 直接用） |
+| `loadMcpConfig` / `writeMcpConfig` | MCP 配置读写（apps/server 的 GET/PUT /api/mcp 直接用；sdk 的 InProcessTransport 也直接用） |
+| `sessionMetaDtoOf` / `sessionDtoOf` / `sessionTreeToDto` | **DTO 装配纯函数（工单 14.4 / ADR D31 结论 4）**：apps/server 路由（HTTP 通道）与 `@spark/sdk` 的 InProcessTransport（进程内通道）共用同一份，不拷第三份。**为何在 engine 而不在 protocol**：它们要读 engine 的 `SessionMeta`/`SessionTreeInfo` 形状，而 protocol 硬约束零依赖 engine；engine 本就是 DTO 产地（`listModels(): ModelsDto` 等） |
 
 公共类型（编译期，不在运行时白名单里）：`EngineConfig`/`SparkConfig`/`ModelsConfig`/`ModelRef`/`PermissionsConfig`/`PermissionRule`（配置面）、`EngineDeps`/`SessionMeta`/`SessionHandle`/`SessionTreeNode`/`SessionTreeInfo`/`ForkChildInfo`/`SearchHit`/`ReplyOutcome`（Engine 面）、`LlmGateway`/`ResolvedModel`/`LlmMessage`/`ToolSpec`/`StreamRequest`/`StreamResult`/`StopReason`/`OnceRequest`（自定义网关面）、`SparkLogger`/`LogFields`/`LogMsg`（日志面）、`McpConfig`/`McpServerConfig`、`BrowserDriver`/`BrowserOpenResult`/`BrowserShotResult`（`EngineDeps.browserDriver` 是文档化注入点，故端口类型属公共面，实现类 `BrowserManager` 属内部）。
 
@@ -785,7 +786,7 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 
 ### 4.7 Transport 双通道逐方法映射表（工单 14.4；ADR D30/D31）
 
-本表是 InProcessTransport 实现的**施工图纸**：左列是 `Transport` 接口（合同单一来源），中列是 HTTP 通道的现有映射（**从 apps/server/src/routes/*.ts 逐条反推、已核对**），右列是 InProcess 通道的对应做法。三档：✅ 直映射（调 Engine 门面同名/同语义方法）、⚠️ 需装配（要组装 DTO，装配函数下沉 protocol 共用）、❌ E_UNSUPPORTED（服务端专有，engine 无对应能力）。
+本表是 InProcessTransport 实现的**施工图纸**：左列是 `Transport` 接口（合同单一来源），中列是 HTTP 通道的现有映射（**从 apps/server/src/routes/*.ts 逐条反推、已核对**），右列是 InProcess 通道的对应做法。三档：✅ 直映射（调 Engine 门面同名/同语义方法）、⚠️ 需装配（要组装 DTO，装配函数上提 **engine 公共面** 共用——不是 protocol：protocol 硬约束零依赖 engine，而这些函数要读 `SessionMeta`/`SessionTreeInfo`）、❌ E_UNSUPPORTED（服务端专有，engine 无对应能力）。
 
 | 分组 | Transport 方法 | HTTP 通道（路由 → engine） | InProcess |
 | ---- | -------------- | --------------------------- | --------- |
@@ -796,8 +797,8 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 | 审批 | `listPermissionRules` / `addPermissionRule` / `removePermissionRule` | `/api/permissions/rules` → engine 同名 | ✅ 同名直映 |
 | 审批 | `getPermissionPreset` / `setPermissionPreset` | `/api/sessions/:id/permission-preset` → engine 同名 | ✅ 同名直映 |
 | 会话 | `createSession` / `listSessions` / `archiveSession` / `deleteSession` | `/api/sessions` 系 → engine 同名 | ✅ 同名直映 |
-| 会话 | `getSession` | GET `/api/sessions/:id` → `getSession(id) ?? resumeSession(id)` + `statusOf(id)` + `handle.events()` → `toDto` | ⚠️ 同一装配（`toDto` 下沉 protocol 为 `sessionDtoOf(meta, status, events)`） |
-| 会话 | `fork` / `getTree` / `listCheckpoints` / `rollbackCheckpoint` | POST `/fork` · GET `/tree`（`treeOf` + `treeToDto`）· GET `/checkpoints`（`checkpointsOf` + 行映射）· POST `/rollback`（`rollbackToCheckpoint`） | ✅ fork/rollback 直映；⚠️ tree 与 checkpoints 的 DTO 映射同样下沉 protocol（`treeToDto` 等） |
+| 会话 | `getSession` | GET `/api/sessions/:id` → `getSession(id) ?? resumeSession(id)` + `statusOf(id)` + `handle.events()` → `toDto` | ⚠️ 同一装配（engine 公共面的 `sessionDtoOf(meta, status, events)`；分页由调用方做，与路由逐行同语义） |
+| 会话 | `fork` / `getTree` / `listCheckpoints` / `rollbackCheckpoint` | POST `/fork` · GET `/tree`（`treeOf` + `treeToDto`）· GET `/checkpoints`（`checkpointsOf` + 行映射）· POST `/rollback`（`rollbackToCheckpoint`） | ✅ fork/rollback 直映；⚠️ tree 走 engine 公共面的 `sessionTreeToDto`；checkpoints 的四字段直取无逻辑，不做装配函数（不为无逻辑映射扩公共面） |
 | 会话 | `getSessionTrace` | GET `/trace` → `buildTrace(id, handle.events())` | ✅ 同一函数（engine 公共面已导出 `buildTrace`） |
 | 模型 | `listModels` / `setSessionModel` / `setSessionEffort` / `getRouting` / `updateRouting` / `resetUsage` / `testModelProvider` | `/api/models` · `/api/routing` 系 → engine 同名 | ✅ 同名直映（`testModelProvider` 的方法名实现批核对） |
 | 设置 | `getSettings` / `updateSettings` | `/api/settings` → engine 同名 | ✅ 同名直映 |
@@ -812,7 +813,7 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 三条施工约束（实现批遵守）：
 
 1. **❌ 类一律抛错不降级**：`E_UNSUPPORTED: <方法> 需要 HTTP 通道（<原因>）`——不返回空数组、不静默成功、不本地模拟（D31 结论 3）；错误码进 §5.10 表。
-2. **⚠ 类的装配函数下沉 protocol**（`sessionDtoOf` / `treeToDto` 一类纯函数），server 与 sdk 共用——**不拷第三份**（D31 结论 4；AGENTS §1.1 漂移教训）；属 §4.6.1 的"四端共享运行时"类，走 §4.4 演进规则。
+2. **⚠ 类的装配函数上提 engine 公共面**（`sessionMetaDtoOf` / `sessionDtoOf` / `sessionTreeToDto`，`packages/engine/src/dto.ts`），server 与 sdk 共用——**不拷第三份**（D31 结论 4；AGENTS §1.1 漂移教训）。本表原写"下沉 protocol"，实现批撞上依赖约束后修正：protocol 零依赖 engine 是硬约束，而这些函数要读 `SessionMeta`/`SessionTreeInfo`；server 的 `shared.ts` 已改为转发（`toDto` 只补 status、`treeToDto` 直接 re-export，删掉本地 `labelOf` 与树映射拷贝）。
 3. **契约套件双跑**：`transportContractSuite` 对两通道各实例化一遍（HTTP 侧已在 `apps/server/tests/transport-http-contract.test.ts`）；❌ 类方法不进套件断言（它们本就不是双通道共有语义），但在 sdk 自己的单测里钉住"必抛 E_UNSUPPORTED 而不是静默成功"。
 
 # 5. 引擎设计（packages/engine）——完整规格
@@ -2651,6 +2652,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.17 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **工单 14.2 第二批：Transport 接口契约模板（产出③）+ 验收第 3 条红绿演练**。新增 `apps/server/tests/transport-contract.ts`：`transportContractSuite(name, makeChannel)` **参数化套件**——通道只需交三件事（transport 实例 / 让引擎产出一个确定文本回合的方法 / 收口），四组语义断言：会话生命周期（create→list→archive→归档过滤→恢复→delete，删后取会话必拒且带原码）/ 未知会话 → `E_NOT_FOUND`（错误码跳通道同形）/ 回合直播与回放一致（durable 三件套齐备、seq 升序、直播面确实收到过）/ 退订后不再投递（先用回放面确认回合真跑完，再断言直播面零投递——区分"没跑"与"没投递"）。HTTP 通道已接（`transport-http-contract.test.ts`：真实 listen 的 Fastify + ScriptedLlm + HttpTransport——`app.inject` 走不了 HttpTransport，它用 fetch 打真地址）；**InProcess 通道随 14.4 接同一份**，双通道 parity 由此成立。套件刻意不管三件事（SSE 时序/背压→sse.test.ts；DTO 形状→protocol 生成物；审批与工具语义→evals core 套，通道无关）；`replyPermission` 的路由 parity 待 14.4 两实现同时在场时补进（那时断言才有对照意义）。**要求 4（server 手写重复用例替换）裁决为不替换**：核对后确认 routes.test.ts 断言的是 statusCode + `code` 字段（路由映射层）而非 DTO 形状，与生成物层次不同；**路由级 payload 生成改归 15.2 OpenAPI**（需一张路由×body schema 映射表，那是 server 的知识、protocol 里没有；15.2 落 OpenAPI 时该表本就是必需品，届时零额外成本）——两项裁决已写进 doc/06 §1。**验收第 3 条演练已做（本地，零残留、不进提交）**：临时给 `UsageAmountsSchema` 加一个可选字段 `probeDrillField` → 重跑生成器 → `git diff --exit-code packages/protocol/tests/contract` **输出非空 diff（即 CI 会红）**，且一处改动扩散到所有依赖它的 DTO（UsageBucketDto / UsageSummaryDto 的 totals 与 unbucketed / TraceDto 的 usage 均新增样例字段与一条变异用例）——棘轮的实际覆盖面得到实证；随后还原 schema 与生成物（git status 仅剩本批两个新文件）。**本批本机零验证**（例外：跑生成器与演练是工作产物），以 CI 裁决。同步：doc/06 v1.10（§1 两段）、doc/08 v1.26（§14.2 第二批进度） |
 | v4.18 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令；因由：v4.17 推送后 CI 红在 test，契约套件 3/4 通过） | **修一个真实用户面缺陷：HttpTransport 对空 body 的 2xx 报 SyntaxError（DELETE 会话一直是坏的）**。CI run 34260006951：新接的 Transport 契约套件四条中三条绿，"会话生命周期"红在 `deleteSession`：`SyntaxError: Unexpected end of JSON input`（transport-node.ts 的 `req`）。根因：服务端 `DELETE /api/sessions/:id` 如实回 **204 空 body**（§4.5 路由表已登记），而 `req` 对 2xx **无条件 `await res.json()`** → `JSON.parse('')` 抛错。**为何一直没被发现**：`apps/web/src/components/layout/Sidebar.tsx` 的"删除会话"确实走 `transport.deleteSession`，但 MockTransport 是本地实现（mock 走查与 Playwright e2e 四场景都不经真实 HTTP DELETE），server 路由测试又只用 `app.inject` 打路由、不经 HttpTransport——**两侧各自绿，合起来才是坏的**，而契约套件恰好是第一个同时走真 transport + 真 server 的用例。修法（通用，不特例 204）：`req` 改读 `res.text()`，**空 body 如实回 undefined**，非空才 JSON.parse；顺带覆盖其它可能回空 body 的 DELETE（删密钥/删规则/撤销配对设备）。回归证据：契约套件该条转绿（兼顶 deleteSession 的回归网）。**价值已证明**：双通道 parity 套件第一次跑就抓到一个隐藏两个阶段（12.4 引入删除至今）的真实缺陷，且缺陷正是"mock 对等纪律盖不住的那一类"（mock 与真实服务端行为分歧）。本修同样本机零验证，以 CI 裁决。同步：doc/08 v1.27（§14.2 补记） |
 | v4.19 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **新增 §4.7 Transport 双通道逐方法映射表（工单 14.4 的设计批交付物）**：左列 Transport 合同、中列 HTTP 通道现有映射（**从 apps/server/src/routes/*.ts 逐条反推并核对**：sessions/readonly/permissions/models/secrets/automation/shared 七个文件的 engine 调用点）、右列 InProcess 做法，分三档：✅ 直映射（绝大多数：回合/审批/会话/模型/设置/命令/只读面/密钥/自动化均为 engine 同名方法）、⚠️ 需装配（getSession/getTree/listCheckpoints 的 DTO 组装，**装配函数下沉 protocol 共用**）、❌ E_UNSUPPORTED（仅三类服务端专有：`listFs`/`listFsTree` 的目录列举、附件上传下载、配对三件）。**三条施工约束**：❌ 类一律抛错不降级（不返回空数组/不静默成功/不本地模拟）、⚠ 类装配函数不拷第三份、契约套件双跑且 ❌ 类不进双通道断言但要在 sdk 单测里钉住"必抛 E_UNSUPPORTED"。本表是下一批实现的施工图纸，目的是**不盲写 600 行再去碰 CI**（本机零验证下盲写的代价是每轮 2 分钟起）。同步：ARCHITECTURE v1.38（D30/D31 两张 ADR + §6 模块速览补 sdk 行）、doc/08 v1.28（§14.4 设计批进度 + 18.1 预称 ADR 号 D30→D32） |
+| v4.20 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **工单 14.4 第二批（实现批）：InProcessTransport + 契约套件双通道 + DTO 装配上提 engine**。① `packages/sdk/src/inprocess.ts`：`InProcessTransport implements Transport` **全 58 方法**按 §4.7 表逐条落地（✅ 直映射绝大多数；❌ 仅 7 个服务端专有方法报 `E_UNSUPPORTED`：listFs/listFsTree/uploadAttachment/getPairStatus/createPairCode/redeemPair/revokePairDevice），`createInProcessClient(engine)` 复用 `assembleClient`；三条实现纪律：**`sync()` 把引擎的同步抛错统一转成 rejected promise**（否则同一失败在两通道上一个 throw 一个 reject，消费方 catch 写不通用）、`dispose()` **只退订不关引擎**（生命周期属宿主）、审批三态映射与 server 的 `replyOutcomeError` 同码（E_ALREADY_RESOLVED/E_NOT_FOUND）。② `packages/sdk/src/client.ts`：把 `SparkClient<T extends Transport = HttpTransport>` 与 `assembleClient` 抽出为**两通道共用的单一来源**（parity 从"两份代码碰巧一样"变成结构保证；泛型缺省 HttpTransport 保持 14.3 调用面不变）。③ `packages/engine/src/dto.ts`：`sessionMetaDtoOf`/`sessionDtoOf`/`sessionTreeToDto` 三个纯函数上提 engine 公共面（**值导出 13 → 16**，白名单不变量网与 §4.6.2 裁决表同批更新）；server `shared.ts` 改为转发并删掉本地拷贝。**ADR D31 结论 4 的落点已当场修正**（原写下沉 protocol，但 protocol 零依赖 engine 是硬约束）——教训：ADR 写"下沉到某包"前先核该包依赖约束。④ 契约套件双通道：`apps/server/tests/transport-inprocess-contract.test.ts` 实例化同一份 `transportContractSuite`（临时 root + ScriptedLlm + 真 Engine），与 HTTP 侧并列；另附通道特有语义三例（E_UNSUPPORTED 逐方法钉住 / close 后引擎仍可用 / 收口后受理即拒 E_DISPOSED）。⑤ 配置：sdk `./inprocess` 子入口（dev + publishConfig）+ `@spark/engine` 作 **optional peerDependency**（devDependencies 供本仓测试）；apps/server 增 `@spark/sdk` devDependency（仅测试用）。**已知差异已如实登记而不假造 parity**：`listSessions` 在 HTTP 通道受路由 limit 缺省 50 约束、进程内通道无传输上限返回全量（契约套件不断言条数上限）；`sendMessage` 的 attachments 两通道都不透传（引擎 send 不收附件）。**要求 4（`spark -p` 重构）与要求 5（examples/sdk-embed.ts + §4.8 嵌入指南六段）归第三批**：指南要与可跑的示例对照写，且 `-p` 重构需先有本批的双通道绿灯做回归基准。同步：ARCHITECTURE v1.39（D31 落点修正）、AGENTS v1.36（§1.1 sdk 双子入口）、doc/08 v1.29（§14.4 第二批进度）。**本批本机零验证**（只跑 pnpm install 链接新依赖），以 CI 裁决 |
 
 > 批次 5 备注：
 
