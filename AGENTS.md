@@ -38,6 +38,7 @@
 | v1.29 | 2026-09-07 | AI 编写：Qoder；发起：Qoder 会话（AGENTS.md 复核指令，对照源码逐项核实） | §1 项目上下文刷新至**阶段十二全部落地**（12.1–12.9 + 13.1 第一批 + 16.1；doc/02 v3.92），CLI 措辞修正 **Ink 6→Ink 7**（工单 10.56 已升 `ink ^7.1.1`）；新增 **§1.1 四端共享核**（protocol 是运行时代码而非类型包 + MockTransport 对等纪律 + 数据落点）；§3 任务表补 Transport 新方法 / 命令描述符 / 设置项三行；§4 开发命令回填（单包与单条用例过滤、`check_doc_links.py`、Playwright e2e、`pnpm -r build`、eval `--suite`）并新增 **§4.1 文档锚点与同步面**（CI 正则锚定的措辞不得改写）；§2.9 过时指涉（"排到阶段五之后"）改指挂池与立项流程。只改本文件，交叉引用漂移项登记待人类决策：ARCHITECTURE ADR 表出现**两张 D28**、`.cursor`/`.qoder` shim 命令节仍留"骨架未建"占位、doc/02 §4.5/§7.4 缺 12.4/12.2a/12.5 三路由登记 |
 | v1.30 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | §1 必读文档索引新增 **doc/09 外部任务基准可行性评估**（工单 13.2 产出：Terminal-Bench（经 Harbor）/ SWE-bench Lite / 自建容器三候选 × 四维度对比，判决**不接** + 三个重评触发条件 + 若接的 installed-agent 最小接线草图）；同批事实修正：§1 "未开工：阶段十三余下（13.2–13.7）" 中 13.1 已三批收官、13.2 已出报告（详见 doc/02 v3.95–v3.96）。与 README v1.32、doc/08 v1.12 同步 |
 | v1.31 | 2026-09-08 | AI 编写：Qoder；发起与决策：晚风（Wanfeng1028，"本地不进行任何的测试，直接 push 远端，看 ci 就可以"指令） | **新增本机零验证约束**：§2.2 补拍板口径——不在本地跑 test/typecheck/lint/eval/`check_doc_links.py`，改完直接 commit + push，验证全交远端 CI（ci.yml 五步 + e2e job）裁决，CI 红在下一提交修；**新写测试用例仍是任务的一部分**（只是不在本机跑）。§4 顶部加"本机零验证"横幅与命令定位重说（CI 与人工排查的工具箱），质量闸注释由"本机按此顺序跑齐再提交"改为"由 CI 执行，本机不跑"；§7 工作节奏改为"代码/文档（含新增单测）→ 版本表追加 → commit + push → 看 CI"（原为"单测 → typecheck/lint → commit"）。同批同步：README/README.en 当前状态行、CONTRIBUTING 提交前自查、doc/02 阶段约束行、doc/06 §2、doc/08 附录 A/B 总则、四份 shim（.cursor/.qoder/.windsurf/.trae）与三个 SKILL（new-event-type/new-tool/frontend-component）的"验证与提交"步。本条取代此前"本机只跑 typecheck+lint"口径（历史版本行与已完成的阶段注记不改） |
+| v1.32 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §4 开发命令补 **`pnpm knip`**（工单 14.1 第二批：未引用文件/依赖/二进制扫描接入，配置在根 `knip.jsonc`、裁决表在 doc/02 §4.6.3）；质量闸注释由"ci.yml 五步同序"改为**六步**（文档检查器 → typecheck → lint → **knip** → test → eval）。CI 里 knip 是 lint 后的独立一步而不并进 `pnpm lint`（两个工具报告形状与失败语义不同，混在一起会让 eslint 红灯被 knip 噪声掩盖；同为硬门）。与 doc/02 v4.7、doc/06 v1.7、ARCHITECTURE v1.36、doc/08 v1.21 同批 |
 
 ## 1. 项目上下文（30 秒版）
 
@@ -99,11 +100,12 @@ pnpm --filter cli dev                         # CLI TUI（Ink 7；需 server 在
 pnpm --filter mobile dev                      # 移动端 App（Expo；需 server 在跑，配对后连接）
 pnpm --filter miniapp dev                     # 微信小程序（Taro 4 watch 构建；微信开发者工具导入 dist）
 
-# 质量闸（= ci.yml 五步同序：文档检查器 → typecheck → lint → test → eval）——**由 CI 执行，本机不跑**（§2.2）；
+# 质量闸（= ci.yml 六步同序：文档检查器 → typecheck → lint → knip → test → eval）——**由 CI 执行，本机不跑**（§2.2）；
 # 以下写法供排查单个包/单文件/单用例时按需使用
 python scripts/check_doc_links.py             # CI 第一关；改过任何 .md 必跑（--strict 把 warn 也计失败）
 pnpm typecheck                                # = pnpm -r typecheck（9 个项目）
 pnpm lint                                     # eslint .
+pnpm knip                                     # 未引用文件/依赖/二进制扫描（工单 14.1；配置与裁决表见 knip.jsonc 与 doc/02 §4.6.3）
 pnpm test                                     # = pnpm -r test（vitest；全量测试由 CI 承担，本机按包跑）
 pnpm --filter @spark/engine test              # 单包
 pnpm --filter @spark/engine exec vitest run tests/tools-grep.test.ts   # 单文件

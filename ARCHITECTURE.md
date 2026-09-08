@@ -35,6 +35,7 @@
 | v1.33 | 2026-09-06 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **新增 D28 LLM 出网代理 = 方案 A per-provider ProxyAgent**（阶段十二工单 12.9：pi-ai ProviderRequestOptions.fetch 调研结论支持注入→方案 A 成立；models.json provider.proxy 字段 + proxyFetchFor（undici ProxyAgent 模块级缓存）+ HTTPS_PROXY env 兜底 + 测试连接同代理；缺省直连零变化红线） |
 | v1.34 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部都做完"指令） | **新增 D29 双层压缩 = keptFiles 结构化清单 + 超限工具输出蒸馏**（阶段十三工单 13.4，消解 doc/07 §2 Compaction 与 I/O 护栏两处“蒸馏未做”差距）：两个可选字段挂 `compaction.completed`（**词表不增**，仍 21 种）；蒸馏在压缩异步边界算一次并落 durable，投影只查表；JSONL 原文不动（append-only）；**投影层“逐字直通”的唯一例外**已论证（替换文本源自 durable 事件非凭空生成，surface 纪律双面成立）；成本上界每次压缩 8 条×500 tokens；失败闭合（蒸馏逐条降级为原文 + 结构化 warn）。被否备选：蒸馏落盘替换原文（违反 append-only）/ keptFiles 独立事件（词表膨胀）。**编号注记**：本 ADR 占 D29（顺延现表末张），doc/08 §5C 阶段十八 18.1 原预称的 D29 顺延为 D30；ADR 表现存**两张 D28** 的重号缺陷仍待人类判决（登记于 doc/02 v3.93，本单不擅改历史行）。与 doc/02 v3.98、doc/07 v1.13、doc/08 v1.14 同步 |
 | v1.35 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **D17 补记（阶段十三工单 13.5）：子代理预设档 agent presets**——task input 增 `preset?` 指 `~/.spark/agents/<name>.json`（D18 同哲学，schema 单一来源入 protocol）；四项可覆盖（模型/工具面/system 附加段/缺省标题）与两层优先级；**工具面收窄不新建拦截机制**（管线 hiddenTools 管广告面 + 会话级 deny 规则管拦截，后者走既有权限门得 E_PERMISSION 与审计归因）；已知边界（action 粒度、预设不存在 E_CONFIG 人话、逐档失败闭合、未传 preset 逐字节不变）；只读面 GET /api/agents + 设置中心子智能体页转 ready，管理面板归 16.2。与 doc/02 v4.0、doc/08 v1.15 同步 |
+| v1.36 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **§9.6 硬检查表："未引用导出/依赖"行由"knip 或 depcheck"（待接）标为 ✅ 已接入**（工单 14.1 第二批）：根 `knip.jsonc` + 根脚本 `pnpm knip` + ci.yml 在 lint 后**独立一步**（不并进 `pnpm lint`：报告形状与失败语义不同，混在一起会让 eslint 红灯被 knip 噪声掩盖；同为硬门）。首批纳入 files/dependencies/devDependencies/unlisted/binaries/duplicates 六类且零发现；exports/types 53 项已逐组裁决、代码处置归第三批（避免"报告已知但长期红灯"）；死代码与 spike 残留 7 项按 AGENTS §2.10 **冻结 ignore 不删**（ignore 不等于判决保留，新登记四处候选见 doc/02 10.30 行）。完整裁决表：doc/02 §4.6.3。与 doc/02 v4.7、AGENTS v1.32、doc/06 v1.7、doc/08 v1.21 同批 |
 
 ---
 
@@ -352,7 +353,7 @@ pi 包 0.x（隔离单点+锁版本）；AI Elements 面向 Next.js（copy-in �
 | `catch\s*\([^)]*\)\s*\{\s*\}`（空 catch） | grep / ESLint `no-empty-catch`                        |
 | `as any` / `@ts-ignore` / `: any`         | grep / `@typescript-eslint/no-explicit-any`（strict） |
 | floating promise                          | `@typescript-eslint/no-floating-promises`             |
-| 未引用导出/依赖                           | knip 或 depcheck                                      |
+| 未引用导出/依赖                           | **knip ✅ 已接入（工单 14.1 第二批）**：根 `knip.jsonc`（每处 entry/ignore 原地写理由）+ `pnpm knip` + ci.yml 在 lint 后独立一步；首批门禁 files/dependencies/devDependencies/unlisted/binaries/duplicates 零发现，exports/types 53 项已裁决、代码处置归第三批（裁决表见 doc/02 §4.6.3）                                      |
 | `TODO(ai)`、被注释的代码块                | grep 评审项                                           |
 | 裸 `console.*`（engine/server 内）        | ESLint `no-console`（白名单：CLI 入口）               |
 | 注释密度异常（函数体注释行占比过高）      | 评审项                                                |
