@@ -37,6 +37,7 @@
 | v1.35 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **D17 补记（阶段十三工单 13.5）：子代理预设档 agent presets**——task input 增 `preset?` 指 `~/.spark/agents/<name>.json`（D18 同哲学，schema 单一来源入 protocol）；四项可覆盖（模型/工具面/system 附加段/缺省标题）与两层优先级；**工具面收窄不新建拦截机制**（管线 hiddenTools 管广告面 + 会话级 deny 规则管拦截，后者走既有权限门得 E_PERMISSION 与审计归因）；已知边界（action 粒度、预设不存在 E_CONFIG 人话、逐档失败闭合、未传 preset 逐字节不变）；只读面 GET /api/agents + 设置中心子智能体页转 ready，管理面板归 16.2。与 doc/02 v4.0、doc/08 v1.15 同步 |
 | v1.36 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **§9.6 硬检查表："未引用导出/依赖"行由"knip 或 depcheck"（待接）标为 ✅ 已接入**（工单 14.1 第二批）：根 `knip.jsonc` + 根脚本 `pnpm knip` + ci.yml 在 lint 后**独立一步**（不并进 `pnpm lint`：报告形状与失败语义不同，混在一起会让 eslint 红灯被 knip 噪声掩盖；同为硬门）。首批纳入 files/dependencies/devDependencies/unlisted/binaries/duplicates 六类且零发现；exports/types 53 项已逐组裁决、代码处置归第三批（避免"报告已知但长期红灯"）；死代码与 spike 残留 7 项按 AGENTS §2.10 **冻结 ignore 不删**（ignore 不等于判决保留，新登记四处候选见 doc/02 10.30 行）。完整裁决表：doc/02 §4.6.3。与 doc/02 v4.7、AGENTS v1.32、doc/06 v1.7、doc/08 v1.21 同批 |
 | v1.37 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **§9.6 "未引用导出/依赖"行更新为已清零**（工单 14.1 第三批）：knip 的 `include` 已加回 exports/types 且 `pnpm knip` 零发现（41 项处置：29 去 export / 8 属再导出行 / 4 必须保留 export / copy-in 组件面 13 经 ignoreIssues 留）。**本批暴露并封住一个隐形洞**：把符号降为私有时，若它出现在同文件已导出接口的字段类型位置（Budget/ProviderApiKind/SkillHookDef/GrepMatch 四例），`tsc --noEmit` 与全部测试都不报错，只有 declaration 发射（`tsconfig.build.json`）会报 TS4033——而 ci.yml 原本不跑 build，只会在 release/desktop 打包时炸。已给 ci.yml 补末位 `pnpm -r build`（放最后：先收齐其余信号）。另一教训入档：清扫描类报告必须在入口修好后重跑（第二批补 Taro entry 使清单由 53 变 41，拿旧快照动手会误删活代码）。与 doc/02 v4.8、AGENTS v1.33、doc/06 v1.8、doc/08 v1.22 同批 |
+| v1.38 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **新增 D30（SDK 包形态 = 薄装配层 + 双子入口，engine 为可选 peer）与 D31（双通道 parity = 同一 Transport 合同 + 同一参数化契约套件 + 不支持项显式 E_UNSUPPORTED）**——doc/08 §4 展望定的四个 ADR 级决策中，稳定性分级已由 14.1 的 doc/02 §4.6 承担、跳语言归 15.2，本批补剩下两张（工单 14.4 要求 1：先裁决依赖方向）。D30 列三个候选与被否理由（protocol 当 SDK = 把装配逻辑放进合同面；engine 侧适配器 = 职责倒挂且依赖面污染 HTTP 客户端）；D31 五条结论（合同单一来源 / 同套件跑两遍 / E_UNSUPPORTED 禁假实现 / **DTO 装配下沉 protocol 不拷第三份** / 审批同一路径），背景里直接引了 14.2 第二批刚抓到的 204 空 body 缺陷作为"为何必须机器对照"的实证。§6 模块速览补 `packages/sdk` 行（职责/不许做）。编号注记：D30/D31 顺延现表末张 D29，doc/08 阶段十八 18.1 预称的 D30 顺延为 **D32**；两张 D28 重号仍待人类判决。与 doc/02 v4.19（§4.7 逐方法映射表）、doc/08 v1.28 同批 |
 
 ---
 
@@ -284,6 +285,30 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 后果：protocol `compaction.completed` 增 `keptFiles?: string[]` 与 `distilled?: Record<CallId, string>` 两个**可选**字段（旧磁盘行与旧 wire 帧仍合法，round-trip 单测已钉）；词表计数不变（21 种）；engine compaction.ts 增 parseKeptFiles / distillKeptOutputs 与 logger 告警出口，projector.ts 增 applyDistillation 与摘要附加行；成本上界 = 每次压缩最多 8 次额外 generateOnce（各 500 tokens 上限）；四端 UI 零改动（两字段不进展示面；若未来要展示“本次压缩蒸馏 N 条”属另立工单）。
 编号注记：本 ADR 占用 **D29**（顺延现表末张）；doc/08 §5C 阶段十八 18.1 原预称的 D29 顺延为 **D30**。**已知缺陷待人类判决**：ADR 表现存两张 D28（LLM 出网代理 12.9 / 设置读写 API 10.20 B），登记于 doc/02 v3.93，本单不擅改历史行。
 
+### D30 SDK 包形态 = 薄装配层 + 双子入口（HTTP / InProcess），engine 为可选 peer（2026-09-09，阶段十四工单 14.3/14.4）
+
+背景：doc/08 §4 展望定了四个 ADR 级方向（包形态 / 稳定性分级 / 双通道 parity / 跳语言），要求落地时各补正式 ADR。稳定性分级已由 14.1 的 doc/02 §4.6 承担（不另立 ADR），跳语言归 15.2；本张定**包形态**，D31 定**双通道 parity 机制**。
+候选：① protocol 直接当 SDK（不新增包）——protocol 是四端共享核且零运行时依赖（只 zod），把"装配 + 便利分组"塞进去会让它承担 L2 职责，且 14.1 已把它定为"全包即合同"——再放实现细节等于把装配逻辑放进合同面，否决；② engine 侧提供 Transport 适配器（`createInProcessTransport(engine)` 住 engine）——engine 的公共面刚在 14.1 冻结（13 个值导出 + 白名单不变量网），加客户端适配器会让"被嵌入的引擎"知道 L2 client 的形状（职责倒挂），且 engine 的依赖面（pi-ai/playwright-core/MCP SDK）会跟着适配器进入任何只想要 HTTP 客户端的消费者，否决；③ **新增薄 `@spark/sdk`，两个子入口**：`.`（HTTP，零 engine 依赖）与 `./inprocess`（engine 为 **optional peerDependency**），采纳。
+结论：
+1. `@spark/sdk` 只承载"装配 + 便利分组 + 通道适配"，**零业务逻辑**：连接管理/退避重连/SSE 续播与 seq 去重/错误体映射/鉴权双口径仍在 protocol 的 transport-node（ADR D22），引擎语义在 engine。
+2. 主入口 `.` = `createClient`（HTTP），依赖只 protocol；子入口 `./inprocess` = `createInProcessClient(engine)`，engine 声明为 **optional peerDependency**（宿主已装 engine 才可用；本仓测试靠 devDependencies），**浏览器端永不静态牵连 engine**。
+3. 便利分组（sessions/events/approvals）**两通道共用同一形状**，通道差异只在 transport 实现——这是 D31 parity 的结构前提。
+4. 类型单一来源仍是 protocol（sdk 不 re-export、不新定义 wire 类型）；sdk 的对外合同 = 两个工厂函数签名与 `SparkClient` 形状（CONTRIBUTING 四包版本策略表：semver 稳定、便利分组只增不破）。
+后果：web/cli 的装配点已迁到 `.`（14.3，行为零变化，e2e 七例已验）；`spark -p`（12.3）将改走 `./inprocess`（14.4 要求 4，消掉直连 Engine 的重复装配）；发布面 = 四包（release.yml 已含 sdk 构建）；knip、契约生成器、engine 公共面白名单三张网均覆盖新包。实现状态：`.` 已落地（14.3）；`./inprocess` 随 14.4 实现批落地（本张先定形态）。
+
+### D31 双通道 parity = 同一 Transport 合同 + 同一参数化契约套件 + 不支持项显式 E_UNSUPPORTED（2026-09-09，阶段十四工单 14.4）
+
+背景：L2 只有一个 client 实现、两个 transport（HTTP 连远程 server、InProcess 直连本地 Engine；opencode sdk-next 验证过的先例，doc/02 §9 已登记）。风险是两条通道行为漂移——14.2 第二批刚用契约套件抓到一个真实缺陷（`HttpTransport.req` 对 2xx 无条件 `res.json()`，而 DELETE 会话回 204 空 body，web 侧栏的"删除会话"自 12.4 起一直是坏的；mock 走查与 server 路由测试两侧各自绿、合起来才坏），证明"同一合同的两份实现"必须有机器对照。
+候选：① 两通道各写各的测试——正是漂移的温床（上面那个缺陷就是这样活了两个阶段），否决；② InProcess 内部起一个真 server 再走 HTTP——那就不是进程内通道了（也丢掉嵌入场景的零端口/零序列化特性），否决；③ **同一参数化契约套件对两通道各实例化一遍 + 不支持项显式报错**，采纳。
+结论：
+1. **合同单一来源**：两通道都实现 protocol 的 `Transport` 接口（逐方法一致）。事件流语义以 durable/seq 为准：InProcess 的 `onEvent` = `engine.subscribe` 直通（同一批信封、同一 seq 语义，不经序列化）；HTTP 的 = SSE（`since=seq` 续播 + 去重）。
+2. **同一套件跑两遍**：`apps/server/tests/transport-contract.ts` 的 `transportContractSuite(name, makeChannel)` 分别实例化 HTTP 与 InProcess 通道（14.2 第二批已落 HTTP 侧）；断言传输层语义（生命周期/错误码同形/直播与回放一致/退订生效），不重复 SSE 时序、DTO 形状、审批与工具语义（各有归属）。
+3. **不支持项显式 E_UNSUPPORTED，禁假实现**：InProcess 对"服务端专有"能力（`listFs`/`listFsTree` 的目录列举、附件上传下载、配对三件——它们的实现住在 apps/server 而不是 engine）一律抛 `E_UNSUPPORTED: <方法> 需要 HTTP 通道（<原因>）`，**不返回空值、不静默成功、不本地模拟**（假实现比缺实现更坏）。
+4. **DTO 装配单一来源**：`SessionDto`/`TreeNodeDto` 的组装当前住在 apps/server（`toDto`/`treeToDto`）；InProcess 需要同一套装配，故把纯映射函数下沉 protocol（`sessionDtoOf(meta, status, events)` 一类）由 server 与 sdk 共用——**不拷第三份**（AGENTS §1.1 的漂移教训，阶段十七已抓到三例）。
+5. **审批同一路径**：两通道的 `replyPermission` 最终都走 engine 的权限服务（HTTP 经 POST /api/permissions/reply，InProcess 直调 `engine.replyPermission`），fail-closed 语义（超时/异常一律拒绍）不因通道而变。
+后果：InProcess 让嵌入宿主（含 `spark -p`）省掉起 server 与端口占用；契约套件成为通道演进的常设回归网；`E_UNSUPPORTED` 进 doc/02 §5.10 错误码表；protocol 增纯映射函数（属 §4.6.1 的四端共享运行时类，走 §4.4 演进规则）；逐方法映射表见 doc/02 §4.7。
+编号注记：本两张 ADR 占 **D30/D31**（顺延现表末张 D29）；doc/08 §5C 阶段十八 18.1 原预称的 D30 顺延为 **D32**。**两张 D28 重号仍待人类判决**（登记于 doc/02 v3.93，不擅改历史行）。
+
 ## 6. 模块速览（职责边界）
 
 | 模块                | 职责                                        | 不许做                                     |
@@ -293,6 +318,7 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 | `apps/server`       | REST 薄壳 + SSE + 静态托管                  | 不写业务（全部委托 engine）                |
 | `apps/web`          | UI 渲染与交互                               | 不做协议外的数据加工；不改写事件（只投影） |
 | `apps/desktop`      | Electron 壳：sidecar 生命周期 + 窗口（D14） | 不 import 引擎/协议；不写业务             |
+| `packages/sdk`      | L2 薄客户端：装配 + 便利分组 + 通道适配（D30/D31） | 不写业务逻辑；不复制连接管理/重连/错误映射（那些在 protocol）；不新定义 wire 类型 |
 
 ## 7. 演进路线（摘要）
 

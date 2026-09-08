@@ -783,6 +783,38 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 
 四端装配点（吃狗粮）：web `transports/context.tsx` 与 cli `app.tsx` 均改为 `createClient(...).transport`（**只换装配与 import，行为零变化**：web 传 baseUrl/onStatus/onResync，cli 传 `{ eventStream: false }`，与原本 `new HttpTransport({...})` 逐项对应）；mobile/miniapp 用自己的 REST/SSE 子集实现（不经 HttpTransport，本次不迁）。最小示例：`packages/sdk/examples/minimal.ts`（≤10 行连接+订阅+发送，tsx 可跑）。
 
+### 4.7 Transport 双通道逐方法映射表（工单 14.4；ADR D30/D31）
+
+本表是 InProcessTransport 实现的**施工图纸**：左列是 `Transport` 接口（合同单一来源），中列是 HTTP 通道的现有映射（**从 apps/server/src/routes/*.ts 逐条反推、已核对**），右列是 InProcess 通道的对应做法。三档：✅ 直映射（调 Engine 门面同名/同语义方法）、⚠️ 需装配（要组装 DTO，装配函数下沉 protocol 共用）、❌ E_UNSUPPORTED（服务端专有，engine 无对应能力）。
+
+| 分组 | Transport 方法 | HTTP 通道（路由 → engine） | InProcess |
+| ---- | -------------- | --------------------------- | --------- |
+| 事件流 | `onEvent` | SSE `/api/event`（全局直播 + `since=seq` 续播） | ✅ `engine.subscribe` 直通（同一批信封、不经序列化） |
+| 回合 | `sendMessage` | POST `/messages` → `handle.send(text, delivery, expectedTurnId)` | ✅ 同（`SubmitResult` → `SubmitOutcome` 同形） |
+| 回合 | `interrupt` / `compact` | POST `/interrupt` · `/compact` → handle 同名 | ✅ `handle.interrupt()` / `handle.compact()` |
+| 审批 | `replyPermission` | POST `/api/permissions/reply` → `engine.replyPermission` | ✅ 直调同一方法（fail-closed 语义不变） |
+| 审批 | `listPermissionRules` / `addPermissionRule` / `removePermissionRule` | `/api/permissions/rules` → engine 同名 | ✅ 同名直映 |
+| 审批 | `getPermissionPreset` / `setPermissionPreset` | `/api/sessions/:id/permission-preset` → engine 同名 | ✅ 同名直映 |
+| 会话 | `createSession` / `listSessions` / `archiveSession` / `deleteSession` | `/api/sessions` 系 → engine 同名 | ✅ 同名直映 |
+| 会话 | `getSession` | GET `/api/sessions/:id` → `getSession(id) ?? resumeSession(id)` + `statusOf(id)` + `handle.events()` → `toDto` | ⚠️ 同一装配（`toDto` 下沉 protocol 为 `sessionDtoOf(meta, status, events)`） |
+| 会话 | `fork` / `getTree` / `listCheckpoints` / `rollbackCheckpoint` | POST `/fork` · GET `/tree`（`treeOf` + `treeToDto`）· GET `/checkpoints`（`checkpointsOf` + 行映射）· POST `/rollback`（`rollbackToCheckpoint`） | ✅ fork/rollback 直映；⚠️ tree 与 checkpoints 的 DTO 映射同样下沉 protocol（`treeToDto` 等） |
+| 会话 | `getSessionTrace` | GET `/trace` → `buildTrace(id, handle.events())` | ✅ 同一函数（engine 公共面已导出 `buildTrace`） |
+| 模型 | `listModels` / `setSessionModel` / `setSessionEffort` / `getRouting` / `updateRouting` / `resetUsage` / `testModelProvider` | `/api/models` · `/api/routing` 系 → engine 同名 | ✅ 同名直映（`testModelProvider` 的方法名实现批核对） |
+| 设置 | `getSettings` / `updateSettings` | `/api/settings` → engine 同名 | ✅ 同名直映 |
+| 命令 | `listCommands` / `executeCommand` | `/api/commands` → engine 同名 | ✅ 同名直映 |
+| 只读 | `listMcpServers` / `listSkills` / `listAgentPresets` / `usageSummary` / `listMemories` / `removeMemory` / `listAudit` / `search` | `/api/mcp`·`/api/skills`·`/api/agents`·`/api/usage/summary`·`/api/memories`·`/api/audit`·`/api/search` → engine 同名（`search` → `searchSessions`） | ✅ 同名直映 |
+| 密钥 | `listSecrets` / `setSecret` / `removeSecret` | `/api/secrets` → engine 同名 | ✅ 同名直映 |
+| 自动化 | `listAutomations` / `createAutomation` / `updateAutomation` / `deleteAutomation` / `listAutomationRuns` / `fireAutomation` | `/api/automations` → engine 同名 | ✅ 同名直映 |
+| 文件系统 | `listFs` / `listFsTree` | GET `/api/fs` 与 `/api/fs/tree`——**server 自己做**（`resolveInRoot` 硬边界 + readdir + 隐藏/体积规则） | ❌ `E_UNSUPPORTED`（engine 无目录列举门面；不本地重写一份，否则硬边界规则双源） |
+| 附件 | 上传/下载 | POST `/attachments` · GET `/attachments/:name`——**server 自己做**（落 `~/.spark/attachments` + 回字节） | ❌ `E_UNSUPPORTED` |
+| 配对 | `pairStatus` / `redeemPair` / `revokePairDevice` | `/api/pair/*`——**PairService/DeviceStore 住 server**（ADR D24） | ❌ `E_UNSUPPORTED`（嵌入场景无配对语义：宿主就是本机） |
+
+三条施工约束（实现批遵守）：
+
+1. **❌ 类一律抛错不降级**：`E_UNSUPPORTED: <方法> 需要 HTTP 通道（<原因>）`——不返回空数组、不静默成功、不本地模拟（D31 结论 3）；错误码进 §5.10 表。
+2. **⚠ 类的装配函数下沉 protocol**（`sessionDtoOf` / `treeToDto` 一类纯函数），server 与 sdk 共用——**不拷第三份**（D31 结论 4；AGENTS §1.1 漂移教训）；属 §4.6.1 的"四端共享运行时"类，走 §4.4 演进规则。
+3. **契约套件双跑**：`transportContractSuite` 对两通道各实例化一遍（HTTP 侧已在 `apps/server/tests/transport-http-contract.test.ts`）；❌ 类方法不进套件断言（它们本就不是双通道共有语义），但在 sdk 自己的单测里钉住"必抛 E_UNSUPPORTED 而不是静默成功"。
+
 # 5. 引擎设计（packages/engine）——完整规格
 
 ## 5.0 模块总览与依赖关系
@@ -2618,6 +2650,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.16 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令；因由：v4.15 推送后 CI 红在 knip） | **sdk 补 `example` 包脚本（knip 报 tsx 为未引用 devDep）**。CI run 34258425905：typecheck 与 lint 均绿（新包与 web/cli 迁移本身无误），knip 报 `Unused devDependencies: tsx packages/sdk/package.json`——根因：示例的跑法只写在文件头注释里（`tsx examples/minimal.ts`），**没有任何包脚本引用 tsx**，而 knip 只看得到静态引用与 package.json scripts（同第二批裁决里 playwright-core/Taro plugins 的字符串引用同类）。修法选了比 ignore 更对的一条：给 sdk 补 `"example": "tsx examples/minimal.ts"` 脚本——knip 因此看到真实用途（不进豁免表），用户也得到一条命令可跑的示例（`pnpm --filter @spark/sdk example`），示例头注释同步改指该脚本。对比 protocol 的 tsx 未被报：它有 `gen:contract` 脚本引用。**教训（与 §4.6.3 同源）**：工具链依赖必须有**机器可见的引用点**（包脚本或静态 import），只写在注释/文档里等于未使用；新包加工具链依赖时顺手把跑法固化成脚本。本修同样本机零验证，以 CI 裁决 |
 | v4.17 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **工单 14.2 第二批：Transport 接口契约模板（产出③）+ 验收第 3 条红绿演练**。新增 `apps/server/tests/transport-contract.ts`：`transportContractSuite(name, makeChannel)` **参数化套件**——通道只需交三件事（transport 实例 / 让引擎产出一个确定文本回合的方法 / 收口），四组语义断言：会话生命周期（create→list→archive→归档过滤→恢复→delete，删后取会话必拒且带原码）/ 未知会话 → `E_NOT_FOUND`（错误码跳通道同形）/ 回合直播与回放一致（durable 三件套齐备、seq 升序、直播面确实收到过）/ 退订后不再投递（先用回放面确认回合真跑完，再断言直播面零投递——区分"没跑"与"没投递"）。HTTP 通道已接（`transport-http-contract.test.ts`：真实 listen 的 Fastify + ScriptedLlm + HttpTransport——`app.inject` 走不了 HttpTransport，它用 fetch 打真地址）；**InProcess 通道随 14.4 接同一份**，双通道 parity 由此成立。套件刻意不管三件事（SSE 时序/背压→sse.test.ts；DTO 形状→protocol 生成物；审批与工具语义→evals core 套，通道无关）；`replyPermission` 的路由 parity 待 14.4 两实现同时在场时补进（那时断言才有对照意义）。**要求 4（server 手写重复用例替换）裁决为不替换**：核对后确认 routes.test.ts 断言的是 statusCode + `code` 字段（路由映射层）而非 DTO 形状，与生成物层次不同；**路由级 payload 生成改归 15.2 OpenAPI**（需一张路由×body schema 映射表，那是 server 的知识、protocol 里没有；15.2 落 OpenAPI 时该表本就是必需品，届时零额外成本）——两项裁决已写进 doc/06 §1。**验收第 3 条演练已做（本地，零残留、不进提交）**：临时给 `UsageAmountsSchema` 加一个可选字段 `probeDrillField` → 重跑生成器 → `git diff --exit-code packages/protocol/tests/contract` **输出非空 diff（即 CI 会红）**，且一处改动扩散到所有依赖它的 DTO（UsageBucketDto / UsageSummaryDto 的 totals 与 unbucketed / TraceDto 的 usage 均新增样例字段与一条变异用例）——棘轮的实际覆盖面得到实证；随后还原 schema 与生成物（git status 仅剩本批两个新文件）。**本批本机零验证**（例外：跑生成器与演练是工作产物），以 CI 裁决。同步：doc/06 v1.10（§1 两段）、doc/08 v1.26（§14.2 第二批进度） |
 | v4.18 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令；因由：v4.17 推送后 CI 红在 test，契约套件 3/4 通过） | **修一个真实用户面缺陷：HttpTransport 对空 body 的 2xx 报 SyntaxError（DELETE 会话一直是坏的）**。CI run 34260006951：新接的 Transport 契约套件四条中三条绿，"会话生命周期"红在 `deleteSession`：`SyntaxError: Unexpected end of JSON input`（transport-node.ts 的 `req`）。根因：服务端 `DELETE /api/sessions/:id` 如实回 **204 空 body**（§4.5 路由表已登记），而 `req` 对 2xx **无条件 `await res.json()`** → `JSON.parse('')` 抛错。**为何一直没被发现**：`apps/web/src/components/layout/Sidebar.tsx` 的"删除会话"确实走 `transport.deleteSession`，但 MockTransport 是本地实现（mock 走查与 Playwright e2e 四场景都不经真实 HTTP DELETE），server 路由测试又只用 `app.inject` 打路由、不经 HttpTransport——**两侧各自绿，合起来才是坏的**，而契约套件恰好是第一个同时走真 transport + 真 server 的用例。修法（通用，不特例 204）：`req` 改读 `res.text()`，**空 body 如实回 undefined**，非空才 JSON.parse；顺带覆盖其它可能回空 body 的 DELETE（删密钥/删规则/撤销配对设备）。回归证据：契约套件该条转绿（兼顶 deleteSession 的回归网）。**价值已证明**：双通道 parity 套件第一次跑就抓到一个隐藏两个阶段（12.4 引入删除至今）的真实缺陷，且缺陷正是"mock 对等纪律盖不住的那一类"（mock 与真实服务端行为分歧）。本修同样本机零验证，以 CI 裁决。同步：doc/08 v1.27（§14.2 补记） |
+| v4.19 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **新增 §4.7 Transport 双通道逐方法映射表（工单 14.4 的设计批交付物）**：左列 Transport 合同、中列 HTTP 通道现有映射（**从 apps/server/src/routes/*.ts 逐条反推并核对**：sessions/readonly/permissions/models/secrets/automation/shared 七个文件的 engine 调用点）、右列 InProcess 做法，分三档：✅ 直映射（绝大多数：回合/审批/会话/模型/设置/命令/只读面/密钥/自动化均为 engine 同名方法）、⚠️ 需装配（getSession/getTree/listCheckpoints 的 DTO 组装，**装配函数下沉 protocol 共用**）、❌ E_UNSUPPORTED（仅三类服务端专有：`listFs`/`listFsTree` 的目录列举、附件上传下载、配对三件）。**三条施工约束**：❌ 类一律抛错不降级（不返回空数组/不静默成功/不本地模拟）、⚠ 类装配函数不拷第三份、契约套件双跑且 ❌ 类不进双通道断言但要在 sdk 单测里钉住"必抛 E_UNSUPPORTED"。本表是下一批实现的施工图纸，目的是**不盲写 600 行再去碰 CI**（本机零验证下盲写的代价是每轮 2 分钟起）。同步：ARCHITECTURE v1.38（D30/D31 两张 ADR + §6 模块速览补 sdk 行）、doc/08 v1.28（§14.4 设计批进度 + 18.1 预称 ADR 号 D30→D32） |
 
 > 批次 5 备注：
 
