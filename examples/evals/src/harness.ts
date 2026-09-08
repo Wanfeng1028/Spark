@@ -7,7 +7,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { SparkEventEnvelope } from '@spark/protocol'
 import type { EngineConfig, PermissionRule } from '@spark/engine'
-import { Engine, ScriptedLlm } from '@spark/engine'
+import { Engine } from '@spark/engine'
+import { ScriptedLlm } from '@spark/engine/internal'
 
 export interface EvalOutcome {
   status: 'pass' | 'fail' | 'skip'

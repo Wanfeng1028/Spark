@@ -8,7 +8,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import type { EventId, SessionDto, SessionId } from '@spark/protocol'
-import { mungeDir, sessionFileName } from '@spark/engine'
+import { mungeDir, sessionFileName } from '@spark/engine/internal'
 import { makeServer } from './helpers.js'
 
 const PERF = process.env.SPARK_PERF === '1'

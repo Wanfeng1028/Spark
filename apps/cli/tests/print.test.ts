@@ -5,7 +5,7 @@
  */
 import { describe, expect, test } from 'vitest'
 import type { EngineConfig } from '@spark/engine'
-import { ScriptedLlm } from '@spark/engine'
+import { ScriptedLlm } from '@spark/engine/internal'
 import { parsePrintArgs, runPrint } from '../src/print.js'
 
 function makeConfig(): EngineConfig {

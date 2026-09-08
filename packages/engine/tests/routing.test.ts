@@ -18,7 +18,7 @@ import {
   type EngineConfig,
   type ResolvedModel,
   type StreamRequest,
-} from '../src/index.js'
+} from '../src/index-internal.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
 
 let dirs: string[] = []

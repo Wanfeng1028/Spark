@@ -16,7 +16,7 @@ import {
   AutomationRegistry,
   cronMatches,
   parseCron,
-} from '../src/index.js'
+} from '../src/index-internal.js'
 
 let dirs: string[] = []
 const managers: AutomationManager[] = []

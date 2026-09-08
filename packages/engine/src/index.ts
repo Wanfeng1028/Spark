@@ -1,11 +1,22 @@
 /**
- * @spark/engine 入口（doc/02 §5.0）。
- * 阶段三逐工单填充：config → bus → session → runtime → run-loop → tools →
- * permission → llm-gateway → projector → createEngine 门面。
+ * @spark/engine **公共入口**（工单 14.1 公共面治理）：L0 嵌入面的稳定承诺集。
+ *
+ * 裁决口径（逐项裁决表见 doc/02 §4.6）：
+ * - **公共** = 嵌入者把引擎跑起来所必需（Engine 与 EngineDeps 涉及的类型、配置装载与
+ *   ConfigError、日志器、id 工具、自定义 LlmGateway 所需的形状与 usage 助手）
+ *   + 生产端（apps/server、apps/cli）实际消费的符号（resolveInRoot 路径硬边界、
+ *   buildTrace 链路聚合、MCP 配置读写）；
+ * - **内部件**（会话存储/运行时/输入队列/run-loop/工具与管线/权限实现/投影/压缩/检查点/
+ *   PiGateway 与 fallback/提示词构造/密钥仓/I-O 护栏/成本计量/钩子/命令装载/记忆/自动化/
+ *   审计/搜索/浏览器管理，以及 ScriptedLlm 测试替身）一律走 `@spark/engine/internal`
+ *   —— **无稳定性承诺**，只供本仓测试与 examples/evals；生产代码（apps/*\/src）不得引用，
+ *   由 tests/public-surface.test.ts 的不变量网断言。
+ *
+ * 演进规则：新增公共导出 = 扩大对外承诺，须在 doc/02 §4.6 裁决表加行并说明理由；
+ * 拿不准就先放 internal（收窄容易、放宽难）。
  */
 export {
   loadConfig,
-  loadProjectRules,
   ConfigError,
   type EngineConfig,
   type SparkConfig,
@@ -14,28 +25,7 @@ export {
   type PermissionsConfig,
   type PermissionRule,
 } from './config.js'
-export {
-  EventBus,
-  type EventSink,
-  type SubscribeHandle,
-} from './bus.js'
 export { ulid, newIds } from './ulid.js'
-export {
-  SessionStore,
-  mungeDir,
-  sessionFileName,
-  danglingTurnIds,
-  type SessionHeader,
-  type SessionFile,
-} from './session/store.js'
-export { EventTree } from './session/tree.js'
-export {
-  InputQueue,
-  type InputItem,
-  type SubmitResult,
-  type SubmitResultKind,
-} from './session/input-queue.js'
-export { SessionRuntime, type RuntimeStatus } from './session/runtime.js'
 export {
   ZERO_USAGE,
   addUsage,
@@ -48,106 +38,13 @@ export {
   type StopReason,
   type OnceRequest,
 } from './llm-gateway.js'
-export {
-  ScriptedLlm,
-  type ScriptedStep,
-  type ScriptedDelta,
-} from './scripted-llm.js'
-export {
-  runSessionLoop,
-  runTurn,
-  type Projector,
-  type Compactor,
-  type Checkpointer,
-  type ToolCallPending,
-  type ToolPipelineResult,
-  type ToolPipeline,
-  type TurnCtx,
-  type RunLoopDeps,
-} from './run-loop.js'
-export {
-  resolveInRoot,
-  type ToolContext,
-  type ToolOutput,
-  type ToolDefinition,
-} from './tools/definition.js'
-export { ToolRegistry } from './tools/registry.js'
-export {
-  ToolPipelineImpl,
-  type PipelineDeps,
-} from './tools/pipeline.js'
-export {
-  ToolOutputStore,
-} from './tools/output-store.js'
-export {
-  type PermissionCheck,
-  type PermissionService,
-} from './tools/permission-port.js'
-export {
-  registerBuiltinTools,
-  readTool,
-  writeTool,
-  editTool,
-  bashTool,
-  makeBashTool,
-  makeTaskTool,
-  type BashToolOptions,
-  type TaskInput,
-  type TaskRunner,
-} from './tools/builtin/index.js'
-export {
-  bwrapArgs,
-  seatbeltProfile,
-  resolveSandboxWrapper,
-  wrapperAvailable,
-  type BashSandboxMode,
-  type SandboxWrapper,
-} from './tools/sandbox.js'
+export { resolveInRoot } from './tools/definition.js'
 export {
   loadMcpConfig,
   writeMcpConfig,
   type McpConfig,
   type McpServerConfig,
 } from './mcp/config.js'
-export {
-  McpManager,
-  makeMcpToolDef,
-  mcpToolName,
-  serializeMcpContent,
-  type McpManagerDeps,
-} from './mcp/manager.js'
-export { evaluate, type Effect } from './permission/rules.js'
-export {
-  PermissionServiceImpl,
-  type PermissionServiceDeps,
-} from './permission/service.js'
-export {
-  ProjectorImpl,
-  reasoningIncluded,
-  estimateTokens,
-  projectSurface,
-  type ProjectorDeps,
-  type SurfaceEntry,
-  type Projection,
-} from './projector.js'
-export { CompactorImpl, COMPACTION_PROMPT, type CompactorDeps } from './compaction.js'
-export {
-  GitCheckpointer,
-  SESSION_ALIAS,
-  type CheckpointRecord,
-  type GitCheckpointerDeps,
-} from './checkpoint.js'
-export {
-  PiGateway,
-  classifyLlmError,
-  backoffDelayMs,
-  toPiMessages,
-  toSparkContent,
-  toSparkUsage,
-  type PiStreamFn,
-  type PiGatewayDeps,
-  type LlmErrorKind,
-} from './pi-gateway.js'
 export {
   Engine,
   SPARK_VERSION,
@@ -160,65 +57,10 @@ export {
   type EngineDeps,
   type ReplyOutcome,
 } from './engine.js'
-export { buildSystemPrompt, locateProjectInstructions } from './prompts.js'
-export {
-  SecretStore,
-  resolveApiKey,
-  type SecretSource,
-} from './secrets/store.js'
-export { IoGuard, type IoWarning, type GuardDeps } from './tools/guard.js'
-export {
-  FallbackGateway,
-  type FallbackGatewayDeps,
-  type FallbackLogger,
-} from './fallback-gateway.js'
-export { CostTracker, type UsageTotal } from './cost-tracker.js'
+export { Logger, type SparkLogger, type LogFields, type LogMsg } from './logger.js'
 export { buildTrace } from './trace.js'
+// EngineDeps.browserDriver 是文档化的注入点，故其端口类型属公共面（实现类 BrowserManager 属内部）
 export {
-  UserHookRunner,
-  DEFAULT_HOOK_TIMEOUT_MS,
-  type HookPoint,
-  type HookLogger,
-  type HookFirePayload,
-  type UserHookDef,
-  type UserHookCommandDef,
-  type UserHookSkillDef,
-  type UserHooksConfig,
-  type UserHookRunnerDeps,
-} from './hooks/runner.js'
-export {
-  BUILTIN_COMMANDS,
-  COMMAND_NAME_RE,
-  expandCommandPrompt,
-  loadCommands,
-  type LoadedCommand,
-  type CommandLogger,
-} from './commands/loader.js'
-export { MemoryStore } from './memory/store.js'
-export { memorySaveTool, memorySearchTool } from './tools/builtin/memory.js'
-export {
-  Logger,
-  type SparkLogger,
-  type LogFields,
-  type LogMsg,
-} from './logger.js'
-// 阶段七工单 7.6 / H06 / ADR D26：自动化触发器（cron/watch/webhook → 自动建会话执行 prompt）
-export { AutomationManager, type FireDeps } from './automation/manager.js'
-export { AutomationRegistry, type TriggerDef, type TriggerRun } from './automation/registry.js'
-export { parseCron, cronMatches, type CronSpec } from './automation/cron.js'
-// 阶段七工单 7.12 / H11：审计日志（permission 决策 / 规则变更 / rollback 独立 JSONL 明细流）
-export {
-  AuditLog,
-  type AuditEntry,
-  type AuditQuery,
-  type AuditKind,
-  type AuditSink,
-} from './audit/log.js'
-// 阶段七工单 7.13 / H12：会话全文搜索（~/.spark/search.db，FTS5 trigram + LIKE 降级）
-export { SearchStore, type SearchEntry, type SearchEntryType } from './search/store.js'
-// 阶段七工单 7.10 / H09 / ADR D27：browser 工具族驱动端口（测试注入假驱动）
-export {
-  BrowserManager,
   type BrowserDriver,
   type BrowserOpenResult,
   type BrowserShotResult,

@@ -4,7 +4,7 @@
  * （COMPACTION_PROMPT + 转录）、压缩后下一 turn 模型上下文首条 = 摘要（重投影）。
  */
 import type { SparkEventEnvelope } from '@spark/protocol'
-import { COMPACTION_PROMPT } from '@spark/engine'
+import { COMPACTION_PROMPT } from '@spark/engine/internal'
 import { fail, makeFixture, pass, waitFor, type EvalScenario } from '../harness.js'
 
 export const compactionScenario: EvalScenario = {

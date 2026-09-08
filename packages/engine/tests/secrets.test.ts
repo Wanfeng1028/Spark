@@ -14,7 +14,7 @@ import {
   SecretStore,
   resolveApiKey,
   type EngineConfig,
-} from '../src/index.js'
+} from '../src/index-internal.js'
 
 let dirs: string[] = []
 

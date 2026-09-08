@@ -10,7 +10,8 @@
  */
 import { execFileSync } from 'node:child_process'
 import { ids, type SparkEventEnvelope } from '@spark/protocol'
-import type { ScriptedStep, PermissionRule } from '@spark/engine'
+import type { PermissionRule } from '@spark/engine'
+import type { ScriptedStep } from '@spark/engine/internal'
 import { fail, pass, type EvalOutcome } from '../harness.js'
 import { seedSampleRepo, type FixtureRepo } from './fixtures.js'
 
