@@ -960,6 +960,44 @@ describe('GET/PUT/DELETE /api/routing（阶段七工单 7.7 模型路由）', ()
   })
 })
 
+describe('GET /api/sessions/:id/trace（工单 13.7 会话链路）', () => {
+  test('一轮对话后：回合/步计数与事件流一致，finish=stop', async () => {
+    const f = await setup()
+    const events = collectEvents(f)
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '答复' }] })
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const id = created.json<Json>()['id'] as string
+    await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '问题' },
+    })
+    await waitFor(() => (events.some((e) => e.type === 'turn.completed') ? true : undefined))
+
+    const res = await f.app.inject({ method: 'GET', url: `/api/sessions/${id}/trace` })
+    expect(res.statusCode).toBe(200)
+    const body = res.json<Json>()
+    expect(body['sessionId']).toBe(id)
+    expect(body['totals']).toMatchObject({
+      turns: 1,
+      steps: 1,
+      toolCalls: 0,
+      toolErrors: 0,
+      errors: 0,
+    })
+    const turns = body['turns'] as Array<Record<string, unknown>>
+    expect(turns[0]?.['finish']).toBe('stop')
+    expect(turns[0]?.['durationMs']).toBeGreaterThanOrEqual(0)
+    expect(body['looseErrors']).toEqual([])
+  })
+
+  test('未知会话 → 404（不造空链路）', async () => {
+    const f = await setup()
+    const res = await f.app.inject({ method: 'GET', url: '/api/sessions/ses_nope/trace' })
+    expect(res.statusCode).toBe(404)
+  })
+})
+
 describe('GET /api/usage/summary（工单 13.6 成本看板）', () => {
   test('空账（未跑回合）：总账全零、明细空、unbucketed 全零', async () => {
     const f = await setup()

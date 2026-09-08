@@ -173,6 +173,7 @@ export {
   type FallbackLogger,
 } from './fallback-gateway.js'
 export { CostTracker, type UsageTotal } from './cost-tracker.js'
+export { buildTrace } from './trace.js'
 export {
   UserHookRunner,
   DEFAULT_HOOK_TIMEOUT_MS,

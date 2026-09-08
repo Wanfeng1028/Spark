@@ -8,7 +8,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
-import { FolderGit2, GitBranch, History } from 'lucide-react'
+import { Activity, FolderGit2, GitBranch, History } from 'lucide-react'
 import { ids } from '@spark/protocol'
 import type { PermissionPreset, ReasoningEffort } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
@@ -21,6 +21,7 @@ import { TurnStatusBar } from '@/features/chat/TurnStatusBar'
 import { ErrorToast } from '@/features/chat/ErrorToast'
 import { ErrorBanner } from '@/features/chat/ErrorBanner'
 import { SessionTreeDialog } from '@/features/chat/SessionTreeDialog'
+import { TraceDialog } from '@/features/chat/TraceDialog'
 import { CheckpointDialog } from '@/features/chat/CheckpointDialog'
 import { projectOf } from '@/components/layout/Sidebar'
 import { hasCachedProjection, useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
@@ -64,6 +65,8 @@ export function SessionPage() {
   const [reloadKey, setReloadKey] = useState(0)
   // 会话树浮层（工单 4.5）：分叉入口 + 树视图
   const [treeOpen, setTreeOpen] = useState(false)
+  // 链路浮层（工单 13.7）：回合级聚合——时长/步与 token/工具调用与重试/护栏告警
+  const [traceOpen, setTraceOpen] = useState(false)
   // 检查点浮层（工单 4.6）：快照列表 + 回滚入口；turn 进行中回滚按钮禁用
   const [ckptOpen, setCkptOpen] = useState(false)
   // 权限档位（§13.E 四档；会话级内存态）。装载失败保持缺省档 confirm-each——
@@ -187,6 +190,16 @@ export function SessionPage() {
           </span>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-1">
+          {/* 链路入口（工单 13.7）：只读聚合视图，turn 进行中也可看（已完成回合） */}
+          <button
+            type="button"
+            aria-label="会话链路"
+            title="会话链路"
+            onClick={() => setTraceOpen(true)}
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            <Activity className="size-4" />
+          </button>
           {/* 会话树入口（工单 4.5）：turn 进行中仍可查看，分叉按钮在浮层内禁用 */}
           <button
             type="button"
@@ -295,6 +308,7 @@ export function SessionPage() {
               />
             )}
             <SessionTreeDialog open={treeOpen} onOpenChange={setTreeOpen} sid={sid} busy={busy} />
+            <TraceDialog open={traceOpen} onOpenChange={setTraceOpen} sid={sid} />
             <CheckpointDialog open={ckptOpen} onOpenChange={setCkptOpen} sid={sid} busy={busy} />
             <ErrorToast sid={sid} />
           </div>

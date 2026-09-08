@@ -12,6 +12,8 @@ import { SETTINGS_RESTART_REQUIRED, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
 import type {
   AgentPresetDto,
+  TraceDto,
+  TraceTurnDto,
   UsageBucketDto,
   UsageSummaryDto,
   AuditEntryDto,
@@ -898,6 +900,90 @@ export class MockTransport implements Transport {
       unbucketed,
       costLimitUsd: 5,
       exceeded: false,
+    })
+  }
+
+  /**
+   * 会话链路（工单 13.7 对等演示）：第一回合含工具失败重试 + 审批挂起 + 护栏告警 + 记忆注入标记，
+   * 第二回合干净——组件两态（正常回合 / 含重试回合）与 mock 走查都吃这份数据。
+   */
+  getSessionTrace(sessionId: SessionId): Promise<TraceDto> {
+    this.assertNotDisposed()
+    const t0 = 1788800000000
+    const cleanUsage = { costUsd: 0.0008, inputTokens: 900, outputTokens: 120, cacheRead: 700, cacheWrite: 0 }
+    const retryTurn: TraceTurnDto = {
+      turnId: ids.turn('trn_01J8ZK0Q7M3X9V2T5R8W4Y6B1D'),
+      delivery: 'now',
+      startedAt: t0,
+      durationMs: 4200,
+      finish: 'stop',
+      steps: [
+        {
+          index: 0,
+          at: t0 + 900,
+          durationMs: 2100,
+          toolCalls: 2,
+          usage: { costUsd: 0.0021, inputTokens: 1800, outputTokens: 260, cacheRead: 900, cacheWrite: 0 },
+        },
+        {
+          index: 1,
+          at: t0 + 3000,
+          durationMs: 1200,
+          toolCalls: 0,
+          usage: { costUsd: 0.0012, inputTokens: 2100, outputTokens: 180, cacheRead: 1500, cacheWrite: 0 },
+        },
+      ],
+      tools: [
+        {
+          callId: ids.call('call_mock_write_1'),
+          name: 'write',
+          startedAt: t0 + 1000,
+          durationMs: 120,
+          isError: true,
+          retry: false,
+          approvalAsked: true,
+          warnings: [],
+        },
+        {
+          callId: ids.call('call_mock_write_2'),
+          name: 'write',
+          startedAt: t0 + 1400,
+          durationMs: 95,
+          isError: false,
+          retry: true,
+          approvalAsked: false,
+          warnings: ['secret'],
+        },
+      ],
+      marks: [{ at: t0 + 200, kind: 'memory', label: '注入 2 条记忆' }],
+      errors: [{ at: t0 + 1150, scope: 'tool', message: 'E_IO: 目标路径只读（演示数据）', fatal: false }],
+      usage: { costUsd: 0.0033, inputTokens: 3900, outputTokens: 440, cacheRead: 2400, cacheWrite: 0 },
+    }
+    const cleanTurn: TraceTurnDto = {
+      turnId: ids.turn('trn_01J8ZK9R2N4P6Q8S0T1V3W5X7Z'),
+      delivery: 'now',
+      startedAt: t0 + 60000,
+      durationMs: 1500,
+      finish: 'stop',
+      steps: [{ index: 0, at: t0 + 61200, durationMs: 1500, toolCalls: 0, usage: cleanUsage }],
+      tools: [],
+      marks: [],
+      errors: [],
+      usage: cleanUsage,
+    }
+    return Promise.resolve({
+      sessionId,
+      totals: {
+        turns: 2,
+        steps: 3,
+        toolCalls: 2,
+        toolErrors: 1,
+        errors: 1,
+        durationMs: 5700,
+        usage: { costUsd: 0.0041, inputTokens: 4800, outputTokens: 560, cacheRead: 3100, cacheWrite: 0 },
+      },
+      turns: [retryTurn, cleanTurn],
+      looseErrors: [],
     })
   }
 

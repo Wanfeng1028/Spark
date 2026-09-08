@@ -1,10 +1,10 @@
 /**
- * 会话核心域（创建/列表/详情/文件树/消息/中断/压缩/树/fork/checkpoints/回滚）（工单 R-F③ 域拆分：自 routes.ts 机械搬移，路由与行为零变化）。
+ * 会话核心域（创建/列表/详情/文件树/消息/中断/压缩/树/trace/fork/checkpoints/回滚）（工单 R-F③ 域拆分：自 routes.ts 机械搬移，路由与行为零变化）。
  */
 import type { FastifyPluginCallback } from 'fastify'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import type { Dirent } from 'node:fs'
-import { resolveInRoot } from '@spark/engine'
+import { buildTrace, resolveInRoot } from '@spark/engine'
 import { join } from 'node:path'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -165,6 +165,16 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
   app.get('/api/sessions/:id/tree', async (req, reply) => {
     const { id } = parseOr400(IdParams, req.params)
     return reply.send(treeToDto(await engine.treeOf(id)))
+  })
+
+  /**
+   * GET /api/sessions/:id/trace（工单 13.7 / V2-11 / doc/07 H27）：回合级链路聚合。
+   * 纯从 durable 事件推导（buildTrace 单遍 O(n)），不加埋点、不写任何状态。
+   */
+  app.get('/api/sessions/:id/trace', async (req, reply) => {
+    const { id } = parseOr400(IdParams, req.params)
+    const handle = await requireHandle(engine, id)
+    return reply.send(buildTrace(id, handle.events()))
   })
 
   app.post('/api/sessions/:id/fork', async (req, reply) => {

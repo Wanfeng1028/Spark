@@ -2,8 +2,14 @@
  * HTTP API DTO（doc/02 §4.5.1）——SessionMeta 的线上形状。
  */
 import { z } from 'zod'
-import { CheckpointIdSchema, EventIdSchema, SessionIdSchema, TurnIdSchema } from './ids.js'
-import { ReasoningEffortSchema } from './primitives.js'
+import {
+  CallIdSchema,
+  CheckpointIdSchema,
+  EventIdSchema,
+  SessionIdSchema,
+  TurnIdSchema,
+} from './ids.js'
+import { DeliverySchema, ReasoningEffortSchema, TurnFinishSchema } from './primitives.js'
 import { ClientActionSchema, CommandArgsSchema, CommandSurfaceSchema } from './commands.js'
 import type { SparkEventEnvelope } from './events.js'
 
@@ -239,6 +245,105 @@ export const UsageSummaryQuerySchema = z.strictObject({
   since: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })
 export type UsageSummaryQuery = z.infer<typeof UsageSummaryQuerySchema>
+
+// ---------- 会话链路 trace（工单 13.7 / V2-11 / doc/07 H27） ----------
+//
+// **纯从 durable 事件推导，不加埋点**：所有字段来自已有事件（turn.started/completed、
+// assistant.message.usage、tool.started/completed.durationMs、permission.asked、io.warning、
+// error、compaction/checkpoint/memory.injected/session.resumed）。
+// **fallback 不在本 DTO 里**：模型降级切换只有 pino 日志（`llm.fallback`）、没有事件，
+// 把它放进 trace 就得新增事件 = 加埋点，超出本单口径（已在 doc/08 §13.7 备案）。
+
+/** 一次工具调用的链路条目（tool.started/completed 配对） */
+export const TraceToolDtoSchema = z.strictObject({
+  callId: CallIdSchema,
+  name: z.string(),
+  startedAt: z.number().int().nonnegative(),
+  /** 直取 tool.completed.durationMs（不做时间差推算）；未配对到 completed = null（悬挂调用如实呈现） */
+  durationMs: z.number().int().nonnegative().nullable(),
+  isError: z.boolean(),
+  /** 同回合内同名工具在上一次 isError 之后再次调用 = 记为重试（**启发式**，非引擎埋点） */
+  retry: z.boolean(),
+  /** 该调用挂起过审批（permission.asked 命中同 callId）——前端据此跳审计页过滤 */
+  approvalAsked: z.boolean(),
+  /** I/O 护栏告警种类（io.warning 命中同 callId；空 = 无告警） */
+  warnings: z.array(z.enum(['injection', 'secret'])),
+})
+export type TraceToolDto = z.infer<typeof TraceToolDtoSchema>
+
+/** 一步 = 一条 assistant.message（一次模型往返） */
+export const TraceStepDtoSchema = z.strictObject({
+  index: z.number().int().nonnegative(),
+  at: z.number().int().nonnegative(),
+  /** 到下一步（或 turn 闭合）的间隔 ms——**含该步触发的工具执行时长**（事件只在往返完成时落盘） */
+  durationMs: z.number().int().nonnegative(),
+  toolCalls: z.number().int().nonnegative(),
+  /** null = 该步无 usage（provider 未回传）——不以 0 充数 */
+  usage: UsageAmountsSchema.nullable(),
+})
+export type TraceStepDto = z.infer<typeof TraceStepDtoSchema>
+
+/**
+ * 时间线上的非工具标记（压缩/快照/记忆注入）。
+ * 归属：带 turnId 的挂对应回合；压缩在回合内→当前回合，回合间（手动 /compact）→最近回合；
+ * 记忆注入先于 turn.started 落盘（ADR D25）→挂到它所属的那个回合。
+ * **session.resumed 不进 trace**：它是加载边界不是链路节点，无可归属的回合。
+ */
+export const TraceMarkDtoSchema = z.strictObject({
+  at: z.number().int().nonnegative(),
+  kind: z.enum(['compaction', 'checkpoint', 'memory']),
+  /** 一行可读摘要（如压缩 tokensBefore、快照文件数、命中记忆条数） */
+  label: z.string(),
+})
+export type TraceMarkDto = z.infer<typeof TraceMarkDtoSchema>
+
+/** 一条 error 事件（error 事件无 turnId，按位置归属到包围它的回合） */
+export const TraceErrorDtoSchema = z.strictObject({
+  at: z.number().int().nonnegative(),
+  scope: z.enum(['engine', 'llm', 'tool', 'io']),
+  message: z.string(),
+  fatal: z.boolean(),
+})
+export type TraceErrorDto = z.infer<typeof TraceErrorDtoSchema>
+
+/** 一个回合的链路 */
+export const TraceTurnDtoSchema = z.strictObject({
+  turnId: TurnIdSchema,
+  delivery: DeliverySchema,
+  startedAt: z.number().int().nonnegative(),
+  /** turn.started → turn.completed；**未闭合**时 = 到本回合最后一条事件为止，且 finish 为 null */
+  durationMs: z.number().int().nonnegative(),
+  finish: TurnFinishSchema.nullable(),
+  steps: z.array(TraceStepDtoSchema),
+  tools: z.array(TraceToolDtoSchema),
+  marks: z.array(TraceMarkDtoSchema),
+  errors: z.array(TraceErrorDtoSchema),
+  /** turn.completed.usage 优先；缺则累加各步（均无 → null） */
+  usage: UsageAmountsSchema.nullable(),
+})
+export type TraceTurnDto = z.infer<typeof TraceTurnDtoSchema>
+
+/** 全会话合计（看板与头部摘要用） */
+export const TraceTotalsDtoSchema = z.strictObject({
+  turns: z.number().int().nonnegative(),
+  steps: z.number().int().nonnegative(),
+  toolCalls: z.number().int().nonnegative(),
+  toolErrors: z.number().int().nonnegative(),
+  errors: z.number().int().nonnegative(),
+  durationMs: z.number().int().nonnegative(),
+  usage: UsageAmountsSchema,
+})
+export type TraceTotalsDto = z.infer<typeof TraceTotalsDtoSchema>
+
+/** GET /api/sessions/:id/trace 响应 */
+export const TraceDtoSchema = z.strictObject({
+  sessionId: SessionIdSchema,
+  totals: TraceTotalsDtoSchema,
+  turns: z.array(TraceTurnDtoSchema),
+  /** 不属于任何回合的 error（如会话级引擎错）——不归到最近回合里冒充归属 */
+  looseErrors: z.array(TraceErrorDtoSchema),
+})
+export type TraceDto = z.infer<typeof TraceDtoSchema>
 
 // ---------- settings（工单 10.20 B / 10.21 / ADR D28） ----------
 

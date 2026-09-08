@@ -38,6 +38,7 @@ import type {
   SettingsDto,
   SettingsUpdate,
   SkillDto,
+  TraceDto,
   TreeNodeDto,
   UsageSummaryDto,
 } from './api.js'
@@ -78,6 +79,8 @@ export interface Transport {
   createSession(opts?: { title?: string; model?: string }): Promise<SessionDto>
   /** GET /api/sessions/:id/tree：树视图数据（doc/02 §5.8.6，阶段四工单 4.5） */
   getTree(sessionId: SessionId): Promise<TreeNodeDto[]>
+  /** GET /api/sessions/:id/trace：回合级链路聚合（工单 13.7 / V2-11；纯从 durable 事件推导，不加埋点） */
+  getSessionTrace(sessionId: SessionId): Promise<TraceDto>
   /** POST /api/sessions/:id/fork：从指定事件分叉新会话（三拒绝码经错误消息透出，§5.8.6） */
   fork(sessionId: SessionId, fromEventId: EventId): Promise<SessionDto>
   /** GET /api/sessions/:id/checkpoints：turn 边界快照列表（旧→新，工单 4.6） */

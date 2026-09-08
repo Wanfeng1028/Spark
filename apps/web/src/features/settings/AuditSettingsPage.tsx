@@ -2,8 +2,11 @@
  * 审计日志页（工单 7.12 / H11；DESIGN §13.G 形态）：
  * 转录式明细流——时间+主体+工具/资源+决策+来源；顶部过滤器（时间/决策/工具/类型）。
  * 数据源 GET /api/audit（新→旧）；只读视图，无写操作。
+ * **互链初值**（工单 13.7）：会话链路浮层点「审计」跳 `?tool=<名>`（可带 result/kind）——
+ * URL 只作 useState 初值，之后以页内控件为准（不反向写 URL，避免双向绑定）。
  */
 import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 import type { AuditEntryDto, AuditQuery } from '@spark/protocol'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { cn } from '@/lib/utils'
@@ -43,6 +46,15 @@ function sinceOf(range: RangeKey): number | undefined {
   if (range === '7d') return Date.now() - 7 * 86_400_000
   if (range === '30d') return Date.now() - 30 * 86_400_000
   return undefined
+}
+
+/** URL 初值解析（工单 13.7 互链）：只认选项表里存在的值，其余回落 all——不拿非法串当筛选条件 */
+function optionOf<T extends string>(
+  options: ReadonlyArray<readonly [T, string]>,
+  raw: string | null,
+): T | 'all' {
+  if (raw === null) return 'all'
+  return options.some(([v]) => v === raw) ? (raw as T) : 'all'
 }
 
 const KIND_LABEL: Record<AuditEntryDto['kind'], string> = {
@@ -95,10 +107,12 @@ function AuditRow({ e }: { e: AuditEntryDto }): React.JSX.Element {
 }
 
 export function AuditSettingsPage(): React.JSX.Element {
+  // 互链初值（工单 13.7）：链路浮层跳来的 tool/result/kind 只当 useState 初值用
+  const [params] = useSearchParams()
   const [range, setRange] = useState<RangeKey>('all')
-  const [result, setResult] = useState<ResultKey>('all')
-  const [kind, setKind] = useState<KindKey>('all')
-  const [tool, setTool] = useState('')
+  const [result, setResult] = useState<ResultKey>(optionOf(RESULT_OPTIONS, params.get('result')))
+  const [kind, setKind] = useState<KindKey>(optionOf(KIND_OPTIONS, params.get('kind')))
+  const [tool, setTool] = useState(params.get('tool') ?? '')
   // 筛选变化即重查（useTransportQuery deps 驱动——原 cancelled effect 同语义）
   const { data: entries, error } = useTransportQuery((t) => {
     const since = sinceOf(range)

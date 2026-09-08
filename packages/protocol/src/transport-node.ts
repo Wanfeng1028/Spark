@@ -49,6 +49,7 @@ import type {
   SettingsDto,
   SettingsUpdate,
   SkillDto,
+  TraceDto,
   TreeNodeDto,
   AgentPresetDto,
   UsageSummaryDto,
@@ -317,6 +318,10 @@ export class HttpTransport implements Transport {
 
   getTree(sessionId: SessionId): Promise<TreeNodeDto[]> {
     return this.req<TreeNodeDto[]>(`/api/sessions/${sessionId}/tree`)
+  }
+
+  getSessionTrace(sessionId: SessionId): Promise<TraceDto> {
+    return this.req<TraceDto>(`/api/sessions/${sessionId}/trace`)
   }
 
   fork(sessionId: SessionId, fromEventId: EventId): Promise<SessionDto> {
