@@ -674,6 +674,63 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 
 ---
 
+## 4.6 公共 API 清单与稳定性分级（工单 14.1）
+
+> 本节是"对外承诺什么"的唯一清单（SDK 化阶段十四的地基）。演进规则**不在此重复**，一律引 §4.4。
+
+### 4.6.1 `@spark/protocol`——全包即合同（无内部件）
+
+跨包只允许 `import '@spark/protocol'`（§2.4 禁深路径），因此本包 **19 个模块全部是合同面**，分两类：
+
+| 类别 | 模块 | 含义 |
+| ---- | ---- | ---- |
+| **wire 与类型合同** | ids · primitives · events · extend · api · pair-link · transport · schema | 磁盘行与 HTTP/SSE 帧的形状。改动 = 破坏兼容，走 §4.4（可选字段优先、词表不轻易增、旧行必可读） |
+| **四端共享运行时** | apply-event · session-stream-core · session-page · flow-rows · context-usage · keymap · commands · ui-copy · error-copy · format · transport-node | 行为合同：一份实现四端（web/desktop/cli/mobile+miniapp）共用，改一处四端同变（AGENTS §1.1）。同样走 §4.4 |
+
+注：`transport-node` 是 HTTP 实现但住在 protocol——四端共享核的定位使然（只依赖 zod + 平台 fetch）；它不是"内部件"，但是 SDK 化（14.3/14.4）时 L2 client 的待迁内核。
+
+### 4.6.2 `@spark/engine`——两个入口，分级承诺
+
+| 入口 | 承诺 | 消费者 |
+| ---- | ---- | ---- |
+| `@spark/engine` | **公共（L0 嵌入面）**：随包 semver，破坏性改动走 major | apps/server、apps/cli、外部嵌入者 |
+| `@spark/engine/internal` | **无承诺**：随实现演进，不遵 semver | 只限本仓单测与 `examples/evals`；**生产代码（apps/\*/src、packages/\*/src）禁引**，`packages/engine/tests/public-surface.test.ts` 有断言 |
+
+公共入口的值导出（13 个，与不变量网白名单逐字对应）及其理由：
+
+| 符号 | 为何公共 |
+| ---- | ---- |
+| `Engine` / `SPARK_VERSION` | 嵌入面主体与版本自述 |
+| `loadConfig` / `ConfigError` | 启动前装载与 fail-closed 错误类型（apps/server、apps/cli、evals 均直接消费） |
+| `Logger` | `EngineDeps.logger` 注入点的缺省实现，嵌入者需自建时同形 |
+| `ulid` / `newIds` | id 构造器（业务代码不得裸字符串拼 id） |
+| `ZERO_USAGE` / `addUsage` | 实现自定义 `LlmGateway` 时的 usage 累加助手（与公共类型同属一个面） |
+| `resolveInRoot` | 路径硬边界工具（apps/server 的 fs 路由直接用；嵌入者做安全边界也需要） |
+| `buildTrace` | 链路聚合纯函数（apps/server 的 trace 路由直接用；对嵌入者是只读分析件） |
+| `loadMcpConfig` / `writeMcpConfig` | MCP 配置读写（apps/server 的 GET/PUT /api/mcp 直接用） |
+
+公共类型（编译期，不在运行时白名单里）：`EngineConfig`/`SparkConfig`/`ModelsConfig`/`ModelRef`/`PermissionsConfig`/`PermissionRule`（配置面）、`EngineDeps`/`SessionMeta`/`SessionHandle`/`SessionTreeNode`/`SessionTreeInfo`/`ForkChildInfo`/`SearchHit`/`ReplyOutcome`（Engine 面）、`LlmGateway`/`ResolvedModel`/`LlmMessage`/`ToolSpec`/`StreamRequest`/`StreamResult`/`StopReason`/`OnceRequest`（自定义网关面）、`SparkLogger`/`LogFields`/`LogMsg`（日志面）、`McpConfig`/`McpServerConfig`、`BrowserDriver`/`BrowserOpenResult`/`BrowserShotResult`（`EngineDeps.browserDriver` 是文档化注入点，故端口类型属公共面，实现类 `BrowserManager` 属内部）。
+
+关键裁决（曾经裸露、现归内部的代表项）：
+
+| 符号 | 旧位置 | 归属 | 理由 |
+| ---- | ---- | ---- | ---- |
+| `ScriptedLlm`/`ScriptedStep`/`ScriptedDelta` | 公共 | internal | 测试替身，不是生产网关；消费者只有单测与 evals |
+| `COMPACTION_PROMPT`/`CompactorImpl` | 公共 | internal | 提示词与压缩实现细节（可配面已由 13.3 的 spark.json `prompts` 承担） |
+| `SessionStore`/`mungeDir`/`sessionFileName`/`EventTree`/`SessionRuntime`/`InputQueue` | 公共 | internal | 单写者 JSONL 与运行时的实现件；嵌入者经 `Engine` 门面操作会话 |
+| `EventBus`/`runTurn`/`runSessionLoop`/`ProjectorImpl`/`ToolPipelineImpl`/`ToolRegistry`/`PermissionServiceImpl` | 公共 | internal | 引擎内部装配；对外只需 `Engine` + 事件订阅 |
+| `PiGateway`/`FallbackGateway`/`classifyLlmError`/`toPi*` | 公共 | internal | 网关实现与上游适配（公共面只承诺 `LlmGateway` 接口） |
+| `CostTracker`/`SecretStore`/`IoGuard`/`GitCheckpointer`/`MemoryStore`/`SearchStore`/`AuditLog`/`AutomationManager`/`AutomationRegistry`/`parseCron`/`UserHookRunner`/`loadCommands`/`BUILTIN_COMMANDS`/`buildSystemPrompt` | 公共 | internal | 均由 `Engine` 方法或 protocol 共享核（`BUILTIN_COMMANDS` 在 protocol 另有一份四端共享的）对外暴露，无需直接持有实现类 |
+| `ToolDefinition`/`ToolContext`/`ToolOutput` | 公共 | internal | `EngineDeps` **无** 自定义工具注入口（扩展走 MCP/skills 声明式，ADR D18：插件是数据不是程序），故不属嵌入面 |
+
+三条纪律：
+
+1. **新增公共导出 = 扩大对外承诺**：必须同时改本节裁决表与 `public-surface.test.ts` 的白名单（否则单测红）；拿不准就先放 internal——**收窄容易、放宽难**。
+2. **生产代码禁引 internal**：不变量网扫描 `apps/*/src` 与 `packages/*/src`，命中即红。
+3. **需要长期依赖内部件 → 提升而不是就地引用**：走本节裁决表加行，说明为何属于嵌入面。
+
+待办（工单 14.1 第二批）：knip（或等价未引用导出扫描）接入根 lint（ARCHITECTURE §9.6 已列检查项），首次报告差异逐项裁决。
+
 # 5. 引擎设计（packages/engine）——完整规格
 
 ## 5.0 模块总览与依赖关系
@@ -2495,6 +2552,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.2  | 2026-09-08 | AI 编写：Qoder；发起与决策：晚风（Wanfeng1028，"本地不进行任何的测试，直接 push 远端，看 ci 就可以"指令） | **阶段执行约束改为本机零验证**：§8 阶段十一开头的约束行重写——原"本机只跑 typecheck+lint（不跑大型测试），测试面由远端 CI 承担"改为**本机不跑任何验证**（test/typecheck/lint/eval/`check_doc_links.py` 全归 CI），直接 main 行动、逐单 commit+push 后盯 CI、红灯下一提交修（不 revert 不 force push）；并明确**新写测试用例仍是工单交付物**（只是不在本机跑）。本行适用于后续所有阶段（十三~十八），各已完成阶段的历史注记不改。全仓同步：AGENTS v1.31（§2.2 硬性约定 + §4 命令定位 + §7 工作节奏）、README v1.33 与 README.en、CONTRIBUTING 提交前自查、doc/06 v1.5（§2 本机职责引块）、doc/08 v1.17（附录 A 总则第 4 条 + 附录 B 完成行）、四份 shim（.cursor/.qoder/.windsurf/.trae 的"完成单元"行）与三个 SKILL（new-event-type 第 8 步 / new-tool 第 9 步 / frontend-component 第 7 步的"验证与提交"）。注：各工单验收标准里的"pnpm -r typecheck/lint/test 全绿"类措辞**不改**——那是验收事实（必须为真），只是执行者从开发机换成 CI |
 | v4.3  | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令；因由：本机零验证后首次看 CI，发现 2026-09-07 的 nightly 是红的） | **修 nightly 恒红（工单 11.5 fail-soft 红线被破）**。根因：13.1 第三批把 `--real` 缺省 suite 改为 all 后，nightly 真评步骤在无 `SPARK_EVAL_API_KEY` 时**仍写 models.json 并跑 `pnpm eval --real`**（旧脚本只打 notice 不退出），loadConfig 因此拿到指向空密钥的配置，18 个真实场景逐个走到 provider 错误；其中 tasks 的两个审批交互场景等不到 `permission.asked`（turn 先以错误闭合），60s 超时后落入 **fail** 分支 → 退出码 1 → nightly 红（CI run 34163870894 实测：core 17/17 PASS、real/tasks 全 SKIP、仅 task/approval-reject-* 两例 FAIL）。修法两层：① `.github/workflows/nightly.yml` 真评步骤无 key 时 `exit 0`（不写配置也不跑，fail-soft 回到步骤级）；② `examples/evals/src/tasks/scenarios.ts` 新增 `waitForApproval`：两个交互场景等审批时，若 turn 先以 provider 错误闭合或 60s 超时 → EnvUnavailable → **skip**（代价：真挂死与无凭据在本层不可区分，宁漏报不让 nightly 恒红；有 key 时本场景照跑）。本修复按新规则**本机零验证**提交，以 CI 为裁决；performance job 同夜绿（无需动）。同步：doc/06 v1.6（§2 nightly 行）、doc/08 v1.18（§13.1 余量段补记） |
 | v4.4  | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **工单 13.7 完成：trace 视图——会话回放即链路（V2-11 / H27，阶段十三收官）**。engine 新增 `trace.ts` 的 `buildTrace(sessionId, events)`：**单遍 O(n) 纯函数**从 durable 事件推导 TraceDto，**不加埋点不写状态**——回合分组（turn.started/completed）、一步 = 一条 assistant.message（步时长 = 到下一步或回合结束的间隔，**含该步触发的工具执行时长**——事件只在往返完成时落盘）、工具配对（durationMs **直取 tool.completed 字段**不做时间差推算）、重试启发式（同回合内同名工具在上一次 isError 后再调 = retry，**不跨回合**）、permission.asked/io.warning 按 callId 命中、error 按"当时是否有开放回合"位置归属（否则进 looseErrors **不冒充归属**）、标记归属（带 turnId 挂对应回合；手动 /compact 在回合间挂最近回合；记忆注入先于 turn.started 落盘（ADR D25）故缓冲到它所属回合）。**不伪造四条**：无 usage 的步 usage=null（不以 0 充数）、未闭合回合 finish=null 且时长到最后一条内容为止、悬挂调用 durationMs=null、空事件流回零合计不造回合。**fallback 不进 trace**：模型降级只有 pino `llm.fallback` 日志无事件，要标记就得新增事件 = 加埋点（已备案）；session.resumed 也不进 trace（加载边界非链路节点）。protocol：七个 schema（Tool/Step/Mark/Error/Turn/Totals/Trace，均 strictObject）+ `Transport.getSessionTrace` + HttpTransport + **MockTransport 对等**（一回合含失败重试/审批挂起/护栏告警/记忆标记 + 一干净回合）。server：`GET /api/sessions/:id/trace`（requireHandle + buildTrace，未知会话 404 不造空链路）；§4.5 路由表与§8.7 V2-11 同步。web：`TraceDialog`（会话页顶栏新增链路入口，与会话树/检查点同形态浮层——**会话页无 tab 容器，不为一个视图新建 tab 骨架**，口径差异已备案）；正文拆为 `TraceView` 纯展示件（组件测不经 Radix portal）：回合时间线**纯 div 横条**（宽度按时长归一，条内按 startedAt/durationMs 画出工具段）+ 工具时长条 + 步与 token/成本 + 失败·重试·护栏告警用既有语义色（--spark-err/--spark-warn）+ **挂起过审批的调用给「审计」跳 `/settings/audit?tool=<名>`**（AuditSettingsPage 新增 URL 初值：只认选项表内的值、其余回落 all，URL 只作 useState 初值不反向写）。测试：engine `trace.test.ts` 12 例（正常回合逐项对齐/usage 优先与累加与全缺/重试与审批与护栏/重试不跨回合/悬挂调用/error 两类归属/记忆注入缓冲与标记升序/手动压缩挂最近回合/未闭合回合/空事件流/**1100 条事件聚合 <200ms**）；protocol `trace-schema.test.ts` 6 例（往返与 JSON 往返/finish 可空与词表封闭/strictObject 拒未知键/标记种类封闭/告警种类封闭/负值拒收）；server 2 例（一轮后计数与 finish / 未知会话 404）；web `TraceView.test.tsx` 3 例（含重试回合全标记与审计互链回调 / 干净回合无失败重试告警且无 usage 步显示「—」/ 空会话如实空态）。**本单按 AGENTS §2.2 本机零验证提交，以 CI 为裁决**。**余量**：含工具重试与 fallback 的真实会话走查 = 用户侧（fallback 本就不在 trace，走查只对重试与时间线一致性）。同步：doc/07 v1.15（§2.6 Tracing 翻 ✅ + H27 勾销 + 学科 12 翻 ✅）、doc/08 v1.19（§13.7 进度） |
+| v4.5  | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **工单 14.1 第一批：公共面治理（engine 导出收窄 + 公共 API 清单成文）**。新增 **§4.6 公共 API 清单与稳定性分级**：§4.6.1 protocol **全包即合同**（跨包禁深路径使然）——19 模块分两类（wire 与类型合同 8 个 / 四端共享运行时 11 个），演进规则引 §4.4 不重复；§4.6.2 engine **两个入口分级承诺**（`.` 公共随 semver / `./internal` 无承诺只限本仓单测与 evals）+ 13 个公共值导出逐个写理由 + 公共类型四族清单 + **关键裁决表**（ScriptedLlm/COMPACTION_PROMPT/SessionStore 族/EventBus 与 run-loop 族/PiGateway 族/CostTracker 等实现类/ToolDefinition 族——末者因 `EngineDeps` 无自定义工具注入口、扩展走 MCP/skills 声明式（ADR D18）故不属嵌入面）+ 三条纪律（新增公共导出要同时改裁决表与白名单；生产代码禁引 internal；长期依赖内部件走提升而不是就地引用）。代码：`packages/engine/src/index.ts` 由 226 行全量导出收窄为 13 个值 + 四族类型；新增 `src/index-internal.ts`（`export * from './index.js'` + 内部件分十区明列，使内部消费者只需一个入口）；package.json `exports` 与 `publishConfig.exports` 各加 `./internal` 子路径（开发指 src、发布指 dist）。迁移：13 处消费点改指 internal（engine 自测 routing/secrets/automation 三文件整体改指内部入口；server 测试 perf-replay 的 mungeDir·sessionFileName、memory-routes 的 MemoryStore、routes·commands-routes·helpers 的 ScriptedLlm；cli 测试 print.test 的 ScriptedLlm；evals 的 harness·tasks/smoke 的 ScriptedLlm、tasks/defs 的 ScriptedStep、scenarios/compaction 的 COMPACTION_PROMPT）——**生产代码（apps/server/src、apps/cli/src）零改动**，因为它们消费的 7 个符号（Engine/loadConfig/ConfigError/Logger/resolveInRoot/buildTrace/writeMcpConfig）全部留在公共面（裁决以实际消费清单为准，提示词第 1 条）。新增不变量网 `packages/engine/tests/public-surface.test.ts` 4 例：公共值导出恰为白名单（多一个少一个都红）/ 20 个内部件抽验不在公共入口 / 内部入口同时转出公共面与承载内部件 / **扫描 apps\*/src 与 packages\*/src 无 `@spark/engine/internal` 引用**（把验收里的"grep 证明"固化成断言）。**本单按 AGENTS §2.2 本机零验证提交，以 CI 裁决**。**第二批待做**：knip（或等价）接入根 lint + 首次报告全量裁决（需装依赖，已在 §4.6 末尾登记为待办）。同步：doc/08 v1.20（§14.1 进度） |
 
 > 批次 5 备注：
 
