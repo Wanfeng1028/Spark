@@ -19,6 +19,7 @@
  */
 import { buildTrace, sessionDtoOf, sessionMetaDtoOf, sessionTreeToDto, writeMcpConfig } from '@spark/engine'
 import type { Engine, SessionHandle } from '@spark/engine'
+import { ids } from '@spark/protocol'
 import type {
   AgentPresetDto,
   AttachmentDto,
@@ -347,7 +348,8 @@ export class InProcessTransport implements Transport {
   }
 
   listAgentPresets(): Promise<AgentPresetDto[]> {
-    return this.sync(() => this.engine.listAgentPresets())
+    // 引擎回 readonly 数组（它对外只读），Transport 合同是可变数组——拷一份不泄露引擎内部引用
+    return this.sync(() => [...this.engine.listAgentPresets()])
   }
 
   usageSummary(since?: string): Promise<UsageSummaryDto> {
@@ -365,15 +367,22 @@ export class InProcessTransport implements Transport {
   }
 
   listAudit(query?: AuditQuery): Promise<AuditEntryDto[]> {
-    // 缺省与 server 路由一致（limit 200）；过滤器逐项按需透传
+    // 缺省与 server 路由一致（limit 200）；过滤器逐项按需透传。
+    // sessionId 补品牌：引擎审计流的 `sessionId?: string`，而 DTO 合同是 `SessionId`（品牌化）——
+    // HTTP 通道是 JSON 往返后裸 cast，本通道如实补上（比 HTTP 侧更严，不是更宽）
     return this.sync(() =>
-      this.engine.listAudit({
-        limit: query?.limit ?? 200,
-        ...(query?.kind !== undefined ? { kind: query.kind } : {}),
-        ...(query?.result !== undefined ? { result: query.result } : {}),
-        ...(query?.tool !== undefined ? { tool: query.tool } : {}),
-        ...(query?.since !== undefined ? { since: query.since } : {}),
-      }),
+      this.engine
+        .listAudit({
+          limit: query?.limit ?? 200,
+          ...(query?.kind !== undefined ? { kind: query.kind } : {}),
+          ...(query?.result !== undefined ? { result: query.result } : {}),
+          ...(query?.tool !== undefined ? { tool: query.tool } : {}),
+          ...(query?.since !== undefined ? { since: query.since } : {}),
+        })
+        .map((e) => ({
+          ...e,
+          ...(e.sessionId !== undefined ? { sessionId: ids.session(e.sessionId) } : {}),
+        })),
     )
   }
 
