@@ -112,6 +112,33 @@ async function runTask(
   return sendAndWait(h, events, prompt, events.length)
 }
 
+/**
+ * 等审批挂起（交互类两场景用）。与 waitFor 的区别：**三种出口全转 skip**——
+ * turn 先以 provider 错误闭合（无凭据/无网络时根本走不到工具调用，permission.asked 永不出现）
+ * 或 60s 超时，均归为环境不可用（EnvUnavailable → skip，不计红灯，工单 11.5 fail-soft 纪律）。
+ * 代价：真挂死与无凭据在本层不可区分——宁可漏报也不让 nightly 恒红（有 key 时本场景照跑）。
+ */
+async function waitForApproval(
+  events: SparkEventEnvelope[],
+  base: number,
+  what: string,
+): Promise<SparkEventEnvelope<'permission.asked'>> {
+  const deadline = Date.now() + 60_000
+  for (;;) {
+    const slice = events.slice(base)
+    const asked = findEvent(slice, 'permission.asked')
+    if (asked !== undefined) return asked
+    const completed = findEvent(slice, 'turn.completed')
+    if (completed !== undefined) {
+      throw new EnvUnavailable(`turn 先闭合（finish=${completed.data.finish}），未出现 ${what}`)
+    }
+    if (Date.now() > deadline) {
+      throw new EnvUnavailable(`等待 ${what} 超时（60s）——多为 provider 不可用`)
+    }
+    await new Promise((r) => setTimeout(r, 20))
+  }
+}
+
 /** 单轮 13 场景：同一份 taskDefs 定义，真实模型驱动 */
 const defScenarios: EvalScenario[] = taskDefs.map((def) => ({
   name: def.name,
@@ -135,12 +162,7 @@ const interactiveScenarios: EvalScenario[] = [
           const h = await engine.createSession({ cwd: repo.root })
           const base = events.length
           void h.send('创建新文件 src/blocked.ts，内容随意。')
-          await waitFor(
-            () => events.slice(base).some((e) => e.type === 'permission.asked'),
-            'permission.asked',
-            60_000,
-          )
-          const asked = findEvent(events, 'permission.asked') as SparkEventEnvelope<'permission.asked'>
+          const asked = await waitForApproval(events, base, 'permission.asked')
           await engine.replyPermission(asked.data.requestId, 'reject')
           await waitFor(
             () => events.slice(base).some((e) => e.type === 'turn.completed'),
@@ -165,12 +187,7 @@ const interactiveScenarios: EvalScenario[] = [
           const h = await engine.createSession({ cwd: repo.root })
           const base = events.length
           void h.send('用 bash 工具执行：node -e "require(\'fs\').writeFileSync(\'src/smuggled.ts\', \'x\')"')
-          await waitFor(
-            () => events.slice(base).some((e) => e.type === 'permission.asked'),
-            'permission.asked（bash）',
-            60_000,
-          )
-          const asked = findEvent(events, 'permission.asked') as SparkEventEnvelope<'permission.asked'>
+          const asked = await waitForApproval(events, base, 'permission.asked（bash）')
           if (asked.data.action !== 'shell.exec') {
             return fail(`挂起的不是 bash 审批（action=${asked.data.action}）`)
           }

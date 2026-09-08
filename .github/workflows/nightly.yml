@@ -28,7 +28,10 @@ jobs:
           SPARK_EVAL_MODEL: ${{ vars.SPARK_EVAL_MODEL }}
         run: |
           if [ -z "${SPARK_EVAL_API_KEY}" ]; then
-            echo "::notice::SPARK_EVAL_API_KEY 未配置——真实评分 skip（配置方法见 doc/eval-secrets.md）"
+            echo "::notice::SPARK_EVAL_API_KEY 未配置——整个真实评分步骤跳过（配置方法见 doc/eval-secrets.md）"
+            # 工单 11.5 fail-soft 红线：无 secrets 不得红。不写 models.json 也不跑 --real——
+            # 否则 loadConfig 会拿到一个指向空密钥的配置，18 个真实场景逐个走到 provider 错误
+            exit 0
           fi
           # real.ts 经 loadConfig() 读 ~/.spark/models.json——此处生成引用 secret 环境变量的
           # 最小模型配置；provider 名固定 eval，baseUrl/model 可用仓库 variables 覆盖（缺省 deepseek）
