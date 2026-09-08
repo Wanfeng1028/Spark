@@ -69,6 +69,11 @@ export default tseslint.config(
             'apps/mobile/babel.config.js',
             // apps/miniapp 的 Babel 配置（同判例）
             'apps/miniapp/babel.config.js',
+            // apps/desktop 的 sidecar 构建脚本（工单 14.1 第三批）：与 apps/cli/scripts/build.mjs 同类，
+            // 但 cli 那份是靠其 tsconfig `include: ["scripts"]` + allowJs 进项目的；desktop 的 tsconfig 是
+            // commonjs + 只含 src/tests，把顶层 await 的 .mjs 拉进去要改 module/allowJs（风险大于收益），
+            // 故走本白名单——它正是为"不在任何 tsconfig 项目内的松散 JS"设的。
+            'apps/desktop/scripts/build-server.mjs',
           ],
         },
       },
