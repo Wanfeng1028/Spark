@@ -81,6 +81,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      playwright-core:
+        specifier: ^1.62.1
+        version: 1.62.1
       zod:
         specifier: ^3.25.76
         version: 3.25.76
@@ -267,6 +270,9 @@ importers:
       fastify-plugin:
         specifier: ^6.0.0
         version: 6.0.0
+      playwright-core:
+        specifier: ^1.62.1
+        version: 1.62.1
       zod:
         specifier: ^4.1.5
         version: 4.4.3

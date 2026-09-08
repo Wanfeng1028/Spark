@@ -8,7 +8,7 @@
   "main": "dist/main.js",
   "scripts": {
     "build:main": "tsc -p tsconfig.build.json",
-    "build:server": "esbuild ../../apps/server/src/index.ts --bundle --platform=node --format=esm --outfile=build/server/index.mjs --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
+    "build:server": "node scripts/build-server.mjs",
     "build": "pnpm build:server && pnpm --filter @spark/web build && pnpm build:main",
     "start": "electron .",
     "dist:win": "pnpm build && electron-builder --win nsis --x64",
@@ -29,6 +29,7 @@
     "opencode (AI Assistant)"
   ],
   "dependencies": {
+    "playwright-core": "^1.62.1",
     "zod": "^3.25.76"
   }
 }
