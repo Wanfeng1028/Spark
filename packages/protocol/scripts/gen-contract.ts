@@ -303,8 +303,10 @@ function applyMutation(sample: unknown, m: Mutation): unknown {
   }
 }
 
-/** 与该节点类型相反的值——用于"类型错必须被拒"候选 */
-function wrongValueFor(node: Json, root: Json, schemaName: string, path: string): unknown | null {
+/** 与该节点类型相反的值——用于"类型错必须被拒"候选；回 null = 该节点无从变异（z.unknown()）。
+ * 返回型写 `unknown` 而不是 `unknown | null`：unknown 已含 null，写联合会被
+ * eslint no-redundant-type-constituents 判为冗余。 */
+function wrongValueFor(node: Json, root: Json, schemaName: string, path: string): unknown {
   const resolved = resolveRef(node, root, schemaName, path)
   if ('const' in resolved || 'enum' in resolved) return '__contract_bogus_enum__'
   const type = resolved['type']
