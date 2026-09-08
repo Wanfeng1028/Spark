@@ -41,6 +41,7 @@
 | v1.32 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §4 开发命令补 **`pnpm knip`**（工单 14.1 第二批：未引用文件/依赖/二进制扫描接入，配置在根 `knip.jsonc`、裁决表在 doc/02 §4.6.3）；质量闸注释由"ci.yml 五步同序"改为**六步**（文档检查器 → typecheck → lint → **knip** → test → eval）。CI 里 knip 是 lint 后的独立一步而不并进 `pnpm lint`（两个工具报告形状与失败语义不同，混在一起会让 eslint 红灯被 knip 噪声掩盖；同为硬门）。与 doc/02 v4.7、doc/06 v1.7、ARCHITECTURE v1.36、doc/08 v1.21 同批 |
 | v1.33 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §4 质量闸由六步改**七步**（末位补 `pnpm -r build`）并写明不可省的理由：`pnpm typecheck` 是 `--noEmit`，查不出**声明发射错**（TS4033：已导出接口用了私有名），而 engine/protocol 发布靠 `tsconfig.build.json`（declaration: true）——工单 14.1 第三批把符号降为私有时实际踩到这个隐形洞（四个符号必须保留 export），ci.yml 已同步补步。与 doc/02 v4.8、doc/06 v1.8、ARCHITECTURE v1.37、doc/08 v1.22 同批 |
 | v1.34 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §4 开发命令补 **`pnpm --filter @spark/protocol gen:contract`**（工单 14.2 契约用例生成器：改过 protocol 的 zod schema 必重跑，生成物入库 `packages/protocol/tests/contract/`，CI 重跑并 `git diff --exit-code` 校同步）；质量闸注释改为**不写步数**、以 ci.yml 为准（步数从五→六→七一路漂，写死数字每次加工具都要改三处文档），并列出当前关卡同序（文档检查器 → typecheck → lint → knip → 契约同步 → test → eval → build）。与 doc/02 v4.12、doc/06 v1.9、doc/08 v1.24 同批 |
+| v1.35 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §1.1 两条刷新：① **引擎侧入口**改为 14.1 已落地的分级口径（`@spark/engine` 公共嵌入面 / `@spark/engine/internal` 无承诺且生产代码禁引），原文"17.x 批次已收窄"是陈旧表述；② 新增 **`@spark/sdk` 是 L2 客户端装配层**（工单 14.3）一条——createClient = HttpTransport 装配 + 便利分组、零业务逻辑，web/cli 装配点已迁，并给出**新增客户端能力的落点三问**（连接/重连/错误映射→protocol；便利分组→sdk；平台适配→各端）。§4 typecheck 项目数 **9 → 10**（新增 packages/sdk）。与 doc/02 v4.15（§4.6.4 sdk 合同面）、CONTRIBUTING（四包版本策略表）、doc/08 v1.25 同批 |
 
 ## 1. 项目上下文（30 秒版）
 
@@ -54,7 +55,8 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 
 - **`@spark/protocol` 不是类型包，是运行时共享核**。除类型（`events.ts`/`api.ts`）外还承载四端复用的实现：`apply-event.ts`（会话流 reducer）、`transport-node.ts`（HttpTransport）、`session-stream-core.ts`（连接/退避/水位/鉴权状态机内核）、`session-page.ts`（会话页纯逻辑 controller，RN 与小程序共同消费者）、`flow-rows.ts`（投影行分组与 tool 归类单源）、`ui-copy.ts`/`error-copy.ts`（文案表单源）、`keymap.ts`、`commands.ts`（`BUILTIN_COMMANDS` 命令描述符单一来源）、`format.ts`（fmtTokens 等）。**这些能力在某个端里另写一份 = 制造漂移**（阶段十七审计已抓到三例真实漂移：closed 态文案、toolCategoryOf、PROMPT_CHIPS 缺第 4 条）；新增跨端能力的正确落点是 protocol，端侧只留平台被迫部分（RN SSE、Taro 分块等）。约束：零依赖 `@spark/engine`，只依赖 zod。
 - **事件流是 UI 的唯一状态源**：引擎 emit → 单写者 JSONL（durable）→ EventBus → SSE（全局直播 + `since=seq` 回放，去重靠 seq）→ 各端 `applyEvent`。live-only 三类（`assistant.delta`/`reasoning.delta`/`tool.progress`）不落盘。回滚/fork 后的标准动作是 `resetSlice()` + 全量重放，不做局部乐观修补。
-- **引擎侧入口**：公共面在 `packages/engine/src/index.ts`（17.x 批次已收窄）；`engine.ts` 是门面巨石（1.6k 行级，管理面透传属对外 API，R-D 判决不再拆），改引擎先定位到 `run-loop.ts`/`tools/pipeline.ts`/`permission/service.ts`/`session/`/`pi-gateway.ts`/`projector.ts` 各模块。工具实现只进 `packages/engine/src/tools/builtin/`（`grep.ts` 是新工具的标准样板）。
+- **引擎侧入口（工单 14.1 分级，裁决表见 doc/02 §4.6.2）**：`@spark/engine` = 公共嵌入面（随 semver）；`@spark/engine/internal` = 内部件（**无稳定承诺**，只限本仓单测与 examples/evals，**生产代码禁引**——`public-surface.test.ts` 有断言）；`engine.ts` 是门面巨石（1.6k 行级，管理面透传属对外 API，R-D 判决不再拆），改引擎先定位到 `run-loop.ts`/`tools/pipeline.ts`/`permission/service.ts`/`session/`/`pi-gateway.ts`/`projector.ts` 各模块。工具实现只进 `packages/engine/src/tools/builtin/`（`grep.ts` 是新工具的标准样板）。
+- **`@spark/sdk` 是 L2 客户端装配层（工单 14.3）**：`createClient(baseUrl, opts?)` = HttpTransport 装配 + 便利分组（sessions/events/approvals），**零业务逻辑**；web 的 `transports/context.tsx` 与 cli 的 `app.tsx` 已迁到它（四端与外部脚本共用同一条装配路径）。新增客户端能力先问落点：连接/重连/续播/错误映射/鉴权 → **protocol**（四端共享核）；便利分组 → **sdk**；平台适配（RN SSE、Taro 分块）→ 各端。
 - **服务端是薄壳**：`apps/server/src/routes/` 已目录化为六子插件（sessions/permissions/secrets-models/automation/readonly + shared），路由 handler 不写 try/catch（全局 `setErrorHandler` 兜底），错误码→HTTP 映射进 `errors.ts` 单源。轻后端例外（模型管理、settings 读写）在 ARCHITECTURE ADR 有登记，不得随意扩面。
 - **MockTransport 对等纪律（前端能脱离后端跑的前提）**：`Transport` 接口每加一个方法，`apps/web/src/transports/mock.ts` 必须给出行为一致的假实现（含回放与内存持久化语义），否则 mock 走查与 Playwright e2e 立刻断链。
 - **数据落点**：`~/.spark/`（`models.json`/secrets/`mcp.json`/settings/`sessions/<cwd 派生目录>/<sid>.jsonl`/`logs/`/`trash/`/`checkpoints/`）——密钥只从环境变量与 secrets 仓读，日志与审计流统一脱敏；一切文件访问经 `resolveInRoot` 做 cwd 硬边界，越界优先于审批。临时产物一律落 `_scratch/`（已 gitignore）。
@@ -107,7 +109,7 @@ pnpm --filter miniapp dev                     # 微信小程序（Taro 4 watch �
 # 末位 build 不可省：typecheck 是 --noEmit，查不出声明发射错（TS4033 "已导出接口用了私有名"），而 engine/protocol 发布靠 declaration: true
 # 以下写法供排查单个包/单文件/单用例时按需使用
 python scripts/check_doc_links.py             # CI 第一关；改过任何 .md 必跑（--strict 把 warn 也计失败）
-pnpm typecheck                                # = pnpm -r typecheck（9 个项目）
+pnpm typecheck                                # = pnpm -r typecheck（10 个项目）
 pnpm lint                                     # eslint .
 pnpm knip                                     # 未引用文件/依赖/二进制扫描（工单 14.1；配置与裁决表见 knip.jsonc 与 doc/02 §4.6.3）
 pnpm --filter @spark/protocol gen:contract    # 契约用例生成器（工单 14.2）：改过 protocol 的 zod schema 必重跑，
