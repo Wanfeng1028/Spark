@@ -20,6 +20,10 @@
     },
     "apps/cli": {
       "entry": ["scripts/preview-boot.mts", "scripts/preview-pane.mts"]
+    },
+    "packages/sdk": {
+      // 最小连接示例（工单 14.3 要求 3）：人工 `tsx examples/minimal.ts` 直跑，不被任何模块 import
+      "entry": ["examples/minimal.ts"]
     }
   },
 

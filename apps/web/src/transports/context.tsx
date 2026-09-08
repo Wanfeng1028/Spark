@@ -1,17 +1,18 @@
 /**
  * Transport 上下文（doc/02 §6.6）：`<App>` → `<TransportProvider>` → `<AppShell>`。
- * VITE_SPARK_MOCK=1 → MockTransport（工单 1.4）；否则 HttpTransport（工单 10c）：
+ * VITE_SPARK_MOCK=1 → MockTransport（工单 1.4）；否则走 **@spark/sdk 的 createClient**（工单 14.3：
+ * 装配收敛到 SDK，四端与外部脚本共用同一条路径；行为零变化，内核仍是 protocol 的 HttpTransport）：
  * 连接状态写 connection-store；重连成功 onResync → 对已打开会话
  * getSession 全量回放（resetSlice 后批量 apply——§6.10 时序④，冷启动与断线重连同一路径）。
  */
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { SessionId, SparkEventEnvelope, Transport } from '@spark/protocol'
+import { createClient } from '@spark/sdk'
 import { useSessionStore } from '@/stores/session'
 import { useConnectionStore } from '@/stores/connection'
 import { MockTransport } from './mock.js'
 import type { MockScenario } from './mock.js'
-import { HttpTransport } from './http.js'
 
 /** 全量回放（§6.4）：resetSlice 清水位后逐条 apply（幂等；同步执行防直播流插入） */
 export function replaySessionEvents(transport: Transport, sid: SessionId): Promise<void> {
@@ -48,21 +49,24 @@ export function TransportProvider({ children }: { children: ReactNode }) {
   const transportRef = useMemo(() => ({ current: null as Transport | null }), [])
   const transport = useMemo<Transport>(() => {
     if (mockTransport !== null) return mockTransport
-    return new HttpTransport({
-      // 基址缺省同源（dev 走 vite proxy → 127.0.0.1:4318；VITE_SPARK_API 覆盖）——下沉后由构造处注入（工单 8.1）
-      baseUrl: import.meta.env.VITE_SPARK_API ?? '',
-      onStatus: (s) => useConnectionStore.getState().setStatus(s),
-      onResync: (sids) => {
-        const t = transportRef.current
-        if (t === null) return
-        for (const sid of sids) {
-          replaySessionEvents(t, sid).catch((err: unknown) => {
-            // 失败闭合：resync 失败如实记录并保留旧快照（直播可能续上；下次重连再试）
-            console.error('[http] 重连重放失败', sid, err)
-          })
-        }
+    // 装配走 SDK（工单 14.3）：只取 .transport——web 全面说 Transport 接口，不用便利分组
+    return createClient(
+      // 基址缺省同源（dev 走 vite proxy → 127.0.0.1:4318；VITE_SPARK_API 覆盖）
+      import.meta.env.VITE_SPARK_API ?? '',
+      {
+        onStatus: (s) => useConnectionStore.getState().setStatus(s),
+        onResync: (sids) => {
+          const t = transportRef.current
+          if (t === null) return
+          for (const sid of sids) {
+            replaySessionEvents(t, sid).catch((err: unknown) => {
+              // 失败闭合：resync 失败如实记录并保留旧快照（直播可能续上；下次重连再试）
+              console.error('[http] 重连重放失败', sid, err)
+            })
+          }
+        },
       },
-    })
+    ).transport
   }, [mockTransport, transportRef])
   transportRef.current = transport
   // 不在 effect 清理中 dispose：顶层 Provider 与页面同生命周期，

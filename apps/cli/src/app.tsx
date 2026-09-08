@@ -8,8 +8,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { HttpTransport, humanizeError } from '@spark/protocol'
+import { humanizeError } from '@spark/protocol'
 import type { FsEntryDto, RequestId } from '@spark/protocol'
+import { createClient } from '@spark/sdk'
 import { useCliStore } from './store.js'
 import { InputBox, type InputBoxHandle } from './components/InputBox.js'
 import { Footer } from './components/Footer.js'
@@ -35,7 +36,8 @@ export function App({ baseUrl }: { baseUrl: string }) {
   const { columns, rows } = useWindowSize()
 
   // REST-only transport（事件流走会话级 SessionEventSource——since=seq 续播，工单 8.4）
-  const transport = useMemo(() => new HttpTransport({ baseUrl, eventStream: false }), [baseUrl])
+  // 装配走 @spark/sdk（工单 14.3）：与 web 同一条路径，行为零变化（eventStream: false 同前）
+  const transport = useMemo(() => createClient(baseUrl, { eventStream: false }).transport, [baseUrl])
   const exitingRef = useRef(false)
 
   const activeSessionId = useCliStore((s) => s.activeSessionId)

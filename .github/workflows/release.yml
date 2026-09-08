@@ -1,5 +1,6 @@
 # 发布流水线（工单 11.7）：push tag（v*）触发 → 校验 → 构建 → npm publish → GitHub Release。
-# 发版纪律（版本策略/CHANGELOG 维护）见 CONTRIBUTING.md「发版」节；首发版本 v1.0.0（三包同版本）。
+# 发版纪律（版本策略/CHANGELOG 维护）见 CONTRIBUTING.md「发版」节；首发版本 v1.0.0（四包同版本：
+# protocol/engine/sdk/cli——sdk 自工单 14.3 入发布集）。
 name: Release
 
 on:
@@ -26,16 +27,17 @@ jobs:
       - run: python scripts/check_doc_links.py
       - run: pnpm typecheck
       - run: pnpm test
-      - name: 构建（protocol/engine 产 dist+d.ts；cli 产 TUI bundle + server bundle）
+      - name: 构建（protocol/engine/sdk 产 dist+d.ts；cli 产 TUI bundle + server bundle）
         run: |
           pnpm --filter @spark/protocol build
           pnpm --filter @spark/engine build
+          pnpm --filter @spark/sdk build
           pnpm --filter @spark/cli build
       # 认证二选一（CONTRIBUTING 发版节有操作说明）：
       #   A. NPM_TOKEN secret（当前默认）——npmjs 生成 publish token 配进仓库 secrets；
       #   B. npm Trusted Publishing（OIDC）——npmjs 配置 GitHub 工作流信任后，删除下方
       #      NODE_AUTH_TOKEN 环境即可（id-token: write 已就位）。
-      - name: npm publish（三包同版本；private 包自动跳过）
+      - name: npm publish（四包同版本；private 包自动跳过）
         run: pnpm -r publish --access public --no-git-checks --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
