@@ -25,6 +25,10 @@ jobs:
       # 单独一步而不并进 `pnpm lint`：两个工具的报告形状与失败语义不同，合在一起会让
       # eslint 的红灯被 knip 噪声掩盖；同样是硬门（非零退出即红）。裁决表见 doc/02 §4.6.3。
       - run: pnpm knip
+      # 工单 14.2：契约生成物与 schema 同步门禁——重跑生成器后 diff 必须为空。
+      # 改了 zod schema 却不重生成 → 这里红（doc/06 §1 契约层、doc/08 §14.2 验收第 2 条）。
+      - run: pnpm --filter @spark/protocol gen:contract
+      - run: git diff --exit-code packages/protocol/tests/contract
       - run: pnpm test
       # 工单 13.1 第三批（doc/08 §13.1 验收第 1 条、提示词第 4 条："CI（非 nightly）用 ScriptedLlm 冒烟"）：
       # core 四场景 + 任务级判分双向自检 13 场景，无 key 无网络（约 10s）
