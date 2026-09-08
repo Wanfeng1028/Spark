@@ -1,0 +1,67 @@
+// 工单 14.1 第二批：未引用导出/依赖扫描（ARCHITECTURE §9.6 硬检查项）。
+// 每一处 entry / ignore 都写明理由；首份报告的逐项裁决表见 doc/02 §4.6.3。
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+
+  // 框架约定与人工运行脚本：knip 只跟静态 import 图，看不到字符串引用与 CLI 直跑。
+  // 入口必须放到各自 workspace 节下（顶层 entry 对这些文件不生效，knip 会给 configuration hint）：
+  // - Taro 4：app.config.ts 以字符串列页面路径，故 app/pages/config 均为入口（页面可达后，
+  //   其引用的 components/store/theme/transport 也随之可达，首份报告里那 15 个 miniapp 文件即消失）
+  // - CLI 预览脚本：人工 `tsx apps/cli/scripts/preview-*.mts` 运行，不被任何模块 import
+  "workspaces": {
+    "apps/miniapp": {
+      "entry": [
+        "src/app.tsx",
+        "src/app.config.ts",
+        "src/pages/*/index.tsx",
+        "src/pages/*/index.config.ts",
+        "config/index.ts"
+      ]
+    },
+    "apps/cli": {
+      "entry": ["scripts/preview-boot.mts", "scripts/preview-pane.mts"]
+    }
+  },
+
+  // 死代码与实验残留：AGENTS §2.10 —— AI 无权删除任何文件，一律冻结待人类五层级确认。
+  // 登记去向见 doc/02 阶段十 10.30 行（本批新增四处候选：cli Sidebar、web Titlebar、
+  // web UsageBar、cli spike-ime-stdin）。此处 ignore 只是"不让门禁长期红灯"，不等于判决保留。
+  "ignore": [
+    "apps/cli/src/components/StatusBar.tsx",
+    "apps/cli/src/components/Sidebar.tsx",
+    "apps/web/src/components/layout/Titlebar.tsx",
+    "apps/web/src/features/chat/UsageBar.tsx",
+    "apps/cli/scripts/spike-ime-stdin.mts",
+    "examples/spike-pi-ai/**"
+  ],
+
+  // 字符串/隐式引用，静态分析看不到：
+  // - playwright-core：apps/cli 把引擎一起 bundle，scripts/build.mjs 以 external: ['playwright-core']
+  //   字符串外置（其内部对 chromium-bidi 的懒加载 require 无法静态解析），运行时经依赖解析
+  // - @tarojs/*：apps/miniapp/config/index.ts 的 plugins 数组以字符串列出；@babel/runtime 与
+  //   @tarojs/react·runtime 是 Taro 编译产物的隐式运行时依赖
+  "ignoreDependencies": [
+    "playwright-core",
+    "@babel/runtime",
+    "@tarojs/plugin-framework-react",
+    "@tarojs/plugin-platform-weapp",
+    "@tarojs/react",
+    "@tarojs/runtime",
+    "@tarojs/webpack5-runner"
+  ],
+
+  // knip 的 Expo 插件按 app.json 约定推导出的隐含包：本仓 plugins 实为 expo-secure-store 与
+  // expo-status-bar（均在依赖里），全仓 grep 对这两个零命中，且不启用 OTA 更新——故不装。
+  // 将来若启用 OTA，装上并删掉本条。（knip v6 无 ignoreUnlisted 键，改用按文件排除问题类型）
+  "ignoreIssues": {
+    "apps/mobile/app.json": ["unlisted"]
+  },
+
+  // bash 工具文案里出现的 Windows 内建命令名，不是本仓需要安装的可执行文件
+  "ignoreBinaries": ["where"],
+
+  // 本批纳入门禁的问题类型。exports / types（首份报告 30 + 23 项）的逐项处置属**第三批**：
+  // 每项都是代码改动（去 export / 删符号 / 留并在原地写理由），分批做以便 CI 精确定位；
+  // 裁决已先写入 doc/02 §4.6.3，不做"报告已知但长期红灯"这种事。
+  "include": ["files", "dependencies", "devDependencies", "unlisted", "binaries", "duplicates"]
+}

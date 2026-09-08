@@ -63,6 +63,7 @@ export { type PermissionCheck, type PermissionService } from './tools/permission
 export {
   registerBuiltinTools,
   readTool,
+  grepTool,
   writeTool,
   editTool,
   bashTool,

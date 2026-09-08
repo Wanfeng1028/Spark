@@ -14,6 +14,7 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
+    "knip": "knip",
     "format": "prettier --write .",
     "eval": "pnpm --filter @spark/evals eval"
   },
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@eslint/js": "^9.30.0",
     "eslint": "^9.30.0",
+    "knip": "^6.34.0",
     "prettier": "^3.6.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.0",
