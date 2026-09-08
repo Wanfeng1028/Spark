@@ -379,10 +379,12 @@ export class InProcessTransport implements Transport {
           ...(query?.tool !== undefined ? { tool: query.tool } : {}),
           ...(query?.since !== undefined ? { since: query.since } : {}),
         })
-        .map((e) => ({
-          ...e,
-          ...(e.sessionId !== undefined ? { sessionId: ids.session(e.sessionId) } : {}),
-        })),
+        .map(({ sessionId, ...rest }): AuditEntryDto =>
+          // 不用条件展开：`...(cond ? { sessionId: branded } : {})` 会让 TS 把 SessionId 与
+          // 引擎侧的 string 并成 string（品牌被吃掉）；解构重建的两个分支各自合法，
+          // 也不踩 exactOptionalPropertyTypes（不得给可选属性赋 undefined）
+          sessionId === undefined ? rest : { ...rest, sessionId: ids.session(sessionId) },
+        ),
     )
   }
 
