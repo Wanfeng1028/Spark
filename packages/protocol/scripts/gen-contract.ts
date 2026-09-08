@@ -63,9 +63,9 @@ const TARGETS: Target[] = [
       ref: `EventSchemas['${type}']`,
       schema: schema as z.ZodType,
     })),
-  ...schemasOf(ids as unknown as Record<string, unknown>, 'ids.'),
-  ...schemasOf(primitives as unknown as Record<string, unknown>, 'primitives.'),
-  ...schemasOf(api as unknown as Record<string, unknown>, 'api.'),
+  ...schemasOf(ids, 'ids.'),
+  ...schemasOf(primitives, 'primitives.'),
+  ...schemasOf(api, 'api.'),
 ]
 
 /**
@@ -281,7 +281,8 @@ function mutationsFor(root: Json, schemaName: string): Mutation[] {
   const main = Array.isArray(type) ? (type as string[]).find((t) => t !== 'null') : type
 
   if (main === 'object' && isSchemaNode(root['properties'])) {
-    const properties = root['properties'] as Json
+    // isSchemaNode 是类型守卫，此处已收窄为 Json（再加断言就是多余，eslint no-unnecessary-type-assertion 会红）
+    const properties = root['properties']
     const required = (root['required'] as string[] | undefined) ?? []
     for (const key of required) {
       out.push({
