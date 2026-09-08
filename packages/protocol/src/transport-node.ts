@@ -214,7 +214,7 @@ export class HttpTransport implements Transport {
 
   // ---------- REST ----------
 
-  /** 统一请求：非 2xx 读错误体 {code,message} 抛 `code: message`；JSON 响应直返 */
+  /** 统一请求：非 2xx 读错误体 {code,message} 抛 `code: message`；JSON 响应直返；空 body 如实回 undefined */
   protected async req<T>(path: string, init?: RequestInit): Promise<T> {
     this.assertNotDisposed()
     const res = await fetch(`${this.base}${path}`, {
@@ -237,7 +237,11 @@ export class HttpTransport implements Transport {
       }
       throw errorFromResponse(res.status, body, res.statusText)
     }
-    return (await res.json()) as T
+    // 空 body 的 2xx（如 DELETE /api/sessions/:id 的 204）如实回 undefined——
+    // 不能直接 res.json()：JSON.parse('') 抛 SyntaxError（工单 14.2 的 Transport 契约套件抓到：
+    // web 侧栏的"删除会话"因此一直报错，而 mock 走查与 e2e 四场景都不经真实 HTTP DELETE 所以未暴露）
+    const text = await res.text()
+    return (text === '' ? undefined : JSON.parse(text)) as T
   }
 
   sendMessage(sessionId: SessionId, text: string, opts?: SendMessageOptions): Promise<SubmitOutcome> {
