@@ -40,7 +40,6 @@ import type {
   ModelTestResultDto,
   ModelsDto,
   PairCodeDto,
-  PairRedeemBody,
   PairStatusDto,
   PairTokenDto,
   PermissionPreset,
@@ -468,6 +467,7 @@ export class InProcessTransport implements Transport {
   }
 
   redeemPair(): Promise<PairTokenDto> {
+    // 参数类型（PairRedeemBody）不引入：本通道永不消费它，引入就是未用导入
     return this.unsupported('redeemPair', '短码兑换属 server 的鉴权自举面')
   }
 
