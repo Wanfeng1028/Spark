@@ -18,6 +18,7 @@
 | v1.11 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.5 H09 勾销注记（H09 → 7.10 ✅ 已落地：browser.open/click/read/screenshot 工具族——BrowserDriver 端口 + 引擎级单例单页跨会话共享（playwright-core headless chromium **懒启动**，缺包/缺二进制执行期 E_BROWSER_LAUNCH fail-closed）；四工具 `parallelizable: false` 串行互斥；审批三 action（browser.navigate/interact/read，resource `url:<页>`，空规则表缺省 ask）；中断 race 即返 E_ABORTED；**截图不进事件流**——PNG 落 ~/.spark/browser-shots，输出只回文件名+字节数，GET /api/artifacts/:file 白名单供图；前端 ToolCard BrowserDetail（截图按需拉图/降级文案）；迷你 ADR D27 见 ARCHITECTURE v1.20）；§1 学科 19 改 ✅、小结计数 13/4/2→14/4/1（缺失仅剩 Python Worker，判决不做） |
 | v1.12 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | §4.5 H10 勾销注记（H10 → 7.11 ✅ 已落地：`examples/evals`——ScriptedLlm 确定性场景集四场景（审批缺省 ask/拒绝零副作用 · 中断 finish=aborted 前缀定稿 · 手动压缩时序/摘要/重投影 · 基线 seq 单调/工具事件配对/turn 时序），真实 Engine 全链路经 tsx 直跑；`--real` 可选真实模型评分（用户 ~/.spark 配置，缺凭据 → skip 不红）；根脚本 `pnpm eval` + nightly.yml 每日接线，任一 fail 红灯出报告）；§2 Eval 小节翻 ✅；§1 学科 12 证据补 7.11（状态仍 🟡——trace/成本缺口在）；学科 10 残留 H02 指针修正（7.2 已勾销，证据补 I/O 护栏） |
 | v1.13 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部都做完"指令） | **缺口销账五条（工单 13.3 / 13.4 与阶段十二遗留）**：① §1 学科 4 Prompt 提示工程 🟡→✅（H20 用户可配提示词模板 → 13.3 落地：spark.json `prompts` 段 + 占位符白名单封闭集 + E_CONFIG 构造期拒启动，缺省逐字节不变）；② §1 学科 3 证据补双层压缩并**修正误指**——原"文件级挑选 → H19"指错（H19 实为附件粘贴=V2-03），压缩双层化无独立 H 号，已由 13.4 / ADR D29 消解；③ §2 Compaction 参考行“工具输出蒸馏未做”→已落地（13.4）；④ §2 I/O 护栏差距行拆分：蒸馏式压缩已落地（挂在压缩而非护栏），注入样本集仍后置；⑤ H19 勾销（V2-03 → 12.2a/12.2b + 12.5）与 H20 勾销（V2-16 → 13.3），§4 汇总表 H19/H21/H26 行同步标已落地（12.2/12.5/12.7）。本轮不新增 H 号（编号冻结纪律）；学科 4 翻✅后小结计数由 14/4/1 变 **15/3/1** |
+| v1.15 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **§2.6 Tracing 翻 ✅ + H27 勾销 + §1 学科 12 可观测与评估翻 ✅（工单 13.7 trace 视图）**：证据行补链路面三件（`buildTrace` 单遍 O(n) 零埋点从 durable 事件推导回合级链路、`GET /api/sessions/:id/trace`、会话页链路浮层与审计互链）；差距行改为"无"并如实登记两项局限（fallback 只有 pino 日志无事件故不进 trace；重试是同回合内同名工具的启发式判定）；学科 12 证据补 13.6/13.7 且差距行置 —，**小结计数 15/3/1 → 16/2/1**（部分具备仅剩沙箱与护栏·学科 10）；§4 汇总表新增 H27 行。本轮不新增 H 号（编号冻结）。与 doc/02 v4.4、doc/08 v1.19 同步 |
 | v1.14 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **§2.6 Cost Tracker 翻 ✅ + H23 勾销（工单 13.6 成本看板）**：证据行补三件（usage.json v2 明细桶按 {本地日,provider,model} 聚合且旧格式读入即迁移、`GET /api/usage/summary?since=`、使用统计页看板——按日柱状纯 div / 按供应商表 / cache 命中率 / 熔断阈值同屏）；差距行由"无按日按供应商聚合、无费用看板"改为"无"，并如实登记两项局限（fallback 切换步归因到会话当前档；真实模型 cache 命中率走查待用户侧）；§4 汇总表 H17/H23 行同步。学科计数不变（可观测与评估学科仍 🟡：trace 视图 H27 未做）；本轮不新增 H 号（编号冻结）。与 doc/02 v4.1、doc/08 v1.16 同步 |
 
 > **审计时点**：main = `ace77d5`（阶段五收官，Spark v1）。全仓 456 例单测当日实测全绿（engine 324 / protocol 46 / web 53 / server 33）+ typecheck 全绿。
@@ -44,7 +45,7 @@
 | 9  | 状态机与恢复               | ✅        | 最强项：append-only、悬挂 turn 补闭合、kill-9 resume、checkpoint 回滚                                  | —                            |
 | 10 | 沙箱与护栏                 | 🟡        | 5.2 bwrap/Seatbelt + 审批 fail-closed + I/O 护栏注入检测与敏感过滤（7.2）                              | 网络隔离 → H34               |
 | 11 | Model Routing              | ✅        | fallback 链（未交付才切换）+ 主/压缩/标题/子代理四路由档 + 成本熔断（7.7）                              | —                            |
-| 12 | 可观测与评估               | 🟡        | pino 三层脱敏 + /api/metrics 六类计数 + 审计明细流（7.12）+ eval 回归场景集与 nightly（7.11）        | trace/成本 → H23/H27         |
+| 12 | 可观测与评估               | ✅        | pino 三层脱敏 + /api/metrics 六类计数 + 审计明细流（7.12）+ eval 回归场景集与 nightly（7.11）+ 成本看板（13.6）+ 会话链路 trace（13.7）        | —                            |
 | 13 | 流式与事件工程             | ✅        | durable/live 二分、SSE since=seq 续播、背压、ignorable 前跳                                            | —                            |
 | 14 | Human-in-the-Loop          | ✅        | 审批卡、reject 级联、always 固化、规则管理 UI（4.7）                                                   | —                            |
 | 15 | Sub-agent                  | ✅        | 5.4 Task 工具、单层限制、父中断级联；并行解除 + 树状运行监控（7.8）                                    | —                            |
@@ -53,7 +54,7 @@
 | 18 | Python Worker              | ❌→**不做** | 判决见 §4.1：主流本地编码 agent 均无此模块，bash + venv 已覆盖                                       | 未来以技能/MCP 外挂          |
 | 19 | Browser/Computer Use       | ✅        | browser.open/click/read/screenshot 工具族（7.10，ADR D27：懒启动/单页共享/截图落盘供图/审批三 action） | —                            |
 
-小结：扎实具备 15 项、部分具备 3 项、缺失 1 项（Python Worker），其中 Python Worker 经评估判决**不做**。（计数变更：2026-09-08 学科 4 Prompt 提示工程由 🟡 翻 ✅——H20 随工单 13.3 落地，见 v1.13）
+小结：扎实具备 16 项、部分具备 2 项、缺失 1 项（Python Worker），其中 Python Worker 经评估判决**不做**。（计数变更：2026-09-08 学科 4 Prompt 提示工程由 🟡 翻 ✅——H20 随工单 13.3 落地，见 v1.13；同日学科 12 可观测与评估由 🟡 翻 ✅——成本看板 H23 随 13.6、trace 视图 H27 随 13.7 落地，见 v1.14/v1.15）
 
 ---
 
@@ -158,10 +159,10 @@
 
 ## 2.6 可观测（Tracing / Eval / Cost Tracker）
 
-**Tracing** —— 🟡 部分（H27）
-- 证据：`packages/engine/src/logger.ts` pino v10 双路（stdout + ~/.spark/logs/engine.log）+ 三层脱敏；`apps/server/src/routes.ts` GET /api/metrics Prometheus 文本。
-- 差距：无 trace 视图/请求级链路聚合；日志是人看不是机查。
-- 参考：opencode 事件流即 trace（我们的 JSONL 本身具备该潜质）。工单：H27 → v2 候选池（P2）；审计明细流单列 H11 → **7.12 ✅ 已勾销（2026-08-29）**。
+**Tracing** —— ✅ 已落地（H27 → 13.7 ✅）2026-09-08
+- 证据：`packages/engine/src/logger.ts` pino v10 双路（stdout + ~/.spark/logs/engine.log）+ 三层脱敏；`apps/server/src/routes.ts` GET /api/metrics Prometheus 文本；**工单 13.7 补上链路面**：`packages/engine/src/trace.ts` 的 `buildTrace` 单遍 O(n) 从 durable 事件推导回合级链路（时长/步与 usage/工具时长与失败重试/护栏告警/标记/错误归属）+ `GET /api/sessions/:id/trace` + 会话页链路浮层（时间线纯 div、审批项跳审计页过滤）——**JSONL 即 trace 的潜质正式转正，且零埋点**。
+- 差距：无（两项局限已登记：模型 fallback 只有 pino 日志无事件故不进 trace；重试是同回合内同名工具的启发式判定）。
+- 参考：opencode 事件流即 trace（已实现同一思路）。工单：H27 → **13.7 ✅ 已勾销（2026-09-08）**；审计明细流单列 H11 → **7.12 ✅ 已勾销（2026-08-29）**。
 
 **Eval** —— ✅ 已落地（7.11，2026-08-29）
 - 证据：`examples/evals`（@spark/evals）——ScriptedLlm 确定性场景集（审批/中断/压缩/基线四场景，真实 Engine 全链路）+ `--real` 可选真实模型评分（用户 ~/.spark 配置，缺凭据 → skip 不红）；根脚本 `pnpm eval` + nightly.yml 接线（每日跑，任一 fail 红灯出报告）。
@@ -192,7 +193,7 @@
 | H24 | 辅助会话抽屉 | 引擎跨会话并发是阶段三既有能力（Engine 门面 per-session 循环），无 UI 形态 | v2 候选池 V2-09（P2，纯前端） |
 | H25 | 内置终端面板 | bash 是引擎工具非用户终端；Electron 无 preload/IPC（`apps/desktop/src/main.ts` 仅 142 行三件事） | v2 候选池 V2-10（P2，桌面 pty） |
 | H26 | 通知推送（turn 完成/审批等待） | 无 Notification API 使用；无托盘 | **已勾销（2026-09-08）**：V2-05 → 工单 12.7 ✅（壳层订阅 `/api/event` 直播流 → Electron Notification；NotifyGate 同类 2s 合并 + 审批一次一发；脱敏红线 body 只含会话标题与状态词；ADR D14 补记壳层第四件事。**托盘仍无**——归 V2-10/H25 同类桌面项） |
-| H27 | trace 视图 | §2.6 | v2 候选池 V2-11（P2）——**已立项：doc/08 阶段十三 13.7**（未开工） |
+| H27 | trace 视图 | §2.6 | **已勾销（2026-09-08）**：V2-11 → 工单 13.7 ✅（buildTrace 单遍聚合零埋点 + `GET /api/sessions/:id/trace` + 会话页链路浮层：时间线纯 div / 工具时长与失败重试 / 步与 token / 护栏告警 / 审批项跳审计页） |
 | H28 | i18n | 前端文案全部硬编码中文 | v2 候选池 V2-12（P2） |
 | H29 | 数据管理（占用/清理/导出导入） | 无 | v2 候选池 V2-13（P2） |
 | H30 | 诊断页（日志查看器/导出） | logs/engine.log 存在但无 UI | v2 候选池 V2-14（P2） |
@@ -276,6 +277,7 @@
 | H13/H14/H15/H16 | 设置中心/模型选择器/用量条/错误人话化/项目分组/沙箱入口 | 6.2–6.7 |
 | H19/H21/H26 | 附件粘贴/文件树/通知推送 | V2-03/V2-04/V2-05 → 工单 12.2（+12.5 @file）/12.5/12.7 ✅ 已勾销（2026-09-08） |
 | H17/H23 | MCP·技能管理页/成本看板 | V2-01/V2-07 → 工单 12.6（MCP 半边）/ 13.6 ✅ 已勾销（2026-09-08） |
+| H27 | trace 视图 | V2-11 → 工单 13.7 ✅ 已勾销（2026-09-08） |
 
 ## 4.5 P2 —— 能力
 
