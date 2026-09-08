@@ -119,7 +119,7 @@ pnpm eval                   # eval regression (deterministic scenarios; --real f
 
 ## Current Status
 
-- **v1 is complete and merged to main**: five stages (skeleton / frontend / engine / deep experience / productization) + stages 6–10 (UI ZCode-mode / harness completion / CLI TUI / mobile trio / UI alignment & CLI rebuild) plus a quality-cleanup batch; the full test suite and e2e run in CI (local development runs typecheck/lint only).
+- **v1 is complete and merged to main**: five stages (skeleton / frontend / engine / deep experience / productization) + stages 6–10 (UI ZCode-mode / harness completion / CLI TUI / mobile trio / UI alignment & CLI rebuild) plus a quality-cleanup batch; **all verification (typecheck / lint / tests / e2e / eval / doc checker) runs in CI — nothing is run locally** (AGENTS §2.2).
 - User-visible changes and milestones: [CHANGELOG.md](./CHANGELOG.md).
 - Up next: stage 11 (release, doc/02 §8) → stages 12–16 ([doc/08](./doc/08-v2-roadmap.md) work-order library).
 

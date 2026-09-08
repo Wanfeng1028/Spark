@@ -120,7 +120,7 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 
 ## 当前状态
 
-- **v1 已完成合入 main**：五阶段（骨架/前端/引擎/深度体验/产品化）+ 阶段六~十（UI ZCode 化 / Harness 补全 / CLI TUI / 移动端三端 / UI 对齐与 CLI 重构）+ 质量收尾批次；全量测试与 e2e 由 CI 执行（本地开发只跑 typecheck/lint）。
+- **v1 已完成合入 main**：五阶段（骨架/前端/引擎/深度体验/产品化）+ 阶段六~十（UI ZCode 化 / Harness 补全 / CLI TUI / 移动端三端 / UI 对齐与 CLI 重构）+ 质量收尾批次；**全部验证（typecheck / lint / test / e2e / eval / 文档检查器）由 CI 执行，本地不跑**（AGENTS §2.2）。
 - **v2 已开工**：阶段十一（可发布：LICENSE/CONTRIBUTING/CHANGELOG、CI 接 Playwright、nightly 性能基线与 eval secrets、npm 发包准备与 `spark up`、README 手册化）与阶段十二（Agent 能力补全：grep 工具 / 图片附件与 @file / 会话归档与两段式删除 / 文件树浮层 / MCP 管理页 / 桌面通知 / 首启 onboarding / LLM 出网代理）已完成；阶段十七（代码冗余整改 R-A~R-H）已收官；13.1 第一批（任务级 eval 场景集）与 16.1（`/init`）已落地。
 - 用户可见变更与里程碑：[CHANGELOG.md](./CHANGELOG.md)。
 - 下一程：阶段十三余下（13.2–13.7：可证明与上下文工程）→ 阶段十四（SDK 化）→ 阶段十六余下（16.2–16.9 命令面新机制）→ 阶段十八（web 观感对齐），工单库见 [doc/08](./doc/08-v2-roadmap.md)。
@@ -165,5 +165,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.30 | 2026-09-02 | AI 编写：Jules (AI Assistant)；发起：晚风（Wanfeng1028） | **添加贡献者名单**：在 package.json 及各子包 package.json 中新增 `contributors` 字段并添加 Jules (AI Assistant) |
 | v1.31 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"所有没做完的都要做完"指令） | **两处事实漂移修正 + 当前状态刷新**：四端一览 CLI 行 **Ink 6→Ink 7**（工单 10.56 已升 `ink ^7.1.1`）与 **footer 双行→单行**（工单 10.51 已修正批次 3 双行决策）；"当前状态"补 **v2 已开工** 一行（阶段十一/十二完成、十七收官、13.1 第一批与 16.1 落地），"下一程"改指 13.2–13.7 / 十四 / 16.2–16.9 / 十八。与 AGENTS v1.29、doc/02 v3.93 同批；事实锚点行（21 种事件词表）不动 |
 | v1.32 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | 文档导航新增 doc/09 外部任务基准可行性评估（工单 13.2 产出：三候选 × 四维度对比、判决"不接"与三个重评触发条件、若接的 Harbor installed-agent 最小接线草图）；与 doc/02 v3.96、doc/08 v1.12、AGENTS v1.30 同批 |
+| v1.33 | 2026-09-08 | AI 编写：Qoder；发起与决策：晚风（Wanfeng1028，"本地不进行任何的测试，直接 push 远端，看 ci 就可以"指令） | 当前状态行验证口径修正：原"全量测试与 e2e 由 CI 执行（本地开发只跑 typecheck/lint）"→**全部验证由 CI 执行、本地不跑**（AGENTS §2.2 本机零验证）；英文版同步。与 AGENTS v1.31、CONTRIBUTING 提交前自查、doc/06 v1.5 同批 |
 
 </details>

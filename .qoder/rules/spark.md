@@ -12,9 +12,9 @@
 - **引擎铁律**：durable/live 二分；surface 纪律；失败闭合；审批 fail-closed；单写者 JSONL。
 - **文档纪律**：改 .md 必须更新版本记录表（AI 编写注明软件+模型）。
 - **文件删除保护**：AI 无权删除任何文件；删除须经人类五层级确认。
-- **完成单元**：单测 → typecheck/lint → commit（conventional + 中文）→ push。
+- **完成单元**：写测试用例 → commit（conventional + 中文）→ push → **看 CI**；**本机零验证**（不跑 test/typecheck/lint/eval/文档检查器，AGENTS §2.2），红灯下一提交修。
 - **重复任务**按 `.agents/skills/*/SKILL.md` 执行。
 
 ## 命令
 
-命令唯一来源是根 `AGENTS.md` §4（本文件不复制——§8 单一来源纪律）。要点：**根目录无 `pnpm dev`**，dev 按包 `--filter` 启；提交前跑 `python scripts/check_doc_links.py` + `pnpm typecheck` + `pnpm lint`。
+命令唯一来源是根 `AGENTS.md` §4（本文件不复制——§8 单一来源纪律）。要点：**根目录无 `pnpm dev`**，dev 按包 `--filter` 启；§4 那些验证命令由 **CI 执行**，本机常规流程不跑（AGENTS §2.2 本机零验证）。

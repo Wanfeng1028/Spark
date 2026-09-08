@@ -23,7 +23,7 @@ description: 新增内置工具的完整流程。在 packages/engine/src/tools/b
 6. **审批适配**：新 permission action 若未被现有规则覆盖，确认默认 ask 生效；前端 ApprovalCard 无需改动（吃通用事件），但 detail 展示可优化。
 7. **单测四路径**：成功 / 业务失败（isError）/ 中断（started+completed{E_ABORTED} 事件对，重放合法）/ 审批拒绝（E_PERMISSION）。
 8. **前端**：ToolCard 分发若需专属渲染器（如新工具输出是 diff/树/图），按 DESIGN.md §8 加分支并过 DoD 清单。
-9. **验证与提交**：typecheck + test；`feat(engine): 新增 <tool> 工具`；推送。
+9. **提交**：四路径单测写齐（本机不跑）→ `feat(engine): 新增 <tool> 工具` → 推送 → **看 CI**（本机零验证，AGENTS §2.2；红灯下一提交修）。
 
 ## 判例参考
 

@@ -17,7 +17,7 @@ description: 新增协议事件类型的完整流程。在 packages/protocol 增
 5. **单测（强制）**：applyEvent reducer 对新事件的单测（状态变更断言 + 边界情况）；这是硬门槛，AGENTS 约定 8。
 6. **引擎**：找到正确的 emit 点（run-loop / tool pipeline / permission service），确认失败闭合（异常路径也发闭合事件）。
 7. **文档同步（六处）**：doc/02 §4.3 词表、§4.4 规则表、§6.4 处理表；若涉及模型历史再查 §5.8 投影算法；AGENTS §3 任务指引表（如流程有变）。
-8. **验证**：双侧 typecheck（protocol 消费方 web + engine 都要过）+ 单测。
+8. **测试写齐（本机不跑）**：双侧单测（protocol 消费方 web + engine）必须写齐——**本机零验证**，不跑 typecheck/test，push 后由 CI 裁决（AGENTS §2.2）。
 9. **提交**：`feat(protocol): 新增 <事件名> 事件`，走 docs-update skill 的提交/推送步骤。
 
 ## 判例参考

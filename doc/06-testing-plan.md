@@ -9,6 +9,7 @@
 | v1.2 | 2026-08-29 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段七开工指令） | **阶段七工单 7.11 eval harness 落地（H10，P2）**：`examples/evals`（@spark/evals 工作区成员，进 `pnpm -r` typecheck/lint 覆盖）——`harness.ts` 临时 root + ScriptedLlm + 真实 Engine 夹具（与引擎单测同款装配，脱离 vitest 经 tsx 直跑）+ 四场景：审批（缺省 ask 形状 → once 执行落库 / reject → E_PERMISSION 零副作用）· 中断（挂起途中 interrupt → finish=aborted + 已交付前缀定稿落盘）· 压缩（手动 /compact 时序/摘要/提示词形状 + 下一 turn 上下文首条 = 摘要）· 基线（durable seq 单调 / started-completed 配对 / turn 时序）；`--real` 可选真实模型评分（用户 ~/.spark 配置 + env 密钥，会话落临时 root；配置/凭据/传输问题 → skip 不红，仅应答内容错 → fail）；根脚本 `pnpm eval` + `.github/workflows/nightly.yml`（每日北京时间 02:30，eval 恒跑 + --real 追加）；§2 表 nightly 行更新 |
 | v1.3 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十一 11.3/11.4/11.5 指令） | **性能基线第一批断言化 + PR e2e + real 评分接 secrets（工单 11.3/11.4/11.5）**：§3 表加"接入状态"列——第一批两项 ✅（server 千事件回放 <500ms 断言 `apps/server/tests/perf-replay.test.ts`；engine 十万事件 RSS <512MB 断言 `packages/engine/tests/perf-memory.test.ts`；均 SPARK_PERF=1 门控，仅 nightly performance job 与本地显式跑，主 CI 无时间/抖动成本），web 侧两项与其余登记待 11.4b；ci.yml 增 e2e job（chromium 单档与主 job 并行，SPARK_E2E_BROWSER 兜底按 v1.1 不设）；nightly.yml 增 performance job + eval --real 步骤 secrets 注入（`SPARK_EVAL_API_KEY` secret + BASE_URL/MODEL variables，步骤内动态生成 models.json，fail-soft skip 保持，配置三步见 doc/eval-secrets.md） |
 | v1.4 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **§2 CI 表同步工单 13.1 第三批**：push main 行补 `pnpm eval`（eval 冒烟进主 CI——doc/08 §13.1 验收第 1 条与提示词第 4 条要求"CI（非 nightly）用 ScriptedLlm 冒烟"；core 4 + 任务级判分双向自检 13 = 17 场景，无 key 无网络约 10s，ci.yml 已接）；nightly 行事实修正：`pnpm eval --real` 此前因 suite 缺省 core 而 **real/tasks 两套一个也不跑（真评步骤恒空转）**，run.ts 已改为 `--real` 缺省 suite=all（显式 `--suite` 仍优先），nightly.yml 步骤名同步。与 doc/02 v3.95、doc/08 v1.11 同批 |
+| v1.5 | 2026-09-08 | AI 编写：Qoder；发起与决策：晚风（Wanfeng1028，"本地不进行任何的测试，直接 push 远端，看 ci 就可以"指令） | **§2 顶部新增"本机职责"引块**：开发机不跑任何验证（test/typecheck/lint/eval/文档检查器全归 CI），本地只写代码与写测试用例（新事件 reducer 单测、新工具四路径单测仍是交付物），push 后看 CI、红灯下一提交修；§2 表的命令因此重定位为"CI 步骤定义与人工排查工具箱"而非提交前本地清单（取代此前"本机只跑 typecheck+lint"口径）。与 AGENTS v1.31（§2.2/§4/§7）、README v1.33、CONTRIBUTING 提交前自查、doc/02 v4.2、doc/08 v1.17、四份 shim 与三个 SKILL 同批 |
 
 > **定位**：本文是测试体系的**规划文档**——只定分层、选型、命令、基线与入库位置；workflow 与代码随 doc/02 §8 各阶段工单落地（阶段六工单 6.8 落首批组件/E2E，阶段七工单 7.11 接 eval 与 nightly，阶段八补 CLI 层，阶段九补移动端层）。落地时若与本文冲突，先改本文（附版本记录）再写代码。
 > **现状基线**（2026-08-26 实测，main=`ace77d5`）：456 例单测全绿 + typecheck/lint 全绿 + CI（`check_doc_links.py` → typecheck → lint → test）；测试框架 vitest ^3.2.4 全仓统一。
@@ -40,6 +41,13 @@
 ---
 
 # 2. CI 流水线（现状 → 目标）
+
+> **本机职责（2026-09-08 起，晚风拍板；规则正文见 AGENTS §2.2）**：开发机**不跑任何验证**——
+> `pnpm test` / `typecheck` / `lint` / `eval` 与 `python scripts/check_doc_links.py` 全部由 CI 承担；
+> 本地只负责写代码与**写测试用例**（新事件的 reducer 单测、新工具的四路径单测仍是交付物），
+> 改完直接 commit + push，推送后看 CI，红灯在下一提交修（不 revert、不 force push）。
+> 下表命令因此是 **CI 的步骤定义与人工排查工具箱**，不是提交前的本地清单（取代此前
+> "本机只跑 typecheck+lint"口径）。
 
 | 触发 | 现状（ci.yml，ubuntu-latest，node 24） | 目标追加 |
 | ---- | ---- | ---- |
