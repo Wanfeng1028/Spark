@@ -123,17 +123,19 @@ function sampleOf(node: Json, root: Json, schemaName: string, path: string): unk
 
   if ('const' in resolved) return resolved['const']
   if ('enum' in resolved) {
-    const options = resolved['enum']
+    const options: unknown = resolved['enum']
     if (!Array.isArray(options) || options.length === 0) fail(schemaName, path, 'enum 为空')
+    const list = options as unknown[]
     // 优先取非 null 项（nullable 枚举的语义主体在前）
-    return options.find((o) => o !== null) ?? options[0]
+    return list.find((o) => o !== null) ?? list[0]
   }
   for (const key of ['oneOf', 'anyOf'] as const) {
-    const variants = resolved[key]
+    const variants: unknown = resolved[key]
     if (Array.isArray(variants) && variants.length > 0) {
+      const list = variants as Json[]
       const picked =
-        (variants as Json[]).find((v) => v['type'] !== 'null' && !('const' in v && v['const'] === null)) ??
-        (variants[0] as Json)
+        list.find((v) => v['type'] !== 'null' && !('const' in v && v['const'] === null)) ?? list[0]
+      if (picked === undefined) fail(schemaName, path, `${key} 无可用分支`)
       return sampleOf(picked, root, schemaName, `${path}/${key}[0]`)
     }
   }
@@ -227,7 +229,7 @@ function sampleOf(node: Json, root: Json, schemaName: string, path: string): unk
       }
       const out: Json = {}
       for (const [key, sub] of Object.entries(properties)) {
-        out[key] = sampleOf(sub as Json, root, schemaName, `${path}/${key}`) as unknown
+        out[key] = sampleOf(sub as Json, root, schemaName, `${path}/${key}`)
       }
       return out
     }
@@ -242,8 +244,8 @@ function isSchemaNode(value: unknown): value is Json {
 
 // ---------- 变异（非法样例）----------
 
-/** 与该节点类型相反的值——用于"类型错必须被拒"断言 */
-function wrongValueFor(node: Json, root: Json, schemaName: string, path: string): unknown | null {
+/** 与该节点类型相反的值——用于"类型错必须被拒"断言；回 null = 该节点无从变异（z.unknown()） */
+function wrongValueFor(node: Json, root: Json, schemaName: string, path: string): unknown {
   const resolved = resolveRef(node, root, schemaName, path)
   if ('const' in resolved || 'enum' in resolved) return '__contract_bogus_enum__'
   const type = resolved['type']
