@@ -1,7 +1,7 @@
 // 自动生成，勿手改 —— packages/protocol/scripts/gen-contract.ts（工单 14.2 / doc/06 §1 L1.5 契约层）。
 // 重新生成：pnpm --filter @spark/protocol gen:contract
 // CI 同步门禁：ci.yml 在 test 步之前重跑生成器并 git diff --exit-code 本目录——改 schema 不重生成即红。
-// 事实源：src/schema.ts + src/events.ts（本文件不含任何手写样例或手写断言）。
+// 事实源：src/schema.ts + src/events.ts（本文件不含任何手写样例或手写断言；每条断言在生成期已用真 schema 自校验）。
 
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -84,7 +84,7 @@ describe('契约：EnvelopeSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EnvelopeSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EnvelopeSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -120,7 +120,7 @@ describe('契约：event \'assistant.delta\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['assistant.delta'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['assistant.delta'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -173,7 +173,7 @@ describe('契约：event \'assistant.message\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['assistant.message'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['assistant.message'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -220,7 +220,7 @@ describe('契约：event \'checkpoint.created\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['checkpoint.created'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['checkpoint.created'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -279,7 +279,7 @@ describe('契约：event \'compaction.completed\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['compaction.completed'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['compaction.completed'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -302,7 +302,7 @@ describe('契约：event \'compaction.started\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['compaction.started'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['compaction.started'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -343,7 +343,7 @@ describe('契约：event \'error\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['error'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['error'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -413,7 +413,7 @@ describe('契约：event \'io.warning\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['io.warning'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['io.warning'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -464,7 +464,7 @@ describe('契约：event \'memory.injected\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['memory.injected'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['memory.injected'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -542,7 +542,7 @@ describe('契约：event \'permission.asked\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['permission.asked'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['permission.asked'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -583,7 +583,7 @@ describe('契约：event \'permission.resolved\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['permission.resolved'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['permission.resolved'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -619,7 +619,7 @@ describe('契约：event \'reasoning.delta\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['reasoning.delta'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['reasoning.delta'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -655,7 +655,7 @@ describe('契约：event \'reasoning.ended\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['reasoning.ended'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['reasoning.ended'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -706,7 +706,7 @@ describe('契约：event \'session.created\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['session.created'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['session.created'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -733,7 +733,7 @@ describe('契约：event \'session.resumed\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['session.resumed'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['session.resumed'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -760,7 +760,7 @@ describe('契约：event \'session.title\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['session.title'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['session.title'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -819,7 +819,7 @@ describe('契约：event \'tool.completed\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['tool.completed'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['tool.completed'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -864,7 +864,7 @@ describe('契约：event \'tool.progress\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['tool.progress'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['tool.progress'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -914,7 +914,7 @@ describe('契约：event \'tool.started\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['tool.started'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['tool.started'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -962,7 +962,7 @@ describe('契约：event \'turn.completed\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['turn.completed'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['turn.completed'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1007,7 +1007,7 @@ describe('契约：event \'turn.started\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['turn.started'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['turn.started'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1041,6 +1041,6 @@ describe('契约：event \'user.message\'', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => EventSchemas['user.message'].parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => EventSchemas['user.message'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })

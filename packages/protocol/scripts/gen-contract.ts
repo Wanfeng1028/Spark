@@ -3,16 +3,19 @@
  *
  * 跑法：`pnpm --filter @spark/protocol gen:contract`（tsx 直跑，同 examples/evals 模式）。
  * 生成物：`tests/contract/*.contract.test.ts`（头部标注"自动生成，勿手改"，入库）。
- * CI 同步校验：ci.yml 在 test 步之前重跑本生成器，再 `git diff --exit-code packages/protocol/tests/contract`
+ * CI 同步门禁：ci.yml 在 test 之前重跑本生成器 + `git diff --exit-code packages/protocol/tests/contract`
  * ——改了 schema 却不重生成即红（工单验收第 2 条）。
  *
- * 三条设计纪律：
- * 1. **事实源唯一**：样例值全部由 zod schema 经 `z.toJSONSchema` 推导，脚本里不写任何业务样例
+ * 四条设计纪律：
+ * 1. **事实源唯一**：样例值全部由 zod schema 推导，脚本里不写任何业务样例
  *    （唯一的手工表是 PATTERN_SAMPLES：受约束字符串的正则→样例映射，见下）。
- * 2. **禁随机**（提示词第 2 条）：合成器对每个节点取确定值（枚举取首项、数字取下界、字符串取固定词），
- *    同一 schema 永远生成同一份文件——否则 CI 的 diff 门禁无法成立。
- * 3. **不猜**：遇到合成器不支持的 JSON Schema 构造就抛错并指明 schema 名与路径，
- *    由人决定是补支持还是进 EXEMPT（带理由）——宁可生成失败，不产出貌似合理的假样例。
+ * 2. **禁随机**（提示词第 2 条）：合成器对每个节点取确定值（枚举取首项、数字取下界、
+ *    字符串取固定词），同一 schema 永远生成同一份文件——否则 CI 的 diff 门禁不成立。
+ * 3. **不猜**：遇到合成器不支持的 JSON Schema 构造、或未登记的字符串正则 → 抛错并指明
+ *    schema 名与节点路径，由人决定补支持还是进 EXEMPT（带理由）。
+ * 4. **生成期自校验**：每条要发射的断言都先用真 schema 验一遍——合法样例必须 parse 通过
+ *    （否则抛错，说明合成器有洞），变异样例必须被拒（不被拒的变异直接不发射）。
+ *    这一条把"猜 JSON Schema 语义"变成"用事实源验证"，生成物因此不可能自带失败用例。
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -39,17 +42,14 @@ function isZodType(value: unknown): value is z.ZodType {
 }
 
 /** 模块里所有 `*Schema` 导出（新增 DTO 自动纳入——这就是"合同面不许悄悄胀大"的棘轮） */
-function schemasOf(mod: Record<string, unknown>, prefix: string): Target[] {
-  return Object.entries(mod)
-    .filter(([key, value]) => key.endsWith('Schema') && isZodType(value))
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => ({ name: `${prefix}${key}`, ref: `${moduleNameOf(prefix)}.${key}`, schema: value as z.ZodType }))
-}
-
-function moduleNameOf(prefix: string): string {
-  if (prefix.startsWith('api.')) return 'api'
-  if (prefix.startsWith('primitives.')) return 'primitives'
-  return 'ids'
+function schemasOf(mod: Record<string, unknown>, moduleName: string): Target[] {
+  const out: Target[] = []
+  for (const [key, value] of Object.entries(mod).sort(([a], [b]) => a.localeCompare(b))) {
+    // isZodType 是类型守卫：守卫后 value 已收窄为 z.ZodType（写在 filter 回调里无法收窄元组元素）
+    if (!key.endsWith('Schema') || !isZodType(value)) continue
+    out.push({ name: `${moduleName}.${key}`, ref: `${moduleName}.${key}`, schema: value })
+  }
+  return out
 }
 
 const TARGETS: Target[] = [
@@ -63,10 +63,10 @@ const TARGETS: Target[] = [
       ref: `EventSchemas['${type}']`,
       schema: schema as z.ZodType,
     })),
-  ...schemasOf(ids, 'ids.'),
-  ...schemasOf(primitives, 'primitives.'),
-  ...schemasOf(api, 'api.'),
-]
+  schemasOf(ids, 'ids'),
+  schemasOf(primitives, 'primitives'),
+  schemasOf(api, 'api'),
+].flat()
 
 /**
  * 豁免表：合成器覆盖不了或没有契约意义的 schema（每条必须写理由）。
@@ -74,7 +74,7 @@ const TARGETS: Target[] = [
  */
 const EXEMPT: Record<string, string> = {}
 
-// ---------- 样例合成（走 JSON Schema，不碰 zod 内部结构） ----------
+// ---------- 样例合成（走 z.toJSONSchema 的稳定公共出口，不碰 zod 内部结构） ----------
 
 /** 受约束字符串：正则 → 确定样例。新正则进来若没登记，生成器抛错（不猜）。 */
 const PATTERN_SAMPLES: Record<string, string> = {
@@ -95,6 +95,12 @@ const FORMAT_SAMPLES: Record<string, string> = {
   email: 'contract@example.com',
 }
 
+/**
+ * 非法字符串候选（变异用）：非 ASCII + 空格 + 标点，任何 id/日期/数字类正则都不匹配。
+ * 是否真的非法**不靠推断**——每条候选都经生成期自校验，不被拒的自动不发射。
+ */
+const BOGUS_STRINGS = ['__contract_bogus__', '契约 探针/不合规', '']
+
 type Json = Record<string, unknown>
 
 function fail(schemaName: string, path: string, why: string): never {
@@ -102,6 +108,10 @@ function fail(schemaName: string, path: string, why: string): never {
     `[gen-contract] ${schemaName} 的 ${path || '<root>'} 无法合成样例：${why}\n` +
       '  → 补合成器支持，或在 PATTERN_SAMPLES/EXEMPT 里登记（EXEMPT 必须写理由）。',
   )
+}
+
+function num(value: unknown): number | undefined {
+  return typeof value === 'number' ? value : undefined
 }
 
 function resolveRef(node: Json, root: Json, schemaName: string, path: string): Json {
@@ -178,26 +188,43 @@ function sampleOf(node: Json, root: Json, schemaName: string, path: string): unk
         if (hit === undefined) fail(schemaName, path, `未登记的 format ${format}`)
         return hit
       }
-      const min = typeof resolved['minLength'] === 'number' ? resolved['minLength'] : 0
-      const max = typeof resolved['maxLength'] === 'number' ? resolved['maxLength'] : undefined
+      const min = num(resolved['minLength']) ?? 0
+      const max = num(resolved['maxLength'])
       let out = 'contract-sample'
-      if (out.length < min) out = out + 'a'.repeat(min - out.length)
+      if (out.length < min) out += 'a'.repeat(min - out.length)
       if (max !== undefined && out.length > max) out = out.slice(0, max)
-      if (max !== undefined && min > max) fail(schemaName, path, `minLength ${min} > maxLength ${max}`)
       if (out.length < min) fail(schemaName, path, `无法合成满足 minLength=${min} 的样例`)
       return out
     }
     case 'integer':
     case 'number': {
-      const exclusiveMin = resolved['exclusiveMinimum']
-      const min = resolved['minimum']
-      const max = resolved['maximum']
+      // 两端界都考虑开闭：z.number().lt(1) 之类会给出 exclusiveMaximum，
+      // 只按闭区间取值会合成出越界样例（本仓 EngineSettings 里就有这种字段）
+      const exclusiveMin = num(resolved['exclusiveMinimum'])
+      const min = num(resolved['minimum'])
+      const exclusiveMax = num(resolved['exclusiveMaximum'])
+      const max = num(resolved['maximum'])
+      const step = main === 'integer' ? 1 : 0.5
+      const lo = exclusiveMin !== undefined ? exclusiveMin : min
+      const loStrict = exclusiveMin !== undefined
+      const hi = exclusiveMax !== undefined ? exclusiveMax : max
+      const hiStrict = exclusiveMax !== undefined
+
       let value: number
-      if (typeof exclusiveMin === 'number') value = exclusiveMin + 1
-      else if (typeof min === 'number') value = Math.max(min, min === 0 ? 1 : min)
+      if (lo !== undefined) value = loStrict ? lo + step : lo === 0 ? 1 : lo
       else value = 1
+      if (hi !== undefined) {
+        const limit = hiStrict ? hi - step : hi
+        if (value > limit) value = limit
+      }
       if (main === 'integer') value = Math.ceil(value)
-      if (typeof max === 'number' && value > max) value = max
+      // 落界自检：区间太窄取不到值就抛错（不硬塞一个越界样例）
+      if (lo !== undefined && (loStrict ? value <= lo : value < lo)) {
+        fail(schemaName, path, `区间 ${loStrict ? '>' : '>='}${lo} 且 ${hiStrict ? '<' : '<='}${hi ?? '∞'} 内取不到${main}值`)
+      }
+      if (hi !== undefined && (hiStrict ? value >= hi : value > hi)) {
+        fail(schemaName, path, `区间 ${loStrict ? '>' : '>='}${lo ?? '-∞'} 且 ${hiStrict ? '<' : '<='}${hi} 内取不到${main}值`)
+      }
       return value
     }
     case 'boolean':
@@ -206,7 +233,7 @@ function sampleOf(node: Json, root: Json, schemaName: string, path: string): unk
       return null
     case 'array': {
       const items = resolved['items']
-      const minItems = typeof resolved['minItems'] === 'number' ? resolved['minItems'] : 1
+      const minItems = num(resolved['minItems']) ?? 1
       const count = Math.max(minItems, 1)
       if (items === undefined) fail(schemaName, path, 'array 无 items')
       if (Array.isArray(items)) fail(schemaName, path, '不支持 tuple 形式的 items')
@@ -242,10 +269,42 @@ function isSchemaNode(value: unknown): value is Json {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-// ---------- 变异（非法样例）----------
+// ---------- 变异（非法样例）：候选一律经生成期自校验，不被拒的不发射 ----------
 
-/** 与该节点类型相反的值——用于"类型错必须被拒"断言；回 null = 该节点无从变异（z.unknown()） */
-function wrongValueFor(node: Json, root: Json, schemaName: string, path: string): unknown {
+type Mutation =
+  | { kind: 'delete'; key: string; title: string }
+  | { kind: 'set'; key: string; value: unknown; title: string }
+  | { kind: 'extra'; title: string }
+  | { kind: 'literal'; value: unknown; title: string }
+
+function cloneOf(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(value)) as unknown
+}
+
+function applyMutation(sample: unknown, m: Mutation): unknown {
+  switch (m.kind) {
+    case 'delete': {
+      const copy = cloneOf(sample) as Record<string, unknown>
+      delete copy[m.key]
+      return copy
+    }
+    case 'set': {
+      const copy = cloneOf(sample) as Record<string, unknown>
+      copy[m.key] = m.value
+      return copy
+    }
+    case 'extra': {
+      const copy = cloneOf(sample) as Record<string, unknown>
+      copy['__contract_probe__'] = 1
+      return copy
+    }
+    case 'literal':
+      return m.value
+  }
+}
+
+/** 与该节点类型相反的值——用于"类型错必须被拒"候选 */
+function wrongValueFor(node: Json, root: Json, schemaName: string, path: string): unknown | null {
   const resolved = resolveRef(node, root, schemaName, path)
   if ('const' in resolved || 'enum' in resolved) return '__contract_bogus_enum__'
   const type = resolved['type']
@@ -269,72 +328,62 @@ function wrongValueFor(node: Json, root: Json, schemaName: string, path: string)
   }
 }
 
-interface Mutation {
-  title: string
-  /** 生成代码里构造非法值的表达式（以 sample 为基） */
-  expr: string
-}
-
-function mutationsFor(root: Json, schemaName: string): Mutation[] {
+/** 候选变异（未经验证）——随后由 verifyMutations 用真 schema 逐条筛 */
+function candidateMutations(root: Json, schemaName: string): Mutation[] {
   const out: Mutation[] = []
   const type = root['type']
   const main = Array.isArray(type) ? (type as string[]).find((t) => t !== 'null') : type
 
   if (main === 'object' && isSchemaNode(root['properties'])) {
-    // isSchemaNode 是类型守卫，此处已收窄为 Json（再加断言就是多余，eslint no-unnecessary-type-assertion 会红）
+    // isSchemaNode 是类型守卫，此处已收窄为 Json（再加断言就是多余，eslint 会红）
     const properties = root['properties']
     const required = (root['required'] as string[] | undefined) ?? []
     for (const key of required) {
-      out.push({
-        title: `缺必填字段 ${key} → 解析失败`,
-        expr: `(() => { const m = structuredClone(sample) as Record<string, unknown>; delete m[${JSON.stringify(key)}]; return m })()`,
-      })
+      // 带 default 的字段在输入侧可省（如 FsQuerySchema 的 path），删掉不会失败 → 不作候选
+      const sub = properties[key]
+      if (isSchemaNode(sub) && 'default' in sub) continue
+      out.push({ kind: 'delete', key, title: `缺必填字段 ${key} → 解析失败` })
     }
     for (const [key, sub] of Object.entries(properties)) {
       const wrong = wrongValueFor(sub as Json, root, schemaName, key)
       if (wrong === null) continue
-      out.push({
-        title: `字段 ${key} 类型错 → 解析失败`,
-        expr: `(() => { const m = structuredClone(sample) as Record<string, unknown>; m[${JSON.stringify(key)}] = ${JSON.stringify(wrong)}; return m })()`,
-      })
+      out.push({ kind: 'set', key, value: wrong, title: `字段 ${key} 类型错 → 解析失败` })
     }
     if (root['additionalProperties'] === false) {
-      out.push({
-        title: '未知键 → strictObject 拒收',
-        expr: `{ ...sample, __contract_probe__: 1 }`,
-      })
+      out.push({ kind: 'extra', title: '未知键 → strictObject 拒收' })
     }
     return out
   }
 
   // 顶层非对象（id/枚举/字符串/数字等基元合同）
   if (main === 'string') {
-    out.push({ title: '类型错（数字）→ 解析失败', expr: `12345` })
-    if (typeof root['minLength'] === 'number' && root['minLength'] > 0) {
-      out.push({ title: '空串 → 解析失败（minLength）', expr: `''` })
-    }
-    if (typeof root['pattern'] === 'string') {
-      out.push({ title: '不合正则 → 解析失败', expr: `'__contract_bogus__'` })
+    out.push({ kind: 'literal', value: 12345, title: '类型错（数字）→ 解析失败' })
+    for (const bogus of BOGUS_STRINGS) {
+      const label = bogus === '' ? '空串' : '不合正则'
+      out.push({ kind: 'literal', value: bogus, title: `${label} → 解析失败` })
     }
     return out
   }
   if (main === 'integer' || main === 'number') {
-    out.push({ title: '类型错（字符串）→ 解析失败', expr: `'not-a-number'` })
+    out.push({ kind: 'literal', value: 'not-a-number', title: '类型错（字符串）→ 解析失败' })
     if (root['minimum'] !== undefined || root['exclusiveMinimum'] !== undefined) {
-      out.push({ title: '负值 → 解析失败（下界）', expr: `-1` })
+      out.push({ kind: 'literal', value: -1, title: '负值 → 解析失败（下界）' })
+    }
+    if (root['maximum'] !== undefined || root['exclusiveMaximum'] !== undefined) {
+      out.push({ kind: 'literal', value: Number.MAX_SAFE_INTEGER, title: '超上界 → 解析失败' })
     }
     return out
   }
   if ('enum' in root || 'const' in root) {
-    out.push({ title: '词表外的值 → 解析失败', expr: `'__contract_bogus_enum__'` })
+    out.push({ kind: 'literal', value: '__contract_bogus_enum__', title: '词表外的值 → 解析失败' })
     return out
   }
   if (main === 'boolean') {
-    out.push({ title: '类型错（字符串）→ 解析失败', expr: `'not-a-boolean'` })
+    out.push({ kind: 'literal', value: 'not-a-boolean', title: '类型错（字符串）→ 解析失败' })
     return out
   }
   if (main === 'array') {
-    out.push({ title: '类型错（字符串）→ 解析失败', expr: `'not-an-array'` })
+    out.push({ kind: 'literal', value: 'not-an-array', title: '类型错（字符串）→ 解析失败' })
     return out
   }
   return out
@@ -345,7 +394,7 @@ function mutationsFor(root: Json, schemaName: string): Mutation[] {
 const HEADER = (source: string) => `// 自动生成，勿手改 —— packages/protocol/scripts/gen-contract.ts（工单 14.2 / doc/06 §1 L1.5 契约层）。
 // 重新生成：pnpm --filter @spark/protocol gen:contract
 // CI 同步门禁：ci.yml 在 test 步之前重跑生成器并 git diff --exit-code 本目录——改 schema 不重生成即红。
-// 事实源：${source}（本文件不含任何手写样例或手写断言）。
+// 事实源：${source}（本文件不含任何手写样例或手写断言；每条断言在生成期已用真 schema 自校验）。
 `
 
 /** 发射进单引号字符串字面量的文本必须先转义（事件名形如 event 'turn.started'，不转义会截断生成的 describe 标题） */
@@ -353,7 +402,34 @@ function sq(text: string): string {
   return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 }
 
-function emitFile(fileName: string, source: string, targets: Target[]): string {
+/** 变异在生成代码里的表达式 */
+function exprOf(m: Mutation): string {
+  switch (m.kind) {
+    case 'delete':
+      return `(() => { const m = structuredClone(sample) as Record<string, unknown>; delete m[${JSON.stringify(m.key)}]; return m })()`
+    case 'set':
+      return `(() => { const m = structuredClone(sample) as Record<string, unknown>; m[${JSON.stringify(m.key)}] = ${JSON.stringify(m.value)}; return m })()`
+    case 'extra':
+      return `{ ...(sample as Record<string, unknown>), __contract_probe__: 1 }`
+    case 'literal':
+      return JSON.stringify(m.value)
+  }
+}
+
+function indent(text: string, pad: string): string {
+  return text
+    .split('\n')
+    .map((line, i) => (i === 0 ? line : pad + line))
+    .join('\n')
+}
+
+interface EmitStats {
+  describes: number
+  cases: number
+  dropped: Array<{ schema: string; title: string }>
+}
+
+function emitFile(source: string, targets: Target[], stats: EmitStats): string {
   const lines: string[] = [HEADER(source)]
   lines.push("import { describe, expect, it } from 'vitest'")
   lines.push("import { z } from 'zod'")
@@ -373,12 +449,31 @@ function emitFile(fileName: string, source: string, targets: Target[]): string {
   for (const target of targets) {
     const root = z.toJSONSchema(target.schema) as Json
     const sample = sampleOf(root, root, target.name, '')
-    const mutations = mutationsFor(root, target.name)
+
+    // 自校验①：合成样例必须真的合法——不合法说明合成器有洞，宁可生成失败也不发射必红用例
+    const check = target.schema.safeParse(sample)
+    if (!check.success) {
+      throw new Error(
+        `[gen-contract] ${target.name} 的合成样例不合法：${JSON.stringify(check.error.issues)}\n` +
+          `  样例：${JSON.stringify(sample)}\n  → 修合成器（不要手改生成物）。`,
+      )
+    }
+
+    // 自校验②：只发射真的会被拒的变异（例如 CallId 的正则允许下划线，'__contract_bogus__' 其实合法）
+    const kept: Mutation[] = []
+    for (const candidate of candidateMutations(root, target.name)) {
+      if (target.schema.safeParse(applyMutation(sample, candidate)).success) {
+        stats.dropped.push({ schema: target.name, title: candidate.title })
+        continue
+      }
+      kept.push(candidate)
+    }
+
+    stats.describes += 1
+    stats.cases += 2 + kept.length
+
     lines.push(`describe('契约：${sq(target.name)}', () => {`)
-    lines.push(`  const sample = ${JSON.stringify(sample, null, 2)
-      .split('\n')
-      .map((l, i) => (i === 0 ? l : `  ${l}`))
-      .join('\n')}`)
+    lines.push(`  const sample = ${indent(JSON.stringify(sample, null, 2), '  ')}`)
     lines.push('')
     lines.push(`  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {`)
     lines.push(`    expect(${target.ref}.parse(sample)).toEqual(sample)`)
@@ -388,10 +483,10 @@ function emitFile(fileName: string, source: string, targets: Target[]): string {
     lines.push(`  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {`)
     lines.push(`    expect(z.toJSONSchema(${target.ref})).toBeTypeOf('object')`)
     lines.push(`  })`)
-    for (const m of mutations) {
+    for (const m of kept) {
       lines.push('')
       lines.push(`  it('${sq(m.title)}', () => {`)
-      lines.push(`    expect(() => ${target.ref}.parse(${m.expr})).toThrow()`)
+      lines.push(`    expect(() => ${target.ref}.parse(${exprOf(m)})).toThrow()`)
       lines.push(`  })`)
     }
     lines.push('})')
@@ -413,16 +508,32 @@ function main(): void {
   const wire = active.filter((t) => t.ref === 'EnvelopeSchema' || t.ref.startsWith('EventSchemas'))
   const dto = active.filter((t) => !wire.includes(t))
 
-  writeFileSync(join(outDir, 'wire.contract.test.ts'), emitFile('wire.contract.test.ts', 'src/schema.ts + src/events.ts', wire), 'utf8')
-  writeFileSync(join(outDir, 'dto.contract.test.ts'), emitFile('dto.contract.test.ts', 'src/ids.ts + src/primitives.ts + src/api.ts', dto), 'utf8')
+  const stats: EmitStats = { describes: 0, cases: 0, dropped: [] }
+  writeFileSync(
+    join(outDir, 'wire.contract.test.ts'),
+    emitFile('src/schema.ts + src/events.ts', wire, stats),
+    'utf8',
+  )
+  writeFileSync(
+    join(outDir, 'dto.contract.test.ts'),
+    emitFile('src/ids.ts + src/primitives.ts + src/api.ts', dto, stats),
+    'utf8',
+  )
 
   process.stdout.write(
-    `[gen-contract] 生成 ${wire.length + dto.length} 个契约 describe（wire ${wire.length} / dto ${dto.length}）` +
+    `[gen-contract] ${stats.describes} 个契约 describe / ${stats.cases} 条断言（wire ${wire.length} / dto ${dto.length}）` +
       (skipped.length > 0
         ? `；豁免 ${skipped.length} 个：${skipped.map((s) => `${s.name}（${EXEMPT[s.name]}）`).join('、')}`
         : '；豁免表为空') +
       '\n',
   )
+  if (stats.dropped.length > 0) {
+    process.stdout.write(
+      `[gen-contract] 自校验丢弃 ${stats.dropped.length} 条"看似非法其实合法"的变异候选（不发射即不断言）：\n` +
+        stats.dropped.map((d) => `  - ${d.schema}：${d.title}`).join('\n') +
+        '\n',
+    )
+  }
 }
 
 main()

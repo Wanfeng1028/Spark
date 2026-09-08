@@ -1,7 +1,7 @@
 // 自动生成，勿手改 —— packages/protocol/scripts/gen-contract.ts（工单 14.2 / doc/06 §1 L1.5 契约层）。
 // 重新生成：pnpm --filter @spark/protocol gen:contract
 // CI 同步门禁：ci.yml 在 test 步之前重跑生成器并 git diff --exit-code 本目录——改 schema 不重生成即红。
-// 事实源：src/ids.ts + src/primitives.ts + src/api.ts（本文件不含任何手写样例或手写断言）。
+// 事实源：src/ids.ts + src/primitives.ts + src/api.ts（本文件不含任何手写样例或手写断言；每条断言在生成期已用真 schema 自校验）。
 
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -26,7 +26,11 @@ describe('契约：ids.CallIdSchema', () => {
   })
 
   it('不合正则 → 解析失败', () => {
-    expect(() => ids.CallIdSchema.parse('__contract_bogus__')).toThrow()
+    expect(() => ids.CallIdSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => ids.CallIdSchema.parse("")).toThrow()
   })
 })
 
@@ -47,7 +51,15 @@ describe('契约：ids.CheckpointIdSchema', () => {
   })
 
   it('不合正则 → 解析失败', () => {
-    expect(() => ids.CheckpointIdSchema.parse('__contract_bogus__')).toThrow()
+    expect(() => ids.CheckpointIdSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => ids.CheckpointIdSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => ids.CheckpointIdSchema.parse("")).toThrow()
   })
 })
 
@@ -68,7 +80,15 @@ describe('契约：ids.EventIdSchema', () => {
   })
 
   it('不合正则 → 解析失败', () => {
-    expect(() => ids.EventIdSchema.parse('__contract_bogus__')).toThrow()
+    expect(() => ids.EventIdSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => ids.EventIdSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => ids.EventIdSchema.parse("")).toThrow()
   })
 })
 
@@ -89,7 +109,15 @@ describe('契约：ids.RequestIdSchema', () => {
   })
 
   it('不合正则 → 解析失败', () => {
-    expect(() => ids.RequestIdSchema.parse('__contract_bogus__')).toThrow()
+    expect(() => ids.RequestIdSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => ids.RequestIdSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => ids.RequestIdSchema.parse("")).toThrow()
   })
 })
 
@@ -110,7 +138,15 @@ describe('契约：ids.SessionIdSchema', () => {
   })
 
   it('不合正则 → 解析失败', () => {
-    expect(() => ids.SessionIdSchema.parse('__contract_bogus__')).toThrow()
+    expect(() => ids.SessionIdSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => ids.SessionIdSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => ids.SessionIdSchema.parse("")).toThrow()
   })
 })
 
@@ -131,7 +167,15 @@ describe('契约：ids.TurnIdSchema', () => {
   })
 
   it('不合正则 → 解析失败', () => {
-    expect(() => ids.TurnIdSchema.parse('__contract_bogus__')).toThrow()
+    expect(() => ids.TurnIdSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => ids.TurnIdSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => ids.TurnIdSchema.parse("")).toThrow()
   })
 })
 
@@ -166,6 +210,18 @@ describe('契约：primitives.DeliverySchema', () => {
   it('类型错（数字）→ 解析失败', () => {
     expect(() => primitives.DeliverySchema.parse(12345)).toThrow()
   })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => primitives.DeliverySchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => primitives.DeliverySchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => primitives.DeliverySchema.parse("")).toThrow()
+  })
 })
 
 describe('契约：primitives.PermissionReplySchema', () => {
@@ -182,6 +238,18 @@ describe('契约：primitives.PermissionReplySchema', () => {
 
   it('类型错（数字）→ 解析失败', () => {
     expect(() => primitives.PermissionReplySchema.parse(12345)).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => primitives.PermissionReplySchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => primitives.PermissionReplySchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => primitives.PermissionReplySchema.parse("")).toThrow()
   })
 })
 
@@ -200,6 +268,18 @@ describe('契约：primitives.ReasoningEffortSchema', () => {
   it('类型错（数字）→ 解析失败', () => {
     expect(() => primitives.ReasoningEffortSchema.parse(12345)).toThrow()
   })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => primitives.ReasoningEffortSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => primitives.ReasoningEffortSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => primitives.ReasoningEffortSchema.parse("")).toThrow()
+  })
 })
 
 describe('契约：primitives.TurnFinishSchema', () => {
@@ -216,6 +296,18 @@ describe('契约：primitives.TurnFinishSchema', () => {
 
   it('类型错（数字）→ 解析失败', () => {
     expect(() => primitives.TurnFinishSchema.parse(12345)).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => primitives.TurnFinishSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => primitives.TurnFinishSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => primitives.TurnFinishSchema.parse("")).toThrow()
   })
 })
 
@@ -271,7 +363,7 @@ describe('契约：primitives.UsageSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => primitives.UsageSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => primitives.UsageSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -325,7 +417,7 @@ describe('契约：api.AgentPresetDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.AgentPresetDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.AgentPresetDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -370,7 +462,7 @@ describe('契约：api.AgentPresetSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.AgentPresetSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.AgentPresetSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -433,7 +525,7 @@ describe('契约：api.AttachmentDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.AttachmentDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.AttachmentDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -527,7 +619,7 @@ describe('契约：api.AuditEntryDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.AuditEntryDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.AuditEntryDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -570,7 +662,7 @@ describe('契约：api.AuditQuerySchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.AuditQuerySchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.AuditQuerySchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -630,7 +722,7 @@ describe('契约：api.AutomationCreateSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.AutomationCreateSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.AutomationCreateSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -712,7 +804,7 @@ describe('契约：api.AutomationRunDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.AutomationRunDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.AutomationRunDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -799,7 +891,7 @@ describe('契约：api.AutomationTriggerDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.AutomationTriggerDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.AutomationTriggerDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -855,7 +947,7 @@ describe('契约：api.CheckpointDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.CheckpointDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.CheckpointDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -930,7 +1022,7 @@ describe('契约：api.CommandDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.CommandDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.CommandDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -942,7 +1034,7 @@ describe('契约：api.EngineSettingsSchema', () => {
     "permissionTimeoutMs": 1,
     "progressThrottleMs": 1,
     "toolOutputLimitKB": 1,
-    "compactionThreshold": 1,
+    "compactionThreshold": 0.5,
     "checkpoints": false,
     "bashSandbox": "off"
   }
@@ -1029,7 +1121,7 @@ describe('契约：api.EngineSettingsSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.EngineSettingsSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.EngineSettingsSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1052,7 +1144,7 @@ describe('契约：api.ExecuteCommandBodySchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.ExecuteCommandBodySchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.ExecuteCommandBodySchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1106,7 +1198,7 @@ describe('契约：api.ForkChildDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.ForkChildDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.ForkChildDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1151,7 +1243,7 @@ describe('契约：api.FsEntryDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.FsEntryDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.FsEntryDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1193,7 +1285,7 @@ describe('契约：api.FsListDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.FsListDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.FsListDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1211,16 +1303,12 @@ describe('契约：api.FsQuerySchema', () => {
     expect(z.toJSONSchema(api.FsQuerySchema)).toBeTypeOf('object')
   })
 
-  it('缺必填字段 path → 解析失败', () => {
-    expect(() => api.FsQuerySchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["path"]; return m })())).toThrow()
-  })
-
   it('字段 path 类型错 → 解析失败', () => {
     expect(() => api.FsQuerySchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["path"] = 12345; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.FsQuerySchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.FsQuerySchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1271,7 +1359,7 @@ describe('契约：api.FsTreeDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.FsTreeDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.FsTreeDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1289,16 +1377,12 @@ describe('契约：api.FsTreeQuerySchema', () => {
     expect(z.toJSONSchema(api.FsTreeQuerySchema)).toBeTypeOf('object')
   })
 
-  it('缺必填字段 path → 解析失败', () => {
-    expect(() => api.FsTreeQuerySchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["path"]; return m })())).toThrow()
-  })
-
   it('字段 path 类型错 → 解析失败', () => {
     expect(() => api.FsTreeQuerySchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["path"] = 12345; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.FsTreeQuerySchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.FsTreeQuerySchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1352,7 +1436,7 @@ describe('契约：api.McpServerDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.McpServerDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.McpServerDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1397,7 +1481,7 @@ describe('契约：api.MemoryDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.MemoryDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.MemoryDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1442,7 +1526,7 @@ describe('契约：api.ModelEntryDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.ModelEntryDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.ModelEntryDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1524,7 +1608,7 @@ describe('契约：api.ModelProviderDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.ModelProviderDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.ModelProviderDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1590,7 +1674,7 @@ describe('契约：api.ModelsDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.ModelsDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.ModelsDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1645,7 +1729,7 @@ describe('契约：api.ModelTestResultDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.ModelTestResultDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.ModelTestResultDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1690,7 +1774,7 @@ describe('契约：api.PairCodeDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.PairCodeDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.PairCodeDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1744,7 +1828,7 @@ describe('契约：api.PairedDeviceDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.PairedDeviceDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.PairedDeviceDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1776,7 +1860,7 @@ describe('契约：api.PairRedeemBodySchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.PairRedeemBodySchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.PairRedeemBodySchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1846,7 +1930,7 @@ describe('契约：api.PairStatusDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.PairStatusDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.PairStatusDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1873,7 +1957,7 @@ describe('契约：api.PairTokenDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.PairTokenDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.PairTokenDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1891,6 +1975,18 @@ describe('契约：api.PermissionPresetSchema', () => {
 
   it('类型错（数字）→ 解析失败', () => {
     expect(() => api.PermissionPresetSchema.parse(12345)).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => api.PermissionPresetSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => api.PermissionPresetSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => api.PermissionPresetSchema.parse("")).toThrow()
   })
 })
 
@@ -1935,7 +2031,7 @@ describe('契约：api.PermissionRuleDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.PermissionRuleDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.PermissionRuleDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -1947,7 +2043,7 @@ describe('契约：api.RoutingDtoSchema', () => {
     "compactionModel": "contract-sample",
     "titleModel": "contract-sample",
     "subagentModel": "contract-sample",
-    "costLimitUsd": 1,
+    "costLimitUsd": 0.5,
     "usage": {
       "costUsd": 1,
       "inputTokens": 1,
@@ -2010,7 +2106,7 @@ describe('契约：api.RoutingDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.RoutingDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.RoutingDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2022,7 +2118,7 @@ describe('契约：api.RoutingUpdateSchema', () => {
     "compactionModel": "contract-sample",
     "titleModel": "contract-sample",
     "subagentModel": "contract-sample",
-    "costLimitUsd": 1
+    "costLimitUsd": 0.5
   }
 
   it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
@@ -2051,7 +2147,7 @@ describe('契约：api.RoutingUpdateSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.RoutingUpdateSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.RoutingUpdateSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2105,7 +2201,7 @@ describe('契约：api.RoutingUsageDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.RoutingUsageDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.RoutingUsageDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2186,7 +2282,7 @@ describe('契约：api.SearchHitDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.SearchHitDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.SearchHitDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2222,7 +2318,7 @@ describe('契约：api.SecretStatusDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.SecretStatusDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.SecretStatusDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2327,7 +2423,7 @@ describe('契约：api.SessionMetaDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.SessionMetaDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.SessionMetaDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2346,6 +2442,18 @@ describe('契约：api.SessionStatusSchema', () => {
   it('类型错（数字）→ 解析失败', () => {
     expect(() => api.SessionStatusSchema.parse(12345)).toThrow()
   })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => api.SessionStatusSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => api.SessionStatusSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => api.SessionStatusSchema.parse("")).toThrow()
+  })
 })
 
 describe('契约：api.SettingsDtoSchema', () => {
@@ -2361,7 +2469,7 @@ describe('契约：api.SettingsDtoSchema', () => {
       "permissionTimeoutMs": 1,
       "progressThrottleMs": 1,
       "toolOutputLimitKB": 1,
-      "compactionThreshold": 1,
+      "compactionThreshold": 0.5,
       "checkpoints": false,
       "bashSandbox": "off"
     },
@@ -2446,7 +2554,7 @@ describe('契约：api.SettingsDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.SettingsDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.SettingsDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2520,7 +2628,7 @@ describe('契约：api.SettingsHooksSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.SettingsHooksSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.SettingsHooksSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2553,7 +2661,7 @@ describe('契约：api.SettingsPromptsSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.SettingsPromptsSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.SettingsPromptsSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2570,7 +2678,7 @@ describe('契约：api.SettingsUpdateSchema', () => {
       "permissionTimeoutMs": 1,
       "progressThrottleMs": 1,
       "toolOutputLimitKB": 1,
-      "compactionThreshold": 1,
+      "compactionThreshold": 0.5,
       "checkpoints": false,
       "bashSandbox": "off"
     },
@@ -2620,7 +2728,7 @@ describe('契约：api.SettingsUpdateSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.SettingsUpdateSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.SettingsUpdateSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2672,7 +2780,7 @@ describe('契约：api.SkillDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.SkillDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.SkillDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2806,7 +2914,7 @@ describe('契约：api.TraceDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.TraceDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.TraceDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2860,7 +2968,7 @@ describe('契约：api.TraceErrorDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.TraceErrorDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.TraceErrorDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2905,7 +3013,7 @@ describe('契约：api.TraceMarkDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.TraceMarkDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.TraceMarkDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -2970,7 +3078,7 @@ describe('契约：api.TraceStepDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.TraceStepDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.TraceStepDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -3058,7 +3166,7 @@ describe('契约：api.TraceToolDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.TraceToolDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.TraceToolDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -3145,7 +3253,7 @@ describe('契约：api.TraceTotalsDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.TraceTotalsDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.TraceTotalsDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -3291,7 +3399,7 @@ describe('契约：api.TraceTurnDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.TraceTurnDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.TraceTurnDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -3386,7 +3494,7 @@ describe('契约：api.TreeNodeDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.TreeNodeDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.TreeNodeDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -3449,7 +3557,7 @@ describe('契约：api.UsageAmountsSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.UsageAmountsSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.UsageAmountsSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -3539,7 +3647,7 @@ describe('契约：api.UsageBucketDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.UsageBucketDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.UsageBucketDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -3571,7 +3679,7 @@ describe('契约：api.UsageSummaryDtoSchema', () => {
       "cacheRead": 1,
       "cacheWrite": 1
     },
-    "costLimitUsd": 1,
+    "costLimitUsd": 0.5,
     "exceeded": false
   }
 
@@ -3621,7 +3729,7 @@ describe('契约：api.UsageSummaryDtoSchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.UsageSummaryDtoSchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.UsageSummaryDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -3644,6 +3752,6 @@ describe('契约：api.UsageSummaryQuerySchema', () => {
   })
 
   it('未知键 → strictObject 拒收', () => {
-    expect(() => api.UsageSummaryQuerySchema.parse({ ...sample, __contract_probe__: 1 })).toThrow()
+    expect(() => api.UsageSummaryQuerySchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
