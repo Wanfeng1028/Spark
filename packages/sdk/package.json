@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
-  "description": "Spark 薄客户端 SDK（L2 层，工单 14.3）：createClient = HttpTransport 装配 + 便利分组，零业务逻辑；连接管理/重连/错误映射住在 @spark/protocol",
+  "description": "Spark 薄客户端 SDK（L2 层，工单 14.3/14.4）：两个子入口——`.`（HTTP，零 engine 依赖）与 `./inprocess`（进程内直连引擎，engine 为 optional peer）；均为装配 + 便利分组，零业务逻辑",
   "author": "Wanfeng1028",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -14,6 +14,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./inprocess": {
+      "types": "./src/inprocess.ts",
+      "import": "./src/inprocess.ts"
     }
   },
   "publishConfig": {
@@ -24,6 +28,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./inprocess": {
+        "types": "./dist/inprocess.d.ts",
+        "import": "./dist/inprocess.js"
       }
     }
   },
@@ -48,7 +56,16 @@
   "dependencies": {
     "@spark/protocol": "workspace:*"
   },
+  "peerDependencies": {
+    "@spark/engine": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@spark/engine": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@spark/engine": "workspace:*",
     "@types/node": "^24",
     "tsx": "^4.20.0",
     "typescript": "^5.9.3",

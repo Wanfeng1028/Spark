@@ -17,33 +17,23 @@ import {
 import type {
   SessionMetaDto,
   SessionId,
-  SparkEventEnvelope,
-  TreeNodeDto,
 } from '@spark/protocol'
-import type { SessionTreeInfo, SessionTreeNode } from '@spark/engine'
+import { sessionMetaDtoOf } from '@spark/engine'
 import type { Engine, SessionHandle, SessionMeta } from '@spark/engine'
+
+/**
+ * 树视图 DTO 装配已上移 engine（工单 14.4 / ADR D31 结论 4：双通道共用同一份，
+ * sdk 的 InProcessTransport 也要用）；本处保留 `treeToDto` 名以不动调用面。
+ */
+export { sessionTreeToDto as treeToDto } from '@spark/engine'
 
 export interface RoutesOptions {
   engine: Engine
 }
 
-/** 引擎 SessionMeta + 实时状态 → 线上 DTO（§4.5.1） */
+/** 引擎 SessionMeta + 实时状态 → 线上 DTO（§4.5.1）：装配住在 engine，本处只补 status */
 export function toDto(engine: Engine, meta: SessionMeta): SessionMetaDto {
-  return {
-    id: meta.id,
-    title: meta.title,
-    model: meta.model,
-    cwd: meta.cwd,
-    createdAt: meta.createdAt,
-    updatedAt: meta.updatedAt,
-    lastSeq: meta.lastSeq,
-    status: engine.statusOf(meta.id),
-    // 工单 10.6：分支/档位真值透传（缺省不携带——前端禁假状态不渲染）
-    ...(meta.branch !== undefined ? { branch: meta.branch } : {}),
-    ...(meta.effort !== undefined ? { effort: meta.effort } : {}),
-    // 工单 12.4：归档时刻透传（仅已归档携带）
-    ...(meta.archivedAt !== undefined ? { archivedAt: meta.archivedAt } : {}),
-  }
+  return sessionMetaDtoOf(meta, engine.statusOf(meta.id))
 }
 
 /** :id 路由通用入口：已加载直接用，未加载先 resumeSession（§7.2 GET 规格） */
@@ -158,44 +148,3 @@ export const SearchQuery = z.strictObject({
 
 /** 浏览器截图供图（工单 7.10 / H09）：文件名白名单形状校验在引擎侧 */
 export const ArtifactParams = z.strictObject({ file: z.string().min(1) })
-
-/** 事件渲染摘要（树视图 label，§5.8.6）：按类型取关键字段，截 60 字符；无文本事件为空串 */
-function labelOf(e: SparkEventEnvelope): string {
-  const data = e.data as Record<string, unknown>
-  const str = (v: unknown): string => (typeof v === 'string' ? v : '')
-  let text = ''
-  if (typeof data.text === 'string') text = data.text // user/assistant/reasoning 的 ended 终值
-  else if (typeof data.title === 'string') text = data.title
-  else if (typeof data.summary === 'string') text = data.summary
-  else if (e.type === 'turn.started') text = 'turn 开始'
-  else if (e.type === 'turn.completed') text = `turn 结束（${str(data.finish)}）`
-  else if (e.type === 'tool.started') text = `工具 ${str(data.toolId)}`
-  else if (e.type === 'permission.asked') text = `审批 ${str(data.requestId)}`
-  return text.length > 60 ? `${text.slice(0, 57)}…` : text
-}
-
-/** 引擎树数据 → 线上 DTO（forks 按边界事件归组到节点） */
-export function treeToDto(tree: SessionTreeInfo): TreeNodeDto[] {
-  const forksByEvent = new Map<string, TreeNodeDto['forks']>()
-  for (const f of tree.forks) {
-    const list = forksByEvent.get(f.fromEventId) ?? []
-    list.push({
-      sessionId: f.child.sessionId,
-      title: f.child.title,
-      createdAt: f.child.createdAt,
-      status: f.child.status,
-    })
-    forksByEvent.set(f.fromEventId, list)
-  }
-  const toDto = (n: SessionTreeNode): TreeNodeDto => ({
-    id: n.event.id,
-    parentId: n.parentId,
-    seq: n.event.seq ?? 0,
-    type: n.event.type,
-    time: n.event.time,
-    label: labelOf(n.event),
-    childIds: n.childIds,
-    forks: forksByEvent.get(n.event.id) ?? [],
-  })
-  return tree.nodes.map(toDto)
-}

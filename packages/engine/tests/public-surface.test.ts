@@ -31,6 +31,10 @@ const PUBLIC_VALUES = [
   'loadMcpConfig',
   'newIds',
   'resolveInRoot',
+  // DTO 装配纯函数（工单 14.4 / ADR D31）：server 路由与 sdk 的 InProcessTransport 共用
+  'sessionDtoOf',
+  'sessionMetaDtoOf',
+  'sessionTreeToDto',
   'ulid',
   'writeMcpConfig',
 ] as const
