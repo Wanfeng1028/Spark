@@ -14,9 +14,9 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 export const ONBOARDING_DONE_KEY = 'spark-onboarding-done'
-export const ONBOARDING_STEP_KEY = 'spark-onboarding-step'
+const ONBOARDING_STEP_KEY = 'spark-onboarding-step'
 
-export function onboardingDone(): void {
+function onboardingDone(): void {
   localStorage.setItem(ONBOARDING_DONE_KEY, '1')
 }
 

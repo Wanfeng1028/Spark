@@ -12,7 +12,7 @@ export const TIMESTAMP_GAP_MS = 30 * 60 * 1000
 /** Composer 规格（J.2.1）：高 52 起、行高 20、6 行上限（同 web Composer 纪律） */
 export const COMPOSER_BASE_HEIGHT = 52
 export const COMPOSER_LINE_HEIGHT = 20
-export const COMPOSER_MAX_LINES = 6
+const COMPOSER_MAX_LINES = 6
 
 /** 渲染行：消息/卡片项 或 居中时间戳分隔（key 供 FlatList） */
 export type SessionRow =
@@ -37,7 +37,7 @@ export function shouldInsertTimestamp(
 }
 
 /** 行 key：tool/approval 以 callId/requestId 稳定化（同事件可派生多个工具行） */
-export function rowKeyOf(item: UiItem): string {
+function rowKeyOf(item: UiItem): string {
   if (item.kind === 'tool') return `tool-${item.callId}`
   if (item.kind === 'approval') return `approval-${item.requestId}`
   return item.eventId

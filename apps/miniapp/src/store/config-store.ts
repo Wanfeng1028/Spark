@@ -11,7 +11,7 @@ import type { AppearancePreference } from '../theme/tokens'
 
 const CONFIG_KEY = 'spark.config'
 
-export interface MiniConfig {
+interface MiniConfig {
   /** 服务器基址（配对所得或手输 `http://host:port`）；空 = 未配置 */
   serverUrl: string
   /** 配对长效 token（非环回必需；环回缺省形态可空） */
@@ -26,7 +26,7 @@ interface PersistedConfig {
   appearance: AppearancePreference
 }
 
-export const DEFAULT_CONFIG: MiniConfig = {
+const DEFAULT_CONFIG: MiniConfig = {
   serverUrl: '',
   token: '',
   appearance: 'system',

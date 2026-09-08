@@ -50,18 +50,31 @@
     "@tarojs/webpack5-runner"
   ],
 
-  // knip 的 Expo 插件按 app.json 约定推导出的隐含包：本仓 plugins 实为 expo-secure-store 与
-  // expo-status-bar（均在依赖里），全仓 grep 对这两个零命中，且不启用 OTA 更新——故不装。
-  // 将来若启用 OTA，装上并删掉本条。（knip v6 无 ignoreUnlisted 键，改用按文件排除问题类型）
+  // 按文件排除特定问题类型（knip v6 无 ignoreUnlisted 键）：
+  // - apps/mobile/app.json 的 unlisted：knip 的 Expo 插件按约定推导出 expo-updates/expo-system-ui，
+  //   但本仓 plugins 实为 expo-secure-store/expo-status-bar（均在依赖里）、全仓 grep 零命中且不启用 OTA；
+  //   将来启用 OTA 则装上并删掉本条。
+  // - copy-in 组件的上游 API 面：`components/ui/*` 是 AI Elements/shadcn 的 copy-in 件
+  //   （frontend-component skill 纪律），**导出面与上游保持一致**便于后续复用与升级对照，
+  //   故本目录的未引用导出/类型不算缺陷（例：DialogTrigger/DialogClose/buttonVariants 上游有、本仓未用）。
   "ignoreIssues": {
-    "apps/mobile/app.json": ["unlisted"]
+    "apps/mobile/app.json": ["unlisted"],
+    "apps/web/src/components/ui/**": ["exports", "types"]
   },
 
   // bash 工具文案里出现的 Windows 内建命令名，不是本仓需要安装的可执行文件
   "ignoreBinaries": ["where"],
 
-  // 本批纳入门禁的问题类型。exports / types（首份报告 30 + 23 项）的逐项处置属**第三批**：
-  // 每项都是代码改动（去 export / 删符号 / 留并在原地写理由），分批做以便 CI 精确定位；
-  // 裁决已先写入 doc/02 §4.6.3，不做"报告已知但长期红灯"这种事。
-  "include": ["files", "dependencies", "devDependencies", "unlisted", "binaries", "duplicates"]
+  // 门禁的问题类型（工单 14.1 第三批起含 exports/types）：未引用导出与类型也是硬门——
+  // 新增导出要么被消费，要么在裁决表里留理由（doc/02 §4.6.3），不允许悄无声息地胀大公共面。
+  "include": [
+    "files",
+    "dependencies",
+    "devDependencies",
+    "unlisted",
+    "binaries",
+    "duplicates",
+    "exports",
+    "types"
+  ]
 }

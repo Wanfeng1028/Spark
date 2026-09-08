@@ -57,7 +57,7 @@ const KEPT_FILES_MAX = 50
 /** kept-files 标记（工单 13.4）：取最后一处（模型可能在正文里复述格式） */
 const KEPT_FILES_RE = /<!--\s*kept-files:\s*(\[[\s\S]*?\])\s*-->/g
 
-export interface KeptFilesParse {
+interface KeptFilesParse {
   /** 剥离标记后的摘要正文（无标记时原样） */
   summary: string
   /** 解析成功且非空时的清单；否则不携带（禁空数组充数） */
@@ -72,7 +72,7 @@ export interface KeptFilesParse {
  * 摘要照常可用——压缩不因清单解析失败而失败（失败闭合的是 turn，不是这个可选增强）。
  * 非字符串条目静默丢弃（模型输出宽容；全部丢弃 = 无清单）。
  */
-export function parseKeptFiles(raw: string): KeptFilesParse {
+function parseKeptFiles(raw: string): KeptFilesParse {
   const matches = [...raw.matchAll(KEPT_FILES_RE)]
   const last = matches[matches.length - 1]
   if (last === undefined) return { summary: raw }

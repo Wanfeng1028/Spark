@@ -43,7 +43,7 @@ export function fixtureRules(): PermissionRule[] {
 }
 
 /** 在 fixture 仓库内跑 node（判分用：不信任模型自述"已跑绿"，独立重跑一次） */
-export function runInRepo(repo: FixtureRepo, args: string[]): { ok: boolean; out: string } {
+function runInRepo(repo: FixtureRepo, args: string[]): { ok: boolean; out: string } {
   try {
     return {
       ok: true,

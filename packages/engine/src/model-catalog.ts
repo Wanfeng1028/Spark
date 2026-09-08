@@ -11,6 +11,7 @@ import { proxyFetchFor } from './proxy-fetch.js'
 import type { ModelsConfig } from './config.js'
 import type { SecretSource } from './secrets/store.js'
 
+/** 供应商 API 系别。**必须 export**：出现在同文件已导出的 CatalogEntry.api 字段类型位置（声明发射约束，同 Budget） */
 export type ProviderApiKind = 'openai-completions' | 'anthropic-messages'
 
 export interface CatalogEntry {
@@ -41,7 +42,7 @@ export type KeyResolver = (
 ) => { apiKey?: string; source: SecretSource }
 
 /** 缺省解析器：仅看环境变量（纯目录语义，等价原 hasKeyOf——空串视为未设置） */
-export const envKeyResolver: KeyResolver = (_provider, apiKeyEnv) => {
+const envKeyResolver: KeyResolver = (_provider, apiKeyEnv) => {
   if (apiKeyEnv === null) return { source: 'none' }
   const v = process.env[apiKeyEnv]
   return v !== undefined && v !== '' ? { apiKey: v, source: 'env' } : { source: 'none' }

@@ -14,6 +14,7 @@ import { z } from 'zod'
 import { EventSchemas, eventSchemaOf, registerEventType } from '@spark/protocol'
 import type { ExtendedEventDef, SparkEventType } from '@spark/protocol'
 
+/** 声明式钩子（ADR D18）。**必须 export**：出现在同文件已导出接口的 hooks 字段类型位置（声明发射约束，同 Budget） */
 export interface SkillHookDef {
   /** 触发源：必须是内置词表事件类型（防插件事件自触发循环） */
   on: string

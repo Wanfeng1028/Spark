@@ -29,6 +29,12 @@ jobs:
       # 工单 13.1 第三批（doc/08 §13.1 验收第 1 条、提示词第 4 条："CI（非 nightly）用 ScriptedLlm 冒烟"）：
       # core 四场景 + 任务级判分双向自检 13 场景，无 key 无网络（约 10s）
       - run: pnpm eval
+      # 工单 14.1 第三批补的洞：**声明发射回归在 CI 里原本是隐形的**——`pnpm typecheck` 是
+      # `tsc --noEmit`，不会报 TS4033/TS4023（"exported interface has or is using private name"），
+      # 而 engine/protocol 发布靠 `tsconfig.build.json`（declaration: true）。把符号降为私有时
+      # 若它出现在同文件已导出类型的字段位置，只会在 release/desktop 打包时炸。
+      # 放最后一步：先把其余信号全部收齐，不让构建失败掩盖测试结果。
+      - run: pnpm -r build
 
   # 工单 11.3（doc/06 §2 目标表 PR 行）：PR/push 上的浏览器测试——mock 四场景 + 断线两例。
   # 与主 ci job 并行，失败即红；不跑视觉基线断言（用例本身只产出截图，无跨平台 diff）。

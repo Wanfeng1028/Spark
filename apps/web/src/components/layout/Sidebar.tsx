@@ -43,7 +43,7 @@ export function projectOf(cwd: string): string {
 }
 
 /** 时间分组段（工单 10.5②；自然日边界，固定展示序） */
-export const TIME_GROUP_ORDER: readonly string[] = ['今天', '昨天', '7 天内', '更早']
+const TIME_GROUP_ORDER: readonly string[] = ['今天', '昨天', '7 天内', '更早']
 
 export function timeGroupOf(ts: number): string {
   const now = new Date()

@@ -74,6 +74,8 @@ export interface ToolPipeline {
  * - 每步 usage 累加后检查 → 超限即中断本 turn（assistant.message 已 emit 后断——
  *   产出保留，失败闭合走 finish='error'）。
  */
+/** 成本熔断端口（工单 7.7）。**必须 export**：出现在同文件已导出的 RunLoopDeps.budget 字段类型位置，
+ * 私有会让声明发射（tsconfig.build.json 的 declaration）报 TS4033——而 typecheck 是 --noEmit 查不出来 */
 export interface Budget {
   /** 当前成本上限美元值（undefined = 未配置，永不熔断） */
   limitUsd(): number | undefined

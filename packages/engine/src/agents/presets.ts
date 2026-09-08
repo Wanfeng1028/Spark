@@ -21,7 +21,7 @@ import { patternMatches } from '../permission/rules.js'
 import type { ToolRegistry } from '../tools/registry.js'
 
 /** 预设档名纪律（同 commands/skills：小写字母数字连字符——防路径与注入花样） */
-export const AGENT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/
+const AGENT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/
 
 export interface AgentPresetLogger {
   warn(msg: string, fields?: Record<string, unknown>): void

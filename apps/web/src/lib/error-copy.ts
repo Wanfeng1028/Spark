@@ -4,4 +4,3 @@
  * 导入面的再导出。
  */
 export { ERROR_COPY, humanizeError, errorMessageOf } from '@spark/protocol'
-export type { ErrorCopy } from '@spark/protocol'

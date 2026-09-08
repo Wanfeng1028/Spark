@@ -29,7 +29,7 @@ export interface AuthOptions {
 }
 
 /** 取请求携带的 token：Authorization: Bearer 优先，其次 ?token= 查询参数（SSE 同口径） */
-export function tokenOf(req: FastifyRequest): string | undefined {
+function tokenOf(req: FastifyRequest): string | undefined {
   const auth = req.headers.authorization
   if (auth !== undefined && auth.startsWith('Bearer ')) {
     const t = auth.slice('Bearer '.length).trim()

@@ -23,7 +23,7 @@ export function shouldInsertTimestamp(
 }
 
 /** 行 key：tool/approval 以 callId/requestId 稳定化（同事件可派生多个工具行） */
-export function rowKeyOf(item: UiItem): string {
+function rowKeyOf(item: UiItem): string {
   if (item.kind === 'tool') return `tool-${item.callId}`
   if (item.kind === 'approval') return `approval-${item.requestId}`
   return item.eventId

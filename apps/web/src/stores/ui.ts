@@ -8,7 +8,7 @@ import { create } from 'zustand'
 const STORAGE_KEY = 'spark.ui'
 
 /** 侧栏会话分组模式（工单 10.5②）：项目=按 cwd 目录；时间=按更新时间段 */
-export type SidebarGroupMode = 'project' | 'time'
+type SidebarGroupMode = 'project' | 'time'
 
 interface PersistedUi {
   sidebarCollapsed: boolean

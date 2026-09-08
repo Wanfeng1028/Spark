@@ -9,7 +9,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { ZodType } from 'zod'
 
-export interface ErrorBody {
+interface ErrorBody {
   code: string
   message: string
   issues?: unknown
@@ -139,7 +139,7 @@ export function registerErrorHandling(app: FastifyInstance): void {
 }
 
 /** Error → ApiError（按前缀识别语义错误；E_INTERNAL 不透出详情） */
-export function toApiError(err: unknown): ApiError {
+function toApiError(err: unknown): ApiError {
   if (err instanceof ApiError) return err
   const msg = err instanceof Error ? err.message : String(err)
   if (msg.startsWith('E_NOT_FOUND')) return NOT_FOUND

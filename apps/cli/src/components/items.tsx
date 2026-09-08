@@ -12,7 +12,7 @@ import { Markdown } from './markdown.js'
 import { strike } from './rows/shared.js'
 
 export { summarizeToolInput, toolOutputText, toolOutputLines, useNow } from './rows/shared.js'
-export { ToolLine, ToolGroupLine } from './rows/tool.js'
+export { ToolGroupLine } from './rows/tool.js'
 
 export function ItemView({
   item,

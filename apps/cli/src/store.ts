@@ -16,7 +16,7 @@ import type {
 } from '@spark/protocol'
 import { applyEvent, emptySessionSlice } from '@spark/protocol'
 
-export type CliConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
+type CliConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
 
 /** Tab 循环顺序（与 web Composer 的 now/steer/queue 分段同口径） */
 const DELIVERY_ORDER: readonly Delivery[] = ['now', 'steer', 'queue']

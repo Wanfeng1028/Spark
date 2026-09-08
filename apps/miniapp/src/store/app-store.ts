@@ -15,7 +15,7 @@ import type {
 } from '@spark/protocol'
 import { applyEvent } from '@spark/protocol'
 
-export type MiniAppConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
+type MiniAppConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
 
 export interface AppState extends ProjectionState {
   status: MiniAppConnectionStatus

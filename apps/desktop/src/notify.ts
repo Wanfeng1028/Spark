@@ -6,7 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { z } from 'zod'
 
-export const DesktopConfigSchema = z.strictObject({
+const DesktopConfigSchema = z.strictObject({
   notifications: z.strictObject({
     turnCompleted: z.boolean(),
     approvalWaiting: z.boolean(),

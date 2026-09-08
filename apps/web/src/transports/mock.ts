@@ -84,7 +84,7 @@ const SCRIPTS: Record<MockScenario, string> = {
 }
 
 /** 脚本首行：会话元数据（非事件） */
-export interface ScenarioMeta {
+interface ScenarioMeta {
   sparkVersion: string
   cwd: string
   createdAt: number

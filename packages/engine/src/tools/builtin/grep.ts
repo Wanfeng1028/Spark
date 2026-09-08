@@ -31,6 +31,7 @@ const GrepInput = z.strictObject({
 
 type GrepInput = z.infer<typeof GrepInput>
 
+/** **必须 export**：出现在同文件已导出的 GrepResult.matches 字段类型位置（声明发射约束，同 Budget） */
 export interface GrepMatch {
   file: string
   line: number

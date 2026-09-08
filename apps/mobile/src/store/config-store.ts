@@ -12,7 +12,7 @@ import type { AppearancePreference } from '../theme/tokens'
 
 const CONFIG_KEY = 'spark.config'
 
-export interface MobileConfig {
+interface MobileConfig {
   /** 服务器基址（配对所得或手输 `http://host:port`）；空 = 未配置 */
   serverUrl: string
   /** 配对长效 token（非环回必需；环回缺省形态可空） */
@@ -27,7 +27,7 @@ interface PersistedConfig {
   appearance: AppearancePreference
 }
 
-export const DEFAULT_CONFIG: MobileConfig = {
+const DEFAULT_CONFIG: MobileConfig = {
   serverUrl: '',
   token: '',
   appearance: 'system',

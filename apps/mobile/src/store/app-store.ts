@@ -13,7 +13,7 @@ import type {
 } from '@spark/protocol'
 import { applyEvent } from '@spark/protocol'
 
-export type MobileConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
+type MobileConnectionStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
 
 export interface AppState extends ProjectionState {
   status: MobileConnectionStatus

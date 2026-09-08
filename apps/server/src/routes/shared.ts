@@ -23,8 +23,6 @@ import type {
 import type { SessionTreeInfo, SessionTreeNode } from '@spark/engine'
 import type { Engine, SessionHandle, SessionMeta } from '@spark/engine'
 
-export { DeliverySchema, TurnIdSchema } from '@spark/protocol'
-
 export interface RoutesOptions {
   engine: Engine
 }
@@ -103,7 +101,6 @@ export const IdParams = z.strictObject({ id: SessionIdSchema })
 // 本地定义会漂移；此处 re-export 协议原件保持单一来源）
 export { FsQuerySchema } from '@spark/protocol'
 export { FsTreeQuerySchema } from '@spark/protocol'
-export type { FsEntryDto, FsTreeDto } from '@spark/protocol'
 
 export const FS_LIST_LIMIT = 200
 export const RequestIdParams = z.strictObject({ requestId: RequestIdSchema })

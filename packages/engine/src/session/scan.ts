@@ -10,7 +10,7 @@ import { SessionStore } from './store.js'
 import type { ForkChildInfo, SessionMeta } from '../engine-types.js'
 
 /** `<ts>_<id>.jsonl` → id；非会话文件（无时间戳前缀 / 双分隔）→ null */
-export function idOfFileName(file: string): SessionId | null {
+function idOfFileName(file: string): SessionId | null {
   if (!file.endsWith('.jsonl')) return null
   const stem = file.slice(0, -'.jsonl'.length)
   const sep = stem.indexOf('_')

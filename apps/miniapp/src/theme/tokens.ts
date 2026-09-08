@@ -45,7 +45,7 @@ export interface ThemeTokens {
 }
 
 /** 亮色（§13.C :root 默认；pageBackground 按 J.0 取浅灰） */
-export const lightTheme: ThemeTokens = {
+const lightTheme: ThemeTokens = {
   background: '#ffffff',
   pageBackground: '#F7F7F7',
   foreground: '#18181b',
@@ -65,7 +65,7 @@ export const lightTheme: ThemeTokens = {
 }
 
 /** 暗色（§13.C .dark；pageBackground 按 J.0 取 #09090b） */
-export const darkTheme: ThemeTokens = {
+const darkTheme: ThemeTokens = {
   background: '#09090b',
   pageBackground: '#09090b',
   foreground: '#fafafa',

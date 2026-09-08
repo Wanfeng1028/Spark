@@ -7,7 +7,7 @@ import type { BrowserWindow, Notification as ElectronNotification } from 'electr
 import { loadDesktopConfig, NotifyGate, shouldNotify, type DesktopConfig } from './notify.js'
 
 /** SSE 帧解析：按空行分帧，取 data: 行拼 JSON（server 帧 = `event: message\ndata: {...}`）；解析失败返回 null */
-export function parseSseFrame(frame: string): unknown {
+function parseSseFrame(frame: string): unknown {
   const dataLines = frame
     .split('\n')
     .filter((l) => l.startsWith('data:'))

@@ -6,7 +6,7 @@
  * 工单 10.20 C：占位页一律明示去向（v2 编号/桌面依赖），禁"后续工单"空占位。
  */
 
-export type SettingsPageStatus = 'ready' | 'placeholder'
+type SettingsPageStatus = 'ready' | 'placeholder'
 
 export interface SettingsPageDef {
   /** 路由段（/settings/:page） */

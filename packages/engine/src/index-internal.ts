@@ -40,6 +40,7 @@ export { ScriptedLlm, type ScriptedStep, type ScriptedDelta } from './scripted-l
 export {
   runSessionLoop,
   runTurn,
+  type Budget,
   type Projector,
   type Compactor,
   type Checkpointer,
@@ -96,6 +97,12 @@ export {
 // ---- 权限：规则求值与服务实现 ----
 export { evaluate, type Effect } from './permission/rules.js'
 export { PermissionServiceImpl, type PermissionServiceDeps } from './permission/service.js'
+
+// ---- 形状类型转出：以下三个符号必须 export（出现在同文件已导出接口的字段类型位置，
+// 私有会让声明发射报 TS4033），转到这里使它们有消费者，knip 才不再报未引用导出 ----
+export { type ProviderApiKind } from './model-catalog.js'
+export { type SkillHookDef } from './skills/loader.js'
+export { type GrepMatch } from './tools/builtin/grep.js'
 
 // ---- 投影 / 压缩 / 检查点 ----
 export {
