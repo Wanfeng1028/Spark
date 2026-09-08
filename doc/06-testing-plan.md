@@ -13,6 +13,7 @@
 | v1.6 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令；因由：本机零验证后首次看 CI 发现 nightly 红） | **§2 nightly 行补两处 fail-soft 修正**：① nightly.yml 真评步骤在无 `SPARK_EVAL_API_KEY` 时 `exit 0`（此前只打 notice 仍写 models.json 并跑 `--real`，18 个真实场景走到 provider 错误，两个审批交互场景因等不到 `permission.asked` 而超时落 fail → nightly 恒红，违反工单 11.5 "无 secrets 仍 skip 不红"验收）；② tasks 套两个交互场景改用 `waitForApproval`：turn 先以 provider 错误闭合或 60s 超时 → EnvUnavailable → **skip**（代价：真挂死与无凭据在本层不可区分，宁漏报不让 nightly 恒红）。与 doc/02 v4.3、doc/08 v1.18 同批 |
 | v1.7 | 2026-09-08 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **§2 CI 表 push main 行补 knip 一步**（工单 14.1 第二批）：现状命令链改为六步（文档检查器 → typecheck → lint → **knip** → test → eval），并在目标列说明为何是 lint 后的独立一步而不并进 `pnpm lint`（报告形状与失败语义不同，混在一起会让 eslint 红灯被 knip 噪声掩盖；同为硬门）；配置在根 `knip.jsonc`、首份报告 86 项裁决表在 doc/02 §4.6.3。与 AGENTS v1.32、ARCHITECTURE v1.36、doc/02 v4.7、doc/08 v1.21 同批 |
 | v1.8 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **§2 CI 表 push main 行补末位 `pnpm -r build`**（工单 14.1 第三批）：理由写入表内——typecheck 是 `--noEmit`，查不出声明发射错（TS4033：已导出接口用了私有名），而 engine/protocol 发布靠 declaration: true；不放进来这类回归只在 release/desktop 打包时炸（本批把符号降为私有时实际踩到：四个符号必须保留 export）。放末位：先收齐其余信号，不让构建失败掩盖测试结果。同批：knip 的 `include` 已加回 exports/types 且零发现（裁决与处置见 doc/02 §4.6.3 "第三批已执行"段）。与 AGENTS v1.33、ARCHITECTURE v1.37、doc/02 v4.8、doc/08 v1.22 同批 |
+| v1.9 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **§1 L1.5 契约层落地（工单 14.2）**：表中启用时机改"已落地（schema 级）"；§1 末的"契约测试生成规则"按实现重写——生成器位置与跑法、自动枚举范围（ids/primitives/api 的 `*Schema` + EventSchemas 21 + EnvelopeSchema = 90 个 describe）、三类断言（解析幂等与 JSON 往返 / JSON Schema 可导出 / 变异必被拒）、**禁随机的样例合成策略**（走 `z.toJSONSchema` 公共出口不碰 zod 内部；未登记正则 → 抛错而不猜；豁免表必写理由且目标为空）、CI 同步门禁（gen + `git diff --exit-code`）。**新增一段口径修正**：原规划写"合法 payload 打 server 路由断言 2xx"，但依赖方向是 server → protocol，路由级用例不能住在 protocol 包里——**路由级归第二批**（住 apps/server/tests 复用同一套合成器，或由 14.4 InProcessTransport 契约套件承载；等 14.3/14.4 定型再落，避免选错位置），server 手写的 400/404/409 映射保留至那时（§4 升级建议同步）。§2 CI 表 push main 行补契约同步两步。与 AGENTS v1.34、doc/02 v4.12、doc/08 v1.24 同批 |
 
 > **定位**：本文是测试体系的**规划文档**——只定分层、选型、命令、基线与入库位置；workflow 与代码随 doc/02 §8 各阶段工单落地（阶段六工单 6.8 落首批组件/E2E，阶段七工单 7.11 接 eval 与 nightly，阶段八补 CLI 层，阶段九补移动端层）。落地时若与本文冲突，先改本文（附版本记录）再写代码。
 > **现状基线**（2026-08-26 实测，main=`ace77d5`）：456 例单测全绿 + typecheck/lint 全绿 + CI（`check_doc_links.py` → typecheck → lint → test）；测试框架 vitest ^3.2.4 全仓统一。
@@ -25,7 +26,7 @@
 | 层 | 对象 | 选型 | 入库位置 | 启用时机 |
 | -- | ---- | ---- | -------- | -------- |
 | L1 单测 | 引擎/协议纯逻辑 | vitest（现状延续） | packages/*/tests/ | 已启用（456 例） |
-| L1.5 契约 | protocol zod schema ↔ server 路由 ↔ 前端消费 | vitest + 由 zod schema 自动生成往返用例 | packages/protocol/tests/contract/ | 阶段六起（见 §4 升级建议） |
+| L1.5 契约 | protocol zod schema ↔ server 路由 ↔ 前端消费 | vitest + 由 zod schema 自动生成往返用例 | packages/protocol/tests/contract/ | **已落地（阶段十四工单 14.2，schema 级）**；路由级见 §1 末生成规则 |
 | L2 组件 | web React 组件 | vitest + @testing-library/react + jsdom | apps/web/tests/components/ | 阶段六工单 6.8 首批 |
 | L3 E2E | 用户旅程（mock 四场景 + 真实 server 冒烟 + 断线） | Playwright（chromium 单浏览器，禁多浏览器矩阵） | apps/web/e2e/ | 阶段六工单 6.8 首批 |
 | L3.5 视觉回归 | 页面截图 diff | Playwright 截图 + pixelmatch，阈值 0.1% | apps/web/e2e/__screenshots__/ | 阶段六起新页面才入基线 |
@@ -39,7 +40,9 @@
 2. 真实 server 冒烟：起 apps/server（ScriptedLlm 注入）→ 建会话 → 发消息 → 断言 SSE 事件到达与 UI 投影——CI 不依赖真实 API key；
 3. **用户断线场景（标准用例）**：mock 返回 E_MOCK_UNKNOWN_SESSION → 断言顶部细条人话文案（"会话不存在或已被清理"）与原码折叠详情——这是 6.7 错误人话化的验收载体，也是所有错误态 E2E 的模板。
 
-**契约测试生成规则**：以 packages/protocol 的 zod schema 为唯一事实源，脚本生成两类用例——①合法 payload 打 server 路由断言 2xx 与响应 DTO schema；②非法 payload 断言 400 E_VALIDATION。生成物入库 packages/protocol/tests/contract/，schema 变更时重生成（CI 校验生成物与 schema 同步）。
+**契约测试生成规则**（工单 14.2 已落地，以 `packages/protocol/scripts/gen-contract.ts` 为准）：以 protocol 的 zod schema 为唯一事实源，`pnpm --filter @spark/protocol gen:contract`（tsx 直跑）自动枚举全部 `*Schema` 导出（ids/primitives/api）+ `EventSchemas` 21 种 + `EnvelopeSchema`，生成两个入库文件（`tests/contract/wire.contract.test.ts` 与 `dto.contract.test.ts`，头部标"自动生成、勿手改"），每个 schema 三类断言：① 合法样例 zod 解析幂等 + JSON 往返一致；② `z.toJSONSchema` 可导出（SDK/OpenAPI 的公共出口）；③ 变异非法样例必被拒（逐必填字段缺失 / 逐字段类型错 / strictObject 的未知键）。**样例值策略：禁随机**——合成器走 `z.toJSONSchema` 的稳定公共出口（不碰 zod 内部结构），枚举取首项、数字取下界、字符串取固定词；受约束字符串靠 `PATTERN_SAMPLES` 登记表（**未登记的正则 → 生成器抛错**而不猜）；不支持的构造抛错，豁免进 `EXEMPT` 且必须写理由（目标：豁免表保持为空）。**同步门禁**：ci.yml 在 test 之前重跑生成器 + `git diff --exit-code packages/protocol/tests/contract`——改 schema 不重生成即红。
+
+**路由级契约（①合法 payload 打 server 路由断言 2xx、②非法 payload 断言 400 E_VALIDATION）归 14.2 第二批**，理由：依赖方向是 server → protocol，路由级用例不能住在 protocol 包里；要么住 `apps/server/tests` 并复用同一套合成器（需先把合成器提到可共享位置），要么由 14.4 的 InProcessTransport 契约套件承载——两者都等 14.3/14.4 定型后再落，避免现在选错位置。当前 400/404/409 映射仍由 apps/server/tests/routes.test.ts 手写覆盖（§4 的"一半实为契约测试"那一半，替换时机同上）。
 
 ---
 
@@ -54,7 +57,7 @@
 
 | 触发 | 现状（ci.yml，ubuntu-latest，node 24） | 目标追加 |
 | ---- | ---- | ---- |
-| push main | `check_doc_links.py` → `pnpm typecheck` → `pnpm lint` → `pnpm knip` → `pnpm test` → `pnpm eval` → `pnpm -r build` | eval 冒烟自工单 13.1 第三批进主 CI（doc/08 §13.1 验收第 1 条与提示词第 4 条："CI（非 nightly）用 ScriptedLlm 冒烟"）：core 四场景 + 任务级判分双向自检 13 场景，无 key 无网络约 10s。**knip 自工单 14.1 第二批进主 CI**（ARCHITECTURE §9.6 "未引用导出/依赖"硬检查项）：lint 后的**独立一步**而不并进 `pnpm lint`——两个工具报告形状与失败语义不同，混在一起会让 eslint 红灯被 knip 噪声掩盖；配置在根 `knip.jsonc`（每处 entry/ignore 原地写理由），首份报告 86 项裁决表见 doc/02 §4.6.3。**`pnpm -r build` 自工单 14.1 第三批进主 CI（末位）**：`pnpm typecheck` 是 `--noEmit`，查不出**声明发射错**（TS4033：已导出接口用了私有名），而 engine/protocol 发布靠 `tsconfig.build.json`（declaration: true）——不放进来这类回归只在 release/desktop 打包时炸；放末位是为了先收齐其余信号，不让构建失败掩盖测试结果 |
+| push main | `check_doc_links.py` → `pnpm typecheck` → `pnpm lint` → `pnpm knip` → `gen:contract` + `git diff --exit-code` → `pnpm test` → `pnpm eval` → `pnpm -r build` | eval 冒烟自工单 13.1 第三批进主 CI（doc/08 §13.1 验收第 1 条与提示词第 4 条："CI（非 nightly）用 ScriptedLlm 冒烟"）：core 四场景 + 任务级判分双向自检 13 场景，无 key 无网络约 10s。**knip 自工单 14.1 第二批进主 CI**（ARCHITECTURE §9.6 "未引用导出/依赖"硬检查项）：lint 后的**独立一步**而不并进 `pnpm lint`——两个工具报告形状与失败语义不同，混在一起会让 eslint 红灯被 knip 噪声掩盖；配置在根 `knip.jsonc`（每处 entry/ignore 原地写理由），首份报告 86 项裁决表见 doc/02 §4.6.3。**`pnpm -r build` 自工单 14.1 第三批进主 CI（末位）**：`pnpm typecheck` 是 `--noEmit`，查不出**声明发射错**（TS4033：已导出接口用了私有名），而 engine/protocol 发布靠 `tsconfig.build.json`（declaration: true）——不放进来这类回归只在 release/desktop 打包时炸；放末位是为了先收齐其余信号，不让构建失败掩盖测试结果 |
 | PR | 同上 | 追加 Playwright job（L3 E2E + L2 组件），仅 chromium 一档 |
 | nightly（nightly.yml，7.11 已落地） | eval 回归 job：`pnpm eval`（同上 17 场景，任一 fail 即红）+ `pnpm eval --real`（真实模型评分：`--real` 缺省 suite=all → core 4 + 判分冒烟 13 + real 1 + tasks 17；仓库无 secrets → 恒 skip 不红。**工单 13.1 第三批修正**：此前 `--real` 未带 `--suite` 时 suite 缺省 core，real 与 tasks 两套一个也不跑——真评步骤恒空转）。**2026-09-08 再修（nightly 恒红）**：无 `SPARK_EVAL_API_KEY` 时步骤直接 `exit 0`——此前只打 notice 却仍写 models.json 并跑 `--real`，结果 loadConfig 拿到指向空密钥的配置，18 个真实场景逐个走到 provider 错误，其中两个审批交互场景因等不到 `permission.asked` 而超时落 **fail** → nightly 红（违反 11.5 "无 secrets 仍 skip 不红"）；同时 tasks 的两个交互场景改用 waitForApproval（turn 先以 provider 错误闭合或 60s 超时 → EnvUnavailable → skip） | 视觉回归三视口 + 性能基线断言（§3）随阶段八/九接入 |
 | desktop 打包 | desktop-win.yml（手动，windows-latest，NSIS 产物上传 artifact） | 打包后 smoke：安装 → healthz 200 → Web UI 伺服（5.1 已实证的 Linux `--win zip` 路径固化为 job 内一步） |
