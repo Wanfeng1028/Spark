@@ -59,6 +59,12 @@ const INTERNAL_ONLY = [
   'runTurn',
 ] as const
 
+/**
+ * 生产代码里的 internal **引用**：只匹配 import/export 的模块标识符，不匹配注释与文档里的
+ * 散文提及（engine 自己的 index.ts / index-internal.ts 头注释就写着这个子路径，裸子串扫描会误报）。
+ */
+const INTERNAL_IMPORT_RE = /(?:from|import)\s*['"]@spark\/engine\/internal['"]/
+
 /** 递归收集目录下指定扩展名的文件（只走 src，不进 node_modules/dist） */
 function collectSources(dir: string, exts: readonly string[], out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -110,7 +116,7 @@ describe('生产代码不得消费 internal（工单 14.1 验收）', () => {
     const offenders: string[] = []
     for (const root of roots) {
       for (const file of collectSources(root, exts)) {
-        if (readFileSync(file, 'utf8').includes('@spark/engine/internal')) {
+        if (INTERNAL_IMPORT_RE.test(readFileSync(file, 'utf8'))) {
           offenders.push(file.slice(repoRoot.length + 1))
         }
       }
