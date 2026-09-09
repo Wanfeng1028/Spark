@@ -8,6 +8,7 @@
 1. 【error】markdown 相对链接可解析：[text](path.md#anchor)，剥锚点后目标须存在
 2. 【error】跨文档事实一致性：
    a) 事件词表计数：doc/02 §4.3 标题 == ARCHITECTURE 事件模型行 == AGENTS §2.8 == README 词表行
+   a2) 事件词表计数副锚点：doc/02 §6.4 处理表标题 == doc/03 §4 对比表行
    b) 参考速查表计数：doc/02 §9 标题 == AGENTS §5
 3. 【warn，--strict 升级为 error】反引号内仓库相对路径存在性：
    仅检查已知根前缀（packages/apps/doc/scripts/examples/.github/.agents 等），
@@ -90,6 +91,14 @@ FACT_RULES: dict[str, dict[str, str]] = {
     "参考速查表条数": {
         "doc/02-development-plan.md": r"^# 9\. 参考速查表（(\d+) 条）",
         "AGENTS.md": r"完整 (\d+) 条速查表在",
+    },
+    # 副锚点（doc/02 v4.40）：同一事实在 doc/02 内还有第二处（§6.4 处理表标题），而每条
+    # 规则以文件名为键——同文件只能挂一个锚点，故另立一条规则交叉校验它与 doc/03 §4 对比表行。
+    # 由来：工单 16.3 第一批改了 §4.3 却漏了 §6.4（标题停在 21 种、表里已 22 行），
+    # doc/03 更是自阶段七两次扩表后一直停在 19 种——两处都不在主规则锚点上，默漂了多个版本。
+    "事件词表计数（副锚点）": {
+        "doc/02-development-plan.md": r"\*\*applyEvent 处理表（(\d+) 种全覆盖）\*\*",
+        "doc/03-frontend-approach.md": r"reducer 事件表单测\*\*（(\d+) 种事件逐一断言）",
     },
 }
 
