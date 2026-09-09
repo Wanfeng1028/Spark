@@ -89,7 +89,11 @@ function render(): void {
   }
   const slice = state.byId[sid]
   if (slice === undefined) return
-  statusEl.textContent = `${slice.meta.title === '' ? '新会话' : slice.meta.title} · ${slice.meta.status}`
+  // 运行态从投影派生（不从 meta 读）：SessionMeta 没有 status 字段——四端的"忙不忙"
+  // 一律由 activeTurn 算出（waiting = 等审批），这正是"UI = 事件流投影"的具体体现
+  const turn = slice.activeTurn
+  const busy = turn === null ? '空闲' : turn.waiting ? '等审批' : `进行中（第 ${turn.stepCount} 步）`
+  statusEl.textContent = `${slice.meta.title === '' ? '新会话' : slice.meta.title} · ${busy}`
   if (slice.items.length === 0) {
     const empty = document.createElement('div')
     empty.className = 'row muted'
