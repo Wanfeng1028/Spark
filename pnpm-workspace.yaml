@@ -2,3 +2,6 @@ packages:
   - 'apps/*'
   - 'packages/*'
   - 'examples/evals'
+  # SDK 画廊三例（工单 14.5）：入 workspace 以得到 CI 的 typecheck/lint/knip 覆盖
+  - 'examples/sdk-bot'
+  - 'examples/sdk-viewer'

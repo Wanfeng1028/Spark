@@ -1,0 +1,26 @@
+{
+  "name": "@spark/example-viewer",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "SDK 画廊·最小 web viewer（工单 14.5）：createClient + applyEvent → 只读消息流，证明第三方 UI 就是事件流的投影",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@spark/protocol": "workspace:*",
+    "@spark/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6"
+  },
+  "contributors": [
+    "Jules (AI Assistant)",
+    "Doubao (AI Assistant)",
+    "opencode (AI Assistant)"
+  ]
+}

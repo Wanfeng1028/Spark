@@ -16,6 +16,19 @@
         "src/pages/*/index.tsx",
         "src/pages/*/index.config.ts",
         "config/index.ts"
+      ],
+      // 2026-09-09 h5 联调批新增的隐式引用（与下方顶层 @tarojs/* 豁免同性质，knip 只跟
+      // 静态 import 图看不到）：
+      // - @tarojs/plugin-platform-h5：h5 构建目标（dev:h5 / taro build --type h5）由
+      //   Taro CLI 按平台装载，模块图不 import 它
+      // - @pmmmwh/react-refresh-webpack-plugin 与 react-refresh：Taro H5 dev 模式的
+      //   fast-refresh 由 plugin-framework-react 以裸 require 装载（dist setPlugin 内
+      //   require('@pmmmwh/react-refresh-webpack-plugin')）+ babel-preset-taro 的
+      //   react-refresh/babel（TARO_PLATFORM=web 时注入），均非静态引用
+      "ignoreDependencies": [
+        "@tarojs/plugin-platform-h5",
+        "@pmmmwh/react-refresh-webpack-plugin",
+        "react-refresh"
       ]
     },
     "apps/cli": {
@@ -25,6 +38,14 @@
       // 最小连接示例与嵌入示例（工单 14.3/14.4）：人工 `pnpm --filter @spark/sdk example|embed`
       // 直跑，不被任何模块 import
       "entry": ["examples/minimal.ts", "examples/embed.ts"]
+    },
+    "examples/sdk-bot": {
+      // 脚本入口（package.json 的 start 用 tsx 直跑；bot.ts 被 main.ts 与测试 import）
+      "entry": ["main.ts"]
+    },
+    "examples/sdk-viewer": {
+      // index.html 用 <script type="module" src="./main.ts"> 引入——knip 不解析 HTML，故登记为入口
+      "entry": ["main.ts", "vite.config.ts"]
     }
   },
 
