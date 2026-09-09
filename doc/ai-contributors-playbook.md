@@ -113,7 +113,7 @@ GitHub 账号开 PR」。个人账号下跑出来可能仍挂在本人名下。
 | Windsurf | `.windsurf/rules/` | ✗ |
 | Qoder | `.qoder/` | ✗ |
 | Arena Agent | 本次会话 | 已进（显示为 `arena-ai-coding-agent[bot]`） |
-| OpenHands | `.agents/skills/` | 真实提交（author= `openhands-agent`，type: User） |
+| OpenHands | `.agents/skills/` | 真实提交（author= `openhands-agent`，邮箱 `openhands@all-hands.dev`，type: User） |
 
 ## 一致性提醒
 
