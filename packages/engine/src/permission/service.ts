@@ -223,12 +223,29 @@ export class PermissionServiceImpl implements PermissionService {
     }
   }
 
+  /**
+   * 模式变更即作废该会话全部挂起审批（工单 16.3 第三批）。
+   * qwen-code 用 approvalModeRevision 惰性快照（批准回来再比对，变了就不生效）；
+   * Spark 改**主动结清**，三点理由：① 四端不留僵尸审批卡（卡还在但点了不生效）；
+   * ② 不必把"模式修订号"漏进通用管线与工具上下文；③ 顺带堵住一条绕过面——
+   * 进 plan 前已挂起的写批准，若不结清，用户进 plan 后再点放行，管线拿到 allowed 就照跑
+   * （规则层只在 assert 时评估一次），plan 档"写类全拒"即被架空。
+   * 结清语义同超时/中断：resolve(deny) + permission.resolved{reject}，审计归因 mode-change。
+   */
+  async invalidatePending(sessionId: SessionId): Promise<void> {
+    for (const entry of [...this.pending.values()]) {
+      if (entry.sessionId === sessionId) {
+        await this.settle(entry, false, 'reject', 'mode-change')
+      }
+    }
+  }
+
   /** 结清一项：resolved 事件 + 工具侧 resolve。落盘失败也必须闭合（finally） */
   private async settle(
     entry: PendingEntry,
     allowed: boolean,
     reply: PermissionReply,
-    origin: 'reply' | 'timeout' | 'abort' | 'shutdown' | 'cascade',
+    origin: 'reply' | 'timeout' | 'abort' | 'shutdown' | 'cascade' | 'mode-change',
     feedback?: string,
   ): Promise<void> {
     if (entry.settled) return

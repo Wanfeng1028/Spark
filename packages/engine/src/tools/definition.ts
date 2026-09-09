@@ -52,6 +52,13 @@ export interface ToolDefinition<I = unknown> {
   }
   /** read=true；bash/edit/write=false（串行 barrier） */
   parallelizable: boolean
+  /**
+   * 执行边界（工单 16.3 第三批；qwen-code 把 enter/exit_plan_mode 当边界的同款语义）：
+   * 本工具**成功**执行后，同一 step 剩下的调用一律跳过并如实回 E_MODE_BOUNDARY——
+   * 模式/档位已变，同批其余调用是在旧模式的假设下拟定的，留待下一轮模型观察新模式再发。
+   * 失败（含审批拒绝）不算边界：什么都没变，后续调用照原路径执行。
+   */
+  executionBoundary?: boolean
   execute(ctx: ToolContext, input: I): Promise<ToolOutput>
 }
 

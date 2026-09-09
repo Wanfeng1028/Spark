@@ -360,6 +360,56 @@ describe('fail-closed（超时/中断/dispose）', () => {
   })
 })
 
+describe('invalidatePending（模式变更作废挂起审批，工单 16.3 第三批）', () => {
+  test('挂起项 resolve(deny) + resolved{reject}，不再等审批', async () => {
+    const { sink, service } = makeService()
+    const a = await pendAsk(service, sink, makeCheck().check)
+    const b = await pendAsk(
+      service,
+      sink,
+      makeCheck({ name: 'write', action: 'fs.write', resource: 'file:/tmp/a' }).check,
+    )
+    expect(service.isWaitingApproval(SID)).toBe(true)
+
+    await service.invalidatePending(SID)
+
+    expect(await a.promise).toBe(false)
+    expect(await b.promise).toBe(false)
+    expect(service.isWaitingApproval(SID)).toBe(false)
+    const resolved = sink.events.filter((e) => isEvent(e, 'permission.resolved'))
+    expect(resolved).toHaveLength(2)
+    expect(resolved.every((e) => isEvent(e, 'permission.resolved') && e.data.reply === 'reject')).toBe(
+      true,
+    )
+  })
+
+  test('作废后再 reply 同一 requestId → false（批准作废：四端不留僵尸卡）', async () => {
+    const { sink, service } = makeService()
+    const { requestId } = await pendAsk(service, sink, makeCheck().check)
+    await service.invalidatePending(SID)
+    expect(await service.reply(requestId, 'once')).toBe(false)
+  })
+
+  test('只影响该会话（他会话挂起不动——子代理/多会话并发不误伤）', async () => {
+    const { sink, service } = makeService()
+    const mine = await pendAsk(service, sink, makeCheck().check)
+    const other = await pendAsk(service, sink, makeCheck({ sessionId: SID2 }).check)
+
+    await service.invalidatePending(SID)
+
+    expect(await mine.promise).toBe(false)
+    expect(service.isWaitingApproval(SID2)).toBe(true)
+    expect(await service.reply(other.requestId, 'once')).toBe(true)
+    expect(await other.promise).toBe(true)
+  })
+
+  test('无挂起时调用 → 零事件（幂等，不造噪声行）', async () => {
+    const { sink, service } = makeService()
+    await service.invalidatePending(SID)
+    expect(sink.events).toHaveLength(0)
+  })
+})
+
 describe('deny 工具不广告（§5.7 补强 5）', () => {
   test('resource ** 的 deny 规则 → isDenied true', () => {
     const { service } = makeService({

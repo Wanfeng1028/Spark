@@ -3,6 +3,8 @@
  *
  * 分组：连续 parallelizable 段归一组（Promise.all，并发上限 maxToolParallel 分批），
  * 遇 serial 工具（bash/edit/write）单独成 barrier（dsh exclusive 语义）。
+ * 执行边界（工单 16.3 第三批）：`executionBoundary` 工具成功后，同批剩余调用不执行，
+ * 补 started+completed{E_MODE_BOUNDARY} 事件对并回喂（qwen-code enter/exit_plan_mode 同款）。
  * abort 双检点（pi prepareToolCall）：工具启动前查 signal（未启动 → 补
  * started+completed{E_ABORTED} 事件对，dsh 重放合法原则）；串行链项间 break；
  * 并行组等待已启动者自然结束（跑到静默）。
@@ -60,6 +62,17 @@ function mapError(err: unknown): { code: string; message: string } {
 interface CallGroup {
   parallel: boolean
   calls: ToolCallPending[]
+}
+
+/**
+ * 执行边界跳过的一致性输出（工单 16.3 第三批）：tool.completed 事件与 run-loop 的
+ * toolResult 回喂共用同一份，两面口径不分叉（模型看到的就是事件里落的）。
+ */
+const MODE_BOUNDARY_OUTPUT = {
+  code: 'E_MODE_BOUNDARY',
+  message:
+    'E_MODE_BOUNDARY: 本批已因模式切换而中止（前一个调用改了会话模式，它是执行边界）——' +
+    '本调用未执行。请在下一轮根据新模式与系统提示重新发起。',
 }
 
 /** 进度门控队列（§5.6.3 pi 模式）：节流合并 + 关门排水保序 */
@@ -124,6 +137,8 @@ export class ToolPipelineImpl implements ToolPipeline {
   ): Promise<ToolPipelineResult[]> {
     const groups = this.group(calls)
     const results: ToolPipelineResult[] = []
+    /** 已命中执行边界（工单 16.3 第三批）：此后各组一律不执行 */
+    let boundary = false
     for (const group of groups) {
       if (turn.abort.signal.aborted) {
         // 组未启动：整组补 E_ABORTED 事件对（每个 started 必有 completed）
@@ -133,6 +148,15 @@ export class ToolPipelineImpl implements ToolPipeline {
         }
         continue
       }
+      if (boundary) {
+        // 边界后的调用不执行：同样补事件对（失败闭合 + 重放合法），如实告知模型原因
+        for (const call of group.calls) {
+          await this.emitBoundaryPair(turn, call)
+          results.push({ callId: call.callId, output: MODE_BOUNDARY_OUTPUT, isError: true })
+        }
+        continue
+      }
+      const from = results.length
       if (group.parallel) {
         const batches = this.chunk(group.calls, this.deps.maxToolParallel)
         for (const batch of batches) {
@@ -156,8 +180,26 @@ export class ToolPipelineImpl implements ToolPipeline {
           results.push(await this.runOne(turn, call))
         }
       }
+      if (this.hitBoundary(group, results.slice(from))) boundary = true
     }
     return results
+  }
+
+  /**
+   * 边界判定（工单 16.3 第三批）：本组内有 `executionBoundary` 工具且**成功**（isError=false）。
+   * 与 qwen-code 的偏离：qwen 按工具名无条件跳过同批 siblings，Spark 只在边界调用真成功后跳——
+   * 失败（含审批拒绝）意味着模式根本没变，拿"去观察新模式"当理由不属实，也白浪费一轮。
+   */
+  private hitBoundary(
+    group: CallGroup,
+    groupResults: readonly ToolPipelineResult[],
+  ): boolean {
+    for (const call of group.calls) {
+      if (this.deps.registry.resolve(call.name)?.executionBoundary !== true) continue
+      const result = groupResults.find((r) => r.callId === call.callId)
+      if (result !== undefined && !result.isError) return true
+    }
+    return false
   }
 
   /** §5.6.2 runOne：started →（权限门）→ execute → bound → completed */
@@ -326,6 +368,23 @@ export class ToolPipelineImpl implements ToolPipeline {
       turnId: turn.turnId,
       callId: call.callId,
       output: { code: 'E_ABORTED' },
+      isError: true,
+      durationMs: 0,
+    })
+  }
+
+  /** 执行边界后跳过：补事件对（E_MODE_BOUNDARY，工单 16.3 第三批） */
+  private async emitBoundaryPair(turn: TurnCtx, call: ToolCallPending): Promise<void> {
+    await this.deps.bus.emit(this.deps.sessionId, 'tool.started', {
+      turnId: turn.turnId,
+      callId: call.callId,
+      name: call.name,
+      input: call.input,
+    })
+    await this.deps.bus.emit(this.deps.sessionId, 'tool.completed', {
+      turnId: turn.turnId,
+      callId: call.callId,
+      output: MODE_BOUNDARY_OUTPUT,
       isError: true,
       durationMs: 0,
     })

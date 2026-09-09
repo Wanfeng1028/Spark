@@ -47,7 +47,15 @@ interface FakeRecorder {
 
 function fakeTool(
   name: string,
-  opts: { parallelizable: boolean; delayMs?: number; output?: unknown; isError?: boolean; rec?: FakeRecorder },
+  opts: {
+    parallelizable: boolean
+    delayMs?: number
+    output?: unknown
+    isError?: boolean
+    rec?: FakeRecorder
+    /** 执行边界（工单 16.3 第三批）：成功后同批剩余调用跳过 */
+    boundary?: boolean
+  },
 ): ToolDefinition {
   return {
     name,
@@ -58,6 +66,7 @@ function fakeTool(
       resourceOf: () => `fake:${name}`,
     },
     parallelizable: opts.parallelizable,
+    ...(opts.boundary === true ? { executionBoundary: true } : {}),
     async execute(ctx, input) {
       opts.rec?.order.push(`start:${name}`)
       if (opts.rec !== undefined) {
@@ -339,5 +348,75 @@ describe('ToolPipelineImpl.runAll（§5.6.2）', () => {
     const output = (completed?.data as { output: { code: string } }).output
     // zod v4 错误 message 不带 E_ 前缀 → E_INTERNAL 兜底（fail-closed，事件闭合）
     expect(['E_INTERNAL', 'E_VALIDATION']).toContain(output.code)
+  })
+})
+
+describe('执行边界（工单 16.3 第三批：qwen-code enter/exit_plan_mode 同款）', () => {
+  test('边界工具成功 → 同批后续不执行，补 started+completed{E_MODE_BOUNDARY} 对', async () => {
+    const f = await makeFixture()
+    const rec: FakeRecorder = { active: 0, maxActive: 0, order: [] }
+    f.registry.register(fakeTool('exitplan', { parallelizable: false, boundary: true, rec }))
+    f.registry.register(fakeTool('write', { parallelizable: false, rec }))
+
+    const results = await f.pipeline.runAll(makeTurn(), [
+      pending('exitplan', 1),
+      pending('write', 2),
+      pending('write', 3),
+    ])
+
+    expect(rec.order).toEqual(['start:exitplan', 'end:exitplan']) // 只有边界工具真跑
+    expect(results.map((r) => r.isError)).toEqual([false, true, true])
+    expect(results[1]?.output).toMatchObject({ code: 'E_MODE_BOUNDARY' })
+    expect(results[2]?.output).toMatchObject({ code: 'E_MODE_BOUNDARY' })
+    // 跳过的调用也不悬空：每个 started 必有配对 completed（重放合法）
+    const startedIds = f.sink.events
+      .filter((e) => e.type === 'tool.started')
+      .map((e) => (e.data as { callId: string }).callId)
+    const completedIds = f.sink.events
+      .filter((e) => e.type === 'tool.completed')
+      .map((e) => (e.data as { callId: string }).callId)
+    expect(startedIds).toHaveLength(3)
+    expect(startedIds.sort()).toEqual(completedIds.sort())
+    // 权限门也没碰过被跳过的调用（不产生挂起审批）
+    expect(f.perm.checks.map((c) => c.name)).toEqual(['exitplan'])
+  })
+
+  test('边界工具被权限门拒（审批拒绝）→ 不算边界：后续调用照原路径评估', async () => {
+    const f = await makeFixture()
+    const rec: FakeRecorder = { active: 0, maxActive: 0, order: [] }
+    f.registry.register(fakeTool('exitplan', { parallelizable: false, boundary: true, rec }))
+    f.registry.register(fakeTool('write', { parallelizable: false, rec }))
+    f.perm.decision = false
+
+    const results = await f.pipeline.runAll(makeTurn(), [
+      pending('exitplan', 1),
+      pending('write', 2),
+    ])
+
+    // 模式根本没变，拿"去观察新模式"当理由不属实——后续项得到的是自己的真实结果
+    expect(results.map((r) => r.output)).toEqual([
+      { code: 'E_PERMISSION' },
+      { code: 'E_PERMISSION' },
+    ])
+    expect(rec.order).toEqual([])
+    expect(f.perm.checks.map((c) => c.name)).toEqual(['exitplan', 'write'])
+  })
+
+  test('边界工具自身失败（isError）→ 不算边界：后续调用照常执行', async () => {
+    const f = await makeFixture()
+    const rec: FakeRecorder = { active: 0, maxActive: 0, order: [] }
+    f.registry.register(
+      fakeTool('exitplan', { parallelizable: false, boundary: true, isError: true, rec }),
+    )
+    f.registry.register(fakeTool('write', { parallelizable: false, rec }))
+
+    const results = await f.pipeline.runAll(makeTurn(), [
+      pending('exitplan', 1),
+      pending('write', 2),
+    ])
+
+    expect(results.map((r) => r.isError)).toEqual([true, false])
+    expect(rec.order).toEqual(['start:exitplan', 'end:exitplan', 'start:write', 'end:write'])
+    expect(results[1]?.output).toBe('done:write:2')
   })
 })

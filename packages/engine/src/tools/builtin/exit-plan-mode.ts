@@ -12,6 +12,9 @@
  *
  * 广告面：非计划模式时本工具不进 `materialize()` 清单（engine 侧 hiddenTools getter 逐 step
  * 现读），模型不会看到它——与 qwen/gemini 的"只在 plan 模式暴露 exitPlanMode"一致。
+ *
+ * 执行边界（第三批）：成功退出后同批剩余调用一律跳过（`executionBoundary`）——
+ * 它们是计划模式下拟定的，该由模型在新模式下重新发起。
  */
 import { z } from 'zod'
 import type { ToolDefinition } from '../definition.js'
@@ -41,6 +44,8 @@ export const exitPlanModeTool: ToolDefinition<ExitPlanModeInputType> = {
   },
   // 有副作用（改会话模式）→ 不并行；与 write/edit/bash 同档
   parallelizable: false,
+  // 模式切换是执行边界（qwen-code 同款）：批准后同批后续调用跳过，留待下一轮观察新模式
+  executionBoundary: true,
   async execute(ctx, input) {
     if (ctx.exitPlanMode === undefined) {
       return {

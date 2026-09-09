@@ -8,8 +8,11 @@
  * - 中断路径不适用：本工具无可中断的长任务（只切一次模式），管线的通用 abort 补事件对
  *   已由既有 pipeline 测试覆盖——不为凑四路径写一个假的中断用例。
  * 另附：未注入钩子时的 E_UNSUPPORTED（禁假实现）、`/plan` 与 `/plan exit` 命令路径。
+ *
+ * 第三批补两个 qwen-code 必抄细节的引擎面用例：审批期间切档则批准作废、
+ * exit_plan_mode 成功后同批剩余调用跳过（管线面用例在 pipeline.test.ts）。
  */
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
@@ -230,5 +233,121 @@ describe('/plan 命令与退出审批链（引擎面）', () => {
     const completed = events.filter((e) => e.type === 'tool.completed').at(-1)
     expect((completed?.data as { isError?: boolean }).isError).toBe(true)
     expect(JSON.stringify(completed?.data)).toContain('E_NOT_IN_PLAN')
+  })
+})
+
+describe('第三批：批准作废与执行边界（qwen-code 两个必抄细节）', () => {
+  /** 临时工作区（write 工具落盘验证用；进 roots 统一清理） */
+  function makeWorkspace(prefix: string): string {
+    const ws = mkdtempSync(join(tmpdir(), prefix))
+    roots.push(ws)
+    return ws
+  }
+
+  test('审批挂起期间用户自己切了模式 → 批准作废（qwen approvalModeRevision 的 Spark 等价）', async () => {
+    const { engine, gateway, events } = await makeEngine()
+    gateway.scriptStep({
+      content: [
+        {
+          type: 'toolCall',
+          callId: ids.call('cal_staleexit00000000001'),
+          name: 'exit_plan_mode',
+          input: { plan: '步骤一：读配置' },
+        },
+      ],
+    })
+    gateway.scriptStep({ deltas: [{ kind: 'text', text: '好' }] })
+    const handle = await engine.createSession()
+    await engine.setSessionMode(handle.id, 'plan')
+
+    await handle.send('出个计划')
+    await waitFor('permission.asked', () => events.some((e) => e.type === 'permission.asked'))
+    const requestId = askedRequestId(events)
+
+    // 批准前用户自己退出了计划模式（另一台设备 / CLI / REST 都能触发）
+    await engine.executeCommand(handle.id, 'plan', 'exit')
+
+    // 挂起项已结清：这次"批准"落到未知 requestId（系统结清与超时/中断同口径），不会二次生效
+    expect(await engine.replyPermission(requestId, 'once')).toBe('unknown')
+    await waitFor('turn.completed', () => events.some((e) => e.type === 'turn.completed'))
+
+    expect(engine.sessionModeOf(handle.id)).toBe('default')
+    const completed = events.filter((e) => e.type === 'tool.completed').at(-1)
+    expect(JSON.stringify(completed?.data)).toContain('E_PERMISSION')
+    // 作废也要闭合：resolved{reject} 落盘，四端审批卡不会僵在挂起态
+    const resolved = events.filter((e) => e.type === 'permission.resolved')
+    expect(resolved).toHaveLength(1)
+    expect(JSON.stringify(resolved[0]?.data)).toContain('reject')
+  })
+
+  test('进 plan 前挂起的写批准：进 plan 即作废（否则 plan 的"写类全拒"被架空）', async () => {
+    const { engine, gateway, events } = await makeEngine()
+    const ws = makeWorkspace('spark-plan-hole-')
+    gateway.scriptStep({
+      content: [
+        {
+          type: 'toolCall',
+          callId: ids.call('cal_holewrite00000000001'),
+          name: 'write',
+          input: { path: 'out.txt', content: '写入' },
+        },
+      ],
+    })
+    gateway.scriptStep({ deltas: [{ kind: 'text', text: '好' }] })
+    const handle = await engine.createSession({ cwd: ws })
+
+    await handle.send('写个文件')
+    await waitFor('permission.asked', () => events.some((e) => e.type === 'permission.asked'))
+    const requestId = askedRequestId(events)
+
+    // 规则层只在 assert 时评估一次：不结清这条挂起项，用户进 plan 后再点放行，
+    // 管线拿到 allowed 就照跑——写会在计划模式下落盘（验收第 1 条的绕过面）
+    await engine.setSessionMode(handle.id, 'plan')
+    expect(await engine.replyPermission(requestId, 'once')).toBe('unknown')
+    await waitFor('turn.completed', () => events.some((e) => e.type === 'turn.completed'))
+
+    expect(existsSync(join(ws, 'out.txt'))).toBe(false)
+    expect(engine.sessionModeOf(handle.id)).toBe('plan')
+  })
+
+  test('执行边界（引擎面）：批准退出后同批的 write 不执行，收 E_MODE_BOUNDARY', async () => {
+    const { engine, gateway, events } = await makeEngine()
+    const ws = makeWorkspace('spark-plan-boundary-')
+    gateway.scriptStep({
+      content: [
+        {
+          type: 'toolCall',
+          callId: ids.call('cal_bndexit0000000000001'),
+          name: 'exit_plan_mode',
+          input: { plan: '步骤一：写 out.txt' },
+        },
+        {
+          type: 'toolCall',
+          callId: ids.call('cal_bndwrite000000000001'),
+          name: 'write',
+          input: { path: 'out.txt', content: '执行产物' },
+        },
+      ],
+    })
+    gateway.scriptStep({ deltas: [{ kind: 'text', text: '下一轮再写' }] })
+    const handle = await engine.createSession({ cwd: ws })
+    await engine.setSessionMode(handle.id, 'plan')
+
+    await handle.send('出计划并执行')
+    await waitFor('permission.asked', () => events.some((e) => e.type === 'permission.asked'))
+    await engine.replyPermission(askedRequestId(events), 'once')
+    await waitFor('turn.completed', () => events.some((e) => e.type === 'turn.completed'))
+
+    expect(engine.sessionModeOf(handle.id)).toBe('default')
+    expect(existsSync(join(ws, 'out.txt'))).toBe(false) // 边界后的写没执行
+    const completed = events.filter((e) => e.type === 'tool.completed')
+    expect(completed).toHaveLength(2)
+    expect(JSON.stringify(completed[1]?.data)).toContain('E_MODE_BOUNDARY')
+    // 回喂给模型的 toolResult 与事件同一口径（下一轮它才知道为何没写）
+    const fed = events
+      .filter((e) => e.type === 'assistant.message')
+      .map((e) => JSON.stringify(e.data))
+      .join('')
+    expect(fed).toContain('E_MODE_BOUNDARY')
   })
 })

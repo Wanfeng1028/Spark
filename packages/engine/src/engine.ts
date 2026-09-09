@@ -1029,6 +1029,9 @@ export class Engine {
     const mode = this.sessionModeOf(id)
     if (mode === previous) return
     await this.bus.emit(id, 'session.mode.changed', { mode, previous })
+    // 模式变了 = 旧模式下做出的审批语义不再成立：同会话挂起项一律作废
+    // （fail-closed；理由与绕过面见 PermissionServiceImpl.invalidatePending）
+    await this.permission.invalidatePending(id)
   }
 
   // ---- 模型管理（DESIGN §13.D③ / 阶段六工单 6.5 轻后端例外） ----
