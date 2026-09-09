@@ -22,8 +22,10 @@ splitSseFrames/envelopeFromSseFrame 帧解析、ERROR_COPY 错误文案、DEFAUL
 
 | 包 | 版本 | 许可证 |
 | --- | --- | --- |
-| @tarojs/cli、@tarojs/taro、@tarojs/components、@tarojs/react、@tarojs/runtime、@tarojs/shared、@tarojs/helper、@tarojs/plugin-framework-react、@tarojs/plugin-platform-weapp、@tarojs/webpack5-runner、babel-preset-taro | 4.2.1 | MIT |
+| @tarojs/cli、@tarojs/taro、@tarojs/components、@tarojs/react、@tarojs/runtime、@tarojs/shared、@tarojs/helper、@tarojs/plugin-framework-react、@tarojs/plugin-platform-weapp、@tarojs/plugin-platform-h5、@tarojs/webpack5-runner、babel-preset-taro | 4.2.1 | MIT |
 | react / react-dom（仅本包锁 18.3.1） | 18.3.1 | MIT |
+| @pmmmwh/react-refresh-webpack-plugin（devDep，H5 dev fast-refresh） | 0.6.3 | MIT |
+| react-refresh（devDep，同上，babel 侧） | ^0.14.2 | MIT |
 | zustand | ^5.x | MIT |
 | @babel/runtime | ^7.x | MIT |
 | webpack（devDep） | ^5.x | MIT |
@@ -32,6 +34,11 @@ splitSseFrames/envelopeFromSseFrame 帧解析、ERROR_COPY 错误文案、DEFAUL
 
 > React 版本决策：Taro 4 的 `@tarojs/plugin-framework-react` peer 要求 React ^18，
 > 仓库其余包用 React 19.x——**仅本包锁 18.3.1**，pnpm 隔离实例，不扩散。
+
+> react-dom 是 H5 构建的硬依赖：`@tarojs/plugin-framework-react` 的 H5 分支以
+> `resolveSync('react-dom')` 解析后写进 webpack alias（解析不到时返回 null，而
+> webpack 的 alias schema 不收 null——表现为"Invalid configuration object"）；
+> 小程序（weapp）分支 alias 到 `@tarojs/react`，故 weapp 构建不需要它。
 
 ## 事件流主路径与降级
 
@@ -54,9 +61,11 @@ splitSseFrames/envelopeFromSseFrame 帧解析、ERROR_COPY 错误文案、DEFAUL
 
 ```pwsh
 pnpm --filter @spark/miniapp dev          # 构建并监听（产物在 dist/）
+pnpm --filter @spark/miniapp dev:h5       # H5 构建（浏览器联调；产物在 dist/）
 pnpm --filter @spark/miniapp typecheck    # tsc --noEmit
 pnpm --filter @spark/miniapp test         # 逻辑层单测（vitest）
-npx taro build --type weapp               # 一次性构建（体积验证用）
+npx taro build --type weapp                # 一次性构建（体积验证用）
+npx taro build --type h5                   # 一次性 H5 构建
 ```
 
 > 不设 `build` script：根 `pnpm -r build` 语义不含小程序产物（开发者工具上传才发布），

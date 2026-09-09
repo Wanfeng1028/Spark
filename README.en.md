@@ -102,8 +102,8 @@ pnpm install
 pnpm --filter server dev    # backend (tsx watch; defaults to 127.0.0.1:4318)
 pnpm --filter web dev       # frontend only (VITE_SPARK_MOCK=1 runs against the in-page mock)
 pnpm --filter cli dev       # CLI TUI (Ink; needs the server; --api <url>/SPARK_API to point elsewhere)
-pnpm --filter mobile dev    # mobile app (Expo; needs the server, connect after pairing)
-pnpm --filter miniapp dev   # WeChat mini-program (Taro 4 watch build; import dist/ in DevTools)
+pnpm --filter mobile dev    # mobile app (Expo; needs the server, connect after pairing; dev:web for the browser build)
+pnpm --filter miniapp dev   # WeChat mini-program (Taro 4 watch build; import dist/ in DevTools; dev:h5 for the browser build)
 pnpm test / typecheck / lint
 pnpm eval                   # eval regression (deterministic scenarios; --real for real-model scoring)
 ```

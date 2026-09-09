@@ -103,8 +103,8 @@ pnpm install
 pnpm --filter server dev    # 后端（tsx watch；缺省 127.0.0.1:4318）
 pnpm --filter web dev       # 仅前端（VITE_SPARK_MOCK=1 可脱离后端跑 Mock）
 pnpm --filter cli dev       # CLI TUI（Ink；需 server 在跑；--api <url>/SPARK_API 指基址，缺省 127.0.0.1:4318）
-pnpm --filter mobile dev    # 移动端 App（Expo；需 server 在跑，配对后连接）
-pnpm --filter miniapp dev   # 微信小程序（Taro 4 watch 构建；微信开发者工具导入 dist）
+pnpm --filter mobile dev    # 移动端 App（Expo；需 server 在跑，配对后连接；dev:web 为浏览器形态）
+pnpm --filter miniapp dev   # 微信小程序（Taro 4 watch 构建；微信开发者工具导入 dist；dev:h5 为浏览器形态）
 pnpm test / typecheck / lint
 pnpm eval                   # eval 回归（确定性场景集；--real 可选真实模型评分）
 ```
@@ -166,5 +166,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.31 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"所有没做完的都要做完"指令） | **两处事实漂移修正 + 当前状态刷新**：四端一览 CLI 行 **Ink 6→Ink 7**（工单 10.56 已升 `ink ^7.1.1`）与 **footer 双行→单行**（工单 10.51 已修正批次 3 双行决策）；"当前状态"补 **v2 已开工** 一行（阶段十一/十二完成、十七收官、13.1 第一批与 16.1 落地），"下一程"改指 13.2–13.7 / 十四 / 16.2–16.9 / 十八。与 AGENTS v1.29、doc/02 v3.93 同批；事实锚点行（21 种事件词表）不动 |
 | v1.32 | 2026-09-07 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | 文档导航新增 doc/09 外部任务基准可行性评估（工单 13.2 产出：三候选 × 四维度对比、判决"不接"与三个重评触发条件、若接的 Harbor installed-agent 最小接线草图）；与 doc/02 v3.96、doc/08 v1.12、AGENTS v1.30 同批 |
 | v1.33 | 2026-09-08 | AI 编写：Qoder；发起与决策：晚风（Wanfeng1028，"本地不进行任何的测试，直接 push 远端，看 ci 就可以"指令） | 当前状态行验证口径修正：原"全量测试与 e2e 由 CI 执行（本地开发只跑 typecheck/lint）"→**全部验证由 CI 执行、本地不跑**（AGENTS §2.2 本机零验证）；英文版同步。与 AGENTS v1.31、CONTRIBUTING 提交前自查、doc/06 v1.5 同批 |
+| v1.34 | 2026-09-09 | AI 编写：ZCode CLI · GLM-5.3（c6649989-58db-48d8-bd05-3a1d0fd3e6b4/z-ai/glm-5.3-free）；发起：晚风（Wanfeng1028，移动端/小程序联调报错清单指令） | 开发区 mobile/miniapp 两行补 `dev:web`/`dev:h5` 浏览器形态注记（两端 web 平台首次本地联调暴露的仓库侧修复：mobile 的 Metro `.js`→`.ts` 解析缺失与 web 依赖、miniapp 的 react-dom/h5 构建面——详见 doc/02 v4.24） |
 
 </details>

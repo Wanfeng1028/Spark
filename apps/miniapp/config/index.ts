@@ -4,11 +4,20 @@
  *   Taro 4 的 peer 上限，仅本包锁 18，不扩散其它包）。
  * - mini.compile.include 纳入 @spark/protocol 源码（其 main 直指 src/index.ts，
  *   需 babel 编译）；extensionAlias 让 `./ids.js` 式 TS ESM 路径解析到 .ts。
+ * - h5 段（2026-09-09 联调补）：与 mini 同口径——compile.include 消费点在
+ *   webpack5-runner H5WebpackModule.getScriptRule（与 MiniWebpackModule 同机制，
+ *   unshift 进 script rule 的 include）；react-dom 是 H5 真实运行时依赖
+ *   （plugin-framework-react 的 H5 分支 resolveSync('react-dom') 解析不到时返回
+ *   null，webpack 5 的 alias schema 从不接受 null——5.91 同样如此，装上即消，
+ *   与 webpack 版本无关）。
  * - 不设 build 脚本：根 `pnpm build`（pnpm -r build）语义不含小程序产物
  *   （开发者工具上传才发布），避免 CI/根构建误触发（package.json 自述）。
  */
 import path from 'node:path'
 import { defineConfig } from '@tarojs/cli'
+
+/** @spark/protocol 以 TS 源码分发（main: src/index.ts）——纳入 babel 编译的范围 */
+const protocolSrc = path.resolve(__dirname, '..', '..', '..', 'packages', 'protocol', 'src')
 
 export default defineConfig({
   projectName: 'spark-miniapp',
@@ -41,12 +50,25 @@ export default defineConfig({
       },
     },
     compile: {
-      // @spark/protocol 以 TS 源码分发（main: src/index.ts）——纳入 babel 编译
-      include: [path.resolve(__dirname, '..', '..', '..', 'packages', 'protocol', 'src')],
+      include: [protocolSrc],
     },
     webpackChain(chain) {
       // protocol 内部以 `.js` 后缀引用 `.ts` 模块（ESM TS 惯例）——映射解析。
       // webpack-chain 类型未暴露 extensionAlias，走 merge 直写 webpack 配置面。
+      chain.merge({
+        resolve: {
+          extensionAlias: { '.js': ['.ts', '.js'] },
+        },
+      })
+    },
+  },
+  h5: {
+    publicPath: '/',
+    // 与 mini 同口径：protocol 源码进 babel 编译面
+    compile: {
+      include: [protocolSrc],
+    },
+    webpackChain(chain) {
       chain.merge({
         resolve: {
           extensionAlias: { '.js': ['.ts', '.js'] },
