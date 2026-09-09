@@ -69,6 +69,15 @@ export const BUILTIN_COMMANDS: readonly CommandDescriptor[] = [
     sessionRequired: true,
   },
   {
+    // 工单 16.3：引擎侧 action（不是 client 命令）——四端一处实现，前端只读投影的 slice.mode
+    name: 'plan',
+    description: '计划模式：写类工具全拒，模型只读地出计划；/plan exit 退出并恢复原档位',
+    kind: 'action',
+    group: 'session',
+    surface: ['web', 'cli'],
+    sessionRequired: true,
+  },
+  {
     name: 'new',
     description: '新建会话',
     kind: 'client',

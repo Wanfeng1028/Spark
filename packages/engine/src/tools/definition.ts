@@ -20,6 +20,12 @@ export interface ToolContext {
   cwd: string
   /** 长期记忆仓（工单 7.5 / ADR D25）：memory 工具族使用，其余工具忽略 */
   memory?: MemoryStore
+  /**
+   * 退出计划模式钩子（工单 16.3）：`exit_plan_mode` 专用，其余工具忽略。
+   * 由引擎装配 run-loop 时注入（**工具不持有 Engine**——保持工具可单测、依赖面最小，
+   * 与 `memory?` 同一手法）。缺省未注入时工具如实报 E_UNSUPPORTED，不假装已切模式。
+   */
+  exitPlanMode?: () => Promise<void>
   /** 时间源（memory.save 记 created_at；缺省 Date.now） */
   now?: () => number
 }

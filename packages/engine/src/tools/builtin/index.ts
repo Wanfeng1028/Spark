@@ -13,8 +13,9 @@ import { makeBashTool, bashTool } from './bash.js'
 import type { BashToolOptions } from './bash.js'
 import { makeTaskTool } from './task.js'
 import type { TaskInput, TaskRunner } from './task.js'
+import { exitPlanModeTool } from './exit-plan-mode.js'
 
-export { readTool, grepTool, writeTool, editTool, makeBashTool, bashTool, makeTaskTool }
+export { readTool, grepTool, writeTool, editTool, makeBashTool, bashTool, makeTaskTool, exitPlanModeTool }
 export type { BashToolOptions, TaskInput, TaskRunner }
 
 export interface BuiltinToolsOptions {
@@ -28,4 +29,6 @@ export function registerBuiltinTools(registry: ToolRegistry, opts: BuiltinToolsO
   registry.register(writeTool)
   registry.register(editTool)
   registry.register(makeBashTool({ sandbox: opts.bashSandbox ?? 'off' }))
+  // 工单 16.3：计划模式退出工具（非计划模式不进广告面——engine 侧 hiddenTools getter 控）
+  registry.register(exitPlanModeTool)
 }

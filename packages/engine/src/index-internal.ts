@@ -65,6 +65,7 @@ export {
   registerBuiltinTools,
   readTool,
   grepTool,
+  exitPlanModeTool,
   writeTool,
   editTool,
   bashTool,

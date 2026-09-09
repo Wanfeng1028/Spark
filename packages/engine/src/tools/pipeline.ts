@@ -39,8 +39,10 @@ export interface PipelineDeps {
   guard?: IoGuard
   /** 用户侧 hooks（工单 7.3；缺省不触发——测试 stub 可省） */
   hooks?: UserHookRunner
-  /** 长期记忆仓（工单 7.5 / ADR D25；缺省 memory 工具族拒绝执行——测试 stub 可省） */
+  /** 长期记忆仓（工单 7.5 / ADR D25；缺省 memory 工具族不予执行——测试 stub 可省） */
   memory?: MemoryStore
+  /** 退出计划模式钩子（工单 16.3；缺省 exit_plan_mode 报 E_UNSUPPORTED——测试 stub 可省） */
+  exitPlanMode?: () => Promise<void>
   /** 时间源（memory.save created_at；缺省 Date.now） */
   now?: () => number
   /** 子代理预设档收窄掉的工具名（工单 13.5）：不进广告面；若模型仍调用，
@@ -238,6 +240,7 @@ export class ToolPipelineImpl implements ToolPipeline {
           onProgress: (chunk) => gate.push(chunk),
           cwd: this.deps.cwd,
           ...(this.deps.memory !== undefined ? { memory: this.deps.memory } : {}),
+          ...(this.deps.exitPlanMode !== undefined ? { exitPlanMode: this.deps.exitPlanMode } : {}),
           ...(this.deps.now !== undefined ? { now: this.deps.now } : {}),
         },
         input,

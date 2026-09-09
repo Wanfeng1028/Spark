@@ -1130,15 +1130,26 @@ export class Engine {
   }
 
   /**
-   * POST /api/sessions/:id/commands/:name 执行体：action（compact）走压缩入口；
-   * prompt（自定义 .md）展开为 prompt 走正常 turn 通道（user.message 事件落盘）。
-   * client 命令与未知命令拒绝（E_COMMAND_CLIENT / E_NOT_FOUND——失败闭合）。
+   * POST /api/sessions/:id/commands/:name 执行体：action（compact / plan）走引擎入口；
+   * prompt（自定义 .md 与 /init）展开为 prompt 走正常 turn 通道（user.message 事件落盘）。
+   * client 命令与未知命令一律报错（E_COMMAND_CLIENT / E_NOT_FOUND——失败闭合）。
    */
   async executeCommand(id: SessionId, name: string, args?: string): Promise<void> {
     this.assertNotShutdown()
     const handle = this.handleOf(await this.requireEntry(id))
     if (name === 'compact') {
-      await handle.compact() // turn 进行中 → E_TURN_ACTIVE（§5.8.5 既有拒绝码）
+      await handle.compact() // turn 进行中 → E_TURN_ACTIVE（§5.8.5 既有错误码）
+      return
+    }
+    if (name === 'plan') {
+      // 工单 16.3：`/plan` 进入计划模式，`/plan exit` 退出并恢复进入前的档位（prePlanPreset）。
+      // 放在引擎而不是 client 命令：四端一处实现，前端不必各自接模式状态机（只需读投影的 slice.mode）。
+      const arg = args?.trim().toLowerCase()
+      if (arg === 'exit' || arg === 'off') {
+        await this.setSessionMode(id, 'default')
+        return
+      }
+      await this.setSessionMode(id, 'plan')
       return
     }
     if (name === 'init') {
@@ -1531,6 +1542,9 @@ export class Engine {
           now: this.now,
         })
       : null
+    // 计划模式相关闭包依赖（下方 system getter 与 hiddenTools getter 共用；工单 6.3/16.3）
+    const permission = this.permission
+    const sid = meta.id
     const tools = new ToolPipelineImpl({
       sessionId: meta.id,
       bus: this.bus,
@@ -1543,13 +1557,26 @@ export class Engine {
       metrics: this.metrics,
       guard: this.ioGuard, // 工单 7.2：工具输出 → 模型上下文的注入检测与敏感过滤
       hooks: this.hooks, // 工单 7.3：tool.completed 挂点（载荷不含 output）
-      // 工单 13.5：预设档收窄的工具不进广告面（调用仍由会话级 deny 规则在权限门拦截）
-      ...(presetWiring !== undefined ? { hiddenTools: presetWiring.hiddenTools } : {}),
+      /**
+       * 广告面收窄（**getter → 逐 step 现读**，与下方 system getter 同手法）：
+       * ① 预设档收窄的工具（工单 13.5）；② 非计划模式时收起 `exit_plan_mode`（工单 16.3）——
+       * 模式切换即时反映到模型可见面，不必重建管线。隐藏只影响广告面，
+       * 模型若仍调用则由权限门与钩子的 E_NOT_IN_PLAN 兜底（失败闭合，不假装成功）。
+       */
+      get hiddenTools(): ReadonlySet<string> {
+        const base = presetWiring?.hiddenTools
+        if (permission.presetOf(sid) === 'plan') return base ?? new Set<string>()
+        return new Set([...(base ?? []), 'exit_plan_mode'])
+      },
+      // 工单 16.3：exit_plan_mode 的模式切换钩子（工具不持有 Engine，依赖面最小）
+      exitPlanMode: async () => {
+        if (permission.presetOf(sid) !== 'plan') {
+          throw new Error('E_NOT_IN_PLAN: 当前不在计划模式，无需退出')
+        }
+        await this.setSessionMode(sid, 'default')
+      },
       ...(this.memory !== null ? { memory: this.memory, now: this.now } : {}),
     })
-    // 计划模式 system 拼接的闭包依赖（见下方 deps.system getter）
-    const permission = this.permission
-    const sid = meta.id
     // 工单 13.3：base 模板在此渲染（会话级 system 组装一次，与既有 baseSystem 冻结口径一致）
     // 工单 13.5：预设档 systemAppend 拼在基座之后（只作用于本子会话）
     const renderedBase = renderPromptTemplate(this.promptTemplates.base, {
