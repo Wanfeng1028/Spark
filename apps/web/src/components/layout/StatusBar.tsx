@@ -1,7 +1,8 @@
 /**
  * 状态条 24px 单行细条（DESIGN.md §13.A，取代 §2 的 28px）：
  * 左起：连接状态点+文案 · 当前会话模型名 · seq 水位 · token 累计 · 上下文水位百分比（工单 6.6：
- * 最近一轮 usage ÷ contextWindow，>80% 转 warn——阈值与引擎 compactionThreshold 同源）· 提交模式；
+ * 最近一轮 usage ÷ contextWindow，>80% 转 warn——阈值与引擎 compactionThreshold 同源）· 提交模式 ·
+ * 计划模式徽标（工单 16.3：slice.mode==='plan' 时才渲染，中性描边同 ckpt 徽标）；
  * 右起：主题切换 · 设置齿轮（SettingsDialog 触发器，doc/02 §6.2.3）。
  * 数据源：connection-store / session-store / settings-store 选择器（组件不直接 fetch，DESIGN §9）。
  */
@@ -121,6 +122,16 @@ export function StatusBar() {
         >
           {delivery}
         </span>
+        {/* 计划模式指示（工单 16.3）：数据源 = durable 事件投影的 slice.mode（冷启动回放即可重建）。
+            中性描边不用 warn 琥珀——DESIGN §13.E 四档表里计划模式图标就是 zinc（琥珀留给完全访问） */}
+        {slice?.mode === 'plan' && (
+          <span
+            className="shrink-0 rounded-sm border border-border px-1 font-mono text-[11px] leading-4 text-muted-foreground"
+            title="计划模式：写类工具全拒，模型只读地出计划；退出需批准（/plan exit）"
+          >
+            plan
+          </span>
+        )}
         {checkpoint != null && <CheckpointBadge checkpointId={checkpoint.checkpointId} />}
       </div>
       <div className="flex shrink-0 items-center gap-0.5">

@@ -72,9 +72,16 @@ export function SessionPage() {
   // 权限档位（§13.E 四档；会话级内存态）。装载失败保持缺省档 confirm-each——
   // 与引擎缺省一致且最安全（fail-closed 方向），切档失败由 Composer hint 如实反馈
   const [preset, setPreset] = useState<PermissionPreset>('confirm-each')
+  // 当前会话模式（工单 16.3）：durable 事件投影，也是档位重读的信号源（见下）
+  const sliceMode = useSessionStore((s) => s.byId[sid]?.mode)
   // 档位装载（R-E① 二批）：错误刻意吞（缺省 confirm-each 即引擎缺省，fail-closed
-  // 方向最安全）——hook 的 error 不渲染，装载成功才覆盖
-  const { data: presetLoaded } = useTransportQuery((t) => t.getPermissionPreset(sid), [sid])
+  // 方向最安全）——hook 的 error 不渲染，装载成功才覆盖。
+  // deps 带 sliceMode（工单 16.3）：模型经 exit_plan_mode 退出计划模式时档位是**引擎侧**改的，
+  // 本地 state 不重读就会继续显示"计划模式"档（假状态）——模式事件到达即重拉一次
+  const { data: presetLoaded } = useTransportQuery((t) => t.getPermissionPreset(sid), [
+    sid,
+    sliceMode,
+  ])
   useEffect(() => {
     if (presetLoaded !== null) setPreset(presetLoaded)
   }, [presetLoaded])

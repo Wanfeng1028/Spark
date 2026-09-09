@@ -47,10 +47,12 @@ describe('detectMenu（§13.E 触发词检测）', () => {
 })
 
 describe('filterCommands（/ 菜单命令过滤）', () => {
-  test('空查询 → 全量内置基线（七条 = 14 基线 + 工单 16.1 /init，全部可用）', () => {
+  test('空查询 → 全量内置基线（八条 = 14 基线 + 工单 16.1 /init + 工单 16.3 /plan，全部可用）', () => {
     expect(filterCommands('')).toEqual(SLASH_COMMANDS)
-    expect(SLASH_COMMANDS).toHaveLength(7)
+    expect(SLASH_COMMANDS).toHaveLength(8)
     expect(SLASH_COMMANDS.some((c) => c.name === 'init')).toBe(true)
+    // 工单 16.3：/plan 的 surface 含 web 且为 action（不需 clientAction 映射），必进本端清单
+    expect(SLASH_COMMANDS.some((c) => c.name === 'plan' && c.kind === 'action')).toBe(true)
   })
 
   test('按名称过滤（大小写不敏感）', () => {
@@ -61,7 +63,8 @@ describe('filterCommands（/ 菜单命令过滤）', () => {
 
   test('按描述过滤（中文包含）', () => {
     const hit = filterCommands('模型')
-    expect(hit.map((c) => c.name)).toEqual(['model'])
+    // 断全命中集而不取样：/plan 的描述里有"模型只读地出计划"，同样命中（工单 16.3）
+    expect(hit.map((c) => c.name)).toEqual(['plan', 'model'])
   })
 
   test('无匹配 → 空列表', () => {
@@ -77,7 +80,7 @@ describe('mergeSlashCommands（工单 7.4：基线 + 引擎动态清单合并）
     ]
     const merged = mergeSlashCommands(dynamic)
     expect(merged.map((c) => c.name)).toEqual([
-      'init', 'compact', 'resume', 'model', 'mcp', 'skills', 'usage', 'review',
+      'init', 'compact', 'plan', 'resume', 'model', 'mcp', 'skills', 'usage', 'review',
     ])
     expect(merged.find((c) => c.name === 'compact')?.description).toBe(
       '压缩上下文（保留摘要，释放窗口）',

@@ -202,6 +202,16 @@ export function SessionScreen() {
           <Text style={[styles.meta, { color: t.sparkErr }]}>{notice}</Text>
         </View>
       )}
+      {/* 计划模式细条（工单 16.3）：数据源 = durable 事件投影的 slice.mode（回放即可重建）。
+          中性色不用 sparkWarn——plan 是常态模式不是告警，与 web 徽标/CLI footer 同口径；
+          移动端无权限档位菜单，本条就是“为何写操作全被拒”的唯一解释面，故写完整句 */}
+      {slice.mode === 'plan' && (
+        <View style={[styles.connectionBar, { backgroundColor: t.card }]}>
+          <Text style={[styles.meta, { color: t.mutedForeground }]}>
+            计划模式：写类工具全拒，模型只读地出计划；退出需你批准
+          </Text>
+        </View>
+      )}
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

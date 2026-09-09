@@ -50,6 +50,7 @@ import type {
   SessionDto,
   SessionEventsQuery,
   SessionId,
+  SessionMode,
   SessionStatus,
   SearchHitDto,
   SettingsDto,
@@ -542,9 +543,11 @@ export class MockTransport implements Transport {
     return Promise.resolve()
   }
 
-  // ---- 权限档位（工单 6.3 对等演示：内存表，随会话 id 记忆；引擎同款语义） ----
+  // ---- 权限档位与会话模式（工单 6.3 / 16.3 对等演示：内存表，随会话 id 记忆；引擎同款语义） ----
 
   private readonly presets = new Map<SessionId, PermissionPreset>()
+  /** 进 plan 前的档位（引擎 prePlanPreset 的对等演示）：退出计划模式时恢复 */
+  private readonly prePlanPresets = new Map<SessionId, PermissionPreset>()
 
   getPermissionPreset(sessionId: SessionId): Promise<PermissionPreset> {
     this.assertNotDisposed()
@@ -563,9 +566,48 @@ export class MockTransport implements Transport {
     if (!known) {
       return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
     }
+    this.applyPreset(sessionId, preset)
+    return Promise.resolve()
+  }
+
+  /** 当前模式（**由档位派生**——引擎 sessionModeOf 同款，不存第二份状态） */
+  private modeOf(sessionId: SessionId): SessionMode {
+    return this.presets.get(sessionId) === 'plan' ? 'plan' : 'default'
+  }
+
+  /**
+   * 档位变更唯一出口（引擎 Engine.applyPreset 的对等演示）：设档 + 只在"是否 plan"变了时
+   * 推 durable 事件 `session.mode.changed`。不推事件的话四端的 `slice.mode` 永远停在
+   * default（工单 16.3 第三批 B）——mock 下就看不到计划模式指示，/plan 也无法走查。
+   */
+  private applyPreset(sessionId: SessionId, preset: PermissionPreset): void {
+    const previous = this.modeOf(sessionId)
     if (preset === 'confirm-each') this.presets.delete(sessionId)
     else this.presets.set(sessionId, preset)
-    return Promise.resolve()
+    const mode = this.modeOf(sessionId)
+    if (mode === previous) return
+    this.emit({
+      id: ids.event(`evt_mock_mode_${mockRandom()}`),
+      sessionId,
+      type: 'session.mode.changed',
+      time: Date.now(),
+      data: { mode, previous },
+    })
+  }
+
+  /** 模式切换（引擎 setSessionMode 的对等演示）：切模式就是切档，幂等，退出恢复原档位 */
+  private setMode(sessionId: SessionId, mode: SessionMode): void {
+    const current = this.presets.get(sessionId) ?? 'confirm-each'
+    if (mode === 'plan') {
+      if (current === 'plan') return
+      this.prePlanPresets.set(sessionId, current)
+      this.applyPreset(sessionId, 'plan')
+      return
+    }
+    if (current !== 'plan') return
+    const restore = this.prePlanPresets.get(sessionId) ?? 'confirm-each'
+    this.prePlanPresets.delete(sessionId)
+    this.applyPreset(sessionId, restore)
   }
 
   // ---- 模型管理（工单 6.5 对等演示：内置目录副本 + 内存换模型，引擎同款语义） ----
@@ -751,12 +793,18 @@ export class MockTransport implements Transport {
     return Promise.resolve([...MOCK_COMMANDS])
   }
 
-  executeCommand(sessionId: SessionId, name: string, _args?: string): Promise<void> {
+  executeCommand(sessionId: SessionId, name: string, args?: string): Promise<void> {
     this.assertNotDisposed()
     if (sessionId !== this.script.sessionId && !this.forkChildren.some((f) => f.dto.id === sessionId)) {
       return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
     }
     if (name === 'compact') return this.compact(sessionId)
+    if (name === 'plan') {
+      // 对等演示（工单 16.3）：`/plan` 进入、`/plan exit|off` 退出——引擎 executeCommand 同款分支
+      const arg = args?.trim().toLowerCase()
+      this.setMode(sessionId, arg === 'exit' || arg === 'off' ? 'default' : 'plan')
+      return Promise.resolve()
+    }
     if (name === 'review') {
       // 对等演示：自定义命令展开为 prompt 走正常 turn（sendMessage 假对话回放）
       return this.sendMessage(sessionId).then(() => undefined)

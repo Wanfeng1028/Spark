@@ -377,3 +377,44 @@ describe('MockTransport 模型管理（工单 6.5）', () => {
     await expect(t.setSessionModel(SID, 'openai/gpt-5')).rejects.toThrow('E_CONFIG')
   })
 })
+
+describe('MockTransport 计划模式对等演示（工单 16.3 第三批 B）', () => {
+  function modeEvents(
+    events: readonly SparkEventEnvelope[],
+  ): { mode: string; previous: string }[] {
+    return events.filter((e) => ofType(e, 'session.mode.changed')).map((e) => e.data)
+  }
+
+  it('/plan 推 session.mode.changed；/plan exit 回 default 并恢复进入前档位', async () => {
+    const t = new MockTransport('normal')
+    const { events } = recorder(t)
+    await t.setPermissionPreset(SID, 'auto-edit') // 进 plan 前的档位
+    expect(modeEvents(events)).toEqual([]) // 非 plan 档互切不发模式事件（引擎同款）
+
+    await t.executeCommand(SID, 'plan')
+    expect(modeEvents(events)).toEqual([{ mode: 'plan', previous: 'default' }])
+    expect(await t.getPermissionPreset(SID)).toBe('plan')
+
+    await t.executeCommand(SID, 'plan', 'exit')
+    expect(modeEvents(events)).toEqual([
+      { mode: 'plan', previous: 'default' },
+      { mode: 'default', previous: 'plan' },
+    ])
+    expect(await t.getPermissionPreset(SID)).toBe('auto-edit') // 恢复 prePlanPreset
+  })
+
+  it('两个入口不分叉：档位菜单直接选 plan 也推事件；重复进 plan 幂等', async () => {
+    const t = new MockTransport('normal')
+    const { events } = recorder(t)
+    await t.setPermissionPreset(SID, 'plan')
+    await t.executeCommand(SID, 'plan') // 已在 plan：幂等，不再发（不造噪声行）
+    expect(modeEvents(events)).toEqual([{ mode: 'plan', previous: 'default' }])
+  })
+
+  it('未知会话：/plan 与设 plan 档一律拒（E_MOCK_UNKNOWN_SESSION）', async () => {
+    const t = new MockTransport('normal')
+    const unknown = ids.session('ses_unknown')
+    await expect(t.executeCommand(unknown, 'plan')).rejects.toThrow('E_MOCK_UNKNOWN_SESSION')
+    await expect(t.setPermissionPreset(unknown, 'plan')).rejects.toThrow('E_MOCK_UNKNOWN_SESSION')
+  })
+})

@@ -1,6 +1,6 @@
 /**
  * footer 单行（工单 10.51，qwen Footer 单行形态；修正批次 3「双行」决策——qwen 实际单行）：
- * 左=→项目名 · git:(分支) · 模型 · [提交模式] · 运行指示（step/工具/等待审批/压缩中）· ? 帮助 · /stats 明细
+ * 左=→项目名 · git:(分支) · 模型 · [提交模式] · 计划模式标记（工单 16.3）· 运行指示（step/工具/等待审批/压缩中）· ? 帮助 · /stats 明细
  * 右=上下文窗口 · N%（>80% 红；分支/窗口取不到不渲染该段——禁假状态）。
  * 断线/重连异常时在本行上方临时插红字行，恢复即消失（决策④沿用）。
  * seq 水位与 token 明细不在 footer——收 /stats（决策④沿用）。
@@ -67,6 +67,10 @@ export function Footer({ slice }: { slice: SessionSlice | null }) {
           {slice !== null && slice.meta.model !== '' ? ` · ${slice.meta.model}` : ''}
           {' · '}
           <Text color={delivery === 'now' ? '#89B4FA' : 'gray'}>[{delivery}]</Text>
+          {/* 计划模式标记（工单 16.3）：数据源同 web = durable 事件投影的 slice.mode。
+              中性色不入 yellow（yellow 在本行是瞬态注意项：压缩中/请求授权），
+              与 web 徽标、DESIGN §13.E 四档表的 zinc 图标同口径：plan 是常态模式不是告警 */}
+          {slice?.mode === 'plan' ? <Text> · 计划模式</Text> : null}
           {slice?.compacting === true ? <Text color="yellow"> · 压缩中...</Text> : null}
           {turn !== null ? (
             <>

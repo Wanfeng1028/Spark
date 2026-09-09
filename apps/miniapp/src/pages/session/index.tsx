@@ -196,6 +196,15 @@ export default function SessionPage() {
           </Text>
         </View>
       )}
+      {/* 计划模式细条（工单 16.3）：数据源 = durable 事件投影的 slice.mode（回放即可重建）。
+          中性色不用 sparkWarn（plan 是常态模式不是告警），与 mobile 端逐字同口径 */}
+      {slice.mode === 'plan' && (
+        <View className="sp-bar" style={{ backgroundColor: t.card }}>
+          <Text className="sp-meta" style={{ color: t.mutedForeground }}>
+            计划模式：写类工具全拒，模型只读地出计划；退出需你批准
+          </Text>
+        </View>
+      )}
       <View className="sp-list-wrap">
         <ScrollView
           className="sp-list"

@@ -341,6 +341,25 @@ describe('Footer（工单 10.51 单行化，qwen 形态）', () => {
     const f = render(<Footer slice={s} />).lastFrame()
     expect(f).not.toContain('git:(')
   })
+
+  it('计划模式标记（工单 16.3）：slice.mode=plan 才渲染，与提交模式同帧同行', () => {
+    const s = slice()
+    s.meta.cwd = '/home/wanfeng/Spark'
+    s.mode = 'plan'
+    const f = render(<Footer slice={s} />).lastFrame() ?? ''
+    expect(f).toContain('计划模式')
+    // 单行形态不变（工单 10.51）：标记插在提交模式与帮助入口之间，不另起一行
+    const footerLine = f.split('\n').find((l) => l.includes('→Spark')) ?? ''
+    expect(footerLine).toContain('[now]')
+    expect(footerLine).toContain('计划模式')
+  })
+
+  it('default 模式不渲染计划模式标记（禁假状态）', () => {
+    const s = slice()
+    s.meta.cwd = '/home/wanfeng/Spark'
+    const f = render(<Footer slice={s} />).lastFrame() ?? ''
+    expect(f).not.toContain('计划模式')
+  })
 })
 
 describe('LoadingIndicator（工单 10.52 上游慢链路预警）', () => {
