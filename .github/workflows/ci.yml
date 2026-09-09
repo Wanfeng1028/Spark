@@ -29,6 +29,10 @@ jobs:
       # 改了 zod schema 却不重生成 → 这里红（doc/06 §1 契约层、doc/08 §14.2 验收第 2 条）。
       - run: pnpm --filter @spark/protocol gen:contract
       - run: git diff --exit-code packages/protocol/tests/contract
+      # 工单 14.6：文档站的事件词表页同一口径——它也是从 zod schema 生成的，
+      # 改了词表却不重生成 → 这里红（生成器：apps/docs/scripts/gen-events.ts）。
+      - run: pnpm --filter @spark/docs gen:events
+      - run: git diff --exit-code apps/docs/events.md
       - run: pnpm test
       # 工单 13.1 第三批（doc/08 §13.1 验收第 1 条、提示词第 4 条："CI（非 nightly）用 ScriptedLlm 冒烟"）：
       # core 四场景 + 任务级判分双向自检 13 场景，无 key 无网络（约 10s）

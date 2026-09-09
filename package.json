@@ -20,7 +20,8 @@
   },
   "pnpm": {
     "overrides": {
-      "@spark/miniapp>webpack": "5.95.0"
+      "@spark/miniapp>webpack": "5.95.0",
+      "algoliasearch": "5.57.0"
     }
   },
   "devDependencies": {

@@ -1,4 +1,5 @@
-# 发布流水线（工单 11.7）：push tag（v*）触发 → 校验 → 构建 → npm publish → GitHub Release。
+# 发布流水线（工单 11.7）：push tag（v*）触发 → 校验 → 构建 → npm publish → GitHub Release；
+# 另起一个 docs job 部署开发者文档站到 GitHub Pages（工单 14.6）。
 # 发版纪律（版本策略/CHANGELOG 维护）见 CONTRIBUTING.md「发版」节；首发版本 v1.0.0（四包同版本：
 # protocol/engine/sdk/cli——sdk 自工单 14.3 入发布集）。
 name: Release
@@ -45,3 +46,38 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+
+  # 开发者文档站（工单 14.6）：与 npm 发布同一个 tag 触发，但**单独一个 job**。
+  # 理由：`environment: github-pages` 是 job 级配置（actions/deploy-pages 要求），
+  # 若并进 publish job，一旦仓库给 Pages environment 配了审批/限制，npm 发布也会被卡住。
+  docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write # 部署到 GitHub Pages
+      id-token: write # actions/deploy-pages 的 OIDC
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # 发布前再校一次词表页与 schema 同步（与 ci.yml 同一口径：生成后不得有 diff）
+      - run: pnpm --filter @spark/docs gen:events
+      - run: git diff --exit-code apps/docs/events.md
+      - name: 构建文档站（VitePress → apps/docs/.vitepress/dist；内置死链检查）
+        run: pnpm --filter @spark/docs build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/docs/.vitepress/dist
+      # 需仓库 Settings → Pages → Source 选 "GitHub Actions"（一次性人工设置）；
+      # 未开启时本 job 失败，但不影响上面的 npm publish 与 GitHub Release。
+      - name: 部署到 GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,28 @@
+{
+  "name": "@spark/docs",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Spark 开发者文档站（工单 14.6）：VitePress 五页 + 事件词表参考页由 protocol 的 zod schema 生成",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview",
+    "gen:events": "tsx scripts/gen-events.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@spark/protocol": "workspace:*",
+    "@types/node": "^24",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "vitepress": "^1.6.4",
+    "zod": "^4.1.5"
+  },
+  "contributors": [
+    "Jules (AI Assistant)",
+    "Doubao (AI Assistant)",
+    "opencode (AI Assistant)"
+  ]
+}

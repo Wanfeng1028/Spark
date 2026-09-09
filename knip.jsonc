@@ -31,6 +31,10 @@
         "react-refresh"
       ]
     },
+    "apps/docs": {
+      // VitePress 约定入口与词表页生成器（分别由框架约定与 `gen:events` 脚本引用，不被任何模块 import）
+      "entry": [".vitepress/config.ts", "scripts/gen-events.ts"]
+    },
     "apps/cli": {
       "entry": ["scripts/preview-boot.mts", "scripts/preview-pane.mts"]
     },
