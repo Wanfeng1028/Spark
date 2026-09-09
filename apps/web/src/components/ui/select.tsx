@@ -1,5 +1,6 @@
 /**
- * Select 下拉（原生 select 桌面化：§13.B 输入高度 32px、圆角 6px、13px 字号；
+ * Select 下拉（原生 select 桌面化：§13.B 输入高度 32px、**圆角胶囊 rounded-full**、13px 字号；
+ * 工单 18.2 对齐新输入观感：浅灰底 `bg-secondary` + 弱化边框（§13.B 输入框底色条，工单 18.1）；
  * 选项弹层走系统原生——桌面应用感，无自定义弹层依赖）。
  */
 import { ChevronDown } from 'lucide-react'
@@ -38,7 +39,7 @@ export function Select<T extends string | number>({
           const match = options.find((o) => String(o.value) === raw)
           if (match !== undefined) onChange(match.value)
         }}
-        className="h-8 w-full appearance-none rounded-md border border-border bg-background pl-2.5 pr-7 text-[13px] outline-none focus:border-ring disabled:cursor-not-allowed disabled:opacity-40"
+        className="h-8 w-full appearance-none rounded-full border border-border/60 bg-secondary pl-3 pr-7 text-[13px] outline-none focus:border-ring disabled:cursor-not-allowed disabled:opacity-40"
       >
         {options.map((o) => (
           <option key={String(o.value)} value={String(o.value)}>

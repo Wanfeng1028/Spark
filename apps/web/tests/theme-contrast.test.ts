@@ -60,6 +60,10 @@ const PAIRS: [fg: string, bg: string][] = [
   ['--primary-foreground', '--primary'],
   ['--accent-foreground', '--accent'],
   ['--secondary-foreground', '--secondary'],
+  // 工单 18.2：select 触发器改浅灰底（bg-secondary）后承载的是正文色而不是
+  // secondary-foreground——新用法进回归网。**不列 muted-foreground × secondary**：
+  // 算得 4.44:1 低于 4.5:1，所以 command 输入区刻意不上浅灰底（见其头注）
+  ['--foreground', '--secondary'],
   ['--destructive', '--background'],
   ['--spark-accent', '--background'],
   ['--spark-warn', '--background'],

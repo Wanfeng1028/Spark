@@ -1,7 +1,9 @@
 /**
  * Dialog（shadcn/ui copy-in：https://ui.shadcn.com/r/styles/new-york/dialog.json，MIT）。
  * 桌面化改造（DESIGN §3/§8 + frontend-component SKILL）：删 "use client"；去动画类
- * （未装 tailwindcss-animate，DESIGN §5 动效克制）；密度 p-4/13px 标题/rounded-md；
+ * （未装 tailwindcss-animate，DESIGN §5 动效克制）；密度 p-4/13px 标题；
+ * **圆角 rounded-xl（12px = §13.B 弹层/分组卡档，工单 18.1/18.2；旧 6px 作废）**，
+ * 右上角关闭钮作为控件走胶囊档；
  * 默认宽 480px（doc/02 §6.2.3 SettingsDialog 规格）。
  */
 import * as React from 'react'
@@ -39,14 +41,14 @@ const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.C
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          'fixed left-[50%] top-[50%] z-50 grid w-full max-w-[480px] translate-x-[-50%] translate-y-[-50%] gap-3 rounded-md border border-border bg-background p-4 shadow-lg',
+          'fixed left-[50%] top-[50%] z-50 grid w-full max-w-[480px] translate-x-[-50%] translate-y-[-50%] gap-3 rounded-xl border border-border bg-background p-4 shadow-lg',
           className,
         )}
         {...props}
       >
         {children}
         {!hideClose && (
-          <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm text-muted-foreground/60 transition-colors hover:text-foreground focus:outline-none">
+          <DialogPrimitive.Close className="absolute right-3 top-3 rounded-full text-muted-foreground/60 transition-colors hover:text-foreground focus:outline-none">
             <X className="size-3.5" />
             <span className="sr-only">关闭</span>
           </DialogPrimitive.Close>

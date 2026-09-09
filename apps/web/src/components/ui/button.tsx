@@ -1,9 +1,10 @@
 /**
  * Button（shadcn/ui copy-in：https://ui.shadcn.com/r/styles/new-york/button.json，MIT）。
  * 桌面化改造（DESIGN §3/§13.B + frontend-component SKILL）：sm 28 / md 32 / lg 38、
- * 13px 字号、圆角 6px、去 shadow；disabled = 前景 opacity 40% + not-allowed 光标
+ * 13px 字号、**圆角胶囊 rounded-full**（§13.B 控件档，工单 18.1/18.2 改判；旧 6px 作废）、
+ * 去 shadow；disabled = 前景 opacity 40% + not-allowed 光标
  * （§13.B 三态：hover 用 enabled: 限定，禁用态不出现悬浮反馈）；焦点环交给
- * theme.css 全局 :focus-visible。
+ * theme.css 全局 :focus-visible（2px 中性环，不用 accent）。
  */
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
@@ -12,7 +13,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {

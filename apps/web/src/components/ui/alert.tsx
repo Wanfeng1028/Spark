@@ -1,6 +1,8 @@
 /**
  * Alert（shadcn/ui copy-in：https://ui.shadcn.com/r/styles/new-york/alert.json，MIT）。
- * 桌面化改造（DESIGN §3）：px-3 py-2 紧凑内边距、13px 字号、圆角 8px（卡片级上限内）。
+ * 桌面化改造（DESIGN §3）：px-3 py-2 紧凑内边距、13px 字号、
+ * **圆角 rounded-xl（12px = §13.B 分组卡档，工单 18.1/18.2；旧 8px 上提一档）**。
+ * Confirmation（审批卡）直接复用本件，因此随卡片档到位。
  */
 import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
@@ -8,7 +10,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const alertVariants = cva(
-  'relative w-full rounded-lg border px-3 py-2 text-[13px] [&>svg]:size-4 [&>svg]:text-foreground',
+  'relative w-full rounded-xl border px-3 py-2 text-[13px] [&>svg]:size-4 [&>svg]:text-foreground',
   {
     variants: {
       variant: {
