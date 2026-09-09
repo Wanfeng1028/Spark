@@ -163,8 +163,9 @@ function App() {
         {visible.length === 0 ? <Text dimColor>（暂无内容，输入一句话试试）</Text> : null}
         {visible.map((item) => {
           const line = lineOf(item)
+          // React key 用 UiItemBase.eventId（投影项没有 `id` 字段——它带的是产生该项的事件 id）
           return (
-            <Box key={item.id}>
+            <Box key={item.eventId}>
               <Text dimColor={line.dim}>{`${line.label} `}</Text>
               <Text dimColor={line.dim} wrap="wrap">
                 {line.text}
