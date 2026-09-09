@@ -112,9 +112,16 @@ describe('exit_plan_mode 工具（单元面）', () => {
 
   test('注入钩子 → 调用钩子并回计划原文（供审批卡与 transcript 呈现）', async () => {
     let called = 0
-    const out = await exitPlanModeTool.execute(makeCtx({ exitPlanMode: async () => { called += 1 } }), {
-      plan: '步骤一：读配置',
-    })
+    const out = await exitPlanModeTool.execute(
+      makeCtx({
+        // 不用 async：桩里没 await（写了会触发 require-await）
+        exitPlanMode: () => {
+          called += 1
+          return Promise.resolve()
+        },
+      }),
+      { plan: '步骤一：读配置' },
+    )
     expect(called).toBe(1)
     expect(out.isError).toBe(false)
     expect(out.output).toEqual({ ok: true, plan: '步骤一：读配置' })
