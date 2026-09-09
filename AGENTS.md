@@ -44,6 +44,7 @@
 | v1.35 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §1.1 两条刷新：① **引擎侧入口**改为 14.1 已落地的分级口径（`@spark/engine` 公共嵌入面 / `@spark/engine/internal` 无承诺且生产代码禁引），原文"17.x 批次已收窄"是陈旧表述；② 新增 **`@spark/sdk` 是 L2 客户端装配层**（工单 14.3）一条——createClient = HttpTransport 装配 + 便利分组、零业务逻辑，web/cli 装配点已迁，并给出**新增客户端能力的落点三问**（连接/重连/错误映射→protocol；便利分组→sdk；平台适配→各端）。§4 typecheck 项目数 **9 → 10**（新增 packages/sdk）。与 doc/02 v4.15（§4.6.4 sdk 合同面）、CONTRIBUTING（四包版本策略表）、doc/08 v1.25 同批 |
 | v1.36 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §1.1 的 `@spark/sdk` 条重写为**双子入口**口径（工单 14.4 / ADR D30）：`.` = HTTP（零 engine 依赖、浏览器可用），`./inprocess` = 进程内直连引擎（`@spark/engine` 为 **optional peerDependency**）；便利分组只在 `src/client.ts` 定义一份（parity 是结构保证）。**落点三问扩为四问**：新增"引擎数据 → DTO 的装配 → engine 公共面"（`sessionMetaDtoOf`/`sessionDtoOf`/`sessionTreeToDto`；**不放 protocol**，因为 protocol 硬约束零依赖 engine——这是 14.4 实现批撞上后修正的，ADR D31 结论 4 已同步）。与 ARCHITECTURE v1.39、doc/02 v4.20、doc/08 v1.29 同批 |
 | v1.37 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续呗"指令） | §4 typecheck 项目数 **10 → 12**（工单 14.5 第一批新增两个示例包 `examples/sdk-bot` 与 `examples/sdk-viewer`，均带 typecheck 脚本并入 workspace）。示例包入 workspace 的理由写在这里以免后人当多余：**不入就没 CI 的 typecheck/lint/knip 覆盖**，而不能编译的示例比没示例更坏（同 14.3 把 sdk 示例放进 tsconfig include 的判例）。注意 `pnpm-workspace.yaml` 对 examples 是**逐条显式列入**（不是 `examples/*` 通配），新增示例包要同时改它。与 doc/02 v4.25、doc/08 v1.31 同批 |
+| v1.38 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续呗"指令；因由：本会话把并行会话的未提交依赖带进了锁文件，CI 红在 `--frozen-lockfile`） | §2 第 2 条补 **并行会话下的 lockfile 纪律**：`pnpm install` 按工作区当前清单重算锁文件，而工作区可能带着其他会话未提交的 package.json 改动（本次实例：另一会话的 miniapp h5 / mobile web 改动未提交，却因本会话跑 install 而进了锁文件，CI 报 `ERR_PNPM_OUTDATED_LOCKFILE`）——**提交锁文件前必须核 diff 只含本会话改动**；已污染时用 `git worktree add _scratch/<name> HEAD` 取干净检出重算后拷回，**不得 checkout/stash 别人的在制品**。与 doc/02 v4.26 同批 |
 
 ## 1. 项目上下文（30 秒版）
 
@@ -66,7 +67,7 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 ## 2. 硬性约定（违反即返工）
 
 1. **文档变更必须更新版本记录表**：每份文档（含本文件、README、DESIGN.md、doc/*）开头都有版本记录表；每次修改追加一行，版本号 +0.1。作者栏格式：AI 编写须写明**软件与模型**（如 `ZCode CLI · GLM-5.3（builtin:zai-start-plan/GLM-5.3）`），人类作者写名字。
-2. **完成每个任务单元必须 commit + push**（origin main，远程已配置）。提交信息用 conventional commits 风格 + 中文描述（参考 `git log` 既有格式）。**本机零验证**（晚风 2026-09-08 拍板）：不在本地跑 test / typecheck / lint / eval / `check_doc_links.py`——改完直接提交推送，**验证全交远端 CI 裁决**（ci.yml 五步 + e2e job），CI 红就在下一提交修；新写测试用例仍然是任务的一部分（只是不在本机跑）。
+2. **完成每个任务单元必须 commit + push**（origin main，远程已配置）。提交信息用 conventional commits 风格 + 中文描述（参考 `git log` 既有格式）。**本机零验证**（晚风 2026-09-08 拍板）：不在本地跑 test / typecheck / lint / eval / `check_doc_links.py`——改完直接提交推送，**验证全交远端 CI 裁决**（ci.yml 五步 + e2e job），CI 红就在下一提交修；新写测试用例仍然是任务的一部分（只是不在本机跑）。**并行会话下的 lockfile 纪律**：`pnpm install` 按**工作区当前清单**重算 `pnpm-lock.yaml`，而工作区可能带着其他会话**未提交**的 package.json 改动；提交锁文件前必须核它的 diff 只含本会话的改动，否则会把别人的未提交依赖带进锁文件、使 CI 的 `--frozen-lockfile` 对所有人红。已污染时的修法：`git worktree add _scratch/<name> HEAD` 取一份只含已提交状态的检出，在其中 `pnpm install --lockfile-only` 重算后拷回；**不得** `git checkout --`/`git stash` 别人的在制品。
 3. **语言**：文档与注释用中文；代码标识符、commit type 用英文。
 4. **TypeScript strict**，禁止 `any`（确需时 `unknown` + 收窄）。跨包导入只允许依赖 `@spark/protocol` 的导出，不得深路径引用。
 5. **协议改动从 `packages/protocol` 开始**：改事件词表/API 类型 → 两端同步适配 → 跑双侧类型检查。禁止在前端或引擎里私自定义 wire 类型。
