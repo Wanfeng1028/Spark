@@ -25,10 +25,17 @@
       //   fast-refresh 由 plugin-framework-react 以裸 require 装载（dist setPlugin 内
       //   require('@pmmmwh/react-refresh-webpack-plugin')）+ babel-preset-taro 的
       //   react-refresh/babel（TARO_PLATFORM=web 时注入），均非静态引用
+      // - react-dom 与 @types/react-dom：Taro H5 构建经 webpack alias 消费
+      //   （plugin-framework-react 的 H5 分支 resolveSync('react-dom') 后 alias 成
+      //   'react-dom$'，缺失时 resolveSync 返回 null → webpack alias schema 不收 null，
+      //   构建直接炸"Invalid configuration object"）——运行时被 alias 引走而非被
+      //   import，knip 视角即未使用；weapp 分支 alias 到 @tarojs/react 故无需它
       "ignoreDependencies": [
         "@tarojs/plugin-platform-h5",
         "@pmmmwh/react-refresh-webpack-plugin",
-        "react-refresh"
+        "react-refresh",
+        "react-dom",
+        "@types/react-dom"
       ]
     },
     "apps/docs": {
