@@ -47,6 +47,7 @@
 | v1.37 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续呗"指令） | §4 typecheck 项目数 **10 → 12**（工单 14.5 第一批新增两个示例包 `examples/sdk-bot` 与 `examples/sdk-viewer`，均带 typecheck 脚本并入 workspace）。示例包入 workspace 的理由写在这里以免后人当多余：**不入就没 CI 的 typecheck/lint/knip 覆盖**，而不能编译的示例比没示例更坏（同 14.3 把 sdk 示例放进 tsconfig include 的判例）。注意 `pnpm-workspace.yaml` 对 examples 是**逐条显式列入**（不是 `examples/*` 通配），新增示例包要同时改它。与 doc/02 v4.25、doc/08 v1.31 同批 |
 | v1.38 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续呗"指令；因由：本会话把并行会话的未提交依赖带进了锁文件，CI 红在 `--frozen-lockfile`） | §2 第 2 条补 **并行会话下的 lockfile 纪律**：`pnpm install` 按工作区当前清单重算锁文件，而工作区可能带着其他会话未提交的 package.json 改动（本次实例：另一会话的 miniapp h5 / mobile web 改动未提交，却因本会话跑 install 而进了锁文件，CI 报 `ERR_PNPM_OUTDATED_LOCKFILE`）——**提交锁文件前必须核 diff 只含本会话改动**；已污染时用 `git worktree add _scratch/<name> HEAD` 取干净检出重算后拷回，**不得 checkout/stash 别人的在制品**。与 doc/02 v4.26 同批 |
 | v1.40 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §4 开发命令补两行（工单 14.6 开发者文档站）：**`pnpm --filter @spark/docs gen:events`**（事件词表页生成器：改过事件 schema 必重跑，生成物 `apps/docs/events.md` 入库，CI 重跑并 `git diff --exit-code` 校同步——与契约用例生成物同一口径）与 **`pnpm --filter @spark/docs dev`**（VitePress 本地预览；构建已自动入 `pnpm -r build`，VitePress 内置死链检查会在构建时报红）。§4 typecheck 项目数 **12 → 13**（新增 apps/docs）。**版本号撞号顺延**：本行原拟 v1.39，但 v1.39 已被并行会话（ZCode CLI，两端 dev:web/dev:h5 命令注记）占用，顺延为 v1.40，不改他人历史行。与 doc/02 v4.31（形态选型一行决策记录 + 词表页生成规则）、doc/08 v1.33（§14.6 进度）同批 |
+| v1.41 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §2 第 8 条事实修正：事件词表 **21 → 22 种**（阶段十六工单 16.3 /plan 计划模式新增 `session.mode.changed`——durable、非 surface，回放可重建会话模式；reducer 单测已补，走 new-event-type 全流程）。同批同步：doc/02 v4.32（§4.3 词表 + §6.4 处理表 + 设计裁决）、ARCHITECTURE v1.40（事件模型行）、README v1.35、doc/08 v1.34（§16.3 进度）；两份生成物已重跑（契约用例 92 describe / 894 断言，文档站词表页 22 种） |
 
 ## 1. 项目上下文（30 秒版）
 
@@ -75,7 +76,7 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 5. **协议改动从 `packages/protocol` 开始**：改事件词表/API 类型 → 两端同步适配 → 跑双侧类型检查。禁止在前端或引擎里私自定义 wire 类型。
 6. **前端样式**：Tailwind + shadcn token 体系；视觉基调：黑白中性极简。**禁止一切"AI 生成风"外观**：蓝紫渐变玻璃拟态、暖棕/米色等暖调配色、实线细描边 + 内部 backdrop-blur 毛玻璃的按钮/卡片、超大标题字体、emoji 装饰、bento/三卡模板布局等——完整六类特征清单见 DESIGN.md §12（判例与决策记录见 ARCHITECTURE.md D2）；组件改造走 copy-in（源码进 `components/ui/`），不引黑盒运行时依赖。
 7. **引擎铁律**（写代码时时刻对照）：durable/live 二分（delta 不落盘）；surface 纪律（模型可见必被记录）；失败闭合（事件流永不悬空）；审批 fail-closed（超时/异常一律拒绝）；单写者 JSONL（会话文件只经 SessionStore 写）。
-8. **测试**：`applyEvent` reducer 对全部事件类型逐一单测（21 种）；新增事件类型必须同步新增单测，否则 PR 不完整。
+8. **测试**：`applyEvent` reducer 对全部事件类型逐一单测（22 种）；新增事件类型必须同步新增单测，否则 PR 不完整。
 9. **不做的事**：不加多用户/登录/公网暴露（本地 127.0.0.1 是刻意的）；不上 Effect/RxJS 等响应式框架（抄设计不抄框架）；**不做当前工单之外的事**——新想法即使"顺手"也不夹带，登记进 doc/02 §8.7 v2 候选池或 doc/08 立项后再动（v1 阶段的 MVP 边界约束已由阶段五完成交付，不再适用）。
 10. **文件删除保护**：AI 编程助手**无权删除任何文件**——不得直接或间接执行删除（`rm`/`del`/`git rm`/`git clean`/移动出仓库/清空目录等），提交中也不得夹带删除。任何文件（含临时文件、生成物）的删除都必须由人类发起或确认，并完成**五层级确认**（逐级明示确认，缺一不可）：① 意图确认（为何删）→ ② 对象确认（逐个列出精确路径）→ ③ 影响确认（全仓引用与构建影响）→ ④ 替代确认（归档/移动/改名能否替代删除）→ ⑤ 终确认（人类明示"确认删除"）。五级全部通过后，方可由人类执行或明确授权 AI 执行；重命名/移动不在此列，但移动出仓库视同删除。
 11. **禁止"AI 生成味"代码**（前端与后端都算）：前端外观六类黑名单 + 文案语气 + 代码级 grep 硬检查见 DESIGN.md §12；后端/通用代码六类黑名单（无据设计模式、吞异常/空 catch、幻觉防御、冗余注释、泛化命名、any 逃逸/幻觉依赖）见 ARCHITECTURE.md §9——其中吞异常与假实现直接违反引擎铁律（失败闭合/禁止假状态）。总原则 **boring code**：无聊、可读、只做好一件事；删掉一层抽象若不破坏功能，就删。

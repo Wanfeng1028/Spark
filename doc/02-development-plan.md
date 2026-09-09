@@ -373,9 +373,9 @@ export type TurnFinish = 'stop' | 'length' | 'aborted' | 'permission-rejected' |
 export type PermissionReply = 'once' | 'always' | 'reject'
 ```
 
-## 4.3 事件词表（21 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
+## 4.3 事件词表（22 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
 
-> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 21 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
+> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 22 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
 
 ```ts
 export interface SparkEventMap {
@@ -389,6 +389,8 @@ export interface SparkEventMap {
   }
   'session.resumed': { fromSeq: number }
   'session.title': { title: string }
+  /** 工单 16.3 /plan 计划模式：durable（回放可重建当前模式）、非 surface（不进模型历史） */
+  'session.mode.changed': { mode: SessionMode; previous: SessionMode }
   // turn
   'turn.started': { turnId: TurnId; delivery: Delivery; userEventId: EventId }
   'turn.completed': { turnId: TurnId; finish: TurnFinish; usage?: Usage }
@@ -465,7 +467,7 @@ export const EventSchemas = {
     text: z.string().min(1),
     attachments: z.array(z.string()).optional(),
   }),
-  // …21 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
+  // …22 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
 } satisfies { [T in SparkEventType]: z.ZodType<SparkEventMap[T]> }
 
 // schema.ts —— 信封 schema + jsonSchema 导出（工具参数与 DTO 用）
@@ -1794,6 +1796,7 @@ interface SessionSlice {
 | session.created              | 初始化 slice；activeId 空则激活                                                     |
 | session.resumed              | 回放模式批量 apply                                                                  |
 | session.title                | meta.title（Sidebar 联动）                                                          |
+| session.mode.changed         | slice.mode（工单 16.3：四端 plan 指示与 composer 提示的数据源；durable 故冷启动回放即可重建） |
 | turn.started                 | activeTurn={…}；composer 切 busy                                                    |
 | turn.completed               | activeTurn=null；finish==='error' 设 topBanner；usage 累计                          |
 | user.message                 | push {kind:'user'}                                                                  |
@@ -2693,6 +2696,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.29 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"可以继续开发了"指令） | **工单 14.5 第二批（收口）：sdk-tui 骨架 + examples/README.md 索引**。① `examples/sdk-tui`（要求 3，tui.tsx 192 行，上限 300）：Ink 7 + React 19（版本与 apps/cli 对齐），**四区极简版**（头部基址/标题/运行态 → 流（applyEvent 投影的 UiItem 尾部 12 条）→ 单行输入 → 底部键位与错误）；只用三样东西（`createClient` + protocol 的 `applyEvent` + Ink），**不碰 Spark 内部件**——这正是本例的论点：自己写一个终端前端需要的是 SDK + 四端同款 reducer。几处细节沿用四端已验证的做法：运行态从 `activeTurn` 派生（不从 meta 读，同 viewer 的教训）、IME **单码元判定**（同 cli 10.19④）、回放与直播同一个 reducer（seq 吸附）、错误如实进底部行（失败闭合）；`lineOf` 留 `default` 分支——词表新增 kind 时**如实显示"未识别"而不静默丢行**（与引擎对 ignorable 事件的态度一致）。② `examples/README.md`（要求 4）：三例各一句话 + 跑法 + 前置（viewer/tui 需 server，bot 的 `SPARK_DEMO=1` 不需）、**行数红线实测值**（bot 129+31 / viewer 140 / tui 192，并标注 bot 合计超 120 的备案去向）、sdk 自带两示例的链接与跑法、evals 的区分声明（它是测试装置不是客户端示例）、以及**验收要的人工走查记录表**（已预填：bot 演示模式由 CI 每次 push 真跑 ✅；bot HTTP 模式/viewer/tui 三项标"待执行"）+ 走查时顺手核的三条红线。③ 配套：workspace 逐条列入 `examples/sdk-tui`、knip entry（tui.tsx）、tsconfig 加 `jsx: react-jsx`。**顺手修一处自己留下的错**：sdk-bot 的 `start` 脚本原写 `tsx bot.ts`（bot.ts 是库、无副作用，跑等于什么都不做）→ 改 `tsx main.ts`。**锁文件按新纪律处理**（AGENTS §2 第 2 条）：先在干净 worktree（`_scratch/lockfix` checkout 到新 HEAD）里 `pnpm install --lockfile-only` 重算再拷回，避开并行会话未提交清单的污染。同步：doc/08 v1.32（§14.5 第二批进度、整张收口）。**本批本机零验证**，以 CI 裁决 |
 | v4.30 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"可以继续开发了"指令；因由：v4.29 推送后 CI 红在 typecheck） | **tui 示例拿错了 React key 字段（一处 TS2339）**。CI run 34376293830：锁文件这关已过（install 绿），typecheck 报 `examples/sdk-tui tui.tsx(167,28): Property 'id' does not exist on type 'UiItem'`。根因：`UiItemBase` 的字段是 **`eventId: EventId`**（+ 可选 `parentId`），投影项**没有 `id`**——它带的是"产生该项的事件 id"，而我按惯性写了 `item.id`。修为 `key={item.eventId}` 并在代码里写明理由。**两个小结论**：① 把示例包入 workspace 的价值当场又得到一次验证——不能编译的示例比没示例更坏，而这一错只有 typecheck 能拦（运行时也只是 React 的 key 警告，很容易被当噪声忽略）；② 投影侧类型（UiItem/SessionSlice/SessionMeta）与 DTO 侧命名不同源，写消费端时**不能凭名字猜字段**（上一批 viewer 猜错了 `meta.status`，本批 tui 猜错了 `item.id`，同一类错）。本修同样本机零验证，以 CI 裁决 |
 | v4.31 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **工单 14.6：开发者文档站（新增 §4.9）**。`apps/docs`（VitePress **1.6.4**）；形态选型的一行决策记录已入 §4.9：选 a 不选 typedoc，**不占 ADR 号**（工具选型而非架构决策，且占号会让 15.1/18.1 预称号再顺延）；API 参考不自己生成，**引用 §4.6 的公共面清单而不复制**（单一来源，那边有不变量网守着）。六页（五页要求 + 总览）：index / getting-started（**三条路径**：离线演示 `SPARK_DEMO=1` 无密钥无 server、仓库内真 server + viewer、npm 发布后三行用法——并如实标注尚未发布）/ layers（L0–L4，改写自 doc/08 §4.0、现状列刷新为已落地）/ transports（对比表 + 7 项 E_UNSUPPORTED + 错误码同形 + parity 如何被机器守住 + 两处已知差异）/ events（**生成物**）/ faq（审批语义与安全模型与稳定性承诺各一段 + 五条常问）。**事件词表页生成器** `apps/docs/scripts/gen-events.ts`：从 `EventSchemas`+`EnvelopeSchema` 经 `z.toJSONSchema` 推导字段表；分类用 `Record<LiveOnlyEventType, true>` / `Record<SurfaceEventType, true>` 声明，**穷尽性由编译器把关**（protocol 新增一类而生成器没跟上就 typecheck 红，而不是静默漏标）；三条纪律同契约生成器（事实源唯一 / 确定性 / 不猜）。**同步门禁两处**：ci.yml 与 release.yml 都跑 `gen:events` + `git diff --exit-code apps/docs/events.md`。**部署**：release.yml 新增**独立 docs job**（tag 触发）——`environment: github-pages` 是 job 级配置，若并进 publish job，一旦仓库给 Pages environment 配了审批就会连带卡住 npm 发布；**外网可达需一次性人工设置**（Settings → Pages → Source 选 GitHub Actions），已写进 workflow 注释。反 AI 味：不启用 `layout: home`（无 hero 渐变）、无 emoji、首页是索引表不是 bento 卡片墙。配套：`base: '/Spark/'`、knip 登记两个入口、apps/docs 入 `pnpm -r typecheck`（13 个项目）与 `pnpm -r build`（VitePress 构建自带死链检查）。AGENTS v1.40（§4 两行命令 + 计数；**撞号顺延**：v1.39 已被并行会话占用）、doc/08 v1.33（§14.6 进度与验收对账）同步。**本批本机零验证**（例外：跑生成器是工作产物——events.md 必须入库），以 CI 裁决 |
+| v4.32 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **工单 16.3 第一批（/plan 计划模式：协议面 + 引擎规则面）——事件词表 21 → 22 种**。新增 durable 事件 **`session.mode.changed`** `{ mode, previous }`（非 live、非 surface，故 §4.4 的两个联合类型不变）+ `SessionModeSchema`/`SessionMode`（primitives）+ `SessionSlice.mode`（投影，`emptySessionSlice` 缺省 `'default'`）+ applyEvent 分支（§6.4 处理表已补行）。**核心设计裁决：mode 与既有 `plan` 档是同一件事的两个面**——mode = 可见/可回放的 durable 状态，plan 档 = 审批规则引擎的 enforcement 层（+ 6.3 已接的 `PLAN_MODE_DIRECTIVE` 系统提示）；**切 mode 就是切档**，不另造规则也不建独立状态机（qwen-code 也只是 ApprovalMode 的一个值）。据此 **激活了一直空着的 `PRESET_RULES.plan`**（此前选 plan 档等于没选）：把 gemini-cli `plan.toml` 的优先级规则直接翻译成本仓 findLast 语义（同层排后者胜）——兜底 `*` DENY（40）→ `fs.read` ALLOW（50）→ `plan.exit` ASK（70，退出工具必走审批，模型不能自己宣布计划已批准）。引擎侧：`setSessionMode(id, mode)`（幂等；记 `prePlanPreset` 供退出恢复）、`sessionModeOf(id)`（**由档位派生，不存第二份状态**）、私有 `applyPreset` 为档位变更的**唯一出口**（设档 + 只在"是否 plan"变时 emit）；`setPermissionPreset` 因此改为 **async**，两处调用点同步 await（server 路由 / sdk 进程内通道）。测试：permission.test.ts 改写旧语义那条（原断言"plan 无预设行、fs.write 照旧 ask"）为写类全拒/只读放行/模式转换走审批，并新增"兜底 DENY 压过用户级 allow"（= 验收第 1 条的提示词注入诱导场景：注入即便骗到 allow 规则也越不过模式）；新增 `session-mode.test.ts` 5 例（emit durable 且有 seq / 幂等 / 退出恢复 prePlanPreset / 两个入口不分叉 / 非 plan 档互切不发事件）；web reducer 单测 2 例（mode 更新 + seq 吸附幂等）。**两份生成物已重跑**：契约用例 90 → **92 describe / 881 → 894 断言**；文档站词表页 21 → **22 种（durable 19 / live 3 / surface 2）**。**计数同步**：检查器交叉校验的四处（§4.3 标题 / ARCHITECTURE 事件模型行 / AGENTS §2.8 / README 事实锚点行）+ 非校验处（doc/02 三处、README.en、CONTRIBUTING、apps/docs index与faq、protocol 两处注释、gen-contract 注释）。**第二批待做**：`/plan` 命令与 `exit_plan_mode` 工具（新工具全流程）、qwen 的两个细节（approvalModeRevision 快照——审批期间用户手动切档则批准作废；enter_plan_mode 视为执行边界——同批后续工具跳过）、四端 mode 指示、MockTransport 对等。同步：AGENTS v1.41、ARCHITECTURE v1.40、README v1.35、doc/08 v1.34（§16.3 进度）。**本批本机零验证**（例外：跑两个生成器是工作产物），以 CI 裁决 |
 
 > 批次 5 备注：
 
@@ -2739,7 +2743,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | engine/permission  | evaluate 优先级（临时>项目>用户>默认 ask）；always 写入 + 同批放行；超时/中断 fail-closed；reject feedback 注入 user.message                                     |
 | engine/session     | 单写者 append/flush；坏行（尾行丢弃/非尾拒绝加载）；resume 补 turn.completed{aborted}；Projector 投影（无/有 compaction 分支 × reasoning 配置）；mungeDir 确定性 |
 | server             | 路由 zod 400/404/409/503 映射；SSE 回放+直播边界、心跳、全局订阅；SPA fallback 排除 /api                                                                         |
-| web                | **applyEvent 21 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
+| web                | **applyEvent 22 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
 | 集成               | MockTransport 四场景全跑（§4.7 表）；阶段三：ScriptedLlm 全闭环 + 崩溃恢复（kill -9 后 resume 无悬挂事件）                                                       |
 
 ## 8.7 v2 候选池（未排期，不阻塞阶段六~九；缺口编号对应 doc/07 §2.7）

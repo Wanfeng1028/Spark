@@ -20,7 +20,7 @@
 ## 提交前自查（PR 清单）
 
 - [ ] **本机零验证**（AGENTS §2.2，晚风 2026-09-08 拍板）：不在本地跑 `pnpm typecheck` / `pnpm lint` / `pnpm test` / `pnpm eval` / `python scripts/check_doc_links.py`——改完直接 commit + push，验证全交 CI（ci.yml 五步 + e2e job）；CI 红在下一提交修，不 revert 不 force push。
-- [ ] **新写测试用例仍是任务的一部分**（只是不在本机跑）：新增事件类型走 [new-event-type](./.agents/skills/new-event-type/SKILL.md) 全流程（21 种逐一单测）；新工具走 [new-tool](./.agents/skills/new-tool/SKILL.md)（四路径单测）。TypeScript strict 禁 `any`。
+- [ ] **新写测试用例仍是任务的一部分**（只是不在本机跑）：新增事件类型走 [new-event-type](./.agents/skills/new-event-type/SKILL.md) 全流程（22 种逐一单测）；新工具走 [new-tool](./.agents/skills/new-tool/SKILL.md)（四路径单测）。TypeScript strict 禁 `any`。
 - [ ] 前端改动对照 DESIGN.md §10 组件 DoD 九项 + §12 反 AI 味黑名单；后端对照 ARCHITECTURE.md §9（boring code）。
 - [ ] 涉及文档变更已追加各文档版本记录表（docs-update 技能流程）。
 - [ ] 未删除任何文件——文件删除须走 AGENTS §2.10 五层级确认（AI 与贡献者同样受限）。
