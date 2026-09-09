@@ -6,7 +6,7 @@
   "type": "module",
   "description": "SDK 画廊·automation bot（工单 14.5）：建会话 → 发任务 → 等 turn.completed → 写日志；SPARK_DEMO=1 走进程内通道离线演示",
   "scripts": {
-    "start": "tsx bot.ts",
+    "start": "tsx main.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

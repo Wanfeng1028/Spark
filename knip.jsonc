@@ -43,6 +43,10 @@
       // 脚本入口（package.json 的 start 用 tsx 直跑；bot.ts 被 main.ts 与测试 import）
       "entry": ["main.ts"]
     },
+    "examples/sdk-tui": {
+      // 脚本入口（start 用 tsx 直跑 tui.tsx；Ink 应用在模块顶层 render）
+      "entry": ["tui.tsx"]
+    },
     "examples/sdk-viewer": {
       // index.html 用 <script type="module" src="./main.ts"> 引入——knip 不解析 HTML，故登记为入口
       "entry": ["main.ts", "vite.config.ts"]

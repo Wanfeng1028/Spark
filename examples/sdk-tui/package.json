@@ -1,0 +1,29 @@
+{
+  "name": "@spark/example-tui",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "SDK 画廊·自定义 TUI 骨架（工单 14.5）：Ink + createClient + applyEvent 驱动的四区极简版",
+  "scripts": {
+    "start": "tsx tui.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@spark/protocol": "workspace:*",
+    "@spark/sdk": "workspace:*",
+    "ink": "^7.1.1",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@types/react": "^19.1.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3"
+  },
+  "contributors": [
+    "Jules (AI Assistant)",
+    "Doubao (AI Assistant)",
+    "opencode (AI Assistant)"
+  ]
+}
