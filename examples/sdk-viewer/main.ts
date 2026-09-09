@@ -13,7 +13,10 @@ import { applyEvent, emptySessionSlice, ids } from '@spark/protocol'
 import type { ProjectionState, SessionId, UiItem } from '@spark/protocol'
 import { createClient } from '@spark/sdk'
 
-const client = createClient(import.meta.env.VITE_SPARK_API ?? '')
+// import.meta.env 的值是 any（vite/client 的开放索引签名）——先 typeof 收窄再传，
+// 不把 any 直接喂给强类型参数（也是给第三方抄用本示例时该教的习惯）
+const envBaseUrl: unknown = import.meta.env.VITE_SPARK_API
+const client = createClient(typeof envBaseUrl === 'string' ? envBaseUrl : '')
 
 let state: ProjectionState = { byId: {}, activeId: null }
 

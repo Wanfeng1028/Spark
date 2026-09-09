@@ -105,7 +105,8 @@ function demoConfig(): EngineConfig {
 export async function makeClient(): Promise<{ client: SparkClient<Transport>; close: () => Promise<void> }> {
   if (process.env['SPARK_DEMO'] !== '1') {
     const client = createClient(process.env['SPARK_API'] ?? 'http://127.0.0.1:4318')
-    return { client, close: async () => client.close() }
+    // 不用 async：HTTP 分支的收口是同步的（写成 async 会触发 require-await）
+    return { client, close: () => Promise.resolve(client.close()) }
   }
   const { Engine } = await import('@spark/engine')
   const { ScriptedLlm } = await import('@spark/engine/internal')
