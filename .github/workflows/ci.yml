@@ -59,5 +59,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # GitHub runner 可直连 Playwright 官方 CDN——不设 SPARK_E2E_BROWSER
       # （该兜底留给本地沙箱网络受限环境，见 apps/web/playwright.config.ts 与 doc/06 v1.1）
-      - run: pnpm --filter @spark/web exec playwright install chromium --with-deps
+      # **不加 `--with-deps`**：它会跑 `apt-get update`，而 runner 镜像预置的
+      # dl.google.com/linux/chrome-stable 仓库索引哈希不匹配（上游镜像同步问题，与本仓代码无关），
+      # 会让本步失败、e2e 用例一个没跑。ubuntu 镜像已带 chromium 所需系统库，故只装浏览器本体；
+      # 若真缺库，e2e 会报明确的 missing dependency，届时按需装具体那几个库（不做全量 update）。
+      - run: pnpm --filter @spark/web exec playwright install chromium
       - run: pnpm --filter @spark/web e2e
