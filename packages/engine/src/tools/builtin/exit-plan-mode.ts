@@ -16,7 +16,9 @@
 import { z } from 'zod'
 import type { ToolDefinition } from '../definition.js'
 
-export const ExitPlanModeInput = z.strictObject({
+/** input schema 不导出（只本文件用，knip 会报未用导出）；类型必须导出——
+ * `exitPlanModeTool` 的声明发射要能命名它（否则 TS4033，同 14.1 的四个判例） */
+const ExitPlanModeInput = z.strictObject({
   plan: z
     .string()
     .min(1)
