@@ -5,37 +5,25 @@
 import React from 'react'
 import { render } from 'ink-testing-library'
 import { BootHeader } from '../src/components/BootHeader.js'
+import { emptySessionSlice } from '@spark/protocol'
 import type { ModelsDto, SessionSlice } from '@spark/protocol'
 
 const columns = Number(process.argv[2] ?? 120)
 const model = process.argv[3] ?? 'deepseek/deepseek-chat'
 
+const sid = 'ses_preview000000000000000' as SessionSlice['meta']['id']
+// 用 emptySessionSlice 起桩再覆盖 meta，而不是手攒整个 slice：
+// 投影形状每新增一个字段（如工单 16.3 的 mode），手攒版就会编译不过——本桩只关心 meta。
 const slice: SessionSlice = {
+  ...emptySessionSlice(sid),
   meta: {
-    id: 'ses_preview000000000000000' as SessionSlice['meta']['id'],
+    id: sid,
     cwd: process.cwd().replace(/\\/g, '/'),
     model,
     title: '预览',
     createdAt: 0,
     updatedAt: 0,
   },
-  items: [],
-  activeTurn: null,
-  lastSeq: 0,
-  usageTotal: {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheRead: 0,
-    cacheWrite: 0,
-    costUsd: 0,
-  },
-  contextUsage: null,
-  topBanner: null,
-  compacting: false,
-  lastCheckpoint: null,
-  lastError: null,
-  memoryInjected: null,
 }
 
 const models: ModelsDto = {
