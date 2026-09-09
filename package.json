@@ -37,6 +37,7 @@
     "Doubao (AI Assistant)",
     "opencode (AI Assistant)",
     "GitHub Copilot (@copilot)",
-    "GitHub Copilot Task Agent (AI Assistant)"
+    "GitHub Copilot Task Agent (AI Assistant)",
+    "Qwen-Coder-Agent (AI Assistant)"
   ]
 }
