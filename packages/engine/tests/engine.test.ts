@@ -289,9 +289,9 @@ describe('权限档位（§13.E 四档 / D7 补记，工单 6.3）', () => {
     const f = await makeEngine()
     const h = await f.engine.createSession()
     expect(f.engine.permissionPresetOf(h.id)).toBe('confirm-each')
-    f.engine.setPermissionPreset(h.id, 'auto-edit')
+    await f.engine.setPermissionPreset(h.id, 'auto-edit')
     expect(f.engine.permissionPresetOf(h.id)).toBe('auto-edit')
-    f.engine.setPermissionPreset(h.id, 'confirm-each')
+    await f.engine.setPermissionPreset(h.id, 'confirm-each')
     expect(f.engine.permissionPresetOf(h.id)).toBe('confirm-each')
   })
 
@@ -299,14 +299,14 @@ describe('权限档位（§13.E 四档 / D7 补记，工单 6.3）', () => {
     const f = await makeEngine()
     f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '计划如下' }] })
     const h = await f.engine.createSession()
-    f.engine.setPermissionPreset(h.id, 'plan')
+    await f.engine.setPermissionPreset(h.id, 'plan')
     await h.send('做个计划')
     await waitForTurnDone(f)
     expect(f.gateway.calls.at(-1)?.system).toContain(PLAN_MODE_DIRECTIVE)
 
     // 切回缺省档：同一会话下一轮不再携带指令（getter 逐 step 现读）
     f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '执行' }] })
-    f.engine.setPermissionPreset(h.id, 'confirm-each')
+    await f.engine.setPermissionPreset(h.id, 'confirm-each')
     await h.send('继续')
     const deadline = Date.now() + 2000
     while (f.events.filter((e) => e.type === 'turn.completed').length < 2) {
