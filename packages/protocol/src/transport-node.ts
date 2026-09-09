@@ -310,10 +310,12 @@ export class HttpTransport implements Transport {
     })
   }
 
-  createSession(opts?: { title?: string; model?: string }): Promise<SessionDto> {
+  createSession(opts?: { title?: string; model?: string; cwd?: string }): Promise<SessionDto> {
     const body: Record<string, string> = {}
     if (opts?.title !== undefined) body['title'] = opts.title
     if (opts?.model !== undefined) body['model'] = opts.model
+    // cwd（工单 14.4）：服务端 CreateSessionBody 一直收，本处补上透传（缺省不携带 = 行为不变）
+    if (opts?.cwd !== undefined) body['cwd'] = opts.cwd
     return this.req<SessionDto>('/api/sessions', {
       method: 'POST',
       body: JSON.stringify(body),

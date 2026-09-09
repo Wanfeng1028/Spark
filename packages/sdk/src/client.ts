@@ -37,8 +37,8 @@ export interface SparkClient<T extends Transport = HttpTransport> {
   readonly sessions: {
     /** 会话列表（archived=true 只列已归档；缺省排除归档） */
     list(archived?: boolean): Promise<SessionDto[]>
-    /** 新建会话（model 为 "provider/model"；缺省 = 引擎 defaultModel） */
-    create(opts?: { title?: string; model?: string }): Promise<SessionDto>
+    /** 新建会话（model 为 "provider/model"；cwd 为工作区；均缺省走引擎缺省值） */
+    create(opts?: { title?: string; model?: string; cwd?: string }): Promise<SessionDto>
     /** meta + durable 事件（seq 升序）——冷启动回放数据源；query 为协议既有分页语义 */
     get(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto>
     /** 发消息（delivery=now 立即 / queue 排队；返回 started|steered|queued） */

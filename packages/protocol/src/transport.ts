@@ -75,8 +75,13 @@ export interface Transport {
   archiveSession(sessionId: SessionId, archived: boolean): Promise<SessionDto>
   /** 两段式删除：JSONL 移入 ~/.spark/trash/（可人工找回）；运行中会话 409 */
   deleteSession(sessionId: SessionId): Promise<void>
-  /** 新建会话（model 为 "provider/model"；缺省 = 引擎 defaultModel） */
-  createSession(opts?: { title?: string; model?: string }): Promise<SessionDto>
+  /**
+   * 新建会话（model 为 "provider/model"；缺省 = 引擎 defaultModel）。
+   * cwd（工单 14.4）：会话工作区；缺省 = 引擎 defaultCwd。服务端 `CreateSessionBody`
+   * 一直收该字段（路由早就支持），接口面漏了它——于是 `spark -p --cwd` 与嵌入场景
+   * 都无法经 Transport 指定工作区；属只增不破的可选字段补登记（§4.4）。
+   */
+  createSession(opts?: { title?: string; model?: string; cwd?: string }): Promise<SessionDto>
   /** GET /api/sessions/:id/tree：树视图数据（doc/02 §5.8.6，阶段四工单 4.5） */
   getTree(sessionId: SessionId): Promise<TreeNodeDto[]>
   /** GET /api/sessions/:id/trace：回合级链路聚合（工单 13.7 / V2-11；纯从 durable 事件推导，不加埋点） */

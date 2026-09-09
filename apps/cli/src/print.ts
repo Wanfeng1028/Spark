@@ -1,8 +1,10 @@
 /**
- * spark -p 一次性模式（阶段十二工单 12.3；doc/08 §12.3）：
- * 进程内装配 Engine（eval real 同款——不经 HTTP、不起 server），createSession →
- * send → 等 turn.completed → stdout 输出后优雅 shutdown。审批挂起超时走引擎
- * fail-closed 缺省拒绝并如实进输出。退出码：0 = finish 正常；1 = error/异常。
+ * spark -p 一次性模式（阶段十二工单 12.3；工单 14.4 改走 SDK 进程内通道）：
+ * 宿主侧装配 Engine（不起 server、不经 HTTP），**会话/发消息/事件订阅均经
+ * `@spark/sdk/inprocess` 的同一份 Transport 合同**（与 web、cli TUI、外部脚本同一条路径，
+ * 消掉原本直连 Engine 的重复装配）；createSession → send → 等 turn.completed →
+ * stdout 输出后优雅 shutdown。审批挂起超时走引擎 fail-closed 缺省判 deny 并如实进输出。
+ * 退出码：0 = finish 正常；1 = error/异常。
  * 输出：--output-format json = 全 durable 事件数组（jq 可解析）；缺省 text = 最终
  * assistant 文本（无则提示行）。
  */
@@ -11,6 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { SparkEventEnvelope } from '@spark/protocol'
 import { Engine, Logger, loadConfig, type EngineConfig, type LlmGateway } from '@spark/engine'
+import { createInProcessClient } from '@spark/sdk/inprocess'
 
 export const PRINT_USAGE = `
 
@@ -45,26 +48,28 @@ export async function runPrint(opts: PrintOptions): Promise<PrintOutcome> {
       logger: new Logger({ root, stdout: false }),
       ...(opts.gateway !== undefined ? { gateway: opts.gateway } : {}),
     })
+    // 工单 14.4：改走 SDK 的进程内通道——订阅/建会话/发消息都经同一份 Transport 合同，
+    // 不再直连 Engine 门面（消重）。引擎仍由本模块构造与 shutdown：CLI 就是宿主，
+    // 引擎生命周期属宿主（ADR D30/D31；client.close() 只退订、不关引擎）。
+    const client = createInProcessClient(engine)
     const events: SparkEventEnvelope[] = []
-    engine.subscribe((e) => {
+    client.events.subscribe((e) => {
       events.push(e)
     })
     await engine.ready()
-    const handle = await engine.createSession({ cwd: opts.cwd })
-    void handle.send(opts.prompt, 'now')
-    // 等 turn.completed（审批挂起超时由引擎 fail-closed 拒绝并落 error 事件——如实输出）
-    const current = engine
-    if (current === null) throw new Error('E_INTERNAL: 引擎未装配')
+    const session = await client.sessions.create({ cwd: opts.cwd })
+    void client.sessions.send(session.id, opts.prompt, { delivery: 'now' })
+    // 等 turn.completed（审批挂起超时由引擎 fail-closed 判 deny 并落 error 事件——如实输出）
     const finish = await new Promise<'stop' | 'error' | 'aborted'>((resolve, reject) => {
       const timer = setTimeout(
         () => reject(new Error('E_PRINT_TIMEOUT: 等待 turn 完成超时（10 分钟）')),
         600_000,
       )
-      const un = current.subscribe((e: SparkEventEnvelope) => {
-        if (e.sessionId !== handle.id) return
+      const off = client.events.subscribe((e) => {
+        if (e.sessionId !== session.id) return
         if (e.type === 'turn.completed') {
           clearTimeout(timer)
-          un.unsubscribe()
+          off()
           resolve((e.data as { finish: 'stop' | 'error' | 'aborted' }).finish)
         }
       })
@@ -75,7 +80,7 @@ export async function runPrint(opts: PrintOptions): Promise<PrintOutcome> {
     } else {
       const texts: string[] = []
       for (const e of events) {
-        if (e.sessionId !== handle.id || e.type !== 'assistant.message') continue
+        if (e.sessionId !== session.id || e.type !== 'assistant.message') continue
         const blocks = (e.data as { content: Array<{ type: string; text?: string }> }).content
         for (const b of blocks) {
           if (b.type === 'text' && typeof b.text === 'string' && b.text !== '') texts.push(b.text)
@@ -83,6 +88,7 @@ export async function runPrint(opts: PrintOptions): Promise<PrintOutcome> {
       }
       process.stdout.write(texts.length > 0 ? `${texts.join('\n')}\n` : '(无文本输出)\n')
     }
+    client.close()
     await engine.shutdown()
     return { exitCode: finish === 'stop' ? 0 : 1 }
   } catch (err) {

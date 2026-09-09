@@ -51,7 +51,8 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "example": "tsx examples/minimal.ts"
+    "example": "tsx examples/minimal.ts",
+    "embed": "tsx examples/embed.ts"
   },
   "dependencies": {
     "@spark/protocol": "workspace:*"

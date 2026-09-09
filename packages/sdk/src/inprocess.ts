@@ -203,11 +203,13 @@ export class InProcessTransport implements Transport {
 
   // ---------- 会话 ----------
 
-  async createSession(opts?: { title?: string; model?: string }): Promise<SessionDto> {
+  async createSession(opts?: { title?: string; model?: string; cwd?: string }): Promise<SessionDto> {
     this.assertNotDisposed()
     const handle = await this.engine.createSession({
       ...(opts?.title !== undefined ? { title: opts.title } : {}),
       ...(opts?.model !== undefined ? { model: opts.model } : {}),
+      // cwd：嵌入场景的主要诉求之一（在指定工作区跑）——引擎 createSession 本就收它
+      ...(opts?.cwd !== undefined ? { cwd: opts.cwd } : {}),
     })
     return this.dtoOf(handle)
   }
