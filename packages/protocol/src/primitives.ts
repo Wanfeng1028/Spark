@@ -40,6 +40,15 @@ export type ContentItem = z.infer<typeof ContentItemSchema>
 export const DeliverySchema = z.enum(['now', 'steer', 'queue'])
 export type Delivery = z.infer<typeof DeliverySchema>
 
+/**
+ * 会话模式（工单 16.3 /plan 计划模式）：default = 常态；plan = 只读规划（写类工具全 DENY，
+ * 退出须用户批准）。与 `PermissionPreset` 的 `'plan'` 档是**同一件事的两个面**：
+ * mode 是会话可见/可回放的 durable 状态（事件驱动、四端显示指示），preset 是审批规则引擎的
+ * enforcement 层（findLast 优先级）——引擎切 mode 时同步设 preset，**不另造第二套规则路径**。
+ */
+export const SessionModeSchema = z.enum(['default', 'plan'])
+export type SessionMode = z.infer<typeof SessionModeSchema>
+
 export const TurnFinishSchema = z.enum([
   'stop',
   'length',

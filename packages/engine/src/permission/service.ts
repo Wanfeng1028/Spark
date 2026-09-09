@@ -348,11 +348,25 @@ export class PermissionServiceImpl implements PermissionService {
   }
 }
 
-/** 各档位的预设行（const 派生表；plan/confirm-each 无行） */
+/** 各档位的预设行（const 派生表；confirm-each 无行） */
 const PRESET_RULES: Record<PermissionPreset, readonly PermissionRule[]> = {
   'confirm-each': [],
   'auto-edit': [{ action: 'fs.write', resource: '**', effect: 'allow' }],
-  plan: [],
+  /**
+   * plan 档（工单 16.3 激活；此前是空行——档位存在但不生效，选它等于没选）。
+   * gemini-cli `policy/policies/plan.toml` 的**优先级规则直接翻译**成本仓的 findLast 语义
+   * （同层内排后者胜）：兜底 DENY（plan.toml 优先级 40）→ 只读 ALLOW（50）→ 模式转换 ASK（70）。
+   * - 兜底 `*` deny：写类（fs.write/shell.exec）与不可知面（agent.task/mcp.call）全拒——
+   *   fail-closed 方向，也盖住提示词注入诱导的写请求；
+   * - `fs.read` allow：read/grep/glob 类只读工具照常可用（规划需要读）；
+   * - `plan.exit` ask：退出计划模式的工具（工单 16.3 第二批）**必须走审批**——
+   *   模型不能自己宣布计划已批准（qwen-code exitPlanMode 同语义）。
+   */
+  plan: [
+    { action: '*', resource: '**', effect: 'deny' },
+    { action: 'fs.read', resource: '**', effect: 'allow' },
+    { action: 'plan.exit', resource: '**', effect: 'ask' },
+  ],
   'full-access': ['fs.read', 'fs.write', 'shell.exec', 'agent.task', 'mcp.call'].map(
     (action) => ({ action, resource: '**', effect: 'allow' as const }),
   ),

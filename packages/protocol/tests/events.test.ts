@@ -25,6 +25,7 @@ const samples: { [K in SparkEventType]: SparkEventMap[K] } = {
   'session.created': { cwd: 'E:/code/demo', model: 'deepseek/deepseek-chat' },
   'session.resumed': { fromSeq: 42 },
   'session.title': { title: '修登录 bug' },
+  'session.mode.changed': { mode: 'plan', previous: 'default' },
   'turn.started': { turnId: trn, delivery: 'now', userEventId: evt(2) },
   'turn.completed': { turnId: trn, finish: 'stop', usage: { inputTokens: 100, outputTokens: 20 } },
   'user.message': { text: '读一下 src/index.ts', attachments: ['src/index.ts'] },
@@ -104,8 +105,8 @@ function envelopeOf<K extends SparkEventType>(
 }
 
 describe('事件词表', () => {
-  it('词表共 21 种（durable 18 + live 3）', () => {
-    expect(Object.keys(EventSchemas)).toHaveLength(21)
+  it('词表共 22 种（durable 19 + live 3）', () => {
+    expect(Object.keys(EventSchemas)).toHaveLength(22)
   })
 
   it('CallId 透传上游 id（工单 10.39：OpenAI call_xxx / Anthropic toolu_xxx 过闸，不重写）', () => {

@@ -1,5 +1,5 @@
 /**
- * applyEvent reducer 单测（doc/02 §6.4 处理表 21 种事件逐条覆盖，AGENTS §2.8）。
+ * applyEvent reducer 单测（doc/02 §6.4 处理表 22 种事件逐条覆盖，AGENTS §2.8）。
  * 工单 8.2 起实现下沉 @spark/protocol（D22 四端共享资产），web/cli 同一实现共此词表把关。
  * applyEvent 为纯函数——直接构造状态与事件断言，无 React 绑定。
  */
@@ -91,6 +91,28 @@ describe('session.created / resumed / title', () => {
   it('title：meta.title 更新', () => {
     const s = applyEvent(seeded(), ev('session.title', { title: '新标题' }, { seq: 2 }))
     expect(s.byId[SID]?.meta.title).toBe('新标题')
+  })
+
+  it('mode.changed：slice.mode 更新（工单 16.3 计划模式）', () => {
+    expect(seeded().byId[SID]?.mode).toBe('default') // 缺省常态
+    const entering = applyEvent(
+      seeded(),
+      ev('session.mode.changed', { mode: 'plan', previous: 'default' }, { seq: 2 }),
+    )
+    expect(entering.byId[SID]?.mode).toBe('plan')
+    // 退出回常态（同一投影字段，不另建状态机）
+    const exiting = applyEvent(
+      entering,
+      ev('session.mode.changed', { mode: 'default', previous: 'plan' }, { seq: 3 }),
+    )
+    expect(exiting.byId[SID]?.mode).toBe('default')
+  })
+
+  it('mode.changed 回放幂等：seq 在水位内不重复应用（§6.4 去重）', () => {
+    const s1 = applyEvent(seeded(), ev('session.mode.changed', { mode: 'plan', previous: 'default' }, { seq: 5 }))
+    const s2 = applyEvent(s1, ev('session.mode.changed', { mode: 'default', previous: 'plan' }, { seq: 5 }))
+    expect(s2).toBe(s1) // 同 seq 被吸附，状态引用不变
+    expect(s2.byId[SID]?.mode).toBe('plan')
   })
 })
 

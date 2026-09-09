@@ -198,7 +198,8 @@ export class InProcessTransport implements Transport {
 
   async setPermissionPreset(sessionId: SessionId, preset: PermissionPreset): Promise<void> {
     await this.handleOf(sessionId)
-    this.engine.setPermissionPreset(sessionId, preset)
+    // await：工单 16.3 后设档可能 emit durable 事件（与 HTTP 通道同口径：响应前事件已落）
+    await this.engine.setPermissionPreset(sessionId, preset)
   }
 
   // ---------- 会话 ----------

@@ -556,11 +556,42 @@ describe('权限档位预设层（DESIGN §13.E 四档 / D7 补记，工单 6.3�
     expect(sink.events).toHaveLength(0)
   })
 
-  test('plan：无预设行（不改审批语义），fs.write 照旧 ask；档位可读回', async () => {
+  test('plan：写类全 DENY、只读 ALLOW、模式转换 ASK（工单 16.3 激活；gemini plan.toml 优先级翻译）', async () => {
     const { service, sink } = makeService()
     service.setPreset(SID, 'plan')
     expect(service.presetOf(SID)).toBe('plan')
-    await expectAsk(service, sink, writeCheck().check)
+    // 写类与不可知面：规则层快路径直拒（**零事件**——不挂审批，模型收到 deny 文案）
+    expect(await service.assert(writeCheck().check)).toBe(false) // fs.write
+    expect(await service.assert(makeCheck().check)).toBe(false) // shell.exec
+    expect(
+      await service.assert(makeCheck({ name: 'task', action: 'agent.task', resource: 'task' }).check),
+    ).toBe(false)
+    expect(
+      await service.assert(makeCheck({ name: 'mcp', action: 'mcp.call', resource: 'mcp://x' }).check),
+    ).toBe(false)
+    expect(sink.events).toHaveLength(0)
+    // 只读放行（规划需要读）
+    expect(
+      await service.assert(makeCheck({ name: 'read', action: 'fs.read', resource: 'file:///repo/x' }).check),
+    ).toBe(true)
+    // 模式转换必须走审批：模型不能自己宣布计划已批准（qwen-code exitPlanMode 同语义）
+    await expectAsk(
+      service,
+      sink,
+      makeCheck({ name: 'plan_exit', action: 'plan.exit', resource: 'session://s' }).check,
+    )
+  })
+
+  test('plan 兜底 DENY 压过用户级 allow（findLast：档位层排最后 = 优先级最高）', async () => {
+    const { service, sink } = makeService({
+      userRules: [{ action: 'fs.write', resource: '**', effect: 'allow' }],
+    })
+    expect(await service.assert(writeCheck().check)).toBe(true) // 平时免审
+    service.setPreset(SID, 'plan')
+    // 进计划模式后仍拒——这就是"提示词注入诱导写操作"的兜底：
+    // 注入即便骗到一条 allow 规则也越不过模式（验收第 1 条）
+    expect(await service.assert(writeCheck().check)).toBe(false)
+    expect(sink.events).toHaveLength(0)
   })
 
   test('切回 confirm-each 整体清除预设（fs.write 再次 ask）', async () => {

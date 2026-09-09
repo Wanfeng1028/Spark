@@ -40,7 +40,7 @@ import type {
   TurnId,
 } from '@spark/protocol'
 import { SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
-import type { AgentPresetDto, SessionStatus, UsageSummaryDto } from '@spark/protocol'
+import type { AgentPresetDto, SessionMode, SessionStatus, UsageSummaryDto } from '@spark/protocol'
 import { EventBus } from './bus.js'
 import type { EventSink, SubscribeHandle } from './bus.js'
 import { CompactorImpl, COMPACTION_PROMPT } from './compaction.js'
@@ -976,14 +976,59 @@ export class Engine {
 
   // ---- 权限档位（DESIGN §13.E 四档 / D7 补记预设层，阶段六工单 6.3） ----
 
-  /** 设置会话档位（PUT /api/sessions/:id/permission-preset 的引擎侧入口） */
-  setPermissionPreset(id: SessionId, preset: PermissionPreset): void {
-    this.permission.setPreset(id, preset)
+  /** 进入 plan 前的档位（工单 16.3 产出③ prePlanMode）：退出计划模式时恢复用 */
+  private readonly prePlanPreset = new Map<SessionId, PermissionPreset>()
+
+  /**
+   * 设置会话档位（PUT /api/sessions/:id/permission-preset 的引擎侧入口）。
+   * 工单 16.3：改为 **async**——"是否 plan" 发生变化时要 emit durable 事件
+   * `session.mode.changed`（模式必须可回放、四端可见），而 emit 是异步的；
+   * 调用方（server 路由 / sdk 进程内通道）需 await。
+   */
+  async setPermissionPreset(id: SessionId, preset: PermissionPreset): Promise<void> {
+    await this.applyPreset(id, preset)
   }
 
   /** 当前档位（无记录 = confirm-each；内存态，重启回缺省） */
   permissionPresetOf(id: SessionId): PermissionPreset {
     return this.permission.presetOf(id)
+  }
+
+  /**
+   * 会话模式（工单 16.3 /plan 计划模式）：mode 与 plan 档是**同一件事的两个面**——
+   * mode 是可见/可回放的 durable 状态（事件驱动），plan 档是审批规则引擎的 enforcement 层
+   * （PRESET_RULES.plan）+ 系统提示的 PLAN_MODE_DIRECTIVE（6.3 已接）。
+   * 所以**切 mode 就是切档**：单一 enforcement 路径，不另造规则也不建独立状态机
+   * （qwen-code 也只是 ApprovalMode 的一个值）；退出时恢复进 plan 前的档位。
+   * 幂等：目标模式与当前一致则不发事件（重复点击/回放不产生噪声行）。
+   */
+  async setSessionMode(id: SessionId, mode: SessionMode): Promise<void> {
+    this.assertNotShutdown()
+    const current = this.permission.presetOf(id)
+    if (mode === 'plan') {
+      if (current === 'plan') return
+      this.prePlanPreset.set(id, current)
+      await this.applyPreset(id, 'plan')
+      return
+    }
+    if (current !== 'plan') return
+    const restore = this.prePlanPreset.get(id) ?? 'confirm-each'
+    this.prePlanPreset.delete(id)
+    await this.applyPreset(id, restore)
+  }
+
+  /** 当前会话模式（**由档位派生**——不存第二份状态，避免两份真相漂移） */
+  sessionModeOf(id: SessionId): SessionMode {
+    return this.permission.presetOf(id) === 'plan' ? 'plan' : 'default'
+  }
+
+  /** 档位变更的唯一出口：设档 + 若"是否 plan"变了就 emit durable 事件（§4.3 词表，工单 16.3） */
+  private async applyPreset(id: SessionId, preset: PermissionPreset): Promise<void> {
+    const previous = this.sessionModeOf(id)
+    this.permission.setPreset(id, preset)
+    const mode = this.sessionModeOf(id)
+    if (mode === previous) return
+    await this.bus.emit(id, 'session.mode.changed', { mode, previous })
   }
 
   // ---- 模型管理（DESIGN §13.D③ / 阶段六工单 6.5 轻后端例外） ----

@@ -1,6 +1,6 @@
 /**
  * 事件词表（doc/02 §4.3）：schema registry 是唯一来源——SparkEventMap 由 infer 派生。
- * 词表当前 21 种（19 + io.warning 阶段七工单 7.2 + memory.injected 工单 7.5）；扩展走 declaration merging（dsh 手法，阶段五插件用）。
+ * 词表当前 22 种（21 + session.mode.changed 阶段十六工单 16.3）；扩展走 declaration merging（dsh 手法，阶段五插件用）。
  * 工单 13.4（ADR D29）在 compaction.completed 上扩两个**可选字段**（keptFiles/distilled）——双层压缩的载体，词表不增。
  */
 import { z } from 'zod'
@@ -17,6 +17,7 @@ import {
   DeliverySchema,
   PermissionReplySchema,
   ReasoningEffortSchema,
+  SessionModeSchema,
   TurnFinishSchema,
   UsageSchema,
 } from './primitives.js'
@@ -34,6 +35,15 @@ export const EventSchemas = {
   }),
   'session.resumed': z.strictObject({ fromSeq: z.number().int().nonnegative() }),
   'session.title': z.strictObject({ title: z.string() }),
+  /**
+   * 会话模式切换（工单 16.3）：**durable**——回放即可重建当前模式（不依赖内存态），
+   * 四端据此显示 plan 指示。非 surface：模式变化不进模型历史（模型侧的感知走系统提示与
+   * 工具拒绝文案，不靠这条日志）。
+   */
+  'session.mode.changed': z.strictObject({
+    mode: SessionModeSchema,
+    previous: SessionModeSchema,
+  }),
   // turn
   'turn.started': z.strictObject({
     turnId: TurnIdSchema,

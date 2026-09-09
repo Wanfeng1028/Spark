@@ -4,7 +4,7 @@
 > 事实源是 `@spark/protocol` 的 zod schema；改过 schema 后跑 `pnpm --filter @spark/docs gen:events`，
 > CI 会重跑并 `git diff --exit-code apps/docs/events.md` 校同步（与契约用例生成物同一套门禁思路）。
 
-词表共 **21 种**事件：durable 18 种（落 JSONL、可回放、可审计）、
+词表共 **22 种**事件：durable 19 种（落 JSONL、可回放、可审计）、
 live-only 3 种（不落盘，重连后不重现）；其中 surface 2 种
 （模型可见面，引擎铁律"模型可见必被记录"的对象）。
 
@@ -167,6 +167,15 @@ live-only 3 种（不落盘，重连后不重现）；其中 surface 2 种
 | `model` | string | 是 |
 | `branch` | string | 否 |
 | `effort` | `"low"` \| `"medium"` \| `"high"` | 否 |
+
+### `session.mode.changed`
+
+- 分类：durable（落盘可回放）
+
+| 字段 | 类型 | 必填 |
+| ---- | ---- | ---- |
+| `mode` | `"default"` \| `"plan"` | 是 |
+| `previous` | `"default"` \| `"plan"` | 是 |
 
 ### `session.resumed`
 

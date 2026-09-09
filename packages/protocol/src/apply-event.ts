@@ -1,11 +1,11 @@
 /**
  * applyEvent reducer（doc/02 §6.4 处理表 / D22 四端共享资产之二，工单 8.2 自 apps/web 下沉）：
- * 事件信封 → 会话投影（UiItem 序列与切片状态）的唯一纯函数，21 种词表逐一处理；
+ * 事件信封 → 会话投影（UiItem 序列与切片状态）的唯一纯函数，22 种词表逐一处理；
  * web（zustand 包装）与 cli（Ink 渲染）共用同一实现——词表穷尽性由 web 侧单测逐条把关。
  * 去重规则（回放×直播重叠）：durable（有 seq）且 seq <= lastSeq → 跳过；live（无 seq）无条件应用。
  */
 import type { SparkEventEnvelope } from './events.js'
-import type { Usage, ContentItem, TurnFinish, ReasoningEffort } from './primitives.js'
+import type { Usage, ContentItem, TurnFinish, ReasoningEffort, SessionMode } from './primitives.js'
 import type { CallId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
 // ---------- UiItem（§6.4 类型表） ----------
@@ -115,6 +115,11 @@ export interface SessionSlice {
   lastError: { scope: 'engine' | 'llm' | 'tool' | 'io'; message: string; fatal: boolean } | null
   /** 最近一次记忆注入（工单 7.5：会话首条消息的 top-k 命中） */
   memoryInjected: { count: number; query: string } | null
+  /**
+   * 会话模式（工单 16.3）：plan = 只读规划态（四端指示与 composer 提示的数据源）。
+   * 由 `session.mode.changed` 驱动——durable，所以冷启动回放就能重建，不依赖内存态。
+   */
+  mode: SessionMode
 }
 
 /** 投影状态（各端 store 的公共形状；web zustand / cli 各自再挂自己的操作面） */
@@ -145,10 +150,11 @@ export function emptySessionSlice(sid: SessionId): SessionSlice {
     lastCheckpoint: null,
     lastError: null,
     memoryInjected: null,
+    mode: 'default',
   }
 }
 
-// ---------- reduce：§6.4 处理表（21 种全覆盖） ----------
+// ---------- reduce：§6.4 处理表（22 种全覆盖） ----------
 
 /** 按词表窄化事件 data 的类型守卫（同 SessionPage 模式） */
 function ofType<T extends SparkEventEnvelope['type']>(
@@ -287,6 +293,12 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
 
   if (ofType(e, 'session.title')) {
     next.meta.title = e.data.title
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'session.mode.changed')) {
+    // 工单 16.3：只记当前模式（previous 供审计/调试，投影不需要历史栈）
+    next.mode = e.data.mode
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 

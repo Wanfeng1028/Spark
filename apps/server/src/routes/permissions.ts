@@ -56,7 +56,8 @@ export const registerPermissionRoutes: FastifyPluginCallback<RoutesOptions> = (a
     const { id } = parseOr400(IdParams, req.params)
     const body = parseOr400(PresetBody, req.body)
     await requireHandle(engine, id)
-    engine.setPermissionPreset(id, body.preset)
+    // await：工单 16.3 后设档可能 emit durable 事件（session.mode.changed），先落事件再回响应
+    await engine.setPermissionPreset(id, body.preset)
     return reply.send({ ok: true })
   })
 
