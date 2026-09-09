@@ -43,6 +43,7 @@
 | v1.34 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §4 开发命令补 **`pnpm --filter @spark/protocol gen:contract`**（工单 14.2 契约用例生成器：改过 protocol 的 zod schema 必重跑，生成物入库 `packages/protocol/tests/contract/`，CI 重跑并 `git diff --exit-code` 校同步）；质量闸注释改为**不写步数**、以 ci.yml 为准（步数从五→六→七一路漂，写死数字每次加工具都要改三处文档），并列出当前关卡同序（文档检查器 → typecheck → lint → knip → 契约同步 → test → eval → build）。与 doc/02 v4.12、doc/06 v1.9、doc/08 v1.24 同批 |
 | v1.35 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §1.1 两条刷新：① **引擎侧入口**改为 14.1 已落地的分级口径（`@spark/engine` 公共嵌入面 / `@spark/engine/internal` 无承诺且生产代码禁引），原文"17.x 批次已收窄"是陈旧表述；② 新增 **`@spark/sdk` 是 L2 客户端装配层**（工单 14.3）一条——createClient = HttpTransport 装配 + 便利分组、零业务逻辑，web/cli 装配点已迁，并给出**新增客户端能力的落点三问**（连接/重连/错误映射→protocol；便利分组→sdk；平台适配→各端）。§4 typecheck 项目数 **9 → 10**（新增 packages/sdk）。与 doc/02 v4.15（§4.6.4 sdk 合同面）、CONTRIBUTING（四包版本策略表）、doc/08 v1.25 同批 |
 | v1.36 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §1.1 的 `@spark/sdk` 条重写为**双子入口**口径（工单 14.4 / ADR D30）：`.` = HTTP（零 engine 依赖、浏览器可用），`./inprocess` = 进程内直连引擎（`@spark/engine` 为 **optional peerDependency**）；便利分组只在 `src/client.ts` 定义一份（parity 是结构保证）。**落点三问扩为四问**：新增"引擎数据 → DTO 的装配 → engine 公共面"（`sessionMetaDtoOf`/`sessionDtoOf`/`sessionTreeToDto`；**不放 protocol**，因为 protocol 硬约束零依赖 engine——这是 14.4 实现批撞上后修正的，ADR D31 结论 4 已同步）。与 ARCHITECTURE v1.39、doc/02 v4.20、doc/08 v1.29 同批 |
+| v1.37 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续呗"指令） | §4 typecheck 项目数 **10 → 12**（工单 14.5 第一批新增两个示例包 `examples/sdk-bot` 与 `examples/sdk-viewer`，均带 typecheck 脚本并入 workspace）。示例包入 workspace 的理由写在这里以免后人当多余：**不入就没 CI 的 typecheck/lint/knip 覆盖**，而不能编译的示例比没示例更坏（同 14.3 把 sdk 示例放进 tsconfig include 的判例）。注意 `pnpm-workspace.yaml` 对 examples 是**逐条显式列入**（不是 `examples/*` 通配），新增示例包要同时改它。与 doc/02 v4.25、doc/08 v1.31 同批 |
 
 ## 1. 项目上下文（30 秒版）
 
@@ -110,7 +111,7 @@ pnpm --filter miniapp dev                     # 微信小程序（Taro 4 watch �
 # 末位 build 不可省：typecheck 是 --noEmit，查不出声明发射错（TS4033 "已导出接口用了私有名"），而 engine/protocol 发布靠 declaration: true
 # 以下写法供排查单个包/单文件/单用例时按需使用
 python scripts/check_doc_links.py             # CI 第一关；改过任何 .md 必跑（--strict 把 warn 也计失败）
-pnpm typecheck                                # = pnpm -r typecheck（10 个项目）
+pnpm typecheck                                # = pnpm -r typecheck（12 个项目）
 pnpm lint                                     # eslint .
 pnpm knip                                     # 未引用文件/依赖/二进制扫描（工单 14.1；配置与裁决表见 knip.jsonc 与 doc/02 §4.6.3）
 pnpm --filter @spark/protocol gen:contract    # 契约用例生成器（工单 14.2）：改过 protocol 的 zod schema 必重跑，
