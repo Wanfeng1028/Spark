@@ -35,9 +35,9 @@ interface Emitted {
 function fakeBus(): { bus: EventBus; emitted: Emitted[] } {
   const emitted: Emitted[] = []
   const bus = {
-    emit: async (_sid: SessionId, type: string, data: unknown) => {
+    emit: (_sid: SessionId, type: string, data: unknown) => {
       emitted.push({ type, data })
-      return {} as SparkEventEnvelope
+      return Promise.resolve({} as SparkEventEnvelope)
     },
   } as unknown as EventBus
   return { bus, emitted }

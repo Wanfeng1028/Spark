@@ -422,10 +422,10 @@ describe('MockTransport 计划模式对等演示（工单 16.3 第三批 B）', 
 describe('MockTransport 持续目标对等演示（工单 16.7）', () => {
   function goalEvents(
     events: readonly SparkEventEnvelope[],
-  ): { type: string; data: Record<string, unknown> }[] {
+  ): { type: string; data: unknown }[] {
     return events
       .filter((e) => e.type.startsWith('goal.'))
-      .map((e) => ({ type: e.type, data: e.data as Record<string, unknown> }))
+      .map((e) => ({ type: e.type, data: e.data }))
   }
 
   it('/goal set 推 goal.set（从零计数）；status 推 goal.updated 回显；clear 推 paused{cleared}', async () => {

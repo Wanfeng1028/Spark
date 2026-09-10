@@ -18,6 +18,7 @@
 import type {
   SessionId,
   SparkEventEnvelope,
+  SparkEventMap,
   TurnFinish,
   Usage,
 } from '@spark/protocol'
@@ -32,7 +33,7 @@ export const GOAL_BUDGET_TOKENS = 200_000
 export const JUDGE_TIMEOUT_MS = 25_000
 
 export type GoalStatus = 'active' | 'paused' | 'completed'
-type GoalPauseReason = import('@spark/protocol').SparkEventMap['goal.paused']['reason']
+type GoalPauseReason = SparkEventMap['goal.paused']['reason']
 
 export interface GoalState {
   goal: string
