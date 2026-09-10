@@ -3,6 +3,8 @@ import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { useTransport } from '@/transports/context'
 import { SettingRow, SettingGroupCard } from './SettingRow'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 
 
@@ -53,8 +55,7 @@ export function RoutingSection() {
 
   const slotsReady =
     compactionDraft.trim() !== '' && titleDraft.trim() !== '' && subagentDraft.trim() !== ''
-  const inputCls =
-    'h-8 w-56 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring disabled:opacity-40'
+  const inputCls = 'w-56 font-mono text-xs'
 
   return (
     <SettingGroupCard>
@@ -71,18 +72,18 @@ export function RoutingSection() {
       {error === null && routing !== null && (
         <>
           <SettingRow title="fallback 链" description="主请求失败按序切换；每行一条，留空 = 不切换">
-            <textarea
+            <Textarea
               value={fallbacksDraft}
               onChange={(e) => setFallbacksDraft(e.target.value)}
               rows={2}
               aria-label="fallback 链"
               disabled={busy}
               placeholder="provider/model（每行一条）"
-              className="w-56 resize-none rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring disabled:opacity-40"
+              className="w-56 resize-none font-mono text-xs"
             />
           </SettingRow>
           <SettingRow title="压缩档" description="上下文压缩（compaction）使用的模型">
-            <input
+            <Input
               value={compactionDraft}
               onChange={(e) => setCompactionDraft(e.target.value)}
               aria-label="压缩档模型"
@@ -92,7 +93,7 @@ export function RoutingSection() {
             />
           </SettingRow>
           <SettingRow title="标题档" description="会话自动标题使用的模型">
-            <input
+            <Input
               value={titleDraft}
               onChange={(e) => setTitleDraft(e.target.value)}
               aria-label="标题档模型"
@@ -102,7 +103,7 @@ export function RoutingSection() {
             />
           </SettingRow>
           <SettingRow title="子代理档" description="子代理（task）使用的模型">
-            <input
+            <Input
               value={subagentDraft}
               onChange={(e) => setSubagentDraft(e.target.value)}
               aria-label="子代理档模型"

@@ -1,10 +1,11 @@
 /**
- * 设置行与分组卡（DESIGN §13.D 页面骨架）：
- * 行=左"标题 13px + 说明 12px"右控件，行高 56~64px（py-4 + 控件 32）；
- * 相关行合入圆角 8px 分组卡，行间 1px border 分隔。
+ * 设置行与分组卡（DESIGN §13.D 页面骨架 + §13.B 卡片档，工单 18.4）：
+ * 行=左"标题 13px + 说明 12px"右控件，行高 56~64px（py-4 + 控件 38）；
+ * 相关行合入圆角 12px 分组卡（ui/Card grouped 档，工单 18.1/18.4），行间 1px border 分隔。
  */
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
 
 export interface SettingRowProps {
   title: string
@@ -43,12 +44,8 @@ export interface SettingGroupCardProps {
 
 export function SettingGroupCard({ children, className }: SettingGroupCardProps) {
   return (
-    <section className={cn('overflow-hidden rounded-lg border border-border bg-card', className)}>
+    <Card variant="grouped" className={cn('overflow-hidden', className)}>
       <div className="divide-y divide-border">{children}</div>
-    </section>
+    </Card>
   )
 }
-
-/** 设置页输入框统一底串（mono；宽度与禁用态由使用处追加 w-* / disabled:opacity-40——工单 R-E⑦） */
-export const settingInputCls =
-  'h-8 min-w-0 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring'

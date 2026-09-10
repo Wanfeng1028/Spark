@@ -11,6 +11,7 @@ import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { errorMessageOf } from '@/lib/error-copy'
 import { Button } from '@/components/ui/button'
 import { SettingGroupCard, SettingRow } from './SettingRow'
+import { Textarea } from '@/components/ui/textarea'
 
 const HOOK_POINTS: { key: keyof SettingsHooks; label: string }[] = [
   { key: 'turn.before', label: '回合开始前' },
@@ -115,13 +116,13 @@ export function HooksSettingsPage() {
             description='形状：{ "turn.before": [{ "command": "…" }], "tool.completed": [{ "skill": "…", "emit": "…" }] }'
           />
           <div className="px-4 py-3">
-            <textarea
+            <Textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={8}
               aria-label="hooks JSON"
               disabled={busy}
-              className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs outline-none focus:border-ring disabled:opacity-40"
+              className="w-full resize-none font-mono text-xs"
             />
             <div className="mt-2 flex items-center gap-2">
               <Button

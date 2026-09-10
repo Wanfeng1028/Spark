@@ -3,7 +3,8 @@ import type { SecretStatusDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
-import { SettingRow, SettingGroupCard, settingInputCls } from './SettingRow'
+import { SettingRow, SettingGroupCard } from './SettingRow'
+import { Input } from '@/components/ui/input'
 
 /** 密钥管理（工单 7.1）：providers 状态列表 + 单条录入（保存即生效，值不回显） */
 /**
@@ -79,20 +80,20 @@ export function SecretsSection() {
           </div>
         ))}
       <div className="flex items-center gap-1.5 px-4 py-3">
-        <input
+        <Input
           value={provider}
           onChange={(e) => setProvider(e.target.value)}
           placeholder="provider（如 deepseek）"
           aria-label="密钥 provider"
-          className={settingInputCls + ' w-36'}
+          className="w-36 font-mono text-xs"
         />
-        <input
+        <Input
           value={value}
           onChange={(e) => setValue(e.target.value)}
           type="password"
           placeholder="apiKey（写入 ~/.spark/secrets.json）"
           aria-label="apiKey"
-          className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring"
+          className="flex-1 font-mono text-xs"
         />
         <button
           type="button"

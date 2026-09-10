@@ -12,7 +12,9 @@ import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { cn } from '@/lib/utils'
-import { SettingGroupCard, SettingRow, settingInputCls } from './SettingRow'
+import { SettingGroupCard, SettingRow } from './SettingRow'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 interface ServerDraft {
   name: string
@@ -165,31 +167,31 @@ export function McpSettingsPage() {
           </SettingRow>
         ) : (
           <div className="flex flex-col gap-2 p-3">
-            <input
+            <Input
               value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               placeholder="服务器名（如 filesystem）"
-              className={settingInputCls + ' w-full'}
+              className="font-mono text-xs"
             />
-            <input
+            <Input
               value={draft.command}
               onChange={(e) => setDraft({ ...draft, command: e.target.value })}
               placeholder="启动命令（如 npx -y @modelcontextprotocol/server-filesystem /path）"
-              className={settingInputCls + ' w-full'}
+              className="font-mono text-xs"
             />
-            <textarea
+            <Textarea
               value={draft.args}
               onChange={(e) => setDraft({ ...draft, args: e.target.value })}
               placeholder={'args（每行一个，可留空）'}
               rows={2}
-              className={settingInputCls + ' w-full resize-none'}
+              className="font-mono text-xs"
             />
-            <textarea
+            <Textarea
               value={draft.env}
               onChange={(e) => setDraft({ ...draft, env: e.target.value })}
               placeholder={'env（每行 KEY=VALUE，可留空；值只进不回显）'}
               rows={2}
-              className={settingInputCls + ' w-full resize-none'}
+              className="font-mono text-xs"
             />
             <div className="flex items-center gap-2">
               <Button variant="outline" disabled={busy} onClick={() => void save()}>

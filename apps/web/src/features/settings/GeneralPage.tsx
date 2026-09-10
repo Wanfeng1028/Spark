@@ -13,7 +13,8 @@ import type { Delivery, SettingsDto } from '@spark/protocol'
 import { Button } from '@/components/ui/button'
 import { clearOnboarding } from '@/routes/OnboardingPage'
 import { useSettingsStore } from '@/stores/settings'
-import { settingInputCls, SettingRow, SettingGroupCard } from './SettingRow'
+import { SettingRow, SettingGroupCard } from './SettingRow'
+import { Input } from '@/components/ui/input'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
@@ -96,7 +97,7 @@ function EngineBehaviorSection() {
     })
   }
 
-  const inputCls = settingInputCls + ' w-28 disabled:opacity-40'
+  const inputCls = 'w-28 font-mono text-xs'
   const sandboxOptions = useMemo(() => SANDBOX_OPTIONS, [])
 
   return (
@@ -114,7 +115,7 @@ function EngineBehaviorSection() {
       {error === null && settings !== null && (
         <>
           <SettingRow title="压缩阈值" description="上下文占比超阈值触发压缩（0–1，如 0.8）；下一轮生效">
-            <input
+            <Input
               value={threshold}
               onChange={(e) => setThreshold(e.target.value)}
               aria-label="压缩阈值"
@@ -123,7 +124,7 @@ function EngineBehaviorSection() {
             />
           </SettingRow>
           <SettingRow title="每轮最大步数" description="单轮工具/模型往返上限；下一轮生效">
-            <input
+            <Input
               value={maxSteps}
               onChange={(e) => setMaxSteps(e.target.value)}
               aria-label="每轮最大步数"
@@ -133,7 +134,7 @@ function EngineBehaviorSection() {
           </SettingRow>
           <SettingRow title="工具超时（毫秒）" description="单工具执行上限">
             <div className="flex items-center gap-1.5">
-              <input
+              <Input
                 value={toolTimeout}
                 onChange={(e) => setToolTimeout(e.target.value)}
                 aria-label="工具超时毫秒"
@@ -145,7 +146,7 @@ function EngineBehaviorSection() {
           </SettingRow>
           <SettingRow title="工具输出上限（KB）" description="超限截断（防输出打爆上下文）">
             <div className="flex items-center gap-1.5">
-              <input
+              <Input
                 value={outputLimit}
                 onChange={(e) => setOutputLimit(e.target.value)}
                 aria-label="工具输出上限 KB"

@@ -19,6 +19,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { errorMessageOf } from '@/lib/error-copy'
 import { cn } from '@/lib/utils'
 import { SettingRow, SettingGroupCard } from './SettingRow'
+import { Input } from '@/components/ui/input'
 import { SecretsSection } from './SecretsSection'
 import { RoutingSection } from './RoutingSection'
 
@@ -109,7 +110,7 @@ export function ModelSettingsPage() {
           title="新建会话默认模型"
           description="provider/model；留空 = 用引擎默认（spark.json defaultModel）"
         >
-          <input
+          <Input
             value={draft}
             onChange={(e) => {
               setDraft(e.target.value)
@@ -123,8 +124,8 @@ export function ModelSettingsPage() {
             aria-label="新建会话默认模型"
             aria-invalid={touched && invalid}
             className={
-              'h-8 w-56 rounded-md border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 ' +
-              (touched && invalid ? 'border-[var(--spark-err)]/60' : 'border-border focus:border-ring')
+              'w-56 font-mono text-xs ' +
+              (touched && invalid ? 'border-[var(--spark-err)]/60' : 'border-input')
             }
           />
         </SettingRow>

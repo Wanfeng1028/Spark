@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import type { AuditEntryDto, AuditQuery } from '@spark/protocol'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 const inputClass =
@@ -165,12 +166,12 @@ export function AuditSettingsPage(): React.JSX.Element {
             </option>
           ))}
         </select>
-        <input
+        <Input
           value={tool}
           onChange={(e) => setTool(e.target.value)}
           placeholder="按工具名过滤（如 bash）"
           aria-label="工具名"
-          className={cn(inputClass, 'w-44')}
+          className="w-44 text-xs"
         />
       </div>
 

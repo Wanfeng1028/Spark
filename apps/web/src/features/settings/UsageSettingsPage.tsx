@@ -12,7 +12,8 @@ import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { Button } from '@/components/ui/button'
-import { SettingGroupCard, SettingRow, settingInputCls } from './SettingRow'
+import { SettingGroupCard, SettingRow } from './SettingRow'
+import { Input } from '@/components/ui/input'
 
 /** 命中率 = cacheRead / (cacheRead + nonCachedInput)；nonCachedInput = input − cacheRead − cacheWrite */
 function cacheHitRatio(inputTokens: number, cacheRead: number, cacheWrite: number): number | null {
@@ -149,14 +150,14 @@ export function UsageSettingsPage() {
         >
           <div className="flex items-center gap-1.5">
             <span className="font-mono text-xs text-muted-foreground">$</span>
-            <input
+            <Input
               value={limitDraft}
               onChange={(e) => setLimitDraft(e.target.value)}
               onBlur={() => void saveLimit()}
               placeholder="未设置"
               aria-label="成本上限（美元）"
               disabled={busy}
-              className={settingInputCls + ' w-24 disabled:opacity-40'}
+              className="w-24 font-mono text-xs"
             />
             <Button type="button" variant="outline" disabled={busy} onClick={() => void saveLimit()}>
               保存

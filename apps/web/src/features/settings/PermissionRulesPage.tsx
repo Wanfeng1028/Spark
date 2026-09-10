@@ -8,11 +8,12 @@ import type { PermissionRuleDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
-import { SettingGroupCard, settingInputCls } from './SettingRow'
+import { SettingGroupCard } from './SettingRow'
+import { Input } from '@/components/ui/input'
 
 const EFFECTS = ['allow', 'deny', 'ask'] as const
 
-const ruleInputClass = settingInputCls
+const ruleInputClass = 'font-mono text-xs'
 
 export function PermissionRulesPage() {
   const { transport } = useTransport()
@@ -86,14 +87,14 @@ export function PermissionRulesPage() {
       <section className="flex flex-col gap-2">
         <p className="text-xs text-muted-foreground">添加规则（action + resource pattern + 效果）</p>
         <div className="flex items-center gap-1.5">
-          <input
+          <Input
             value={action}
             onChange={(e) => setAction(e.target.value)}
             placeholder="action（如 shell.exec）"
             aria-label="规则 action"
             className={ruleInputClass + ' w-36'}
           />
-          <input
+          <Input
             value={resource}
             onChange={(e) => setResource(e.target.value)}
             placeholder="resource pattern（如 cmd:git *）"
