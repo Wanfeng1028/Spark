@@ -115,6 +115,12 @@ export const SetModelBody = z.strictObject({ model: z.string().min(1) })
 /** 推理档位（工单 10.6）：会话级换档 body */
 export const SetEffortBody = z.strictObject({ effort: ReasoningEffortSchema })
 
+/** 语音听写请求体（工单 16.6；协议 TranscribeRequest 的路由侧同构 schema） */
+export const TranscribeBody = z.strictObject({
+  provider: z.string().min(1).optional(),
+  audio: z.strictObject({ mime: z.string().min(1), dataBase64: z.string().min(1) }),
+})
+
 /** 命令注册表（阶段七工单 7.4 / H04）：命令名与执行 body */
 export const CommandNameParams = z.strictObject({
   id: SessionIdSchema,

@@ -369,6 +369,7 @@ export function SessionPage() {
               const client = clientActionOf(name)
               if (client !== undefined) {
                 if (client.kind === 'palette') setPaletteOpen(true)
+                else if (client.kind === 'voice') useUiStore.getState().cycleVoiceMode()
                 else void navigate(client.path)
                 return
               }

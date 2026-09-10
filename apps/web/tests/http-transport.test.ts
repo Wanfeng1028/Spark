@@ -232,6 +232,16 @@ describe('REST 调用形状', () => {
     expect(bodyJson(call)).toEqual({ text: '你好', delivery: 'now' })
   })
 
+  it('transcribe：POST /api/transcribe，JSON body 直传（工单 16.6）', async () => {
+    const { calls } = stubFetch(() => new SseStream(), () => jsonResponse(200, { text: '你好世界', provider: 'openai', model: 'whisper-1' }))
+    const t = makeTransport()
+    const result = await t.transcribe({ audio: { mime: 'audio/webm', dataBase64: 'SGVsbG8=' } })
+    expect(result).toEqual({ text: '你好世界', provider: 'openai', model: 'whisper-1' })
+    const call = calls.find((c) => c.url.endsWith('/api/transcribe'))
+    expect(call?.init?.method).toBe('POST')
+    expect(bodyJson(call)).toEqual({ audio: { mime: 'audio/webm', dataBase64: 'SGVsbG8=' } })
+  })
+
   it('interrupt/replyPermission：POST 直通；feedback 缺省不带键', async () => {
     const { calls } = stubFetch(() => new SseStream(), () => jsonResponse(200, { ok: true }))
     const t = makeTransport()

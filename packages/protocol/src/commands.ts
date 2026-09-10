@@ -27,6 +27,7 @@ export const ClientActionSchema = z.enum([
   'rollback',
   'effort',
   'tree',
+  'voice',
 ])
 export type ClientAction = z.infer<typeof ClientActionSchema>
 
@@ -85,6 +86,16 @@ export const BUILTIN_COMMANDS: readonly CommandDescriptor[] = [
     group: 'session',
     surface: ['web', 'cli'],
     sessionRequired: true,
+  },
+  {
+    // 工单 16.6：client 命令——/voice 循环切换语音模式 hold→tap→off（录音与转写全在端侧/Transport）
+    name: 'voice',
+    description: '语音听写模式：hold（按住说话）/ tap（点击开始停止）/ off（隐藏麦克风）',
+    kind: 'client',
+    group: 'session',
+    surface: ['web', 'cli'],
+    sessionRequired: true,
+    clientAction: 'voice',
   },
   {
     name: 'new',

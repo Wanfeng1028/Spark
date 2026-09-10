@@ -12,6 +12,7 @@ import { humanizeError } from '@spark/protocol'
 import type { FsEntryDto, RequestId } from '@spark/protocol'
 import { createClient } from '@spark/sdk'
 import { useCliStore } from './store.js'
+import { useVoiceCli } from './hooks/use-voice-cli.js'
 import { InputBox, type InputBoxHandle } from './components/InputBox.js'
 import { Footer } from './components/Footer.js'
 import { BootHeader } from './components/BootHeader.js'
@@ -148,7 +149,8 @@ export function App({ baseUrl }: { baseUrl: string }) {
 
   // ---------- 动作 / 事件流 / 全局键位（10.43 抽取的 hooks） ----------
 
-  const actions = useCliActions({ transport, clearScreen, resumeFiltered, resumeSelected })
+  const voice = useVoiceCli({ transport, inputRef })
+  const actions = useCliActions({ transport, clearScreen, resumeFiltered, resumeSelected, voice: voice.handleCommand })
   // 启动流程（10.43 重构回补：listSessions/createSession/models/commands 装载）
   useEffect(() => actions.boot(), [actions])
   useSessionStream(baseUrl, transport)
@@ -323,6 +325,11 @@ export function App({ baseUrl }: { baseUrl: string }) {
             if (fsOpen) {
               const entry = fsItems[fsSelected]
               if (entry !== undefined) acceptFsEntry(text, entry)
+              return
+            }
+            // 语音录音中（工单 16.6）：Enter = 停止录音并转写，不进消息通道
+            if (voice.phase === 'recording') {
+              voice.stopRecording()
               return
             }
             actions.submit(text)

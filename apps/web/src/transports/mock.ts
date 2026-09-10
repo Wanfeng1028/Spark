@@ -62,6 +62,8 @@ import type {
   TreeNodeDto,
   Transport,
   TurnId,
+  TranscribeRequest,
+  TranscribeResultDto,
 } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
@@ -870,6 +872,16 @@ export class MockTransport implements Transport {
       return Promise.reject(new Error(`E_COMMAND_CLIENT: /${name} 是界面命令，由前端执行`))
     }
     return Promise.reject(new Error(`E_NOT_FOUND: 未知命令 /${name}`))
+  }
+
+  /** 语音转写对等演示（工单 16.6）：mock 不连真实供应商，返回确定性假文本（禁静默失败） */
+  transcribe(req: TranscribeRequest): Promise<TranscribeResultDto> {
+    this.assertNotDisposed()
+    return Promise.resolve({
+      text: '（mock 转写演示）这是一段语音听写的确定性假文本，接入真实后端后由供应商转写。',
+      provider: req.provider ?? 'mock',
+      model: 'mock-transcribe',
+    })
   }
 
   // ---- 配对鉴权（工单 9.1 / D24 对等演示：内存表，进程生命周期内有效） ----

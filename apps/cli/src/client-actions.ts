@@ -14,6 +14,8 @@ export interface CliActionDeps {
   forkAtLast(): void
   rollbackTo(args: string | undefined): void
   setEffort(args: string | undefined): void
+  /** /voice（工单 16.6）：语音听写模式切换与录音启停（实现见 hooks/use-voice-cli.ts） */
+  voice(args: string | undefined): void
 }
 
 export type CliActionHandler = (args: string | undefined) => void
@@ -41,5 +43,6 @@ export function createCliActionHandlers(deps: CliActionDeps): Record<ClientActio
     rollback: (args) => needSession(() => deps.rollbackTo(args)),
     effort: (args) => needSession(() => deps.setEffort(args)),
     tree: () => needSession(() => st.setPanel('tree')),
+    voice: (args) => needSession(() => deps.voice(args)),
   }
 }

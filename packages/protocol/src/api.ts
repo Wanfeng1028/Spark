@@ -729,6 +729,28 @@ export const AttachmentDtoSchema = z.strictObject({
 })
 export type AttachmentDto = z.infer<typeof AttachmentDtoSchema>
 
+/** 语音听写请求（工单 16.6）：音频 base64 直传，转写在引擎侧走 OpenAI 兼容 /audio/transcriptions；
+ * 音频本体 live 不落盘（④）——只有用户把转写文本发出后才进 user.message */
+export const TranscribeRequestSchema = z.strictObject({
+  /** 供应商（缺省 = 引擎 defaultModel.provider）；须配置 baseUrl/transcription 端点 */
+  provider: z.string().min(1).optional(),
+  audio: z.strictObject({
+    /** 采集容器 mime（webm/mp4/wav/ogg/mpeg/m4a；白名单校验在引擎侧） */
+    mime: z.string().min(1),
+    /** ≤10MB（base64 前的字节数；与附件同一量级护栏） */
+    dataBase64: z.string().min(1),
+  }),
+})
+export type TranscribeRequest = z.infer<typeof TranscribeRequestSchema>
+
+export const TranscribeResultDtoSchema = z.strictObject({
+  text: z.string(),
+  /** 转写所用 provider/model（设置页/调试可见；文本本身已随返回值入输入框） */
+  provider: z.string().min(1),
+  model: z.string().min(1),
+})
+export type TranscribeResultDto = z.infer<typeof TranscribeResultDtoSchema>
+
 /** MCP 服务器配置条目（PUT /api/mcp body 形状；与 ~/.spark/mcp.json 同构） */
 export interface McpConfigInput {
   version: 1

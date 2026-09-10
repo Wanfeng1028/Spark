@@ -42,6 +42,7 @@
 | v1.40 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §2 抽象表**事件模型行 21 → 22 种**（工单 16.3 /plan 计划模式新增 `session.mode.changed`：durable、非 live、非 surface，故三属性的编译期联合不变）。设计口径值得记：**会话模式与既有 `plan` 权限档是同一件事的两个面**（mode = 可回放的 durable 可见状态，plan 档 = 审批规则引擎的 enforcement 层），切 mode 就是切档——**不另建状态机**（与本表"审批策略引擎"行的规则单一来源口径一致）；同时激活了一直空着的 `PRESET_RULES.plan`（gemini-cli plan.toml 优先级规则翻译成本仓 findLast 语义：兜底 DENY → 只读 ALLOW → 模式转换 ASK）。与 doc/02 v4.32、AGENTS v1.41、README v1.35、doc/08 v1.34 同批 |
 | v1.41 | 2026-09-10 | AI 编写：Qoder；发起与决策：晚风（Wanfeng1028，2026-09-05 拍板"胶囊控件 + 分层卡 + 浅灰底输入"） | **新增 D32 web 观感 = 胶囊控件 + 分层大圆角卡（阶段十八工单 18.1 规格先行，纯文档零代码）**：作废旧圆角封顶（6/8/12px 三档），改立**圆角档位封闭集**（胶囊 full / 8px 小件 / 12px 分组卡与弹层 / 16px 大信息卡 / 18px 会话流 user 气泡——五档之外一律违规，唯一来源 DESIGN §13.B）；输入区浅灰底 `--secondary`/`--muted` 系 + 焦点态仍是 2px 中性环；**§12 黑名单改口径不改 grep 词**（`rounded-2xl`/`rounded-3xl` 照旧扫，命中后按档位判：16px 放行、24px 违规），§12.4 禁止项改述为"脱离 §13.B 登记档位的大圆角"。**立项理由的两条证据**：用户拍板 + 仓内已是既成事实（移动端 §13.J 白卡 radius 16 与黑胶囊 CTA、会话流 §13.H user 气泡 radius 18 均为晚风实测拍板），旧封顶只让 web 桌面端与这两处口径分裂。**不变项全清单**写进 ADR：密度 13px 体系 / 会话流转录形态 / 禁渐变·阴影·毛玻璃 / mono 纪律 / 中性焦点环 / 单一 accent。DESIGN v2.14 同步（九处修订 + 两条 10.22 遗留漂移一并清）；AGENTS.md 不动（视觉规则唯一来源在 DESIGN）。ADR 编号两次顺延（原预称 D29→D30→**D32**，D29/D30/D31 已被 13.4/14.3/14.4 占用）；两张 D28 重号仍待人类判决，本单不擅改历史行 |
 | v1.42 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D33 /goal 持续目标循环（工单 16.7）**：run-loop 增 goal 端口（turn 收尾后旁路 LLM judge 判定，不进主上下文），未满足 → 合成续跑输入（如实标注 [goal]，走正常审批链——红线：续跑不绕审批）；三护栏数值在迷你 ADR 定档（迭代上限 50 = qwen 同值 / 每目标 token 预算 200k / judge 超时 25s）。事件词表 22 → **26 种**（goal.set/updated/completed/paused，全 durable 非 surface）；§2 事件模型行同步。与 doc/02 v4.42、AGENTS v1.42、README v1.36、doc/08 v1.41 同批 |
+| v1.43 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D34 /voice 语音听写（工单 16.6）**：转写住引擎侧（浏览器/CLI 持密钥不可行 + apiKey 纪律），OpenAI 兼容 /audio/transcriptions；SSRF 防护为硬门（DNS 全地址 BlockList，IPv6 过渡段必抄 qwen）；音频 live 不落盘、仅转写文本回填输入框；CLI SoX 降链 fail-closed。Transport 增 transcribe（三通道：HTTP/InProcess 直映射/Mock 对等）；命令基线 17→18。与 doc/02 v4.43、DESIGN v2.16、doc/08 v1.42 同批 |
 
 ---
 
@@ -337,6 +338,18 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 5. **红线**：续跑 turn 与用户 turn 走完全相同的管线——审批、I/O 护栏、成本熔断、hooks 全部生效，goal 不提供任何旁路。
 后果：protocol 词表 22 → 26 种（六处计数同步）；RunLoopDeps 增可选 goal 端口（既有测试 stub 不受影响）；web StatusBar 增 goal 徽标（/goal status 的可见面）；MockTransport 增 /goal 对等分支（set/clear/status 事件语义）。eval 验收留 16.7 验收段（小目标 2-3 轮完成）由 ScriptedLlm 测试覆盖（packages/engine/tests/goals.test.ts）。
 编号注记：本 ADR 占 **D33**（顺延现表末张 D32）。**两张 D28 重号仍待人类判决**（登记于 doc/02 v3.93，本单不擅改历史行）。
+
+### D34 /voice 语音听写 = 引擎侧转写 + SSRF 硬门 + 音频不落盘（2026-09-11，阶段十六工单 16.6）
+
+背景：doc/08 §16.6 立项（消解 V2-28；qwen-code ui/voice 参考设计——FallbackVoiceRecorder 降级链、sox 静音参数直抄、voice-transcriber 的 SSRF 防护必抄）。关键约束：apiKey 只从 env/secrets 读（浏览器不可持密钥）；surface 纪律（音频不进模型历史）。
+候选：① 端侧直调转写 API（web fetch 供应商）——否决：apiKey 泄露面 + CORS，违反密钥纪律；② 引擎侧新事件 goal 式流（audio.* 事件）——否决：音频体积大，durable 落盘违背"音频不落盘"，live-only 又无消费意义；③ **Transport.transcribe 请求-响应式端点 + 引擎侧转写模块**，采纳：无新事件词表条目，转写文本只在端侧回填输入框，用户主动发送才经 user.message 进模型历史。
+结论：
+1. **转写住引擎**（voice/transcriber.ts）：端点 = 供应商 baseUrl 拼接 `/audio/transcriptions` 或 models.json `transcription.endpoint` 显式配（供应商 schema 增可选 transcription{endpoint?,model?}——只增不破）；apiKey 走 resolveApiKey 既有单点；mime 白名单 + 10MB 上限先于网络。
+2. **SSRF 硬门**（voice/ssrf.ts，qwen 必抄项）：端点 fetch 前 DNS 解析全地址过 BlockList——IPv4 私网/环回/链路本地/CGNAT/保留段 + IPv6 ULA/组播 + **过渡段**（::ffff:0:0/96、64:ff9b::/96、64:ff9b:1::/48、2002::/16）；命中即 E_TRANSCRIBE_BLOCKED（403）。check-then-fetch 的 TOCTOU 与 qwen 同口径接受（v1 不做 IP pin）。
+3. **采集分层**：web = getUserMedia+MediaRecorder（hold/tap/off 三模式，spark.ui 持久化）；CLI = SoX（rec）子进程（qwen 同款 silence 自动停参数；spawn 剥离 LD_PRELOAD/NODE_OPTIONS 等敏感 env），SoX 不可用明确提示不裸降（fail-closed）。移动端语音不进本单，按需另立项。
+4. **通道**：Transport 增 `transcribe`——HTTP POST /api/transcribe（400/403/502 三档映射）；InProcess 直映射 engine.transcribe（引擎原生支持，不入 E_UNSUPPORTED 名单）；Mock 返回确定性假文本（对等演示）。命令基线 17→18（/voice，client 命令循环切模式）。
+5. **音频纪律**：音频本体 live 不落盘（不进 JSONL/日志/模型上下文）；CLI 临时 wav 萬 os.tmpdir() 转写完即清理。
+后果：命令基线 17→18（四包断言同改）；§5.10 补登 E_NO_GOAL/E_GOAL_ARGS/E_GOAL_EMPTY（16.7 漏登记回补）与 E_TRANSCRIBE_* 五码；doc/02 §4.5/§4.7 表同步；契约生成物重跑（98 describe/941 断言）。
 
 ## 6. 模块速览（职责边界）
 

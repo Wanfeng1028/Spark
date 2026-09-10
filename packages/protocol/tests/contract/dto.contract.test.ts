@@ -3432,6 +3432,86 @@ describe('契约：api.TraceTurnDtoSchema', () => {
   })
 })
 
+describe('契约：api.TranscribeRequestSchema', () => {
+  const sample = {
+    "provider": "contract-sample",
+    "audio": {
+      "mime": "contract-sample",
+      "dataBase64": "contract-sample"
+    }
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.TranscribeRequestSchema.parse(sample)).toEqual(sample)
+    expect(api.TranscribeRequestSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.TranscribeRequestSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 audio → 解析失败', () => {
+    expect(() => api.TranscribeRequestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["audio"]; return m })())).toThrow()
+  })
+
+  it('字段 provider 类型错 → 解析失败', () => {
+    expect(() => api.TranscribeRequestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["provider"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 audio 类型错 → 解析失败', () => {
+    expect(() => api.TranscribeRequestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["audio"] = []; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.TranscribeRequestSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.TranscribeResultDtoSchema', () => {
+  const sample = {
+    "text": "contract-sample",
+    "provider": "contract-sample",
+    "model": "contract-sample"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.TranscribeResultDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.TranscribeResultDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.TranscribeResultDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 text → 解析失败', () => {
+    expect(() => api.TranscribeResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["text"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 provider → 解析失败', () => {
+    expect(() => api.TranscribeResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["provider"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 model → 解析失败', () => {
+    expect(() => api.TranscribeResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["model"]; return m })())).toThrow()
+  })
+
+  it('字段 text 类型错 → 解析失败', () => {
+    expect(() => api.TranscribeResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["text"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 provider 类型错 → 解析失败', () => {
+    expect(() => api.TranscribeResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["provider"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 model 类型错 → 解析失败', () => {
+    expect(() => api.TranscribeResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["model"] = 12345; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.TranscribeResultDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.TreeNodeDtoSchema', () => {
   const sample = {
     "id": "evt_01ARZ3NDEKTSV4RRFFQ69G5FAV",

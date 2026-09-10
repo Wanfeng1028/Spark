@@ -65,6 +65,7 @@ import { ProjectorImpl } from './projector.js'
 import { reasoningIncluded } from './projector.js'
 import { runSessionLoop } from './run-loop.js'
 import { GoalRunner } from './goals.js'
+import { transcribeAudio } from './voice/transcriber.js'
 import type { RunLoopDeps } from './run-loop.js'
 import { PermissionServiceImpl } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
@@ -626,6 +627,19 @@ export class Engine {
       )
     }
     return found
+  }
+
+  /** POST /api/transcribe 数据源：语音转写（工单 16.6；SSRF 防护与失败闭合在 voice/ 模块内） */
+  async transcribe(input: { provider?: string; mime: string; dataBase64: string }): Promise<{
+    text: string
+    provider: string
+    model: string
+  }> {
+    this.assertNotShutdown()
+    return transcribeAudio(
+      { models: this.config.models, secrets: this.secrets },
+      input,
+    )
   }
 
   // ---- 成本看板（工单 13.6 / V2-07） ----

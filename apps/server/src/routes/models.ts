@@ -4,7 +4,7 @@
 import type { FastifyPluginCallback } from 'fastify'
 import type { RoutesOptions } from './shared.js'
 import { parseOr400 } from '../errors.js'
-import { requireHandle, IdParams, ProviderIdParams, SetModelBody, SetEffortBody } from './shared.js'
+import { requireHandle, IdParams, ProviderIdParams, SetModelBody, SetEffortBody, TranscribeBody } from './shared.js'
 import { RoutingUpdateSchema } from '@spark/protocol'
 
 export const registerModelRoutingRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
@@ -36,6 +36,16 @@ export const registerModelRoutingRoutes: FastifyPluginCallback<RoutesOptions> = 
     await requireHandle(engine, id) // 存在性校验（同 :id 端点纪律）
     const effort = await engine.setSessionEffort(id, body.effort)
     return reply.send({ effort })
+  })
+
+  // 语音听写（工单 16.6）：音频 base64 直传引擎，OpenAI 兼容转写（SSRF 防护在 engine voice/）
+  app.post('/api/transcribe', async (req) => {
+    const body = parseOr400(TranscribeBody, req.body)
+    return engine.transcribe({
+      provider: body.provider,
+      mime: body.audio.mime,
+      dataBase64: body.audio.dataBase64,
+    })
   })
 
   // 模型路由（阶段七工单 7.7 / H07）：fallback 链 + 任务路由档 + 成本熔断（热生效）

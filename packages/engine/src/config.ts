@@ -97,6 +97,13 @@ const modelsSchema = z.object({
       baseUrl: z.url().optional(),
       /** 出网代理 URL（工单 12.9 / ADR D28 方案 A：per-provider ProxyAgent） */
       proxy: z.string().regex(/^https?:\/\//).optional(),
+      /** 语音转写（工单 16.6）：OpenAI 兼容 /audio/transcriptions；endpoint 缺省 = baseUrl 拼接 */
+      transcription: z
+        .object({
+          endpoint: z.string().url().optional(),
+          model: z.string().min(1).optional(),
+        })
+        .optional(),
     }),
   ),
   defaultModel: defaultModelSchema,
@@ -135,6 +142,8 @@ export interface ModelsConfig {
     baseUrl?: string | undefined
     /** 出网代理 URL（工单 12.9 / ADR D28） */
     proxy?: string | undefined
+    /** 语音转写（工单 16.6）：endpoint/model 均可选（endpoint 缺省 = baseUrl + /audio/transcriptions） */
+    transcription?: { endpoint?: string | undefined; model?: string | undefined } | undefined
   }>
   defaultModel: ModelRef
   compactionModel: ModelRef

@@ -20,9 +20,11 @@ export interface UseCliActionsOptions {
   /** /resume 面板的过滤结果与选中项（confirmResume 目标） */
   resumeFiltered: Array<{ id: SessionId }>
   resumeSelected: number
+  /** /voice（工单 16.6）：语音状态机入口（hooks/use-voice-cli.ts；需 inputRef 与 transport） */
+  voice: (args: string | undefined) => void
 }
 
-export function useCliActions({ transport, clearScreen, resumeFiltered, resumeSelected }: UseCliActionsOptions) {
+export function useCliActions({ transport, clearScreen, resumeFiltered, resumeSelected, voice }: UseCliActionsOptions) {
   /** 启动（工单 10.17①④）：快照装载，失败显式错误屏+重试 */
   const boot = useCallback((): (() => void) => {
     let disposed = false
@@ -200,6 +202,7 @@ export function useCliActions({ transport, clearScreen, resumeFiltered, resumeSe
       forkAtLast,
       rollbackTo,
       setEffort,
+      voice,
     })
     handlers[action](args)
   }

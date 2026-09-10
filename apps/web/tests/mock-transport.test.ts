@@ -419,6 +419,19 @@ describe('MockTransport 计划模式对等演示（工单 16.3 第三批 B）', 
   })
 })
 
+describe('MockTransport 语音转写对等演示（工单 16.6）', () => {
+  it('transcribe 返回确定性假文本（provider 缺省回退 mock；dispose 后拒绝）', async () => {
+    const t = new MockTransport('normal')
+    const r = await t.transcribe({ audio: { mime: 'audio/webm', dataBase64: 'SGVsbG8=' } })
+    expect(r.text).toContain('（mock 转写演示）')
+    expect(r.provider).toBe('mock')
+    expect(r.model).toBe('mock-transcribe')
+    const t2 = new MockTransport('normal')
+    t2.dispose()
+    await expect(t2.transcribe({ audio: { mime: 'audio/webm', dataBase64: 'x' } })).rejects.toThrow()
+  })
+})
+
 describe('MockTransport 持续目标对等演示（工单 16.7）', () => {
   function goalEvents(
     events: readonly SparkEventEnvelope[],

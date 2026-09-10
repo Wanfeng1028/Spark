@@ -80,6 +80,7 @@ export function WelcomePage() {
               return Promise.reject(new Error(`会话尚未创建——/${name} 需在会话中使用`))
             }
             if (client.kind === 'palette') setPaletteOpen(true)
+            else if (client.kind === 'voice') useUiStore.getState().cycleVoiceMode()
             else void navigate(client.path)
             return undefined
           }}

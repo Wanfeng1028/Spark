@@ -38,6 +38,9 @@ import { AttachmentChips } from './AttachmentChips'
 import { FileTreePopover } from './FileTreePopover'
 import { ComposerMenu } from './ComposerMenu'
 import { PermissionTierMenu } from './PermissionTierMenu'
+import { Mic } from 'lucide-react'
+import { useVoiceInput } from './useVoiceInput'
+import { useUiStore } from '@/stores/ui'
 import { ModelPicker } from './ModelPicker'
 import { EffortPicker } from './EffortPicker'
 import { useSettingsStore } from '@/stores/settings'
@@ -164,6 +167,29 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     () => setPresetMenuOpen(false),
     (t) => t instanceof Element && t.closest('[data-preset-menu]') !== null,
   )
+
+  // ---- 语音听写（工单 16.6，ADR D34）：麦克风钮 hold/tap；off 不渲染（禁假状态） ----
+  const voiceMode = useUiStore((s) => s.voiceMode)
+  const voice = useVoiceInput({
+    transport,
+    onText: (t) => {
+      // 转写文本追加到草稿末尾（函数式更新——录音期间用户继续打字也不丢字）；
+      // 非空草稿补一个空格分隔，追加后光标移到末尾
+      setDraft((prev) => {
+        const sep = prev === '' || prev.endsWith('
+') || prev.endsWith(' ') ? '' : ' '
+        return prev + sep + t
+      })
+      requestAnimationFrame(() => {
+        const node = taRef.current
+        if (node === null) return
+        node.focus()
+        const len = node.value.length
+        node.setSelectionRange(len, len)
+        updateCaret(node)
+      })
+    },
+  })
 
   // ---- + 菜单（工单 10.5⑤，§13.E）：附件/@///$ 四入口 ----
 
@@ -600,6 +626,62 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               />
               {tier.label}
               <ChevronsUpDown className="size-3 opacity-60" />
+            </button>
+          )}
+
+          {/* 语音听写钮（工单 16.6）：hold=按住说话 / tap=点击开始停止 / off 不渲染；
+              录音中红点（§13.B 状态点 8px），错误行浮在工具条上方如实呈现 */}
+          {voice.error !== null && (
+            <button
+              type="button"
+              onClick={voice.dismissError}
+              aria-live="polite"
+              title={voice.error}
+              className="flex h-7 max-w-56 items-center truncate rounded-md px-1.5 text-xs text-destructive hover:bg-accent"
+            >
+              {voice.error}
+            </button>
+          )}
+          {voiceMode !== 'off' && (
+            <button
+              type="button"
+              aria-label={voice.phase === 'recording' ? '停止录音' : '开始语音听写'}
+              aria-pressed={voice.phase === 'recording'}
+              title={
+                voiceMode === 'hold'
+                  ? '按住说话，松开转写'
+                  : voice.phase === 'recording'
+                    ? '点击停止并转写'
+                    : '点击开始录音（tap 模式，/voice 切换）'
+              }
+              disabled={waiting || voice.phase === 'transcribing'}
+              onPointerDown={(e) => {
+                if (voiceMode === 'hold' && !waiting) {
+                  e.preventDefault()
+                  void voice.start()
+                }
+              }}
+              onPointerUp={() => {
+                if (voiceMode === 'hold' && voice.phase === 'recording') voice.stop()
+              }}
+              onPointerLeave={() => {
+                if (voiceMode === 'hold' && voice.phase === 'recording') voice.stop()
+              }}
+              onClick={() => {
+                if (voiceMode === 'tap' && !waiting) {
+                  if (voice.phase === 'recording') voice.stop()
+                  else void voice.start()
+                }
+              }}
+              className={cn(
+                'relative flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40',
+                voice.phase === 'recording' && 'bg-accent text-foreground',
+              )}
+            >
+              <Mic className="size-4" />
+              {voice.phase === 'recording' && (
+                <span aria-hidden className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-destructive" />
+              )}
             </button>
           )}
 

@@ -207,6 +207,17 @@ function toApiError(err: unknown): ApiError {
     // 工单 7.6：cron 表达式解析失败 → 400
     return new ApiError(400, 'E_CRON', msg.slice('E_CRON:'.length).trim())
   }
+  if (msg.startsWith('E_TRANSCRIBE')) {
+    // 工单 16.6：转写面错误——配置缺失/格式体积 400，SSRF 拒绝 403，上游失败 502
+    const text = msg.split(':', 2)[1]?.trim() ?? ''
+    if (msg.startsWith('E_TRANSCRIBE_BLOCKED')) {
+      return new ApiError(403, 'E_TRANSCRIBE_BLOCKED', text === '' ? '转写端点被安全策略拒绝' : text)
+    }
+    if (msg.startsWith('E_TRANSCRIBE_UPSTREAM')) {
+      return new ApiError(502, 'E_TRANSCRIBE_UPSTREAM', text === '' ? '转写服务返回错误' : text)
+    }
+    return new ApiError(400, msg.split(':', 1)[0] ?? 'E_TRANSCRIBE', text)
+  }
   if (msg.startsWith('E_PAIR_DISABLED')) {
     // 工单 9.1：配对鉴权未启用（devices.json 不存在）即调兑换口 → 403（需先在桌面端开启）
     return new ApiError(403, 'E_PAIR_DISABLED', '配对鉴权未启用：请先在桌面端设置页添加设备')

@@ -19,6 +19,8 @@ import { SessionStreamCore } from './session-stream-core.js'
 import type { StreamConnectionStatus, StreamCoreContext } from './session-stream-core.js'
 import type { SparkEventEnvelope } from './events.js'
 import type {
+  TranscribeRequest,
+  TranscribeResultDto,
   AuditEntryDto,
   AuditQuery,
   AutomationCreate,
@@ -575,6 +577,15 @@ export class HttpTransport implements Transport {
       },
       // Uint8Array 在 Node/DOM/RN 三套 lib 下均为合法 fetch body（类型面差异用宽化收口）
       body: file.bytes as unknown as Parameters<typeof fetch>[1] extends infer I ? I extends { body?: infer B } ? B : never : never,
+    })
+  }
+
+  /** POST /api/transcribe：语音转写（工单 16.6；JSON base64 直传——音频体量小，multipart 无必要） */
+  transcribe(req: TranscribeRequest): Promise<TranscribeResultDto> {
+    return this.req<TranscribeResultDto>('/api/transcribe', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(req),
     })
   }
 

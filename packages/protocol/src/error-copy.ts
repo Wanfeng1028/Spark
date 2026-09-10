@@ -27,6 +27,12 @@ export const ERROR_COPY: Record<string, string> = {
   E_PAIR_DISABLED: '配对鉴权未启用：请先在桌面端设置页添加设备',
   E_COMMAND_CLIENT: '这是界面命令，由界面执行——不经引擎（检查命令面分派）',
   E_INTERNAL: '服务内部错误，请重试；若持续出现请查看服务端日志',
+  // ---- 语音听写（工单 16.6；fail-closed 不裸降） ----
+  E_TRANSCRIBE_UNCONFIGURED: '当前供应商未配置语音转写端点：在 models.json 给该供应商补 baseUrl 或 transcription 配置',
+  E_TRANSCRIBE_BLOCKED: '转写端点地址被安全策略拒绝（内网/环回地址不可达）',
+  E_TRANSCRIBE_UPSTREAM: '转写服务返回错误：请检查供应商密钥与转写模型配置',
+  E_TRANSCRIBE_MIME: '不支持的录音格式：请使用 webm/mp4/wav/ogg/mpeg 录音',
+  E_TRANSCRIBE_TOO_LARGE: '录音超过 10MB 上限：请缩短录音时长',
   // ---- transport / mock 特有 ----
   E_MOCK_UNKNOWN_SESSION: '会话不存在或已被清理',
   E_MOCK_DISPOSED: '演示通道已关闭，请刷新页面',

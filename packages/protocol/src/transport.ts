@@ -41,6 +41,8 @@ import type {
   TraceDto,
   TreeNodeDto,
   UsageSummaryDto,
+  TranscribeRequest,
+  TranscribeResultDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
@@ -174,6 +176,8 @@ export interface Transport {
     sessionId: SessionId,
     file: { name: string; mime: string; bytes: Uint8Array },
   ): Promise<AttachmentDto>
+  /** POST /api/transcribe：语音转写（工单 16.6；引擎侧 OpenAI 兼容转写端点 + SSRF 防护） */
+  transcribe(req: TranscribeRequest): Promise<TranscribeResultDto>
   /** GET /api/pair：配对状态（监听地址/鉴权启用态/已配对设备；工单 9.1 / ADR D24） */
   getPairStatus(): Promise<PairStatusDto>
   /** POST /api/pair/code：签发配对码（6 位短码 60s 有效 + QR 出示内容） */

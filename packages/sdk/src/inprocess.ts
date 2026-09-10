@@ -61,6 +61,8 @@ import type {
   SparkEventEnvelope,
   SubmitOutcome,
   TraceDto,
+  TranscribeRequest,
+  TranscribeResultDto,
   Transport,
   TreeNodeDto,
   UsageSummaryDto,
@@ -455,6 +457,11 @@ export class InProcessTransport implements Transport {
 
   listFsTree(): Promise<FsTreeDto> {
     return this.unsupported('listFsTree', '递归文件树由 server 实现（深度/条目上限同属该实现）')
+  }
+
+  /** 语音转写（工单 16.6）：引擎原生支持（OpenAI 兼容端点 + SSRF 防护），进程内直映射 */
+  transcribe(req: TranscribeRequest): Promise<TranscribeResultDto> {
+    return this.engine.transcribe(req)
   }
 
   uploadAttachment(): Promise<AttachmentDto> {

@@ -10,9 +10,13 @@ const STORAGE_KEY = 'spark.ui'
 /** 侧栏会话分组模式（工单 10.5②）：项目=按 cwd 目录；时间=按更新时间段 */
 type SidebarGroupMode = 'project' | 'time'
 
+/** 语音听写模式（工单 16.6）：hold=按住说话 / tap=点击开始停止 / off=隐藏麦克风 */
+type VoiceMode = 'hold' | 'tap' | 'off'
+
 interface PersistedUi {
   sidebarCollapsed: boolean
   sidebarGroupMode: SidebarGroupMode
+  voiceMode: VoiceMode
 }
 
 function loadPersisted(): PersistedUi {
@@ -23,9 +27,10 @@ function loadPersisted(): PersistedUi {
     return {
       sidebarCollapsed: parsed.sidebarCollapsed === true,
       sidebarGroupMode: parsed.sidebarGroupMode === 'time' ? 'time' : 'project',
+      voiceMode: parsed.voiceMode === 'tap' || parsed.voiceMode === 'off' ? parsed.voiceMode : 'hold',
     }
   } catch {
-    return { sidebarCollapsed: false, sidebarGroupMode: 'project' }
+    return { sidebarCollapsed: false, sidebarGroupMode: 'project', voiceMode: 'hold' }
   }
 }
 
@@ -46,6 +51,8 @@ export interface UiState {
   setPaletteOpen: (b: boolean) => void
   toggleSidebar: () => void
   setSidebarGroupMode: (m: SidebarGroupMode) => void
+  voiceMode: VoiceMode
+  cycleVoiceMode: () => void
 }
 
 export const useUiStore = create<UiState>()((set, get) => ({
@@ -64,5 +71,13 @@ export const useUiStore = create<UiState>()((set, get) => ({
   setSidebarGroupMode: (sidebarGroupMode) => {
     persist({ sidebarCollapsed: get().sidebarCollapsed, sidebarGroupMode })
     set({ sidebarGroupMode })
+  },
+  voiceMode: loadPersisted().voiceMode,
+  cycleVoiceMode: () => {
+    // /voice 命令与长按菜单共用：hold → tap → off → hold 循环（§13.E 语音钮三态）
+    const order: VoiceMode[] = ['hold', 'tap', 'off']
+    const next = order[(order.indexOf(get().voiceMode) + 1) % order.length] ?? 'hold'
+    persist({ sidebarCollapsed: get().sidebarCollapsed, sidebarGroupMode: get().sidebarGroupMode, voiceMode: next })
+    set({ voiceMode: next })
   },
 }))
