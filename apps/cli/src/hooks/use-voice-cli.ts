@@ -34,7 +34,7 @@ export function useVoiceCli({ transport, inputRef }: VoiceCliDeps) {
     (rec: SoxRecording): void => {
       setPhase('transcribing')
       useCliStore.getState().setNotice('语音转写中…')
-      rec.done
+      void rec.done
         .then(async (bytes) => {
           if (bytes.length === 0) {
             useCliStore.getState().setNotice('录音为空：未采集到声音，请检查麦克风设备')
@@ -80,7 +80,7 @@ export function useVoiceCli({ transport, inputRef }: VoiceCliDeps) {
       setPhase('recording')
       useCliStore.getState().setNotice('录音中…Enter 停止（静音 2 秒也会自动停止）')
       // SoX 静音自动停：done 提前 resolve 时若无在途 stop 也走同一收尾链
-      rec.done
+      void rec.done
         .then(() => {
           if (recordingRef.current === rec) settle(rec)
         })

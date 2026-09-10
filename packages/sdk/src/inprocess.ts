@@ -461,7 +461,11 @@ export class InProcessTransport implements Transport {
 
   /** 语音转写（工单 16.6）：引擎原生支持（OpenAI 兼容端点 + SSRF 防护），进程内直映射 */
   transcribe(req: TranscribeRequest): Promise<TranscribeResultDto> {
-    return this.engine.transcribe(req)
+    return this.engine.transcribe({
+      provider: req.provider,
+      mime: req.audio.mime,
+      dataBase64: req.audio.dataBase64,
+    })
   }
 
   uploadAttachment(): Promise<AttachmentDto> {
