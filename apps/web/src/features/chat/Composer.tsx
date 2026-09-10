@@ -176,8 +176,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       // 转写文本追加到草稿末尾（函数式更新——录音期间用户继续打字也不丢字）；
       // 非空草稿补一个空格分隔，追加后光标移到末尾
       setDraft((prev) => {
-        const sep = prev === '' || prev.endsWith('
-') || prev.endsWith(' ') ? '' : ' '
+        const sep = prev === '' || prev.endsWith('\n') || prev.endsWith(' ') ? '' : ' '
         return prev + sep + t
       })
       requestAnimationFrame(() => {
