@@ -17,7 +17,7 @@ afterEach(cleanup)
 describe('ui/Input', () => {
   it('受控键入回显，placeholder 可达', () => {
     render(<Input placeholder="输入关键词" aria-label="关键词" />)
-    const input = screen.getByLabelText('关键词') as HTMLInputElement
+    const input = screen.getByRole('textbox', { name: '关键词' })
     fireEvent.change(input, { target: { value: 'spark' } })
     expect(input.value).toBe('spark')
     expect(screen.getByPlaceholderText('输入关键词')).toBeTruthy()
@@ -25,7 +25,7 @@ describe('ui/Input', () => {
 
   it('disabled 时不接受输入', () => {
     render(<Input disabled aria-label="禁用输入" />)
-    const input = screen.getByLabelText('禁用输入') as HTMLInputElement
+    const input = screen.getByRole('textbox', { name: '禁用输入' })
     fireEvent.change(input, { target: { value: 'x' } })
     expect(input.value).toBe('')
     expect(input.disabled).toBe(true)
@@ -35,7 +35,7 @@ describe('ui/Input', () => {
 describe('ui/Textarea', () => {
   it('受控键入回显', () => {
     render(<Textarea aria-label="备注" />)
-    const area = screen.getByLabelText('备注') as HTMLTextAreaElement
+    const area = screen.getByRole('textbox', { name: '备注' })
     fireEvent.change(area, { target: { value: '每行一条' } })
     expect(area.value).toBe('每行一条')
   })
