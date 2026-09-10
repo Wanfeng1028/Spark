@@ -6,7 +6,7 @@
  * **过渡地址**（IPv4-mapped ::ffff:0:0/96、NAT64 64:ff9b::/96 与 64:ff9b:1::/48、
  * 6to4 2002::/16——映射内网 v4 借道 v6 绕过纯 v4 黑名单的经典手法，故单独列）。
  */
-import { BlockList } from 'node:net'
+import { BlockList, isIPv4, isIPv6 } from 'node:net'
 import { lookup } from 'node:dns/promises'
 
 /** 全局黑名单（进程级单例；BlockList 自带区间二分，无热路径压力） */
@@ -44,16 +44,19 @@ function blocklistOf(): BlockList {
 /** 地址是否被拒（IP 字面量或 DNS 解析结果均可直查；非 IP 输入返回 true——fail-closed） */
 export function isBlockedAddress(address: string): boolean {
   // BlockList.check 对非法输入返回 false——先显式校验，解析不出即拒绝
-  const asV4 = BlockList.isIPv4(address)
-  const asV6 = BlockList.isIPv6(address)
+  const asV4 = isIPv4(address)
+  const asV6 = isIPv6(address)
   if (!asV4 && !asV6) return true
   // IPv4-mapped 冒充：先规范化 v6（::ffff:a.b.c.d 形式 BlockList 可查，但十六进制
   // 变体 ::ffff:a01:101 也合法——两种都进 v6 检查，mapped 段已整段入黑名单）
   return blocklistOf().check(address)
 }
 
+/** 窄化 lookup 形状（node lookup 重载族过宽；测试注入假体只需此形状） */
+export type LookupAllFn = (hostname: string, options: { all: true }) => Promise<{ address: string }[]>
+
 export interface PublicUrlDeps {
-  lookupFn?: typeof lookup
+  lookupFn?: LookupAllFn
 }
 
 /**
@@ -72,13 +75,13 @@ export async function assertPublicUrl(url: string, deps?: PublicUrlDeps): Promis
     throw new Error('E_TRANSCRIBE_UNCONFIGURED: 转写端点协议只允许 http/https')
   }
   const hostname = parsed.hostname.replace(/^\[|\]$/g, '') // IPv6 字面量去方括号
-  if (BlockList.isIPv4(hostname) || BlockList.isIPv6(hostname)) {
+  if (isIPv4(hostname) || isIPv6(hostname)) {
     if (isBlockedAddress(hostname)) {
       throw new Error('E_TRANSCRIBE_BLOCKED: 转写端点指向内网/保留地址，已拒绝')
     }
     return parsed
   }
-  const lookupFn = deps?.lookupFn ?? lookup
+  const lookupFn = (deps?.lookupFn ?? lookup) as LookupAllFn
   let records: { address: string }[]
   try {
     records = await lookupFn(hostname, { all: true })

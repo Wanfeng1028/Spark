@@ -127,17 +127,18 @@ function depsFixture(opts?: {
 
 describe('transcribeAudio（工单 16.6）', () => {
   it('baseUrl 拼接缺省端点 + Bearer 密钥 + multipart 上传；成功返回文本', async () => {
-    let captured: { url: string; init: RequestInit } | null = null
+    const captured: { current: { url: string; init: RequestInit } | null } = { current: null }
     const d = depsFixture({
       fetchImpl: (async (url: string, init?: RequestInit) => {
-        captured = { url, init: init ?? {} }
+        captured.current = { url, init: init ?? {} }
         return new Response(JSON.stringify({ text: '你好世界' }), { status: 200 })
       }) as typeof fetch,
     })
     const out = await transcribeAudio(d, { mime: 'audio/wav', dataBase64: 'RIFF' })
     expect(out).toEqual({ text: '你好世界', provider: 'openai', model: 'whisper-1' })
-    expect(captured?.url).toBe('https://api.openai.com/v1/audio/transcriptions')
-    expect((captured?.init.headers as Record<string, string>).Authorization).toBe('Bearer sk-test')
+    const call = captured.current
+    expect(call?.url).toBe('https://api.openai.com/v1/audio/transcriptions')
+    expect(((call?.init.headers ?? {}) as Record<string, string>).Authorization).toBe('Bearer sk-test')
   })
 
   it('显式 transcription.endpoint/model 优先；store 密钥进 Authorization', async () => {
@@ -153,7 +154,7 @@ describe('transcribeAudio（工单 16.6）', () => {
       },
       fetchImpl: (async (u: string, init?: RequestInit) => {
         url = u
-        auth = (init?.headers as Record<string, string>).Authorization
+        auth = ((init?.headers ?? {}) as Record<string, string>).Authorization ?? ''
         return new Response(JSON.stringify({ text: 'ok' }), { status: 200 })
       }) as typeof fetch,
     })
