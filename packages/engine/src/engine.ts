@@ -630,7 +630,7 @@ export class Engine {
   }
 
   /** POST /api/transcribe 数据源：语音转写（工单 16.6；SSRF 防护与失败闭合在 voice/ 模块内） */
-  async transcribe(input: { provider?: string; mime: string; dataBase64: string }): Promise<{
+  async transcribe(input: { provider?: string | undefined; mime: string; dataBase64: string }): Promise<{
     text: string
     provider: string
     model: string
