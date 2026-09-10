@@ -246,6 +246,8 @@ async function makeEngine(): Promise<{
       fallbacks: [],
       titleModel: { provider: 'scripted', model: 'scripted', contextWindow: 100_000 },
       subagentModel: { provider: 'scripted', model: 'scripted', contextWindow: 100_000 },
+      costLimitUsd: undefined,
+      defaultEffort: undefined,
       models: [{ provider: 'scripted', model: 'scripted', contextWindow: 100_000 }],
     },
     permissions: { version: 1, rules: [] },

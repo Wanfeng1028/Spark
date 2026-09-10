@@ -34,11 +34,20 @@ export const JUDGE_TIMEOUT_MS = 25_000
 export type GoalStatus = 'active' | 'paused' | 'completed'
 type GoalPauseReason = import('@spark/protocol').SparkEventMap['goal.paused']['reason']
 
-interface GoalState {
+export interface GoalState {
   goal: string
   iterations: number
   usedTokens: number
   status: GoalStatus
+}
+
+/** goal 组事件的信封窄化谓词（信封默认泛型是"全 union"单型，type↔data 不联动——须显式收窄） */
+type GoalEventKind = 'goal.set' | 'goal.updated' | 'goal.completed' | 'goal.paused'
+function isGoalEvent<K extends GoalEventKind>(
+  e: SparkEventEnvelope,
+  type: K,
+): e is SparkEventEnvelope<K> {
+  return e.type === type
 }
 
 /** judge 判定输入的证据格式化端口：会话 JSONL 尾部 → 人话证据行（引擎注入，本模块不读盘） */
@@ -71,20 +80,20 @@ export class GoalRunner {
   /** 从 durable 事件流重建状态（会话装载/重载时调用；幂等——全量重扫） */
   rebuild(events: readonly SparkEventEnvelope[]): void {
     for (const e of events) {
-      if (e.type === 'goal.set') {
+      if (isGoalEvent(e, 'goal.set')) {
         this.state = { goal: e.data.goal, iterations: 0, usedTokens: 0, status: 'active' }
-      } else if (e.type === 'goal.updated') {
+      } else if (isGoalEvent(e, 'goal.updated')) {
         this.state = {
           goal: e.data.goal,
           iterations: e.data.iterations,
           usedTokens: e.data.usedTokens,
           status: e.data.status,
         }
-      } else if (e.type === 'goal.completed') {
+      } else if (isGoalEvent(e, 'goal.completed')) {
         if (this.state !== null) {
           this.state = { ...this.state, status: 'completed', iterations: e.data.iterations, usedTokens: e.data.usedTokens }
         }
-      } else if (e.type === 'goal.paused') {
+      } else if (isGoalEvent(e, 'goal.paused')) {
         if (this.state !== null) {
           this.state = { ...this.state, status: 'paused', iterations: e.data.iterations, usedTokens: e.data.usedTokens }
         }
@@ -201,12 +210,19 @@ export class GoalRunner {
         messages: [
           {
             role: 'user' as const,
-            content:
-              `目标：${goal}\n\n会话证据（JSONL 尾部，新→旧）：\n${this.deps.evidence()}`,
+            content: [
+              {
+                type: 'text' as const,
+                text: `目标：${goal}\n\n会话证据（JSONL 尾部，新→旧）：\n${this.deps.evidence()}`,
+              },
+            ],
           },
         ],
         tools: [],
         signal: controller.signal,
+        // 旁路判定不流式：回调空实现（deltas 仅进 result.content 汇总）
+        onDelta: () => {},
+        onThinking: () => {},
       })
       const tokens = result.usage.inputTokens + result.usage.outputTokens
       if (result.stopReason === 'error' || result.stopReason === 'aborted') {
