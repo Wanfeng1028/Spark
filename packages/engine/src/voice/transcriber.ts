@@ -50,7 +50,7 @@ export interface TranscribeDeps {
 
 export interface TranscribeInput {
   /** 供应商（缺省 = defaultModel.provider） */
-  provider?: string
+  provider?: string | undefined
   mime: string
   dataBase64: string
 }
