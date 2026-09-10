@@ -115,8 +115,8 @@ function envelopeOf<K extends SparkEventType>(
 }
 
 describe('事件词表', () => {
-  it('词表共 22 种（durable 19 + live 3）', () => {
-    expect(Object.keys(EventSchemas)).toHaveLength(22)
+  it('词表共 26 种（durable 23 + live 3）', () => {
+    expect(Object.keys(EventSchemas)).toHaveLength(26)
   })
 
   it('CallId 透传上游 id（工单 10.39：OpenAI call_xxx / Anthropic toolu_xxx 过闸，不重写）', () => {
@@ -137,7 +137,7 @@ describe('事件词表', () => {
   })
 })
 
-describe('round-trip：20 种事件逐一', () => {
+describe('round-trip：26 种事件逐一', () => {
   for (const key of Object.keys(samples) as SparkEventType[]) {
     it(`${key}：构造 → parseEnvelope → JSON 往返 → 再 parse`, () => {
       const envelope = envelopeOf(key, samples[key], 3)

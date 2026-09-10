@@ -4,7 +4,7 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 对开发者而言，它是三样东西的组合：
 
 - **一个可嵌入的引擎**（`@spark/engine`）：`new Engine({ root })` 就能在自己进程里跑完整的 agent 回合——工具调用、审批、压缩、检查点、MCP、子代理、技能。
-- **一份事件流协议**（`@spark/protocol`）：22 种事件的词表 + DTO + `applyEvent` reducer。四个官方端与你的自定义端**共用同一份投影逻辑**。
+- **一份事件流协议**（`@spark/protocol`）：26 种事件的词表 + DTO + `applyEvent` reducer。四个官方端与你的自定义端**共用同一份投影逻辑**。
 - **一个薄客户端 SDK**（`@spark/sdk`）：`createClient(baseUrl)` 连远程 server，`createInProcessClient(engine)` 直连本地引擎——**同一份 Transport 合同，两个通道**。
 
 ## 这份文档的五页
@@ -14,7 +14,7 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 | [五分钟跑通](./getting-started)          | 从零到看见事件流：离线演示模式、仓库内 viewer、以及发布后的 npm 路径 |
 | [五层开发者面（L0–L4）](./layers)        | 你想做的事属于哪一层，该装哪个包、不该碰哪些内部件                   |
 | [Transport 双通道](./transports)         | HTTP 与进程内两条通道的同与不同、不支持项如何如实报错              |
-| [事件词表参考](./events)                 | 22 种事件的字段表（**由 zod schema 自动生成**，与代码不会漂移）    |
+| [事件词表参考](./events)                 | 26 种事件的字段表（**由 zod schema 自动生成**，与代码不会漂移）    |
 | [常见问题](./faq)                        | 审批语义、安全模型、稳定性承诺                                     |
 
 ## 一分钟看懂数据流

@@ -55,7 +55,7 @@ function schemasOf(mod: Record<string, unknown>, moduleName: string): Target[] {
 const TARGETS: Target[] = [
   // wire 信封（doc/02 §4.4：磁盘行与 SSE 帧同构）
   { name: 'EnvelopeSchema', ref: 'EnvelopeSchema', schema: EnvelopeSchema },
-  // 事件词表（22 种；EventSchemas 是唯一来源）
+  // 事件词表（26 种；EventSchemas 是唯一来源）
   ...Object.entries(EventSchemas)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([type, schema]) => ({
