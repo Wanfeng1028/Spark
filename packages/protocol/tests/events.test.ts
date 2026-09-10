@@ -1,6 +1,6 @@
 /**
  * 协议 round-trip 单测（doc/02 §8.6 protocol 行；工单 1.2 验收）：
- * 20 种事件逐一构造样例 → 信封+data 双步校验 → JSON 序列化往返仍通过。
+ * 26 种事件逐一构造样例 → 信封+data 双步校验 → JSON 序列化往返仍通过。
  */
 import { describe, expect, it } from 'vitest'
 import { EnvelopeSchema, EventSchemas, jsonSchemas, parseEnvelope } from '../src/index.js'
@@ -81,6 +81,16 @@ const samples: { [K in SparkEventType]: SparkEventMap[K] } = {
     query: '数据库连接配置',
     memories: [{ id: 7, content: '用户偏好 PostgreSQL，连接串在 .env', createdAt: 1787800000000 }],
   },
+  // 持续目标（工单 16.7 / ADR D33）：durable 非 surface
+  'goal.set': { goal: '修好所有失败的测试' },
+  'goal.updated': {
+    goal: '修好所有失败的测试',
+    iterations: 2,
+    usedTokens: 18300,
+    status: 'active',
+  },
+  'goal.completed': { iterations: 3, usedTokens: 41200 },
+  'goal.paused': { reason: 'maxIterations', iterations: 50, usedTokens: 198600 },
 }
 
 /** 组装信封：durable 类带 seq/parentId；surface 类带 surface 标记（编译期强制） */
