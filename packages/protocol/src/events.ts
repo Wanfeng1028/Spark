@@ -1,6 +1,6 @@
 /**
  * 事件词表（doc/02 §4.3）：schema registry 是唯一来源——SparkEventMap 由 infer 派生。
- * 词表当前 22 种（21 + session.mode.changed 阶段十六工单 16.3）；扩展走 declaration merging（dsh 手法，阶段五插件用）。
+ * 词表当前 26 种（21 + session.mode.changed 16.3 + goal.* 四枚 16.7）；扩展走 declaration merging（dsh 手法，阶段五插件用）。
  * 工单 13.4（ADR D29）在 compaction.completed 上扩两个**可选字段**（keptFiles/distilled）——双层压缩的载体，词表不增。
  */
 import { z } from 'zod'
@@ -156,6 +156,35 @@ export const EventSchemas = {
         }),
       )
       .min(1),
+  }),
+  // 持续目标（阶段十六工单 16.7）：全部 durable（回放重建 goal 状态）、非 surface
+  //（目标内容经合成续跑 user.message 进模型历史——surface 纪律的载体在那边，本组只是状态日志）
+  'goal.set': z.strictObject({
+    goal: z.string().min(1),
+  }),
+  /** 续跑进度与 /goal status 的回显（四端指示数据源）；goal 文本随行——回放端自含 */
+  'goal.updated': z.strictObject({
+    goal: z.string(),
+    iterations: z.number().int().nonnegative(),
+    usedTokens: z.number().int().nonnegative(),
+    status: z.enum(['active', 'paused', 'completed']),
+  }),
+  'goal.completed': z.strictObject({
+    iterations: z.number().int().nonnegative(),
+    usedTokens: z.number().int().nonnegative(),
+  }),
+  /** 护栏暂停（16.7 产出④）与用户清除：reason 即唯一解释面，不清目标文本（回放可见） */
+  'goal.paused': z.strictObject({
+    reason: z.enum([
+      'maxIterations',
+      'budgetExhausted',
+      'judgeTimeout',
+      'interrupt',
+      'turnError',
+      'cleared',
+    ]),
+    iterations: z.number().int().nonnegative(),
+    usedTokens: z.number().int().nonnegative(),
   }),
 } as const satisfies Record<string, z.ZodType>
 

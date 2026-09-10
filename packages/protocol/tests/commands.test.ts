@@ -42,11 +42,11 @@ describe('BUILTIN_COMMANDS 不变量（工单 10.18③）', () => {
     }
   })
 
-  it('surface 至少一端；基线数量 = 10.18a 判决表 14 条 + 工单 16.1 /init + 工单 16.3 /plan（16 条）', () => {
+  it('surface 至少一端；基线数量 = 判决表 14 条 + /init + /plan + 工单 16.7 /goal（17 条）', () => {
     for (const c of BUILTIN_COMMANDS) {
       expect(c.surface.length).toBeGreaterThanOrEqual(1)
     }
-    expect(BUILTIN_COMMANDS).toHaveLength(16)
+    expect(BUILTIN_COMMANDS).toHaveLength(17)
     expect(BUILTIN_COMMANDS.some((c) => c.name === 'init' && c.kind === 'action')).toBe(true)
     // 工单 16.3：/plan 必须是 **action**（引擎侧一处实现，四端只读投影的 slice.mode），
     // 不是 client 命令——否则四个前端各自接一套模式状态机，必漂移

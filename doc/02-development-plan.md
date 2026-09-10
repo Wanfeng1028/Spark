@@ -373,9 +373,9 @@ export type TurnFinish = 'stop' | 'length' | 'aborted' | 'permission-rejected' |
 export type PermissionReply = 'once' | 'always' | 'reject'
 ```
 
-## 4.3 事件词表（22 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
+## 4.3 事件词表（26 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
 
-> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 22 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
+> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 26 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
 
 ```ts
 export interface SparkEventMap {
@@ -444,6 +444,12 @@ export interface SparkEventMap {
     query: string              // 检索词（会话首条 user.message 文本）
     memories: { id: number; content: string; createdAt: number }[]  // top-k 命中（≥1）
   }
+  // 持续目标（阶段十六工单 16.7：durable 非 surface——目标内容经合成续跑 user.message 进模型历史）
+  'goal.set': { goal: string }
+  'goal.updated': { goal: string; iterations: number; usedTokens: number; status: 'active' | 'paused' | 'completed' }
+  'goal.completed': { iterations: number; usedTokens: number }
+  'goal.paused': { reason: 'maxIterations' | 'budgetExhausted' | 'judgeTimeout' | 'interrupt' | 'turnError' | 'cleared';
+                   iterations: number; usedTokens: number }
 }
 ```
 
@@ -467,7 +473,7 @@ export const EventSchemas = {
     text: z.string().min(1),
     attachments: z.array(z.string()).optional(),
   }),
-  // …22 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
+  // …26 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
 } satisfies { [T in SparkEventType]: z.ZodType<SparkEventMap[T]> }
 
 // schema.ts —— 信封 schema + jsonSchema 导出（工具参数与 DTO 用）
@@ -516,6 +522,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | error                                             | ✅           | ❌                                                    |
 | io.warning                                        | ✅           | ❌ 永不进模型历史（log-only；规则名结构化，原文不进事件） |
 | memory.injected                                   | ✅           | ✅（工单 7.5 / ADR D25：Projector 投影为模型上下文首条前缀消息——模型可见必被记录，surface 纪律双面成立） |
+| goal.set / updated / completed / paused           | ✅           | ❌（工单 16.7 / ADR D33：状态日志；目标内容经合成续跑 user.message 进模型历史） |
 
 **磁盘行与 wire 同构**：落盘 JSONL 行 = 信封原样（含 parentId）——单一格式，序列化零转换，前端 UiItem 的 parentId 即来源于此。
 
@@ -1804,7 +1811,7 @@ interface SessionSlice {
 
 **去重规则（回放×直播重叠）**：apply 入口先判 `e.seq !== undefined && e.seq <= slice.lastSeq` → 跳过（全局直播先到、REST 回放后到时不重复应用；重放期间乱序到达的直播同理被吸附）；live 事件无 seq，无条件应用。resetSlice 将 lastSeq 归 0 后重放从空重建。
 
-**applyEvent 处理表（22 种全覆盖）**：
+**applyEvent 处理表（26 种全覆盖）**：
 
 | 事件                         | 状态变更                                                                            |
 | ---------------------------- | ----------------------------------------------------------------------------------- |
@@ -1828,6 +1835,7 @@ interface SessionSlice {
 | error                        | toast；fatal→全屏错误态                                                             |
 | io.warning                   | 挂对应 tool 项 guard（角标数据源；不改状态机——不阻断 turn）                         |
 | memory.injected              | slice.memoryInjected 记录命中数与查询词（工单 7.5；不进 items——模型可见面已在引擎事件流记录） |
+| goal.set / updated / completed / paused | slice.goal 投影（工单 16.7 / ADR D33：null = 无目标；text/iterations/usedTokens/status 随事件重建——durable 故冷启动回放即可恢复，web StatusBar 徽标为 /goal status 的可见面） |
 
 ```ts
 // connection-store：{ status:'connecting'|'open'|'reconnecting'|'closed', lastSeq, retryCount }
@@ -2721,6 +2729,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.39 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **工单 16.3 第三批 B：四端 mode 指示 + MockTransport 对等（产出⑤收口）**。① **web**：StatusBar 增计划模式徽标（`slice.mode==='plan'` 才渲染，中性描边 `plan`，同 ckpt 徽标形态）；**顺带修一处假状态**——SessionPage 的档位本地 state 只在挂载时读一次，模型经 `exit_plan_mode` 获批退出后档位是引擎侧改的，菜单栏会一直显示"计划模式"，改为 `useTransportQuery` 的 deps 带 `slice.mode`（模式事件到达即重拉一次；DESIGN §13.E 已补条款）。② **CLI**：Footer 在提交模式段后追加 `· 计划模式`（中性色不入 yellow——yellow 在该行是瞬态注意项）。③ **mobile / miniapp**：会话页页头下常驻计划模式细条（载体同断线细条，muted 中性色，文案写完整句：移动端无档位菜单，本条是"为何写操作全被拒"的唯一解释面）。④ **MockTransport 对等**：`executeCommand` 增 `plan` 分支（`/plan` 进入、`/plan exit|off` 退出）+ 私有 `applyPreset`/`setMode`/`modeOf` 三件套照引擎结构复刻（**mode 由档位派生不存第二份状态**、记 `prePlanPresets` 供退出恢复、只在"是否 plan"变时推 `session.mode.changed`）——此前 mock 下选 /plan 落 E_NOT_FOUND、设 plan 档不推事件，四端指示与命令都走不通。⑤ 视觉规格先行：DESIGN v2.13（§13.A StatusBar 行 / §13.E 档位菜单 / §13.J.2.3 会话页 / §13.K K.4 footer，含 K.4"双行"已被 10.51 单行取代的修正注记）；**统一口径：plan 是常态模式不是告警，四端一律中性色**，warn 琥珀仍只留给完全访问档与 >80% 水位。⑥ §6.4 处理表 session.mode.changed 行补四端落点指针。⑦ 测试 7 例：web StatusBar 组件 2（plan 渲染徽标与 title、回 default 消失 / 无激活会话不渲染）+ mock-transport 3（/plan 与 /plan exit 推事件并恢复原档位 / 两个入口不分叉且幂等 / 未知会话拒）+ cli render 2（footer 标记同行渲染 / default 不渲染）。⑧ **附带收口同一根因的第三处计数不变量**：`apps/web/tests/composer-menus.test.ts` 的 `SLASH_COMMANDS`（web surface 过滤后的派生清单）7 → **8**，并把"按描述过滤"那条改为断**全命中集**（/plan 描述含"模型只读地出计划"，与 /model 一同命中"模型"）、mergeSlashCommands 的名称序补 'plan'——run 34387130561 红在此处（同一次 push 里第三批 A 的引擎 10 例全绿）。**教训补强（v4.37 那条不够）：加词表条目时要清点的不止"同一个数字"，而是每一端各自的派生清单断言**——protocol 全量 16 / cli 全量 16 / web surface 过滤后 8，三处数字互不相同，只 grep 旧值（15）必漏第三处；正确做法是从词表出发列出**全部消费面**（含各端过滤/合并/渲染的衍生清单）逐个对账。**至此工单 16.3 三批全部落地**，验收四条对齐：写类全拒（含注入诱导）/ exit 须批准 / 审批期间切档则批准作废 / mock 与四端 applyEvent 单测。同步：doc/08 v1.37（§16.3 第三批 B 进度与工单收口）。**本批本机零验证**，以 CI 裁决 |
 | v4.40 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **事件词表计数的三处默漂收口 + 检查器补副锚点（防复发）**。① §6.4 处理表标题 **21 → 22 种**——工单 16.3 第一批改了 §4.3 词表标题与四处交叉校验锚点，却漏了同文件这处（标题写 21 种、表里已 22 行，自相矛盾）；② §8.6 测试矩阵 protocol 行 **19 → 22 种**（阶段一写就后历经 7.2/7.5/16.3 三次扩表未动）；③ doc/03 §4 对比表 **19 → 22 种**（doc/03 v1.2 登记）。④ **检查器补规则**：`scripts/check_doc_links.py` 增"事件词表计数（副锚点）"——doc/02 §6.4 处理表标题 == doc/03 §4 对比表行；**限制登记**：FACT_RULES 以文件名为键，同文件只能挂一个锚点，故 §4.3 与 §6.4 必须分属两条规则（要三处同文件互校得改数据结构，本批不动）。两条正则已本机自证命中且同为 22（跑检查器属文档工作产物，不是 §2.2 禁的 test/typecheck/lint）。⑤ **两处发现只登记不改**：(a) `official/README.md` 词表行仍写 21 种，但该文件是 README 工单 11.8 重写**之前**的旧快照（status 徽章仍 "v1_五阶段完成"、node ≥22、版本表停在 v1.27）且在检查器 SKIP_DIRS 内——单改一个数字等于假装它是最新的，待人类判决"重新导出 or 改薄壳指向 README"；(b) 本文尾部结构损坏（本批编辑版本表时发现，非本批造成）：两条空 "> 批次 5 备注：" 残桩（正本在其后第三条）、"## 8.6 测试矩阵（…）> 批次 4 备注：" 标题与备注粘连（正本标题与正本备注各自另存）、重复的 "## 阶段十一：可发布（Release）——工单级" 标题 + 一段孤儿"② 10.22 …④ 冻结行不勾选"（其 ① 在批次 3 备注行）——哪份是正本属内容删改判断，待人类确认后一次修净。同步：doc/03 v1.2。**本批本机零验证**（例外：检查器锚点自证），以 CI 裁决 |
 | v4.41 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"找一下所有的没有完成的工单，先做不需要我拍板的"指令） | **两处工单状态对账（决策早已记录、文档没跟上）**。① §8.7 V2-34 /plan 行由"已立项：doc/08 阶段十六 16.3"改为 **已落地：工单 16.3（三批全量）**，并写实落地形态（没建独立只读模式位，而是激活既有 `plan` 审批档 + `exit_plan_mode` 走审批链 + 四端指示）——同 V2-27（16.1）的收口口径。② 阶段十批次 3 的 10.30 行由 **⏸ 冻结待人类五层级确认** 改为 **✅ 已判决保留冻结**：doc/08 §0.2 **Q-7 已于 2026-09-05 拍板"全部保留继续冻结"**（UsageBar/Titlebar/Sidebar/StatusBar/Row/scripted-llm/_scratch 两产物均不删），本行却仍写"待晚风五层级确认 / 人类明示确认删除后另行开单"——**判决依据是 Q-7，不是 knip 的 ignore**（ignore 只是门禁降噪），重开须人类再次发起五层级确认。**同批全仓工单清点结论**（仅报告，未改动其他行）：阶段十一~十四与十七 R-A~R-H 全收官；阶段十五 15.1–15.4 有明面门槛（立项前须重估：依赖外部用户信号 + Q-1 拍板）；16.2（子代理定义格式与 13.5 JSON 预设档冲突、启停落点两个口子）与 16.4（明写 ADR 经晚风确认后再实现）待拍板；16.5/16.8 依赖 16.2 故连带阻塞；**无阻塞可做的是 16.6 /voice、16.7 /goal、16.9 /lsp（大件殿后）与阶段十八 18.1–18.5（视觉口径 2026-09-05 已拍板，18.1 纯文档零依赖）**——按"先做不需要拍板的"指令，下一张开工 18.1。本批本机零验证 |
+| v4.42 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **工单 16.7 /goal 持续目标落地（阶段十六；ADR D33）**：① 事件词表 22 → **26 种**——goal.set / goal.updated / goal.completed / goal.paused 四枚（§4.3 词表 + §4.4 规则表 + §6.4 处理表同步；全 durable 非 surface——目标内容经合成续跑 user.message 进模型历史，surface 纪律双面成立）；② engine 新模块 goals.ts GoalRunner——turn 收尾旁路 LLM judge（不占主上下文，判据 = JSONL 尾部 40 行证据 + "送达不等于状态改变"写死提示词，SATISFIED/NOT_SATISFIED 二选一），未满足 → 合成续跑输入（如实标注 [goal 合成输入·第 N 轮]，不伪造用户意图）；三护栏（ADR D33 定档：迭代 50 上限 / 200k token 预算（judge 用量同计）/ judge 25s 超时——超时/错误/解析失败一律 paused 保留目标，fail-closed）；interrupt（aborted）→ paused{interrupt} 即停；turnError → paused{turnError}；③ run-loop：RunLoopDeps 增可选 goal 端口（afterTurn），runTurn 返回收尾结果（既有调用方兼容），合成续跑经 rt.submit('queue') 推主队列——用户真实输入 FIFO 天然优先；④ 命令：BUILTIN_COMMANDS 增 /goal（action，surface web+cli，基线 16→17 四包断言同改），executeCommand 增 set/clear/status 分支（E_NO_GOAL / E_GOAL_ARGS / E_GOAL_EMPTY fail-closed）；⑤ MockTransport 对等：/goal 三子命令事件语义与引擎一致（judge 续跑属引擎运行时，mock 只落状态）；⑥ web：applyEvent 落 slice.goal（durable 回放即重建）+ StatusBar goal 徽标（/goal status 可见面）；⑦ 测试：web applyEvent reducer 6 例 + mock-transport 2 例 + web StatusBar 徽标 2 例 + engine goals.test 14 例（ADR D33 护栏数值锁定 + judge 未满足/满足/解析失败/超时/迭代上限/预算耗尽/interrupt/turnError/无目标幂等/clear+status/rebuild 回放 11 例 + Engine 全链路 2 例）；⑧ 生成物重跑：契约用例与文档站词表页（26 种）。红线对账：续跑 turn 走正常管线（审批/护栏/熔断/hooks 全生效，零旁路）。验收注："小目标 2-3 迭代完成"由 ScriptedLlm 全链路用例覆盖；真实模型走查留用户现场。同步：ARCHITECTURE v1.42（D33）、AGENTS v1.42、README v1.36、doc/08 v1.41、doc/03 v1.3（§4 对比表副锚点）。本批本机零验证，以 CI 裁决 |
 
 > 批次 5 备注：
 
@@ -2758,7 +2767,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 
 | 模块               | 用例要点                                                                                                                                                         |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| protocol           | 22 种事件样例逐一过 zod schema（round-trip）；信封 surface 标记的编译期断言；DTO/配置 schema                                                                     |
+| protocol           | 26 种事件样例逐一过 zod schema（round-trip）；信封 surface 标记的编译期断言；DTO/配置 schema                                                                     |
 | engine/config      | 三配置文件 zod：合法 / 缺字段 / 越界值 → 启动失败（E_CONFIG）                                                                                                    |
 | engine/bus         | durable seq 单调且**落盘后**才广播；live 不计数；订阅者异常隔离；背压 pause/resume                                                                               |
 | engine/input-queue | now/steer/queue × idle/running 全矩阵的三态返回；唤醒合并不空转                                                                                                  |
@@ -2767,7 +2776,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | engine/permission  | evaluate 优先级（临时>项目>用户>默认 ask）；always 写入 + 同批放行；超时/中断 fail-closed；reject feedback 注入 user.message                                     |
 | engine/session     | 单写者 append/flush；坏行（尾行丢弃/非尾拒绝加载）；resume 补 turn.completed{aborted}；Projector 投影（无/有 compaction 分支 × reasoning 配置）；mungeDir 确定性 |
 | server             | 路由 zod 400/404/409/503 映射；SSE 回放+直播边界、心跳、全局订阅；SPA fallback 排除 /api                                                                         |
-| web                | **applyEvent 22 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
+| web                | **applyEvent 26 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
 | 集成               | MockTransport 四场景全跑（§4.7 表）；阶段三：ScriptedLlm 全闭环 + 崩溃恢复（kill -9 后 resume 无悬挂事件）                                                       |
 
 ## 8.7 v2 候选池（未排期，不阻塞阶段六~九；缺口编号对应 doc/07 §2.7）

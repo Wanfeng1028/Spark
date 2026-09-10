@@ -1,10 +1,10 @@
 /**
  * applyEvent reducer（doc/02 §6.4 处理表 / D22 四端共享资产之二，工单 8.2 自 apps/web 下沉）：
- * 事件信封 → 会话投影（UiItem 序列与切片状态）的唯一纯函数，22 种词表逐一处理；
+ * 事件信封 → 会话投影（UiItem 序列与切片状态）的唯一纯函数，26 种词表逐一处理；
  * web（zustand 包装）与 cli（Ink 渲染）共用同一实现——词表穷尽性由 web 侧单测逐条把关。
  * 去重规则（回放×直播重叠）：durable（有 seq）且 seq <= lastSeq → 跳过；live（无 seq）无条件应用。
  */
-import type { SparkEventEnvelope } from './events.js'
+import type { SparkEventEnvelope, SparkEventMap } from './events.js'
 import type { Usage, ContentItem, TurnFinish, ReasoningEffort, SessionMode } from './primitives.js'
 import type { CallId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
@@ -120,6 +120,20 @@ export interface SessionSlice {
    * 由 `session.mode.changed` 驱动——durable，所以冷启动回放就能重建，不依赖内存态。
    */
   mode: SessionMode
+  /**
+   * 持续目标（工单 16.7）：null = 无目标。由 goal.* 四枚 durable 事件驱动——
+   * 冷启动回放即重建（与 mode 同纪律）；pausedReason 只在 goal.paused 时携带。
+   */
+  goal: SessionGoalState | null
+}
+
+/** 持续目标投影状态（16.7；status/reason 与 goal.updated/goal.paused 的 zod 字面量同源） */
+export interface SessionGoalState {
+  text: string
+  iterations: number
+  usedTokens: number
+  status: 'active' | 'paused' | 'completed'
+  pausedReason?: SparkEventMap['goal.paused']['reason']
 }
 
 /** 投影状态（各端 store 的公共形状；web zustand / cli 各自再挂自己的操作面） */
@@ -151,10 +165,11 @@ export function emptySessionSlice(sid: SessionId): SessionSlice {
     lastError: null,
     memoryInjected: null,
     mode: 'default',
+    goal: null,
   }
 }
 
-// ---------- reduce：§6.4 处理表（22 种全覆盖） ----------
+// ---------- reduce：§6.4 处理表（26 种全覆盖） ----------
 
 /** 按词表窄化事件 data 的类型守卫（同 SessionPage 模式） */
 function ofType<T extends SparkEventEnvelope['type']>(
@@ -299,6 +314,50 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
   if (ofType(e, 'session.mode.changed')) {
     // 工单 16.3：只记当前模式（previous 供审计/调试，投影不需要历史栈）
     next.mode = e.data.mode
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'goal.set')) {
+    // 工单 16.7：新目标从零计数（已有 active 目标时引擎侧直接替换，重设即换目标）
+    next.goal = {
+      text: e.data.goal,
+      iterations: 0,
+      usedTokens: 0,
+      status: 'active',
+    }
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'goal.updated')) {
+    // 续跑进度与 /goal status 回显共用（文本随行，回放端自含）；
+    // paused 态回显时保真护栏原因（事件本身不带 reason——从既有投影顺延，resume 回 active 即清）
+    next.goal = {
+      text: e.data.goal,
+      iterations: e.data.iterations,
+      usedTokens: e.data.usedTokens,
+      status: e.data.status,
+      ...(next.goal !== null && e.data.status === 'paused'
+        ? { pausedReason: next.goal.pausedReason }
+        : {}),
+    }
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'goal.completed')) {
+    if (next.goal === null) return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+    next.goal = { ...next.goal, status: 'completed', iterations: e.data.iterations, usedTokens: e.data.usedTokens }
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'goal.paused')) {
+    if (next.goal === null) return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+    next.goal = {
+      ...next.goal,
+      status: 'paused',
+      iterations: e.data.iterations,
+      usedTokens: e.data.usedTokens,
+      pausedReason: e.data.reason,
+    }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 

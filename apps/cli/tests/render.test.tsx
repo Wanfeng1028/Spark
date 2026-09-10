@@ -584,14 +584,16 @@ describe('slash 菜单过滤（工单 10.10）', () => {
     expect(filterSlashCommands(commands, 'zzz')).toEqual([])
   })
 
-  it('协议词表基线 16 条可过滤（工单 10.18 单一词表 + 16.1 /init + 16.3 /plan）', () => {
-    expect(BUILTIN_COMMANDS).toHaveLength(16)
+  it('协议词表基线 17 条可过滤（工单 10.18 单一词表 + /init + /plan + 16.7 /goal）', () => {
+    expect(BUILTIN_COMMANDS).toHaveLength(17)
     expect(filterSlashCommands([...BUILTIN_COMMANDS], 'effort').map((c) => c.name)).toEqual([
       'effort',
     ])
     // 工单 16.3：/plan 的 surface 含 cli，本端 slash 菜单必须能搜到并按描述命中
     expect(filterSlashCommands([...BUILTIN_COMMANDS], 'plan').map((c) => c.name)).toEqual(['plan'])
     expect(filterSlashCommands([...BUILTIN_COMMANDS], '计划').map((c) => c.name)).toEqual(['plan'])
+    // 工单 16.7：/goal 的 surface 含 cli，描述含"持续目标"必可按中文命中
+    expect(filterSlashCommands([...BUILTIN_COMMANDS], '目标').map((c) => c.name)).toEqual(['goal'])
   })
 })
 

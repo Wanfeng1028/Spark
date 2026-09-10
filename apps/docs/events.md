@@ -4,7 +4,7 @@
 > 事实源是 `@spark/protocol` 的 zod schema；改过 schema 后跑 `pnpm --filter @spark/docs gen:events`，
 > CI 会重跑并 `git diff --exit-code apps/docs/events.md` 校同步（与契约用例生成物同一套门禁思路）。
 
-词表共 **22 种**事件：durable 19 种（落 JSONL、可回放、可审计）、
+词表共 **26 种**事件：durable 23 种（落 JSONL、可回放、可审计）、
 live-only 3 种（不落盘，重连后不重现）；其中 surface 2 种
 （模型可见面，引擎铁律"模型可见必被记录"的对象）。
 
@@ -89,6 +89,44 @@ live-only 3 种（不落盘，重连后不重现）；其中 surface 2 种
 | `scope` | `"engine"` \| `"llm"` \| `"tool"` \| `"io"` | 是 |
 | `message` | string | 是 |
 | `fatal` | boolean | 否 |
+
+### `goal.completed`
+
+- 分类：durable（落盘可回放）
+
+| 字段 | 类型 | 必填 |
+| ---- | ---- | ---- |
+| `iterations` | integer | 是 |
+| `usedTokens` | integer | 是 |
+
+### `goal.paused`
+
+- 分类：durable（落盘可回放）
+
+| 字段 | 类型 | 必填 |
+| ---- | ---- | ---- |
+| `reason` | `"maxIterations"` \| `"budgetExhausted"` \| `"judgeTimeout"` \| `"interrupt"` \| `"turnError"` \| `"cleared"` | 是 |
+| `iterations` | integer | 是 |
+| `usedTokens` | integer | 是 |
+
+### `goal.set`
+
+- 分类：durable（落盘可回放）
+
+| 字段 | 类型 | 必填 |
+| ---- | ---- | ---- |
+| `goal` | string | 是 |
+
+### `goal.updated`
+
+- 分类：durable（落盘可回放）
+
+| 字段 | 类型 | 必填 |
+| ---- | ---- | ---- |
+| `goal` | string | 是 |
+| `iterations` | integer | 是 |
+| `usedTokens` | integer | 是 |
+| `status` | `"active"` \| `"paused"` \| `"completed"` | 是 |
 
 ### `io.warning`
 

@@ -132,6 +132,15 @@ export function StatusBar() {
             plan
           </span>
         )}
+        {/* 持续目标指示（工单 16.7）：数据源 = durable goal.* 投影 slice.goal；中性描边同 plan */}
+        {slice?.goal?.status === 'active' && (
+          <span
+            className="shrink-0 rounded-sm border border-border px-1 font-mono text-[11px] leading-4 text-muted-foreground"
+            title={`持续目标（第 ${slice.goal.iterations} 轮）：${slice.goal.text}`}
+          >
+            goal
+          </span>
+        )}
         {checkpoint != null && <CheckpointBadge checkpointId={checkpoint.checkpointId} />}
       </div>
       <div className="flex shrink-0 items-center gap-0.5">

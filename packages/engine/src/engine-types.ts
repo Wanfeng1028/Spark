@@ -4,6 +4,7 @@
  */
 import type { Delivery, EventId, SessionId, SessionStatus, SparkEventEnvelope, TurnId } from '@spark/protocol'
 import type { ReasoningEffort } from '@spark/protocol'
+import type { GoalRunner } from './goals.js'
 import type { SubmitResult } from './session/input-queue.js'
 import type { EngineConfig } from './config.js'
 import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
@@ -123,4 +124,6 @@ export interface SessionEntry {
   titleTask: Promise<void> | null
   /** run-loop 后台循环体（shutdown 等待用） */
   loop: Promise<void>
+  /** 持续目标循环（工单 16.7）：/goal 命令入口 + run-loop goal 端口实现 */
+  goal: GoalRunner
 }

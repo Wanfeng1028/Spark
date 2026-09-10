@@ -81,3 +81,27 @@ describe('StatusBar 计划模式徽标（工单 16.3）', () => {
     expect(screen.queryByText('plan')).toBeNull()
   })
 })
+
+describe('StatusBar 持续目标徽标（工单 16.7）', () => {
+  it('goal.set → 渲染 goal 徽标；paused 后消失', () => {
+    apply(ev('session.created', { title: '状态条会话', cwd: '/tmp', model: 'deepseek/chat' }))
+    renderBar()
+    expect(screen.queryByText('goal')).toBeNull() // 无目标不渲染（禁假状态）
+
+    apply(ev('goal.set', { goal: '修好所有失败的测试' }))
+    expect(screen.getByText('goal')).toBeTruthy()
+    // 徽标带解释文案：轮次 + 目标文本（/goal status 的可见面）
+    expect(screen.getByTitle(/持续目标（第 0 轮）：修好所有失败的测试/)).toBeTruthy()
+
+    apply(ev('goal.paused', { reason: 'interrupt', iterations: 3, usedTokens: 1200 }))
+    expect(screen.queryByText('goal')).toBeNull()
+  })
+
+  it('goal.completed → 徽标消失（目标已闭环）', () => {
+    apply(ev('session.created', { title: '状态条会话', cwd: '/tmp', model: 'deepseek/chat' }))
+    apply(ev('goal.set', { goal: 'g' }))
+    apply(ev('goal.completed', { iterations: 2, usedTokens: 900 }))
+    renderBar()
+    expect(screen.queryByText('goal')).toBeNull()
+  })
+})

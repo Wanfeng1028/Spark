@@ -58,7 +58,7 @@ spark up
 apps/web            React 19 SPA —— 只消费事件流（applyEvent reducer）
    │  HttpTransport：REST 命令 + GET /api/event（SSE 单端点，since=seq 断线续播）
    ▼
-packages/protocol   前后端唯一合同：22 种事件词表 · zod schema · Transport 接口
+packages/protocol   前后端唯一合同：26 种事件词表 · zod schema · Transport 接口
    ▼
 apps/server         Fastify 薄壳：REST + SSE + 静态托管（127.0.0.1，无鉴权）
    ▼
@@ -168,5 +168,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.33 | 2026-09-08 | AI 编写：Qoder；发起与决策：晚风（Wanfeng1028，"本地不进行任何的测试，直接 push 远端，看 ci 就可以"指令） | 当前状态行验证口径修正：原"全量测试与 e2e 由 CI 执行（本地开发只跑 typecheck/lint）"→**全部验证由 CI 执行、本地不跑**（AGENTS §2.2 本机零验证）；英文版同步。与 AGENTS v1.31、CONTRIBUTING 提交前自查、doc/06 v1.5 同批 |
 | v1.34 | 2026-09-09 | AI 编写：ZCode CLI · GLM-5.3（c6649989-58db-48d8-bd05-3a1d0fd3e6b4/z-ai/glm-5.3-free）；发起：晚风（Wanfeng1028，移动端/小程序联调报错清单指令） | 开发区 mobile/miniapp 两行补 `dev:web`/`dev:h5` 浏览器形态注记（两端 web 平台首次本地联调暴露的仓库侧修复：mobile 的 Metro `.js`→`.ts` 解析缺失与 web 依赖、miniapp 的 react-dom/h5 构建面——详见 doc/02 v4.24） |
 | v1.35 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | 架构图协议行事实修正 **事件词表 21→22 种**（阶段十六工单 16.3 /plan 计划模式新增 `session.mode.changed`：durable、非 surface，回放可重建会话模式；英文版同步）。与 AGENTS v1.41、ARCHITECTURE v1.40、doc/02 v4.32、doc/08 v1.34 同批 |
+| v1.36 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | 架构图协议行 **事件词表 22→26 种**（阶段十六工单 16.7 /goal 持续目标：goal.set/updated/completed/paused 四枚 durable 事件，ADR D33；英文版同步）。与 AGENTS v1.42、ARCHITECTURE v1.42、doc/02 v4.42、doc/08 v1.41 同批 |
 
 </details>

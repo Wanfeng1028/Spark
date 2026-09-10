@@ -78,6 +78,15 @@ export const BUILTIN_COMMANDS: readonly CommandDescriptor[] = [
     sessionRequired: true,
   },
   {
+    // 工单 16.7：引擎侧 action——/goal set <条件> / clear / status；续跑循环与护栏在引擎（goals.ts）
+    name: 'goal',
+    description: '持续目标：/goal set <条件> 让引擎循环工作直至满足或护栏触发；/goal clear / /goal status',
+    kind: 'action',
+    group: 'session',
+    surface: ['web', 'cli'],
+    sessionRequired: true,
+  },
+  {
     name: 'new',
     description: '新建会话',
     kind: 'client',

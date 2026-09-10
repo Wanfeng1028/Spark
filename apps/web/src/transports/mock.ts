@@ -546,6 +546,11 @@ export class MockTransport implements Transport {
   // ---- 权限档位与会话模式（工单 6.3 / 16.3 对等演示：内存表，随会话 id 记忆；引擎同款语义） ----
 
   private readonly presets = new Map<SessionId, PermissionPreset>()
+  /** 持续目标状态（工单 16.7 对等演示）：mock 只落事件语义，judge 续跑在引擎侧 */
+  private readonly goals = new Map<
+    SessionId,
+    { goal: string; iterations: number; usedTokens: number; status: 'active' | 'paused' | 'completed' }
+  >()
   /** 进 plan 前的档位（引擎 prePlanPreset 的对等演示）：退出计划模式时恢复 */
   private readonly prePlanPresets = new Map<SessionId, PermissionPreset>()
 
@@ -804,6 +809,58 @@ export class MockTransport implements Transport {
       const arg = args?.trim().toLowerCase()
       this.setMode(sessionId, arg === 'exit' || arg === 'off' ? 'default' : 'plan')
       return Promise.resolve()
+    }
+    if (name === 'goal') {
+      // 对等演示（工单 16.7）：set/clear/status 的事件语义与引擎一致；judge 续跑循环
+      // 属引擎运行时行为（ScriptedLlm 侧），mock 只落状态与事件——四端 reducer 走查可用
+      const arg = args?.trim() ?? ''
+      const sub = arg.split(/\s+/)[0]?.toLowerCase() ?? ''
+      if (sub === 'set') {
+        const goalText = arg.slice(sub.length).trim()
+        if (goalText.length === 0) {
+          return Promise.reject(new Error('E_GOAL_EMPTY: /goal set 需要目标条件（如 /goal set 修好所有失败的测试）'))
+        }
+        const state = { goal: goalText, iterations: 0, usedTokens: 0, status: 'active' as const }
+        this.goals.set(sessionId, state)
+        this.emit({
+          id: ids.event(`evt_mock_goal_${mockRandom()}`),
+          sessionId,
+          type: 'goal.set',
+          time: Date.now(),
+          data: { goal: goalText },
+        })
+        return Promise.resolve()
+      }
+      const current = this.goals.get(sessionId)
+      if (sub === 'clear') {
+        if (current === undefined) {
+          return Promise.reject(new Error('E_NO_GOAL: 本会话没有持续目标（/goal set <条件> 先行）'))
+        }
+        const paused = { ...current, status: 'paused' as const }
+        this.goals.set(sessionId, paused)
+        this.emit({
+          id: ids.event(`evt_mock_goal_${mockRandom()}`),
+          sessionId,
+          type: 'goal.paused',
+          time: Date.now(),
+          data: { reason: 'cleared', iterations: paused.iterations, usedTokens: paused.usedTokens },
+        })
+        return Promise.resolve()
+      }
+      if (sub === 'status') {
+        if (current === undefined) {
+          return Promise.reject(new Error('E_NO_GOAL: 本会话没有持续目标（/goal set <条件> 先行）'))
+        }
+        this.emit({
+          id: ids.event(`evt_mock_goal_${mockRandom()}`),
+          sessionId,
+          type: 'goal.updated',
+          time: Date.now(),
+          data: { goal: current.goal, iterations: current.iterations, usedTokens: current.usedTokens, status: current.status },
+        })
+        return Promise.resolve()
+      }
+      return Promise.reject(new Error('E_GOAL_ARGS: 用法 /goal set <条件> | /goal clear | /goal status'))
     }
     if (name === 'review') {
       // 对等演示：自定义命令展开为 prompt 走正常 turn（sendMessage 假对话回放）

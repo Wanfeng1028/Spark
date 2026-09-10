@@ -347,6 +347,168 @@ describe('契约：event \'error\'', () => {
   })
 })
 
+describe('契约：event \'goal.completed\'', () => {
+  const sample = {
+    "iterations": 1,
+    "usedTokens": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['goal.completed'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['goal.completed'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['goal.completed'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 iterations → 解析失败', () => {
+    expect(() => EventSchemas['goal.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["iterations"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 usedTokens → 解析失败', () => {
+    expect(() => EventSchemas['goal.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["usedTokens"]; return m })())).toThrow()
+  })
+
+  it('字段 iterations 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['goal.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["iterations"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 usedTokens 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['goal.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["usedTokens"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['goal.completed'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：event \'goal.paused\'', () => {
+  const sample = {
+    "reason": "maxIterations",
+    "iterations": 1,
+    "usedTokens": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['goal.paused'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['goal.paused'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['goal.paused'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 reason → 解析失败', () => {
+    expect(() => EventSchemas['goal.paused'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["reason"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 iterations → 解析失败', () => {
+    expect(() => EventSchemas['goal.paused'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["iterations"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 usedTokens → 解析失败', () => {
+    expect(() => EventSchemas['goal.paused'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["usedTokens"]; return m })())).toThrow()
+  })
+
+  it('字段 reason 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['goal.paused'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["reason"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 iterations 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['goal.paused'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["iterations"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 usedTokens 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['goal.paused'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["usedTokens"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['goal.paused'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：event \'goal.set\'', () => {
+  const sample = {
+    "goal": "contract-sample"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['goal.set'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['goal.set'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['goal.set'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 goal → 解析失败', () => {
+    expect(() => EventSchemas['goal.set'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["goal"]; return m })())).toThrow()
+  })
+
+  it('字段 goal 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['goal.set'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["goal"] = 12345; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['goal.set'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：event \'goal.updated\'', () => {
+  const sample = {
+    "goal": "contract-sample",
+    "iterations": 1,
+    "usedTokens": 1,
+    "status": "active"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['goal.updated'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['goal.updated'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['goal.updated'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 goal → 解析失败', () => {
+    expect(() => EventSchemas['goal.updated'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["goal"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 iterations → 解析失败', () => {
+    expect(() => EventSchemas['goal.updated'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["iterations"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 usedTokens → 解析失败', () => {
+    expect(() => EventSchemas['goal.updated'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["usedTokens"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 status → 解析失败', () => {
+    expect(() => EventSchemas['goal.updated'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["status"]; return m })())).toThrow()
+  })
+
+  it('字段 goal 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['goal.updated'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["goal"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 iterations 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['goal.updated'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["iterations"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 usedTokens 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['goal.updated'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["usedTokens"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 status 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['goal.updated'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["status"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['goal.updated'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：event \'io.warning\'', () => {
   const sample = {
     "turnId": "trn_01ARZ3NDEKTSV4RRFFQ69G5FAV",

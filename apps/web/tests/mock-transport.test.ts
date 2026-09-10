@@ -418,3 +418,34 @@ describe('MockTransport 计划模式对等演示（工单 16.3 第三批 B）', 
     await expect(t.setPermissionPreset(unknown, 'plan')).rejects.toThrow('E_MOCK_UNKNOWN_SESSION')
   })
 })
+
+describe('MockTransport 持续目标对等演示（工单 16.7）', () => {
+  function goalEvents(
+    events: readonly SparkEventEnvelope[],
+  ): { type: string; data: Record<string, unknown> }[] {
+    return events
+      .filter((e) => e.type.startsWith('goal.'))
+      .map((e) => ({ type: e.type, data: e.data as Record<string, unknown> }))
+  }
+
+  it('/goal set 推 goal.set（从零计数）；status 推 goal.updated 回显；clear 推 paused{cleared}', async () => {
+    const t = new MockTransport('normal')
+    const { events } = recorder(t)
+    await t.executeCommand(SID, 'goal', 'set 修好两处错别字')
+    await t.executeCommand(SID, 'goal', 'status')
+    await t.executeCommand(SID, 'goal', 'clear')
+    const ge = goalEvents(events)
+    expect(ge.map((g) => g.type)).toEqual(['goal.set', 'goal.updated', 'goal.paused'])
+    expect(ge[0]?.data).toMatchObject({ goal: '修好两处错别字' })
+    expect(ge[1]?.data).toMatchObject({ goal: '修好两处错别字', iterations: 0, status: 'active' })
+    expect(ge[2]?.data).toMatchObject({ reason: 'cleared' })
+  })
+
+  it('无目标时 status/clear → E_NO_GOAL；坏子命令 → E_GOAL_ARGS；空 set → E_GOAL_EMPTY（fail-closed）', async () => {
+    const t = new MockTransport('normal')
+    await expect(t.executeCommand(SID, 'goal', 'status')).rejects.toThrow('E_NO_GOAL')
+    await expect(t.executeCommand(SID, 'goal', 'clear')).rejects.toThrow('E_NO_GOAL')
+    await expect(t.executeCommand(SID, 'goal', 'rm -rf')).rejects.toThrow('E_GOAL_ARGS')
+    await expect(t.executeCommand(SID, 'goal', 'set   ')).rejects.toThrow('E_GOAL_EMPTY')
+  })
+})

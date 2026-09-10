@@ -1,10 +1,10 @@
 /**
- * applyEvent reducer 单测（doc/02 §6.4 处理表 22 种事件逐条覆盖，AGENTS §2.8）。
+ * applyEvent reducer 单测（doc/02 §6.4 处理表 26 种事件逐条覆盖，AGENTS §2.8）。
  * 工单 8.2 起实现下沉 @spark/protocol（D22 四端共享资产），web/cli 同一实现共此词表把关。
  * applyEvent 为纯函数——直接构造状态与事件断言，无 React 绑定。
  */
 import { describe, expect, it } from 'vitest'
-import type { ProjectionState, SparkEventEnvelope, SparkEventType } from '@spark/protocol'
+import type { ProjectionState, SessionGoalState, SparkEventEnvelope, SparkEventType } from '@spark/protocol'
 import { applyEvent, ids } from '@spark/protocol'
 
 const SID = ids.session('ses_test0001')
@@ -860,5 +860,57 @@ describe('全链路：normal 场景形状串联', () => {
       'approval',
       'assistant',
     ])
+  })
+})
+
+describe('goal.* 持续目标（工单 16.7）', () => {
+  it('goal.set：投影 goal 状态 active、从零计数', () => {
+    const s = applyEvent(seeded(), ev('goal.set', { goal: '修好所有失败的测试' }, { seq: 2 }))
+    const goal: SessionGoalState | null = s.byId[SID]?.goal ?? null
+    expect(goal).toEqual({
+      text: '修好所有失败的测试',
+      iterations: 0,
+      usedTokens: 0,
+      status: 'active',
+    })
+  })
+
+  it('goal.updated：进度与状态随行（续跑进度与 /goal status 回显共用）', () => {
+    let s = seeded()
+    s = applyEvent(s, ev('goal.set', { goal: '修好所有失败的测试' }, { seq: 2 }))
+    s = applyEvent(
+      s,
+      ev('goal.updated', { goal: '修好所有失败的测试', iterations: 3, usedTokens: 1200, status: 'active' }, { seq: 3 }),
+    )
+    expect(s.byId[SID]?.goal).toMatchObject({ iterations: 3, usedTokens: 1200, status: 'active' })
+  })
+
+  it('goal.completed：状态 completed（目标文本保留供 UI 展示）', () => {
+    let s = seeded()
+    s = applyEvent(s, ev('goal.set', { goal: 'g' }, { seq: 2 }))
+    s = applyEvent(s, ev('goal.completed', { iterations: 2, usedTokens: 900 }, { seq: 3 }))
+    expect(s.byId[SID]?.goal).toMatchObject({ status: 'completed', iterations: 2, usedTokens: 900, text: 'g' })
+  })
+
+  it('goal.paused：状态 paused 携带 reason（护栏解释面）', () => {
+    let s = seeded()
+    s = applyEvent(s, ev('goal.set', { goal: 'g' }, { seq: 2 }))
+    s = applyEvent(s, ev('goal.paused', { reason: 'maxIterations', iterations: 50, usedTokens: 40000 }, { seq: 3 }))
+    expect(s.byId[SID]?.goal).toMatchObject({ status: 'paused', pausedReason: 'maxIterations' })
+  })
+
+  it('completed/paused 在无 goal 时忽略（不造状态）', () => {
+    const base = seeded()
+    const s1 = applyEvent(base, ev('goal.completed', { iterations: 1, usedTokens: 1 }, { seq: 2 }))
+    expect(s1.byId[SID]?.goal).toBeNull()
+    const s2 = applyEvent(base, ev('goal.paused', { reason: 'cleared', iterations: 1, usedTokens: 1 }, { seq: 2 }))
+    expect(s2.byId[SID]?.goal).toBeNull()
+  })
+
+  it('回放幂等：goal.set 同 seq 吸附（§6.4 去重）', () => {
+    const s1 = seeded()
+    const s2 = applyEvent(s1, ev('goal.set', { goal: 'g' }, { seq: 5 }))
+    const s3 = applyEvent(s2, ev('goal.set', { goal: 'g' }, { seq: 5 }))
+    expect(s3).toBe(s2)
   })
 })

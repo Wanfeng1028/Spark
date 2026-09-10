@@ -64,6 +64,7 @@ import {
 import { ProjectorImpl } from './projector.js'
 import { reasoningIncluded } from './projector.js'
 import { runSessionLoop } from './run-loop.js'
+import { GoalRunner } from './goals.js'
 import type { RunLoopDeps } from './run-loop.js'
 import { PermissionServiceImpl } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
@@ -1139,7 +1140,8 @@ export class Engine {
    */
   async executeCommand(id: SessionId, name: string, args?: string): Promise<void> {
     this.assertNotShutdown()
-    const handle = this.handleOf(await this.requireEntry(id))
+    const entry = await this.requireEntry(id)
+    const handle = this.handleOf(entry)
     if (name === 'compact') {
       await handle.compact() // turn 进行中 → E_TURN_ACTIVE（§5.8.5 既有错误码）
       return
@@ -1154,6 +1156,29 @@ export class Engine {
       }
       await this.setSessionMode(id, 'plan')
       return
+    }
+    if (name === 'goal') {
+      // 工单 16.7：/goal set <条件> | clear | status——循环与护栏在 GoalRunner（goals.ts），
+      // 目标循环只经合成输入推进（如实标注 synthetic），工具照常走审批链（红线：不绕审批）
+      const arg = args?.trim() ?? ''
+      const sub = arg.split(/\s+/)[0]?.toLowerCase() ?? ''
+      if (sub === 'set') {
+        const goalText = arg.slice(sub.length).trim()
+        if (goalText.length === 0) {
+          throw new Error('E_GOAL_EMPTY: /goal set 需要目标条件（如 /goal set 修好所有失败的测试）')
+        }
+        await entry.goal.set(goalText)
+        return
+      }
+      if (sub === 'clear') {
+        await entry.goal.clear()
+        return
+      }
+      if (sub === 'status') {
+        await entry.goal.status()
+        return
+      }
+      throw new Error('E_GOAL_ARGS: 用法 /goal set <条件> | /goal clear | /goal status')
     }
     if (name === 'init') {
       // 工单 16.1：/init 项目上下文生成——prompt 命令通道（零新引擎机制），
@@ -1593,6 +1618,26 @@ export class Engine {
         ? renderedBase
         : `${renderedBase}\n\n${presetWiring.systemAppend}`,
     )
+    // 工单 16.7：持续目标循环——状态从 durable 事件重建（装载/重载/回滚单点在此），
+    // judge 判据 = 会话 JSONL 尾部证据（旁路读，不占主上下文）
+    const goal = new GoalRunner({
+      sessionId: meta.id,
+      bus: this.bus,
+      gateway: this.gateway,
+      model: () => currentModel,
+      evidence: () => {
+        const events = store.tree.pathToRoot()
+        return events
+          .slice(-40)
+          .map((e) => {
+            const d = JSON.stringify(e.data)
+            return `#${e.seq ?? '?'} ${e.type} ${d.length > 200 ? d.slice(0, 200) + '…' : d}`
+          })
+          .join('\n')
+      },
+    })
+    goal.rebuild(store.tree.pathToRoot())
+
     const deps: RunLoopDeps = {
       sessionId: meta.id,
       bus: this.bus,
@@ -1654,6 +1699,10 @@ export class Engine {
         exceeded: () => this.costTracker.exceeded(this.routing.costLimitUsd),
         spendUsd: () => this.costTracker.spend().costUsd,
       },
+      // 工单 16.7：goal 循环端口——turn 收尾后判定续跑（护栏/暂停/完成在 GoalRunner 内闭环）
+      goal: {
+        afterTurn: (i) => goal.afterTurn(i),
+      },
       ...(checkpointer !== null
         ? {
             checkpoint: {
@@ -1683,6 +1732,7 @@ export class Engine {
       titler,
       titleTask: null,
       loop,
+      goal,
     }
   }
 

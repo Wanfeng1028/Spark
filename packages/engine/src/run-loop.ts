@@ -142,6 +142,15 @@ export interface RunLoopDeps {
   memory?: {
     maybeInject: (turnId: TurnId, query: string) => Promise<void>
   }
+  /**
+   * 持续目标循环（工单 16.7）：每个 turn 收尾后调用（含 error/aborted——goal 对
+   * 失败闭合同样敏感：interrupt/turnError 即暂停）。返回合成续跑文本即推主队列
+   * 开启下一 turn；目标循环内的护栏（迭代上限/预算/judge 超时）在实现内部闭环。
+   * 缺省无目标循环——测试 stub 与未设目标时可省。
+   */
+  goal?: {
+    afterTurn(input: { finish: TurnFinish; usage: Usage }): Promise<string | undefined>
+  }
 }
 
 function isToolCall(c: ContentItem): c is Extract<ContentItem, { type: 'toolCall' }> {
@@ -165,8 +174,9 @@ export async function runSessionLoop(rt: SessionRuntime, deps: RunLoopDeps): Pro
     } catch {
       break // E_QUEUE_CLOSED：引擎 shutdown，正常退出
     }
+    let outcome: { finish: TurnFinish; usage: Usage } | undefined
     try {
-      await runTurn(rt, deps, input)
+      outcome = await runTurn(rt, deps, input)
     } catch (err) {
       // 兜底的兜底：runTurn 只在 turn.started 之前抛（其后内部已闭合）
       await deps.bus.emit(deps.sessionId, 'error', {
@@ -174,20 +184,39 @@ export async function runSessionLoop(rt: SessionRuntime, deps: RunLoopDeps): Pro
         message: errText(err),
       })
     }
+    if (deps.goal !== undefined) {
+      try {
+        const text = await deps.goal.afterTurn(
+          outcome ?? { finish: 'error' as const, usage: ZERO_USAGE },
+        )
+        if (text !== undefined) {
+          // 合成续跑走主队列（用户真实输入天然排前——FIFO；护栏在 GoalRunner 内闭环）
+          rt.submit(text, 'queue')
+        }
+      } catch (err) {
+        // goal 循环自身的失败闭合：emit error，不杀会话常驻循环
+        await deps.bus.emit(deps.sessionId, 'error', {
+          scope: 'engine',
+          message: errText(err),
+        })
+      }
+    }
   }
 }
 
 /** 单个 turn：开启（user.message + turn.started）→ step 循环 → 收尾（turn.completed） */
+/** 返回收尾结果供 goal 循环（工单 16.7）判定续跑；started 前失败返回 undefined（不造状态） */
 export async function runTurn(
   rt: SessionRuntime,
   deps: RunLoopDeps,
   input: InputItem,
-): Promise<void> {
+): Promise<{ finish: TurnFinish; usage: Usage } | undefined> {
   const sid = deps.sessionId
   const turnId = input.turnId
   let finish: TurnFinish = 'stop'
   let usage = ZERO_USAGE
   let started = false
+  let result: { finish: TurnFinish; usage: Usage } | undefined
   const abort = rt.beginTurn(input.turnId)
   const turn: TurnCtx = {
     turnId,
@@ -371,6 +400,8 @@ export async function runTurn(
   } finally {
     // 失败闭合：started 已发则必有 completed；endTurn 转移 steer 残留并处理 idle
     if (started) {
+      // 收尾结果供 goal 循环判定（16.7）；turn.completed 为投影已发同值
+      result = { finish, usage }
       const completed = await deps.bus.emit(sid, 'turn.completed', { turnId, finish, usage })
       deps.metrics?.inc('spark_turns_total', { finish })
       // 用户侧 hooks（工单 7.3）：turn.after——completed 已落盘后触发
@@ -388,4 +419,6 @@ export async function runTurn(
     }
     rt.endTurn()
   }
+  // 不在 finally 里 return（会吞掉收尾段异常——§2.11 吞异常黑名单）；正常路径带结果返回
+  return result
 }

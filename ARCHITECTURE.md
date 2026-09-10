@@ -41,6 +41,7 @@
 | v1.39 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **D31 结论 4 的落点修正（工单 14.4 实现批发现）**：原文写"DTO 装配纯函数下沉 protocol"，但 protocol 的硬约束是**零依赖 engine**（AGENTS §1.1）而 `sessionMetaDtoOf`/`sessionDtoOf`/`sessionTreeToDto` 要读 engine 的 `SessionMeta`/`SessionTreeInfo` 形状——放 protocol 会倒转依赖；改为落 **engine 公共面**（engine 本就是 DTO 产地：`listModels(): ModelsDto`、`getSettings(): SettingsDto`、`listCommands(): CommandDto[]`）。后果段同步：engine 值导出 **13 → 16**（白名单不变量网与 doc/02 §4.6.2 裁决表同批更新）；server 的 `shared.ts` 改为转发（`toDto` 只补 status、`treeToDto` 直接 re-export），**删掉了本地的 labelOf/树映射拷贝**。教训：ADR 写"下沉到某个包"时必须先核该包的依赖约束——本次是设计批没料到、实现批才撞上（已当场改 ADR 而不 silently 偏离）。与 doc/02 v4.20、doc/08 v1.29、AGENTS v1.36 同批 |
 | v1.40 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §2 抽象表**事件模型行 21 → 22 种**（工单 16.3 /plan 计划模式新增 `session.mode.changed`：durable、非 live、非 surface，故三属性的编译期联合不变）。设计口径值得记：**会话模式与既有 `plan` 权限档是同一件事的两个面**（mode = 可回放的 durable 可见状态，plan 档 = 审批规则引擎的 enforcement 层），切 mode 就是切档——**不另建状态机**（与本表"审批策略引擎"行的规则单一来源口径一致）；同时激活了一直空着的 `PRESET_RULES.plan`（gemini-cli plan.toml 优先级规则翻译成本仓 findLast 语义：兜底 DENY → 只读 ALLOW → 模式转换 ASK）。与 doc/02 v4.32、AGENTS v1.41、README v1.35、doc/08 v1.34 同批 |
 | v1.41 | 2026-09-10 | AI 编写：Qoder；发起与决策：晚风（Wanfeng1028，2026-09-05 拍板"胶囊控件 + 分层卡 + 浅灰底输入"） | **新增 D32 web 观感 = 胶囊控件 + 分层大圆角卡（阶段十八工单 18.1 规格先行，纯文档零代码）**：作废旧圆角封顶（6/8/12px 三档），改立**圆角档位封闭集**（胶囊 full / 8px 小件 / 12px 分组卡与弹层 / 16px 大信息卡 / 18px 会话流 user 气泡——五档之外一律违规，唯一来源 DESIGN §13.B）；输入区浅灰底 `--secondary`/`--muted` 系 + 焦点态仍是 2px 中性环；**§12 黑名单改口径不改 grep 词**（`rounded-2xl`/`rounded-3xl` 照旧扫，命中后按档位判：16px 放行、24px 违规），§12.4 禁止项改述为"脱离 §13.B 登记档位的大圆角"。**立项理由的两条证据**：用户拍板 + 仓内已是既成事实（移动端 §13.J 白卡 radius 16 与黑胶囊 CTA、会话流 §13.H user 气泡 radius 18 均为晚风实测拍板），旧封顶只让 web 桌面端与这两处口径分裂。**不变项全清单**写进 ADR：密度 13px 体系 / 会话流转录形态 / 禁渐变·阴影·毛玻璃 / mono 纪律 / 中性焦点环 / 单一 accent。DESIGN v2.14 同步（九处修订 + 两条 10.22 遗留漂移一并清）；AGENTS.md 不动（视觉规则唯一来源在 DESIGN）。ADR 编号两次顺延（原预称 D29→D30→**D32**，D29/D30/D31 已被 13.4/14.3/14.4 占用）；两张 D28 重号仍待人类判决，本单不擅改历史行 |
+| v1.42 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D33 /goal 持续目标循环（工单 16.7）**：run-loop 增 goal 端口（turn 收尾后旁路 LLM judge 判定，不进主上下文），未满足 → 合成续跑输入（如实标注 [goal]，走正常审批链——红线：续跑不绕审批）；三护栏数值在迷你 ADR 定档（迭代上限 50 = qwen 同值 / 每目标 token 预算 200k / judge 超时 25s）。事件词表 22 → **26 种**（goal.set/updated/completed/paused，全 durable 非 surface）；§2 事件模型行同步。与 doc/02 v4.42、AGENTS v1.42、README v1.36、doc/08 v1.41 同批 |
 
 ---
 
@@ -81,7 +82,7 @@
 
 | 抽象           | 设计                                                                                                                                                                           | 来源                                                           |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| **事件模型**   | 22 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分    | opencode durable/live + dsh surface                            |
+| **事件模型**   | 26 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分    | opencode durable/live + dsh surface                            |
 | **会话**       | append-only JSONL 树（条目 `id/parentId`）；分叉=只移 leaf 指针；compaction 是树上的普通 entry（summary+keptFromEventId 锚点）；模型上下文=Projector 从 surface 事件投影           | pi session-manager + dsh projector                             |
 | **输入三通道** | `now`（空闲即开 turn）/ `steer`（进行中，下一 step 前注入）/ `queue`（turn 间依序）；提交三态 `started/steered/queued`；唤醒合并防空转                                         | Codex TurnInputMode + opencode pendingWake                     |
 | **工具管线**   | zod schema-first；before→permission→execute→after；serial 工具 barrier / parallel 工具并发（read 并行，bash/edit/write 独占）；输出 >32KB 溢写文件；中断补合成事件对           | Codex RwLock 门控 + dsh 三段 waterfall + opencode output-store |
@@ -323,6 +324,19 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 4. **不变项（边界，全清单）**：密度体系不动（13px 基础字号 / sm28-md32-lg38 高度档 / 4-8px 网格）；会话流转录形态不动（§13.H：user 行气泡、assistant 与工具/思考/审批块左锚全宽，不 IM 化）；禁渐变 / 禁阴影（分隔优先边框与留白）/ 禁毛玻璃 / mono 只给代码路径与工具输出 / 焦点环中性 / 单一 accent / 主按钮每屏至多一个——§12 其余各条全部照旧生效。
 后果：DESIGN v2.14 已按本张修订（§3 圆角行、§9 copy-in 行、§10 DoD 行、§12.4、§12.8 表与注记、§13.B 表与两条新增、§13.C 用户消息块行、§13.D 分组卡；验收口径 `rg "控件 6px" DESIGN.md` 零命中已自证）；AGENTS.md 不动（视觉规则唯一来源在 DESIGN，AGENTS §8 规则放置规范）；代码侧由阶段十八 18.2（八组件胶囊化）→ 18.3（补件 copy-in）→ 18.4（页面清扫）→ 18.5（收口走查）逐张落地，**本张不动一行代码**。
 编号注记：本 ADR 占 **D32**（顺延现表末张 D31；doc/08 §5C 18.1 原预称 D29，D29 已被工单 13.4 占用、D30/D31 已被 14.3/14.4 占用，故两次顺延——与 D30/D31 行注记一致）。**两张 D28 重号仍待人类判决**（登记于 doc/02 v3.93，本单不擅改历史行）。
+
+### D33 /goal 持续目标循环 = 旁路 judge + 三护栏 + 合成续跑（2026-09-11，阶段十六工单 16.7）
+
+背景：doc/08 §16.7 立项（消解 V2-35；qwen-code packages/core/src/goals/ 参考设计，约 20 文件不整体移植，只取"judge 旁路 + 三护栏 + evidence 证据"思想）。需求：设定目标条件，引擎循环工作直到条件满足或护栏触发。关键约束：surface 纪律（模型可见必被记录）与审批红线（续跑不绕过审批）。
+候选：① 主上下文内自判（模型在 turn 内自己宣布完成）——否决：自我主张无证据校验，"送达不等于状态改变"；② 独立目标运行时（每目标一个子会话）——否决：v1 目标与主会话共享上下文与审批链，拆会话引入 fork/回滚与用量归并复杂度，boring code 原则下过度设计；③ **turn 收尾后旁路 judge + 合成续跑输入**，采纳：judge 不占主上下文（不 emit surface 事件），续跑 user.message 如实标注 [goal 合成输入]（不伪造用户意图），工具照常走审批链。
+结论：
+1. **循环位置**：runSessionLoop 在每个 turn 收尾后调 GoalRunner.afterTurn（RunLoopDeps.goal 端口，缺省无目标不接线）——finish='stop' 才判定；'aborted' → paused{interrupt}（Esc 即停）；'error' → paused{turnError}（fail-closed 不带坏状态裸续）。
+2. **三护栏数值（迷你 ADR 定档）**：迭代硬上限 **50**（qwen MAX_GOAL_ITERATIONS 同值——防 judge 永远说不满足的 token 焚烧）；每目标 token 预算 **200_000**（输入+输出合计，judge 自身用量一并计入；约一次中等会话量级，后续可 config 化）；judge 判定超时 **25s**（qwen 同值；超时/LLM 错误/解析不出判定 → paused{judgeTimeout}，fail-closed 不裸转）。
+3. **judge 判据**：会话 JSONL 尾部 40 行证据（结构化摘要，旁路读 store 不占主上下文）+ 判定提示词写死"送达不等于状态改变，必须引用事实性记录"；回答只许 SATISFIED / NOT_SATISFIED 二选一，解析不出按超时暂停。
+4. **事件语义**：goal.set / updated / completed / paused 四枚全 durable、非 surface——回放即重建状态（GoalRunner.rebuild 在会话装载单点重建；进程重启/回滚不丢目标）；目标文本进模型历史的唯一通道是合成续跑 user.message（surface 载体在那边）。
+5. **红线**：续跑 turn 与用户 turn 走完全相同的管线——审批、I/O 护栏、成本熔断、hooks 全部生效，goal 不提供任何旁路。
+后果：protocol 词表 22 → 26 种（六处计数同步）；RunLoopDeps 增可选 goal 端口（既有测试 stub 不受影响）；web StatusBar 增 goal 徽标（/goal status 的可见面）；MockTransport 增 /goal 对等分支（set/clear/status 事件语义）。eval 验收留 16.7 验收段（小目标 2-3 轮完成）由 ScriptedLlm 测试覆盖（packages/engine/tests/goals.test.ts）。
+编号注记：本 ADR 占 **D33**（顺延现表末张 D32）。**两张 D28 重号仍待人类判决**（登记于 doc/02 v3.93，本单不擅改历史行）。
 
 ## 6. 模块速览（职责边界）
 
