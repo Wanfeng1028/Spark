@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router'
 import { useSettingsStore } from '@/stores/settings'
 import type { Theme } from '@/stores/settings'
 import { useUiStore } from '@/stores/ui'
-import { Segmented } from '@/components/ui/segmented'
+import { Segmented, type SegmentedOption } from '@/components/ui/segmented'
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,11 @@ const THEMES: { value: Theme; label: string; hint: string }[] = [
   { value: 'system', label: '跟随系统', hint: '监听系统外观' },
 ]
 
-const THEME_OPTIONS = THEMES.map((t) => ({ value: t.value, label: t.label, title: t.hint === '' ? undefined : t.hint }))
+const THEME_OPTIONS: SegmentedOption<Theme>[] = THEMES.map((t) =>
+  t.hint === ''
+    ? { value: t.value, label: t.label }
+    : { value: t.value, label: t.label, title: t.hint },
+)
 
 export function SettingsDialog() {
   const navigate = useNavigate()
