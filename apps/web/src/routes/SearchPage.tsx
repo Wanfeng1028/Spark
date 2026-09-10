@@ -6,6 +6,7 @@
  * 回车提交；空查询不检索。键盘优先（输入框 autofocus）。
  */
 import { useRef, useState } from 'react'
+import { Input } from '@/components/ui/input'
 import type { FormEvent, ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { Search } from 'lucide-react'
@@ -64,13 +65,13 @@ export function SearchPage() {
 
       <form onSubmit={onSubmit} className="relative shrink-0">
         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
-        <input
+        <Input
           autoFocus
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="输入关键词，回车检索"
           aria-label="搜索关键词"
-          className="h-8 w-full rounded-md border border-border bg-background pl-8 pr-2 text-[13px] outline-none placeholder:text-muted-foreground/60 focus:border-ring"
+          className="h-8 pl-8 pr-2"
         />
       </form>
 

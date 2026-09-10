@@ -7,6 +7,9 @@
  * 桌面端后续工单实现（ADR D26 注记）。
  */
 import { useCallback, useEffect, useState } from 'react'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { useNavigate } from 'react-router'
 import {
   CalendarClock,
@@ -273,7 +276,7 @@ export function AutomationPage() {
       )}
 
       {triggers.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-6 py-10 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border px-6 py-10 text-center">
           <FileSearch className="size-6 text-muted-foreground/60" />
           <p className="text-[13px] text-muted-foreground">还没有自动化任务</p>
           <div className="flex items-center gap-2">
@@ -296,7 +299,7 @@ export function AutomationPage() {
               </Button>
             </div>
           </div>
-          <ul className="flex flex-col rounded-lg border border-border">
+          <Card variant="info" className="divide-y divide-border">
             {triggers.map((t) => (
               <li
                 key={t.id}
@@ -337,7 +340,7 @@ export function AutomationPage() {
                 </button>
               </li>
             ))}
-          </ul>
+          </Card>
         </section>
       )}
 
@@ -356,7 +359,7 @@ export function AutomationPage() {
                     key={tpl.id}
                     type="button"
                     onClick={() => setDraft(draftOf(tpl, kind === 'idle' ? 'webhook' : 'cron'))}
-                    className="flex flex-col gap-1 rounded-lg border border-border p-3 text-left hover:bg-accent"
+                    className="flex flex-col gap-1 rounded-2xl border border-border p-3 text-left hover:bg-accent"
                   >
                     <span className="flex items-center gap-1.5 text-[13px] font-medium">
                       <Icon className="size-3.5 text-muted-foreground" />
@@ -388,7 +391,7 @@ export function AutomationPage() {
         {runs === null || runs.length === 0 ? (
           <p className="text-xs text-muted-foreground/70">尚无运行记录</p>
         ) : (
-          <ul className="flex flex-col rounded-lg border border-border">
+          <Card variant="info" className="divide-y divide-border">
             {runs.map((r) => (
               <li
                 key={r.id}
@@ -421,7 +424,7 @@ export function AutomationPage() {
                 )}
               </li>
             ))}
-          </ul>
+          </Card>
         )}
       </section>
 
@@ -447,39 +450,37 @@ export function AutomationPage() {
             <div className="flex flex-col gap-3">
               <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                 名称
-                <input
+                <Input
                   value={draft.name}
                   onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                  className="h-8 rounded-md border border-border bg-background px-2 text-[13px] text-foreground outline-none focus:border-ring"
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                 工作目录
-                <input
+                <Input
                   value={draft.cwd}
                   onChange={(e) => setDraft({ ...draft, cwd: e.target.value })}
                   placeholder="会话的工作目录（绝对路径）"
-                  className="h-8 rounded-md border border-border bg-background px-2 text-[13px] text-foreground outline-none focus:border-ring"
                 />
               </label>
               {draft.mode === 'cron' && (
                 <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                   cron 表达式（分 时 日 月 周）
-                  <input
+                  <Input
                     value={draft.cron}
                     onChange={(e) => setDraft({ ...draft, cron: e.target.value })}
                     placeholder="如 0 9 * * 1-5 = 每工作日 09:00"
-                    className="h-8 rounded-md border border-border bg-background px-2 font-mono text-[13px] text-foreground outline-none focus:border-ring"
+                    className="font-mono"
                   />
                 </label>
               )}
               <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                 任务内容
-                <textarea
+                <Textarea
                   value={draft.prompt}
                   onChange={(e) => setDraft({ ...draft, prompt: e.target.value })}
                   rows={3}
-                  className="resize-none rounded-md border border-border bg-background px-2 py-1.5 text-[13px] text-foreground outline-none focus:border-ring"
+                  className="resize-none"
                 />
               </label>
               {draftError !== null && <p className="text-xs text-destructive">{draftError}</p>}

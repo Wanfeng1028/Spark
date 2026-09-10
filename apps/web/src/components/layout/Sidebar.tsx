@@ -13,6 +13,7 @@
  * 由事件流实时推导（UI 状态只来自事件流），其余用 DTO 携带的 status。
  */
 import { useMemo, useState } from 'react'
+import { Input } from '@/components/ui/input'
 import { useLocation, useNavigate } from 'react-router'
 import { Archive, CalendarClock, ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, Trash2, Undo2, User } from 'lucide-react'
 import type { SessionDto, SessionStatus } from '@spark/protocol'
@@ -289,11 +290,11 @@ export function Sidebar() {
 
       <div className="relative shrink-0">
         <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60" />
-        <input
+        <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="搜索会话"
-          className="h-7 w-full rounded-md border border-border bg-background pl-7 pr-2 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring"
+          className="h-7 pl-7 pr-2 text-xs"
         />
       </div>
 

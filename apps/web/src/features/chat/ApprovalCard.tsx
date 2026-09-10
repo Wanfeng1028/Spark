@@ -5,6 +5,7 @@
  * warn 左边框 3px + 浅 warn 背景（DESIGN §8）——左边框只表达语义状态。
  */
 import { useEffect, useState } from 'react'
+import { Input } from '@/components/ui/input'
 import type { PermissionReply } from '@spark/protocol'
 import {
   Confirmation,
@@ -95,11 +96,11 @@ export function ApprovalCard({
       <ConfirmationRequest>
         {rejecting ? (
           <div className="flex items-center gap-2">
-            <input
+            <Input
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
               placeholder="拒绝原因（可选，将作为 feedback 记录）"
-              className="h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring"
+              className="h-7 flex-1 text-xs"
             />
             <Button
               variant="outline"

@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router'
 import { useSettingsStore } from '@/stores/settings'
 import type { Theme } from '@/stores/settings'
 import { useUiStore } from '@/stores/ui'
+import { Segmented } from '@/components/ui/segmented'
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,8 @@ const THEMES: { value: Theme; label: string; hint: string }[] = [
   { value: 'dark', label: '深色', hint: '' },
   { value: 'system', label: '跟随系统', hint: '监听系统外观' },
 ]
+
+const THEME_OPTIONS = THEMES.map((t) => ({ value: t.value, label: t.label, title: t.hint === '' ? undefined : t.hint }))
 
 export function SettingsDialog() {
   const navigate = useNavigate()
@@ -46,26 +49,12 @@ export function SettingsDialog() {
         <div className="flex flex-col gap-4">
           <section className="flex flex-col gap-2">
             <p className="font-mono text-[11px] text-muted-foreground">主题</p>
-            <div className="flex h-8 w-fit rounded-md border border-border p-0.5" role="radiogroup" aria-label="主题">
-              {THEMES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={theme === t.value}
-                  onClick={() => setTheme(t.value)}
-                  title={t.hint !== '' ? t.hint : undefined}
-                  className={
-                    'h-7 rounded-sm px-4 text-xs ' +
-                    (theme === t.value
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground')
-                  }
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              value={theme}
+              options={THEME_OPTIONS}
+              onChange={setTheme}
+              aria-label="主题"
+            />
           </section>
 
           <button

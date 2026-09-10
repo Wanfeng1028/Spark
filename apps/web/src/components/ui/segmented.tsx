@@ -11,6 +11,8 @@ export interface SegmentedOption<T extends string> {
   label: string
   /** 禁用并说明原因（如 busy 时 now 段不可用） */
   disabledReason?: string
+  /** 悬停说明（如快速面板主题档的"监听系统外观"） */
+  title?: string
 }
 
 export interface SegmentedProps<T extends string> {
@@ -42,7 +44,7 @@ export function Segmented<T extends string>({
             role="radio"
             aria-checked={selected}
             disabled={disabled}
-            title={o.disabledReason}
+            title={o.disabledReason ?? o.title}
             onClick={() => onChange(o.value)}
             className={cn(
               'h-6 rounded-full px-2 text-xs leading-none transition-colors',

@@ -3,6 +3,7 @@
  * 列表状态与添加逻辑在 Composer）。
  */
 import { X } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 
 export function AttachmentChips({
   attachments,
@@ -45,7 +46,7 @@ export function AttachmentChips({
         </ul>
       )}
       {attachOpen && (
-        <input
+        <Input
           value={attachInput}
           onChange={(e) => onAttachInput(e.target.value)}
           onKeyDown={(e) => {
@@ -55,7 +56,7 @@ export function AttachmentChips({
             }
           }}
           placeholder="输入文件路径后回车添加（v1 只收路径文本）"
-          className="h-7 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:font-sans placeholder:text-muted-foreground/60 focus:border-ring"
+          className="h-7 font-mono text-xs"
         />
       )}
     </div>

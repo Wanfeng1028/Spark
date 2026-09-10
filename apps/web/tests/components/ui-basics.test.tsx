@@ -23,11 +23,9 @@ describe('ui/Input', () => {
     expect(screen.getByPlaceholderText('输入关键词')).toBeTruthy()
   })
 
-  it('disabled 时不接受输入', () => {
+  it('disabled 态属性落位（fireEvent 不模拟浏览器对禁用输入的拒绝，不测值回显）', () => {
     render(<Input disabled aria-label="禁用输入" />)
     const input = screen.getByRole<HTMLInputElement>('textbox', { name: '禁用输入' })
-    fireEvent.change(input, { target: { value: 'x' } })
-    expect(input.value).toBe('')
     expect(input.disabled).toBe(true)
   })
 })

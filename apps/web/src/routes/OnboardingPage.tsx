@@ -5,6 +5,7 @@
  * 设置中心「重跑引导」入口复用本页（clearDone + 步骤归零）。
  */
 import { useState } from 'react'
+import { Input } from '@/components/ui/input'
 import { useNavigate } from 'react-router'
 import { Loader2, ShieldCheck } from 'lucide-react'
 import type { ModelProviderDto } from '@spark/protocol'
@@ -184,12 +185,12 @@ function ModelStep({ onServerReady, onSkip }: { onServerReady: () => void; onSki
           </button>
         ))}
       </div>
-      <input
+      <Input
         type="password"
         value={apiKey}
         onChange={(e) => setApiKey(e.target.value)}
         placeholder="API Key（sk-…；只存 ~/.spark/secrets.json）"
-        className="h-8 w-full rounded-md border border-border bg-background px-2 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring"
+        className="font-mono text-xs"
       />
       {error !== null && <p className="text-xs text-destructive">{error}</p>}
       {tested !== null && <p className="text-xs text-[var(--spark-ok)]">{tested}</p>}

@@ -7,6 +7,7 @@
  * mock 场景条 + 「模拟断线」开关是开发夹具（阶段验收要求断线重连条在 mock 下可走查）。
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Activity, FolderGit2, GitBranch, History } from 'lucide-react'
 import { ids } from '@spark/protocol'
@@ -179,22 +180,16 @@ export function SessionPage() {
           {sliceTitle === undefined ? '…' : sliceTitle === '' ? '新会话' : sliceTitle}
         </h1>
         {sliceCwd !== undefined && sliceCwd !== '' && (
-          <span
-            className="flex h-6 shrink-0 items-center gap-1 rounded-full border border-border px-2 text-[11px] text-muted-foreground"
-            title={`工作区：${sliceCwd}`}
-          >
+          <Badge variant="outline" title={`工作区：${sliceCwd}`}>
             <FolderGit2 className="size-3" />
             {projectOf(sliceCwd)}
-          </span>
+          </Badge>
         )}
         {sliceBranch !== undefined && sliceBranch !== '' && (
-          <span
-            className="flex h-6 shrink-0 items-center gap-1 rounded-full border border-border px-2 font-mono text-[11px] text-muted-foreground"
-            title={`git 分支（会话创建时探测）：${sliceBranch}`}
-          >
+          <Badge variant="outline" className="font-mono" title={`git 分支（会话创建时探测）：${sliceBranch}`}>
             <GitBranch className="size-3" />
             {sliceBranch}
-          </span>
+          </Badge>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-1">
           {/* 链路入口（工单 13.7）：只读聚合视图，turn 进行中也可看（已完成回合） */}
