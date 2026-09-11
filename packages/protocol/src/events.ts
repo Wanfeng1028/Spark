@@ -1,6 +1,6 @@
 /**
  * 事件词表（doc/02 §4.3）：schema registry 是唯一来源——SparkEventMap 由 infer 派生。
- * 词表当前 26 种（21 + session.mode.changed 16.3 + goal.* 四枚 16.7）；扩展走 declaration merging（dsh 手法，阶段五插件用）。
+ * 词表当前 27 种（21 + session.mode.changed 16.3 + goal.* 四枚 16.7 + lsp.diagnostics 16.9）；扩展走 declaration merging（dsh 手法，阶段五插件用）。
  * 工单 13.4（ADR D29）在 compaction.completed 上扩两个**可选字段**（keptFiles/distilled）——双层压缩的载体，词表不增。
  */
 import { z } from 'zod'
@@ -185,6 +185,27 @@ export const EventSchemas = {
     ]),
     iterations: z.number().int().nonnegative(),
     usedTokens: z.number().int().nonnegative(),
+  }),
+  // LSP 诊断（阶段十六工单 16.9）：durable——诊断会经 lsp 工具进模型上下文，模型可见必被
+  // 记录（surface 纪律）；非 surface（事件本身只是诊断流日志，进模型历史的是工具结果）。
+  // 空数组 = 该文件诊断清零（publishDiagnostics 清除语义），是真实状态变化而非占位。
+  'lsp.diagnostics': z.strictObject({
+    language: z.string().min(1),
+    uri: z.string().min(1),
+    diagnostics: z.array(
+      z.strictObject({
+        /** LSP DiagnosticSeverity：1=Error 2=Warning 3=Information 4=Hint */
+        severity: z.number().int().min(1).max(4),
+        range: z.strictObject({
+          // LSP 0-based 行/列（与协议同构，不擅自换基）
+          start: z.strictObject({ line: z.number().int().nonnegative(), character: z.number().int().nonnegative() }),
+          end: z.strictObject({ line: z.number().int().nonnegative(), character: z.number().int().nonnegative() }),
+        }),
+        message: z.string().min(1),
+        source: z.string().optional(),
+        code: z.union([z.string(), z.number()]).optional(),
+      }),
+    ),
   }),
 } as const satisfies Record<string, z.ZodType>
 

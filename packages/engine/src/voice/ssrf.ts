@@ -53,7 +53,7 @@ export function isBlockedAddress(address: string): boolean {
 }
 
 /** 窄化 lookup 形状（node lookup 重载族过宽；测试注入假体只需此形状） */
-export type LookupAllFn = (hostname: string, options: { all: true }) => Promise<{ address: string }[]>
+type LookupAllFn = (hostname: string, options: { all: true }) => Promise<{ address: string }[]>
 
 export interface PublicUrlDeps {
   lookupFn?: LookupAllFn

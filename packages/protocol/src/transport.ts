@@ -138,6 +138,8 @@ export interface Transport {
   listSkills(): Promise<SkillDto[]>
   /** GET /api/agents：子代理预设档只读清单（工单 13.5；写入靠用户改 ~/.spark/agents 后重启） */
   listAgentPresets(): Promise<AgentPresetDto[]>
+  /** GET /api/lsp：语言服务器只读状态（连接状态 + 诊断摘要；工单 16.9，未配置返回空数组） */
+  listLspServers(): Promise<LspServerStatusDto[]>
   /** GET /api/usage/summary：成本看板（总账 + 按日/供应商明细 + 旧账差额 + 熔断状态，工单 13.6） */
   usageSummary(since?: string): Promise<UsageSummaryDto>
   /** GET /api/memories：长期记忆列表（设置页管理数据源，工单 7.5） */

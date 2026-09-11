@@ -757,6 +757,26 @@ export interface McpConfigInput {
   servers: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>
 }
 
+/**
+ * LSP 服务器只读状态行（GET /api/lsp，工单 16.9：/lsp 面板连接状态与诊断摘要）。
+ * 同 /api/mcp 口径：未连接/失败也列出（connected:false + error 人话——禁假状态）；
+ * 诊断摘要为引擎侧缓存快照（仅已打开文档），空缓存如实 0。
+ */
+export const LspServerStatusDtoSchema = z.strictObject({
+  language: z.string().min(1),
+  command: z.string(),
+  connected: z.boolean(),
+  /** connected=false 时的失败原因（spawn/initialize 失败等；连接正常不携带） */
+  error: z.string().optional(),
+  /** 诊断缓存涉及文件数 */
+  files: z.number().int().nonnegative(),
+  /** severity=1（Error）累计条数 */
+  errors: z.number().int().nonnegative(),
+  /** severity=2（Warning）累计条数 */
+  warnings: z.number().int().nonnegative(),
+})
+export type LspServerStatusDto = z.infer<typeof LspServerStatusDtoSchema>
+
 /** 递归文件树（工单 12.5）：path = 请求的根目录（相对 cwd，根为空串）；entries 平铺
  * （含目录项，客户端按 path 建层级）；truncated = 条目达上限截断。深度 ≤4、条目 ≤500。 */
 export const FsTreeDtoSchema = z.strictObject({
