@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useSessionList } from '@/hooks/useSessionList'
 import { useCommands } from '@/hooks/useCommands'
 import { clientActionOf } from '@/features/chat/client-commands'
+import { useUiStore } from '@/stores/ui'
 import { mergeSlashCommands } from '@/features/chat/composer-menus'
 import { useSettingsStore } from '@/stores/settings'
 import { useSessionStore } from '@/stores/session'
@@ -77,6 +78,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     const client = clientActionOf(name)
     if (client !== undefined) {
       if (client.kind === 'palette') return // resume 已在面板内过滤，防御性兜底
+      if (client.kind === 'voice') {
+        useUiStore.getState().cycleVoiceMode()
+        return
+      }
       void navigate(client.path)
       return
     }

@@ -65,11 +65,11 @@ export const useUiStore = create<UiState>()((set, get) => ({
   toggleSidebar: () =>
     set((s) => {
       const sidebarCollapsed = !s.sidebarCollapsed
-      persist({ sidebarCollapsed, sidebarGroupMode: get().sidebarGroupMode })
+      persist({ sidebarCollapsed, sidebarGroupMode: get().sidebarGroupMode, voiceMode: get().voiceMode })
       return { sidebarCollapsed }
     }),
   setSidebarGroupMode: (sidebarGroupMode) => {
-    persist({ sidebarCollapsed: get().sidebarCollapsed, sidebarGroupMode })
+    persist({ sidebarCollapsed: get().sidebarCollapsed, sidebarGroupMode, voiceMode: get().voiceMode })
     set({ sidebarGroupMode })
   },
   voiceMode: loadPersisted().voiceMode,
