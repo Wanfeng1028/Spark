@@ -123,7 +123,7 @@ function depsFixture(opts?: {
         Promise.resolve(new Response(JSON.stringify({ text: '你好世界' }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
-        }))) as unknown as typeof fetch,
+        }))),
   }
 }
 
