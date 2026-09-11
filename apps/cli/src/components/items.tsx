@@ -88,11 +88,9 @@ export function ItemView({
         <Box flexDirection="column" flexGrow={1}>
           <Text color="gray">{head}</Text>
           {item.diagnostics.slice(0, 5).map((d, i) => (
-            <Text key={i} wrap="truncate-end">
-              <Text color={d.severity === 1 ? 'red' : undefined}>
-                [{d.severity === 1 ? 'E' : d.severity === 2 ? 'W' : 'I'}]
-              </Text>{' '}
-              {d.range.start.line + 1}:{d.range.start.character + 1} {d.message}
+            <Text key={i} wrap="truncate-end" {...(d.severity === 1 ? { color: 'red' as const } : {})}>
+              [{d.severity === 1 ? 'E' : d.severity === 2 ? 'W' : 'I'}] {d.range.start.line + 1}:
+              {d.range.start.character + 1} {d.message}
             </Text>
           ))}
         </Box>
