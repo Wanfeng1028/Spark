@@ -428,7 +428,9 @@ describe('MockTransport 语音转写对等演示（工单 16.6）', () => {
     expect(r.model).toBe('mock-transcribe')
     const t2 = new MockTransport('normal')
     t2.dispose()
-    await expect(t2.transcribe({ audio: { mime: 'audio/webm', dataBase64: 'x' } })).rejects.toThrow()
+    // MockTransport 全族 dispose 后同步抛 E_MOCK_DISPOSED（assertNotDisposed 在非 async 方法首行，
+    // 与其余 14 个方法同口径；生产调用方 await 时同步抛等价 rejection），故断言同步抛而非 .rejects
+    expect(() => t2.transcribe({ audio: { mime: 'audio/webm', dataBase64: 'x' } })).toThrow('E_MOCK_DISPOSED')
   })
 })
 

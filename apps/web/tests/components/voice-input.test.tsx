@@ -76,8 +76,9 @@ describe('useVoiceInput（工单 16.6）', () => {
     expect(result.current.phase).toBe('recording')
     await act(async () => {
       result.current.stop()
-      await waitFor(() => expect(result.current.phase).toBe('idle'))
     })
+    // waitFor 不嵌在 act 内（RTL 纪律：嵌套会与 act 刷新队列互锁，phase 停在最后刷新值 'recording'）
+    await waitFor(() => expect(result.current.phase).toBe('idle'))
     expect(received).toEqual(['你好世界'])
     expect(FakeRecorder.instances[0]?.stopped).toBe(1)
   })
@@ -106,8 +107,9 @@ describe('useVoiceInput（工单 16.6）', () => {
     })
     await act(async () => {
       result.current.stop()
-      await waitFor(() => expect(result.current.phase).toBe('idle'))
     })
+    // waitFor 不嵌在 act 内（同上：避免与 act 刷新互锁）
+    await waitFor(() => expect(result.current.phase).toBe('idle'))
     expect(result.current.error).toContain('E_TRANSCRIBE_UPSTREAM')
     act(() => {
       result.current.dismissError()
