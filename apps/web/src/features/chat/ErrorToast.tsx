@@ -53,7 +53,7 @@ export function ErrorToast({ sid }: ErrorToastProps) {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="h-8 rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground"
+          className="h-8 rounded-full bg-primary px-3 text-[13px] font-medium text-primary-foreground"
         >
           重新加载
         </button>
@@ -64,7 +64,7 @@ export function ErrorToast({ sid }: ErrorToastProps) {
   return (
     <div
       role="alert"
-      className="absolute bottom-3 right-3 z-40 flex max-w-sm items-start gap-2 rounded-md border border-[var(--spark-err)]/40 bg-background px-3 py-2 shadow-sm"
+      className="absolute bottom-3 right-3 z-40 flex max-w-sm items-start gap-2 rounded-xl border border-[var(--spark-err)]/40 bg-background px-3 py-2 shadow-sm"
     >
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="font-mono text-xs text-[var(--spark-err)]">{lastError.scope}</span>

@@ -79,7 +79,7 @@ export function SessionTreeDialog({ open, onOpenChange, sid, busy }: SessionTree
           <p className="py-4 text-center text-xs text-muted-foreground">加载事件树…</p>
         )}
         {nodes !== null && (
-          <ul className="max-h-[60vh] overflow-y-auto rounded-md border border-border">
+          <ul className="max-h-[60vh] overflow-y-auto rounded-xl border border-border">
             {nodes.map((n) => (
               <TreeNodeRow
                 key={n.id}
@@ -129,7 +129,7 @@ function TreeNodeRow({ node, busy, forking, disabled, onFork, onOpenChild }: Tre
           onClick={onFork}
           disabled={disabled || busy}
           title={busy ? 'turn 进行中，不可分叉' : '从此事件分叉出新会话'}
-          className="h-6 shrink-0 rounded-md border border-border px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-accent-foreground focus-visible:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-6 shrink-0 rounded-full border border-border px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-accent-foreground focus-visible:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {forking ? '分叉中…' : '分叉'}
         </button>
@@ -160,7 +160,7 @@ function ForkChildRow({ fork, onOpen }: { fork: ForkChildDto; onOpen: (sid: Sess
       <button
         type="button"
         onClick={() => onOpen(fork.sessionId)}
-        className="flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        className="flex max-w-full items-center gap-1.5 rounded-lg px-1.5 py-0.5 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       >
         <SessionStatusDot status={status} />
         <GitBranch className="size-3 shrink-0 text-[var(--spark-accent)]" />

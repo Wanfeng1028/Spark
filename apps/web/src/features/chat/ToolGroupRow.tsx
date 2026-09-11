@@ -29,12 +29,12 @@ export function ToolGroupRow({ category, tools, highlight }: ToolGroupRowProps) 
   const failed = tools.some((t) => t.status === 'error')
 
   return (
-    <div className={cn('my-1', highlight === true && 'rounded-md bg-secondary ring-1 ring-border')}>
+    <div className={cn('my-1', highlight === true && 'rounded-xl bg-secondary ring-1 ring-border')}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex h-7 w-full items-center gap-1.5 rounded-md border border-border px-2 text-left"
+        className="flex h-7 w-full items-center gap-1.5 rounded-xl border border-border px-2 text-left"
       >
         <ChevronRight
           className={cn(

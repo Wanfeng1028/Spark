@@ -502,6 +502,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           />
         )}
 
+        {/* 隐藏的文件选择器：不可见控件，不走 ui/Input（ui/Input 是可见输入件） */}
         <input
           ref={imageInputRef}
           type="file"
@@ -556,7 +557,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               aria-expanded={plusMenuOpen}
               disabled={waiting}
               onClick={() => setPlusMenuOpen((v) => !v)}
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+              className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
             >
               <Plus className="size-4" />
             </button>
@@ -566,7 +567,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               aria-expanded={treeOpen}
               disabled={waiting}
               onClick={() => setTreeOpen((v) => !v)}
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+              className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
             >
               <FolderTree className="size-4" />
             </button>
@@ -584,7 +585,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               <ul
                 role="menu"
                 aria-label="添加内容"
-                className="absolute bottom-full left-0 z-20 mb-1.5 w-60 overflow-hidden rounded-lg border border-border bg-popover py-1 shadow-md"
+                className="absolute bottom-full left-0 z-20 mb-1.5 w-60 overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-md"
               >
                 {(
                   [
@@ -620,7 +621,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               disabled={waiting}
               onClick={() => setPresetMenuOpen((v) => !v)}
               title={`权限档位：${tier.label}——${tier.description}`}
-              className="flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+              className="flex h-7 shrink-0 items-center gap-1 rounded-full px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
             >
               <tier.icon
                 className={cn('size-4', tier.warn && 'text-[var(--spark-warn)]')}
@@ -638,7 +639,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               onClick={voice.dismissError}
               aria-live="polite"
               title={voice.error}
-              className="flex h-7 max-w-56 items-center truncate rounded-md px-1.5 text-xs text-destructive hover:bg-accent"
+              className="flex h-7 max-w-56 items-center truncate rounded-full px-1.5 text-xs text-destructive hover:bg-accent"
             >
               {voice.error}
             </button>
@@ -675,7 +676,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                 }
               }}
               className={cn(
-                'relative flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40',
+                'relative flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40',
                 voice.phase === 'recording' && 'bg-accent text-foreground',
               )}
             >

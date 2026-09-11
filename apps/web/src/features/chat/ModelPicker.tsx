@@ -59,7 +59,7 @@ export function ModelPicker({ current, models, providers, onChange, disabled }: 
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         title={`当前模型：${current}（切换后下一轮生效）`}
-        className="flex h-7 max-w-56 items-center gap-1 rounded-md px-1.5 font-mono text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+        className="flex h-7 max-w-56 items-center gap-1 rounded-full px-1.5 font-mono text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
       >
         <span className="truncate">
           {label !== undefined ? `${label}/` : ''}
@@ -69,7 +69,7 @@ export function ModelPicker({ current, models, providers, onChange, disabled }: 
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 z-20 mb-1.5 max-h-72 w-72 overflow-y-auto rounded-lg border border-border bg-popover shadow-md">
+        <div className="absolute bottom-full left-0 z-20 mb-1.5 max-h-72 w-72 overflow-y-auto rounded-xl border border-border bg-popover shadow-md">
           <ul role="menu" aria-label="选择模型">
             {groups.length === 0 && (
               <li className="px-2.5 py-2 text-xs text-muted-foreground">
@@ -108,7 +108,7 @@ export function ModelPicker({ current, models, providers, onChange, disabled }: 
                           <span className="min-w-0 flex-1 truncate font-mono text-xs">
                             {m.model}
                           </span>
-                          <span className="shrink-0 rounded border border-border px-1 text-[10px] text-muted-foreground">
+                          <span className="shrink-0 rounded-full border border-border px-1 text-[10px] text-muted-foreground">
                             {windowBadge(m.contextWindow)}
                           </span>
                           {active && <Check className="size-3.5 shrink-0" />}

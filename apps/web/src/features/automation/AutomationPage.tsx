@@ -272,7 +272,7 @@ export function AutomationPage() {
       />
 
       {error !== null && (
-        <p className="rounded-md border border-border px-3 py-2 text-xs text-destructive">{error}</p>
+        <p className="rounded-xl border border-border px-3 py-2 text-xs text-destructive">{error}</p>
       )}
 
       {triggers.length === 0 ? (
@@ -324,7 +324,7 @@ export function AutomationPage() {
                   aria-label={`立即运行 ${t.name}`}
                   disabled={busyId === t.id}
                   onClick={() => void runNow(t)}
-                  className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
+                  className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
                 >
                   <Play className="size-3.5" />
                 </button>
@@ -334,7 +334,7 @@ export function AutomationPage() {
                   aria-label={`删除 ${t.name}`}
                   disabled={busyId === t.id}
                   onClick={() => void remove(t)}
-                  className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
+                  className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
                 >
                   <Trash2 className="size-3.5" />
                 </button>
@@ -383,7 +383,7 @@ export function AutomationPage() {
             aria-label="刷新运行历史"
             title="刷新"
             onClick={() => void reload()}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             <RefreshCw className="size-3.5" />
           </button>
@@ -407,7 +407,7 @@ export function AutomationPage() {
                     <button
                       type="button"
                       onClick={() => void navigate(`/session/${r.sessionId}`)}
-                      className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] text-[var(--spark-ok)] hover:bg-accent"
+                      className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] text-[var(--spark-ok)] hover:bg-accent"
                     >
                       成功 · 查看会话
                     </button>

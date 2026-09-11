@@ -17,7 +17,7 @@ export function PermissionTierMenu({
   return (
     <div
       data-preset-menu
-      className="absolute bottom-full left-3 z-20 mb-1.5 w-64 overflow-hidden rounded-lg border border-border bg-popover shadow-md"
+      className="absolute bottom-full left-3 z-20 mb-1.5 w-64 overflow-hidden rounded-xl border border-border bg-popover shadow-md"
     >
       <ul>
         {PERMISSION_TIERS.map((t) => (

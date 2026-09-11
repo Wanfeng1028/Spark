@@ -80,7 +80,7 @@ export function CheckpointDialog({ open, onOpenChange, sid, busy }: CheckpointDi
           </p>
         )}
         {rows !== null && rows.length > 0 && (
-          <ul className="max-h-[60vh] overflow-y-auto rounded-md border border-border">
+          <ul className="max-h-[60vh] overflow-y-auto rounded-xl border border-border">
             {rows.map((c) => (
               <li key={c.checkpointId} className="group border-b border-border last:border-b-0">
                 <div className="flex min-h-8 items-center gap-2 px-2.5 py-1">
@@ -95,7 +95,7 @@ export function CheckpointDialog({ open, onOpenChange, sid, busy }: CheckpointDi
                     onClick={() => void rollback(c.checkpointId)}
                     disabled={rolling !== null || busy}
                     title={busy ? 'turn 进行中，不可回滚' : '复位到该快照（工作区与会话文件）'}
-                    className="h-6 shrink-0 rounded-md border border-border px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-accent-foreground focus-visible:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="h-6 shrink-0 rounded-full border border-border px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-accent-foreground focus-visible:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {rolling === c.checkpointId ? '回滚中…' : '回滚'}
                   </button>

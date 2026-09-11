@@ -68,7 +68,7 @@ export function ToolCard({
   const progressTail = status === 'running' ? lastLine(progressBuf ?? '') : ''
 
   return (
-    <div className="my-1 rounded-md border border-border">
+    <div className="my-1 overflow-hidden rounded-xl border border-border">
       <button
         type="button"
         onClick={toggle}
@@ -218,7 +218,7 @@ function BrowserDetail({ name, output }: { name: string; output: unknown }) {
               src={`/api/artifacts/${r.file}`}
               alt={`页面截图 ${r.file}`}
               onError={() => setImgFailed(true)}
-              className="max-h-80 w-auto rounded-md border border-border"
+              className="max-h-80 w-auto rounded-lg border border-border"
             />
           </div>
         )}
@@ -361,7 +361,7 @@ function CopyButton({ text }: { text: string }) {
       type="button"
       onClick={() => void copy(text)}
       title="复制输出"
-      className="absolute right-2 top-1.5 flex size-6 items-center justify-center rounded-md text-muted-foreground/70 hover:bg-accent hover:text-accent-foreground"
+      className="absolute right-2 top-1.5 flex size-6 items-center justify-center rounded-full text-muted-foreground/70 hover:bg-accent hover:text-accent-foreground"
     >
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
     </button>

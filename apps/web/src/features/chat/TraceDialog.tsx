@@ -120,7 +120,7 @@ export function TraceView({
         <TurnBlock key={t.turnId} turn={t} index={i + 1} scale={maxTurnMs} onAudit={onAudit} />
       ))}
       {trace.looseErrors.length > 0 && (
-        <section className="flex flex-col gap-1 rounded-md border border-border px-2.5 py-2">
+        <section className="flex flex-col gap-1 rounded-xl border border-border px-2.5 py-2">
           <p className="text-xs text-muted-foreground">会话级错误（不属于任何回合）</p>
           {trace.looseErrors.map((e, i) => (
             <p key={`${e.at}-${i}`} className="font-mono text-xs text-[var(--spark-err)]">
@@ -144,7 +144,7 @@ interface TurnBlockProps {
 function TurnBlock({ turn, index, scale, onAudit }: TurnBlockProps) {
   const widthPct = scale > 0 ? Math.max(2, (turn.durationMs / scale) * 100) : 0
   return (
-    <section className="flex flex-col gap-1.5 rounded-md border border-border px-2.5 py-2">
+    <section className="flex flex-col gap-1.5 rounded-xl border border-border px-2.5 py-2">
       <div className="flex items-center gap-2">
         <span className="font-mono text-[11px] text-muted-foreground">#{index}</span>
         <span className="text-[13px]">{finishText(turn.finish)}</span>
@@ -251,7 +251,7 @@ function TurnBlock({ turn, index, scale, onAudit }: TurnBlockProps) {
                   <button
                     type="button"
                     onClick={() => onAudit(tool.name)}
-                    className="ml-auto shrink-0 rounded-md border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    className="ml-auto shrink-0 rounded-full border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   >
                     审计
                   </button>

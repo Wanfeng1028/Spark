@@ -118,7 +118,7 @@ function EmptyChat({ sid }: { sid: SessionId }) {
             <button
               type="button"
               onClick={() => void transport.sendMessage(sid, p)}
-              className="h-6 rounded-md border border-border px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              className="h-6 rounded-full border border-border px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             >
               {p}
             </button>

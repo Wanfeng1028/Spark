@@ -30,7 +30,7 @@ export function AttachmentChips({
           {attachments.map((p) => (
             <li
               key={p}
-              className="flex h-6 items-center gap-1 rounded-md border border-border px-1.5 font-mono text-xs text-muted-foreground"
+              className="flex h-6 items-center gap-1 rounded-full border border-border px-1.5 font-mono text-xs text-muted-foreground"
             >
               <span className="max-w-56 truncate">{attachmentNames?.get(p) ?? p}</span>
               <button

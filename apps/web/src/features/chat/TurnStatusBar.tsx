@@ -27,13 +27,13 @@ export function TurnStatusBar({ turn }: TurnStatusBarProps) {
     <div
       role="status"
       className={cn(
-        'flex h-6 items-center gap-2 rounded-md border border-border bg-background/95 px-2.5 font-mono text-xs text-muted-foreground',
+        'flex h-6 items-center gap-2 rounded-full border border-border bg-background/95 px-2.5 font-mono text-xs text-muted-foreground',
         turn.waiting && 'border-[var(--spark-warn)]/50 text-[var(--spark-warn)]',
       )}
     >
       <span>step {turn.stepCount}</span>
       {[...counts.entries()].map(([name, count]) => (
-        <span key={name} className="rounded-sm bg-muted px-1">
+        <span key={name} className="rounded-full bg-muted px-1">
           {badge(name, count)}
         </span>
       ))}

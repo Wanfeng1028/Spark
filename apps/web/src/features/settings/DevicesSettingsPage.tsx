@@ -109,7 +109,7 @@ function PairCodeDialog({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 py-2">
-            <img src={qrDataUrl} alt="配对二维码" className="size-52 rounded-md bg-white p-2" />
+            <img src={qrDataUrl} alt="配对二维码" className="size-52 rounded-lg bg-white p-2" />
             <p className="font-mono text-2xl tracking-[0.3em]" aria-label={`配对码 ${pair.code}`}>
               {pair.code}
             </p>
@@ -199,7 +199,7 @@ export function DevicesSettingsPage() {
                 type="button"
                 onClick={() => void revoke(d.id)}
                 disabled={revoking === d.id}
-                className="shrink-0 rounded-md px-2 py-1 text-xs text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                className="shrink-0 rounded-full px-2 py-1 text-xs text-destructive hover:bg-destructive/10 disabled:opacity-50"
               >
                 撤销
               </button>

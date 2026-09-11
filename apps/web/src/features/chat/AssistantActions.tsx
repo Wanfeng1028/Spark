@@ -25,7 +25,7 @@ export interface AssistantActionsProps {
 }
 
 const ICON_BTN =
-  'flex size-5 items-center justify-center rounded text-muted-foreground/70 hover:bg-accent hover:text-accent-foreground'
+  'flex size-5 items-center justify-center rounded-full text-muted-foreground/70 hover:bg-accent hover:text-accent-foreground'
 
 export function AssistantActions({ sid, eventId, time, copyText }: AssistantActionsProps) {
   const { transport } = useTransport()

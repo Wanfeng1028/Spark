@@ -22,7 +22,7 @@ export function ComposerMenu({
   onSelect: (index: number) => void
 }) {
   return (
-    <div className="absolute inset-x-3 bottom-full z-20 mb-1.5 overflow-hidden rounded-lg border border-border bg-popover shadow-md">
+    <div className="absolute inset-x-3 bottom-full z-20 mb-1.5 overflow-hidden rounded-xl border border-border bg-popover shadow-md">
       <ul
         role="listbox"
         aria-label={menu.kind === 'at' ? '提及菜单' : '命令菜单'}

@@ -74,7 +74,7 @@ export function FileTreePopover({
             else onPick(e.path)
           }}
           className={cn(
-            'flex w-full items-center gap-1.5 rounded-md px-3 py-1 text-left text-[13px] hover:bg-accent',
+            'flex w-full items-center gap-1.5 rounded-lg px-3 py-1 text-left text-[13px] hover:bg-accent',
           )}
           style={{ paddingLeft: depth * 14 + 12 }}
         >
@@ -106,7 +106,7 @@ export function FileTreePopover({
     <div
       role="dialog"
       aria-label="文件树"
-      className="absolute bottom-full left-3 z-20 mb-1.5 max-h-72 w-72 overflow-y-auto rounded-lg border border-border bg-popover py-1 shadow-md"
+      className="absolute bottom-full left-3 z-20 mb-1.5 max-h-72 w-72 overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-md"
     >
       <p className="border-b border-border px-3 py-1.5 text-[11px] text-muted-foreground">
         点击文件插入 @路径引用（内容由模型经 read 自取）

@@ -27,7 +27,7 @@ export interface MessageItemProps {
 }
 
 export const MessageItem = memo(function MessageItem({ item, model, sid, highlight }: MessageItemProps) {
-  const hl = highlight === true ? 'rounded-md bg-secondary ring-1 ring-border' : undefined
+  const hl = highlight === true ? 'rounded-lg bg-secondary ring-1 ring-border' : undefined
   switch (item.kind) {
     case 'user':
       return (
@@ -161,7 +161,7 @@ function severityText(severity: number): { label: string; cls: string } {
 function DiagnosticsRow({ item }: { item: Extract<UiItem, { kind: 'diagnostics' }> }) {
   const file = item.uri.startsWith('file:') ? item.uri.slice('file:'.length) : item.uri
   return (
-    <article className="w-full rounded-md border border-border px-3 py-2">
+    <article className="w-full rounded-xl border border-border px-3 py-2">
       <p className="font-mono text-xs text-muted-foreground">
         LSP {item.language} · {file || '(未知文件)'}
       </p>

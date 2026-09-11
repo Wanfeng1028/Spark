@@ -22,7 +22,7 @@ export function ErrorBanner({ message, onRetry, retryLabel = '重试' }: ErrorBa
   return (
     <div
       role="alert"
-      className="flex min-h-7 flex-wrap items-center gap-2 rounded-md border border-[var(--spark-err)]/40 bg-[var(--spark-err)]/[0.05] px-2.5 py-1 text-xs"
+      className="flex min-h-7 flex-wrap items-center gap-2 rounded-xl border border-[var(--spark-err)]/40 bg-[var(--spark-err)]/[0.05] px-2.5 py-1 text-xs"
     >
       <span className="min-w-0 flex-1 break-words text-foreground">{copy.title}</span>
       {copy.detail !== null && (
@@ -41,7 +41,7 @@ export function ErrorBanner({ message, onRetry, retryLabel = '重试' }: ErrorBa
           type="button"
           onClick={onRetry}
           className={cn(
-            'flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-0.5 hover:bg-accent',
+            'flex shrink-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 hover:bg-accent',
           )}
         >
           <RotateCcw className="size-3" />

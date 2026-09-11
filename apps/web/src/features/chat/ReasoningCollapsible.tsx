@@ -50,12 +50,12 @@ export function ReasoningCollapsible({
       : null
 
   return (
-    <div className="my-1 rounded-md border border-border">
+    <div className="my-1 overflow-hidden rounded-xl border border-border">
       <button
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left"
+        className="flex h-7 w-full items-center gap-1.5 px-2 text-left"
       >
         <ChevronRight
           className={

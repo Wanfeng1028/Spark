@@ -88,7 +88,7 @@ export function ApprovalCard({
         </p>
       )}
       {detail !== undefined && (
-        <pre className="max-h-24 overflow-auto rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs text-muted-foreground">
+        <pre className="max-h-24 overflow-auto rounded-lg border border-border bg-background px-2 py-1.5 font-mono text-xs text-muted-foreground">
           {JSON.stringify(detail, null, 2)}
         </pre>
       )}
