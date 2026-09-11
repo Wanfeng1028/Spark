@@ -258,7 +258,7 @@ describe('诊断事件流（publishDiagnostics → 缓存 + lsp.diagnostics dura
     const cached = (await manager.request('diagnostics', { language: 'typescript', abs: doc }, ctx)) as { diagnostics: unknown[] }
     expect(cached.diagnostics).toHaveLength(2)
     // status 快照：1 文件 / 1 错误（第二条 severity 9 收敛为 4=Hint，不计错误）
-    const rows = await manager.status()
+    const rows = manager.status()
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({ language: 'typescript', connected: true, files: 1, errors: 1, warnings: 0 })
     await manager.shutdown()
