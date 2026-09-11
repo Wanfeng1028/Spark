@@ -138,5 +138,5 @@ export async function transcribeAudio(
   ) {
     throw new Error('E_TRANSCRIBE_UPSTREAM: 转写服务响应缺 text 字段')
   }
-  return { text: (parsed as { text: string }).text, provider, model }
+  return { text: parsed.text, provider, model }
 }

@@ -40,18 +40,18 @@ const fakeStream = { getTracks: () => [{ stop: () => {} }] } as unknown as Media
 
 function stubGlobals(opts?: { deny?: boolean }): void {
   FakeRecorder.instances = []
-  vi.stubGlobal('MediaRecorder', FakeRecorder as unknown as typeof MediaRecorder)
+  vi.stubGlobal('MediaRecorder', FakeRecorder)
   Object.defineProperty(FakeRecorder, 'isTypeSupported', {
     value: (t: string) => FakeRecorder.supports.includes(t),
     writable: true,
   })
   vi.stubGlobal('navigator', {
     mediaDevices: {
-      getUserMedia: async () => {
+      getUserMedia: () => {
         if (opts?.deny === true) {
-          throw new DOMException('denied', 'NotAllowedError')
+          return Promise.reject(new DOMException('denied', 'NotAllowedError'))
         }
-        return fakeStream
+        return Promise.resolve(fakeStream)
       },
     },
   })
@@ -67,7 +67,7 @@ describe('useVoiceInput（工单 16.6）', () => {
     stubGlobals()
     const received: string[] = []
     const transport = {
-      transcribe: async () => ({ text: '你好世界', provider: 'mock', model: 'mock-transcribe' }),
+      transcribe: () => Promise.resolve({ text: '你好世界', provider: 'mock', model: 'mock-transcribe' }),
     } as unknown as Transport
     const { result } = renderHook(() => useVoiceInput({ transport, onText: (t) => received.push(t) }))
     await act(async () => {
@@ -85,7 +85,7 @@ describe('useVoiceInput（工单 16.6）', () => {
   it('权限拒绝 fail-closed：error 人话呈现且不回填文本', async () => {
     stubGlobals({ deny: true })
     const received: string[] = []
-    const transport = { transcribe: async () => ({ text: 'x', provider: 'm', model: 'm' }) } as unknown as Transport
+    const transport = { transcribe: () => Promise.resolve({ text: 'x', provider: 'm', model: 'm' }) } as unknown as Transport
     const { result } = renderHook(() => useVoiceInput({ transport, onText: (t) => received.push(t) }))
     await act(async () => {
       await result.current.start()
@@ -98,9 +98,7 @@ describe('useVoiceInput（工单 16.6）', () => {
   it('转写失败：error 如实透出（不假成功），dismissError 可清除', async () => {
     stubGlobals()
     const transport = {
-      transcribe: async () => {
-        throw new Error('E_TRANSCRIBE_UPSTREAM: 转写服务返回 500')
-      },
+      transcribe: () => Promise.reject(new Error('E_TRANSCRIBE_UPSTREAM: 转写服务返回 500')),
     } as unknown as Transport
     const { result } = renderHook(() => useVoiceInput({ transport, onText: () => {} }))
     await act(async () => {
@@ -119,7 +117,7 @@ describe('useVoiceInput（工单 16.6）', () => {
 
   it('stop 幂等：重复调用只触发一次 recorder.stop', async () => {
     stubGlobals()
-    const transport = { transcribe: async () => ({ text: 'x', provider: 'm', model: 'm' }) } as unknown as Transport
+    const transport = { transcribe: () => Promise.resolve({ text: 'x', provider: 'm', model: 'm' }) } as unknown as Transport
     const { result } = renderHook(() => useVoiceInput({ transport, onText: () => {} }))
     await act(async () => {
       await result.current.start()

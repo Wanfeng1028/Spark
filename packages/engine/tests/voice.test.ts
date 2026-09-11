@@ -47,7 +47,7 @@ describe('isBlockedAddress（SSRF 黑名单矩阵）', () => {
 })
 
 describe('assertPublicUrl', () => {
-  const lookupOk = async () => [{ address: '93.184.216.34' }]
+  const lookupOk = () => Promise.resolve([{ address: '93.184.216.34' }])
 
   it('协议白名单：http/https 之外拒绝', async () => {
     await expect(assertPublicUrl('ftp://example.com')).rejects.toThrow('E_TRANSCRIBE_UNCONFIGURED')
@@ -60,11 +60,13 @@ describe('assertPublicUrl', () => {
 
   it('域名解析到私网/混合地址 → 拒绝（多栈任一命中即拒）；公网 → 通过', async () => {
     await expect(
-      assertPublicUrl('https://internal.example.com/x', { lookupFn: async () => [{ address: '10.0.0.5' }] }),
+      assertPublicUrl('https://internal.example.com/x', {
+        lookupFn: () => Promise.resolve([{ address: '10.0.0.5' }]),
+      }),
     ).rejects.toThrow('E_TRANSCRIBE_BLOCKED')
     await expect(
       assertPublicUrl('https://mixed.example.com/x', {
-        lookupFn: async () => [{ address: '93.184.216.34' }, { address: '192.168.0.9' }],
+        lookupFn: () => Promise.resolve([{ address: '93.184.216.34' }, { address: '192.168.0.9' }]),
       }),
     ).rejects.toThrow('E_TRANSCRIBE_BLOCKED')
     await expect(
@@ -75,7 +77,7 @@ describe('assertPublicUrl', () => {
   it('解析失败 → E_TRANSCRIBE_UPSTREAM；非法 URL → E_TRANSCRIBE_UNCONFIGURED', async () => {
     await expect(
       assertPublicUrl('https://nope.example.com/x', {
-        lookupFn: async () => {
+        lookupFn: () => {
           throw new Error('ENOTFOUND')
         },
       }),

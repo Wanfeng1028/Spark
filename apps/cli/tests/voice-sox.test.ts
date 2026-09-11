@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { ChildProcess, spawn } from 'node:child_process'
+import type { mkdtemp, readFile, unlink } from 'node:fs/promises'
 import { soxAvailable, startSoxRecording, SOX_SILENCE_ARGS } from '../src/voice/sox.js'
 import type { SoxDeps } from '../src/voice/sox.js'
 
@@ -50,15 +51,16 @@ function depsWith(child: FakeChild, opts?: { throwOnSpawn?: boolean }): SoxDeps 
   return {
     child,
     spawnFn,
-    readFileFn: (async (p: string) => {
+    readFileFn: ((p: string) => {
       const v = files.get(String(p))
       if (v === undefined) throw new Error('ENOENT')
-      return v
-    }) as unknown as typeof import('node:fs/promises').readFile,
-    unlinkFn: (async (p: string) => {
+      return Promise.resolve(v)
+    }) as unknown as readFile,
+    unlinkFn: ((p: string) => {
       files.delete(String(p))
-    }) as unknown as typeof import('node:fs/promises').unlink,
-    mkdtempFn: (async (prefix: string) => `${prefix}test`) as unknown as typeof import('node:fs/promises').mkdtemp,
+      return Promise.resolve()
+    }) as unknown as unlink,
+    mkdtempFn: ((prefix: string) => Promise.resolve(`${prefix}test`)) as unknown as mkdtemp,
     tmpDirFn: () => '/tmp',
   }
 }
@@ -69,14 +71,15 @@ function withFiles(child: FakeChild): SoxDeps & { write: (p: string, b: Buffer) 
   const base = depsWith(child)
   return {
     ...base,
-    readFileFn: (async (p: string) => {
+    readFileFn: ((p: string) => {
       const v = files.get(String(p))
       if (v === undefined) throw new Error('ENOENT')
-      return v
-    }) as unknown as typeof import('node:fs/promises').readFile,
-    unlinkFn: (async (p: string) => {
+      return Promise.resolve(v)
+    }) as unknown as readFile,
+    unlinkFn: ((p: string) => {
       files.delete(String(p))
-    }) as unknown as typeof import('node:fs/promises').unlink,
+      return Promise.resolve()
+    }) as unknown as unlink,
     write: (p, b) => {
       files.set(p, b)
     },
