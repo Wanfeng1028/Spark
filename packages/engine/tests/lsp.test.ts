@@ -145,6 +145,7 @@ describe('LspManager 连接管理（hash 不变不重启）', () => {
   test('首次查询 spawn + initialize；hash 不变复用连接（spawn 只一次）', async () => {
     const root = await makeRoot()
     await writeConfig(root, { typescript: { command: 'fake-lsp', args: ['--stdio'] } })
+    await writeFile(join(root, 'a.ts'), 'export const a = 1\n', 'utf8') // openDocument 读盘夹具（缺失即 E_NOT_FOUND）
     const { bus } = makeBus()
     const child = fakeChild()
     let spawnCount = 0
@@ -175,6 +176,7 @@ describe('LspManager 连接管理（hash 不变不重启）', () => {
   test('hash 变化 → 关旧建新；语言未配置 → E_LSP_UNCONFIGURED', async () => {
     const root = await makeRoot()
     await writeConfig(root, { typescript: { command: 'fake-lsp', args: ['--stdio'] } })
+    await writeFile(join(root, 'a.ts'), 'export const a = 1\n', 'utf8') // openDocument 读盘夹具（缺失即 E_NOT_FOUND）
     const { bus } = makeBus()
     const children: ChildProcess[] = []
     const fake = fakeFactory(null)
