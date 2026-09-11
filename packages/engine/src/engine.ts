@@ -1228,8 +1228,8 @@ export class Engine {
   }
 
   /** GET /api/lsp（工单 16.9）：语言服务器只读状态（连接状态 + 诊断摘要；未配置空数组） */
-  async listLspServers(): Promise<LspServerStatusDto[]> {
-    return this.lsp.status()
+  listLspServers(): Promise<LspServerStatusDto[]> {
+    return Promise.resolve(this.lsp.status())
   }
 
   /** GET /api/skills：已加载技能只读清单（ready() 后为全量） */

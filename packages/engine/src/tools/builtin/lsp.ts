@@ -252,7 +252,7 @@ function callsOf(raw: unknown, limit: number): SymbolLine[] {
 
 /** prepareCallHierarchy 条目：回传给模型供 incoming/outgoing 复用（uri 转路径展示） */
 function callHierarchyItemsOf(raw: unknown, limit: number): unknown[] {
-  const arr = Array.isArray(raw) ? raw : []
+  const arr = Array.isArray(raw) ? (raw as unknown[]) : []
   return arr.slice(0, limit).map((item) => {
     if (item === null || typeof item !== 'object') return item
     const obj = item as Record<string, unknown>

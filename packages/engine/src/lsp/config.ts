@@ -41,7 +41,7 @@ export function loadLspConfig(dir: string): LspConfig | null {
 function sortJsonValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortJsonValue)
   if (value !== null && typeof value === 'object') {
-    const sorted: Record<string, unknown> = Object.create(null)
+    const sorted = Object.create(null) as Record<string, unknown>
     for (const key of Object.keys(value).sort()) {
       sorted[key] = sortJsonValue((value as Record<string, unknown>)[key])
     }

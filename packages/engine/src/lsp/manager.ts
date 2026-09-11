@@ -217,8 +217,8 @@ export class LspManager implements LspExecutor {
     }
   }
 
-  /** /lsp 面板状态快照：逐语言列出连接状态 + 诊断缓存摘要（未配置 → 空数组） */
-  async status(): Promise<LspServerStatusDto[]> {
+  /** /lsp 面板状态快照：逐语言列出连接状态 + 诊断缓存摘要（未配置 → 空数组）；同步读（重读配置是同步 fs） */
+  status(): LspServerStatusDto[] {
     const config = loadLspConfig(this.deps.dataRoot)
     if (config === null) return []
     const rows: LspServerStatusDto[] = []

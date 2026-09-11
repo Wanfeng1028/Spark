@@ -66,7 +66,8 @@ export function stdioConnectionFactory(): ConnectionFactory {
     return {
       sendRequest: (method, params) => connection.sendRequest(method, params),
       sendNotification: (method, params) => {
-        connection.sendNotification(method, params)
+        // vscode-jsonrpc v9 的 sendNotification 声明返回 Promise<void>——fire-and-forget 显式 void
+        void connection.sendNotification(method, params)
       },
       onNotification: (method, handler) => {
         // vscode-jsonrpc 字符串重载的 handler 是 any 形参——窄化为 unknown 传递
