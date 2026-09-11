@@ -120,10 +120,10 @@ function depsFixture(opts?: {
     fetchImpl:
       opts?.fetchImpl ??
       (() =>
-        new Response(JSON.stringify({ text: '你好世界' }), {
+        Promise.resolve(new Response(JSON.stringify({ text: '你好世界' }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
-        })) as typeof fetch,
+        }))) as unknown as typeof fetch,
   }
 }
 
@@ -203,17 +203,17 @@ describe('transcribeAudio（工单 16.6）', () => {
 
   it('上游非 2xx / 非 JSON / 缺 text → E_TRANSCRIBE_UPSTREAM（状态码透出）', async () => {
     const fail = depsFixture({
-      fetchImpl: (() => new Response('{"error":"boom"}', { status: 503 })) as typeof fetch,
+      fetchImpl: (() => Promise.resolve(new Response('{"error":"boom"}', { status: 503 }))) as unknown as typeof fetch,
     })
     await expect(transcribeAudio(fail, { mime: 'audio/wav', dataBase64: 'x' })).rejects.toThrow('503')
     const notJson = depsFixture({
-      fetchImpl: (() => new Response('<html/>', { status: 200 })) as typeof fetch,
+      fetchImpl: (() => Promise.resolve(new Response('<html/>', { status: 200 }))) as unknown as typeof fetch,
     })
     await expect(transcribeAudio(notJson, { mime: 'audio/wav', dataBase64: 'x' })).rejects.toThrow(
       'E_TRANSCRIBE_UPSTREAM',
     )
     const noText = depsFixture({
-      fetchImpl: (() => new Response('{"nope":1}', { status: 200 })) as typeof fetch,
+      fetchImpl: (() => Promise.resolve(new Response('{"nope":1}', { status: 200 }))) as unknown as typeof fetch,
     })
     await expect(transcribeAudio(noText, { mime: 'audio/wav', dataBase64: 'x' })).rejects.toThrow(
       'E_TRANSCRIBE_UPSTREAM',
