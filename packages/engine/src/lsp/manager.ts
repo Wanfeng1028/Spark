@@ -10,7 +10,7 @@
  * - 失败闭合：spawn/握手失败如实 E_LSP_CONNECT（status 面保留失败人话）；单次请求失败
  *   E_LSP_CALL；超时 E_LSP_TIMEOUT（qwen 15s 同值）——都不悬空不假降级。
  */
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import type { LspServerStatusDto, SessionId, SparkEventMap } from '@spark/protocol'
@@ -80,8 +80,8 @@ export interface LspManagerDeps {
   bus: EventBus
   /** 缺省不记日志（引擎传入 Logger；单测可省） */
   logger?: SparkLogger
-  /** 测试注入 spawn（缺省真实 stdio spawn） */
-  spawnFn?: typeof spawn
+  /** 测试注入 spawn（缺省真实 stdio spawn；窄化 node spawn 重载面——双向可赋值） */
+  spawnFn?: LspSpawnFn
   /** 测试注入连接工厂（缺省 vscode-jsonrpc stdio 连接） */
   connectionFactory?: ConnectionFactory
   /** initialize 超时（缺省 10s；测试注入小值） */
@@ -92,10 +92,17 @@ export interface LspManagerDeps {
   diagnosticsGraceMs?: number
 }
 
+/** spawn 端口（窄化 node spawn 的重载返回——ChildProcess 即可，管道由调用方空值守卫） */
+export type LspSpawnFn = (
+  command: string,
+  args: readonly string[],
+  opts: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined; stdio?: Array<'pipe'> },
+) => ChildProcess
+
 interface ConnectionEntry {
   hash: string
   command: string
-  child: ReturnType<typeof spawn>
+  child: ChildProcess
   conn: LspConnection
   /** 诊断缓存 uri → 最新一批（publish 全量替换语义） */
   diagnostics: Map<string, SparkEventMap['lsp.diagnostics']['diagnostics']>
@@ -292,7 +299,7 @@ export class LspManager implements LspExecutor {
   ): Promise<ConnectionEntry> {
     const spawnFn = this.deps.spawnFn ?? spawn
     const factory = this.deps.connectionFactory ?? stdioConnectionFactory()
-    let child: ReturnType<typeof spawn>
+    let child: ChildProcess
     try {
       child = spawnFn(entryCfg.command, entryCfg.args ?? [], {
         cwd: ctx.cwd,

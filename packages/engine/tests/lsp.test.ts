@@ -18,7 +18,7 @@ import type { ChildProcess } from 'node:child_process'
 import { ConfigError } from '../src/config.js'
 import { loadLspConfig, lspServerConfigHash } from '../src/lsp/config.js'
 import { sanitizedLspEnv } from '../src/lsp/connection.js'
-import type { ConnectionFactory } from '../src/lsp/connection.js'
+import type { ConnectionFactory, LspConnection } from '../src/lsp/connection.js'
 import { LspManager } from '../src/lsp/manager.js'
 import type { LspManagerDeps, LspQueryContext } from '../src/lsp/manager.js'
 import { EventBus, type EventSink } from '../src/bus.js'
@@ -51,10 +51,10 @@ function fakeChild(): ChildProcess {
   child.stdin = new PassThrough()
   child.stdout = new PassThrough()
   child.stderr = new PassThrough()
-  child.exitCode = null
-  child.killed = false
+  // exitCode/killed 是 @types/node 的只读 getter——经 Object.assign 绕开类型层（运行时可写）
+  Object.assign(child, { exitCode: null, killed: false })
   child.kill = () => {
-    child.killed = true
+    Object.assign(child, { killed: true })
     return true
   }
   return child
@@ -68,7 +68,7 @@ interface FakeConn {
 
 function fakeFactory(definition: unknown): FakeConn {
   const conn: FakeConn = { calls: [], handler: undefined, factory: () => conn0 }
-  const conn0 = {
+  const conn0: LspConnection = {
     sendRequest: (method: string, params?: unknown) => {
       conn.calls.push({ method, params })
       if (method === 'initialize') return Promise.resolve({ capabilities: {} })
@@ -242,7 +242,11 @@ describe('诊断事件流（publishDiagnostics → 缓存 + lsp.diagnostics dura
     await new Promise((r) => setTimeout(r, 10))
     const diagEvents = sink.events.filter((e) => e.type === 'lsp.diagnostics')
     expect(diagEvents).toHaveLength(1)
-    const data = diagEvents[0]?.data as { language: string; uri: string; diagnostics: Array<{ message: string; code?: unknown; tags?: unknown }> }
+    const data = diagEvents[0]?.data as {
+      language: string
+      uri: string
+      diagnostics: Array<{ severity: number; message: string; code?: unknown; tags?: unknown }>
+    }
     expect(data.language).toBe('typescript')
     expect(data.uri).toBe(pathToFileURL(doc).href)
     expect(data.diagnostics).toHaveLength(2)

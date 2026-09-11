@@ -7,6 +7,7 @@
  *    同样过闸，双面一次覆盖）；
  * 2. 把 vscode-jsonrpc 的 MessageConnection 收敛为引擎消费的最小窄接口（测试可注入假体）。
  */
+import type { Readable, Writable } from 'node:stream'
 import { createMessageConnection, StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node'
 
 /** spawn 前剥离的敏感环境变量（qwen 同清单，逐键大写比对） */
