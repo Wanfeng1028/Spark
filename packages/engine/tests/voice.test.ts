@@ -102,17 +102,22 @@ function modelsFixture(providers: ModelsConfig['providers']): ModelsConfig {
   }
 }
 
+let fixtureSeq = 0
+
 function depsFixture(opts?: {
   providers?: ModelsConfig['providers']
   fetchImpl?: typeof fetch
+  seedSecrets?: Record<string, string>
 }): TranscribeDeps {
   const providers =
     opts?.providers ??
     ({
       openai: { apiKeyEnv: 'OPENAI_API_KEY', baseUrl: 'https://api.openai.com/v1/' },
     } satisfies ModelsConfig['providers'])
-  // 空密钥仓：SecretStore 构造只读缺失文件 → 空表（无磁盘写）；apiKey 走 env 注入
-  const secrets = new SecretStore(join(tmpdir(), `spark-voice-test-${Date.now()}`, 'secrets.json'))
+  // 密钥仓落 tmpdir 既有目录（唯一名防串读）：空仓构造只读缺失文件 → 空表不写盘；
+  // 仅 seedSecrets（测 store 取用优先级）时经 set() 原子写一次
+  const secrets = new SecretStore(join(tmpdir(), `spark-voice-test-${process.pid}-${fixtureSeq++}.json`))
+  for (const [provider, value] of Object.entries(opts?.seedSecrets ?? {})) secrets.set(provider, value)
   return {
     models: modelsFixture(providers),
     secrets,
@@ -157,6 +162,8 @@ describe('transcribeAudio（工单 16.6）', () => {
           transcription: { endpoint: 'https://gw.example.com/audio', model: 'paraformer-v2' },
         },
       },
+      // store 取用路径：apiKeyEnv 为 null 时密钥只从仓来（depsFixture 缺省空仓，此处种入）
+      seedSecrets: { openai: 'sk-test' },
       fetchImpl: ((u: string, init?: RequestInit) => {
         url = u
         auth = ((init?.headers ?? {}) as Record<string, string>).Authorization ?? ''
