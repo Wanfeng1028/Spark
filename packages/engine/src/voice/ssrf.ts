@@ -81,7 +81,7 @@ export async function assertPublicUrl(url: string, deps?: PublicUrlDeps): Promis
     }
     return parsed
   }
-  const lookupFn: LookupAllFn = deps?.lookupFn ?? (lookup as unknown as LookupAllFn)
+  const lookupFn: LookupAllFn = deps?.lookupFn ?? lookup
   let records: { address: string }[]
   try {
     records = await lookupFn(hostname, { all: true })

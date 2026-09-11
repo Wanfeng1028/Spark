@@ -119,7 +119,7 @@ function depsFixture(opts?: {
     env: { OPENAI_API_KEY: 'sk-test' },
     fetchImpl:
       opts?.fetchImpl ??
-      (async () =>
+      (() =>
         new Response(JSON.stringify({ text: '你好世界' }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
@@ -131,9 +131,9 @@ describe('transcribeAudio（工单 16.6）', () => {
   it('baseUrl 拼接缺省端点 + Bearer 密钥 + multipart 上传；成功返回文本', async () => {
     const captured: { current: { url: string; init: RequestInit } | null } = { current: null }
     const d = depsFixture({
-      fetchImpl: (async (url: string, init?: RequestInit) => {
+      fetchImpl: ((url: string, init?: RequestInit) => {
         captured.current = { url, init: init ?? {} }
-        return new Response(JSON.stringify({ text: '你好世界' }), { status: 200 })
+        return Promise.resolve(new Response(JSON.stringify({ text: '你好世界' }), { status: 200 }))
       }) as typeof fetch,
     })
     const out = await transcribeAudio(d, { mime: 'audio/wav', dataBase64: 'RIFF' })
@@ -154,10 +154,10 @@ describe('transcribeAudio（工单 16.6）', () => {
           transcription: { endpoint: 'https://gw.example.com/audio', model: 'paraformer-v2' },
         },
       },
-      fetchImpl: (async (u: string, init?: RequestInit) => {
+      fetchImpl: ((u: string, init?: RequestInit) => {
         url = u
         auth = ((init?.headers ?? {}) as Record<string, string>).Authorization ?? ''
-        return new Response(JSON.stringify({ text: 'ok' }), { status: 200 })
+        return Promise.resolve(new Response(JSON.stringify({ text: 'ok' }), { status: 200 }))
       }) as typeof fetch,
     })
     const out = await transcribeAudio(d, { mime: 'audio/webm', dataBase64: 'x' })
@@ -203,17 +203,17 @@ describe('transcribeAudio（工单 16.6）', () => {
 
   it('上游非 2xx / 非 JSON / 缺 text → E_TRANSCRIBE_UPSTREAM（状态码透出）', async () => {
     const fail = depsFixture({
-      fetchImpl: (async () => new Response('{"error":"boom"}', { status: 503 })) as typeof fetch,
+      fetchImpl: (() => new Response('{"error":"boom"}', { status: 503 })) as typeof fetch,
     })
     await expect(transcribeAudio(fail, { mime: 'audio/wav', dataBase64: 'x' })).rejects.toThrow('503')
     const notJson = depsFixture({
-      fetchImpl: (async () => new Response('<html/>', { status: 200 })) as typeof fetch,
+      fetchImpl: (() => new Response('<html/>', { status: 200 })) as typeof fetch,
     })
     await expect(transcribeAudio(notJson, { mime: 'audio/wav', dataBase64: 'x' })).rejects.toThrow(
       'E_TRANSCRIBE_UPSTREAM',
     )
     const noText = depsFixture({
-      fetchImpl: (async () => new Response('{"nope":1}', { status: 200 })) as typeof fetch,
+      fetchImpl: (() => new Response('{"nope":1}', { status: 200 })) as typeof fetch,
     })
     await expect(transcribeAudio(noText, { mime: 'audio/wav', dataBase64: 'x' })).rejects.toThrow(
       'E_TRANSCRIBE_UPSTREAM',
