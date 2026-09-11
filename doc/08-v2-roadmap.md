@@ -9,6 +9,7 @@
 | v1.40 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **§18.3 进度登记（ui 补件 copy-in：按实需裁剪为四件）**：input/textarea/badge/card 四件自 shadcn new-york registry 在线 copy-in（URL 进文件头注释，禁克隆整仓）；**checkbox/radio-group/separator 三件不引**——checkbox 全仓零用点（设置开关走 ui/switch）、radio-group 唯一手搓用点（SettingsDialog 主题选择）实为分段控件形态（归 18.4 迁 ui/segmented）、separator 无用点（分组卡分隔走 divide-y），未用上的件不引（产出①纪律）。规格要点：Input 胶囊 38px、**默认只取弱边框不取浅灰底**（本仓输入近乎全数带 placeholder，v2.15 AA 例外适用；无 placeholder 触发器才 bg-secondary）；Textarea 多行不取胶囊、取封闭集 8px 小件档（工单 18.3 判定，胶囊随行数增长变形）；Badge h-6/11px/胶囊、去 hover 与 shadow（非交互件）；Card variant 三档 grouped 12px / info 16px / flush 16px 无边框底色差（§13.J.0），p-6→p-4（§13.B 内边距档）。新件配渲染冒烟测试（ui-basics.test.tsx，jsdom+RTL）。本批本机零验证，CI 裁决。下一张 18.4 页面清扫 |
 | v1.41 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **§16.7 /goal 持续目标落地登记（ADR D33）**：事件词表 22 → **26 种**（goal.set/updated/completed/paused 四枚全 durable 非 surface）；engine 新模块 goals.ts GoalRunner——turn 收尾旁路 LLM judge（判据 = JSONL 尾部 40 行证据，"送达不等于状态改变"写死提示词，SATISFIED/NOT_SATISFIED 二选一，解析不出/超时/错误一律 paused 保留目标 fail-closed），未满足 → 合成续跑输入（如实标注 [goal 合成输入·第 N 轮]，走主队列 FIFO、工具照常过审批——红线零旁路）；三护栏 qwen 同值定档：迭代上限 50 / 每目标 200k token 预算（judge 用量同计）/ judge 25s 超时；aborted → paused{interrupt} 即停、error → paused{turnError}。命令 /goal set\|clear\|status（BUILTIN_COMMANDS 16→17，四包基线断言同改；E_NO_GOAL/E_GOAL_ARGS/E_GOAL_EMPTY fail-closed）；RunLoopDeps 增可选 goal 端口（runTurn 返回收尾结果，既有 stub 兼容）；MockTransport 对等三子命令；web StatusBar goal 徽标（/goal status 可见面，active 才渲染）。测试 24 例：engine goals.test 14（含 ScriptedLlm 全链路 set→续跑→completed 与参数面）+ web reducer 6 + mock 2 + StatusBar 2。生成物重跑：契约用例 + 文档站词表页 26 种。验收注："小目标 2-3 迭代"由 ScriptedLlm 全链路覆盖；真实模型走查留用户现场。同步：doc/02 v4.42、ARCHITECTURE v1.42（D33）、AGENTS v1.42、README v1.36、doc/03 v1.3。本批本机零验证 |
 | v1.42 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **§16.6 /voice 语音听写落地登记（ADR D34）**：Transport 增 transcribe（HTTP/InProcess 直映射/Mock 对等三通道；命令基线 17→18 加 /voice client 命令）；engine voice/ 两模块——transcriber（OpenAI 兼容端点，models.json 供应商可配 transcription{endpoint,model}，mime 白名单+10MB 上限，密钥走既有单点）与 **ssrf（qwen 必抄：DNS 全地址 BlockList + IPv6 过渡段 ::ffff::/96·64:ff9b::/96·64:ff9b:1::/48·2002::/16）**；web 麦克风钮 hold/tap/off（spark.ui 持久化，转写文本函数式追加草稿——录音期继续打字不丢字）；CLI rec 子进程 + qwen 同款 silence 自动停参数 + 敏感 env 剥离，**SoX 不可用明示 fail-closed**；音频 live 不落盘（只有文本进输入框）。测试 46 例（engine voice 34 / cli sox 5 / web voice 4 / http 1 / mock 2）；契约生成物重跑 98 describe/941 断言。移动端语音另立项不夹带。验收注：web 按住→松开→文字入 Composer 与 CLI SoX 现场链路走查留用户。同步：doc/02 v4.43（§4.5/§4.7/§5.10/§8.7 对账 + goal 三码补登记）、ARCHITECTURE v1.43、DESIGN v2.16。本批本机零验证 |
+| v1.43 | 2026-09-12 | AI 编写：Qoder；发起：晚风（Wanfeng1028，“继续”指令） | **§18.4/§18.5 进度补登（阶段十八收口）**：18.4 手搓控件迁移（设置族 input / 分组卡 ui/Card grouped / 主题 radiogroup→ui/segmented）+ apps/web/src 圆角全量归档到 §13.B 封闭集（rounded-md/裸 rounded/rounded-sm 归零，rounded-2xl 仅存 ui/card info/flush 两档）；18.5 收口——② theme-contrast AA 复核修正两处 4.44:1 次要文本改 foreground/70（commit 726e811 + DESIGN v2.17）、③ e2e 全绿、④ 文档对账（DESIGN v2.17 终态 / 本节补登 / doc/02 未 lift 不动）、⑤ ADR D32 走查补记（落 ARCHITECTURE v1.44）、① 双主题双视口走查留用户。本批本机零验证 |
 | v1.0 | 2026-08-31 | AI 编写：ZCode CLI・GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，四轮 v2 展望会话；MIT /npm CLI 优先 / 本文档交付形式三项已拍板）                               | 初稿：定位与使用说明・决策记录（已拍板 / 待拍板）・阶段十一～十五共 34 张工单（每张含验收标准与开工提示词）・后置观察池・提示词总则（附录 A）                                                                                                                                                                                                                                                      |
 | v1.1 | 2026-08-31 | 同上；核查：晚风（Wanfeng1028，对照四轮展望清单逐条核查指出缺漏）                                                                                                                              | **对照四轮展望补全六处**：§0.3 终点图景与差异化五牌；§4.0 五层开发者面表（修 14.6/11.8 悬空引用）；13.1 补「Spark as eval harness」定位句；新增 §7 生命力风险与对策（原不变量节顺延为 §8）；后置池补 LSP / 会话导出分享 / 计划模式 todo/V2-21/V2-02 / 其余候选池归并行；新增附录 B 阶段十在途工单引用式提示词（治理注记：阶段十唯一来源 doc/02 §8）                                                                                                     |
 | v1.40 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"先做不需要我拍板的"指令） | **18.1 改判的两处活引用同步（docs-update 第 3 步：结论变化要找全活引用）**。① `.agents/skills/frontend-component/SKILL.md` 第 3 步仍写"6px 圆角"——它是**流程文档**，不改就会让后续会话按旧口径把 6px 抄回来；改为"圆角只取 §13.B 封闭集档位"且**不复制数字**（规格唯一来源在 DESIGN，AGENTS §8），第 4 步的"11 项模式零命中"补 `rounded-2xl` 按档位判放行的注记。② 本库 §5C 批次总说明的"冲突点预先声明"仍把旧 §3 封顶写作"现行"——补消解注记（18.1 已立封闭集；旧原文保留为立项时的冲突记录，不再描述现状）。**全仓扫描口径**：`6px 圆角`/`控件 6px`/`卡片 8px`/`最大不超过 12px` 四模式全仓 .md 共 **39 次命中 = 活引用 4**（两处文本，doc/08 那一行同时命中三个模式）**+ 历史引用 7**（版本记录行与工单提示词，docs-update 禁改历史行）**+ `_scratch/lockfix*` 两份仓库旧快照 28**（Q-7 判决保留冻结，不动）。本批本机零验证 |
@@ -2590,6 +2591,12 @@ mock-transport 是回归网）、packages/protocol format.ts（若 R-B 已落地
 提交：refactor(web): 工单 18.4——<页名> 控件迁移与卡片化（每页一条）。
 ```
 
+* **进度（2026-09-11：手搓控件迁移 + 圆角全量归档，工单落地；分三批 commit）**：
+  * **控件迁移**：设置族手搓 `<input>` → ui/input、分组卡 → ui/Card 的 grouped variant（12px + 1px border）；SettingsDialog 主题三选的手搓 radiogroup → ui/segmented（落实 18.3 “radio-group 不引、归分段控件”判定）。Composer 输入区维持 §13.E 12px 容器；隐藏 file input 保持原生并加注释（不可见控件不走 ui/Input）。
+  * **圆角归档**：apps/web/src 全量把脱离档位的圆角值（rounded-md / 裸 rounded / rounded-sm）归档到 §13.B 封闭集——chat 族 + automation + devices 一批、settings/layout（Sidebar/Titlebar/StatusBar）/routes（SearchPage/SessionPage）一批。
+  * **收口核对**：apps/web/src 圆角归零——rounded-md / 裸 rounded / rounded-sm 清零（唯一残留 ui/command 头注释的历史提及），rounded-2xl 仅存 ui/card 的 info/flush 两档（= 16px 登记档）；§12.8 grep 自查零未登记档位。
+  * **留用户执行**：逐页双主题走查（本机零验证，AI 不跑 UI）；web test/typecheck 由 CI 裁决（阶段十八代码批 CI 已绿）。
+
 ## 18.5 收口：验收走查 + 文档对账
 
 
@@ -2623,6 +2630,13 @@ mock-transport 是回归网）、packages/protocol format.ts（若 R-B 已落地
 
 提交：docs(web): 工单 18.5——阶段十八收口（走查记录 + 文档对账）。
 ```
+
+* **进度（2026-09-11：收口，②③④⑤ 落地，① 留用户）**：
+  * **② theme-contrast AA 复核（commit 726e811）**：发现两处 11-12px 次要文本压 bg-muted（#f4f4f5）仅 4.44:1（Sidebar 分组未选中标签 / TurnStatusBar 计数徽章），低于 §13.C 的 4.5:1 红线 → 改 foreground/70（压 muted ≈5.5:1）；theme-contrast.test.ts 增 `--foreground × --muted` 一对守下限；DESIGN v2.17 §13.B 补两条（textarea 取 8px 小件档 + 次要文本压浅灰底用 foreground/70）。
+  * **③ e2e 全绿**：Playwright e2e job 绿（CI run 34639458427）。
+  * **④ 文档对账三处**：DESIGN 版本行终态 v2.17；doc/08 本节 §18.4/18.5 进度补登（本行）；doc/02 阶段十八未 lift 故不动（附录 A 第 5 条：lift 后才勾 doc/02）。
+  * **⑤ ADR D32 走查补记**：五档封闭集在 web 全量归档落地（apps/web/src 圆角归零到 §13.B），AA 复核修正两处次要文本；移动端 §13.J 白卡口径本就同族、无连带微调。补记落 ARCHITECTURE v1.44。
+  * **① 双主题 × 1280/1440 全页走查留用户执行**（本机零验证，AI 不跑 UI）。
 
 
 
