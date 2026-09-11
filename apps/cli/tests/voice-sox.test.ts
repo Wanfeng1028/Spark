@@ -55,12 +55,12 @@ function depsWith(child: FakeChild, opts?: { throwOnSpawn?: boolean }): SoxDeps 
       const v = files.get(String(p))
       if (v === undefined) throw new Error('ENOENT')
       return Promise.resolve(v)
-    }) as unknown as readFile,
+    }) as unknown as typeof readFile,
     unlinkFn: ((p: string) => {
       files.delete(String(p))
       return Promise.resolve()
-    }) as unknown as unlink,
-    mkdtempFn: ((prefix: string) => Promise.resolve(`${prefix}test`)) as unknown as mkdtemp,
+    }) as unknown as typeof unlink,
+    mkdtempFn: ((prefix: string) => Promise.resolve(`${prefix}test`)) as unknown as typeof mkdtemp,
     tmpDirFn: () => '/tmp',
   }
 }
@@ -75,11 +75,11 @@ function withFiles(child: FakeChild): SoxDeps & { write: (p: string, b: Buffer) 
       const v = files.get(String(p))
       if (v === undefined) throw new Error('ENOENT')
       return Promise.resolve(v)
-    }) as unknown as readFile,
+    }) as unknown as typeof readFile,
     unlinkFn: ((p: string) => {
       files.delete(String(p))
       return Promise.resolve()
-    }) as unknown as unlink,
+    }) as unknown as typeof unlink,
     write: (p, b) => {
       files.set(p, b)
     },
