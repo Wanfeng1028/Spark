@@ -434,12 +434,12 @@ export class LspManager implements LspExecutor {
   }
 
   /** 单请求：超时 + 中断级联；server 错误 → E_LSP_CALL（E_ 开头的人话原样透传） */
-  private async call<T>(
+  private async call(
     entry: ConnectionEntry,
     ctx: LspQueryContext,
     method: string,
     params: unknown,
-  ): Promise<T> {
+  ): Promise<unknown> {
     const timeoutMs = this.deps.requestTimeoutMs ?? REQUEST_TIMEOUT_MS
     let timer: ReturnType<typeof setTimeout> | undefined
     let onAbort: (() => void) | undefined
@@ -451,7 +451,7 @@ export class LspManager implements LspExecutor {
         onAbort = () => reject(new Error('E_ABORTED: 查询被中断'))
         ctx.signal.addEventListener('abort', onAbort, { once: true })
       })
-      return await Promise.race([entry.conn.sendRequest<T>(method, params), timeout, abort])
+      return await Promise.race([entry.conn.sendRequest(method, params), timeout, abort])
     } catch (err) {
       const message = errText(err)
       if (message.startsWith('E_')) throw asError(err)

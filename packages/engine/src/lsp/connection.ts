@@ -39,7 +39,8 @@ export function sanitizedLspEnv(extra?: Record<string, string>): NodeJS.ProcessE
 
 /** 引擎消费的最小连接面（窄接口——测试注入内存假体，不背 vscode-jsonrpc 全量类型） */
 export interface LspConnection {
-  sendRequest<T = unknown>(method: string, params?: unknown): Promise<T>
+  /** 结果统一 unknown——窄化在 manager/工具层做（12 操作各自归一），不在连接层开泛型口 */
+  sendRequest(method: string, params?: unknown): Promise<unknown>
   sendNotification(method: string, params?: unknown): void
   /** 订阅服务端通知（publishDiagnostics 等；须在 listen() 前注册） */
   onNotification(method: string, handler: (params: unknown) => void): void
