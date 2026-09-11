@@ -33,7 +33,7 @@ export function TurnStatusBar({ turn }: TurnStatusBarProps) {
     >
       <span>step {turn.stepCount}</span>
       {[...counts.entries()].map(([name, count]) => (
-        <span key={name} className="rounded-full bg-muted px-1">
+        <span key={name} className="rounded-full bg-muted px-1 text-foreground/70">
           {badge(name, count)}
         </span>
       ))}

@@ -317,7 +317,7 @@ export function Sidebar() {
               'h-6 flex-1 rounded-full text-xs',
               groupMode === t.mode
                 ? 'bg-background text-foreground'
-                : 'text-muted-foreground hover:text-foreground',
+                : 'text-foreground/70 hover:text-foreground',
             )}
           >
             {t.label}

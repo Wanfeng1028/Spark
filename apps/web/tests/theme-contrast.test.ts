@@ -64,6 +64,10 @@ const PAIRS: [fg: string, bg: string][] = [
   // secondary-foreground——新用法进回归网。**不列 muted-foreground × secondary**：
   // 算得 4.44:1 低于 4.5:1，所以 command 输入区刻意不上浅灰底（见其头注）
   ['--foreground', '--secondary'],
+  // 工单 18.5 ② AA 复核：次要文本压在浅灰底（bg-muted 轨道/徽章）上一律用
+  // foreground/70（压 muted 得 ≈5.5:1），不再用 muted-foreground（压 muted 仅 4.44:1）；
+  // 此对断言正文色压 muted 轨道的下限
+  ['--foreground', '--muted'],
   ['--destructive', '--background'],
   ['--spark-accent', '--background'],
   ['--spark-warn', '--background'],
