@@ -125,8 +125,8 @@ describe('sanitizedLspEnv（敏感环境变量剥离，qwen SECURITY_SENSITIVE_E
       const env = sanitizedLspEnv()
       expect(env.LD_PRELOAD).toBeUndefined()
       expect(env.NODE_OPTIONS).toBeUndefined()
-      expect(env.Path).toBeUndefined() // 大写比对命中（Windows 的 Path 同样剥离）
       expect(env.LD_LIBRARY_PATH).toBeUndefined()
+      expect(env.Path).toBe('C:/bin') // PATH 不在敏感清单——server 还要靠它找子进程
     } finally {
       process.env = original
     }

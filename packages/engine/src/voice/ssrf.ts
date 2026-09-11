@@ -27,8 +27,8 @@ function blocklistOf(): BlockList {
   bl.addSubnet('198.18.0.0', 15) // 基准测试保留
   bl.addSubnet('224.0.0.0', 4) // 组播
   bl.addSubnet('240.0.0.0', 4) // 保留（含广播）
-  // IPv6
-  bl.addSubnet('::', 128) // 未指定
+  // IPv6（注：未指定地址 '::' 不入表——它不是可连接目的地，封禁无防护意义，
+  // 且新版 Node 的 BlockList 对其抛 ERR_INVALID_ADDRESS；CI Linux 实测）
   bl.addSubnet('::1', 128) // 环回
   bl.addSubnet('fc00::', 7) // ULA 私网
   bl.addSubnet('fe80::', 10) // 链路本地
