@@ -25,7 +25,7 @@ export function Titlebar() {
         aria-label={`主题：${meta.label}（点击切换为${meta.next}）`}
         title={`主题：${meta.label}（点击切换为${meta.next}）`}
         onClick={toggleTheme}
-        className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        className="flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       >
         <Icon className="size-4" />
       </button>

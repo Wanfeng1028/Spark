@@ -89,14 +89,14 @@ export function ModelSettingsPage() {
       aria-pressed={p.id === selected}
       onClick={() => setSelected(p.id)}
       className={cn(
-        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent',
+        'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-accent',
         p.id === selected && 'bg-accent',
       )}
     >
       <span className={cn('size-1.5 shrink-0 rounded-full', statusDotClass(p))} />
       <span className="min-w-0 flex-1 truncate">{p.label}</span>
       {p.configured && (
-        <span className="shrink-0 rounded border border-border px-1 text-[10px] text-muted-foreground">
+        <span className="shrink-0 rounded-full border border-border px-1 text-[10px] text-muted-foreground">
           启用
         </span>
       )}
@@ -173,13 +173,13 @@ export function ModelSettingsPage() {
                 <h3 className="text-[13px] font-semibold">{detail.label}</h3>
                 {detail.configured ? (
                   <span
-                    className="rounded border border-border px-1.5 text-[11px] text-muted-foreground"
+                    className="rounded-full border border-border px-1.5 text-[11px] text-muted-foreground"
                     title="已启用 = 已写入 models.json providers；不代表连通，请用「测试连接」确认"
                   >
                     已启用
                   </span>
                 ) : (
-                  <span className="rounded border border-border px-1.5 text-[11px] text-muted-foreground/60">
+                  <span className="rounded-full border border-border px-1.5 text-[11px] text-muted-foreground/60">
                     未配置
                   </span>
                 )}
@@ -240,7 +240,7 @@ export function ModelSettingsPage() {
                       type="button"
                       disabled={testing.has(detail.id)}
                       onClick={() => void testProvider(detail)}
-                      className="flex h-7 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <PlugZap className="size-3.5" />
                       {testing.has(detail.id) ? '测试中…' : '测试连接'}

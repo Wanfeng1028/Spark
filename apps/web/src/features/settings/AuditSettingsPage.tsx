@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 const inputClass =
-  'h-8 min-w-0 rounded-md border border-border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-ring'
+  'h-8 min-w-0 rounded-full border border-border/60 bg-secondary px-2.5 text-xs outline-none focus:border-ring'
 
 type RangeKey = 'all' | 'today' | '7d' | '30d'
 type ResultKey = 'all' | AuditEntryDto['result']

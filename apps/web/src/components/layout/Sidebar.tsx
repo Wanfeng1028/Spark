@@ -186,7 +186,7 @@ export function Sidebar() {
           aria-label="展开侧栏"
           title="展开侧栏"
           onClick={toggleSidebar}
-          className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <PanelLeftOpen className="size-4" />
         </button>
@@ -195,7 +195,7 @@ export function Sidebar() {
           aria-label="新建会话"
           title="新建会话（c）"
           onClick={() => void createSession()}
-          className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <Plus className="size-4" />
         </button>
@@ -205,7 +205,7 @@ export function Sidebar() {
           title="搜索会话（/）"
           onClick={() => void navigate('/search')}
           className={cn(
-            'flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground',
+            'flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-accent hover:text-accent-foreground',
             location.pathname === '/search'
               ? 'bg-secondary text-foreground'
               : 'text-muted-foreground',
@@ -219,7 +219,7 @@ export function Sidebar() {
           title="自动化"
           onClick={() => void navigate('/automation')}
           className={cn(
-            'flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground',
+            'flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-accent hover:text-accent-foreground',
             location.pathname === '/automation'
               ? 'bg-secondary text-foreground'
               : 'text-muted-foreground',
@@ -232,7 +232,7 @@ export function Sidebar() {
           aria-label="设置中心"
           title="设置中心"
           onClick={() => void navigate('/settings/appearance')}
-          className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <Settings className="size-4" />
         </button>
@@ -247,7 +247,7 @@ export function Sidebar() {
                 title={`${g.name} · ${g.sessions.length} 个会话`}
                 onClick={toggleSidebar}
                 className={cn(
-                  'flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground',
+                  'flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-accent hover:text-accent-foreground',
                   active ? 'bg-secondary text-foreground' : 'text-muted-foreground',
                 )}
               >
@@ -270,7 +270,7 @@ export function Sidebar() {
           aria-label="折叠侧栏"
           title="折叠侧栏"
           onClick={toggleSidebar}
-          className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <PanelLeftClose className="size-4" />
         </button>
@@ -278,11 +278,11 @@ export function Sidebar() {
           type="button"
           onClick={() => void createSession()}
           title="新建会话（c）"
-          className="flex h-7 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md bg-primary px-2 text-[13px] font-medium text-primary-foreground hover:opacity-90"
+          className="flex h-7 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-primary px-2 text-[13px] font-medium text-primary-foreground hover:opacity-90"
         >
           <Plus className="size-3.5 shrink-0" />
           新建会话
-          <kbd className="shrink-0 rounded border border-primary-foreground/30 px-1 font-mono text-[10px] leading-4 text-primary-foreground/70">
+          <kbd className="shrink-0 rounded-full border border-primary-foreground/30 px-1 font-mono text-[10px] leading-4 text-primary-foreground/70">
             c
           </kbd>
         </button>
@@ -299,7 +299,7 @@ export function Sidebar() {
       </div>
 
       {/* 分组双模式（工单 10.5②）：项目=按 cwd；时间=按更新时间段 */}
-      <div role="tablist" aria-label="会话分组模式" className="flex shrink-0 gap-1 rounded-md bg-muted p-0.5">
+      <div role="tablist" aria-label="会话分组模式" className="flex shrink-0 gap-1 rounded-full bg-muted p-0.5">
         {(
           [
             { mode: 'project', label: '项目' },
@@ -314,7 +314,7 @@ export function Sidebar() {
             onClick={() => setGroupMode(t.mode)}
             title={t.mode === 'time' ? '按更新时间分组（自定义分组需后端支持，v1 以时间分组替代）' : '按项目目录分组'}
             className={cn(
-              'h-6 flex-1 rounded text-xs',
+              'h-6 flex-1 rounded-full text-xs',
               groupMode === t.mode
                 ? 'bg-background text-foreground'
                 : 'text-muted-foreground hover:text-foreground',
@@ -332,7 +332,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => void refresh()}
-              className="self-start rounded-md border border-border px-2 py-0.5 hover:bg-accent"
+              className="self-start rounded-full border border-border px-2 py-0.5 hover:bg-accent"
             >
               重试
             </button>
@@ -365,7 +365,7 @@ export function Sidebar() {
         type="button"
         onClick={toggleArchived}
         aria-expanded={archivedOpen}
-        className="flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        className="flex h-8 shrink-0 items-center gap-2 rounded-full px-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       >
         <Archive className="size-3.5" />
         <span className="flex-1 text-left">已归档</span>
@@ -377,9 +377,9 @@ export function Sidebar() {
         <p className="px-2 py-1 font-mono text-xs text-destructive">{opError}</p>
       )}
       {archivedOpen && archived !== null && archived.length > 0 && (
-        <ul aria-label="已归档会话" className="max-h-40 shrink-0 overflow-y-auto rounded-md border border-border p-1">
+        <ul aria-label="已归档会话" className="max-h-40 shrink-0 overflow-y-auto rounded-xl border border-border p-1">
           {archived.map((s) => (
-            <li key={s.id} className="flex h-8 items-center gap-1 rounded-md px-2 hover:bg-accent">
+            <li key={s.id} className="flex h-8 items-center gap-1 rounded-lg px-2 hover:bg-accent">
               <span className="min-w-0 flex-1 truncate text-[13px]">
                 {s.title === '' ? '新会话' : s.title}
               </span>
@@ -388,7 +388,7 @@ export function Sidebar() {
                 aria-label={`恢复会话 ${s.title === '' ? '新会话' : s.title}`}
                 title="恢复到会话列表"
                 onClick={() => void archiveSession(s, false)}
-                className="rounded p-1 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+                className="rounded-full p-1 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
               >
                 <Undo2 className="size-3.5" />
               </button>
@@ -397,7 +397,7 @@ export function Sidebar() {
                 aria-label={`删除会话 ${s.title === '' ? '新会话' : s.title}`}
                 title="删除（移入 trash，可人工找回）"
                 onClick={() => void deleteSession(s)}
-                className="rounded p-1 text-muted-foreground/70 hover:bg-accent hover:text-destructive"
+                className="rounded-full p-1 text-muted-foreground/70 hover:bg-accent hover:text-destructive"
               >
                 <Trash2 className="size-3.5" />
               </button>
@@ -413,7 +413,7 @@ export function Sidebar() {
         aria-current={location.pathname === '/search' ? 'page' : undefined}
         title="搜索（/）"
         className={cn(
-          'flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-[13px] hover:bg-accent hover:text-accent-foreground',
+          'flex h-8 shrink-0 items-center gap-2 rounded-full px-2 text-[13px] hover:bg-accent hover:text-accent-foreground',
           location.pathname === '/search'
             ? 'bg-secondary text-foreground'
             : 'text-muted-foreground',
@@ -421,7 +421,7 @@ export function Sidebar() {
       >
         <Search className="size-4 shrink-0" />
         <span className="min-w-0 flex-1 text-left">搜索</span>
-        <kbd className="shrink-0 rounded border border-border bg-background px-1 font-mono text-[10px] leading-4 text-muted-foreground">
+        <kbd className="shrink-0 rounded-full border border-border bg-background px-1 font-mono text-[10px] leading-4 text-muted-foreground">
           /
         </kbd>
       </button>
@@ -432,7 +432,7 @@ export function Sidebar() {
         onClick={() => void navigate('/automation')}
         aria-current={location.pathname === '/automation' ? 'page' : undefined}
         className={cn(
-          'flex h-8 shrink-0 items-center gap-2 rounded-md px-2 text-[13px] hover:bg-accent hover:text-accent-foreground',
+          'flex h-8 shrink-0 items-center gap-2 rounded-full px-2 text-[13px] hover:bg-accent hover:text-accent-foreground',
           location.pathname === '/automation'
             ? 'bg-secondary text-foreground'
             : 'text-muted-foreground',
@@ -443,7 +443,7 @@ export function Sidebar() {
       </button>
 
       {/* 用户卡（工单 10.5④，§13:368 本地形态）：Spark 无账号体系——头像占位 + 本机标识 + 齿轮进设置 */}
-      <div className="flex h-9 shrink-0 items-center gap-2 rounded-md border border-border px-2">
+      <div className="flex h-9 shrink-0 items-center gap-2 rounded-xl border border-border px-2">
         <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted">
           <User className="size-3.5 text-muted-foreground" />
         </span>
@@ -453,7 +453,7 @@ export function Sidebar() {
           aria-label="设置中心"
           title="设置（Cmd/Ctrl+,）"
           onClick={() => void navigate('/settings/appearance')}
-          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <Settings className="size-3.5" />
         </button>
@@ -466,7 +466,7 @@ function SidebarSkeleton() {
   return (
     <div className="flex flex-col gap-1 px-1" aria-label="加载中">
       {Array.from({ length: 6 }, (_, i) => (
-        <div key={i} className="h-8 animate-pulse rounded-md bg-muted/60" />
+        <div key={i} className="h-8 animate-pulse rounded-lg bg-muted/60" />
       ))}
     </div>
   )
@@ -504,7 +504,7 @@ function SidebarGroup({
         type="button"
         onClick={onToggle}
         aria-expanded={!folded}
-        className="flex h-7 w-full items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        className="flex h-7 w-full items-center gap-1 rounded-full px-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       >
         <ChevronRight
           className={cn('size-3.5 shrink-0 transition-transform', !folded && 'rotate-90')}
@@ -518,7 +518,7 @@ function SidebarGroup({
             <li key={s.id}>
               <div
                 className={cn(
-                  'group flex h-8 w-full items-center gap-2 rounded-md border border-transparent pl-3 pr-1 text-left hover:bg-accent',
+                  'group flex h-8 w-full items-center gap-2 rounded-full border border-transparent pl-3 pr-1 text-left hover:bg-accent',
                   s.id === activeId && 'border-border bg-secondary',
                 )}
               >
@@ -543,7 +543,7 @@ function SidebarGroup({
                     aria-label={`归档会话 ${titleOf(s) === '' ? '新会话' : titleOf(s)}`}
                     title="归档"
                     onClick={() => onArchive(s)}
-                    className="rounded p-1 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+                    className="rounded-full p-1 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
                   >
                     <Archive className="size-3.5" />
                   </button>
@@ -552,7 +552,7 @@ function SidebarGroup({
                     aria-label={`删除会话 ${titleOf(s) === '' ? '新会话' : titleOf(s)}`}
                     title="删除（移入 trash，可人工找回）"
                     onClick={() => onDelete(s)}
-                    className="rounded p-1 text-muted-foreground/70 hover:bg-accent hover:text-destructive"
+                    className="rounded-full p-1 text-muted-foreground/70 hover:bg-accent hover:text-destructive"
                   >
                     <Trash2 className="size-3.5" />
                   </button>

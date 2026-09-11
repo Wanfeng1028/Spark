@@ -64,7 +64,7 @@ export function SettingsDialog() {
           <button
             type="button"
             onClick={openCenter}
-            className="flex h-8 items-center justify-center rounded-md border border-border px-3 text-[13px] hover:bg-accent"
+            className="flex h-8 items-center justify-center rounded-full border border-border px-3 text-[13px] hover:bg-accent"
           >
             打开设置中心…
           </button>

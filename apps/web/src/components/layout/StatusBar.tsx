@@ -49,7 +49,7 @@ function CheckpointBadge({ checkpointId }: { checkpointId: string }) {
   }, [checkpointId])
   if (!show) return null
   return (
-    <span className="rounded-sm border border-border px-1 text-[11px] leading-4 text-muted-foreground">
+    <span className="rounded-full border border-border px-1 text-[11px] leading-4 text-muted-foreground">
       ckpt {checkpointId.slice(4, 12)}
     </span>
   )
@@ -126,7 +126,7 @@ export function StatusBar() {
             中性描边不用 warn 琥珀——DESIGN §13.E 四档表里计划模式图标就是 zinc（琥珀留给完全访问） */}
         {slice?.mode === 'plan' && (
           <span
-            className="shrink-0 rounded-sm border border-border px-1 font-mono text-[11px] leading-4 text-muted-foreground"
+            className="shrink-0 rounded-full border border-border px-1 font-mono text-[11px] leading-4 text-muted-foreground"
             title="计划模式：写类工具全拒，模型只读地出计划；退出需批准（/plan exit）"
           >
             plan
@@ -135,7 +135,7 @@ export function StatusBar() {
         {/* 持续目标指示（工单 16.7）：数据源 = durable goal.* 投影 slice.goal；中性描边同 plan */}
         {slice?.goal?.status === 'active' && (
           <span
-            className="shrink-0 rounded-sm border border-border px-1 font-mono text-[11px] leading-4 text-muted-foreground"
+            className="shrink-0 rounded-full border border-border px-1 font-mono text-[11px] leading-4 text-muted-foreground"
             title={`持续目标（第 ${slice.goal.iterations} 轮）：${slice.goal.text}`}
           >
             goal
@@ -149,7 +149,7 @@ export function StatusBar() {
           aria-label={`主题：${themeMeta.label}（点击切换为${themeMeta.next}）`}
           title={`主题：${themeMeta.label}（点击切换为${themeMeta.next}）`}
           onClick={toggleTheme}
-          className="flex size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="flex size-5 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <ThemeIcon className="size-3.5" />
         </button>
@@ -158,7 +158,7 @@ export function StatusBar() {
           aria-label="打开设置"
           title="设置 (Cmd/Ctrl+,)"
           onClick={() => useUiStore.getState().setSettingsOpen(true)}
-          className="flex size-5 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="flex size-5 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <Settings className="size-3.5" />
         </button>

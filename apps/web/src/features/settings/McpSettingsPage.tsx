@@ -112,7 +112,7 @@ export function McpSettingsPage() {
   return (
     <div className="flex flex-col gap-3">
       {restartHint && (
-        <p className="rounded-md border border-border px-3 py-2 text-xs text-[var(--spark-warn)]">
+        <p className="rounded-xl border border-border px-3 py-2 text-xs text-[var(--spark-warn)]">
           mcp.json 已写入——重启 Spark 后重连生效（当前状态点为运行中快照，禁假状态不变）。
         </p>
       )}
@@ -149,7 +149,7 @@ export function McpSettingsPage() {
                 title="停用（从 mcp.json 移除，重启后生效）"
                 onClick={() => void removeServer(s.name)}
                 disabled={busy}
-                className="rounded p-1 text-muted-foreground/70 hover:bg-accent hover:text-destructive"
+                className="rounded-full p-1 text-muted-foreground/70 hover:bg-accent hover:text-destructive"
               >
                 <Trash2 className="size-3.5" />
               </button>

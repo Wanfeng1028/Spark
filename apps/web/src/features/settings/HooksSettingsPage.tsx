@@ -87,7 +87,7 @@ export function HooksSettingsPage() {
               setDraft(JSON.stringify(hooks ?? {}, null, 2))
               setEditing((v) => !v)
             }}
-            className="h-7 rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:opacity-40"
+            className="h-7 rounded-full border border-border px-2.5 text-xs hover:bg-accent disabled:opacity-40"
           >
             {editing ? '收起编辑' : '编辑'}
           </Button>

@@ -177,7 +177,7 @@ function PreviewPane({
       <div className="flex h-7 items-center justify-between border-b border-border bg-muted/50 px-2.5">
         <span className="text-[11px] leading-none text-muted-foreground">{label}</span>
         {active && (
-          <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] leading-none text-secondary-foreground">
+          <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] leading-none text-secondary-foreground">
             当前生效
           </span>
         )}

@@ -85,7 +85,7 @@ export function SearchPage() {
           <button
             type="button"
             onClick={() => void runSearch(state.q)}
-            className="self-start rounded-md border border-border px-2 py-0.5 hover:bg-accent"
+            className="self-start rounded-full border border-border px-2 py-0.5 hover:bg-accent"
           >
             重试
           </button>
@@ -103,7 +103,7 @@ export function SearchPage() {
               <button
                 type="button"
                 onClick={() => void navigate(`/session/${h.sessionId}?event=${h.eventId}`)}
-                className="flex w-full flex-col gap-1 rounded-md border border-border px-3 py-2 text-left hover:bg-accent"
+                className="flex w-full flex-col gap-1 rounded-xl border border-border px-3 py-2 text-left hover:bg-accent"
               >
                 <span className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="shrink-0 font-medium text-foreground">

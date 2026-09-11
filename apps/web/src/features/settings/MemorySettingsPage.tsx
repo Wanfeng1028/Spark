@@ -53,7 +53,7 @@ export function MemorySettingsPage() {
             onClick={() => void remove(m.id)}
             disabled={deleting === m.id}
             aria-label={`删除记忆 ${m.id}`}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+            className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
           >
             <Trash2 className="size-3.5" />
           </button>

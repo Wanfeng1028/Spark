@@ -36,7 +36,7 @@ const SANDBOX_OPTIONS: { value: 'off' | 'on'; label: string }[] = [
 function RestartBadge() {
   return (
     <span
-      className="shrink-0 rounded border border-border px-1.5 text-[10px] text-muted-foreground"
+      className="shrink-0 rounded-full border border-border px-1.5 text-[10px] text-muted-foreground"
       title="该字段构造期注入引擎子系统，保存写盘后下次启动生效"
     >
       下次启动生效

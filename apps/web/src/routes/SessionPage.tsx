@@ -198,7 +198,7 @@ export function SessionPage() {
             aria-label="会话链路"
             title="会话链路"
             onClick={() => setTraceOpen(true)}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             <Activity className="size-4" />
           </button>
@@ -208,7 +208,7 @@ export function SessionPage() {
             aria-label="会话树"
             title="会话树"
             onClick={() => setTreeOpen(true)}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             <GitBranch className="size-4" />
           </button>
@@ -218,7 +218,7 @@ export function SessionPage() {
             aria-label="检查点"
             title="检查点"
             onClick={() => setCkptOpen(true)}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             <History className="size-4" />
           </button>
@@ -233,7 +233,7 @@ export function SessionPage() {
             onClick={() => setConnStatus(connStatus === 'open' ? 'reconnecting' : 'open')}
             title="开发夹具：模拟连接断开/恢复"
             className={
-              'h-5 rounded-md px-2 font-mono text-xs ' +
+              'h-5 rounded-full px-2 font-mono text-xs ' +
               (connStatus === 'open'
                 ? 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                 : 'bg-primary text-primary-foreground')
@@ -247,7 +247,7 @@ export function SessionPage() {
               type="button"
               onClick={() => void switchScenario(s)}
               className={
-                'h-5 rounded-md px-2 font-mono text-xs ' +
+                'h-5 rounded-full px-2 font-mono text-xs ' +
                 (s === scenario
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground')
@@ -268,22 +268,22 @@ export function SessionPage() {
                 <TurnStatusBar turn={turnProp} />
               </div>
               {compacting && (
-                <div className="rounded-md border border-border bg-background/95 px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
+                <div className="rounded-full border border-border bg-background/95 px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
                   上下文压缩中…
                 </div>
               )}
               {!compacting && compactDone && (
-                <div className="rounded-md border border-border bg-background/95 px-2.5 py-0.5 font-mono text-xs text-[var(--spark-accent)]">
+                <div className="rounded-full border border-border bg-background/95 px-2.5 py-0.5 font-mono text-xs text-[var(--spark-accent)]">
                   上下文已压缩
                 </div>
               )}
               {topBanner !== null && (
-                <div className="pointer-events-auto flex h-7 items-center gap-2 rounded-md border border-[var(--spark-warn)]/40 bg-[var(--spark-warn)]/[0.06] px-2.5 text-xs">
+                <div className="pointer-events-auto flex h-7 items-center gap-2 rounded-full border border-[var(--spark-warn)]/40 bg-[var(--spark-warn)]/[0.06] px-2.5 text-xs">
                   <span className="text-[var(--spark-warn)]">本轮以 error 结束</span>
                   <button
                     type="button"
                     onClick={() => void retryLastMessage()}
-                    className="rounded-md border border-border px-2 py-0.5 hover:bg-accent"
+                    className="rounded-full border border-border px-2 py-0.5 hover:bg-accent"
                   >
                     重试
                   </button>

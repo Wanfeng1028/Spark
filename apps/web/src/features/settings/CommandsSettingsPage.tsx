@@ -37,7 +37,7 @@ export function CommandsSettingsPage() {
             title={`/${c.name}`}
             description={c.description !== '' ? c.description : '—'}
           >
-            <span className="shrink-0 rounded border border-border px-1.5 text-[11px] text-muted-foreground">
+            <span className="shrink-0 rounded-full border border-border px-1.5 text-[11px] text-muted-foreground">
               {KIND_LABEL[c.kind]}
             </span>
           </SettingRow>

@@ -72,7 +72,7 @@ export function SecretsSection() {
                 type="button"
                 disabled={busy}
                 onClick={() => void remove(s.provider)}
-                className="h-6 shrink-0 rounded border border-border px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                className="h-6 shrink-0 rounded-full border border-border px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 删除
               </button>
@@ -99,7 +99,7 @@ export function SecretsSection() {
           type="button"
           disabled={busy || provider.trim() === '' || value.trim() === ''}
           onClick={() => void save()}
-          className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-8 shrink-0 rounded-full border border-border px-2.5 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
         >
           保存
         </button>

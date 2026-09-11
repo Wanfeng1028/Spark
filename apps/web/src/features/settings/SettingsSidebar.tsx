@@ -39,7 +39,7 @@ export function SettingsSidebar() {
       <button
         type="button"
         onClick={backHome}
-        className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        className="flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       >
         <ArrowLeft className="size-4 shrink-0" />
         返回
@@ -59,7 +59,7 @@ export function SettingsSidebar() {
                     onClick={() => void navigate(`/settings/${p.id}`, { replace: true })}
                     aria-current={p.id === activePage ? 'page' : undefined}
                     className={cn(
-                      'flex h-8 w-full items-center gap-2 rounded-md border border-transparent px-3 text-left text-[13px] hover:bg-accent',
+                      'flex h-8 w-full items-center gap-2 rounded-full border border-transparent px-3 text-left text-[13px] hover:bg-accent',
                       p.id === activePage && 'border-border bg-secondary',
                     )}
                   >
