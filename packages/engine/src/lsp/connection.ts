@@ -49,7 +49,7 @@ export interface LspConnection {
   dispose(): void
 }
 
-export interface LspStreamPair {
+interface LspStreamPair {
   stdin: Writable
   stdout: Readable
 }

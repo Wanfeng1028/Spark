@@ -13,6 +13,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
+import { PublishDiagnosticsNotification } from 'vscode-languageserver-protocol'
 import type { LspServerStatusDto, SessionId, SparkEventMap } from '@spark/protocol'
 import type { EventBus } from '../bus.js'
 import { asError, errText } from '../errs.js'
@@ -93,7 +94,7 @@ export interface LspManagerDeps {
 }
 
 /** spawn 端口（窄化 node spawn 的重载返回——ChildProcess 即可，管道由调用方空值守卫） */
-export type LspSpawnFn = (
+type LspSpawnFn = (
   command: string,
   args: readonly string[],
   opts: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined; stdio?: Array<'pipe'> },
@@ -336,7 +337,8 @@ export class LspManager implements LspExecutor {
       entry.dead = true
       this.lastError.set(language, `E_LSP_CONNECT: 语言服务器 ${entryCfg.command} 已退出（code=${String(code)}）`)
     })
-    conn.onNotification('textDocument/publishDiagnostics', (raw) => {
+    // 通知方法名取自 vscode-languageserver-protocol 常量（与协议规范单源，不写裸字符串）
+    conn.onNotification(PublishDiagnosticsNotification.type.method, (raw) => {
       this.onPublish(language, entry, raw)
     })
     conn.listen()

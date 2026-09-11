@@ -16,7 +16,7 @@ import type { TaskInput, TaskRunner } from './task.js'
 import { exitPlanModeTool } from './exit-plan-mode.js'
 import { lspTool } from './lsp.js'
 
-export { readTool, grepTool, writeTool, editTool, makeBashTool, bashTool, makeTaskTool, exitPlanModeTool, lspTool }
+export { readTool, grepTool, writeTool, editTool, makeBashTool, bashTool, makeTaskTool, exitPlanModeTool }
 export type { BashToolOptions, TaskInput, TaskRunner }
 
 export interface BuiltinToolsOptions {
