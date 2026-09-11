@@ -3,8 +3,10 @@
  * 转写端点来自用户可写的 models.json，fetch 前必须解析 DNS 并拒绝一切非公网地址——
  * 否则本机引擎会被诱导请求 127.0.0.1/内网服务（元数据/管理面）。
  * 覆盖面：IPv4 私网/环回/链路本地/CGNAT/保留段 + IPv6 ULA/链路本地/组播 +
- * **过渡地址**（IPv4-mapped ::ffff:0:0/96、NAT64 64:ff9b::/96 与 64:ff9b:1::/48、
- * 6to4 2002::/16——映射内网 v4 借道 v6 绕过纯 v4 黑名单的经典手法，故单独列）。
+ * **过渡地址**（NAT64 64:ff9b::/96 与 64:ff9b:1::/48、6to4 2002::/16——映射内网 v4
+ * 借道 v6 绕过纯 v4 黑名单的经典手法，故单独列）。IPv4-mapped（::ffff:a.b.c.d）不单列：
+ * BlockList 查 v4-mapped 地址时会归一化回内嵌 v4 命中上面的 v4 私网段（官方文档示例同证），
+ * 而整段 ::ffff:0:0/96 入表反会把全部公网 v4 一并误杀。
  */
 import { BlockList, isIPv4, isIPv6 } from 'node:net'
 import { lookup } from 'node:dns/promises'
@@ -29,12 +31,13 @@ function blocklistOf(): BlockList {
   bl.addSubnet('240.0.0.0', 4) // 保留（含广播）
   // IPv6（新版 Node 的 BlockList.addSubnet/check 默认按 ipv4 解析，IPv6 段与查询都必须
   // 显式传 'ipv6' family，否则抛 Invalid socket address——CI Linux Node 24 实测，本地旧版
-  // Node 曾静默通过。未指定地址 '::' 不入表：它不是可连接目的地，封禁无防护意义）
+  // Node 曾静默通过。未指定地址 '::' 不入表：它不是可连接目的地，封禁无防护意义。
+  // IPv4-mapped ::ffff:0:0/96 亦不入表：整段 = 全部 v4（Node 把 v4 归一化为 ::ffff:v4 查），
+  // 入表会误杀全部公网 v4；mapped 私网由上面的 v4 私网段经 Node 归一化覆盖——见 isBlockedAddress 注）
   bl.addSubnet('::1', 128, 'ipv6') // 环回
   bl.addSubnet('fc00::', 7, 'ipv6') // ULA 私网
   bl.addSubnet('fe80::', 10, 'ipv6') // 链路本地
   bl.addSubnet('ff00::', 8, 'ipv6') // 组播
-  bl.addSubnet('::ffff:0:0', 96, 'ipv6') // IPv4-mapped 过渡地址（内网 v4 借 v6 通道）
   bl.addSubnet('64:ff9b::', 96, 'ipv6') // NAT64 过渡（well-known 前缀）
   bl.addSubnet('64:ff9b:1::', 48, 'ipv6') // NAT64 过渡（本地前缀变体）
   bl.addSubnet('2002::', 16, 'ipv6') // 6to4 过渡（内嵌 v4 地址）
@@ -48,8 +51,9 @@ export function isBlockedAddress(address: string): boolean {
   const asV4 = isIPv4(address)
   const asV6 = isIPv6(address)
   if (!asV4 && !asV6) return true
-  // IPv4-mapped 冒充：先规范化 v6（::ffff:a.b.c.d 形式 BlockList 可查，但十六进制
-  // 变体 ::ffff:a01:101 也合法——两种都进 v6 检查，mapped 段已整段入黑名单）
+  // IPv4-mapped 冒充（::ffff:a.b.c.d 及十六进制变体 ::ffff:a01:101）：BlockList 查 mapped 地址
+  // 会归一化回内嵌 v4 命中上面的 v4 私网段（官方文档示例：addAddress('123.123.123.123') 后
+  // check('::ffff:7b7b:7b7b','ipv6') 亦 true），故无需单列整段 mapped（那会误杀公网 v4）。
   // check 与 addSubnet 同口径显式传 family（新版 Node 默认 ipv4，对 v6 字面量抛 Invalid socket address）
   return blocklistOf().check(address, asV6 ? 'ipv6' : 'ipv4')
 }

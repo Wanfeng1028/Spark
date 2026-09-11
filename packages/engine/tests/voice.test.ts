@@ -117,6 +117,9 @@ function depsFixture(opts?: {
     models: modelsFixture(providers),
     secrets,
     env: { OPENAI_API_KEY: 'sk-test' },
+    // DNS 替身：任何端点域名解析到公网 IP——转写单测不依赖真实网络解析
+    // （gw.example.com 等保留域在 CI 不解析会误报 E_TRANSCRIBE_UPSTREAM；SSRF 内网拒绝走 IP 字面量路径，不经此替身）
+    lookupFn: () => Promise.resolve([{ address: '93.184.216.34' }]),
     fetchImpl:
       opts?.fetchImpl ??
       (() =>

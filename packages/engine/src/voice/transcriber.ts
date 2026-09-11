@@ -10,7 +10,7 @@
 import { resolveApiKey } from '../secrets/store.js'
 import type { SecretStore } from '../secrets/store.js'
 import type { ModelsConfig } from '../config.js'
-import { assertPublicUrl } from './ssrf.js'
+import { assertPublicUrl, type PublicUrlDeps } from './ssrf.js'
 
 /** 音频字节上限（10MB，与附件 12.2a 同量级护栏；base64 前口径） */
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024
@@ -46,6 +46,9 @@ export interface TranscribeDeps {
   env?: Record<string, string | undefined>
   /** fetch 替身（测试注入；缺省全局 fetch） */
   fetchImpl?: typeof fetch
+  /** DNS 解析替身（测试注入；缺省真实 lookup）——透传给 assertPublicUrl 的 SSRF 校验，
+   *  使转写单测不依赖真实网络解析（与 fetchImpl 同一注入口径） */
+  lookupFn?: PublicUrlDeps['lookupFn']
 }
 
 export interface TranscribeInput {
@@ -96,7 +99,10 @@ export async function transcribeAudio(
   }
 
   // SSRF 防护（qwen 必抄项）：解析 DNS 并拒内网/环回/IPv6 过渡地址
-  await assertPublicUrl(endpoint)
+  // lookupFn 透传（测试注入 DNS 替身；exactOptionalPropertyTypes 下仅在有值时带上）
+  const ssrfDeps: PublicUrlDeps | undefined =
+    deps.lookupFn === undefined ? undefined : { lookupFn: deps.lookupFn }
+  await assertPublicUrl(endpoint, ssrfDeps)
 
   const { apiKey } = resolveApiKey(deps.secrets, provider, p.apiKeyEnv, deps.env)
   if (apiKey === undefined) {
