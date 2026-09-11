@@ -22,7 +22,7 @@ interface PersistedUi {
 function loadPersisted(): PersistedUi {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw === null) return { sidebarCollapsed: false, sidebarGroupMode: 'project' }
+    if (raw === null) return { sidebarCollapsed: false, sidebarGroupMode: 'project', voiceMode: 'hold' }
     const parsed = JSON.parse(raw) as Partial<PersistedUi>
     return {
       sidebarCollapsed: parsed.sidebarCollapsed === true,

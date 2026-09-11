@@ -6,7 +6,7 @@
  * ④ stop() 幂等（重复调用不重复 kill）。
  */
 import { describe, expect, it } from 'vitest'
-import type { ChildProcess } from 'node:child_process'
+import type { ChildProcess, spawn } from 'node:child_process'
 import { soxAvailable, startSoxRecording, SOX_SILENCE_ARGS } from '../src/voice/sox.js'
 import type { SoxDeps } from '../src/voice/sox.js'
 

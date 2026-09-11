@@ -24,6 +24,7 @@ function handlersOf() {
     forkAtLast: () => {},
     rollbackTo: () => {},
     setEffort: () => {},
+    voice: () => {},
   })
 }
 
