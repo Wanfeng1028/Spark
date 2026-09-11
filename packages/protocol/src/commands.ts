@@ -28,6 +28,7 @@ export const ClientActionSchema = z.enum([
   'effort',
   'tree',
   'voice',
+  'lsp',
 ])
 export type ClientAction = z.infer<typeof ClientActionSchema>
 
@@ -215,5 +216,15 @@ export const BUILTIN_COMMANDS: readonly CommandDescriptor[] = [
     surface: ['cli'],
     sessionRequired: true,
     clientAction: 'tree',
+  },
+  {
+    // 工单 16.9：client 命令——/lsp 面板（连接状态 + 诊断摘要）；连接管理在引擎（lsp/）
+    name: 'lsp',
+    description: '语言服务器面板：连接状态与诊断摘要（配置 ~/.spark/lsp.json）',
+    kind: 'client',
+    group: 'info',
+    surface: ['web', 'cli'],
+    sessionRequired: false,
+    clientAction: 'lsp',
   },
 ]

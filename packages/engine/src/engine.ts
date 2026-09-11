@@ -21,6 +21,7 @@ import type {
   CheckpointId,
   CommandDto,
   EventId,
+  LspServerStatusDto,
   McpServerDto,
   MemoryDto,
   ModelTestResultDto,
@@ -88,6 +89,7 @@ import { Logger } from './logger.js'
 import type { SparkLogger } from './logger.js'
 import { loadMcpConfig } from './mcp/config.js'
 import { McpManager } from './mcp/manager.js'
+import { LspManager } from './lsp/manager.js'
 import { loadSkills } from './skills/loader.js'
 import type { LoadedSkill } from './skills/loader.js'
 import { BUILTIN_COMMANDS, expandCommandPrompt, loadCommands } from './commands/loader.js'
@@ -183,6 +185,8 @@ export class Engine {
   private readonly mcp: McpManager
   /** MCP 连接任务（connect 内部逐 server 失败闭合；ready() 供 server 入口等待） */
   private readonly mcpReady: Promise<void>
+  /** LSP 连接管理（工单 16.9）：惰性连接（首次查询才 spawn），经 ToolContext 注入 lsp 工具 */
+  private readonly lsp: LspManager
   /** skills/插件加载任务（工单 5.5 / ADR D18：词表注册 + hooks 订阅；ready() 等待） */
   private readonly skillsReady: Promise<LoadedSkill[]>
   /** 已加载 skills 快照（skillsReady 完成后非空；用户侧 hooks 的 skill 触发现读） */
@@ -421,6 +425,13 @@ export class Engine {
     })
     this.mcpReady = this.mcp.connect(this.registry).catch((err: unknown) => {
       this.logger.warn('mcp.connect.error', { err })
+    })
+    // LSP 连接管理（工单 16.9）：构造期零开销——lsp.json 缺失时工具执行期
+    // E_LSP_UNCONFIGURED fail-closed（browser 工具族同判例）；连接在首次查询才 spawn
+    this.lsp = new LspManager({
+      dataRoot: this.root,
+      bus: this.bus,
+      logger: this.logger,
     })
     this.outputs = new ToolOutputStore(
       this.config.spark.engine.toolOutputLimitKB * 1024,
@@ -1216,6 +1227,11 @@ export class Engine {
     return this.mcp.status().map((s) => ({ ...s }))
   }
 
+  /** GET /api/lsp（工单 16.9）：语言服务器只读状态（连接状态 + 诊断摘要；未配置空数组） */
+  async listLspServers(): Promise<LspServerStatusDto[]> {
+    return this.lsp.status()
+  }
+
   /** GET /api/skills：已加载技能只读清单（ready() 后为全量） */
   listSkills(): SkillDto[] {
     return this.loadedSkills.map((s) => ({
@@ -1484,6 +1500,12 @@ export class Engine {
       // 6.6) 全文搜索索引收尾（工单 7.13）：关闭 search.db 句柄；
       //      closed 先行置位——迟到的 bus 增量写全部短路（同索引关闭纪律）
       this.search.close()
+      // 6.6.5) LSP 语言服务器收尾（工单 16.9）：shutdown 请求 + 杀子进程（未启动为空操作）
+      try {
+        await this.lsp.shutdown()
+      } catch (err) {
+        this.logger.warn('lsp.shutdown.error', { err })
+      }
       // 6.7) browser 工具族收尾（工单 7.10 / ADR D27）：关闭 chromium（未启动则为空操作）
       try {
         await this.browser.close()
@@ -1599,6 +1621,7 @@ export class Engine {
       metrics: this.metrics,
       guard: this.ioGuard, // 工单 7.2：工具输出 → 模型上下文的注入检测与敏感过滤
       hooks: this.hooks, // 工单 7.3：tool.completed 挂点（载荷不含 output）
+      lsp: this.lsp, // 工单 16.9：lsp 工具的连接管理注入（ToolContext.lsp）
       /**
        * 广告面收窄（**getter → 逐 step 现读**，与下方 system getter 同手法）：
        * ① 预设档收窄的工具（工单 13.5）；② 非计划模式时收起 `exit_plan_mode`（工单 16.3）——

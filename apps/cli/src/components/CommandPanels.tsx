@@ -12,6 +12,7 @@ import type {
   ModelsDto,
   RoutingDto,
   SkillDto,
+  LspServerStatusDto,
   McpServerDto,
   SessionId,
   TreeNodeDto,
@@ -163,6 +164,35 @@ export function McpPanel({ transport }: { transport: Transport }) {
               <Text color="gray">
                 {'  '}
                 {s.tools} 工具 · {s.command}
+              </Text>
+            </Text>
+          ))
+        )
+      } />
+    </PanelShell>
+  )
+}
+
+/** 语言服务器面板（工单 16.9）：连接状态点 + 诊断摘要（未配置如实提示——禁假状态） */
+export function LspPanel({ transport }: { transport: Transport }) {
+  const state = useLoad<LspServerStatusDto[]>(() => transport.listLspServers())
+  return (
+    <PanelShell title="语言服务器" hint="只读">
+      <LoadState state={state} render={(servers) =>
+        servers.length === 0 ? (
+          <Text color="gray">（未配置语言服务器——~/.spark/lsp.json，v1 手写语言→command）</Text>
+        ) : (
+          servers.map((s) => (
+            <Text key={s.language} wrap="truncate-end">
+              <Text color={s.connected ? 'green' : 'red'}>{s.connected ? '●' : '○'}</Text>
+              {' '}
+              {s.language}
+              <Text color="gray">
+                {'  '}
+                {s.connected ? '已连接' : '未连接'}
+                {' · '}
+                诊断 {s.files} 文件（E {s.errors} / W {s.warnings}）
+                {!s.connected && s.error !== undefined ? ` · ${s.error}` : ''}
               </Text>
             </Text>
           ))

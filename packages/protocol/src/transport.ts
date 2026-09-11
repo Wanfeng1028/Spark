@@ -18,6 +18,7 @@ import type {
   AgentPresetDto,
   AttachmentDto,
   FsTreeDto,
+  LspServerStatusDto,
   McpConfigInput,
   McpServerDto,
   MemoryDto,

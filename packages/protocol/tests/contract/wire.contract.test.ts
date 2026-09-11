@@ -579,6 +579,68 @@ describe('契约：event \'io.warning\'', () => {
   })
 })
 
+describe('契约：event \'lsp.diagnostics\'', () => {
+  const sample = {
+    "language": "contract-sample",
+    "uri": "contract-sample",
+    "diagnostics": [
+      {
+        "severity": 1,
+        "range": {
+          "start": {
+            "line": 1,
+            "character": 1
+          },
+          "end": {
+            "line": 1,
+            "character": 1
+          }
+        },
+        "message": "contract-sample",
+        "source": "contract-sample",
+        "code": "contract-sample"
+      }
+    ]
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['lsp.diagnostics'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['lsp.diagnostics'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['lsp.diagnostics'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 language → 解析失败', () => {
+    expect(() => EventSchemas['lsp.diagnostics'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["language"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 uri → 解析失败', () => {
+    expect(() => EventSchemas['lsp.diagnostics'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["uri"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 diagnostics → 解析失败', () => {
+    expect(() => EventSchemas['lsp.diagnostics'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["diagnostics"]; return m })())).toThrow()
+  })
+
+  it('字段 language 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['lsp.diagnostics'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["language"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 uri 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['lsp.diagnostics'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["uri"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 diagnostics 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['lsp.diagnostics'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["diagnostics"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['lsp.diagnostics'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：event \'memory.injected\'', () => {
   const sample = {
     "turnId": "trn_01ARZ3NDEKTSV4RRFFQ69G5FAV",

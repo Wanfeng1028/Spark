@@ -34,6 +34,7 @@ export type CliPanel =
   | 'usage'
   | 'checkpoints'
   | 'tree'
+  | 'lsp'
 
 export interface CliState extends ProjectionState {
   status: CliConnectionStatus

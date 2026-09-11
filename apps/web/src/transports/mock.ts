@@ -30,6 +30,7 @@ import type {
   FsEntryDto,
   FsListDto,
   FsTreeDto,
+  LspServerStatusDto,
   McpConfigInput,
   McpServerDto,
   MemoryDto,
@@ -963,6 +964,23 @@ export class MockTransport implements Transport {
         name: 'coder',
         tools: { deny: ['bash'] },
         title: '编码子代理',
+      },
+    ])
+  }
+
+  /** 语言服务器状态（工单 16.9 对等演示）：一连接一失败——真实数据源是 ~/.spark/lsp.json */
+  listLspServers(): Promise<LspServerStatusDto[]> {
+    this.assertNotDisposed()
+    return Promise.resolve([
+      { language: 'typescript', command: 'typescript-language-server --stdio', connected: true, files: 2, errors: 1, warnings: 3 },
+      {
+        language: 'python',
+        command: 'pyright-langserver --stdio',
+        connected: false,
+        error: 'E_LSP_CONNECT: initialize 超时（10000ms）',
+        files: 0,
+        errors: 0,
+        warnings: 0,
       },
     ])
   }

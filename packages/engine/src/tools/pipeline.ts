@@ -17,6 +17,7 @@ import { errText } from '../errs.js'
 import type { EventBus } from '../bus.js'
 import type { UserHookRunner } from '../hooks/runner.js'
 import type { MemoryStore } from '../memory/store.js'
+import type { LspExecutor } from '../lsp/manager.js'
 import type { ToolSpec } from '../llm-gateway.js'
 import type { Metrics } from '../observability/metrics.js'
 import type { ToolPipeline, ToolPipelineResult, TurnCtx } from '../run-loop.js'
@@ -45,6 +46,8 @@ export interface PipelineDeps {
   memory?: MemoryStore
   /** 退出计划模式钩子（工单 16.3；缺省 exit_plan_mode 报 E_UNSUPPORTED——测试 stub 可省） */
   exitPlanMode?: () => Promise<void>
+  /** LSP 连接管理（工单 16.9；缺省 lsp 工具报 E_LSP_UNAVAILABLE——测试 stub 可省） */
+  lsp?: LspExecutor
   /** 时间源（memory.save created_at；缺省 Date.now） */
   now?: () => number
   /** 子代理预设档收窄掉的工具名（工单 13.5）：不进广告面；若模型仍调用，
@@ -283,6 +286,7 @@ export class ToolPipelineImpl implements ToolPipeline {
           cwd: this.deps.cwd,
           ...(this.deps.memory !== undefined ? { memory: this.deps.memory } : {}),
           ...(this.deps.exitPlanMode !== undefined ? { exitPlanMode: this.deps.exitPlanMode } : {}),
+          ...(this.deps.lsp !== undefined ? { lsp: this.deps.lsp } : {}),
           ...(this.deps.now !== undefined ? { now: this.deps.now } : {}),
         },
         input,

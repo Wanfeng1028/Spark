@@ -1,6 +1,6 @@
 /**
  * 协议 round-trip 单测（doc/02 §8.6 protocol 行；工单 1.2 验收）：
- * 26 种事件逐一构造样例 → 信封+data 双步校验 → JSON 序列化往返仍通过。
+ * 27 种事件逐一构造样例 → 信封+data 双步校验 → JSON 序列化往返仍通过。
  */
 import { describe, expect, it } from 'vitest'
 import { EnvelopeSchema, EventSchemas, jsonSchemas, parseEnvelope } from '../src/index.js'
@@ -91,6 +91,20 @@ const samples: { [K in SparkEventType]: SparkEventMap[K] } = {
   },
   'goal.completed': { iterations: 3, usedTokens: 41200 },
   'goal.paused': { reason: 'maxIterations', iterations: 50, usedTokens: 198600 },
+  // LSP 诊断（工单 16.9）：durable 非 surface；severity 走 LSP 1-4 档
+  'lsp.diagnostics': {
+    language: 'typescript',
+    uri: 'file:///E:/code/demo/src/index.ts',
+    diagnostics: [
+      {
+        severity: 2,
+        range: { start: { line: 9, character: 4 }, end: { line: 9, character: 12 } },
+        message: "'x' is declared but its value is never read.",
+        source: 'ts',
+        code: 6133,
+      },
+    ],
+  },
 }
 
 /** 组装信封：durable 类带 seq/parentId；surface 类带 surface 标记（编译期强制） */
@@ -115,8 +129,8 @@ function envelopeOf<K extends SparkEventType>(
 }
 
 describe('事件词表', () => {
-  it('词表共 26 种（durable 23 + live 3）', () => {
-    expect(Object.keys(EventSchemas)).toHaveLength(26)
+  it('词表共 27 种（durable 24 + live 3）', () => {
+    expect(Object.keys(EventSchemas)).toHaveLength(27)
   })
 
   it('CallId 透传上游 id（工单 10.39：OpenAI call_xxx / Anthropic toolu_xxx 过闸，不重写）', () => {
@@ -137,7 +151,7 @@ describe('事件词表', () => {
   })
 })
 
-describe('round-trip：26 种事件逐一', () => {
+describe('round-trip：27 种事件逐一', () => {
   for (const key of Object.keys(samples) as SparkEventType[]) {
     it(`${key}：构造 → parseEnvelope → JSON 往返 → 再 parse`, () => {
       const envelope = envelopeOf(key, samples[key], 3)

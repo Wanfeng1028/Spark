@@ -108,6 +108,12 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
         status: 'ready',
       },
       {
+        id: 'lsp',
+        title: '语言服务器',
+        description: '连接状态与诊断摘要（只读；配置走 ~/.spark/lsp.json，工单 16.9）',
+        status: 'ready',
+      },
+      {
         id: 'commands',
         title: '命令',
         description: '内置与自定义命令清单（只读；增改走 ~/.spark/commands）',

@@ -8,6 +8,7 @@ import type { CliPanel } from '../store.js'
 import { BootHeader } from './BootHeader.js'
 import {
   CheckpointsPanel,
+  LspPanel,
   McpPanel,
   ModelPanel,
   SkillsPanel,
@@ -81,6 +82,9 @@ export function PanelRouter({
   }
   if (panel === 'skills') {
     return <SkillsPanel transport={transport} />
+  }
+  if (panel === 'lsp') {
+    return <LspPanel transport={transport} />
   }
   if (panel === 'usage') {
     return <UsagePanel transport={transport} />

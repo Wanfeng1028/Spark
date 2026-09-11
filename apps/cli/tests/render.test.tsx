@@ -584,8 +584,8 @@ describe('slash 菜单过滤（工单 10.10）', () => {
     expect(filterSlashCommands(commands, 'zzz')).toEqual([])
   })
 
-  it('协议词表基线 18 条可过滤（工单 10.18 单一词表 + /init + /plan + /goal + 16.6 /voice）', () => {
-    expect(BUILTIN_COMMANDS).toHaveLength(18)
+  it('协议词表基线 19 条可过滤（工单 10.18 单一词表 + /init + /plan + /goal + /voice + 16.9 /lsp）', () => {
+    expect(BUILTIN_COMMANDS).toHaveLength(19)
     expect(filterSlashCommands([...BUILTIN_COMMANDS], 'effort').map((c) => c.name)).toEqual([
       'effort',
     ])
@@ -596,6 +596,8 @@ describe('slash 菜单过滤（工单 10.10）', () => {
     expect(filterSlashCommands([...BUILTIN_COMMANDS], '目标').map((c) => c.name)).toEqual(['goal'])
     // 工单 16.6：/voice 的 surface 含 cli，描述含"语音"必可按中文命中
     expect(filterSlashCommands([...BUILTIN_COMMANDS], '语音').map((c) => c.name)).toEqual(['voice'])
+    // 工单 16.9：/lsp 的 surface 含 cli，描述含"语言服务器"必可按中文命中
+    expect(filterSlashCommands([...BUILTIN_COMMANDS], '语言服务器').map((c) => c.name)).toEqual(['lsp'])
   })
 })
 

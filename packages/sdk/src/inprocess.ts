@@ -34,6 +34,7 @@ import type {
   EventId,
   FsListDto,
   FsTreeDto,
+  LspServerStatusDto,
   McpConfigInput,
   McpServerDto,
   MemoryDto,
@@ -354,6 +355,11 @@ export class InProcessTransport implements Transport {
   listAgentPresets(): Promise<AgentPresetDto[]> {
     // 引擎回 readonly 数组（它对外只读），Transport 合同是可变数组——拷一份不泄露引擎内部引用
     return this.sync(() => [...this.engine.listAgentPresets()])
+  }
+
+  async listLspServers(): Promise<LspServerStatusDto[]> {
+    // 引擎侧 status() 每次重读 lsp.json（async）——直接透传其 Promise
+    return [...(await this.engine.listLspServers())]
   }
 
   usageSummary(since?: string): Promise<UsageSummaryDto> {

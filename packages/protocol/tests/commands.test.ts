@@ -42,15 +42,17 @@ describe('BUILTIN_COMMANDS 不变量（工单 10.18③）', () => {
     }
   })
 
-  it('surface 至少一端；基线数量 = 判决表 14 条 + /init + /plan + /goal + 工单 16.6 /voice（18 条）', () => {
+  it('surface 至少一端；基线数量 = 判决表 14 条 + /init + /plan + /goal + /voice + 工单 16.9 /lsp（19 条）', () => {
     for (const c of BUILTIN_COMMANDS) {
       expect(c.surface.length).toBeGreaterThanOrEqual(1)
     }
-    expect(BUILTIN_COMMANDS).toHaveLength(18)
+    expect(BUILTIN_COMMANDS).toHaveLength(19)
     expect(BUILTIN_COMMANDS.some((c) => c.name === 'init' && c.kind === 'action')).toBe(true)
     // 工单 16.3：/plan 必须是 **action**（引擎侧一处实现，四端只读投影的 slice.mode），
     // 不是 client 命令——否则四个前端各自接一套模式状态机，必漂移
     expect(BUILTIN_COMMANDS.some((c) => c.name === 'plan' && c.kind === 'action')).toBe(true)
+    // 工单 16.9：/lsp 是 client 命令（面板呈现，连接管理在引擎）
+    expect(BUILTIN_COMMANDS.some((c) => c.name === 'lsp' && c.kind === 'client')).toBe(true)
   })
 
   it('clientAction 与命令名封闭映射（分派表键空间）', () => {

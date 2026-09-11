@@ -54,6 +54,7 @@ import type {
   TraceDto,
   TreeNodeDto,
   AgentPresetDto,
+  LspServerStatusDto,
   UsageSummaryDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
@@ -471,6 +472,10 @@ export class HttpTransport implements Transport {
 
   listAgentPresets(): Promise<AgentPresetDto[]> {
     return this.req<AgentPresetDto[]>('/api/agents')
+  }
+
+  listLspServers(): Promise<LspServerStatusDto[]> {
+    return this.req<LspServerStatusDto[]>('/api/lsp')
   }
 
   usageSummary(since?: string): Promise<UsageSummaryDto> {

@@ -71,6 +71,35 @@ export function ItemView({
     return <ToolLine item={item} expanded={expandedTools.has(item.callId)} />
   }
 
+  // LSP 诊断行（工单 16.9）：语言 + 文件 + 摘要（E/W 计数），逐条消息进展开态不计（只读快照）
+  if (item.kind === 'diagnostics') {
+    const file = item.uri.startsWith('file:') ? item.uri.slice('file:'.length) : item.uri
+    const errors = item.diagnostics.filter((d) => d.severity === 1).length
+    const warnings = item.diagnostics.filter((d) => d.severity === 2).length
+    const head =
+      item.diagnostics.length === 0
+        ? `LSP ${item.language} ${file} —— 诊断已清零`
+        : `LSP ${item.language} ${file} —— ${item.diagnostics.length} 条（E ${errors} / W ${warnings}）`
+    return (
+      <Box flexDirection="row">
+        <Box width={2} flexShrink={0}>
+          <Text color="gray">▤</Text>
+        </Box>
+        <Box flexDirection="column" flexGrow={1}>
+          <Text color="gray">{head}</Text>
+          {item.diagnostics.slice(0, 5).map((d, i) => (
+            <Text key={i} wrap="truncate-end">
+              <Text color={d.severity === 1 ? 'red' : undefined}>
+                [{d.severity === 1 ? 'E' : d.severity === 2 ? 'W' : 'I'}]
+              </Text>{' '}
+              {d.range.start.line + 1}:{d.range.start.character + 1} {d.message}
+            </Text>
+          ))}
+        </Box>
+      </Box>
+    )
+  }
+
   // approval 已解决态（挂起态由 ApprovalPrompt 单独渲染——交互焦点不同）
   const denied = item.reply === 'reject'
   const replyText =

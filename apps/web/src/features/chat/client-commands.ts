@@ -21,6 +21,8 @@ export const CLIENT_ACTIONS: Readonly<Partial<Record<ClientAction, ClientCommand
   mcp: { kind: 'navigate', path: '/settings/mcp' },
   skills: { kind: 'navigate', path: '/settings/skills' },
   usage: { kind: 'navigate', path: '/settings/usage' },
+  // 语言服务器面板（工单 16.9）：连接状态 + 诊断摘要（/settings/lsp 只读页）
+  lsp: { kind: 'navigate', path: '/settings/lsp' },
   resume: { kind: 'palette' },
   // 语音听写模式循环（工单 16.6）：执行由调用处接 ui store cycleVoiceMode
   voice: { kind: 'voice' },

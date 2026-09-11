@@ -24,6 +24,9 @@ function itemSettled(it: UiItem): boolean {
       return it.status !== 'running'
     case 'approval':
       return it.status === 'resolved'
+    case 'diagnostics':
+      // LSP 诊断行（工单 16.9）：到达即定稿（publish 全量替换语义，事件本身不再变化）
+      return true
   }
 }
 

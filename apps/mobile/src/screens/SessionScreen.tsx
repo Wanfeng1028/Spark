@@ -172,6 +172,9 @@ export function SessionScreen() {
       case 'turn':
         // 回合头暂无移动端形态（§13.J 未定义），穷尽分支渲染空
         return null
+      case 'diagnostics':
+        // LSP 诊断流（工单 16.9）：web 会话流已呈现；移动端形态留待 §13.J 扩展，穷尽分支渲染空
+        return null
     }
   }
 

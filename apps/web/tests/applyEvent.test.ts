@@ -1,5 +1,5 @@
 /**
- * applyEvent reducer 单测（doc/02 §6.4 处理表 26 种事件逐条覆盖，AGENTS §2.8）。
+ * applyEvent reducer 单测（doc/02 §6.4 处理表 27 种事件逐条覆盖，AGENTS §2.8）。
  * 工单 8.2 起实现下沉 @spark/protocol（D22 四端共享资产），web/cli 同一实现共此词表把关。
  * applyEvent 为纯函数——直接构造状态与事件断言，无 React 绑定。
  */
@@ -911,6 +911,67 @@ describe('goal.* 持续目标（工单 16.7）', () => {
     const s1 = seeded()
     const s2 = applyEvent(s1, ev('goal.set', { goal: 'g' }, { seq: 5 }))
     const s3 = applyEvent(s2, ev('goal.set', { goal: 'g' }, { seq: 5 }))
+    expect(s3).toBe(s2)
+  })
+})
+
+describe('lsp.diagnostics（工单 16.9）', () => {
+  const DIAG = {
+    severity: 1,
+    range: { start: { line: 9, character: 4 }, end: { line: 9, character: 12 } },
+    message: "'x' is declared but its value is never read.",
+    source: 'ts',
+  }
+
+  it('publish → 会话流追加 diagnostics 项（language/uri/diagnostics 随行）', () => {
+    const s = applyEvent(
+      seeded(),
+      ev('lsp.diagnostics', { language: 'typescript', uri: 'file:///w/a.ts', diagnostics: [DIAG] }, { seq: 2 }),
+    )
+    const items = s.byId[SID]?.items ?? []
+    expect(items).toHaveLength(1)
+    const item = items[0]
+    expect(item).toMatchObject({
+      kind: 'diagnostics',
+      language: 'typescript',
+      uri: 'file:///w/a.ts',
+    })
+    if (item !== undefined && item.kind === 'diagnostics') {
+      expect(item.diagnostics).toEqual([DIAG])
+    }
+  })
+
+  it('空数组 = 诊断清零（真实发布，照常入流不丢弃）', () => {
+    const base = applyEvent(
+      seeded(),
+      ev('lsp.diagnostics', { language: 'typescript', uri: 'file:///w/a.ts', diagnostics: [DIAG] }, { seq: 2 }),
+    )
+    const s = applyEvent(
+      base,
+      ev('lsp.diagnostics', { language: 'typescript', uri: 'file:///w/a.ts', diagnostics: [] }, { seq: 3 }),
+    )
+    const items = s.byId[SID]?.items ?? []
+    expect(items).toHaveLength(2)
+    if (items[1] !== undefined && items[1].kind === 'diagnostics') {
+      expect(items[1].diagnostics).toEqual([])
+    }
+  })
+
+  it('多次 publish 逐条入流（转录式——回放即重建诊断时间线）', () => {
+    let s = seeded()
+    s = applyEvent(s, ev('lsp.diagnostics', { language: 'python', uri: 'file:///w/b.py', diagnostics: [DIAG] }, { seq: 2 }))
+    s = applyEvent(
+      s,
+      ev('lsp.diagnostics', { language: 'python', uri: 'file:///w/b.py', diagnostics: [{ ...DIAG, severity: 2 }] }, { seq: 3 }),
+    )
+    expect((s.byId[SID]?.items ?? []).filter((it) => it.kind === 'diagnostics')).toHaveLength(2)
+  })
+
+  it('durable：seq 推进 lastSeq；回放同 seq 吸附（§6.4 去重）', () => {
+    const s1 = seeded()
+    const s2 = applyEvent(s1, ev('lsp.diagnostics', { language: 'go', uri: 'file:///w/c.go', diagnostics: [] }, { seq: 7 }))
+    expect(s2.byId[SID]?.lastSeq).toBe(7)
+    const s3 = applyEvent(s2, ev('lsp.diagnostics', { language: 'go', uri: 'file:///w/c.go', diagnostics: [] }, { seq: 7 }))
     expect(s3).toBe(s2)
   })
 })

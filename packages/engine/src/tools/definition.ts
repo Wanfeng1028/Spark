@@ -6,6 +6,7 @@ import { isAbsolute, relative, resolve } from 'node:path'
 import type { z } from 'zod'
 import type { CallId, EventId, SessionId, TurnId } from '@spark/protocol'
 import type { MemoryStore } from '../memory/store.js'
+import type { LspExecutor } from '../lsp/manager.js'
 
 export interface ToolContext {
   sessionId: SessionId
@@ -26,6 +27,12 @@ export interface ToolContext {
    * 与 `memory?` 同一手法）。缺省未注入时工具如实报 E_UNSUPPORTED，不假装已切模式。
    */
   exitPlanMode?: () => Promise<void>
+  /**
+   * LSP 连接管理（工单 16.9）：`lsp` 工具专用，其余工具忽略。由引擎装配管线时注入
+   * （**工具不持有 Engine**——与 `memory?`/`exitPlanMode?` 同一手法）。缺省未注入时
+   * 工具如实报 E_LSP_UNAVAILABLE，不假装可查。
+   */
+  lsp?: LspExecutor
   /** 时间源（memory.save 记 created_at；缺省 Date.now） */
   now?: () => number
 }

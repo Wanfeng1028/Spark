@@ -1,6 +1,6 @@
 /**
  * applyEvent reducer（doc/02 §6.4 处理表 / D22 四端共享资产之二，工单 8.2 自 apps/web 下沉）：
- * 事件信封 → 会话投影（UiItem 序列与切片状态）的唯一纯函数，26 种词表逐一处理；
+ * 事件信封 → 会话投影（UiItem 序列与切片状态）的唯一纯函数，27 种词表逐一处理；
  * web（zustand 包装）与 cli（Ink 渲染）共用同一实现——词表穷尽性由 web 侧单测逐条把关。
  * 去重规则（回放×直播重叠）：durable（有 seq）且 seq <= lastSeq → 跳过；live（无 seq）无条件应用。
  */
@@ -74,6 +74,13 @@ export type UiItem =
       alwaysPatterns?: string[]
       reply?: 'once' | 'always' | 'reject'
       status: 'pending' | 'resolved'
+    } & UiItemBase)
+  | ({
+      /** LSP 诊断流（工单 16.9）：每次 publish 一行卡（多次 publish 逐条入流——回放即重建） */
+      kind: 'diagnostics'
+      language: string
+      uri: string
+      diagnostics: SparkEventMap['lsp.diagnostics']['diagnostics']
     } & UiItemBase)
 
 export interface SessionMeta {
@@ -169,7 +176,7 @@ export function emptySessionSlice(sid: SessionId): SessionSlice {
   }
 }
 
-// ---------- reduce：§6.4 处理表（26 种全覆盖） ----------
+// ---------- reduce：§6.4 处理表（27 种全覆盖） ----------
 
 /** 按词表窄化事件 data 的类型守卫（同 SessionPage 模式） */
 function ofType<T extends SparkEventEnvelope['type']>(
@@ -682,6 +689,22 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
 
   if (ofType(e, 'checkpoint.created')) {
     next.lastCheckpoint = { checkpointId: e.data.checkpointId, turnId: e.data.turnId }
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'lsp.diagnostics')) {
+    // 工单 16.9：诊断进会话流——每次 publish 一行卡（诊断清零也是一次真实发布，照常入流）
+    items = [
+      ...items,
+      {
+        kind: 'diagnostics',
+        eventId: e.id,
+        language: e.data.language,
+        uri: e.data.uri,
+        diagnostics: e.data.diagnostics,
+      },
+    ]
+    next.items = items
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 

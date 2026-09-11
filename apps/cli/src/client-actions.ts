@@ -43,6 +43,8 @@ export function createCliActionHandlers(deps: CliActionDeps): Record<ClientActio
     rollback: (args) => needSession(() => deps.rollbackTo(args)),
     effort: (args) => needSession(() => deps.setEffort(args)),
     tree: () => needSession(() => st.setPanel('tree')),
+    // 语言服务器面板（工单 16.9）：连接状态 + 诊断摘要（连接管理在引擎，无需激活会话）
+    lsp: () => st.setPanel('lsp'),
     voice: (args) => needSession(() => deps.voice(args)),
   }
 }

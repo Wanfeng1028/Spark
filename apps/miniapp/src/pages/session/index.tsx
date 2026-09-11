@@ -278,6 +278,9 @@ export default function SessionPage() {
                 case 'turn':
                   // 回合头暂无小程序形态，穷尽分支渲染空（工单 10.4）
                   return null
+                case 'diagnostics':
+                  // LSP 诊断流（工单 16.9）：web 会话流已呈现；小程序形态留待扩展，穷尽分支渲染空
+                  return null
               }
             })
           )}

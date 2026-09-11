@@ -108,6 +108,12 @@ export const MessageItem = memo(function MessageItem({ item, model, sid, highlig
           <ApprovalRow item={item} />
         </div>
       )
+    case 'diagnostics':
+      return (
+        <div className={hl}>
+          <DiagnosticsRow item={item} />
+        </div>
+      )
   }
 })
 
@@ -141,5 +147,42 @@ function ApprovalRow({ item }: { item: Extract<UiItem, { kind: 'approval' }> }) 
       reply={item.reply}
       onReply={onReply}
     />
+  )
+}
+
+/** 严重度角标配色：error 琥珀警示、warning 前景、info/hint 弱化（中性基调，warn 仅点睛） */
+function severityText(severity: number): { label: string; cls: string } {
+  if (severity === 1) return { label: 'E', cls: 'text-[var(--spark-warn)]' }
+  if (severity === 2) return { label: 'W', cls: 'text-foreground' }
+  return { label: 'I', cls: 'text-muted-foreground' }
+}
+
+/** LSP 诊断行（工单 16.9）：语言 + 文件 + 逐条（严重度/位置/消息），诊断清零如实显示 */
+function DiagnosticsRow({ item }: { item: Extract<UiItem, { kind: 'diagnostics' }> }) {
+  const file = item.uri.startsWith('file:') ? item.uri.slice('file:'.length) : item.uri
+  return (
+    <article className="w-full rounded-md border border-border px-3 py-2">
+      <p className="font-mono text-xs text-muted-foreground">
+        LSP {item.language} · {file || '(未知文件)'}
+      </p>
+      {item.diagnostics.length === 0 ? (
+        <p className="mt-1 text-[13px] text-muted-foreground">诊断已清零（无错误）</p>
+      ) : (
+        <ul className="mt-1 flex flex-col gap-0.5">
+          {item.diagnostics.map((d, i) => {
+            const sev = severityText(d.severity)
+            return (
+              <li key={i} className="text-[13px] leading-relaxed">
+                <span className={cn('font-mono', sev.cls)}>[{sev.label}]</span>{' '}
+                <span className="font-mono text-xs text-muted-foreground">
+                  {d.range.start.line + 1}:{d.range.start.character + 1}
+                </span>{' '}
+                {d.message}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </article>
   )
 }

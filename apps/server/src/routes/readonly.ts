@@ -60,6 +60,11 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
     return engine.listMcpServers()
   })
 
+  // 语言服务器只读状态（工单 16.9）：连接状态 + 诊断摘要（未配置空数组；坏配置 E_CONFIG 由全局映射）
+  app.get('/api/lsp', async () => {
+    return engine.listLspServers()
+  })
+
   app.get('/api/skills', () => {
     // 纯内存读：已加载技能清单
     return engine.listSkills()
