@@ -168,28 +168,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     (t) => t instanceof Element && t.closest('[data-preset-menu]') !== null,
   )
 
-  // ---- 语音听写（工单 16.6，ADR D34）：麦克风钮 hold/tap；off 不渲染（禁假状态） ----
-  const voiceMode = useUiStore((s) => s.voiceMode)
-  const voice = useVoiceInput({
-    transport,
-    onText: (t) => {
-      // 转写文本追加到草稿末尾（函数式更新——录音期间用户继续打字也不丢字）；
-      // 非空草稿补一个空格分隔，追加后光标移到末尾
-      setDraft((prev) => {
-        const sep = prev === '' || prev.endsWith('\n') || prev.endsWith(' ') ? '' : ' '
-        return prev + sep + t
-      })
-      requestAnimationFrame(() => {
-        const node = taRef.current
-        if (node === null) return
-        node.focus()
-        const len = node.value.length
-        node.setSelectionRange(len, len)
-        updateCaret(node)
-      })
-    },
-  })
-
   // ---- + 菜单（工单 10.5⑤，§13.E）：附件/@///$ 四入口 ----
 
   /** + 菜单四项（工单 10.5⑤）：附件开关 + 三个触发词插入（@// /$） */
@@ -243,6 +221,30 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   /** @ 补全远程数据源（工单 12.5）：query 变化防抖 150ms 拉 listFs；路径 token 插入用 path */
   const [atEntries, setAtEntries] = useState<FsEntryDto[]>([])
   const { transport } = useTransport()
+
+  // ---- 语音听写（工单 16.6，ADR D34）：麦克风钮 hold/tap；off 不渲染（禁假状态） ----
+  //（位置纪律：必须在 transport 声明之后——钩子实参读取 transport，前置即 TDZ ReferenceError）
+  const voiceMode = useUiStore((s) => s.voiceMode)
+  const voice = useVoiceInput({
+    transport,
+    onText: (t) => {
+      // 转写文本追加到草稿末尾（函数式更新——录音期间用户继续打字也不丢字）；
+      // 非空草稿补一个空格分隔，追加后光标移到末尾
+      setDraft((prev) => {
+        const sep = prev === '' || prev.endsWith('\n') || prev.endsWith(' ') ? '' : ' '
+        return prev + sep + t
+      })
+      requestAnimationFrame(() => {
+        const node = taRef.current
+        if (node === null) return
+        node.focus()
+        const len = node.value.length
+        node.setSelectionRange(len, len)
+        updateCaret(node)
+      })
+    },
+  })
+
   useEffect(() => {
     if (sessionId === undefined || menu?.kind !== 'at' || menu.query === '') {
       setAtEntries([])
