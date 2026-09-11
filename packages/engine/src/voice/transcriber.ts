@@ -130,13 +130,12 @@ export async function transcribeAudio(
   } catch {
     throw new Error('E_TRANSCRIBE_UPSTREAM: 转写服务响应不是 JSON')
   }
-  if (
-    typeof parsed !== 'object' ||
-    parsed === null ||
-    !('text' in parsed) ||
-    typeof (parsed as { text: unknown }).text !== 'string'
-  ) {
+  const text =
+    typeof parsed === 'object' && parsed !== null && 'text' in parsed && typeof parsed.text === 'string'
+      ? parsed.text
+      : null
+  if (text === null) {
     throw new Error('E_TRANSCRIBE_UPSTREAM: 转写服务响应缺 text 字段')
   }
-  return { text: parsed.text, provider, model }
+  return { text, provider, model }
 }
