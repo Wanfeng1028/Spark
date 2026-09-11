@@ -74,10 +74,11 @@ describe('useVoiceInput（工单 16.6）', () => {
       await result.current.start()
     })
     expect(result.current.phase).toBe('recording')
-    await act(async () => {
+    act(() => {
       result.current.stop()
     })
-    // waitFor 不嵌在 act 内（RTL 纪律：嵌套会与 act 刷新队列互锁，phase 停在最后刷新值 'recording'）
+    // waitFor 不嵌在 act 内（RTL 纪律：嵌套会与 act 刷新队列互锁，phase 停在最后刷新值 'recording'）；
+    // stop 同步触发 onstop 浮动 async 链，同步 act 只刷 transcribing，idle 交 waitFor 轮询
     await waitFor(() => expect(result.current.phase).toBe('idle'))
     expect(received).toEqual(['你好世界'])
     expect(FakeRecorder.instances[0]?.stopped).toBe(1)
@@ -105,7 +106,7 @@ describe('useVoiceInput（工单 16.6）', () => {
     await act(async () => {
       await result.current.start()
     })
-    await act(async () => {
+    act(() => {
       result.current.stop()
     })
     // waitFor 不嵌在 act 内（同上：避免与 act 刷新互锁）
