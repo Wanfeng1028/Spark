@@ -23,6 +23,7 @@ import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ids } from '@spark/protocol'
 import type { SessionId, Usage } from '@spark/protocol'
+import type { SparkEventEnvelope } from '@spark/protocol'
 import { errText } from '../errs.js'
 
 /** 竞答规模上限（qwen ARENA_MAX_AGENTS 同值） */
@@ -67,10 +68,19 @@ function parseNumstat(stdout: string): { files: number; additions: number; delet
   return { files, additions, deletions }
 }
 
+/** Arena 对 contender 会话句柄的窄视图（SessionHandle 的结构子集） */
+interface ArenaHandleLike {
+  meta: { cwd: string }
+  status(): string
+  events(): SparkEventEnvelope[]
+  interrupt(): Promise<void>
+  send(text: string): Promise<unknown>
+}
+
 /** Arena 对 Engine 的窄依赖面（结构类型——只消费既有公共方法 + 三个新增面） */
 export interface ArenaEngine {
-  getSession(id: SessionId): { meta: { cwd: string }; status(): string; events(): import('@spark/protocol').SparkEventEnvelope[]; interrupt(): Promise<void> } | undefined
-  resumeSession(id: SessionId): Promise<{ id: SessionId; meta: { cwd: string }; send(text: string): Promise<unknown>; status(): string; events(): import('@spark/protocol').SparkEventEnvelope[] }>
+  getSession(id: SessionId): ArenaHandleLike | undefined
+  resumeSession(id: SessionId): Promise<ArenaHandleLike & { id: SessionId }>
   createSession(opts: { cwd: string; parentId: SessionId; model?: string; title?: string }): Promise<{ id: SessionId; meta: { cwd: string } }>
   requestApproval(sessionId: SessionId, action: string, reason: string, patterns: string[]): Promise<boolean>
   writeFileInCwd(sessionId: SessionId, relPath: string, bytes: Buffer): Promise<void>
