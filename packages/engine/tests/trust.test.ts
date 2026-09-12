@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import { ids } from '@spark/protocol'
 import type { SparkEventEnvelope } from '@spark/protocol'
+import type { FolderTrust } from '../src/trust.js'
 import { ancestorKeys, loadTrustDoc, saveTrustDoc, tightens, trustLevelOf, trustKey } from '../src/trust.js'
 import { Engine } from '../src/engine.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
@@ -22,7 +23,7 @@ afterEach(() => {
 })
 
 describe('trustLevelOf（深匹配算法，qwen trust-precedence 语义）', () => {
-  const folders = {
+  const folders: Record<string, FolderTrust> = {
     '/home/u/work': 'trusted',
     '/home/u/work/danger': 'untrusted',
     '/home/u/other': 'untrusted',
@@ -34,7 +35,7 @@ describe('trustLevelOf（深匹配算法，qwen trust-precedence 语义）', () 
   })
 
   test('顺序无关：folders 键序不影响结果（纯函数）', () => {
-    const reversed = Object.fromEntries(Object.entries(folders).reverse())
+    const reversed: Record<string, FolderTrust> = Object.fromEntries(Object.entries(folders).reverse())
     expect(trustLevelOf('/home/u/work/danger/repo', reversed)).toBe('untrusted')
     expect(trustLevelOf('/home/u/work/repo', reversed)).toBe('trusted')
   })
