@@ -41,7 +41,7 @@ export function ArenaCard({ sessionId }: { sessionId: SessionId }) {
 
   if (arena === null) return null
 
-  async function apply(contenderSessionId: string): Promise<void> {
+  async function apply(contenderSessionId: SessionId): Promise<void> {
     setBusy(true)
     setError(null)
     try {

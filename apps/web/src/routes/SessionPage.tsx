@@ -307,7 +307,7 @@ export function SessionPage() {
             ) : (
               <>
                 {/* 竞答卡片（工单 16.8 / ADR D42）：有竞答快照才渲染（组件内轮询，null 不渲染） */}
-                {sessionId !== undefined && <ArenaCard sessionId={sessionId} />}
+                {sessionId !== undefined && <ArenaCard sessionId={ids.session(sessionId)} />}
                 <ChatView
                   sessionId={sessionId ?? ''}
                   {...(focusEventId !== undefined ? { focusEventId } : {})}
