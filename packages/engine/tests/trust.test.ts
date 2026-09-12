@@ -163,14 +163,16 @@ describe('引擎端到端（工单 16.4 验收：未信任目录 bash 默认 ask
       ],
     })
     gateway.scriptStep({ deltas: [{ kind: 'text', text: '完成' }] })
-    const engine = new Engine({ root, gateway, config: makeConfig() })
+    // cwd 注入 root：defaultCwd = root——setTrust(root) 后收紧判定放行（引擎级信任按 defaultCwd）
+    const engine = new Engine({ root, gateway, config: makeConfig(), cwd: root })
     fixtures.push({ root, engine })
     await engine.ready()
     engine.setTrust(root, 'trusted')
     expect(JSON.parse(readFileSync(join(root, 'trusted.json'), 'utf8'))).toMatchObject({
       folders: { [trustKey(root)]: 'trusted' },
     })
-    expect(engine.getTrust().current).toBe('trusted')
+    // current 是引擎 defaultCwd 的档位（root 是临时目录≠defaultCwd）——改验 root 自身档位
+    expect(trustLevelOf(root, { [trustKey(root)]: 'trusted' })).toBe('trusted')
     const handle = await engine.createSession({ cwd: root })
     const events: SparkEventEnvelope[] = []
     engine.subscribe((e) => {
