@@ -104,8 +104,16 @@ describe('引擎接线（settings.extensions 名单合成与启停写盘）', ()
   }
 
   test('discover → 启停写盘 → 名单合成 enabled=false；getSettings 回显 extensions 段', async () => {
-    const root = makeRoot({ 'extensions/demo-pack/spark-extension.json': MANIFEST })
-    const engine = new Engine({ root, gateway: new ScriptedLlm(), config: makeConfig() })
+    const cfg = makeConfig()
+    // persistSparkPatch 收口走 loadConfig(root) 重载——root 下须有真实 models.json（与注入配置一致）
+    const root = makeRoot({
+      'extensions/demo-pack/spark-extension.json': MANIFEST,
+      'models.json': JSON.stringify({
+        providers: cfg.models.providers,
+        defaultModel: cfg.models.defaultModel,
+      }),
+    })
+    const engine = new Engine({ root, gateway: new ScriptedLlm(), config: cfg })
     try {
       await engine.ready()
       expect((await engine.listExtensions())[0]?.enabled).toBe(true)
