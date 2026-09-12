@@ -78,10 +78,10 @@ function makeConfig(): EngineConfig {
   }
 }
 
-async function makeEngine(
+function makeEngine(
   cwd: string,
   rules?: EngineConfig['permissions']['rules'],
-): Promise<{ engine: Engine; gateway: ScriptedLlm }> {
+): { engine: Engine; gateway: ScriptedLlm } {
   const cfg = makeConfig()
   if (rules !== undefined) cfg.permissions = { version: 1, rules }
   const root = mkdtempSync(join(tmpdir(), 'spark-arena-root-'))
