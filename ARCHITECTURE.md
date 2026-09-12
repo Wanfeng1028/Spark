@@ -46,6 +46,7 @@
 | v1.44 | 2026-09-12 | AI 编写：Qoder；发起：晚风（Wanfeng1028，“继续”指令） | **阶段十八 18.4/18.5 收口 + D32 走查补记 + D34 ssrf 勘误**：① D32（web 胶囊化）走查补记——五档圆角封闭集在 apps/web 全量归档落地（src 圆角归零到 §13.B），18.5② AA 复核修正两处 4.44:1 次要文本（改 foreground/70），移动端 §13.J 同族无连带微调（详见 doc/08 v1.43）。② D34（/voice）SSRF 防护面勘误——撤 `::ffff:0:0/96`（Node 归一化 v4 为 ::ffff:v4，整段入表=封全部 IPv4、误杀公网端点），mapped 私网改由 BlockList v4-mapped 归一化命中既有 v4 私网段覆盖；Node 24 起 IPv6 addSubnet/check 须显式 'ipv6' family。修 CI 连红约 12 次（engine voice 三层 + lsp 夹具 + web voice 两测试 + lint，ca80e22→b08e6bc）并加固 mapped 变体断言（8baf9c6），CI 全绿。与 doc/08 v1.43 同批 |
 | v1.45 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，工单 16.9 完整落地指令） | **新增 D35 /lsp 语言服务器集成（工单 16.9）**：换基座判决——vscode-languageserver-protocol@3.18.3 + vscode-jsonrpc@9.0.2（MIT，微软官方）替代移植 qwen 自研 JsonRpcConnection；两必抄安全细节落地有单测（spawn 前敏感 env 剥离 qwen 同清单大小写不敏感 + config hash 键排序 sha256 不变不重启）；连接管理住 engine lsp/（惰性 spawn/initialize 10s/请求 15s/诊断缓存全量替换 + lsp.diagnostics durable 落盘）；单工具 12 操作枚举（qwen 设计照抄）走 fs.read 审批域只读；Transport 增 listLspServers（三通道对等）。事件词表 26 → **27 种**（lsp.diagnostics，durable 非 surface）；§2 事件模型行同步；命令基线 18→19。与 doc/02 v4.44、AGENTS v1.43、README v1.37、doc/08 v1.44 同批（编号注记：本行原拟 v1.44，被上批 Qoder 18.4/18.5 收口占用，按「先来者保留、后来者顺延」顺延为 v1.45） |
 | v1.46 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D36 /agents 子代理管理（工单 16.2）**：两口子拍板落地——格式维持 JSON 单一来源不引入 MD+frontmatter（配置面全族统一），**两层定义**（项目层 .spark/agents 覆盖用户层同名，source 合成值）；启停走 spark.json agents.disabledAgents 名单（PUT /api/settings 既有链路，重启档，停用档 E_CONFIG 拒绝不静默回退）；零新端点零审批面。命令基线 19→20（/agents client 命令）。与 doc/02 v4.45、AGENTS v1.44、README v1.38、doc/08 v1.45 同批 |
+| v1.47 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D39 Spark as MCP server = stdio 单入口 + 三工具 + 审批 fail-closed（工单 15.1）**：`spark mcp` 子命令（apps/cli/src/mcp-server.ts 独立文件 + main.tsx 一行注册）；进程内 Engine 装配同 12.3（sdk inprocess 通道，数据根 ~/.spark 与 TUI 同源）；三工具 spark_run/spark_sessions/spark_events；审批语义如实声明——规则照常生效、ask 挂起超时 fail-closed 拒绝（permissionTimeoutMs 收敛 120s）、audit 零旁路；被否备选：SSE transport（V2-21 一并）、免审批直通（违反铁律）。编号注记：占 D39（D37=16.4 已引用、D38=并行 16.5/16.8 预留）。与 doc/08 §15.1 同批 |
 
 ---
 
@@ -378,6 +379,18 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 4. **四端**：web 子智能体页升管理态（两层分组 + 启停 Switch）；CLI /agents 面板（只读清单 + 停用标记，LspPanel 同族）；命令基线 19→20（/agents，client 命令）。
 后果：命令基线 19→20（四包断言同改）；protocol SettingsDto/Update 增 agents 段（契约生成物重跑 100 describe/970 断言）；engine presets 两层扫描 + requireAgentPreset 停用拒绝；server GET /api/agents 数据源合成 source/disabled（路由零改动）。
 编号注记：本 ADR 占 **D36**（顺延现表末张 D35）。
+
+### D39 Spark as MCP server = stdio 单入口 + 三工具 + 审批 fail-closed（2026-09-12，阶段十五工单 15.1）
+
+背景：doc/08 §15.1 立项——把引擎能力经 MCP 暴露给其他 agent（Claude Code / ZCode 等），Spark 成为"带审计的执行后端"。工单预称 D30（撰写时点占位），落地时按编号纪律顺延。
+候选（传输）：① **stdio 单入口**，采纳——本地单机场景（127.0.0.1 红线同源），`@modelcontextprotocol/sdk` Server 端已在依赖谱（D16 client 侧同 SDK），stdio 无端口无鉴权面；② SSE/StreamableHTTP transport——否决：属远程 server 诉求（V2-21 后置池），等真实诉求一并立项；③ 免审批直通——否决：违反审批 fail-closed 铁律。
+候选（工具面）：全 REST 镜像——否决（把 50+ 端点灌给外部 agent 是噪音）；**三工具**（spark_run / spark_sessions / spark_events），采纳——一把执行 + 两把只读，外部 agent 的最小充分面；流式不暴露（MCP 工具是请求响应，进度走 spark_events 按 since 轮询）。
+结论：
+1. **入口**：`spark mcp`（apps/cli/src/mcp-server.ts 独立文件，main.tsx 只留一行注册）——进程内 Engine 装配同工单 12.3（spark -p）模式：宿主构造 Engine + `@spark/sdk/inprocess` 通道，不起 server、不占端口；数据根缺省 `~/.spark`（会话/审计/权限规则与 TUI 同源持久化）。
+2. **审批语义（如实声明）**：MCP 工具调用是同步请求、无交互审批面——权限规则照常生效，ask 挂起由引擎既有 fail-closed 超时判 deny；production 入口把 `permissionTimeoutMs` 收敛到 **120s**（`Math.min` 用户配置，不让外部调用干等交互式 5min 缺省）。**audit 零旁路**：spark_run 走引擎自身管线（run-loop → permission service → audit.jsonl），无任何旁路代码，决策行 actor=system/source=timeout 照常落。
+3. **stdout 纪律**：stdio 传输独占 stdout——Engine logger 强制 `stdout: false`（12.3 同款），提示信息走 stderr。
+后果：apps/cli 增依赖 `@modelcontextprotocol/sdk@1.30.0`（engine 已有同版，不新增解析）；测试为进程内 handler 层三工具用例 + 审批超时拒绝路径（stdio 协议层不在单测面）；**真实外配走查（Claude Code / ZCode 实配完成一次真实任务调用 + 审计记录核对）留用户现场登记**。
+编号注记：本 ADR 占 **D39**——D37 为 16.4 /trust（已在 engine 源码引用）、D38 为并行在途的 16.5/16.8 预留，按"先来者保留、后来者顺延"处理。
 
 ## 6. 模块速览（职责边界）
 

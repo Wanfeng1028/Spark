@@ -33,6 +33,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
     "@spark/engine": "workspace:^",
     "@spark/protocol": "workspace:*",
     "@spark/sdk": "workspace:*",
