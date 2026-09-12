@@ -218,8 +218,8 @@ async function dispatchTool(
   }
 }
 
-/** 组装 MCP Server（stdio 解耦：connect 由调用方执行，测试可只借 handler 层） */
-export function createSparkMcpServer(deps: SparkMcpDeps): Server {
+/** 组装 MCP Server（stdio 解耦：connect 由调用方执行；模块内私有——runMcpServer 消费） */
+function createSparkMcpServer(deps: SparkMcpDeps): Server {
   const handlers = createSparkMcpHandlers(deps)
   const server = new Server({ name: 'spark', version: SPARK_VERSION }, { capabilities: { tools: {} } })
   server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: MCP_TOOLS }))
