@@ -121,9 +121,9 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 ## 当前状态
 
 - **v1 已完成合入 main**：五阶段（骨架/前端/引擎/深度体验/产品化）+ 阶段六~十（UI ZCode 化 / Harness 补全 / CLI TUI / 移动端三端 / UI 对齐与 CLI 重构）+ 质量收尾批次；**全部验证（typecheck / lint / test / e2e / eval / 文档检查器）由 CI 执行，本地不跑**（AGENTS §2.2）。
-- **v2 已开工**：阶段十一（可发布）与阶段十二（Agent 能力补全）已完成；阶段十七（代码冗余整改）已收官；13.1 第一批（任务级 eval 场景集）与阶段十六的 16.1（`/init`）/ 16.2（`/agents`）/ 16.3（`/plan`）/ 16.6（`/voice`）/ 16.7（`/goal`）/ 16.9（`/lsp`）已落地。
+- **v2 已开工**：阶段十一（可发布）~十五（生态面：spark mcp / OpenAPI 导出 / skill-kit / skills 边界拍板）已完成；阶段十三（可证明）与阶段十四（SDK 化）全量落地；阶段十七（代码冗余整改）与阶段十八（web 观感对齐）已收官；阶段十六的 16.1（`/init`）/ 16.2（`/agents`）/ 16.3（`/plan`）/ 16.4（`/trust`）/ 16.5（`/extensions`）/ 16.6（`/voice`）/ 16.7（`/goal`）/ 16.9（`/lsp`）已落地。
 - 用户可见变更与里程碑：[CHANGELOG.md](./CHANGELOG.md)。
-- 下一程：阶段十三余下（13.2–13.7：可证明与上下文工程）→ 阶段十四（SDK 化）→ 阶段十六余下（16.2/16.4 待拍板，16.5/16.8 受 16.2 阻塞）→ 阶段十八（web 观感对齐），工单库见 [doc/08](./doc/08-v2-roadmap.md)。
+- 下一程：阶段十六收尾（16.8 /arena 在途）→ 用户现场走查登记项（15.1 spark mcp 真实外配走查、15.2 Python 客户端生成待外部需求触发等），工单库见 [doc/08](./doc/08-v2-roadmap.md)。
 
 ## 版本记录
 
@@ -172,5 +172,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.37 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（工单 16.9 /lsp LSP 集成完整落地指令） | 架构图协议行 **事件词表 26→27 种**（阶段十六工单 16.9 /lsp：新增 lsp.diagnostics durable 事件，ADR D35 换基座 vscode-languageserver-protocol + vscode-jsonrpc；英文版同步）。与 AGENTS v1.43、ARCHITECTURE v1.45、doc/02 v4.44、doc/08 v1.44 同批 |
 | v1.38 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：阶段十六 16.2（/agents 两层子代理定义 + settings 启停，ADR D36）已落地；与 ARCHITECTURE v1.46、doc/02 v4.45、doc/08 v1.45 同批 |
 | v1.39 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：阶段十六 16.4（/trust 文件夹信任，ADR D40）与 16.5（/extensions 扩展，ADR D41）已落地。与 doc/02 v4.46、doc/08 v1.46 同批 |
+| v1.40 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：**阶段十五全量收官**——15.1 spark mcp stdio server（ADR D39）/ 15.2 OpenAPI 导出（CI gen+diff 门禁；Python 生成物待外部需求）/ 15.3 @spark/skill-kit 创作套件 / 15.4 Q-1 拍板维持纯声明 + MCP 兜工具面。与 doc/02 v4.47、doc/08 v1.47、ARCHITECTURE v1.47、AGENTS v1.46 同批 |
 
 </details>

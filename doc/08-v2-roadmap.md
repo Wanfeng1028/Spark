@@ -13,6 +13,7 @@
 | v1.44 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（工单 16.9 /lsp LSP 集成完整落地指令） | **§16.9 /lsp LSP 集成落地登记（ADR D35；§16.9 节内已附落地登记注记）**：产出①~⑥全量——engine 新模块 src/lsp/（config：~/.spark/lsp.json version 1 + languages 表 zod 校验；connection：**换基座 vscode-languageserver-protocol@3.18.3 + vscode-jsonrpc@9.0.2（MIT）** + sanitizedLspEnv 敏感 env 剥离 qwen 同清单大小写不敏感；manager：惰性连接/每次重读配置比对 per-server config hash（键排序 JSON sha256）**不变不重启**/initialize 10s/请求 15s/publishDiagnostics→缓存+durable 落盘归属最近打开会话）；事件 lsp.diagnostics（词表 26→27 六处同步）；lsp 单工具 12 操作（fs.read 只读域、四路径单测、恒广告 fail-closed）；/lsp 命令基线 18→19 四包断言同改（web /settings/lsp 页 + cli LspPanel）；web 会话流诊断行卡 + Transport.listLspServers 三通道对等（GET /api/lsp + mock + sdk inprocess）+ §5.10 七码。测试：engine lsp.test（node 假 LSP server 真实 stdio e2e）+ tools-lsp.test 四路径 + web reducer 4 例；契约生成物重跑 100 describe/966 断言。验收对账：诊断事件流/敏感 env 剥离/config hash = 引擎测试覆盖；TS/Python 真实 server 现场走查留用户。同步：doc/02 v4.44（六表 + §8.7 V2-30 收口）、ARCHITECTURE v1.45、AGENTS v1.43、README v1.37、README.en、doc/03 v1.4。本批本机零验证（批次 1 代码 fef3850 已先行入库；编号注记：本行原拟 v1.43，被上批 Qoder §18.4/§18.5 占用，顺延为 v1.44） |
 | v1.45 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | **§16.2 /agents 子代理管理落地登记（ADR D36；两口子经"全部做完"授权拍板）**：格式维持 JSON 单一来源（否决 MD+frontmatter）；两层定义（项目层覆盖用户层同名，source 合成值）；启停 spark.json agents.disabledAgents（PUT /api/settings，重启档，停用档 E_CONFIG 拒绝）；零新端点零审批面（定义文件写入仍归用户手改——工单"写入须过审批"红线天然满足）；命令基线 19→20。测试：engine 3 例新增 + server 断言同步 + 四包基线 + 契约生成物 100 describe/970。验收注：web/cli 启停与两层覆盖走查留用户。同步：doc/02 v4.45、ARCHITECTURE v1.46、AGENTS v1.44、README v1.38。本批本机零验证 |
 | v1.46 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | **§16.4 /trust 与 §16.5 /extensions 双落地登记（ADR D40/D41；Q-6 经"全部做完"授权确认）**：16.4——trusted.json 两档 + 祖先链深匹配（顺序无关/Win 归一）+ evaluateAll 后处理压 allow（未信任下 bash/MCP 自动放行收紧为逐次询问，deny/ask 不变）+ 引擎级 defaultCwd 判定（会话级差异登记）；16.5——声明式内容包（不执行代码）+ symlink 逃逸拒载 + settings.extensions 名单启停（清单热可见装配重启生效，深度热插拔登记限制）。两单四端齐（web 两页/CLI 两面板/基线 22）；测试 engine 13 例 + 四包基线 + 契约生成物。验收注：面板走查留用户。同步：doc/02 v4.46、ARCHITECTURE v1.48、AGENTS v1.45、README v1.39。本批本机零验证 |
+| v1.47 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **阶段十五 15.1–15.4 全量落地登记（生态面收官；Q-1 拍板关闭）**：① **15.1 Spark as MCP server（ADR D39）**——`spark mcp` stdio 子命令（apps/cli/src/mcp-server.ts 独立文件 + main.tsx 一行注册），进程内装配同 12.3，三工具 spark_run/spark_sessions/spark_events；审批如实声明 = 规则生效 + 挂起超时 fail-closed 拒绝（permissionTimeoutMs 收敛 120s）+ audit 零旁路；测试进程内 handler 三工具 + 审批超时拒绝路径（audit actor=system/source=timeout 断言）；真实外配走查留用户（登记限制）。② **15.2 OpenAPI 导出（v1 范围）**——openapi-routes.ts 67 条路由元数据（逐条反推 server routes，§4.5 底稿）+ gen-openapi.ts 合成（zod 41 组件 + SessionDto 组合 + 信封）→ packages/protocol/openapi.json（3.1，55 路径/67 操作）；生成器内置结构自检（responses/$ref/路径参数/重复路由）；ci.yml gen+diff 门禁同 14.2 口径；**Python 客户端与文档站 Python 页不补做（Java 工具链，待外部需求触发）**。③ **15.3 skill 创作套件**——skill 清单 schema 下沉 protocol（loader 同源单测零回归）、`@spark/skill-kit` init/lint（lint 查词表合法性/emit 声明/data 可转换，错误码与 loader 一致）、typecheck 面 13→14、创作指南 README；init 产出过 lint 闭环单测。④ **15.4 Q-1 收口（零代码）**——判决**维持纯声明 + MCP 兜工具面**（D18 不扩可编程），本线关闭不立 doc/10；受限可编程重开三触发条件（外部作者信号/声明式天花板实证/MCP 覆盖不了的场景清单）写入 §15.4 收口块；§0.2 Q-1 行关闭、后置池插件市场壳（V2-02）Q-1 依赖解除。验收注：三单的用户现场走查项已在各自进度注记登记。同步：doc/02 v4.47、ARCHITECTURE v1.47（D39）、AGENTS v1.46、README v1.40。本批本机零验证（例外：gen-openapi 生成器跑出 openapi.json 是工作产物），以 CI 裁决 |
 | v1.0 | 2026-08-31 | AI 编写：ZCode CLI・GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，四轮 v2 展望会话；MIT /npm CLI 优先 / 本文档交付形式三项已拍板）                               | 初稿：定位与使用说明・决策记录（已拍板 / 待拍板）・阶段十一～十五共 34 张工单（每张含验收标准与开工提示词）・后置观察池・提示词总则（附录 A）                                                                                                                                                                                                                                                      |
 | v1.1 | 2026-08-31 | 同上；核查：晚风（Wanfeng1028，对照四轮展望清单逐条核查指出缺漏）                                                                                                                              | **对照四轮展望补全六处**：§0.3 终点图景与差异化五牌；§4.0 五层开发者面表（修 14.6/11.8 悬空引用）；13.1 补「Spark as eval harness」定位句；新增 §7 生命力风险与对策（原不变量节顺延为 §8）；后置池补 LSP / 会话导出分享 / 计划模式 todo/V2-21/V2-02 / 其余候选池归并行；新增附录 B 阶段十在途工单引用式提示词（治理注记：阶段十唯一来源 doc/02 §8）                                                                                                     |
 | v1.40 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"先做不需要我拍板的"指令） | **18.1 改判的两处活引用同步（docs-update 第 3 步：结论变化要找全活引用）**。① `.agents/skills/frontend-component/SKILL.md` 第 3 步仍写"6px 圆角"——它是**流程文档**，不改就会让后续会话按旧口径把 6px 抄回来；改为"圆角只取 §13.B 封闭集档位"且**不复制数字**（规格唯一来源在 DESIGN，AGENTS §8），第 4 步的"11 项模式零命中"补 `rounded-2xl` 按档位判放行的注记。② 本库 §5C 批次总说明的"冲突点预先声明"仍把旧 §3 封顶写作"现行"——补消解注记（18.1 已立封闭集；旧原文保留为立项时的冲突记录，不再描述现状）。**全仓扫描口径**：`6px 圆角`/`控件 6px`/`卡片 8px`/`最大不超过 12px` 四模式全仓 .md 共 **39 次命中 = 活引用 4**（两处文本，doc/08 那一行同时命中三个模式）**+ 历史引用 7**（版本记录行与工单提示词，docs-update 禁改历史行）**+ `_scratch/lockfix*` 两份仓库旧快照 28**（Q-7 判决保留冻结，不动）。本批本机零验证 |
@@ -106,7 +107,7 @@
 
 | 编号  | 决策点                                       | 建议方向                                                                                              | 关联工单       |
 | --- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------- |
-| Q-1 | skills 边界：维持纯声明（D18）还是走向受限可编程             | 先维持纯声明 + MCP 兜工具面；15.4 研究后再定                                                                      | 15.4       |
+| Q-1 | skills 边界：维持纯声明（D18）还是走向受限可编程             | **已拍板（2026-09-12）：维持纯声明 + MCP 兜工具面**——收口结论见 §15.4 末块；受限可编程重开须满足三触发条件之一                                     | 15.4       |
 | Q-2 | i18n（V2-12）是否从 P2 提级                      | 11.8 英文 README 先行；全量 i18n 等第一批外部用户反馈再定                                                            | 11.8 / 后置池 |
 | Q-3 | 长任务 / 心跳 turn 是否立项                        | 有真实多日任务诉求再立项，须迷你 ADR（防滑向显式 Planner）                                                               | 后置池        |
 | Q-4 | 任务级基准选型（自建 vs Terminal-Bench 类外部 harness） | 先自建场景集（13.1），外部 harness 出可行性报告再定（13.2）。**报告已出（doc/09，2026-09-07）：建议不接**——自建为唯一回归门，外部基准只在三个触发条件下重评 | 13.1/13.2 |
@@ -1632,7 +1633,7 @@ DESIGN.md §12（文档站也守反 AI 味——禁渐变 hero/emoji 装饰）�
 >
 > **本阶段全部工单立项前必须重估**
 >
-> （依赖外部用户信号与 Q-1 拍板）。
+> （依赖外部用户信号与 Q-1 拍板）。**重估已完成（2026-09-12）**：Q-1 已拍板维持纯声明（§15.4 末块）；晚风"工单要全部做完"指令覆盖"外部用户信号"门槛，15.1–15.4 全量开工。
 
 ## 15.1 Spark as MCP server（stdio）
 
@@ -1678,6 +1679,8 @@ packages/engine/src/mcp/manager.ts、examples/evals/src/harness.ts（进程内�
 提交：feat(cli): 工单 15.1——spark mcp stdio server（D30）。
 ```
 
+> **进度（2026-09-12，落地，ADR D39）**：`spark mcp` 子命令（apps/cli/src/mcp-server.ts 独立文件 + main.tsx 一行注册；`@modelcontextprotocol/sdk@1.30.0` Server 端——engine 既有依赖，apps/cli 补同版声明）；进程内装配同 12.3（`createInProcessClient`，数据根缺省 `~/.spark` 与 TUI 同源持久化）；三工具 spark_run/spark_sessions/spark_events（input zod → `z.toJSONSchema` 出 ListTools，业务错误一律 isError 失败闭合）；审批语义如实声明 = 规则照常生效 + ask 挂起超时 fail-closed 拒绝（production 入口把 permissionTimeoutMs 收敛 120s）+ audit 零旁路（走引擎管线，无旁路代码）；stdout 独占纪律（logger `stdout:false`）。测试：进程内 handler 三工具用例 + 审批超时拒绝路径（audit 断言 actor=system/source=timeout，ScriptedLlm + 真实 Engine）。**验收注**：真实外配走查（Claude Code / ZCode 实配 `spark mcp` 完成一次真实任务调用 + 审计核对）与超时 fail-closed 演练留用户现场登记——CI 覆盖进程内面，stdio 协议层与真实 LLM 不在其内。被否备选（SSE transport / 免审批直通）与编号注记见 ARCHITECTURE D39。
+
 ## 15.2 OpenAPI 导出 + 生成式 Python 客户端
 
 
@@ -1717,6 +1720,8 @@ apps/server/src/routes.ts（路由清单——考虑给路由加轻量元数据�
 
 提交：feat(scripts): 工单 15.2——OpenAPI 导出与 Python 生成客户端。
 ```
+
+> **进度（2026-09-12，v1 范围落地）**：① 路由元数据 `packages/protocol/src/openapi-routes.ts`（67 条 = 全量路由逐条反推自 apps/server routes/*.ts，doc/02 §4.5 表为底稿；请求体凡 protocol 有 zod schema 用 `$ref` 引组件，server 侧本地 body 手写并注明来源）；② 生成器 `packages/protocol/scripts/gen-openapi.ts`——元数据 + protocol zod schema（`z.toJSONSchema` 合成 41 组件，含 SessionDto 组合与信封）→ `packages/protocol/openapi.json`（OpenAPI 3.1，入库，55 路径/67 操作）；**生成器内置结构自检**（openapi 字段/每操作必有 responses/全部 `$ref` 可解析/路径模板参数必有声明/路由无重复），任一不过退出码 1 不写半成品；③ ci.yml 追加 `gen:openapi` + `git diff --exit-code`（同 14.2 契约同步口径，排在 gen:events 对之后）。**v1 收窄两项登记限制（不补做，待外部需求触发）**：Python 客户端生成（openapi-generator 需 Java 工具链）与文档站 Python 页不做；Python 冒烟三调用随之缓议。验收注：swagger 校验以生成器内置自检为准（CI 重跑 + diff 门禁），外部 swagger-cli 校验与"Python 客户端对真实 server 三调用"同属外部需求触发面。
 
 ## 15.3 skills / 命令 TS 创作套件
 
@@ -1760,6 +1765,8 @@ apps/server/src/routes.ts（路由清单——考虑给路由加轻量元数据�
 提交：feat(protocol+cli): 工单 15.3——技能创作套件（schema 下沉 + init/lint）。
 ```
 
+> **进度（2026-09-12，落地）**：① **schema 下沉单一来源**——`packages/protocol/src/skill-manifest.ts`（SkillManifestSchema/SkillHookDefSchema/PLUGIN_EVENT_RE，形状与 5.5 loader 逐字一致），engine `skills/loader.ts` 改从 protocol 导入（依赖方向不变；`SkillHookDef` 类型改 protocol 定义、loader 再导出维持 index-internal 公共面）；协议面新增 zod schema 按登记不入 14.2 契约套件（gen-contract 只枚举 api/primitives/events——正则字符串样例超出其合成器范围，且清单是文件载入面非 wire DTO）；② **`@spark/skill-kit`**（独立小包，pnpm-workspace 的 `packages/*` glob 天然覆盖无需逐条补）——`init`（生成 skill.json 骨架 + README 模板；**拒绝覆盖既有文件**）、`lint`（清单字段 + 钩子 on 词表合法性（查 protocol `EventSchemas`）+ emit 声明存在 + data JSON Schema 可转换（`z.fromJSONSchema`，loader 同规则）；人话错误码 E_SKILL_*，非零退出码）；typecheck 入 `pnpm -r typecheck` 面（14 个项目）；③ 创作指南 = `packages/skill-kit/README.md`（声明式边界：能做什么/不能做什么/MCP 分工——引用 D18 不复制）。测试：init 产出过 lint 闭环 + demo-ping 样例对齐 + 四类拒绝路径。**验收注**：init→lint→放 skills 目录→引擎识别全链路走查与 demo-ping 套件重建实跑留用户现场（引擎识别行为由 loader 既有单测守护——schema 语义零变化）。
+
 ## 15.4 skills 边界决策：是否走向受限可编程（Q-1，研究 + 条件实现）
 
 
@@ -1798,7 +1805,26 @@ apps/server/src/routes.ts（路由清单——考虑给路由加轻量元数据�
 提交：docs(research): 工单 15.4——skills v2 边界研究报告（doc/10）。
 ```
 
+### 15.4 收口结论（2026-09-12，Q-1 拍板；本工单零代码）
 
+**判决：维持纯声明 + MCP 兜工具面（D18 不扩可编程），本线关闭、不立 doc/10 研究档。**
+依据：晚风"工单要全部做完"指令授权，按 §0.2 Q-1 预置建议方向拍板。不另写研究报告的理由：三候选的对比事实在仓内已有结论级证据（D18 判决 + 5.5 loader 落地 + D16/D39 MCP 全链路），外部作者生态尚未出现——那正是原报告要等的前提信号，先写报告只会产出没有读者的推测。
+
+三候选速断：
+
+1. **a. 维持纯声明（D18）——采纳**。安全面：零代码执行面 = 零新增攻击面（清单只有 JSON Schema 与钩子表，引擎不执行任何 skill 代码）；工程成本：loader 约 120 行，事件纪律（词表校验/失败闭合）免费复用；作者体验缺口由 **15.3 @spark/skill-kit**（init/lint，schema 与 loader 同源）补齐。
+2. **b. 受限脚本钩子（清单声明脚本文件，引擎 worker 池执行、无网络、超时熔断）——否决**。新增一整类子进程执行面（spawn 纪律/沙箱/熔断/审计接线全是新面），换来的表达力提升**当下没有真实诉求支撑**；且与 MCP 能力重叠（MCP 工具已有审批域、超时、限界、审计全链路——D16/D39）。
+3. **c. 完全可编程插件（JS 入口）——否决**。直接违反 D18 与"不执行任意代码"红线，不重开。
+
+**MCP 兜底口径**：一切"可编程"诉求（调外部服务、执行命令、动态数据）登记去 MCP——D39 之后外部 agent 与本机用户共享同一审批/审计语义，比给 skills 另造一条执行通道更符合 boring code。
+
+**受限可编程重开三触发条件**（满足其一即重评；重评须新 ADR + 独立工单，不自动实施）：
+
+1. **外部作者信号**：出现非本仓作者的真实技能生态诉求（issue/生态分发渠道），且其场景经确认为纯声明无法表达；
+2. **声明式能力天花板实证**：积攒出实例集合证明"事件 + 钩子"声明搞不定的高频场景——须给出具体清单，不接受假设场景；
+3. **MCP 覆盖不了的场景清单**：给出明确清单证明 MCP 兜不住（如：需要随引擎事件自动触发、且无法经"声明钩子 + MCP 工具"组合表达的数据变换）。
+
+**后果对账**：§0.2 Q-1 行已关闭（本批）；§6 后置池"插件市场壳（V2-02）"的 Q-1 依赖解除——市场壳只分发**声明式清单**，不做代码包分发；doc/02 §8.7 V2-02 行同步（本批）。
 
 ***
 
@@ -2679,7 +2705,7 @@ mock-transport 是回归网）、packages/protocol format.ts（若 R-B 已落地
 | 会话导出 / 分享                                                                 | 展望会话增量差距 #7     | opencode share 先例；本地产品先做导出（markdown/json），分享上云需安全评审   |
 | 计划模式 todo 交互层                                                             | 展望会话增量差距（低优先判决） | 现为权限预设层（D7 补记，无 todo 工具）；pi 证明极简可打 —— 登记不立项，等用户信号     |
 | MCP HTTP/SSE transport                                                    | V2-21 / D16 后置  | 远程 server 真实诉求再立项；15.1 stdio 先行                       |
-| 插件市场壳                                                                     | V2-02           | 依赖 Q-1 拍板（skills 边界）+ 12.6（V2-01）落地                   |
+| 插件市场壳                                                                     | V2-02           | **Q-1 已拍板（2026-09-12，§15.4 收口块）：维持纯声明——市场壳只分发声明式清单**；余下依赖 12.6（V2-01）落地                   |
 | 其余候选池项（V2-08 审查模式 / V2-09 辅助会话 / V2-13 数据管理 / V2-14 诊断页 / V2-22 keymap 等） | doc/02 §8.7     | 维持候选池身份；外部用户信号决定优先级，不阻塞阶段十一～十五                        |
 
 
