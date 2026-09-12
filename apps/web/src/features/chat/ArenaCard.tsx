@@ -9,6 +9,7 @@ import type { ArenaStatusDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { ids } from '@spark/protocol'
 import type { SessionId } from '@spark/protocol'
 
 const POLL_MS = 2000
@@ -41,11 +42,11 @@ export function ArenaCard({ sessionId }: { sessionId: SessionId }) {
 
   if (arena === null) return null
 
-  async function apply(contenderSessionId: SessionId): Promise<void> {
+  async function apply(contenderSessionId: string): Promise<void> {
     setBusy(true)
     setError(null)
     try {
-      await transport.applyArenaWinner(sessionId, contenderSessionId)
+      await transport.applyArenaWinner(sessionId, ids.session(contenderSessionId))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
