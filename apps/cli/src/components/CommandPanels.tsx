@@ -8,6 +8,8 @@
 import { Box, Text, useInput } from 'ink'
 import { useEffect, useState } from 'react'
 import type {
+  ExtensionDto,
+  TrustStatusDto,
   AgentPresetDto,
   CheckpointDto,
   ModelsDto,
@@ -222,6 +224,69 @@ export function AgentsPanel({ transport }: { transport: Transport }) {
                 {p.source === 'project' ? '项目' : '用户'}
                 {p.model !== undefined ? ` · ${p.model}` : ''}
                 {p.disabled === true ? ' · 已停用' : ''}
+              </Text>
+            </Text>
+          ))
+        )
+      } />
+    </PanelShell>
+  )
+}
+
+/** 文件夹信任面板（工单 16.4 / ADR D37）：清单 + 当前 cwd 有效档 + 收紧语义说明（修改走设置页） */
+export function TrustPanel({ transport }: { transport: Transport }) {
+  const state = useLoad<TrustStatusDto>(() => transport.getTrust())
+  return (
+    <PanelShell title="文件夹信任" hint="只读（修改走设置中心）">
+      <LoadState state={state} render={(t) => (
+        <>
+          <Text wrap="truncate-end">
+            当前目录：
+            <Text color={t.current === 'trusted' ? 'green' : t.current === 'untrusted' ? 'red' : 'yellow'}>
+              {t.current === 'trusted' ? '已信任' : t.current === 'untrusted' ? '明确不信任' : '未信任'}
+            </Text>
+            <Text color="gray">（未信任目录下 bash/MCP 自动放行收紧为询问）</Text>
+          </Text>
+          {t.folders.length === 0 ? (
+            <Text color="gray">（trusted.json 无条目）</Text>
+          ) : (
+            t.folders.map((f) => (
+              <Text key={f.path} wrap="truncate-end">
+                <Text color={f.trust === 'trusted' ? 'green' : 'red'}>{f.trust === 'trusted' ? '●' : '○'}</Text>
+                {' '}
+                {f.path}
+                <Text color="gray">{'  '}{f.trust === 'trusted' ? 'trusted' : 'untrusted'}</Text>
+              </Text>
+            ))
+          )}
+        </>
+      )} />
+    </PanelShell>
+  )
+}
+
+/** 扩展面板（工单 16.5 / ADR D38）：声明式内容包清单 + 启停标记（启停走设置页，CLI 只读） */
+export function ExtensionsPanel({ transport }: { transport: Transport }) {
+  const state = useLoad<ExtensionDto[]>(() => transport.listExtensions())
+  return (
+    <PanelShell title="扩展" hint="只读（启停在设置中心扩展页）">
+      <LoadState state={state} render={(exts) =>
+        exts.length === 0 ? (
+          <Text color="gray">（未安装扩展——~/.spark/extensions/&lt;id&gt;/spark-extension.json）</Text>
+        ) : (
+          exts.map((e) => (
+            <Text key={e.id} wrap="truncate-end">
+              <Text color={e.enabled ? 'green' : 'gray'}>{e.enabled ? '●' : '○'}</Text>
+              {' '}
+              {e.id}
+              <Text color="gray">
+                {'  '}
+                {`v${e.version}`}
+                {e.skills !== undefined ? ` · ${e.skills.length} 技能` : ''}
+                {e.agents !== undefined ? ` · ${e.agents.length} 子代理` : ''}
+                {e.commands !== undefined ? ` · ${e.commands.length} 命令` : ''}
+                {e.mcpServers !== undefined ? ` · ${e.mcpServers.length} MCP` : ''}
+                {!e.enabled ? ' · 已停用' : ''}
               </Text>
             </Text>
           ))

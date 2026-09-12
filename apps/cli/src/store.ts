@@ -36,6 +36,8 @@ export type CliPanel =
   | 'tree'
   | 'lsp'
   | 'agents'
+  | 'trust'
+  | 'extensions'
 
 export interface CliState extends ProjectionState {
   status: CliConnectionStatus

@@ -28,6 +28,9 @@ export const CLIENT_ACTIONS: Readonly<Partial<Record<ClientAction, ClientCommand
   voice: { kind: 'voice' },
   // 子代理管理页（工单 16.2）
   agents: { kind: 'navigate', path: '/settings/subagents' },
+  // 文件夹信任（工单 16.4）与扩展（工单 16.5）
+  trust: { kind: 'navigate', path: '/settings/security' },
+  extensions: { kind: 'navigate', path: '/settings/plugins' },
 }
 
 /** 是否 client 命令（前端本地执行，不进引擎） */

@@ -26,6 +26,8 @@ function handlersOf() {
     setEffort: () => {},
     voice: () => {},
     agents: () => {},
+    trust: () => {},
+    extensions: () => {},
   })
 }
 

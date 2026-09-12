@@ -164,6 +164,8 @@ export function App({ baseUrl }: { baseUrl: string }) {
       }
       st.setPanel('agents')
     },
+    trust: () => useCliStore.getState().setPanel('trust'),
+    extensions: () => useCliStore.getState().setPanel('extensions'),
   })
   // 启动流程（10.43 重构回补：listSessions/createSession/models/commands 装载）
   useEffect(() => actions.boot(), [actions])

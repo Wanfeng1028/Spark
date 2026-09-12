@@ -9,11 +9,13 @@ import { BootHeader } from './BootHeader.js'
 import {
   AgentsPanel,
   CheckpointsPanel,
+  ExtensionsPanel,
   LspPanel,
   McpPanel,
   ModelPanel,
   SkillsPanel,
   TreePanel,
+  TrustPanel,
   UsagePanel,
 } from './CommandPanels.js'
 import { HelpPanel } from './HelpPanel.js'
@@ -89,6 +91,12 @@ export function PanelRouter({
   }
   if (panel === 'agents') {
     return <AgentsPanel transport={transport} />
+  }
+  if (panel === 'trust') {
+    return <TrustPanel transport={transport} />
+  }
+  if (panel === 'extensions') {
+    return <ExtensionsPanel transport={transport} />
   }
   if (panel === 'usage') {
     return <UsagePanel transport={transport} />

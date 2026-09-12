@@ -18,6 +18,10 @@ export interface CliActionDeps {
   voice(args: string | undefined): void
   /** /agents（工单 16.2）：子代理面板（两层清单 + 停用标记，CLI 只读） */
   agents(): void
+  /** /trust（工单 16.4）：文件夹信任面板（CLI 只读） */
+  trust(): void
+  /** /extensions（工单 16.5）：扩展面板（CLI 只读） */
+  extensions(): void
 }
 
 export type CliActionHandler = (args: string | undefined) => void
@@ -48,6 +52,8 @@ export function createCliActionHandlers(deps: CliActionDeps): Record<ClientActio
     // 语言服务器面板（工单 16.9）：连接状态 + 诊断摘要（连接管理在引擎，无需激活会话）
     lsp: () => st.setPanel('lsp'),
     agents: () => st.setPanel('agents'),
+    trust: () => st.setPanel('trust'),
+    extensions: () => st.setPanel('extensions'),
     voice: (args) => needSession(() => deps.voice(args)),
   }
 }

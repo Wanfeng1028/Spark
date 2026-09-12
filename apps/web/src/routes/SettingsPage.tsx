@@ -13,6 +13,8 @@ import { McpSettingsPage } from '@/features/settings/McpSettingsPage'
 import { SkillsSettingsPage } from '@/features/settings/SkillsSettingsPage'
 import { LspSettingsPage } from '@/features/settings/LspSettingsPage'
 import { SubagentsSettingsPage } from '@/features/settings/SubagentsSettingsPage'
+import { PluginsSettingsPage } from '@/features/settings/PluginsSettingsPage'
+import { SecurityTrustPage } from '@/features/settings/SecurityTrustPage'
 import { CommandsSettingsPage } from '@/features/settings/CommandsSettingsPage'
 import { HooksSettingsPage } from '@/features/settings/HooksSettingsPage'
 import { UsageSettingsPage } from '@/features/settings/UsageSettingsPage'
@@ -24,6 +26,8 @@ import { PageHeader } from '@/components/layout/PageHeader'
 
 /** ready 页 → 真组件（settings-pages.ts 只承载数据，映射单一来源在此） */
 const READY_COMPONENTS = {
+  plugins: PluginsSettingsPage,
+  security: SecurityTrustPage,
   general: GeneralSettingsPage,
   appearance: AppearancePage,
   models: ModelSettingsPage,

@@ -24,9 +24,22 @@ export interface UseCliActionsOptions {
   voice: (args: string | undefined) => void
   /** /agents（工单 16.2）：子代理面板 */
   agents: () => void
+  /** /trust（工单 16.4）：文件夹信任面板 */
+  trust: () => void
+  /** /extensions（工单 16.5）：扩展面板 */
+  extensions: () => void
 }
 
-export function useCliActions({ transport, clearScreen, resumeFiltered, resumeSelected, voice, agents }: UseCliActionsOptions) {
+export function useCliActions({
+  transport,
+  clearScreen,
+  resumeFiltered,
+  resumeSelected,
+  voice,
+  agents,
+  trust,
+  extensions,
+}: UseCliActionsOptions) {
   /** 启动（工单 10.17①④）：快照装载，失败显式错误屏+重试 */
   const boot = useCallback((): (() => void) => {
     let disposed = false
@@ -206,6 +219,8 @@ export function useCliActions({ transport, clearScreen, resumeFiltered, resumeSe
       setEffort,
       voice,
       agents,
+      trust,
+      extensions,
     })
     handlers[action](args)
   }

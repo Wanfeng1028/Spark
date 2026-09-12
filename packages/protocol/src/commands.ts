@@ -30,6 +30,8 @@ export const ClientActionSchema = z.enum([
   'voice',
   'lsp',
   'agents',
+  'trust',
+  'extensions',
 ])
 export type ClientAction = z.infer<typeof ClientActionSchema>
 
@@ -237,5 +239,25 @@ export const BUILTIN_COMMANDS: readonly CommandDescriptor[] = [
     surface: ['web', 'cli'],
     sessionRequired: false,
     clientAction: 'agents',
+  },
+  {
+    // 工单 16.4：client 命令——/trust 文件夹信任面板（trusted.json 查看/修改；收紧语义在引擎）
+    name: 'trust',
+    description: '文件夹信任面板：信任档查看与修改（未信任目录 bash/MCP 自动放行收紧为询问）',
+    kind: 'client',
+    group: 'info',
+    surface: ['web', 'cli'],
+    sessionRequired: false,
+    clientAction: 'trust',
+  },
+  {
+    // 工单 16.5：client 命令——/extensions 扩展面板（声明式内容包清单 + 启停）
+    name: 'extensions',
+    description: '扩展面板：声明式内容包清单与启停（配置 ~/.spark/extensions）',
+    kind: 'client',
+    group: 'info',
+    surface: ['web', 'cli'],
+    sessionRequired: false,
+    clientAction: 'extensions',
   },
 ]

@@ -90,10 +90,15 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       },
       {
         id: 'plugins',
-        title: '插件',
-        description: '已安装插件与市场——去向：v2 池 V2-01/V2-02（生态面）',
-        status: 'placeholder',
-        placeholderReason: 'v2 挂池',
+        title: '扩展',
+        description: '声明式内容包清单与启停（~/.spark/extensions，工单 16.5）',
+        status: 'ready',
+      },
+      {
+        id: 'security',
+        title: '安全与信任',
+        description: '文件夹信任档与收紧语义（工单 16.4）',
+        status: 'ready',
       },
       {
         id: 'mcp',
