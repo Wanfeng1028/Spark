@@ -142,6 +142,7 @@ describe('spark_sessions（工单 15.1）', () => {
       const after = await f.handlers.sparkSessions({})
       expect(after.sessions).toHaveLength(1)
       const row = after.sessions[0]
+      if (row === undefined) throw new Error('E_TEST: 会话行缺失（列表为空）')
       expect(row.status).toBe('idle')
       expect(row.cwd).toBe(f.root)
       expect(row.model).toBe('fake/fake-chat')

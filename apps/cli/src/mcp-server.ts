@@ -23,7 +23,7 @@ import { join } from 'node:path'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
-import type { SparkEventEnvelope, TurnFinish } from '@spark/protocol'
+import type { SparkEventEnvelope, Transport, TurnFinish } from '@spark/protocol'
 import { Engine, Logger, SPARK_VERSION, loadConfig, type EngineConfig } from '@spark/engine'
 import { createInProcessClient } from '@spark/sdk/inprocess'
 import type { SparkClient } from '@spark/sdk'
@@ -104,7 +104,8 @@ interface SparkEventsResult {
 
 /** 依赖注入面：三个 handler 只消费进程内 client 的这一小块能力面（测试可换假体） */
 interface SparkMcpDeps {
-  client: SparkClient
+  /** SparkClient<Transport>：显式基接口（缺省泛型是 HttpTransport——InProcess 不兼容） */
+  client: SparkClient<Transport>
   /** spark_run 整轮超时（缺省 RUN_TIMEOUT_MS；测试注入小值） */
   runTimeoutMs?: number
 }
