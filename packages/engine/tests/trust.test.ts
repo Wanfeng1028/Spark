@@ -56,10 +56,9 @@ describe('trustLevelOf（深匹配算法，qwen trust-precedence 语义）', () 
     }
   })
 
-  test('ancestorKeys：深 → 浅且含根', () => {
+  test('ancestorKeys：深 → 浅（每级祖先都出现）', () => {
     const keys = ancestorKeys('/home/u/work')
-    expect(keys[0]).toBe('/home/u/work')
-    expect(keys.at(-1)).toBe('/home/u')
+    expect(keys).toEqual(['/home/u/work', '/home/u', '/home'])
   })
 })
 
