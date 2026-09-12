@@ -94,7 +94,7 @@ function makeEngine(
 describe('/arena 参数面（工单 16.8）', () => {
   test('1 个模型 / 重复模型 / 非 git 仓 → E_ARENA_ARGS / E_CONFIG', async () => {
     const repo = makeRepo({ 'README.md': 'base' })
-    const { engine } = await makeEngine(repo)
+    const { engine } = makeEngine(repo)
     try {
       const handle = await engine.createSession({ cwd: repo })
       await expect(engine.arenaStart(handle.id, '干活', ['fake/fake-chat'])).rejects.toThrow('E_ARENA_ARGS')
@@ -114,7 +114,7 @@ describe('/arena 参数面（工单 16.8）', () => {
 describe('/arena 全链路（双 contender）', () => {
   test('start → 并行跑完 → 快照 done/usage/diffStat；胜者应用（allow 直通）主 cwd 出现改动；删除类跳过登记', async () => {
     const repo = makeRepo({ 'README.md': 'base\n' })
-    const { engine, gateway } = await makeEngine(repo)
+    const { engine, gateway } = makeEngine(repo)
     try {
       const handle = await engine.createSession({ cwd: repo })
       // ScriptedLlm 步骤两条（两 contender 各消费一条——文本内容一致，顺序无关）
@@ -160,7 +160,7 @@ describe('/arena 全链路（双 contender）', () => {
   test('ask 规则下应用挂起等待审批（once 放行后落盘）', async () => {
     const repo = makeRepo({ 'README.md': 'base\n' })
     const rules = [{ action: 'fs.write', resource: '**', effect: 'ask' as const }]
-    const { engine, gateway } = await makeEngine(repo, rules)
+    const { engine, gateway } = makeEngine(repo, rules)
     try {
       const handle = await engine.createSession({ cwd: repo })
       gateway.scriptStep({ deltas: [{ kind: 'text', text: '完成' }] })
