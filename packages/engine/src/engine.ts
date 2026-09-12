@@ -1241,6 +1241,10 @@ export class Engine {
       ...(this.config.spark.agents !== undefined
         ? { agents: { disabledAgents: this.config.spark.agents.disabledAgents ?? [] } }
         : {}),
+      // 扩展启停（工单 16.5 / ADR D38）：未配置时缺省空名单
+      ...(this.config.spark.extensions !== undefined
+        ? { extensions: { disabledExtensions: this.config.spark.extensions.disabledExtensions ?? [] } }
+        : {}),
     }
     return dto
   }
