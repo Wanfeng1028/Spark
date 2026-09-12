@@ -71,12 +71,13 @@ export function loadTrustDoc(root: string, onError?: (err: string) => void): Tru
   if (!existsSync(path)) return { version: 1, folders: {} }
   try {
     const raw: unknown = JSON.parse(readFileSync(path, 'utf8'))
-    if (typeof raw !== 'object' || raw === null || !('folders' in raw)) {
-      throw new Error('缺 folders 段')
-    }
-    const folders = (raw as { folders: unknown }).folders
-    if (typeof folders !== 'object' || folders === null) throw new Error('folders 不是对象')
-    return { version: 1, folders: folders as Record<string, FolderTrust> }
+    // in-narrowing：folders 段存在且为对象才收进返回值（非法形状按空表降级）
+    const folders =
+      typeof raw === 'object' && raw !== null && 'folders' in raw && typeof raw.folders === 'object' && raw.folders !== null
+        ? (raw.folders as Record<string, FolderTrust>)
+        : null
+    if (folders === null) throw new Error('缺合法 folders 段')
+    return { version: 1, folders }
   } catch (err) {
     onError?.(errText(err))
     return { version: 1, folders: {} }
