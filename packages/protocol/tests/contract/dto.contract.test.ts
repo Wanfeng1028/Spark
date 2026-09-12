@@ -505,6 +505,164 @@ describe('契约：api.AgentPresetSchema', () => {
   })
 })
 
+describe('契约：api.ArenaContenderDtoSchema', () => {
+  const sample = {
+    "sessionId": "contract-sample",
+    "model": "contract-sample",
+    "status": "running",
+    "usage": {
+      "inputTokens": 1,
+      "outputTokens": 1
+    },
+    "durationMs": 1,
+    "diffStat": {
+      "files": 1,
+      "additions": 1,
+      "deletions": 1
+    }
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.ArenaContenderDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.ArenaContenderDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.ArenaContenderDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 sessionId → 解析失败', () => {
+    expect(() => api.ArenaContenderDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["sessionId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 model → 解析失败', () => {
+    expect(() => api.ArenaContenderDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["model"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 status → 解析失败', () => {
+    expect(() => api.ArenaContenderDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["status"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 usage → 解析失败', () => {
+    expect(() => api.ArenaContenderDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["usage"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 durationMs → 解析失败', () => {
+    expect(() => api.ArenaContenderDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["durationMs"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 diffStat → 解析失败', () => {
+    expect(() => api.ArenaContenderDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["diffStat"]; return m })())).toThrow()
+  })
+
+  it('字段 sessionId 类型错 → 解析失败', () => {
+    expect(() => api.ArenaContenderDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["sessionId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 model 类型错 → 解析失败', () => {
+    expect(() => api.ArenaContenderDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["model"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 status 类型错 → 解析失败', () => {
+    expect(() => api.ArenaContenderDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["status"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 usage 类型错 → 解析失败', () => {
+    expect(() => api.ArenaContenderDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["usage"] = []; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.ArenaContenderDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.ArenaStatusDtoSchema', () => {
+  const sample = {
+    "arenaId": "contract-sample",
+    "prompt": "contract-sample",
+    "status": "running",
+    "contenders": [
+      {
+        "sessionId": "contract-sample",
+        "model": "contract-sample",
+        "status": "running",
+        "usage": {
+          "inputTokens": 1,
+          "outputTokens": 1
+        },
+        "durationMs": 1,
+        "diffStat": {
+          "files": 1,
+          "additions": 1,
+          "deletions": 1
+        }
+      }
+    ],
+    "winner": "contract-sample",
+    "applied": {
+      "files": [
+        "contract-sample"
+      ],
+      "skippedDeletions": [
+        "contract-sample"
+      ]
+    }
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.ArenaStatusDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.ArenaStatusDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.ArenaStatusDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 arenaId → 解析失败', () => {
+    expect(() => api.ArenaStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["arenaId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 prompt → 解析失败', () => {
+    expect(() => api.ArenaStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["prompt"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 status → 解析失败', () => {
+    expect(() => api.ArenaStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["status"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 contenders → 解析失败', () => {
+    expect(() => api.ArenaStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["contenders"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 winner → 解析失败', () => {
+    expect(() => api.ArenaStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["winner"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 applied → 解析失败', () => {
+    expect(() => api.ArenaStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["applied"]; return m })())).toThrow()
+  })
+
+  it('字段 arenaId 类型错 → 解析失败', () => {
+    expect(() => api.ArenaStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["arenaId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 prompt 类型错 → 解析失败', () => {
+    expect(() => api.ArenaStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["prompt"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 status 类型错 → 解析失败', () => {
+    expect(() => api.ArenaStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["status"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 contenders 类型错 → 解析失败', () => {
+    expect(() => api.ArenaStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["contenders"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.ArenaStatusDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.AttachmentDtoSchema', () => {
   const sample = {
     "id": "contract-sample",

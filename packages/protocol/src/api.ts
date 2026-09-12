@@ -528,6 +528,32 @@ export const ExtensionDtoSchema = SparkExtensionManifestSchema.extend({
 })
 export type ExtensionDto = z.infer<typeof ExtensionDtoSchema>
 
+/** 竞答 contender 摘要（工单 16.8 / ADR D42）：状态/用量/时长/文件增删行 */
+export const ArenaContenderDtoSchema = z.strictObject({
+  sessionId: z.string().min(1),
+  model: z.string().min(1),
+  status: z.enum(['running', 'done', 'error']),
+  usage: z.strictObject({ inputTokens: z.number().int().nonnegative(), outputTokens: z.number().int().nonnegative() }),
+  durationMs: z.number().int().nonnegative().nullable(),
+  diffStat: z
+    .strictObject({ files: z.number().int().nonnegative(), additions: z.number().int().nonnegative(), deletions: z.number().int().nonnegative() })
+    .nullable(),
+})
+export type ArenaContenderDto = z.infer<typeof ArenaContenderDtoSchema>
+
+/** GET /api/sessions/:id/arena 快照（无竞答回 null；记录仅内存——重启丢失，ADR D42 登记限制） */
+export const ArenaStatusDtoSchema = z.strictObject({
+  arenaId: z.string().min(1),
+  prompt: z.string(),
+  status: z.enum(['running', 'done', 'cancelled']),
+  contenders: z.array(ArenaContenderDtoSchema),
+  winner: z.string().nullable(),
+  applied: z
+    .strictObject({ files: z.array(z.string()), skippedDeletions: z.array(z.string()) })
+    .nullable(),
+})
+export type ArenaStatusDto = z.infer<typeof ArenaStatusDtoSchema>
+
 // ---------- 子代理预设档（工单 13.5） ----------
 
 /**

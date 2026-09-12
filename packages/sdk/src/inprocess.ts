@@ -69,6 +69,7 @@ import type {
   UsageSummaryDto,
   TrustStatusDto,
   ExtensionDto,
+  ArenaStatusDto,
 } from '@spark/protocol'
 import { assembleClient } from './client.js'
 import type { SparkClient } from './client.js'
@@ -200,6 +201,19 @@ export class InProcessTransport implements Transport {
 
   setExtensionEnabled(id: string, enabled: boolean): Promise<void> {
     return this.engine.setExtensionEnabled(id, enabled)
+  }
+
+  /** 竞答（工单 16.8 / ADR D42）：引擎原生支持，进程内直映射 */
+  getArena(sessionId: SessionId): Promise<ArenaStatusDto | null> {
+    return Promise.resolve(this.engine.arenaSnapshot(sessionId) as ArenaStatusDto | null)
+  }
+
+  applyArenaWinner(sessionId: SessionId, contenderSessionId: SessionId): Promise<void> {
+    return this.engine.arenaApplyWinner(sessionId, contenderSessionId)
+  }
+
+  cancelArena(sessionId: SessionId): Promise<void> {
+    return this.engine.arenaCancel(sessionId)
   }
 
   listPermissionRules(): Promise<PermissionRuleDto[]> {

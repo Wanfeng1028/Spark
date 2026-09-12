@@ -115,6 +115,9 @@ export const SetModelBody = z.strictObject({ model: z.string().min(1) })
 /** 推理档位（工单 10.6）：会话级换档 body */
 export const SetEffortBody = z.strictObject({ effort: ReasoningEffortSchema })
 
+/** 竞答胜者应用 body（工单 16.8 / ADR D42） */
+export const ArenaWinnerBody = z.strictObject({ contenderSessionId: SessionIdSchema })
+
 /** 扩展启停参数与 body（工单 16.5 / ADR D38） */
 export const ExtensionIdParams = z.strictObject({ id: z.string().min(1) })
 export const SetExtensionEnabledBody = z.strictObject({ enabled: z.boolean() })

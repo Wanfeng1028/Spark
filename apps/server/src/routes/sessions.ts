@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto'
 import type { CheckpointDto } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
-import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FsTreeQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, DeleteSessionBody, AttachmentFileParams } from './shared.js'
+import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FsTreeQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, DeleteSessionBody, AttachmentFileParams, ArenaWinnerBody } from './shared.js'
 
 export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
   const { engine } = opts
@@ -175,6 +175,26 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
     const { id } = parseOr400(IdParams, req.params)
     const handle = await requireHandle(engine, id)
     return reply.send(buildTrace(id, handle.events()))
+  })
+
+
+  // 多模型竞答（工单 16.8 / ADR D42）：快照 / 应用胜者 / 取消
+  app.get('/api/sessions/:id/arena', async (req) => {
+    const { id } = parseOr400(IdParams, req.params)
+    return engine.arenaSnapshot(id)
+  })
+
+  app.post('/api/sessions/:id/arena/winner', async (req, reply) => {
+    const { id } = parseOr400(IdParams, req.params)
+    const body = parseOr400(ArenaWinnerBody, req.body)
+    await engine.arenaApplyWinner(id, body.contenderSessionId)
+    return reply.send({ ok: true })
+  })
+
+  app.post('/api/sessions/:id/arena/cancel', async (req, reply) => {
+    const { id } = parseOr400(IdParams, req.params)
+    await engine.arenaCancel(id)
+    return reply.send({ ok: true })
   })
 
   app.post('/api/sessions/:id/fork', async (req, reply) => {

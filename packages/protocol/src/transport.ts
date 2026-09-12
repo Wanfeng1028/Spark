@@ -46,6 +46,7 @@ import type {
   TranscribeResultDto,
   TrustStatusDto,
   ExtensionDto,
+  ArenaStatusDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
@@ -105,6 +106,12 @@ export interface Transport {
   listExtensions(): Promise<ExtensionDto[]>
   /** PUT /api/extensions/:id/enabled：启停扩展（写 settings.extensions 名单，重启档） */
   setExtensionEnabled(id: string, enabled: boolean): Promise<void>
+  /** GET /api/sessions/:id/arena：竞答快照（工单 16.8 / ADR D42；无竞答回 null） */
+  getArena(sessionId: SessionId): Promise<ArenaStatusDto | null>
+  /** POST /api/sessions/:id/arena/winner：应用胜者改动（整体一次 fs.write 审批；删除类跳过登记） */
+  applyArenaWinner(sessionId: SessionId, contenderSessionId: SessionId): Promise<void>
+  /** POST /api/sessions/:id/arena/cancel：取消竞答（中断 + 清 worktree） */
+  cancelArena(sessionId: SessionId): Promise<void>
   /** GET /api/trust：文件夹信任清单 + 当前 cwd 有效档（工单 16.4 / ADR D37） */
   getTrust(): Promise<TrustStatusDto>
   /** PUT /api/trust：设置一条目录信任档（原子写；收紧语义 = 未信任下 bash/MCP 自动放行降级为问） */

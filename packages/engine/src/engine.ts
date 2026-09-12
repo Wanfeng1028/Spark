@@ -12,8 +12,14 @@
  * 退出 → 审批 pending 全部 fail-closed → 全量 flush + close。
  */
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import {
+  basename,
+  dirname,
+  join,
+  resolve,
+} from 'node:path'
 import type {
   AutomationCreate,
   AutomationRunDto,
@@ -70,6 +76,7 @@ import { runSessionLoop } from './run-loop.js'
 import { GoalRunner } from './goals.js'
 import { loadTrustDoc, saveTrustDoc, trustKey, trustLevelOf, tightens } from './trust.js'
 import { discoverExtensions } from './extensions/loader.js'
+import { ArenaManager } from './arena/manager.js'
 import type { FolderTrust, TrustDoc } from './trust.js'
 import { transcribeAudio } from './voice/transcriber.js'
 import type { RunLoopDeps } from './run-loop.js'
@@ -206,6 +213,8 @@ export class Engine {
   private agentPresets: readonly AgentPresetDto[] = []
   /** 文件夹信任（工单 16.4 / ADR D37）：trusted.json 内存持有，写经 saveTrustDoc 原子落盘 */
   private trustDoc: TrustDoc = { version: 1, folders: {} }
+  /** 多模型竞答（工单 16.8 / ADR D42）：内存态（重启丢失登记限制）——快照与胜者应用面 */
+  private readonly arenaManager: ArenaManager
   /** 预设档加载任务（坏文件/坏形状 warn 跳过，不阻塞启动；ready() 等待） */
   private readonly presetsReady: Promise<void>
   /**
@@ -264,6 +273,7 @@ export class Engine {
       this.ownsLogger = true
     }
     this.logger.info('engine.start', { root: this.root, cwd: this.defaultCwd })
+    this.arenaManager = new ArenaManager({ engine: this, sparkRoot: this.root })
     // 工单 16.4 / ADR D37：文件夹信任（坏文件 → 空表 + warn，不阻塞启动——同 commands/skills 纪律；
     // 装载在 logger 就绪后——onError 需要告警出口）
     this.trustDoc = loadTrustDoc(this.root, (err) => this.logger.warn('trust.load.error', { err }))
@@ -1038,6 +1048,64 @@ export class Engine {
     })
   }
 
+  // ---- 多模型竞答（工单 16.8 / ADR D42） ----
+
+  /** GET /api/sessions/:id/arena 数据源：竞答快照（无竞答回 null） */
+  arenaSnapshot(sessionId: SessionId): unknown {
+    this.assertNotShutdown()
+    return this.arenaManager.snapshot(sessionId)
+  }
+
+  /** 发起竞答（/arena 命令引擎面；模型 2~5 个） */
+  arenaStart(sessionId: SessionId, prompt: string, models: string[]): Promise<string> {
+    return this.arenaManager.start(sessionId, prompt, models)
+  }
+
+  /** 应用胜者改动（整体一次 fs.write 审批；删除类跳过登记——§2.10） */
+  arenaApplyWinner(sessionId: SessionId, contenderSessionId: SessionId): Promise<void> {
+    return this.arenaManager.applyWinner(sessionId, contenderSessionId)
+  }
+
+  /** 取消竞答（中断运行中 contenders + 清 worktree） */
+  arenaCancel(sessionId: SessionId): Promise<void> {
+    return this.arenaManager.cancel(sessionId)
+  }
+
+  /**
+   * 竞答胜者应用的审批口：整体一次 permission.asked（fs.write，patterns=文件清单）。
+   * 挂起等用户回复（同工具审批链）；拒绝返回 false。
+   */
+  async requestApproval(sessionId: SessionId, action: string, reason: string, patterns: string[]): Promise<boolean> {
+    return this.permission.assert({
+      sessionId,
+      callId: ids.call(`cal_arena_${Date.now()}_${Math.floor(Math.random() * 1e6)}`),
+      name: 'arena-apply',
+      action,
+      resource: patterns.join(', '),
+      patterns,
+      signal: new AbortController().signal,
+      reason,
+    })
+  }
+
+  /** 竞答应用的单文件写入（relPath 相对会话 cwd；resolve 后越界即拒——路径硬边界） */
+  async writeFileInCwd(sessionId: SessionId, relPath: string, bytes: Buffer): Promise<void> {
+    const handle = this.getSession(sessionId)
+    if (handle === undefined) throw new Error('E_NOT_FOUND: 会话未装载')
+    const abs = resolve(handle.meta.cwd, relPath)
+    if (!abs.startsWith(resolve(handle.meta.cwd))) {
+      throw new Error(`E_PATH_OUTSIDE: 应用路径越出会话工作目录：${relPath}`)
+    }
+    await mkdir(dirname(abs), { recursive: true })
+    await writeFile(abs, bytes)
+  }
+
+  /** 竞答 contender 中断（级联 abort 当前 turn；未在跑幂等） */
+  async interruptSession(id: SessionId): Promise<void> {
+    const handle = this.getSession(id)
+    if (handle !== undefined) await handle.interrupt()
+  }
+
   /** 审计日志明细读（工单 7.12 / H11）：GET /api/audit 的引擎数据源（新→旧） */
   listAudit(query: AuditQuery): AuditEntry[] {
     return this.audit.entries(query)
@@ -1538,6 +1606,8 @@ export class Engine {
   shutdown(): Promise<void> {
     if (this.shutdownPromise !== null) return this.shutdownPromise
     this.shuttingDown = true
+    // 竞答收口（工单 16.8）：运行中 contenders 中断 + worktree 清理（尽力而为）
+    void this.arenaManager.shutdownAll()
     this.shutdownPromise = this.doShutdown()
     return this.shutdownPromise
   }

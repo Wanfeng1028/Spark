@@ -67,6 +67,7 @@ import type {
   TranscribeResultDto,
   TrustStatusDto,
   ExtensionDto,
+  ArenaStatusDto,
 } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
@@ -536,6 +537,51 @@ export class MockTransport implements Transport {
     this.assertNotDisposed()
     if (enabled) this.disabledExtensions.delete(id)
     else this.disabledExtensions.add(id)
+    return Promise.resolve()
+  }
+
+  /** 竞答对等演示（工单 16.8 / ADR D42）：静态已完成快照 + 应用/取消幂等（judge 并行真实跑属引擎运行时） */
+  private arenaApplied = false
+
+  getArena(sessionId: SessionId): Promise<ArenaStatusDto | null> {
+    this.assertNotDisposed()
+    if (this.arenaApplied) return Promise.resolve(null)
+    return Promise.resolve({
+      arenaId: 'ses_arena_mock0000000000000001',
+      prompt: '（mock 演示）为 README 补一节安装说明',
+      status: 'done',
+      contenders: [
+        {
+          sessionId: ids.session('ses_arena_mock_a00000000001'),
+          model: 'mock/deepseek-chat',
+          status: 'done',
+          usage: { inputTokens: 1200, outputTokens: 320 },
+          durationMs: 18_400,
+          diffStat: { files: 2, additions: 24, deletions: 3 },
+        },
+        {
+          sessionId: ids.session('ses_arena_mock_b00000000001'),
+          model: 'mock/glm-4',
+          status: 'done',
+          usage: { inputTokens: 1400, outputTokens: 410 },
+          durationMs: 22_100,
+          diffStat: { files: 1, additions: 31, deletions: 0 },
+        },
+      ],
+      winner: null,
+      applied: null,
+    })
+  }
+
+  applyArenaWinner(sessionId: SessionId, contenderSessionId: SessionId): Promise<void> {
+    this.assertNotDisposed()
+    this.arenaApplied = true
+    void contenderSessionId
+    return Promise.resolve()
+  }
+
+  cancelArena(sessionId: SessionId): Promise<void> {
+    this.assertNotDisposed()
     return Promise.resolve()
   }
 

@@ -19,6 +19,7 @@ import { SessionStreamCore } from './session-stream-core.js'
 import type { StreamConnectionStatus, StreamCoreContext } from './session-stream-core.js'
 import type { SparkEventEnvelope } from './events.js'
 import type {
+  ArenaStatusDto,
   ExtensionDto,
   TrustStatusDto,
   TranscribeRequest,
@@ -377,6 +378,27 @@ export class HttpTransport implements Transport {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ enabled }),
+    }).then(() => undefined)
+  }
+
+  /** GET /api/sessions/:id/arena：竞答快照（工单 16.8 / ADR D42） */
+  getArena(sessionId: SessionId): Promise<ArenaStatusDto | null> {
+    return this.req<ArenaStatusDto | null>(`/api/sessions/${sessionId}/arena`)
+  }
+
+  /** POST /api/sessions/:id/arena/winner：应用胜者改动 */
+  applyArenaWinner(sessionId: SessionId, contenderSessionId: SessionId): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/sessions/${sessionId}/arena/winner`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ contenderSessionId }),
+    }).then(() => undefined)
+  }
+
+  /** POST /api/sessions/:id/arena/cancel：取消竞答 */
+  cancelArena(sessionId: SessionId): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/sessions/${sessionId}/arena/cancel`, {
+      method: 'POST',
     }).then(() => undefined)
   }
 
