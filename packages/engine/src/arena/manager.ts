@@ -27,7 +27,7 @@ import type { SparkEventEnvelope } from '@spark/protocol'
 import { errText } from '../errs.js'
 
 /** 竞答规模上限（qwen ARENA_MAX_AGENTS 同值） */
-export const ARENA_MAX_CONTENDERS = 5
+const ARENA_MAX_CONTENDERS = 5
 
 export interface ArenaContender {
   sessionId: SessionId
@@ -78,7 +78,7 @@ interface ArenaHandleLike {
 }
 
 /** Arena 对 Engine 的窄依赖面（结构类型——只消费既有公共方法 + 三个新增面） */
-export interface ArenaEngine {
+interface ArenaEngine {
   getSession(id: SessionId): ArenaHandleLike | undefined
   resumeSession(id: SessionId): Promise<ArenaHandleLike & { id: SessionId }>
   createSession(opts: { cwd: string; parentId: SessionId; model?: string; title?: string }): Promise<{ id: SessionId; meta: { cwd: string } }>
