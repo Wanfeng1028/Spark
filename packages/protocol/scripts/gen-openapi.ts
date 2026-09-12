@@ -89,11 +89,11 @@ const SESSION_DTO_SCHEMA: OpenApiSchemaNode = {
 function buildComponents(): Record<string, OpenApiSchemaNode> {
   const schemas: Record<string, OpenApiSchemaNode> = {}
   for (const [name, schema] of Object.entries(COMPONENTS).sort(([a], [b]) => a.localeCompare(b))) {
-    schemas[name] = z.toJSONSchema(schema) as OpenApiSchemaNode
+    schemas[name] = z.toJSONSchema(schema)
   }
   schemas.SessionDto = SESSION_DTO_SCHEMA
   // wire 信封（jsonSchemas 单一来源——schema.ts 既有导出转生产用，见其头注）
-  schemas.SparkEventEnvelope = jsonSchemas.envelope as OpenApiSchemaNode
+  schemas.SparkEventEnvelope = jsonSchemas.envelope
   return schemas
 }
 
