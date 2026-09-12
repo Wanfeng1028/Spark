@@ -19,6 +19,7 @@ import { SessionStreamCore } from './session-stream-core.js'
 import type { StreamConnectionStatus, StreamCoreContext } from './session-stream-core.js'
 import type { SparkEventEnvelope } from './events.js'
 import type {
+  TrustStatusDto,
   TranscribeRequest,
   TranscribeResultDto,
   AuditEntryDto,
@@ -348,6 +349,20 @@ export class HttpTransport implements Transport {
     return this.req<SessionDto>(`/api/sessions/${sessionId}/checkpoints/${checkpointId}/rollback`, {
       method: 'POST',
     })
+  }
+
+  /** GET /api/trust：文件夹信任清单 + 当前 cwd 有效档（工单 16.4 / ADR D37） */
+  getTrust(): Promise<TrustStatusDto> {
+    return this.req<TrustStatusDto>('/api/trust')
+  }
+
+  /** PUT /api/trust：设置一条目录信任档（引擎侧原子写） */
+  setTrust(path: string, trust: 'trusted' | 'untrusted'): Promise<void> {
+    return this.req<{ ok: boolean }>('/api/trust', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path, trust }),
+    }).then(() => undefined)
   }
 
   listPermissionRules(): Promise<PermissionRuleDto[]> {

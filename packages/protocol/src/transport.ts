@@ -44,6 +44,7 @@ import type {
   UsageSummaryDto,
   TranscribeRequest,
   TranscribeResultDto,
+  TrustStatusDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
@@ -99,6 +100,10 @@ export interface Transport {
   listPermissionRules(): Promise<PermissionRuleDto[]>
   /** POST /api/permissions/rules：新增/覆盖一条规则（action+resource 精确匹配去重） */
   addPermissionRule(rule: PermissionRuleDto): Promise<void>
+  /** GET /api/trust：文件夹信任清单 + 当前 cwd 有效档（工单 16.4 / ADR D37） */
+  getTrust(): Promise<TrustStatusDto>
+  /** PUT /api/trust：设置一条目录信任档（原子写；收紧语义 = 未信任下 bash/MCP 自动放行降级为问） */
+  setTrust(path: string, trust: 'trusted' | 'untrusted'): Promise<void>
   /** DELETE /api/permissions/rules：精确匹配删除（无此规则拒绝） */
   removePermissionRule(action: string, resource: string): Promise<void>
   /** GET /api/secrets：provider 密钥状态（store/env/none；值永不回传，阶段七工单 7.1） */

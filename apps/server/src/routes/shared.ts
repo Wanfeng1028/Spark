@@ -115,6 +115,12 @@ export const SetModelBody = z.strictObject({ model: z.string().min(1) })
 /** 推理档位（工单 10.6）：会话级换档 body */
 export const SetEffortBody = z.strictObject({ effort: ReasoningEffortSchema })
 
+/** 文件夹信任写请求体（工单 16.4 / ADR D37） */
+export const SetTrustBody = z.strictObject({
+  path: z.string().min(1),
+  trust: z.enum(['trusted', 'untrusted']),
+})
+
 /** 语音听写请求体（工单 16.6；协议 TranscribeRequest 的路由侧同构 schema） */
 export const TranscribeBody = z.strictObject({
   provider: z.string().min(1).optional(),

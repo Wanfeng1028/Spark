@@ -479,6 +479,18 @@ export const SettingsUpdateSchema = z.strictObject({
 })
 export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>
 
+/** 文件夹信任（工单 16.4 / ADR D37）：GET/PUT /api/trust 的 DTO——folders 全量 + 当前 cwd 有效档 */
+export const TrustStatusDtoSchema = z.strictObject({
+  folders: z.array(
+    z.strictObject({
+      path: z.string().min(1),
+      trust: z.enum(['trusted', 'untrusted']),
+    }),
+  ),
+  current: z.enum(['trusted', 'untrusted', 'none']),
+})
+export type TrustStatusDto = z.infer<typeof TrustStatusDtoSchema>
+
 // ---------- 子代理预设档（工单 13.5） ----------
 
 /**

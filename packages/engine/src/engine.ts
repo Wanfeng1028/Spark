@@ -66,6 +66,8 @@ import { ProjectorImpl } from './projector.js'
 import { reasoningIncluded } from './projector.js'
 import { runSessionLoop } from './run-loop.js'
 import { GoalRunner } from './goals.js'
+import { loadTrustDoc, saveTrustDoc, trustLevelOf, tightens } from './trust.js'
+import type { FolderTrust, TrustDoc } from './trust.js'
 import { transcribeAudio } from './voice/transcriber.js'
 import type { RunLoopDeps } from './run-loop.js'
 import { PermissionServiceImpl } from './permission/service.js'
@@ -199,6 +201,8 @@ export class Engine {
   private readonly commandsReady: Promise<void>
   /** 子代理预设档（工单 13.5）：~/.spark/agents/*.json；presetsReady 完成后填充 */
   private agentPresets: readonly AgentPresetDto[] = []
+  /** 文件夹信任（工单 16.4 / ADR D37）：trusted.json 内存持有，写经 saveTrustDoc 原子落盘 */
+  private trustDoc: TrustDoc = { version: 1, folders: {} }
   /** 预设档加载任务（坏文件/坏形状 warn 跳过，不阻塞启动；ready() 等待） */
   private readonly presetsReady: Promise<void>
   /**
@@ -257,6 +261,9 @@ export class Engine {
       this.ownsLogger = true
     }
     this.logger.info('engine.start', { root: this.root, cwd: this.defaultCwd })
+    // 工单 16.4 / ADR D37：文件夹信任（坏文件 → 空表 + warn，不阻塞启动——同 commands/skills 纪律；
+    // 装载在 logger 就绪后——onError 需要告警出口）
+    this.trustDoc = loadTrustDoc(this.root, (err) => this.logger.warn('trust.load.error', { err }))
 
     // 会话索引：建库失败即降级（JSONL 权威不受影响）；启动重建对齐磁盘
     this.index = new SessionIndexMaintainer(this.root, this.logger)
@@ -462,6 +469,10 @@ export class Engine {
       timeoutMs: this.config.spark.engine.permissionTimeoutMs,
       metrics: this.metrics,
       audit: this.audit, // 工单 7.12：决策与 always 固化规则变更入审计明细流
+      // 工单 16.4 / ADR D37：未信任 cwd 下 shell.exec/mcp.call 的自动放行收紧为 ask
+      trust: {
+        tightens: (action) => tightens(action, trustLevelOf(this.defaultCwd, this.trustDoc.folders)),
+      },
       // 工单 7.3：permission.resolved 挂点（fire-and-forget；cwd 取会话工作目录）
       onResolved: (p) => {
         this.hooks.fire('permission.resolved', {
@@ -977,6 +988,25 @@ export class Engine {
       })
     }
     return removed
+  }
+
+  // ---- 文件夹信任（工单 16.4 / ADR D37：trusted.json 的线上入口） ----
+
+  /**
+   * GET /api/trust 数据源：两层合成——trusted.json 全量条目 + defaultCwd 的有效档
+   * （未列出 = none）。收紧语义（shell.exec/mcp.call allow→ask）见 PermissionServiceImpl.deps.trust。
+   */
+  getTrust(): { folders: { path: string; trust: FolderTrust }[]; current: FolderTrust | 'none' } {
+    return {
+      folders: Object.entries(this.trustDoc.folders).map(([path, trust]) => ({ path, trust })),
+      current: trustLevelOf(this.defaultCwd, this.trustDoc.folders),
+    }
+  }
+
+  /** PUT /api/trust：设置/更新一条目录信任档（原子写；键归一化——同路径大小写变体不重复） */
+  setTrust(path: string, trust: FolderTrust): void {
+    this.trustDoc.folders[trustKey(path)] = trust
+    saveTrustDoc(this.root, this.trustDoc)
   }
 
   /** 审计日志明细读（工单 7.12 / H11）：GET /api/audit 的引擎数据源（新→旧） */

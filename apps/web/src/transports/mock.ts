@@ -65,6 +65,7 @@ import type {
   TurnId,
   TranscribeRequest,
   TranscribeResultDto,
+  TrustStatusDto,
 } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
@@ -487,6 +488,23 @@ export class MockTransport implements Transport {
   // ---- 权限规则管理（工单 4.7 对等演示：内存表，进程生命周期内有效） ----
 
   private readonly rules: PermissionRuleDto[] = []
+
+  /** 文件夹信任对等演示（工单 16.4 / ADR D36）：内存表 + cwd=项目根固定值 */
+  private readonly trustFolders = new Map<string, 'trusted' | 'untrusted'>()
+
+  getTrust(): Promise<TrustStatusDto> {
+    this.assertNotDisposed()
+    return Promise.resolve({
+      folders: [...this.trustFolders.entries()].map(([path, trust]) => ({ path, trust })),
+      current: 'trusted',
+    })
+  }
+
+  setTrust(path: string, trust: 'trusted' | 'untrusted'): Promise<void> {
+    this.assertNotDisposed()
+    this.trustFolders.set(path, trust)
+    return Promise.resolve()
+  }
 
   listPermissionRules(): Promise<PermissionRuleDto[]> {
     this.assertNotDisposed()

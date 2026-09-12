@@ -56,6 +56,12 @@ export interface PermissionServiceDeps {
    * 逐条记入独立明细流（旁路记录，写失败不影响审批主链路）。
    */
   audit?: AuditSink
+  /**
+   * 文件夹信任（工单 16.4 / ADR D37）：未信任 cwd 下，shell.exec/mcp.call 的
+   * 规则层自动放行（allow）收紧为 ask——deny/ask 不变（收紧审批而非扩权）。
+   * 缺省不收紧（测试与未接线场景）。
+   */
+  trust?: { tightens(action: string): boolean }
 }
 
 export class PermissionServiceImpl implements PermissionService {
@@ -80,10 +86,14 @@ export class PermissionServiceImpl implements PermissionService {
       this.sessionRulesOf(check.sessionId),
       this.presetRulesOf(check.sessionId),
     )
-    if (effect === 'allow' || effect === 'deny') {
+    // 文件夹信任收紧（工单 16.4 / ADR D37）：未信任 cwd 下自动放行降级为问一次——
+    // 只压 allow（deny 仍 deny、ask 仍 ask，"收紧审批而非扩权"）
+    const finalEffect =
+      effect === 'allow' && (this.deps.trust?.tightens(check.action) ?? false) ? ('ask' as const) : effect
+    if (finalEffect === 'allow' || finalEffect === 'deny') {
       // 规则层快路径：归因 = 命中且与终判同效的最高优先层（findLast 语义倒查）
-      this.recordDecision(check, effect === 'allow', 'system', `rule:${this.ruleSourceOf(check, effect)}`)
-      return effect === 'allow'
+      this.recordDecision(check, finalEffect === 'allow', 'system', `rule:${this.ruleSourceOf(check, finalEffect)}`)
+      return finalEffect === 'allow'
     }
 
     const requestId = newIds.request()

@@ -67,6 +67,7 @@ import type {
   Transport,
   TreeNodeDto,
   UsageSummaryDto,
+  TrustStatusDto,
 } from '@spark/protocol'
 import { assembleClient } from './client.js'
 import type { SparkClient } from './client.js'
@@ -178,6 +179,17 @@ export class InProcessTransport implements Transport {
     // 三态映射与 server 的 replyOutcomeError 同码（ADR D31：审批同一路径、错误同形）
     if (outcome === 'already-resolved') throw new Error('E_ALREADY_RESOLVED: 审批请求已答复过')
     if (outcome !== 'ok') throw new Error(`E_NOT_FOUND: 审批请求 ${requestId} 不存在`)
+  }
+
+  /** 文件夹信任（工单 16.4 / ADR D37）：引擎原生支持，进程内直映射 */
+  getTrust(): Promise<TrustStatusDto> {
+    return this.sync(() => this.engine.getTrust())
+  }
+
+  setTrust(path: string, trust: 'trusted' | 'untrusted'): Promise<void> {
+    return this.sync(() => {
+      this.engine.setTrust(path, trust)
+    })
   }
 
   listPermissionRules(): Promise<PermissionRuleDto[]> {

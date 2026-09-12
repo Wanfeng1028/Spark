@@ -5,7 +5,15 @@ import type { FastifyPluginCallback } from 'fastify'
 import type { RoutesOptions } from './shared.js'
 import { parseOr400, replyOutcomeError, sendError } from '../errors.js'
 import { PermissionRuleDtoSchema } from '@spark/protocol'
-import { requireHandle, IdParams, ReplyBody, RequestIdParams, RemoveRuleBody, PresetBody } from './shared.js'
+import {
+  requireHandle,
+  IdParams,
+  ReplyBody,
+  RequestIdParams,
+  RemoveRuleBody,
+  PresetBody,
+  SetTrustBody,
+} from './shared.js'
 
 export const registerPermissionRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
   const { engine } = opts
@@ -59,6 +67,17 @@ export const registerPermissionRoutes: FastifyPluginCallback<RoutesOptions> = (a
     // await：工单 16.3 后设档可能 emit durable 事件（session.mode.changed），先落事件再回响应
     await engine.setPermissionPreset(id, body.preset)
     return reply.send({ ok: true })
+  })
+
+  // 文件夹信任（工单 16.4 / ADR D37）：trusted.json 的线上查看与修改
+  app.get('/api/trust', () => {
+    return engine.getTrust()
+  })
+
+  app.put('/api/trust', async (req) => {
+    const body = parseOr400(SetTrustBody, req.body)
+    engine.setTrust(body.path, body.trust)
+    return { ok: true }
   })
 
   // 模型管理（DESIGN §13.D③ / 工单 6.5 轻后端例外——本阶段唯一 engine/server 改动）
