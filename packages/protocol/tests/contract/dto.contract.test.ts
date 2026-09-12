@@ -3712,6 +3712,47 @@ describe('契约：api.TreeNodeDtoSchema', () => {
   })
 })
 
+describe('契约：api.TrustStatusDtoSchema', () => {
+  const sample = {
+    "folders": [
+      {
+        "path": "contract-sample",
+        "trust": "trusted"
+      }
+    ],
+    "current": "trusted"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.TrustStatusDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.TrustStatusDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.TrustStatusDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 folders → 解析失败', () => {
+    expect(() => api.TrustStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["folders"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 current → 解析失败', () => {
+    expect(() => api.TrustStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["current"]; return m })())).toThrow()
+  })
+
+  it('字段 folders 类型错 → 解析失败', () => {
+    expect(() => api.TrustStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["folders"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 current 类型错 → 解析失败', () => {
+    expect(() => api.TrustStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["current"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.TrustStatusDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.UsageAmountsSchema', () => {
   const sample = {
     "costUsd": 1,
