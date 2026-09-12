@@ -543,7 +543,7 @@ export class MockTransport implements Transport {
   /** 竞答对等演示（工单 16.8 / ADR D42）：静态已完成快照 + 应用/取消幂等（judge 并行真实跑属引擎运行时） */
   private arenaApplied = false
 
-  getArena(sessionId: SessionId): Promise<ArenaStatusDto | null> {
+  getArena(_sessionId: SessionId): Promise<ArenaStatusDto | null> {
     this.assertNotDisposed()
     if (this.arenaApplied) return Promise.resolve(null)
     return Promise.resolve({
@@ -580,7 +580,7 @@ export class MockTransport implements Transport {
     return Promise.resolve()
   }
 
-  cancelArena(sessionId: SessionId): Promise<void> {
+  cancelArena(_sessionId: SessionId): Promise<void> {
     this.assertNotDisposed()
     return Promise.resolve()
   }

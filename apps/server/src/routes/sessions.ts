@@ -179,7 +179,7 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
 
 
   // 多模型竞答（工单 16.8 / ADR D42）：快照 / 应用胜者 / 取消
-  app.get('/api/sessions/:id/arena', async (req) => {
+  app.get('/api/sessions/:id/arena', (req) => {
     const { id } = parseOr400(IdParams, req.params)
     return engine.arenaSnapshot(id)
   })
