@@ -3,7 +3,7 @@
  * + symlink 逃逸拒载（qwen 安全检查）+ 引擎接线（settings.extensions 名单合成
  * enabled 与启停写盘）。
  */
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
@@ -113,7 +113,9 @@ describe('引擎接线（settings.extensions 名单合成与启停写盘）', ()
       expect((await engine.listExtensions())[0]?.enabled).toBe(false)
       expect(engine.getSettings().extensions).toEqual({ disabledExtensions: ['demo-pack'] })
       // spark.json 落盘校验（重启档）
-      const spark = JSON.parse(await import('node:fs/promises').then((m) => m.readFile(join(root, 'spark.json'), 'utf8')))
+      const spark = JSON.parse(
+        readFileSync(join(root, 'spark.json'), 'utf8'),
+      ) as { extensions?: { disabledExtensions?: string[] } }
       expect(spark.extensions).toEqual({ disabledExtensions: ['demo-pack'] })
       // 重新启用
       await engine.setExtensionEnabled('demo-pack', true)

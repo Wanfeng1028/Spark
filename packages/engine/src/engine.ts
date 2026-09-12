@@ -1024,15 +1024,18 @@ export class Engine {
   }
 
   /** 启停扩展（写 settings.extensions 名单并原子落盘；注册表装配重启生效——D38 登记限制） */
-  async setExtensionEnabled(id: string, enabled: boolean): Promise<void> {
-    this.assertNotShutdown()
-    const current = new Set(this.config.spark.extensions?.disabledExtensions ?? [])
-    if (enabled) current.delete(id)
-    else current.add(id)
-    const patch: SettingsUpdate = {
-      extensions: { disabledExtensions: [...current] },
-    }
-    this.config = persistSparkPatch(this.root, patch)
+  setExtensionEnabled(id: string, enabled: boolean): Promise<void> {
+    // 异步边界保持 Transport 契约一致（同步抛错在 HTTP 通道表现为 rejected——D31 纪律）
+    return Promise.resolve().then(() => {
+      this.assertNotShutdown()
+      const current = new Set(this.config.spark.extensions?.disabledExtensions ?? [])
+      if (enabled) current.delete(id)
+      else current.add(id)
+      const patch: SettingsUpdate = {
+        extensions: { disabledExtensions: [...current] },
+      }
+      this.config = persistSparkPatch(this.root, patch)
+    })
   }
 
   /** 审计日志明细读（工单 7.12 / H11）：GET /api/audit 的引擎数据源（新→旧） */
