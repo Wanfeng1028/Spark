@@ -85,6 +85,39 @@ describe('TrustDoc 存取（原子写 + 坏文件降级）', () => {
 
 // ---- 引擎端到端：未信任 cwd 收紧 always 规则（真实审批链路：send → asked → reply） ----
 
+/** 用户 always 记忆：bash 全放行——未信任目录下将被收紧为 ask（收紧面单测的核心对照） */
+function makeConfig(): EngineConfig {
+  const ref = { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 }
+  return {
+    spark: {
+      server: { port: 4318, host: '127.0.0.1' },
+      engine: {
+        maxStepsPerTurn: 8,
+        maxToolParallel: 8,
+        toolTimeoutMs: 120_000,
+        permissionTimeoutMs: 300_000,
+        progressThrottleMs: 200,
+        toolOutputLimitKB: 32,
+        compactionThreshold: 0.8,
+        checkpoints: false,
+        bashSandbox: 'off',
+      },
+    },
+    models: {
+      providers: { fake: { apiKeyEnv: null } },
+      defaultModel: ref,
+      compactionModel: ref,
+      fallbacks: [],
+      titleModel: ref,
+      subagentModel: ref,
+      costLimitUsd: undefined,
+      defaultEffort: undefined,
+      models: [ref],
+    },
+    permissions: { version: 1, rules: [{ action: 'shell.exec', resource: '**', effect: 'allow' }] },
+  }
+}
+
 const fixtures: { root: string; engine: Engine }[] = []
 
 describe('引擎端到端（工单 16.4 验收：未信任目录 bash 默认 ask）', () => {
