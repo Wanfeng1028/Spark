@@ -159,6 +159,10 @@ export function persistSparkPatch(root: string, patch: SettingsUpdate): EngineCo
     if (patch.hooks === null) delete raw['hooks']
     else raw['hooks'] = patch.hooks
   }
+  // 子代理启停（工单 16.2 / ADR D36）：agents 段整体替换（名单语义——补丁带即全量覆盖）
+  if (patch.agents !== undefined) {
+    raw['agents'] = patch.agents
+  }
   validateSparkWrite(raw)
   atomicWriteJson(sparkPath, raw)
   return loadConfig(root)

@@ -44,6 +44,12 @@ const sparkSchema = z.object({
   hooks: SettingsHooksSchema.optional(),
   /** 提示词模板文件路径（工单 13.3 / V2-16）：缺省 = 内置模板，输出逐字节不变 */
   prompts: SettingsPromptsSchema.optional(),
+  /** 子代理启停（工单 16.2 / ADR D36）：停用名单——重启档（预设档构造期装载） */
+  agents: z
+    .object({
+      disabledAgents: z.array(z.string().min(1)).optional(),
+    })
+    .optional(),
 })
 
 export interface SparkConfig {
@@ -54,6 +60,8 @@ export interface SparkConfig {
   hooks?: SettingsHooks | undefined
   /** 提示词模板路径（工单 13.3；可选——缺省用引擎内置模板） */
   prompts?: SettingsPrompts | undefined
+  /** 子代理启停（工单 16.2；可选——缺省全启用） */
+  agents?: { disabledAgents?: string[] | undefined } | undefined
 }
 
 const SPARK_DEFAULTS: SparkConfig = {

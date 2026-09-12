@@ -429,6 +429,7 @@ export const SETTINGS_RESTART_REQUIRED: readonly string[] = [
   'engine.toolOutputLimitKB',
   'engine.permissionTimeoutMs',
   'engine.bashSandbox',
+  'agents.disabledAgents',
   'server.port',
   'server.host',
 ]
@@ -442,6 +443,12 @@ export const SettingsDtoSchema = z.strictObject({
   engine: EngineSettingsSchema,
   /** hooks 按 spark.json 原样（缺省 = 未配置） */
   hooks: SettingsHooksSchema.optional(),
+  /** 子代理启停（工单 16.2 / ADR D36）：停用名单——预设档装载在构造期，改动重启生效 */
+  agents: z
+    .strictObject({
+      disabledAgents: z.array(z.string().min(1)),
+    })
+    .optional(),
   /** 需重启生效字段清单（前端标注"下次启动生效"；单一来源 SETTINGS_RESTART_REQUIRED） */
   restartRequired: z.array(z.string()),
   /** models.json 只读参考（写路径不经本端点——默认模型/档位迁移记录见工单） */
@@ -463,6 +470,12 @@ export const SettingsUpdateSchema = z.strictObject({
   engine: EngineSettingsSchema.partial().optional(),
   /** 整体替换；null = 清空 hooks 段 */
   hooks: SettingsHooksSchema.nullable().optional(),
+  /** 子代理启停（工单 16.2 / ADR D36）：agents 段整体替换；disabledAgents 即停用名单 */
+  agents: z
+    .strictObject({
+      disabledAgents: z.array(z.string().min(1)).optional(),
+    })
+    .optional(),
 })
 export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>
 
@@ -492,8 +505,17 @@ export const AgentPresetSchema = z.strictObject({
 })
 export type AgentPreset = z.infer<typeof AgentPresetSchema>
 
-/** GET /api/agents 清单条目（name = 文件名去 .json；只读面——写入靠用户改文件） */
-export const AgentPresetDtoSchema = AgentPresetSchema.extend({ name: z.string().min(1) })
+/**
+ * GET /api/agents 清单条目（name = 文件名去 .json；只读面——写入靠用户改文件）。
+ * source/disabled 为引擎合成值（工单 16.2 / ADR D36）：source 标两层归属
+ * （项目层 `.spark/agents/` 覆盖用户层 `~/.spark/agents/` 同名档）；disabled =
+ * settings.agents.disabledAgents 名单命中（启停写 spark.json，重启生效）。
+ */
+export const AgentPresetDtoSchema = AgentPresetSchema.extend({
+  name: z.string().min(1),
+  source: z.enum(['project', 'user']).optional(),
+  disabled: z.boolean().optional(),
+})
 export type AgentPresetDto = z.infer<typeof AgentPresetDtoSchema>
 
 // ---------- commands / mcp / skills（doc/02 §8 阶段七工单 7.4 / H04） ----------

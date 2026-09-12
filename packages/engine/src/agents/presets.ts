@@ -27,19 +27,20 @@ export interface AgentPresetLogger {
   warn(msg: string, fields?: Record<string, unknown>): void
 }
 
-/** 扫描 `<root>/agents/*.json`（name = 文件名去扩展名）；逐档失败闭合，名字序稳定输出 */
-export async function loadAgentPresets(
+/** 单层扫描 `<dir>/agents/*.json`（name = 文件名去扩展名）；逐档失败闭合，带层归属标记 */
+async function scanAgentsDir(
   dir: string,
+  source: 'project' | 'user',
   logger?: AgentPresetLogger,
-): Promise<AgentPresetDto[]> {
+): Promise<Map<string, AgentPresetDto>> {
   const agentsDir = join(dir, 'agents')
   let files: string[]
   try {
     files = await readdir(agentsDir)
   } catch {
-    return [] // 目录不存在 = 零预设（与 commands/skills 缺省同语义）
+    return new Map() // 目录不存在 = 零预设（与 commands/skills 缺省同语义）
   }
-  const out: AgentPresetDto[] = []
+  const out = new Map<string, AgentPresetDto>()
   for (const file of files) {
     if (!file.endsWith('.json')) continue
     const name = file.slice(0, -'.json'.length)
@@ -50,12 +51,32 @@ export async function loadAgentPresets(
     try {
       const raw: unknown = JSON.parse(await readFile(join(agentsDir, file), 'utf8'))
       const preset: AgentPreset = AgentPresetSchema.parse(raw)
-      out.push({ name, ...preset })
+      out.set(name, { name, source, ...preset })
     } catch (err) {
       logger?.warn('agents.load.skip', { file, err: errText(err) })
     }
   }
-  return out.sort((a, b) => a.name.localeCompare(b.name))
+  return out
+}
+
+/**
+ * 两层加载（工单 16.2 / ADR D36）：用户层 `<root>/agents/*.json`（13.5 既有）+
+ * 项目层 `<projectCwd>/.spark/agents/*.json`（相对引擎 defaultCwd）——**项目层覆盖
+ * 用户层同名档**（session>project 分层语义对齐 qwen subagent-manager，格式统一 JSON：
+ * 本仓配置面 models/settings/mcp/lsp.json 全族一致，不引入 MD+frontmatter 双格式）。
+ * projectCwd 缺省 = 仅用户层（13.5 行为逐字节不变）。
+ */
+export async function loadAgentPresets(
+  root: string,
+  logger?: AgentPresetLogger,
+  projectCwd?: string,
+): Promise<AgentPresetDto[]> {
+  const merged = await scanAgentsDir(root, 'user', logger)
+  if (projectCwd !== undefined) {
+    const project = await scanAgentsDir(join(projectCwd, '.spark'), 'project', logger)
+    for (const [name, dto] of project) merged.set(name, dto)
+  }
+  return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** 被预设排除的工具名：allow 未设 = 全允许；设了则须命中其一；deny 胜出（同审批规则方向） */

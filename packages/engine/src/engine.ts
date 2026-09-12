@@ -359,10 +359,11 @@ export class Engine {
     )
 
     // 工单 13.5：子代理预设档（坏文件/坏形状 warn 跳过——同 commands/skills 纪律，不阻塞启动）
-    this.presetsReady = loadAgentPresets(this.root, this.logger).then((presets) => {
+    // 工单 16.2 / ADR D36：两层加载——项目层 <defaultCwd>/.spark/agents 覆盖用户层同名档
+    this.presetsReady = loadAgentPresets(this.root, this.logger, this.defaultCwd).then((presets) => {
       this.agentPresets = presets
       for (const p of presets) {
-        this.logger.info('agents.preset.loaded', { name: p.name })
+        this.logger.info('agents.preset.loaded', { name: p.name, source: p.source })
       }
     })
 
@@ -623,18 +624,33 @@ export class Engine {
 
   // ---- 子代理预设档（工单 13.5） ----
 
-  /** GET /api/agents 数据源：已加载预设档清单（只读面——写入靠用户改文件后重启） */
+  /**
+   * GET /api/agents 数据源：已加载预设档清单（只读面——写入靠用户改文件后重启）。
+   * 工单 16.2 / ADR D36：disabled 从 settings.agents.disabledAgents 名单合成
+   * （启停走 PUT /api/settings，重启档——预设档构造期装载，热改名单不实时反映在运行态）。
+   */
   listAgentPresets(): readonly AgentPresetDto[] {
-    return this.agentPresets
+    const disabled = new Set(this.config.spark.agents?.disabledAgents ?? [])
+    if (disabled.size === 0) return this.agentPresets
+    return this.agentPresets.map((p) =>
+      disabled.has(p.name) ? { ...p, disabled: true } : p,
+    )
   }
 
-  /** 预设档解析：不存在 → E_CONFIG 人话（列出可用档名，不静默回退到无预设） */
+  /** 预设档解析：不存在 → E_CONFIG 人话（列出可用档名，不静默回退到无预设）；停用档同拒 */
   private requireAgentPreset(name: string): AgentPresetDto {
     const found = this.agentPresets.find((p) => p.name === name)
     if (found === undefined) {
       const known = this.agentPresets.map((p) => p.name).join(', ')
       throw new Error(
         `E_CONFIG: 子代理预设档 ${name} 不存在（放 ~/.spark/agents/<name>.json；可用：${known === '' ? '无' : known}）`,
+      )
+    }
+    // 工单 16.2：settings 名单停用的档如实拒绝（禁静默回退到无预设——假状态红线）
+    const disabled = this.config.spark.agents?.disabledAgents ?? []
+    if (disabled.includes(name)) {
+      throw new Error(
+        `E_CONFIG: 子代理预设档 ${name} 已停用（设置中心子智能体页或 spark.json agents.disabledAgents 可恢复）`,
       )
     }
     return found
@@ -1092,6 +1108,10 @@ export class Engine {
         defaultEffort: this.config.models.defaultEffort ?? null,
       },
       ...(this.config.spark.hooks !== undefined ? { hooks: this.config.spark.hooks } : {}),
+      // 子代理启停（工单 16.2 / ADR D36）：未配置时缺省空名单（前端 Switch 全开态）
+      ...(this.config.spark.agents !== undefined
+        ? { agents: { disabledAgents: this.config.spark.agents.disabledAgents ?? [] } }
+        : {}),
     }
     return dto
   }

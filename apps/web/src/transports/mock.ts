@@ -950,18 +950,21 @@ export class MockTransport implements Transport {
     ])
   }
 
-  /** 子代理预设档（工单 13.5 对等演示）：静态两档——真实数据源是 ~/.spark/agents/*.json */
+  /** 子代理预设档（工单 13.5 对等演示）：静态两档——真实数据源是两层 agents/*.json（16.2）；
+   * 16.2 对等：source 两层归属各标一档，coder 走 settings 停用演示（disabled 合成面） */
   listAgentPresets(): Promise<AgentPresetDto[]> {
     this.assertNotDisposed()
     return Promise.resolve([
       {
         name: 'reader',
+        source: 'user',
         tools: { allow: ['read', 'grep'] },
         systemAppend: '# 只读纪律\n不得修改任何文件，只做调研与汇报。',
         title: '只读调研',
       },
       {
         name: 'coder',
+        source: 'project',
         tools: { deny: ['bash'] },
         title: '编码子代理',
       },
