@@ -149,7 +149,8 @@ describe('/arena 全链路（双 contender）', () => {
       expect(readFileSync(join(repo, 'CHANGED.md'), 'utf8')).toBe('改动')
       expect(existsSync(join(repo, 'README.md'))).toBe(true)
       const after = engine.arenaSnapshot(handle.id)
-      expect(after?.applied?.files).toContain('NEW.md')
+      if (after === null) throw new Error('应用后快照丢失')
+      expect(after.applied?.files).toContain('NEW.md')
       expect(after.applied?.skippedDeletions).toContain('README.md')
     } finally {
       await engine.shutdown()
