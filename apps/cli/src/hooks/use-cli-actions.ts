@@ -28,8 +28,6 @@ export interface UseCliActionsOptions {
   trust: () => void
   /** /extensions（工单 16.5）：扩展面板 */
   extensions: () => void
-  /** /arena（工单 16.8）：竞答面板（快照只读） */
-  arena: () => void
 }
 
 export function useCliActions({
@@ -41,7 +39,6 @@ export function useCliActions({
   agents,
   trust,
   extensions,
-  arena,
 }: UseCliActionsOptions) {
   /** 启动（工单 10.17①④）：快照装载，失败显式错误屏+重试 */
   const boot = useCallback((): (() => void) => {
@@ -224,7 +221,6 @@ export function useCliActions({
       agents,
       trust,
       extensions,
-      arena,
     })
     handlers[action](args)
   }
@@ -262,6 +258,10 @@ export function useCliActions({
       // action（compact）与 prompt（.md 自定义）走引擎统一入口（工单 7.4）
       transport
         .executeCommand(sid, name, args !== '' ? args : undefined)
+        .then(() => {
+          // /arena 发起成功即打开竞答面板（快照轮询只读——工单 16.8）
+          if (name === 'arena') useCliStore.getState().setPanel('arena')
+        })
         .catch((err: unknown) => setNotice(errorMessageOf(err)))
       return
     }

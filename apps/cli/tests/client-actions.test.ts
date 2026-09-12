@@ -28,7 +28,6 @@ function handlersOf() {
     agents: () => {},
     trust: () => {},
     extensions: () => {},
-    arena: () => {},
   })
 }
 

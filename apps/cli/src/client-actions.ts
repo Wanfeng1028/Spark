@@ -22,8 +22,6 @@ export interface CliActionDeps {
   trust(): void
   /** /extensions（工单 16.5）：扩展面板（CLI 只读） */
   extensions(): void
-  /** /arena（工单 16.8）：竞答面板（快照只读——应用/取消走 Web 端） */
-  arena(): void
 }
 
 export type CliActionHandler = (args: string | undefined) => void
@@ -56,7 +54,6 @@ export function createCliActionHandlers(deps: CliActionDeps): Record<ClientActio
     agents: () => st.setPanel('agents'),
     trust: () => st.setPanel('trust'),
     extensions: () => st.setPanel('extensions'),
-    arena: () => needSession(() => st.setPanel('arena')),
     voice: (args) => needSession(() => deps.voice(args)),
   }
 }
