@@ -69,7 +69,6 @@ function parseNumstat(stdout: string): { files: number; additions: number; delet
 
 /** Arena 对 Engine 的窄依赖面（结构类型——只消费既有公共方法 + 三个新增面） */
 export interface ArenaEngine {
-  assertNotShutdown(): void
   getSession(id: SessionId): { meta: { cwd: string }; status(): string; events(): import('@spark/protocol').SparkEventEnvelope[]; interrupt(): Promise<void> } | undefined
   resumeSession(id: SessionId): Promise<{ id: SessionId; meta: { cwd: string }; send(text: string): Promise<unknown>; status(): string; events(): import('@spark/protocol').SparkEventEnvelope[] }>
   createSession(opts: { cwd: string; parentId: SessionId; model?: string; title?: string }): Promise<{ id: SessionId; meta: { cwd: string } }>
@@ -99,7 +98,6 @@ export class ArenaManager {
    * 已有运行中竞答 → E_ARENA_ACTIVE。返回 arenaId。
    */
   async start(sessionId: SessionId, prompt: string, models: string[]): Promise<string> {
-    this.deps.engine.assertNotShutdown()
     if (models.length < 2 || models.length > ARENA_MAX_CONTENDERS) {
       throw new Error(`E_ARENA_ARGS: 竞答需要 2~${ARENA_MAX_CONTENDERS} 个模型（去重后 ${models.length} 个）`)
     }
@@ -116,7 +114,7 @@ export class ArenaManager {
     const git = simpleGit({ baseDir: handle0.meta.cwd })
     const isRepo = await git.checkIsRepo().catch(() => false)
     if (!isRepo) {
-      throw new Error(`E_CONFIG: 竞答要求主会话工作目录是 git 仓库（当前 ${meta.cwd}）——worktree 隔离依赖 git`)
+      throw new Error(`E_CONFIG: 竞答要求主会话工作目录是 git 仓库（当前 ${handle0.meta.cwd}）——worktree 隔离依赖 git`)
     }
 
     const arenaId = ids.session(`ses_arena_${Date.now()}_${Math.floor(Math.random() * 1e6)}`)

@@ -1076,15 +1076,17 @@ export class Engine {
    * 挂起等用户回复（同工具审批链）；拒绝返回 false。
    */
   async requestApproval(sessionId: SessionId, action: string, reason: string, patterns: string[]): Promise<boolean> {
+    void reason
     return this.permission.assert({
       sessionId,
-      callId: ids.call(`cal_arena_${Date.now()}_${Math.floor(Math.random() * 1e6)}`),
+      callId: newIds.call(),
+      turnId: newIds.turn(),
       name: 'arena-apply',
       action,
       resource: patterns.join(', '),
       patterns,
+      input: null,
       signal: new AbortController().signal,
-      reason,
     })
   }
 
