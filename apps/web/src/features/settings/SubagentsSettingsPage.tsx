@@ -93,7 +93,7 @@ export function SubagentsSettingsPage() {
                       aria-label={`启停子代理 ${p.name}`}
                       checked={enabled}
                       disabled={busy}
-                      onCheckedChange={(v) => void toggle(p.name, v)}
+                      onChange={(v) => void toggle(p.name, v)}
                     />
                   </SettingRow>
                 )
