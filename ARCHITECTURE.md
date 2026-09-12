@@ -47,6 +47,7 @@
 | v1.45 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，工单 16.9 完整落地指令） | **新增 D35 /lsp 语言服务器集成（工单 16.9）**：换基座判决——vscode-languageserver-protocol@3.18.3 + vscode-jsonrpc@9.0.2（MIT，微软官方）替代移植 qwen 自研 JsonRpcConnection；两必抄安全细节落地有单测（spawn 前敏感 env 剥离 qwen 同清单大小写不敏感 + config hash 键排序 sha256 不变不重启）；连接管理住 engine lsp/（惰性 spawn/initialize 10s/请求 15s/诊断缓存全量替换 + lsp.diagnostics durable 落盘）；单工具 12 操作枚举（qwen 设计照抄）走 fs.read 审批域只读；Transport 增 listLspServers（三通道对等）。事件词表 26 → **27 种**（lsp.diagnostics，durable 非 surface）；§2 事件模型行同步；命令基线 18→19。与 doc/02 v4.44、AGENTS v1.43、README v1.37、doc/08 v1.44 同批（编号注记：本行原拟 v1.44，被上批 Qoder 18.4/18.5 收口占用，按「先来者保留、后来者顺延」顺延为 v1.45） |
 | v1.46 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D36 /agents 子代理管理（工单 16.2）**：两口子拍板落地——格式维持 JSON 单一来源不引入 MD+frontmatter（配置面全族统一），**两层定义**（项目层 .spark/agents 覆盖用户层同名，source 合成值）；启停走 spark.json agents.disabledAgents 名单（PUT /api/settings 既有链路，重启档，停用档 E_CONFIG 拒绝不静默回退）；零新端点零审批面。命令基线 19→20（/agents client 命令）。与 doc/02 v4.45、AGENTS v1.44、README v1.38、doc/08 v1.45 同批 |
 | v1.47 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D39 Spark as MCP server = stdio 单入口 + 三工具 + 审批 fail-closed（工单 15.1）**：`spark mcp` 子命令（apps/cli/src/mcp-server.ts 独立文件 + main.tsx 一行注册）；进程内 Engine 装配同 12.3（sdk inprocess 通道，数据根 ~/.spark 与 TUI 同源）；三工具 spark_run/spark_sessions/spark_events；审批语义如实声明——规则照常生效、ask 挂起超时 fail-closed 拒绝（permissionTimeoutMs 收敛 120s）、audit 零旁路；被否备选：SSE transport（V2-21 一并）、免审批直通（违反铁律）。编号注记：占 D39（D37=16.4 已引用、D38=并行 16.5/16.8 预留）。与 doc/08 §15.1 同批 |
+| v1.48 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D40 /trust 文件夹信任（工单 16.4，Q-6 经"全部做完"授权确认）与 D41 /extensions 扩展管理（工单 16.5）**：D40——evaluateAll 后处理压 allow（deny/ask 不变，收紧审批而非扩权）、祖先链深匹配顺序无关、不引锁；D41——声明式内容包不执行代码（D18）、symlink 逃逸拒载、settings 名单启停（D36 同构）、清单热可见装配重启生效。命令基线 20→22（/trust、/extensions）。与 doc/02 v4.46、AGENTS v1.45、README v1.39、doc/08 v1.46 同批（D40/D41 顺延现表末张 D39——15.1 先行占用） |
 
 ---
 
@@ -391,6 +392,27 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 3. **stdout 纪律**：stdio 传输独占 stdout——Engine logger 强制 `stdout: false`（12.3 同款），提示信息走 stderr。
 后果：apps/cli 增依赖 `@modelcontextprotocol/sdk@1.30.0`（engine 已有同版，不新增解析）；测试为进程内 handler 层三工具用例 + 审批超时拒绝路径（stdio 协议层不在单测面）；**真实外配走查（Claude Code / ZCode 实配完成一次真实任务调用 + 审计记录核对）留用户现场登记**。
 编号注记：本 ADR 占 **D39**——D37 为 16.4 /trust（已在 engine 源码引用）、D38 为并行在途的 16.5/16.8 预留，按"先来者保留、后来者顺延"处理。
+
+### D40 /trust 文件夹信任 = 祖先链深匹配 + 收紧自动放行（2026-09-12，阶段十六工单 16.4）
+
+背景：doc/08 §16.4 立项（消解 V2-31；qwen trustedFolders/trust-precedence 参考设计）。工单明写"ADR 经晚风确认后再实现"（§0.2 Q-6）——晚风"工单要全部做完"指令（2026-09-12）视作确认授权。
+候选：① 规则层注入 trust 层（把 ask 规则排进 evaluate 链）——否决：findLast 后层胜语义会把 deny 也压掉（收紧变扩权）；② **evaluateAll 后处理**——采纳：仅当终判 allow 且 action ∈ {shell.exec, mcp.call} 且 cwd 未信任时降级为 ask；deny/ask 不变（"收紧审批而非扩权"精确语义）。
+结论：
+1. **存储**：~/.spark/trusted.json `{ version:1, folders: Record<path,'trusted'|'untrusted'> }`；引擎唯一写者（server 路由 PUT /api/trust 转发），原子写——不引 proper-lockfile（无跨进程并发写者，ADR D38 同口径裁决）。
+2. **判定**：trustLevelOf 纯函数——路径归一化（resolve + Windows 大小写不敏感）后沿 cwd 祖先链**深→浅**找命中，最深者胜，无命中 = none；结果与 folders 插入顺序无关（单测断言）。
+3. **收紧面**：只 shell.exec 与 mcp.call（bash 与外部 MCP——恶意项目的两个主要出口）；fs.read 等只读面不收紧（未信任目录的可读性不构成注入放大面）。
+4. **v1 边界**：信任档按引擎 defaultCwd 全局判定（单工作区直觉——"打开陌生仓库"即 spark up 的 cwd；会话级 cwd 差异登记限制，需要时按会话 cwd 重算 tightens 闭包即可）。
+后果：PermissionServiceDeps 增可选 trust 端口（缺省不收紧，既有测试零改动）；server GET/PUT /api/trust + Transport getTrust/setTrust 三通道；web 设置中心"安全与信任"页 + CLI /trust 面板（命令基线 22）；测试 9 例（深匹配/收紧面/存取/引擎端到端 ask 收紧与放行不误伤）。
+
+### D41 /extensions 扩展管理 = 声明式内容包 + settings 名单启停（2026-09-12，阶段十六工单 16.5）
+
+背景：doc/08 §16.5 立项（消解 V2-32，含 V2-01/V2-02 启停半边；qwen extensionManager 3375 行参考设计大幅裁剪——只取发现/启停，三阶段事务日志简化为原子写）。
+候选：① TS 插件（opencode 形态）——否决：执行任意代码违反 D18 红线；② **声明式内容包**（目录 + spark-extension.json 清单：skills/agents/commands/mcpServers 相对路径声明），采纳：比 qwen 的安装源体系更契合 Spark 本地单机形态；③ 安装/下载/网络源——否决（v1 无 marketplace，安装 = 手动放置目录）。
+结论：
+1. **发现**：~/.spark/extensions/<id>/（id 纪律同 agents ^[a-z0-9][a-z0-9-]*$），每次调用现扫（目录数小，无缓存即天然热）；**symlink 安全检查照抄 qwen 思路**——目录内文件 realpath 逃逸出扩展根 → 拒载。
+2. **启停**：settings.extensions.disabledExtensions 名单（同 D36 agents 同构，PUT /api/extensions/:id/enabled 内写 spark.json，重启档）；**v1 清单热可见、注册表装配重启生效**——深度热插拔（正在运行会话的 skill/MCP 撤下）不做，登记限制。
+3. **零新事件零审批面**：扩展只声明归属（实际装载仍走 skills/agents/commands/mcp 各自 loader 的既有审批与校验路径）。
+后果：protocol SparkExtensionManifest/ExtensionDto + settings.extensions 段（SETTINGS_RESTART_REQUIRED 同步）；server GET/PUT 两路由 + 三通道对等；web 插件占位页升真值（PluginsSettingsPage）+ CLI /extensions 面板（命令基线 22）；测试 5 例（发现纪律/symlink 逃逸拒载/启停写盘端到端）。
 
 ## 6. 模块速览（职责边界）
 

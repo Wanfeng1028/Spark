@@ -171,5 +171,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.36 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | 架构图协议行 **事件词表 22→26 种**（阶段十六工单 16.7 /goal 持续目标：goal.set/updated/completed/paused 四枚 durable 事件，ADR D33；英文版同步）。与 AGENTS v1.42、ARCHITECTURE v1.42、doc/02 v4.42、doc/08 v1.41 同批 |
 | v1.37 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（工单 16.9 /lsp LSP 集成完整落地指令） | 架构图协议行 **事件词表 26→27 种**（阶段十六工单 16.9 /lsp：新增 lsp.diagnostics durable 事件，ADR D35 换基座 vscode-languageserver-protocol + vscode-jsonrpc；英文版同步）。与 AGENTS v1.43、ARCHITECTURE v1.45、doc/02 v4.44、doc/08 v1.44 同批 |
 | v1.38 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：阶段十六 16.2（/agents 两层子代理定义 + settings 启停，ADR D36）已落地；与 ARCHITECTURE v1.46、doc/02 v4.45、doc/08 v1.45 同批 |
+| v1.39 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：阶段十六 16.4（/trust 文件夹信任，ADR D40）与 16.5（/extensions 扩展，ADR D41）已落地。与 doc/02 v4.46、doc/08 v1.46 同批 |
 
 </details>
