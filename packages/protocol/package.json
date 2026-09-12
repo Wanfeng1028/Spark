@@ -42,7 +42,8 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "gen:contract": "tsx scripts/gen-contract.ts"
+    "gen:contract": "tsx scripts/gen-contract.ts",
+    "gen:openapi": "tsx scripts/gen-openapi.ts"
   },
   "dependencies": {
     "zod": "^4.1.5"

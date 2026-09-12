@@ -33,6 +33,11 @@ jobs:
       # 改了词表却不重生成 → 这里红（生成器：apps/docs/scripts/gen-events.ts）。
       - run: pnpm --filter @spark/docs gen:events
       - run: git diff --exit-code apps/docs/events.md
+      # 工单 15.2：OpenAPI 导出同一口径——路由元数据（packages/protocol/src/openapi-routes.ts）
+      # 与 DTO schema 合成 openapi.json，改了路由/schema 却不重生成 → 这里红。
+      # 生成器内置结构自检（responses 完备/$ref 可解析/路径参数声明），自检不过生成器直接退出 1。
+      - run: pnpm --filter @spark/protocol gen:openapi
+      - run: git diff --exit-code packages/protocol/openapi.json
       - run: pnpm test
       # 工单 13.1 第三批（doc/08 §13.1 验收第 1 条、提示词第 4 条："CI（非 nightly）用 ScriptedLlm 冒烟"）：
       # core 四场景 + 任务级判分双向自检 13 场景，无 key 无网络（约 10s）
