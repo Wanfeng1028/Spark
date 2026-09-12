@@ -44,6 +44,7 @@
 | v1.42 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D33 /goal 持续目标循环（工单 16.7）**：run-loop 增 goal 端口（turn 收尾后旁路 LLM judge 判定，不进主上下文），未满足 → 合成续跑输入（如实标注 [goal]，走正常审批链——红线：续跑不绕审批）；三护栏数值在迷你 ADR 定档（迭代上限 50 = qwen 同值 / 每目标 token 预算 200k / judge 超时 25s）。事件词表 22 → **26 种**（goal.set/updated/completed/paused，全 durable 非 surface）；§2 事件模型行同步。与 doc/02 v4.42、AGENTS v1.42、README v1.36、doc/08 v1.41 同批 |
 | v1.43 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D34 /voice 语音听写（工单 16.6）**：转写住引擎侧（浏览器/CLI 持密钥不可行 + apiKey 纪律），OpenAI 兼容 /audio/transcriptions；SSRF 防护为硬门（DNS 全地址 BlockList，IPv6 过渡段必抄 qwen）；音频 live 不落盘、仅转写文本回填输入框；CLI SoX 降链 fail-closed。Transport 增 transcribe（三通道：HTTP/InProcess 直映射/Mock 对等）；命令基线 17→18。与 doc/02 v4.43、DESIGN v2.16、doc/08 v1.42 同批 |
 | v1.44 | 2026-09-12 | AI 编写：Qoder；发起：晚风（Wanfeng1028，“继续”指令） | **阶段十八 18.4/18.5 收口 + D32 走查补记 + D34 ssrf 勘误**：① D32（web 胶囊化）走查补记——五档圆角封闭集在 apps/web 全量归档落地（src 圆角归零到 §13.B），18.5② AA 复核修正两处 4.44:1 次要文本（改 foreground/70），移动端 §13.J 同族无连带微调（详见 doc/08 v1.43）。② D34（/voice）SSRF 防护面勘误——撤 `::ffff:0:0/96`（Node 归一化 v4 为 ::ffff:v4，整段入表=封全部 IPv4、误杀公网端点），mapped 私网改由 BlockList v4-mapped 归一化命中既有 v4 私网段覆盖；Node 24 起 IPv6 addSubnet/check 须显式 'ipv6' family。修 CI 连红约 12 次（engine voice 三层 + lsp 夹具 + web voice 两测试 + lint，ca80e22→b08e6bc）并加固 mapped 变体断言（8baf9c6），CI 全绿。与 doc/08 v1.43 同批 |
+| v1.45 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，工单 16.9 完整落地指令） | **新增 D35 /lsp 语言服务器集成（工单 16.9）**：换基座判决——vscode-languageserver-protocol@3.18.3 + vscode-jsonrpc@9.0.2（MIT，微软官方）替代移植 qwen 自研 JsonRpcConnection；两必抄安全细节落地有单测（spawn 前敏感 env 剥离 qwen 同清单大小写不敏感 + config hash 键排序 sha256 不变不重启）；连接管理住 engine lsp/（惰性 spawn/initialize 10s/请求 15s/诊断缓存全量替换 + lsp.diagnostics durable 落盘）；单工具 12 操作枚举（qwen 设计照抄）走 fs.read 审批域只读；Transport 增 listLspServers（三通道对等）。事件词表 26 → **27 种**（lsp.diagnostics，durable 非 surface）；§2 事件模型行同步；命令基线 18→19。与 doc/02 v4.44、AGENTS v1.43、README v1.37、doc/08 v1.44 同批（编号注记：本行原拟 v1.44，被上批 Qoder 18.4/18.5 收口占用，按「先来者保留、后来者顺延」顺延为 v1.45） |
 
 ---
 
@@ -84,7 +85,7 @@
 
 | 抽象           | 设计                                                                                                                                                                           | 来源                                                           |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| **事件模型**   | 26 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分    | opencode durable/live + dsh surface                            |
+| **事件模型**   | 27 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分    | opencode durable/live + dsh surface                            |
 | **会话**       | append-only JSONL 树（条目 `id/parentId`）；分叉=只移 leaf 指针；compaction 是树上的普通 entry（summary+keptFromEventId 锚点）；模型上下文=Projector 从 surface 事件投影           | pi session-manager + dsh projector                             |
 | **输入三通道** | `now`（空闲即开 turn）/ `steer`（进行中，下一 step 前注入）/ `queue`（turn 间依序）；提交三态 `started/steered/queued`；唤醒合并防空转                                         | Codex TurnInputMode + opencode pendingWake                     |
 | **工具管线**   | zod schema-first；before→permission→execute→after；serial 工具 barrier / parallel 工具并发（read 并行，bash/edit/write 独占）；输出 >32KB 溢写文件；中断补合成事件对           | Codex RwLock 门控 + dsh 三段 waterfall + opencode output-store |
@@ -351,6 +352,19 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 4. **通道**：Transport 增 `transcribe`——HTTP POST /api/transcribe（400/403/502 三档映射）；InProcess 直映射 engine.transcribe（引擎原生支持，不入 E_UNSUPPORTED 名单）；Mock 返回确定性假文本（对等演示）。命令基线 17→18（/voice，client 命令循环切模式）。
 5. **音频纪律**：音频本体 live 不落盘（不进 JSONL/日志/模型上下文）；CLI 临时 wav 萬 os.tmpdir() 转写完即清理。
 后果：命令基线 17→18（四包断言同改）；§5.10 补登 E_NO_GOAL/E_GOAL_ARGS/E_GOAL_EMPTY（16.7 漏登记回补）与 E_TRANSCRIBE_* 五码；doc/02 §4.5/§4.7 表同步；契约生成物重跑（98 describe/941 断言）。
+
+### D35 /lsp 语言服务器集成 = 换基座 vscode-languageserver-protocol + 单工具 12 操作 + hash 不变不重启（2026-09-11，阶段十六工单 16.9）
+
+背景：doc/08 §16.9 立项（消解 V2-30；qwen-code packages/core/src/lsp 参考设计——其自研 330 行 JsonRpcConnection 不值得重复，必抄两安全细节：spawn 前敏感 env 剥离、config hash 不变不重启）。
+候选：① 移植 qwen 自研 JsonRpcConnection——否决：330 行轮子，线协议/帧解析/错误分型全是成熟问题；② MCP 式自研挂载——否决：LSP 线协议复杂度（Content-Length 帧化/状态机/能力协商）远超 MCP stdio，自研即背维护债；③ **vscode-languageserver-protocol@3.18.3 + vscode-jsonrpc@9.0.2（MIT，微软官方）**，采纳：协议实现与类型单源，引擎只写生命周期与语义层。
+结论：
+1. **连接管理住引擎**（lsp/manager.ts）：惰性连接（首次 lsp 工具查询才 spawn，缺省零开销）；每次调用重读 `~/.spark/lsp.json` 并比对 per-server config hash（键排序 JSON 的 sha256，qwen configHash 口径）——**hash 不变且进程存活即复用（不重启），变化/退出才重建**；initialize 握手 10s（qwen 同值）、请求超时 15s（qwen 同值）、didOpen 4MB 上限 + 诊断宽限 500ms。
+2. **安全细节两必抄**（qwen 同款）：spawn 前 `sanitizedLspEnv` 剥离 LD_PRELOAD/LD_LIBRARY_PATH/DYLD_INSERT_LIBRARIES/LD_AUDIT/NODE_OPTIONS（逐键大写比对，配置覆盖项同闸）；config hash 语义如上（配置改动即时生效但不无谓重启进程）。
+3. **surface 纪律双面成立**：`lsp.diagnostics` 事件 durable 非 surface——publishDiagnostics 全量替换进缓存 + durable 落盘（诊断会经 lsp 工具进模型上下文，模型可见必被记录）；进模型历史的是工具 tool.completed 结果。诊断事件归属最近打开该文档的会话（uri→sessionId）。
+4. **单工具 12 操作枚举**（qwen tools/lsp.ts 设计照抄）：goToDefinition/findReferences/hover/documentSymbol/workspaceSymbol/goToImplementation/prepareCallHierarchy/incomingCalls/outgoingCalls/diagnostics/workspaceDiagnostics/codeActions；审批走 **fs.read 同域只读**（与 read/grep 同域——plan 档放行、用户规则通配原样生效），文件读取先过 resolveInRoot 硬边界；恒广告（browser 族同判例，未配置执行期 E_LSP_UNCONFIGURED fail-closed）。
+5. **通道**：Transport 增 `listLspServers`（GET /api/lsp；InProcess 透传 engine.listLspServers()；Mock 对等夹具）；命令基线 18→19（/lsp，client 命令，web 页 /settings/lsp + cli LspPanel）。
+6. **v1 边界**：无 server 下载器与自动发现（语言→command 手写 lsp.json，安装归用户环境）；callHierarchy item 由模型回传；codeActions 诊断上下文取引擎缓存。TS/Python 真实 server 联调走查留用户现场。
+后果：事件词表 26 → 27 种（六处计数同步）；命令基线 18→19（四包断言同改）；§5.10 登记七码（E_LSP_UNAVAILABLE/UNCONFIGURED/ARGS/CONNECT/CALL/TIMEOUT/DOC_TOO_LARGE）；engine 新依赖 vscode-languageserver-protocol + vscode-jsonrpc（MIT，登记）；契约生成物重跑（100 describe/966 断言）。
 
 ## 6. 模块速览（职责边界）
 

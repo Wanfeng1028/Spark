@@ -8,6 +8,7 @@
 | v1.1 | 2026-08-23 | AI 编写：ZCode CLI · GLM-5.3（`builtin:zai-start-plan/GLM-5.3`）                                                                                                                                       | §4 对比表"21 种事件逐一断言"修正为 **19 种**（与 doc/02 v2.3、AGENTS v1.11 同步）                                                                   |
 | v1.2 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | §4 对比表事实修正：事件词表 **19 → 22 种**（阶段七工单 7.2 `io.warning`、7.5 `memory.injected` 与阶段十六工单 16.3 `session.mode.changed` 三次扩表后本行一直停在 v1.1 的 19）——reducer 逐条单测的口径同 AGENTS §2.8。同批把本行与 doc/02 §6.4 处理表标题一并纳入 `scripts/check_doc_links.py` 的**副锚点规则**（主规则每文件只能一个锚点，§6.4 与 §4.3 同文件），防再次默漂 |
 | v1.3 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | §4 对比表事实修正：事件词表 **22 → 26 种**（阶段十六工单 16.7 /goal 新增 goal.set/updated/completed/paused 四枚；副锚点规则同源同步）。与 doc/02 v4.42、AGENTS v1.42、ARCHITECTURE v1.42、README v1.36、doc/08 v1.41 同批 |
+| v1.4 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（工单 16.9 /lsp LSP 集成完整落地指令） | §4 对比表事实修正：事件词表 **26 → 27 种**（阶段十六工单 16.9 /lsp 新增 lsp.diagnostics durable 事件——web 会话流新增 'diagnostics' 投影行卡；副锚点规则同源同步）。与 doc/02 v4.44、AGENTS v1.43、ARCHITECTURE v1.45、README v1.37、doc/08 v1.44 同批 |
 
 > 本文回答三个问题：**①参考项目的前端都是怎么写的？②我们的前端思路是什么？③它和传统 Web 前端有什么本质区别？**
 > 事实来源：`01-research-report.md` 的源码级调研（dsh/opencode 为开源 Web/桌面端一手源码；Codex/pi/Grok 为 TUI 源码——交互思想同样适用于 Web）。
@@ -129,7 +130,7 @@ Agent 产品的前端**不是"又一个聊天页面"**。它渲染的是一个**
 | **核心交互**       | 表单校验、CRUD、分页排序                | **审批卡（挂起/恢复）、插话/排队/中断、流式跟随滚动**                                |
 | **实时性**         | WebSocket 可选（聊天室才需要）          | SSE 必选：心跳、重连、背压是基础设施                                                 |
 | **前后端关系**     | API 文档对齐，类型靠手动同步            | **protocol 包类型直接共享**——改协议两端同时编译报错                                  |
-| **测试重心**       | 组件交互 + E2E 页面流                   | **reducer 事件表单测**（26 种事件逐一断言）+ mock 场景回放；UI 测试反而轻            |
+| **测试重心**       | 组件交互 + E2E 页面流                   | **reducer 事件表单测**（27 种事件逐一断言）+ mock 场景回放；UI 测试反而轻            |
 | **渲染性能关注点** | 首屏、包体积                            | **token 洪流下的主线程稳定**（rAF 批量、虚拟化、memo、增量渲染）                     |
 | **失败处理**       | 错误边界 + 请求重试                     | **失败闭合**（事件流永不悬空，引擎保证）+ 断线条 + 回放进度                          |
 | **部署形态**       | 公网网站，多用户，登录态                | **本地 127.0.0.1 引擎**：无登录/无多租户/无 CDN，静态资源由引擎进程托管              |

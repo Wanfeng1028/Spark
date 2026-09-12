@@ -373,9 +373,9 @@ export type TurnFinish = 'stop' | 'length' | 'aborted' | 'permission-rejected' |
 export type PermissionReply = 'once' | 'always' | 'reject'
 ```
 
-## 4.3 事件词表（26 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
+## 4.3 事件词表（27 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
 
-> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 26 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
+> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 27 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
 
 ```ts
 export interface SparkEventMap {
@@ -450,6 +450,12 @@ export interface SparkEventMap {
   'goal.completed': { iterations: number; usedTokens: number }
   'goal.paused': { reason: 'maxIterations' | 'budgetExhausted' | 'judgeTimeout' | 'interrupt' | 'turnError' | 'cleared';
                    iterations: number; usedTokens: number }
+  // LSP 诊断（阶段十六工单 16.9：durable 非 surface——诊断经 lsp 工具进模型上下文，模型可见必被记录；
+  // 空数组 = 该文件诊断清零，publishDiagnostics 清除语义是真实状态变化）
+  'lsp.diagnostics': { language: string; uri: string;
+                       diagnostics: { severity: 1|2|3|4; range: { start: { line: number; character: number };
+                                     end: { line: number; character: number } }; message: string;
+                                     source?: string; code?: string | number }[] }
 }
 ```
 
@@ -523,6 +529,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | io.warning                                        | ✅           | ❌ 永不进模型历史（log-only；规则名结构化，原文不进事件） |
 | memory.injected                                   | ✅           | ✅（工单 7.5 / ADR D25：Projector 投影为模型上下文首条前缀消息——模型可见必被记录，surface 纪律双面成立） |
 | goal.set / updated / completed / paused           | ✅           | ❌（工单 16.7 / ADR D33：状态日志；目标内容经合成续跑 user.message 进模型历史） |
+| lsp.diagnostics                                   | ✅           | ❌（工单 16.9：诊断流日志；进模型历史的是 lsp 工具的 tool.completed 结果——模型可见必被记录双面成立） |
 
 **磁盘行与 wire 同构**：落盘 JSONL 行 = 信封原样（含 parentId）——单一格式，序列化零转换，前端 UiItem 的 parentId 即来源于此。
 
@@ -568,6 +575,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | PUT  | /api/mcp                    | `{ version:1, servers:{...} }`                        | `{ ok:true, restartRequired:true }`（工单 12.6：整文件 zod 校验后原子写 `~/.spark/mcp.json`，坏配置不落盘 → 400；运行中改动需重启重连——响应与页面横幅如实标注） |
 | GET  | /api/skills                 | —                                                    | `SkillDto[]`（工单 7.4 已加载技能只读清单）          |
 | GET  | /api/agents                 | —                                                    | `AgentPresetDto[]`（工单 13.5：子代理预设档只读清单——扫 `~/.spark/agents/*.json`，坏档逐档跳过不列；写入靠用户改文件后重启，无写端点） |
+| GET  | /api/lsp                    | —                                                    | `LspServerStatusDto[]`（工单 16.9：语言服务器只读状态——连接状态 + 诊断缓存摘要；未配置空数组，连接失败也列出 connected:false + error 人话；坏 lsp.json → E_CONFIG） |
 | GET  | /api/memories               | —                                                    | `MemoryDto[]`（工单 7.5 / ADR D25：长期记忆列表，设置页管理数据源） |
 | DELETE | /api/memories/:id         | —                                                    | `{ ok:true }`；无此条 → 404 `E_NOT_FOUND`            |
 | GET  | /api/pair                 | —                                                    | `PairStatusDto`（工单 9.1 / ADR D24：监听地址/端口/环回标志/鉴权启用态/配对设备列表） |
@@ -814,7 +822,7 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 | 语音 | `transcribe` | POST `/api/transcribe` → `engine.transcribe`（工单 16.6：OpenAI 兼容转写 + SSRF 防护在 engine voice/） | ✅ 直映射（引擎原生支持，不做 E_UNSUPPORTED） |
 | 设置 | `getSettings` / `updateSettings` | `/api/settings` → engine 同名 | ✅ 同名直映 |
 | 命令 | `listCommands` / `executeCommand` | `/api/commands` → engine 同名 | ✅ 同名直映 |
-| 只读 | `listMcpServers` / `listSkills` / `listAgentPresets` / `usageSummary` / `listMemories` / `removeMemory` / `listAudit` / `search` | `/api/mcp`·`/api/skills`·`/api/agents`·`/api/usage/summary`·`/api/memories`·`/api/audit`·`/api/search` → engine 同名（`search` → `searchSessions`） | ✅ 同名直映 |
+| 只读 | `listMcpServers` / `listSkills` / `listAgentPresets` / `listLspServers` / `usageSummary` / `listMemories` / `removeMemory` / `listAudit` / `search` | `/api/mcp`·`/api/skills`·`/api/agents`·`/api/lsp`·`/api/usage/summary`·`/api/memories`·`/api/audit`·`/api/search` → engine 同名（`search` → `searchSessions`；`listLspServers` → `engine.listLspServers()` async 透传，工单 16.9） | ✅ 同名直映 |
 | 密钥 | `listSecrets` / `setSecret` / `removeSecret` | `/api/secrets` → engine 同名 | ✅ 同名直映 |
 | 自动化 | `listAutomations` / `createAutomation` / `updateAutomation` / `deleteAutomation` / `listAutomationRuns` / `fireAutomation` | `/api/automations` → engine 同名 | ✅ 同名直映 |
 | 文件系统 | `listFs` / `listFsTree` | GET `/api/fs` 与 `/api/fs/tree`——**server 自己做**（`resolveInRoot` 硬边界 + readdir + 隐藏/体积规则） | ❌ `E_UNSUPPORTED`（engine 无目录列举门面；不本地重写一份，否则硬边界规则双源） |
@@ -1482,6 +1490,12 @@ export interface ResolvedModel {
 | E_TIMEOUT / E_EXIT_CODE / E_SPAWN                | bash 超时 / 非零退出（附 code）/ spawn 失败   | tool output                        |
 | E_SANDBOX_UNAVAILABLE                            | bashSandbox=on 而 wrapper 不可用/平台无路线（工单 5.2，fail-closed 拒跑） | tool output |
 | E_MCP_CALL                                       | MCP 外部工具调用失败（协议错误/超时；工单 5.3，ADR D16） | tool output                        |
+| E_LSP_UNAVAILABLE                                | 引擎未装配 LspManager（ToolContext.lsp 缺省；工单 16.9） | tool output                        |
+| E_LSP_UNCONFIGURED                               | lsp.json 缺失或该语言未配置（工单 16.9，fail-closed） | tool output                        |
+| E_LSP_ARGS                                       | 操作参数不满足（缺 path/line/query/item 或语言无法确定；工单 16.9） | tool output                        |
+| E_LSP_CONNECT                                    | 语言服务器 spawn/initialize 失败或超时（10s；工单 16.9） | tool output                        |
+| E_LSP_CALL / E_LSP_TIMEOUT                       | 请求失败（server 错误）/ 请求超时（15s；工单 16.9） | tool output                        |
+| E_LSP_DOC_TOO_LARGE                              | didOpen 文档超 4MB 上限（工单 16.9）          | tool output                        |
 | E_NO_GOAL / E_GOAL_ARGS / E_GOAL_EMPTY           | /goal 无目标 status·clear / 坏子命令 / 空 set（工单 16.7；v4.43 补登记） | HTTP 400·404 映射（executeCommand 拒绝） |
 | E_TRANSCRIBE_UNCONFIGURED                        | 供应商未配转写端点/密钥（工单 16.6）          | HTTP 400                            |
 | E_TRANSCRIBE_MIME / E_TRANSCRIBE_TOO_LARGE       | 录音格式白名单外 / 超 10MB（工单 16.6）       | HTTP 400                            |
@@ -1818,7 +1832,7 @@ interface SessionSlice {
 
 **去重规则（回放×直播重叠）**：apply 入口先判 `e.seq !== undefined && e.seq <= slice.lastSeq` → 跳过（全局直播先到、REST 回放后到时不重复应用；重放期间乱序到达的直播同理被吸附）；live 事件无 seq，无条件应用。resetSlice 将 lastSeq 归 0 后重放从空重建。
 
-**applyEvent 处理表（26 种全覆盖）**：
+**applyEvent 处理表（27 种全覆盖）**：
 
 | 事件                         | 状态变更                                                                            |
 | ---------------------------- | ----------------------------------------------------------------------------------- |
@@ -1843,6 +1857,7 @@ interface SessionSlice {
 | io.warning                   | 挂对应 tool 项 guard（角标数据源；不改状态机——不阻断 turn）                         |
 | memory.injected              | slice.memoryInjected 记录命中数与查询词（工单 7.5；不进 items——模型可见面已在引擎事件流记录） |
 | goal.set / updated / completed / paused | slice.goal 投影（工单 16.7 / ADR D33：null = 无目标；text/iterations/usedTokens/status 随事件重建——durable 故冷启动回放即可恢复，web StatusBar 徽标为 /goal status 的可见面） |
+| lsp.diagnostics               | 会话流追加 `diagnostics` 项（工单 16.9：language/uri/diagnostics 随行；每次 publish 一行卡——诊断清零也是一次真实发布照常入流，转录式回放即重建时间线） |
 
 ```ts
 // connection-store：{ status:'connecting'|'open'|'reconnecting'|'closed', lastSeq, retryCount }
@@ -2738,6 +2753,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.41 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"找一下所有的没有完成的工单，先做不需要我拍板的"指令） | **两处工单状态对账（决策早已记录、文档没跟上）**。① §8.7 V2-34 /plan 行由"已立项：doc/08 阶段十六 16.3"改为 **已落地：工单 16.3（三批全量）**，并写实落地形态（没建独立只读模式位，而是激活既有 `plan` 审批档 + `exit_plan_mode` 走审批链 + 四端指示）——同 V2-27（16.1）的收口口径。② 阶段十批次 3 的 10.30 行由 **⏸ 冻结待人类五层级确认** 改为 **✅ 已判决保留冻结**：doc/08 §0.2 **Q-7 已于 2026-09-05 拍板"全部保留继续冻结"**（UsageBar/Titlebar/Sidebar/StatusBar/Row/scripted-llm/_scratch 两产物均不删），本行却仍写"待晚风五层级确认 / 人类明示确认删除后另行开单"——**判决依据是 Q-7，不是 knip 的 ignore**（ignore 只是门禁降噪），重开须人类再次发起五层级确认。**同批全仓工单清点结论**（仅报告，未改动其他行）：阶段十一~十四与十七 R-A~R-H 全收官；阶段十五 15.1–15.4 有明面门槛（立项前须重估：依赖外部用户信号 + Q-1 拍板）；16.2（子代理定义格式与 13.5 JSON 预设档冲突、启停落点两个口子）与 16.4（明写 ADR 经晚风确认后再实现）待拍板；16.5/16.8 依赖 16.2 故连带阻塞；**无阻塞可做的是 16.6 /voice、16.7 /goal、16.9 /lsp（大件殿后）与阶段十八 18.1–18.5（视觉口径 2026-09-05 已拍板，18.1 纯文档零依赖）**——按"先做不需要拍板的"指令，下一张开工 18.1。本批本机零验证 |
 | v4.42 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **工单 16.7 /goal 持续目标落地（阶段十六；ADR D33）**：① 事件词表 22 → **26 种**——goal.set / goal.updated / goal.completed / goal.paused 四枚（§4.3 词表 + §4.4 规则表 + §6.4 处理表同步；全 durable 非 surface——目标内容经合成续跑 user.message 进模型历史，surface 纪律双面成立）；② engine 新模块 goals.ts GoalRunner——turn 收尾旁路 LLM judge（不占主上下文，判据 = JSONL 尾部 40 行证据 + "送达不等于状态改变"写死提示词，SATISFIED/NOT_SATISFIED 二选一），未满足 → 合成续跑输入（如实标注 [goal 合成输入·第 N 轮]，不伪造用户意图）；三护栏（ADR D33 定档：迭代 50 上限 / 200k token 预算（judge 用量同计）/ judge 25s 超时——超时/错误/解析失败一律 paused 保留目标，fail-closed）；interrupt（aborted）→ paused{interrupt} 即停；turnError → paused{turnError}；③ run-loop：RunLoopDeps 增可选 goal 端口（afterTurn），runTurn 返回收尾结果（既有调用方兼容），合成续跑经 rt.submit('queue') 推主队列——用户真实输入 FIFO 天然优先；④ 命令：BUILTIN_COMMANDS 增 /goal（action，surface web+cli，基线 16→17 四包断言同改），executeCommand 增 set/clear/status 分支（E_NO_GOAL / E_GOAL_ARGS / E_GOAL_EMPTY fail-closed）；⑤ MockTransport 对等：/goal 三子命令事件语义与引擎一致（judge 续跑属引擎运行时，mock 只落状态）；⑥ web：applyEvent 落 slice.goal（durable 回放即重建）+ StatusBar goal 徽标（/goal status 可见面）；⑦ 测试：web applyEvent reducer 6 例 + mock-transport 2 例 + web StatusBar 徽标 2 例 + engine goals.test 14 例（ADR D33 护栏数值锁定 + judge 未满足/满足/解析失败/超时/迭代上限/预算耗尽/interrupt/turnError/无目标幂等/clear+status/rebuild 回放 11 例 + Engine 全链路 2 例）；⑧ 生成物重跑：契约用例与文档站词表页（26 种）。红线对账：续跑 turn 走正常管线（审批/护栏/熔断/hooks 全生效，零旁路）。验收注："小目标 2-3 迭代完成"由 ScriptedLlm 全链路用例覆盖；真实模型走查留用户现场。同步：ARCHITECTURE v1.42（D33）、AGENTS v1.42、README v1.36、doc/08 v1.41、doc/03 v1.3（§4 对比表副锚点）。本批本机零验证，以 CI 裁决 |
 | v4.43 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **工单 16.6 /voice 语音听写落地（阶段十六；ADR D34）**：① protocol——Transport 增 `transcribe`（TranscribeRequest：provider? + audio{mime,dataBase64}；TranscribeResultDto：text/provider/model），ClientAction 枚举增 `voice`，BUILTIN_COMMANDS 增 /voice（client 命令，surface web+cli，基线 17→18 四包断言同改），error-copy 增 E_TRANSCRIBE_* 五码人话；② engine 新模块 voice/——transcriber.ts（OpenAI 兼容 /audio/transcriptions multipart 直调；端点 = baseUrl 拼接或 transcription.endpoint 显式配，models.json 供应商 schema 增 transcription{endpoint?,model?}；mime 白名单 + 10MB 上限 + apiKey 走 store/env 单点）与 **ssrf.ts（qwen voice-transcriber 必抄项：DNS 解析后全地址查 BlockList——IPv4 私网/环回/链路本地/CGNAT + IPv6 ULA/过渡段 ::ffff::/96·64:ff9b::/96·64:ff9b:1::/48·2002::/16，任一命中即拒）**；engine.transcribe 公共方法；③ server：POST /api/transcribe（TranscribeBody zod）+ E_TRANSCRIBE_* 三档映射（400/403/502）+ §5.10 补登记（goal 三码一并补登）；④ sdk InProcessTransport 增 transcribe 直映射（引擎原生支持，不做 E_UNSUPPORTED；§4.7 表同步）；⑤ web——ui store 增 voiceMode（hold/tap/off 循环，spark.ui 持久化）、useVoiceInput 钩子（getUserMedia+MediaRecorder 降选 mime、8KB 分块 base64、转写文本函数式追加草稿末尾——录音期间继续打字不丢字）、Composer 麦克风钮（hold=按住说话 tap=点击启停 off 不渲染；录音红点 8px；错误行 aria-live 可点击清除）、/voice 分派 cycleVoiceMode；⑥ CLI——voice/sox.ts（rec 子进程 + qwen 同款 silence 参数 ['silence','1','0.1','3%','1','2.0','3%']；spawn 剥离 LD_PRELOAD/NODE_OPTIONS 等；tmp wav 转写完即清理）、useVoiceCli 状态机（/voice tap 启停、off 关闭；录音中 Enter 拦截为停止）、notice 行为唯一反馈面；**SoX 不可用明确提示不裸降（fail-closed）**；⑦ 音频纪律：音频本体 live 不落盘（不进 JSONL/日志/模型上下文），只有转写文本回填输入框——用户发送后才经 user.message 进模型历史；⑧ 测试：engine voice.test 34 例（黑名单矩阵 it.each 23 + 非 IP fail-closed 1 + assertPublicUrl 4 + 转写成功/失败面 6）+ cli voice-sox 5 例 + web voice-input 4 例 + http-transport 1 + mock 2；⑨ 生成物重跑：契约用例 98 describe/941 断言（+Transcribe 两 schema）。移动端语音按需另立项不夹带。同步：ARCHITECTURE v1.43（D34）、DESIGN v2.16（§13.E 语音钮）、doc/08 v1.42。本批本机零验证，以 CI 裁决 |
+| v4.44 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单 16.9 完整落地"指令） | **工单 16.9 /lsp LSP 集成落地（阶段十六；ADR D35）**：① protocol——事件词表 26 → **27 种**：新增 `lsp.diagnostics`（durable 非 surface——诊断经 lsp 工具进模型上下文即模型可见必被记录；severity 1-4 走 LSP 规范档位，空数组 = 诊断清零的真实发布；§4.3 词表 + §4.4 规则表 + §6.4 处理表同步）；`LspServerStatusDto`（GET /api/lsp 行：language/command/connected/error?/files/errors/warnings）+ Transport `listLspServers()` 三通道对等（transport-node GET /api/lsp、web mock 对等夹具、sdk inprocess 透传 engine.listLspServers()）；ClientAction 枚举增 `lsp`，BUILTIN_COMMANDS 增 /lsp（client 命令，surface web+cli，基线 18→19 四包断言同改）；② engine 新模块 `src/lsp/`——config.ts（~/.spark/lsp.json version 1 + languages 表 zod 校验，坏文件 E_CONFIG；**per-server config hash = 键排序 JSON 的 sha256**，qwen configHash 同口径）；connection.ts（**换基座判决：vscode-languageserver-protocol@3.18.3 + vscode-jsonrpc@9.0.2（MIT，微软官方）**——qwen 自研 330 行 JsonRpcConnection 不值得重复；`sanitizedLspEnv` spawn 前剥离 LD_PRELOAD/LD_LIBRARY_PATH/DYLD_INSERT_LIBRARIES/LD_AUDIT/NODE_OPTIONS（qwen SECURITY_SENSITIVE_ENV_KEYS 同清单，逐键大写比对，配置覆盖项同闸）；LspConnection 窄接口测试可注入）；manager.ts（惰性连接：首次查询才 spawn 缺省零开销；**每次调用重读 lsp.json 比对 hash——hash 不变且进程存活即复用不重启，变化/退出才重建**；initialize 握手 10s（qwen 同值）+ didOpen 4MB 上限 + 诊断宽限 500ms；publishDiagnostics → 缓存（全量替换语义）+ `bus.emit('lsp.diagnostics')` durable 落盘（归属最近打开文档的会话，发射失败记日志不悬空）；白名单外字段（tags/relatedInformation）收敛剥除、severity 越界夹取；status 快照"失败也列出 connected:false + error 人话"同 /api/mcp 口径；shutdown 走 shutdown 请求→exit→杀进程不悬空）；③ engine：`lsp` 单工具 12 操作枚举（goToDefinition/findReferences/hover/documentSymbol/workspaceSymbol/goToImplementation/prepareCallHierarchy/incomingCalls/outgoingCalls/diagnostics/workspaceDiagnostics/codeActions——qwen tools/lsp.ts 枚举设计照抄）：ToolDefinition 六要素、**fs.read 审批域**（与 read/grep 同域只读，plan 档放行、规则通配原样生效）、resolveInRoot 硬边界先于审批、1-based（模型侧）↔0-based（LSP 侧）换算、结果紧凑归一（uri→路径/1-based 行列/symbol kind 人话标签）、codeActions 的诊断上下文取引擎缓存不让模型手工搬运；恒广告（browser 族同判例——未配置执行期 E_LSP_UNCONFIGURED fail-closed）；ToolContext.lsp / PipelineDeps.lsp 注入（memory/exitPlanMode 同手法）；④ server：GET /api/lsp（readonly 子插件，handler 无 try/catch 全局兜底）；⑤ web——/settings/lsp 语言服务器页（settings-pages 增 'lsp' ready 页：连接状态点 + 诊断摘要 + 失败原因明细，未配置如实空态）、会话流诊断行卡（MessageItem 'diagnostics' 分支：语言 + 文件 + 逐条 E/W/I 行，清零如实显示）、CLIENT_ACTIONS.lsp → navigate /settings/lsp；⑥ cli——LspPanel（连接状态 + 诊断摘要）+ CliPanel 'lsp' + client-actions 映射（Record 穷举编译期强制）+ items.tsx 诊断行（E/W 计数 + 前 5 条消息）+ flow-rows itemSettled 'diagnostics' 到达即定稿；mobile/miniapp——UiItem 穷尽分支补 'diagnostics'（形态留待扩展渲染空，同 'turn' 判例）；⑦ 错误码登记 §5.10：E_LSP_UNAVAILABLE / E_LSP_UNCONFIGURED / E_LSP_ARGS / E_LSP_CONNECT / E_LSP_CALL / E_LSP_TIMEOUT / E_LSP_DOC_TOO_LARGE；⑧ 测试：engine lsp.test（config 三路径/hash 键序不敏感/env 剥离大小写不敏感与覆盖项同闸/hash 不变不重启·变化重建·首进程 killed/诊断事件流白名单剥除与 severity 夹取/status 快照/**node 假 LSP server（fixtures/lsp-echo-server.mjs）真实 stdio e2e：spawn→initialize→didOpen→publishDiagnostics→缓存与事件→definition 回 Location**）+ tools-lsp.test 四路径（成功/业务失败 E_LSP_UNCONFIGURED/中断 E_ABORTED 事件对/审批拒绝 E_PERMISSION + E_LSP_ARGS 与 E_PATH_OUTSIDE 越界先于执行器）+ web applyEvent reducer 4 例 + protocol events 样例与 27 计数；⑨ 生成物重跑入库：契约用例 100 describe/966 断言、文档站词表页 27 种（durable 24/live 3）。**两安全细节必抄项均已落地并有单测**（敏感 env 剥离 + config hash 不变不重启）；TS/Python 真实 server（typescript-language-server/pyright）联调走查留用户现场；v1 无下载器与自动发现，server 安装归用户环境。同步：ARCHITECTURE v1.45（D35）、AGENTS v1.43、README v1.37、README.en、doc/03 v1.4、doc/08 v1.44。本批本机零验证，以 CI 裁决（批次 1 代码 fef3850 已先行入库） |
 
 > 批次 5 备注：
 
@@ -2820,7 +2836,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | V2-27 | /init 项目上下文文件生成（AGENTS.md 模板 + 代码库扫描） | P2     | 10.18a 判决表 v2 挂池项：需文件生成工具与模板，Qwen /init 对应。**已落地：工单 16.1**（INIT_PROMPT 勘察→已有文件保留清单确认→三段式→四类约束归位；基线命令 14→15 条） |
 | V2-28 | /voice 语音听写输入 | P3     | 10.18a 新机制项：音频采集+STT，桌面（Electron）/移动端能力，web 麦克风权限。**已落地：工单 16.6 / ADR D34**（web getUserMedia+MediaRecorder；CLI SoX 降级不可用即明示 fail-closed；引擎侧 OpenAI 兼容转写 + SSRF 防护；音频 live 不落盘，只有转写文本进输入框——移动端按需另立项） |
 | V2-29 | /arena 多模型并行竞答对比视图 | P3     | 10.18a 新机制项：引擎跨会话并发已有底子，缺"同 prompt 多模型并行+对比呈现"视图与用量归并。**已立项：doc/08 阶段十六 16.8**（git worktree 隔离+InProcess 并行，胜者应用过审批） |
-| V2-30 | /lsp LSP 客户端集成 | P3     | 10.18a 新机制项：LSP 全链路（下载/连接/诊断数据源），大件；诊断信息现由 grep/read 工具覆盖。**已立项：doc/08 阶段十六 16.9**（换基座 vscode-languageserver-protocol） |
+| V2-30 | /lsp LSP 客户端集成 | P3     | 10.18a 新机制项：LSP 全链路（下载/连接/诊断数据源），大件；诊断信息现由 grep/read 工具覆盖。**已落地：工单 16.9**（2026-09-11）——engine lsp/ 模块（stdio 连接 + config hash 不变不重启 + 敏感 env 剥离）+ lsp 单工具 12 操作（qwen 枚举设计照抄）+ 事件 lsp.diagnostics（durable 非 surface）+ /lsp 命令与 web/cli 面板；换基座 vscode-languageserver-protocol + vscode-jsonrpc（MIT，ADR D35）。**不做下载器**：v1 手写 ~/.spark/lsp.json 语言→command，server 安装归用户环境 |
 | V2-31 | /trust 文件夹信任设置 | P2     | 10.18a 新机制项：trust store + 首启信任判定。**已立项：doc/08 阶段十六 16.4**（迷你 ADR 前置） |
 | V2-32 | /extensions 扩展管理 | P3     | 10.18a 新机制项：依赖 V2-01/V2-02（MCP/技能管理页与插件市场壳）。**已立项：doc/08 阶段十六 16.5**（声明式内容包不执行代码，v1 本地目录无网络安装） |
 | V2-33 | /agents 子代理管理面板 | P2     | 10.18a 新机制项：引擎子代理（阶段五）已落地，缺管理 UI（预设档/运行中子代理查看）。**已立项：doc/08 阶段十六 16.2**（frontmatter 分层，最便宜可最先做） |

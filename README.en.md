@@ -59,7 +59,7 @@ spark up
 apps/web            React 19 SPA — consumes the event stream only (applyEvent reducer)
    │  HttpTransport: REST commands + GET /api/event (single SSE endpoint, since=seq resume)
    ▼
-packages/protocol   The single contract: 26 event types · zod schemas · Transport interface
+packages/protocol   The single contract: 27 event types · zod schemas · Transport interface
    ▼
 apps/server         Thin Fastify shell: REST + SSE + static hosting (127.0.0.1, no auth)
    ▼
