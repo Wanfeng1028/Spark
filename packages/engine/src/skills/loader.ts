@@ -11,16 +11,12 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { EventSchemas, eventSchemaOf, registerEventType } from '@spark/protocol'
-import type { ExtendedEventDef, SparkEventType } from '@spark/protocol'
+import { EventSchemas, SkillManifestSchema, eventSchemaOf, registerEventType } from '@spark/protocol'
+import type { ExtendedEventDef, SkillHookDef, SparkEventType } from '@spark/protocol'
 
-/** 声明式钩子（ADR D18）。**必须 export**：出现在同文件已导出接口的 hooks 字段类型位置（声明发射约束，同 Budget） */
-export interface SkillHookDef {
-  /** 触发源：必须是内置词表事件类型（防插件事件自触发循环） */
-  on: string
-  /** 触发后发射的本 skill 事件类型 */
-  emit: string
-}
+/** 声明式钩子（ADR D18）。形状已下沉 @spark/protocol（15.3 单一来源）；此处再导出维持
+ *  index-internal 公共面——出现在同文件已导出接口的 hooks 字段类型位置（声明发射约束，同 Budget） */
+export type { SkillHookDef }
 
 export interface LoadedSkill {
   name: string
@@ -34,24 +30,6 @@ export interface SkillLogger {
   warn(msg: string, fields?: Record<string, unknown>): void
   info(msg: string, fields?: Record<string, unknown>): void
 }
-
-/** 事件类型命名空间纪律：插件事件必须 plugin. 前缀（防占位内置词表） */
-const PluginEventRe = /^plugin\.[a-z0-9][a-z0-9.-]*$/
-
-const ManifestSchema = z.strictObject({
-  version: z.literal(1),
-  name: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
-  events: z.record(
-    z.string().regex(PluginEventRe),
-    z.strictObject({
-      description: z.string().optional(),
-      liveOnly: z.boolean().optional(),
-      /** data 的 JSON Schema（z.fromJSONSchema 转换失败 = 清单坏） */
-      data: z.unknown(),
-    }),
-  ),
-  hooks: z.array(z.strictObject({ on: z.string(), emit: z.string() })).optional(),
-})
 
 /** 扫描并加载全部 skills；逐 skill 失败闭合（warn 跳过，不阻塞引擎启动） */
 export async function loadSkills(
@@ -79,7 +57,7 @@ export async function loadSkills(
 
 async function loadSkill(dir: string): Promise<LoadedSkill> {
   const raw: unknown = JSON.parse(await readFile(join(dir, 'skill.json'), 'utf8'))
-  const manifest = ManifestSchema.parse(raw)
+  const manifest = SkillManifestSchema.parse(raw)
 
   // 先全量转换与预检再注册——中途失败不留半注册状态（单线程启动无竞态）
   const registrations: Array<[type: string, def: ExtendedEventDef]> = []

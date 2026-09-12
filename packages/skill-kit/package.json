@@ -1,0 +1,43 @@
+{
+  "name": "@spark/skill-kit",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "Spark 技能创作套件（工单 15.3）：skill.json 骨架生成（init）与清单校验（lint）——D18 声明式边界的作者体验层",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wanfeng1028/Spark.git",
+    "directory": "packages/skill-kit"
+  },
+  "bugs": {
+    "url": "https://github.com/Wanfeng1028/Spark/issues"
+  },
+  "homepage": "https://github.com/Wanfeng1028/Spark#readme",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "init": "tsx scripts/init.ts",
+    "lint": "tsx scripts/lint.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@spark/protocol": "workspace:*",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "contributors": [
+    "Jules (AI Assistant)",
+    "Doubao (AI Assistant)",
+    "opencode (AI Assistant)"
+  ]
+}
