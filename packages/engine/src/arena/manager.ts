@@ -201,9 +201,10 @@ export class ArenaManager {
           }
         }
       }
-      // diff 统计（对基线 HEAD）
+      // diff 统计（含 untracked——先全量暂存，沙箱无副作用）
       const git = simpleGit({ baseDir: contender.worktree })
-      const numstat = await git.diff(['--numstat']).catch(() => '')
+      await git.add('-A').catch(() => {})
+      const numstat = await git.diff(['--cached', '--numstat']).catch(() => '')
       contender.diffStat = parseNumstat(numstat)
       contender.status = 'done'
     } catch (err) {
@@ -234,7 +235,9 @@ export class ArenaManager {
     const meta = this.deps.engine.getSession(sessionId)
     if (meta === undefined) throw new Error('E_NOT_FOUND: 主会话未装载')
     const git = simpleGit({ baseDir: winner.worktree })
-    const numstat = (await git.diff(['--numstat']).catch(() => '')).split('\n').filter((l) => l.trim() !== '')
+    // git diff 不含 untracked——先全量暂存（worktree 是竞答沙箱，应用后即清理，无副作用）
+    await git.add('-A').catch(() => {})
+    const numstat = (await git.diff(['--cached', '--numstat']).catch(() => '')).split('\n').filter((l) => l.trim() !== '')
     const applied: string[] = []
     const skippedDeletions: string[] = []
     const writePaths: string[] = []
