@@ -207,7 +207,10 @@ function selfCheck(doc: Record<string, unknown>): void {
   // 每个操作必有 responses；路径模板参数必有 parameter 声明
   for (const [path, item] of Object.entries(paths)) {
     for (const [method, op] of Object.entries(item)) {
-      const operation = op as { responses?: unknown; parameters?: OpenApiSchemaNode[] }
+      const operation = op as {
+        responses?: Record<string, OpenApiSchemaNode>
+        parameters?: OpenApiSchemaNode[]
+      }
       if (operation.responses === undefined || Object.keys(operation.responses).length === 0) {
         problems.push(`${method.toUpperCase()} ${path} 缺 responses`)
       }

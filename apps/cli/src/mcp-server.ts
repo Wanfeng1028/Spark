@@ -24,6 +24,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import type { SparkEventEnvelope, Transport, TurnFinish } from '@spark/protocol'
+import { ids } from '@spark/protocol'
 import { Engine, Logger, SPARK_VERSION, loadConfig, type EngineConfig } from '@spark/engine'
 import { createInProcessClient } from '@spark/sdk/inprocess'
 import type { SparkClient } from '@spark/sdk'
@@ -179,7 +180,7 @@ export function createSparkMcpHandlers(deps: SparkMcpDeps) {
     },
 
     async sparkEvents(input: SparkEventsInput): Promise<SparkEventsResult> {
-      const dto = await deps.client.events.replay(input.sessionId)
+      const dto = await deps.client.events.replay(ids.session(input.sessionId))
       const since = input.since ?? 0
       const fresh = (dto.events ?? []).filter((e) => e.seq !== undefined && e.seq > since)
       const page = fresh.slice(-(input.limit ?? EVENTS_PAGE_LIMIT))
