@@ -205,7 +205,7 @@ describe('GET /api/mcp 与 GET /api/skills（只读数据面）', () => {
   })
 })
 
-describe('GET /api/agents（工单 13.5：子代理预设档只读面）', () => {
+describe('GET /api/agents（工单 13.5 只读面 + 16.2 source/disabled 合成）', () => {
   test('无预设档 → 空表', async () => {
     const f = await makeCommandServer({})
     const res = await f.app.inject({ method: 'GET', url: '/api/agents' })
@@ -230,6 +230,7 @@ describe('GET /api/agents（工单 13.5：子代理预设档只读面）', () =>
     expect(res.json()).toEqual([
       {
         name: 'reader',
+        source: 'user',
         model: 'fake/fake-chat',
         tools: { allow: ['read', 'grep'] },
         systemAppend: '只做调研',
@@ -249,6 +250,6 @@ describe('GET /api/agents（工单 13.5：子代理预设档只读面）', () =>
     )
     const res = await f.app.inject({ method: 'GET', url: '/api/agents' })
     expect(res.statusCode).toBe(200)
-    expect(res.json()).toEqual([{ name: 'good', title: '可用档' }])
+    expect(res.json()).toEqual([{ name: 'good', source: 'user', title: '可用档' }])
   })
 })
