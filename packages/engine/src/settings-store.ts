@@ -163,6 +163,10 @@ export function persistSparkPatch(root: string, patch: SettingsUpdate): EngineCo
   if (patch.agents !== undefined) {
     raw['agents'] = patch.agents
   }
+  // 扩展启停（工单 16.5 / ADR D38）：extensions 段整体替换（同名单语义）
+  if (patch.extensions !== undefined) {
+    raw['extensions'] = patch.extensions
+  }
   validateSparkWrite(raw)
   atomicWriteJson(sparkPath, raw)
   return loadConfig(root)

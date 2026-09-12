@@ -66,6 +66,7 @@ import type {
   TranscribeRequest,
   TranscribeResultDto,
   TrustStatusDto,
+  ExtensionDto,
 } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
@@ -503,6 +504,38 @@ export class MockTransport implements Transport {
   setTrust(path: string, trust: 'trusted' | 'untrusted'): Promise<void> {
     this.assertNotDisposed()
     this.trustFolders.set(path, trust)
+    return Promise.resolve()
+  }
+
+  /** 扩展管理对等演示（工单 16.5 / ADR D38）：静态两扩展 + 名单启停（内存表） */
+  private readonly disabledExtensions = new Set<string>()
+
+  listExtensions(): Promise<ExtensionDto[]> {
+    this.assertNotDisposed()
+    const make = (id: string, name: string, description: string, manifest: Partial<ExtensionDto>): ExtensionDto => ({
+      id,
+      name,
+      version: '1.0.0',
+      description,
+      enabled: !this.disabledExtensions.has(id),
+      path: `~/.spark/extensions/${id}`,
+      ...manifest,
+    })
+    return Promise.resolve([
+      make('demo-pack', '演示扩展包', '一个含技能与子代理声明的示例扩展（mock）', {
+        skills: ['demo-ping'],
+        agents: ['demo-agent'],
+      }),
+      make('review-pack', '评审扩展包', '含自定义命令声明的示例扩展（mock）', {
+        commands: ['review'],
+      }),
+    ])
+  }
+
+  setExtensionEnabled(id: string, enabled: boolean): Promise<void> {
+    this.assertNotDisposed()
+    if (enabled) this.disabledExtensions.delete(id)
+    else this.disabledExtensions.add(id)
     return Promise.resolve()
   }
 

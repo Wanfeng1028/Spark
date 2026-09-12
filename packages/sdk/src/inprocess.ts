@@ -68,6 +68,7 @@ import type {
   TreeNodeDto,
   UsageSummaryDto,
   TrustStatusDto,
+  ExtensionDto,
 } from '@spark/protocol'
 import { assembleClient } from './client.js'
 import type { SparkClient } from './client.js'
@@ -190,6 +191,15 @@ export class InProcessTransport implements Transport {
     return this.sync(() => {
       this.engine.setTrust(path, trust)
     })
+  }
+
+  /** 扩展管理（工单 16.5 / ADR D38）：引擎原生支持，进程内直映射 */
+  listExtensions(): Promise<ExtensionDto[]> {
+    return this.engine.listExtensions()
+  }
+
+  setExtensionEnabled(id: string, enabled: boolean): Promise<void> {
+    return this.engine.setExtensionEnabled(id, enabled)
   }
 
   listPermissionRules(): Promise<PermissionRuleDto[]> {

@@ -41,7 +41,9 @@ import type {
   TurnId,
 } from '@spark/protocol'
 import { SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
-import type { AgentPresetDto, SessionMode, SessionStatus, UsageSummaryDto } from '@spark/protocol'
+import type {
+  ExtensionDto,
+AgentPresetDto, SessionMode, SessionStatus, UsageSummaryDto } from '@spark/protocol'
 import { EventBus } from './bus.js'
 import type { EventSink, SubscribeHandle } from './bus.js'
 import { CompactorImpl, COMPACTION_PROMPT } from './compaction.js'
@@ -67,6 +69,7 @@ import { reasoningIncluded } from './projector.js'
 import { runSessionLoop } from './run-loop.js'
 import { GoalRunner } from './goals.js'
 import { loadTrustDoc, saveTrustDoc, trustKey, trustLevelOf, tightens } from './trust.js'
+import { discoverExtensions } from './extensions/loader.js'
 import type { FolderTrust, TrustDoc } from './trust.js'
 import { transcribeAudio } from './voice/transcriber.js'
 import type { RunLoopDeps } from './run-loop.js'
@@ -1007,6 +1010,29 @@ export class Engine {
   setTrust(path: string, trust: FolderTrust): void {
     this.trustDoc.folders[trustKey(path)] = trust
     saveTrustDoc(this.root, this.trustDoc)
+  }
+
+  // ---- 扩展管理（工单 16.5 / ADR D38） ----
+
+  /** GET /api/extensions 数据源：现扫发现 + settings.extensions 名单合成 enabled（清单热可见） */
+  async listExtensions(): Promise<ExtensionDto[]> {
+    this.assertNotShutdown()
+    const discovered = await discoverExtensions(this.root, this.logger)
+    const disabled = new Set(this.config.spark.extensions?.disabledExtensions ?? [])
+    if (disabled.size === 0) return discovered
+    return discovered.map((e) => (disabled.has(e.id) ? { ...e, enabled: false } : e))
+  }
+
+  /** 启停扩展（写 settings.extensions 名单并原子落盘；注册表装配重启生效——D38 登记限制） */
+  async setExtensionEnabled(id: string, enabled: boolean): Promise<void> {
+    this.assertNotShutdown()
+    const current = new Set(this.config.spark.extensions?.disabledExtensions ?? [])
+    if (enabled) current.delete(id)
+    else current.add(id)
+    const patch: SettingsUpdate = {
+      extensions: { disabledExtensions: [...current] },
+    }
+    this.config = persistSparkPatch(this.root, patch)
   }
 
   /** 审计日志明细读（工单 7.12 / H11）：GET /api/audit 的引擎数据源（新→旧） */

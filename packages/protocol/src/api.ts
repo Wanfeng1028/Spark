@@ -430,6 +430,7 @@ export const SETTINGS_RESTART_REQUIRED: readonly string[] = [
   'engine.permissionTimeoutMs',
   'engine.bashSandbox',
   'agents.disabledAgents',
+  'extensions.disabledExtensions',
   'server.port',
   'server.host',
 ]
@@ -447,6 +448,12 @@ export const SettingsDtoSchema = z.strictObject({
   agents: z
     .strictObject({
       disabledAgents: z.array(z.string().min(1)),
+    })
+    .optional(),
+  /** 扩展启停（工单 16.5 / ADR D38）：停用名单——重启档（注册表装配在构造期） */
+  extensions: z
+    .strictObject({
+      disabledExtensions: z.array(z.string().min(1)),
     })
     .optional(),
   /** 需重启生效字段清单（前端标注"下次启动生效"；单一来源 SETTINGS_RESTART_REQUIRED） */
@@ -476,6 +483,12 @@ export const SettingsUpdateSchema = z.strictObject({
       disabledAgents: z.array(z.string().min(1)).optional(),
     })
     .optional(),
+  /** 扩展启停（工单 16.5 / ADR D38）：extensions 段整体替换 */
+  extensions: z
+    .strictObject({
+      disabledExtensions: z.array(z.string().min(1)).optional(),
+    })
+    .optional(),
 })
 export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>
 
@@ -490,6 +503,30 @@ export const TrustStatusDtoSchema = z.strictObject({
   current: z.enum(['trusted', 'untrusted', 'none']),
 })
 export type TrustStatusDto = z.infer<typeof TrustStatusDtoSchema>
+
+/**
+ * 扩展清单（工单 16.5 / ADR D38）：声明式内容包——扩展 = 目录 + spark-extension.json，
+ * **不执行任意代码**（D18 红线）；skills/agents/commands/mcpServers 是相对扩展目录的
+ * 声明（归属路径由引擎 loader 校验后并入对应注册表）。
+ */
+export const SparkExtensionManifestSchema = z.strictObject({
+  name: z.string().min(1),
+  version: z.string().min(1),
+  description: z.string().min(1),
+  skills: z.array(z.string().min(1)).optional(),
+  agents: z.array(z.string().min(1)).optional(),
+  commands: z.array(z.string().min(1)).optional(),
+  mcpServers: z.array(z.string().min(1)).optional(),
+})
+export type SparkExtensionManifest = z.infer<typeof SparkExtensionManifestSchema>
+
+/** GET /api/extensions 清单条目（id = 目录名；enabled 从 settings.extensions 名单合成） */
+export const ExtensionDtoSchema = SparkExtensionManifestSchema.extend({
+  id: z.string().min(1),
+  enabled: z.boolean(),
+  path: z.string().min(1),
+})
+export type ExtensionDto = z.infer<typeof ExtensionDtoSchema>
 
 // ---------- 子代理预设档（工单 13.5） ----------
 

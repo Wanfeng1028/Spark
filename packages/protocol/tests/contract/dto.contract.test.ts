@@ -1187,6 +1187,106 @@ describe('契约：api.ExecuteCommandBodySchema', () => {
   })
 })
 
+describe('契约：api.ExtensionDtoSchema', () => {
+  const sample = {
+    "name": "contract-sample",
+    "version": "contract-sample",
+    "description": "contract-sample",
+    "skills": [
+      "contract-sample"
+    ],
+    "agents": [
+      "contract-sample"
+    ],
+    "commands": [
+      "contract-sample"
+    ],
+    "mcpServers": [
+      "contract-sample"
+    ],
+    "id": "contract-sample",
+    "enabled": false,
+    "path": "contract-sample"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.ExtensionDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.ExtensionDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.ExtensionDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 name → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["name"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 version → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["version"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 description → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["description"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 id → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["id"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 enabled → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["enabled"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 path → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["path"]; return m })())).toThrow()
+  })
+
+  it('字段 name 类型错 → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["name"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 version 类型错 → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["version"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 description 类型错 → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["description"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 skills 类型错 → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["skills"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 agents 类型错 → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["agents"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 commands 类型错 → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["commands"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 mcpServers 类型错 → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["mcpServers"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 id 类型错 → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["id"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 enabled 类型错 → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["enabled"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('字段 path 类型错 → 解析失败', () => {
+    expect(() => api.ExtensionDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["path"] = 12345; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.ExtensionDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.ForkChildDtoSchema', () => {
   const sample = {
     "sessionId": "ses_01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -2620,6 +2720,11 @@ describe('契约：api.SettingsDtoSchema', () => {
         "contract-sample"
       ]
     },
+    "extensions": {
+      "disabledExtensions": [
+        "contract-sample"
+      ]
+    },
     "restartRequired": [
       "contract-sample"
     ],
@@ -2668,6 +2773,10 @@ describe('契约：api.SettingsDtoSchema', () => {
 
   it('字段 agents 类型错 → 解析失败', () => {
     expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["agents"] = []; return m })())).toThrow()
+  })
+
+  it('字段 extensions 类型错 → 解析失败', () => {
+    expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["extensions"] = []; return m })())).toThrow()
   })
 
   it('字段 restartRequired 类型错 → 解析失败', () => {
@@ -2837,6 +2946,11 @@ describe('契约：api.SettingsUpdateSchema', () => {
       "disabledAgents": [
         "contract-sample"
       ]
+    },
+    "extensions": {
+      "disabledExtensions": [
+        "contract-sample"
+      ]
     }
   }
 
@@ -2859,6 +2973,10 @@ describe('契约：api.SettingsUpdateSchema', () => {
 
   it('字段 agents 类型错 → 解析失败', () => {
     expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["agents"] = []; return m })())).toThrow()
+  })
+
+  it('字段 extensions 类型错 → 解析失败', () => {
+    expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["extensions"] = []; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
@@ -2915,6 +3033,79 @@ describe('契约：api.SkillDtoSchema', () => {
 
   it('未知键 → strictObject 拒收', () => {
     expect(() => api.SkillDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.SparkExtensionManifestSchema', () => {
+  const sample = {
+    "name": "contract-sample",
+    "version": "contract-sample",
+    "description": "contract-sample",
+    "skills": [
+      "contract-sample"
+    ],
+    "agents": [
+      "contract-sample"
+    ],
+    "commands": [
+      "contract-sample"
+    ],
+    "mcpServers": [
+      "contract-sample"
+    ]
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.SparkExtensionManifestSchema.parse(sample)).toEqual(sample)
+    expect(api.SparkExtensionManifestSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.SparkExtensionManifestSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 name → 解析失败', () => {
+    expect(() => api.SparkExtensionManifestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["name"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 version → 解析失败', () => {
+    expect(() => api.SparkExtensionManifestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["version"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 description → 解析失败', () => {
+    expect(() => api.SparkExtensionManifestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["description"]; return m })())).toThrow()
+  })
+
+  it('字段 name 类型错 → 解析失败', () => {
+    expect(() => api.SparkExtensionManifestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["name"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 version 类型错 → 解析失败', () => {
+    expect(() => api.SparkExtensionManifestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["version"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 description 类型错 → 解析失败', () => {
+    expect(() => api.SparkExtensionManifestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["description"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 skills 类型错 → 解析失败', () => {
+    expect(() => api.SparkExtensionManifestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["skills"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 agents 类型错 → 解析失败', () => {
+    expect(() => api.SparkExtensionManifestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["agents"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 commands 类型错 → 解析失败', () => {
+    expect(() => api.SparkExtensionManifestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["commands"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 mcpServers 类型错 → 解析失败', () => {
+    expect(() => api.SparkExtensionManifestSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["mcpServers"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.SparkExtensionManifestSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 

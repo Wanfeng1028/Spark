@@ -45,6 +45,7 @@ import type {
   TranscribeRequest,
   TranscribeResultDto,
   TrustStatusDto,
+  ExtensionDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
@@ -100,6 +101,10 @@ export interface Transport {
   listPermissionRules(): Promise<PermissionRuleDto[]>
   /** POST /api/permissions/rules：新增/覆盖一条规则（action+resource 精确匹配去重） */
   addPermissionRule(rule: PermissionRuleDto): Promise<void>
+  /** GET /api/extensions：扩展清单（发现 + enabled 合成；工单 16.5 / ADR D38） */
+  listExtensions(): Promise<ExtensionDto[]>
+  /** PUT /api/extensions/:id/enabled：启停扩展（写 settings.extensions 名单，重启档） */
+  setExtensionEnabled(id: string, enabled: boolean): Promise<void>
   /** GET /api/trust：文件夹信任清单 + 当前 cwd 有效档（工单 16.4 / ADR D37） */
   getTrust(): Promise<TrustStatusDto>
   /** PUT /api/trust：设置一条目录信任档（原子写；收紧语义 = 未信任下 bash/MCP 自动放行降级为问） */

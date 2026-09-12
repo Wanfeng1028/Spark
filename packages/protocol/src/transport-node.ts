@@ -19,6 +19,7 @@ import { SessionStreamCore } from './session-stream-core.js'
 import type { StreamConnectionStatus, StreamCoreContext } from './session-stream-core.js'
 import type { SparkEventEnvelope } from './events.js'
 import type {
+  ExtensionDto,
   TrustStatusDto,
   TranscribeRequest,
   TranscribeResultDto,
@@ -362,6 +363,20 @@ export class HttpTransport implements Transport {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ path, trust }),
+    }).then(() => undefined)
+  }
+
+  /** GET /api/extensions：扩展清单（工单 16.5 / ADR D38） */
+  listExtensions(): Promise<ExtensionDto[]> {
+    return this.req<ExtensionDto[]>('/api/extensions')
+  }
+
+  /** PUT /api/extensions/:id/enabled：启停扩展（重启档） */
+  setExtensionEnabled(id: string, enabled: boolean): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/extensions/${encodeURIComponent(id)}/enabled`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ enabled }),
     }).then(() => undefined)
   }
 

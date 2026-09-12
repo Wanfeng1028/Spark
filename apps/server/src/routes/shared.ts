@@ -115,6 +115,10 @@ export const SetModelBody = z.strictObject({ model: z.string().min(1) })
 /** 推理档位（工单 10.6）：会话级换档 body */
 export const SetEffortBody = z.strictObject({ effort: ReasoningEffortSchema })
 
+/** 扩展启停参数与 body（工单 16.5 / ADR D38） */
+export const ExtensionIdParams = z.strictObject({ id: z.string().min(1) })
+export const SetExtensionEnabledBody = z.strictObject({ enabled: z.boolean() })
+
 /** 文件夹信任写请求体（工单 16.4 / ADR D37） */
 export const SetTrustBody = z.strictObject({
   path: z.string().min(1),

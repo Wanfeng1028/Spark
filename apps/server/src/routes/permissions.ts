@@ -13,6 +13,8 @@ import {
   RemoveRuleBody,
   PresetBody,
   SetTrustBody,
+  ExtensionIdParams,
+  SetExtensionEnabledBody,
 } from './shared.js'
 
 export const registerPermissionRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
@@ -78,6 +80,18 @@ export const registerPermissionRoutes: FastifyPluginCallback<RoutesOptions> = (a
     const body = parseOr400(SetTrustBody, req.body)
     engine.setTrust(body.path, body.trust)
     return { ok: true }
+  })
+
+  // 扩展管理（工单 16.5 / ADR D38）：声明式内容包清单与启停（重启档）
+  app.get('/api/extensions', async () => {
+    return engine.listExtensions()
+  })
+
+  app.put('/api/extensions/:id/enabled', async (req, reply) => {
+    const { id } = parseOr400(ExtensionIdParams, req.params)
+    const body = parseOr400(SetExtensionEnabledBody, req.body)
+    await engine.setExtensionEnabled(id, body.enabled)
+    return reply.send({ ok: true })
   })
 
   // 模型管理（DESIGN §13.D③ / 工单 6.5 轻后端例外——本阶段唯一 engine/server 改动）
