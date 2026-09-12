@@ -26,7 +26,7 @@ export interface UseCliActionsOptions {
   agents: () => void
 }
 
-export function useCliActions({ transport, clearScreen, resumeFiltered, resumeSelected, voice }: UseCliActionsOptions) {
+export function useCliActions({ transport, clearScreen, resumeFiltered, resumeSelected, voice, agents }: UseCliActionsOptions) {
   /** 启动（工单 10.17①④）：快照装载，失败显式错误屏+重试 */
   const boot = useCallback((): (() => void) => {
     let disposed = false
