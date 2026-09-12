@@ -45,6 +45,7 @@
 | v1.43 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D34 /voice 语音听写（工单 16.6）**：转写住引擎侧（浏览器/CLI 持密钥不可行 + apiKey 纪律），OpenAI 兼容 /audio/transcriptions；SSRF 防护为硬门（DNS 全地址 BlockList，IPv6 过渡段必抄 qwen）；音频 live 不落盘、仅转写文本回填输入框；CLI SoX 降链 fail-closed。Transport 增 transcribe（三通道：HTTP/InProcess 直映射/Mock 对等）；命令基线 17→18。与 doc/02 v4.43、DESIGN v2.16、doc/08 v1.42 同批 |
 | v1.44 | 2026-09-12 | AI 编写：Qoder；发起：晚风（Wanfeng1028，“继续”指令） | **阶段十八 18.4/18.5 收口 + D32 走查补记 + D34 ssrf 勘误**：① D32（web 胶囊化）走查补记——五档圆角封闭集在 apps/web 全量归档落地（src 圆角归零到 §13.B），18.5② AA 复核修正两处 4.44:1 次要文本（改 foreground/70），移动端 §13.J 同族无连带微调（详见 doc/08 v1.43）。② D34（/voice）SSRF 防护面勘误——撤 `::ffff:0:0/96`（Node 归一化 v4 为 ::ffff:v4，整段入表=封全部 IPv4、误杀公网端点），mapped 私网改由 BlockList v4-mapped 归一化命中既有 v4 私网段覆盖；Node 24 起 IPv6 addSubnet/check 须显式 'ipv6' family。修 CI 连红约 12 次（engine voice 三层 + lsp 夹具 + web voice 两测试 + lint，ca80e22→b08e6bc）并加固 mapped 变体断言（8baf9c6），CI 全绿。与 doc/08 v1.43 同批 |
 | v1.45 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，工单 16.9 完整落地指令） | **新增 D35 /lsp 语言服务器集成（工单 16.9）**：换基座判决——vscode-languageserver-protocol@3.18.3 + vscode-jsonrpc@9.0.2（MIT，微软官方）替代移植 qwen 自研 JsonRpcConnection；两必抄安全细节落地有单测（spawn 前敏感 env 剥离 qwen 同清单大小写不敏感 + config hash 键排序 sha256 不变不重启）；连接管理住 engine lsp/（惰性 spawn/initialize 10s/请求 15s/诊断缓存全量替换 + lsp.diagnostics durable 落盘）；单工具 12 操作枚举（qwen 设计照抄）走 fs.read 审批域只读；Transport 增 listLspServers（三通道对等）。事件词表 26 → **27 种**（lsp.diagnostics，durable 非 surface）；§2 事件模型行同步；命令基线 18→19。与 doc/02 v4.44、AGENTS v1.43、README v1.37、doc/08 v1.44 同批（编号注记：本行原拟 v1.44，被上批 Qoder 18.4/18.5 收口占用，按「先来者保留、后来者顺延」顺延为 v1.45） |
+| v1.46 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D36 /agents 子代理管理（工单 16.2）**：两口子拍板落地——格式维持 JSON 单一来源不引入 MD+frontmatter（配置面全族统一），**两层定义**（项目层 .spark/agents 覆盖用户层同名，source 合成值）；启停走 spark.json agents.disabledAgents 名单（PUT /api/settings 既有链路，重启档，停用档 E_CONFIG 拒绝不静默回退）；零新端点零审批面。命令基线 19→20（/agents client 命令）。与 doc/02 v4.45、AGENTS v1.44、README v1.38、doc/08 v1.45 同批 |
 
 ---
 
@@ -365,6 +366,18 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 5. **通道**：Transport 增 `listLspServers`（GET /api/lsp；InProcess 透传 engine.listLspServers()；Mock 对等夹具）；命令基线 18→19（/lsp，client 命令，web 页 /settings/lsp + cli LspPanel）。
 6. **v1 边界**：无 server 下载器与自动发现（语言→command 手写 lsp.json，安装归用户环境）；callHierarchy item 由模型回传；codeActions 诊断上下文取引擎缓存。TS/Python 真实 server 联调走查留用户现场。
 后果：事件词表 26 → 27 种（六处计数同步）；命令基线 18→19（四包断言同改）；§5.10 登记七码（E_LSP_UNAVAILABLE/UNCONFIGURED/ARGS/CONNECT/CALL/TIMEOUT/DOC_TOO_LARGE）；engine 新依赖 vscode-languageserver-protocol + vscode-jsonrpc（MIT，登记）；契约生成物重跑（100 describe/966 断言）。
+
+### D36 /agents 子代理管理 = JSON 单一格式两层定义 + settings 名单启停（2026-09-12，阶段十六工单 16.2）
+
+背景：doc/08 §16.2 立项（消解 V2-33；qwen subagent-manager 1751 行分层结构 + opencode glob 扫描参考设计）。工单原规格写 MD+frontmatter 定义，与 13.5 已上线的同路径 JSON 预设档（`~/.spark/agents/<name>.json`，AgentPresetSchema 单一来源）冲突；启停落点未定。两个口子经晚风"工单要全部做完"指令授权拍板（2026-09-12）。
+候选（格式）：① MD+frontmatter（工单原文/qwen 形态）——否决：同路径双格式解析负担，本仓配置面 models/settings/mcp/lsp.json 全族统一 JSON，AgentPresetSchema 已四端消费；② **JSON 单一格式两层目录**，采纳：格式不变，增量在分层与启停。候选（启停）：① 独立 agents-state.json——否决：第二份可写状态文件；② **spark.json agents.disabledAgents 名单（PUT /api/settings 既有链路）**，采纳：重启档语义与预设档构造期装载天然对齐（D28 分档口径）。
+结论：
+1. **两层定义**：用户层 `~/.spark/agents/*.json`（13.5 既有）+ 项目层 `<defaultCwd>/.spark/agents/*.json`——同 AgentPresetSchema，**项目层覆盖用户层同名档**（session>project 分层语义对齐 qwen）；projectCwd 取引擎 defaultCwd（spark up 在项目根起的直觉）。AgentPresetDto 增 `source: 'project'|'user'` 合成值。
+2. **启停 = settings 名单**：spark.json `agents.disabledAgents: string[]`（PUT /api/settings 的 agents 段整体替换，名单语义）；SETTINGS_RESTART_REQUIRED 增 `agents.disabledAgents`（重启档如实标注）；listAgentPresets 合成 `disabled` 布尔；**停用档经 task preset 解析即 E_CONFIG 拒绝**（不静默回退到无预设——假状态红线）。
+3. **零新端点零审批面**：启停走既有 PUT /api/settings；定义文件增删改仍归用户手改（声明式 D18 哲学，同 13.5 口径——工单"写入须过审批"红线因无写路径而天然满足）。
+4. **四端**：web 子智能体页升管理态（两层分组 + 启停 Switch）；CLI /agents 面板（只读清单 + 停用标记，LspPanel 同族）；命令基线 19→20（/agents，client 命令）。
+后果：命令基线 19→20（四包断言同改）；protocol SettingsDto/Update 增 agents 段（契约生成物重跑 100 describe/970 断言）；engine presets 两层扫描 + requireAgentPreset 停用拒绝；server GET /api/agents 数据源合成 source/disabled（路由零改动）。
+编号注记：本 ADR 占 **D36**（顺延现表末张 D35）。
 
 ## 6. 模块速览（职责边界）
 

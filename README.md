@@ -121,7 +121,7 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 ## 当前状态
 
 - **v1 已完成合入 main**：五阶段（骨架/前端/引擎/深度体验/产品化）+ 阶段六~十（UI ZCode 化 / Harness 补全 / CLI TUI / 移动端三端 / UI 对齐与 CLI 重构）+ 质量收尾批次；**全部验证（typecheck / lint / test / e2e / eval / 文档检查器）由 CI 执行，本地不跑**（AGENTS §2.2）。
-- **v2 已开工**：阶段十一（可发布：LICENSE/CONTRIBUTING/CHANGELOG、CI 接 Playwright、nightly 性能基线与 eval secrets、npm 发包准备与 `spark up`、README 手册化）与阶段十二（Agent 能力补全：grep 工具 / 图片附件与 @file / 会话归档与两段式删除 / 文件树浮层 / MCP 管理页 / 桌面通知 / 首启 onboarding / LLM 出网代理）已完成；阶段十七（代码冗余整改 R-A~R-H）已收官；13.1 第一批（任务级 eval 场景集）与阶段十六的 16.1（`/init`）/ 16.3（`/plan`）/ 16.6（`/voice`）/ 16.7（`/goal`）/ 16.9（`/lsp`）已落地。
+- **v2 已开工**：阶段十一（可发布）与阶段十二（Agent 能力补全）已完成；阶段十七（代码冗余整改）已收官；13.1 第一批（任务级 eval 场景集）与阶段十六的 16.1（`/init`）/ 16.2（`/agents`）/ 16.3（`/plan`）/ 16.6（`/voice`）/ 16.7（`/goal`）/ 16.9（`/lsp`）已落地。
 - 用户可见变更与里程碑：[CHANGELOG.md](./CHANGELOG.md)。
 - 下一程：阶段十三余下（13.2–13.7：可证明与上下文工程）→ 阶段十四（SDK 化）→ 阶段十六余下（16.2/16.4 待拍板，16.5/16.8 受 16.2 阻塞）→ 阶段十八（web 观感对齐），工单库见 [doc/08](./doc/08-v2-roadmap.md)。
 
@@ -170,5 +170,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.35 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | 架构图协议行事实修正 **事件词表 21→22 种**（阶段十六工单 16.3 /plan 计划模式新增 `session.mode.changed`：durable、非 surface，回放可重建会话模式；英文版同步）。与 AGENTS v1.41、ARCHITECTURE v1.40、doc/02 v4.32、doc/08 v1.34 同批 |
 | v1.36 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | 架构图协议行 **事件词表 22→26 种**（阶段十六工单 16.7 /goal 持续目标：goal.set/updated/completed/paused 四枚 durable 事件，ADR D33；英文版同步）。与 AGENTS v1.42、ARCHITECTURE v1.42、doc/02 v4.42、doc/08 v1.41 同批 |
 | v1.37 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（工单 16.9 /lsp LSP 集成完整落地指令） | 架构图协议行 **事件词表 26→27 种**（阶段十六工单 16.9 /lsp：新增 lsp.diagnostics durable 事件，ADR D35 换基座 vscode-languageserver-protocol + vscode-jsonrpc；英文版同步）。与 AGENTS v1.43、ARCHITECTURE v1.45、doc/02 v4.44、doc/08 v1.44 同批 |
+| v1.38 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：阶段十六 16.2（/agents 两层子代理定义 + settings 启停，ADR D36）已落地；与 ARCHITECTURE v1.46、doc/02 v4.45、doc/08 v1.45 同批 |
 
 </details>
