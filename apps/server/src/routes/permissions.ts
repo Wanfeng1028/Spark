@@ -74,7 +74,7 @@ export const registerPermissionRoutes: FastifyPluginCallback<RoutesOptions> = (a
     return engine.getTrust()
   })
 
-  app.put('/api/trust', async (req) => {
+  app.put('/api/trust', (req) => {
     const body = parseOr400(SetTrustBody, req.body)
     engine.setTrust(body.path, body.trust)
     return { ok: true }
