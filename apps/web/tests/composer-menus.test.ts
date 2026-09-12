@@ -75,8 +75,8 @@ describe('filterCommands（/ 菜单命令过滤）', () => {
 
   test('按描述过滤（中文包含）', () => {
     const hit = filterCommands('模型')
-    // 断全命中集而不取样：/plan 的描述里有"模型只读地出计划"，同样命中（工单 16.3）
-    expect(hit.map((c) => c.name)).toEqual(['plan', 'model'])
+    // 断全命中集而不取样：/plan 的描述里有"模型只读地出计划"、/arena 描述里有"多模型竞答"，同样命中（工单 16.3/16.8）
+    expect(hit.map((c) => c.name)).toEqual(['plan', 'model', 'arena'])
   })
 
   test('无匹配 → 空列表', () => {
