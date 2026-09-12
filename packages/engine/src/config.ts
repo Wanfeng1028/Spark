@@ -47,14 +47,13 @@ const sparkSchema = z.object({
   /** 子代理启停（工单 16.2 / ADR D36）：停用名单——重启档（预设档构造期装载） */
   agents: z
     .object({
-      disabledAgents: z.array(z.string(),
+      disabledAgents: z.array(z.string().min(1)).optional(),
+    })
+    .optional(),
   /** 扩展启停（工单 16.5 / ADR D38）：停用名单——重启档（注册表装配在构造期） */
   extensions: z
     .object({
       disabledExtensions: z.array(z.string().min(1)).optional(),
-    })
-    .optional(),
-}).min(1)).optional(),
     })
     .optional(),
 })
