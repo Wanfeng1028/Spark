@@ -10,6 +10,7 @@ import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import { ids } from '@spark/protocol'
 import type { EngineConfig } from '../src/config.js'
+import type { ArenaRun } from '../src/arena/manager.js'
 import { Engine } from '../src/engine.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
 
@@ -123,9 +124,9 @@ describe('/arena 全链路（双 contender）', () => {
       expect(arenaId).toBeDefined()
       // 等 done（轮询快照）
       const deadline = Date.now() + 10_000
-      let snap: ReturnType<Engine['arenaSnapshot']> | null = null
+      let snap: ArenaRun | null = null
       for (;;) {
-        snap = engine.arenaSnapshot(handle.id) as ReturnType<Engine['arenaSnapshot']> | null
+        snap = engine.arenaSnapshot(handle.id)
         if (snap !== null && snap.status === 'done') break
         if (Date.now() > deadline) throw new Error(`等待 arena done 超时：${JSON.stringify(snap)}`)
         await new Promise((r) => setTimeout(r, 100))
@@ -138,7 +139,7 @@ describe('/arena 全链路（双 contender）', () => {
         expect(c.diffStat).toEqual({ files: 0, additions: 0, deletions: 0 }) // 无工具改动
       }
       // 胜者应用：手动模拟 contender worktree 改动（新增 + 纯删除各一）
-      const winner = snap.contenders[0] as { sessionId: ReturnType<typeof ids.session>; worktree: string }
+      const winner = snap.contenders[0] as { sessionId: typeof snap.contenders[0]['sessionId']; worktree: string }
       writeFileSync(join(winner.worktree, 'NEW.md'), '胜者新文件')
       rmSync(join(winner.worktree, 'README.md'))
       writeFileSync(join(winner.worktree, 'CHANGED.md'), '改动')
@@ -147,8 +148,8 @@ describe('/arena 全链路（双 contender）', () => {
       expect(readFileSync(join(repo, 'NEW.md'), 'utf8')).toBe('胜者新文件')
       expect(readFileSync(join(repo, 'CHANGED.md'), 'utf8')).toBe('改动')
       expect(existsSync(join(repo, 'README.md'))).toBe(true)
-      const after = engine.arenaSnapshot(handle.id) as { applied: { files: string[]; skippedDeletions: string[] } | null }
-      expect(after.applied?.files).toContain('NEW.md')
+      const after = engine.arenaSnapshot(handle.id)
+      expect(after?.applied?.files).toContain('NEW.md')
       expect(after.applied?.skippedDeletions).toContain('README.md')
     } finally {
       await engine.shutdown()
@@ -172,7 +173,7 @@ describe('/arena 全链路（双 contender）', () => {
         await new Promise((r) => setTimeout(r, 100))
       }
       const snap = engine.arenaSnapshot(handle.id) as { contenders: { sessionId: ReturnType<typeof ids.session>; worktree: string }[] }
-      const winner = snap.contenders[0] as { sessionId: ReturnType<typeof ids.session>; worktree: string }
+      const winner = snap.contenders[0] as { sessionId: typeof snap.contenders[0]['sessionId']; worktree: string }
       writeFileSync(join(winner.worktree, 'ASKED.md'), '审批后落盘')
       // ask 规则：assert 挂起——事件流等 permission.asked 后 once 放行
       const events: { type: string; data: unknown }[] = []

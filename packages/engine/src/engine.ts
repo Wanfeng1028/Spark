@@ -77,6 +77,7 @@ import { GoalRunner } from './goals.js'
 import { loadTrustDoc, saveTrustDoc, trustKey, trustLevelOf, tightens } from './trust.js'
 import { discoverExtensions } from './extensions/loader.js'
 import { ArenaManager } from './arena/manager.js'
+import type { ArenaRun } from './arena/manager.js'
 import type { FolderTrust, TrustDoc } from './trust.js'
 import { transcribeAudio } from './voice/transcriber.js'
 import type { RunLoopDeps } from './run-loop.js'
@@ -1051,7 +1052,7 @@ export class Engine {
   // ---- 多模型竞答（工单 16.8 / ADR D42） ----
 
   /** GET /api/sessions/:id/arena 数据源：竞答快照（无竞答回 null） */
-  arenaSnapshot(sessionId: SessionId): unknown {
+  arenaSnapshot(sessionId: SessionId): ArenaRun | null {
     this.assertNotShutdown()
     return this.arenaManager.snapshot(sessionId)
   }
