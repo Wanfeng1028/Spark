@@ -260,4 +260,13 @@ export const BUILTIN_COMMANDS: readonly CommandDescriptor[] = [
     sessionRequired: false,
     clientAction: 'extensions',
   },
+  {
+    // 工单 16.8：action 命令——/arena 多模型竞答发起（model-a|model-b[,c] <prompt>）；面板/胜者应用走 web
+    name: 'arena',
+    description: '多模型竞答：/arena model-a|model-b[,model-c] <任务提示词>——并行执行后对比选优',
+    kind: 'action',
+    group: 'session',
+    surface: ['web', 'cli'],
+    sessionRequired: true,
+  },
 ]

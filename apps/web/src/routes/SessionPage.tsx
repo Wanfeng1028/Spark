@@ -16,6 +16,7 @@ import { useTransport, replaySessionEvents } from '@/transports/context'
 import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
 import { ChatView } from '@/features/chat/ChatView'
+import { ArenaCard } from '@/features/chat/ArenaCard'
 import { Composer } from '@/features/chat/Composer'
 import { clientActionOf } from '@/features/chat/client-commands'
 import { TurnStatusBar } from '@/features/chat/TurnStatusBar'
@@ -304,10 +305,14 @@ export function SessionPage() {
                 />
               </div>
             ) : (
-              <ChatView
-                sessionId={sessionId ?? ''}
-                {...(focusEventId !== undefined ? { focusEventId } : {})}
-              />
+              <>
+                {/* 竞答卡片（工单 16.8 / ADR D42）：有竞答快照才渲染（组件内轮询，null 不渲染） */}
+                {sessionId !== undefined && <ArenaCard sessionId={sessionId} />}
+                <ChatView
+                  sessionId={sessionId ?? ''}
+                  {...(focusEventId !== undefined ? { focusEventId } : {})}
+                />
+              </>
             )}
             <SessionTreeDialog open={treeOpen} onOpenChange={setTreeOpen} sid={sid} busy={busy} />
             <TraceDialog open={traceOpen} onOpenChange={setTraceOpen} sid={sid} />

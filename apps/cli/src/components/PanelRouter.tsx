@@ -8,6 +8,7 @@ import type { CliPanel } from '../store.js'
 import { BootHeader } from './BootHeader.js'
 import {
   AgentsPanel,
+  ArenaPanel,
   CheckpointsPanel,
   ExtensionsPanel,
   LspPanel,
@@ -97,6 +98,9 @@ export function PanelRouter({
   }
   if (panel === 'extensions') {
     return <ExtensionsPanel transport={transport} />
+  }
+  if (panel === 'arena') {
+    return activeSessionId !== null ? <ArenaPanel transport={transport} sessionId={activeSessionId} /> : null
   }
   if (panel === 'usage') {
     return <UsagePanel transport={transport} />

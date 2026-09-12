@@ -47,9 +47,9 @@ describe('detectMenu（§13.E 触发词检测）', () => {
 })
 
 describe('filterCommands（/ 菜单命令过滤）', () => {
-  test('空查询 → 全量内置基线（14 条 = 14 基线 + /init + /plan + /goal + /voice + /lsp + /agents + /trust + /extensions，全部可用）', () => {
+  test('空查询 → 全量内置基线（15 条 = 14 基线 + /init + /plan + /goal + /voice + /lsp + /agents + /trust + /extensions + /arena，全部可用）', () => {
     expect(filterCommands('')).toEqual(SLASH_COMMANDS)
-    expect(SLASH_COMMANDS).toHaveLength(14)
+    expect(SLASH_COMMANDS).toHaveLength(15)
     expect(SLASH_COMMANDS.some((c) => c.name === 'init')).toBe(true)
     // 工单 16.3：/plan 的 surface 含 web 且为 action（不需 clientAction 映射），必进本端清单
     expect(SLASH_COMMANDS.some((c) => c.name === 'plan' && c.kind === 'action')).toBe(true)
@@ -63,6 +63,8 @@ describe('filterCommands（/ 菜单命令过滤）', () => {
     // 工单 16.4/16.5：/trust 与 /extensions 同为 client 命令
     expect(SLASH_COMMANDS.some((c) => c.name === 'trust' && c.kind === 'client')).toBe(true)
     expect(SLASH_COMMANDS.some((c) => c.name === 'extensions' && c.kind === 'client')).toBe(true)
+    // 工单 16.8：/arena 是 action（引擎执行），web surface 必含
+    expect(SLASH_COMMANDS.some((c) => c.name === 'arena' && c.kind === 'action')).toBe(true)
   })
 
   test('按名称过滤（大小写不敏感）', () => {
@@ -90,7 +92,7 @@ describe('mergeSlashCommands（工单 7.4：基线 + 引擎动态清单合并）
     ]
     const merged = mergeSlashCommands(dynamic)
     expect(merged.map((c) => c.name)).toEqual([
-      'init', 'compact', 'plan', 'goal', 'voice', 'resume', 'model', 'mcp', 'skills', 'usage', 'lsp', 'agents', 'trust', 'extensions', 'review',
+      'init', 'compact', 'plan', 'goal', 'voice', 'resume', 'model', 'mcp', 'skills', 'usage', 'lsp', 'agents', 'trust', 'extensions', 'arena', 'review',
     ])
     expect(merged.find((c) => c.name === 'compact')?.description).toBe(
       '压缩上下文（保留摘要，释放窗口）',

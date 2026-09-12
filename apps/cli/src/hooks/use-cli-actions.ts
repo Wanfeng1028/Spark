@@ -28,6 +28,8 @@ export interface UseCliActionsOptions {
   trust: () => void
   /** /extensions（工单 16.5）：扩展面板 */
   extensions: () => void
+  /** /arena（工单 16.8）：竞答面板（快照只读） */
+  arena: () => void
 }
 
 export function useCliActions({
@@ -39,6 +41,7 @@ export function useCliActions({
   agents,
   trust,
   extensions,
+  arena,
 }: UseCliActionsOptions) {
   /** 启动（工单 10.17①④）：快照装载，失败显式错误屏+重试 */
   const boot = useCallback((): (() => void) => {
@@ -221,6 +224,7 @@ export function useCliActions({
       agents,
       trust,
       extensions,
+      arena,
     })
     handlers[action](args)
   }

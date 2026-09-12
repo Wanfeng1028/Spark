@@ -8,6 +8,7 @@
 import { Box, Text, useInput } from 'ink'
 import { useEffect, useState } from 'react'
 import type {
+  ArenaStatusDto,
   ExtensionDto,
   TrustStatusDto,
   AgentPresetDto,
@@ -199,6 +200,46 @@ export function LspPanel({ transport }: { transport: Transport }) {
               </Text>
             </Text>
           ))
+        )
+      } />
+    </PanelShell>
+  )
+}
+
+/** 竞答面板（工单 16.8 / ADR D42）：快照只读——胜者应用与取消走 Web 端（D42 登记限制） */
+export function ArenaPanel({ transport, sessionId }: { transport: Transport; sessionId: SessionId }) {
+  const state = useLoad<ArenaStatusDto | null>(() => transport.getArena(sessionId))
+  return (
+    <PanelShell title="多模型竞答" hint="只读（应用/取消走 Web 端）">
+      <LoadState state={state} render={(snap) =>
+        snap === null ? (
+          <Text color="gray">（本会话没有竞答记录——/arena model-a|model-b &lt;任务&gt; 发起）</Text>
+        ) : (
+          <>
+            <Text wrap="truncate-end">
+              {snap.status === 'running' ? '进行中' : snap.status === 'done' ? '已完成' : '已取消'}
+              <Text color="gray"> · {snap.prompt}</Text>
+            </Text>
+            {snap.contenders.map((c) => (
+              <Text key={c.sessionId} wrap="truncate-end">
+                <Text color={c.status === 'done' ? 'green' : c.status === 'running' ? 'yellow' : 'red'}>
+                  {c.status === 'done' ? '●' : c.status === 'running' ? '◐' : '○'}
+                </Text>
+                {' '}
+                {c.model}
+                <Text color="gray">
+                  {'  '}
+                  {(c.usage.inputTokens + c.usage.outputTokens).toLocaleString()} tokens
+                  {c.durationMs !== null ? ` · ${Math.round(c.durationMs / 1000)}s` : ''}
+                  {c.diffStat !== null ? ` · ${c.diffStat.files} 文件（+${c.diffStat.additions} −${c.diffStat.deletions}）` : ''}
+                  {snap.winner === c.sessionId ? ' · 已应用' : ''}
+                </Text>
+              </Text>
+            ))}
+            {snap.applied !== null && snap.applied.skippedDeletions.length > 0 && (
+              <Text color="yellow">跳过删除类改动（请手动处理）：{snap.applied.skippedDeletions.join('、')}</Text>
+            )}
+          </>
         )
       } />
     </PanelShell>
