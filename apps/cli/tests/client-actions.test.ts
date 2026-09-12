@@ -25,6 +25,7 @@ function handlersOf() {
     rollbackTo: () => {},
     setEffort: () => {},
     voice: () => {},
+    agents: () => {},
   })
 }
 

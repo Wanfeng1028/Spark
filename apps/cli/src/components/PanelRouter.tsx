@@ -7,6 +7,7 @@ import type { ModelsDto, SessionDto, SessionId, SessionSlice, Transport } from '
 import type { CliPanel } from '../store.js'
 import { BootHeader } from './BootHeader.js'
 import {
+  AgentsPanel,
   CheckpointsPanel,
   LspPanel,
   McpPanel,
@@ -85,6 +86,9 @@ export function PanelRouter({
   }
   if (panel === 'lsp') {
     return <LspPanel transport={transport} />
+  }
+  if (panel === 'agents') {
+    return <AgentsPanel transport={transport} />
   }
   if (panel === 'usage') {
     return <UsagePanel transport={transport} />

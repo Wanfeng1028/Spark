@@ -8,6 +8,7 @@
 import { Box, Text, useInput } from 'ink'
 import { useEffect, useState } from 'react'
 import type {
+  AgentPresetDto,
   CheckpointDto,
   ModelsDto,
   RoutingDto,
@@ -193,6 +194,34 @@ export function LspPanel({ transport }: { transport: Transport }) {
                 {' · '}
                 诊断 {s.files} 文件（E {s.errors} / W {s.warnings}）
                 {!s.connected && s.error !== undefined ? ` · ${s.error}` : ''}
+              </Text>
+            </Text>
+          ))
+        )
+      } />
+    </PanelShell>
+  )
+}
+
+/** 子代理面板（工单 16.2 / ADR D36）：两层清单 + 停用标记（启停走设置页/PUT settings，CLI 只读） */
+export function AgentsPanel({ transport }: { transport: Transport }) {
+  const state = useLoad<AgentPresetDto[]>(() => transport.listAgentPresets())
+  return (
+    <PanelShell title="子代理" hint="只读（启停在设置中心子智能体页）">
+      <LoadState state={state} render={(presets) =>
+        presets.length === 0 ? (
+          <Text color="gray">（未配置预设档——~/.spark/agents/&lt;name&gt;.json 或 .spark/agents/&lt;name&gt;.json）</Text>
+        ) : (
+          presets.map((p) => (
+            <Text key={p.name} wrap="truncate-end">
+              <Text color={p.disabled === true ? 'gray' : 'green'}>{p.disabled === true ? '○' : '●'}</Text>
+              {' '}
+              {p.name}
+              <Text color="gray">
+                {'  '}
+                {p.source === 'project' ? '项目' : '用户'}
+                {p.model !== undefined ? ` · ${p.model}` : ''}
+                {p.disabled === true ? ' · 已停用' : ''}
               </Text>
             </Text>
           ))

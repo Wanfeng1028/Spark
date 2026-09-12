@@ -22,6 +22,8 @@ export interface UseCliActionsOptions {
   resumeSelected: number
   /** /voice（工单 16.6）：语音状态机入口（hooks/use-voice-cli.ts；需 inputRef 与 transport） */
   voice: (args: string | undefined) => void
+  /** /agents（工单 16.2）：子代理面板 */
+  agents: () => void
 }
 
 export function useCliActions({ transport, clearScreen, resumeFiltered, resumeSelected, voice }: UseCliActionsOptions) {
@@ -203,6 +205,7 @@ export function useCliActions({ transport, clearScreen, resumeFiltered, resumeSe
       rollbackTo,
       setEffort,
       voice,
+      agents,
     })
     handlers[action](args)
   }

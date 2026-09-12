@@ -47,9 +47,9 @@ describe('detectMenu（§13.E 触发词检测）', () => {
 })
 
 describe('filterCommands（/ 菜单命令过滤）', () => {
-  test('空查询 → 全量内置基线（11 条 = 14 基线 + /init + /plan + /goal + /voice + 工单 16.9 /lsp，全部可用）', () => {
+  test('空查询 → 全量内置基线（12 条 = 14 基线 + /init + /plan + /goal + /voice + /lsp + 工单 16.2 /agents，全部可用）', () => {
     expect(filterCommands('')).toEqual(SLASH_COMMANDS)
-    expect(SLASH_COMMANDS).toHaveLength(11)
+    expect(SLASH_COMMANDS).toHaveLength(12)
     expect(SLASH_COMMANDS.some((c) => c.name === 'init')).toBe(true)
     // 工单 16.3：/plan 的 surface 含 web 且为 action（不需 clientAction 映射），必进本端清单
     expect(SLASH_COMMANDS.some((c) => c.name === 'plan' && c.kind === 'action')).toBe(true)
@@ -58,6 +58,8 @@ describe('filterCommands（/ 菜单命令过滤）', () => {
     expect(SLASH_COMMANDS.some((c) => c.name === 'voice' && c.kind === 'client')).toBe(true)
     // 工单 16.9：/lsp 是 client 命令（面板导航），web CLIENT_ACTIONS 已实现必含
     expect(SLASH_COMMANDS.some((c) => c.name === 'lsp' && c.kind === 'client')).toBe(true)
+    // 工单 16.2：/agents 是 client 命令（本地执行），web surface 必含
+    expect(SLASH_COMMANDS.some((c) => c.name === 'agents' && c.kind === 'client')).toBe(true)
   })
 
   test('按名称过滤（大小写不敏感）', () => {
@@ -85,7 +87,7 @@ describe('mergeSlashCommands（工单 7.4：基线 + 引擎动态清单合并）
     ]
     const merged = mergeSlashCommands(dynamic)
     expect(merged.map((c) => c.name)).toEqual([
-      'init', 'compact', 'plan', 'goal', 'voice', 'resume', 'model', 'mcp', 'skills', 'usage', 'lsp', 'review',
+      'init', 'compact', 'plan', 'goal', 'voice', 'resume', 'model', 'mcp', 'skills', 'usage', 'lsp', 'agents', 'review',
     ])
     expect(merged.find((c) => c.name === 'compact')?.description).toBe(
       '压缩上下文（保留摘要，释放窗口）',

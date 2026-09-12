@@ -16,6 +16,8 @@ export interface CliActionDeps {
   setEffort(args: string | undefined): void
   /** /voice（工单 16.6）：语音听写模式切换与录音启停（实现见 hooks/use-voice-cli.ts） */
   voice(args: string | undefined): void
+  /** /agents（工单 16.2）：子代理面板（两层清单 + 停用标记，CLI 只读） */
+  agents(): void
 }
 
 export type CliActionHandler = (args: string | undefined) => void
@@ -45,6 +47,7 @@ export function createCliActionHandlers(deps: CliActionDeps): Record<ClientActio
     tree: () => needSession(() => st.setPanel('tree')),
     // 语言服务器面板（工单 16.9）：连接状态 + 诊断摘要（连接管理在引擎，无需激活会话）
     lsp: () => st.setPanel('lsp'),
+    agents: () => st.setPanel('agents'),
     voice: (args) => needSession(() => deps.voice(args)),
   }
 }

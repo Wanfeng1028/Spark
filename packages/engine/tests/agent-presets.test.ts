@@ -292,3 +292,56 @@ describe('引擎接线（工单 13.5）', () => {
     }
   })
 })
+
+describe('两层加载与启停（工单 16.2 / ADR D36）', () => {
+  test('项目层 .spark/agents 覆盖用户层同名档（source 标记随层）', async () => {
+    const root = makeRoot({
+      'agents/reader.json': JSON.stringify({ tools: { allow: ['read'] }, title: '用户层' }),
+      'agents/coder.json': JSON.stringify({ title: '仅用户层' }),
+    })
+    const projectCwd = makeRoot({
+      '.spark/agents/reader.json': JSON.stringify({ tools: { allow: ['grep'] }, title: '项目层' }),
+    })
+    const presets = await loadAgentPresets(root, undefined, projectCwd)
+    const reader = presets.find((p) => p.name === 'reader')
+    const coder = presets.find((p) => p.name === 'coder')
+    expect(reader).toMatchObject({ source: 'project', title: '项目层', tools: { allow: ['grep'] } })
+    expect(coder).toMatchObject({ source: 'user', title: '仅用户层' })
+  })
+
+  test('无 projectCwd = 仅用户层（13.5 行为不变；source 全 user）', async () => {
+    const root = makeRoot({ 'agents/a.json': JSON.stringify({}) })
+    const presets = await loadAgentPresets(root)
+    expect(presets).toHaveLength(1)
+    expect(presets[0]?.source).toBe('user')
+  })
+
+  test('disabledAgents 名单：listAgentPresets 合成 disabled=true；requireAgentPreset 路径 E_CONFIG 拒绝', async () => {
+    const root = makeRoot({
+      'agents/reader.json': JSON.stringify({ tools: { allow: ['read'] } }),
+      'agents/coder.json': JSON.stringify({ title: '编码' }),
+    })
+    const gateway = new ScriptedLlm()
+    const config = makeConfig([])
+    // 直注入停用名单（重启档：构造期即生效——与生产 loadConfig 读 spark.json 同语义）
+    const engine = new Engine({
+      root,
+      gateway,
+      config: { ...config, spark: { ...config.spark, agents: { disabledAgents: ['coder'] } } },
+    })
+    try {
+      await engine.ready()
+      const presets = engine.listAgentPresets()
+      expect(presets.find((p) => p.name === 'coder')?.disabled).toBe(true)
+      expect(presets.find((p) => p.name === 'reader')?.disabled).toBeUndefined()
+      // 停用档经 task preset 解析即拒（createSession 走 requireAgentPreset 同路径）
+      await expect(
+        engine.createSession({ parentId: PARENT, preset: 'coder' }),
+      ).rejects.toThrow(/E_CONFIG.*已停用/)
+      // 启用档照常
+      await engine.createSession({ parentId: PARENT, preset: 'reader' })
+    } finally {
+      await engine.shutdown()
+    }
+  })
+})

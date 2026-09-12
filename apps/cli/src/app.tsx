@@ -150,7 +150,21 @@ export function App({ baseUrl }: { baseUrl: string }) {
   // ---------- 动作 / 事件流 / 全局键位（10.43 抽取的 hooks） ----------
 
   const voice = useVoiceCli({ transport, inputRef })
-  const actions = useCliActions({ transport, clearScreen, resumeFiltered, resumeSelected, voice: voice.handleCommand })
+  const actions = useCliActions({
+    transport,
+    clearScreen,
+    resumeFiltered,
+    resumeSelected,
+    voice: voice.handleCommand,
+    agents: () => {
+      const st = useCliStore.getState()
+      if (st.activeSessionId === null) {
+        st.setNotice('该命令需要激活会话')
+        return
+      }
+      st.setPanel('agents')
+    },
+  })
   // 启动流程（10.43 重构回补：listSessions/createSession/models/commands 装载）
   useEffect(() => actions.boot(), [actions])
   useSessionStream(baseUrl, transport)

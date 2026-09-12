@@ -29,6 +29,7 @@ export const ClientActionSchema = z.enum([
   'tree',
   'voice',
   'lsp',
+  'agents',
 ])
 export type ClientAction = z.infer<typeof ClientActionSchema>
 
@@ -226,5 +227,15 @@ export const BUILTIN_COMMANDS: readonly CommandDescriptor[] = [
     surface: ['web', 'cli'],
     sessionRequired: false,
     clientAction: 'lsp',
+  },
+  {
+    // 工单 16.2：client 命令——/agents 子代理管理（两层定义清单 + settings 启停）；loader 在引擎（agents/）
+    name: 'agents',
+    description: '子代理面板：两层预设档清单与启停（配置 ~/.spark/agents 与 .spark/agents）',
+    kind: 'client',
+    group: 'info',
+    surface: ['web', 'cli'],
+    sessionRequired: false,
+    clientAction: 'agents',
   },
 ]

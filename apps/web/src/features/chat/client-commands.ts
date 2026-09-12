@@ -26,6 +26,8 @@ export const CLIENT_ACTIONS: Readonly<Partial<Record<ClientAction, ClientCommand
   resume: { kind: 'palette' },
   // 语音听写模式循环（工单 16.6）：执行由调用处接 ui store cycleVoiceMode
   voice: { kind: 'voice' },
+  // 子代理管理页（工单 16.2）
+  agents: { kind: 'navigate', path: '/settings/subagents' },
 }
 
 /** 是否 client 命令（前端本地执行，不进引擎） */

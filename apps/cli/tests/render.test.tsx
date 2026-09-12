@@ -584,8 +584,8 @@ describe('slash 菜单过滤（工单 10.10）', () => {
     expect(filterSlashCommands(commands, 'zzz')).toEqual([])
   })
 
-  it('协议词表基线 19 条可过滤（工单 10.18 单一词表 + /init + /plan + /goal + /voice + 16.9 /lsp）', () => {
-    expect(BUILTIN_COMMANDS).toHaveLength(19)
+  it('协议词表基线 20 条可过滤（工单 10.18 单一词表 + /init + /plan + /goal + /voice + /lsp + 16.2 /agents）', () => {
+    expect(BUILTIN_COMMANDS).toHaveLength(20)
     expect(filterSlashCommands([...BUILTIN_COMMANDS], 'effort').map((c) => c.name)).toEqual([
       'effort',
     ])

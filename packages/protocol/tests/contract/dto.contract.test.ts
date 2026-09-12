@@ -409,7 +409,9 @@ describe('契约：api.AgentPresetDtoSchema', () => {
     },
     "systemAppend": "contract-sample",
     "title": "contract-sample",
-    "name": "contract-sample"
+    "name": "contract-sample",
+    "source": "project",
+    "disabled": false
   }
 
   it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
@@ -443,6 +445,14 @@ describe('契约：api.AgentPresetDtoSchema', () => {
 
   it('字段 name 类型错 → 解析失败', () => {
     expect(() => api.AgentPresetDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["name"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 source 类型错 → 解析失败', () => {
+    expect(() => api.AgentPresetDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["source"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 disabled 类型错 → 解析失败', () => {
+    expect(() => api.AgentPresetDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["disabled"] = "not-a-boolean"; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
@@ -2605,6 +2615,11 @@ describe('契约：api.SettingsDtoSchema', () => {
         }
       ]
     },
+    "agents": {
+      "disabledAgents": [
+        "contract-sample"
+      ]
+    },
     "restartRequired": [
       "contract-sample"
     ],
@@ -2649,6 +2664,10 @@ describe('契约：api.SettingsDtoSchema', () => {
 
   it('字段 hooks 类型错 → 解析失败', () => {
     expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["hooks"] = []; return m })())).toThrow()
+  })
+
+  it('字段 agents 类型错 → 解析失败', () => {
+    expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["agents"] = []; return m })())).toThrow()
   })
 
   it('字段 restartRequired 类型错 → 解析失败', () => {
@@ -2813,6 +2832,11 @@ describe('契约：api.SettingsUpdateSchema', () => {
           "timeoutMs": 1
         }
       ]
+    },
+    "agents": {
+      "disabledAgents": [
+        "contract-sample"
+      ]
     }
   }
 
@@ -2831,6 +2855,10 @@ describe('契约：api.SettingsUpdateSchema', () => {
 
   it('字段 engine 类型错 → 解析失败', () => {
     expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["engine"] = []; return m })())).toThrow()
+  })
+
+  it('字段 agents 类型错 → 解析失败', () => {
+    expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["agents"] = []; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
