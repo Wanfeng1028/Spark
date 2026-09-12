@@ -264,6 +264,8 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
             },
             hooks: p.hooks, // 工单 7.3：原样透传（undefined = 无挂点）
             prompts: p.prompts, // 工单 13.3：原样透传（undefined = 用内置模板）
+            agents: p.agents, // 工单 16.2 / ADR D36：原样透传（undefined = 全启用）
+            extensions: p.extensions, // 工单 16.5 / ADR D38：原样透传（undefined = 全启用）
           }
         })()
 
