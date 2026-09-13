@@ -323,7 +323,8 @@ describe('真实语言服务器冒烟（CI 装工具后自动启用；本地无�
       // 明显的类型错误：数字上调用不存在的方法 → tsserver 必推诊断
       await writeFile(doc, 'const n = 1\nn.noSuchMethod()\n', 'utf8')
       const { bus } = makeBus()
-      const manager = makeManager(root, bus, { diagnosticsGraceMs: 1500 })
+      // tsserver 冷启动（全局包解析 + 首轮 project load）可能超过默认 10s 握手上限
+      const manager = makeManager(root, bus, { diagnosticsGraceMs: 1500, startupTimeoutMs: 25_000 })
       const ctx = ctxOf(root)
       const diag = (await manager.request('diagnostics', { language: 'typescript', abs: doc }, ctx)) as {
         diagnostics: Array<{ message: string }>
