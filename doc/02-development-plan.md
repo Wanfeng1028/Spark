@@ -2579,7 +2579,7 @@ doc/02 §8.7 V2-XX 行（消解对应项）、开源参考文件（按 16.X 行"
 | 10.40 | ✅ /new 清屏补 3J（scrollback 不清导致输出插在旧消息中间） | 晚风截图实测：/new 后 SPARK logo 出现在**旧对话中间**而非顶部、旧消息残留。根因：手写清屏 `\x1b[2J\x1b[H` 缺 `\x1b[3J`——2J 只清视口、H 归位到 scrollback 内位置，后续输出（Static 重挂的 header）插在旧消息中部（qwen 用的 ansi-escapes.clearTerminal 常量含 3J）。修法：clearScreen 改 `\x1b[2J\x1b[3J\x1b[H`（视口+scrollback 全清+归位）。桌面实测 /new：整屏清空、从最顶部开始欢迎首屏 | 桌面实测 /new 后整屏从顶部开始、无旧消息残留；typecheck/测试 41/41；CI 绿 | 10.38  |
 | 10.41 | ✅ 系统提示词逐段照搬 qwen + Ctrl+C 中断回合 | 晚风指令："系统提示词人家怎么写的你就怎么写！！！"——**逐段照搬 qwen-code 核心提示词**（buildDefaultBasePrompt 全部段落与条目文本：Core Mandates 十一条/Primary Workflows 软件工程迭代/Operational Guidelines 全节/Executing actions with care/Git Repository/Git as Source of Truth/Final Reminder），仅三类替换：① 身份句 Qwen Code→Spark；② 工具名映射（shell→bash、read_file→read、write_file→write、agent→task）；③ Spark 无对应工具/机制的段落整段移除（Task Management、New Applications、system-reminder/persisted-output、grep/glob、web_fetch、ask_user_question/enter_plan_mode、QWEN_SYSTEM_MD、output style、sandbox）+ 补两条 qwen 没有的（语言跟随/回合内不可提问）。版权声明留痕文件头。**Ctrl+C 中断**（10.41b）：turn 运行中首击 Ctrl+C = interrupt 当前回合（生成立即停止）+ 提示"已请求中断当前回合 · 再按一次 Ctrl+C 退出"；双击窗口内仍退出。**IME 光标限制**：qwen 的物理光标定位依赖 ink 7 useBoxMetrics/getAbsolutePosition（Spark ink 6.8 无此 API），精确组字定位挂 V2-26 待升 ink 7 一并解决 | typecheck/lint 绿；engine 36/36；桌面实测提示词生效与中断 | —      |
 
-> 批次 3 备注：① 本批次为质量收尾，不引入新功能面；
+> 批次 3 备注：① 本批次为质量收尾，不引入新功能面； ② 10.22 为批次 2 既列工单的执行，编号不另起新号；③ 10.24 修复后远端 CI 是稳定性的最终裁决（本机不跑大型测试——晚风约束），若 CI 仍偶发红再按失败日志另行开单；④ 冻结行不勾选、不计入完成口径。
 
 ## 阶段十·收尾批次 4（CLI Qwen 化二期：物理光标/组件化重构/汇总句式）——工单级
 
@@ -2598,6 +2598,10 @@ doc/02 §8.7 V2-XX 行（消解对应项）、开源参考文件（按 16.X 行"
 | v3.71 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`） | **批次 4 前两张完成（10.42/10.43）**：10.42 物理光标（absolutePosition 爬树 + useCursor，IME 组字窗跟随输入框；边框修 qwen 无左右竖线形态）；10.43 组件化拆分（app.tsx 757→339 行；hooks/use-cli-actions 263 + use-cli-keys 227 + use-session-stream 41 + effort/constants；纯搬移行为零变化，43/43 过、lint/typecheck 绿）。10.44–10.46 待下轮执行 |
 | v3.72 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`） | **批次 4 后三张完成（10.44/10.45/10.46）**：10.44 工具组行改 qwen 动词句（`✓ 运行了 ls, ls` / >3 `以及其他 N 个` / 活动态进行时+…尾缀；未知类别保计数式）；10.45 footer 右列补 contextWindow K 格式（`200.0k 上下文 · 36% 已用`）+ delivery 主档蓝 + 审批挂起输入框横线变黄；10.46 思考文案 `Thought for 1s`/`Thought briefly`/`Thinking…1s`（qwen formatDuration）。render.test 41/41 断言同步 |
 
+> 批次 4 备注：① 10.42 的 yogaNode 爬树是 ink 6.8 内部结构的等价封装（qwen ink7 已 API 化 getAbsolutePosition）——升 ink 7 时替换为官方 API；② 10.43 为纯搬移重构，行为零变化，**先重构后对齐**避免在大文件上叠加改动；③ IME 深层残余（组字中间态防插入）仍挂 V2-26；④ StatusBar.tsx 死文件仍冻结待五级确认（10.30）。
+
+
+
 
 ## 阶段十·收尾批次 5（CLI Qwen 化三期：Markdown 渲染/行拆分/状态行）——工单级
 
@@ -2611,6 +2615,8 @@ doc/02 §8.7 V2-XX 行（消解对应项）、开源参考文件（按 16.X 行"
 | 10.49 | ✅ 状态行前缀体系（qwen StatusMessages 同构） | ① 启动加载 AGENTS.md 成功后消息流顶部打印 \`● 已加载项目指引：{路径}\`（qwen Read context files 行同款——路径来源 buildSystemPrompt 的向上查找结果）；② 引擎 error 事件行前缀 ✕ 红（现为纯红字）；③ notice 提示行前缀 △ 黄。前缀统一带 U+FE0E 锁宽 | render.test 断言；桌面实测                                                    | 10.47      |
 | v3.73 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，“继续”指令） | **批次 5 立项（10.47–10.49：CLI Qwen 化三期）**：10.47 items.tsx 行组件拆分（rows/ 目录，qwen messages/ 同构）/ 10.48 CLI Markdown-lite 渲染（行内 code 蓝色/bold/围栏块/列表——qwen MarkdownDisplay 常用子集纯 Ink 实现，修模型输出星号原样显示的体验差）/ 10.49 状态行前缀体系（● 已加载项目指引/✕ 错误/△ 提示，U+FE0E 锁宽） |
 | v3.74 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`） | **批次 5 全部完成（10.47/10.48/10.49）**：10.47 items.tsx 拆分（rows/ 目录：shared/turn/reasoning/tool——qwen messages/ 同构；items.tsx 留分发壳 + 兼容 re-export）；10.48 Markdown-lite（markdown.tsx：行内 code 蓝/bold 粗/围栏块缩进灰/流式未闭合围栏降级——模型输出 `**加粗**` 星号原样显示的体验差消除）；10.49 状态行（BootHeader `●︎ 已加载项目指引：{AGENTS.md 路径}`——engine locateProjectInstructions 同构逻辑 CLI 本地化；errorInfo ✕︎ 红/△ 黄前缀）。41/41、lint/typecheck 绿 |
+
+> 批次 5 备注：① markdown-lite 只覆盖 qwen 常用子集（qwen MarkdownDisplay 依赖 marked+highlight.js 级别的完整渲染，Spark 不引依赖）；② 代码块底色用 \`bg-gray\` 反白视终端；③ 流式 textBuf 的未闭合围栏如实按文本呈现，定稿后正常成块。
 
 ## 阶段十·收尾批次 6 候选池（Qwen 化四期——按 qwen 差距优先级排期）——工单级
 
@@ -2763,19 +2769,11 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.47 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **阶段十五 15.1–15.4 全量落地（生态面收官；Q-1 拍板关闭）**：① **15.1 Spark as MCP server（ADR D39，ARCHITECTURE v1.47）**——`spark mcp` stdio 子命令（apps/cli/src/mcp-server.ts 独立文件 + main.tsx 一行注册 + apps/cli 补 `@modelcontextprotocol/sdk@1.30.0`/zod 声明），进程内装配同 12.3（`createInProcessClient`，数据根 `~/.spark` 与 TUI 同源），三工具 spark_run/spark_sessions/spark_events；审批语义如实声明 = 权限规则生效 + ask 挂起超时 fail-closed 拒绝（production 收敛 permissionTimeoutMs 至 120s）+ audit 零旁路；stdout 独占（logger stdout:false）；测试进程内 handler 三工具 + 审批超时拒绝路径（audit actor=system/source=timeout）。② **15.2 OpenAPI 导出（v1 范围）**——protocol 新增 openapi-routes.ts（67 条路由元数据，§4.5 表底稿逐条反推 server routes）与 scripts/gen-openapi.ts（zod schema 合成 41 组件 + SessionDto 组合 + 信封 → packages/protocol/openapi.json，3.1，55 路径/67 操作；内置结构自检不过不落盘）；ci.yml 追加 gen:openapi + git diff --exit-code（同 14.2 口径）；**登记限制**：Python 客户端生成与文档站 Python 页不做（openapi-generator 需 Java 工具链，待外部需求触发）。③ **15.3 skill 创作套件**——protocol 新增 skill-manifest.ts（SkillManifestSchema 单一来源，engine loader 改从 protocol 导入——形状与 5.5 逐字一致、loader 单测语义零回归；不入 14.2 契约套件的理由见该文件头注）；新包 `@spark/skill-kit`（init 骨架生成拒绝覆盖既有文件 / lint 查清单字段+钩子 on 词表合法性+emit 声明+data 可转换，错误码与 loader 一致；typecheck 面 13→14；创作指南 README）；pnpm-workspace 的 `packages/*` glob 天然覆盖。④ **15.4 Q-1 收口（零代码）**——判决**维持纯声明 + MCP 兜工具面**（D18 不扩可编程），本线关闭；受限可编程重开三触发条件写入 doc/08 §15.4 收口块；§8.7 V2-02（插件市场壳）行对账——Q-1 依赖解除，市场壳只分发声明式清单。验收注：15.1 真实外配走查（Claude Code/ZCode 实配 + 审计核对）、15.2 Python 冒烟、15.3 init→lint→引擎识别全链路实跑均留用户现场登记。同步：doc/08 v1.47、ARCHITECTURE v1.47（D39）、AGENTS v1.46、README v1.40。本批本机零验证（例外：gen-openapi 生成器跑出 openapi.json 是工作产物），以 CI 裁决 |
 | v4.48 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **工单 16.8 /arena 多模型竞答落地（阶段十六；ADR D42）**：① engine arena/manager——start（2~5 模型去重 + 主仓 git worktree add ~/.spark/arena/<sid>/ + createSession parentId+model 并发 send）+ 用量归并（contender durable turn.completed 聚合）+ diffStat（**staged 口径：git diff 不含 untracked，add -A 后 diff --cached**——实现批撞上）+ applyWinner（整体一次 fs.write 审批 patterns=文件清单；**删除类改动跳过登记——§2.10 禁删含应用路径**）+ cancel/shutdownAll（worktree remove --force + branch -D）；② 零新事件（快照端点 GET /api/sessions/:id/arena 轮询——竞答是用户在场交互非可回放状态）；③ protocol ArenaContenderDto/ArenaStatusDto + Transport 三方法三通道；server 三路由；④ /arena action 命令（基线 22→23 四包断言同改；CLI 面板由 submit 成功后特判打开——action 无 clientAction）；web ArenaCard（轮询/胜者选择/取消）挂会话页、CLI ArenaPanel 只读；⑤ simple-git 新依赖（MIT，规格指定；本机 pnpm add 系规则 3a 立前最后一次，此后锁文件变更走新流程）；⑥ **同批实修真 bug**：loadConfig 组装漏透传 spark.agents/extensions 段——16.2/16.5 的 settings 名单重启档实际失效（写盘后重载即丢），extensions 测试暴露（D36/D41 后果段补勘误）。测试：engine arena.test 4 例（参数面 3 拒/双 contender 全链路/胜者应用 allow 直通/ask 挂起 + 删除跳过）。验收对账：并行运行✓（两 contender 并发 turn）、卡片实时✓（contender 事件流+快照轮询）、胜者应用经审批✓、无胜者不改主工作区✓（applyWinner 显式动作才写）、用量归并✓；2 模型真实模型走查留用户现场。同步：ARCHITECTURE v1.49（D42）、AGENTS v1.47（含 3a 新规）、README v1.41、doc/08 v1.48。本批本机零验证，以 CI 裁决 |
 | v4.49 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令全程） | **全仓工单清点终章（v4.41 清点的收口）**：阶段十六 16.8 /arena 收官（ADR D42）后，**doc/02 §8 与 doc/08 全部可执行工单落地**——十一（可发布）~十二（Agent 能力补全）、十三（可证明）、十四（SDK 化）、十五（生态面 15.1–15.4）、十六（命令面 16.1–16.9）、十七（冗余整改 R-A~R-H）、十八（观感对齐 18.1–18.5）。**余项三类（均非 AI 可执行，登记待人类）**：① 待人类决策——两张 D28 重号、本文尾部结构损坏修净（v4.40 登记）、official/README.md 旧快照处置（v4.40 登记）；② 待人类现场执行——11.2 验收尾巴真机走查、16.6 SoX/真实转写链路、16.7 真实模型 judge、16.9 TS/Python 真实 server、15.1 Claude Code 外配实调、16.8 真实双模型竞答（各工单验收注均已登记）；③ 后置池与观察项——全部带触发条件（doc/08 §6），无阻塞工单。AGENTS §1 状态同步（v1.49）。本批纯登记 |
+| v4.50 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"继续把你能做的做完成"指令） | **三项"待人类"事项的可 AI 部分完成销账（v4.49 清点的余项①收敛）**：① **本文尾部结构损坏修净（v4.40 登记⑤b 的收口）**——信息零丢失原则：两条空"批次 5 备注"残桩删除、"8.6 标题与批次 4 备注粘连"行删除（标题正本与备注正本各自另存）、重复"阶段十一"标题与孤儿段清队——孤儿段 ②③④ 接回批次 3 备注正本（2582 行）、批次 4 备注移至其表尾、批次 5 备注移至其表尾；② **两张 D28 重号加消歧注记（ARCHITECTURE 正文）**——不动历史行不改编号，两标题下互加"重号消歧"引注（引用建议以主题区分 "D28 设置读写" / "D28 出网代理"，编号合并改判仍留人类）；③ **official/README.md 加冻结历史快照注记**（HTML 注释头，不删不改原内容——现状唯一权威指向根 README，处置判决仍留人类）。同批：CHANGELOG [Unreleased] 补记阶段十一~十八用户可见变更（维护纪律欠账）；AGENTS §4 typecheck 项目数 13→14（15.3 skill-kit 入面的漏更）。**余项①收敛后仅剩**：D28 编号合并改判（需人类拍板）、official/README 处置方向（需人类拍板）与现场走查清单（②类）。本批纯文档 |
 
-> 批次 5 备注：
 
-> 批次 5 备注：
 
-> 批次 5 备注：① markdown-lite 只覆盖 qwen 常用子集（qwen MarkdownDisplay 依赖 marked+highlight.js 级别的完整渲染，Spark 不引依赖）；② 代码块底色用 \`bg-gray\` 反白视终端；③ 流式 textBuf 的未闭合围栏如实按文本呈现，定稿后正常成块。
 
-## 8.6 测试矩阵（各阶段验收的测试面；框架 vitest）> 批次 4 备注：
-
-> 批次 4 备注：① 10.42 的 yogaNode 爬树是 ink 6.8 内部结构的等价封装（qwen ink7 已 API 化 getAbsolutePosition）——升 ink 7 时替换为官方 API；② 10.43 为纯搬移重构，行为零变化，**先重构后对齐**避免在大文件上叠加改动；③ IME 深层残余（组字中间态防插入）仍挂 V2-26；④ StatusBar.tsx 死文件仍冻结待五级确认（10.30）。
-
-## 阶段十一：可发布（Release）——工单级
-② 10.22 为批次 2 既列工单的执行，编号不另起新号；③ 10.24 修复后远端 CI 是稳定性的最终裁决（本机不跑大型测试——晚风约束），若 CI 仍偶发红再按失败日志另行开单；④ 冻结行不勾选、不计入完成口径。
 
 ## 阶段十一：可发布（Release）——工单级
 

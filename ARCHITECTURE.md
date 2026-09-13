@@ -268,11 +268,15 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 
 ### D28 LLM 出网代理 = 方案 A per-provider ProxyAgent（2026-09-06，阶段十二工单 12.9）
 
+> **重号消歧**：与上文 D28（设置读写 API，10.20 B，先立）重号——本张为后立。引用建议以主题区分（"D28 出网代理"）；编号改判留待人类（历史行不动）。
+
 **调研结论**：pi-ai `ProviderRequestOptions.fetch?: FetchFunction` 原生支持 per-request fetch 注入（各 provider adapter 统一走该面）——**方案 A 成立**，无需方案 B（全局 setGlobalDispatcher 兜底）。
 
 **落地**：models.json provider 条目增 `proxy`（http/https URL，zod 校验）→ `proxy-fetch.ts proxyFetchFor`：undici `ProxyAgent` 构造 per-provider fetch（模块级缓存复用连接池）注入 pi-ai `options.fetch`；测试连接（6.5）同代理。env 兜底：无显式 proxy 时回退 `HTTPS_PROXY`/`https_proxy`。两者皆无 → 不注入，缺省 fetch 直连零变化（红线）。mitm 代理实流验证=用户侧。
 
 ### D28 设置读写 API = GET|PUT /api/settings，热生效/重启两档策略（2026-09-01，阶段十工单 10.20 B；晚风已确认执行）
+
+> **重号消歧（2026-09-13，登记于 doc/02 v3.93 的缺陷的本仓内注记）**：本表现存两张 D28——本张（设置读写 API，10.20 B，先立）与下文 D28（LLM 出网代理，12.9，后立）。历史版本行不改写；正文引用时以主题区分（"D28 设置读写" / "D28 出网代理"），编号合并改判仍留待人类。
 
 背景：设置中心的引擎行为类设置（压缩阈值/最大步数/工具超时/沙箱档/工具输出上限等）在 spark.json 有字段、无端点——doc/02 v3.4 遗留「沙箱读写分歧留决策」未结项；工单 10.20 B 新增 `GET|PUT /api/settings` 解锁；10.21 hooks 拍板并入同一端点的 `hooks` 字段（doc/02 v3.43），不单设 `GET /api/hooks`。
 候选：① 全部字段热生效——需把构造期注入的子系统（ToolExecutor/PermissionService/沙箱装配）重构为配置活引用，改动面大、收益仅四个低频字段；② 全部重启生效——压缩阈值/最大步数这类调参场景每次重启，体验差；③ **按引擎实际消费点分两档**——分类依据是代码事实而非期望。
