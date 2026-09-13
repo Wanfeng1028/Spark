@@ -100,7 +100,9 @@
   },
 
   // bash 工具文案里出现的 Windows 内建命令名，不是本仓需要安装的可执行文件
-  "ignoreBinaries": ["where"],
+  // rec / typescript-language-server：真实环境探测用（AGENTS §2.3a 下沉 CI——runner 装工具后
+  // 条件测试真跑、本地 skip），非本仓包依赖；安装步见 ci.yml「安装外部验证工具」
+  "ignoreBinaries": ["where", "rec", "typescript-language-server"],
 
   // 门禁的问题类型（工单 14.1 第三批起含 exports/types）：未引用导出与类型也是硬门——
   // 新增导出要么被消费，要么在裁决表里留理由（doc/02 §4.6.3），不允许悄无声息地胀大公共面。
