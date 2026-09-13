@@ -316,8 +316,14 @@ describe('真实语言服务器冒烟（CI 装工具后自动启用；本地无�
     { timeout: 30_000 }, // tsserver 冷启动（全局包解析 + 首诊）远超默认 5s
     async () => {
       const root = await makeRoot()
+      // 真实用户场景：项目 workspace 内装 typescript → tsserver 自动解析（CI 允许下载，
+      // 本地 skip 不执行）；--tsserver-path 语义猜错已证伪（initialize 25s 超时两次）
+      execFileSync('npm', ['install', '--prefix', root, 'typescript', '--no-audit', '--no-fund'], {
+        stdio: 'pipe',
+        timeout: 120_000,
+      })
       await writeConfig(root, {
-        typescript: { command: 'typescript-language-server', args: ['--stdio', '--tsserver-path', hasTsserver] },
+        typescript: { command: 'typescript-language-server', args: ['--stdio'] },
       })
       const doc = join(root, 'a.ts')
       // 明显的类型错误：数字上调用不存在的方法 → tsserver 必推诊断
