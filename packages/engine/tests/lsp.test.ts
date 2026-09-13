@@ -316,7 +316,7 @@ describe('真实语言服务器冒烟（CI 装工具后自动启用；本地无�
       const doc = join(root, 'a.ts')
       // 明显的类型错误：数字上调用不存在的方法 → tsserver 必推诊断
       await writeFile(doc, 'const n = 1\nn.noSuchMethod()\n', 'utf8')
-      const { bus, sink } = makeBus()
+      const { bus } = makeBus()
       const manager = makeManager(root, bus, { diagnosticsGraceMs: 1500 })
       const ctx = ctxOf(root)
       const diag = (await manager.request('diagnostics', { language: 'typescript', abs: doc }, ctx)) as {
