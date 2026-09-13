@@ -42,6 +42,13 @@ jobs:
         run: pnpm -r publish --access public --no-git-checks --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # 工单 11.2 npm 安装验证下沉 CI（本地零下载总则）：发布完成后全新环境装包冒烟——
+      # 装 @spark/cli 并确认 spark 可执行（--version）。失败即红（安装面回归的硬门）。
+      - name: npm 安装冒烟（全新环境安装 @spark/cli）
+        run: |
+          npm install -g @spark/cli
+          spark --version
+
       - name: GitHub Release（自动生成变更说明）
         uses: softprops/action-gh-release@v2
         with:

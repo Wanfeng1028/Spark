@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { execFileSync } from 'node:child_process'
 import { describe, expect, test } from 'vitest'
 import type { SparkEventEnvelope } from '@spark/protocol'
 import { ids } from '@spark/protocol'
@@ -292,4 +293,36 @@ describe('真实 stdio e2e（node 假 LSP server——诊断/定义全链路）'
     expect(sink.events.filter((e) => e.type === 'lsp.diagnostics')).toHaveLength(1)
     await manager.shutdown()
   })
+})
+
+
+describe('真实语言服务器冒烟（CI 装工具后自动启用；本地无则 skip——本地零下载总则，AGENTS §2.3a）', () => {
+  const hasTsserver = (() => {
+    try {
+      execFileSync('typescript-language-server', ['--version'], { stdio: 'pipe' })
+      return true
+    } catch {
+      return false
+    }
+  })()
+
+  test.skipIf(!hasTsserver)(
+    '真实 typescript-language-server：诊断拿到真实 TS 诊断（非夹具文本）',
+    async () => {
+      const root = await makeRoot()
+      await writeConfig(root, {
+        typescript: { command: 'typescript-language-server', args: ['--stdio'] },
+      })
+      const doc = join(root, 'a.ts')
+      // 明显的类型错误：数字上调用不存在的方法 → tsserver 必推诊断
+      await writeFile(doc, 'const n = 1\nn.noSuchMethod()\n', 'utf8')
+      const { bus, sink } = makeBus()
+      const manager = makeManager(root, bus, { diagnosticsGraceMs: 1500 })
+      const ctx = ctxOf(root)
+      const diag = (await manager.request('diagnostics', { language: 'typescript', abs: doc }, ctx)) as {
+        diagnostics: Array<{ message: string }>
+      }
+      expect(diag.diagnostics.length).toBeGreaterThan(0)
+    },
+  )
 })

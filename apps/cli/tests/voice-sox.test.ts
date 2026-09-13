@@ -6,6 +6,7 @@
  * ④ stop() 幂等（重复调用不重复 kill）。
  */
 import { describe, expect, it } from 'vitest'
+import { execFileSync } from 'node:child_process'
 import type { ChildProcess, spawn } from 'node:child_process'
 import type { mkdtemp, readFile, unlink } from 'node:fs/promises'
 import { soxAvailable, startSoxRecording, SOX_SILENCE_ARGS } from '../src/voice/sox.js'
@@ -155,5 +156,23 @@ describe('startSoxRecording（工单 16.6）', () => {
     const child = new FakeChild()
     const d = depsWith(child, { throwOnSpawn: true })
     await expect(startSoxRecording(d)).rejects.toThrow('E_TRANSCRIBE_UNCONFIGURED')
+  })
+})
+
+
+describe('真实环境链路（CI 装 SoX 后自动启用；本地无 SoX 时 skip——本地零下载总则，AGENTS §2.3a）', () => {
+  const hasSox = (() => {
+    try {
+      execFileSync('rec', ['--version'], { stdio: 'pipe' })
+      return true
+    } catch {
+      return false
+    }
+  })()
+
+  it.skipIf(!hasSox)('soxAvailable 真探返回 true；rec spawn 链路真实可达（无音频设备时 fail-closed 为 UPSTREAM 而非 UNCONFIGURED）', async () => {
+    expect(await soxAvailable()).toBe(true)
+    const rec = await startSoxRecording()
+    await expect(rec.done).rejects.toThrow(/E_TRANSCRIBE_(UPSTREAM|UNCONFIGURED)/)
   })
 })

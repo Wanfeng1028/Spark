@@ -38,6 +38,13 @@ jobs:
       # 生成器内置结构自检（responses 完备/$ref 可解析/路径参数声明），自检不过生成器直接退出 1。
       - run: pnpm --filter @spark/protocol gen:openapi
       - run: git diff --exit-code packages/protocol/openapi.json
+      # 工单 16.6/16.9 现场走查下沉 CI（本地零下载总则，AGENTS §2.3a）：
+      # 装 SoX 与真实语言服务器后，条件化测试自动从 skip 变为真链路（无该工具的环境照常 skip 绿）。
+      - name: 安装外部验证工具（SoX / typescript-language-server / pyright）
+        run: |
+          sudo apt-get install -y sox
+          npm install -g typescript-language-server typescript
+          pip install pyright
       - run: pnpm test
       # 工单 13.1 第三批（doc/08 §13.1 验收第 1 条、提示词第 4 条："CI（非 nightly）用 ScriptedLlm 冒烟"）：
       # core 四场景 + 任务级判分双向自检 13 场景，无 key 无网络（约 10s）
