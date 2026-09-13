@@ -48,6 +48,7 @@
 | v1.46 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D36 /agents 子代理管理（工单 16.2）**：两口子拍板落地——格式维持 JSON 单一来源不引入 MD+frontmatter（配置面全族统一），**两层定义**（项目层 .spark/agents 覆盖用户层同名，source 合成值）；启停走 spark.json agents.disabledAgents 名单（PUT /api/settings 既有链路，重启档，停用档 E_CONFIG 拒绝不静默回退）；零新端点零审批面。命令基线 19→20（/agents client 命令）。与 doc/02 v4.45、AGENTS v1.44、README v1.38、doc/08 v1.45 同批 |
 | v1.47 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D39 Spark as MCP server = stdio 单入口 + 三工具 + 审批 fail-closed（工单 15.1）**：`spark mcp` 子命令（apps/cli/src/mcp-server.ts 独立文件 + main.tsx 一行注册）；进程内 Engine 装配同 12.3（sdk inprocess 通道，数据根 ~/.spark 与 TUI 同源）；三工具 spark_run/spark_sessions/spark_events；审批语义如实声明——规则照常生效、ask 挂起超时 fail-closed 拒绝（permissionTimeoutMs 收敛 120s）、audit 零旁路；被否备选：SSE transport（V2-21 一并）、免审批直通（违反铁律）。编号注记：占 D39（D37=16.4 已引用、D38=并行 16.5/16.8 预留）。与 doc/08 §15.1 同批 |
 | v1.48 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D40 /trust 文件夹信任（工单 16.4，Q-6 经"全部做完"授权确认）与 D41 /extensions 扩展管理（工单 16.5）**：D40——evaluateAll 后处理压 allow（deny/ask 不变，收紧审批而非扩权）、祖先链深匹配顺序无关、不引锁；D41——声明式内容包不执行代码（D18）、symlink 逃逸拒载、settings 名单启停（D36 同构）、清单热可见装配重启生效。命令基线 20→22（/trust、/extensions）。与 doc/02 v4.46、AGENTS v1.45、README v1.39、doc/08 v1.46 同批（D40/D41 顺延现表末张 D39——15.1 先行占用） |
+| v1.49 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D42 /arena 多模型竞答（工单 16.8）**：InProcess 子会话（createSession parentId+model）+ git worktree 零拷贝隔离 + 快照端点（零新事件——竞答是用户在场交互非可回放状态）；胜者应用整体一次 fs.write 审批（删除类跳过登记——§2.10 禁删含应用路径）；simple-git 新依赖（MIT，规格指定）。命令基线 22→23（/arena action）。**同批实修 loadConfig 组装漏透传 agents/extensions 段真 bug**（16.2/16.5 重启档失效，D36/D41 补勘误）。与 doc/02 v4.48、AGENTS v1.47、README v1.41、doc/08 v1.48 同批 |
 
 ---
 
@@ -413,6 +414,18 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 2. **启停**：settings.extensions.disabledExtensions 名单（同 D36 agents 同构，PUT /api/extensions/:id/enabled 内写 spark.json，重启档）；**v1 清单热可见、注册表装配重启生效**——深度热插拔（正在运行会话的 skill/MCP 撤下）不做，登记限制。
 3. **零新事件零审批面**：扩展只声明归属（实际装载仍走 skills/agents/commands/mcp 各自 loader 的既有审批与校验路径）。
 后果：protocol SparkExtensionManifest/ExtensionDto + settings.extensions 段（SETTINGS_RESTART_REQUIRED 同步）；server GET/PUT 两路由 + 三通道对等；web 插件占位页升真值（PluginsSettingsPage）+ CLI /extensions 面板（命令基线 22）；测试 5 例（发现纪律/symlink 逃逸拒载/启停写盘端到端）。
+
+### D42 /arena 多模型竞答 = InProcess 子会话 + git worktree 隔离 + 快照端点（2026-09-12，阶段十六工单 16.8）
+
+背景：doc/08 §16.8 立项（消解 V2-29；qwen ArenaManager 850 行参考设计大幅裁剪——InProcess 后端进 PTY 路线不进；依赖 simple-git MIT，工单规格指定）。
+候选：① 每模型独立 git clone——否决：同仓 worktree 零拷贝更轻（qwen 同思路）；② **真实子会话（Engine.createSession parentId+model，cwd=worktree）**，采纳：复用阶段五子代理设施与审批链，contender 事件流天然实时；③ PTY 并行——否决（Spark headless）。
+结论：
+1. **零新事件词表条目**：各 contender 是真实会话（自身事件流实时），聚合状态走 GET /api/sessions/:id/arena 快照轮询；竞答记录仅内存（重启丢失登记限制——验收不含回放）。**不落 durable 的裁决依据**：竞答是用户在场的交互过程，非可回放状态（对比 goal 的续跑循环必须 durable）。
+2. **胜者应用**：worktree staged diff（`add -A` 后 `diff --cached --numstat`——**git diff 不含 untracked**，实现批撞上）逐文件写回主会话 cwd；**删除类改动跳过并登记**（§2.10 AI 无权删文件——含竞答应用路径）；应用前**整体一次 permission.asked**（fs.write，patterns=文件清单——"逐文件过审批"的用户知情面以清单呈现，N 次逐文件确认是交互灾难）。
+3. **规模与清理**：2~5 个模型去重（qwen ARENA_MAX_AGENTS 同值）；无论成败 worktree remove --force + branch -D（~/.spark/arena 下引擎自管目录，非仓库文件）；shutdown 收口全量取消。
+4. **四端**：web ArenaCard（2s 轮询快照、胜者选择、取消）；CLI ArenaPanel 只读快照（应用/取消走 Web 端——登记限制）；命令基线 22→23（/arena action）。
+后果：protocol ArenaContenderDto/ArenaStatusDto + Transport getArena/applyArenaWinner/cancelArena 三通道；server 三路由；**同批实修一处真 bug**：loadConfig 组装漏透传 spark.agents/extensions 段（16.2/16.5 的 settings 名单在重启档实际失效——persistSparkPatch 写盘后重载即丢，extensions 测试暴露；D36/D41 的后果段据此补勘误）。
+编号注记：本 ADR 占 **D42**（顺延现表末张 D41）。
 
 ## 6. 模块速览（职责边界）
 

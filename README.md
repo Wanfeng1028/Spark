@@ -173,5 +173,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.38 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：阶段十六 16.2（/agents 两层子代理定义 + settings 启停，ADR D36）已落地；与 ARCHITECTURE v1.46、doc/02 v4.45、doc/08 v1.45 同批 |
 | v1.39 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：阶段十六 16.4（/trust 文件夹信任，ADR D40）与 16.5（/extensions 扩展，ADR D41）已落地。与 doc/02 v4.46、doc/08 v1.46 同批 |
 | v1.40 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：**阶段十五全量收官**——15.1 spark mcp stdio server（ADR D39）/ 15.2 OpenAPI 导出（CI gen+diff 门禁；Python 生成物待外部需求）/ 15.3 @spark/skill-kit 创作套件 / 15.4 Q-1 拍板维持纯声明 + MCP 兜工具面。与 doc/02 v4.47、doc/08 v1.47、ARCHITECTURE v1.47、AGENTS v1.46 同批 |
+| v1.41 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：阶段十六 16.8（/arena 多模型竞答，ADR D42）已落地；同批实修 loadConfig 组装漏透传 settings 名单段真 bug。与 doc/02 v4.48、doc/08 v1.48 同批 |
 
 </details>
