@@ -300,9 +300,14 @@ describe('真实语言服务器冒烟（CI 装工具后自动启用；本地无�
   const hasTsserver = (() => {
     try {
       execFileSync('typescript-language-server', ['--version'], { stdio: 'pipe' })
-      return true
+      // tsserver 需要 TypeScript 库路径——CI 全局装包后经 --tsserver-path 指认（runner 路径不定，运行时解析）
+      return join(
+        execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim(),
+        'typescript',
+        'lib',
+      )
     } catch {
-      return false
+      return null
     }
   })()
 
@@ -311,7 +316,7 @@ describe('真实语言服务器冒烟（CI 装工具后自动启用；本地无�
     async () => {
       const root = await makeRoot()
       await writeConfig(root, {
-        typescript: { command: 'typescript-language-server', args: ['--stdio'] },
+        typescript: { command: 'typescript-language-server', args: ['--stdio', '--tsserver-path', hasTsserver] },
       })
       const doc = join(root, 'a.ts')
       // 明显的类型错误：数字上调用不存在的方法 → tsserver 必推诊断
