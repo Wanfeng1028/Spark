@@ -179,7 +179,12 @@ describe('引擎端到端（工单 16.4 验收：未信任目录 bash 默认 ask
       if (e.sessionId === handle.id) events.push(e)
     })
     await handle.send('跑个命令')
-    await new Promise((r) => setTimeout(r, 300))
+    // 轮询等 turn 收尾（固定 sleep 在慢 runner 上时序脆弱）
+    const idleDeadline = Date.now() + 5000
+    while (handle.status() !== 'idle') {
+      if (Date.now() > idleDeadline) throw new Error(`等待 idle 超时（当前 ${handle.status()}）`)
+      await new Promise((r) => setTimeout(r, 50))
+    }
     expect(events.some((e) => e.type === 'permission.asked')).toBe(false) // 规则层快路径放行
     expect(handle.status()).toBe('idle')
   })
