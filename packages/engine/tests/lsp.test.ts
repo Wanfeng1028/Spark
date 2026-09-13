@@ -313,6 +313,7 @@ describe('真实语言服务器冒烟（CI 装工具后自动启用；本地无�
 
   test.skipIf(!hasTsserver)(
     '真实 typescript-language-server：诊断拿到真实 TS 诊断（非夹具文本）',
+    { timeout: 30_000 }, // tsserver 冷启动（全局包解析 + 首诊）远超默认 5s
     async () => {
       const root = await makeRoot()
       await writeConfig(root, {
