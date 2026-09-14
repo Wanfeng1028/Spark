@@ -39,7 +39,7 @@ export function ArenaCard({ sessionId }: { sessionId: SessionId }) {
   // 条件轮询：仅当 arena 处于活跃状态时持续轮询，否则不设置 interval
   const arenaStatus = arena?.status
   useEffect(() => {
-    if (arenaStatus !== 'running' && arenaStatus !== 'pending') return
+    if (arenaStatus !== 'running') return
     let disposed = false
     const poll = (): void => {
       transport
