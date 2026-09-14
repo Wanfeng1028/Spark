@@ -770,6 +770,9 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 | 未列依赖·expo-updates / expo-system-ui | 2 | **不装 → ignoreIssues** | knip 的 Expo 插件按 app.json 约定推导；本仓 plugins 实为 `expo-secure-store`/`expo-status-bar`（均在依赖里），全仓 grep 对这两个零命中，且不启用 OTA。将来启用则装上并删该条（knip v6 无 `ignoreUnlisted` 键，改用按文件排除问题类型） |
 | 未列二进制·`where` | 1 | **误报 → ignoreBinaries** | bash 工具文案里出现的 Windows 内建命令名，不是本仓需安装的可执行文件 |
 | 未引用导出/类型 | 30 + 23 | **已裁决，处置属第三批** | 见下表分组 |
+| 未引用文件·official/ 产品官网 | 31 | **误报 → ignore** | 独立子项目不入 pnpm workspace，文件落入根域后全量误报；质量门由 `.github/workflows/official.yml` 独立把守（同 spike-pi-ai 排除判例） |
+| configuration hints·冗余 entry | 6 | **删除冗余配置** | knip v6 自动从 scripts 提取 tsx 直跑入口、Vite 插件自动发现 vite.config.ts 与 main.ts；显式声明触发 "Remove redundant entry pattern" |
+| configuration hints·冗余 ignoreDependencies | 1 | **删除 react-refresh** | knip v6 自动关联 peer dep，该条目不再需要 |
 
 导出/类型 53 项的处置分组（第三批执行；本批不纳入 `include`，避免"报告已知但长期红灯"）：
 
@@ -2775,6 +2778,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.52 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"继续"指令） | **AGENTS §4 typecheck 项目数口径终修（v4.46/14.6 三次漂移的根治）**：历次写死的数字（13→14）跟着包数漂是错误模式——AGENTS §4 改为写实数口径「17 个 workspace package 含 examples/spike 内部包；对外口径按可发布四包 protocol/engine/sdk/cli 记」（实测 17：spark/cli/desktop/docs/miniapp/mobile/server/web/evals/三 example/spike-pi-ai/engine/protocol/sdk/skill-kit——全部带 typecheck 脚本）；doc/08 §14.6 历史进度行加当时实数括注。**D28/official-README 两项拍板与全部现场走查清单仍留人类（doc/02 v4.50 登记不变）**。本批纯文档 |
 | v4.53 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，对账审计指令） | §4.3.1/§8.6 事件词表计数 26→27 同步（对账审计 W4：全仓 11 处陈旧计数统一为 27，含 doc/02 三处、apps/docs 两处、CONTRIBUTING、四处代码注释；与 AGENTS v1.53 同批） |
 | v4.54 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，对账审计指令） | §8 阶段十二~十八工单表 lift 自 doc/08（48 工单，对账审计 W2）：恢复"执行以 doc/02 定稿为准"的单一来源纪律；§8.7 候选池标题同步更新；v3.35 重号修正为 v3.35a；与 AGENTS v1.53 同批 |
+| v4.55 | 2026-09-15 | AI 编写：Qoder；发起：晚风（Wanfeng1028，官网建设指令） | §4.6.3 knip 裁决表追加三行——official/ 产品官网 31 项 unused files 误报裁决为 ignore（独立子项目不入 workspace，质量门由 .github/workflows/official.yml 独立把守，同 spike-pi-ai 判例）；6 项冗余 entry 与 1 项冗余 ignoreDependencies（react-refresh）按 knip v6 configuration hints 删除（自动发现已覆盖）；knip.jsonc 同步 |
 
 
 ## 阶段十一：可发布（Release）——工单级

@@ -21,10 +21,10 @@
       // 静态 import 图看不到）：
       // - @tarojs/plugin-platform-h5：h5 构建目标（dev:h5 / taro build --type h5）由
       //   Taro CLI 按平台装载，模块图不 import 它
-      // - @pmmmwh/react-refresh-webpack-plugin 与 react-refresh：Taro H5 dev 模式的
-      //   fast-refresh 由 plugin-framework-react 以裸 require 装载（dist setPlugin 内
-      //   require('@pmmmwh/react-refresh-webpack-plugin')）+ babel-preset-taro 的
-      //   react-refresh/babel（TARO_PLATFORM=web 时注入），均非静态引用
+      // - @pmmmwh/react-refresh-webpack-plugin：Taro H5 dev 模式的 fast-refresh 由
+      //   plugin-framework-react 以裸 require 装载（dist setPlugin 内 require(
+      //   '@pmmmwh/react-refresh-webpack-plugin')），非静态引用；react-refresh 本身作为
+      //   其 peer dep 已被 knip v6 自动关联，无需单列 ignoreDependencies
       // - react-dom 与 @types/react-dom：Taro H5 构建经 webpack alias 消费
       //   （plugin-framework-react 的 H5 分支 resolveSync('react-dom') 后 alias 成
       //   'react-dom$'，缺失时 resolveSync 返回 null → webpack alias schema 不收 null，
@@ -33,31 +33,16 @@
       "ignoreDependencies": [
         "@tarojs/plugin-platform-h5",
         "@pmmmwh/react-refresh-webpack-plugin",
-        "react-refresh",
         "react-dom",
         "@types/react-dom"
       ]
     },
     "apps/cli": {
       "entry": ["scripts/preview-boot.mts", "scripts/preview-pane.mts"]
-    },
-    "packages/sdk": {
-      // 最小连接示例与嵌入示例（工单 14.3/14.4）：人工 `pnpm --filter @spark/sdk example|embed`
-      // 直跑，不被任何模块 import
-      "entry": ["examples/minimal.ts", "examples/embed.ts"]
-    },
-    "examples/sdk-bot": {
-      // 脚本入口（package.json 的 start 用 tsx 直跑；bot.ts 被 main.ts 与测试 import）
-      "entry": ["main.ts"]
-    },
-    "examples/sdk-tui": {
-      // 脚本入口（start 用 tsx 直跑 tui.tsx；Ink 应用在模块顶层 render）
-      "entry": ["tui.tsx"]
-    },
-    "examples/sdk-viewer": {
-      // index.html 用 <script type="module" src="./main.ts"> 引入——knip 不解析 HTML，故登记为入口
-      "entry": ["main.ts", "vite.config.ts"]
     }
+    // packages/sdk、examples/sdk-bot、examples/sdk-tui、examples/sdk-viewer 的 entry 已删除：
+    // knip v6 自动从 package.json scripts 提取 tsx 直跑入口，Vite 插件自动发现
+    // vite.config.ts 与 main.ts——显式声明反而触发 "Remove redundant entry pattern" hint
   },
 
   // 死代码与实验残留：AGENTS §2.10 —— AI 无权删除任何文件，一律冻结待人类五层级确认。
