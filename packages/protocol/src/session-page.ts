@@ -135,7 +135,7 @@ export function createSessionPageController(opts: {
   const noticeMs = opts.noticeMs ?? 5000
 
   // 窗口与投影（与两端原 ref 布局一一对应）
-  let events: SparkEventEnvelope[] = []
+  const events: SparkEventEnvelope[] = []
   /** W12：增量维护已见事件 ID，避免 loadOlder 每次 O(n) 重建 Set（mergeEventPage 内部行为） */
   const seenIds = new Set<EventId>()
   const times = new Map<EventId, number>()
