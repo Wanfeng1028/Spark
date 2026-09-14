@@ -58,6 +58,7 @@
 | v1.49 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令全程） | **§1 当前状态刷新：全仓工单清零**——阶段十六 16.8 /arena 收官（D42）后，doc/02 §8 与 doc/08 可执行工单全部落地；余项三类均非 AI 可执行：待人类决策（两张 D28 重号 / doc/02 尾部结构损坏修净 / official/README.md 旧快照处置）、待人类现场执行（11.2 验收尾巴真机走查 / 16.6 SoX 与真实转写 / 16.7 真实模型 / 16.9 TS-Python 真实 server / 15.1 Claude Code 外配实调 / 16.8 双模型竞答）、后置池观察项（均带触发条件）。与 doc/02 v4.49 同批 |
 | v1.50 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"继续把你能做的做完成"指令） | §4 typecheck 项目数 **13 → 14**（15.3 skill-kit 入面的漏更修正）。同批：doc/02 尾部结构损坏修净（v4.50）、ARCHITECTURE 两张 D28 加消歧注记、official/README 冻结注记、CHANGELOG 补阶段十一~十八用户可见变更。与 doc/02 v4.50 同批 |
 | v1.51 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（"现场走查也不能下载，需要下载的放远端 CI"指令） | **§2.3a 扩展为"本机禁止一切下载"总则**：依赖包/外部工具/浏览器拉取一律不在本机发生；走查外部工具由 CI runner 安装并跑真实链路（测试 skipIf 条件化——CI 真跑、本地 skip 绿）。ci.yml 增安装步（SoX/tsserver/pyright）+ release.yml 增 npm 安装冒烟（11.2 下沉）。与 doc/02 v4.51、doc/08 v1.49 同批 |
+| v1.52 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"继续"指令） | §4 typecheck 项目数口径终修：写死数字随包数漂（13→14 两次）是错误模式——改写实数「17 个 workspace package 含内部包；对外按可发布四包记」。与 doc/02 v4.52 同批 |
 
 ## 1. 项目上下文（30 秒版）
 
@@ -126,7 +127,8 @@ pnpm --filter miniapp dev                     # 微信小程序（Taro 4 watch �
 # 末位 build 不可省：typecheck 是 --noEmit，查不出声明发射错（TS4033 "已导出接口用了私有名"），而 engine/protocol 发布靠 declaration: true
 # 以下写法供排查单个包/单文件/单用例时按需使用
 python scripts/check_doc_links.py             # CI 第一关；改过任何 .md 必跑（--strict 把 warn 也计失败）
-pnpm typecheck                                # = pnpm -r typecheck（14 个项目，15.3 skill-kit 入面）
+pnpm typecheck                                # = pnpm -r typecheck（17 个 workspace package 含 examples/spike 内部包；
+                                              #   对外口径按可发布四包 protocol/engine/sdk/cli 记）
 pnpm lint                                     # eslint .
 pnpm knip                                     # 未引用文件/依赖/二进制扫描（工单 14.1；配置与裁决表见 knip.jsonc 与 doc/02 §4.6.3）
 pnpm --filter @spark/docs gen:events          # 文档站事件词表页生成器（工单 14.6）：改过事件 schema 必重跑，

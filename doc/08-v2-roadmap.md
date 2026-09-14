@@ -1591,7 +1591,7 @@ examples/ 目录现有组织方式、examples/evals 的 ScriptedLlm 复用方式
   * **事件词表页（要求 2 的"从 jsonSchemas 生成 + CI 同步校验"）**：`apps/docs/scripts/gen-events.ts` 从 `EventSchemas` + `EnvelopeSchema` 经 `z.toJSONSchema` 推导字段表（名/类型/必填/说明）。两条设计点：① 分类（durable vs live-only、surface）用 `Record<LiveOnlyEventType, true>` / `Record<SurfaceEventType, true>` 声明——**穷尽性由编译器把关**，protocol 新增一类而生成器没跟上就 typecheck 红，而不是静默漏标；② 三条纪律沿用契约生成器（事实源唯一、确定性排序、不猜——拿不到形状的节点如实渲染 `object`）。**同步门禁两处**：ci.yml（test 前）与 release.yml（构建前）都跑 `gen:events` + `git diff --exit-code apps/docs/events.md`。
   * **要求 3（deploy）**：release.yml 新增**独立 docs job**（tag 触发，与 npm 发布同一次）：gen:events 同步校验 → `vitepress build` → configure-pages → upload-pages-artifact → deploy-pages。**为何不并进 publish job**：`environment: github-pages` 是 job 级配置（actions/deploy-pages 要求），并进后一旦仓库给 Pages environment 配了审批/限制，npm 发布会被连带卡住。
   * **验收对账**：本地构建预览全页 → 构建已进 CI 的 `pnpm -r build`（含 VitePress 死链检查），本批 CI 为准；词表页与 schema 同步校验绿 → 本批 CI 为准；**部署 → 外网可达：待一次性人工设置**（仓库 Settings → Pages → Source 选 "GitHub Actions"）+ 首个 tag（tag 与 npm publish 本就在待拍板清单里）；**"五分钟实测"（新目录 npm init → 装 @spark/sdk → 跑通 viewer）：待 v1.0.0 发布后才能真做**（包未上 npm），已在 getting-started 里如实标注并把当下可跑的两条路径（离线演示 / 仓库内 viewer）写实。
-  * **配套**：`base: '/Spark/'`（Pages 发布在 wanfeng1028.github.io/Spark/）、knip 登记两个入口（`.vitepress/config.ts` 与生成器）、apps/docs 入 typecheck（13 个项目）与 build、中文界面文案已汉化。
+  * **配套**：`base: '/Spark/'`（Pages 发布在 wanfeng1028.github.io/Spark/）、knip 登记两个入口（`.vitepress/config.ts` 与生成器）、apps/docs 入 typecheck（13 个项目——当时实数；现 17 个 workspace package，见 AGENTS §4）与 build、中文界面文案已汉化。
 
 * **依赖**：14.1/14.3/14.5。
 
