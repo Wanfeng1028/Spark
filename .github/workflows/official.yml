@@ -1,0 +1,46 @@
+# official/ 官网独立 CI：official/ 是 Spark 产品官网（独立 Next.js 15 项目，**不在 pnpm workspace**——
+# 根 pnpm-workspace.yaml 的 packages 不含 official，亦无锁文件入库）。
+# 本工作流独立于 ci.yml：只跑 install / typecheck / build 三步，不触发产品端 eval / test / knip 等
+# 任何步骤；official 构建失败不阻塞产品端 CI（ci.yml 无路径过滤照常全量跑，两路互不牵连）。
+name: Official
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'official/**'
+      - '.github/workflows/official.yml'
+  pull_request:
+    paths:
+      - 'official/**'
+      - '.github/workflows/official.yml'
+
+# 并发取消：既有四个 workflow（ci/nightly/release/desktop-win）均未配 concurrency，无现成约定可抄；
+# official 无锁文件、每次触发都要全量装依赖，同 ref 重复触发纯浪费——PR/push 新一轮直接取消旧一轮。
+concurrency:
+  group: official-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  official:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        # 版本以 package.json 的 packageManager 为唯一来源（同 ci.yml 纪律——读仓库根
+        # pnpm@9.15.9；official/package.json 未声明 packageManager，故沿用根声明保证同版本）
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          # 缓存 key 按根 pnpm-lock.yaml 计算（setup-node 默认依赖文件）；official 无锁文件，
+          # store 内容寻址仍可部分命中，缓存 miss 仅损失加速、不影响正确性
+      # official 无锁文件：--no-frozen-lockfile 允许安装时生成（生成物不入库）；
+      # --ignore-workspace 防止 pnpm 向上找到仓库根 pnpm-workspace.yaml 而误装产品端全
+      # workspace（pnpm ≥ 9.7 标志，根 packageManager 9.15.9 支持）。-C 指定目录跑
+      # official/package.json 已声明的 scripts（同 nightly.yml `pnpm -C <dir>` 先例）。
+      - run: pnpm -C official install --no-frozen-lockfile --ignore-workspace
+      - run: pnpm -C official typecheck
+      # next build（next.config.ts output: "export" 静态导出至 official/out）；
+      # 产物不入库不上传，本步只作"能构建"的回归门
+      - run: pnpm -C official build

@@ -39,12 +39,13 @@ const ENDPOINTS: readonly Endpoint[] = [
   },
 ];
 
-const SESSION_PATH_CODE = `# 会话数据落点
-~/.spark/sessions/<cwd-hash>/<session-id>.jsonl
+const SESSION_PATH_CODE = `# 会话数据落点（packages/engine/src/session/store.ts）
+~/.spark/sessions/<cwd-munged>-<sha1前8位>/<ISO时间戳>_<sessionId>.jsonl
 
 # 格式：append-only JSONL
-# 每行一个事件对象，带 type + ts 字段
-# 文件只追加不修改，完整保留决策链
+# 第 0 行是 header（sparkVersion / cwd / createdAt / model）
+# 其后每行一个事件信封，seq == 文件行号
+# 只追加不改写，完整保留决策链
 # 回放 = 从头逐行 reduce → 重建完整 UI 状态`;
 
 export default function ArchitecturePage() {
@@ -72,37 +73,35 @@ export default function ArchitecturePage() {
               事件模型
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-              27 种事件构成完整词表，每种事件标记三个属性：
+              27 种事件构成完整词表（durable 24 / live-only 3），每种事件带三个属性：
             </p>
-            <dl className="mt-6 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-lg border border-border px-4 py-3">
-                <dt className="font-mono text-sm font-medium text-foreground">
-                  durable
-                </dt>
-                <dd className="mt-1 text-sm text-muted-foreground">
-                  落盘到 JSONL，可回放重建
+            {/* 三分类是术语对照表，不是三张特性卡：线性 divide-y 行呈现，
+                避开 §12.5 P1「恰好三张卡一行」与 §12.4 P1「每张卡同一条灰色 1px 平边」。
+                边框只做分隔（§3）。 */}
+            <dl className="mt-6 divide-y divide-border border-y border-border">
+              <div className="grid grid-cols-[6.5rem_1fr] items-baseline gap-x-4 py-3">
+                <dt className="font-mono text-sm text-foreground">durable</dt>
+                <dd className="text-sm text-muted-foreground">
+                  24 种。落盘到 JSONL，可回放重建
                 </dd>
               </div>
-              <div className="rounded-lg border border-border px-4 py-3">
-                <dt className="font-mono text-sm font-medium text-foreground">
-                  live
-                </dt>
-                <dd className="mt-1 text-sm text-muted-foreground">
-                  仅存在于 SSE 连接周期内
+              <div className="grid grid-cols-[6.5rem_1fr] items-baseline gap-x-4 py-3">
+                <dt className="font-mono text-sm text-foreground">live</dt>
+                <dd className="text-sm text-muted-foreground">
+                  3 种 delta 类。不落盘，重连后不重现
                 </dd>
               </div>
-              <div className="rounded-lg border border-border px-4 py-3">
-                <dt className="font-mono text-sm font-medium text-foreground">
-                  surface
-                </dt>
-                <dd className="mt-1 text-sm text-muted-foreground">
-                  直接映射为可见 UI 变更
+              <div className="grid grid-cols-[6.5rem_1fr] items-baseline gap-x-4 py-3">
+                <dt className="font-mono text-sm text-foreground">surface</dt>
+                <dd className="text-sm text-muted-foreground">
+                  2 种。模型可见面，必进模型历史
                 </dd>
               </div>
             </dl>
             <p className="mt-6 text-sm leading-relaxed text-muted-foreground/80">
-              事件经 Projector 投影为 UI 状态。四端共享同一套 reducer
-              逻辑——协议层是运行时代码，不是类型定义。新增事件走
+              两个「投影」不同义：各端用同一份 applyEvent reducer
+              把事件流折叠成 UI 状态；引擎侧 Projector 投影的是模型上下文（surface
+              事件 → LlmMessage）。协议层是运行时代码，不是类型定义。新增事件走
               new-event-type 全流程：类型定义 → zod schema → 归类 → reducer
               单测 → 引擎 emit → 文档同步。
             </p>
@@ -120,22 +119,23 @@ export default function ArchitecturePage() {
             <p className="mt-4 text-base leading-relaxed text-muted-foreground">
               共享 @spark/protocol，各自适配平台特性。
             </p>
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            {/* 四端对照表：同样走线性 divide-y 行，不用 2×2 卡片阵列（§12.4 卡片灾难） */}
+            <ul className="mt-8 divide-y divide-border border-y border-border">
               {ENDPOINTS.map((ep) => (
-                <div
+                <li
                   key={ep.name}
-                  className="rounded-lg border border-border px-5 py-4"
+                  className="grid grid-cols-1 gap-1 py-4 sm:grid-cols-[7rem_1fr] sm:gap-x-6"
                 >
-                  <h3 className="font-medium text-foreground">{ep.name}</h3>
-                  <p className="mt-1 font-mono text-xs text-muted-foreground/70">
-                    {ep.stack}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {ep.role}
-                  </p>
-                </div>
+                  <span className="font-medium text-foreground">{ep.name}</span>
+                  <div>
+                    <p className="text-sm text-muted-foreground">{ep.role}</p>
+                    <p className="mt-1 font-mono text-xs text-muted-foreground/70">
+                      {ep.stack}
+                    </p>
+                  </div>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         </BlurFade>
       </div>

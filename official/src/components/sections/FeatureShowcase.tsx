@@ -8,6 +8,11 @@ import { cn } from "@/lib/utils";
  * FeatureShowcase — 四项核心能力纵向堆叠，图文交替。
  * 严禁"三张特性卡一行 / bento 网格"（DESIGN §12），所以是 4 项，且每项占大空间。
  * 每项：文字侧（标题 + 描述 + 一行代码事实）+ 图片侧（截图 SVG）。
+ *
+ * code 行写的是真实事件名与字段，取自 packages/protocol/src/events.ts：
+ * - assistant.delta / reasoning.delta / tool.progress 三枚标了 live-only（不落盘）
+ * - tool.started { callId, name, input } → tool.completed { output, isError, durationMs }
+ * - permission.asked / permission.resolved { reply: once|always|reject }
  */
 
 interface Feature {
@@ -22,34 +27,34 @@ const FEATURES: readonly Feature[] = [
   {
     title: "流式对话",
     description:
-      "Token 级增量渲染，27 种事件实时投影到 UI。从模型输出到界面刷新的延迟低于人眼感知阈值，对话过程可见即可得。",
-    code: "token 级增量 · 27 种事件实时投影",
+      "模型输出按 token 切成 assistant.delta 事件推送，四端各自用同一份 applyEvent reducer 把事件流折叠成 UI 状态。delta 类事件是 live-only：不落盘，断线重连后由 durable 的 assistant.message 重建终态。",
+    code: "assistant.delta · reasoning.delta · tool.progress = live-only",
     screenshot: "/screenshots/web-session.svg",
     alt: "Web 端会话截图：左侧会话列表，右侧流式对话面板",
   },
   {
     title: "工具调用可视化",
     description:
-      "每一次 tool invocation 的输入、输出、耗时全量展示。执行路径可追溯，不再是黑盒。工具失败时错误码与堆栈同屏呈现。",
-    code: "invocation.input \u2192 output · 耗时全量展示",
+      "工具状态机 started → progress → completed 全程上屏：输入、输出、耗时（durationMs）、是否错误（isError）都是事件字段。失败时错误码（E_PATH_OUTSIDE / E_SANDBOX_UNAVAILABLE 等）同屏呈现。",
+    code: "tool.started { input } → tool.completed { output, isError, durationMs }",
     screenshot: "/screenshots/desktop-shell.svg",
     alt: "桌面端截图：Electron 壳内的工具调用详情面板",
   },
   {
     title: "人工审批",
     description:
-      "Fail-closed 语义：高危操作必须人类确认，超时一律拒绝。审批链 durable 落盘，事后可完整回放每一次决策。",
-    code: "fail-closed · 超时 = 拒绝 · durable 可回放",
+      "permission.asked 弹卡，答复只有 once / always / reject；超时、异常、中断一律结清为 reject（fail-closed）。审批事件是 log-only：永不进模型历史，但 durable 落盘，事后可回放每一次决策。",
+    code: "permission.resolved { reply: 'once' | 'always' | 'reject' }",
     screenshot: "/screenshots/mobile-chat.svg",
     alt: "移动端截图：审批弹窗与对话流",
   },
   {
     title: "四端同一协议",
     description:
-      "Web、Desktop、CLI、Mobile 共享 @spark/protocol 事件词表。任何一端新增的能力，其他端通过 reducer 自动获得对应状态。",
-    code: "@spark/protocol · Web / Desktop / CLI / Mobile",
+      "Web、Desktop、CLI、Mobile（含小程序）共享 @spark/protocol 的 27 种事件词表与 Transport 接口。词表扩展走 declaration merging，schema registry 是唯一来源，四端不会各自漂移出一套事件名。",
+    code: "@spark/protocol · 27 种事件 · Web / Desktop / CLI / Mobile",
     screenshot: "/screenshots/cli-tui.svg",
-    alt: "CLI 端截图：Ink 7 终端 TUI 四区形态",
+    alt: "CLI 端截图：Ink 7 终端 TUI 纯单栏会话流",
   },
 ];
 
@@ -70,7 +75,8 @@ export function FeatureShowcase(): React.JSX.Element {
               核心能力
             </h2>
             <p className="mt-3 text-lg text-muted-foreground">
-              四件事，每一件都做透。
+              四项能力共用一份事件词表：流式渲染、工具状态机、审批卡、四端同步
+              都是同一套 reducer 的不同分支。
             </p>
           </header>
         </BlurFade>
@@ -96,7 +102,9 @@ export function FeatureShowcase(): React.JSX.Element {
                     <p className="mt-4 max-w-lg text-base leading-relaxed text-muted-foreground">
                       {feature.description}
                     </p>
-                    <p className="mt-6 border-l-2 border-spark-accent pl-3 font-mono text-sm text-spark-accent">
+                    {/* 代码事实行：用顶部分隔线区隔，不用彩色左边框条
+                        （DESIGN §12.4 P1：左边框只允许表达语义状态） */}
+                    <p className="mt-6 border-t border-border pt-4 font-mono text-sm text-spark-accent">
                       {feature.code}
                     </p>
                   </div>

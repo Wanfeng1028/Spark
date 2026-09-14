@@ -17,82 +17,100 @@ interface Feature {
   language: string;
 }
 
+/**
+ * 代码块均为仓库真实源文件节选（禁假状态，DESIGN §5），文件路径写在首行注释里：
+ * - packages/protocol/src/events.ts（词表与三分类）
+ * - packages/protocol/src/primitives.ts + packages/engine/src/permission/service.ts（审批）
+ * - packages/protocol/src/transport.ts（Transport 接口面）
+ */
 const FEATURES: readonly Feature[] = [
   {
     title: "流式对话",
     description:
-      "token 级增量渲染，延迟低于人眼感知阈值。用户输入到首 token 出现的时间始终控制在模型本身响应延迟之内，UI 层零额外开销。",
+      "token 级增量渲染。assistant.delta / reasoning.delta / tool.progress 三类 live-only 事件不落盘、直推界面；回合结束由 assistant.message 落盘定稿。",
     technicalDetail:
-      "27 种事件类型通过 SSE 实时推送到客户端，Projector 将事件流投影为 UI 状态。事件按 durable / live / surface 三属性分类——durable 事件落盘可回放，live 事件仅存在于连接生命周期内，surface 事件直接映射为可见 UI 变更。",
-    code: `// @spark/protocol — 事件词表片段
-export const EVENT_TYPES = {
-  "message.delta":      { durable: true,  surface: true  },
-  "message.complete":   { durable: true,  surface: true  },
-  "tool.start":         { durable: true,  surface: true  },
-  "tool.end":           { durable: true,  surface: true  },
-  "approval.requested": { durable: true,  surface: true  },
-  "session.mode.changed": { durable: true, surface: false },
-  // ...共 27 种
-} as const;`,
+      "27 种事件经 SSE 单端点（GET /api/event，since=seq 断线续播）推送。各端用同一份 applyEvent reducer 把事件流折叠成 UI 状态——协议层是运行时代码，不是类型包。注意两个「投影」不同义：UI 投影在各端的 reducer；引擎侧 Projector 投影的是模型上下文（surface 事件 → LlmMessage）。",
+    code: `// packages/protocol/src/events.ts — 三分类是类型级事实，不是注释
+export type LiveOnlyEventType =
+  | 'assistant.delta'
+  | 'reasoning.delta'
+  | 'tool.progress'
+
+/** surface 事件强制带 surface:true（编译期纪律） */
+export type SurfaceEventType = 'user.message' | 'assistant.message'
+
+export type DurableEventType = Exclude<SparkEventType, LiveOnlyEventType>
+
+// 词表共 27 种（EventSchemas 键数）：durable 24 / live-only 3；surface 2
+// 生成物 apps/docs/events.md 由 CI 重跑并 git diff --exit-code 校同步`,
     language: "typescript",
   },
   {
     title: "工具调用可视化",
     description:
-      "每一次 tool invocation 的输入参数、输出结果、执行耗时全量展示。不存在黑箱——用户能完整看到 Agent 做了什么、为什么这么做。",
+      "每次工具调用是会话流里一个可折叠执行块：入参、输出、耗时、是否出错全量展示，失败时错误码同屏。",
     technicalDetail:
-      "ToolPipeline 记录完整调用链，前端通过 tool.start / tool.end 事件实时渲染。工具执行前的审批拦截与执行后的结果回传共享同一事件管道，保证时序一致。",
-    code: `// 工具调用日志格式（append-only JSONL）
-{"type":"tool.start","tool":"bash","input":{"command":"ls -la"},"ts":1725638400}
-{"type":"tool.end","tool":"bash","output":"total 42\\n...","duration_ms":128,"ts":1725638400}
-{"type":"tool.start","tool":"file_write","input":{"path":"src/index.ts"},"ts":1725638401}
-{"type":"approval.requested","tool":"file_write","risk":"high","ts":1725638401}`,
-    language: "jsonl",
+      "工具状态机 started → [progress] → completed。tool.completed 携带 isError 与 durationMs，两者都是 durable 事件——回放一遍就能重建当时看到的执行块，不靠额外埋点。",
+    code: `// packages/protocol/src/events.ts — 工具（状态机 started → [progress] → completed）
+'tool.started': z.strictObject({
+  turnId: TurnIdSchema,
+  callId: CallIdSchema,
+  name: z.string(),
+  input: z.unknown(),
+}),
+'tool.progress': z.strictObject({
+  turnId: TurnIdSchema,
+  callId: CallIdSchema,
+  chunk: z.string(),
+}), // live-only
+'tool.completed': z.strictObject({
+  turnId: TurnIdSchema,
+  callId: CallIdSchema,
+  output: z.unknown(),
+  isError: z.boolean(),
+  durationMs: z.number().int().nonnegative(),
+}),`,
+    language: "typescript",
   },
   {
     title: "人工审批 (fail-closed)",
     description:
-      "高危操作必须人类确认，超时一律拒绝。默认拒绝比默认放行安全得多——这是 Spark 的核心安全立场。",
+      "写类工具触发审批卡，内联在调用位置。超时、异常、中断一律拒绝而不是放行。",
     technicalDetail:
-      "approval 事件触发 UI 确认卡片，durable 存储审批决策，事后可完整回放审计链。审批超时时间可配置，超时后引擎自动执行 reject 路径并记录原因。",
-    code: `// 审批流程
-// 1. 引擎判定风险等级 → 发出 approval.requested
-// 2. 前端渲染确认卡片（allow / deny）
-// 3. 用户操作 → approval.resolved { decision: "allow" | "deny" }
-// 4. 超时未响应 → approval.resolved { decision: "deny", reason: "timeout" }
-//
-// 所有决策 durable 落盘，可回放
+      "permission.asked 携带 requestId / action / resource / reason，durable 落盘；用户回复写 permission.resolved，reply 只有 once / always / reject 三值。超时由引擎 settle 成 reject——默认拒绝是一条代码路径，不是一句提示语。审批事件 log-only，永不进模型历史。",
+    code: `// packages/protocol/src/primitives.ts
+export const PermissionReplySchema = z.enum(['once', 'always', 'reject'])
 
-type ApprovalDecision = "allow" | "deny";
+// packages/engine/src/permission/service.ts — 超时即拒绝（fail-closed）
+timer: setTimeout(() => {
+  void this.settle(entry, false, 'reject', 'timeout')
+}, this.deps.timeoutMs),
 
-interface ApprovalResolved {
-  type: "approval.resolved";
-  decision: ApprovalDecision;
-  reason?: string;
-  ts: number;
-}`,
+// timeoutMs 来自 ~/.spark/spark.json 的 engine.permissionTimeoutMs，缺省 300_000（5min）
+// origin: 'reply' | 'timeout' | 'abort' | 'shutdown' | 'cascade' | 'mode-change'`,
     language: "typescript",
   },
   {
     title: "四端同一协议",
     description:
-      "Web / Desktop / CLI / Mobile 共享 @spark/protocol。协议层是运行时代码而非类型包——四端执行相同的 reducer 逻辑，保证行为一致性。",
+      "web / 桌面 / CLI / 移动端与小程序共用 @spark/protocol：事件词表、zod schema、applyEvent reducer、Transport 都在这个包里，是运行时代码而不是类型声明。",
     technicalDetail:
-      "Transport 抽象层统一 SSE 和 InProcess 两种连接方式，MockTransport 保证四端对等测试。任何新端只需实现 Transport 接口即可获得完整功能，无需重写业务逻辑。",
-    code: `// @spark/protocol — Transport 接口
-interface Transport {
-  connect(sessionId: string): void;
-  send(event: ClientEvent): void;
-  redeemPair(code: string): Promise<PairResult>;
-  close(): void;
-
-  readonly authToken: string | undefined;
-  onEvent(handler: (event: ServerEvent) => void): Unsubscribe;
-  onError(handler: (error: TransportError) => void): Unsubscribe;
-  onStatusChange(handler: (status: ConnectionStatus) => void): Unsubscribe;
+      "Transport 是前端唯一数据通道抽象；HttpTransport（SSE）与 MockTransport 同构实现，后端不存在时前端可全量开发。@spark/sdk 再分两个子入口：根入口走 HTTP（零 engine 依赖、浏览器可用），./inprocess 进程内直连引擎（engine 为 optional peer）。",
+    code: `// packages/protocol/src/transport.ts — 接口面节选（全量 67 个方法）
+export interface Transport {
+  /** 订阅事件流；返回退订函数 */
+  onEvent(handler: (e: SparkEventEnvelope) => void): () => void
+  sendMessage(sessionId: SessionId, text: string, opts?: SendMessageOptions): Promise<SubmitOutcome>
+  interrupt(sessionId: SessionId): Promise<void>
+  replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void>
+  /** GET /api/sessions/:id：meta + durable 事件（seq 升序——冷启动回放数据源） */
+  getSession(sessionId: SessionId, query?: SessionEventsQuery): Promise<SessionDto>
+  /** POST /api/pair：短码兑长效 token（移动端鉴权自举，ADR D24） */
+  redeemPair(body: PairRedeemBody): Promise<PairTokenDto>
+  dispose(): void
 }
 
-// 实现：HttpTransport (SSE) / InProcessTransport / MockTransport`,
+// 实现：HttpTransport（protocol，SSE）/ MockTransport（apps/web 开发态）`,
     language: "typescript",
   },
 ];

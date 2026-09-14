@@ -1,8 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
 import { CodeBlock } from "@/components/ui/code-block";
 import { buttonVariants } from "@/components/ui/button";
 import { ShimmerButton } from "@/components/magicui/shimmer-button";
@@ -11,13 +9,17 @@ import { cn } from "@/lib/utils";
 
 /**
  * QuickStartCTA — 页尾三步启动 CTA。
- * 严禁 "Get Started"/"开始使用" 空泛文案（DESIGN §12），所以标题是具体的"三步启动"。
- * 严禁大渐变背景，只用 bg-card/50 微微区分。
+ * 标题与按钮文案给具体动作（DESIGN §12.7 禁通用 CTA 模板文案），不用空泛动词；
+ * 文案末尾也不焊箭头符号（§12.7 P1），外链语义靠 aria-label 与新标签打开表达。
+ * 背景只用 bg-card/50 微区分，不用渐变（§12.1）。
+ * 命令与路径与根 README「Quick Start」一致：`spark up` 拉起 server 并进 TUI（不自动开浏览器）。
  */
 
 const INSTALL_SCRIPT = `npm i -g @spark/cli
 spark up
-# 浏览器自动打开，配置模型 API Key`;
+# ↑ 拉起 server（缺省 127.0.0.1:4318）并进入 TUI，退出连带回收 server
+# 首回合前配一次模型：~/.spark/models.json 声明供应商，
+# API key 走环境变量（不落盘、不入日志）`;
 
 export function QuickStartCTA(): React.JSX.Element {
   return (
@@ -35,7 +37,7 @@ export function QuickStartCTA(): React.JSX.Element {
             三步启动
           </h2>
           <p className="text-base text-muted-foreground">
-            安装 CLI、启动服务、浏览器接管。
+            安装 CLI、一条命令拉起 server 进 TUI、配一次模型。
           </p>
         </header>
 
@@ -54,22 +56,21 @@ export function QuickStartCTA(): React.JSX.Element {
             }}
             aria-label="浏览源码（在新标签打开 GitHub 仓库）"
           >
-            <span className="inline-flex items-center">
-              浏览源码
-              <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
-            </span>
+            <span className="inline-flex items-center">浏览源码</span>
           </ShimmerButton>
 
-          <Link
+          <a
             href={LINKS.docs}
+            target="_blank"
+            rel="noopener noreferrer"
             className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
           >
             阅读文档
-          </Link>
+          </a>
         </div>
 
         <p className="font-mono text-xs text-muted-foreground/70">
-          MIT licensed · 127.0.0.1 only · no cloud dependency
+          MIT 许可 · 默认只监听 127.0.0.1 · 无云端依赖
         </p>
       </div>
     </section>

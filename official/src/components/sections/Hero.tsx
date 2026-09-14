@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { motion, type Variants } from "motion/react";
-import { ArrowUpRight } from "lucide-react";
 import { BlurText } from "@/components/animations/blur-text";
 import { CodeBlock } from "@/components/ui/code-block";
 import { buttonVariants } from "@/components/ui/button";
@@ -10,8 +9,14 @@ import { LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 /**
- * Hero — 左对齐非对称布局（60/40），严禁居中 hero+pill+CTA 三件套（DESIGN §12）。
- * 右侧是一个纯 div 构建的终端窗口 mock，逐行 reveal 模拟 `spark up` 输出。
+ * Hero — 左对齐非对称布局（60/40），不用居中 hero + 徽章 pill + CTA 三件套（DESIGN §12.5）。
+ * 右侧是纯 div 构建的终端窗口 mock，逐行 reveal。
+ * 内容全部是可核实事实（禁假状态，DESIGN §5）：命令来自 apps/cli/src/main.tsx 的 USAGE，
+ * 缺省端口 4318 与回环绑定来自 packages/engine/src/config.ts SPARK_DEFAULTS，
+ * 会话落点来自 SessionStore（~/.spark/sessions/）。
+ * 按钮文案末尾不焊箭头符号（§12.7 P1），外链语义靠 target="_blank" 表达。
+ * 终端窗口固定深色（bg-zinc-900），因此窗内色值直接写 zinc/emerald 而不跟主题翻转；
+ * emerald-400 == --spark-ok 深色态值（#34d399），不引入新色相。
  */
 
 type Tone = "prompt" | "ok" | "info";
@@ -22,10 +27,11 @@ interface TerminalLine {
 }
 
 const TERMINAL_LINES: readonly TerminalLine[] = [
+  { text: "$ npm i -g @spark/cli", tone: "prompt" },
   { text: "$ spark up", tone: "prompt" },
-  { text: "\u2713 Server listening on 127.0.0.1:3100", tone: "ok" },
-  { text: "\u2713 Session store: ~/.spark/sessions/", tone: "ok" },
-  { text: "\u2192 Opening browser...", tone: "info" },
+  { text: "server    http://127.0.0.1:4318", tone: "ok" },
+  { text: "sessions  ~/.spark/sessions/", tone: "ok" },
+  { text: "TUI       纯单栏会话流 · Ctrl+C 两下退出", tone: "info" },
 ];
 
 const containerVariants: Variants = {
@@ -99,7 +105,6 @@ export function Hero(): React.JSX.Element {
               )}
             >
               查看源码
-              <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
             </a>
           </div>
         </div>
@@ -111,7 +116,7 @@ export function Hero(): React.JSX.Element {
             animate="visible"
             variants={containerVariants}
             role="img"
-            aria-label="终端窗口预览：spark up 命令启动服务"
+            aria-label="终端窗口预览：npm 全局安装 @spark/cli 后运行 spark up，server 绑定 127.0.0.1:4318，会话落盘 ~/.spark/sessions/"
             className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"
           >
             {/* 标题栏 */}

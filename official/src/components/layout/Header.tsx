@@ -16,7 +16,7 @@ function isExternal(href: string): boolean {
 
 /**
  * 顶部导航栏。
- * 固定顶部，背景 bg-background/95 + border-b（严禁 backdrop-blur 毛玻璃，DESIGN §12）。
+ * 固定顶部，背景 bg-background/95 + border-b 分隔——不用毛玻璃（DESIGN §12.2）。
  * 移动端通过 AnimatePresence 展开/收起菜单。
  */
 const Header: React.FC = () => {

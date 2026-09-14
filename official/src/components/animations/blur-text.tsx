@@ -18,7 +18,7 @@ export interface BlurTextProps {
 
 /**
  * 文字逐词显现动画。
- * 每个词依次从 opacity:0 + blur(8px) 过渡到完全清晰，效果克制优雅。
+ * 每个词依次从 opacity:0 + blur(8px) 过渡到完全清晰，幅度克制（§6 只允许微动效）。
  */
 const BlurText: React.FC<BlurTextProps> = ({
   text,

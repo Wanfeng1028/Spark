@@ -60,12 +60,13 @@
 | v1.51 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（"现场走查也不能下载，需要下载的放远端 CI"指令） | **§2.3a 扩展为"本机禁止一切下载"总则**：依赖包/外部工具/浏览器拉取一律不在本机发生；走查外部工具由 CI runner 安装并跑真实链路（测试 skipIf 条件化——CI 真跑、本地 skip 绿）。ci.yml 增安装步（SoX/tsserver/pyright）+ release.yml 增 npm 安装冒烟（11.2 下沉）。与 doc/02 v4.51、doc/08 v1.49 同批 |
 | v1.52 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"继续"指令） | §4 typecheck 项目数口径终修：写死数字随包数漂（13→14 两次）是错误模式——改写实数「17 个 workspace package 含内部包；对外按可发布四包记」。与 doc/02 v4.52 同批 |
 | v1.53 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，对账审计指令） | §4 质量闸注释补齐 gen:events / gen:openapi 两步（与 ci.yml 实际步骤对齐；对账审计 W7） |
+| v1.54 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，官网建设指令） | `official/` 官网落地：Next.js 15 + React 19 + Tailwind v4 + Motion 独立站（不入 workspace），5 页面路由 + 6 Section + shadcn/Magic UI/react-bits 组件层；`official/README.md` 重写为图文并茂展示页（旧快照 git mv 至 LEGACY-README-2026-09-13.md，v1.49 待决项收口）；新增 `.github/workflows/official.yml` 独立 CI（install/typecheck/build，路径过滤 official/**）；§12.8 grep 硬检查 22 模式零命中、事实数字（27 事件/23 命令/4 端）经源码取证 |
 
 ## 1. 项目上下文（30 秒版）
 
 Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端 + Electron 桌面壳（sidecar 复用同一 HTTP+SSE 事件流协议）+ CLI TUI（Ink 7，工单 10.56 升级）+ 移动端三端（apps/mobile Expo+RN / apps/miniapp Taro 4 微信小程序）。
 
-**当前状态（编年史细节见 doc/02 §8 阶段表与版本行，本文件只留一句话）**：v1（阶段一~十）已全量合 main 并记入 CHANGELOG `1.0.0`；**阶段十一~十八全部收官**（十五生态面 15.1–15.4、十六 16.1–16.9 含 16.8 /arena、十八观感对齐 18.1–18.5）；**全仓工单清点（2026-09-13）：doc/02 §8 与 doc/08 可执行工单全部落地，余项均为待人类决策（D28 重号/结构损坏/old-README 快照）或人类现场执行（真机走查/真实模型走查/外配实调）**。下一程按 doc/08 后置池触发条件推进。
+**当前状态（编年史细节见 doc/02 §8 阶段表与版本行，本文件只留一句话）**：v1（阶段一~十）已全量合 main 并记入 CHANGELOG `1.0.0`；**阶段十一~十八全部收官**（十五生态面 15.1–15.4、十六 16.1–16.9 含 16.8 /arena、十八观感对齐 18.1–18.5）；**全仓工单清点（2026-09-13）：doc/02 §8 与 doc/08 可执行工单全部落地，余项均为待人类决策（D28 重号/结构损坏/old-README 快照——已收口：v1.54 官网落地时旧快照 git mv 至 official/LEGACY-README-2026-09-13.md）或人类现场执行（真机走查/真实模型走查/外配实调）**。下一程按 doc/08 后置池触发条件推进。
 
 **必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD/ZCode 化四端规格 §13）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；完成度审计（阶段三后源码级核查）→ `doc/05-completion-audit.md`；测试体系规划 → `doc/06-testing-plan.md`；Harness 模块审计（缺口 H01–H36 与"不做"判决）→ `doc/07-harness-audit.md`；v2 展望与工单库（阶段十一~十八：发布化/可日用/可证明/SDK 化/生态面/命令面新机制/冗余整改/观感对齐，工单与开工提示词）→ `doc/08-v2-roadmap.md`；外部任务基准评估（Terminal-Bench/SWE-bench/自建容器三候选与"不接"判决）→ `doc/09-benchmark-feasibility.md`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
 

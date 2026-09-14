@@ -3,6 +3,15 @@ import Link from "next/link";
 import { BlurFade } from "@/components/magicui/blur-fade";
 import { CodeBlock } from "@/components/ui/code-block";
 import { buttonVariants } from "@/components/ui/button";
+import { LINKS } from "@/lib/constants";
+
+/**
+ * 本页每条命令、端口、文件路径都可回源码核对（DESIGN §5 禁假状态）：
+ * - 安装命令 / 缺省端口：apps/cli/src/main.tsx USAGE、apps/cli/src/up.ts
+ * - server 绑定与静态托管：packages/engine/src/config.ts SPARK_DEFAULTS、apps/server/src/{index,static}.ts
+ * - 三配置文件：packages/engine/src/config.ts loadConfig（~/.spark/{spark.json,models.json,permissions.json}）
+ * - 供应商目录：packages/engine/src/model-catalog.ts PROVIDER_CATALOG（内置 8 家）
+ */
 
 export const metadata: Metadata = {
   title: "快速上手 — Spark",
@@ -20,7 +29,8 @@ export default function QuickStartPage() {
             快速上手
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            从安装到第一次对话，只需要几分钟。
+            全局装一个 CLI 包，一条命令拉起本机 server 并进入终端
+            TUI，再声明一次模型供应商。以下命令、端口与文件路径逐条对应仓库源码。
           </p>
         </div>
       </div>
@@ -48,7 +58,8 @@ export default function QuickStartPage() {
             <section className="border-t border-border pt-12">
               <h2 className="text-xl font-semibold text-foreground">安装</h2>
               <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                全局安装 CLI，它会同时拉取引擎和服务端依赖：
+                全局安装 CLI（包内附带 server 的 esbuild 单文件
+                bundle，依赖 @spark/engine），无需另外起后端：
               </p>
               <div className="mt-4">
                 <CodeBlock code="npm i -g @spark/cli" language="bash" />
@@ -75,8 +86,34 @@ export default function QuickStartPage() {
                 />
               </div>
               <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                服务器默认绑定 127.0.0.1:3100，仅本机可访问。启动后浏览器会自动打开
-                Web UI。如果需要 CLI 模式，直接在同一终端操作即可。
+                server 缺省绑定
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">127.0.0.1:4318</code>
+                （端口取
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">SPARK_PORT</code>
+                ，否则落
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">~/.spark/spark.json</code>
+                的
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">server.port</code>
+                ），仅本机可访问。
+              </p>
+              <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+                <code className="mr-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">spark up</code>
+                轮询
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">/api/healthz</code>
+                就绪后把终端交给 Ink TUI，不会替你打开浏览器。想用 Web
+                工作台自行访问同一地址即可——server 静态托管
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">apps/web/dist</code>
+                ，未知路由回 index.html。TUI 退出连带回收本命令拉起的 server
+                子进程，不留残留。
+              </p>
+              <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+                已有 server 在跑时，
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">spark up</code>
+                探测命中直接复用，不重复拉起；自定义基址用
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">spark up --api &lt;url&gt;</code>
+                或环境变量
+                <code className="ml-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">SPARK_API</code>
+                。
               </p>
             </section>
           </BlurFade>
@@ -88,20 +125,52 @@ export default function QuickStartPage() {
                 配置模型
               </h2>
               <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                Spark 支持 OpenAI、Anthropic 和本地模型（通过兼容
-                OpenAI 格式的端点）。设置 provider 和 API Key：
+                引擎内置 8 家供应商目录（openai / anthropic / deepseek /
+                openrouter / groq / together / xai / mistral），也可用
+                baseUrl 指向任何 OpenAI 兼容端点。首回合前在
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">~/.spark/models.json</code>
+                声明一次即可，defaultModel 必填：
               </p>
               <div className="mt-4">
                 <CodeBlock
-                  code={`spark config set provider openai\nspark config set api-key sk-...`}
+                  code={`{
+  "providers": {
+    "deepseek": {
+      "apiKeyEnv": "DEEPSEEK_API_KEY",
+      "baseUrl": "https://api.deepseek.com/v1"
+    }
+  },
+  "defaultModel": {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "contextWindow": 128000
+  }
+}`}
+                  language="~/.spark/models.json"
+                />
+              </div>
+              <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+                API key 只从环境变量读取，不落盘、不入日志：
+              </p>
+              <div className="mt-4">
+                <CodeBlock
+                  code={`export DEEPSEEK_API_KEY=sk-...`}
                   language="bash"
                 />
               </div>
               <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                切换 provider 只需修改 provider 字段，api-key
-                会按 provider 隔离存储。配置持久化在
-                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">~/.spark/config.json</code>
-                中。
+                共三个配置文件，均在
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">~/.spark/</code>
+                下：
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">spark.json</code>
+                （server 绑定与引擎行为，可缺省）、
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">models.json</code>
+                （供应商与模型路由，必填）、
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">permissions.json</code>
+                （审批规则表，缺省为空 = 全部落默认 ask）。加载即 zod
+                校验，失败报
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">E_CONFIG</code>
+                启动即败，不带病运行。
               </p>
             </section>
           </BlurFade>
@@ -113,13 +182,11 @@ export default function QuickStartPage() {
                 开始对话
               </h2>
               <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                配置完成后，在 Web UI
-                的输入框中直接输入自然语言即可与 Agent
-                对话。Agent 会读取当前项目上下文，调用工具完成任务。每次工具调用都会实时展示在界面上——你可以看到它正在做什么、为什么这么做。
-              </p>
-              <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                高危操作（如文件删除、shell
-                命令执行）会弹出审批卡片，需要你明确确认后才会执行。超时未响应一律拒绝。
+                在 TUI 直接输入自然语言即可开聊；Web 工作台访问
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">http://127.0.0.1:4318</code>
+                。每次工具调用的输入、输出、耗时都以事件形式实时投影到界面，写类工具与
+                bash 会弹审批卡（1 允许一次 / 2 本项目总是 / 3 该用户总是 / 4
+                拒绝），超时未响应一律拒绝。
               </p>
             </section>
           </BlurFade>
@@ -145,12 +212,20 @@ export default function QuickStartPage() {
                   核心能力
                 </Link>
                 <a
-                  href="https://github.com/nicepkg/spark"
+                  href={LINKS.github}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={buttonVariants({ variant: "outline" })}
                 >
                   GitHub
+                </a>
+                <a
+                  href={LINKS.docs}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  仓库文档
                 </a>
               </div>
             </section>

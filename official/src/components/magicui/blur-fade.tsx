@@ -16,8 +16,9 @@ export interface BlurFadeProps {
 }
 
 /**
- * 模糊淡入动画：元素进入视口时从 opacity:0 + y偏移 + blur 过渡到完全可见。
- * 注意：blur 是动画过程中的过渡效果，不是 backdrop-blur 毛玻璃，不违反 DESIGN §12。
+ * 模糊淡入动画：元素进入视口时从 opacity:0 + y 偏移 + blur 过渡到完全可见。
+ * 注意：blur 是元素自身入场过程中的瞬时滤镜，不是导航/卡片上的毛玻璃背景（DESIGN §12.2），
+ * 且 once:true + prefers-reduced-motion 降级（globals.css），不属常驻循环动效。
  */
 const BlurFade: React.FC<BlurFadeProps> = ({
   children,
