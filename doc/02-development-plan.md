@@ -3032,4 +3032,4 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 
 ---
 
-_方案完（v4.53）。阶段一~十八全部收官；后续工单库见 doc/08-v2-roadmap.md；每次完成按版本记录表追加记录并 push。_
+_方案完（v4.54）。阶段一~十八全部收官；后续工单库见 doc/08-v2-roadmap.md；每次完成按版本记录表追加记录并 push。_
