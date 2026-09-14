@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { motion, type Variants } from "motion/react";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import { BlurText } from "@/components/animations/blur-text";
 import { CodeBlock } from "@/components/ui/code-block";
 import { buttonVariants } from "@/components/ui/button";
@@ -65,10 +65,14 @@ const toneClass: Record<Tone, string> = {
 };
 
 export function Hero(): React.JSX.Element {
+  // Bug 10 修复：prefers-reduced-motion 为真时 initial={false}，直接呈现终态不播动画。
+  const reducedMotion = useReducedMotion();
+
   return (
     <section
       id="hero"
-      className="flex min-h-[85vh] items-center px-6 py-32"
+      // Bug 6 修复：sticky header 高 56px，锚点跳转留 64px 余量避免遮挡。
+      className="flex min-h-[85vh] items-center px-6 py-32 scroll-mt-16"
       aria-labelledby="hero-title"
     >
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-16 lg:grid-cols-5">
@@ -112,7 +116,7 @@ export function Hero(): React.JSX.Element {
         {/* 右侧 40% — 终端窗口 mock */}
         <div className="lg:col-span-2">
           <motion.div
-            initial="hidden"
+            initial={reducedMotion ? false : "hidden"}
             animate="visible"
             variants={containerVariants}
             role="img"
@@ -138,13 +142,18 @@ export function Hero(): React.JSX.Element {
               </span>
             </div>
 
-            {/* 内容区 */}
+            {/* 内容区
+                Bug 4 修复：终端行原 whitespace-pre + 外层 overflow-hidden 会在窄屏（≤375px）
+                静默裁切最长行「TUI       纯单栏会话流 · Ctrl+C 两下退出」（≈286px）。
+                改 whitespace-pre-wrap 保留对齐空格的同时允许换行；break-words（overflow-wrap:break-word）兜底防单个超长 token。 */}
             <div className="px-5 py-5 font-mono text-[13px] leading-6">
               {TERMINAL_LINES.map((item) => (
                 <motion.div
                   key={item.text}
                   variants={lineVariants}
-                  className="whitespace-pre"
+                  // Bug 9 修复：no-JS 场景下由 globals.css 的 [data-reveal] 兜底还原可见态。
+                  data-reveal=""
+                  className="whitespace-pre-wrap break-words"
                   aria-hidden="true"
                 >
                   <span className={toneClass[item.tone]}>{item.text}</span>
@@ -152,6 +161,7 @@ export function Hero(): React.JSX.Element {
               ))}
               <motion.span
                 variants={cursorVariants}
+                data-reveal=""
                 aria-hidden="true"
                 className="mt-1 inline-block h-4 w-2 translate-y-0.5 bg-zinc-300"
               />

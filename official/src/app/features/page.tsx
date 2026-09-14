@@ -148,7 +148,7 @@ export default function FeaturesPage() {
                   {feature.description}
                 </p>
 
-                <p className="mt-4 text-sm leading-relaxed text-muted-foreground/80">
+                <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
                   {feature.technicalDetail}
                 </p>
 

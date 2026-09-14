@@ -1,5 +1,3 @@
-"use client";
-
 import * as React from "react";
 import { BlurFade } from "@/components/magicui/blur-fade";
 import { cn } from "@/lib/utils";
@@ -13,6 +11,9 @@ import { cn } from "@/lib/utils";
  * - assistant.delta / reasoning.delta / tool.progress 三枚标了 live-only（不落盘）
  * - tool.started { callId, name, input } → tool.completed { output, isError, durationMs }
  * - permission.asked / permission.resolved { reply: once|always|reject }
+ *
+ * Bug 8 修复：本组件自身不引用 hooks / 事件处理 / 直接 motion.*——BlurFade 已是 client boundary，
+ * FEATURES 是纯静态数据。移除 "use client" 让数据数组留在服务端 bundle，客户端只拿到必要的 DOM。
  */
 
 interface Feature {
@@ -21,6 +22,9 @@ interface Feature {
   code: string;
   screenshot: string;
   alt: string;
+  /** Bug 3 修复：SVG 固有尺寸，写进 <img width/height> 让浏览器在懒加载前预留宽高比，消除 CLS。 */
+  width: number;
+  height: number;
 }
 
 const FEATURES: readonly Feature[] = [
@@ -31,6 +35,8 @@ const FEATURES: readonly Feature[] = [
     code: "assistant.delta · reasoning.delta · tool.progress = live-only",
     screenshot: "/screenshots/web-session.svg",
     alt: "Web 端会话截图：左侧会话列表，右侧流式对话面板",
+    width: 1200,
+    height: 800,
   },
   {
     title: "工具调用可视化",
@@ -39,6 +45,8 @@ const FEATURES: readonly Feature[] = [
     code: "tool.started { input } → tool.completed { output, isError, durationMs }",
     screenshot: "/screenshots/desktop-shell.svg",
     alt: "桌面端截图：Electron 壳内的工具调用详情面板",
+    width: 1200,
+    height: 800,
   },
   {
     title: "人工审批",
@@ -47,6 +55,9 @@ const FEATURES: readonly Feature[] = [
     code: "permission.resolved { reply: 'once' | 'always' | 'reject' }",
     screenshot: "/screenshots/mobile-chat.svg",
     alt: "移动端截图：审批弹窗与对话流",
+    // 竖幅 1:2，是 Bug 2 的元凶：无高度约束时 lg 断点下会渲染到 1216px，纵向节奏被破坏。
+    width: 400,
+    height: 800,
   },
   {
     title: "四端同一协议",
@@ -55,6 +66,8 @@ const FEATURES: readonly Feature[] = [
     code: "@spark/protocol · 27 种事件 · Web / Desktop / CLI / Mobile",
     screenshot: "/screenshots/cli-tui.svg",
     alt: "CLI 端截图：Ink 7 终端 TUI 纯单栏会话流",
+    width: 800,
+    height: 600,
   },
 ];
 
@@ -62,7 +75,8 @@ export function FeatureShowcase(): React.JSX.Element {
   return (
     <section
       id="features"
-      className="px-6 py-32"
+      // Bug 6 修复：sticky header 高 56px，锚点跳转留 64px 余量避免遮挡。
+      className="px-6 py-32 scroll-mt-16"
       aria-labelledby="features-heading"
     >
       <div className="mx-auto max-w-7xl">
@@ -109,7 +123,10 @@ export function FeatureShowcase(): React.JSX.Element {
                     </p>
                   </div>
 
-                  {/* 图片侧 */}
+                  {/* 图片侧
+                      Bug 2 修复：所有截图统一 max-h-[420px] 上限，避免竖幅 mobile-chat（400×800）
+                      在 lg 断点下列宽 608px 时渲染到 1216px 打破纵向节奏；object-contain 保比例不裁切。
+                      Bug 3 修复：width/height 属性提供固有比例，浏览器加载前预留空间消除 CLS。 */}
                   <div className={cn(reversed && "lg:order-1")}>
                     <div className="overflow-hidden rounded-xl border border-border bg-card">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -117,7 +134,9 @@ export function FeatureShowcase(): React.JSX.Element {
                         src={feature.screenshot}
                         alt={feature.alt}
                         loading="lazy"
-                        className="block h-auto w-full"
+                        width={feature.width}
+                        height={feature.height}
+                        className="block h-auto max-h-[420px] w-full object-contain"
                       />
                     </div>
                   </div>

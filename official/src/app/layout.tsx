@@ -14,18 +14,17 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.svg",
   },
+  // TODO: og-image 需 1200×630 PNG（社交平台不解析 SVG），设计资产就位后恢复 images 字段
   openGraph: {
     title: "Spark — 本地 Agent 工作台",
     description: "引擎 headless，UI 是事件流的投影。27 种事件类型驱动四端界面。",
     type: "website",
     locale: "zh_CN",
-    images: [{ url: "/og-image.svg", width: 1200, height: 630, alt: "Spark" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Spark — 本地 Agent 工作台",
     description: "引擎 headless，UI 是事件流的投影。",
-    images: ["/og-image.svg"],
   },
 };
 
@@ -36,10 +35,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
-      <body className="min-h-screen font-sans antialiased">
+      <body className="flex min-h-screen flex-col font-sans antialiased">
         <ThemeProvider>
           <Header />
-          <main>{children}</main>
+          <main className="flex-1">{children}</main>
           <Footer />
         </ThemeProvider>
       </body>

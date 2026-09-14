@@ -98,7 +98,7 @@ export default function ArchitecturePage() {
                 </dd>
               </div>
             </dl>
-            <p className="mt-6 text-sm leading-relaxed text-muted-foreground/80">
+            <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
               两个「投影」不同义：各端用同一份 applyEvent reducer
               把事件流折叠成 UI 状态；引擎侧 Projector 投影的是模型上下文（surface
               事件 → LlmMessage）。协议层是运行时代码，不是类型定义。新增事件走
@@ -129,7 +129,7 @@ export default function ArchitecturePage() {
                   <span className="font-medium text-foreground">{ep.name}</span>
                   <div>
                     <p className="text-sm text-muted-foreground">{ep.role}</p>
-                    <p className="mt-1 font-mono text-xs text-muted-foreground/70">
+                    <p className="mt-1 font-mono text-xs text-muted-foreground">
                       {ep.stack}
                     </p>
                   </div>

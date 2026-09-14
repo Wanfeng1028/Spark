@@ -1,5 +1,3 @@
-"use client";
-
 import * as React from "react";
 import { NumberTicker } from "@/components/magicui/number-ticker";
 import { FACTS } from "@/lib/constants";
@@ -9,6 +7,9 @@ import { cn } from "@/lib/utils";
  * FactBar — 事实数字横条（27 / 23 / 4 / MIT）。
  * 无卡片、无渐变，裸排 + divide-x 分隔，让数字自己说话（DESIGN §12：禁止装饰性统计卡）。
  * MIT 是文字不是数字，直接排版。
+ *
+ * Bug 8 修复：本组件自身不引用 hooks / 事件处理 / motion——NumberTicker 已是 client boundary，
+ * 传入的 value/delay 是可序列化数值。移除 "use client" 让 FACTS_LIST 静态数据留在服务端 bundle。
  */
 
 type FactKind = "number" | "text";
@@ -30,7 +31,8 @@ export function FactBar(): React.JSX.Element {
   return (
     <section
       id="facts"
-      className="border-y border-border bg-background px-6 py-20"
+      // Bug 6 修复：sticky header 高 56px，锚点跳转留 64px 余量避免遮挡。
+      className="border-y border-border bg-background px-6 py-20 scroll-mt-16"
       aria-label="项目关键事实数字"
     >
       <div className="mx-auto max-w-7xl">

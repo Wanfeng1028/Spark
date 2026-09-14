@@ -64,7 +64,7 @@ export default function QuickStartPage() {
               <div className="mt-4">
                 <CodeBlock code="npm i -g @spark/cli" language="bash" />
               </div>
-              <p className="mt-4 text-sm text-muted-foreground/80">
+              <p className="mt-4 text-sm text-muted-foreground">
                 如果使用 pnpm：<code className="rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">pnpm add -g @spark/cli</code>
               </p>
             </section>

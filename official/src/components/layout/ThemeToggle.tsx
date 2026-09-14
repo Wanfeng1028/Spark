@@ -1,16 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 
 /**
- * 主题切换按钮（ghost variant）。
+ * 主题切换按钮（ghost variant）——三态循环 light → dark → system。
  * 通过 mounted 检查防止 hydration mismatch。
  */
 const ThemeToggle: React.FC = () => {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -24,25 +24,31 @@ const ThemeToggle: React.FC = () => {
         variant="ghost"
         size="icon"
         aria-label="Toggle theme"
-        /* 占位：不渲染图标，尺寸与挂载后一致 */
       />
     );
   }
 
-  const isDark = resolvedTheme === "dark";
+  /* Bug#7: 三态循环——用 theme 判断是否 system，用 resolvedTheme 判断实际深浅 */
+  const isSystem = theme === "system";
+  const isDark = !isSystem && resolvedTheme === "dark";
+
+  const nextTheme = isSystem ? "light" : isDark ? "system" : "dark";
+  const ariaLabel = isSystem
+    ? "切换到浅色主题"
+    : isDark
+      ? "切换到跟随系统"
+      : "切换到深色主题";
+
+  const Icon = isSystem ? Monitor : isDark ? Moon : Sun;
 
   return (
     <Button
       variant="ghost"
       size="icon"
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={ariaLabel}
+      onClick={() => setTheme(nextTheme)}
     >
-      {isDark ? (
-        <Sun className="h-4 w-4" aria-hidden="true" />
-      ) : (
-        <Moon className="h-4 w-4" aria-hidden="true" />
-      )}
+      <Icon className="h-4 w-4" aria-hidden="true" />
     </Button>
   );
 };

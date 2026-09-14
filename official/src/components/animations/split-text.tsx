@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, type Variants } from "motion/react";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,7 @@ export function SplitText({
   delay = 0.03,
   duration = 0.4,
 }: SplitTextProps) {
+  const reducedMotion = useReducedMotion();
   const characters = useMemo(() => text.split(""), [text]);
 
   const containerVariants: Variants = {
@@ -39,16 +40,17 @@ export function SplitText({
 
   return (
     <motion.span
+      data-reveal
       className={cn("inline-block", className)}
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
+      variants={reducedMotion ? undefined : containerVariants}
+      initial={reducedMotion ? false : "hidden"}
+      animate={reducedMotion ? undefined : "visible"}
       aria-label={text}
     >
       {characters.map((char, index) => (
         <motion.span
           key={index}
-          variants={charVariants}
+          variants={reducedMotion ? undefined : charVariants}
           className="inline-block"
           aria-hidden="true"
         >

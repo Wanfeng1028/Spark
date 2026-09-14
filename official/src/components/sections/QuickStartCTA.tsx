@@ -48,12 +48,10 @@ export function QuickStartCTA(): React.JSX.Element {
         />
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-center">
-          {/* ShimmerButton 是 <button>，外链通过 onClick + window.open 跳转（避免 <a> 嵌 <button>） */}
           <ShimmerButton
-            type="button"
-            onClick={() => {
-              window.open(LINKS.github, "_blank", "noopener,noreferrer");
-            }}
+            href={LINKS.github}
+            target="_blank"
+            rel="noopener noreferrer"
             aria-label="浏览源码（在新标签打开 GitHub 仓库）"
           >
             <span className="inline-flex items-center">浏览源码</span>

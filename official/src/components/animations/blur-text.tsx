@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { motion, type Variants } from "motion/react";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import { cn } from "@/lib/utils";
 
 export interface BlurTextProps {
@@ -27,7 +27,19 @@ const BlurText: React.FC<BlurTextProps> = ({
   staggerDelay = 0.05,
   className,
 }) => {
+  const ref = React.useRef<HTMLSpanElement>(null);
+  const reducedMotion = useReducedMotion();
+  const [aboveViewport, setAboveViewport] = React.useState(false);
+
   const words = React.useMemo(() => text.split(" "), [text]);
+
+  React.useEffect(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    if (rect.bottom <= 0) {
+      setAboveViewport(true);
+    }
+  }, []);
 
   const parentVariants = React.useMemo<Variants>(
     () => ({
@@ -54,20 +66,24 @@ const BlurText: React.FC<BlurTextProps> = ({
     [duration],
   );
 
+  const skipAnimation = reducedMotion || aboveViewport;
+
   return (
     <motion.span
+      ref={ref}
+      data-reveal
       className={cn("inline-block", className)}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-40px" }}
-      variants={parentVariants}
+      initial={skipAnimation ? false : "hidden"}
+      whileInView={skipAnimation ? undefined : "visible"}
+      viewport={skipAnimation ? undefined : { once: true, margin: "-40px" }}
+      variants={skipAnimation ? undefined : parentVariants}
       aria-label={text}
     >
       {words.map((word, index) => (
         <React.Fragment key={`${word}-${index}`}>
           <motion.span
             className="inline-block"
-            variants={childVariants}
+            variants={skipAnimation ? undefined : childVariants}
             aria-hidden="true"
           >
             {word}

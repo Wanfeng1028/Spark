@@ -42,29 +42,60 @@
   --radius-2xl: 16px;
 }
 
-/* === 基础样式 === */
-* {
-  border-color: var(--border);
-}
+/* === 基础样式（@layer base 确保不覆盖 Tailwind 工具类） === */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 
-body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-/* === 动效工具类 === */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
+
+/* 无 JS 环境安全网：Motion 的 inline opacity:0 初始态会让内容永久隐藏，
+   scripting: none 时强制还原可见（!important 压过 inline style） */
+@media (scripting: none) {
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
+/* === 组件级样式 === */
+@layer components {
+  /*
+   * 微光层：静止态停在起点（不可见），只在按钮 hover / focus-visible 时扫过一次。
+   * 刻意不写常驻 infinite——无交互也在动的装饰循环属 DESIGN §12.8「无意义循环动效」同类，
+   * 且用 inline style 写 animation 会绕过 grep 硬检查。
+   */
+  .shimmer-sweep-layer {
+    background-size: 200% 100%;
+    background-position: 200% 0;
+  }
+
+  button:hover > .shimmer-sweep-layer,
+  button:focus-visible > .shimmer-sweep-layer {
+    animation: shimmer-sweep 0.9s ease-out 1;
+  }
+}
+
+/* === @keyframes 保持在 layer 外（keyframes 不受级联层影响） === */
 
 /* 微光扫过动画（ShimmerButton 使用）— 中性色，禁止蓝紫渐变（DESIGN §12） */
 @keyframes shimmer-sweep {
@@ -74,21 +105,6 @@ body {
   100% {
     background-position: -200% 0;
   }
-}
-
-/*
- * 微光层：静止态停在起点（不可见），只在按钮 hover / focus-visible 时扫过一次。
- * 刻意不写常驻 infinite——无交互也在动的装饰循环属 DESIGN §12.8「无意义循环动效」同类，
- * 且用 inline style 写 animation 会绕过 grep 硬检查。
- */
-.shimmer-sweep-layer {
-  background-size: 200% 100%;
-  background-position: 200% 0;
-}
-
-button:hover > .shimmer-sweep-layer,
-button:focus-visible > .shimmer-sweep-layer {
-  animation: shimmer-sweep 0.9s ease-out 1;
 }
 
 /* Marquee 无限滚动（Marquee 组件使用） */
@@ -110,10 +126,11 @@ button:focus-visible > .shimmer-sweep-layer {
   }
 }
 
-.animate-marquee {
+/* === 工具类：用 @utility 注册确保与 Tailwind 变体（group-hover 等）正常级联 === */
+@utility animate-marquee {
   animation: marquee var(--marquee-duration, 30s) linear infinite;
 }
 
-.animate-marquee-reverse {
+@utility animate-marquee-reverse {
   animation: marquee-reverse var(--marquee-duration, 30s) linear infinite;
 }

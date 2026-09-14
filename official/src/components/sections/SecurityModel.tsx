@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { motion, type Variants } from "motion/react";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import { BlurFade } from "@/components/magicui/blur-fade";
 
 /**
@@ -68,10 +68,14 @@ const itemVariants: Variants = {
 };
 
 export function SecurityModel(): React.JSX.Element {
+  // Bug 10 修复：prefers-reduced-motion 为真时跳过 whileInView 动画，直接呈现终态。
+  const reducedMotion = useReducedMotion();
+
   return (
     <section
       id="security"
-      className="px-6 py-32"
+      // Bug 6 修复：sticky header 高 56px，锚点跳转留 64px 余量避免遮挡。
+      className="scroll-mt-16 px-6 py-32"
       aria-labelledby="security-heading"
     >
       <div className="mx-auto max-w-3xl">
@@ -92,21 +96,29 @@ export function SecurityModel(): React.JSX.Element {
 
         <motion.ol
           className="flex flex-col gap-12"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-60px" }}
+          initial={reducedMotion ? false : "hidden"}
+          {...(reducedMotion
+            ? { animate: "visible" as const }
+            : {
+                whileInView: "visible" as const,
+                viewport: { once: true, margin: "-60px" },
+              })}
           variants={listVariants}
         >
           {PROMISES.map((item, index) => (
             <motion.li
               key={item.title}
               variants={itemVariants}
+              // Bug 9 修复：no-JS 场景下由 globals.css 的 [data-reveal] 兜底还原可见态。
+              data-reveal=""
               className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2"
             >
-              {/* 序号（mono，克制） */}
+              {/* 序号（mono，克制）
+                  Bug 5 修复：小字号（text-sm）+ /70 透明度在亮色主题对比度仅 ~3:1，
+                  直接用 text-muted-foreground（亮色 4.9:1 / 暗色 7.6:1）达 WCAG AA。 */}
               <span
                 aria-hidden="true"
-                className="pt-1 font-mono text-sm text-muted-foreground/70"
+                className="pt-1 font-mono text-sm text-muted-foreground"
               >
                 {String(index + 1).padStart(2, "0")}
               </span>
@@ -118,7 +130,12 @@ export function SecurityModel(): React.JSX.Element {
                 <p className="text-base leading-relaxed text-muted-foreground">
                   {item.description}
                 </p>
-                <code className="mt-1 inline-block w-fit rounded border border-border bg-card px-2 py-1 font-mono text-xs text-muted-foreground/80">
+                {/* Bug 1 修复：第 4 条 evidence 是 49 字符无空格长串（~/.spark/sessions/<mungeDir(cwd)>/<ts>_<id>.jsonl），
+                    窄屏（<456px）会撑破视口产生页面级横向滚动条。
+                    [overflow-wrap:anywhere] 允许在任意字符间断行，比 break-all 更稳（连字符/斜杠也会考虑）；
+                    max-w-full 兜底避免极端情况下仍溢出父容器。
+                    Bug 5 修复：移除 text-xs 上的 /80 透明度修饰符，直接 text-muted-foreground 达 WCAG AA。 */}
+                <code className="mt-1 inline-block w-fit max-w-full rounded border border-border bg-card px-2 py-1 font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">
                   {item.evidence}
                 </code>
               </div>
