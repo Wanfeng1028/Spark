@@ -1,5 +1,5 @@
 /**
- * 设置中心信息架构（DESIGN §13.D 三组 15 页 + 用户指令"Agent 能力组先迁入权限规则页"）：
+ * 设置中心信息架构（DESIGN §13.D 三组 20 页 + 用户指令“Agent 能力组先迁入权限规则页”）：
  * 每页声明 group/id/title/description 与落地状态——ready 页在 SettingsPage 路由
  * 组件内映射真组件，其余统一渲染占位页（标注去向：desktop 特化 / v2 挂池）。
  * 权限规则页为 §13.D 15 页之外的本阶段迁入项（原 SettingsDialog RulesSection）。

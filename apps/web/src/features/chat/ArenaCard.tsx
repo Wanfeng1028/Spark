@@ -20,7 +20,26 @@ export function ArenaCard({ sessionId }: { sessionId: SessionId }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // 初始发现轮询：组件挂载/sessionId 变更时拉一次快照
   useEffect(() => {
+    let disposed = false
+    transport
+      .getArena(sessionId)
+      .then((snap) => {
+        if (!disposed) setArena(snap)
+      })
+      .catch(() => {
+        // 轮询失败静默保留上次快照（连接态由全局状态机呈现）
+      })
+    return () => {
+      disposed = true
+    }
+  }, [sessionId, transport])
+
+  // 条件轮询：仅当 arena 处于活跃状态时持续轮询，否则不设置 interval
+  const arenaStatus = arena?.status
+  useEffect(() => {
+    if (arenaStatus !== 'running' && arenaStatus !== 'pending') return
     let disposed = false
     const poll = (): void => {
       transport
@@ -29,16 +48,15 @@ export function ArenaCard({ sessionId }: { sessionId: SessionId }) {
           if (!disposed) setArena(snap)
         })
         .catch(() => {
-          // 轮询失败静默保留上次快照（连接态由全局状态机呈现）
+          // 轮询失败静默
         })
     }
-    poll()
     const timer = setInterval(poll, POLL_MS)
     return () => {
       disposed = true
       clearInterval(timer)
     }
-  }, [sessionId, transport])
+  }, [sessionId, transport, arenaStatus])
 
   if (arena === null) return null
 

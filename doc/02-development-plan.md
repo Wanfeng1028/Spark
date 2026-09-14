@@ -82,7 +82,7 @@
 | v3.33 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段十全量开工指令） | **阶段十工单 10.5 侧栏与全局细节完成并勾选**：① 全局单键快捷键 c 新建会话 / / 搜索（非输入态，§6.11 登记两行）+侧栏入口 kbd 提示 ② 分组双模式（项目/时间段，ui store 持久化；ZCode 自定义分组需后端，v1 时间分组为真实数据替代）③ 组内渐进展开（5 条起步 +5）④ 底部用户卡本地形态（无账号体系不做假账户）⑤ Composer + 菜单四项（附件/@///$）⑥ 欢迎页权限档钮（选档真实落档）⑦ 删 Composer 上方水位大条（待拍板 a 按建议执行；UsageBar 停用，文件删除留人工确认）；另欢迎页问候语 28px 大字（10.1 §13.A v2.5 落地）；单测补时间分组段边界 4 例 |
 | v3.34 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028，阶段十全量开工指令） | **阶段十工单 10.6–10.11 完成并勾选（阶段十收官）**：10.6 跨端分支 chip + 推理档位——协议先行（ReasoningEffort 枚举/session.created 与 SessionMetaDto 增 branch/effort/Transport.setSessionEffort）+ 引擎 git.ts 只读探测（取不到不携带，进 header 持久）+ setSessionEffort 内存态 + StreamRequest.effort → pi-ai reasoning 透传 + models.json defaultEffort（§4.3/§4.5/§5.1 表同步）+ server PUT effort 端点 + web 顶栏分支 chip/Composer EffortPicker + mock 对等；10.7 DESIGN §13.K CLI 视觉规格成文（v2.6，K.0–K.9，渐变豁免条款单列）；10.8 CLI 纯单栏重构（ARCHITECTURE v1.21 D19 修订行：四区→单栏，/new//resume，boot 头部+footer 双行；侧栏/状态细条组件停用留删）；10.9 块族+审批框（回合头计时/思考行持续时长/工具块人话头部+运行时长行/拒绝删除线；**审批框落三真选项**——引擎 replyPermission 暂无 project/user 作用域参数，不虚设第四项，作用域扩展记 v2）；10.10 面板族（帮助面板三 tab 只读键位表单一来源/slash 菜单 (1/N) 分页/统计面板；**@ 文件补全缺数据源未落地**——依赖 V2-04 文件树，如实记录）；10.11 收口（/stats 面板//resume 过滤恢复/错误红字+Esc 面板优先键纪律；四幕 tty 走查留用户/远端；README v1.26 登记）。**运行中工具行"↑↓ tokens"段无协议数据源未呈现**（usage 仅定稿事件携带，禁假状态）。遗留：UsageBar/Sidebar/StatusBar(cli) 三停用文件待人工删除确认 |
 | v3.35 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十验收核查指令） | **阶段十补完与勾选真实性修正（源码级核查后）**：10.9 补齐——工具块完成折叠态超长输出提示 `first N lines hidden`（完整行数，阈值 10）+ 连续同类聚合「· N 次」（apps/cli flow-rows.ts 与 web 同套语义；组行整组入 scrollback，Ctrl+O 切整组）；10.11 补齐——/resume Space 预览（选中项详情盒：模型/项目/分支/档位/状态/seq/更新时间，快照字段如实呈现）+ 报错细节行（原错误码·detail 折叠行 + **Ctrl+R 重试**——keymap.ts/§6.11.1 同步登记）；帮助面板键位表补「生效区」列（K.6 四列对齐）；测试补齐——packages/protocol setSessionEffort 直测 3 例（修正 e7ab636 测试归属漂移），CLI render.test 增 15 例。**登记判决（如实记录，不做假状态）**：IME 组合态=终端/系统层职责，应用层无实现面（DESIGN K.9 条款化）；K.4 第 2 行「审批模式档」措辞修准为「提交模式档」（引擎无独立审批档，DESIGN v2.7）；K.1 上下文摘要行密钥/上下文文件无数据源不渲染、boot 头部暂不随首条消息进 scrollback（Ink Static 一次性输出约束，恢复重现待后续） |
-| v3.35 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028） | §3 目录树登记 `offical/`——Spark 产品官网代码（仅前端；不在 pnpm workspace，独立于产品各端）；与 README v1.27 布局行同步 |
+| v3.35a | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028） | §3 目录树登记 `offical/`——Spark 产品官网代码（仅前端；不在 pnpm workspace，独立于产品各端）；与 README v1.27 布局行同步 |
 | v3.36 | 2026-08-31 | AI 编写：Qoder；发起：晚风（Wanfeng1028） | 官网文件夹拼写改名 `offical/` → `official/`（v3.35 登记名系笔误；仓库内重命名，历史行不改）；§3 目录树引用同步；与 README v1.28、检查器 SKIP_DIRS 同步 |
 | v3.37 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十合并后 11 项实测缺陷反馈；三路源码级核查子代理 + Qwen Code 官方文档命令清单在线调研） | **新增 阶段十·验收批次 2（工单 10.12–10.21）——11 项实测缺陷修复与命令面/设置面全量落地**：10.12 HTTP transport 空 body 修复（一处改动解锁 11 个调用点：配对签发/测试连接/中断/压缩/回滚/删密钥/撤销设备/删自动化/清零成本/webhook/手动触发——`transport-node.ts req()` 无条件强发 `content-type: application/json` 头，无 body 的 POST/DELETE 被 Fastify 拒 `FST_ERR_CTP_EMPTY_JSON_BODY`；单测用 `app.inject` 不带头故掩盖）；10.13 会话流去重（apply-event.ts 定稿配对按 `lastItem()` 位置判断失效于真实发射序 `reasoning.delta*→assistant.delta*→reasoning.ended→assistant.message`，流式项永不闭合、定稿另 push 新项=双份；+ web `AssistantBlock.tsx` 对 `content` 内 `reasoning` 块再渲染一次=刷新后也双份）；10.14 设置中心导航修复（`navigate(-1)` 逐页回退 + 分区互切 push 堆栈）；10.15 web 全局焦点环中性化（theme.css `:focus-visible` 用 indigo `--spark-accent` 且未分层压过 `outline-none` utility——§13.E 与 §13.C/§5 规格矛盾须先拍板）；10.16 切会话即时化（SessionPage 无条件 `setLoad('loading')`，已有缓存 slice 也白屏）；10.17 CLI 启动首屏与 resume 修复；10.18 CLI 面板族与命令面扩容（Qwen Code 官方 78 命令清单登记，v1 落 15+5 面）；10.19 CLI 宽字符/错位修复；10.20 设置项全量落地（新增 `GET|PUT /api/settings` spark.json 读写 API 解锁引擎行为类设置）；10.21 hook（user-hooks）读取 API——路径分歧待拍板。Qwen Code 调研依据官方文档站 `users/features/commands`（AGENTS §2.12 在线访问纪律） |
 | v3.38 | 2026-08-31 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`） | 批次 2 节尾补**开工提示词 5 份**（v3.37 提交时承诺，本行补齐）：① 10.12 transport 空 body；② 10.13 定稿配对去重；③ 10.14/10.15/10.16 web 三修复；④ 10.17/10.18/10.19 CLI 三张；⑤ 10.20/10.21 设置全量——每份含前置阅读清单/逐条要求/红线/验收/commit 口径，新会话可直接粘贴开工 |
@@ -117,7 +117,7 @@
 | v3.67 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，stepfun 实测报错反馈+"系统提示词写丰富了吗"质询） | **工单 10.39 完成并勾选：上游 callId 协议透传 + 系统提示词丰富化**。① protocol CallId 闸门放宽为不透明 token（上游 `call_xxx`/`toolu_xxx` 原样透传不重写——修 E_BUS_INVALID_DATA 整条 assistant.message 落盘失败；toolResult 回环 id 天然一致免映射表）；② engine prompts.ts 按 qwen core prompt 结构骨架丰富化（身份/Core Mandates/工程工作流/CLI 沟通/工具指引/安全/git）+ **AGENTS.md 向上查找**（修会话 cwd 在仓库子目录时项目指引=none 的实测缺陷）；③ 引导语明确 turn 内不可提问、用户语言回中文。protocol 29/29、engine 493 过 |
 | v3.68 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，/new 后"不是从最上面开始"截图反馈） | **工单 10.40 完成并勾选：/new 清屏补 3J**。手写 `\x1b[2J\x1b[H` 缺 scrollback 清除符——Static 重挂的 header 印在旧对话中部（桌面截图实测）。改 ansi-escapes.clearTerminal 同款三段式（2J 视口 + 3J scrollback + H 归位），/new 后整屏从顶部开始欢迎首屏（实测通过）。server 同步重启加载 10.39 新提示词与 CallId 闸门 |
 | v3.69 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"系统提示词人家怎么写的你就怎么写！"+Ctrl+C 中断截图反馈） | **工单 10.41 完成并勾选**：① 系统提示词**逐段照搬 qwen-code 核心提示词**（Apache-2.0 版权留痕；全部段落条目文本，三类替换=身份/工具名/删无对应段）——此前自写"丰富化"版本作废；② Ctrl+C 运行中首击=interrupt 当前回合（双击仍退出）；③ IME 物理光标精确定位依赖 ink 7 API，挂 V2-26 待升级。engine 36/36、typecheck/lint 绿 |
-| v3.70 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，“CLI 全部前端只参考 Qwen Code、能抄就抄、先重构去冗余、工单先行”指令） | **批次 4 立项（10.42–10.46：CLI Qwen 化二期）**：10.42 输入框物理光标（IME 组字窗跟随，yogaNode 爬树 + useCursor，ink 6.8 等价 qwen getAbsolutePosition）/ 10.43 app.tsx 组件化拆分（757 行 → hooks/use-cli-keys + use-session-stream + use-cli-actions + 组装壳，items.tsx 拆 rows/）/ 10.44 工具折叠汇总句式（qwen CompactToolGroupDisplay 动词+对象列表）/ 10.45 footer token 数与状态色（横线随审批态变黄）/ 10.46 思考块文案（Thought for 1s / Thought briefly）。对照基准=Qwen Code 实机截图 8 张 + 在线源码调研 |
+| v3.70 | 2026-09-02 | AI 编写：ZCode CLI · GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"CLI 全部前端只参考 Qwen Code、能抄就抄、先重构去冗余、工单先行"指令） | **批次 4 立项（10.42–10.46：CLI Qwen 化二期）**：10.42 输入框物理光标（IME 组字窗跟随，yogaNode 爬树 + useCursor，ink 6.8 等价 qwen getAbsolutePosition）/ 10.43 app.tsx 组件化拆分（757 行 → hooks/use-cli-keys + use-session-stream + use-cli-actions + 组装壳，items.tsx 拆 rows/）/ 10.44 工具折叠汇总句式（qwen CompactToolGroupDisplay 动词+对象列表）/ 10.45 footer token 数与状态色（横线随审批态变黄）/ 10.46 思考块文案（Thought for 1s / Thought briefly）。对照基准=Qwen Code 实机截图 8 张 + 在线源码调研 |
 > 依据：`01-research-report.md` 六大项目源码级调研结论。
 > 原则：**能复用开源就不自己写；协议先行、前端先行；抄设计而不抄框架**。
 
@@ -479,7 +479,7 @@ export const EventSchemas = {
     text: z.string().min(1),
     attachments: z.array(z.string()).optional(),
   }),
-  // …26 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
+  // …27 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
 } satisfies { [T in SparkEventType]: z.ZodType<SparkEventMap[T]> }
 
 // schema.ts —— 信封 schema + jsonSchema 导出（工具参数与 DTO 用）
@@ -711,7 +711,7 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 
 注：`transport-node` 是 HTTP 实现但住在 protocol——四端共享核的定位使然（只依赖 zod + 平台 fetch）；它不是"内部件"，但是 SDK 化（14.3/14.4）时 L2 client 的待迁内核。
 
-合同面现已**机器验证**（工单 14.2）：`packages/protocol/scripts/gen-contract.ts` 自动枚举本包全部 `*Schema` 导出 + `EventSchemas` + `EnvelopeSchema`（共 90 个），逐个生成"合法样例解析幂等 + JSON 往返一致 / JSON Schema 可导出 / 变异非法样例必被拒"三类断言，生成物入库 `tests/contract/`；CI 重跑生成器并 `git diff --exit-code` 校同步——**新增或修改 DTO/事件 schema 而不重生成即红**。细则与样例合成策略见 doc/06 §1。
+合同面现已**机器验证**（工单 14.2）：`packages/protocol/scripts/gen-contract.ts` 自动枚举本包全部 `*Schema` 导出 + `EventSchemas` + `EnvelopeSchema`（数量随词表演进，以生成物 `packages/protocol/tests/contract/` 为准），逐个生成"合法样例解析幂等 + JSON 往返一致 / JSON Schema 可导出 / 变异非法样例必被拒"三类断言，生成物入库 `tests/contract/`；CI 重跑生成器并 `git diff --exit-code` 校同步——**新增或修改 DTO/事件 schema 而不重生成即红**。细则与样例合成策略见 doc/06 §1。
 
 ### 4.6.2 `@spark/engine`——两个入口，分级承诺
 
@@ -2770,12 +2770,11 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.48 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **工单 16.8 /arena 多模型竞答落地（阶段十六；ADR D42）**：① engine arena/manager——start（2~5 模型去重 + 主仓 git worktree add ~/.spark/arena/<sid>/ + createSession parentId+model 并发 send）+ 用量归并（contender durable turn.completed 聚合）+ diffStat（**staged 口径：git diff 不含 untracked，add -A 后 diff --cached**——实现批撞上）+ applyWinner（整体一次 fs.write 审批 patterns=文件清单；**删除类改动跳过登记——§2.10 禁删含应用路径**）+ cancel/shutdownAll（worktree remove --force + branch -D）；② 零新事件（快照端点 GET /api/sessions/:id/arena 轮询——竞答是用户在场交互非可回放状态）；③ protocol ArenaContenderDto/ArenaStatusDto + Transport 三方法三通道；server 三路由；④ /arena action 命令（基线 22→23 四包断言同改；CLI 面板由 submit 成功后特判打开——action 无 clientAction）；web ArenaCard（轮询/胜者选择/取消）挂会话页、CLI ArenaPanel 只读；⑤ simple-git 新依赖（MIT，规格指定；本机 pnpm add 系规则 3a 立前最后一次，此后锁文件变更走新流程）；⑥ **同批实修真 bug**：loadConfig 组装漏透传 spark.agents/extensions 段——16.2/16.5 的 settings 名单重启档实际失效（写盘后重载即丢），extensions 测试暴露（D36/D41 后果段补勘误）。测试：engine arena.test 4 例（参数面 3 拒/双 contender 全链路/胜者应用 allow 直通/ask 挂起 + 删除跳过）。验收对账：并行运行✓（两 contender 并发 turn）、卡片实时✓（contender 事件流+快照轮询）、胜者应用经审批✓、无胜者不改主工作区✓（applyWinner 显式动作才写）、用量归并✓；2 模型真实模型走查留用户现场。同步：ARCHITECTURE v1.49（D42）、AGENTS v1.47（含 3a 新规）、README v1.41、doc/08 v1.48。本批本机零验证，以 CI 裁决 |
 | v4.49 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令全程） | **全仓工单清点终章（v4.41 清点的收口）**：阶段十六 16.8 /arena 收官（ADR D42）后，**doc/02 §8 与 doc/08 全部可执行工单落地**——十一（可发布）~十二（Agent 能力补全）、十三（可证明）、十四（SDK 化）、十五（生态面 15.1–15.4）、十六（命令面 16.1–16.9）、十七（冗余整改 R-A~R-H）、十八（观感对齐 18.1–18.5）。**余项三类（均非 AI 可执行，登记待人类）**：① 待人类决策——两张 D28 重号、本文尾部结构损坏修净（v4.40 登记）、official/README.md 旧快照处置（v4.40 登记）；② 待人类现场执行——11.2 验收尾巴真机走查、16.6 SoX/真实转写链路、16.7 真实模型 judge、16.9 TS/Python 真实 server、15.1 Claude Code 外配实调、16.8 真实双模型竞答（各工单验收注均已登记）；③ 后置池与观察项——全部带触发条件（doc/08 §6），无阻塞工单。AGENTS §1 状态同步（v1.49）。本批纯登记 |
 | v4.50 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（"少数几项现场走查里也不能下载……需要下载的你全部都放到远端去 ci 测试"指令） | **AGENTS §2.3a 扩展为"本机禁止一切下载"总则 + 三项现场走查下沉 CI**：① ci.yml 主 job pnpm test 前增安装步（runner 上 `apt-get install sox` + `npm i -g typescript-language-server typescript` + `pip install pyright`）——CI 里下载是允许的，本地不行；② 真实链路测试条件化（`test.skipIf(环境无工具)`）：cli voice-sox 增真探用例（有 SoX 时 soxAvailable→true 且 rec spawn 失败归 UPSTREAM 而非 UNCONFIGURED——fail-closed 语义的实环境验证）、engine lsp.test 增真实 typescript-language-server 诊断冒烟（真实 TS 诊断非夹具文本）——本地无这些工具照常 skip 绿；③ release.yml publish 后增 **npm 安装冒烟步**（全新环境 `npm i -g @spark/cli && spark --version`——11.2 npm 安装验证从用户现场下沉）；④ 16.6 SoX 真录音/16.9 pyright 真链路仍留现场可选（CI 无麦克风/Pyright wrapper 首跑二级下载，如实登记）——**现场走查的前提条件改为"仅在已具备环境的机器上执行"，本地不再需要任何下载准备**。同步：AGENTS v1.51、doc/08 v1.49。本批改 workflow 与测试条件，验证交远端 CI |
-| v4.50 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"继续把你能做的做完成"指令） | **三项"待人类"事项的可 AI 部分完成销账（v4.49 清点的余项①收敛）**：① **本文尾部结构损坏修净（v4.40 登记⑤b 的收口）**——信息零丢失原则：两条空"批次 5 备注"残桩删除、"8.6 标题与批次 4 备注粘连"行删除（标题正本与备注正本各自另存）、重复"阶段十一"标题与孤儿段清队——孤儿段 ②③④ 接回批次 3 备注正本（2582 行）、批次 4 备注移至其表尾、批次 5 备注移至其表尾；② **两张 D28 重号加消歧注记（ARCHITECTURE 正文）**——不动历史行不改编号，两标题下互加"重号消歧"引注（引用建议以主题区分 "D28 设置读写" / "D28 出网代理"，编号合并改判仍留人类）；③ **official/README.md 加冻结历史快照注记**（HTML 注释头，不删不改原内容——现状唯一权威指向根 README，处置判决仍留人类）。同批：CHANGELOG [Unreleased] 补记阶段十一~十八用户可见变更（维护纪律欠账）；AGENTS §4 typecheck 项目数 13→14（15.3 skill-kit 入面的漏更）。**余项①收敛后仅剩**：D28 编号合并改判（需人类拍板）、official/README 处置方向（需人类拍板）与现场走查清单（②类）。本批纯文档 |
+| v4.50a | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"继续把你能做的做完成"指令） | **三项"待人类"事项的可 AI 部分完成销账（v4.49 清点的余项①收敛）**：① **本文尾部结构损坏修净（v4.40 登记⑤b 的收口）**——信息零丢失原则：两条空"批次 5 备注"残桩删除、"8.6 标题与批次 4 备注粘连"行删除（标题正本与备注正本各自另存）、重复"阶段十一"标题与孤儿段清队——孤儿段 ②③④ 接回批次 3 备注正本（2582 行）、批次 4 备注移至其表尾、批次 5 备注移至其表尾；② **两张 D28 重号加消歧注记（ARCHITECTURE 正文）**——不动历史行不改编号，两标题下互加"重号消歧"引注（引用建议以主题区分 "D28 设置读写" / "D28 出网代理"，编号合并改判仍留人类）；③ **official/README.md 加冻结历史快照注记**（HTML 注释头，不删不改原内容——现状唯一权威指向根 README，处置判决仍留人类）。同批：CHANGELOG [Unreleased] 补记阶段十一~十八用户可见变更（维护纪律欠账）；AGENTS §4 typecheck 项目数 13→14（15.3 skill-kit 入面的漏更）。**余项①收敛后仅剩**：D28 编号合并改判（需人类拍板）、official/README 处置方向（需人类拍板）与现场走查清单（②类）。本批纯文档 |
 | v4.51 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"远端 ci 报错了"×4 连修） | **v4.51 下沉批的 CI 修红收口（四轮，教训入档）**：① **npm 装到的 TypeScript 7.x 是 Go 原生版、没有 tsserver.js**——typescript-language-server 只兼容 5.x，冒烟锁 `typescript@5`；② `--tsserver-path` 指向 lib 目录的语义**证伪**（initialize 两次超时）——改真实场景路：workspace 内 `npm install typescript@5` 让 server 自动解析；③ 真实 tsserver 推帧是**空帧→实帧两段式且时序不受控**（宽限 8s 仍可能 0 条）——冒烟断言降为 initialize+请求链路兼容（不抛错即通），诊断内容断言回归夹具 e2e 权威覆盖（非吞失败：受控环境断言语义、非受控环境断言链路）；④ knip 把测试探测用的 `rec`/`typescript-language-server` 判 unlisted binaries——ignoreBinaries 登记理由；⑤ trust.test 固定 sleep 300ms 在慢 runner 时序脆弱——改轮询等 idle。CI 绿（run 34773069597）。本批纯测试条件与登记 |
 | v4.52 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"继续"指令） | **AGENTS §4 typecheck 项目数口径终修（v4.46/14.6 三次漂移的根治）**：历次写死的数字（13→14）跟着包数漂是错误模式——AGENTS §4 改为写实数口径「17 个 workspace package 含 examples/spike 内部包；对外口径按可发布四包 protocol/engine/sdk/cli 记」（实测 17：spark/cli/desktop/docs/miniapp/mobile/server/web/evals/三 example/spike-pi-ai/engine/protocol/sdk/skill-kit——全部带 typecheck 脚本）；doc/08 §14.6 历史进度行加当时实数括注。**D28/official-README 两项拍板与全部现场走查清单仍留人类（doc/02 v4.50 登记不变）**。本批纯文档 |
-
-
-
+| v4.53 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，对账审计指令） | §4.3.1/§8.6 事件词表计数 26→27 同步（对账审计 W4：全仓 11 处陈旧计数统一为 27，含 doc/02 三处、apps/docs 两处、CONTRIBUTING、四处代码注释；与 AGENTS v1.53 同批） |
+| v4.54 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，对账审计指令） | §8 阶段十二~十八工单表 lift 自 doc/08（48 工单，对账审计 W2）：恢复"执行以 doc/02 定稿为准"的单一来源纪律；§8.7 候选池标题同步更新；v3.35 重号修正为 v3.35a；与 AGENTS v1.53 同批 |
 
 
 ## 阶段十一：可发布（Release）——工单级
@@ -2797,11 +2796,116 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 
 > 备注：① 11.2 的现场执行、11.5 的 secrets 配置、11.7 的真实 tag 发版与 npm 安装验证为用户侧动作，AI 只交准备件/说明/workflow；② 首发不做独立版本矩阵（boring 原则）；③ e2e/perf job 红灯 24h 内出修复工单（doc/06 §2 纪律）。
 
+## 阶段十二：Agent 能力补全——工单级
+
+> 立项依据：doc/08 §2 lift（2026-09-14 对账审计 W2）。
+
+| # | 工单 | 产出（目标 + 涉及文件） | 验收标准 | 依赖 |
+| --- | --- | --- | --- | --- |
+| 12.1 | ✅ grep 结构化检索工具 | `engine/src/tools/builtin/grep.ts`：纯 Node 递归遍历 + 逐行正则，resolveInRoot 硬边界，permission fs.read 同域 | 单测四路径（命中/零命中/越界/限界截断）+ 管线集成一例 | — |
+| 12.2 | ✅ 图片/多模态输入全链路 | server POST attachments + protocol attachments 语义定稿 + Projector 投影 image 块 + web Composer 粘贴上传 | E2E 粘贴→发送→模型描述图片；断线回放附件仍渲染 | — |
+| 12.3 | ✅ spark -p 一次性模式 | `apps/cli` -p/--print：进程内 Engine→createSession→send→stdout JSON/text→退出码 | 输出正确文本；json 可被 jq 解析；无 key 退出码非 0 | — |
+| 12.4 | ✅ 会话删除/归档 | engine archive/delete（两段式 trash）+ server PUT archive / DELETE + web 菜单与归档抽屉 | 归档→恢复；删除→trash 存在；运行中 409 拒绝 | — |
+| 12.5 | ✅ 文件树面板 + @file 引用 | server GET /api/fs/tree + web 文件树抽屉 + Composer @ 菜单远程补全 | 三视口走查；@ 引用后模型确实读到文件；越界 400 | — |
+| 12.6 | ✅ MCP/技能管理页 | server PUT /api/mcp + web 设置 MCP 管理（状态点/工具数/启停/编辑表单） | 添加真实 MCP server→状态亮→禁用后工具消失；坏 JSON 拦截 | 6.4 |
+| 12.7 | ✅ 通知推送（桌面壳） | `apps/desktop` main 进程订阅 SSE→Electron Notification（turn.completed / permission.asked） | 切出窗口→弹通知→点击聚焦；开关关闭即静默；不泄漏正文 | — |
+| 12.8 | ✅ 首启 onboarding | web 三步引导（欢迎→配模型→建会话）；可跳过/可重进 | 清态走查到第一回合；刷新续步；跳过不再弹 | 7.1/6.5 |
+| 12.9 | ✅ LLM 出网代理 | models.json provider 加 proxy + undici ProxyAgent 注入；env HTTPS_PROXY 兜底；mini ADR | 代理环境走查；直连零变化（缺省不变红线） | — |
+
+## 阶段十三：可证明 + 上下文工程——工单级
+
+> 立项依据：doc/08 §3 lift（2026-09-14 对账审计 W2）。
+
+| # | 工单 | 产出（目标 + 涉及文件） | 验收标准 | 依赖 |
+| --- | --- | --- | --- | --- |
+| 13.1 | ✅ 任务级 eval 场景集 | `examples/evals/src/tasks/`：17 场景×六维覆盖，确定性判分 + ScriptedLlm 冒烟入主 CI | 冒烟 17/17 约 10s 全绿；单场景 <60s | 11.5 |
+| 13.2 | ✅ 外部基准可行性评估 | `doc/09-benchmark-feasibility.md`：三候选×四维度，判决不接 + 重评触发条件 | 报告给出可拍板建议；接线草图不改代码 | 13.1 |
+| 13.3 | ✅ 提示词模板层 | `engine/prompts.ts` 改造：spark.json prompts 段（路径单形）+ 白名单占位符 + E_CONFIG fail-closed | 不配置时逐字节一致；自定义模板生效；坏占位符拒启动 | — |
+| 13.4 | ✅ 压缩双层化 | ADR D29 + keptFiles 结构化段 + 超 4KB 工具输出蒸馏（只影响投影不动 JSONL） | 蒸馏后上下文含要点不含原文；keptFiles 出现在下一 turn；回归全绿 | 13.3 |
+| 13.5 | ✅ 子代理配置化（预设档） | `~/.spark/agents/<name>.json` 声明式预设 + task input preset + web 只读列表 | 只读预设下 write 被拒；model 覆盖生效；无 preset 回归全绿 | — |
+| 13.6 | ✅ 成本看板 | engine usage.json v2 按日/provider/model 聚合 + GET /api/usage/summary + web 看板页 | mock 回合后看板与文件一致；旧格式读入不炸 | — |
+| 13.7 | ✅ trace 视图 | engine `buildTrace` 纯函数 + GET /api/sessions/:id/trace + web 链路浮层 | 千事件聚合 <200ms；时间线与事件流一致 | — |
+
+## 阶段十四：SDK 化——工单级
+
+> 立项依据：doc/08 §4 lift（2026-09-14 对账审计 W2）。
+
+| # | 工单 | 产出（目标 + 涉及文件） | 验收标准 | 依赖 |
+| --- | --- | --- | --- | --- |
+| 14.1 | ✅ 公共面治理 | engine "." 收窄为 16 值导出 + "./internal" 子路径；protocol 公共 API 清单（doc/02 §4.6）；knip 接入 CI | typecheck/test 零回归；生产代码无 internal 引用；knip 零发现 | 11.7 |
+| 14.2 | ✅ 契约测试生成器 | `protocol/scripts/gen-contract.ts`→92 describe / 894 断言 + Transport 契约模板（参数化双通道） | 生成物入库且 CI 同步校验绿；改 schema 不重生成→CI 红 | 14.1 |
+| 14.3 | ✅ @spark/sdk 客户端包 | `packages/sdk`：createClient = HttpTransport 装配 + 便利分组；web/cli 迁移消费 | web/cli 测试全绿零行为变化；最小示例跑通 | 14.1/14.2 |
+| 14.4 | ✅ InProcessTransport + 嵌入指南 | sdk `./inprocess` 子入口（engine optional peer）；ADR D30/D31；spark -p 重构；嵌入指南六段（doc/02 §4.8） | 契约套件双通道同绿；-p 回归零变化；示例 ≤30 行 | 14.2/14.3/12.3 |
+| 14.5 | ✅ examples 画廊 | sdk-bot（156 行）/ sdk-viewer（132 行）/ sdk-tui（192 行）+ README 索引 | 三例 ≤300 行且零业务抽象；CI 全绿 | 14.3 |
+| 14.6 | ✅ 开发者文档站 | `apps/docs` VitePress 六页 + gen-events.ts 词表页生成器 + Pages deploy workflow | 本地构建全页；词表页与 schema 同步校验绿 | 14.1/14.3/14.5 |
+
+## 阶段十五：生态面——工单级
+
+> 立项依据：doc/08 §5 lift（2026-09-14 对账审计 W2）。
+
+| # | 工单 | 产出（目标 + 涉及文件） | 验收标准 | 依赖 |
+| --- | --- | --- | --- | --- |
+| 15.1 | ✅ Spark as MCP server | `apps/cli/src/mcp-server.ts`：spark mcp stdio 子命令，三工具（spark_run/sessions/events），审批 fail-closed，ADR D39 | 外部 agent 实调成功；审计记录可查；超时拒绝路径验证 | — |
+| 15.2 | ✅ OpenAPI 导出 | `protocol/src/openapi-routes.ts` 67 条路由元数据 + gen-openapi.ts→openapi.json（55 路径/67 操作）+ CI 同步门禁 | 生成器结构自检通过；CI diff 门禁绿 | 14.2/11.7 |
+| 15.3 | ✅ skills 创作套件 | `packages/skill-kit`：init/lint；protocol `skill-manifest.ts` schema 下沉单一来源 | init→lint→引擎识别全链路；demo-ping 重建行为一致 | — |
+| 15.4 | ✅ skills 边界决策（Q-1） | 判决：维持纯声明 + MCP 兜工具面（D18 不扩可编程）；三候选速断 + 重开触发条件三条 | Q-1 关闭；doc/02 §8.7 V2-02 同步 | — |
+
+> 备注：15.4 零代码——判决关闭本线，不立 doc/10 研究档；一切可编程诉求登记去 MCP。
+
+## 阶段十六：命令面新机制——工单级
+
+> 立项依据：doc/08 §5A lift（2026-09-14 对账审计 W2）。
+
+| # | 工单 | 产出（目标 + 涉及文件） | 验收标准 | 依赖 |
+| --- | --- | --- | --- | --- |
+| 16.1 | ✅ /init 项目上下文生成 | 命令描述符 kind=prompt + 提示词模板（四类约束框架引导）+ 覆盖确认 | 空目录生成三段式 AGENTS.md；已有文件弹确认；经审批落盘 | 10.18 |
+| 16.2 | ✅ /agents 子代理管理 | 两层定义（项目 .spark/agents + 用户 ~/.spark/agents）JSON；启停 disabledAgents；四端面板，ADR D36 | 放置后可见；启停生效；spawn 读定义成功 | 10.18/10.20 |
+| 16.3 | ✅ /plan 计划模式 | 新事件 session.mode.changed + PRESET_RULES.plan 激活 + exit_plan_mode 工具 + 四端 mode 指示 | plan 下写类全拒；exit 须批准；审批期间切档作废 | 10.18 |
+| 16.4 | ✅ /trust 文件夹信任 | ~/.spark/trusted.json 两档 + 祖先链深匹配（顺序无关）+ 收紧后处理，ADR D40 | 未信任目录 bash 默认 ask；深匹配单测；原子写 | 10.18 |
+| 16.5 | ✅ /extensions 扩展管理 | spark-extension.json 声明式内容包 + 现扫发现 + symlink 逃逸拒载 + 启停名单，ADR D41 | 扩展目录→清单可见→启停生效；symlink 攻击拒绝 | 10.18/16.2 |
+| 16.6 | ✅ /voice 语音听写 | web getUserMedia + STT（OpenAI 兼容转写 API）+ CLI SoX 降级 + SSRF 防护 | web 按住→文字入 Composer；无 SoX 明确提示；SSRF 单测 | 10.18/10.20 |
+| 16.7 | ✅ /goal 持续目标 | goal 循环（旁路 LLM judge）+ 四枚新事件 + 三护栏（50 迭代/200k token/25s 超时） | 小目标 2-3 迭代完成；上限暂停不清目标；interrupt 即停 | 10.18 |
+| 16.8 | ✅ /arena 多模型竞答 | arena/manager：并发 N 子代理（git worktree 隔离）+ 用量归并 + applyWinner 审批，ADR D42 | 2 模型竞答并行；选胜者改动经审批；用量正确 | 16.2 |
+| 16.9 | ✅ /lsp LSP 集成 | engine lsp/ 模块（vscode-languageserver-protocol）+ lsp.diagnostics 事件 + lsp 工具 12 操作，ADR D35 | 诊断事件正确；敏感 env 剥离单测；config hash 不重启 | new-tool/new-event-type |
+
+> 备注：九工单消解 §8.7 V2-27~V2-35；命令基线 18→23；事件词表 26→27 种（含 lsp.diagnostics）。
+
+## 阶段十七：代码冗余整改——工单级
+
+> 立项依据：doc/08 §5B lift（2026-09-14 对账审计 W2）。
+
+| # | 工单 | 产出（目标 + 涉及文件） | 验收标准 | 依赖 |
+| --- | --- | --- | --- | --- |
+| R-A | ✅ 死导出与死状态清理 | 全仓 grep 零使用导出/类型/状态逐项删除（七包） | 每删前 grep 确认零使用；typecheck/lint/test 全绿 | — |
+| R-B | ✅ protocol 共享资产下沉 | format/flow-rows/SessionStreamCore/errorFromResponse/ui-copy→protocol 单源；四端替换 | 四端 typecheck 全绿；SSE 行为零回归；127.0.0.1 不变红线 | R-A |
+| R-C | ✅ engine util 收敛 | errText/atomicWriteJson/readJsonConfig/jsonl/sleep 五类 + FTS memory LIKE 转义 bug 修复 | engine 全绿 + 新单测；grep 旧样板零残留 | — |
+| R-D | ✅ engine.ts 拆分 | 2028→约 600 行门面：五刀拆出 types/SearchIndexer/session-lifecycle/settings-store/subagent | 每刀后全绿；导出面与 API 签名不变；shutdown 时序零变化 | R-C |
+| R-E | ✅ web 前端收敛 | useTransportQuery + ModelSettingsPage 三分 + Composer 拆分 + mock 夹具外置 + PageHeader | web 全绿；mock 走查零回归；视觉零变化 | R-B |
+| R-F | ✅ server 路由去样板 | 删 40 条冗余 try/catch + parseOr400/notFound/requireHandle 收敛 + 域拆 6 子插件 | server 92 例全绿；46 条路由零变化 | — |
+| R-G | ✅ cli 收敛 | items.tsx 纯函数搬 flow-rows + app.tsx 二次拆分 + 测试助手提取 | cli 全绿；§13.K 纯单栏视觉零回归 | R-B |
+| R-H | ✅ 移动双端共享 controller | useSessionPageController（protocol 纯逻辑状态机）+ 巨石屏拆分 + app-store 收口 | mobile+miniapp 全绿；controller 全路径单测 | R-B |
+
+> 备注：行为等价重构——不改任何对外行为/协议/事件语义；R-D 门面残部判决不做（mixin 需 any 违反 §2.4）；Q-7 死文件全部保留冻结、Q-8 controller 入 protocol。
+
+## 阶段十八：web 观感对齐 shadcn 新一代风——工单级
+
+> 立项依据：doc/08 §5C lift（2026-09-14 对账审计 W2）。
+
+| # | 工单 | 产出（目标 + 涉及文件） | 验收标准 | 依赖 |
+| --- | --- | --- | --- | --- |
+| 18.1 | ✅ 规格先行 DESIGN.md 修订 | §3 圆角档位封闭集（5 档：full/8/12/16/18px）+ §13.B 逐行改 + §12.4/§12.8 判据修订 + ADR D32 | rg "控件 6px" 零命中；§13.B 与 §3 自洽 | — |
+| 18.2 | ✅ 八组件胶囊化 | button/select/segmented/command→rounded-full；dialog/alert→12px；浅灰底+弱边框 | web test 全绿；双主题走查；grep 零未登记档位 | 18.1 |
+| 18.3 | ✅ 补件 copy-in | ui/input（胶囊 38px）、textarea（8px）、badge（24px 胶囊）、card（12/16 双档三 variant）；三件按实需不引 | 新件配渲染单测；双主题走查；DoD 九项自查 | 18.1 |
+| 18.4 | ✅ 页面清扫 | 手搓控件迁移 ui/input + 分组卡→Card grouped + 全量圆角归档封闭集（rounded-md/裸 rounded 清零） | web 全测零回归；键盘可达不回退；§12 grep 零命中 | 18.2/18.3 |
+| 18.5 | ✅ 收口验收 + 文档对账 | theme-contrast AA 复核（两处修正）+ e2e 全绿 + DESIGN v2.17 终态 + ADR D32 补记 | 全绿 + §12 六类黑名单零命中 | 18.4 |
+
+> 备注：目标观感 = 胶囊控件 + 大圆角分层卡 + 浅灰底输入；不变项：密度 13px / 会话流转录形态 / 禁渐变阴影毛玻璃；与移动端 §13.J 视觉口径合流。
+
 ## 8.6 测试矩阵（各阶段验收的测试面；框架 vitest）
 
 | 模块               | 用例要点                                                                                                                                                         |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| protocol           | 26 种事件样例逐一过 zod schema（round-trip）；信封 surface 标记的编译期断言；DTO/配置 schema                                                                     |
+| protocol           | 27 种事件样例逐一过 zod schema（round-trip）；信封 surface 标记的编译期断言；DTO/配置 schema                                                                     |
 | engine/config      | 三配置文件 zod：合法 / 缺字段 / 越界值 → 启动失败（E_CONFIG）                                                                                                    |
 | engine/bus         | durable seq 单调且**落盘后**才广播；live 不计数；订阅者异常隔离；背压 pause/resume                                                                               |
 | engine/input-queue | now/steer/queue × idle/running 全矩阵的三态返回；唤醒合并不空转                                                                                                  |
@@ -2810,10 +2914,10 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | engine/permission  | evaluate 优先级（临时>项目>用户>默认 ask）；always 写入 + 同批放行；超时/中断 fail-closed；reject feedback 注入 user.message                                     |
 | engine/session     | 单写者 append/flush；坏行（尾行丢弃/非尾拒绝加载）；resume 补 turn.completed{aborted}；Projector 投影（无/有 compaction 分支 × reasoning 配置）；mungeDir 确定性 |
 | server             | 路由 zod 400/404/409/503 映射；SSE 回放+直播边界、心跳、全局订阅；SPA fallback 排除 /api                                                                         |
-| web                | **applyEvent 26 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
+| web                | **applyEvent 27 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
 | 集成               | MockTransport 四场景全跑（§4.7 表）；阶段三：ScriptedLlm 全闭环 + 崩溃恢复（kill -9 后 resume 无悬挂事件）                                                       |
 
-## 8.7 v2 候选池（未排期，不阻塞阶段六~九；缺口编号对应 doc/07 §2.7）
+## 8.7 v2 候选池（未排期，部分已随阶段十二~十八落地，余项见 doc/08 §6 后置池；缺口编号对应 doc/07 §2.7）
 
 | 编号  | 项                       | 优先级 | 依赖 / 备注                                   |
 | ----- | ------------------------ | ------ | --------------------------------------------- |
@@ -2928,4 +3032,4 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 
 ---
 
-_方案完（v3.0）。阶段一~五已完成（Spark v1）；阶段六~十已完成合入（阶段十含批次 1/2 十四张 + 10.23 全勾，PR #10 起）；收尾批次 3（10.22 与 10.24–10.29）2026-09-01 完成合入——阶段十至此收账（10.30 死代码文件与 spike 残留冻结待人类五层级确认）；下一程 v2 阶段十一~十六（doc/08 工单库，开工时逐张 lift 进 §8 建阶段表）；v2 候选池不阻塞；每次完成按版本记录表追加记录并 push。_
+_方案完（v4.53）。阶段一~十八全部收官；后续工单库见 doc/08-v2-roadmap.md；每次完成按版本记录表追加记录并 push。_

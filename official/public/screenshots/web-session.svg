@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <!-- Background -->
+  <rect width="1200" height="800" fill="#f4f4f5"/>
+
+  <!-- Window chrome -->
+  <rect x="40" y="20" width="1120" height="760" rx="8" fill="#ffffff" stroke="#e4e4e7" stroke-width="1.5"/>
+  <rect x="40" y="20" width="1120" height="44" rx="8" fill="#e4e4e7"/>
+  <rect x="40" y="56" width="1120" height="8" fill="#e4e4e7"/>
+  <!-- Window dots -->
+  <circle cx="68" cy="42" r="6" fill="#a1a1aa"/>
+  <circle cx="88" cy="42" r="6" fill="#a1a1aa"/>
+  <circle cx="108" cy="42" r="6" fill="#a1a1aa"/>
+
+  <!-- Sidebar -->
+  <rect x="40" y="64" width="220" height="716" fill="#f4f4f5" stroke="#e4e4e7" stroke-width="1"/>
+  <!-- Sidebar items -->
+  <rect x="56" y="84" width="188" height="28" rx="4" fill="#e4e4e7"/>
+  <rect x="56" y="124" width="188" height="28" rx="4" fill="#e4e4e7"/>
+  <rect x="56" y="164" width="188" height="28" rx="4" fill="#e4e4e7"/>
+  <rect x="56" y="204" width="188" height="28" rx="4" fill="#e4e4e7"/>
+  <rect x="56" y="244" width="188" height="28" rx="4" fill="#e4e4e7"/>
+  <!-- Sidebar label -->
+  <text x="76" y="102" font-family="monospace" font-size="11" fill="#71717a">sessions</text>
+
+  <!-- Main content area -->
+  <!-- Message bubbles -->
+  <rect x="290" y="90" width="420" height="56" rx="6" fill="#f4f4f5" stroke="#e4e4e7" stroke-width="1"/>
+  <rect x="306" y="104" width="280" height="8" rx="2" fill="#a1a1aa"/>
+  <rect x="306" y="120" width="180" height="8" rx="2" fill="#e4e4e7"/>
+
+  <rect x="560" y="166" width="380" height="72" rx="6" fill="#e4e4e7" stroke="#a1a1aa" stroke-width="0.5"/>
+  <rect x="576" y="182" width="240" height="8" rx="2" fill="#71717a"/>
+  <rect x="576" y="198" width="300" height="8" rx="2" fill="#a1a1aa"/>
+  <rect x="576" y="214" width="160" height="8" rx="2" fill="#a1a1aa"/>
+
+  <!-- Tool call block -->
+  <rect x="290" y="260" width="500" height="100" rx="6" fill="#ffffff" stroke="#a1a1aa" stroke-width="1.5"/>
+  <rect x="306" y="276" width="120" height="8" rx="2" fill="#71717a"/>
+  <rect x="306" y="296" width="440" height="48" rx="4" fill="#f4f4f5"/>
+  <text x="320" y="324" font-family="monospace" font-size="10" fill="#a1a1aa">tool: read_file — /src/index.ts</text>
+
+  <!-- Approval card -->
+  <rect x="290" y="380" width="500" height="60" rx="6" fill="#ffffff" stroke="#71717a" stroke-width="2"/>
+  <rect x="306" y="396" width="200" height="8" rx="2" fill="#71717a"/>
+  <rect x="306" y="416" width="80" height="16" rx="3" fill="#e4e4e7"/>
+  <rect x="396" y="416" width="80" height="16" rx="3" fill="#e4e4e7"/>
+  <text x="314" y="428" font-family="monospace" font-size="9" fill="#71717a">allow</text>
+  <text x="410" y="428" font-family="monospace" font-size="9" fill="#71717a">deny</text>
+
+  <!-- More messages -->
+  <rect x="290" y="460" width="380" height="48" rx="6" fill="#f4f4f5" stroke="#e4e4e7" stroke-width="1"/>
+  <rect x="306" y="476" width="240" height="8" rx="2" fill="#a1a1aa"/>
+  <rect x="306" y="492" width="160" height="8" rx="2" fill="#e4e4e7"/>
+
+  <!-- Composer -->
+  <rect x="290" y="680" width="820" height="80" rx="6" fill="#ffffff" stroke="#a1a1aa" stroke-width="1.5"/>
+  <rect x="310" y="700" width="600" height="12" rx="2" fill="#e4e4e7"/>
+  <rect x="310" y="724" width="40" height="12" rx="2" fill="#e4e4e7"/>
+  <rect x="360" y="724" width="40" height="12" rx="2" fill="#e4e4e7"/>
+
+  <!-- Center label -->
+  <text x="600" y="590" font-family="system-ui, sans-serif" font-size="28" fill="#71717a" text-anchor="middle" font-weight="600">Spark Web</text>
+  <text x="600" y="620" font-family="system-ui, sans-serif" font-size="13" fill="#a1a1aa" text-anchor="middle">React 19 — streaming session view</text>
+</svg>

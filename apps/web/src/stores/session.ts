@@ -2,7 +2,7 @@
  * session-store（doc/02 §6.4）：applyEvent reducer 是唯一写入口。
  * 工单 8.2 起 reducer 与投影类型下沉 @spark/protocol（ADR D22 四端共享资产，
  * apply-event.ts——web 与 cli 同一实现），本文件只保留 zustand 绑定与 web 选择器。
- * 去重规则（回放×直播重叠）与 21 种事件词表把关见 protocol 侧与 tests/applyEvent.test.ts。
+ * 去重规则（回放×直播重叠）与 27 种事件词表把关见 protocol 侧与 tests/applyEvent.test.ts。
  * UI 状态只来自事件流（AGENTS §2「UI 状态只来自事件流」）——本文件不含任何 fetch 与假状态。
  */
 import { create } from 'zustand'

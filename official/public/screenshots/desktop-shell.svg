@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <rect width="1200" height="800" fill="#f4f4f5"/>
+  <rect x="30" y="16" width="1140" height="768" rx="10" fill="#ffffff" stroke="#e4e4e7" stroke-width="2"/>
+  <rect x="30" y="16" width="1140" height="40" rx="10" fill="#e4e4e7"/>
+  <rect x="30" y="46" width="1140" height="10" fill="#e4e4e7"/>
+  <rect x="1080" y="26" width="20" height="20" rx="2" fill="#a1a1aa"/>
+  <rect x="1106" y="26" width="20" height="20" rx="2" fill="#a1a1aa"/>
+  <rect x="1132" y="26" width="20" height="20" rx="2" fill="#a1a1aa"/>
+  <text x="600" y="42" font-family="system-ui, sans-serif" font-size="12" fill="#71717a" text-anchor="middle">Spark Desktop</text>
+  <rect x="30" y="56" width="200" height="728" fill="#f4f4f5" stroke="#e4e4e7" stroke-width="1"/>
+  <rect x="44" y="72" width="172" height="32" rx="5" fill="#e4e4e7"/>
+  <rect x="44" y="114" width="172" height="32" rx="5" fill="#ffffff" stroke="#e4e4e7" stroke-width="1"/>
+  <rect x="44" y="156" width="172" height="32" rx="5" fill="#ffffff" stroke="#e4e4e7" stroke-width="1"/>
+  <rect x="44" y="198" width="172" height="32" rx="5" fill="#ffffff" stroke="#e4e4e7" stroke-width="1"/>
+  <text x="60" y="92" font-family="monospace" font-size="10" fill="#71717a">sessions</text>
+  <rect x="44" y="720" width="172" height="48" rx="5" fill="#e4e4e7"/>
+  <text x="60" y="748" font-family="monospace" font-size="10" fill="#71717a">settings</text>
+  <rect x="260" y="80" width="360" height="48" rx="6" fill="#f4f4f5" stroke="#e4e4e7" stroke-width="1"/>
+  <rect x="276" y="96" width="200" height="8" rx="2" fill="#a1a1aa"/>
+  <rect x="276" y="112" width="140" height="8" rx="2" fill="#e4e4e7"/>
+  <rect x="480" y="148" width="380" height="64" rx="6" fill="#e4e4e7"/>
+  <rect x="500" y="166" width="260" height="8" rx="2" fill="#71717a"/>
+  <rect x="500" y="182" width="300" height="8" rx="2" fill="#a1a1aa"/>
+  <rect x="500" y="198" width="180" height="8" rx="2" fill="#a1a1aa"/>
+  <rect x="260" y="232" width="600" height="120" rx="6" fill="#ffffff" stroke="#a1a1aa" stroke-width="1.5"/>
+  <rect x="276" y="248" width="80" height="8" rx="2" fill="#71717a"/>
+  <rect x="276" y="268" width="560" height="68" rx="4" fill="#f4f4f5"/>
+  <text x="292" y="288" font-family="monospace" font-size="9" fill="#a1a1aa">- const old = "code";</text>
+  <text x="292" y="304" font-family="monospace" font-size="9" fill="#71717a">+ const new = "refactored";</text>
+  <text x="292" y="320" font-family="monospace" font-size="9" fill="#a1a1aa">  export { new };</text>
+  <rect x="260" y="372" width="600" height="56" rx="6" fill="#ffffff" stroke="#71717a" stroke-width="2"/>
+  <rect x="280" y="390" width="240" height="8" rx="2" fill="#71717a"/>
+  <rect x="280" y="408" width="72" height="14" rx="3" fill="#e4e4e7"/>
+  <rect x="362" y="408" width="72" height="14" rx="3" fill="#e4e4e7"/>
+  <rect x="444" y="408" width="72" height="14" rx="3" fill="#e4e4e7"/>
+  <rect x="260" y="700" width="880" height="68" rx="6" fill="#ffffff" stroke="#a1a1aa" stroke-width="1.5"/>
+  <rect x="280" y="720" width="500" height="10" rx="2" fill="#e4e4e7"/>
+  <rect x="280" y="742" width="36" height="10" rx="2" fill="#e4e4e7"/>
+  <rect x="326" y="742" width="36" height="10" rx="2" fill="#e4e4e7"/>
+  <rect x="900" y="80" width="240" height="600" rx="6" fill="#f4f4f5" stroke="#e4e4e7" stroke-width="1"/>
+  <text x="920" y="104" font-family="monospace" font-size="10" fill="#a1a1aa">tool output</text>
+  <rect x="916" y="116" width="208" height="1" fill="#e4e4e7"/>
+  <rect x="916" y="132" width="180" height="6" rx="1" fill="#e4e4e7"/>
+  <rect x="916" y="148" width="200" height="6" rx="1" fill="#e4e4e7"/>
+  <rect x="916" y="164" width="140" height="6" rx="1" fill="#e4e4e7"/>
+  <rect x="916" y="180" width="190" height="6" rx="1" fill="#e4e4e7"/>
+  <text x="600" y="540" font-family="system-ui, sans-serif" font-size="28" fill="#71717a" text-anchor="middle" font-weight="600">Spark Desktop</text>
+  <text x="600" y="570" font-family="system-ui, sans-serif" font-size="13" fill="#a1a1aa" text-anchor="middle">Electron sidecar - same engine, native shell</text>
+</svg>

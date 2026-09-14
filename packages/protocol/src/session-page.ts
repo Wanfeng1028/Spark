@@ -136,6 +136,8 @@ export function createSessionPageController(opts: {
 
   // 窗口与投影（与两端原 ref 布局一一对应）
   let events: SparkEventEnvelope[] = []
+  /** W12：增量维护已见事件 ID，避免 loadOlder 每次 O(n) 重建 Set（mergeEventPage 内部行为） */
+  const seenIds = new Set<EventId>()
   const times = new Map<EventId, number>()
   let watermark = 0
   let slice: SessionSlice = emptySessionSlice(sid)
@@ -178,6 +180,7 @@ export function createSessionPageController(opts: {
   const applyLocal = (e: SparkEventEnvelope): void => {
     if (isReplayedDuplicate(e, watermark)) return
     events.push(e)
+    seenIds.add(e.id) // W12：同步维护，loadOlder 过滤 O(1) 查询
     times.set(e.id, e.time)
     if (e.seq !== undefined && e.seq > watermark) watermark = e.seq
     slice = applyEvent({ byId: { [sid]: slice }, activeId: sid }, e).byId[sid] ?? slice
@@ -245,18 +248,25 @@ export function createSessionPageController(opts: {
         const dto = await transport.getSession(sid, { limit: pageSize, before: oldest.seq })
         const page = dto.events ?? []
         if (page.length < pageSize) hasMore = false
-        if (page.length === 0) return
-        const merged = mergeEventPage(page, events)
-        // 全量重放（升序红线）：较旧事件不得增量叠加在较新投影之后
+        // W12：用增量维护的 seenIds 做 O(m) 过滤，避免 mergeEventPage 每次 O(n) 重建 Set
+        const newOlder = page.filter((e) => !seenIds.has(e.id))
+        if (newOlder.length === 0) return
+        // W12：原地前置，避免 O(n+m) 新数组分配（mergeEventPage 语义等价，公共 API 不变）
+        events.unshift(...newOlder)
+        for (const e of newOlder) {
+          seenIds.add(e.id)
+          times.set(e.id, e.time) // W12：O(m) 增量写入，避免 O(n) 全量重建 nextTimes
+        }
+        // 全量重放（升序红线）：较旧事件不得增量叠加在较新投影之后。
+        // 已知 O(n²) 瓶颈：翻 k 页累计 reduce ≈ pageSize·k²/2。
+        // 根因：applyEvent 存在跨事件状态依赖（findLastTurn / findOpenAssistant /
+        // closeStreamingOfTurn / activeTurn 携带），旧页产生的 items 与 activeTurn 影响
+        // 现有页的 reduce 结果，prefix-merge 不等价。安全优化需要 applyEvent 支持
+        // prefix-merge 语义（或引入 items 索引结构），登记为 v2 候选（工单 W12-FOLLOW）。
         let state: ProjectionState = { byId: {}, activeId: sid }
-        const nextTimes = new Map<EventId, number>()
-        for (const e of merged) {
-          nextTimes.set(e.id, e.time)
+        for (const e of events) {
           state = applyEvent(state, e)
         }
-        events = merged
-        times.clear()
-        for (const [k, v] of nextTimes) times.set(k, v)
         slice = state.byId[sid] ?? emptySessionSlice(sid)
         emit()
       } catch (err: unknown) {

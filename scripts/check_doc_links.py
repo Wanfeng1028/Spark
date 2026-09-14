@@ -9,10 +9,13 @@
 2. 【error】跨文档事实一致性：
    a) 事件词表计数：doc/02 §4.3 标题 == ARCHITECTURE 事件模型行 == AGENTS §2.8 == README 词表行
    a2) 事件词表计数副锚点：doc/02 §6.4 处理表标题 == doc/03 §4 对比表行
+   a3) 事件词表计数扩展锚点：apps/docs/index.md == apps/docs/faq.md == CONTRIBUTING.md == doc/02 §8.6
+   a4) 事件词表计数 web 测试行锚点：doc/02 §8.6 web 行 == apps/docs/index.md
    b) 参考速查表计数：doc/02 §9 标题 == AGENTS §5
 3. 【warn，--strict 升级为 error】反引号内仓库相对路径存在性：
    仅检查已知根前缀（packages/apps/doc/scripts/examples/.github/.agents 等），
    自动跳过外部参考项目的同名前缀路径（如 pi 的 packages/agent/**）与含占位符的路径。
+4. 【error】doc/02 版本记录表重复版本号检测（防止 v4.50 重号类漂移复发）
 
 用法：python scripts/check_doc_links.py [--root REPO_ROOT] [--strict]
 退出码：0 = 通过；1 = 存在 error（或 strict 下存在 warn）
@@ -100,6 +103,19 @@ FACT_RULES: dict[str, dict[str, str]] = {
         "doc/02-development-plan.md": r"\*\*applyEvent 处理表（(\d+) 种全覆盖）\*\*",
         "doc/03-frontend-approach.md": r"reducer 事件表单测\*\*（(\d+) 种事件逐一断言）",
     },
+    # 扩展锚点（工单 W9）：覆盖 apps/docs 文档站与 CONTRIBUTING 中的事件计数措辞，
+    # 以及 doc/02 §8.6 测试矩阵 protocol 行——此前四处均不在任何规则锚点上，默漂不报。
+    "事件词表计数（扩展锚点）": {
+        "apps/docs/index.md": r"(\d+) 种事件的词表",
+        "apps/docs/faq.md": r"处理 (\d+) 种事件的投影规则",
+        "CONTRIBUTING.md": r"(\d+) 种逐一单测",
+        "doc/02-development-plan.md": r"(\d+) 种事件样例逐一过",
+    },
+    # web 测试行锚点（工单 W9）：doc/02 §8.6 web 行的 "applyEvent N 种逐一断言" 交叉校验。
+    "事件词表计数（web 测试行锚点）": {
+        "doc/02-development-plan.md": r"\*\*applyEvent (\d+) 种逐一断言\*\*",
+        "apps/docs/index.md": r"(\d+) 种事件的字段表",
+    },
 }
 
 # 规划中尚未创建的合法路径（warn 豁免名单；落地后应从名单移除）
@@ -179,7 +195,36 @@ def check_facts(files: list[Path], root: Path, report: Report) -> None:
             report.warn(f"[{rule_name}] 锚点未命中（文件缺失或措辞变更）：{', '.join(missing)}")
 
 
-# ---------------------------------------------------------------- 检查 3：反引号路径
+# ---------------------------------------------------------------- 检查 3：版本表重号
+
+# doc/02 版本记录表行正则（提取版本号）
+VERSION_ROW_RE = re.compile(r"^\|\s*(v[\d.]+[a-z]?)\s*\|", re.MULTILINE)
+
+
+def check_version_duplicates(root: Path, report: Report) -> None:
+    """检测 doc/02-development-plan.md 版本记录表中的重复版本号。
+
+    允许带后缀消歧的版本号（如 v4.50a）与无后缀版本共存——只报告完全相同的版本号出现两次以上。
+    """
+    doc02 = root / "doc" / "02-development-plan.md"
+    if not doc02.exists():
+        return
+    text = doc02.read_text(encoding="utf-8")
+    seen: dict[str, list[int]] = {}  # version -> [line_numbers]
+    for match in VERSION_ROW_RE.finditer(text):
+        ver = match.group(1)
+        line = text[: match.start()].count("\n") + 1
+        seen.setdefault(ver, []).append(line)
+    for ver, lines in sorted(seen.items()):
+        if len(lines) > 1:
+            locs = ", ".join(f"L{n}" for n in lines)
+            report.error(
+                f"[版本表重号] doc/02-development-plan.md 版本号 {ver} 出现 {len(lines)} 次（{locs}）"
+            )
+
+
+# ---------------------------------------------------------------- 检查 4：反引号路径
+
 
 def check_backtick_paths(files: list[Path], root: Path, report: Report) -> None:
     for path in files:
@@ -227,6 +272,7 @@ def main() -> int:
     check_md_links(files, root, report)
     check_facts(files, root, report)
     check_backtick_paths(files, root, report)
+    check_version_duplicates(root, report)
 
     for w in report.warnings:
         print(f"[WARN] {w}")
