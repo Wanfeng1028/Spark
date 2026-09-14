@@ -13,8 +13,11 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/*.min.js',
       'examples/spike-pi-ai/**',
-      // official/ 是独立子项目（不在 pnpm workspace，有自己的 tsconfig 与依赖），
-      // 根 eslint 的 projectService 解析不到其类型——整目录排除
+      // official/ 产品官网：独立 Next.js 15 站（AGENTS v1.54 决策不入 pnpm workspace、无锁文件入库）。
+      // 根 CI 只装 workspace 依赖 → official/node_modules 不存在 → projectService 找到
+      // official/tsconfig.json 也解析不了 react/next 类型，no-unsafe-* 全量误报（CI 34865046856，
+      // 同 spike-pi-ai 判例）。质量门由 .github/workflows/official.yml 独立把守
+      // （install/typecheck/build 三步，--ignore-workspace 独立装依赖），两路 CI 互不牵连。
       'official/**',
       // 本地工具产物（Qoder better-harness 报告等，同 .trae-html-share-packages 判例）
       '.qoder/better-harness/**',

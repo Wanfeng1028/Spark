@@ -69,7 +69,12 @@
     "apps/web/src/components/layout/Titlebar.tsx",
     "apps/web/src/features/chat/UsageBar.tsx",
     "apps/cli/scripts/spike-ime-stdin.mts",
-    "examples/spike-pi-ai/**"
+    "examples/spike-pi-ai/**",
+    // official/ 产品官网（AGENTS v1.54：不入 pnpm workspace、无锁文件入库）：不属于任何子
+    // workspace 的文件会落入根项目域，页面/组件不被根入口引用 → unused files 全量误报；
+    // 质量门由 .github/workflows/official.yml 独立把守（install/typecheck/build）
+    // ——同 spike-pi-ai 排除判例（非死代码候选，仅排除于门禁）
+    "official/**"
   ],
 
   // 字符串/隐式引用，静态分析看不到：
