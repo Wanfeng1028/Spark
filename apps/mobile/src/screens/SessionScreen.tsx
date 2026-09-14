@@ -39,8 +39,10 @@ import { EmptyState, RoundFloatButton, ScreenHeader } from '../components/ui'
 import {
   ApprovalCard,
   AssistantBlock,
+  DiagnosticsCard,
   ReasoningCard,
   ToolCard,
+  TurnRow,
   UserBubble,
 } from '../components/session-items'
 import { Composer } from '../components/composer'
@@ -169,12 +171,19 @@ export function SessionScreen() {
         return <ToolCard item={it} />
       case 'approval':
         return <ApprovalCard item={it} busy={snap.approvalBusy} onReply={(r) => void handleReply(it.requestId, r)} />
-      case 'turn':
-        // 回合头暂无移动端形态（§13.J 未定义），穷尽分支渲染空
-        return null
+      case 'turn': {
+        // 回合头（W18）：活动回合才带步数/工具数（activeTurn 按 turnId 配对——
+        // 历史回合的 UiItem 无这些字段，不造数据）；时长随重渲染重算，不加 setInterval
+        const active = slice.activeTurn
+        const activeProps =
+          active !== null && active.turnId === it.turnId
+            ? { stepCount: active.stepCount, runningToolCount: active.runningTools.size }
+            : {}
+        return <TurnRow item={it} {...activeProps} />
+      }
       case 'diagnostics':
-        // LSP 诊断流（工单 16.9）：web 会话流已呈现；移动端形态留待 §13.J 扩展，穷尽分支渲染空
-        return null
+        // LSP 诊断折叠卡（W18）：折叠单行入口，点按展开逐条摘要
+        return <DiagnosticsCard item={it} />
     }
   }
 

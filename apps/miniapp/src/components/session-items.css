@@ -88,6 +88,12 @@
   overflow: hidden;
 }
 
+/* 回合头：单行紧凑裸文本行（W18——流结构标记非卡片，同 web TurnHeader 语义）；
+   LSP 诊断展开行复用 si-detail-text（W18） */
+.si-turn-row {
+  padding: 8rpx 0;
+}
+
 /* 审批卡：白卡 + warn 左边条 */
 .si-approval-card {
   display: flex;

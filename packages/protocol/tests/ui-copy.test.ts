@@ -9,11 +9,16 @@ import {
   COPY_TEXT,
   approvalResolvedText,
   dotColor,
+  severityOf,
   toolStatusText,
+  turnDurationText,
+  type SeverityTokens,
   type StatusDotTokens,
 } from '../src/ui-copy'
 
 const TOKENS: StatusDotTokens = { sparkAccent: '#accent', sparkWarn: '#warn', sparkOk: '#ok' }
+
+const SEV_TOKENS: SeverityTokens = { sparkWarn: '#warn', foreground: '#fg', mutedForeground: '#muted' }
 
 /** emoji 与装饰性图形记号区段（AGENTS §2.6 黑名单的机器可查面） */
 const DECORATIVE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u
@@ -64,6 +69,34 @@ describe('COPY_TEXT（复制按钮两态）', () => {
     expect(COPY_TEXT.copy).toBe('复制')
     expect(COPY_TEXT.copied).toBe('已复制')
     expect(COPY_TEXT.copied).not.toMatch(DECORATIVE)
+  })
+})
+
+describe('turnDurationText（回合头时长，W18）', () => {
+  it('中文口语形态：59 秒内直显秒，满 60 转分秒', () => {
+    expect(turnDurationText(0)).toBe('0 秒')
+    expect(turnDurationText(59_000)).toBe('59 秒')
+    expect(turnDurationText(60_000)).toBe('1 分 0 秒')
+    expect(turnDurationText(125_000)).toBe('2 分 5 秒')
+  })
+
+  it('毫秒向下取整（回合头不虚报）；负值不入函数（钳零是调用方职责，同 web/CLI 口径）', () => {
+    expect(turnDurationText(1_999)).toBe('1 秒')
+    expect(turnDurationText(61_999)).toBe('1 分 1 秒')
+  })
+})
+
+describe('severityOf（LSP 诊断严重度，W18）', () => {
+  it('LSP 四档穷尽映射：1=E warn / 2=W 前景 / 3、4=I meta 灰（web DiagnosticsRow 同口径）', () => {
+    expect(severityOf(1, SEV_TOKENS)).toEqual({ label: 'E', color: '#warn' })
+    expect(severityOf(2, SEV_TOKENS)).toEqual({ label: 'W', color: '#fg' })
+    expect(severityOf(3, SEV_TOKENS)).toEqual({ label: 'I', color: '#muted' })
+    expect(severityOf(4, SEV_TOKENS)).toEqual({ label: 'I', color: '#muted' })
+  })
+
+  it('只依赖三字段的结构化子集：各端完整 ThemeTokens 可直传', () => {
+    const full = { ...SEV_TOKENS, sparkAccent: '#accent', sparkOk: '#ok', sparkErr: '#err' }
+    expect(severityOf(1, full).color).toBe('#warn')
   })
 })
 

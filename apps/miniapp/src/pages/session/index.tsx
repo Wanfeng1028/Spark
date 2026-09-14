@@ -35,8 +35,10 @@ import { buildSessionRows } from '../../session/session-rows'
 import {
   ApprovalCard,
   AssistantBlock,
+  DiagnosticsCard,
   ReasoningCard,
   ToolCard,
+  TurnRow,
   UserBubble,
 } from '../../components/session-items'
 import { Composer } from '../../components/composer'
@@ -275,12 +277,27 @@ export default function SessionPage() {
                       />
                     </View>
                   )
-                case 'turn':
-                  // 回合头暂无小程序形态，穷尽分支渲染空（工单 10.4）
-                  return null
+                case 'turn': {
+                  // 回合头（W18）：活动回合才带步数/工具数（activeTurn 按 turnId 配对——
+                  // 历史回合的 UiItem 无这些字段，不造数据）；时长随重渲染重算，不加定时器
+                  const active = slice.activeTurn
+                  const activeProps =
+                    active !== null && active.turnId === it.turnId
+                      ? { stepCount: active.stepCount, runningToolCount: active.runningTools.size }
+                      : {}
+                  return (
+                    <View key={row.key} className="sp-row-gap">
+                      <TurnRow item={it} {...activeProps} />
+                    </View>
+                  )
+                }
                 case 'diagnostics':
-                  // LSP 诊断流（工单 16.9）：web 会话流已呈现；小程序形态留待扩展，穷尽分支渲染空
-                  return null
+                  // LSP 诊断折叠卡（W18）：折叠单行入口，点按展开逐条摘要
+                  return (
+                    <View key={row.key} className="sp-row-gap">
+                      <DiagnosticsCard item={it} />
+                    </View>
+                  )
               }
             })
           )}

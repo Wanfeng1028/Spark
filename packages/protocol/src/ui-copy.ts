@@ -3,7 +3,8 @@
  * 收敛各端复制且已漂移的展示层纯文案与纯映射——
  * 连接态文案（原四份：web StatusBar、web AppShell ReconnectBanner、mobile SessionScreen、miniapp session 页）、
  * 工具状态词与审批决策回显（mobile/miniapp session-items 逐字双份）、
- * 会话列表状态点取色（mobile/miniapp 逐字双份）、复制按钮两态文案（mobile/miniapp 已漂移）。
+ * 会话列表状态点取色（mobile/miniapp 逐字双份）、复制按钮两态文案（mobile/miniapp 已漂移）、
+ * 回合头时长口语形态与 LSP 诊断严重度字母/取色（W18 mobile/miniapp 首次落地即入单源，不等漂移再收）。
  * 纯常量与纯函数，无平台依赖，四端一律从 @spark/protocol 导入。
  *
  * 边界（刻意不入此表）：
@@ -51,6 +52,29 @@ export const COPY_TEXT = {
   copy: '复制',
   copied: '已复制',
 } as const
+
+/** 回合头时长（工单 10.4②；W18 mobile/miniapp 落地入单源）：中文口语形态「N 秒 / N 分 N 秒」——
+ *  与 web formatTurnDuration（apps/web/src/lib/time.ts）逐字同实现（web 侧改引本表记后续对账）；
+ *  cli 保持终端秒表口径（K.2 `${sec} 秒`）不强并。毫秒向下取整（回合头不虚报）。 */
+export function turnDurationText(ms: number): string {
+  const s = Math.floor(ms / 1000)
+  return s < 60 ? `${s} 秒` : `${Math.floor(s / 60)} 分 ${s % 60} 秒`
+}
+
+/** 严重度取色所需的最小 token 面（同 StatusDotTokens 手法：结构化子集，各端完整 ThemeTokens 可直传） */
+export interface SeverityTokens {
+  sparkWarn: string
+  foreground: string
+  mutedForeground: string
+}
+
+/** LSP 诊断严重度字母与取色（工单 16.9 / W18）：1=E warn 琥珀 / 2=W 前景 / 3、4=I meta 灰——
+ *  web DiagnosticsRow severityText 同口径；字母与颜色同一映射返回，两端渲染层不再各自维护 */
+export function severityOf(severity: number, t: SeverityTokens): { label: string; color: string } {
+  if (severity === 1) return { label: 'E', color: t.sparkWarn }
+  if (severity === 2) return { label: 'W', color: t.foreground }
+  return { label: 'I', color: t.mutedForeground }
+}
 
 /** 状态点取色所需的最小 token 面（各端 ThemeTokens 均含此三字段——结构化子集，protocol 不依赖端主题类型） */
 export interface StatusDotTokens {

@@ -3,13 +3,21 @@
  * DESIGN §13.J.2.3 形态；RN 组件在小程序不可用，全部以 Taro 组件自绘）。
  * user 右对齐浅灰胶囊 / assistant 全宽纯文本+操作行（复制+"内容由 AI 生成"）/
  * 工具卡单行折叠 / 思考块折叠（流式自动展开，手动优先）/
- * 审批卡白卡+warn 左边条+三键纵向全宽（J.3）。
+ * 审批卡白卡+warn 左边条+三键纵向全宽（J.3）；
+ * 回合头单行裸文本与 LSP 诊断折叠卡（工单 W18，语义对齐 mobile）。
  * 反 AI 味（§13.I）：系统字体、单档阴影、禁渐变/emoji。
  */
 import { useState } from 'react'
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { COPY_TEXT, approvalResolvedText, toolStatusText, type UiItem } from '@spark/protocol'
+import {
+  COPY_TEXT,
+  approvalResolvedText,
+  severityOf,
+  toolStatusText,
+  turnDurationText,
+  type UiItem,
+} from '@spark/protocol'
 import { useTheme } from '../store/theme-store'
 import { Card, Hairline } from './ui'
 import './session-items.css'
@@ -83,6 +91,41 @@ export function AssistantBlock({
   )
 }
 
+/** 回合头（工单 W18，§13.J.2.3）：单行紧凑裸文本行——非卡片（回合头是流结构标记不是
+ *  内容块，web TurnHeader / CLI TurnLine 同语义）。进行中=`工作中 · N 秒 · 第 M 步 · K 工具`
+ *  （步数/工具数仅活动回合可得——activeTurn 按 turnId 配对，历史回合不造数据）；完成=
+ *  `已工作 N 秒`（信封时间差定格）。计时不加定时器——随 setData 批处理重渲染重算
+ *  （流式 delta 即驱动），静态期显示值可滞后。 */
+export function TurnRow({
+  item,
+  stepCount,
+  runningToolCount,
+}: {
+  item: Extract<UiItem, { kind: 'turn' }>
+  /** 活动回合步数（slice.activeTurn.stepCount——仅运行中 turn 的行传入） */
+  stepCount?: number
+  /** 活动回合运行中工具数（slice.activeTurn.runningTools.size） */
+  runningToolCount?: number
+}) {
+  const t = useTheme()
+  const running = item.finishedAt === undefined
+  const ms = Math.max(0, (item.finishedAt ?? Date.now()) - item.startedAt)
+  const parts: string[] = [
+    running ? `工作中 · ${turnDurationText(ms)}` : `已工作 ${turnDurationText(ms)}`,
+  ]
+  if (running && stepCount !== undefined) parts.push(`第 ${stepCount} 步`)
+  if (running && runningToolCount !== undefined && runningToolCount > 0) {
+    parts.push(`${runningToolCount} 工具`)
+  }
+  return (
+    <View className="si-turn-row">
+      <Text className="si-meta" style={{ color: running ? t.sparkAccent : t.mutedForeground }}>
+        {parts.join(' · ')}
+      </Text>
+    </View>
+  )
+}
+
 /** 思考块折叠（§13.H 迁移：流式中自动展开，结束后收起；手动操作优先） */
 export function ReasoningCard({ item }: { item: Extract<UiItem, { kind: 'reasoning' }> }) {
   const t = useTheme()
@@ -151,6 +194,57 @@ export function ToolCard({ item }: { item: Extract<UiItem, { kind: 'tool' }> }) 
           {detail}
         </Text>
       )}
+    </Card>
+  )
+}
+
+/** LSP 诊断卡（工单 16.9 小程序形态/W18，§13.J.2.3）：折叠白卡单行入口（同工具卡交互）——
+ *  点按展开逐条摘要（[E/W/I] 行:列 消息，位置 1-based，severity 取色 protocol severityOf
+ *  单源）。空数组=诊断清零（publish 清除语义），如实显示且无展开；默认折叠（到达即定稿）。 */
+export function DiagnosticsCard({ item }: { item: Extract<UiItem, { kind: 'diagnostics' }> }) {
+  const t = useTheme()
+  const [expanded, setExpanded] = useState(false)
+  const file = item.uri.startsWith('file:') ? item.uri.slice('file:'.length) : item.uri
+  const errors = item.diagnostics.filter((d) => d.severity === 1).length
+  const warnings = item.diagnostics.filter((d) => d.severity === 2).length
+  const cleared = item.diagnostics.length === 0
+  const meta = cleared ? '诊断已清零' : `E ${errors} / W ${warnings}`
+  return (
+    <Card className="si-tight-card">
+      <View
+        className="si-card-header"
+        aria-label={`LSP 诊断 ${item.language}，${meta}${cleared ? '' : `，${expanded ? '收起' : '展开'}`}`}
+        onClick={() => {
+          if (!cleared) setExpanded(!expanded)
+        }}
+      >
+        <Text className="si-card-title si-ellipsis" style={{ color: t.mutedForeground }}>
+          {`LSP ${item.language} · ${file === '' ? '未知文件' : file}`}
+        </Text>
+        <Text className="si-meta" style={{ color: t.mutedForeground }}>
+          {meta}
+        </Text>
+        {!cleared && (
+          <Text className="si-chevron" style={{ color: t.mutedForeground }}>
+            {expanded ? '∧' : '∨'}
+          </Text>
+        )}
+      </View>
+      {expanded &&
+        !cleared &&
+        item.diagnostics.map((d, i) => {
+          const sev = severityOf(d.severity, t)
+          return (
+            <Text key={i} className="si-detail-text" style={{ color: t.foreground }}>
+              {/* 空格内联进字面量尾——空白独立文本节点在部分小程序基础库会被裁剪 */}
+              <Text style={{ color: sev.color }}>{`[${sev.label}] `}</Text>
+              <Text style={{ color: t.mutedForeground }}>
+                {`${d.range.start.line + 1}:${d.range.start.character + 1} `}
+              </Text>
+              {d.message}
+            </Text>
+          )
+        })}
     </Card>
   )
 }

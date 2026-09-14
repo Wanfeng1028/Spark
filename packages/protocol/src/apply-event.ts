@@ -3,6 +3,11 @@
  * 事件信封 → 会话投影（UiItem 序列与切片状态）的唯一纯函数，27 种词表逐一处理；
  * web（zustand 包装）与 cli（Ink 渲染）共用同一实现——词表穷尽性由 web 侧单测逐条把关。
  * 去重规则（回放×直播重叠）：durable（有 seq）且 seq <= lastSeq → 跳过；live（无 seq）无条件应用。
+ *
+ * 工单 W13（items 查找索引化）：items 只在尾部追加或同下标原位替换（下标恒稳定），
+ * 每 items 数组引用配套一份查找索引（callId/requestId/turn 流式项），高频
+ * tool.progress / assistant.delta / reasoning.delta 等的 O(n) 扫描降为 O(1)；
+ * 索引经模块级 WeakMap（以数组引用为键）旁路缓存——纯函数契约与公共类型零变化。
  */
 import type { SparkEventEnvelope, SparkEventMap } from './events.js'
 import type { Usage, ContentItem, TurnFinish, ReasoningEffort, SessionMode } from './primitives.js'
@@ -248,11 +253,6 @@ function findOpenAssistant(items: UiItem[], turnId: TurnId): number {
   return -1
 }
 
-/** 该 turn 是否已有同类项（无论闭合与否）——迟到 delta 判定用（工单 10.13） */
-function hasKindOfTurn(items: UiItem[], turnId: TurnId, kind: 'reasoning' | 'assistant'): boolean {
-  return items.some((it) => it.kind === kind && it.turnId === turnId)
-}
-
 /**
  * 工单 10.13 失败闭合清扫：turn 结束时仍有未闭合流式项（aborted/error 路径无对应定稿
  * 事件）→ 就地定稿——剥离 streaming 态（计时器停止）、已交付内容保留为真值。
@@ -278,12 +278,179 @@ function closeStreamingOfTurn(items: UiItem[], turnId: TurnId, at: number): UiIt
   return changed ? out : null
 }
 
+// ---------- 工单 W13：items 查找索引（线性扫描 O(n) → O(1)） ----------
+
+/** 每 turn 的流式项位置与同类项存在性（findOpen* / 迟到 delta 拦截的索引化数据源） */
+interface TurnStreaming {
+  /** 未闭合 reasoning 项下标（streaming === true；reducer 新建条件保证每 turn 至多一个） */
+  reasoningOpen?: number | undefined
+  /** 未闭合 assistant 项下标（streaming !== undefined；每 turn 至多一个） */
+  assistantOpen?: number | undefined
+  /** 该 turn 曾有过 reasoning 项（无论闭合与否）——迟到 delta 判定用（工单 10.13） */
+  reasoningSeen: boolean
+  /** 该 turn 曾有过 assistant 项 */
+  assistantSeen: boolean
+}
+
+/** items 查找索引：与一个 items 数组引用一一配套（不可变纪律下引用不变 ⟹ 内容不变） */
+interface ItemIndex {
+  /** callId → 首个该 callId 的 tool 项下标（findIndex「取第一个」语义） */
+  readonly callId: ReadonlyMap<CallId, number>
+  /** requestId → 首个该 requestId 的 approval 项下标 */
+  readonly requestId: ReadonlyMap<RequestId, number>
+  /** turnId → 流式项/同类项存在性 */
+  readonly turns: ReadonlyMap<TurnId, TurnStreaming>
+}
+
+/** turn 条目读取兜底（无条目 = 该 turn 尚无流式/同类项——新建时以空底座起步） */
+function turnEntryOf(idx: ItemIndex, turnId: TurnId): TurnStreaming {
+  return (
+    idx.turns.get(turnId) ?? {
+      reasoningOpen: undefined,
+      assistantOpen: undefined,
+      reasoningSeen: false,
+      assistantSeen: false,
+    }
+  )
+}
+
+/** copy-on-write 维护：只在产生/清除键时拷贝对应 Map——旧索引对象永不被动改
+ *  （同一 state 分叉两次演进互不污染；共享仅发生在不产生键的事件，追加项不进索引，天然安全） */
+function withToolCall(idx: ItemIndex, callId: CallId, i: number): ItemIndex {
+  if (idx.callId.has(callId)) return idx // 首见语义——重复 callId 保持指向第一个（findIndex 语义）
+  const callId2 = new Map(idx.callId)
+  callId2.set(callId, i)
+  return { ...idx, callId: callId2 }
+}
+
+function withApproval(idx: ItemIndex, requestId: RequestId, i: number): ItemIndex {
+  if (idx.requestId.has(requestId)) return idx
+  const requestId2 = new Map(idx.requestId)
+  requestId2.set(requestId, i)
+  return { ...idx, requestId: requestId2 }
+}
+
+function withTurn(idx: ItemIndex, turnId: TurnId, t: TurnStreaming): ItemIndex {
+  const turns2 = new Map(idx.turns)
+  turns2.set(turnId, t)
+  return { ...idx, turns: turns2 }
+}
+
+/**
+ * 缓存 miss 兜底：从 items 全量重建（外部手工构造 state / resetSlice 后的新数组引用）。
+ * 语义与线性查找逐条对齐——callId/requestId 取首见；open 取最后一个（findOpen*
+ * 反向「最近」语义）。
+ */
+function buildItemIndex(items: readonly UiItem[]): ItemIndex {
+  const callId = new Map<CallId, number>()
+  const requestId = new Map<RequestId, number>()
+  const turns = new Map<TurnId, TurnStreaming>()
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i]
+    if (it === undefined) continue
+    if (it.kind === 'tool') {
+      if (!callId.has(it.callId)) callId.set(it.callId, i)
+    } else if (it.kind === 'approval') {
+      if (!requestId.has(it.requestId)) requestId.set(it.requestId, i)
+    } else if (it.kind === 'reasoning' || it.kind === 'assistant') {
+      if (it.turnId === undefined) continue
+      const t = turns.get(it.turnId) ?? {
+        reasoningOpen: undefined,
+        assistantOpen: undefined,
+        reasoningSeen: false,
+        assistantSeen: false,
+      }
+      if (it.kind === 'reasoning') {
+        t.reasoningSeen = true
+        if (it.streaming === true) t.reasoningOpen = i // 正向覆盖 → 最终留最后一个（= 反向首见）
+      } else {
+        t.assistantSeen = true
+        if (it.streaming !== undefined) t.assistantOpen = i
+      }
+      turns.set(it.turnId, t)
+    }
+  }
+  return { callId, requestId, turns }
+}
+
+/** 索引查询（带谓词校验 + 线性回退）：索引失配/漏记时退回原 findIndex 行为——
+ *  任何索引缺陷最坏退化为性能问题，不改变投影结果 */
+function toolIndexOf(items: UiItem[], idx: ItemIndex, callId: CallId): number {
+  const i = idx.callId.get(callId)
+  if (i !== undefined) {
+    const it = items[i]
+    if (it !== undefined && it.kind === 'tool' && it.callId === callId) return i
+  }
+  return items.findIndex((it) => it.kind === 'tool' && it.callId === callId)
+}
+
+function approvalIndexOf(items: UiItem[], idx: ItemIndex, requestId: RequestId): number {
+  const i = idx.requestId.get(requestId)
+  if (i !== undefined) {
+    const it = items[i]
+    if (it !== undefined && it.kind === 'approval' && it.requestId === requestId) return i
+  }
+  return items.findIndex((it) => it.kind === 'approval' && it.requestId === requestId)
+}
+
+function openAssistantIndexOf(items: UiItem[], idx: ItemIndex, turnId: TurnId): number {
+  const i = idx.turns.get(turnId)?.assistantOpen
+  if (i !== undefined) {
+    const it = items[i]
+    if (
+      it !== undefined &&
+      it.kind === 'assistant' &&
+      it.streaming !== undefined &&
+      it.turnId === turnId
+    ) {
+      return i
+    }
+  }
+  return findOpenAssistant(items, turnId)
+}
+
+function openReasoningIndexOf(items: UiItem[], idx: ItemIndex, turnId: TurnId): number {
+  const i = idx.turns.get(turnId)?.reasoningOpen
+  if (i !== undefined) {
+    const it = items[i]
+    if (it !== undefined && it.kind === 'reasoning' && it.streaming === true && it.turnId === turnId) {
+      return i
+    }
+  }
+  return findOpenReasoning(items, turnId)
+}
+
+/** 索引盒：reduceEvent 内各分支可替换 idx（copy-on-write），外壳出口读最终值挂载 */
+interface IndexBox {
+  idx: ItemIndex
+}
+
+/**
+ * 索引缓存（WeakMap 旁路）：key = items 数组引用。applyEvent 为纯函数、slice 每次由
+ * 外部传入——索引不放 slice（公共类型扩大 + 声明发射需导出内部类型）也不放可变单例
+ * （破坏分叉安全），以数组引用为键的 memoization 两全：不可变纪律下引用不变 ⟹
+ * 内容不变，缓存命中不改变输出；条目随数组引用被 GC 自动回收。
+ */
+const itemIndexCache = new WeakMap<UiItem[], ItemIndex>()
+
 export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): ProjectionState {
   const existing = s.byId[e.sessionId]
-  // 去重入口（§6.4）：durable 且 seq <= lastSeq → 跳过（回放×直播重叠吸附）
+  // 去重入口（§6.4）：durable 且 seq <= lastSeq → 跳过（回放×直播重叠吸附）。
+  // 前置到外壳：短路发生在索引获取之前，去重命中路径零索引开销。
   if (existing !== undefined && e.seq !== undefined && e.seq <= existing.lastSeq) return s
+  const curItems = existing?.items ?? []
+  const idxBox: IndexBox = { idx: itemIndexCache.get(curItems) ?? buildItemIndex(curItems) }
+  const result = reduceEvent(s, e, idxBox)
+  // 挂载：本事件改写了 items（新引用）则登记维护后的索引；引用未变时为幂等刷新。
+  // 挂载点收敛在外壳出口一处——分支内只更新 idxBox.idx，不直接碰缓存。
+  const out = result.byId[e.sessionId]
+  if (out !== undefined) itemIndexCache.set(out.items, idxBox.idx)
+  return result
+}
 
-  const slice = existing ?? emptySessionSlice(e.sessionId)
+/** 原实现主体（外壳拆出：签名仅增索引盒参数，内部各分支查询/维护索引） */
+function reduceEvent(s: ProjectionState, e: SparkEventEnvelope, idxBox: IndexBox): ProjectionState {
+  const slice = s.byId[e.sessionId] ?? emptySessionSlice(e.sessionId)
   const next: SessionSlice = { ...slice, meta: { ...slice.meta } }
   if (e.seq !== undefined) next.lastSeq = Math.max(slice.lastSeq, e.seq)
   if (e.time > next.meta.updatedAt) next.meta.updatedAt = e.time
@@ -399,9 +566,21 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
       }
     }
     // 工单 10.13 失败闭合：turn 结束仍敞口的流式项（aborted/error 无对应定稿事件）
-    // 就地闭合——未闭合 reasoning 计时器必停（实测假"578 秒"），已交付前缀不丢
-    const swept = closeStreamingOfTurn(next.items, e.data.turnId, e.time)
-    if (swept !== null) next.items = swept
+    // 就地闭合——未闭合 reasoning 计时器必停（实测假"578 秒"），已交付前缀不丢。
+    // 工单 W13：索引判定有无敞口，无敞口跳过全量 map（closeStreamingOfTurn 无匹配时
+    // 本就返回 null 不改引用——语义等价，长会话高频 turn 边界省 O(n)）
+    const rOpen = openReasoningIndexOf(next.items, idxBox.idx, e.data.turnId)
+    const aOpen = openAssistantIndexOf(next.items, idxBox.idx, e.data.turnId)
+    if (rOpen >= 0 || aOpen >= 0) {
+      const swept = closeStreamingOfTurn(next.items, e.data.turnId, e.time)
+      if (swept !== null) next.items = swept
+      // 敞口已闭合（seen 保留——该 turn 的迟到 delta 拦截判定仍需要）
+      idxBox.idx = withTurn(idxBox.idx, e.data.turnId, {
+        ...turnEntryOf(idxBox.idx, e.data.turnId),
+        reasoningOpen: undefined,
+        assistantOpen: undefined,
+      })
+    }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
@@ -419,7 +598,8 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
 
   if (ofType(e, 'assistant.delta')) {
     // 工单 10.13：追加到本 turn 未闭合的流式项（位置判断改 turnId 配对）
-    const oi = findOpenAssistant(next.items, e.data.turnId)
+    // 工单 W13：open 查询走索引（高频路径 O(1)；失配回退线性扫）
+    const oi = openAssistantIndexOf(next.items, idxBox.idx, e.data.turnId)
     if (oi >= 0) {
       const cur = next.items[oi]
       if (cur !== undefined && cur.kind === 'assistant') {
@@ -427,8 +607,9 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
         const arr = [...next.items]
         arr[oi] = { ...cur, streaming: { textBuf: streaming.textBuf + e.data.text } }
         next.items = arr
+        // 流式态不变（仍敞口）——索引零维护
       }
-    } else if (hasKindOfTurn(next.items, e.data.turnId, 'assistant')) {
+    } else if (idxBox.idx.turns.get(e.data.turnId)?.assistantSeen === true) {
       // 迟到 delta（定稿后到达）：本 turn 已有 assistant 项——定稿携带全文，
       // delta 仅流式预览，不新建项防双份（工单 10.13）；多步 turn 后续 step 的
       // 首帧同被拦截，由其定稿事件照常成项（宁不流式也不双份，不丢持久内容）
@@ -445,6 +626,12 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
           turnId: e.data.turnId,
         },
       ]
+      // 新建敞口项：登记 open + seen（W13）
+      idxBox.idx = withTurn(idxBox.idx, e.data.turnId, {
+        ...turnEntryOf(idxBox.idx, e.data.turnId),
+        assistantOpen: next.items.length - 1,
+        assistantSeen: true,
+      })
     }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
@@ -453,7 +640,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
     // 定稿：按 turnId 反查未闭合流式项并吸附（工单 10.13——真实发射序下定稿后置，
     // lastItem 位置判断失效）；未命中才新建（失败闭合兜底——纯回放无 delta 也成单项，不静默丢弃）
     items = [...items]
-    const oi = findOpenAssistant(items, e.data.turnId)
+    const oi = openAssistantIndexOf(items, idxBox.idx, e.data.turnId)
     if (oi >= 0) {
       const cur = items[oi]
       if (cur !== undefined && cur.kind === 'assistant') {
@@ -462,6 +649,11 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
         void finalized
         items[oi] = { ...rest, content: e.data.content }
       }
+      // 定稿闭合（W13）：清 open；seen 保留（迟到 delta 拦截仍需判定"曾有过"）
+      idxBox.idx = withTurn(idxBox.idx, e.data.turnId, {
+        ...turnEntryOf(idxBox.idx, e.data.turnId),
+        assistantOpen: undefined,
+      })
     } else {
       items.push({
         kind: 'assistant',
@@ -469,6 +661,10 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
         content: e.data.content,
         time: e.time,
         turnId: e.data.turnId,
+      })
+      idxBox.idx = withTurn(idxBox.idx, e.data.turnId, {
+        ...turnEntryOf(idxBox.idx, e.data.turnId),
+        assistantSeen: true,
       })
     }
     for (const c of e.data.content) {
@@ -483,6 +679,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
           progressBuf: '',
           startedAt: e.time,
         })
+        idxBox.idx = withToolCall(idxBox.idx, c.callId, items.length - 1)
       }
     }
     next.items = items
@@ -495,15 +692,17 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
 
   if (ofType(e, 'reasoning.delta')) {
     // 工单 10.13：追加到本 turn 未闭合的流式项（位置判断改 turnId 配对）
-    const oi = findOpenReasoning(next.items, e.data.turnId)
+    // 工单 W13：open 查询走索引（高频路径 O(1)；失配回退线性扫）
+    const oi = openReasoningIndexOf(next.items, idxBox.idx, e.data.turnId)
     if (oi >= 0) {
       const cur = next.items[oi]
       if (cur !== undefined && cur.kind === 'reasoning') {
         const arr = [...next.items]
         arr[oi] = { ...cur, text: cur.text + e.data.text, streaming: true }
         next.items = arr
+        // 流式态不变（仍敞口）——索引零维护
       }
-    } else if (hasKindOfTurn(next.items, e.data.turnId, 'reasoning')) {
+    } else if (idxBox.idx.turns.get(e.data.turnId)?.reasoningSeen === true) {
       // 迟到 delta（reasoning.ended 已定稿后到达）：ended 携带全文，
       // delta 仅流式预览——不新建项防双份与"假计时"（工单 10.13）
       return s
@@ -519,6 +718,12 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
           turnId: e.data.turnId,
         },
       ]
+      // 新建敞口项：登记 open + seen（W13）
+      idxBox.idx = withTurn(idxBox.idx, e.data.turnId, {
+        ...turnEntryOf(idxBox.idx, e.data.turnId),
+        reasoningOpen: next.items.length - 1,
+        reasoningSeen: true,
+      })
     }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
@@ -528,7 +733,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
     // 到达时末项往往是 assistant 流式项，位置判断失效）；未命中才新建定稿项
     // （失败闭合兜底——纯回放无 delta 也成单项，不静默丢弃）
     items = [...items]
-    const oi = findOpenReasoning(items, e.data.turnId)
+    const oi = openReasoningIndexOf(items, idxBox.idx, e.data.turnId)
     if (oi >= 0) {
       const cur = items[oi]
       if (cur !== undefined && cur.kind === 'reasoning') {
@@ -536,6 +741,11 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
         items[oi] =
           cur.startedAt !== undefined ? { ...base, durationMs: e.time - cur.startedAt } : base
       }
+      // 定稿闭合（W13）：清 open；seen 保留
+      idxBox.idx = withTurn(idxBox.idx, e.data.turnId, {
+        ...turnEntryOf(idxBox.idx, e.data.turnId),
+        reasoningOpen: undefined,
+      })
     } else {
       items.push({
         kind: 'reasoning',
@@ -544,6 +754,10 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
         streaming: false,
         turnId: e.data.turnId,
       })
+      idxBox.idx = withTurn(idxBox.idx, e.data.turnId, {
+        ...turnEntryOf(idxBox.idx, e.data.turnId),
+        reasoningSeen: true,
+      })
     }
     next.items = items
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
@@ -551,7 +765,8 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
 
   if (ofType(e, 'tool.started')) {
     // assistant.message 的 toolCall 展开可能已 push 同 callId 的 tool running——不重复建
-    const i = items.findIndex((it) => it.kind === 'tool' && it.callId === e.data.callId)
+    // （W13：callId 查询走索引；失配回退线性扫）
+    const i = toolIndexOf(items, idxBox.idx, e.data.callId)
     items = [...items]
     if (i === -1) {
       items.push({
@@ -564,6 +779,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
         progressBuf: '',
         startedAt: e.time,
       })
+      idxBox.idx = withToolCall(idxBox.idx, e.data.callId, items.length - 1)
     }
     if (next.activeTurn !== null) {
       const running = new Set(next.activeTurn.runningTools)
@@ -575,7 +791,8 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
   }
 
   if (ofType(e, 'tool.progress')) {
-    const i = items.findIndex((it) => it.kind === 'tool' && it.callId === e.data.callId)
+    // W13：高频路径——索引 O(1) 命中后原位替换，索引零维护（callId 不变）
+    const i = toolIndexOf(items, idxBox.idx, e.data.callId)
     if (i >= 0) {
       const cur = items[i]
       if (cur !== undefined && cur.kind === 'tool') {
@@ -588,7 +805,7 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
   }
 
   if (ofType(e, 'tool.completed')) {
-    const i = items.findIndex((it) => it.kind === 'tool' && it.callId === e.data.callId)
+    const i = toolIndexOf(items, idxBox.idx, e.data.callId)
     if (i >= 0) {
       const cur = items[i]
       if (cur !== undefined && cur.kind === 'tool') {
@@ -629,13 +846,15 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
         status: 'pending',
       },
     ]
+    idxBox.idx = withApproval(idxBox.idx, e.data.requestId, items.length - 1)
     next.items = items
     if (next.activeTurn !== null) next.activeTurn = { ...next.activeTurn, waiting: true }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
   if (ofType(e, 'permission.resolved')) {
-    const i = items.findIndex((it) => it.kind === 'approval' && it.requestId === e.data.requestId)
+    // W13：requestId 查询走索引；失配回退线性扫
+    const i = approvalIndexOf(items, idxBox.idx, e.data.requestId)
     if (i >= 0) {
       const cur = items[i]
       if (cur !== undefined && cur.kind === 'approval') {
@@ -651,7 +870,8 @@ export function applyEvent(s: ProjectionState, e: SparkEventEnvelope): Projectio
 
   if (ofType(e, 'io.warning')) {
     // 工单 7.2：护栏告警挂对应 tool 项（不阻断 turn——reducer 只记录，不改状态机）
-    const i = items.findIndex((it) => it.kind === 'tool' && it.callId === e.data.callId)
+    // W13：callId 查询走索引；失配回退线性扫
+    const i = toolIndexOf(items, idxBox.idx, e.data.callId)
     if (i >= 0) {
       const cur = items[i]
       if (cur !== undefined && cur.kind === 'tool') {

@@ -975,3 +975,166 @@ describe('lsp.diagnostics（工单 16.9）', () => {
     expect(s3).toBe(s2)
   })
 })
+
+describe('工单 W13：items 查找索引化（O(1) 化回归）', () => {
+  it('外部构造 state（缓存 miss → 索引重建兜底）：流式配对/tool/审批查找行为一致', () => {
+    // 链式构造到：open reasoning + open assistant + running tool + pending approval
+    let s = seeded()
+    s = applyEvent(
+      s,
+      ev('turn.started', { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_w13u001') }, { seq: 2 }),
+    )
+    const CALL = ids.call('cal_w13x0001')
+    const REQ = ids.request('req_w13x0001')
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '想' }))
+    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: '答' }))
+    s = applyEvent(
+      s,
+      ev('tool.started', { turnId: TURN, callId: CALL, name: 'bash', input: { cmd: 'ls' } }, { seq: 3 }),
+    )
+    s = applyEvent(
+      s,
+      ev(
+        'permission.asked',
+        { requestId: REQ, callId: CALL, action: 'write', resource: '/a', reason: '编辑' },
+        { seq: 4 },
+      ),
+    )
+    // 外部构造：换新 items 数组引用（= 索引缓存 miss，触发 buildItemIndex 全量重建兜底）
+    const slice = s.byId[SID]
+    if (slice === undefined) throw new Error('unreachable')
+    const manual: ProjectionState = {
+      byId: { [SID]: { ...slice, items: [...slice.items], meta: { ...slice.meta } } },
+      activeId: SID,
+    }
+    // 后续事件全部按原语义配对（重建索引正确性）
+    let m = applyEvent(manual, ev('reasoning.delta', { turnId: TURN, text: '——继续' }))
+    m = applyEvent(m, ev('assistant.delta', { turnId: TURN, text: '——继续' }))
+    m = applyEvent(m, ev('tool.progress', { turnId: TURN, callId: CALL, chunk: 'wip' }))
+    m = applyEvent(m, ev('permission.resolved', { requestId: REQ, reply: 'once' }, { seq: 5 }))
+    m = applyEvent(m, ev('reasoning.ended', { turnId: TURN, text: '想——继续' }, { seq: 6 }))
+    m = applyEvent(
+      m,
+      ev('assistant.message', { turnId: TURN, content: [{ type: 'text', text: '答——继续' }] }, { seq: 7 }),
+    )
+    const items = m.byId[SID]?.items ?? []
+    // 流式配对：reasoning/assistant 各恰 1 条且已定稿（重建索引正确吸附）
+    const reasonings = items.filter((i) => i.kind === 'reasoning')
+    const assistants = items.filter((i) => i.kind === 'assistant')
+    expect(reasonings).toHaveLength(1)
+    expect(assistants).toHaveLength(1)
+    if (reasonings[0] !== undefined && reasonings[0].kind === 'reasoning') {
+      expect(reasonings[0].text).toBe('想——继续')
+      expect(reasonings[0].streaming).toBe(false)
+    }
+    if (assistants[0] !== undefined && assistants[0].kind === 'assistant') {
+      expect(assistants[0].streaming).toBeUndefined()
+      expect(assistants[0].content).toEqual([{ type: 'text', text: '答——继续' }])
+    }
+    // tool/审批：索引重建后命中原项（progressBuf 追加、状态机推进）
+    const tool = items.find((i) => i.kind === 'tool' && i.callId === CALL)
+    expect(tool).toMatchObject({ kind: 'tool', progressBuf: 'wip', status: 'running' })
+    expect(items.find((i) => i.kind === 'approval' && i.requestId === REQ)).toMatchObject({
+      status: 'resolved',
+      reply: 'once',
+    })
+  })
+
+  it('分叉安全：同一 state 出发的多次独立演进互不污染索引（copy-on-write）', () => {
+    // 造到 turn 内 open assistant（索引登记 assistantOpen）
+    let s = seeded()
+    s = applyEvent(
+      s,
+      ev('turn.started', { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_w13u002') }, { seq: 2 }),
+    )
+    s = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: '开' }))
+    const C2 = ids.call('cal_w13x0002')
+    // 分叉 1：定稿 + 展开 toolCall（清 open、callId 登记——两条索引写）
+    const s2 = applyEvent(
+      s,
+      ev(
+        'assistant.message',
+        { turnId: TURN, content: [{ type: 'toolCall', callId: C2, name: 'read', input: { path: '/a' } }] },
+        { seq: 3 },
+      ),
+    )
+    const s2Items = s2.byId[SID]?.items ?? []
+    const s2Assistants = s2Items.filter((i) => i.kind === 'assistant')
+    expect(s2Assistants).toHaveLength(1)
+    if (s2Assistants[0] !== undefined && s2Assistants[0].kind === 'assistant') {
+      expect(s2Assistants[0].streaming).toBeUndefined()
+      expect(s2Assistants[0].content).toEqual([
+        { type: 'toolCall', callId: C2, name: 'read', input: { path: '/a' } },
+      ])
+    }
+    expect(s2Items.filter((i) => i.kind === 'tool')).toHaveLength(1)
+    // 分叉 2：从同一 s 出发追加 delta——旧索引未被分叉 1 污染（open 仍指向流式项）
+    const s3 = applyEvent(s, ev('assistant.delta', { turnId: TURN, text: '流' }))
+    const s3Assistant = (s3.byId[SID]?.items ?? []).find((i) => i.kind === 'assistant')
+    expect(s3Assistant).toMatchObject({ kind: 'assistant', streaming: { textBuf: '开流' } })
+    // 分叉 3：从同一 s 出发 tool.started C2——s 的 items 无 C2 项，正常新建不被拦截
+    const s4 = applyEvent(
+      s,
+      ev('tool.started', { turnId: TURN, callId: C2, name: 'read', input: { path: '/a' } }, { seq: 4 }),
+    )
+    expect((s4.byId[SID]?.items ?? []).filter((i) => i.kind === 'tool')).toHaveLength(1)
+  })
+
+  it('多 turn 索引累积：跨 turn 的 callId/流式配对互不串扰，迟到 delta 拦截仍生效', () => {
+    const C1 = ids.call('cal_w13a0001')
+    const C2 = ids.call('cal_w13b0002')
+    let s = seeded()
+    // turn 1：reasoning/tool C1 完整闭环
+    s = applyEvent(
+      s,
+      ev('turn.started', { turnId: TURN, delivery: 'now', userEventId: ids.event('evt_w13u003') }, { seq: 2 }),
+    )
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: 't1' }))
+    s = applyEvent(s, ev('reasoning.ended', { turnId: TURN, text: 't1 全文' }, { seq: 3 }))
+    s = applyEvent(s, ev('tool.started', { turnId: TURN, callId: C1, name: 'a', input: {} }, { seq: 4 }))
+    s = applyEvent(
+      s,
+      ev('tool.completed', { turnId: TURN, callId: C1, output: 'ok', isError: false, durationMs: 1 }, { seq: 5 }),
+    )
+    s = applyEvent(s, ev('turn.completed', { turnId: TURN, finish: 'stop' }, { seq: 6 }))
+    // turn 2：新流式项 + 新 tool
+    const T2 = ids.turn('trn_w13t0002')
+    s = applyEvent(
+      s,
+      ev('turn.started', { turnId: T2, delivery: 'now', userEventId: ids.event('evt_w13u004') }, { seq: 7 }),
+    )
+    s = applyEvent(s, ev('assistant.delta', { turnId: T2, text: '二' }))
+    s = applyEvent(s, ev('tool.started', { turnId: T2, callId: C2, name: 'b', input: {} }, { seq: 8 }))
+    s = applyEvent(s, ev('tool.progress', { turnId: T2, callId: C2, chunk: 'w2' }))
+    s = applyEvent(
+      s,
+      ev('tool.completed', { turnId: T2, callId: C2, output: 'ok2', isError: false, durationMs: 2 }, { seq: 9 }),
+    )
+    s = applyEvent(
+      s,
+      ev('assistant.message', { turnId: T2, content: [{ type: 'text', text: '二答' }] }, { seq: 10 }),
+    )
+    s = applyEvent(s, ev('turn.completed', { turnId: T2, finish: 'stop' }, { seq: 11 }))
+    // 迟到 delta（turn 1 已闭合）：被 seen 拦截不新建（索引 seen 标志跨 turn 累积正确）
+    const before = s
+    s = applyEvent(s, ev('reasoning.delta', { turnId: TURN, text: '迟到' }))
+    expect(s).toBe(before)
+    const items = s.byId[SID]?.items ?? []
+    expect(items.filter((i) => i.kind === 'reasoning')).toHaveLength(1)
+    expect(items.filter((i) => i.kind === 'assistant')).toHaveLength(1)
+    const tools = items.filter((i) => i.kind === 'tool')
+    expect(tools).toHaveLength(2)
+    // C2 索引命中：progressBuf 追加与定稿均落在正确项上
+    expect(tools.find((i) => i.kind === 'tool' && i.callId === C2)).toMatchObject({
+      kind: 'tool',
+      status: 'completed',
+      progressBuf: 'w2',
+      output: 'ok2',
+    })
+    expect(tools.find((i) => i.kind === 'tool' && i.callId === C1)).toMatchObject({
+      kind: 'tool',
+      status: 'completed',
+      output: 'ok',
+    })
+  })
+})
