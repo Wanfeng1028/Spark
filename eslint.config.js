@@ -13,6 +13,9 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/*.min.js',
       'examples/spike-pi-ai/**',
+      // official/ 是独立子项目（不在 pnpm workspace，有自己的 tsconfig 与依赖），
+      // 根 eslint 的 projectService 解析不到其类型——整目录排除
+      'official/**',
       // 本地工具产物（Qoder better-harness 报告等，同 .trae-html-share-packages 判例）
       '.qoder/better-harness/**',
       // 临时产物落地区（多会话调试输出，.gitignore 同口径）——非项目成员，不入类型感知
