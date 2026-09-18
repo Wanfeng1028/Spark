@@ -10,7 +10,9 @@
  *
  * 退出：SIGTERM sidecar（Windows 上为强制终止，崩溃一致性由 durable 日志 +
  * resume 补闭合兜底——阶段三 kill -9 验收已覆盖该路径）。
- * sidecar 意外退出：壳没有数据源，跟随退出。
+ * sidecar 意外退出：就绪后崩溃 = 壳没有数据源，跟随退出；就绪前早退（AUD-12，
+ * 典型根因 = models.json 缺失抛 ConfigError）= showFatalWindow 引导窗替代静默
+ * 秒退——展示原因/stderr 尾部、配置指引与日志位置，用户关窗即退出。
  */
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -19,12 +21,33 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { app, BrowserWindow, net, Notification } from 'electron'
 import { startNotifications } from './notify-wiring.js'
+import { renderFatalHtml } from './fatal.js'
 
 const START_TIMEOUT_MS = 20_000
 const PROBE_INTERVAL_MS = 250
+/** stderr 环形缓冲行数（AUD-12：首启失败引导窗展示尾部现场） */
+const STDERR_TAIL_LINES = 20
 
 let sidecar: ChildProcess | null = null
 let quitting = false
+/** 服务端是否就绪（AUD-12：就绪前早退走引导窗；就绪后崩溃保留既有跟随退出语义） */
+let ready = false
+/** 首启失败引导窗（AUD-12）；null = 未显示 */
+let fatalWin: BrowserWindow | null = null
+/** sidecar stderr 尾部环形缓冲（AUD-12） */
+const stderrTail: string[] = []
+
+function noteStderr(chunk: string): void {
+  for (const line of chunk.split('\n')) {
+    if (line === '') continue
+    stderrTail.push(line)
+    if (stderrTail.length > STDERR_TAIL_LINES) stderrTail.shift()
+  }
+}
+
+function stderrTailText(): string {
+  return stderrTail.length === 0 ? '' : `\n\nstderr 尾部：\n${stderrTail.join('\n')}`
+}
 
 /** sidecar 单文件 bundle：打包态在 resources/server；开发态在 apps/desktop/build/server */
 function serverBundlePath(): string {
@@ -59,7 +82,7 @@ function startSidecar(port: number): ChildProcess {
   if (!existsSync(serverJs)) {
     throw new Error(`E_SIDECAR_START: server bundle 不存在（${serverJs}）——先执行 pnpm --filter @spark/desktop build`)
   }
-  return spawn(process.execPath, [serverJs], {
+  const child = spawn(process.execPath, [serverJs], {
     cwd: homedir(), // 引擎默认会话工作区 = 用户主目录（桌面态无项目上下文）
     env: {
       ...process.env,
@@ -68,8 +91,45 @@ function startSidecar(port: number): ChildProcess {
       SPARK_HOST: '127.0.0.1',
       SPARK_WEB_DIST: webDistPath(),
     },
-    stdio: 'inherit',
+    // AUD-12：stderr 收管道——环形留尾部 20 行，首启失败时进引导窗（stdout 保持 inherit）
+    stdio: ['ignore', 'inherit', 'pipe'],
     windowsHide: true,
+  })
+  child.stderr?.setEncoding('utf8')
+  child.stderr?.on('data', (chunk: string) => {
+    noteStderr(chunk)
+    process.stderr.write(chunk) // 开发态 stderr 照常可见（与原 inherit 行为一致）
+  })
+  return child
+}
+
+/**
+ * 首启失败引导窗（AUD-12）：替代静默秒退——显示原因（含 stderr 尾部现场）+
+ * 配置指引（models.json / 应用内引导）+ 日志位置。不立即退出：用户关窗即退出
+ * （window-all-closed → app.quit）。ready 之后的运行期故障不走此窗。
+ */
+function showFatalWindow(reason: string): void {
+  console.error('[desktop] 启动失败：', reason)
+  if (fatalWin !== null) {
+    fatalWin.focus() // 已有引导窗（如探活超时后 sidecar 又早退）——只聚焦不重复弹
+    return
+  }
+  fatalWin = new BrowserWindow({
+    width: 480,
+    height: 360,
+    title: 'Spark',
+  })
+  const html = renderFatalHtml({
+    title: 'Spark 启动失败',
+    reason,
+    sparkDir: join(homedir(), '.spark'),
+    logHint: join(homedir(), '.spark', 'logs'),
+  })
+  void fatalWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`).catch((err: unknown) => {
+    // 引导窗都加载失败（理论不该发生）：退回报错退出，不留悬空进程
+    console.error('[desktop] 引导窗加载失败', err)
+    fatalWin = null
+    app.exit(1)
   })
 }
 
@@ -95,14 +155,28 @@ async function waitReady(port: number): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const port = await pickPort()
-  sidecar = startSidecar(port)
-  sidecar.on('exit', () => {
-    // 壳内没有数据源可降级——sidecar 没了就退出（重启即 resume 恢复）
-    if (!quitting) app.quit()
-  })
-
-  await waitReady(port)
+  // AUD-12：启动序列（取端口/拉 sidecar/探活）失败 → 引导窗，不再静默 app.exit(1)。
+  // 首启失败的典型根因（models.json 缺失抛 ConfigError）只有 stderr 可见，随窗展示
+  try {
+    const port = await pickPort()
+    sidecar = startSidecar(port)
+    sidecar.on('exit', (code) => {
+      if (quitting) return
+      if (ready) {
+        // 就绪后崩溃：壳内没有数据源可降级——跟随退出（重启即 resume 恢复），语义不变
+        app.quit()
+        return
+      }
+      // AUD-12：就绪前早退——引导窗替代静默 quit；不立即 app.quit（会销毁窗口），
+      // 用户关窗即退出（window-all-closed → app.quit）
+      showFatalWindow(`server 进程在就绪前退出（code=${String(code)}）。${stderrTailText()}`)
+    })
+    await waitReady(port)
+  } catch (err) {
+    showFatalWindow(`${err instanceof Error ? err.message : String(err)}${stderrTailText()}`)
+    return
+  }
+  ready = true
 
   const win = new BrowserWindow({
     width: 1440,
@@ -144,7 +218,8 @@ void app
   .whenReady()
   .then(main)
   .catch((err: unknown) => {
-    // 启动失败（bundle 缺失/探活超时/sidecar 早退）：stderr 报错退出，不进残废 UI
+    // ready 之后的故障（main 窗口创建/加载、通知装配）：stderr 报错退出，不进残废 UI。
+    // AUD-12：首启序列失败已改走 showFatalWindow 引导窗，不再经此路径
     console.error(err)
     app.exit(1)
   })
