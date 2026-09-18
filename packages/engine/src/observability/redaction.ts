@@ -27,3 +27,17 @@ export function buildEnvPatterns(
   }
   return out
 }
+
+/**
+ * 文本脱敏（AUD-06）：事件发射路径的兜底——error 事件文案可能回显 provider 错误体
+ * （含 Authorization 头 / sk- 密钥原文），而脱敏单一来源的消费方只有 logger/audit/
+ * guard 三处，run-loop 的 error emit 不在覆盖内。与 guard 同一模式集（sk- / Bearer /
+ * env 值），防"日志脱敏了、事件流没脱"的双标漂移。extra 供调用方追加精确匹配。
+ */
+export function redactSecretText(text: string, extra?: readonly RegExp[]): string {
+  let out = text.replace(SECRET_RE, REPLACEMENT).replace(BEARER_RE, `Bearer ${REPLACEMENT}`)
+  for (const re of extra ?? []) {
+    out = out.replace(re, REPLACEMENT)
+  }
+  return out
+}

@@ -736,3 +736,43 @@ describe('AUD-07：run-loop 收敛', () => {
     await expect(runSessionLoop(f.rt, f.deps)).rejects.toThrow('E_BOOM')
   })
 })
+
+describe('AUD-06：error 事件文案脱敏兜底', () => {
+  test('provider 错误体回显 Authorization/sk- 原文 → 落盘前被脱敏', async () => {
+    const f = makeFixture()
+    f.gateway.scriptStep({
+      stopReason: 'error',
+      error:
+        'HTTP 401 from provider: {"error":"invalid key","header":"Authorization: Bearer sk-abcdef123456789012345678"}',
+    })
+    await takeSubmitted(f.rt, 'x')
+    await runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'x',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    const err = f.sink.events.find((e) => e.type === 'error')
+    expect(err).toBeDefined()
+    const message = (err?.data as { message: string }).message
+    expect(message).not.toContain('sk-abcdef123456789012345678') // 原文不落盘
+    expect(message).toContain('***') // 已按同一模式集替换
+    expect(message).toContain('invalid key') // 非敏感上下文保留（人话可诊断）
+  })
+
+  test('gateway 抛错路径（catch-all）同样脱敏', async () => {
+    const f = makeFixture()
+    // 不预录步骤：ScriptedLlm 抛 E_SCRIPTED_EXHAUSTED——无敏感内容，断言原文保留
+    await takeSubmitted(f.rt, 'x')
+    await runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'x',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    const err = f.sink.events.find((e) => e.type === 'error')
+    expect((err?.data as { message: string }).message).toContain('E_SCRIPTED_EXHAUSTED')
+  })
+})
