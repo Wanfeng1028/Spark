@@ -71,19 +71,25 @@ export function SessionPage() {
   const [traceOpen, setTraceOpen] = useState(false)
   // 检查点浮层（工单 4.6）：快照列表 + 回滚入口；turn 进行中回滚按钮禁用
   const [ckptOpen, setCkptOpen] = useState(false)
-  // 权限档位（§13.E 四档；会话级内存态）。装载失败保持缺省档 confirm-each——
-  // 与引擎缺省一致且最安全（fail-closed 方向），切档失败由 Composer hint 如实反馈
-  const [preset, setPreset] = useState<PermissionPreset>('confirm-each')
+  // 权限档位（§13.E 四档）。null = 复位中/未装载（AUD-14：sid 切换即清，杜绝旧会话
+  // 档位串台）；装载失败保持缺省档 confirm-each——与引擎缺省一致且最安全
+  // （fail-closed 方向），切档失败由 Composer hint 如实反馈
+  const [preset, setPreset] = useState<PermissionPreset | null>('confirm-each')
   // 当前会话模式（工单 16.3）：durable 事件投影，也是档位重读的信号源（见下）
   const sliceMode = useSessionStore((s) => s.byId[sid]?.mode)
-  // 档位装载（R-E① 二批）：错误刻意吞（缺省 confirm-each 即引擎缺省，fail-closed
-  // 方向最安全）——hook 的 error 不渲染，装载成功才覆盖。
+  // 档位装载（R-E① 二批）：错误不渲染（缺省 confirm-each 即引擎缺省，fail-closed
+  // 方向最安全），但如实进控制台（AUD-14：不再纯静默；UI 不打断）。
   // deps 带 sliceMode（工单 16.3）：模型经 exit_plan_mode 退出计划模式时档位是**引擎侧**改的，
   // 本地 state 不重读就会继续显示"计划模式"档（假状态）——模式事件到达即重拉一次
-  const { data: presetLoaded } = useTransportQuery((t) => t.getPermissionPreset(sid), [
-    sid,
-    sliceMode,
-  ])
+  const { data: presetLoaded, error: presetError } = useTransportQuery(
+    (t) => t.getPermissionPreset(sid),
+    [sid, sliceMode],
+  )
+  useEffect(() => {
+    if (presetError !== null) {
+      console.warn('[session] 权限档位装载失败，保持缺省档 confirm-each：', presetError)
+    }
+  }, [presetError])
   useEffect(() => {
     if (presetLoaded !== null) setPreset(presetLoaded)
   }, [presetLoaded])
@@ -98,10 +104,12 @@ export function SessionPage() {
   const [modelOverride, setModelOverride] = useState<string | null>(null)
   // 推理档位覆盖（工单 10.6）：引擎内存态不持久，与换模型同纪律
   const [effortOverride, setEffortOverride] = useState<ReasoningEffort | null>(null)
-  // 会话切换：换模型/档位覆盖归零（新会话以 slice.meta 为准）
+  // 会话切换：换模型/档位覆盖归零（新会话以 slice.meta 为准）；
+  // AUD-14：权限档位一并复位（null = 未装载），新会话档位装载成功前不显示旧会话的值
   useEffect(() => {
     setModelOverride(null)
     setEffortOverride(null)
+    setPreset(null)
   }, [sid])
 
   const busy = turn !== null
@@ -332,7 +340,7 @@ export function SessionPage() {
             sessionId={sid}
             initialDraft={initialDraft}
             permission={{
-              preset,
+              preset: preset ?? 'confirm-each',
               onChange: (p) =>
                 transport.setPermissionPreset(sid, p).then(() => {
                   setPreset(p)

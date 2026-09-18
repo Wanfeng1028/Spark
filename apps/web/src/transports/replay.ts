@@ -23,7 +23,8 @@
 import type { SessionId, SparkEventEnvelope, Transport } from '@spark/protocol'
 import { useSessionStore } from '@/stores/session'
 
-export interface ReplayCoordinator {
+/** 协调器合同（模块内私有——knip 硬门：导出面只留被消费的 createReplayCoordinator） */
+interface ReplayCoordinator {
   /** 全量回放：快照提交与 pending 补应用在同一次续体内完成 */
   replay(transport: Transport, sid: SessionId): Promise<void>
   /** 该 sid 正在回放时缓存事件并返回 true（调用方跳过常规 rAF 通道）；否则 false */

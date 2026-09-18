@@ -98,7 +98,9 @@ export class InProcessTransport implements Transport {
   /**
    * 同步门面方法 → Promise：Transport 合同是异步的，而引擎大半方法是同步的。
    * 顺带两件事：收口断言（失败闭合）、**同步抛错转拒绝**（与 HTTP 通道错误形状一致）。
-   * 只用于引擎的同步方法；引擎的异步方法直接写 async 方法（避免 Promise 套 Promise）。
+   * 只用于引擎的同步方法（如 getTrust/arenaSnapshot）；引擎的异步方法直接写 async
+   * 方法 + assertNotDisposed（AUD-14：原先直透引擎、绕过收口闸门的点——扩展/竞答/
+   * LSP/转写——全部补闸，与 HTTP 通道 dispose 后统一拒绝对齐，D31 parity）。
    */
   private sync<T>(produce: () => T): Promise<T> {
     if (this.disposed) return Promise.reject(new Error(DISPOSED))
@@ -194,26 +196,31 @@ export class InProcessTransport implements Transport {
     })
   }
 
-  /** 扩展管理（工单 16.5 / ADR D38）：引擎原生支持，进程内直映射 */
-  listExtensions(): Promise<ExtensionDto[]> {
+  /** 扩展管理（工单 16.5 / ADR D38）：引擎原生支持，进程内直映射（AUD-14 过收口闸门） */
+  async listExtensions(): Promise<ExtensionDto[]> {
+    this.assertNotDisposed()
     return this.engine.listExtensions()
   }
 
-  setExtensionEnabled(id: string, enabled: boolean): Promise<void> {
-    return this.engine.setExtensionEnabled(id, enabled)
+  async setExtensionEnabled(id: string, enabled: boolean): Promise<void> {
+    this.assertNotDisposed()
+    await this.engine.setExtensionEnabled(id, enabled)
   }
 
-  /** 竞答（工单 16.8 / ADR D42）：引擎原生支持，进程内直映射 */
+  /** 竞答（工单 16.8 / ADR D42）：引擎原生支持，进程内直映射（AUD-14 过收口闸门） */
   getArena(sessionId: SessionId): Promise<ArenaStatusDto | null> {
-    return Promise.resolve(this.engine.arenaSnapshot(sessionId) as ArenaStatusDto | null)
+    // arenaSnapshot 是引擎的同步方法——走 sync 门（收口断言 + 同步抛错转拒绝）
+    return this.sync(() => this.engine.arenaSnapshot(sessionId) as ArenaStatusDto | null)
   }
 
-  applyArenaWinner(sessionId: SessionId, contenderSessionId: SessionId): Promise<void> {
-    return this.engine.arenaApplyWinner(sessionId, contenderSessionId)
+  async applyArenaWinner(sessionId: SessionId, contenderSessionId: SessionId): Promise<void> {
+    this.assertNotDisposed()
+    await this.engine.arenaApplyWinner(sessionId, contenderSessionId)
   }
 
-  cancelArena(sessionId: SessionId): Promise<void> {
-    return this.engine.arenaCancel(sessionId)
+  async cancelArena(sessionId: SessionId): Promise<void> {
+    this.assertNotDisposed()
+    await this.engine.arenaCancel(sessionId)
   }
 
   listPermissionRules(): Promise<PermissionRuleDto[]> {
@@ -394,7 +401,8 @@ export class InProcessTransport implements Transport {
   }
 
   async listLspServers(): Promise<LspServerStatusDto[]> {
-    // 引擎侧 status() 每次重读 lsp.json（async）——直接透传其 Promise
+    // 引擎侧 status() 每次重读 lsp.json（async）——AUD-14：过收口断言后透传
+    this.assertNotDisposed()
     return [...(await this.engine.listLspServers())]
   }
 
@@ -501,8 +509,9 @@ export class InProcessTransport implements Transport {
     return this.unsupported('listFsTree', '递归文件树由 server 实现（深度/条目上限同属该实现）')
   }
 
-  /** 语音转写（工单 16.6）：引擎原生支持（OpenAI 兼容端点 + SSRF 防护），进程内直映射 */
-  transcribe(req: TranscribeRequest): Promise<TranscribeResultDto> {
+  /** 语音转写（工单 16.6）：引擎原生支持（OpenAI 兼容端点 + SSRF 防护），进程内直映射（AUD-14 过收口闸门） */
+  async transcribe(req: TranscribeRequest): Promise<TranscribeResultDto> {
+    this.assertNotDisposed()
     return this.engine.transcribe({
       provider: req.provider,
       mime: req.audio.mime,

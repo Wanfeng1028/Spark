@@ -220,6 +220,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 
   /** @ 补全远程数据源（工单 12.5）：query 变化防抖 150ms 拉 listFs；路径 token 插入用 path */
   const [atEntries, setAtEntries] = useState<FsEntryDto[]>([])
+  // AUD-14：@ 补全请求代际——防抖只清定时器不清在途响应，晚到的旧 query 结果
+  // 会覆盖新结果；发请求前自增记代，提交前校验仍是最新代
+  const atGenRef = useRef(0)
   const { transport } = useTransport()
 
   // ---- 语音听写（工单 16.6，ADR D34）：麦克风钮 hold/tap；off 不渲染（禁假状态） ----
@@ -247,15 +250,23 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 
   useEffect(() => {
     if (sessionId === undefined || menu?.kind !== 'at' || menu.query === '') {
+      atGenRef.current += 1 // 菜单关闭/清词：作废在途响应
       setAtEntries([])
       return
     }
     const q = menu.query
+    const gen = ++atGenRef.current
     const timer = setTimeout(() => {
       void transport
         .listFs(sessionId, q)
-        .then((r) => setAtEntries(r.entries.slice(0, 20)))
-        .catch(() => setAtEntries([]))
+        .then((r) => {
+          if (atGenRef.current !== gen) return // 已被更新的 query 取代——旧结果丢弃
+          setAtEntries(r.entries.slice(0, 20))
+        })
+        .catch(() => {
+          if (atGenRef.current !== gen) return
+          setAtEntries([])
+        })
     }, 150)
     return () => clearTimeout(timer)
   }, [menu, sessionId, transport])
