@@ -157,8 +157,9 @@ async function waitReady(port: number): Promise<void> {
 async function main(): Promise<void> {
   // AUD-12：启动序列（取端口/拉 sidecar/探活）失败 → 引导窗，不再静默 app.exit(1)。
   // 首启失败的典型根因（models.json 缺失抛 ConfigError）只有 stderr 可见，随窗展示
+  let port: number
   try {
-    const port = await pickPort()
+    port = await pickPort()
     sidecar = startSidecar(port)
     sidecar.on('exit', (code) => {
       if (quitting) return
