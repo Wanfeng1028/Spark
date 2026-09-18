@@ -674,3 +674,65 @@ describe('steer/queue 完整语义（工单 4.2 / §5.4 端到端时序）', () 
     await expect(loop).resolves.toBeUndefined()
   })
 })
+
+// ---- AUD-07：run-loop 三缺陷收敛 ----
+
+describe('AUD-07：run-loop 收敛', () => {
+  test('连续 length 截断在 maxStepsPerTurn 收口（不再无限续采样）', async () => {
+    const f = makeFixture({ maxStepsPerTurn: 3 })
+    // 三步全部纯文本 length（无 toolCall——旧实现对此形态无限 continue）
+    for (let i = 0; i < 10; i++) {
+      f.gateway.scriptStep({ content: [{ type: 'text', text: `t${i}` }], stopReason: 'length' })
+    }
+    await takeSubmitted(f.rt, 'x')
+    await runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'x',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    expect(f.gateway.calls).toHaveLength(3) // 恰好预算步数，不续采样
+    expect(lastOf(f, 'turn.completed')?.data).toMatchObject({ finish: 'length' })
+    expect(f.rt.state).toBe('idle')
+  })
+
+  test('收尾链抛错（checkpoint 失败）→ endTurn 仍执行，会话不卡 running', async () => {
+    const f = makeFixture()
+    f.gateway.scriptStep({ content: [{ type: 'text', text: 'ok' }], stopReason: 'stop' })
+    f.deps.checkpoint = {
+      snapshot: () => Promise.reject(new Error('E_CKPT_FAIL: 测试注入的收尾失败')),
+    }
+    await takeSubmitted(f.rt, 'x')
+    const input = {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'x',
+      delivery: 'now' as const,
+      admittedAt: Date.now(),
+    }
+    await expect(runTurn(f.rt, f.deps, input)).rejects.toThrow('E_CKPT_FAIL')
+    expect(lastOf(f, 'turn.completed')?.data).toMatchObject({ finish: 'stop' }) // completed 已落盘
+    expect(f.rt.state).toBe('idle') // endTurn 已跑——核心验收
+    // 会话可继续受理新 turn（beginTurn 不再 E_RUNTIME_TURN_ACTIVE）
+    f.deps.checkpoint = undefined
+    f.gateway.scriptStep({ content: [{ type: 'text', text: 'ok2' }], stopReason: 'stop' })
+    await takeSubmitted(f.rt, 'y')
+    await runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'y',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    expect(lastOf(f, 'turn.completed')?.data).toMatchObject({ finish: 'stop' })
+  })
+
+  test('takeInput 非 E_QUEUE_CLOSED 错误如实上抛（不再静默 break）', async () => {
+    const f = makeFixture()
+    ;(f.rt as { takeInput: unknown }).takeInput = async () => {
+      throw new Error('E_BOOM: 测试注入的非关闭错误')
+    }
+    await expect(runSessionLoop(f.rt, f.deps)).rejects.toThrow('E_BOOM')
+  })
+})

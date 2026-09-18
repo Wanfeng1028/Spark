@@ -171,8 +171,11 @@ export async function runSessionLoop(rt: SessionRuntime, deps: RunLoopDeps): Pro
     let input: InputItem
     try {
       input = await rt.takeInput()
-    } catch {
-      break // E_QUEUE_CLOSED：引擎 shutdown，正常退出
+    } catch (err) {
+      // AUD-07③：仅 E_QUEUE_CLOSED（引擎 shutdown）是正常退出；其余错误如实上抛
+      // （不吞——原裸 catch 会把任何 reject 都当关闭信号静默 break）
+      if (!(err instanceof Error) || !err.message.startsWith('E_QUEUE_CLOSED')) throw err
+      break
     }
     let outcome: { finish: TurnFinish; usage: Usage } | undefined
     try {
@@ -370,6 +373,12 @@ export async function runTurn(
             })),
           })
         }
+        // AUD-07①：截断续步同样受步数预算约束——此前无条件 continue，纯文本/空
+        // content 的 length 可无限续采样绕过 maxStepsPerTurn（步数上限检查对本路径不可达）
+        if (turn.step >= deps.maxStepsPerTurn) {
+          finish = 'length'
+          break
+        }
         continue // terminate=false：错误结果回喂，不终止
       }
       // ⑤ 工具执行
@@ -398,26 +407,33 @@ export async function runTurn(
     finish = 'error'
     await deps.bus.emit(sid, 'error', { scope: 'engine', message: errText(err) })
   } finally {
-    // 失败闭合：started 已发则必有 completed；endTurn 转移 steer 残留并处理 idle
-    if (started) {
-      // 收尾结果供 goal 循环判定（16.7）；turn.completed 为投影已发同值
-      result = { finish, usage }
-      const completed = await deps.bus.emit(sid, 'turn.completed', { turnId, finish, usage })
-      deps.metrics?.inc('spark_turns_total', { finish })
-      // 用户侧 hooks（工单 7.3）：turn.after——completed 已落盘后触发
-      deps.hooks?.fire('turn.after', {
-        sessionId: sid,
-        cwd: deps.cwd ?? '',
-        sourceEventId: completed.id,
-        data: { turnId, finish, usage },
-      })
-      // turn 边界 checkpoint（工单 4.6）：completed 已落盘，快照在下一输入前串行执行
-      // （晚于 turn.completed、不含自身事件；失败由实现自闭合 emit error{io}）
-      if (deps.checkpoint !== undefined) {
-        await deps.checkpoint.snapshot(turnId)
+    // 失败闭合：started 已发则必有 completed；endTurn 转移 steer 残留并处理 idle。
+    // AUD-07②：运行态释放（endTurn）放在收尾链外层的无条件 finally——completed
+    // 落盘 / hooks / checkpoint / flush 任一抛错时也必须清理 turnAbort 与活动
+    // turn，否则会话永久卡 running（后续输入全被判 steer 滞留或 E_RUNTIME_TURN_ACTIVE）；
+    // 收尾链异常沿原路径上抛（runSessionLoop 兜底 emit error，不吞）
+    try {
+      if (started) {
+        // 收尾结果供 goal 循环判定（16.7）；turn.completed 为投影已发同值
+        result = { finish, usage }
+        const completed = await deps.bus.emit(sid, 'turn.completed', { turnId, finish, usage })
+        deps.metrics?.inc('spark_turns_total', { finish })
+        // 用户侧 hooks（工单 7.3）：turn.after——completed 已落盘后触发
+        deps.hooks?.fire('turn.after', {
+          sessionId: sid,
+          cwd: deps.cwd ?? '',
+          sourceEventId: completed.id,
+          data: { turnId, finish, usage },
+        })
+        // turn 边界 checkpoint（工单 4.6）：completed 已落盘，快照在下一输入前串行执行
+        // （晚于 turn.completed、不含自身事件；失败由实现自闭合 emit error{io}）
+        if (deps.checkpoint !== undefined) {
+          await deps.checkpoint.snapshot(turnId)
+        }
       }
+    } finally {
+      rt.endTurn()
     }
-    rt.endTurn()
   }
   // 不在 finally 里 return（会吞掉收尾段异常——§2.11 吞异常黑名单）；正常路径带结果返回
   return result
