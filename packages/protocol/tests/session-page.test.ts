@@ -210,7 +210,8 @@ describe('AUD-09：dispose 闸门（销毁后的在途回调一律静默）', ()
     await Promise.resolve()
     await Promise.resolve()
     expect(h.notices.length).toBe(emitsBefore) // 旧 controller 不再写端侧 setSnap
-    expect(h.streamDisposed).toBe(1) // 流已收口且未重开
+    // 快照在途即销毁：async 装载在 await 后的 disposed 检查处退出——流从未开启，无流可收口
+    expect(h.streamDisposed).toBe(0)
   })
 
   it('loadOlder 在途 dispose——resolve 后不重建切片不 emit', async () => {
