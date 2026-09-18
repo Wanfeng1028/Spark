@@ -10,7 +10,6 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { Transport } from '@spark/protocol'
 import { TestTransportContext } from '@/transports/context'
-import type { TransportContextValue } from '@/transports/context'
 import type { MockScenario } from '@/transports/mock'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 
@@ -37,7 +36,7 @@ function makeWrapper(transport: Transport): (props: { children: ReactNode }) => 
     mock: true,
     scenario: 'normal' as MockScenario,
     setScenario: () => undefined,
-  } as TransportContextValue
+  }
   return ({ children }) => (
     <TestTransportContext.Provider value={value}>{children}</TestTransportContext.Provider>
   )

@@ -205,6 +205,7 @@ export class SessionStore implements EventSink {
       } catch {
         if (isLast) {
           const reason = `尾行（第 ${lineNo} 行）半写，丢弃`
+          tailTorn = { reason, validBytes }
           onTailTorn?.(reason)
           // stderr 直打（避免循环依赖 logger；engine create/resume 会通过 onTailTorn 同时落日志）
           process.stderr.write(`E_SESSION_TAIL_TORN: ${reason}\n`)

@@ -440,10 +440,10 @@ describe('AUD-11：ProgressGate drain 自愈', () => {
       inputSchema: z.strictObject({ v: z.string().optional() }),
       permission: { action: 'fake.read', resourceOf: () => 'fake:read' },
       parallelizable: true,
-      async execute(ctx) {
+      execute(ctx) {
         ctx.onProgress('chunk-1')
         ctx.onProgress('chunk-2')
-        return { output: 'ok', isError: false }
+        return Promise.resolve({ output: 'ok', isError: false } as const)
       },
     }
     f.registry.register(progressTool)

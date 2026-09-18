@@ -730,9 +730,8 @@ describe('AUD-07：run-loop 收敛', () => {
 
   test('takeInput 非 E_QUEUE_CLOSED 错误如实上抛（不再静默 break）', async () => {
     const f = makeFixture()
-    ;(f.rt as { takeInput: unknown }).takeInput = async () => {
-      throw new Error('E_BOOM: 测试注入的非关闭错误')
-    }
+    ;(f.rt as { takeInput: unknown }).takeInput = () =>
+      Promise.reject(new Error('E_BOOM: 测试注入的非关闭错误'))
     await expect(runSessionLoop(f.rt, f.deps)).rejects.toThrow('E_BOOM')
   })
 })
