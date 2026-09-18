@@ -7,6 +7,7 @@ import type { PropsWithChildren } from 'react'
 import Taro from '@tarojs/taro'
 import { useConfigStore } from './store/config-store'
 import { useThemeStore } from './store/theme-store'
+import { AppErrorBoundary } from './components/ErrorBoundary'
 
 function schemeOf(theme: unknown): 'light' | 'dark' | null {
   if (theme === 'dark') return 'dark'
@@ -17,7 +18,9 @@ function schemeOf(theme: unknown): 'light' | 'dark' | null {
 export default function App({ children }: PropsWithChildren) {
   useEffect(() => {
     useConfigStore.getState().load()
-    useThemeStore.getState().setSystemScheme(schemeOf(Taro.getSystemInfoSync().theme))
+    // WO-038：getSystemInfoSync 基础库 2.20.1 起废弃——拆用 getAppBaseInfo().theme
+    const appBase = Taro.getAppBaseInfo()
+    useThemeStore.getState().setSystemScheme(schemeOf(appBase?.theme))
     const onTheme = (res: { theme: string }): void => {
       useThemeStore.getState().setSystemScheme(schemeOf(res.theme))
     }
@@ -27,5 +30,6 @@ export default function App({ children }: PropsWithChildren) {
     }
   }, [])
 
-  return children
+  // WO-039：应用级边界——任一子树渲染异常兜底一行提示，不白屏
+  return <AppErrorBoundary>{children}</AppErrorBoundary>
 }

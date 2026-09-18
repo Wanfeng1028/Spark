@@ -21,6 +21,7 @@ import { Composer } from '@/features/chat/Composer'
 import { clientActionOf } from '@/features/chat/client-commands'
 import { TurnStatusBar } from '@/features/chat/TurnStatusBar'
 import { ErrorToast } from '@/features/chat/ErrorToast'
+import { cn } from '@/lib/utils'
 import { ErrorBanner } from '@/features/chat/ErrorBanner'
 import { SessionTreeDialog } from '@/features/chat/SessionTreeDialog'
 import { TraceDialog } from '@/features/chat/TraceDialog'
@@ -331,7 +332,8 @@ export function SessionPage() {
       </div>
 
       <div className="shrink-0 border-t border-border px-6 py-3">
-        <div className="mx-auto max-w-[768px]">
+        {/* WO-010：会话加载失败时禁用 Composer——错误态下发送会让事件落入无关会话 */}
+        <div className={cn('mx-auto max-w-[768px]', typeof load === 'object' && 'pointer-events-none opacity-50')}>
           {/* 上下文水位只留 StatusBar 百分比（工单 10.5⑦，待拍板 a 按建议执行：大条与
               StatusBar 重复、ZCode 无此元素——UsageBar 组件停用，文件删除留人工确认） */}
           <Composer

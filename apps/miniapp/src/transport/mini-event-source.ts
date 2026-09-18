@@ -88,7 +88,8 @@ export class MiniSessionEventSource {
       ...(opts.authToken !== undefined ? { token: opts.authToken } : {}),
     })
     const chunked =
-      opts.chunkedSupported ?? sdkSupportsChunked(Taro.getSystemInfoSync().SDKVersion ?? '')
+      // WO-038：SDKVersion 拆到 getAppBaseInfo（同废弃口径）
+      opts.chunkedSupported ?? sdkSupportsChunked(Taro.getAppBaseInfo()?.SDKVersion ?? '')
     this.mode = opts.forcePolling === true || !chunked ? 'polling' : 'sse'
     // 内核必须在 rest/mode 之后构造：其构造函数同步启动 loop，首轮 connectOnce 立即读这两者
     this.core = new SessionStreamCore({

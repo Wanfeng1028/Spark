@@ -8,7 +8,7 @@ import { resolveTheme } from '../theme/tokens'
 import type { ThemeTokens } from '../theme/tokens'
 
 interface ThemeState {
-  /** 微信深色模式（Taro.getSystemInfoSync().theme；无值 = 浅色缺省） */
+  /** 微信深色模式（Taro.getAppBaseInfo().theme，WO-038；无值 = 浅色缺省） */
   systemScheme: 'light' | 'dark' | null
   setSystemScheme: (s: 'light' | 'dark' | null) => void
 }
