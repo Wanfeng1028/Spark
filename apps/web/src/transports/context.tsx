@@ -3,7 +3,8 @@
  * VITE_SPARK_MOCK=1 → MockTransport（工单 1.4）；否则走 **@spark/sdk 的 createClient**（工单 14.3：
  * 装配收敛到 SDK，四端与外部脚本共用同一条路径；行为零变化，内核仍是 protocol 的 HttpTransport）：
  * 连接状态写 connection-store；重连成功 onResync → 对已打开会话
- * getSession 全量回放（resetSlice 后批量 apply——§6.10 时序④，冷启动与断线重连同一路径）。
+ * getSession 全量回放（AUD-08 代际协调：回放在途时直播事件先进协调器缓冲，快照提交后
+ * 补应用、seq 去重吸附——防旧快照 resetSlice 抹掉已收更新；§6.10 时序④，冷启动与断线重连同一路径）。
  */
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -13,20 +14,23 @@ import { useSessionStore } from '@/stores/session'
 import { useConnectionStore } from '@/stores/connection'
 import { MockTransport } from './mock.js'
 import type { MockScenario } from './mock.js'
+import { createReplayCoordinator } from './replay'
 
-/** 全量回放（§6.4）：resetSlice 清水位后逐条 apply（幂等；同步执行防直播流插入） */
+/**
+ * 回放代际协调器单例（AUD-08）：模块级单例而非 per-Provider 实例——replaySessionEvents
+ * 被 SessionPage/CheckpointDialog 模块级调用（不经 React 上下文），所有回放调用方
+ * （resync 重连/打开会话/回滚重放）必须共享同一份 per-sid 代际状态，直播 ingest 判定
+ * 才一致。transport 本身随应用单例（VITE_SPARK_MOCK 编译期定死），生命周期一致。
+ */
+const replayCoordinator = createReplayCoordinator()
+
+/** 全量回放（§6.4 / AUD-08）：经协调器代际协调——快照与在途直播事件合并提交，
+ * 旧代快照整体丢弃；失败语义不变（如实上抛，调用方呈现错误态） */
 export function replaySessionEvents(transport: Transport, sid: SessionId): Promise<void> {
-  return transport
-    .getSession(sid)
-    .then((dto) => {
-      const store = useSessionStore.getState()
-      store.resetSlice(sid)
-      for (const e of dto.events ?? []) store.applyEvent(e)
-    })
-    .catch((err: unknown) => {
-      // 失败闭合：重放失败如实上抛（调用方呈现错误态；不吞、不用旧数据冒充）
-      throw err instanceof Error ? err : new Error(String(err))
-    })
+  return replayCoordinator.replay(transport, sid).catch((err: unknown) => {
+    // 失败闭合：重放失败如实上抛（调用方呈现错误态；不吞、不用旧数据冒充）
+    throw err instanceof Error ? err : new Error(String(err))
+  })
 }
 
 export interface TransportContextValue {
@@ -88,6 +92,12 @@ export function TransportProvider({ children }: { children: ReactNode }) {
       }
     }
     const off = transport.onEvent((e) => {
+      // AUD-08：该会话回放进行中 → 事件进协调器缓冲（快照提交后补应用），
+      // 不进 rAF 通道；直播水位照常上报（协调器不碰 connection store）
+      if (replayCoordinator.ingest(e)) {
+        if (e.seq !== undefined) useConnectionStore.getState().noteSeq(e.seq)
+        return
+      }
       buf.push(e)
       if (!raf) raf = requestAnimationFrame(flush)
     })
