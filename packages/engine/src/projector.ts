@@ -43,6 +43,9 @@ export interface ProjectorDeps {
   attachmentReader?: (file: string) => { mime: string; bytes: Buffer } | undefined
 }
 
+/** 附件投影缓存条目上限（LRU；附件数小，防极端会话内存无界） */
+const ATTACHMENT_CACHE_MAX_ENTRIES = 32
+
 /** §5.8.3 第 5 步：reasoning 投影的 provider 判定（Anthropic thinking 块 / 其他丢弃） */
 export function reasoningIncluded(provider: string): boolean {
   return provider === 'anthropic'
@@ -188,14 +191,39 @@ function summaryMessageText(summary: string, keptFiles: readonly string[] | unde
 export class ProjectorImpl implements Projector {
   /** 已告警过的悬空锚点（modelContext 高频调用——同一锚点只报一次防刷屏） */
   private readonly danglingWarned = new Set<EventId>()
+  /**
+   * 附件投影缓存（AUD-05）：modelContext 每 step 调用一次——旧实现每 step 对每条
+   * user.message 的每个附件重读盘 + base64（40 步 turn 单图重复处理 40 次）。
+   * 键 = 附件文件名，按插入序 LRU 淘汰，含负缓存（读不到的不再反复试盘）。
+   * 一致性取舍：同路径内容变更需会话重载（rollback/fork 重建 Projector）后可见——
+   * 附件名是上传时分配的派生名，会话内变更属边缘场景。
+   */
+  private readonly attachmentCache = new Map<string, { mime: string; bytes: Buffer } | undefined>()
 
   constructor(private readonly deps: ProjectorDeps) {}
+
+  private cachedAttachment(file: string): { mime: string; bytes: Buffer } | undefined {
+    if (this.attachmentCache.has(file)) {
+      const hit = this.attachmentCache.get(file)
+      this.attachmentCache.delete(file) // 刷新插入序（LRU）
+      this.attachmentCache.set(file, hit)
+      return hit
+    }
+    const fresh = this.deps.attachmentReader?.(file)
+    this.attachmentCache.set(file, fresh)
+    while (this.attachmentCache.size > ATTACHMENT_CACHE_MAX_ENTRIES) {
+      const oldest = this.attachmentCache.keys().next().value
+      if (oldest === undefined) break
+      this.attachmentCache.delete(oldest)
+    }
+    return fresh
+  }
 
   modelContext(): { messages: LlmMessage[]; tokens: number } {
     const p = projectSurface(
       this.deps.tree,
       this.deps.includeReasoning,
-      this.deps.attachmentReader,
+      this.deps.attachmentReader !== undefined ? (file) => this.cachedAttachment(file) : undefined,
       (anchorId) => {
         if (this.danglingWarned.has(anchorId)) return
         this.danglingWarned.add(anchorId)

@@ -389,3 +389,51 @@ describe('附件投影（工单 12.2b）', () => {
     expect(user?.content).toEqual([{ type: 'text', text: '纯文本' }])
   })
 })
+
+// ---- AUD-05：附件投影缓存 ----
+
+describe('AUD-05：附件投影缓存（每 step 重投影不再重读盘）', () => {
+  test('两次 modelContext 引用同一附件 → attachmentReader 只调一次', async () => {
+    const f = makeFixture()
+    await f.bus.emit(SID, 'user.message', {
+      text: '看看图',
+      attachments: ['att_1.png'],
+    })
+    const reads: string[] = []
+    const projector = new ProjectorImpl({
+      tree: f.sink.tree,
+      includeReasoning: true,
+      attachmentReader: (file) => {
+        reads.push(file)
+        return { mime: 'image/png', bytes: Buffer.from('fake-png') }
+      },
+    })
+    const first = projector.modelContext()
+    const second = projector.modelContext()
+    expect(reads).toEqual(['att_1.png']) // 第二步命中缓存
+    // 两次投影内容一致（缓存不改变投影形状）
+    expect(second).toEqual(first)
+    const userBlock = first.messages[0]?.content[0]
+    expect(userBlock).toMatchObject({ type: 'image', mime: 'image/png' })
+  })
+
+  test('读不到的附件负缓存：不反复试盘，文本主体照常投影', async () => {
+    const f = makeFixture()
+    await f.bus.emit(SID, 'user.message', { text: '正文', attachments: ['missing.png'] })
+    let calls = 0
+    const projector = new ProjectorImpl({
+      tree: f.sink.tree,
+      includeReasoning: true,
+      attachmentReader: () => {
+        calls++
+        return undefined
+      },
+    })
+    projector.modelContext()
+    projector.modelContext()
+    expect(calls).toBe(1)
+    // 附件缺位不伪造占位——文本仍投影
+    const text = projector.modelContext().messages[0]?.content[0]
+    expect(text).toMatchObject({ type: 'text', text: '正文' })
+  })
+})
