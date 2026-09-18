@@ -709,3 +709,75 @@ describe('UserRuleStore 落盘（工单 4.7：tmp+rename 原子写）', () => {
     expect(raw.rules).toEqual([])
   })
 })
+
+// ---- AUD-01：审批结算 fail-closed（resolved 落盘失败不放行） ----
+
+/**
+ * AUD-01 故障注入 sink：ask 笔成功、`failing` 置位后全部拒绝（resolved 持久化故障点）。
+ * `captured` 在失败前置位前逐笔留档——测试从 asked 信封反查 requestId。
+ */
+class FaultySink implements EventSink {
+  appendCalls = 0
+  failing = false
+  readonly captured: SparkEventEnvelope[] = []
+  append(e: SparkEventEnvelope): Promise<SparkEventEnvelope> {
+    this.appendCalls++
+    if (this.failing) return Promise.reject(new Error('E_IO_FAIL: 磁盘写入失败'))
+    this.captured.push(e)
+    return Promise.resolve(e)
+  }
+}
+
+function makeServiceWithSink(sink: EventSink): { service: PermissionServiceImpl; store: MemRuleStore } {
+  const bus = new EventBus({ sink })
+  const store = new MemRuleStore([])
+  const service = new PermissionServiceImpl({
+    bus,
+    ruleStore: store,
+    projectRules: [],
+    timeoutMs: 300_000,
+  })
+  return { service, store }
+}
+
+function askedRequestIdOf(sink: FaultySink): RequestId {
+  const asked = sink.captured.filter((e) => isEvent(e, 'permission.asked')).at(-1)
+  if (asked === undefined || !isEvent(asked, 'permission.asked')) {
+    throw new Error('asked 事件缺失（测试前提不成立）')
+  }
+  return asked.data.requestId
+}
+
+describe('AUD-01：resolved 落盘失败时 fail-closed（不向工具侧放行）', () => {
+  test('reply(once) 批准但 resolved 写盘失败 → 等待方 deny、reply 上抛错误', async () => {
+    const sink = new FaultySink()
+    const { service } = makeServiceWithSink(sink)
+    const { check } = makeCheck()
+    const promise = service.assert(check)
+    await vi.waitFor(() => expect(sink.appendCalls).toBe(1))
+    const requestId = askedRequestIdOf(sink)
+    sink.failing = true
+    await expect(service.reply(requestId, 'once')).rejects.toThrow('E_IO_FAIL')
+    await expect(promise).resolves.toBe(false)
+  })
+
+  test('reply(reject) 的 resolved 写盘失败 → 等待方仍 deny、reply 上抛（不吞错）', async () => {
+    const sink = new FaultySink()
+    const { service } = makeServiceWithSink(sink)
+    const { check } = makeCheck()
+    const promise = service.assert(check)
+    await vi.waitFor(() => expect(sink.appendCalls).toBe(1))
+    const requestId = askedRequestIdOf(sink)
+    sink.failing = true
+    await expect(service.reply(requestId, 'reject')).rejects.toThrow('E_IO_FAIL')
+    await expect(promise).resolves.toBe(false)
+  })
+
+  test('正常路径回归：resolved 写盘成功 → 等待方拿到 allow（语义不退化）', async () => {
+    const { sink, service } = makeService()
+    const { check } = makeCheck()
+    const { requestId, promise } = await pendAsk(service, sink, check)
+    await service.reply(requestId, 'once')
+    await expect(promise).resolves.toBe(true)
+  })
+})

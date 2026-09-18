@@ -170,7 +170,9 @@ export class PermissionServiceImpl implements PermissionService {
     if (reply === 'always') {
       // 固化范围在 ask 时声明（补强 3）：alwaysPatterns ?? patterns ?? 单资源。
       // 先落用户级文件（跨会话生效；写盘失败抛错→审批仍挂起可重试），再写会话临时层
-      // （进程内立即生效，免重读文件）
+      // （进程内立即生效，免重读文件）。
+      // 规则先于 settle 固化（AUD-01 顺序核对）：若随后 resolved 落盘失败，规则保留
+      // （用户固化意图是持久事实）而**当前调用按 deny 结清**——fail-closed 不回滚规则。
       const targets =
         entry.check.alwaysPatterns ?? entry.check.patterns ?? [entry.check.resource]
       for (const resource of targets) {
@@ -250,7 +252,14 @@ export class PermissionServiceImpl implements PermissionService {
     }
   }
 
-  /** 结清一项：resolved 事件 + 工具侧 resolve。落盘失败也必须闭合（finally） */
+  /**
+   * 结清一项：resolved 事件落盘 + 工具侧 resolve。
+   * fail-closed（AUD-01）：**resolved 落盘成功才向工具侧放行**——emit 失败时等待方
+   * 一律 resolve(deny)（写盘失败 ≠ 批准生效），emit 异常继续上抛给 reply 调用方
+   * （API 如实报错）；超时/中断/级联/shutdown 等 deny 路径不受影响（本即 deny，
+   * 结清语义只剩"释放等待方"）。审计与 metrics 在 emit 成功后记**生效结果**——
+   * 落盘失败不产生"已批准"的假决策行（reply 抛错即事实记录）。
+   */
   private async settle(
     entry: PendingEntry,
     allowed: boolean,
@@ -263,20 +272,22 @@ export class PermissionServiceImpl implements PermissionService {
     clearTimeout(entry.timer)
     entry.check.signal.removeEventListener('abort', entry.onAbort)
     this.pending.delete(entry.requestId)
-    this.deps.metrics?.inc('spark_permission_decisions', { reply }) // 工单 4.8：once/always/reject 计数
-    // 审计（7.12）：用户答复 = 主体 user；超时/中断/级联/收尾 = system 自动
-    this.recordDecision(
-      entry.check,
-      allowed,
-      origin === 'reply' ? 'user' : 'system',
-      origin === 'reply' ? `reply:${reply}` : origin,
-    )
+    let effective = false
     try {
       const env = await this.deps.bus.emit(entry.sessionId, 'permission.resolved', {
         requestId: entry.requestId,
         reply,
         ...(feedback !== undefined && feedback !== '' ? { feedback } : {}),
       })
+      effective = allowed
+      this.deps.metrics?.inc('spark_permission_decisions', { reply }) // 工单 4.8：once/always/reject 计数
+      // 审计（7.12）：用户答复 = 主体 user；超时/中断/级联/收尾 = system 自动
+      this.recordDecision(
+        entry.check,
+        allowed,
+        origin === 'reply' ? 'user' : 'system',
+        origin === 'reply' ? `reply:${reply}` : origin,
+      )
       this.deps.onResolved?.({
         sessionId: entry.sessionId,
         requestId: entry.requestId,
@@ -284,7 +295,7 @@ export class PermissionServiceImpl implements PermissionService {
         sourceEventId: env.id,
       })
     } finally {
-      entry.resolve(allowed)
+      entry.resolve(effective)
     }
   }
 
