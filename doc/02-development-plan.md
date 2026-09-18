@@ -811,7 +811,7 @@ MockTransport：预录事件或脚本模式；sendMessage 触发延迟回放（d
 
 ### 4.7 Transport 双通道逐方法映射表（工单 14.4；ADR D30/D31）
 
-本表是 InProcessTransport 实现的**施工图纸**：左列是 `Transport` 接口（合同单一来源），中列是 HTTP 通道的现有映射（**从 apps/server/src/routes/*.ts 逐条反推、已核对**），右列是 InProcess 通道的对应做法。三档：✅ 直映射（调 Engine 门面同名/同语义方法）、⚠️ 需装配（要组装 DTO，装配函数上提 **engine 公共面** 共用——不是 protocol：protocol 硬约束零依赖 engine，而这些函数要读 `SessionMeta`/`SessionTreeInfo`）、❌ E_UNSUPPORTED（服务端专有，engine 无对应能力）。
+本表是 InProcessTransport 实现的**施工图纸**（AUD-14，2026-09-19：InProcess 全方法补 dispose 收口闸门——dispose 后调用一律 `E_DISPOSED` 拒绝，与 HTTP 通道统一 req 入口的 disposed 检查对等）：左列是 `Transport` 接口（合同单一来源），中列是 HTTP 通道的现有映射（**从 apps/server/src/routes/*.ts 逐条反推、已核对**），右列是 InProcess 通道的对应做法。三档：✅ 直映射（调 Engine 门面同名/同语义方法）、⚠️ 需装配（要组装 DTO，装配函数上提 **engine 公共面** 共用——不是 protocol：protocol 硬约束零依赖 engine，而这些函数要读 `SessionMeta`/`SessionTreeInfo`）、❌ E_UNSUPPORTED（服务端专有，engine 无对应能力）。
 
 | 分组 | Transport 方法 | HTTP 通道（路由 → engine） | InProcess |
 | ---- | -------------- | --------------------------- | --------- |
@@ -1014,7 +1014,7 @@ interface EventBus {
 
 - **顺序保证**：per-session 串行——seq 分配与 store.append 在同一互斥队列；live 事件在产生它的 durable 事件之前广播（delta 先于 message 定稿），RunLoop 内天然满足。
 - **订阅者隔离**：每个 handler 独立 try/catch，异常记 warn 不影响其他订阅者与其他事件（dsh）。
-- **背压接口**：`subscribe` 的 handler 返回 `false | Promise<false>` 时暂停该订阅者（server SSE 用 `raw.write()===false` 触发），恢复由订阅者调用返回的 `resume()`。环形缓冲不丢 durable（可由 since 回放补），live 可丢。
+- **背压接口**：`subscribe` 的 handler 返回 `false | Promise<false>` 时暂停该订阅者（server SSE 用 `raw.write()===false` 触发），恢复由订阅者调用返回的 `resume()`。**环形缓冲溢出分级（AUD-11，2026-09-19）**：优先丢 live-only；durable 先驱逐缓冲内最老 live 腾位；全是 durable 时经 `onDurableOverflow` 通知宿主断开该订阅（SSE 客户端按最后水位重连、`since=seq` 回放补齐）——**不静默丢弃 durable**（早期"丢最老、since 可补"的口径对全局直播流不成立：客户端水位会跳过缺口，无法自动补齐）。
 - emit 的 zod 校验失败 = 编程错误，直接 throw（fail-fast 在写入点——dsh"append site"思想）。
 
 ## 5.4 输入队列（input-queue.ts）状态机
@@ -1221,7 +1221,7 @@ browser 族纪律（ADR D27）：四工具一律 `parallelizable: false`（共�
 
 ### 5.6.4 输出限界（output-store.ts）
 
-`bound(output, callId)`：序列化后 ≤32KB 原样返回；超限 → 截断至 32KB + 尾注 `"…truncated, full output: ~/.spark/tool-outputs/<callId>"`，全文写该文件（异步写、会话关闭前 flush）。
+`bound(output, callId)`：序列化后 ≤32KB 原样返回；超限 → 截断至 32KB + 尾注 `"…truncated, full output: ~/.spark/tool-outputs/<callId>"`，全文写该文件（异步写、会话关闭前 flush）。**执行期收集限界（AUD-02，2026-09-19）**：bound 在 execute 返回后才生效，流式工具（bash）执行期间按 `ToolContext.outputLimitBytes`（=limit×4 缓冲）限流收集缓冲——超限停收并标记截断；stdout/stderr 经 StringDecoder 跨块增量解码（多字节字符跨 chunk 不出 U+FFFD）。
 
 ## 5.7 审批（permission/）——完整规格
 
@@ -1349,7 +1349,7 @@ modelContext(leafId):
 
 ### 5.8.4 坏行与恢复策略
 
-- 读取时行 JSON 解析失败：**尾行**（EOF 前最后一行）→ 视为崩溃半写，丢弃并 warn（JSONL 追加写崩溃的典型形态）；**非尾行**坏行 → 拒绝加载该会话（fail-closed，dsh 读端纪律）。
+- 读取时行 JSON 解析失败：**尾行**（EOF 前最后一行）→ 视为崩溃半写，丢弃并 warn（JSONL 追加写崩溃的典型形态）；**非尾行**坏行 → 拒绝加载该会话（fail-closed，dsh 读端纪律）。**尾行受控修复（AUD-10，2026-09-19）**：read 返回最后有效内容字节边界（`tailTorn.validBytes`，ignorable 行同样推进），resume 备份原件（`.torn-bak`）后截断到该边界再续写——只内存丢弃会让续写事件接在坏尾之后，崩溃残留升级为持续损坏。
 - 未知事件 type 且无 `ignorable:true` → 拒绝加载（协议演进保护）。
 - resume：全量读 → 重建 EventTree → 若历史显示 turn.started 无对应 turn.completed → 合成 `turn.completed{finish:'aborted'}` 补闭合（Codex 崩溃恢复的 interrupted 语义）。
 - **seq 连续性校验**（dsh contiguity contract："seq = log.length"）：resume 时断言 durable 序号 1..N 无洞——不连续即文件损坏，fail-closed 拒绝加载（v2.6 补）。
@@ -1929,7 +1929,11 @@ export function TransportProvider({ mock, children }) {
 //    （不用原生 EventSource：无法自定义重连参数；可引 eventsource-parser）
 // 2) 打开/重连会话：GET /api/sessions/:id 全量 durable → **先 resetSlice 后批量 apply**
 //    （与全局直播的重叠按 seq 去重，见 §6.4；冷启动与断线重连同一路径）；
-//    断线指数退避（1/2/5/10s 封顶）重连后自动执行
+//    断线指数退避（1/2/5/10s 封顶）重连后自动执行。
+//    AUD-08（2026-09-19）：回放升级为 **代际协调**（transports/replay.ts）——回放在途时
+//    该会话的直播事件缓冲不落 store，快照提交后按序补放（seq 去重吸附）；旧代回放
+//    整体丢弃。修复"旧快照在途时直播事件已被应用、GET 返回后 resetSlice 抹掉已收
+//    更新"的竞态（turn.completed 可回退成运行中且全局流不重发）
 // 3) REST fetch；sendMessage 三态原样返回；4) dispose：abort+退订
 
 // transports/mock.ts 要点
@@ -2779,6 +2783,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.53 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，对账审计指令） | §4.3.1/§8.6 事件词表计数 26→27 同步（对账审计 W4：全仓 11 处陈旧计数统一为 27，含 doc/02 三处、apps/docs 两处、CONTRIBUTING、四处代码注释；与 AGENTS v1.53 同批） |
 | v4.54 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，对账审计指令） | §8 阶段十二~十八工单表 lift 自 doc/08（48 工单，对账审计 W2）：恢复"执行以 doc/02 定稿为准"的单一来源纪律；§8.7 候选池标题同步更新；v3.35 重号修正为 v3.35a；与 AGENTS v1.53 同批 |
 | v4.55 | 2026-09-15 | AI 编写：Qoder；发起：晚风（Wanfeng1028，官网建设指令） | §4.6.3 knip 裁决表追加三行——official/ 产品官网 31 项 unused files 误报裁决为 ignore（独立子项目不入 workspace，质量门由 .github/workflows/official.yml 独立把守，同 spike-pi-ai 判例）；6 项冗余 entry 与 1 项冗余 ignoreDependencies（react-refresh）按 knip v6 configuration hints 删除（自动发现已覆盖）；knip.jsonc 同步 |
+| v4.56 | 2026-09-19 | AI 编写：ZCode · Union Alpha；发起与拍板：晚风（Wanfeng1028，"所有的该你干的工单要全部完成"+"DSH 对话框改造文档先改"指令） | **审查整改批 AUD-01~AUD-14 全量落地（工单库 doc/10；本机零验证，以 CI 裁决）**：① AUD-01 审批结算 fail-closed——settle 的允许结果改为 resolved 落盘成功后才生效（写盘失败等待方一律 deny、异常上抛，审计记生效结果）；② AUD-07 run-loop 三缺陷——length 续采样补 maxSteps 检查（纯文本 length 不再无限续步）/endTurn 移入无条件 finally（收尾抛错不再永久卡 running）/takeInput 吞错收窄；③ AUD-02 bash 执行期收集限界（limit×4 缓冲+截断标记，StringDecoder 跨块解码防 U+FFFD，ToolContext.outputLimitBytes 注入）；④ AUD-03 edit/write/checkpoint（回滚覆写 JSONL+索引）改 atomicWriteFile；⑤ AUD-04 resolveInRoot realpath 硬边界（符号链接不可越界，目标不存在解析最深现存祖先）；⑥ AUD-05 Projector 附件 LRU 缓存（含负缓存）；⑦ AUD-06 error 事件文案脱敏兜底（redactSecretText，四处发射点）；⑧ AUD-10 坏尾行受控修复（§5.8.4 同步）；⑨ AUD-11 EventBus 背压分级+ProgressGate drain 自愈（§5.3 同步）；⑩ AUD-08 web 回放代际协调（§6.10 同步）；⑪ AUD-09 session-page disposed 闸门；⑫ AUD-12 桌面首启引导窗（fatal.ts）；⑬ AUD-13 ErrorBoundary/麦克风卸载/useCopy 三端定时器；⑭ AUD-14 useTransportQuery 代际+Composer listFs 竞态+inprocess 七方法 dispose 对等（§4.7 同步）。同批 DSH 对话框改造解禁：DESIGN v2.19 §13.L + ARCHITECTURE D43（AUD-RT-01 现场走查留豆包） |
 
 
 ## 阶段十一：可发布（Release）——工单级

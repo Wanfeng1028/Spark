@@ -5,6 +5,7 @@
 | 版本 | 日期 | 作者 | 变更内容 |
 | --- | --- | --- | --- |
 | v1.2 | 2026-09-19 | AI 编写：ZCode · Union Alpha；发起与拍板：晚风（Wanfeng1028，"这个我需要 dsh 的对话框改造，你把相应的文档改一下"指令） | **§5 DSH 判决更新：整体退回 → 已解禁**——晚风拍板采纳 DSH 对话框改造；规格已按 DESIGN 尾注纪律先行修订（DESIGN v2.19 新增 §13.L + §6/§12.1/§12.4/§12.8 豁免判注；ARCHITECTURE v1.50 新增 D43，D32 不变项按域修订）。WO-052~078 解禁交豆包执行，以 §13.L 过滤范围（排除审批接管/Lexical/TurnRail/StatsPills/英文 shimmer）。 |
+| v1.3 | 2026-09-19 | AI 编写：ZCode · Union Alpha（其中 AUD-08/09/12/13/14 由并行子会话执行、本会话复核）；发起与授权：晚风（Wanfeng1028，"所有的该你干的工单要全部完成"指令） | **AUD-01~AUD-14 全量实施完毕并推送**（本机零验证，以 CI 裁决）。§2 工单索引状态更新；新增 §10 实施记录（逐单 commit 与实现要点/偏差）。AUD-RT-01 与 docs/audit 的 WO 系列工单留豆包执行；doc/02 v4.56 规格同步（§4.7/§5.3/§5.6.4/§5.8.4/§6.10） |
 | v1.1 | 2026-09-18 | AI 编写：ZCode · Union Alpha；发起：晚风（Wanfeng1028，"核验豆包审查报告+评估工单+补充发现+真机工单交豆包"指令） | 新增 §4 外部审查报告（docs/audit/，78 工单）逐条核验结论（40 条技术单：33 属实/6 部分属实/3 不属实）；§5 DSH 对话框改造 27 项判决退回（与 DESIGN.md 视觉宪法冲突清单）；§8 新增 AUD-02~AUD-14 工单（引擎资源/投影竞态/生命周期批）；§9 新增 AUD-RT-01 现场走查工单（交豆包执行）。仅文档，未改源码。 |
 | v1.0 | 2026-09-18 | AI 编写：ZCode · Union Alpha；发起：晚风（Wanfeng1028） | 登记 AUD-01：审批事件持久化失败仍放行的静态审查证据、修复方案、执行计划与验收条件。仅创建工单，未修改源码或执行验证。 |
 
@@ -20,20 +21,20 @@
 
 | 编号 | 优先级 | 标题 | 状态 |
 | --- | --- | --- | --- |
-| AUD-01 | P1 | 审批事件持久化失败时禁止释放工具执行许可 | 已确认静态缺陷；待实施、待验证 |
-| AUD-02 | P1 | bash 工具输出执行期限界与 UTF-8 边界解码 | 已确认；待实施 |
-| AUD-03 | P1 | 用户文件工具与 checkpoint 原子写对齐 | 已确认；待实施 |
-| AUD-04 | P1 | resolveInRoot 符号链接硬边界硬化 | 已确认；待实施 |
-| AUD-05 | P1 | Projector 附件投影缓存 | 已确认；待实施 |
-| AUD-06 | P1 | LLM 错误文案进事件流的脱敏兜底 | 已确认；待实施 |
-| AUD-07 | P1 | run-loop 三缺陷收敛（length 续步/收尾清理/吞错卫生） | 已确认；待实施 |
-| AUD-08 | P1 | 客户端回放代际与竞态防覆盖（web 全量回放） | 已确认；待实施 |
-| AUD-09 | P1 | 会话页共享 controller 的 disposed 闸门 | 已确认；待实施 |
-| AUD-10 | P1 | 会话文件坏尾行恢复策略（拒绝带病续写） | 已确认；待实施 |
-| AUD-11 | P2 | EventBus 背压 durable 丢弃与 ProgressGate drain 污染 | 已确认；待实施 |
-| AUD-12 | P1 | 桌面壳首启无配置秒退（E_CONFIG 无引导） | 已确认；待实施 |
-| AUD-13 | P2 | web 渲染韧性与资源生命周期批（ErrorBoundary/麦克风/剪贴板定时器） | 已确认；待实施 |
-| AUD-14 | P2 | 查询与补全竞态批（useTransportQuery 三态/Composer listFs/inprocess dispose） | 已确认；待实施 |
+| AUD-01 | P1 | 审批事件持久化失败时禁止释放工具执行许可 | 已实施（63368eb）；待 CI 验证 |
+| AUD-02 | P1 | bash 工具输出执行期限界与 UTF-8 边界解码 | 已实施（d29bc47）；待 CI 验证 |
+| AUD-03 | P1 | 用户文件工具与 checkpoint 原子写对齐 | 已实施（453cf03）；待 CI 验证 |
+| AUD-04 | P1 | resolveInRoot 符号链接硬边界硬化 | 已实施（3590aac）；待 CI 验证 |
+| AUD-05 | P1 | Projector 附件投影缓存 | 已实施（ca93408）；待 CI 验证 |
+| AUD-06 | P1 | LLM 错误文案进事件流的脱敏兜底 | 已实施（58ad111）；待 CI 验证 |
+| AUD-07 | P1 | run-loop 三缺陷收敛（length 续步/收尾清理/吞错卫生） | 已实施（6d534dd）；待 CI 验证 |
+| AUD-08 | P1 | 客户端回放代际与竞态防覆盖（web 全量回放） | 已实施（979b5d1）；待 CI 验证 |
+| AUD-09 | P1 | 会话页共享 controller 的 disposed 闸门 | 已实施（b42cdf9）；待 CI 验证 |
+| AUD-10 | P1 | 会话文件坏尾行恢复策略（拒绝带病续写） | 已实施（eb5057d）；待 CI 验证 |
+| AUD-11 | P2 | EventBus 背压 durable 丢弃与 ProgressGate drain 污染 | 已实施（d29bc47）；待 CI 验证 |
+| AUD-12 | P1 | 桌面壳首启无配置秒退（E_CONFIG 无引导） | 已实施（1cb3fae）；待 CI 验证 |
+| AUD-13 | P2 | web 渲染韧性与资源生命周期批（ErrorBoundary/麦克风/剪贴板定时器） | 已实施（50e1ee9）；待 CI 验证 |
+| AUD-14 | P2 | 查询与补全竞态批（useTransportQuery 三态/Composer listFs/inprocess dispose） | 已实施（06858f5）；待 CI 验证 |
 | AUD-RT-01 | P1 | 真机与真实环境现场走查（交豆包执行） | 待人类安排环境 |
 
 ## 3. AUD-01：审批事件持久化失败时禁止释放工具执行许可
@@ -126,6 +127,8 @@
 ### 3.7 当前执行记录
 
 2026-09-18：完成工单编制。未修改源码、未编写或运行回归用例、未安装或下载、未联网、未提交推送。AUD-01 状态维持“待实施、待验证”。
+
+2026-09-19：**已实施**（commit 63368eb）——settle 允许结果改为 resolved 落盘成功后生效，等待方在写盘失败时一律 deny、异常上抛 reply 调用方；审计与 metrics 移到落盘成功后记生效结果；always 规则固化先于结算的顺序已核对并注释（固化意图是持久事实，当前调用 deny 不回滚）。回归 3 例；验证交远端 CI。
 
 ## 4. 外部审查报告核验结论（docs/audit/，2026-09-18）
 
@@ -288,3 +291,24 @@ AUD-01（§3）为本轮独立发现，与豆包报告零重叠（其报告未�
 | 9 | 发布冒烟 | npm 全新环境 | `npm i -g @spark/cli && spark --version`（CI release.yml 已自动；本项为人工复核版本号非"未知版本"——关联 AUD-13 同源问题 WO-050） | 版本号正确显示 |
 
 执行纪律：走查只读产品行为，不修复；本机规则（禁下载/零验证）对执行 agent 同样适用，外部工具一律 CI 预装或由晚风现场提供。
+
+## 10. 实施记录（2026-09-19，全批本机零验证，以远端 CI 裁决）
+
+| 工单 | commit | 要点与偏差 |
+| --- | --- | --- |
+| AUD-01 | 63368eb | settle 允许结果改为 emit 成功后生效；审计/metrics 记生效结果；回归 3 例（once/reject 落盘失败 + 正常回归） |
+| AUD-02 | d29bc47 | 收集上限 = outputLimitBytes×4（经 ToolContext 注入，engine 接线）；StringDecoder 跨块解码；截断标记；已截断时跳过 end() 冲刷；用例 2 例 |
+| AUD-03 | 453cf03 | edit/write/checkpoint 回滚与索引共四处改 atomicWriteFile（序列化形状逐字节一致）；atomicWriteFile 放宽接受 Uint8Array；OS 拒绝错误映射保留；用例 2 例 |
+| AUD-04 | 3590aac | 根/目标先 realpath（目标不存在解析最深现存祖先），真实路径上 relative 判定；根 realpath 缓存；返回值仍为词法路径（调用方语义不变）；用例 4 例（文件 symlink 用例 win32 skip——junction 仅目录可用） |
+| AUD-05 | ca93408 | ProjectorImpl 附件 LRU 缓存（32 条、含负缓存），经包装 reader 注入纯函数（签名不变）；用例 2 例 |
+| AUD-06 | 58ad111 | redactSecretText（sk-/Bearer/env 值）+ run-loop 四处 error 发射点过脱敏；用例 2 例 |
+| AUD-07 | 6d534dd | length 续采样入 maxSteps 预算（finish='length' 收口）；endTurn 移入无条件内层 finally；takeInput catch 收窄 E_QUEUE_CLOSED；用例 3 例 |
+| AUD-08 | 979b5d1 | 新建 transports/replay.ts 回放代际协调器；偏差：模块级单例（replaySessionEvents 有模块级调用方，不经 React 上下文）；失败路径 finally 把 pending 补进 store（满足"直播数据不丢"验收） |
+| AUD-09 | b42cdf9 | emit/setNotice 入口 disposed 闸门 + loadOlder await 后丢弃；noticeTimer 回调兜防；用例 4 例 |
+| AUD-10 | eb5057d | read 返回 tailTorn{validBytes}（ignorable 行同样推进边界）；resume 备份 .torn-bak + truncate 修复；fail-closed 拒载不变；用例 3 例 |
+| AUD-11 | d29bc47 | 背压分级（live 先丢/durable 驱逐 live/全 durable 断链通知 onDurableOverflow，sse res.end 让客户端按水位重连补播）+ ProgressGate drain 首错上抛一次、链自愈；既有 2 条背压用例按新策略更新；protocol 增 isLiveOnlyType；用例 4 例 |
+| AUD-12 | 1cb3fae | 壳侧方案（工单二选一取 A，不动 server 生命周期语义）：fatal.ts renderFatalHtml 纯函数 + showFatalWindow（stderr 尾部 20 行现场）；用例 3 例 |
+| AUD-13 | 50e1ee9 | 手写 ErrorBoundary（App 级 + ChatView 行级）；useVoiceInput 卸载收口（先摘 onstop 防死后假转写）；useCopy 三端定时器 ref 化；偏差：recorder 状态按 MediaRecorder 实际值（recording/paused/inactive） |
+| AUD-14 | 06858f5 | useTransportQuery 代际闸门 + 成功清 error；SessionPage sid 切换补清 preset；Composer listFs 代际；inprocess 七方法 dispose 收口——偏差：异步方法用 assertNotDisposed 而非 sync 包裹（避免 Promise 嵌套推断风险），错误同为 E_DISPOSED、契约形状一致 |
+
+**余下安排**：AUD-RT-01（§9）与 docs/audit 的 WO 系列属实工单、DSH 对话框改造（§5 解禁，按 DESIGN §13.L 过滤）由豆包执行。CI 红则在下一提交修（AGENTS §2.2）。
