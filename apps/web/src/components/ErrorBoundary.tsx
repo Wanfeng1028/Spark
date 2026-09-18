@@ -15,6 +15,8 @@ interface ErrorBoundaryProps {
   label: string
   /** 捕获态替代渲染（缺省 = 紧凑兜底块） */
   fallback?: ReactNode
+  /** React 19 类型要求显式声明 children（JSX 子节点走此属性） */
+  children?: ReactNode
 }
 
 interface ErrorBoundaryState {

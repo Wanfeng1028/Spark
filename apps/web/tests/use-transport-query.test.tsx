@@ -65,9 +65,9 @@ describe('useTransportQuery（AUD-14 代际闸门）', () => {
     const { result, rerender } = renderHook(
       ({ deps }: { deps: readonly unknown[] }) =>
         useTransportQuery((t) => t.listModels(), deps),
-      { initialProps: { deps: ['a' as const] }, wrapper: makeWrapper(makeTransport(gets)) },
+      { initialProps: { deps: ['a'] }, wrapper: makeWrapper(makeTransport(gets)) },
     )
-    rerender({ deps: ['b' as const] }) // 代2 effect 发起（代1 作废）
+    rerender({ deps: ['b'] }) // 代2 effect 发起（代1 作废）
     act(() => {
       void result.current.refresh() // 代3 发起
     })
