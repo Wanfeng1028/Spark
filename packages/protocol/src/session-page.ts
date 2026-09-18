@@ -10,7 +10,9 @@
  * - 重放重复帧（durable 且 seq 在水位内）不入窗（H4，与 applyEvent 去重同口径）；
  * - 翻页：较旧页升序前置合并 + 全量重放重建投影（升序红线）；
  * - 审批复读闸门（H3：快速双击不二次发 replyPermission）；
- * - notice 5s 自清（不留陈旧错误冒充现状）。
+ * - notice 5s 自清（不留陈旧错误冒充现状）；
+ * - dispose 闸门（AUD-09）：dispose 后一切回调静默——emit/setNotice 早退、在途请求
+ *   resolve 后整体丢弃（端侧换 controller 时旧快照不得写进新页面的 setSnap）。
  */
 import type { SparkEventEnvelope } from './events.js'
 import type { EventId, RequestId, SessionId } from './ids.js'
@@ -154,6 +156,8 @@ export function createSessionPageController(opts: {
   let batcher: EventBatcher | null = null
 
   const emit = (): void => {
+    // AUD-09：dispose 后静默——旧 controller 不得再回调端侧 onUpdate
+    if (disposed) return
     opts.onUpdate({
       slice,
       status,
@@ -166,10 +170,14 @@ export function createSessionPageController(opts: {
   }
 
   const setNotice = (message: string): void => {
+    // AUD-09：dispose 后不重建错误条、不新建 notice 定时器
+    if (disposed) return
     notice = message
     emit()
     if (noticeTimer !== null) clearTimeout(noticeTimer)
     noticeTimer = setTimeout(() => {
+      // dispose 已清定时器，此处兜防 await 之后新建的定时器在 dispose 后触发
+      if (disposed) return
       notice = null
       noticeTimer = null
       emit()
@@ -246,6 +254,8 @@ export function createSessionPageController(opts: {
       emit()
       try {
         const dto = await transport.getSession(sid, { limit: pageSize, before: oldest.seq })
+        // AUD-09：await 期间被销毁——丢弃旧页，不重建切片（emit 闸门在 finally 兜底）
+        if (disposed) return
         const page = dto.events ?? []
         if (page.length < pageSize) hasMore = false
         // W12：用增量维护的 seenIds 做 O(m) 过滤，避免 mergeEventPage 每次 O(n) 重建 Set

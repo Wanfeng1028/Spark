@@ -4,7 +4,7 @@
  * 覆盖：装载回放→续播水位 / H2 取页失败仍开流 / H4 重复帧不入窗 / 翻页合并重放与
  * hasMore 收口 / H3 审批复读闸门 / send/stop 失败 notice / notice 自清 / dispose 收口。
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   createEventBatcher,
   createSessionPageController,
@@ -190,6 +190,86 @@ describe('session-page controller（R-H 内核契约）', () => {
     await Promise.resolve()
     expect(h.streamDisposed).toBe(1)
     expect(h.restCalls).toBe(1)
+  })
+})
+
+describe('AUD-09：dispose 闸门（销毁后的在途回调一律静默）', () => {
+  it('装载在途 dispose——getSession resolve 后不再回调 onUpdate', async () => {
+    let resolveGet: (value: never) => void = () => undefined
+    const h = makeHarness(
+      () =>
+        new Promise<never>((resolve) => {
+          resolveGet = resolve
+        }),
+    )
+    h.controller.start()
+    await Promise.resolve() // IIFE 已挂起在 await getSession
+    h.controller.dispose()
+    const emitsBefore = h.notices.length
+    resolveGet(sessionDto([env()]) as never)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(h.notices.length).toBe(emitsBefore) // 旧 controller 不再写端侧 setSnap
+    expect(h.streamDisposed).toBe(1) // 流已收口且未重开
+  })
+
+  it('loadOlder 在途 dispose——resolve 后不重建切片不 emit', async () => {
+    const h = makeHarness(() => Promise.resolve(sessionDto([env(), env()]) as never))
+    h.controller.start()
+    await Promise.resolve()
+    await Promise.resolve()
+    let resolveOlder: (value: never) => void = () => undefined
+    h.setGetSession(
+      () =>
+        new Promise<never>((resolve) => {
+          resolveOlder = resolve
+        }),
+    )
+    const pending = h.controller.loadOlder()
+    h.controller.dispose()
+    const emitsBefore = h.notices.length
+    resolveOlder(sessionDto([env({ seq: -3 })]) as never)
+    await pending
+    expect(h.notices.length).toBe(emitsBefore) // 旧页整体丢弃：无合并重放、无 finally emit
+  })
+
+  it('send 失败路径 dispose 后不回调、不新建 notice 定时器', async () => {
+    const h = makeHarness(() => Promise.resolve(sessionDto([]) as never))
+    h.controller.dispose()
+    const emitsBefore = h.notices.length
+    const timerSpy = vi.spyOn(globalThis, 'setTimeout')
+    const timersBefore = timerSpy.mock.calls.length
+    await h.controller.send('hello') // makeHarness 的 sendMessage 恒 reject
+    expect(h.notices.length).toBe(emitsBefore) // setNotice/emit 均被闸门吞掉
+    expect(timerSpy.mock.calls.length).toBe(timersBefore) // 未新建定时器
+    timerSpy.mockRestore()
+  })
+
+  it('dispose 后流状态回调不再 emit', async () => {
+    let notifyStatus: (s: 'open') => void = () => undefined
+    const updates: string[] = []
+    const controller = createSessionPageController({
+      sessionId: sid,
+      rest: () => ({
+        getSession: () => Promise.resolve(sessionDto([]) as never),
+        sendMessage: () => Promise.reject(new Error('E_TEST: send 未注入')),
+        interrupt: () => Promise.reject(new Error('E_TEST: interrupt 未注入')),
+        replyPermission: () => Promise.resolve(),
+      }),
+      schedule: (fn) => void fn(),
+      openStream: (_since, handlers) => {
+        notifyStatus = handlers.onStatus
+        return { dispose: () => undefined }
+      },
+      onUpdate: () => updates.push('emit'),
+    })
+    controller.start()
+    await Promise.resolve()
+    await Promise.resolve()
+    controller.dispose()
+    const before = updates.length
+    notifyStatus('open') // dispose 后才到达的流状态回调
+    expect(updates.length).toBe(before)
   })
 })
 
