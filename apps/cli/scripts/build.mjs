@@ -10,6 +10,12 @@
 // 主 CI 首次跑 `pnpm -r build` 才暴露——此前构建不在门禁里，缺陷自 12.3 起潜伏）。
 // desktop build:server 同病，已照此修（apps/desktop/scripts/build-server.mjs）。
 import { build } from 'esbuild'
+import { readFileSync } from 'node:fs'
+
+// WO-050：构建期注入版本号——打包后 `require('../../package.json')` 相对路径断裂
+// （dist/main.js 上跳两级不再指向 apps/cli），显示"未知版本"
+const cliPkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+const versionDefine = { __SPARK_VERSION__: JSON.stringify(String(cliPkg.version ?? '0.0.0')) }
 
 const serverBanner =
   "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);"
@@ -20,6 +26,7 @@ await build({
   platform: 'node',
   format: 'esm',
   outfile: 'dist/main.js',
+  define: versionDefine,
   // shebang（npm bin 要求）+ createRequire 兜底：CJS 依赖（ink→signal-exit 等）在 ESM
   // 输出里的动态 require 内置模块靠 banner 提供的 require 落地（server bundle 同款）。
   // 别名声明——bundle 内部分依赖自带 createRequire 导入，直接用同名会重复声明

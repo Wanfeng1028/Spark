@@ -3,17 +3,22 @@
  * config 解析 proxy 字段 / proxyFetchFor 选择（显式 > env 兜底 > undefined）/
  * Agent 缓存复用。不发真实网络请求（代理效果验证=用户侧 mitm 走查）。
  */
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { proxyFetchFor, clearProxyAgents } from '../src/proxy-fetch.js'
 
 afterEach(() => {
   clearProxyAgents()
+  // WO-019：unstub 恢复宿主真实值（不破坏测试进程 env）；delete 兜底历史直写
+  vi.unstubAllEnvs()
   delete process.env.HTTPS_PROXY
   delete process.env.https_proxy
 })
 
 describe('proxyFetchFor（工单 12.9）', () => {
   test('无 proxy 字段且无 env → undefined（缺省直连零变化）', () => {
+    // WO-019：宿主可能带 HTTPS_PROXY——空桩保证用例只测代码不测宿主环境
+    vi.stubEnv('HTTPS_PROXY', '')
+    vi.stubEnv('https_proxy', '')
     expect(proxyFetchFor(undefined)).toBeUndefined()
   })
 
@@ -25,7 +30,7 @@ describe('proxyFetchFor（工单 12.9）', () => {
   })
 
   test('env 兜底：HTTPS_PROXY 生效，显式字段优先于 env', () => {
-    process.env.HTTPS_PROXY = 'http://env-proxy:3128'
+    vi.stubEnv('HTTPS_PROXY', 'http://env-proxy:3128')
     expect(proxyFetchFor(undefined)).toBeTypeOf('function')
     const envF = proxyFetchFor(undefined)
     const explicitF = proxyFetchFor('http://explicit:8888')

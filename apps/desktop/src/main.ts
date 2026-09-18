@@ -118,6 +118,8 @@ function showFatalWindow(reason: string): void {
     width: 480,
     height: 360,
     title: 'Spark',
+    // WO-025：显式声明安全缺省（Electron 44 缺省已安全——显式化防未来漂移）
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   })
   const html = renderFatalHtml({
     title: 'Spark 启动失败',
@@ -185,6 +187,14 @@ async function main(): Promise<void> {
     minWidth: 960,
     minHeight: 640,
     title: 'Spark',
+    // WO-025：显式声明安全缺省（同 fatalWin）
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+  })
+  // WO-025：只允许本机 sidecar 页面——外部导航一律交给系统浏览器（§7.4），
+  // 禁 window.open 弹窗
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  win.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith('http://127.0.0.1:')) e.preventDefault()
   })
   await win.loadURL(`http://127.0.0.1:${port}`)
 

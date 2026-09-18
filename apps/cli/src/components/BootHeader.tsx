@@ -80,9 +80,14 @@ function GradientLine({ line, width }: { line: string; width: number }) {
   )
 }
 
-/** 版本（从包清单现读——真值不硬编码；工单 10.17②：相对组件目录 ../../=apps/cli） */
+/**
+ * 版本（WO-050）：打包形态用 esbuild define 注入的构建期值（相对 require 路径在
+ * dist 下断裂）；dev（tsx 直跑）无 define，回落包清单现读——两形态都显示真值。
+ */
+declare const __SPARK_VERSION__: string | undefined
 const require = createRequire(import.meta.url)
 function versionOf(): string {
+  if (typeof __SPARK_VERSION__ === 'string') return __SPARK_VERSION__
   try {
     const pkg = require('../../package.json') as { version?: unknown }
     return typeof pkg.version === 'string' ? pkg.version : '未知版本'

@@ -255,7 +255,15 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
       throw new Error('E_ATTACHMENT_TOO_LARGE: 图片超过 10MB 上限')
     }
     const nameHeader = req.headers['x-file-name']
-    const name = typeof nameHeader === 'string' ? decodeURIComponent(nameHeader) : 'image.' + ext
+    // WO-020：畸形 % 序列抛 URIError 会落 E_INTERNAL 500——客户端输入错误按 400 归类
+    let name = 'image.' + ext
+    if (typeof nameHeader === 'string') {
+      try {
+        name = decodeURIComponent(nameHeader)
+      } catch {
+        throw validationError('x-file-name 头不是合法的 URI 编码（畸形 % 序列）', undefined)
+      }
+    }
     const attachmentId = randomUUID().replaceAll('-', '')
     const dir = join(engine.dataRoot, 'attachments')
     mkdirSync(dir, { recursive: true })

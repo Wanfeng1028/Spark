@@ -13,7 +13,7 @@
  * 可见、可 grep），不吞、不重试。
  */
 import { execFile } from 'node:child_process'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import type { CheckpointId, SessionId, TurnId } from '@spark/protocol'
@@ -54,6 +54,15 @@ export interface GitCheckpointerDeps {
   logger: SparkLogger
   now?: () => number
   newCheckpointId?: () => CheckpointId
+}
+
+/** WO-044：index.lock mtime 超过该值视为陈旧锁（正常 git 操作远快于此） */
+const STALE_LOCK_MS = 30_000
+
+/** git 的 index.lock 冲突报错特征（exit 128 + "Unable to create ... index.lock"） */
+function isIndexLockError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err)
+  return msg.includes('index.lock')
 }
 
 export class GitCheckpointer {
@@ -173,8 +182,33 @@ export class GitCheckpointer {
     this.ready = true
   }
 
-  /** 工作区命令统一入口（--git-dir/--work-tree 双旗标；cwd 落在工作区） */
-  private git(args: string[]): Promise<string> {
+  /**
+   * 工作区命令统一入口（--git-dir/--work-tree 双旗标；cwd 落在工作区）。
+   * WO-044：进程在 add/commit 中途被杀会残留 .git/index.lock，此后每个 turn 快照
+   * 都被 git 拒绝且永不自愈——这里对"锁文件存在且无并发写者"的场景做陈旧锁回收：
+   * mtime 超过 30s（远超任何一次正常 git 操作）即认定 stale，删除后重试一次。
+   */
+  private async git(args: string[]): Promise<string> {
+    try {
+      return await this.gitRaw(args)
+    } catch (err) {
+      if (!isIndexLockError(err)) throw err
+      const lockPath = join(this.gitDir, 'index.lock')
+      let stale = false
+      try {
+        const st = await stat(lockPath)
+        stale = Date.now() - st.mtimeMs > STALE_LOCK_MS
+      } catch {
+        // 锁已消失（并发写者刚释放）：原样重试
+        stale = true
+      }
+      if (!stale) throw err
+      await rm(lockPath, { force: true })
+      return await this.gitRaw(args)
+    }
+  }
+
+  private gitRaw(args: string[]): Promise<string> {
     return execFileAsync(
       'git',
       ['--git-dir', this.gitDir, '--work-tree', this.deps.cwd, ...args],

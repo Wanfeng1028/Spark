@@ -131,5 +131,14 @@ export function parsePrintArgs(argv: readonly string[]): PrintOptions | null {
     const v = argv[cIndex + 1]
     if (v !== undefined && v !== '') cwd = v
   }
+  // WO-040：未知 flag 一律 E_USAGE——静默丢弃会让用户以为参数生效（如把 --project
+  // 当 --cwd 用，一次性模式跑错工作区还无提示）
+  const KNOWN = new Set(['-p', '--print', '--output-format', '--cwd'])
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a !== undefined && a.startsWith('--') && !KNOWN.has(a)) {
+      throw new Error(`E_USAGE: 未知参数 ${a}（一次性模式只支持 -p/--print、--output-format、--cwd）`)
+    }
+  }
   return { prompt, outputFormat, cwd }
 }

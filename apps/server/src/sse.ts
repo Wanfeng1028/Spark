@@ -118,7 +118,8 @@ const ssePlugin: FastifyPluginCallback<SseOptions> = (app, opts) => {
         }
       },
     })
-    res.on('drain', () => sub.resume())
+    const onDrain = (): void => sub.resume()
+    res.on('drain', onDrain)
 
     // 回放：先写快照（seq>since 的 durable，按 seq 升序）再直播——订阅先于快照建立，
     // 在途事件由 writeEvent 的 seq 水位去重，不丢不重
@@ -132,6 +133,7 @@ const ssePlugin: FastifyPluginCallback<SseOptions> = (app, opts) => {
 
     req.raw.on('close', () => {
       clearInterval(heartbeat)
+      res.off('drain', onDrain) // WO-027：随订阅收口移除 drain 监听（代码卫生）
       sub.unsubscribe()
       clients.delete(res)
     })
