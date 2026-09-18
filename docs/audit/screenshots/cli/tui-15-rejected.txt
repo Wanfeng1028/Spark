@@ -1,0 +1,42 @@
+cd /home/user/.doubao/agent_mode/workspace/.sessions/38442195966066178/agents/o_0001YcFmZDw/Spark && /home/user/.config/nvm/versions/node/v2
+4.21.0/bin/node apps/cli/bin/spark.js --api http://127.0.0.1:4318
+user@vefaas-03ny25ge-c4r7y34e2v-dama5p800mp8301tv4a0-sandbox:/home/user/Doubao/chats/38442195966066178$ cd /home/user/.doubao/agent_mode/wor
+kspace/.sessions/38442195966066178/agents/o_0001YcFmZDw/Spark && /home/user/.config/nvm/versions/node/v24.21.0/bin/node apps/cli/bin/spark.j
+s --api http://127.0.0.1:4318
+  [90m连接中...[39m
+[31m✕︎ Command failed: git --git-dir /home/user/.spark/sessions/-home-user-182d1a38/checkpoints/ses_a52a98cead414b42a45cd626e3d6229a/.git [39m
+[31m--work-tree /home/user add -A[39m
+[31mfatal: Unable to create '/home/user/.spark/sessions/-home-user-182d1a38/checkpoints/ses_a52a98cead414b42a45cd626e3d6229a/.git/index.lock': [39m
+[31mFile exists.[39m
+
+[31mAnother git process seems to be running in this repository, e.g.[39m
+[31man editor opened by 'git commit'. Please make sure all processes[39m
+[31mare terminated then try again. If it still fails, a git process[39m
+[31mmay have crashed in this repository earlier:[39m
+[31mremove the file manually to continue.[39m
+
+[90mE_CHECKPOINT_SNAPSHOT: Command failed: git --git-dir [39m
+[90m/home/user/.spark/sessions/-home-user-182d1a38/checkpoints/ses_a52a98cead414b42a45cd626e3d6229a/.git --work-tree /home/user add -A[39m
+[90mfatal: Unable to create '/home/user/.spark/sessions/-home-user-182d1a38/checkpoints/ses_a52a98cead414b42a45cd626e3d6229a/.git/index.lock': [39m
+[90mFile exists.[39m
+
+[90mAnother git process seems to be running in this repository, e.g.[39m
+[90man editor opened by 'git commit'. Please make sure all processes[39m
+[90mare terminated then try again. If it still fails, a git process[39m
+[90mmay have crashed in this repository earlier:[39m
+[90mremove the file manually to continue.[39m
+[90m · Ctrl+R 重试[39m
+  ⠦ [97m指针就像人生的方向，偏了就都乱了...[90m (45s · ↓ 0 tokens · esc to cancel)[33m · 上游响应中，Ctrl+C 可中断[39m
+[90m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[97m[now] > [2m[90m输入您的消息或 @ 文件路径[0m[39m[49m
+[90m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[39m  [90m→user · mock/mock-model · [97m[now][90m step 1 bash · ? 帮助 · /stats 明细[39m
+
+
+
+
+
+
+
+
+

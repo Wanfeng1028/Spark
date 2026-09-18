@@ -1,0 +1,72 @@
+[
+  {
+    "id": "evt_01M2R8DNZZV911C5KNTV590M6N",
+    "sessionId": "ses_c512fe07eea34e47ab096d6b8d4dad74",
+    "seq": 1,
+    "version": 1,
+    "time": 1789668022272,
+    "type": "session.created",
+    "data": {
+      "cwd": "/tmp/test-project",
+      "model": "mock/mock-model"
+    },
+    "parentId": null
+  },
+  {
+    "id": "evt_01M2R8DP035V31K06ZNM1V457G",
+    "sessionId": "ses_c512fe07eea34e47ab096d6b8d4dad74",
+    "seq": 2,
+    "version": 1,
+    "time": 1789668022275,
+    "type": "user.message",
+    "data": {
+      "text": "你好"
+    },
+    "surface": true,
+    "parentId": "evt_01M2R8DNZZV911C5KNTV590M6N"
+  },
+  {
+    "id": "evt_01M2R8DP05BFFQ4Z3PGEBJZWDM",
+    "sessionId": "ses_c512fe07eea34e47ab096d6b8d4dad74",
+    "seq": 3,
+    "version": 1,
+    "time": 1789668022277,
+    "type": "turn.started",
+    "data": {
+      "turnId": "trn_01M2R8DP02YRQJEXXYRF0YP0CB",
+      "delivery": "now",
+      "userEventId": "evt_01M2R8DP035V31K06ZNM1V457G"
+    },
+    "parentId": "evt_01M2R8DP035V31K06ZNM1V457G"
+  },
+  {
+    "id": "evt_01M2R8DP0AQRQE9PF8ZF200118",
+    "sessionId": "ses_c512fe07eea34e47ab096d6b8d4dad74",
+    "seq": 4,
+    "version": 1,
+    "time": 1789668022283,
+    "type": "error",
+    "data": {
+      "scope": "llm",
+      "message": "E_LLM_PROVIDER: 未知 provider mock（v1 支持见 PROVIDERS 表；自定义 OpenAI 兼容端点请用已知 provider 名 + baseUrl）"
+    },
+    "parentId": "evt_01M2R8DP05BFFQ4Z3PGEBJZWDM"
+  },
+  {
+    "id": "evt_01M2R8DP0D7F27WEYNRE49VKW1",
+    "sessionId": "ses_c512fe07eea34e47ab096d6b8d4dad74",
+    "seq": 5,
+    "version": 1,
+    "time": 1789668022285,
+    "type": "turn.completed",
+    "data": {
+      "turnId": "trn_01M2R8DP02YRQJEXXYRF0YP0CB",
+      "finish": "error",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0
+      }
+    },
+    "parentId": "evt_01M2R8DP0AQRQE9PF8ZF200118"
+  }
+]

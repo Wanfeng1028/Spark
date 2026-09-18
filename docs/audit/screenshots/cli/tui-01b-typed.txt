@@ -1,0 +1,42 @@
+cd /home/user/.doubao/agent_mode/workspace/.sessions/38442195966066178/agents/o_0001YcFmZDw/Spark && /home/user/.config/nvm/versions/node/v2
+4.21.0/bin/node apps/cli/bin/spark.js --api http://127.0.0.1:4318
+user@vefaas-2gpiho1b-0j12jnwjdw-dam9us01b323edibdghg-sandbox:/home/user/Doubao/chats/38442195966066178$ cd /home/user/.doubao/agent_mode/wor
+kspace/.sessions/38442195966066178/agents/o_0001YcFmZDw/Spark && /home/user/.config/nvm/versions/node/v24.21.0/bin/node apps/cli/bin/spark.j
+s --api http://127.0.0.1:4318
+  [90m连接中...[39m
+[31m✕︎ 未知 provider mock（v1 支持见 PROVIDERS 表；自定义 OpenAI 兼容端点请用已知 provider 名 + baseUrl）[39m
+[90mE_LLM_PROVIDER: 未知 provider mock（v1 支持见 PROVIDERS 表；自定义 OpenAI 兼容端点请用已知 provider 名 + baseUrl） · Ctrl+R 重试[39m
+[90m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[97m[now] > [39mtest message with mock llm[7m
+[0m[90m[49m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[39m  [90m→user · mock/mock-model · [97m[now][90m · ? 帮助 · /stats 明细[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

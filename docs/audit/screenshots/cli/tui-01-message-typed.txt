@@ -1,0 +1,42 @@
+cd /home/user/.doubao/agent_mode/workspace/.sessions/38442195966066178/agents/o_0001YcFmZDw/Spark && unset NPM_CONFIG_PREFIX NPM_CONFIG_REGI
+STRY && export NVM_DIR=$HOME/.config/nvm && . $NVM_DIR/nvm.sh && nvm use --delete-prefix v24.21.0 >/dev/null 2>&1 && node apps/cli/bin/spark
+.js --api http://127.0.0.1:4318
+user@vefaas-2gpiho1b-0j12jnwjdw-dam9us01b323edibdghg-sandbox:/home/user/Doubao/chats/38442195966066178$ cd /home/user/.doubao/agent_mode/wor
+kspace/.sessions/38442195966066178/agents/o_0001YcFmZDw/Spark && unset NPM_CONFIG_PREFIX NPM_CONFIG_REGISTRY && export NVM_DIR=$HOME/.config
+/nvm && . $NVM_DIR/nvm.sh && nvm use --delete-prefix v24.21.0 >/dev/null 2>&1 && node apps/cli/bin/spark.js --api http://127.0.0.1:4318
+-bash: /runtime/aio/app-data/aio/.config/nvm/nvm.sh: No such file or directory
+user@vefaas-2gpiho1b-0j12jnwjdw-dam9us01b323edibdghg-sandbox:/home/user/.doubao/agent_mode/workspace/.sessions/38442195966066178/agents/o_00
+01YcFmZDw/Spark$
+user@vefaas-2gpiho1b-0j12jnwjdw-dam9us01b323edibdghg-sandbox:/home/user/.doubao/agent_mode/workspace/.sessions/38442195966066178/agents/o_00
+01YcFmZDw/Spark$ cd /home/user/.doubao/agent_mode/workspace/.sessions/38442195966066178/agents/o_0001YcFmZDw/Spark && /home/user/.config/nvm
+/versions/node/v24.21.0/bin/node apps/cli/bin/spark.js --api http://127.0.0.1:4318
+    [36m▄▄▄▄▄▄▄  ▄▄▄▄▄▄  [34m ▄[35m▄▄▄▄  ▄▄▄▄▄▄  ▄▄   ▄▄[31m [39m  [90m┌──────────────────────────────────────────────────────────┐[39m
+    [36m██╔════╝██╔══██╗█[34m█╔[35m══██╗██╔══██╗██║ ██╔╝[31m [39m  [90m│[39m [1m[35m>_ Spark[0m[90m[49m (v未知版本)[39m                                     [90m│[39m
+    [36m███████╗██████╔╝█[34m██[35m████║██████╔╝█████╔╝ [31m [39m  [90m│[39m                                                          [90m│[39m
+    [36m╚════██║██╔═══╝ █[34m█╔[35m══██║██╔══██╗██╔═██╗ [31m [39m  [90m│[39m [90mAPI Key | mock/mock-model （/model 切换）[39m                [90m│[39m
+    [36m███████║██║     █[34m█║[35m  ██║██║  ██║██║  ██╗[31m [39m  [90m│[39m [90m/home/user[39m                                               [90m│[39m
+    [36m╚══════╝╚═╝     ╚[34m═╝[35m  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝[31m [39m  [90m└──────────────────────────────────────────────────────────┘[39m
+
+    [90m提示： 试 /resume，接着上次的会话聊。[39m
+[90m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[97m[now] > [39mhello spark, this is a deep test message[7m [0m[39m[49m
+[90m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[39m  [90m→user · mock/mock-model · [97m[now][90m · ? 帮助 · /stats 明细[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

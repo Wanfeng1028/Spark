@@ -1,0 +1,35 @@
+Spark CLI（Ink TUI）
+
+用法：
+  spark                 直接进入 TUI（连 --api/SPARK_API 指向的 server）
+  spark up              本机拉起 server（bundle 产物）并进入 TUI；已有 server 则复用，
+                        TUI 退出连带回收本命令拉起的子进程
+  spark mcp             以 stdio MCP server 运行（进程内引擎；三工具 spark_run /
+                        spark_sessions/spark_events，工单 15.1 / ADR D39）
+  spark [--api <url>]   --api 与 up 可组合：spark up --api <url> 自定义基址
+
+参数：
+  --api <url>   API 基址（或 SPARK_API 环境变量；缺省 http://127.0.0.1:4318）
+  -h, --help    显示本帮助
+
+键位（单一来源 @spark/protocol keymap）：
+  Enter             发送消息
+  /                 命令前缀（注册表：/compact 与自定义 .md）
+  Tab               循环提交模式 now / steer / queue
+  Esc               中断当前 turn
+  1 / 2 / 3（y / a / n）审批：允许一次 / 总是允许 / 拒绝（展开理由）
+  Ctrl+O            展开/折叠最近一个工具或思考条目
+  Ctrl+N            新建会话（同 /new）
+  PageUp / PageDown 切换会话
+  ?                 帮助面板（三 tab：概览/命令/键位，Tab/Shift+Tab 切换）
+  Ctrl+U            清空输入
+  Ctrl+C ×2         退出（在途 turn 先中断，不悬挂）
+  Ctrl+R            重试最近一次发送（错误提示存在、无在途 turn 时）
+
+
+一次性模式（headless 脚本面——不进 TUI、跑完即出）：
+  spark -p "<prompt>"            进程内跑一轮并输出结果后退出
+  --output-format <text|json>    输出格式（缺省 text=最终 assistant 文本；
+                                 json=全 durable 事件数组，可被 jq 解析）
+  --cwd <dir>                    工作区（缺省当前目录；会话数据落临时 root 不污染）
+
