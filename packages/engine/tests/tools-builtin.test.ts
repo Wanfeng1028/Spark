@@ -341,18 +341,14 @@ describe('AUD-03：文件工具原子写', () => {
 
   test('edit 成功后无 .tmp 残留且内容替换生效', async () => {
     const cwd = await makeCwd()
-    await writeFile(join(cwd, 'b.txt'), 'alpha
-beta
-', 'utf8')
+    await writeFile(join(cwd, 'b.txt'), 'alpha\nbeta\n', 'utf8')
     const r = await editTool.execute(makeCtx(cwd), {
       path: 'b.txt',
       oldString: 'beta',
       newString: 'BETA',
     })
     expect(r.isError).toBe(false)
-    expect(await readFile(join(cwd, 'b.txt'), 'utf8')).toBe('alpha
-BETA
-')
+    expect(await readFile(join(cwd, 'b.txt'), 'utf8')).toBe('alpha\nBETA\n')
     expect(await readdir(cwd)).toEqual(['b.txt'])
   })
 })

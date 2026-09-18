@@ -367,9 +367,7 @@ describe('danglingTurnIds（§5.8.4 resume 补闭合输入）', () => {
 describe('AUD-10：resume 对坏尾行的受控修复', () => {
   it('坏尾不带换行：修复后续写事件可完整重读，原件有备份', async () => {
     const path = await writeRaw(
-      [JSON.stringify(HEADER), diskLine(env(1), { parentId: null })].join('
-') + '
-{"type":"tur',
+      [JSON.stringify(HEADER), diskLine(env(1), { parentId: null })].join('\n') + '\n{"type":"tur',
     )
     const reasons: string[] = []
     const s2 = await SessionStore.resume(path, { onTailTorn: (r) => reasons.push(r) })
@@ -389,9 +387,7 @@ describe('AUD-10：resume 对坏尾行的受控修复', () => {
 
   it('坏尾带换行：同样修复（旧行为下续写会让坏尾变非尾行、下次读 E_SESSION_BAD_LINE）', async () => {
     const path = await writeRaw(
-      [JSON.stringify(HEADER), diskLine(env(1), { parentId: null }), 'not-json'].join('
-') + '
-',
+      [JSON.stringify(HEADER), diskLine(env(1), { parentId: null }), 'not-json'].join('\n') + '\n',
     )
     const s2 = await SessionStore.resume(path)
     await s2.append(env(2))
@@ -402,9 +398,7 @@ describe('AUD-10：resume 对坏尾行的受控修复', () => {
 
   it('无坏尾的常规 resume 行为不变（不产生备份文件）', async () => {
     const path = await writeRaw(
-      [JSON.stringify(HEADER), diskLine(env(1), { parentId: null })].join('
-') + '
-',
+      [JSON.stringify(HEADER), diskLine(env(1), { parentId: null })].join('\n') + '\n',
     )
     await SessionStore.resume(path)
     expect(await readdir(dirname(path))).toEqual([basename(path)])
