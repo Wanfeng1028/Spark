@@ -170,23 +170,27 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
           stdio: ['ignore', 'pipe', 'pipe'],
         })
 
-        // AUD-02：执行期收集上限（outputLimitBytes 的 4 倍缓冲）——此前 chunks 无上限，
-        // `cat 1GB.log` 全量驻留内存（bound() 在 execute 返回后才截断，管不住执行期）。
-        // 超限即停收并标记；progress 照发（直播流廉价）。UTF-8 用 StringDecoder 跨块
-        // 增量解码——旧逐 buf.toString 会把被 chunk 切断的多字节字符变成 U+FFFD。
-        const collectCapBytes = (ctx.outputLimitBytes ?? 32 * 1024) * 4
+        // AUD-02：执行期收集上限（outputLimitBytes 的 4 倍缓冲，按字符数计——JS 字符串
+        // 内存有界即达目的）——此前 chunks 无上限，`cat 1GB.log` 全量驻留内存（bound()
+        // 在 execute 返回后才截断，管不住执行期）。超限即停收并标记；progress 照发
+        // （直播流廉价）。UTF-8 用 StringDecoder 跨块增量解码——旧逐 buf.toString 会把
+        // 被 chunk 切断的多字节字符变成 U+FFFD。
+        const collectCapChars = (ctx.outputLimitBytes ?? 32 * 1024) * 4
         const COLLECT_TRUNCATION_MARK = '\n[输出超过收集上限，已截断]\n'
         const stdoutDecoder = new StringDecoder('utf8')
         const stderrDecoder = new StringDecoder('utf8')
         const chunks: string[] = []
-        let collectedBytes = 0
+        let collectedChars = 0
         let collectTruncated = false
         const collect = (buf: Buffer, decoder: StringDecoder): void => {
           const text = decoder.write(buf)
           if (!collectTruncated) {
-            chunks.push(text)
-            collectedBytes += buf.length
-            if (collectedBytes >= collectCapBytes) {
+            // 按剩余空间切片收集（避免"整块先收再判超"让上限膨胀到一个 chunk 的大小）
+            const room = collectCapChars - collectedChars
+            const piece = text.length > room ? text.slice(0, room) : text
+            chunks.push(piece)
+            collectedChars += piece.length
+            if (collectedChars >= collectCapChars) {
               collectTruncated = true
               chunks.push(COLLECT_TRUNCATION_MARK)
             }

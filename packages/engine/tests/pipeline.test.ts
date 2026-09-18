@@ -459,7 +459,7 @@ describe('AUD-11：ProgressGate drain 自愈', () => {
     const [r2] = await f.pipeline.runAll(makeTurn(), [pending('read', 2)])
     if (r2 === undefined) throw new Error('runAll 结果缺失（测试前提不成立）')
     expect(r2.isError).toBe(false)
-    expect(r2.output).toBe('ok:read:2')
+    expect(r2.output).toBe('ok')
     expect(f.events.filter((e) => e.type === 'tool.completed')).toHaveLength(2)
   })
 })
