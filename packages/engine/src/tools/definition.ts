@@ -2,7 +2,8 @@
  * 工具定义（doc/02 §5.6.1）：ToolDefinition 六要素——name/description/inputSchema/
  * permission/parallelizable/execute。内置工具在 builtin/，管线在 pipeline.ts。
  */
-import { isAbsolute, relative, resolve } from 'node:path'
+import { isAbsolute, relative, resolve, dirname, basename } from 'node:path'
+import { realpathSync } from 'node:fs'
 import type { z } from 'zod'
 import type { CallId, EventId, SessionId, TurnId } from '@spark/protocol'
 import type { MemoryStore } from '../memory/store.js'
@@ -78,12 +79,41 @@ export interface ToolDefinition<I = unknown> {
 
 /**
  * 路径硬边界（§1.4/§5.6.3）：允许根 = cwd（v1 无 addDir）。
- * resolve 归一后越出允许根 → E_PATH_OUTSIDE（先于审批兜底）。
- * Windows 下大小写不敏感比较（§5.6.3 跨平台规则）。
+ * AUD-04：在 **realpath（真实路径）** 上做边界判定——词法 resolve/relative 可被
+ * 工作区内指向根外的符号链接绕过（read/grep/lsp/write 均会跟随 symlink）；目标
+ * 不存在（写类建新文件）时解析最深的现存祖先再拼余段。extensions/loader 的
+ * realpath 逃逸检查同手法。Windows 下大小写不敏感语义由 realpath 的实际大小写
+ * 归一保底（两侧同源，不再依赖调用方传入 casing）。越出允许根 → E_PATH_OUTSIDE
+ * （先于审批兜底）。返回值保持"root 下的词法路径"（调用方读写用它；真实路径已校验）。
  */
+
+/** realpath 结果缓存（仅缓存允许根——进程生命周期内 cwd 目录身份稳定；目标路径不缓存，建新文件须现解析） */
+const rootRealpathCache = new Map<string, string>()
+
+function cachedRootRealpath(root: string): string {
+  const hit = rootRealpathCache.get(root)
+  if (hit !== undefined) return hit
+  const real = realpathSync(root)
+  rootRealpathCache.set(root, real)
+  return real
+}
+
+/** 目标的真实路径：存在即 realpath；不存在（ENOENT 等）向上找最深的现存祖先，余段词法拼接 */
+function deepestRealpath(abs: string): string {
+  try {
+    return realpathSync(abs)
+  } catch {
+    const parent = dirname(abs)
+    if (parent === abs) return abs // 已到文件系统根：原样返回（relative 判定兜底）
+    return resolve(deepestRealpath(parent), basename(abs))
+  }
+}
+
 export function resolveInRoot(root: string, target: string): string {
+  const realRoot = cachedRootRealpath(root)
   const abs = resolve(root, target)
-  const rel = relative(root, abs)
+  const real = deepestRealpath(abs)
+  const rel = relative(realRoot, real)
   const outside = rel === '' ? false : rel.startsWith('..') || isAbsolute(rel)
   if (outside) {
     throw new Error(`E_PATH_OUTSIDE: 路径 ${target} 越出允许根 ${root}`)

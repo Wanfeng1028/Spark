@@ -2,12 +2,13 @@
  * 内置四工具单测（doc/02 §5.6.3 / §8.6：四工具 × 四路径——成功/越界/超时/错误码）。
  * 直接驱动 execute（管线级行为在 pipeline.test.ts）。
  */
-import { mkdtemp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readdir, readFile, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { ids } from '@spark/protocol'
 import type { ToolContext } from '../src/tools/definition.js'
+import { resolveInRoot } from '../src/tools/definition.js'
 import { readTool } from '../src/tools/builtin/read.js'
 import { writeTool } from '../src/tools/builtin/write.js'
 import { editTool } from '../src/tools/builtin/edit.js'
@@ -353,5 +354,45 @@ beta
 BETA
 ')
     expect(await readdir(cwd)).toEqual(['b.txt'])
+  })
+})
+
+// ---- AUD-04：resolveInRoot 符号链接硬边界 ----
+
+describe('AUD-04：resolveInRoot symlink 硬化', () => {
+  test('工作区内指向根外的文件 symlink → E_PATH_OUTSIDE（read 不可越界读）',
+    // Windows 文件 symlink 需特权（junction 仅目录可用）；CI 为 linux 真跑
+    { skip: process.platform === 'win32' },
+    async () => {
+      const outside = await makeCwd()
+      const secret = join(outside, 'secret.txt')
+      await writeFile(secret, 'top-secret', 'utf8')
+      const cwd = await makeCwd()
+      await symlink(secret, join(cwd, 'leak.txt'), 'file')
+      await expect(readTool.execute(makeCtx(cwd), { path: 'leak.txt' })).rejects.toThrow(
+        'E_PATH_OUTSIDE',
+      )
+      expect(() => resolveInRoot(cwd, 'leak.txt')).toThrow('E_PATH_OUTSIDE')
+    },
+  )
+
+  test('工作区内指向根外的目录 symlink → 穿越同样被拒', async () => {
+    const outside = await makeCwd()
+    await writeFile(join(outside, 'x.txt'), 'x', 'utf8')
+    const cwd = await makeCwd()
+    const linkType = process.platform === 'win32' ? 'junction' : 'dir'
+    await symlink(outside, join(cwd, 'escape'), linkType)
+    expect(() => resolveInRoot(cwd, join('escape', 'x.txt'))).toThrow('E_PATH_OUTSIDE')
+  })
+
+  test('根内不存在的新文件路径照常解析（写类工具建新文件不受影响）', async () => {
+    const cwd = await makeCwd()
+    expect(resolveInRoot(cwd, join('newdir', 'new.txt'))).toBe(join(cwd, 'newdir', 'new.txt'))
+  })
+
+  test('根内现存文件路径解析不变（正常读写路径回归）', async () => {
+    const cwd = await makeCwd()
+    await writeFile(join(cwd, 'a.txt'), 'ok', 'utf8')
+    expect(resolveInRoot(cwd, 'a.txt')).toBe(join(cwd, 'a.txt'))
   })
 })
