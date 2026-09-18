@@ -5,6 +5,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { Brain, ChevronRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export interface ReasoningCollapsibleProps {
   text: string
@@ -50,18 +51,22 @@ export function ReasoningCollapsible({
       : null
 
   return (
-    <div className="my-1 overflow-hidden rounded-xl border border-border">
+    <div className="overflow-hidden rounded-xl border border-border">
       <button
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="flex h-7 w-full items-center gap-1.5 px-2 text-left"
+        className={cn(
+          // §13.L L.4（WO-062）：33px 头行；流式 sweep 与工具卡同一套
+          'flex h-[33px] w-full items-center gap-1.5 px-2 text-left',
+          streaming === true && 'row-running-sweep',
+        )}
       >
         <ChevronRight
-          className={
-            'size-3.5 shrink-0 text-muted-foreground transition-transform ' +
-            (open ? 'rotate-90' : '')
-          }
+          className={cn(
+            'size-3.5 shrink-0 text-muted-foreground transition-transform',
+            open ? 'rotate-90' : 'rotate-0',
+          )}
         />
         <Brain className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="shrink-0 font-mono text-xs text-muted-foreground">

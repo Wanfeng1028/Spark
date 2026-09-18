@@ -15,7 +15,6 @@ import {
   FilePen,
   FileText,
   Globe,
-  Loader2,
   Terminal,
   Wrench,
 } from 'lucide-react'
@@ -68,24 +67,25 @@ export function ToolCard({
   const progressTail = status === 'running' ? lastLine(progressBuf ?? '') : ''
 
   return (
-    <div className="my-1 overflow-hidden rounded-xl border border-border">
+    <div className="overflow-hidden rounded-xl border border-border">
       <button
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="flex h-7 w-full items-center gap-1.5 px-2 text-left"
+        className={cn(
+          // §13.L L.4（WO-061）：33px 头行；running 态 sweep 扫光替代 Loader2 小圈
+          'flex h-[33px] w-full items-center gap-1.5 px-2 text-left',
+          status === 'running' && 'row-running-sweep',
+        )}
       >
         <ChevronRight
           className={cn(
             'size-3.5 shrink-0 text-muted-foreground transition-transform',
+            !open && 'rotate-0',
             open && 'rotate-90',
           )}
         />
-        {status === 'running' ? (
-          <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-        ) : (
-          <ToolIcon name={name} />
-        )}
+        <ToolIcon name={name} />
         <span
           className={cn('shrink-0 text-xs', denied && 'line-through')}
           title={name !== category ? name : undefined}

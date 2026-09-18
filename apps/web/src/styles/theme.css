@@ -58,6 +58,43 @@ body {
   color: var(--muted-foreground);
 }
 
+/*
+ * 流式 sweep 扫光（DESIGN §13.L L.4 / §6 豁免条款）：工具/思考行 running 态
+ * 300px 横向渐变扫光、2.6s ease-out 无限循环；仅挂 .row-running-sweep 的行生效，
+ * reduced-motion 由下方全局规则禁用。CSS keyframes 实现，不经 Tailwind 渐变类
+ * （§12.8 判注豁免）。
+ */
+@keyframes dsh-row-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300px);
+  }
+}
+
+.row-running-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.row-running-sweep::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 300px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--muted-foreground) 18%, transparent),
+    transparent
+  );
+  animation: dsh-row-sweep 2.6s ease-out infinite;
+  pointer-events: none;
+}
+
 /* 动效纪律（DESIGN.md §6）：reduced-motion 下全部动效禁用 */
 @media (prefers-reduced-motion: reduce) {
   *,

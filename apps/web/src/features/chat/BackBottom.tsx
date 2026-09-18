@@ -11,12 +11,13 @@ export interface BackBottomProps {
 
 export function BackBottom({ show, onClick }: BackBottomProps) {
   if (!show) return null
+  // §13.L L.5（WO-064/069）：34px 圆钮贴右下、白底无边框一层柔影
   return (
     <button
       type="button"
       aria-label="回到底部"
       onClick={onClick}
-      className="absolute bottom-3 left-1/2 flex size-7 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+      className="absolute right-4 bottom-4 flex size-[34px] items-center justify-center rounded-full bg-card text-muted-foreground shadow-[0_2px_10px_rgb(0_0_0/0.12)] hover:bg-accent hover:text-accent-foreground"
     >
       <ArrowDown className="size-4" />
     </button>

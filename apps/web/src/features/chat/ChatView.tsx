@@ -80,7 +80,9 @@ export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
         // followOutput='smooth' 平滑滑底=用户看到的"一项一项往前移动"）
         initialTopMostItemIndex={Math.max(rows.length - 1, 0)}
         itemContent={(_, row) => (
-          // AUD-13：行级边界每 item 一层——单条渲染出错只降级该行（一行红字摘要），不拖垮会话流
+          // §13.L L.3（WO-068）：相邻 flow item 统一 16px 间距
+          <div className="pb-4">
+          {/* AUD-13：行级边界每 item 一层——单条渲染出错只降级该行（一行红字摘要），不拖垮会话流 */}
           <ErrorBoundary
             label="消息"
             fallback={<div className="px-4 py-1.5 text-[13px] text-destructive">此消息渲染出错</div>}
@@ -100,6 +102,7 @@ export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
               />
             )}
           </ErrorBoundary>
+          </div>
         )}
         followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
         atBottomStateChange={setAtBottom}

@@ -25,7 +25,7 @@ export interface AssistantActionsProps {
 }
 
 const ICON_BTN =
-  'flex size-5 items-center justify-center rounded-full text-muted-foreground/70 hover:bg-accent hover:text-accent-foreground'
+  'flex size-7 items-center justify-center rounded-full text-muted-foreground/70 transition-opacity hover:bg-accent hover:text-accent-foreground'
 
 export function AssistantActions({ sid, eventId, time, copyText }: AssistantActionsProps) {
   const { transport } = useTransport()
@@ -53,7 +53,7 @@ export function AssistantActions({ sid, eventId, time, copyText }: AssistantActi
   const full = when.toLocaleString('zh-CN')
 
   return (
-    <div className="mt-1.5 flex items-center gap-1">
+    <div className="mt-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100">
       <button
         type="button"
         onClick={() => void copy(copyText)}
@@ -61,7 +61,7 @@ export function AssistantActions({ sid, eventId, time, copyText }: AssistantActi
         aria-label="复制正文"
         className={ICON_BTN}
       >
-        {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+        {copied ? <Check className="size-[15px]" /> : <Copy className="size-[15px]" />}
       </button>
       <button
         type="button"
@@ -70,7 +70,7 @@ export function AssistantActions({ sid, eventId, time, copyText }: AssistantActi
         aria-label="有帮助（规划中）"
         className={cn(ICON_BTN, 'cursor-not-allowed opacity-40')}
       >
-        <ThumbsUp className="size-3" />
+        <ThumbsUp className="size-[15px]" />
       </button>
       <button
         type="button"
@@ -79,11 +79,11 @@ export function AssistantActions({ sid, eventId, time, copyText }: AssistantActi
         aria-label="无帮助（规划中）"
         className={cn(ICON_BTN, 'cursor-not-allowed opacity-40')}
       >
-        <ThumbsDown className="size-3" />
+        <ThumbsDown className="size-[15px]" />
       </button>
       <span aria-hidden className="mx-1 h-3 border-l border-border" />
-      <span className="text-[11px] text-muted-foreground/60">内容由 AI 生成</span>
-      <span className="text-[11px] text-muted-foreground/60" title={full}>
+      <span className="max-[479px]:hidden text-[11px] text-muted-foreground/60">内容由 AI 生成</span>
+      <span className="max-[479px]:hidden text-[11px] text-muted-foreground/60" title={full}>
         {stamp}
       </span>
       <button
@@ -94,7 +94,7 @@ export function AssistantActions({ sid, eventId, time, copyText }: AssistantActi
         aria-label="fork 到分支会话"
         className={cn(ICON_BTN, 'ml-auto', forking && 'opacity-40')}
       >
-        <GitFork className="size-3" />
+        <GitFork className="size-[15px]" />
       </button>
       {forkError !== null && (
         <span className="font-mono text-[11px] text-[var(--spark-err)]">{forkError}</span>

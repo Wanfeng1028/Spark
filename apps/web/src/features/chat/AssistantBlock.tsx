@@ -37,7 +37,7 @@ export function AssistantBlock({ content, streaming, usage }: AssistantBlockProp
   return (
     <div className="flex flex-col gap-2">
       {streaming !== undefined && (
-        <div className="text-[13px] leading-relaxed">
+        <div className="text-sm leading-6">
           <Streamdown
             mode="streaming"
             animated={false}
@@ -56,7 +56,7 @@ export function AssistantBlock({ content, streaming, usage }: AssistantBlockProp
       {content.map((c, i) => {
         if (c.type === 'text') {
           return (
-            <div key={i} className="text-[13px] leading-relaxed">
+            <div key={i} className="text-sm leading-6">
               <Streamdown
                 mode="static"
                 animated={false}

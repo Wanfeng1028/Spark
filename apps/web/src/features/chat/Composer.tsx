@@ -12,7 +12,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import {
   ArrowUp,
   AtSign,
-  ChevronsUpDown,
+  ChevronDown,
   DollarSign,
   FolderTree,
   Paperclip,
@@ -98,8 +98,8 @@ export interface ComposerHandle {
   fill(text: string): void
 }
 
-/** §13.E：6 行上限（约 144px）后内部滚动 */
-const MAX_HEIGHT = 144
+/** §13.L L.1（WO-054）：14 行上限（约 336px）后内部滚动 */
+const MAX_HEIGHT = 336
 
 const OUTCOME_TEXT: Record<SubmitOutcome['result'], string> = {
   started: '已开始本轮',
@@ -477,8 +477,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     <div className="flex flex-col gap-1.5">
       <div
         className={cn(
-          'relative flex flex-col rounded-xl border border-input bg-card p-3',
-          'focus-within:border-ring',
+          // §13.L L.1（WO-052/053）：22px 全圆角白卡、无 border 无聚焦 ring（聚焦仅
+          // caret 变色）、单层 subtle 投影（§12.2 阴影豁免位）；深色 #2c2c2e + 0.5px 淡白描边环
+          'relative flex flex-col gap-3 rounded-[22px] bg-card pt-2 pr-2 pb-2 pl-2',
+          'shadow-[0_2px_10px_rgb(0_0_0/0.05)] dark:bg-[#2c2c2e] dark:shadow-[inset_0_0_0_0.5px_rgb(255_255_255/0.12)]',
         )}
       >
         {/* @ / / 菜单浮层（§13.E；展示层已拆 ComposerMenu——R-E③） */}
@@ -550,15 +552,17 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           placeholder={
             waiting
               ? '等待审批中——请先处理上方审批卡'
-              : busy
-                ? '继续输入以排队后续修改'
-                : '向 Spark 提问，使用 @ 添加上下文，使用 / 选择命令或能力'
+              : busy && segment === 'steer'
+                ? '输入将作为插话注入当前轮（Ctrl+Enter 排队）'
+                : busy
+                  ? '继续输入以排队后续修改'
+                  : '向 Spark 提问，使用 @ 添加上下文，使用 / 选择命令或能力'
           }
-          className="max-h-36 min-h-7 w-full resize-none bg-transparent px-0.5 text-[13px] leading-relaxed outline-none placeholder:text-muted-foreground/60 disabled:cursor-not-allowed disabled:opacity-60"
+          className="max-h-[336px] min-h-9 w-full resize-none overflow-y-auto bg-transparent pt-1 pr-2 pb-0 pl-3.5 text-sm leading-6 text-foreground caret-send-accent outline-none placeholder:text-muted-foreground/60 disabled:cursor-not-allowed disabled:opacity-60"
         />
 
-        {/* 底部工具条（§13.E）：左=[＋菜单][权限档位]；右=[提交模式分段][发送/停止] */}
-        <div className="mt-2 flex h-8 items-center gap-1.5">
+        {/* 底部工具条（§13.L L.2 重排）：左=[＋/文件树/权限档位/语音]；右=[模型/推理/提交模式/发送] */}
+        <div className="flex h-8 items-center gap-1.5 px-1.5 pb-0.5">
           <div className="relative shrink-0">
             <button
               type="button"
@@ -568,9 +572,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               aria-expanded={plusMenuOpen}
               disabled={waiting}
               onClick={() => setPlusMenuOpen((v) => !v)}
-              className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+              className="flex size-7 items-center justify-center rounded-full bg-secondary text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
             >
-              <Plus className="size-4" />
+              <Plus className="size-3.5" />
             </button>
             <button
               type="button"
@@ -578,9 +582,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               aria-expanded={treeOpen}
               disabled={waiting}
               onClick={() => setTreeOpen((v) => !v)}
-              className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+              className="flex size-7 items-center justify-center rounded-full bg-secondary text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
             >
-              <FolderTree className="size-4" />
+              <FolderTree className="size-3.5" />
             </button>
             {treeOpen && !waiting && sessionId !== undefined && (
               <FileTreePopover
@@ -632,13 +636,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               disabled={waiting}
               onClick={() => setPresetMenuOpen((v) => !v)}
               title={`权限档位：${tier.label}——${tier.description}`}
-              className="flex h-7 shrink-0 items-center gap-1 rounded-full px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+              className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-1.5 text-[13px] text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
             >
               <tier.icon
                 className={cn('size-4', tier.warn && 'text-[var(--spark-warn)]')}
               />
-              {tier.label}
-              <ChevronsUpDown className="size-3 opacity-60" />
+              <span className="max-[479px]:hidden">{tier.label}</span>
+              <ChevronDown className="size-3 opacity-60" />
             </button>
           )}
 
@@ -698,27 +702,24 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             </button>
           )}
 
-          {/* 模型选择器（§13.E 工具条中位）：供应商/模型级联下拉，切换下一轮生效 */}
-          {model !== undefined && (
-            <ModelPicker
-              current={model.current}
-              models={model.models}
-              providers={model.providers}
-              onChange={chooseModel}
-              disabled={waiting}
-            />
-          )}
-
-          {/* 推理档位（工单 10.6，§13.E 工具条中位）：低/中/高，切换下一轮生效 */}
-          {effort !== undefined && (
-            <EffortPicker
-              current={effort.current}
-              onChange={chooseEffort}
-              disabled={waiting}
-            />
-          )}
-
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            {/* 模型/推理选择器（§13.L L.2 / WO-056：紧贴发送钮右侧） */}
+            {model !== undefined && (
+              <ModelPicker
+                current={model.current}
+                models={model.models}
+                providers={model.providers}
+                onChange={chooseModel}
+                disabled={waiting}
+              />
+            )}
+            {effort !== undefined && (
+              <EffortPicker
+                current={effort.current}
+                onChange={chooseEffort}
+                disabled={waiting}
+              />
+            )}
             {!waiting && (
               <Segmented<Delivery>
                 aria-label="提交模式"
@@ -751,7 +752,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                 onClick={onInterrupt}
                 title="停止当前轮"
                 aria-label="停止当前轮"
-                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground enabled:hover:bg-primary/90"
+                className="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-send-accent text-white enabled:hover:bg-send-accent-hover"
               >
                 <Square className="size-3.5 fill-current" />
               </button>
@@ -762,7 +763,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                 disabled={!hasText || waiting}
                 title="发送（Enter）"
                 aria-label="发送"
-                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground enabled:hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-send-accent text-white enabled:hover:bg-send-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ArrowUp className="size-4" />
               </button>

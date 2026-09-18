@@ -1,8 +1,8 @@
 /**
  * MessageItem（doc/02 §6.3）：UiItem 按 kind 分发的行（转录式，DESIGN §3）。
- * user/assistant 带角色标签行（12px 灰标签 YOU/模型名）；user 右对齐限宽气泡
- * （radius 18、右下角 4px 收角、最大宽 80%——工单 10.22 / DESIGN §13.H v2.10）；
- * assistant 左锚全宽无背景由 AssistantBlock 排内容块；tool→ToolCard、approval→ApprovalCard。
+ * §13.L L.3（v2.19 / ADR D43）：user 右对齐限宽气泡——22px 全圆角（无右下收角）、
+ * 最大宽 82%、`--user-bubble` 底、无 YOU 标签（WO-058）；assistant 左锚全宽无
+ * YOU 侧模型名标签（WO-059）由 AssistantBlock 排内容块；tool→ToolCard、approval→ApprovalCard。
  */
 import { memo } from 'react'
 import type { ContentItem, PermissionReply, SessionId } from '@spark/protocol'
@@ -14,8 +14,12 @@ import { AssistantBlock } from './AssistantBlock'
 import { AssistantActions } from './AssistantActions'
 import { ReasoningCollapsible } from './ReasoningCollapsible'
 import { ToolCard } from './ToolCard'
+import { FileText } from 'lucide-react'
 import { ApprovalCard } from './ApprovalCard'
 import { TurnHeader } from './TurnHeader'
+
+/** 图片扩展名判定（WO-077）：非图片附件渲染文件卡 */
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp)$/i
 
 export interface MessageItemProps {
   item: UiItem
@@ -32,24 +36,38 @@ export const MessageItem = memo(function MessageItem({ item, model, sid, highlig
     case 'user':
       return (
         <article className={cn('flex w-full flex-col items-end', hl)}>
-          <RoleLabel>YOU</RoleLabel>
           {/* 附件缩略（工单 12.2a）：id 对应 server attachments/ 平铺文件；加载失败隐藏 img 保文字 */}
           {item.attachments !== undefined && item.attachments.length > 0 && (
-            <div className="mt-1 flex max-w-[80%] flex-wrap justify-end gap-1.5">
-              {item.attachments.map((a) => (
-                <img
-                  key={a}
-                  src={`/api/attachments/${a}`}
-                  alt={`附件 ${a.slice(0, 8)}`}
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                  className="h-20 rounded-lg border border-border object-cover"
-                />
-              ))}
+            <div className="flex max-w-[82%] flex-wrap justify-end gap-1.5">
+              {item.attachments.map((a) => {
+                // §13.L L.5（WO-077）：图片=64px 缩略；文件=240px 卡（图标+文件名，DSH 形态）
+                if (IMAGE_EXT_RE.test(a)) {
+                  return (
+                    <img
+                      key={a}
+                      src={`/api/attachments/${a}`}
+                      alt={`附件 ${a.slice(0, 8)}`}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none'
+                      }}
+                      className="size-16 rounded-2xl object-cover"
+                    />
+                  )
+                }
+                return (
+                  <div
+                    key={a}
+                    className="flex w-60 items-center gap-2 rounded-2xl border border-border px-3 py-2.5"
+                  >
+                    <FileText className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 truncate text-[13px]">{a}</span>
+                  </div>
+                )
+              })}
             </div>
           )}
-          <div className="mt-1 max-w-[80%] rounded-[18px] rounded-br-[4px] bg-accent px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap">
+          {/* §13.L L.3（WO-058）：22px 全圆角、82% 限宽、--user-bubble 底、14px/22px、无 YOU 标签 */}
+          <div className="max-w-[82%] rounded-[22px] bg-user-bubble px-4 py-2.5 text-sm leading-[22px] whitespace-pre-wrap text-foreground">
             {item.text}
           </div>
         </article>
@@ -62,9 +80,9 @@ export const MessageItem = memo(function MessageItem({ item, model, sid, highlig
       )
     case 'assistant':
       return (
-        <article className={cn('w-full', hl)}>
-          <RoleLabel>{model}</RoleLabel>
-          <div className="mt-1">
+        <article className={cn('group/msg w-full', hl)}>
+          {/* §13.L L.3（WO-059）：去模型名 RoleLabel——模型名由 TurnHeader/状态栏承载 */}
+          <div>
             <AssistantBlock content={item.content} streaming={item.streaming} />
           </div>
           {item.streaming === undefined && item.time !== undefined && (
@@ -116,10 +134,6 @@ export const MessageItem = memo(function MessageItem({ item, model, sid, highlig
       )
   }
 })
-
-function RoleLabel({ children }: { children: string }) {
-  return <p className="font-mono text-xs text-muted-foreground">{children}</p>
-}
 
 /** 尾操作行复制源（工单 10.4①）：正文 text 块拼接；reasoning/toolCall 不属正文 */
 function assistantTextOf(content: ContentItem[]): string {

@@ -39,6 +39,11 @@
   --spark-err: #b91c1c;
   /* 侧栏底色（§13.C：侧栏与内容区用底色差分层） */
   --sidebar-bg: #fafafa;
+  /* DSH 对齐点睛色（DESIGN §13.L / ADR D43）：黑白主题唯一彩色点睛——
+     仅发送钮/caret/web 用户气泡三处（§12.1 豁免判注） */
+  --send-accent: #4176e6;
+  --send-accent-hover: #679efe;
+  --user-bubble: #edf3fe;
 }
 
 .dark {
@@ -66,6 +71,10 @@
   --spark-ok: #34d399;
   --spark-err: #f87171;
   --sidebar-bg: #18181b;
+  /* DSH 对齐点睛色（§13.L）：深色值与浅色对调 */
+  --send-accent: #679efe;
+  --send-accent-hover: #4176e6;
+  --user-bubble: #2c2c2e;
 }
 
 @theme inline {
@@ -93,6 +102,9 @@
   --color-spark-ok: var(--spark-ok);
   --color-spark-err: var(--spark-err);
   --color-sidebar: var(--sidebar-bg);
+  --color-send-accent: var(--send-accent);
+  --color-send-accent-hover: var(--send-accent-hover);
+  --color-user-bubble: var(--user-bubble);
 
   /* 密度（DESIGN.md §3）：UI 基础字号 13px（外观区可调，settings-store 驱动）；12px 辅助走 text-xs */
   --text-base: var(--spark-ui-font-size, 13px);
