@@ -10,7 +10,7 @@
  * （重写引入崩溃窗口；schema 保持严格，适配只在磁盘读取边界）。
  */
 import { createHash } from 'node:crypto'
-import { mkdir, open, readFile } from 'node:fs/promises'
+import { copyFile, mkdir, open, readFile } from 'node:fs/promises'
 import type { FileHandle } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { eventSchemaOf, parseEnvelope } from '@spark/protocol'
@@ -41,6 +41,8 @@ export interface SessionHeader {
 export interface SessionFile {
   header: SessionHeader
   events: SparkEventEnvelope[]
+  /** AUD-10：尾行半写信息（最后有效内容的字节边界；read 仅检测，resume 据此受控修复） */
+  tailTorn?: { reason: string; validBytes: number }
 }
 
 /**
@@ -143,12 +145,27 @@ export class SessionStore implements EventSink {
     return store
   }
 
-  /** resume：全量读（坏行策略 §5.8.4）→ 重建 EventTree */
+  /** resume：全量读（坏行策略 §5.8.4）→ 重建 EventTree。
+   * AUD-10：坏尾行受控修复——备份原件后截断到最后有效边界再续写。旧行为只在内存
+   * 丢弃不修盘：resume 以追加模式重开，合法事件接在坏尾之后（坏尾带换行 → 变非尾行
+   * 下次读 E_SESSION_BAD_LINE；不带 → 直接拼进残缺 JSON），崩溃残留升级为持续损坏、
+   * 内存树与磁盘自此分叉。非尾坏行/未知 type 等 fail-closed 拒载语义不变。 */
   static async resume(
     path: string,
     opts: { onTailTorn?: (reason: string) => void } = {},
   ): Promise<SessionStore> {
     const file = await SessionStore.read(path, opts.onTailTorn)
+    if (file.tailTorn !== undefined) {
+      const backup = `${path}.torn-bak`
+      await copyFile(path, backup)
+      const fh = await open(path, 'r+')
+      try {
+        await fh.truncate(file.tailTorn.validBytes)
+      } finally {
+        await fh.close()
+      }
+      opts.onTailTorn?.(`${file.tailTorn.reason}；已修复续写（原件备份于 ${backup}）`)
+    }
     const store = new SessionStore(path, file.header, opts.onTailTorn)
     store.fh = await open(path, 'a')
     for (const e of file.events) {
@@ -157,17 +174,23 @@ export class SessionStore implements EventSink {
     return store
   }
 
-  /** 全量读（v1 文件小，不做反向扫描优化） */
+  /** 全量读（v1 文件小，不做反向扫描优化）；尾行半写信息随返回值携带（AUD-10） */
   static async read(
     path: string,
     onTailTorn?: (reason: string) => void,
   ): Promise<SessionFile> {
-    const content = await readFile(path, 'utf8')
+    const raw = await readFile(path)
+    const content = raw.toString('utf8')
     const rawLines = content.split('\n')
     if (rawLines[rawLines.length - 1] === '') rawLines.pop() // 文件以 \n 收尾的空尾串
     if (rawLines.length === 0) {
       throw new Error('E_SESSION_EMPTY: 会话文件为空')
     }
+    // AUD-10：字节边界跟踪（JSON.stringify 转义换行，逐行字节和即有效边界）；
+    // 尾行半写时携带 tailTorn{validBytes} 供 resume 受控修复（onTailTorn/stderr 行为不变，
+    // scan 等只读方零感知）
+    let validBytes = Buffer.byteLength(rawLines[0] as string, 'utf8') + 1
+    let tailTorn: SessionFile['tailTorn']
     const header = parseHeader(rawLines[0] as string)
 
     const events: SparkEventEnvelope[] = []
@@ -193,7 +216,10 @@ export class SessionStore implements EventSink {
       // 未知 type（内置词表与扩展注册表均无）：ignorable:true 跳过（占行号）；否则拒绝加载
       const type = (parsed as { type?: unknown }).type
       if (typeof type !== 'string' || eventSchemaOf(type) === undefined) {
-        if ((parsed as { ignorable?: unknown }).ignorable === true) continue
+        if ((parsed as { ignorable?: unknown }).ignorable === true) {
+          validBytes += Buffer.byteLength(line, 'utf8') + 1 // 占行号也占字节——有效边界必须推进
+          continue
+        }
         throw new Error(`E_SESSION_UNKNOWN_EVENT: 第 ${lineNo} 行未知事件 type "${String(type)}"`)
       }
 
@@ -212,8 +238,9 @@ export class SessionStore implements EventSink {
         )
       }
       events.push(envelope)
+      validBytes += Buffer.byteLength(line, 'utf8') + 1
     }
-    return { header, events }
+    return { header, events, ...(tailTorn !== undefined ? { tailTorn } : {}) }
   }
 
   /** EventSink：填 parentId（tree.leafId）→ 落盘成功后才进树 → 返回最终信封 */

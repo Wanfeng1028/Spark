@@ -4,9 +4,9 @@
  * seq 断洞拒绝）；resume 重建树；悬挂 turn 检测（resume 补闭合的输入）。
  */
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { ids } from '@spark/protocol'
 import type { SparkEventEnvelope } from '@spark/protocol'
@@ -359,5 +359,54 @@ describe('danglingTurnIds（§5.8.4 resume 补闭合输入）', () => {
       env(4, { type: 'turn.completed', data: { turnId: T1, finish: 'aborted' } }),
     ]
     expect(danglingTurnIds(closed)).toEqual([])
+  })
+})
+
+// ---- AUD-10：坏尾行受控修复（备份 + 截断到有效边界 + 续写可重读） ----
+
+describe('AUD-10：resume 对坏尾行的受控修复', () => {
+  it('坏尾不带换行：修复后续写事件可完整重读，原件有备份', async () => {
+    const path = await writeRaw(
+      [JSON.stringify(HEADER), diskLine(env(1), { parentId: null })].join('
+') + '
+{"type":"tur',
+    )
+    const reasons: string[] = []
+    const s2 = await SessionStore.resume(path, { onTailTorn: (r) => reasons.push(r) })
+    expect(reasons.length).toBeGreaterThan(0)
+    expect(reasons.join('')).toContain('已修复续写')
+
+    const c = env(2)
+    await s2.append(c)
+    await s2.close()
+
+    // 关键回归：修复前旧行为会让 env(2) 拼在残缺 JSON 后，此处重读必失败
+    const file = await SessionStore.read(path)
+    expect(file.events.map((e) => e.seq)).toEqual([1, 2])
+    expect(file.tailTorn).toBeUndefined() // 修复后无残留坏尾
+    expect(await readFile(path + '.torn-bak', 'utf8')).toContain('"type":"tur') // 原件备份
+  })
+
+  it('坏尾带换行：同样修复（旧行为下续写会让坏尾变非尾行、下次读 E_SESSION_BAD_LINE）', async () => {
+    const path = await writeRaw(
+      [JSON.stringify(HEADER), diskLine(env(1), { parentId: null }), 'not-json'].join('
+') + '
+',
+    )
+    const s2 = await SessionStore.resume(path)
+    await s2.append(env(2))
+    await s2.close()
+    const file = await SessionStore.read(path)
+    expect(file.events.map((e) => e.seq)).toEqual([1, 2])
+  })
+
+  it('无坏尾的常规 resume 行为不变（不产生备份文件）', async () => {
+    const path = await writeRaw(
+      [JSON.stringify(HEADER), diskLine(env(1), { parentId: null })].join('
+') + '
+',
+    )
+    await SessionStore.resume(path)
+    expect(await readdir(dirname(path))).toEqual([basename(path)])
   })
 })
