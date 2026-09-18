@@ -49,6 +49,7 @@
 | v1.47 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D39 Spark as MCP server = stdio 单入口 + 三工具 + 审批 fail-closed（工单 15.1）**：`spark mcp` 子命令（apps/cli/src/mcp-server.ts 独立文件 + main.tsx 一行注册）；进程内 Engine 装配同 12.3（sdk inprocess 通道，数据根 ~/.spark 与 TUI 同源）；三工具 spark_run/spark_sessions/spark_events；审批语义如实声明——规则照常生效、ask 挂起超时 fail-closed 拒绝（permissionTimeoutMs 收敛 120s）、audit 零旁路；被否备选：SSE transport（V2-21 一并）、免审批直通（违反铁律）。编号注记：占 D39（D37=16.4 已引用、D38=并行 16.5/16.8 预留）。与 doc/08 §15.1 同批 |
 | v1.48 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D40 /trust 文件夹信任（工单 16.4，Q-6 经"全部做完"授权确认）与 D41 /extensions 扩展管理（工单 16.5）**：D40——evaluateAll 后处理压 allow（deny/ask 不变，收紧审批而非扩权）、祖先链深匹配顺序无关、不引锁；D41——声明式内容包不执行代码（D18）、symlink 逃逸拒载、settings 名单启停（D36 同构）、清单热可见装配重启生效。命令基线 20→22（/trust、/extensions）。与 doc/02 v4.46、AGENTS v1.45、README v1.39、doc/08 v1.46 同批（D40/D41 顺延现表末张 D39——15.1 先行占用） |
 | v1.49 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D42 /arena 多模型竞答（工单 16.8）**：InProcess 子会话（createSession parentId+model）+ git worktree 零拷贝隔离 + 快照端点（零新事件——竞答是用户在场交互非可回放状态）；胜者应用整体一次 fs.write 审批（删除类跳过登记——§2.10 禁删含应用路径）；simple-git 新依赖（MIT，规格指定）。命令基线 22→23（/arena action）。**同批实修 loadConfig 组装漏透传 agents/extensions 段真 bug**（16.2/16.5 重启档失效，D36/D41 补勘误）。与 doc/02 v4.48、AGENTS v1.47、README v1.41、doc/08 v1.48 同批 |
+| v1.50 | 2026-09-19 | AI 编写：ZCode · Union Alpha；发起与拍板：晚风（Wanfeng1028，"我需要 dsh 的对话框改造，把相应的文档改一下"指令） | **新增 D43 web 对话框 DSH 形态对齐（DESIGN §13.L v2.19 同批）**：晚风拍板采纳 DSH 对话框改造（推翻审查批次 doc/10 v1.1 的整体退回判决），规格唯一来源 DESIGN §13.L；**D32 不变项清单按域修订**——圆角封闭集新增 22px/14px（web 对话框域）、会话域字号 13→14px、新增 `--send-accent`/`--user-bubble` 点睛色豁免（DESIGN §12.1）与流式 sweep 动效豁免（§6）；范围仅 apps/web 会话域，CLI/mobile/miniapp 不适用；**本期不做**：审批接管/Lexical/TurnRail/StatsPills/英文 shimmer。实现工单=docs/audit/dialog-redesign-workorder.md WO-052~078 过滤后执行（豆包） |
 
 ---
 
@@ -430,6 +431,14 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 4. **四端**：web ArenaCard（2s 轮询快照、胜者选择、取消）；CLI ArenaPanel 只读快照（应用/取消走 Web 端——登记限制）；命令基线 22→23（/arena action）。
 后果：protocol ArenaContenderDto/ArenaStatusDto + Transport getArena/applyArenaWinner/cancelArena 三通道；server 三路由；**同批实修一处真 bug**：loadConfig 组装漏透传 spark.agents/extensions 段（16.2/16.5 的 settings 名单在重启档实际失效——persistSparkPatch 写盘后重载即丢，extensions 测试暴露；D36/D41 的后果段据此补勘误）。
 编号注记：本 ADR 占 **D42**（顺延现表末张 D41）。
+
+### D43 web 对话框 DSH 形态对齐 = DESIGN §13.L 单一规格 + 域内豁免（2026-09-19，晚风拍板）
+
+背景：审查批次（doc/10 v1.1 §5）曾以"与视觉宪法冲突"整体退回 DSH 对话框改造 27 项（WO-052~078）；晚风 2026-09-19 拍板"我需要 dsh 的对话框改造"，按 DESIGN 尾注纪律先改规格再写代码。
+决策：DESIGN.md 新增 **§13.L**（v2.19）为规格唯一来源，数值基准=审查批次译码的 DSH token 对照（docs/audit/dialog-redesign-spec.md）；本 ADR 只记架构面后果：
+1. **D32 不变项按域修订**（范围仅 apps/web 会话域）：圆角封闭集新增 22px（Composer 卡/web user 气泡）与 14px（加载更早胶囊）两档；会话域字号 13→14px（管理面 13px 不变）；新增 `--send-accent`/`--user-bubble` 点睛色（DESIGN §12.1 豁免——黑白主题唯一彩色点睛，大面积蓝紫照禁）与流式 sweep 动效豁免（§6，2.6s keyframes、仅 running 态、reduced-motion 禁用）。CLI/mobile/miniapp 的 §12/§13 纪律不变。
+2. **被否备选**（本期不做，需另立决策）：审批接管输入框（推翻 §8 ApprovalCard 内嵌规格）、Lexical contenteditable（§9.1 过度设计——为 @ 芯片内嵌引重依赖）、TurnRail/StatsPills（无数据通道，用量聚合已有 TraceDialog）、英文 shimmer 文案（§12.7 语言一致性）。
+3. **实现路径**：docs/audit/dialog-redesign-workorder.md WO-052~078 按 §13.L 过滤后执行（W052/053/054/055/056/058/059/060/061/062/064/066/068/069/073/075/076/077/078 在册，WO-057 环形 ContextMeter 记 Phase 3 可选）；执行者豆包，验收以 §13.L 数值与 §12.8 grep 判注为准。
 
 ## 6. 模块速览（职责边界）
 

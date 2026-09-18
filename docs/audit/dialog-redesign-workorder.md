@@ -4,6 +4,8 @@
 > 基准：DSH (DeepSeek Harness) `packages/client/ui-chat/` + `ui-conversation/` + `ui-attachment/`
 > 目标：将 Spark Web 对话框从当前 Tailwind 手写样式，逐项对齐 DSH 的视觉与交互规格
 > 编号范围：WO-052 起
+>
+> **状态（2026-09-19，晚风拍板采纳）**：本工单已解禁，规格唯一来源=DESIGN.md §13.L（v2.19 / ADR D43），冲突处以 §13.L 为准。执行过滤：在册 WO-052/053/054/055/056/058/059/060/061/062/064/066/068/069/073/075/076/077/078；WO-057 记 Phase 3 可选；**不做** WO-063（英文 shimmer）/WO-065（审批接管）/WO-067（Lexical）/WO-070（TurnRail）/WO-071/072（StatsPills）。设计依据详读：DESIGN.md §12.1/§12.4/§12.8/§6 的豁免判注。
 
 ---
 

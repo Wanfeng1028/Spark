@@ -27,6 +27,7 @@
 | v2.16 | 2026-09-11 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **工单 16.6 落地的规格登记（§13.E）**：Composer 工具条左组增**语音钮**一行——28px 图标钮（Mic 16px 线性）、hold/tap/off 三模式（off 不渲染，/voice 循环切换 + localStorage 持久化）、录音中 accent 浅底 + 右上 8px 状态点（destructive）、转写文本追加草稿末尾、错误行 11px destructive 可点击清除。其余不动（密度/圆角/黑名单口径不变）。与 ARCHITECTURE v1.43（D34）、doc/02 v4.43 同批 |
 | v2.17 | 2026-09-12 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"你看看他的进度，你接着做"指令） | **工单 18.4/18.5 的规格收口（§13.B 两补）**：① **多行 textarea 取 8px 小件档**（工单 18.3 判定：胶囊随行数增长会变形，ui/textarea 头注同源；单行输入仍为胶囊）；② **次要文本压浅灰底**（工单 18.5 ② AA 复核）：分段轨道/计数徽章等 `bg-muted` 面上的次要文本用 `foreground/70`（压 muted ≈5.5:1），不用 `muted-foreground`（压 muted 仅 4.44:1，低于 §13.C 红线）；`theme-contrast.test.ts` 增 `--foreground × --muted` 对守下限。另：18.4 三批已把 apps/web 全量圆角归档到封闭集（rounded-md/rounded/rounded-sm 归零，rounded-2xl 仅存 ui/card 的 info/flush 两档=16px 登记档）。走查结论与 ADR 补记（D32）随 doc/08/ARCHITECTURE 的对账提交（并行会话 16.9 文档批次在途，避免夹带） |
 | v2.18 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，对账审计 W18 指令） | **工单 W18：§13.J.2.3 补回合头与 LSP 诊断卡形态**（mobile/miniapp 会话页 turn/diagnostics 渲染空分支的实现依据，语义对齐 web TurnHeader/DiagnosticsRow 与 CLI TurnLine）：回合头=单行紧凑裸文本行（非卡片）——进行中 `工作中 · N 秒 · 第 M 步 · K 工具`（accent 取色）/完成 `已工作 N 秒`（muted），时长走 protocol ui-copy 新增 `turnDurationText` 单源（与 web formatTurnDuration 逐字同实现，web 侧迁移记后续对账；cli 保持终端秒表口径不强并），步数/工具数仅活动回合可得（activeTurn 按 turnId 配对，历史回合不造数据），**禁 setInterval 计时**（随事件批处理重渲染重算，静态期可滞后）；LSP 诊断卡=折叠白卡单行入口（同工具卡交互）——折叠行 `LSP {语言} · {路径}` 截断 + `E x / W y` 计数、空数组显「诊断已清零」无展开、展开逐条 `[E/W/I] 行:列 消息`（severity 取色同 web，映射入 protocol ui-copy `severityOf`）；实现=apps/mobile + apps/miniapp session-items 两端（W18） |
+| v2.19 | 2026-09-19 | AI 编写：ZCode · Union Alpha；发起与拍板：晚风（Wanfeng1028，"这个我需要 dsh 的对话框改造，你把相应的文档改一下"指令；核验原判决记录 doc/10 v1.1 §5） | **新增 §13.L web 对话框 DSH 形态对齐规格（ADR D43）**：晚风拍板采纳 DSH 对话框改造（推翻 doc/10 v1.1 的整体退回判决），规格唯一来源落本文件新增 §13.L（数值基准=docs/audit/dialog-redesign-spec.md 的 DSH token 译码）。配套修订：① §13.B 圆角封闭集新增 **22px（web 对话框域 Composer 卡/user 气泡）与 14px（加载更早胶囊）** 两档（18px 保留为移动端 §13.J.3 档）；② §12.1 新增 **DSH 点睛色豁免**（`--send-accent` #4176E6/#679EFE 与 `--user-bubble` #EDF3FE，仅发送钮/caret/气泡三处）；③ §6 新增 **流式 sweep 豁免**（2.6s 横向扫光 keyframes，仅 running 态，reduced-motion 禁用）；④ §12.8 补 grep 判注（任意值圆角不在扫描词内、sweep 走 CSS keyframes 不走渐变类）；⑤ §13.E/§13.H web 冲突处由 §13.L 接管；⑥ 会话域正文/输入字号 **13→14px**（管理面 13px 不变，D32 密度不变项按域修订，ARCHITECTURE D43 登记）。**本期明确不做**（DSH 有但 §13.L 排除，需另立决策）：审批接管输入框（WO-065）、Lexical contenteditable（WO-067）、TurnRail（WO-070）、StatsPills/TurnUsagePanel（WO-071/072）、"Deep diving" 英文 shimmer（WO-063——保留中文状态行）。实现工单=docs/audit/dialog-redesign-workorder.md WO-052~078 按 §13.L 过滤后执行；ARCHITECTURE v1.50（D43）同批 |
 
 > 本文件是**视觉决策文档**：回答"页面应该保持什么风格，遇到新场景怎么选"，让不同页面看起来仍属于同一个产品。
 > 架构与设计决策见 `ARCHITECTURE.md`；实现规格（做什么）见 `doc/02-development-plan.md` §6——本文件管"做成什么感觉、什么不许做"。所有前端 PR 以本文为验收依据之一。
@@ -121,7 +122,8 @@
 
 - 只允许**微动效**：opacity/transform，120-160ms ease-out；列表项增删 150ms 淡入淡出。
 - 流式光标：`▮` 1s steps(2) 闪烁；审批 resolved 徽标显示 2s 后收起。
-- **禁止**：页面/视图转场动画、大位移动画、视差、无限循环动画（loading spinner 除外）、入场编排动画。
+- **禁止**：页面/视图转场动画、大位移动画、视差、无限循环动画（loading spinner 与 §13.L 流式 sweep 除外）、入场编排动画。
+- **流式 sweep 豁免（§13.L，ADR D43）**：工具/思考行 running 态允许 2.6s 横向扫光 keyframes（`dsh-row-sweep`，CSS 实现、非 Tailwind 渐变类）；`prefers-reduced-motion: reduce` 下禁用。
 - `prefers-reduced-motion: reduce` 时全部动效禁用（保留瞬时状态切换）。
 
 ## 7. 反"网站化"黑名单（硬约束，PR 审查逐条对照）
@@ -189,6 +191,7 @@
 - 暖棕/米色等暖调配色（判例：2026-08-22 评审的刷课工具截图）。【P0】
 - 渐变文字（`text-transparent bg-clip-text` + 渐变）、渐变大数字。【P0】
 - 渐变光球（purple orb）/ mesh 渐变漂浮在内容区后面。【P0】
+- **DSH 对齐点睛色豁免（§13.L，2026-09-19 拍板）**：`--send-accent`（浅 `#4176e6` / 暗 `#679efe`）与 `--user-bubble`（浅 `#edf3fe`）仅限发送钮/caret/web 用户气泡三处，是黑白主题下唯一彩色点睛；蓝紫渐变、vibecode 紫、大面积蓝紫照禁。【豁免，非解禁】
 
 ### 12.2 玻璃与特效
 
@@ -208,7 +211,7 @@
 ### 12.4 卡片与边框
 
 - "卡片灾难"（cardocalypse）：每个块都包卡片、卡片套卡片、用嵌套卡片表达层级（Hallmark 模式库编号 #18）。【P0】
-- 千篇一律的模板圆角（所有卡片一律 `rounded-2xl`/`rounded-3xl`，或**脱离 §13.B 登记档位**的圆角）——判据是"是否脱离档位"而不是"圆角大不大"：§13.B 封闭集为 胶囊 / 8px / 12px / 16px / 会话流 user 气泡 18px（工单 18.1 改判；旧规 6/8/12px 三档作废）。【P1】
+- 千篇一律的模板圆角（所有卡片一律 `rounded-2xl`/`rounded-3xl`，或**脱离 §13.B 登记档位**的圆角）——判据是"是否脱离档位"而不是"圆角大不大"：§13.B 封闭集为 胶囊 / 8px / 12px / 16px / 会话流 user 气泡 18px（工单 18.1 改判；旧规 6/8/12px 三档作废）；web 对话框域新增 **22px**（Composer 卡与 web user 气泡，§13.L）与 **14px**（加载更早胶囊）两档。【P1】
 - 每张卡片同一条灰色 1px 平边（flat gray border on every card）。【P1】
 - 纯装饰的彩色 3-4px 左边框条（社区称"最可靠的 AI 味信号"）——左边框只允许表达语义状态（如 §8 ApprovalCard 的 warn 左边框）。【P1】
 - "icon-in-a-rounded-square"：小图标装进圆角色块当列表符号/装饰单元。【P1】
@@ -255,7 +258,7 @@
 | `fonts.googleapis` `cdn.` `http://` `https://`（字体/图标引用） | 外部资源（§7.5；API 端点除外）                 |
 | ✨ 🚀 ⚡ 🎉 等 emoji                                            | emoji 装饰（12.6/12.7）                        |
 
-> **圆角白名单口径（工单 18.1）**：`rounded-2xl`（16px）命中**不等于违规**——16px 是 §13.B 登记的"大信息卡"档位（对齐 §13.J 移动端白卡）。判定顺序：先看该元素是否属 §13.B 的卡片档（12px=`rounded-xl` / 16px=`rounded-2xl`），属则放行；`rounded-3xl`（24px）超出封顶 16px，一律违规。控件胶囊用 `rounded-full`（不在本行扫描范围）。其余各行仍是"零命中"口径。
+> **圆角白名单口径（工单 18.1）**：`rounded-2xl`（16px）命中**不等于违规**——16px 是 §13.B 登记的"大信息卡"档位（对齐 §13.J 移动端白卡）。判定顺序：先看该元素是否属 §13.B 的卡片档（12px=`rounded-xl` / 16px=`rounded-2xl`），属则放行；`rounded-3xl`（24px）超出封顶 16px，一律违规。控件胶囊用 `rounded-full`（不在本行扫描范围）。其余各行仍是"零命中"口径。**另（§13.L，ADR D43）**：`rounded-[22px]`/`rounded-[14px]` 任意值写法不在本行扫描词内，属 §13.L 登记档；工具/思考行 sweep 扫光以 CSS keyframes（`dsh-row-sweep`）实现、不经 `bg-gradient-to` 类，不触发渐变扫描行。
 
 配套纪律：**软指令与硬检查分开**（AGENTS.md §8）——本节 markdown 是提醒层，上表 grep + 后续 CI 是强制层；组件改造流程（frontend-component SKILL）第 4 步已挂接本清单。
 
@@ -346,7 +349,7 @@
 
 - 间距：**4 的倍数**；卡片内边距 12~16px；区块间 24px。
 - **输入框底色（工单 18.1）**：浅灰底走 `--secondary`/`--muted` 系（暗色同 token 翻转）、边框弱化（1px `--border`，纯底色已足够分层时可省）；焦点态仍是全局 **2px 中性环**（`--ring`，v2.8 拍板口径不变，不用 accent）。**例外（工单 18.2 实测登记）**：承载 placeholder 的输入行（如命令面板 CommandInput）**不上浅灰底**——placeholder 用 `--muted-foreground`，压在 `--secondary`（浅色 `#f4f4f5`）上算得 **4.44:1**，低于 §13.C 的 4.5:1 文本红线；AA 优先于观感，该行只取弱化边框（无 placeholder 的触发器如 select 照上浅灰底：选中值是正文色 16:1）。**多行 textarea 取 8px 小件档**（工单 18.3 判定：胶囊随行数增长会变形；单行输入仍为胶囊）。**次要文本压浅灰底**（工单 18.5 ②）：分段轨道/计数徽章等 `bg-muted` 面上的次要文本用 `foreground/70`（压 muted ≈5.5:1），不用 `muted-foreground`（压 muted 仅 4.44:1，低于 §13.C 红线）。
-- **圆角档位封闭集（工单 18.1 / ADR D32）**：胶囊 full（控件与 chip）/ 8px（小件）/ 12px（分组卡与弹层）/ 16px（大信息卡）/ 18px（会话流 user 气泡，§13.H 与 §13.J.3 实测同源，含右下角 4px 收角）——**五档之外一律违规**（§12.4/§12.8 判据）。旧规 6/8/12px 三档**作废**；**密度体系（13px 字号 / 28-32-38 高度档 / 4-8px 网格）与"分隔优先边框与留白、不用阴影"不变**。
+- **圆角档位封闭集（工单 18.1 / ADR D32）**：胶囊 full（控件与 chip）/ 8px（小件）/ 12px（分组卡与弹层）/ 16px（大信息卡）/ 18px（会话流 user 气泡，§13.H 与 §13.J.3 实测同源，含右下角 4px 收角）——**五档之外一律违规**（§12.4/§12.8 判据）。旧规 6/8/12px 三档**作废**；**密度体系（13px 字号 / 28-32-38 高度档 / 4-8px 网格）与"分隔优先边框与留白、不用阴影"不变**（web 对话框域例外：§13.L / ADR D43 新增 22px 与 14px 两档，web user 气泡在该域由 22px 接管，18px 保留为移动端档；会话域字号 13→14px 亦按域修订）。
 - 图标：16px 线性（1.5px stroke），lucide；状态点 8px 圆（§8 不变）。
 - 三态色值（zinc 标尺）：hover = zinc-100（暗 zinc-800）；active = zinc-200（暗 zinc-700）；disabled = 前景 opacity 40% + `cursor: not-allowed`。
 - **界面字号（外观设置）**：档位 12/13/14/16，**默认 13**（与 §3 密度一致；ZCode 实测默认 14px，Spark 取更紧凑一档，要对齐改默认即可）；只缩放字号，图标与布局尺寸不受影响（实测 ZCode 同款行为）。
@@ -442,7 +445,7 @@
 
 **⑬ 索引库**：占位（未截图；Spark 对应 index.db 会话索引，7.13 前补图）。**⑭ 使用统计**：见 13.G。**⑮ 引导**：重新打开引导弹窗入口。
 
-### 13.E Composer 规格（会话投影+配置混合；工单 6.3）
+### 13.E Composer 规格（会话投影+配置混合；工单 6.3；web 视觉形态自 v2.19 起由 §13.L 接管，冲突处以后者为准——本节保留交互语义：三模式/权限档位/提交模式/@ 菜单/语音钮）
 
 - 容器：宽 min(100%, 768px)（空态 560px）；圆角 12px；1px border——聚焦不加高饱和 ring，聚焦态 1px 中性 border 轻微加深；内边距 12px。
 - 占位文案：空态="向 Spark 提问，使用 @ 添加上下文，使用 / 选择命令或能力"（实测 ZCode 同构）；turn 运行中="继续输入以排队后续修改"（实测——**运行中 Composer 不禁用，输入即排队**）。
@@ -490,7 +493,7 @@
 
 ### 13.H 会话域实测形态（补充 §8，全部会话投影）
 
-- 消息布局（web，v2.10 工单 10.22）：user 消息行**右对齐限宽气泡**——justify-end、radius 18、右下角 4px 收角、最大宽 80%、bg-accent 中性底；YOU 标签右置保留。assistant/工具/思考/审批块**保持左锚全宽**（工作台形态，不 IM 化）；移动端口径见 §13.J.3（两端口径同源：radius 18 / 最大宽 80%）。
+- 消息布局（web，v2.10 工单 10.22）——**web 部分自 v2.19 起由 §13.L 改判**：web user 气泡现为 22px 全圆角 / 最大宽 82% / `--user-bubble` 底 / 无 YOU 标签 / 右下不收角；本行以下 18px 收角口径保留为**移动端规格**（§13.J.3 同源）与历史记录。user 消息行右对齐限宽气泡——justify-end、radius 18、右下角 4px 收角、最大宽 80%、bg-accent 中性底；YOU 标签右置保留。assistant/工具/思考/审批块**保持左锚全宽**（工作台形态，不 IM 化）；移动端口径见 §13.J.3。
 - 思考块：摘要行"思考过程 · 持续了 N 秒"+chevron，默认折叠，流式中实时计时；常规页"显示思考过程"关闭时仅首轮展示。
 - 工具分组卡（常规页三分组开关控制）：连续读/搜索 →"Explore · N 项"分组行；连续非只读 shell →"Terminal · N 个命令"；连续写 →"Changes"分组（默认关）。
 - 变更聚合条：turn 尾部"N 个文件已更改 +X −Y"+撤销钮；展开=每文件行（类型图标+mono 路径+增删统计+审查/打开钮）；点审查→右栏**行级 diff**（面包屑+行号+增行绿底/删行红底+"查看源码"链接）——P2 审查模式的实物标尺。
@@ -662,6 +665,25 @@
 - IME 组合态由终端/系统层负责（候选窗悬浮绘制不在应用层控制面内）；应用层保证组合确认文本整段到达时按普通输入处理、不逐键重绘（工单 10.10 登记口径——禁假状态）。
 - 文案语气照 §12.7：无 Elevate 式空泛词、无 filler 客套。
 
+### 13.L web 对话框 DSH 形态对齐规格（v2.19 新增；ADR D43；晚风 2026-09-19 拍板）
+
+> **依据**：晚风提供 DSH（DeepSeek Harness）输入栏与会话流实测规格，由审查批次译码为 `docs/audit/dialog-redesign-spec.md`（DSH token→hex 对照与逐组件 CSS 来源行），本节是**规格唯一来源**——实现工单（docs/audit/dialog-redesign-workorder.md WO-052~078）按本节过滤执行。与 §1~§13.K 冲突处以本节为准（§13.B/§13.E/§13.H/§12.1/§12.4/§12.8/§6 已同步标注）。**范围仅 apps/web 会话域**；CLI/mobile/miniapp 不适用。
+> **本期明确不做**（DSH 有但本节排除，需另立决策）：审批接管输入框（WO-065，ApprovalCard 消息流内嵌是 §8 现行规格）、Lexical contenteditable（WO-067）、TurnRail 刻度导轨（WO-070）、StatsPills/TurnUsagePanel（WO-071/072——用量聚合走 TraceDialog）、"Deep diving" 英文 shimmer（WO-063——状态行保留中文）。
+
+**L.0 Token（先行）**：`styles/tokens.css` 新增并注册 `@theme`——`--send-accent`（浅 `#4176e6` / 暗 `#679efe`，hover 值对调）、`--user-bubble`（浅 `#edf3fe` / 暗 `#2c2c2e`）；`--spark-accent` 与既有 token 不动。
+
+**L.1 Composer 卡**：容器 `rounded-[22px]`、**无 border**（删 `border-input` 与 `focus-within` ring——聚焦仅 caret 变色 `caret-send-accent`）、浅色白底 / 深色 `#2C2C2E`、**单层 subtle 投影**（§12.2 阴影豁免位，浮层同级）；内边距 pt 4px / pr 8px / pl 14px；textarea **14px/24px**、单行 36px 起、自动增高上限 **336px（14 行）**后内部滚动；占位符 caption 灰。＋钮 28px 圆（secondary 底、14px 图标）。
+
+**L.2 工具条**：发送/停止钮 **34px 圆、`--send-accent` 底、白图标**、hover `--send-accent-hover`；ModelPicker/EffortPicker 居右紧贴发送钮（重排后：左组=＋/语音/权限档位，右组=模型/推理/发送）；模型与权限钮 **8px 圆角**（本域豁免胶囊档）、13px 非 mono、右侧 12px chevron。提交三态与权限档位语义不变（§13.E）。
+
+**L.3 消息流**：相邻 flow item 间距 **16px**；内容列 768px 不变；user 气泡=右对齐、**22px 全圆角（无右下收角）**、max-w **82%**、`--user-bubble` 底、**无 YOU 标签**、14px/22px；assistant 块左锚全宽、正文 **14px/24px**（会话域字号 13→14px，管理面 13px 不变）；助手尾操作钮 28px 命中 / 15px 图标、非尾部行 hover 渐显。
+
+**L.4 工具/思考行**：头行高 **33px**；chevron 折叠朝右 / 展开朝下；running 态 **sweep 扫光**（`dsh-row-sweep` keyframes：300px 横向渐变、2.6s ease-out infinite、仅 running 态挂 `row-running-sweep`；`prefers-reduced-motion` 禁用；**running 时去掉 Loader2 小圈只留 sweep**）；折叠摘要 13px；展开体底色浅 `#F9FAFB` / 暗 `#1B1B1C`。
+
+**L.5 其他**：回到底部钮 **34px 圆、贴右下**、白底无边框一层柔影；「加载更早」入口=14px 圆角胶囊（padding 4/12、12px secondary 文案）；附件预览行对齐皮肤（图片缩略图、hover 关闭钮，64px 方块 16px 圆角）。
+
+**L.7 grep 与黑名单关系**：22px/14px 任意值圆角与 sweep keyframes 的豁免判注见 §12.4/§12.8/§6；本节豁免**不放松**其余 §12 条款（毛玻璃/emoji/超大标题/暖调照禁）。
+
 ---
 
-_本文完（v2.6）。前端开发中与本文冲突的实现一律以本文为准；阶段六~九范围内 §13 与 §1~§11 冲突时以 §13 为准。需要突破规则时先改本文（附版本记录）再写代码。_
+_本文完（v2.19）。前端开发中与本文冲突的实现一律以本文为准；阶段六~九范围内 §13 与 §1~§11 冲突时以 §13 为准，web 对话框域以 §13.L 为准。需要突破规则时先改本文（附版本记录）再写代码。_

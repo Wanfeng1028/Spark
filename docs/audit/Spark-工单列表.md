@@ -413,7 +413,8 @@
 ## 对话框改造（对齐 DSH 设计，27 项）
 
 > 来源：DSH (DeepSeek Harness) 对话框设计深度阅读与对比分析
-> 详见：`_audit/dialog-redesign-workorder.md`
+> 详见：`_audit/dialog-redesign-workorder.md`（路径勘误：实为 `docs/audit/`）
+> **状态（2026-09-19，晚风拍板采纳）**：已解禁——规格唯一来源=DESIGN.md §13.L（v2.19 / ADR D43），按 §13.L 过滤执行：WO-057 记 Phase 3 可选；不做 WO-063/065/067/070/071/072。
 
 ### WO-052　输入框卡片圆角与阴影对齐 DSH 22px 规格
 - **优先级**：P0
