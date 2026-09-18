@@ -19,6 +19,13 @@ export interface ToolContext {
   /** 引擎 200ms 节流后 emitLive tool.progress（门控队列保证不晚于 completed） */
   onProgress: (chunk: string) => void
   cwd: string
+  /**
+   * 输出收集上限字节数（AUD-02；管线按 spark.json toolOutputLimitKB 注入）：
+   * 流式产出的工具（bash）执行期据此限流收集缓冲——超限停收并标记截断；
+   * 管线的 outputs.bound() 仍是最终限界（本值是其 4 倍缓冲语义）。
+   * 缺省未注入时工具用内置保守上限。
+   */
+  outputLimitBytes?: number
   /** 长期记忆仓（工单 7.5 / ADR D25）：memory 工具族使用，其余工具忽略 */
   memory?: MemoryStore
   /**

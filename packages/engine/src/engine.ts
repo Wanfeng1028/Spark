@@ -550,10 +550,15 @@ export class Engine {
     return this.root
   }
 
-  /** §5.3 订阅透传（server SSE 的数据源；resume 供 SSE 背压 drain 恢复） */
+  /** §5.3 订阅透传（server SSE 的数据源；resume 供 SSE 背压 drain 恢复）。
+   * onDurableOverflow（AUD-11）：该订阅者缓冲溢出且无法保全 durable 时回调——
+   * SSE 层借此断流让客户端按水位重连补播（事件不静默丢失）。 */
   subscribe(
     handler: (e: SparkEventEnvelope) => void | false | Promise<void | false>,
-    filter?: { sessionId?: SessionId },
+    filter?: {
+      sessionId?: SessionId
+      onDurableOverflow?: (e: SparkEventEnvelope) => void
+    },
   ): SubscribeHandle {
     return this.bus.subscribe(handler, filter)
   }
@@ -1774,6 +1779,8 @@ export class Engine {
       cwd: meta.cwd,
       maxToolParallel: this.config.spark.engine.maxToolParallel,
       progressThrottleMs: this.config.spark.engine.progressThrottleMs,
+      // AUD-02：执行期收集上限（bound() 4 倍缓冲语义）注入流式工具
+      outputLimitBytes: this.config.spark.engine.toolOutputLimitKB * 1024,
       metrics: this.metrics,
       guard: this.ioGuard, // 工单 7.2：工具输出 → 模型上下文的注入检测与敏感过滤
       hooks: this.hooks, // 工单 7.3：tool.completed 挂点（载荷不含 output）

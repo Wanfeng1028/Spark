@@ -53,6 +53,11 @@ export interface PipelineDeps {
   /** 子代理预设档收窄掉的工具名（工单 13.5）：不进广告面；若模型仍调用，
    * 由会话级 deny 规则在权限门拦截（E_PERMISSION）——两层各司其职，不重复建机制 */
   hiddenTools?: ReadonlySet<string>
+  /**
+   * 输出收集上限字节（AUD-02；取 spark.json toolOutputLimitKB×1024）：
+   * 经 ToolContext 注入流式工具（bash）做执行期限流；缺省不注入（工具用内置保守上限）。
+   */
+  outputLimitBytes?: number
 }
 
 /** 错误 → {code, message}：提取 E_* 前缀码，未分类 → E_INTERNAL（§5.10） */
@@ -85,6 +90,8 @@ class ProgressGate {
   private timer: ReturnType<typeof setTimeout> | null = null
   private accepting = true
   private drain: Promise<void> = Promise.resolve()
+  /** drain 链上首个 emit 失败（AUD-11：close() 如实上抛一次；链自愈不再永久 reject） */
+  private drainError: { err: unknown } | null = null
 
   constructor(
     private readonly emit: (chunk: string) => void,
@@ -111,14 +118,28 @@ class ProgressGate {
     const chunk = this.pending.join('')
     this.pending = []
     this.lastFlush = Date.now()
-    this.drain = this.drain.then(() => this.emit(chunk))
+    const task = this.drain.then(() => this.emit(chunk))
+    // AUD-11：emit 失败只记首错并重置链——旧实现链式 .then 使一次 reject 永久污染
+    // 后续所有 progress 与 close（rejected 链上后续段直接跳过 emit）；重置后下一笔
+    // progress 从干净链起跑（自愈），首错经 close() 上抛（不吞）
+    task.catch((err: unknown) => {
+      if (this.drainError === null) this.drainError = { err }
+      if (this.drain === task) this.drain = Promise.resolve()
+    })
+    this.drain = task
   }
 
-  /** 工具结束：关门并排水（progress 先于 tool.completed 的顺序保证） */
+  /** 工具结束：关门并排水（progress 先于 tool.completed 的顺序保证）。
+   * AUD-11：emit 失败经 close() 如实上抛**一次**（消费后不复活）——旧实现里
+   * close 的异常会进入 runOne 的 catch 再触发第二次 gate.close()，同一 rejected
+   * 链二次抛错会顶掉原始异常。 */
   async close(): Promise<void> {
     this.accepting = false
     this.flush()
-    await this.drain
+    await this.drain.catch(() => undefined)
+    const err = this.drainError
+    this.drainError = null
+    if (err !== null) throw err.err
   }
 }
 
@@ -284,6 +305,9 @@ export class ToolPipelineImpl implements ToolPipeline {
           signal: turn.abort.signal,
           onProgress: (chunk) => gate.push(chunk),
           cwd: this.deps.cwd,
+          ...(this.deps.outputLimitBytes !== undefined
+            ? { outputLimitBytes: this.deps.outputLimitBytes }
+            : {}),
           ...(this.deps.memory !== undefined ? { memory: this.deps.memory } : {}),
           ...(this.deps.exitPlanMode !== undefined ? { exitPlanMode: this.deps.exitPlanMode } : {}),
           ...(this.deps.lsp !== undefined ? { lsp: this.deps.lsp } : {}),

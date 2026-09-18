@@ -4,10 +4,13 @@
  *          落盘完成后才广播（订阅者看到 durable 事件时它已持久化——崩溃后 UI 与磁盘一致）。
  * live：zod 校验 → 同步广播（不落盘不计数；delta 先于 message 定稿，RunLoop 内天然满足）。
  * 订阅者隔离：每个 handler 独立 try/catch，异常回调 warn 不影响其他订阅者（dsh）。
- * 背压：handler 返回 false | Promise<false> 暂停该订阅者，事件进环形缓冲
- *       （溢出丢最老——durable 可由 since 回放补，live 可丢）；resume() 续传。
+ * 背压（AUD-11 分级策略）：handler 返回 false | Promise<false> 暂停该订阅者，事件进
+ *       环形缓冲；缓冲满时**优先丢 live-only**（直播语义可丢），durable 先驱逐缓冲内
+ *       最老 live 腾位，全是 durable 时通知宿主断开该订阅（onDurableOverflow——客户端
+ *       按水位重连补播），**绝不静默丢弃 durable**（旧 shift() 丢最老会撕出无法自动
+ *       补齐的水位缺口）；resume() 续传并复位溢出标记。
  */
-import { eventSchemaOf, isExtendedLiveOnly } from '@spark/protocol'
+import { eventSchemaOf, isExtendedLiveOnly, isLiveOnlyType } from '@spark/protocol'
 import type { z } from 'zod'
 import type {
   DurableEventType,
@@ -42,6 +45,10 @@ interface Subscriber {
   buffer: SparkEventEnvelope[]
   /** per-subscriber 派发串行队列：handler 按事件序逐个调用，不并发 */
   queue: Promise<void>
+  /** AUD-11：缓冲溢出已通知过宿主（durable 无法保全）——resume 时复位 */
+  overflowed: boolean
+  /** AUD-11：durable 溢出回调（宿主应断开该订阅让客户端按水位重连补播）；缺省仅丢事件 */
+  onDurableOverflow?: (e: SparkEventEnvelope) => void
 }
 
 export interface EventBusOptions {
@@ -50,6 +57,8 @@ export interface EventBusOptions {
   onSubscriberError?: (err: unknown, e: SparkEventEnvelope) => void
   /** 暂停订阅者环形缓冲容量（默认 256） */
   bufferCapacity?: number
+  /** AUD-11：durable 溢出兜底回调（subscribe 未逐订阅者给 onDurableOverflow 时） */
+  onDurableOverflow?: (e: SparkEventEnvelope) => void
 }
 
 interface SessionState {
@@ -119,13 +128,18 @@ export class EventBus {
     this.broadcast(envelope)
   }
 
-  subscribe(handler: EventHandler, filter?: { sessionId?: SessionId }): SubscribeHandle {
+  subscribe(
+    handler: EventHandler,
+    filter?: { sessionId?: SessionId; onDurableOverflow?: (e: SparkEventEnvelope) => void },
+  ): SubscribeHandle {
     const sub: Subscriber = {
       handler,
       sessionId: filter?.sessionId,
       paused: false,
       buffer: [],
       queue: Promise.resolve(),
+      overflowed: false,
+      onDurableOverflow: filter?.onDurableOverflow,
     }
     this.subscribers.add(sub)
     return {
@@ -280,14 +294,39 @@ export class EventBus {
   private resumeSubscriber(sub: Subscriber): void {
     if (!sub.paused) return
     sub.paused = false
+    sub.overflowed = false // AUD-11：缓冲已排空，溢出标记复位
     const backlog = sub.buffer.splice(0)
     for (const e of backlog) {
       this.deliver(sub, e) // flush 中再背压则继续缓冲（递归安全：buffer 已 splice）
     }
   }
 
+  /**
+   * 暂停订阅者的入缓冲策略（AUD-11 分级）：
+   * ① 缓冲未满 → 直接入队；
+   * ② 满 + live-only → 丢弃（直播语义，可丢）；
+   * ③ 满 + durable → 先驱逐缓冲内**最老的 live**腾位（丢直播保事实）；
+   * ④ 满 + durable + 缓冲内已无 live → 通知宿主断开（onDurableOverflow，一次），
+   *    事件丢弃——绝不静默丢弃 durable 也不覆写既有缓冲（旧 shift() 丢最老会撕出
+   *    客户端水位无法自动补齐的缺口）。
+   */
   private pushRing(sub: Subscriber, e: SparkEventEnvelope): void {
-    sub.buffer.push(e)
-    if (sub.buffer.length > this.capacity) sub.buffer.shift()
+    if (sub.buffer.length < this.capacity) {
+      sub.buffer.push(e)
+      return
+    }
+    const live = isLiveOnlyType(e.type)
+    if (live) return
+    const evictIdx = sub.buffer.findIndex((b) => isLiveOnlyType(b.type))
+    if (evictIdx >= 0) {
+      sub.buffer.splice(evictIdx, 1)
+      sub.buffer.push(e)
+      return
+    }
+    if (!sub.overflowed) {
+      sub.overflowed = true
+      sub.onDurableOverflow?.(e)
+      this.opts.onDurableOverflow?.(e)
+    }
   }
 }

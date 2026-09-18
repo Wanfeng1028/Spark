@@ -40,6 +40,17 @@ export function isExtendedLiveOnly(type: string): boolean {
   return extended.get(type)?.liveOnly === true
 }
 
+/** 内置 live-only 词表（events.ts LiveOnlyEventType 的运行时对位） */
+const LIVE_ONLY_TYPES: ReadonlySet<string> = new Set(['assistant.delta', 'reasoning.delta', 'tool.progress'])
+
+/**
+ * 运行时 live-only 判定：内置 LiveOnly 词表 ?? 扩展注册表 liveOnly 标记。
+ * 消费方：EventBus 背压分级（AUD-11——缓冲溢出优先丢 live、durable 不可静默丢）等。
+ */
+export function isLiveOnlyType(type: string): boolean {
+  return LIVE_ONLY_TYPES.has(type) || isExtendedLiveOnly(type)
+}
+
 /** 测试隔离：清空扩展注册表 */
 export function clearExtendedEvents(): void {
   extended.clear()

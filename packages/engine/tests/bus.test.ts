@@ -315,29 +315,39 @@ describe('背压 pause/resume', () => {
     expect(got).toHaveLength(2)
   })
 
-  it('环形缓冲溢出丢最老（durable 可由 since 回放补）', async () => {
+  it('环形缓冲溢出（全 durable）：不再丢最老——通知 onDurableOverflow 断链补播', async () => {
     const { sink } = makeSink()
+    const overflowed: SparkEventEnvelope[] = []
     const bus = new EventBus({ sink, bufferCapacity: 2 })
     const got: SparkEventEnvelope[] = []
-    const handle = bus.subscribe((e) => {
-      got.push(e)
-      if (got.length === 1) return false
-    })
+    const handle = bus.subscribe(
+      (e) => {
+        got.push(e)
+        if (got.length === 1) return false
+      },
+      {
+        onDurableOverflow: (e) => {
+          overflowed.push(e)
+        },
+      },
+    )
 
     await bus.emit(SID, 'session.title', { title: '1' })
     await bus.emit(SID, 'session.title', { title: '2' })
     await bus.emit(SID, 'session.title', { title: '3' })
     await bus.emit(SID, 'session.title', { title: '4' })
     await sleep(5)
-    expect(got).toHaveLength(1) // 全部缓冲中
+    expect(got).toHaveLength(1) // 2、3 已缓冲
+    expect(overflowed).toHaveLength(1) // 第 4 笔无法保全 → 断链通知（一次）
+    expect((overflowed[0]?.data as { title: string }).title).toBe('4')
 
     handle.resume()
     await sleep(5)
-    // 容量 2：缓冲只保留 3、4（最老的 2 被覆盖）
-    expect(got.map((e) => (e.data as { title: string }).title)).toEqual(['1', '3', '4'])
+    // AUD-11：durable 绝不静默丢——已缓冲的 2、3 完整续传，4 经断链由客户端按水位重连补播
+    expect(got.map((e) => (e.data as { title: string }).title)).toEqual(['1', '2', '3'])
   })
 
-  it('live 事件同样走缓冲（可丢语义：溢出覆盖）', async () => {
+  it('live 事件溢出：新到 live 直接丢弃（缓冲内已收的保留——不再 shift 丢最老）', async () => {
     const { sink } = makeSink()
     const bus = new EventBus({ sink, bufferCapacity: 1 })
     const got: SparkEventEnvelope[] = []
@@ -353,6 +363,40 @@ describe('背压 pause/resume', () => {
 
     handle.resume()
     await sleep(5)
-    expect(got.map((e) => (e.data as { text: string }).text)).toEqual(['a', 'c'])
+    // AUD-11：满 + live → 丢新到的 c，先收的 b 保留（旧策略 shift 丢 b 留 c）
+    expect(got.map((e) => (e.data as { text: string }).text)).toEqual(['a', 'b'])
+  })
+
+  it('AUD-11：满 + durable 到来 → 驱逐最老 live 腾位（丢直播保事实，不触发断链）', async () => {
+    const { sink } = makeSink()
+    const overflowed: SparkEventEnvelope[] = []
+    const bus = new EventBus({ sink, bufferCapacity: 2 })
+    const got: SparkEventEnvelope[] = []
+    const handle = bus.subscribe(
+      (e) => {
+        got.push(e)
+        if (got.length === 1) return false
+      },
+      {
+        onDurableOverflow: (e) => {
+          overflowed.push(e)
+        },
+      },
+    )
+
+    await bus.emit(SID, 'session.title', { title: 'd1' })
+    await sleep(1) // d1 已送达并触发暂停
+    bus.emitLive(SID, 'assistant.delta', { turnId: TID, text: 'l1' })
+    bus.emitLive(SID, 'assistant.delta', { turnId: TID, text: 'l2' })
+    await bus.emit(SID, 'session.title', { title: 'd2' }) // 满：驱逐 l1 放入 d2
+    await sleep(5)
+
+    handle.resume()
+    await sleep(5)
+    const titles = got
+      .filter((e) => e.type === 'session.title')
+      .map((e) => (e.data as { title: string }).title)
+    expect(titles).toEqual(['d1', 'd2']) // durable 全保全
+    expect(overflowed).toHaveLength(0) // 有 live 可驱逐，未到断链阈值
   })
 })

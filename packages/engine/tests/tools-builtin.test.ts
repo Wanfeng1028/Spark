@@ -299,3 +299,32 @@ describe('bash 复合命令分段（§5.7 补强 1，工单 4.7）', () => {
     )
   })
 })
+
+// ---- AUD-02：bash 执行期收集限界与 UTF-8 边界解码 ----
+
+describe('AUD-02：bash 输出收集限界与 UTF-8 解码', () => {
+  test('多字节字符跨 chunk 切断不出 U+FFFD（StringDecoder 增量解码）', { timeout: 20000 }, async () => {
+    const cwd = await makeCwd()
+    // 65535 字节 'a' 后紧跟 3 字节 '中'×200：64KB 级 pipe 帧几乎必然把首枚"中"拦腰切断
+    const r = await bashTool.execute(makeCtx(cwd), {
+      command: "node -e \"process.stdout.write('a'.repeat(65535) + '中'.repeat(200))\"",
+    })
+    expect(r.isError).toBe(false)
+    const out = r.output as string
+    expect(out.startsWith('a'.repeat(65535))).toBe(true)
+    expect(out.endsWith('中'.repeat(200))).toBe(true)
+    expect(out).not.toContain('�')
+  })
+
+  test('执行期收集上限：超限停收并标记截断（内存有界，不等问题规模）', { timeout: 30000 }, async () => {
+    const cwd = await makeCwd()
+    const ctx: ToolContext = { ...makeCtx(cwd), outputLimitBytes: 1024 } // 收集上限 4KB
+    const r = await bashTool.execute(ctx, {
+      command: "node -e \"process.stdout.write('x'.repeat(5_000_000))\"",
+    })
+    expect(r.isError).toBe(false)
+    const out = r.output as string
+    expect(out).toContain('[输出超过收集上限，已截断]')
+    expect(out.length).toBeLessThan(10_000) // ≈4KB + 标记，而非 5MB
+  })
+})

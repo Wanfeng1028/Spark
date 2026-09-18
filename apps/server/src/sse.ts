@@ -106,7 +106,18 @@ const ssePlugin: FastifyPluginCallback<SseOptions> = (app, opts) => {
     const sub = engine.subscribe((e) => {
       const ok = writeEvent(e)
       return ok ? undefined : false // 背压：缓冲满暂停订阅，drain 恢复
-    }, sessionId !== undefined ? { sessionId } : undefined)
+    }, {
+      ...(sessionId !== undefined ? { sessionId } : {}),
+      // AUD-11：缓冲溢出且 durable 无法保全 → 断流（客户端按最后水位重连，
+      // since=seq 回放补齐缺口）——事件不静默丢失
+      onDurableOverflow: () => {
+        try {
+          res.end()
+        } catch {
+          // 连接已毁：close 回调统一收尾
+        }
+      },
+    })
     res.on('drain', () => sub.resume())
 
     // 回放：先写快照（seq>since 的 durable，按 seq 升序）再直播——订阅先于快照建立，

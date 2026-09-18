@@ -93,6 +93,7 @@ interface Fixture {
   pipeline: ToolPipelineImpl
   perm: StubPerm
   sink: MemSink
+  bus: EventBus
   events: SparkEventEnvelope[]
   outputs: ToolOutputStore
   outDir: string
@@ -121,7 +122,7 @@ async function makeFixture(): Promise<Fixture> {
   bus.subscribe((e) => {
     events.push(e)
   })
-  return { registry, pipeline, perm, sink, events, outputs, outDir }
+  return { registry, pipeline, perm, sink, bus, events, outputs, outDir }
 }
 
 function makeTurn(): TurnCtx {
@@ -418,5 +419,45 @@ describe('执行边界（工单 16.3 第三批：qwen-code enter/exit_plan_mode 
     expect(results.map((r) => r.isError)).toEqual([true, false])
     expect(rec.order).toEqual(['start:exitplan', 'end:exitplan', 'start:write', 'end:write'])
     expect(results[1]?.output).toBe('done:write:2')
+  })
+})
+
+// ---- AUD-11：ProgressGate drain 自愈（live emit 失败不再永久污染链） ----
+
+describe('AUD-11：ProgressGate drain 自愈', () => {
+  test('live emit 瞬时失败 → completed 走 mapError、close 不二次抛错；后续调用自愈', async () => {
+    const f = await makeFixture()
+    let failFirst = true
+    ;(f.bus as unknown as { emitLive: (...args: unknown[]) => void }).emitLive = () => {
+      if (failFirst) {
+        failFirst = false
+        throw new Error('E_LIVE_FAIL: 测试注入的直播失败')
+      }
+    }
+    const progressTool: ToolDefinition = {
+      name: 'read',
+      description: 'progress fake',
+      inputSchema: z.strictObject({ v: z.string().optional() }),
+      permission: { action: 'fake.read', resourceOf: () => 'fake:read' },
+      parallelizable: true,
+      async execute(ctx) {
+        ctx.onProgress('chunk-1')
+        ctx.onProgress('chunk-2')
+        return { output: 'ok', isError: false }
+      },
+    }
+    f.registry.register(progressTool)
+
+    const [r1] = await f.pipeline.runAll(makeTurn(), [pending('read', 1)])
+    // 首笔 progress emit 失败：close 上抛一次进 runOne catch → mapError 完成人话错误
+    expect(r1.isError).toBe(true)
+    expect(r1.output).toMatchObject({ code: 'E_LIVE_FAIL' })
+    expect(f.events.filter((e) => e.type === 'tool.completed')).toHaveLength(1)
+
+    // 第二次调用：链已自愈（旧实现同一 rejected drain 会让本调用也失败）
+    const [r2] = await f.pipeline.runAll(makeTurn(), [pending('read', 2)])
+    expect(r2.isError).toBe(false)
+    expect(r2.output).toBe('ok:read:2')
+    expect(f.events.filter((e) => e.type === 'tool.completed')).toHaveLength(2)
   })
 })

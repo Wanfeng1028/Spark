@@ -15,6 +15,7 @@
 import { execFileSync, execSync, spawn } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { realpathSync } from 'node:fs'
+import { StringDecoder } from 'node:string_decoder'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { resolveInRoot } from '../definition.js'
@@ -169,17 +170,34 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
           stdio: ['ignore', 'pipe', 'pipe'],
         })
 
+        // AUD-02：执行期收集上限（outputLimitBytes 的 4 倍缓冲）——此前 chunks 无上限，
+        // `cat 1GB.log` 全量驻留内存（bound() 在 execute 返回后才截断，管不住执行期）。
+        // 超限即停收并标记；progress 照发（直播流廉价）。UTF-8 用 StringDecoder 跨块
+        // 增量解码——旧逐 buf.toString 会把被 chunk 切断的多字节字符变成 U+FFFD。
+        const collectCapBytes = (ctx.outputLimitBytes ?? 32 * 1024) * 4
+        const COLLECT_TRUNCATION_MARK = '\n[输出超过收集上限，已截断]\n'
+        const stdoutDecoder = new StringDecoder('utf8')
+        const stderrDecoder = new StringDecoder('utf8')
         const chunks: string[] = []
-        const collect = (buf: Buffer): void => {
-          const text = buf.toString('utf8')
-          chunks.push(text)
+        let collectedBytes = 0
+        let collectTruncated = false
+        const collect = (buf: Buffer, decoder: StringDecoder): void => {
+          const text = decoder.write(buf)
+          if (!collectTruncated) {
+            chunks.push(text)
+            collectedBytes += buf.length
+            if (collectedBytes >= collectCapBytes) {
+              collectTruncated = true
+              chunks.push(COLLECT_TRUNCATION_MARK)
+            }
+          }
           // 16KB/帧截断（Grok）：长帧切开发 progress
           for (let i = 0; i < text.length; i += PROGRESS_CHUNK_BYTES) {
             ctx.onProgress(text.slice(i, i + PROGRESS_CHUNK_BYTES))
           }
         }
-        child.stdout?.on('data', collect)
-        child.stderr?.on('data', collect)
+        child.stdout?.on('data', (b: Buffer) => collect(b, stdoutDecoder))
+        child.stderr?.on('data', (b: Buffer) => collect(b, stderrDecoder))
 
         let timedOut = false
         let aborted = false
@@ -214,6 +232,12 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
         })
 
         child.on('close', (code, signal) => {
+          // AUD-02：冲刷 UTF-8 边界残字（多字节字符跨 chunk 切断的收尾恢复）；
+          // 已截断时跳过（超限后不再扩收集，避免上限形同虚设）
+          if (!collectTruncated) {
+            const tail = stdoutDecoder.end() + stderrDecoder.end()
+            if (tail !== '') chunks.push(tail)
+          }
           const combined = chunks.join('')
           if (aborted) {
             finish({ output: { code: 'E_ABORTED', output: combined }, isError: true })
