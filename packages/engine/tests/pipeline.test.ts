@@ -449,6 +449,7 @@ describe('AUD-11：ProgressGate drain 自愈', () => {
     f.registry.register(progressTool)
 
     const [r1] = await f.pipeline.runAll(makeTurn(), [pending('read', 1)])
+    if (r1 === undefined) throw new Error('runAll 结果缺失（测试前提不成立）')
     // 首笔 progress emit 失败：close 上抛一次进 runOne catch → mapError 完成人话错误
     expect(r1.isError).toBe(true)
     expect(r1.output).toMatchObject({ code: 'E_LIVE_FAIL' })
@@ -456,6 +457,7 @@ describe('AUD-11：ProgressGate drain 自愈', () => {
 
     // 第二次调用：链已自愈（旧实现同一 rejected drain 会让本调用也失败）
     const [r2] = await f.pipeline.runAll(makeTurn(), [pending('read', 2)])
+    if (r2 === undefined) throw new Error('runAll 结果缺失（测试前提不成立）')
     expect(r2.isError).toBe(false)
     expect(r2.output).toBe('ok:read:2')
     expect(f.events.filter((e) => e.type === 'tool.completed')).toHaveLength(2)

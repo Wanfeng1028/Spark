@@ -715,7 +715,7 @@ describe('AUD-07：run-loop 收敛', () => {
     expect(lastOf(f, 'turn.completed')?.data).toMatchObject({ finish: 'stop' }) // completed 已落盘
     expect(f.rt.state).toBe('idle') // endTurn 已跑——核心验收
     // 会话可继续受理新 turn（beginTurn 不再 E_RUNTIME_TURN_ACTIVE）
-    f.deps.checkpoint = undefined
+    delete f.deps.checkpoint
     f.gateway.scriptStep({ content: [{ type: 'text', text: 'ok2' }], stopReason: 'stop' })
     await takeSubmitted(f.rt, 'y')
     await runTurn(f.rt, f.deps, {

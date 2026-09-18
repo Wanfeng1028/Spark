@@ -139,7 +139,9 @@ export class EventBus {
       buffer: [],
       queue: Promise.resolve(),
       overflowed: false,
-      onDurableOverflow: filter?.onDurableOverflow,
+      ...(filter?.onDurableOverflow !== undefined
+        ? { onDurableOverflow: filter.onDurableOverflow }
+        : {}),
     }
     this.subscribers.add(sub)
     return {
