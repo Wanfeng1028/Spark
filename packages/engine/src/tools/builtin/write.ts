@@ -2,10 +2,11 @@
  * write 工具（doc/02 §5.6.3）：整文件写入；自动建父目录；返回写入字节数。
  * 路径硬边界先行（E_PATH_OUTSIDE）；OS 权限拒绝 → E_WRITE_DENIED。
  */
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
+import { atomicWriteFile } from '../../fsutil.js'
 import { resolveInRoot } from '../definition.js'
 
 const WriteInput = z.strictObject({
@@ -30,17 +31,17 @@ export const writeTool: ToolDefinition<WriteInput> = {
   async execute(ctx: ToolContext, input: WriteInput): Promise<ToolOutput> {
     const abs = resolveInRoot(ctx.cwd, input.path)
     await mkdir(dirname(abs), { recursive: true })
-    await writeFile(abs, input.content, 'utf8').catch((err: NodeJS.ErrnoException) => {
-      if (
-        err.code === 'EACCES' ||
-        err.code === 'EROFS' ||
-        err.code === 'EPERM' ||
-        err.code === 'EISDIR'
-      ) {
-        throw new Error(`E_WRITE_DENIED: 写入被 OS 拒绝 ${input.path}（${err.code}）`)
+    // AUD-03：原子写（tmp+rename，fsutil 单源）——错误映射保留（OS 拒绝语义不变；
+    // rename 落在目标目录，EACCES/EROFS/EPERM/EISDIR 与直写同码暴露）
+    try {
+      atomicWriteFile(abs, input.content)
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code === 'EACCES' || code === 'EROFS' || code === 'EPERM' || code === 'EISDIR') {
+        throw new Error(`E_WRITE_DENIED: 写入被 OS 拒绝 ${input.path}（${code}）`)
       }
       throw err
-    })
+    }
     return { output: { bytes: Buffer.byteLength(input.content, 'utf8') }, isError: false }
   },
 }

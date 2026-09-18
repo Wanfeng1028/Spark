@@ -4,10 +4,11 @@
  * diff 用公共前后缀法生成单 hunk（多处 replaceAll 时合成一个大 hunk——
  * 正确性优先，紧凑度次之；单处替换场景即标准小 diff）。
  */
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { resolveInRoot } from '../definition.js'
+import { atomicWriteFile } from '../../fsutil.js'
 
 const EditInput = z.strictObject({
   path: z.string().min(1),
@@ -89,7 +90,8 @@ export const editTool: ToolDefinition<EditInput> = {
       input.replaceAll === true
         ? before.split(input.oldString).join(input.newString)
         : before.replace(input.oldString, input.newString)
-    await writeFile(abs, after, 'utf8')
+    // AUD-03：原子写（tmp+rename，fsutil 单源）——进程崩溃半写不再损坏用户文件
+    atomicWriteFile(abs, after)
     return { output: unifiedDiff(before, after, input.path), isError: false }
   },
 }

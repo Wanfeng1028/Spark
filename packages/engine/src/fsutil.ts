@@ -5,8 +5,12 @@
  */
 import { appendFileSync, chmodSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 
-/** 原子写原始文本（调用方自管序列化形状，如 permission store 无尾换行的历史格式） */
-export function atomicWriteFile(filePath: string, data: string, opts?: { mode?: number }): void {
+/** 原子写原始文本或字节（调用方自管序列化形状，如 permission store 无尾换行的历史格式） */
+export function atomicWriteFile(
+  filePath: string,
+  data: string | Uint8Array,
+  opts?: { mode?: number },
+): void {
   const tmp = `${filePath}.tmp`
   writeFileSync(tmp, data, opts?.mode !== undefined ? { mode: opts.mode } : undefined)
   if (opts?.mode !== undefined) {

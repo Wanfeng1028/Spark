@@ -2,7 +2,7 @@
  * 内置四工具单测（doc/02 §5.6.3 / §8.6：四工具 × 四路径——成功/越界/超时/错误码）。
  * 直接驱动 execute（管线级行为在 pipeline.test.ts）。
  */
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
@@ -326,5 +326,32 @@ describe('AUD-02：bash 输出收集限界与 UTF-8 解码', () => {
     const out = r.output as string
     expect(out).toContain('[输出超过收集上限，已截断]')
     expect(out.length).toBeLessThan(10_000) // ≈4KB + 标记，而非 5MB
+  })
+})
+
+describe('AUD-03：文件工具原子写', () => {
+  test('write 成功后无 .tmp 残留（tmp+rename 语义）', async () => {
+    const cwd = await makeCwd()
+    const r = await writeTool.execute(makeCtx(cwd), { path: 'sub/a.txt', content: 'hello' })
+    expect(r.isError).toBe(false)
+    const files = await readdir(join(cwd, 'sub'))
+    expect(files).toEqual(['a.txt']) // 无 a.txt.tmp
+  })
+
+  test('edit 成功后无 .tmp 残留且内容替换生效', async () => {
+    const cwd = await makeCwd()
+    await writeFile(join(cwd, 'b.txt'), 'alpha
+beta
+', 'utf8')
+    const r = await editTool.execute(makeCtx(cwd), {
+      path: 'b.txt',
+      oldString: 'beta',
+      newString: 'BETA',
+    })
+    expect(r.isError).toBe(false)
+    expect(await readFile(join(cwd, 'b.txt'), 'utf8')).toBe('alpha
+BETA
+')
+    expect(await readdir(cwd)).toEqual(['b.txt'])
   })
 })

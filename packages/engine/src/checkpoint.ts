@@ -20,6 +20,7 @@ import type { CheckpointId, SessionId, TurnId } from '@spark/protocol'
 import type { EventBus } from './bus.js'
 import type { SparkLogger } from './logger.js'
 import { errText } from './errs.js'
+import { atomicWriteFile } from './fsutil.js'
 import { newIds } from './ulid.js'
 
 const execFileAsync = promisify(execFile)
@@ -153,7 +154,8 @@ export class GitCheckpointer {
       // reset 把会话文件别名物化进工作区——删除文件，目录保留（可能是用户自己的）
       await rm(join(this.deps.cwd, SESSION_ALIAS), { force: true })
       const blob = await this.gitShow(`${record.commit}:${SESSION_ALIAS}`)
-      await writeFile(this.deps.sessionPath, blob)
+      // AUD-03：回滚覆写会话 JSONL 改原子写——中途崩溃不再损坏会话主文件
+      atomicWriteFile(this.deps.sessionPath, blob)
     } catch (err) {
       throw new Error(`E_CHECKPOINT_ROLLBACK: ${errText(err)}`)
     }
@@ -191,6 +193,7 @@ export class GitCheckpointer {
   private async appendIndex(record: CheckpointRecord): Promise<void> {
     const records = await this.list()
     records.push(record)
-    await writeFile(this.indexPath, JSON.stringify(records, null, 2), 'utf8')
+    // AUD-03：快照索引原子写（序列化形状与旧直写逐字节一致）
+    atomicWriteFile(this.indexPath, JSON.stringify(records, null, 2))
   }
 }
