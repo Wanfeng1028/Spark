@@ -131,4 +131,49 @@ describe('useVoiceInput（工单 16.6）', () => {
     })
     expect(FakeRecorder.instances[0]?.stopped).toBe(1)
   })
+
+  it('AUD-13：录音中卸载——停轨 + recorder.stop，不走转写路径', async () => {
+    let trackStops = 0
+    vi.stubGlobal('MediaRecorder', FakeRecorder)
+    Object.defineProperty(FakeRecorder, 'isTypeSupported', {
+      value: (t: string) => FakeRecorder.supports.includes(t),
+      writable: true,
+    })
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: () =>
+          Promise.resolve({
+            getTracks: () => [
+              {
+                stop: () => {
+                  trackStops += 1
+                },
+              },
+            ],
+          } as unknown as MediaStream),
+      },
+    })
+    vi.stubGlobal('btoa', (s: string) => Buffer.from(s, 'binary').toString('base64'))
+    FakeRecorder.instances = []
+    const transcribeCalls: number[] = []
+    const transport = {
+      transcribe: () => {
+        transcribeCalls.push(1)
+        return Promise.resolve({ text: 'x', provider: 'mock', model: 'm' })
+      },
+    } as unknown as Transport
+    const { result, unmount } = renderHook(() => useVoiceInput({ transport, onText: () => {} }))
+    await act(async () => {
+      await result.current.start()
+    })
+    expect(result.current.phase).toBe('recording')
+    unmount() // 录音中卸载
+    expect(trackStops).toBe(1) // 轨道已停——麦克风不泄漏
+    expect(FakeRecorder.instances[0]?.stopped).toBe(1) // recorder.stop() 已调
+    // onstop 已被卸载收口摘除——给微任务机会也不会进转写（防空 chunks 假转写）
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(transcribeCalls).toHaveLength(0)
+  })
 })

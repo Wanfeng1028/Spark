@@ -52,6 +52,13 @@ export function AssistantBlock({
 }) {
   const t = useTheme()
   const [copied, setCopied] = useState(false)
+  // AUD-13：定时器存 ref——连点先清旧再设新（防前次提前复位"已复制"态），卸载清理
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+    }
+  }, [])
   const texts: string[] = []
   for (const c of item.content) {
     if (c.type === 'text') texts.push(c.text)
@@ -63,7 +70,11 @@ export function AssistantBlock({
   const onCopy = (): void => {
     void Clipboard.setStringAsync(fullText).then(() => {
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+      copyTimer.current = setTimeout(() => {
+        copyTimer.current = null
+        setCopied(false)
+      }, 1500)
     })
   }
 

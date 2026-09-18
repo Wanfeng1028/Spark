@@ -7,7 +7,7 @@
  * 回合头单行裸文本与 LSP 诊断折叠卡（工单 W18，语义对齐 mobile）。
  * 反 AI 味（§13.I）：系统字体、单档阴影、禁渐变/emoji。
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import {
@@ -46,6 +46,13 @@ export function AssistantBlock({
 }) {
   const t = useTheme()
   const [copied, setCopied] = useState(false)
+  // AUD-13：定时器存 ref——连点先清旧再设新（防前次提前复位"已复制"态），卸载清理
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+    }
+  }, [])
   const texts: string[] = []
   for (const c of item.content) {
     if (c.type === 'text') texts.push(c.text)
@@ -59,7 +66,11 @@ export function AssistantBlock({
     Taro.setClipboardData({ data: fullText })
       .then(() => {
         setCopied(true)
-        setTimeout(() => setCopied(false), 1500)
+        if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+        copyTimer.current = setTimeout(() => {
+          copyTimer.current = null
+          setCopied(false)
+        }, 1500)
       })
       .catch(() => {
         // 复制失败不阻断阅读（下次可再点）——如实不提示假成功

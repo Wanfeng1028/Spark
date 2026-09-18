@@ -7,7 +7,7 @@
  * - 失败闭合：权限拒绝/录制失败/转写错误都以人话 error 上抛（error-copy 已登记码优先），
  *   不静默、不假成功；错误出现即回 idle（可重试）。
  */
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Transport } from '@spark/protocol'
 
 type VoicePhase = 'idle' | 'recording' | 'transcribing'
@@ -57,6 +57,20 @@ export function useVoiceInput({ transport, onText }: VoiceInputDeps) {
     recorderRef.current = null
     chunksRef.current = []
   }, [])
+
+  // AUD-13：卸载收口（挂载一次）——录音中卸载必须停轨，防麦克风占用泄漏。
+  // 先摘 onstop 再 stop：卸载后不走转写路径（chunks 已清、组件已亡，转写必失败）；
+  // MediaRecorder 状态机 recording/paused 均需 stop（inactive 上 stop 本就 no-op）
+  useEffect(() => {
+    return () => {
+      const recorder = recorderRef.current
+      if (recorder !== null) {
+        recorder.onstop = null
+        if (recorder.state === 'recording' || recorder.state === 'paused') recorder.stop()
+      }
+      cleanup()
+    }
+  }, [cleanup])
 
   const start = useCallback(async (): Promise<void> => {
     if (phase !== 'idle' || recorderRef.current !== null) return

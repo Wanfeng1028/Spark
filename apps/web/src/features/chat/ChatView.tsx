@@ -9,6 +9,7 @@ import { Virtuoso } from 'react-virtuoso'
 import type { Components, VirtuosoHandle } from 'react-virtuoso'
 import { flowRowsOf, ids } from '@spark/protocol'
 import type { FlowRow, SessionId } from '@spark/protocol'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useSessionItems, useSessionMeta } from '@/stores/session'
 import { PROMPT_CHIPS } from '@/lib/prompts'
 import { useSettingsStore } from '@/stores/settings'
@@ -78,22 +79,28 @@ export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
         // 工单 10.14③：挂载即定位末尾（不设则从 index 0 逐行测高，再被
         // followOutput='smooth' 平滑滑底=用户看到的"一项一项往前移动"）
         initialTopMostItemIndex={Math.max(rows.length - 1, 0)}
-        itemContent={(_, row) =>
-          row.kind === 'item' ? (
-            <MessageItem
-              item={row.item}
-              model={model}
-              sid={sid}
-              highlight={row.item.eventId === highlightId}
-            />
-          ) : (
-            <ToolGroupRow
-              category={row.category}
-              tools={row.tools}
-              highlight={row.tools.some((t) => t.eventId === highlightId)}
-            />
-          )
-        }
+        itemContent={(_, row) => (
+          // AUD-13：行级边界每 item 一层——单条渲染出错只降级该行（一行红字摘要），不拖垮会话流
+          <ErrorBoundary
+            label="消息"
+            fallback={<div className="px-4 py-1.5 text-[13px] text-destructive">此消息渲染出错</div>}
+          >
+            {row.kind === 'item' ? (
+              <MessageItem
+                item={row.item}
+                model={model}
+                sid={sid}
+                highlight={row.item.eventId === highlightId}
+              />
+            ) : (
+              <ToolGroupRow
+                category={row.category}
+                tools={row.tools}
+                highlight={row.tools.some((t) => t.eventId === highlightId)}
+              />
+            )}
+          </ErrorBoundary>
+        )}
         followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
         atBottomStateChange={setAtBottom}
         components={components}
