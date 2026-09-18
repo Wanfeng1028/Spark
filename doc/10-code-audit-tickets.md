@@ -4,6 +4,7 @@
 
 | 版本 | 日期 | 作者 | 变更内容 |
 | --- | --- | --- | --- |
+| v1.1 | 2026-09-18 | AI 编写：ZCode · Union Alpha；发起：晚风（Wanfeng1028，"核验豆包审查报告+评估工单+补充发现+真机工单交豆包"指令） | 新增 §4 外部审查报告（docs/audit/，78 工单）逐条核验结论（40 条技术单：33 属实/6 部分属实/3 不属实）；§5 DSH 对话框改造 27 项判决退回（与 DESIGN.md 视觉宪法冲突清单）；§8 新增 AUD-02~AUD-14 工单（引擎资源/投影竞态/生命周期批）；§9 新增 AUD-RT-01 现场走查工单（交豆包执行）。仅文档，未改源码。 |
 | v1.0 | 2026-09-18 | AI 编写：ZCode · Union Alpha；发起：晚风（Wanfeng1028） | 登记 AUD-01：审批事件持久化失败仍放行的静态审查证据、修复方案、执行计划与验收条件。仅创建工单，未修改源码或执行验证。 |
 
 ## 1. 范围与状态
@@ -19,6 +20,20 @@
 | 编号 | 优先级 | 标题 | 状态 |
 | --- | --- | --- | --- |
 | AUD-01 | P1 | 审批事件持久化失败时禁止释放工具执行许可 | 已确认静态缺陷；待实施、待验证 |
+| AUD-02 | P1 | bash 工具输出执行期限界与 UTF-8 边界解码 | 已确认；待实施 |
+| AUD-03 | P1 | 用户文件工具与 checkpoint 原子写对齐 | 已确认；待实施 |
+| AUD-04 | P1 | resolveInRoot 符号链接硬边界硬化 | 已确认；待实施 |
+| AUD-05 | P1 | Projector 附件投影缓存 | 已确认；待实施 |
+| AUD-06 | P1 | LLM 错误文案进事件流的脱敏兜底 | 已确认；待实施 |
+| AUD-07 | P1 | run-loop 三缺陷收敛（length 续步/收尾清理/吞错卫生） | 已确认；待实施 |
+| AUD-08 | P1 | 客户端回放代际与竞态防覆盖（web 全量回放） | 已确认；待实施 |
+| AUD-09 | P1 | 会话页共享 controller 的 disposed 闸门 | 已确认；待实施 |
+| AUD-10 | P1 | 会话文件坏尾行恢复策略（拒绝带病续写） | 已确认；待实施 |
+| AUD-11 | P2 | EventBus 背压 durable 丢弃与 ProgressGate drain 污染 | 已确认；待实施 |
+| AUD-12 | P1 | 桌面壳首启无配置秒退（E_CONFIG 无引导） | 已确认；待实施 |
+| AUD-13 | P2 | web 渲染韧性与资源生命周期批（ErrorBoundary/麦克风/剪贴板定时器） | 已确认；待实施 |
+| AUD-14 | P2 | 查询与补全竞态批（useTransportQuery 三态/Composer listFs/inprocess dispose） | 已确认；待实施 |
+| AUD-RT-01 | P1 | 真机与真实环境现场走查（交豆包执行） | 待人类安排环境 |
 
 ## 3. AUD-01：审批事件持久化失败时禁止释放工具执行许可
 
@@ -110,3 +125,159 @@
 ### 3.7 当前执行记录
 
 2026-09-18：完成工单编制。未修改源码、未编写或运行回归用例、未安装或下载、未联网、未提交推送。AUD-01 状态维持“待实施、待验证”。
+
+## 4. 外部审查报告核验结论（docs/audit/，2026-09-18）
+
+`docs/audit/` 下共 14 份报告（68 问题 + 78 工单 + 185 截图），由外部 agent 在 Linux 云 VM 完成真实安装/构建/点击测试。本仓对其 **40 条技术类工单逐条做了源码级核验**（两个只读子代理 + 人工复核），结论如下。点击测试的 44 项功能用例（37 过 / 5 失败 / 2 观察）与构建结论（全绿、~1121 测试 99.9% 通过）可信，不重复验证。
+
+### 4.1 核验统计
+
+| 裁决 | 数量 | 工单 |
+| --- | --- | --- |
+| 属实 | 33 | WO-001/002/003/004/005/006/008/009/012/013/014/015/016/017/018/019/020/021/022/024/028/029/030/031/033/035/036/038/039/040/044/047/048 |
+| 部分属实（方向对，定性/机制有出入） | 6 | WO-007（drain 永久 rejected 影响面更宽，但触发前提几乎不可达）、WO-010（审批卡不是“被遮挡”而是错误态下整块不渲染，真实缺陷是错误态下发送会驱动无关脚本会话）、WO-023（防御性瑕疵，当前 reject 源只有 E_QUEUE_CLOSED）、WO-025（加固欠账而非可利用漏洞——Electron 44 缺省即安全）、WO-027（代码卫生，无实际泄漏）、WO-047（1.5s 而非 1s） |
+| 不属实 | 3 | WO-037（es6/enhance/postcss=false 是 Taro 标准形态，转译由 Taro 构建链完成）、WO-045（SlashMenu 开启条件不含 running 状态，流式期间照样弹且 `/` 开头文本走命令分派不会被当普通消息）、WO-046（ThemeToggle aria-label 每渲染同步推导，无失步状态） |
+| 前提失真 | 1 | WO-032（official/ 根本不存在 package-lock.json，"npm audit 报 2 漏洞"不可复现） |
+
+### 4.2 工单合理性判决
+
+1. **技术类 WO-001~051 基本采纳**，转入执行池时按本节修正：优先级校正——官网 SEO 三件套（WO-001/002/012/013）对未发布站点不是"阻断级"，改 **P1（发布前必须）**，且 WO-001 需要真实域名才能修（待晚风提供）；WO-033 chunk 分割降 P3；WO-042 SSE token 走 URL 是 **ADR D24 拍板的双口径设计**，降 P3 观察项；WO-049 44px 触摸目标不适用（web 是桌面应用，DESIGN §3 列表 32px 行高是刻意密度规格）。
+2. **WO-043（web 响应式 P0）改判不做**：DESIGN.md §2 明文"不做移动端、不做响应式断点（这是桌面应用）"，移动端由 apps/mobile + apps/miniapp 承载；mobile web（dev:web）只是调试形态。同因驳回 final-ux 报告的 P0-1。
+3. **WO-011 与 WO-034 重复**（同一问题两张单），合并执行。
+4. **WO-015（官网死代码删除）执行方式受限**：死代码属实，但按 AGENTS §2.10 文件删除保护，任何删除须人类发起并走五层级确认——执行会话不得直接 `git rm`。
+5. **WO-036（小程序 token 明文）维持既有登记口径**：`config-store.ts` 头注已声明"小程序无系统密钥链……v1 口径；正式分发记 v2 时重估"。属实但非新缺陷，随 v2 重估。
+6. **DSH 对话框改造 WO-052~078（27 项）整体退回**，见 §5。
+7. **报告引用路径勘误**：报告内 `_audit/` 实际为 `docs/audit/`；截图根目录同。
+
+### 4.3 核验中发现的报告外问题（已并入 §8 工单）
+
+- bash.ts 按 chunk 独立 `toString('utf8')`，多字节字符跨块被切断成 U+FFFD（长中文输出可复现）——并入 AUD-02。
+- checkpoint.ts 两处非原子写：快照索引（:194）与**回滚覆写会话 JSONL**（:156，崩溃可损坏会话主文件）——并入 AUD-03。
+- ProgressGate 的 drain Promise 一旦 reject 永久保持 rejected，同 gate 后续所有 close 复现抛错——并入 AUD-11。
+- useCopy 三端 1.5s 定时器除无清理外，连续复制时前次定时器会提前复位"已复制"态——并入 AUD-13。
+- `session-page.ts:265` 注释声称"登记为 v2 候选（工单 W12-FOLLOW）"，但 doc/08 §6 后置池与 doc/02 均无该条目——登记漂移，补登时随 AUD-08 批处理。
+
+## 5. DSH 对话框改造工单（WO-052~078）判决：退回
+
+该组 27 项以 DeepSeek Harness（DSH）实测形态为目标改造 web 对话框，**整体与本仓视觉宪法冲突**，未经 DESIGN.md 修订前一律不得执行（DESIGN.md 尾注：突破规则先改本文再写代码；AGENTS §2.6/§2.11）。逐项冲突：
+
+| 工单 | 冲突 |
+| --- | --- |
+| WO-052/058（22px 圆角 + 阴影 + 去边框；气泡 22px/70.2%） | 违反 DESIGN §13.B 圆角档位封闭集（五档：胶囊/8/12/16/18，之外一律违规，ADR D32）与"分隔优先边框与留白、不用阴影"；推翻 §13.H 晚风拍板（user 气泡 radius 18 + 右下 4px 收角 + 最大宽 80% + YOU 标签保留） |
+| WO-055（发送钮改 DSH 蓝 #3964FE） | 违反 §12.1 P0"Tailwind 默认蓝"黑名单 + 单一 accent + `--primary` 语义 |
+| WO-061/062/063（sweep 扫光 / shimmer 渐变 / "Deep diving" 英文 shimmer） | 违反 §6 动效规范（只允许 120-160ms opacity/transform 微动效）与 §12.1 渐变禁令；英文文案违反 §12.7 文案语言一致性 |
+| WO-054（6 行→14 行） | 推翻 §13.E 实测定稿（6 行上限后内部滚动） |
+| WO-078（13px→14px） | 违反 13px 密度体系（§3 / D32 不变项全清单） |
+| WO-065（审批接管输入框） | 推翻 §8 ApprovalCard 规格（消息流内嵌卡片是明文规格）；属交互模式变更非样式对齐 |
+| WO-067（引入 Lexical contenteditable） | 违反 ARCHITECTURE §9.1 过度设计（为 @ 芯片内嵌引入 3 天工的重依赖）；@ 补全已有成熟形态 |
+| WO-056/057/060/064/066/068~077（布局重排/环形 ContextMeter/TurnRail/StatsPills 等） | 均为"以 DSH 为审美权威"的新功能/重排，无本仓规格依据 |
+
+处置：该组不做逐条工单；若晚风确有意向对齐 DSH 观感，正确路径是先立 **DESIGN.md 规格修订提案**（列明推翻 §12/§13 哪些条款、新档位表、黑名单 grep 词调整），拍板后再生成实现工单。在现行规格下执行会话会与黑名单 grep 自查互相打架（D32 立项时同款教训）。
+
+## 6. 前一份审计（.qoder/specs/审计工单清单）复核
+
+W1~W19 共 19 张工单现状：**W1（doc/02 版本表 v3.93~v4.55 补录）、W2（§8 阶段十二~十八工单表）、W3（尾部结语）、W4（计数漂移全修，代码注释同步）、W5（doc/02 去数字化；ADR 历史行按 Q3 保留）、W6（settings-pages 20 页）、W7（质量闸注释补齐）、W8（workspace 计数已改写实数 15）、W9（检查器扩展锚点已落）、W11（nightly.yml performance job 已存在）、W13（apply-event WeakMap 索引已落）、W14（ArenaCard 条件轮询已落）、W17（§8.7 标题）、W18（mobile/miniapp turn 头与诊断卡已落）均已修复**。余项：W10（版本引用存在性校验）未实施——W1 修复后悬空引用已不存在，可作低优先级防复发项；W12（loadOlder O(n²)）未修，但 `session-page.ts:265` 已注明瓶颈与修法前提（applyEvent 需 prefix-merge 语义），**登记指针漂移**（doc/08 无 W12-FOLLOW 条目）；W15（两张 D28 重号）、W16（G1/G7 收口）留人类决策，合理。
+
+## 7. 与本仓既有工单的重叠说明
+
+AUD-01（§3）为本轮独立发现，与豆包报告零重叠（其报告未覆盖权限结算路径）。§8 新工单中 AUD-02~AUD-06、AUD-12 与豆包 WO-004/005/006/021/022/035 同源——本仓工单为其**核验后的扩展版**（并入报告外发现），执行时以本文为准；豆包其余属实工单（web/official/miniapp/cli 卫生类）按其工单原文执行即可，不在本文重复。
+
+## 8. 新增工单（AUD-02~AUD-14）
+
+> 均为源码级已确认、本机零验证交付；执行时走 AGENTS §7 节奏（改码+单测 → 文档版本表 → commit+push → CI 裁决）。行号为 2026-09-18 快照，以符号定位为准。
+
+### AUD-02 P1 bash 工具输出执行期限界与 UTF-8 边界解码
+
+- **证据**：`packages/engine/src/tools/builtin/bash.ts:172-181` chunks 无上限 push、`:217` close 时 join 全量字符串；限界在 `tools/pipeline.ts:295` 于 execute **返回后**才生效（`output-store.ts:16-24`，缺省 32KB）——`cat 1GB.log` 执行期间整段驻留内存。另 `bash.ts:174` 逐 chunk `toString('utf8')`，多字节字符跨块切断即 U+FFFD。
+- **修复思路**：① 累计字节超 `toolOutputLimitKB` 上限（或其数倍缓冲）即停止收集、落临时文件或丢弃中段并标记截断，执行期生效；② 用 `string_decoder`（`node:string_decoder`）跨块增量解码。
+- **验收**：大输出命令内存峰值有界；截断语义与现行一致；中文长输出无乱码；abort/timeout 路径同约束；单测覆盖块边界拆字。
+
+### AUD-03 P1 用户文件工具与 checkpoint 原子写对齐
+
+- **证据**：`tools/builtin/edit.ts:92`、`write.ts:33` 直接 `writeFile`；`fsutil.ts:9-19` 已有 `atomicWriteFile`（tmp+rename，8 处在用）。同族：`checkpoint.ts:156` 回滚**覆写会话 JSONL**、`:194` 快照索引写均为非原子——回滚中途崩溃损坏会话主文件。
+- **修复思路**：四处统一改 `atomicWriteFile`；回滚路径评估"写 tmp → 校验 → rename"外是否需预备份（已有 checkpoints 快照兜底，说明取舍）。
+- **验收**：崩溃注入下主文件恒完整；既有 round-trip 用例全绿。
+
+### AUD-04 P1 resolveInRoot 符号链接硬边界硬化
+
+- **证据**：`tools/definition.ts:77-85` 仅词法 resolve/relative 判定；`read.ts:35-45` 随后 stat/readFile 跟随 symlink——工作区内指向根外的符号链接可越界读/写。对照 `extensions/loader.ts:28-35` 已有 realpath 逃逸检查判例。
+- **修复思路**：解析目标 `fs.realpath` 后再 relative 判定（read/grep/lsp 只读面与 write/edit 写面同闸）；注意性能（可按调用点缓存 realpath）与 Windows 大小写归一既有行为兼容。
+- **验收**：`ln -s` 指向仓外后 read/grep/lsp/write/edit 全部 E_PATH_OUTSIDE；单测覆盖 symlink 进/出两向。
+
+### AUD-05 P1 Projector 附件投影缓存
+
+- **证据**：`projector.ts:150-156` 每次 `modelContext()`（每 step 一次）对每条 user.message 附件重读盘+base64；注入实现 `engine.ts:1705-1714` 裸 `readFileSync` 无缓存。40 步 turn 单图重复处理 40 次。
+- **修复思路**：ProjectorImpl 按附件文件名+mtime（或事件 id）做 Map 缓存；附件覆盖写时失效。
+- **验收**：多图长 turn 投影 IO 不随步数线性增长；内容变更后投影更新正确。
+
+### AUD-06 P1 LLM 错误文案进事件流的脱敏兜底
+
+- **证据**：`pi-gateway.ts:386` 将 provider 错误原文拼进 error 文案，`run-loop.ts:306-310` 逐字 emit 进 durable `error` 事件；脱敏单一来源 `observability/redaction.ts` 消费方仅 logger/audit/guard 三处，**事件发射路径不在覆盖内**。provider 错误体若回显 Authorization 头，密钥明文落盘+广播。
+- **修复思路**：error 事件 emit 前过同一 redaction 管道（run-loop 单点），不动 provider 适配层。
+- **验收**：构造含 `Authorization: Bearer sk-…` 的假 provider 错误，落盘事件与 SSE 帧均脱敏；非敏感错误文案不变形。
+
+### AUD-07 P1 run-loop 三缺陷收敛
+
+- **证据**：① `run-loop.ts:343-373` `stopReason==='length'` 无条件 `continue` 续采样，步数上限检查（`:382-385`）对该路径不可达——模型连续 length 截断可无限烧 token（无需 toolCall，纯文本 length 也中招）；② `run-loop.ts:400-421` finally 中 `turn.completed`→checkpoint.snapshot→store.flush 任一抛错跳过 `rt.endTurn()`（`:420`），会话永久卡 running（后续输入全被判 steer 滞留或 E_RUNTIME_TURN_ACTIVE）；③ `run-loop.ts:172-175` takeInput 裸 catch 吞错（当前 reject 源唯一，卫生化即可）。
+- **修复思路**：① 步数预算检查移到所有续采样必经位，length 达预算以 `finish='length'` 收尾（保留 E_TRUNCATED 配对回喂）；② 运行态释放（endTurn）放入独立的、无条件执行的外层 finally；③ catch 收窄为 E_QUEUE_CLOSED 判别，其余上抛。
+- **验收**：连续 length 场景在 maxStepsPerTurn 收口；收尾 fsync/checkpoint 失败注入后 turn 状态机正确复位、会话可继续输入；三条路径各有单测。
+
+### AUD-08 P1 客户端回放代际与竞态防覆盖（web 全量回放）
+
+- **证据**：`apps/web/src/transports/context.tsx:18-30` GET 返回后无条件 `resetSlice`+全量 apply；等待 GET 期间全局 SSE 直播事件（经 `:80-93` rAF）已写入 store，旧快照到达即抹掉已收更新——`turn.completed` 可回退成"运行中"且全局流不重发不补。多处回放乱序返回同病。协议层 `session-stream-core.ts` 重连 onResync 与直播并发同构。
+- **修复思路**：per-sid 回放代际 + 回放期间直播事件缓冲，快照提交后按序补放；旧代请求一律丢弃提交；注意合法 rollback 水位下降路径需独立代际，不得用"水位低即丢弃"一刀切。顺带补登 `session-page.ts:265` 声称的 W12-FOLLOW 后置池条目。
+- **验收**：回放与直播并发时序用例（快照 N、直播 N+1、乱序返回）无状态回退；rollback 回放正常。
+
+### AUD-09 P1 会话页共享 controller 的 disposed 闸门
+
+- **证据**：`packages/protocol/src/session-page.ts:156-176` emit/setNotice 无 disposed 检查；`:227-236` dispose 后 flush 仍回调；`:239-320` loadOlder/send/stop/reply 的 await 之后继续 emit/setNotice（可重建 notice 定时器）。消费端 `apps/mobile/src/screens/SessionScreen.tsx:110-130` 与 `apps/miniapp/src/pages/session/index.tsx:115-140` 在 sid/连接变化时销毁旧 controller——旧会话在途请求完成后把**旧会话整片快照**写进新页面的 `setSnap`，显示与操作目标（controllerRef）分裂。
+- **修复思路**：修在 protocol 单源（一次覆盖两端，AGENTS §1.1 纪律）：emit/批处理/notice 入口统一 disposed/代际闸门，所有 await 后校验；dispose 后禁止新建定时器。
+- **验收**：会话 A 在途操作跨越切换到 B 的时序用例，B 快照不被 A 污染；notice 不复活。
+
+### AUD-10 P1 会话文件坏尾行恢复策略（拒绝带病续写）
+
+- **证据**：`packages/engine/src/session/store.ts:146-158` resume 直接 `open(path,'a')` 追加；`:161-217` read 对尾行坏 JSON 仅 break 丢弃（内存），磁盘不修——恢复后追加的合法行接在坏尾后：坏尾带换行则其变非尾行（下次读 E_SESSION_BAD_LINE），不带换行则新事件直接拼在残缺 JSON 后。内存树与磁盘自此分叉，崩溃残留升级为持续损坏。
+- **修复思路**：read 返回最后有效字节边界；resume 写前受控修复（备份后截断到有效边界、补换行、sync），不可安全修复则拒绝可写恢复（fail-closed，同 D12 纪律）。
+- **验收**：坏尾（带/不带换行）→ resume → 追加 → 重读全绿的用例；修复动作落审计日志。
+
+### AUD-11 P2 EventBus 背压丢弃策略与 ProgressGate drain 污染
+
+- **证据**：① `packages/engine/src/bus.ts:289-292` 订阅者缓冲溢出 shift 丢最老项**不区分 durable/live**——慢 SSE 客户端丢 durable 后靠更高 seq 推进水位，缺口永久无法自动补齐（`session-stream-core.ts:187-189` 无缺口检测）；② `tools/pipeline.ts:114` drain Promise 一旦 reject 永久保持 rejected，同 gate 后续 close 全部复现抛错（WO-007 扩展面）。
+- **修复思路**：① 溢出时优先淘汰 live-only（三类 delta/progress），durable 满则断开该订阅者连接（客户端以水位重连续播），服务端 `apps/server/src/sse.ts` 回放侧相应尊重背压；② drain 恢复路径（catch 后重置为 resolved 或重建链）。
+- **验收**：慢消费者注入用例：durable 零丢失或连接显式断开；gate 单次故障不影响后续工具调用。
+
+### AUD-12 P1 桌面壳首启无配置秒退（E_CONFIG 无引导）
+
+- **证据**：`config.ts:273-275` models.json 缺失抛 ConfigError；`apps/server/src/index.ts:26` 顶层 loadConfig 在 try/catch 之外→进程退出；`apps/desktop/src/main.ts:100-103/146-150` sidecar 退出→壳静默 quit。web onboarding（12.8）依赖 server 在线——server 起不来则引导不可达，全新用户首启即秒退。
+- **修复思路**：sidecar 早退时壳渲染"先配模型"引导页（含日志路径与文档链接）；或 server 对"配置缺失"降级为受限启动（仅暴露 onboarding 所需最小端点）。二选一需晚风拍板（后者动 server 生命周期语义）。
+- **验收**：清空 ~/.spark 后桌面首启可见引导而非秒退；配置完成后全功能恢复。
+
+### AUD-13 P2 web 渲染韧性与资源生命周期批
+
+- **证据**：① 全 web 无 ErrorBoundary（grep 零命中，`main.tsx:8-14` 裸渲染树）——单条畸形投影白屏整树（WO-008）；② `useVoiceInput.ts` cleanup 仅挂 recorder.onstop，卸载不释放麦克风流（WO-009）；③ `useCopy.ts:13` 定时器无清理且连发时前次定时器提前复位态（三端同型：mobile/miniapp session-items）。
+- **修复思路**：App 级 ErrorBoundary（崩溃兜底+重载）+ ChatView 行级边界；useVoiceInput 增 useEffect 卸载 cleanup；useCopy 换 useRef 计时器+清理+重入复位。
+- **验收**：坏 item 不拖垮整页；录音中切路由麦克风灯灭；连点复制显示态正确。
+
+### AUD-14 P2 查询与补全竞态批
+
+- **证据**：① `useTransportQuery.ts` 自动查询成功不清旧 error（`AuditSettingsPage` 优先渲染 error——一次失败后永久停留）、refresh 无 cancelled 护栏、deps 变化不清旧 data（`SessionPage.tsx:83-89` 权限档位跨会话串台，且 preset 加载失败被吞致旧值无限期保留——WO-028 的加重形态）；② `Composer.tsx:248-261` @ 补全 listFs 无请求代际，慢响应覆盖新结果（WO-029）；③ `packages/sdk/src/inprocess.ts:197-216,396-399,505-510` extensions/arena/listLspServers/transcribe 绕过 disposed 闸门与 `sync`（对照 HTTP 通道统一检查——D31 parity 缺口）。
+- **修复思路**：useTransportQuery 收敛单一代际执行入口（成功清错、依赖变化清态/显式 refreshing、卸载全失效）；Composer 加代际号；inprocess 全方法过 assertNotDisposed/sync。
+- **验收**：三态恢复与并发刷新用例；补全乱序返回用例；inprocess dispose 后调用统一 E_DISPOSED 类错误（契约套件补 dispose 后拒绝组）。
+
+## 9. AUD-RT-01 现场走查工单（交豆包执行）
+
+> 性质：需要真实设备/真实密钥/真实外部系统的走查清单，CI 与静态审查均无法替代。执行环境由晚风安排；结果以追加记录回填本文（含截图/日志路径），发现问题立新 AUD 单。
+
+| # | 走查项 | 环境 | 步骤要点 | 通过标准 |
+| --- | --- | --- | --- | --- |
+| 1 | 移动端真机四场景（Expo 真机/模拟器） | Android/iOS 真机 + 桌面 server 非环回 | 配对扫码→会话流式→审批操作→断线重连（飞行开关） | 配对成功；投影与桌面端一致；重连后续播无缺口 |
+| 2 | 小程序开发者工具走查 | 微信开发者工具 + 局域网 IP（勾选不校验合法域名） | 同上四场景 + 分块 SSE 解帧长会话 | 无花屏/乱码；后台切前台恢复续播 |
+| 3 | Electron 首启引导（AUD-12 修复后回归） | 全新用户目录（临时 HOME） | 安装/启动→引导→配模型→建会话 | 无秒退；引导闭环 |
+| 4 | 真实模型端到端 | 配真实 API key（DEEPSEEK 或其他） | e2e 冒烟三场景（`examples/e2e-smoke.sh`：闭环/断线重连/kill -9 resume）+ /goal 小目标 2-3 轮 + /arena 双模型竞答 | 三场景通过；goal 达成或护栏暂停；arena 快照与胜者应用正常 |
+| 5 | 语音真实链路 | 有 SoX 的机器 + 转写端点 | /voice 录音→转写回填→发送 | 转写文本正确；音频无残留文件 |
+| 6 | LSP 真实 server | CI 已装 typescript-language-server；本机可选 pyright | /lsp 诊断→lsp 工具 12 操作抽测 | 诊断与 IDE 一致；配置变更后连接重建 |
+| 7 | MCP 外配实调 | Claude Code 或其他 MCP 宿主 | `spark mcp` 接入外部 agent 完成一次真实任务 | 审计流归因正确；审批 fail-closed 生效 |
+| 8 | 代理实流验证 | mitm 代理 | models.json provider.proxy 指向代理跑真实请求 | 流量经代理；无 proxy 时直连零变化 |
+| 9 | 发布冒烟 | npm 全新环境 | `npm i -g @spark/cli && spark --version`（CI release.yml 已自动；本项为人工复核版本号非"未知版本"——关联 AUD-13 同源问题 WO-050） | 版本号正确显示 |
+
+执行纪律：走查只读产品行为，不修复；本机规则（禁下载/零验证）对执行 agent 同样适用，外部工具一律 CI 预装或由晚风现场提供。
