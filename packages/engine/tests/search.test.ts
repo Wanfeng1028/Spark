@@ -154,7 +154,8 @@ describe('SearchStore（~/.spark/search.db：FTS5 trigram + LIKE 降级）', () 
         entry({
           eventId: ids.event(`evt_search_vac${String(i).padStart(4, '0')}`),
           seq: i + 1,
-          content: `空间回收填充内容行 ${i}——足够长的文本保证删行后留下可回收的空闲页`,
+          // 行内不带空格：查询词'行49'方可作为整串唯一子串命中（带空格会被 MATCH 拆词静默放宽）
+          content: `空间回收填充行${i}——足够长的文本保证删行后留下可回收的空闲页`,
         }),
       )
     }
@@ -162,11 +163,11 @@ describe('SearchStore（~/.spark/search.db：FTS5 trigram + LIKE 降级）', () 
     const r = store.vacuum()
     expect(r.sizeBytesAfter).toBeLessThanOrEqual(r.sizeBytesBefore)
     expect(store.count()).toBe(50)
-    // 剩余行 seq 1..50（i 0..49）：'49' 在剩余集中唯一；已截断行不再命中（FTS/LIKE 同步）
-    expect(store.search('内容行 49', 10).map((h) => h.content)).toEqual([
-      '空间回收填充内容行 49',
-    ])
-    expect(store.search('内容行 150', 10)).toEqual([])
+    // 剩余行 seq 1..50（i 0..49）：'行49' 在剩余集中唯一；已截断行不再命中（FTS/LIKE 同步）
+    const kept = store.search('行49', 10)
+    expect(kept).toHaveLength(1)
+    expect(kept[0]?.content).toBe('空间回收填充行49——足够长的文本保证删行后留下可回收的空闲页')
+    expect(store.search('行150', 10)).toEqual([])
     store.close()
   })
 
