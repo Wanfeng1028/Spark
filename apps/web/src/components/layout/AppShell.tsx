@@ -45,6 +45,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => clearTimeout(t)
   }, [inSettings])
 
+  // RT3-06（WO-087）：窄视口（375 预研档）一次性自动折叠侧栏——264px 列吃掉 2/3 宽，
+  // 主内容区不可用。DESIGN §2 不做响应式断点：这里是挂载时的一次性缺省值（复用
+  // toggleSidebar，持久化同口径），不是断点体系；用户可再展开，桌面 ≥640 无感。
+  useEffect(() => {
+    if (window.innerWidth < 640 && !useUiStore.getState().sidebarCollapsed) {
+      useUiStore.getState().toggleSidebar()
+    }
+  }, [])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       const mod = e.metaKey || e.ctrlKey
