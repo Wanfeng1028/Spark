@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { ids } from '@spark/protocol'
-import type { ToolContext } from '../src/definition.js'
+import type { ToolContext } from '../src/tools/definition.js'
 import { makeBashTool } from '../src/tools/builtin/bash.js'
 import { BashShellPool } from '../src/tools/bash-pool.js'
 
@@ -30,7 +30,7 @@ async function runCommand(
   tool: ReturnType<typeof makeBashTool>,
   ctx: ToolContext,
   input: { command: string; cwd?: string },
-): Promise<{ isError: boolean; text: string; code?: string }> {
+): Promise<{ isError: boolean; text: string; code?: string | undefined }> {
   const r = await tool.execute(ctx, input)
   if (typeof r.output === 'string') return { isError: r.isError, text: r.output }
   const o = r.output as Record<string, unknown>
