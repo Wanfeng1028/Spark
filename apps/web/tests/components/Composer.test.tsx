@@ -130,7 +130,7 @@ describe('Composer 审批挂起（waiting）态', () => {
     // §13.L L.1：无常驻提示行，等待提示改由 textarea 占位符承载（DSH 二批）
     expect(screen.getByPlaceholderText('等待审批中——请先处理上方审批卡')).toBeTruthy()
     // §13.L L.8：模式 chip 仍渲染但禁用（等待中不可切档）
-    expect(screen.getByRole('button', { name: '提交模式' }).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: '提交模式' }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.keyDown(textarea(), { key: 'Enter' })
     expect(onSend).not.toHaveBeenCalled()
   })

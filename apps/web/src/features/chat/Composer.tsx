@@ -97,7 +97,7 @@ export interface ComposerProps {
     options?: readonly FolderOption[]
     selected?: string | null
     onPick?: (cwd: string | null) => void
-  }
+  } | undefined
   onSend: (text: string, delivery: Delivery, attachments?: string[]) => Promise<SubmitOutcome>
   onInterrupt: () => void
   /**
@@ -106,7 +106,7 @@ export interface ComposerProps {
    */
   onCommand: (name: string, args: string) => void | Promise<void>
   /** 引擎命令注册表（GET /api/commands；缺省/未加载 = 仅静态基线） */
-  commands?: readonly CommandDto[]
+  commands?: readonly CommandDto[] | undefined
 }
 
 /** 空态 chips「点击即填入输入框」（§13.E）——外部填词的 imperative 通道 */

@@ -8,7 +8,7 @@
  */
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
-import { MCP_ENV_MASK, type McpServerDto } from '@spark/protocol'
+import { MCP_ENV_MASK, type McpServerDto, type McpTransportKind } from '@spark/protocol'
 import { Button } from '@/components/ui/button'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
