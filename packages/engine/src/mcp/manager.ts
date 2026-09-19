@@ -12,6 +12,7 @@
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { z } from 'zod'
 import { asError, errText } from '../errs.js'
@@ -41,6 +42,30 @@ interface McpCallResult {
 
 export function mcpToolName(server: string, tool: string): string {
   return `mcp__${server}__${tool}`
+}
+
+/** 缺省 transport 工厂（工单 19.4 / ADR D46）：transport = 'streamable-http' →
+ * StreamableHTTPClientTransport（url 连接，headers 经 requestInit 注入——鉴权头不出
+ * 配置文件即达服务端）；其余（缺省 'stdio'）→ StdioClientTransport 原语义。
+ * schema（config.ts superRefine）已按 transport 分支校验必填；此处判空兜底抛错，
+ * 由 connect() 的失败闭合（warn 跳过）承接，不带病运行。 */
+function defaultTransport(name: string, cfg: McpServerConfig): Transport {
+  if (cfg.transport === 'streamable-http') {
+    if (cfg.url === undefined) {
+      throw new Error(`MCP server ${name} 配置缺 url（streamable-http transport 必填）`)
+    }
+    return new StreamableHTTPClientTransport(new URL(cfg.url), {
+      ...(cfg.headers !== undefined ? { requestInit: { headers: cfg.headers } } : {}),
+    })
+  }
+  if (cfg.command === undefined) {
+    throw new Error(`MCP server ${name} 配置缺 command（stdio transport 必填）`)
+  }
+  return new StdioClientTransport({
+    command: cfg.command,
+    ...(cfg.args !== undefined ? { args: cfg.args } : {}),
+    ...(cfg.env !== undefined ? { env: cfg.env } : {}),
+  })
 }
 
 /** MCP content → 模型可读字符串：text 拼接 → structuredContent JSON → 占位 */
@@ -117,11 +142,7 @@ export class McpManager {
         const transport =
           this.deps.transportFactory !== undefined
             ? this.deps.transportFactory(cfg)
-            : new StdioClientTransport({
-                command: cfg.command,
-                ...(cfg.args !== undefined ? { args: cfg.args } : {}),
-                ...(cfg.env !== undefined ? { env: cfg.env } : {}),
-              })
+            : defaultTransport(name, cfg)
         await withTimeout(client.connect(transport), cfg.connectTimeoutMs ?? CONNECT_TIMEOUT_MS, name)
         const listed = await client.listTools()
         for (const tool of listed.tools as McpToolInfo[]) {
@@ -132,7 +153,7 @@ export class McpManager {
           name,
           connected: true,
           tools: listed.tools.length,
-          command: cfg.command,
+          command: cfg.command ?? cfg.url ?? '',
         })
         this.deps.logger?.info('mcp.server.connected', {
           server: name,
@@ -141,7 +162,7 @@ export class McpManager {
       } catch (err) {
         // 超时/启动失败：关闭半连接（杀掉子进程），该 server 工具不注册
         void client.close().catch(() => {})
-        this.serverStatuses.push({ name, connected: false, tools: 0, command: cfg.command })
+        this.serverStatuses.push({ name, connected: false, tools: 0, command: cfg.command ?? cfg.url ?? '' })
         this.deps.logger?.warn('mcp.server.connect.error', { server: name, err })
       }
     }

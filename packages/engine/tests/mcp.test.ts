@@ -397,3 +397,72 @@ async function waitFor(pred: () => boolean): Promise<void> {
 process.on('exit', () => {
   for (const d of dirs) rmSync(d, { recursive: true, force: true })
 })
+
+// ---- 19.4 / ADR D46：streamable-http transport ----
+
+describe('MCP streamable-http（阶段十九 19.4 / ADR D46）', () => {
+  test('loadMcpConfig：http 合法（url+transport）；缺 url 拒；http 带 command 拒；stdio 缺 command 拒', () => {
+    const dir = tempDir()
+    write(dir, 'mcp.json', JSON.stringify({
+      version: 1,
+      servers: { remote: { transport: 'streamable-http', url: 'https://mcp.example.com/mcp' } },
+    }))
+    const cfg = loadMcpConfig(dir)
+    expect(cfg.servers['remote']).toMatchObject({
+      transport: 'streamable-http',
+      url: 'https://mcp.example.com/mcp',
+    })
+
+    const d2 = tempDir()
+    write(d2, 'mcp.json', JSON.stringify({ version: 1, servers: { r: { transport: 'streamable-http' } } }))
+    expect(() => loadMcpConfig(d2)).toThrow(ConfigError)
+
+    const d3 = tempDir()
+    write(d3, 'mcp.json', JSON.stringify({
+      version: 1,
+      servers: { r: { transport: 'streamable-http', url: 'https://x.example.com', command: 'nope' } },
+    }))
+    expect(() => loadMcpConfig(d3)).toThrow(ConfigError)
+
+    const d4 = tempDir()
+    write(d4, 'mcp.json', JSON.stringify({ version: 1, servers: { r: {} } }))
+    expect(() => loadMcpConfig(d4)).toThrow(ConfigError)
+  })
+
+  test('headers 掩码/合并：读回全占位，PUT 时盘上真值回填，新 key 掩码拒写', () => {
+    const withHeaders = {
+      version: 1 as const,
+      servers: {
+        remote: {
+          transport: 'streamable-http' as const,
+          url: 'https://mcp.example.com/mcp',
+          headers: { Authorization: 'Bearer secret' },
+        },
+      },
+    }
+    const masked = maskMcpConfigForClient(withHeaders)
+    expect(masked.servers['remote']?.headers).toEqual({ Authorization: '__SPARK_KEEP__' })
+    // 占位 → 盘上真值回填
+    const merged = mergeMaskedMcpConfig(withHeaders.servers, masked)
+    expect(merged.servers['remote']?.headers).toEqual({ Authorization: 'Bearer secret' })
+    // 新 key 掩码 → ConfigError（掩码不是值）
+    const bad = maskMcpConfigForClient(withHeaders)
+    bad.servers['remote']!.headers!['X-New'] = '__SPARK_KEEP__'
+    expect(() => mergeMaskedMcpConfig(withHeaders.servers, bad)).toThrow(ConfigError)
+  })
+
+  test('缺省工厂 + http 配置：连接失败 warn 跳过，状态显示 url（不真连——127.0.0.1:9 立即拒绝）', async () => {
+    const registry = new ToolRegistry()
+    const manager = new McpManager({
+      config: {
+        servers: { remote: { transport: 'streamable-http', url: 'http://127.0.0.1:9/mcp' } },
+      },
+      toolTimeoutMs: 1_000,
+    })
+    await manager.connect(registry)
+    expect(registry.size).toBe(0)
+    const status = manager.status()[0]!
+    expect(status.connected).toBe(false)
+    expect(status.command).toBe('http://127.0.0.1:9/mcp')
+  })
+})

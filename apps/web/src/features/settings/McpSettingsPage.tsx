@@ -16,25 +16,45 @@ import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { cn } from '@/lib/utils'
 import { SettingGroupCard, SettingRow } from './SettingRow'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 
 interface ServerDraft {
   name: string
+  transport: McpTransportKind
   command: string
+  url: string
+  headers: string // 每行 KEY=VALUE（streamable-http 专用；值掩码同 env）
   args: string // 每行一个参数（表单友好；保存时 split）
   env: string // 每行 KEY=VALUE
   connectTimeoutMs: string // 可选；空 = 引擎缺省 30000ms（RT3-04：npx 冷启动可按 server 调大）
 }
 
-function draftOf(name: string, command: string, args: string[], env: Record<string, string>): ServerDraft {
+function draftOf(
+  name: string,
+  entry: {
+    command?: string | undefined
+    args?: string[] | undefined
+    env?: Record<string, string> | undefined
+    transport?: McpTransportKind | undefined
+    url?: string | undefined
+    headers?: Record<string, string> | undefined
+    connectTimeoutMs?: number | undefined
+  },
+): ServerDraft {
   return {
     name,
-    command,
-    args: args.join('\n'),
-    env: Object.entries(env)
+    transport: entry.transport ?? 'stdio',
+    command: entry.command ?? '',
+    url: entry.url ?? '',
+    headers: Object.entries(entry.headers ?? {})
       .map(([k, v]) => `${k}=${v}`)
       .join('\n'),
-    connectTimeoutMs: '',
+    args: (entry.args ?? []).join('\n'),
+    env: Object.entries(entry.env ?? {})
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n'),
+    connectTimeoutMs: entry.connectTimeoutMs !== undefined ? String(entry.connectTimeoutMs) : '',
   }
 }
 
@@ -56,13 +76,17 @@ export function McpSettingsPage() {
     // RT3-07：args/超时从配置读回预填；env 只回显 key，值以掩码占位（保存时引擎合并原值）
     const first = servers[0]
     if (first === undefined) {
-      setDraft({ name: '', command: '', args: '', env: '', connectTimeoutMs: '' })
+      setDraft(draftOf('', {}))
       return
     }
-    const entry = mcpConfig?.servers[first.name]
+    const entry = mcpConfig?.servers[first.name] ?? {}
+    // headers 值掩码同 env：只回显 key，值以 MCP_ENV_MASK 占位（保存时引擎合并原值）
+    const maskedHeaders = Object.fromEntries(
+      Object.keys(entry.headers ?? {}).map((k) => [k, MCP_ENV_MASK]),
+    )
     const maskedEnv = Object.fromEntries(Object.keys(entry?.env ?? {}).map((k) => [k, MCP_ENV_MASK]))
     setDraft({
-      ...draftOf(first.name, first.command, entry?.args ?? [], maskedEnv),
+      ...draftOf(first.name, { ...entry, headers: maskedHeaders, env: maskedEnv }),
       connectTimeoutMs: entry?.connectTimeoutMs !== undefined ? String(entry.connectTimeoutMs) : '',
     })
   }
@@ -70,8 +94,8 @@ export function McpSettingsPage() {
   async function save(): Promise<void> {
     const d = draft
     if (d === null) return
-    if (d.name.trim() === '' || d.command.trim() === '') {
-      setOpError('name 与 command 必填')
+    if (d.name.trim() === '') {
+      setOpError('name 必填')
       return
     }
     const args = d.args
@@ -89,6 +113,17 @@ export function McpSettingsPage() {
       }
       env[t.slice(0, eq)] = t.slice(eq + 1)
     }
+    const headers: Record<string, string> = {}
+    for (const line of d.headers.split('\n')) {
+      const t = line.trim()
+      if (t === '') continue
+      const eq = t.indexOf('=')
+      if (eq === -1) {
+        setOpError(`headers 行格式须为 KEY=VALUE：${t}`)
+        return
+      }
+      headers[t.slice(0, eq)] = t.slice(eq + 1)
+    }
     const timeoutRaw = d.connectTimeoutMs.trim()
     let connectTimeoutMs: number | undefined
     if (timeoutRaw !== '') {
@@ -99,16 +134,30 @@ export function McpSettingsPage() {
       }
       connectTimeoutMs = n
     }
+    // transport 分支校验（与引擎 zod superRefine 同口径，前端先挡一道）
+    if (d.transport === 'streamable-http' && d.url.trim() === '') {
+      setOpError('streamable-http 须提供 url（远程 server 地址）')
+      return
+    }
+    if (d.transport === 'stdio' && d.command.trim() === '') {
+      setOpError('stdio 须提供 command（启动命令）')
+      return
+    }
     await run(async () => {
       // RT3-07：以配置读回为底做整文件保存——未编辑 server 原样保留（含 args/env/超时），
-      // 编辑项 env 中的掩码行由引擎合并盘上真值（掩码不是值）
+      // 编辑项 env/headers 中的掩码行由引擎合并盘上真值（掩码不是值）
       const name = d.name.trim()
       const serversBody = { ...(mcpConfig?.servers ?? {}) }
       delete serversBody[name]
       serversBody[name] = {
-        command: d.command.trim(),
-        ...(args.length > 0 ? { args } : {}),
-        ...(Object.keys(env).length > 0 ? { env } : {}),
+        transport: d.transport,
+        ...(d.transport === 'streamable-http'
+          ? { url: d.url.trim(), ...(Object.keys(headers).length > 0 ? { headers } : {}) }
+          : {
+              command: d.command.trim(),
+              ...(args.length > 0 ? { args } : {}),
+              ...(Object.keys(env).length > 0 ? { env } : {}),
+            }),
         ...(connectTimeoutMs !== undefined ? { connectTimeoutMs } : {}),
       }
       await transport.updateMcpConfig({ version: 1, servers: serversBody })
@@ -200,26 +249,56 @@ export function McpSettingsPage() {
               placeholder="服务器名（如 filesystem）"
               className="font-mono text-xs"
             />
-            <Input
-              value={draft.command}
-              onChange={(e) => setDraft({ ...draft, command: e.target.value })}
-              placeholder="启动命令（如 npx -y @modelcontextprotocol/server-filesystem /path）"
-              className="font-mono text-xs"
+            <Select
+              aria-label="transport 类型"
+              value={draft.transport}
+              options={[
+                { value: 'stdio', label: 'stdio（本地命令）' },
+                { value: 'streamable-http', label: 'streamable-http（远程）' },
+              ]}
+              onChange={(v) => setDraft({ ...draft, transport: v })}
+              className="w-56"
             />
-            <Textarea
-              value={draft.args}
-              onChange={(e) => setDraft({ ...draft, args: e.target.value })}
-              placeholder={'args（每行一个，可留空）'}
-              rows={2}
-              className="font-mono text-xs"
-            />
-            <Textarea
-              value={draft.env}
-              onChange={(e) => setDraft({ ...draft, env: e.target.value })}
-              placeholder={'env（每行 KEY=VALUE，可留空；值只进不回显——已有项回显为 KEY=__SPARK_KEEP__，保存时保留原值）'}
-              rows={2}
-              className="font-mono text-xs"
-            />
+            {draft.transport === 'stdio' ? (
+              <>
+                <Input
+                  value={draft.command}
+                  onChange={(e) => setDraft({ ...draft, command: e.target.value })}
+                  placeholder="启动命令（如 npx -y @modelcontextprotocol/server-filesystem /path）"
+                  className="font-mono text-xs"
+                />
+                <Textarea
+                  value={draft.args}
+                  onChange={(e) => setDraft({ ...draft, args: e.target.value })}
+                  placeholder={'args（每行一个，可留空）'}
+                  rows={2}
+                  className="font-mono text-xs"
+                />
+                <Textarea
+                  value={draft.env}
+                  onChange={(e) => setDraft({ ...draft, env: e.target.value })}
+                  placeholder={'env（每行 KEY=VALUE，可留空；值只进不回显——已有项回显为 KEY=__SPARK_KEEP__，保存时保留原值）'}
+                  rows={2}
+                  className="font-mono text-xs"
+                />
+              </>
+            ) : (
+              <>
+                <Input
+                  value={draft.url}
+                  onChange={(e) => setDraft({ ...draft, url: e.target.value })}
+                  placeholder="远程 server 地址（如 https://mcp.example.com/mcp）"
+                  className="font-mono text-xs"
+                />
+                <Textarea
+                  value={draft.headers}
+                  onChange={(e) => setDraft({ ...draft, headers: e.target.value })}
+                  placeholder={'headers（每行 KEY=VALUE，可留空；鉴权头值只进不回显——已有项回显为 KEY=__SPARK_KEEP__，保存时保留原值）'}
+                  rows={2}
+                  className="font-mono text-xs"
+                />
+              </>
+            )}
             <Input
               value={draft.connectTimeoutMs}
               onChange={(e) => setDraft({ ...draft, connectTimeoutMs: e.target.value })}

@@ -55,6 +55,8 @@
 | v1.53 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"那你开始吧。等啥呢"开工指令） | **新增 D44 电脑控制执行体 = PowerShell 脚本桥零原生依赖（阶段十九 19.1；doc/02 v4.64 同批）**：平台分层端口 + Windows PowerShell 桥（CU_* 环境变量传参零注入面 + -EncodedCommand + 超时/中断 kill fail-closed）；主开关 engine.computerUseEnabled 缺省 false fail-closed 热档；八工具恒广告统一 computer.use 审批域；macOS/Linux 归 19.2。**编号注记**：原拟 D43 被并行会话（DSH 形态对齐）占用，顺延 D44。Windows 真机走查留用户。本机零验证，CI 裁决 |
 | v1.54 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十九连续开工） | **D44 19.2 补记**：macOS/Linux 执行体落地（osascript·screapture·pbpaste / xdotool·wmctrl·xclip·scrot，全零 npm 依赖；能力边界如实 fail-closed——mac 右中键与 scroll 不支持、Linux Wayland 不支持、缺工具附安装提示）；工厂三平台路由。doc/02 v4.65、doc/08 v1.53 同批 |
 | v1.55 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D45 bash 常驻 shell 会话（阶段十九 19.3；doc/02 v4.69 同批）**：每会话长驻 bash 池（哨兵协议 `__SPARK_DONE__<seq>_<rc>` + LRU 容量 8 + 空闲 10 分钟回收 + 超时/中断树杀重建）翻案"v1 不做常驻"判决；`engine.bashPersistent` 第十一项设置热档缺省关（独立 shell 零回归）；POSIX bash 才有常驻路径、沙箱 on 时沙箱优先。Windows 回落语义见 D45。本机零验证，CI 裁决 |
+| v1.56 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D46 MCP transport = stdio 缺省 + streamable-http（阶段十九 19.4，翻案 D16；doc/02 v4.70 同批）**：mcp.json transport/url/headers（掩码同 env）；StreamableHTTPClientTransport 零新依赖；schema 分支校验混写拒载。编排注记：19.4 由后台子代理起草、验证码超时中断于 connect 改造前，主会话审核采纳其 config/manager 改动并补完 connect 接线/状态显示/web 表单/测试 |
+| v1.57 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D47 LSP server 下载器 = 内置清单 + npm 全局装（阶段十九 19.5，翻案 16.9 判决；doc/02 v4.70 同批）**：protocol lsp-servers.ts 清单三端同源 + LspInstaller（probe 幂等/npm 600s/装后校验/writeLspConfig，全链 fail-closed）+ POST /api/lsp/install + web 安装区 + cli /lsp install <id>。真实下载走查留用户 |
 
 ---
 
@@ -459,6 +461,18 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 背景：原判决"v1 不做常驻"（bash.ts 头注 + doc/02 §8.7 判决表）；晚风 2026-09-19 拍板登记限制类判决全部翻案立项（doc/08 §5D 依据④）。
 决策：`engine.bashPersistent` 开启时，bash 工具走**每会话（sessionId）长驻 bash 进程池**——cwd/环境变量/函数定义跨调用保持；池容量 8（lastUsed LRU 逐出）、空闲 10 分钟回收（unref 定时器不阻 shutdown）；命令执行用**哨兵协议**——命令追加 `__SPARK_RC=$?; printf "__SPARK_DONE__<seq>_%d\\n"`，stdout 按行扫描定界回读退出码（seq 单号防上一命令迟滞输出误判）。
 约束与失败语义（fail-closed）：命令经 POSIX 单引号安全编码整行写入 stdin，零注入面；读标准输入的命令会吞哨兵 → 超时整 shell 重建；`exit`/`set -e`/外部信号致 shell 死亡 → `E_SHELL_DIED` + 池除名 + 下一调用自动重建；超时/中断树杀整 shell——**状态丢失是常驻语义的一部分，不假装保状态**；POSIX bash 才有常驻路径（Windows 无 bash 回落独立 shell，平台边界在工具描述与 ADR 登记，非静默降级）；沙箱 'on' 时沙箱路径优先（wrapper 包常驻 shell 归 19.6 OS 级沙箱范畴）。主开关 = 引擎行为设置第十一项，缺省 false（独立 shell 旧行为零回归），热档（执行期读引擎内存配置）。
+
+### D46 MCP transport = stdio 缺省 + streamable-http（2026-09-19，阶段十九工单 19.4，翻案 D16）
+
+背景：D16 判决 MCP 仅 stdio；晚风 2026-09-19 拍板登记限制类判决全部翻案立项。
+决策：mcp.json server 条目增 `transport`（缺省 'stdio'，既有配置零变化红线）；`'streamable-http'` 走 SDK 自带 StreamableHTTPClientTransport（零新依赖），`url` 必填、`headers` 携带鉴权头（读回走 MCP_ENV_MASK 掩码、PUT 合并盘上真值——env 同纪律）；schema superRefine 按 transport 分支校验，http 与 command/args/env 混写 = 配置错误拒载。
+被否备选：SSE legacy transport（SDK 已 deprecated）；自研 HTTP 客户端（SDK 既有质量足够）。
+
+### D47 LSP server 下载器 = 内置清单 + npm 全局装（2026-09-19，阶段十九工单 19.5，翻案 16.9 判决）
+
+背景：16.9 判决"v1 无下载器，server 安装归用户环境"；晚风拍板翻案立项。
+决策：内置清单（protocol lsp-servers.ts，7 语言 npm caret 版本 pin，三端同源单一来源）+ 引擎 LspInstaller（已装探测幂等跳过 → `npm install -g` 600s 超时 → 装后命令可用性校验 → writeLspConfig）。npm registry 自带完整性校验，替代手工 checksum（直链/校验和类下载源 v1 不做，需要时另立）。
+约束与失败语义：未知 id 404；npm 缺失/失败/超时/装后校验失败各专属错误码（E_LSP_INSTALL*），全链 fail-closed 不写配置；写入后新 server 惰性连接（per-server config hash 变更自动重连，16.9 语义）；runNpm/probe 注入缝使单测免真实网络。POST /api/lsp/install + web 安装区 + CLI `/lsp install <id>` 双入口。
 
 ## 6. 模块速览（职责边界）
 
