@@ -83,7 +83,7 @@ export function SecurityModel(): React.JSX.Element {
           <header className="mb-16">
             <h2
               id="security-heading"
-              className="text-[28px] font-semibold tracking-tight text-foreground"
+              className="text-[30px] font-semibold tracking-tight text-foreground sm:text-[38px]"
             >
               安全模型
             </h2>

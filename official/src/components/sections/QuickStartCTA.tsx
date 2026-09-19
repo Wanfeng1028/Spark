@@ -32,7 +32,7 @@ export function QuickStartCTA(): React.JSX.Element {
         <header className="flex flex-col gap-3">
           <h2
             id="quickstart-heading"
-            className="text-[28px] font-semibold tracking-tight text-foreground"
+            className="text-[30px] font-semibold tracking-tight text-foreground sm:text-[38px]"
           >
             三步启动
           </h2>

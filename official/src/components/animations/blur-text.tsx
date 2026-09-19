@@ -19,7 +19,31 @@ export interface BlurTextProps {
 /**
  * 文字逐词显现动画。
  * 每个词依次从 opacity:0 + blur(8px) 过渡到完全清晰，幅度克制（§6 只允许微动效）。
+ * CJK 文本按空格 split 只会得到整段一坨（中文词间无空格），display 级大标题下
+ * 逐字 stagger 才有节奏——tokenize 把连续 CJK 段拆成单字 token，拉丁词保持整词。
  */
+
+interface Token {
+  text: string;
+  /** 是否跟一个空格：只有原文本的空格边界才有；CJK 单字之间不补空格 */
+  spaceAfter: boolean;
+}
+
+function tokenize(text: string): Token[] {
+  const chunks = text.split(" ");
+  const tokens: Token[] = [];
+  chunks.forEach((chunk, i) => {
+    const units = /[\u3400-\u9fff]/.test(chunk) ? Array.from(chunk) : [chunk];
+    units.forEach((unit, j) => {
+      tokens.push({
+        text: unit,
+        spaceAfter: i < chunks.length - 1 && j === units.length - 1,
+      });
+    });
+  });
+  return tokens;
+}
+
 const BlurText: React.FC<BlurTextProps> = ({
   text,
   delay = 0,
@@ -31,7 +55,7 @@ const BlurText: React.FC<BlurTextProps> = ({
   const reducedMotion = useReducedMotion();
   const [aboveViewport, setAboveViewport] = React.useState(false);
 
-  const words = React.useMemo(() => text.split(" "), [text]);
+  const words = React.useMemo(() => tokenize(text), [text]);
 
   React.useEffect(() => {
     if (!ref.current) return;
@@ -80,16 +104,16 @@ const BlurText: React.FC<BlurTextProps> = ({
       aria-label={text}
     >
       {words.map((word, index) => (
-        <React.Fragment key={`${word}-${index}`}>
+        <React.Fragment key={`${word.text}-${index}`}>
           <motion.span
             className="inline-block"
             variants={skipAnimation ? undefined : childVariants}
             aria-hidden="true"
           >
-            {word}
+            {word.text}
           </motion.span>
-          {/* 词间空格，允许自然换行 */}
-          {index < words.length - 1 ? " " : null}
+          {/* 词间空格，允许自然换行（CJK 单字间不补） */}
+          {word.spaceAfter ? " " : null}
         </React.Fragment>
       ))}
     </motion.span>

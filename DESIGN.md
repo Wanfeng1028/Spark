@@ -208,7 +208,7 @@
 
 ### 12.3 字体与排版
 
-- **超大标题字体**（hero 式 text-4xl/5xl/6xl/7xl 粗体大标题）——§3 封顶：UI 13px、页面级标题 15px。【P0】
+- **超大标题字体**（hero 式 text-4xl/5xl/6xl/7xl 粗体大标题）——§3 封顶：UI 13px、页面级标题 15px。【P0】**官网（official/）例外档位（v2.26 登记）**：营销站单列 display 档——Hero 标题 40/52/60px、页面大标题 36/44px、区块标题 30/38px（移动/桌面三断点），正文 16-18px；产品四端禁令不变，官网布局纪律不变（§12.5 居中落地页骨架照禁）。
 - Inter / Poppins / Space Grotesk / Geist 等被当成"不用想"的默认主字体（Hallmark 称 Inter "在训练数据里被过度代表"）。【P1——我们用系统栈 + IBM Plex Mono】
 - 全大写 section 小标签滥用；正文中孤立的衬线斜体"强调词"。【P1】
 - 装饰性等宽字体（"hacker vibe"）——mono 只用于代码/路径/工具输出（§3）。【P1】
@@ -258,7 +258,7 @@
 | `backdrop-blur`                                                 | 毛玻璃（12.2）                                 |
 | `rounded-2xl` `rounded-3xl`                                     | 脱离 §13.B 档位的大圆角（12.4）——**grep 词不改，命中后按档位判放行**（见下表注记） |
 | `shadow-lg` `shadow-2xl`                                        | 装饰性大阴影（12.2/12.4）                      |
-| `text-4xl` `text-5xl` `text-6xl` `text-7xl`                     | 超大标题（12.3）                               |
+| `text-4xl` `text-5xl` `text-6xl` `text-7xl`                     | 超大标题（12.3）——official/ 按 v2.26 官网档位另行登记，不在本扫描范围 |
 | `animate-pulse` `animate-bounce`                                | 无意义循环动效（§6；spinner/状态点白名单除外） |
 | `Inter` `Poppins` `Space Grotesk` `Geist`                       | 默认主字体（12.3）                             |
 | `fonts.googleapis` `cdn.` `http://` `https://`（字体/图标引用） | 外部资源（§7.5；API 端点除外）                 |

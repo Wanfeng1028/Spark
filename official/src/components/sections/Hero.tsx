@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 /**
  * Hero — 左对齐非对称布局（60/40），不用居中 hero + 徽章 pill + CTA 三件套（DESIGN §12.5）。
  * 右侧是纯 div 构建的终端窗口 mock，逐行 reveal。
+ * 标题走官网 display 档位（DESIGN §12.3 官网登记：40/52/60px 三断点），CJK 由
+ * BlurText 逐字 stagger（blur-text.tsx tokenize），中文大标题才有逐字浮现的节奏。
  * 内容全部是可核实事实（禁假状态，DESIGN §5）：命令来自 apps/cli/src/main.tsx 的 USAGE，
  * 缺省端口 4318 与回环绑定来自 packages/engine/src/config.ts SPARK_DEFAULTS，
  * 会话落点来自 SessionStore（~/.spark/sessions/）。
@@ -80,18 +82,18 @@ export function Hero(): React.JSX.Element {
         <div className="lg:col-span-3">
           <h1
             id="hero-title"
-            className="text-[40px] font-semibold leading-[1.15] tracking-tight text-foreground"
+            className="text-[40px] font-semibold leading-[1.1] tracking-tight text-foreground sm:text-[52px] lg:text-[60px]"
           >
             <BlurText
               text="跑在你自己机器上的 Agent 工作台"
-              staggerDelay={0.055}
+              staggerDelay={0.04}
               duration={0.55}
             />
           </h1>
 
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-            引擎 headless，UI 是事件流的投影。27 种事件类型实时驱动
-            Web、桌面、CLI、移动端四端界面。
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+            引擎 headless，UI 是事件流的投影：27 种事件实时驱动
+            Web、桌面、CLI、移动端同一套界面逻辑。审批 fail-closed，会话全程可回放。
           </p>
 
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -111,6 +113,12 @@ export function Hero(): React.JSX.Element {
               查看源码
             </a>
           </div>
+
+          {/* 元信息行：全部事实（MIT 见 LICENSE；Node >=24 见根 package.json engines；
+              ~/.spark 数据落点见 §1.1 数据落点表）。mono 小字，不做徽章 pill（§12.5）。 */}
+          <p className="mt-8 font-mono text-sm text-muted-foreground">
+            MIT License · Node.js ≥ 24 · 数据落盘 ~/.spark · 无云端依赖
+          </p>
         </div>
 
         {/* 右侧 40% — 终端窗口 mock */}

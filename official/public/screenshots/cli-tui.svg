@@ -1,45 +1,54 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
-  <!-- Terminal background -->
-  <rect width="800" height="600" fill="#18181b" rx="6"/>
+  <!--
+    高保真产品 mock（Ink 7 CLI TUI 纯单栏会话流）。
+    事实可回源码核对（DESIGN §5 禁假状态）：
+    - 安装/启动行与端口：apps/cli/src/main.tsx USAGE、packages/engine/src/config.ts SPARK_DEFAULTS（4318）
+    - 会话落点：SessionStore（~/.spark/sessions/）
+    - 审批三值与 fail-closed：packages/engine/src/permission/service.ts
+    - 纯单栏会话流（工单 10.x §13.K）：无侧栏，转录式行
+  -->
+  <rect width="800" height="600" rx="8" fill="#09090b"/>
 
-  <!-- Terminal title bar -->
-  <rect x="0" y="0" width="800" height="32" rx="6" fill="#27272a"/>
-  <rect x="0" y="26" width="800" height="6" fill="#27272a"/>
-  <circle cx="20" cy="16" r="5" fill="#3f3f46"/>
-  <circle cx="38" cy="16" r="5" fill="#3f3f46"/>
-  <circle cx="56" cy="16" r="5" fill="#3f3f46"/>
-  <text x="400" y="20" font-family="monospace" font-size="11" fill="#71717a" text-anchor="middle">spark — zsh</text>
+  <!-- 标题栏 -->
+  <path d="M8 0 h784 a8 8 0 0 1 8 8 v24 h-800 v-24 a8 8 0 0 1 8-8 z" fill="#18181b"/>
+  <circle cx="22" cy="16" r="4.5" fill="#3f3f46"/>
+  <circle cx="40" cy="16" r="4.5" fill="#3f3f46"/>
+  <circle cx="58" cy="16" r="4.5" fill="#3f3f46"/>
+  <text x="400" y="20" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="#71717a" text-anchor="middle">spark — zsh</text>
+  <line x1="0" y1="32" x2="800" y2="32" stroke="#27272a" stroke-width="1"/>
 
-  <!-- TUI content area -->
-  <!-- Session header -->
-  <text x="24" y="64" font-family="monospace" font-size="12" fill="#a1a1aa">~/projects/my-app</text>
-  <rect x="24" y="72" width="752" height="1" fill="#3f3f46"/>
+  <!-- 会话流（mono 13px，行高 26） -->
+  <text x="28" y="64" font-family="ui-monospace,Consolas,monospace" font-size="13" fill="#e4e4e7">$ npm i -g @spark/cli</text>
+  <text x="28" y="90" font-family="ui-monospace,Consolas,monospace" font-size="13" fill="#e4e4e7">$ spark up</text>
+  <text x="28" y="116" font-family="ui-monospace,Consolas,monospace" font-size="13" fill="#34d399">server    http://127.0.0.1:4318</text>
+  <text x="28" y="142" font-family="ui-monospace,Consolas,monospace" font-size="13" fill="#34d399">sessions  ~/.spark/sessions/</text>
+  <text x="28" y="168" font-family="ui-monospace,Consolas,monospace" font-size="13" fill="#71717a">TUI       纯单栏会话流 · 审批内联 · Ctrl+C 两下退出</text>
+  <line x1="28" y1="186" x2="772" y2="186" stroke="#27272a" stroke-width="1"/>
 
-  <!-- Conversation lines -->
-  <text x="24" y="100" font-family="monospace" font-size="11" fill="#e4e4e7">user: refactor the auth module</text>
+  <text x="28" y="214" font-family="ui-monospace,Consolas,monospace" font-size="13"><tspan fill="#818cf8">❯ </tspan><tspan fill="#fafafa">把 bash 工具改成持久进程池</tspan></text>
+  <text x="28" y="240" font-family="ui-monospace,Consolas,monospace" font-size="13" fill="#52525b">· 思考：先读 tools/builtin/bash.ts 与 sandbox.ts…</text>
 
-  <text x="24" y="128" font-family="monospace" font-size="11" fill="#71717a">assistant:</text>
-  <text x="24" y="146" font-family="monospace" font-size="11" fill="#a1a1aa">I'll read the current auth implementation first.</text>
+  <text x="28" y="266" font-family="ui-monospace,Consolas,monospace" font-size="13"><tspan fill="#a1a1aa">▸ </tspan><tspan fill="#e4e4e7" font-weight="600">bash</tspan><tspan fill="#71717a">  pnpm --filter @spark/engine test</tspan></text>
+  <text x="28" y="292" font-family="ui-monospace,Consolas,monospace" font-size="13"><tspan fill="#3f3f46">└ </tspan><tspan fill="#34d399">✓</tspan><tspan fill="#71717a">  Tests 212 passed · 12.4s</tspan></text>
 
-  <!-- Tool call indicator -->
-  <rect x="24" y="164" width="752" height="48" rx="3" fill="#27272a"/>
-  <text x="40" y="184" font-family="monospace" font-size="10" fill="#71717a">tool:read_file</text>
-  <text x="40" y="200" font-family="monospace" font-size="10" fill="#3f3f46">src/auth/session.ts (142 lines)</text>
+  <text x="28" y="318" font-family="ui-monospace,Consolas,monospace" font-size="13"><tspan fill="#a1a1aa">▸ </tspan><tspan fill="#e4e4e7" font-weight="600">bash</tspan><tspan fill="#71717a">  git commit -m "feat: bash 持久进程池"</tspan></text>
 
-  <!-- Approval prompt -->
-  <rect x="24" y="224" width="752" height="64" rx="3" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
-  <text x="40" y="248" font-family="monospace" font-size="11" fill="#e4e4e7">tool:write_file src/auth/session.ts</text>
-  <text x="40" y="268" font-family="monospace" font-size="10" fill="#71717a">[1] allow once  [2] always  [3] deny</text>
-  <rect x="40" y="276" width="8" height="2" fill="#a1a1aa"/>
+  <!-- 审批块（warn 琥珀 = §13.C dark --spark-warn #fbbf24） -->
+  <rect x="28" y="336" width="744" height="76" rx="6" fill="#18181b" stroke="#3f3f46" stroke-width="1"/>
+  <rect x="28" y="336" width="3" height="76" rx="1.5" fill="#fbbf24"/>
+  <text x="46" y="360" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="#fbbf24">审批 · bash</text>
+  <text x="46" y="378" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="#71717a">写入类操作需要确认 · 超时自动拒绝（fail-closed）</text>
+  <text x="46" y="400" font-family="ui-monospace,Consolas,monospace" font-size="12"><tspan fill="#fafafa">[a]</tspan><tspan fill="#a1a1aa" dx="6">批准一次</tspan><tspan fill="#fafafa" dx="18">[A]</tspan><tspan fill="#a1a1aa" dx="6">总是允许</tspan><tspan fill="#fafafa" dx="18">[r]</tspan><tspan fill="#a1a1aa" dx="6">拒绝</tspan></text>
 
-  <!-- Status bar -->
-  <rect x="0" y="560" width="800" height="40" fill="#27272a"/>
-  <text x="24" y="584" font-family="monospace" font-size="10" fill="#71717a">tokens: 4.2k / 128k</text>
-  <text x="300" y="584" font-family="monospace" font-size="10" fill="#3f3f46">|</text>
-  <text x="320" y="584" font-family="monospace" font-size="10" fill="#71717a">model: deepseek-chat</text>
-  <text x="700" y="584" font-family="monospace" font-size="10" fill="#3f3f46">Ctrl+C quit</text>
+  <!-- 下一提示符（光标待输入） -->
+  <text x="28" y="446" font-family="ui-monospace,Consolas,monospace" font-size="13" fill="#818cf8">❯</text>
+  <rect x="44" y="434" width="8" height="16" fill="#e4e4e7"/>
 
-  <!-- Label -->
-  <text x="400" y="440" font-family="system-ui, sans-serif" font-size="24" fill="#71717a" text-anchor="middle" font-weight="600">Spark CLI</text>
-  <text x="400" y="468" font-family="system-ui, sans-serif" font-size="12" fill="#3f3f46" text-anchor="middle">Ink 7 — single-column TUI</text>
+  <!-- 状态栏 -->
+  <line x1="0" y1="568" x2="800" y2="568" stroke="#27272a" stroke-width="1"/>
+  <rect x="0" y="568" width="800" height="32" rx="0" fill="#18181b"/>
+  <text x="28" y="588" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="#e4e4e7">» steer</text>
+  <text x="120" y="588" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="#71717a">glm-5.3</text>
+  <text x="220" y="588" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="#71717a">127.0.0.1:4318</text>
+  <text x="772" y="588" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="#52525b" text-anchor="end">Ctrl+C 两下退出</text>
 </svg>

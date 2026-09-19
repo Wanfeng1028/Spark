@@ -137,7 +137,6 @@ export class BashShellPool {
 
     return await new Promise<PersistentResult>((resolve) => {
       const chunks: string[] = []
-      let collected = 0
       let stdoutBuf = ''
       let settled = false
       let timedOut = false
@@ -146,7 +145,6 @@ export class BashShellPool {
 
       const emit = (text: string): void => {
         chunks.push(text)
-        collected += text.length
         for (let i = 0; i < text.length; i += PROGRESS_CHUNK_BYTES) {
           onOutput(text.slice(i, i + PROGRESS_CHUNK_BYTES))
         }
