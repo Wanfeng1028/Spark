@@ -323,6 +323,7 @@ function makeEngineConfig(): EngineConfig {
         compactionThreshold: 0.8,
         checkpoints: false,
         bashSandbox: 'off',
+        computerUseEnabled: false,
       },
     },
     models: JSON.parse(JSON.stringify(MODELS_JSON)) as EngineConfig['models'],

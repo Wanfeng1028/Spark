@@ -48,6 +48,7 @@ export function makeConfig(): EngineConfig {
         compactionThreshold: 0.8,
         checkpoints: false,
         bashSandbox: 'off',
+        computerUseEnabled: false,
       },
     },
     models: {

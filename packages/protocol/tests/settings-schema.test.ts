@@ -16,8 +16,8 @@ import {
   SettingsPromptsSchema,
 } from '../src/api'
 
-/** 九项（doc/02 §5.1 / D28；新增字段须同步 engine SPARK_DEFAULTS 与 doc） */
-const NINE = [
+/** 十项（doc/02 §5.1 / D28 + 阶段十九 19.1 / D43；新增字段须同步 engine SPARK_DEFAULTS 与 doc） */
+const TEN = [
   'maxStepsPerTurn',
   'maxToolParallel',
   'toolTimeoutMs',
@@ -27,6 +27,7 @@ const NINE = [
   'compactionThreshold',
   'checkpoints',
   'bashSandbox',
+  'computerUseEnabled',
 ]
 
 const VALID = {
@@ -39,15 +40,16 @@ const VALID = {
   compactionThreshold: 0.8,
   checkpoints: true,
   bashSandbox: 'on',
+  computerUseEnabled: false,
 }
 
 describe('EngineSettingsShape / EngineSettingsSchema 分档', () => {
-  it('九项键集一致：两档共用同一份字段定义（防分家）', () => {
-    expect(Object.keys(EngineSettingsShape.shape).sort()).toEqual([...NINE].sort())
-    expect(Object.keys(EngineSettingsSchema.shape).sort()).toEqual([...NINE].sort())
+  it('十项键集一致：两档共用同一份字段定义（防分家）', () => {
+    expect(Object.keys(EngineSettingsShape.shape).sort()).toEqual([...TEN].sort())
+    expect(Object.keys(EngineSettingsSchema.shape).sort()).toEqual([...TEN].sort())
   })
 
-  it('合法九项：两档同判通过且原样产出', () => {
+  it('合法十项：两档同判通过且原样产出', () => {
     expect(EngineSettingsShape.parse(VALID)).toEqual(VALID)
     expect(EngineSettingsSchema.parse(VALID)).toEqual(VALID)
   })
@@ -88,10 +90,10 @@ describe('EngineSettingsShape / EngineSettingsSchema 分档', () => {
 })
 
 describe('SETTINGS_RESTART_REQUIRED 与字段名单源对齐', () => {
-  it('engine.* 条目都在九项内（字段改名即翻红）', () => {
+  it('engine.* 条目都在十项内（字段改名即翻红）', () => {
     for (const path of SETTINGS_RESTART_REQUIRED) {
       if (!path.startsWith('engine.')) continue
-      expect(NINE).toContain(path.slice('engine.'.length))
+      expect(TEN).toContain(path.slice('engine.'.length))
     }
   })
 
@@ -100,8 +102,8 @@ describe('SETTINGS_RESTART_REQUIRED 与字段名单源对齐', () => {
     expect(serverPaths.sort()).toEqual(['server.host', 'server.port'])
   })
 
-  it('热档五项不在表内（D28 分档：turn 边界注入）', () => {
-    const hot = ['maxStepsPerTurn', 'maxToolParallel', 'compactionThreshold', 'progressThrottleMs', 'checkpoints']
+  it('热档六项不在表内（D28 分档：turn 边界/执行期注入）', () => {
+    const hot = ['maxStepsPerTurn', 'maxToolParallel', 'compactionThreshold', 'progressThrottleMs', 'checkpoints', 'computerUseEnabled']
     for (const f of hot) expect(SETTINGS_RESTART_REQUIRED).not.toContain(`engine.${f}`)
   })
 })

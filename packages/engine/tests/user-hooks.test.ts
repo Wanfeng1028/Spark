@@ -279,6 +279,7 @@ function makeConfig(hooks: UserHooksConfig): EngineConfig {
         compactionThreshold: 0.8,
         checkpoints: false,
         bashSandbox: 'off',
+        computerUseEnabled: false,
       },
       hooks,
     },

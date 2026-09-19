@@ -63,6 +63,7 @@ function engineConfig(): EngineConfig {
         compactionThreshold: 0.8,
         checkpoints: false,
         bashSandbox: 'off',
+        computerUseEnabled: false,
       },
     },
     models: JSON.parse(VALID_MODELS) as EngineConfig['models'],

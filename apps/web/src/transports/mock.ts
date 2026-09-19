@@ -856,6 +856,7 @@ export class MockTransport implements Transport {
       compactionThreshold: 0.8,
       checkpoints: true,
       bashSandbox: 'on',
+      computerUseEnabled: false,
     },
     restartRequired: [...SETTINGS_RESTART_REQUIRED],
     models: { defaultModel: 'deepseek/deepseek-chat', defaultEffort: null },
@@ -887,6 +888,7 @@ export class MockTransport implements Transport {
         compactionThreshold: e.compactionThreshold ?? prev.engine.compactionThreshold,
         checkpoints: e.checkpoints ?? prev.engine.checkpoints,
         bashSandbox: e.bashSandbox ?? prev.engine.bashSandbox,
+        computerUseEnabled: e.computerUseEnabled ?? prev.engine.computerUseEnabled,
       },
       ...(patch.hooks !== undefined ? { ...(patch.hooks === null ? {} : { hooks: patch.hooks }) } : {}),
     }

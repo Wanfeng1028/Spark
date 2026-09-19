@@ -86,6 +86,7 @@ describe('引擎接线（settings.extensions 名单合成与启停写盘）', ()
           compactionThreshold: 0.8,
           checkpoints: false,
           bashSandbox: 'off',
+          computerUseEnabled: false,
         },
       },
       models: {

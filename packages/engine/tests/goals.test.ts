@@ -237,6 +237,7 @@ async function makeEngine(): Promise<{
         compactionThreshold: 0.8,
         checkpoints: false,
         bashSandbox: 'off',
+        computerUseEnabled: false,
       },
     },
     models: {

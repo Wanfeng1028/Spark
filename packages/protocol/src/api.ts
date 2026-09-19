@@ -348,7 +348,7 @@ export type TraceDto = z.infer<typeof TraceDtoSchema>
 // ---------- settings（工单 10.20 B / 10.21 / ADR D28） ----------
 
 /**
- * 引擎行为设置九项的**宽松基形**（未知键剥离）：给 spark.json 的 `engine` 段用——
+ * 引擎行为设置十项的**宽松基形**（未知键剥离）：给 spark.json 的 `engine` 段用——
  * 用户手写配置逐字段合并默认值（engine config.ts），字段名拼错 = 该字段落默认值，
  * 与同文件 `server` 段口径一致。API 边界一律用下面的 strict 版。
  * 两档共用这一份字段定义（工单 R-B.4：原 engine config.ts 逐字重抄九项 + interface 再抄一遍，共三份）。
@@ -365,9 +365,11 @@ export const EngineSettingsShape = z.object({
   checkpoints: z.boolean(),
   /** bash 沙箱（阶段五工单 5.2，ADR D15）：on = 平台 wrapper 前缀 + 不可用即拒跑 */
   bashSandbox: z.enum(['off', 'on']),
+  /** 电脑控制主开关（阶段十九 19.1 / ADR D44）：false = computer.* 全操作 E_COMPUTER_DISABLED */
+  computerUseEnabled: z.boolean(),
 })
 
-/** 引擎行为设置九项（strict：API 边界拒未知键；热/重启分档见 SETTINGS_RESTART_REQUIRED，D28） */
+/** 引擎行为设置十项（strict：API 边界拒未知键；热/重启分档见 SETTINGS_RESTART_REQUIRED，D28） */
 export const EngineSettingsSchema = EngineSettingsShape.strict()
 export type EngineSettings = z.infer<typeof EngineSettingsSchema>
 
@@ -421,8 +423,9 @@ export type PromptPlaceholder = (typeof PROMPT_PLACEHOLDERS)[number]
 
 /**
  * 需重启生效的字段（D28 分类：构造期注入子系统 / listen 绑定级）。
- * 热档五项（maxStepsPerTurn/maxToolParallel/compactionThreshold/
- * progressThrottleMs/checkpoints——均 turn 边界注入）在下一 turn 生效，不在本表。
+ * 热档六项（maxStepsPerTurn/maxToolParallel/compactionThreshold/
+ * progressThrottleMs/checkpoints/computerUseEnabled——均 turn 边界或执行期注入）在下一 turn
+ * 或下一操作生效，不在本表。
  */
 export const SETTINGS_RESTART_REQUIRED: readonly string[] = [
   'engine.toolTimeoutMs',
