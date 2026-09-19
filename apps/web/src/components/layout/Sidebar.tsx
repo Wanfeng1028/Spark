@@ -12,7 +12,7 @@
  * 状态点（DESIGN §8）：绿=空闲、accent 脉动=运行中、amber=等待审批——当前激活会话
  * 由事件流实时推导（UI 状态只来自事件流），其余用 DTO 携带的 status。
  */
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { useLocation, useNavigate } from 'react-router'
 import { Archive, CalendarClock, ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, Trash2, Undo2, User } from 'lucide-react'
@@ -77,6 +77,14 @@ export function Sidebar() {
   // 工单 12.4：归档/删除动作 + 已归档抽屉（列表按需拉取）
   const [archivedOpen, setArchivedOpen] = useState(false)
   const [archived, setArchived] = useState<SessionDto[] | null>(null)
+  /** 二轮 P2-2：内联删除确认的待确认会话 id（3s 超时自清，DESIGN §5 两段式） */
+  const [confirmDel, setConfirmDel] = useState<string | null>(null)
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const askConfirmDel = (id: string): void => {
+    setConfirmDel(id)
+    if (confirmTimer.current !== null) clearTimeout(confirmTimer.current)
+    confirmTimer.current = setTimeout(() => setConfirmDel(null), 3000)
+  }
   const [opError, setOpError] = useState<string | null>(null)
 
   const loadArchived = async (): Promise<void> => {
@@ -98,12 +106,8 @@ export function Sidebar() {
   }
 
   const deleteSession = async (s: SessionDto): Promise<void> => {
-    const title = s.title === '' ? '新会话' : s.title
-    // 二次确认文案明示去向：移入 ~/.spark/trash/ 可人工找回（两段式，非硬删）
-    if (!window.confirm(`删除会话「${title}」？
-其记录将移入 ~/.spark/trash/（可在文件系统人工找回）。`)) {
-      return
-    }
+    // 确认由触发点内联两段式完成（DESIGN §5：禁原生 confirm）；此处明示去向：
+    // 记录移入 ~/.spark/trash/ 可人工找回（非硬删）
     try {
       await transport.deleteSession(s.id)
       await refresh()
@@ -352,6 +356,8 @@ export function Sidebar() {
               folded={foldedGroups.has(g.name)}
               onToggle={() => toggleGroup(g.name)}
               activeId={routeSessionId}
+              confirmDel={confirmDel}
+              askConfirmDel={askConfirmDel}
               statusOf={liveStatus}
               titleOf={liveTitle}
               onArchive={(s) => void archiveSession(s, true)}
@@ -394,10 +400,21 @@ export function Sidebar() {
               </button>
               <button
                 type="button"
-                aria-label={`删除会话 ${s.title === '' ? '新会话' : s.title}`}
-                title="删除（移入 trash，可人工找回）"
-                onClick={() => void deleteSession(s)}
-                className="rounded-full p-1 text-muted-foreground/70 hover:bg-accent hover:text-destructive"
+                aria-label={confirmDel === s.id ? `确认删除 ${s.title === '' ? '新会话' : s.title}` : `删除会话 ${s.title === '' ? '新会话' : s.title}`}
+                title={confirmDel === s.id ? '再次点击确认删除（移入 trash）' : '删除（移入 trash，可人工找回）'}
+                onClick={() => {
+                  // 内联两段式确认（DESIGN §5）：首击变红 3s 内再击才执行
+                  if (confirmDel !== s.id) {
+                    setConfirmDel(s.id)
+                    return
+                  }
+                  setConfirmDel(null)
+                  void deleteSession(s)
+                }}
+                className={cn(
+                  'rounded-full p-1 text-muted-foreground/70 hover:bg-accent',
+                  confirmDel === s.id && 'bg-destructive/10 text-destructive hover:text-destructive',
+                )}
               >
                 <Trash2 className="size-3.5" />
               </button>
@@ -481,6 +498,9 @@ interface SidebarGroupProps {
   titleOf: (dto: SessionDto) => string
   onArchive: (s: SessionDto) => void
   onDelete: (s: SessionDto) => void
+  /** 右键菜单的两段式删除确认 id（状态提升到 Sidebar——与抽屉共用一套语义） */
+  confirmDel: string | null
+  askConfirmDel: (id: string) => void
 }
 
 /** 分组头 28px（12px 字号，▸/▾ 折叠）+ 会话项 32px（§13.A 数值清单）；组内渐进展开（工单 10.5③：5 条起步，逐次 +5） */
@@ -493,9 +513,13 @@ function SidebarGroup({
   titleOf,
   onArchive,
   onDelete,
+  confirmDel,
+  askConfirmDel,
 }: SidebarGroupProps) {
   const navigate = useNavigate()
   const [visible, setVisible] = useState(GROUP_VISIBLE_STEP)
+  /** 二轮 P2-2：右键上下文菜单锚定的会话 id（null = 关闭） */
+  const [menuFor, setMenuFor] = useState<string | null>(null)
   const shown = Math.min(visible, group.sessions.length)
   const rest = group.sessions.length - shown
   return (
@@ -517,8 +541,13 @@ function SidebarGroup({
           {group.sessions.slice(0, shown).map((s) => (
             <li key={s.id}>
               <div
+                onContextMenu={(e) => {
+                  // 二轮 P2-2（DESIGN §5 上下文菜单）：右键弹会话操作菜单
+                  e.preventDefault()
+                  setMenuFor(s.id)
+                }}
                 className={cn(
-                  'group flex h-8 w-full items-center gap-2 rounded-full border border-transparent pl-3 pr-1 text-left hover:bg-accent',
+                  'group relative flex h-8 w-full items-center gap-2 rounded-full border border-transparent pl-3 pr-1 text-left hover:bg-accent',
                   s.id === activeId && 'border-border bg-secondary',
                 )}
               >
@@ -550,13 +579,70 @@ function SidebarGroup({
                   <button
                     type="button"
                     aria-label={`删除会话 ${titleOf(s) === '' ? '新会话' : titleOf(s)}`}
-                    title="删除（移入 trash，可人工找回）"
-                    onClick={() => onDelete(s)}
-                    className="rounded-full p-1 text-muted-foreground/70 hover:bg-accent hover:text-destructive"
+                    title={confirmDel === s.id ? '再次点击确认删除（移入 trash）' : '删除（移入 trash，可人工找回）'}
+                    onClick={() => {
+                      if (confirmDel !== s.id) {
+                        askConfirmDel(s.id)
+                        return
+                      }
+                      onDelete(s)
+                    }}
+                    className={cn(
+                      'rounded-full p-1 text-muted-foreground/70 hover:bg-accent',
+                      confirmDel === s.id && 'bg-destructive/10 text-destructive hover:text-destructive',
+                    )}
                   >
                     <Trash2 className="size-3.5" />
                   </button>
                 </span>
+                {/* 右键上下文菜单（DESIGN §5：会话列表项——归档/删除；重命名需后端
+                    端点（append-only header 重写设计），缺口登记 doc/10） */}
+                {menuFor === s.id && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setMenuFor(null)} onContextMenu={(e) => { e.preventDefault(); setMenuFor(null) }} />
+                    <ul
+                      role="menu"
+                      aria-label={`会话操作：${titleOf(s) === '' ? '新会话' : titleOf(s)}`}
+                      className="absolute right-1 top-9 z-40 w-36 overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-md"
+                    >
+                      <li role="none">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMenuFor(null)
+                            onArchive(s)
+                          }}
+                          className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] hover:bg-accent"
+                        >
+                          <Archive className="size-3.5 text-muted-foreground" />
+                          归档
+                        </button>
+                      </li>
+                      <li role="none">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            if (confirmDel !== s.id) {
+                              askConfirmDel(s.id)
+                              return
+                            }
+                            setMenuFor(null)
+                            onDelete(s)
+                          }}
+                          className={cn(
+                            'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] hover:bg-accent',
+                            confirmDel === s.id && 'text-destructive',
+                          )}
+                        >
+                          <Trash2 className="size-3.5" />
+                          {confirmDel === s.id ? '确认删除？' : '删除'}
+                        </button>
+                      </li>
+                    </ul>
+                  </>
+                )}
               </div>
             </li>
           ))}

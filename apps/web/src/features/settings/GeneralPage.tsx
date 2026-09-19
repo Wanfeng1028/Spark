@@ -29,7 +29,8 @@ const DELIVERY_OPTIONS: { value: Delivery; label: string }[] = [
 
 const SANDBOX_OPTIONS: { value: 'off' | 'on'; label: string }[] = [
   { value: 'off', label: '关闭' },
-  { value: 'on', label: '开启（平台 wrapper 隔离）' },
+  // WO-082：选项文案收短防下拉截断——隔离细节由行 description 承载（ADR D15）
+  { value: 'on', label: '开启（隔离）' },
 ]
 
 /** 重启档徽标（D28：构造期注入字段，写盘成功、下次启动生效） */

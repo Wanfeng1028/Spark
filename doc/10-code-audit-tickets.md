@@ -10,6 +10,7 @@
 | v1.5 | 2026-09-19 | AI 编写：ZCode · Union Alpha；发起与分工确认：晚风（Wanfeng1028，"写代码的你来，豆包负责真机测试"） | **DSH 对话框改造实施完毕（d59a541）+ WO 系列余项清账（3ef5f27/8030b8d/880df0d）**。① §5 解禁的 19 项全部落地（DESIGN §13.L：token/22px 卡/34px 蓝钮/14px 字号/sweep/气泡/操作行/33px 行/间距/附件皮肤/文件卡/窄屏最小适配）；WO-073 不实施（web 无分页通道属功能新增，登记）。② WO 系列属实单新增落地：019/020/025/027/040/044/050（engine/server/cli/desktop 卫生批）、038/039（miniapp）、010 实修（SessionPage 错误态禁用 Composer）、001/002/003/012/013/014/016/017/018/031/047/048（official 批，og-image 由零依赖 node 脚本生成 1200×630 PNG）。③ 不实施登记：WO-015（AGENTS §2.10 删除保护须人类五层级确认）、WO-030（维持 @fontsource 的工程判断）、WO-033（P3，无量测不盲拆）、WO-036（v1 口径维持）、WO-042/049（D24 设计/桌面密度不适用）、WO-026（无规格依据的速率限制，需立项）。至此 33 个属实单中除上述登记项外全部闭环；AUD-RT-01 现场走查留豆包 |
 | v1.6 | 2026-09-19 | AI 编写：ZCode · Union Alpha | **DSH+WO 全批 CI 全绿收口（CI run 2a13736 + Official 296668d 双绿）**。实施提交：d59a541（DSH 19 项）、3ef5f27（WO 卫生批 019/020/025/027/040/044/050）、8030b8d（038/039/010）、880df0d（official 批 001/002/003/012/013/014/016/017/018/031/047/048）。修红链八提交（2408cbf/296668d/6cfb892/2a13736 等）：sitemap 误用 LINKS 对象、MessageItem model 解构、build.mjs 改 node:path+正则（JSON.parse any 在 typed lint 对 .mjs 生效且 JSDoc 注解不豁免）、robots/sitemap force-static（output:export）、**waiting 态 Composer 整卡 pointer-events 穿透**（e2e reject 场景 disabled textarea 对流程尾部审批按钮的 hit-test 干扰——等待中唯一交互焦点是审批卡，穿透语义正确）、miniapp 测试桩补 getAppBaseInfo。配合分工：真机走查 AUD-RT-01 留豆包 |
 | v1.7 | 2026-09-19 | AI 编写：ZCode · Union Alpha；回归验证执行：豆包 | **AUD-RT-01 部分回报收编（550385a）**：豆包回归报告（基线 6e4219b，2477 测试全绿 + AUD-01~14 逐单源码/单测核对 + AUD-12 Electron 首启引导窗现场确认 + step-3.7-flash 真实模型端到端）经 PR #25 提交——**PR 不合并**（分支基线落后约 30 提交，diff 为对 main 现有修复的反向回滚），仅提取报告与 5 张截图入 docs/audit/regression/。报告发现①采纳（proxy-fetch 测试全组代理桩）；②③登记备查（checkpoint 非 git cwd 预期报错 / server dist esbuild external 链路）。**AUD-RT-01 余项仍留豆包**：① 移动端真机四场景 ② 小程序走查 ⑤ 语音真实链路 ⑥ LSP 真实 server ⑦ MCP 外配 ⑧ mitm 代理 ⑨ npm 发布冒烟（已完成：③ Electron 首启、④ 真实模型端到端） |
+| v1.8 | 2026-09-19 | AI 编写：ZCode · Union Alpha；第二轮测试执行：豆包（PR #26 已合并 6764e97） | **第二轮复测收编 + 7 项 UI 修复批**（新增 §11）：2341 单测全绿无新增回归，官网标题/复制按钮两项闭环确认；复测不变的 7 项全部修复——WO-079 窄屏（工具栏可换行+模型选择器收图标+chips 防竖排）、裸 /settings 重定向路由缺失、WO-080 Esc 关 + 菜单、WO-081 面板开时收起弹层、WO-082 沙箱标签收短、搜索清除钮、侧边栏右键菜单（归档/删除两段式内联确认，替换违反 DESIGN §5 的 window.confirm；重命名需 header 重写设计登记缺口）。MCP github（环境预期）与技能页只读（v2 挂池）维持 |
 | v1.1 | 2026-09-18 | AI 编写：ZCode · Union Alpha；发起：晚风（Wanfeng1028，"核验豆包审查报告+评估工单+补充发现+真机工单交豆包"指令） | 新增 §4 外部审查报告（docs/audit/，78 工单）逐条核验结论（40 条技术单：33 属实/6 部分属实/3 不属实）；§5 DSH 对话框改造 27 项判决退回（与 DESIGN.md 视觉宪法冲突清单）；§8 新增 AUD-02~AUD-14 工单（引擎资源/投影竞态/生命周期批）；§9 新增 AUD-RT-01 现场走查工单（交豆包执行）。仅文档，未改源码。 |
 | v1.0 | 2026-09-18 | AI 编写：ZCode · Union Alpha；发起：晚风（Wanfeng1028） | 登记 AUD-01：审批事件持久化失败仍放行的静态审查证据、修复方案、执行计划与验收条件。仅创建工单，未修改源码或执行验证。 |
 
@@ -316,3 +317,20 @@ AUD-01（§3）为本轮独立发现，与豆包报告零重叠（其报告未�
 | AUD-14 | 06858f5 | useTransportQuery 代际闸门 + 成功清 error；SessionPage sid 切换补清 preset；Composer listFs 代际；inprocess 七方法 dispose 收口——偏差：异步方法用 assertNotDisposed 而非 sync 包裹（避免 Promise 嵌套推断风险），错误同为 E_DISPOSED、契约形状一致 |
 
 **余下安排**：AUD-RT-01（§9）与 docs/audit 的 WO 系列属实工单、DSH 对话框改造（§5 解禁，按 DESIGN §13.L 过滤）由豆包执行。CI 红则在下一提交修（AGENTS §2.2）。
+## 11. 第二轮复测修复批（round-2，豆包测试 → 本仓修复）
+
+> 报告：`docs/audit/round2/round2-full-test-report.md`（PR #26 已合并，2341 单测全绿无新增回归；官网两项第一轮遗留确认闭环）。以下 7 项复测不变问题全部由本仓修复，待第三轮复测验收。
+
+| # | 问题（豆包编号） | 根因 | 修复 |
+| --- | --- | --- | --- |
+| 1 | WO-079 P0：375px 窄屏工具栏按钮重叠/溢出、建议卡文字竖排 | WO-076 只做了档位标签隐藏，工具栏不可换行、模型名过长撑爆 | Composer 工具栏改 `min-h-8 flex-wrap`；ModelPicker <480px 收起文本保留图标（§13.L L.2）；欢迎页 chips `whitespace-nowrap` 防逐字换行 |
+| 2 | P1：裸 `/settings` 右侧空白，重定向未生效 | 根因不是重定向逻辑——路由表只有 `/settings/:page`，裸 `/settings` **无匹配路由**，主区渲染 null | App.tsx 补 `/settings` → Navigate `/settings/appearance` |
+| 3 | WO-080 P1：+ 附件菜单按 Escape 不关闭 | 菜单无 Escape 监听 | plusMenuOpen/treeOpen 挂 keydown Escape 关闭 |
+| 4 | WO-081 P2：Ctrl+K 打开时 + 菜单残留 | 命令面板与底部弹层状态互不知晓 | 订阅 ui-store `paletteOpen`，打开时收起全部底部弹层 |
+| 5 | WO-082 P2：bash 沙箱下拉文字截断 | 选项文案 13 字超出触发器宽 | 标签收短「开启（隔离）」，细节在行 description（ADR D15） |
+| 6 | P2：搜索页无清除按钮 | 未实现 | 有输入时显示 X 清除钮 |
+| 7 | P2：侧边栏会话项 hover/右键无菜单 | hover 按钮已存在（12.4）但无右键菜单；删除用 `window.confirm` 违反 DESIGN §5 | 行加 onContextMenu 弹归档/删除菜单；删除全触发点改内联两段式确认（3s 超时） |
+
+**登记缺口**：会话重命名无后端端点——会话标题存 JSONL header 首行，重命名需 header 重写设计（append-only 语义冲突），随 v2 会话管理立项；DESIGN §13.J.2.3 会话菜单的「重命名」项同此依赖。
+
+**维持不变**：MCP github 连接失败（无凭证环境预期）；技能页只读（v2 挂池，占位即明示）。

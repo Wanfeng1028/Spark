@@ -228,6 +228,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   // ---- 语音听写（工单 16.6，ADR D34）：麦克风钮 hold/tap；off 不渲染（禁假状态） ----
   //（位置纪律：必须在 transport 声明之后——钩子实参读取 transport，前置即 TDZ ReferenceError）
   const voiceMode = useUiStore((s) => s.voiceMode)
+  const paletteOpen = useUiStore((s) => s.paletteOpen)
   const voice = useVoiceInput({
     transport,
     onText: (t) => {
@@ -466,6 +467,26 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     }
   }
 
+  // WO-080：+ 菜单/文件树弹层 Esc 关闭（此前不响应 Escape）
+  useEffect(() => {
+    if (!plusMenuOpen && !treeOpen) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        setPlusMenuOpen(false)
+        setTreeOpen(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [plusMenuOpen, treeOpen])
+  // WO-081：命令面板（Ctrl/Cmd+K）打开时收起全部底部弹层，杜绝浮层叠加残留
+  useEffect(() => {
+    if (paletteOpen) {
+      setPlusMenuOpen(false)
+      setTreeOpen(false)
+    }
+  }, [paletteOpen])
+
   const preset: PermissionPreset = permission?.preset ?? 'confirm-each'
   const tier = tierOf(preset)
   const segmentValue = segmentDisplay(segment, busy, defaultDelivery)
@@ -569,7 +590,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         />
 
         {/* 底部工具条（§13.L L.2 重排）：左=[＋/文件树/权限档位/语音]；右=[模型/推理/提交模式/发送] */}
-        <div className="flex h-8 items-center gap-1.5 px-1.5 pb-0.5">
+        <div className="flex min-h-8 flex-wrap items-center gap-x-1.5 gap-y-1 px-1.5 pb-0.5">
           <div className="relative shrink-0">
             <button
               type="button"

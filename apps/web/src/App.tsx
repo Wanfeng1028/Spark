@@ -26,6 +26,8 @@ export function App() {
             <Route path="/session/:sessionId" element={<SessionPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/automation" element={<AutomationPage />} />
+            {/* 二轮测试 P1-1：裸 /settings 无路由匹配整区空白——重定向到默认页 */}
+            <Route path="/settings" element={<Navigate to="/settings/appearance" replace />} />
             <Route path="/settings/:page" element={<SettingsPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
           </Routes>

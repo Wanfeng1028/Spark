@@ -102,7 +102,7 @@ export function WelcomePage() {
               type="button"
               onClick={() => composerRef.current?.fill(p.text)}
               title={`填入输入框：${p.text}`}
-              className="flex h-6 items-center gap-1 rounded-full border border-border px-2.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              className="flex h-6 items-center gap-1 whitespace-nowrap rounded-full border border-border px-2.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             >
               <p.icon className="size-3" />
               {p.text}

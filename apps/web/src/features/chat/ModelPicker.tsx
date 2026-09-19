@@ -6,7 +6,7 @@
  */
 import { useRef, useState } from 'react'
 import { useDismissOnOutsideClick } from '@/hooks/useDismissOnOutsideClick'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Box, Check, ChevronsUpDown } from 'lucide-react'
 import type { ModelEntryDto, ModelProviderDto } from '@spark/protocol'
 import { cn } from '@/lib/utils'
 
@@ -61,7 +61,9 @@ export function ModelPicker({ current, models, providers, onChange, disabled }: 
         title={`当前模型：${current}（切换后下一轮生效）`}
         className="flex h-7 max-w-56 items-center gap-1 rounded-full px-1.5 font-mono text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
       >
-        <span className="truncate">
+        {/* WO-079（§13.L L.2 窄屏适配）：<480px 收起模型名文本，保留图标可点 */}
+        <Box className="hidden size-3.5 shrink-0 max-[479px]:block" />
+        <span className="max-[479px]:hidden truncate">
           {label !== undefined ? `${label}/` : ''}
           {modelName}
         </span>

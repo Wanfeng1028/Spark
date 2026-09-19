@@ -9,7 +9,7 @@ import { useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import type { FormEvent, ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { Search } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import type { SearchHitDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { errorMessageOf } from '@/lib/error-copy'
@@ -71,8 +71,19 @@ export function SearchPage() {
           onChange={(e) => setDraft(e.target.value)}
           placeholder="输入关键词，回车检索"
           aria-label="搜索关键词"
-          className="h-8 pl-8 pr-2"
+          className="h-8 pl-8 pr-7"
         />
+        {/* 二轮测试 P2-1：有输入时的清除按钮 */}
+        {draft !== '' && (
+          <button
+            type="button"
+            aria-label="清除搜索关键词"
+            onClick={() => setDraft('')}
+            className="absolute right-2 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground/60 hover:bg-accent hover:text-foreground"
+          >
+            <X className="size-3" />
+          </button>
+        )}
       </form>
 
       {state.phase === 'loading' && (
