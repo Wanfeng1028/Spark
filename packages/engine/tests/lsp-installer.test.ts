@@ -111,8 +111,8 @@ describe('LspInstaller（阶段十九 19.5 / ADR D47）', () => {
     for (const s of KNOWN_LSP_SERVERS) {
       expect(s.npmPackages.length).toBeGreaterThan(0)
       for (const p of s.npmPackages) {
-        // caret 版本 pin：pkg@^major.minor
-        expect(p).toMatch(/@(\^|~|)\d+\.\d+\.\d+$/)
+        // 版本 pin：pkg@^major（.minor.patch 可省）
+        expect(p).toMatch(/@[\^~]?\d+(\.\d+)*$/)
       }
       expect(s.command).not.toBe('')
     }

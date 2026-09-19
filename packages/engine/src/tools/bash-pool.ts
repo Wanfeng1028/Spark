@@ -211,6 +211,11 @@ export class BashShellPool {
       signal.addEventListener('abort', onAbort, { once: true })
       live.proc.stdout?.on('data', onStdout)
       live.proc.stderr?.on('data', onStderr)
+      live.proc.on('error', () => {
+        // spawn 失败（cwd 不存在等）：状态已失，出池如实报 E_SHELL_DIED（下一调用重建）
+        this.drop(key)
+        finish()
+      })
       live.proc.on('close', onClose)
       live.proc.stdin?.write(line)
     })

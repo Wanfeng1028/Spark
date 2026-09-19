@@ -4,7 +4,7 @@
  * shell 死亡 E_SHELL_DIED。真实 /bin/bash（CI ubuntu；常驻路径要求 POSIX bash，
  * Windows powershell 回落为平台边界——见 bash.ts 头注）。
  */
-import { mkdtemp } from 'node:fs/promises'
+import { mkdir, mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
@@ -44,6 +44,7 @@ async function runCommand(
 describe('bash 常驻会话池（阶段十九 19.3 / ADR D45）', () => {
   test('cwd/环境变量跨调用保持（同会话）', async () => {
     const root = await mkdtemp(join(tmpdir(), 'spark-bp-'))
+    await mkdir(join(root, 'a'), { recursive: true })
     const tool = makeBashTool({ sandbox: 'off', persistent: () => true })
     const ctx = makeCtx(root)
     // cwd 参数进入子目录设值；下一调用无 cwd（回根）仍能读到——cd 保持 + 变量保持一并验证
