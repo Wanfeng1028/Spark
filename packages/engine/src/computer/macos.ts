@@ -144,9 +144,9 @@ export class MacComputerExecutor implements ComputerExecutor {
     return { ok: true }
   }
 
-  async scroll(input: ComputerScrollInput, signal: AbortSignal): Promise<{ ok: true }> {
-    // macOS 无内置滚轮 CLI——按轮档格数折算连续小步滚（scroll 事件经 System Events 不可用，登记限制）
-    throw new Error('E_COMPUTER_UNSUPPORTED: macOS 执行体暂不支持 scroll（无内置滚轮 CLI，登记限制）')
+  scroll(_input: ComputerScrollInput, _signal: AbortSignal): Promise<{ ok: true }> {
+    // macOS 无内置滚轮 CLI（System Events 无滚轮事件面）——如实拒绝，登记限制
+    return Promise.reject(new Error('E_COMPUTER_UNSUPPORTED: macOS 执行体暂不支持 scroll（无内置滚轮 CLI，登记限制）'))
   }
 
   async window(
