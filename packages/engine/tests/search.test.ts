@@ -15,7 +15,7 @@ import type { SparkEventEnvelope } from '@spark/protocol'
 import { ids } from '@spark/protocol'
 import type { EngineConfig } from '../src/config.js'
 import { Engine } from '../src/engine.js'
-import { Logger } from '../src/logger.js'
+import type { SparkLogger } from '../src/logger.js'
 import { SearchStore } from '../src/search/store.js'
 import { SearchIndexer } from '../src/search/indexer.js'
 import type { SearchEntry } from '../src/search/store.js'
@@ -329,8 +329,17 @@ describe('Engine 全文搜索端到端（工单 7.13 验收）', () => {
 
 // ---------- 索引库管理（阶段十九工单 19.11：stats / rebuild / vacuum） ----------
 
+/** 静默假体：不用真实 Logger——其文件流异步打开，afterEach 删临时目录会触发 ENOENT 未捕获异常 */
+const silentLogger: SparkLogger = {
+  level: 'silent',
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  debug: () => {},
+}
+
 function makeIndexer(root: string): SearchIndexer {
-  return new SearchIndexer(root, new Logger({ root, level: 'silent' }), () => '测试标题')
+  return new SearchIndexer(root, silentLogger, () => '测试标题')
 }
 
 /** 管理面测试信封：user.message 直入索引器（不过事件总线） */
