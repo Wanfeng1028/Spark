@@ -23,6 +23,7 @@ function makeConfig(): EngineConfig {
         checkpoints: false,
         bashSandbox: 'off',
         computerUseEnabled: false,
+        bashPersistent: false,
       },
     },
     models: {

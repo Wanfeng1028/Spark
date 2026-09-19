@@ -280,6 +280,7 @@ function makeConfig(hooks: UserHooksConfig): EngineConfig {
         checkpoints: false,
         bashSandbox: 'off',
         computerUseEnabled: false,
+        bashPersistent: false,
       },
       hooks,
     },

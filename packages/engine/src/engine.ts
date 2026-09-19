@@ -432,6 +432,8 @@ export class Engine {
     this.registry = new ToolRegistry()
     registerBuiltinTools(this.registry, {
       bashSandbox: this.config.spark.engine.bashSandbox,
+      // bash 常驻会话（阶段十九 19.3 / ADR D45）：getter 执行期读，主开关热档
+      bashPersistent: () => this.config.spark.engine.bashPersistent,
     })
     // 记忆工具族（工单 7.5）：仓不可用不注册（模型无从调用，fail 路径不存在）
     if (this.memory !== null) {

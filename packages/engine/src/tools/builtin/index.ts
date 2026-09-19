@@ -22,6 +22,8 @@ export type { BashToolOptions, TaskInput, TaskRunner }
 export interface BuiltinToolsOptions {
   /** bash 沙箱开关（spark.json engine.bashSandbox；缺省 off = 现行为） */
   bashSandbox?: BashSandboxMode
+  /** bash 常驻会话开关（spark.json engine.bashPersistent，19.3 / ADR D45；getter 执行期读，热档） */
+  bashPersistent?: () => boolean
 }
 
 export function registerBuiltinTools(registry: ToolRegistry, opts: BuiltinToolsOptions = {}): void {
@@ -29,7 +31,12 @@ export function registerBuiltinTools(registry: ToolRegistry, opts: BuiltinToolsO
   registry.register(grepTool)
   registry.register(writeTool)
   registry.register(editTool)
-  registry.register(makeBashTool({ sandbox: opts.bashSandbox ?? 'off' }))
+  registry.register(
+    makeBashTool({
+      sandbox: opts.bashSandbox ?? 'off',
+      ...(opts.bashPersistent !== undefined ? { persistent: opts.bashPersistent } : {}),
+    }),
+  )
   // 工单 16.3：计划模式退出工具（非计划模式不进广告面——engine 侧 hiddenTools getter 控）
   registry.register(exitPlanModeTool)
   // 工单 16.9：lsp 工具恒广告（browser 工具族同判例——未配置时执行期 E_LSP_UNCONFIGURED

@@ -81,6 +81,7 @@ function demoConfig(): EngineConfig {
         checkpoints: false,
         bashSandbox: 'off',
         computerUseEnabled: false,
+        bashPersistent: false,
       },
     },
     models: {

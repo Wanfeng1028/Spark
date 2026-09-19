@@ -54,6 +54,7 @@ function EngineBehaviorSection() {
   const [toolTimeout, setToolTimeout] = useState('')
   const [outputLimit, setOutputLimit] = useState('')
   const [sandbox, setSandbox] = useState<'off' | 'on'>('off')
+  const [bashPersistent, setBashPersistent] = useState(false)
 
   // 加载走 useTransportQuery；五字段编辑态从数据播种（R-E① 二批）
   const { data, error, refresh } = useTransportQuery((t) => t.getSettings())
@@ -65,6 +66,7 @@ function EngineBehaviorSection() {
     setToolTimeout(String(data.engine.toolTimeoutMs))
     setOutputLimit(String(data.engine.toolOutputLimitKB))
     setSandbox(data.engine.bashSandbox)
+    setBashPersistent(data.engine.bashPersistent)
   }, [data])
 
   const { busy, opError, setOpError, run } = useAsyncOp()
@@ -91,6 +93,7 @@ function EngineBehaviorSection() {
           toolTimeoutMs: timeout,
           toolOutputLimitKB: limit,
           bashSandbox: sandbox,
+          bashPersistent,
         },
       })
       await refresh()
@@ -168,6 +171,17 @@ function EngineBehaviorSection() {
               />
               <RestartBadge />
             </div>
+          </SettingRow>
+          <SettingRow
+            title="bash 常驻会话"
+            description="同一会话的 shell 保持 cwd/环境变量（阶段十九 19.3 / ADR D45）；改完下一条命令生效，超时/中断会重置该会话 shell"
+          >
+            <Switch
+              aria-label="bash 常驻会话"
+              checked={bashPersistent}
+              disabled={busy}
+              onChange={setBashPersistent}
+            />
           </SettingRow>
           <div className="flex items-center gap-2 px-4 py-3">
             <Button

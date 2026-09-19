@@ -1,8 +1,14 @@
 /**
- * bash 工具（doc/02 §5.6.3）：每次独立 shell（v1 不做常驻）；stdout+stderr 合流
- * progress 流式（16KB/帧截断）；退出码非 0 → isError 但 output 保留；
- * 超时 SIGTERM → 宽限期 → SIGKILL（Unix 进程组树杀 5s 宽限 / Windows taskkill /T /F
- * 两次都强杀、1s 宽限——树杀与派生竞态时补杀兼做孤儿清理）。
+ * bash 工具（doc/02 §5.6.3）：缺省每次独立 shell；`engine.bashPersistent` 开启时
+ * 走常驻会话池（阶段十九 19.3 / ADR D45，翻案"v1 不做常驻"判决）——每会话一个
+ * 长驻 bash，cwd/环境变量/函数定义跨调用保持，空闲 10 分钟回收、池容量 8 按
+ * LRU 逐出，超时/中断杀整 shell 下一调用自动重建（状态丢失是常驻语义的一部分，
+ * fail-closed 不假装保状态）。POSIX bash 才有常驻路径（Windows 无 bash 时回落
+ * 独立 shell，属平台边界非静默降级——行为在 ADR 与工具描述登记）；沙箱 'on'
+ * 时沙箱路径优先（wrapper 包常驻 shell 属 19.6 范畴，v1 不混用）。
+ * stdout+stderr 合流 progress 流式（16KB/帧截断）；退出码非 0 → isError 但 output
+ * 保留；超时 SIGTERM → 宽限期 → SIGKILL（Unix 进程组树杀 5s 宽限 / Windows
+ * taskkill /T /F 两次都强杀、1s 宽限——树杀与派生竞态时补杀兼做孤儿清理）。
  * ctx.signal abort 同样树杀并报 E_ABORTED（跑到静默 + 自身响应 abort）。
  * shell 解析：Windows 优先 PATH 中的真实 bash.exe（where bash 列候选，逐个以
  * `-c "exit 0"` 探测可用性并缓存；System32/WindowsApps 的 WSL 别名 stub 无发行版时
@@ -21,6 +27,8 @@ import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { resolveInRoot } from '../definition.js'
 import { resolveSandboxWrapper, wrapperAvailable } from '../sandbox.js'
 import type { BashSandboxMode } from '../sandbox.js'
+import { BashShellPool } from '../bash-pool.js'
+import type { ShellPoolOpts } from '../bash-pool.js'
 
 const PROGRESS_CHUNK_BYTES = 16 * 1024
 // Windows 两次 taskkill 均为 /F 强杀，无需 Unix 的 5s SIGTERM 宽限；短宽限兼做
@@ -101,22 +109,35 @@ function treeKill(pid: number | undefined, sig: 'SIGTERM' | 'SIGKILL'): void {
 export interface BashToolOptions {
   /** 沙箱开关（spark.json engine.bashSandbox，ADR D15）：off = 现行为（审批 + 路径硬边界） */
   sandbox: BashSandboxMode
+  /** 常驻会话开关（spark.json engine.bashPersistent，19.3 / ADR D45）：getter 执行期读（热档）；缺省 undefined = 永远独立 shell（旧行为） */
+  persistent?: () => boolean
+  /** 常驻池（测试注入；缺省按 poolOpts 构造——maxEntries 8 / idleMs 10 分钟） */
+  pool?: BashShellPool
+  poolOpts?: Partial<ShellPoolOpts>
   /** 测试注入：wrapper 可用性探测替换（缺省真实探测 command -v） */
   isWrapperAvailable?: (file: string) => boolean
 }
 
-/** 默认实例（沙箱关）：旧行为不变；引擎按配置用 makeBashTool 构造 */
+/** 默认实例（沙箱关、无常驻）：旧行为不变；引擎按配置用 makeBashTool 构造 */
 export const bashTool: ToolDefinition<BashInput> = makeBashTool({ sandbox: 'off' })
 
 export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
   const probe =
     opts.isWrapperAvailable ?? ((file: string) => wrapperAvailable(process.platform, file))
+  const pool =
+    opts.pool ??
+    (opts.persistent !== undefined
+      ? new BashShellPool({ maxEntries: opts.poolOpts?.maxEntries ?? 8, idleMs: opts.poolOpts?.idleMs ?? 600_000, now: Date.now })
+      : null)
   return {
     name: 'bash',
     description:
-      '在独立 shell 中执行命令（每次新 shell，无常驻状态）。stdout/stderr 合流流式输出；' +
+      '在 shell 中执行命令。stdout/stderr 合流流式输出；' +
       '退出码非 0 时标记错误但保留输出。timeoutMs 上限 120000（默认同上限）。' +
-      '危险命令（rm/网络写入等）会经过审批。',
+      '危险命令（rm/网络写入等）会经过审批。' +
+      '启用常驻会话（bashPersistent）时同一会话的 cwd/环境变量跨调用保持，' +
+      '超时/中断会丢失该状态（整 shell 重建）；避免直接读标准输入的命令。' +
+      'Windows 无 POSIX bash 时常驻自动回落独立 shell。',
     inputSchema: BashInput,
     permission: {
       action: 'shell.exec',
@@ -131,6 +152,41 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
       const workDir = input.cwd !== undefined ? resolveInRoot(ctx.cwd, input.cwd) : ctx.cwd
       const timeoutMs = input.timeoutMs ?? 120_000
       const shell = resolveShell()
+      const persistentOn = opts.persistent?.() === true && pool !== null && shell.file !== 'powershell'
+
+      // 常驻路径（19.3 / ADR D45）：POSIX bash + 主开关开 + 沙箱关。
+      // 沙箱 'on' 时沙箱路径优先（wrapper 包常驻 shell 属 19.6，v1 不混用）。
+      if (persistentOn && opts.sandbox === 'off') {
+        const result = await pool.run(
+          ctx.sessionId,
+          shell.file,
+          input.command,
+          workDir,
+          timeoutMs,
+          ctx.signal,
+          ctx.onProgress,
+        )
+        // 收集上限与独立 shell 同口径（超限截断 + 标记）
+        const capChars = (ctx.outputLimitBytes ?? 32 * 1024) * 4
+        let output = result.output
+        if (output.length > capChars) {
+          output = output.slice(0, capChars) + '\n[输出超过收集上限，已截断]\n'
+        }
+        if (result.aborted) {
+          return { output: { code: 'E_ABORTED', output }, isError: true }
+        }
+        if (result.timedOut) {
+          return { output: { code: 'E_TIMEOUT', output }, isError: true }
+        }
+        if (result.exitCode === null) {
+          // shell 中途死亡（exit/set -e/外部信号）：状态已失，池已除名，下一调用自动重建
+          return { output: { code: 'E_SHELL_DIED', output }, isError: true }
+        }
+        if (result.exitCode !== 0) {
+          return { output: { code: 'E_EXIT_CODE', exitCode: result.exitCode, output }, isError: true }
+        }
+        return { output, isError: false }
+      }
 
       // 沙箱前缀（ADR D15）：win32 无 wrapper 路线 → 拒跑；wrapper 缺失 → 拒跑（fail-closed）
       let file = shell.file

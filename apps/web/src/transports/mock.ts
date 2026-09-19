@@ -857,6 +857,7 @@ export class MockTransport implements Transport {
       checkpoints: true,
       bashSandbox: 'on',
       computerUseEnabled: false,
+      bashPersistent: false,
     },
     restartRequired: [...SETTINGS_RESTART_REQUIRED],
     models: { defaultModel: 'deepseek/deepseek-chat', defaultEffort: null },
@@ -889,6 +890,7 @@ export class MockTransport implements Transport {
         checkpoints: e.checkpoints ?? prev.engine.checkpoints,
         bashSandbox: e.bashSandbox ?? prev.engine.bashSandbox,
         computerUseEnabled: e.computerUseEnabled ?? prev.engine.computerUseEnabled,
+        bashPersistent: e.bashPersistent ?? prev.engine.bashPersistent,
       },
       ...(patch.hooks !== undefined ? { ...(patch.hooks === null ? {} : { hooks: patch.hooks }) } : {}),
     }

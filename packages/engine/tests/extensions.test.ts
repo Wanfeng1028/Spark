@@ -87,6 +87,7 @@ describe('引擎接线（settings.extensions 名单合成与启停写盘）', ()
           checkpoints: false,
           bashSandbox: 'off',
           computerUseEnabled: false,
+          bashPersistent: false,
         },
       },
       models: {

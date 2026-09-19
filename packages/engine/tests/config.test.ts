@@ -251,7 +251,7 @@ describe('ConfigError 形态', () => {
 })
 
 describe('spark.json engine/hooks 段单一来源（工单 R-B.4：复用 @spark/protocol schema）', () => {
-  it('engine 段十项全覆盖：逐项解析', () => {
+  it('engine 段十一项全覆盖：逐项解析', () => {
     const dir = tempDir()
     write(dir, 'spark.json', JSON.stringify({
       engine: {
@@ -265,6 +265,7 @@ describe('spark.json engine/hooks 段单一来源（工单 R-B.4：复用 @spark
         checkpoints: false,
         bashSandbox: 'on',
         computerUseEnabled: true,
+        bashPersistent: false,
       },
     }))
     write(dir, 'models.json', VALID_MODELS)
@@ -280,6 +281,7 @@ describe('spark.json engine/hooks 段单一来源（工单 R-B.4：复用 @spark
       checkpoints: false,
       bashSandbox: 'on',
       computerUseEnabled: true,
+      bashPersistent: false,
     })
   })
 

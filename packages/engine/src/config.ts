@@ -60,7 +60,7 @@ const sparkSchema = z.object({
 
 export interface SparkConfig {
   server: { port: number; host: string }
-  /** 引擎行为设置十项（字段定义见 protocol EngineSettingsShape；默认值见 SPARK_DEFAULTS） */
+  /** 引擎行为设置十一项（字段定义见 protocol EngineSettingsShape；默认值见 SPARK_DEFAULTS） */
   engine: EngineSettings
   /** 用户侧 hooks（工单 7.3；可选——直注入配置的测试夹具可省，引擎侧 `?? {}`） */
   hooks?: SettingsHooks | undefined
@@ -84,8 +84,11 @@ const SPARK_DEFAULTS: SparkConfig = {
     compactionThreshold: 0.8,
     checkpoints: true,
     bashSandbox: 'off',
-    /** 电脑控制主开关（阶段十九 19.1 / ADR D43）：缺省关——fail-closed */
+    /** 电脑控制主开关（阶段十九 19.1 / ADR D44）：缺省关——fail-closed */
     computerUseEnabled: false,
+    bashPersistent: false,
+    /** bash 常驻会话（阶段十九 19.3 / ADR D45）：缺省关——独立 shell 旧行为不变 */
+    bashPersistent: false,
   },
 }
 
@@ -264,6 +267,7 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
               checkpoints: p.engine?.checkpoints ?? SPARK_DEFAULTS.engine.checkpoints,
               bashSandbox: p.engine?.bashSandbox ?? SPARK_DEFAULTS.engine.bashSandbox,
               computerUseEnabled: p.engine?.computerUseEnabled ?? SPARK_DEFAULTS.engine.computerUseEnabled,
+              bashPersistent: p.engine?.bashPersistent ?? SPARK_DEFAULTS.engine.bashPersistent,
             },
             hooks: p.hooks, // 工单 7.3：原样透传（undefined = 无挂点）
             prompts: p.prompts, // 工单 13.3：原样透传（undefined = 用内置模板）

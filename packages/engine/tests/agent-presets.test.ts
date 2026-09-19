@@ -143,6 +143,7 @@ function makeConfig(rules: PermissionRule[]): EngineConfig {
         checkpoints: false,
         bashSandbox: 'off',
         computerUseEnabled: false,
+        bashPersistent: false,
       },
     },
     models: {

@@ -324,6 +324,7 @@ function makeEngineConfig(): EngineConfig {
         checkpoints: false,
         bashSandbox: 'off',
         computerUseEnabled: false,
+        bashPersistent: false,
       },
     },
     models: JSON.parse(JSON.stringify(MODELS_JSON)) as EngineConfig['models'],

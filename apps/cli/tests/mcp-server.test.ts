@@ -32,6 +32,7 @@ function makeConfig(overrides?: { rules?: PermissionRule[]; permissionTimeoutMs?
         checkpoints: false,
         bashSandbox: 'off',
         computerUseEnabled: false,
+        bashPersistent: false,
       },
     },
     models: {

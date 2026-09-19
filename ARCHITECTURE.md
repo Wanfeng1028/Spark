@@ -54,6 +54,7 @@
 | v1.52 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与四项拍板：晚风（Wanfeng1028，"占位的全部都要立项实施……项目里面所有端的占位都得立项实现"指令） | **§5 ADR 表头新增"2026-09-19 判决翻案总注记"**：阶段十九（doc/08 §5D / doc/02 §8，v1.51/v4.62 同批）对登记限制类判决（D15/D16/D19/D21/D25/D42、16.9 无下载器、bash 不做常驻、审批作用域恒用户级）全量翻案立项，各工单落地时以迷你 ADR 修订对应条目；不变量级"不做"清单与后置池观察项不在翻案范围。本批纯规划零代码，本机零验证 |
 | v1.53 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"那你开始吧。等啥呢"开工指令） | **新增 D44 电脑控制执行体 = PowerShell 脚本桥零原生依赖（阶段十九 19.1；doc/02 v4.64 同批）**：平台分层端口 + Windows PowerShell 桥（CU_* 环境变量传参零注入面 + -EncodedCommand + 超时/中断 kill fail-closed）；主开关 engine.computerUseEnabled 缺省 false fail-closed 热档；八工具恒广告统一 computer.use 审批域；macOS/Linux 归 19.2。**编号注记**：原拟 D43 被并行会话（DSH 形态对齐）占用，顺延 D44。Windows 真机走查留用户。本机零验证，CI 裁决 |
 | v1.54 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十九连续开工） | **D44 19.2 补记**：macOS/Linux 执行体落地（osascript·screapture·pbpaste / xdotool·wmctrl·xclip·scrot，全零 npm 依赖；能力边界如实 fail-closed——mac 右中键与 scroll 不支持、Linux Wayland 不支持、缺工具附安装提示）；工厂三平台路由。doc/02 v4.65、doc/08 v1.53 同批 |
+| v1.55 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D45 bash 常驻 shell 会话（阶段十九 19.3；doc/02 v4.69 同批）**：每会话长驻 bash 池（哨兵协议 `__SPARK_DONE__<seq>_<rc>` + LRU 容量 8 + 空闲 10 分钟回收 + 超时/中断树杀重建）翻案"v1 不做常驻"判决；`engine.bashPersistent` 第十一项设置热档缺省关（独立 shell 零回归）；POSIX bash 才有常驻路径、沙箱 on 时沙箱优先。Windows 回落语义见 D45。本机零验证，CI 裁决 |
 
 ---
 
@@ -452,6 +453,12 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 决策：执行体 = 平台分层端口（engine `computer/executor.ts` 接口 + 平台工厂），Windows 实现走 **PowerShell 脚本桥**（每操作一次 `powershell.exe -EncodedCommand` spawn；鼠标/键盘经 user32 SendInput+mouse_event 的 C# Add-Type，截图经 System.Drawing CopyFromScreen，窗口/应用经 Get-Process/SetForegroundWindow/Start-Process，剪贴板经 Get/Set-Clipboard）。**可变参数只经环境变量（CU_*）进入**——脚本文本是常量，零注入面。
 被否备选：nut.js / robotjs（原生绑定 + node-gyp 构建链 + 安装期下载二进制——违反 AGENTS §2.3a 环境纪律与 sidecar 单文件打包取向）；宿主 Electron 注入（引擎 headless 必须独立可用）。代价与接受理由：每操作 ~100-300ms 进程开销，对 agent 操作粒度（秒级）可忽略。
 配套判决：主开关 = `engine.computerUseEnabled`（引擎行为设置第十项，**缺省 false fail-closed**，工具执行期读引擎内存配置——热档不入 SETTINGS_RESTART_REQUIRED）；八工具恒广告、统一 action `computer.use` + resource `computer://<op>`；截图本体不进对话上下文（browser 同纪律，共享 shotsDir 白名单通道）；macOS/Linux 执行体归 19.2（此前 UnsupportedComputerExecutor 如实 E_COMPUTER_UNSUPPORTED）。**19.2 补记**：macOS = osascript System Events + screapture + pbpaste/pbcopy（全系统内置；右/中键与 scroll 无内置命令面如实 E_COMPUTER_UNSUPPORTED）；Linux（X11）= xdotool/wmctrl/xclip/scrot（缺工具 E_COMPUTER_UNAVAILABLE 附安装提示；Wayland 不支持如实拒绝）。**编号注记**：本 ADR 原拟 D43，已被并行会话（DSH 形态对齐）占用，顺延 D44，不改他人历史行。
+
+### D45 bash 常驻 shell 会话 = 每会话长驻 bash + 哨兵协议（2026-09-19，阶段十九工单 19.3，翻案判决）
+
+背景：原判决"v1 不做常驻"（bash.ts 头注 + doc/02 §8.7 判决表）；晚风 2026-09-19 拍板登记限制类判决全部翻案立项（doc/08 §5D 依据④）。
+决策：`engine.bashPersistent` 开启时，bash 工具走**每会话（sessionId）长驻 bash 进程池**——cwd/环境变量/函数定义跨调用保持；池容量 8（lastUsed LRU 逐出）、空闲 10 分钟回收（unref 定时器不阻 shutdown）；命令执行用**哨兵协议**——命令追加 `__SPARK_RC=$?; printf "__SPARK_DONE__<seq>_%d\\n"`，stdout 按行扫描定界回读退出码（seq 单号防上一命令迟滞输出误判）。
+约束与失败语义（fail-closed）：命令经 POSIX 单引号安全编码整行写入 stdin，零注入面；读标准输入的命令会吞哨兵 → 超时整 shell 重建；`exit`/`set -e`/外部信号致 shell 死亡 → `E_SHELL_DIED` + 池除名 + 下一调用自动重建；超时/中断树杀整 shell——**状态丢失是常驻语义的一部分，不假装保状态**；POSIX bash 才有常驻路径（Windows 无 bash 回落独立 shell，平台边界在工具描述与 ADR 登记，非静默降级）；沙箱 'on' 时沙箱路径优先（wrapper 包常驻 shell 归 19.6 OS 级沙箱范畴）。主开关 = 引擎行为设置第十一项，缺省 false（独立 shell 旧行为零回归），热档（执行期读引擎内存配置）。
 
 ## 6. 模块速览（职责边界）
 

@@ -3828,6 +3828,9 @@
               },
               "computerUseEnabled": {
                 "type": "boolean"
+              },
+              "bashPersistent": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -3840,7 +3843,8 @@
               "compactionThreshold",
               "checkpoints",
               "bashSandbox",
-              "computerUseEnabled"
+              "computerUseEnabled",
+              "bashPersistent"
             ],
             "additionalProperties": false
           },
@@ -4169,6 +4173,9 @@
                 ]
               },
               "computerUseEnabled": {
+                "type": "boolean"
+              },
+              "bashPersistent": {
                 "type": "boolean"
               }
             },

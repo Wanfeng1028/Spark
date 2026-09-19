@@ -238,6 +238,7 @@ async function makeEngine(): Promise<{
         checkpoints: false,
         bashSandbox: 'off',
         computerUseEnabled: false,
+        bashPersistent: false,
       },
     },
     models: {

@@ -36,6 +36,7 @@ function makeConfig(): EngineConfig {
         checkpoints: false, // 既有用例不落 git 快照（提速 + 无副作用）；4.6 专项用例单开
         bashSandbox: 'off',
         computerUseEnabled: false,
+        bashPersistent: false,
       },
     },
     models: {
