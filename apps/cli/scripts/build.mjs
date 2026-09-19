@@ -11,11 +11,15 @@
 // desktop build:server 同病，已照此修（apps/desktop/scripts/build-server.mjs）。
 import { build } from 'esbuild'
 import { readFileSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // WO-050：构建期注入版本号——打包后 `require('../../package.json')` 相对路径断裂
 // （dist/main.js 上跳两级不再指向 apps/cli），显示"未知版本"
-const cliPkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-const versionDefine = { __SPARK_VERSION__: JSON.stringify(String(cliPkg.version ?? '0.0.0')) }
+const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json')
+const cliPkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+const cliVersion = typeof cliPkg?.version === 'string' ? cliPkg.version : '0.0.0'
+const versionDefine = { __SPARK_VERSION__: JSON.stringify(cliVersion) }
 
 const serverBanner =
   "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);"

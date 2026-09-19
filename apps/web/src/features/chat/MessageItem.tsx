@@ -30,7 +30,12 @@ export interface MessageItemProps {
   highlight?: boolean
 }
 
-export const MessageItem = memo(function MessageItem({ item, model, sid, highlight }: MessageItemProps) {
+export const MessageItem = memo(function MessageItem({
+  item,
+  sid,
+  highlight,
+}: MessageItemProps) {
+  // model prop 保留在接口（ChatView 调用点不破坏；§13.L WO-059 去模型名标签后本组件不再消费）
   const hl = highlight === true ? 'rounded-lg bg-secondary ring-1 ring-border' : undefined
   switch (item.kind) {
     case 'user':
