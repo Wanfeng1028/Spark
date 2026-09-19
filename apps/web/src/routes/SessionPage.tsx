@@ -331,7 +331,8 @@ export function SessionPage() {
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-border px-6 py-3">
+      {/* §13.L L.6：DSH 输入卡浮在底色上——无顶部分隔线，顶部留白收小让卡贴近滚动区 */}
+      <div className="shrink-0 px-6 pb-3 pt-2">
         {/* WO-010：会话加载失败时禁用 Composer——错误态下发送会让事件落入无关会话 */}
         <div className={cn('mx-auto max-w-[768px]', typeof load === 'object' && 'pointer-events-none opacity-50')}>
           {/* 上下文水位只留 StatusBar 百分比（工单 10.5⑦，待拍板 a 按建议执行：大条与

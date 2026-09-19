@@ -55,6 +55,9 @@ export function AssistantBlock({ content, streaming, usage }: AssistantBlockProp
       )}
       {content.map((c, i) => {
         if (c.type === 'text') {
+          // §13.L L.6：空/纯空白 text 块不渲染——Streamdown 空 <p> 自带外距，
+          // 工具调用前后模型常吐空块，视觉上就是两段"假空白"（round4 用户指认）
+          if (c.text.trim() === '') return null
           return (
             <div key={i} className="text-sm leading-6">
               <Streamdown

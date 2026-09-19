@@ -106,7 +106,7 @@ export function FileTreePopover({
     <div
       role="dialog"
       aria-label="文件树"
-      className="absolute bottom-full left-3 z-20 mb-1.5 max-h-72 w-72 overflow-y-auto rounded-xl border border-border bg-popover py-1 shadow-md"
+      className="absolute bottom-full left-3 z-20 mb-1.5 max-h-72 w-72 overflow-y-auto rounded-xl bg-popover py-1 shadow-[0_0_0_0.5px_rgba(0,0,0,0.12),0_3px_8px_rgba(0,0,0,0.03),0_0_16px_rgba(0,0,0,0.02)] dark:shadow-[0_0_0_0.5px_rgb(255_255_255/0.16),0_3px_8px_rgb(0_0_0/0.25)]"
     >
       <p className="border-b border-border px-3 py-1.5 text-[11px] text-muted-foreground">
         点击文件插入 @路径引用（内容由模型经 read 自取）

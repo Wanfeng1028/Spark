@@ -13,6 +13,7 @@
 | v1.8 | 2026-09-19 | AI 编写：ZCode · Union Alpha；第二轮测试执行：豆包（PR #26 已合并 6764e97） | **第二轮复测收编 + 7 项 UI 修复批**（新增 §11）：2341 单测全绿无新增回归，官网标题/复制按钮两项闭环确认；复测不变的 7 项全部修复——WO-079 窄屏（工具栏可换行+模型选择器收图标+chips 防竖排）、裸 /settings 重定向路由缺失、WO-080 Esc 关 + 菜单、WO-081 面板开时收起弹层、WO-082 沙箱标签收短、搜索清除钮、侧边栏右键菜单（归档/删除两段式内联确认，替换违反 DESIGN §5 的 window.confirm；重命名需 header 重写设计登记缺口）。MCP github（环境预期）与技能页只读（v2 挂池）维持 |
 | v1.9 | 2026-09-19 | AI 编写：ZCode · Union Alpha；拍板：晚风（Wanfeng1028，四问四答） | **三项人类决策落地**：① WO-015 官网死代码 → **冻结保留**（不删除）；② G7 spike-pi-ai lock 残留 → **冻结保留**（doc/05 v1.3 同步）；③ 两张 D28 重号 → **永久维持双编号 + 主题消歧**（ARCHITECTURE v1.51 同步）。**发布拍板：先修链路再发**——apps/server 打包链路修复（pi-ai/pino 入 bundle + check-dist 自校验，回归报告发现③消解）；五公开包版本 1.0.0 + CHANGELOG 1.0.0 节；tag v1.0.0 触发 release.yml（npm publish 需 NPM_TOKEN/或 Trusted Publishing + @spark scope 组织，缺则发布步红如实报告）。池子决策：会话重命名做（标题已事件化——session.title durable + titleOf 取最新，端点=发事件+自动标题覆盖守卫，小 ADR 随批）；其余四项（检查器版本校验/loadOlder 优化/ContextMeter/技能启停）defer 挂池 |
 | v1.11 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你先看豆包的测试报告，根据报告行动"指令；PR #27 已合并 72e18a3） | **第三轮走查项 RT3-01/03/04/06 修复收官（§12 状态表更新 + RT3-05/07 登记）**：RT3-01 首启引导窗+自动续启（622f96a，壳侧判例 A）、RT3-03 代理同源 undici 配对（3fd0336，根因=跨包 dispatcher 不互通；修红 5cf0d4f）、RT3-04 MCP 30s+connectTimeoutMs 全链（1b5f96f）、RT3-06 窄视口一次性折叠（d2c1ba5）；新发现 RT3-07（MCP 管理页保存丢 args/env，12.6 遗留）立单。真实代理/npx 冷启动/Electron 首启复测留豆包现场 |
+| v1.15 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，五图指认"对话框完全按 deepseek harness 做，不显示长方形格子线"+细滚动条+假空白+操作行常显） | **新增 §14 DSH 二批（去格子线，WO-089~094）**：规格先行 DESIGN v2.20 §13.L L.6 后同批实现——五弹层删 border 改 0.5px 描边环柔影、Composer 容器顶线去除、Segmented 轨道去边框、+菜单×文件树互斥、空 text 块跳过渲染（假空白根因）、助手操作行常显（修订 L.3）、全局细滚动条（theme.css 单点）、工具栏左组并排修复（裸块级按钮竖排 bug）。现场走查留豆包 |
 | v1.14 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；第四轮测试执行：豆包（PR #28 已合并 f860b9e） | **第四轮全功能深度测试收编（新增 §13）**：2481 单测全绿；11/11 修复验收通过——RT3-01/02/03/04/06 五项现场闭环（三轮对比见报告 §四）；全量回归（Web 核心流/20 设置子页/CLI/官网/Electron/375-768px）无 P0/P1；OBS-1（P3 窄屏展开侧栏挤压 → 挂池 V2-39）与 OBS-2（P3 偶发 oneshot 超时 → 不立项）登记；RT3-07 基线未含，现场复测留第五轮 |
 | v1.13 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，对 v1.11 总结中 RT3-07 的点名指令"你把这个修好"） | **RT3-07 修复落地（§12 状态更新，WO-088）**：MCP 配置读回通道全链——protocol `MCP_ENV_MASK` + `Transport.getMcpConfig`（GET /api/mcp/config）、engine `maskMcpConfigForClient`/`mergeMaskedMcpConfig` 纯函数（公共面单源）、PUT /api/mcp 掩码合并、web 管理页以读回配置为底保存/停用、sdk inprocess 与 mock 对等；env 明文不出引擎，掩码占位无既有真值 400 拒写。修复 12.6 遗留数据丢失（保存静默丢 args/env/connectTimeoutMs）。engine 4 例 + server 3 例新增。全本机零验证以 CI 裁决 |
 | v1.12 | 2026-09-19 | AI 编写：ZCode · Union Alpha | **v1.0.0 发布执行记录**：tag v1.0.0 已打（指向 30babbe，main CI 绿）；release.yml run 35441250244——构建/文档检查/typecheck/test/四包 build/**check-dist 外置导入自校验全部通过**，publish 步红于 `ENEEDAUTH`（NPM_TOKEN secret 未配置）+ docs 步红于 GitHub Pages 未启用——两项均为**用户侧账号配置**（npmjs 建 @spark 组织 + 生成 publish token 后 `gh secret set NPM_TOKEN`，或按 release.yml 注记改用 Trusted Publishing；仓库 Settings→Pages 启用 GitHub Actions 源），配置后在 run 页 rerun failed jobs 即可，无需代码改动 |
@@ -372,3 +373,20 @@ AUD-01（§3）为本轮独立发现，与豆包报告零重叠（其报告未�
 | OBS-2 | P3 | 一次 oneshot 60s 超时被 kill（EXIT=124），重跑 3.9s 正常——npx 冷启动 × 代理抖动叠加的偶发，未稳定复现 | 不立项；若后续可稳定触发，重评 RT3-04 的 connectTimeoutMs 缺省值 |
 
 **已知不修项维持**（报告 §六）：MCP github 无凭证环境预期、技能页只读归 v2、会话重命名后端缺口已登记、审批拒绝二次确认设计如此。
+
+## 14. DSH 对话框二批：去格子线（晚风 2026-09-19 五图指认 → 本仓修复）
+
+> 规格：DESIGN v2.20 §13.L **L.6**（规格先行）。指认原话："对话框完全按照 deepseek harness 的对话框做吧，没必要把长方形的格子线显示出来"；后追加"右边的这个条也不需要显示，显示成细窄滑块即可""为什么要空这么多""回复完为什么没有复制这些"。全部本机零验证，以 CI 裁决。
+
+| 工单 | 问题（截图指认） | 根因 | 修复 |
+| --- | --- | --- | --- |
+| WO-089 | +菜单/文件树/权限档位/@//菜单/模型选择弹层全是 1px 矩形框线 | 弹层用 `border border-border`+shadow-md，非 DSH 的 0.5px 描边环 | 五弹层删 `border`，改 L.6 环阴影字面量（暗色环 white/0.16）；内部 hairline 保留 |
+| WO-089 | Composer 上方一条横贯分隔线+空条 | SessionPage footer 容器 `border-t border-border py-3` | 去 `border-t`，改 `pt-2 pb-3`（DSH 输入卡浮在底色上） |
+| WO-089 | 立即/插话/排队分段控件画框 | Segmented 轨道 `border border-border` | 轨道去边框，选中胶囊（bg-secondary）自承载选中态 |
+| WO-090 | +菜单与文件树浮层同屏叠放（图1） | 两浮层各自独立 state，开一不清另一 | 两钮 onClick 开一关一（互斥） |
+| WO-091 | 会话流两段大空白（思考过程后/审批已允许后） | AssistantBlock 对空/纯空白 text 块照渲染——Streamdown 空 `<p>` 自带外距=假空白 | `c.text.trim()===''` 跳过渲染 |
+| WO-092 | 回复完成后复制/👍/👎 不可见（仅 hover 渐显） | AssistantActions 行 `opacity-0 group-hover/msg:opacity-100` | 去 hover 门控，完成态**常显**（修订 §13.L L.3） |
+| WO-093 | 滚动条为 Windows 经典粗轨+箭头 | 未定制滚动条样式 | theme.css 全局 `scrollbar-width: thin` + `scrollbar-color`（浅 black/0.2 暗 white/0.2，透明轨道；单点维护） |
+| WO-094 | 工具栏 + 与文件树两钮竖排堆叠 | 左组容器 `relative shrink-0` 无 flex——两个块级按钮裸放天生竖排（非折行问题） | 容器补 `flex items-center gap-1` |
+
+**验收口径**：五弹层无框线只剩柔影；Composer 区无顶部分隔线；分段控件无框；空块不留白；回复完成即见操作行；全应用细滚动条；+/文件树并排且两浮层互斥。现场走查留豆包下一轮。

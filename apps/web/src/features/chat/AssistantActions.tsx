@@ -53,7 +53,8 @@ export function AssistantActions({ sid, eventId, time, copyText }: AssistantActi
   const full = when.toLocaleString('zh-CN')
 
   return (
-    <div className="mt-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100">
+    // §13.L L.6 修订 L.3：完成态操作行**常显**（复制/👍/👎 不再藏 hover——DSH 二批）
+    <div className="mt-1.5 flex items-center gap-1">
       <button
         type="button"
         onClick={() => void copy(copyText)}

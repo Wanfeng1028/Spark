@@ -122,3 +122,19 @@ html.spark-code-wrap [data-streamdown='code-block-body'] pre {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/*
+ * 细滚动条（DESIGN §13.L L.6，DSH 二批）：全应用统一——透明轨道、无按钮、淡色圆角滑块，
+ * 替换 Windows 经典粗轨+箭头。Chromium 121+/Firefox 均支持标准属性
+ * （scrollbar-width/color 生效时 ::-webkit-scrollbar 伪元素被忽略，无需双写）。
+ * 若需改色/改宽：只动这里，别在组件里写局部滚动条样式。
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(0 0 0 / 0.2) transparent;
+}
+
+.dark,
+.dark * {
+  scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+}

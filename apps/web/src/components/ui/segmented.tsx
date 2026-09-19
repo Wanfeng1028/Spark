@@ -1,7 +1,8 @@
 /**
  * Segmented 分段控件（DESIGN §13.B：高 28px、**圆角胶囊 rounded-full**（轨道与选中段同档，
  * 工单 18.1/18.2 改判；旧 6px 作废）、字号 12px、
- * 选中段 zinc-100 底（暗 zinc-800）= bg-secondary token；轨道带 1px border）。
+ * 选中段 zinc-100 底（暗 zinc-800）= bg-secondary token；§13.L L.6：轨道**无边框**——
+ * 选中胶囊自身承载选中态，不再画矩形框线（DSH 二批）。
  * 单选语义走 role=radiogroup/radio；禁用段保留占位（题目 title 说明原因）。
  */
 import { cn } from '@/lib/utils'
@@ -32,7 +33,7 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className="flex h-7 items-center gap-0.5 rounded-full border border-border bg-background p-0.5"
+      className="flex h-7 items-center gap-0.5 rounded-full bg-background p-0.5"
     >
       {options.map((o) => {
         const disabled = o.disabledReason !== undefined

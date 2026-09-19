@@ -71,7 +71,7 @@ export function ModelPicker({ current, models, providers, onChange, disabled }: 
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 z-20 mb-1.5 max-h-72 w-72 overflow-y-auto rounded-xl border border-border bg-popover shadow-md">
+        <div className="absolute bottom-full left-0 z-20 mb-1.5 max-h-72 w-72 overflow-y-auto rounded-xl bg-popover shadow-[0_0_0_0.5px_rgba(0,0,0,0.12),0_3px_8px_rgba(0,0,0,0.03),0_0_16px_rgba(0,0,0,0.02)] dark:shadow-[0_0_0_0.5px_rgb(255_255_255/0.16),0_3px_8px_rgb(0_0_0/0.25)]">
           <ul role="menu" aria-label="选择模型">
             {groups.length === 0 && (
               <li className="px-2.5 py-2 text-xs text-muted-foreground">

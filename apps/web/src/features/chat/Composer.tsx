@@ -1,6 +1,6 @@
 /**
  * Composer（doc/02 §6.2.2 / §6.3 / DESIGN §13.E，工单 6.3 重做）：
- * 容器=圆角 12px + 1px border + 聚焦态中性 border 轻微加深（§13.E v2.5，工单 10.3）；多行 1→6 行自增后内滚。
+ * 容器=22px 全圆角白卡、无 border 无聚焦 ring（§13.L L.1）；多行 1→6 行自增后内滚。
  * 三态——空闲：Enter 发送；运行中：**输入不禁用**（Enter 按分段档发送，插话/排队）；
  * 审批挂起：输入禁用（焦点交还上方 ApprovalCard）。
  * 底部工具条（§13.E）：左=[＋菜单四项（附件/@///$，工单 10.5⑤）][权限档位]；右=[提交模式分段][发送/停止 32px 圆形主钮]。
@@ -591,7 +591,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 
         {/* 底部工具条（§13.L L.2 重排）：左=[＋/文件树/权限档位/语音]；右=[模型/推理/提交模式/发送] */}
         <div className="flex min-h-8 flex-wrap items-center gap-x-1.5 gap-y-1 px-1.5 pb-0.5">
-          <div className="relative shrink-0">
+          {/* L.6：左组必须 flex——两个块级按钮裸放会竖排（DSH 二批 WO-089 修复） */}
+          <div className="relative flex shrink-0 items-center gap-1">
             <button
               type="button"
               data-plus-menu
@@ -599,7 +600,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               aria-haspopup="menu"
               aria-expanded={plusMenuOpen}
               disabled={waiting}
-              onClick={() => setPlusMenuOpen((v) => !v)}
+              onClick={() => {
+                setTreeOpen(false) // L.6 弹层互斥：开一关一，禁止同屏叠放
+                setPlusMenuOpen((v) => !v)
+              }}
               className="flex size-7 items-center justify-center rounded-full bg-secondary text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
             >
               <Plus className="size-3.5" />
@@ -609,7 +613,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               aria-label="文件树"
               aria-expanded={treeOpen}
               disabled={waiting}
-              onClick={() => setTreeOpen((v) => !v)}
+              onClick={() => {
+                setPlusMenuOpen(false) // 弹层互斥（同上）
+                setTreeOpen((v) => !v)
+              }}
               className="flex size-7 items-center justify-center rounded-full bg-secondary text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
             >
               <FolderTree className="size-3.5" />
@@ -628,7 +635,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               <ul
                 role="menu"
                 aria-label="添加内容"
-                className="absolute bottom-full left-0 z-20 mb-1.5 w-60 overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-md"
+                className="absolute bottom-full left-0 z-20 mb-1.5 w-60 overflow-hidden rounded-xl bg-popover py-1 shadow-[0_0_0_0.5px_rgba(0,0,0,0.12),0_3px_8px_rgba(0,0,0,0.03),0_0_16px_rgba(0,0,0,0.02)] dark:shadow-[0_0_0_0.5px_rgb(255_255_255/0.16),0_3px_8px_rgb(0_0_0/0.25)]"
               >
                 {(
                   [
