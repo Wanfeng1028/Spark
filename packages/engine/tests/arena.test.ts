@@ -205,8 +205,7 @@ describe('/arena 全链路（双 contender）', () => {
 
 describe('/arena 历史落盘（工单 19.10，翻案 D42 内存态）', () => {
   test('终态后落盘可查：arenaHistory 摘要 + 新 ArenaStore 同 root 读回（重启可查）', async () => {
-    const repo = makeRepo({ 'README.md': 'base
-' })
+    const repo = makeRepo({ 'README.md': 'base\n' })
     const { engine, gateway, root } = makeEngine(repo)
     try {
       const handle = await engine.createSession({ cwd: repo })
@@ -231,9 +230,9 @@ describe('/arena 历史落盘（工单 19.10，翻案 D42 内存态）', () => {
       // 落盘文件在场（<root>/arena/<arenaId>.json）
       expect(existsSync(join(root, 'arena', `${entry.arenaId}.json`))).toBe(true)
       // 胜者应用（无文件改动的胜者同样成立）→ 终态 completedAt + winnerModel
-      const snap = engine.arenaSnapshot(handle.id)
-      if (snap === null) throw new Error('快照丢失')
-      const winner = snap.contenders[0] as { sessionId: typeof snap.contenders[0]['sessionId'] }
+      const afterSnap = engine.arenaSnapshot(handle.id)
+      if (afterSnap === null) throw new Error('快照丢失')
+      const winner = afterSnap.contenders[0] as { sessionId: typeof afterSnap.contenders[0]['sessionId'] }
       await engine.arenaApplyWinner(handle.id, winner.sessionId)
       const after = (engine.arenaHistory(20)[0] ?? null)
       expect(after).not.toBeNull()

@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import { ids } from '@spark/protocol'
 import { ArenaStore } from '../src/arena/store.js'
-import type { ArenaRunRecord } from '../src/arena/manager.js'
+import type { ArenaRunRecord } from '../src/arena/store.js'
 import type { ArenaRun } from '../src/arena/manager.js'
 
 const roots: string[] = []
