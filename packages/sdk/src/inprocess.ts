@@ -44,6 +44,7 @@ import type {
   FsListDto,
   FsTreeDto,
   LspServerStatusDto,
+  LspInstallResultDto,
   McpConfigInput,
   McpServerDto,
   MemoryDto,
@@ -419,6 +420,14 @@ export class InProcessTransport implements Transport {
     // 引擎侧 status() 每次重读 lsp.json（async）——AUD-14：过收口断言后透传
     this.assertNotDisposed()
     return [...(await this.engine.listLspServers())]
+  }
+
+  async installLspServer(id: string): Promise<LspInstallResultDto> {
+    // 引擎安装器直调（npm 全局装 + 写 lsp.json；进程内通道无 HTTP 面）——AUD-14 同口径
+    this.assertNotDisposed()
+    const r = await this.engine.installLspServer(id)
+    if (!r.ok) throw new Error(`${r.code}: ${r.message}`)
+    return { language: r.language, command: r.command, args: r.args, written: r.written }
   }
 
   usageSummary(since?: string): Promise<UsageSummaryDto> {
