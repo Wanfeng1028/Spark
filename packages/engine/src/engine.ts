@@ -21,6 +21,7 @@ import {
   resolve,
 } from 'node:path'
 import type {
+  BrowserSettings,
   AutomationCreate,
   AutomationRunDto,
   AutomationTriggerDto,
@@ -183,6 +184,8 @@ export class Engine {
   private readonly search: SearchIndexer
   /** browser 工具族（阶段七工单 7.10 / H09 / ADR D27）：引擎级单例单页，驱动懒启动 */
   private readonly browser: BrowserManager
+  /** 浏览器设置（阶段十九 19.12 / ADR D49）：spark.json browser 段归一化值（装配与 getSettings 共用） */
+  private readonly browserSettings: BrowserSettings
   /** 电脑控制执行体（阶段十九 19.1 / ADR D43）：构造零副作用，spawn 只在操作执行期 */
   private readonly computerExecutor: ComputerExecutor
   /** 截图落盘目录（~/.spark/browser-shots；GET /api/artifacts/:file 供图） */
@@ -420,11 +423,18 @@ export class Engine {
     // 工单 7.10 / H09 / ADR D27：browser 工具族——引擎级单例单页；
     // 驱动（playwright-core）首次 browser.open 才启动，构造期零依赖
     this.shotsDir = join(this.root, 'browser-shots')
+    // 浏览器设置（阶段十九 19.12 / ADR D49）：spark.json browser 段——重启档
+    //（BrowserManager 构造期装配）；缺省 headless/30s/不覆盖 UA
+    this.browserSettings = this.config.spark.browser ?? {
+      headless: true,
+      defaultTimeoutMs: 30_000,
+      userAgent: '',
+    }
     this.browser = new BrowserManager(
       deps.browserDriver ??
         createPlaywrightDriver(this.shotsDir, this.logger, {
-          headless: browserCfg.headless,
-          ...(browserCfg.userAgent !== '' ? { userAgent: browserCfg.userAgent } : {}),
+          headless: this.browserSettings.headless,
+          ...(this.browserSettings.userAgent !== '' ? { userAgent: this.browserSettings.userAgent } : {}),
         }),
     )
 
@@ -432,14 +442,6 @@ export class Engine {
     // （GET /api/artifacts 单通道供图）；构造零副作用（spawn 只在操作执行期）
     this.computerExecutor =
       deps.computerExecutor ?? createComputerExecutor(this.shotsDir)
-
-    // 浏览器设置（阶段十九 19.12 / ADR D49）：spark.json browser 段——重启档
-    //（BrowserManager 构造期装配）；缺省 headless/30s/不覆盖 UA
-    const browserCfg = this.config.spark.browser ?? {
-      headless: true,
-      defaultTimeoutMs: 30_000,
-      userAgent: '',
-    }
 
     // 工单 7.6 / H06 / ADR D26：自动化触发器（触发=自动建会话执行 prompt，走正常 turn 通道）；
     // 坏 automation.json 构造即抛 E_CONFIG（配置错误不带病运行，同 loadConfig 纪律）
@@ -464,7 +466,7 @@ export class Engine {
     }
     // browser 工具族（工单 7.10 / ADR D27）：恒广告——浏览器二进制缺失时
     // 执行期 E_BROWSER_LAUNCH fail-closed（缺失不是静默降级的理由）
-    for (const tool of makeBrowserTools(this.browser, { defaultTimeoutMs: browserCfg.defaultTimeoutMs })) {
+    for (const tool of makeBrowserTools(this.browser, { defaultTimeoutMs: this.browserSettings.defaultTimeoutMs })) {
       this.registry.register(tool)
     }
     // computer.* 工具族（阶段十九 19.1 / ADR D43）：恒广告——主开关缺省关时
@@ -1347,9 +1349,9 @@ export class Engine {
         : {}),
       // 浏览器设置（阶段十九 19.12 / ADR D49）：未配置时缺省值（headless/30s/UA 不覆盖）
       browser: {
-        headless: browserCfg.headless,
-        defaultTimeoutMs: browserCfg.defaultTimeoutMs,
-        userAgent: browserCfg.userAgent,
+        headless: this.browserSettings.headless,
+        defaultTimeoutMs: this.browserSettings.defaultTimeoutMs,
+        userAgent: this.browserSettings.userAgent,
       },
     }
     return dto
