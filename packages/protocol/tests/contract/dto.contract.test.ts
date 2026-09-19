@@ -1233,7 +1233,8 @@ describe('契约：api.EngineSettingsSchema', () => {
     "toolOutputLimitKB": 1,
     "compactionThreshold": 0.5,
     "checkpoints": false,
-    "bashSandbox": "off"
+    "bashSandbox": "off",
+    "computerUseEnabled": false
   }
 
   it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
@@ -1281,6 +1282,10 @@ describe('契约：api.EngineSettingsSchema', () => {
     expect(() => api.EngineSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["bashSandbox"]; return m })())).toThrow()
   })
 
+  it('缺必填字段 computerUseEnabled → 解析失败', () => {
+    expect(() => api.EngineSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["computerUseEnabled"]; return m })())).toThrow()
+  })
+
   it('字段 maxStepsPerTurn 类型错 → 解析失败', () => {
     expect(() => api.EngineSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["maxStepsPerTurn"] = "not-a-number"; return m })())).toThrow()
   })
@@ -1315,6 +1320,10 @@ describe('契约：api.EngineSettingsSchema', () => {
 
   it('字段 bashSandbox 类型错 → 解析失败', () => {
     expect(() => api.EngineSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["bashSandbox"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 computerUseEnabled 类型错 → 解析失败', () => {
+    expect(() => api.EngineSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["computerUseEnabled"] = "not-a-boolean"; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
@@ -2845,7 +2854,8 @@ describe('契约：api.SettingsDtoSchema', () => {
       "toolOutputLimitKB": 1,
       "compactionThreshold": 0.5,
       "checkpoints": false,
-      "bashSandbox": "off"
+      "bashSandbox": "off",
+      "computerUseEnabled": false
     },
     "hooks": {
       "turn.before": [
@@ -3072,7 +3082,8 @@ describe('契约：api.SettingsUpdateSchema', () => {
       "toolOutputLimitKB": 1,
       "compactionThreshold": 0.5,
       "checkpoints": false,
-      "bashSandbox": "off"
+      "bashSandbox": "off",
+      "computerUseEnabled": false
     },
     "hooks": {
       "turn.before": [
