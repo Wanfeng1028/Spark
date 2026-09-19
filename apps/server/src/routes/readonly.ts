@@ -46,14 +46,17 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
       throw validationError('mcp 配置须为 {version: 1, servers: {...}}', undefined)
     }
     try {
-      const incoming = {
-        version: 1,
-        servers: body.servers as Record<
-          string,
-          { command: string; args?: string[]; env?: Record<string, string>; connectTimeoutMs?: number }
-        >,
-      }
-      writeMcpConfig(engine.dataRoot, mergeMaskedMcpConfig(loadMcpConfig(engine.dataRoot), incoming))
+      // 字面量内联在参数位：McpConfigInput.version 是字面量类型，经变量中转会拓宽成 number（CI 修红）
+      writeMcpConfig(
+        engine.dataRoot,
+        mergeMaskedMcpConfig(loadMcpConfig(engine.dataRoot), {
+          version: 1,
+          servers: body.servers as Record<
+            string,
+            { command: string; args?: string[]; env?: Record<string, string>; connectTimeoutMs?: number }
+          >,
+        }),
+      )
     } catch (err) {
       // zod 校验失败 / 掩码无既有真值（ConfigError）→ 400 人话（坏配置不落盘——12.6 验收）
       throw validationError(err instanceof Error ? err.message : String(err), undefined)
