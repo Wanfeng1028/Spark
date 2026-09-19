@@ -934,7 +934,15 @@ export class MockTransport implements Transport {
         computerUseEnabled: e.computerUseEnabled ?? prev.engine.computerUseEnabled,
         bashPersistent: e.bashPersistent ?? prev.engine.bashPersistent,
       },
-      ...(patch.browser !== undefined ? { browser: { ...prev.browser, ...patch.browser } } : {}),
+      ...(patch.browser !== undefined
+        ? {
+            browser: {
+              headless: patch.browser.headless ?? prev.browser.headless,
+              defaultTimeoutMs: patch.browser.defaultTimeoutMs ?? prev.browser.defaultTimeoutMs,
+              userAgent: patch.browser.userAgent ?? prev.browser.userAgent,
+            },
+          }
+        : {}),
       ...(patch.hooks !== undefined ? { ...(patch.hooks === null ? {} : { hooks: patch.hooks }) } : {}),
     }
     return Promise.resolve(this.settings)
