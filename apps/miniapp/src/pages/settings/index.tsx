@@ -4,7 +4,7 @@
  * 手输配对（地址+6 位码——小程序主路径；扫码失败不阻塞落回手输）、
  * 外观三档（跟随系统/浅色/深色）、断开连接（红字独立白卡，J.2.4⑤）。
  */
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { BaseEventOrig, InputProps } from '@tarojs/components'
@@ -12,7 +12,7 @@ import { baseUrlOf, errorMessageOf, parsePairLink } from '@spark/protocol'
 import { useConfigStore } from '../../store/config-store'
 import { useTheme } from '../../store/theme-store'
 import type { AppearancePreference } from '../../theme/tokens'
-import { invalidateRest, redeemPairCode } from '../../transport/runtime'
+import { getRestClient, invalidateRest, redeemPairCode } from '../../transport/runtime'
 import { parsePairCode } from '../../transport/pair'
 import { Card, Hairline } from '../../components/ui'
 import './index.css'
@@ -43,6 +43,28 @@ export default function SettingsPage() {
   const [localNotice, setLocalNotice] = useState<string | null>(null)
 
   const configured = serverUrl !== ''
+
+  // 电脑控制指示（J.2.11 / 阶段十九 19.2）：只读状态行——开关写入面在 web 设置中心（热生效）
+  const [computerUse, setComputerUse] = useState<boolean | null>(null)
+  useEffect(() => {
+    const client = getRestClient(serverUrl, token)
+    if (client === null) {
+      setComputerUse(null)
+      return
+    }
+    let alive = true
+    client
+      .getSettings()
+      .then((s) => {
+        if (alive) setComputerUse(s.engine.computerUseEnabled)
+      })
+      .catch(() => {
+        if (alive) setComputerUse(null)
+      })
+    return () => {
+      alive = false
+    }
+  }, [serverUrl, token])
 
   /** 保存手输连接配置（失败如实上屏，不静默） */
   const onSave = useCallback((): void => {
@@ -297,6 +319,19 @@ export default function SettingsPage() {
             </View>
           ))}
         </Card>
+
+        {/* Agent 能力指示（J.2.11 / 阶段十九 19.2）：电脑控制只读状态行 */}
+        {configured ? (
+          <Card className="st-card">
+            <Text className="st-card-title" style={{ color: t.foreground }}>
+              电脑控制
+            </Text>
+            <Text className="st-field-label" style={{ color: t.mutedForeground }}>
+              {computerUse === null ? '状态未知（无法读取设置）' : computerUse ? '已启用' : '未启用'}
+              {' · 开关在桌面/网页端设置中心（热生效）'}
+            </Text>
+          </Card>
+        ) : null}
 
         {/* 断开连接（J.2.4⑤：红字、独立白卡） */}
         {configured ? (

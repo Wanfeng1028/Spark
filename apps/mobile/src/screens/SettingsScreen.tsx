@@ -4,7 +4,7 @@
  * 深链待配对确认卡（spark://pair 解析产物，连接=短码兑长效 token）、
  * 外观三档（跟随系统/浅色/深色）、断开连接（红字独立白卡）。
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   ScrollView,
   StyleSheet,
@@ -18,7 +18,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { DrawerNavigationProp } from '@react-navigation/drawer'
 import { HttpTransport, baseUrlOf, errorMessageOf } from '@spark/protocol'
 import { useConfigStore } from '../store/config-store'
-import { invalidateTransport } from '../transport/runtime'
+import { getHttpTransport, invalidateTransport } from '../transport/runtime'
 import { useTheme } from '../theme/use-theme'
 import type { AppearancePreference } from '../theme/tokens'
 import { mobileMetrics } from '../theme/tokens'
@@ -48,6 +48,28 @@ export function SettingsScreen() {
   const [localNotice, setLocalNotice] = useState<string | null>(null)
 
   const configured = serverUrl !== ''
+
+  // 电脑控制指示（J.2.11 / 阶段十九 19.2）：只读状态行——开关写入面在 web 设置中心（热生效）
+  const [computerUse, setComputerUse] = useState<boolean | null>(null)
+  useEffect(() => {
+    const transport = getHttpTransport(serverUrl, token)
+    if (transport === null) {
+      setComputerUse(null)
+      return
+    }
+    let alive = true
+    transport
+      .getSettings()
+      .then((s) => {
+        if (alive) setComputerUse(s.engine.computerUseEnabled)
+      })
+      .catch(() => {
+        if (alive) setComputerUse(null)
+      })
+    return () => {
+      alive = false
+    }
+  }, [serverUrl, token])
 
   const onSave = useCallback((): void => {
     const url = urlDraft.trim()
@@ -192,6 +214,17 @@ export function SettingsScreen() {
             </View>
           ))}
         </Card>
+
+        {/* Agent 能力指示（J.2.11 / 阶段十九 19.2）：电脑控制只读状态行 */}
+        {configured ? (
+          <Card style={styles.card}>
+            <Text style={[styles.cardTitle, { color: t.foreground }]}>电脑控制</Text>
+            <Text style={[styles.fieldLabel, { color: t.mutedForeground }]}>
+              {computerUse === null ? '状态未知（无法读取设置）' : computerUse ? '已启用' : '未启用'}
+              {' · 开关在桌面/网页端设置中心（热生效）'}
+            </Text>
+          </Card>
+        ) : null}
 
         {/* 断开连接（J.2.4⑤：红字、独立白卡） */}
         {configured ? (

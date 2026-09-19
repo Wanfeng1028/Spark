@@ -13,6 +13,7 @@ import type {
   PermissionReply,
   RequestId,
   SessionDto,
+  SettingsDto,
   SessionEventsQuery,
   SessionId,
   SubmitOutcome,
@@ -55,6 +56,11 @@ export class MiniRestClient {
     }
     // Taro 已自动解析响应体（无 statusText——缺省空串，与原实现逐字同）
     throw errorFromResponse(res.statusCode, res.data)
+  }
+
+  /** 设置读取（阶段十九 19.2 / J.2.11：电脑控制指示行数据源——只取引擎段，单方法入 D21 体积预算） */
+  getSettings(): Promise<SettingsDto> {
+    return this.req<SettingsDto>('/api/settings')
   }
 
   listSessions(): Promise<SessionDto[]> {
