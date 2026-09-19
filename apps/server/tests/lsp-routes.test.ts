@@ -49,7 +49,7 @@ describe('POST /api/lsp/install（阶段十九 19.5 / ADR D47）', () => {
       payload: { id: 'xyz' },
     })
     expect(res.statusCode).toBe(404)
-    expect(res.json().code).toBe('E_LSP_UNKNOWN_SERVER')
+    expect((res.json() as { code: string }).code).toBe('E_LSP_UNKNOWN_SERVER')
   })
 
   test('安装失败 → 502 E_LSP_INSTALL*', async () => {
@@ -62,7 +62,7 @@ describe('POST /api/lsp/install（阶段十九 19.5 / ADR D47）', () => {
       payload: { id: 'python' },
     })
     expect(res.statusCode).toBe(502)
-    expect(res.json().code).toBe('E_LSP_INSTALL')
+    expect((res.json() as { code: string }).code).toBe('E_LSP_INSTALL')
   })
 
   test('缺 id → 400', async () => {

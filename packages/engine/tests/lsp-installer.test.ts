@@ -23,7 +23,7 @@ async function makeInstaller(overrides: {
 
 describe('LspInstaller（阶段十九 19.5 / ADR D47）', () => {
   test('未知 id → E_LSP_UNKNOWN_SERVER，不写配置', async () => {
-    const { installer, root } = await makeInstaller({ probe: async () => true })
+    const { installer, root } = await makeInstaller({ probe: () => Promise.resolve(true) })
     const r = await installer.install('no-such-lang')
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.code).toBe('E_LSP_UNKNOWN_SERVER')
@@ -33,9 +33,10 @@ describe('LspInstaller（阶段十九 19.5 / ADR D47）', () => {
   test('已装探测成功 → 跳过 npm 直写配置（幂等入口快路径）', async () => {
     let npmCalls = 0
     const { installer, root } = await makeInstaller({
-      probe: async () => true,
-      runNpm: async () => {
+      probe: () => Promise.resolve(true),
+      runNpm: () => {
         npmCalls += 1
+        return Promise.resolve()
       },
     })
     const r = await installer.install('typescript')
@@ -55,10 +56,11 @@ describe('LspInstaller（阶段十九 19.5 / ADR D47）', () => {
     // probe 翻转：装前不可用（触发 npm），npm 回调置位后装后校验通过
     let installed = false
     const { installer, root } = await makeInstaller({
-      probe: async () => installed,
-      runNpm: async (packages) => {
+      probe: () => Promise.resolve(installed),
+      runNpm: (packages) => {
         installed = true
         expect(packages.length).toBeGreaterThan(0)
+        return Promise.resolve()
       },
     })
     const r = await installer.install('python')
@@ -72,10 +74,9 @@ describe('LspInstaller（阶段十九 19.5 / ADR D47）', () => {
 
   test('npm 失败 → E_LSP_INSTALL 前缀且不落盘', async () => {
     const { installer, root } = await makeInstaller({
-      probe: async () => false,
-      runNpm: async () => {
-        throw new Error('E_LSP_INSTALL: npm 安装失败——registry 不可达')
-      },
+      probe: () => Promise.resolve(false),
+      runNpm: () =>
+        Promise.reject(new Error('E_LSP_INSTALL: npm 安装失败——registry 不可达')),
     })
     const r = await installer.install('bash')
     expect(r.ok).toBe(false)
@@ -85,8 +86,8 @@ describe('LspInstaller（阶段十九 19.5 / ADR D47）', () => {
 
   test('装后校验失败 → E_LSP_INSTALL_VERIFY 不写配置', async () => {
     const { installer, root } = await makeInstaller({
-      probe: async () => false,
-      runNpm: async () => {},
+      probe: () => Promise.resolve(false),
+      runNpm: () => Promise.resolve(),
     })
     const r = await installer.install('yaml')
     expect(r.ok).toBe(false)
@@ -95,7 +96,7 @@ describe('LspInstaller（阶段十九 19.5 / ADR D47）', () => {
   })
 
   test('同形状条目已存在 → written:false 幂等不重写', async () => {
-    const { installer } = await makeInstaller({ probe: async () => true })
+    const { installer } = await makeInstaller({ probe: () => Promise.resolve(true) })
     const r1 = await installer.install('typescript')
     expect(r1.ok && r1.written).toBe(true)
     const r2 = await installer.install('typescript')
