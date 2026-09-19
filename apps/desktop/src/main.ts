@@ -13,15 +13,18 @@
  * sidecar 意外退出：就绪后崩溃 = 壳没有数据源，跟随退出；就绪前早退（AUD-12，
  * 典型根因 = models.json 缺失抛 ConfigError）= showFatalWindow 引导窗替代静默
  * 秒退——展示原因/stderr 尾部、配置指引与日志位置，用户关窗即退出。
+ * 首启检测（RT3-01 / WO-083）：models.json 缺失 → 先出引导窗（模板+打开配置目录），
+ * 文件出现自动续启——不再白起一个必然 E_CONFIG 早退的 sidecar（壳侧方案，doc/10
+ * AUD-12 判例 A：不动 server 生命周期语义）。
  */
 import { spawn, type ChildProcess } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { app, BrowserWindow, net, Notification } from 'electron'
+import { app, BrowserWindow, net, Notification, shell } from 'electron'
 import { startNotifications } from './notify-wiring.js'
-import { renderFatalHtml } from './fatal.js'
+import { renderFatalHtml, renderFirstRunHtml } from './fatal.js'
 
 const START_TIMEOUT_MS = 20_000
 const PROBE_INTERVAL_MS = 250
@@ -34,6 +37,8 @@ let quitting = false
 let ready = false
 /** 首启失败引导窗（AUD-12）；null = 未显示 */
 let fatalWin: BrowserWindow | null = null
+/** RT3-01 首启引导窗；null = 未显示/已关闭 */
+let firstRunWin: BrowserWindow | null = null
 /** sidecar stderr 尾部环形缓冲（AUD-12） */
 const stderrTail: string[] = []
 
@@ -135,6 +140,55 @@ function showFatalWindow(reason: string): void {
   })
 }
 
+/**
+ * 首启引导窗（RT3-01 / WO-083）：全新用户 models.json 缺失时，sidecar 必然
+ * E_CONFIG 早退——先给"配什么/放哪里/密钥纪律"的引导页并打开配置目录，
+ * 文件出现后自动继续启动（轮询，无需重启应用）。壳侧方案（doc/10 AUD-12
+ * 判例 A：不动 server 生命周期语义——engine 的 E_CONFIG 拒绝无配置启动不变）。
+ */
+function showFirstRunWindow(sparkDir: string, modelsPath: string): void {
+  firstRunWin = new BrowserWindow({
+    width: 560,
+    height: 480,
+    title: 'Spark',
+    // WO-025：显式声明安全缺省（同 fatalWin）
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+  })
+  firstRunWin.on('closed', () => {
+    firstRunWin = null
+  })
+  const html = renderFirstRunHtml({ sparkDir, modelsPath })
+  void firstRunWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`).catch((err: unknown) => {
+    console.error('[desktop] 首启引导窗加载失败', err)
+    firstRunWin = null
+    app.exit(1)
+  })
+}
+
+/**
+ * RT3-01 首启检测：models.json 存在 → 直接放行；缺失 → 引导窗 + 打开配置目录，
+ * 每 1.5s 复查，文件出现即关窗续启。返回 false = 用户关闭引导窗（随
+ * window-all-closed 退出，不再拉 sidecar）。
+ */
+async function waitForFirstRunConfig(sparkDir: string, modelsPath: string): Promise<boolean> {
+  if (existsSync(modelsPath)) return true
+  mkdirSync(sparkDir, { recursive: true }) // 引导动作前提：openPath 需要目录存在
+  showFirstRunWindow(sparkDir, modelsPath)
+  void shell.openPath(sparkDir).then((errMsg) => {
+    // openPath 以 resolve('') / resolve(错误说明) 表达成败（不 reject）；打不开（罕见）
+    // 时引导页文案本身已含完整路径，不阻断流程
+    if (errMsg !== '') console.error('[desktop] 打开配置目录失败', errMsg)
+  })
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 1500))
+    if (firstRunWin === null) return false // 用户关窗退出
+    if (existsSync(modelsPath)) {
+      firstRunWin.destroy() // 触发 closed → 引用置 null；配置无效时走既有 fatal 窗路径
+      return true
+    }
+  }
+}
+
 /** 轮询探活直到 200 / 超时抛错（失败闭合：不静默降级） */
 async function waitReady(port: number): Promise<void> {
   const url = `http://127.0.0.1:${port}/api/healthz`
@@ -157,6 +211,10 @@ async function waitReady(port: number): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // RT3-01（WO-083）：首启检测先行——models.json 缺失时引导配置而不是拉起必失败的
+  // sidecar；文件出现后自动续启。用户关窗引导 = 返回 false，随 window-all-closed 退出
+  const sparkDir = join(homedir(), '.spark')
+  if (!(await waitForFirstRunConfig(sparkDir, join(sparkDir, 'models.json')))) return
   // AUD-12：启动序列（取端口/拉 sidecar/探活）失败 → 引导窗，不再静默 app.exit(1)。
   // 首启失败的典型根因（models.json 缺失抛 ConfigError）只有 stderr 可见，随窗展示
   let port: number

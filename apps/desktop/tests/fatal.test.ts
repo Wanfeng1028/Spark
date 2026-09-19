@@ -4,7 +4,7 @@
  * 函数（无 IO、无脚本、无外部资源）。
  */
 import { describe, expect, test } from 'vitest'
-import { renderFatalHtml } from '../src/fatal.js'
+import { renderFatalHtml, renderFirstRunHtml } from '../src/fatal.js'
 
 const INPUT = {
   title: 'Spark 启动失败',
@@ -41,6 +41,33 @@ describe('renderFatalHtml（AUD-12 首启失败引导窗）', () => {
     expect(html).not.toContain('<script')
     expect(html).not.toContain('http://')
     expect(html).not.toContain('https://')
+    expect(html).not.toContain('src=')
+  })
+})
+
+describe('renderFirstRunHtml（RT3-01 首启引导窗）', () => {
+  const FR_INPUT = {
+    sparkDir: 'C:\\Users\\me\\.spark',
+    modelsPath: 'C:\\Users\\me\\.spark\\models.json',
+  }
+
+  test('含欢迎语、配置文件路径、最小模板、密钥纪律与自动续启说明', () => {
+    const html = renderFirstRunHtml(FR_INPUT)
+    expect(html).toContain('欢迎使用 Spark')
+    expect(html).toContain('C:\\Users\\me\\.spark\\models.json')
+    // 模板文本经 escapeHtml（" → &quot;），断言不带引号字面量
+    expect(html).toContain('providers')
+    expect(html).toContain('apiKeyEnv')
+    expect(html).toContain('defaultModel')
+    expect(html).toContain('环境变量')
+    expect(html).toContain('自动检测并继续启动')
+  })
+
+  test('路径含 HTML 时被转义（<script> 不落地）；无脚本标签（模板里的 https 除外，不属外部资源）', () => {
+    const html = renderFirstRunHtml({ sparkDir: '<x> & "y"', modelsPath: 'C:\\m.json' })
+    expect(html).not.toContain('<x>')
+    expect(html).toContain('&lt;x&gt;')
+    expect(html).not.toContain('<script')
     expect(html).not.toContain('src=')
   })
 })
