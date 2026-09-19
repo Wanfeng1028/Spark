@@ -40,7 +40,12 @@ export interface UseCliKeysOptions {
   lastFailedRef: { current: string | null }
   /** 动作集（use-cli-actions） */
   actions: {
-    replyApproval: (requestId: RequestId, reply: 'once' | 'always' | 'reject', feedback?: string) => void
+    replyApproval: (
+      requestId: RequestId,
+      reply: 'once' | 'always' | 'reject',
+      feedback?: string,
+      scope?: 'user' | 'project',
+    ) => void
     newSession: () => void
     switchSession: (offset: 1 | -1) => void
     confirmResume: () => void
