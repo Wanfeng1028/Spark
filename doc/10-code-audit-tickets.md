@@ -12,6 +12,7 @@
 | v1.7 | 2026-09-19 | AI 编写：ZCode · Union Alpha；回归验证执行：豆包 | **AUD-RT-01 部分回报收编（550385a）**：豆包回归报告（基线 6e4219b，2477 测试全绿 + AUD-01~14 逐单源码/单测核对 + AUD-12 Electron 首启引导窗现场确认 + step-3.7-flash 真实模型端到端）经 PR #25 提交——**PR 不合并**（分支基线落后约 30 提交，diff 为对 main 现有修复的反向回滚），仅提取报告与 5 张截图入 docs/audit/regression/。报告发现①采纳（proxy-fetch 测试全组代理桩）；②③登记备查（checkpoint 非 git cwd 预期报错 / server dist esbuild external 链路）。**AUD-RT-01 余项仍留豆包**：① 移动端真机四场景 ② 小程序走查 ⑤ 语音真实链路 ⑥ LSP 真实 server ⑦ MCP 外配 ⑧ mitm 代理 ⑨ npm 发布冒烟（已完成：③ Electron 首启、④ 真实模型端到端） |
 | v1.8 | 2026-09-19 | AI 编写：ZCode · Union Alpha；第二轮测试执行：豆包（PR #26 已合并 6764e97） | **第二轮复测收编 + 7 项 UI 修复批**（新增 §11）：2341 单测全绿无新增回归，官网标题/复制按钮两项闭环确认；复测不变的 7 项全部修复——WO-079 窄屏（工具栏可换行+模型选择器收图标+chips 防竖排）、裸 /settings 重定向路由缺失、WO-080 Esc 关 + 菜单、WO-081 面板开时收起弹层、WO-082 沙箱标签收短、搜索清除钮、侧边栏右键菜单（归档/删除两段式内联确认，替换违反 DESIGN §5 的 window.confirm；重命名需 header 重写设计登记缺口）。MCP github（环境预期）与技能页只读（v2 挂池）维持 |
 | v1.9 | 2026-09-19 | AI 编写：ZCode · Union Alpha；拍板：晚风（Wanfeng1028，四问四答） | **三项人类决策落地**：① WO-015 官网死代码 → **冻结保留**（不删除）；② G7 spike-pi-ai lock 残留 → **冻结保留**（doc/05 v1.3 同步）；③ 两张 D28 重号 → **永久维持双编号 + 主题消歧**（ARCHITECTURE v1.51 同步）。**发布拍板：先修链路再发**——apps/server 打包链路修复（pi-ai/pino 入 bundle + check-dist 自校验，回归报告发现③消解）；五公开包版本 1.0.0 + CHANGELOG 1.0.0 节；tag v1.0.0 触发 release.yml（npm publish 需 NPM_TOKEN/或 Trusted Publishing + @spark scope 组织，缺则发布步红如实报告）。池子决策：会话重命名做（标题已事件化——session.title durable + titleOf 取最新，端点=发事件+自动标题覆盖守卫，小 ADR 随批）；其余四项（检查器版本校验/loadOlder 优化/ContextMeter/技能启停）defer 挂池 |
+| v1.11 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你先看豆包的测试报告，根据报告行动"指令；PR #27 已合并 72e18a3） | **第三轮走查项 RT3-01/03/04/06 修复收官（§12 状态表更新 + RT3-05/07 登记）**：RT3-01 首启引导窗+自动续启（622f96a，壳侧判例 A）、RT3-03 代理同源 undici 配对（3fd0336，根因=跨包 dispatcher 不互通；修红 5cf0d4f）、RT3-04 MCP 30s+connectTimeoutMs 全链（1b5f96f）、RT3-06 窄视口一次性折叠（d2c1ba5）；新发现 RT3-07（MCP 管理页保存丢 args/env，12.6 遗留）立单。真实代理/npx 冷启动/Electron 首启复测留豆包现场 |
 | v1.10 | 2026-09-19 | AI 编写：ZCode · Union Alpha；第三轮测试执行：豆包（PR #27 已合并 72e18a3） | **第三轮复测收编 + 发布启动**（新增 §12）：二轮 7 项修复**全部验收通过**；真机走查——真实模型 E2E ✓、LSP server ✓、移动端/小程序/语音 headless 不可走查仍留；新立 RT3-01（P0 Electron 空 HOME 仍无配置向导——错误窗已交付，向导属增强，随桌面批次）、RT3-03（P1 带代理 LLM 请求无响应——undici dispatcher 兼容）、RT3-04（P2 MCP npx 冷启动 10s 超时）；**RT3-02 已由并行会话修复**（40ddd97 WO-084：spark --version/-v 独立退出，发布冒烟硬前置消解）。发版：五包 1.0.0 + CHANGELOG 1.0.0 + tag v1.0.0 触发 release.yml（发布结果如实登记） |
 | v1.1 | 2026-09-18 | AI 编写：ZCode · Union Alpha；发起：晚风（Wanfeng1028，"核验豆包审查报告+评估工单+补充发现+真机工单交豆包"指令） | 新增 §4 外部审查报告（docs/audit/，78 工单）逐条核验结论（40 条技术单：33 属实/6 部分属实/3 不属实）；§5 DSH 对话框改造 27 项判决退回（与 DESIGN.md 视觉宪法冲突清单）；§8 新增 AUD-02~AUD-14 工单（引擎资源/投影竞态/生命周期批）；§9 新增 AUD-RT-01 现场走查工单（交豆包执行）。仅文档，未改源码。 |
 | v1.0 | 2026-09-18 | AI 编写：ZCode · Union Alpha；发起：晚风（Wanfeng1028） | 登记 AUD-01：审批事件持久化失败仍放行的静态审查证据、修复方案、执行计划与验收条件。仅创建工单，未修改源码或执行验证。 |
@@ -342,7 +343,12 @@ AUD-01（§3）为本轮独立发现，与豆包报告零重叠（其报告未�
 
 | 编号 | 优先级 | 问题 | 状态 |
 | --- | --- | --- | --- |
-| RT3-01 | P0 | Electron 空 ~/.spark 首启：错误对话框已交付（AUD-12），配置向导仍缺 | 立单待桌面批次（向导属增强，不阻塞 npm 发布） |
+| RT3-01 | P0 | Electron 空 ~/.spark 首启：错误对话框已交付（AUD-12），配置向导仍缺 | **已修**（622f96a，WO-083）——壳侧首启检测：models.json 缺失先出引导窗（最小模板+自动打开配置目录+密钥纪律），文件出现自动续启；沿用 AUD-12 判例 A（不动 server 生命周期语义），engine fail-closed 不变。表单式配置向导仍留 v2（当前 UI 本就无模型新增端点，手编文件是既定路径） |
 | RT3-02 | P1 | spark --version 掉 TUI raw-mode 报错 | **已修**（40ddd97，WO-084）——发布冒烟硬前置消解 |
-| RT3-03 | P1 | 带代理环境 LLM 请求无响应（undici dispatcher 兼容） | 立单待修（用户环境常见，发布后优先） |
-| RT3-04 | P2 | MCP filesystem npx 冷启动 10s 超时 | 立单待修（包可拉取，仅超时；可调 mcp.json 超时参数缓解） |
+| RT3-03 | P1 | 带代理环境 LLM 请求无响应（undici dispatcher 兼容） | **已修**（3fd0336，WO-085）——根因=跨包 dispatcher 配对（npm undici 8 的 ProxyAgent 塞给 Node 内置 undici 的 fetch，handler 协议不互通→静默无响应）；改用同包 fetch+Agent，直连路径零变化；配对回归锁进单测（mock undici）。真实代理链路复测留豆包 |
+| RT3-04 | P2 | MCP filesystem npx 冷启动 10s 超时 | **已修**（1b5f96f，WO-086）——缺省 10s→30s + per-server `connectTimeoutMs`（上限 600s）；mcp.json schema/PUT /api/mcp/管理页表单全链透传；真实 npx 冷启动复测留豆包 |
+| RT3-05 | P2 | 侧边栏会话项无"重命名" | 已登记（§11 缺口 + v1.9 拍板"会话重命名做"）——标题已事件化，端点随会话管理批次，不在本批 |
+| RT3-06 | P2 | 375px 窄屏左侧边栏仍占 ~264px，主内容区不可用 | **已修**（d2c1ba5，WO-087）——挂载时窄视口（<640）一次性自动折叠侧栏（复用 toggleSidebar 持久化口径）；DESIGN §2 不做响应式断点，此为一次性缺省非断点体系，可再展开 |
+| RT3-07 | P2 | 本批实施中新发现：MCP 管理页保存时"保留其余 server"仅回填 command——args/env/connectTimeoutMs 被静默丢弃（GET /api/mcp 状态 DTO 无配置字段，属 12.6 遗留数据丢失缺陷，先于本批存在） | 立单待修——需配置读回通道（扩展 GET /api/mcp 或新增配置端点+DTO+mock 对等），随 MCP 管理页增强批 |
+
+**实施记录（本仓修复批，全本机零验证以 CI 裁决）**：RT3-02=40ddd97（复用 WO-050 versionOf 单一来源，禁再写一份）；RT3-03=3fd0336（类型收窄修红 5cf0d4f）；RT3-04=1b5f96f（doc/02 §5.1 + ARCHITECTURE D16 正文同步）；RT3-06=d2c1ba5；RT3-01=622f96a（renderFirstRunHtml 纯函数 + fatal.test 补 3 例）。
