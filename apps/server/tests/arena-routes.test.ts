@@ -7,8 +7,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeServer } from './helpers.js'
 
-type Json = Record<string, unknown>
-
 describe('GET /api/arena/history（工单 19.10）', () => {
   it('空历史 → 200 { runs: [] }', async () => {
     const f = await makeServer()
@@ -21,7 +19,7 @@ describe('GET /api/arena/history（工单 19.10）', () => {
     const f = await makeServer()
     const res = await f.app.inject({ method: 'GET', url: '/api/arena/history?limit=5' })
     expect(res.statusCode).toBe(200)
-    expect(res.json() as Json).toHaveProperty('runs')
+    expect(res.json()).toHaveProperty('runs')
   })
 
   it('limit 非数字 → 400（zod 查询解析）', async () => {
