@@ -403,10 +403,14 @@ process.on('exit', () => {
 describe('MCP streamable-http（阶段十九 19.4 / ADR D46）', () => {
   test('loadMcpConfig：http 合法（url+transport）；缺 url 拒；http 带 command 拒；stdio 缺 command 拒', () => {
     const dir = tempDir()
-    write(dir, 'mcp.json', JSON.stringify({
-      version: 1,
-      servers: { remote: { transport: 'streamable-http', url: 'https://mcp.example.com/mcp' } },
-    }))
+    writeFileSync(
+      join(dir, 'mcp.json'),
+      JSON.stringify({
+        version: 1,
+        servers: { remote: { transport: 'streamable-http', url: 'https://mcp.example.com/mcp' } },
+      }),
+      'utf8',
+    )
     const cfg = loadMcpConfig(dir)
     expect(cfg.servers['remote']).toMatchObject({
       transport: 'streamable-http',
@@ -414,18 +418,30 @@ describe('MCP streamable-http（阶段十九 19.4 / ADR D46）', () => {
     })
 
     const d2 = tempDir()
-    write(d2, 'mcp.json', JSON.stringify({ version: 1, servers: { r: { transport: 'streamable-http' } } }))
+    writeFileSync(
+      join(d2, 'mcp.json'),
+      JSON.stringify({ version: 1, servers: { r: { transport: 'streamable-http' } } }),
+      'utf8',
+    )
     expect(() => loadMcpConfig(d2)).toThrow(ConfigError)
 
     const d3 = tempDir()
-    write(d3, 'mcp.json', JSON.stringify({
-      version: 1,
-      servers: { r: { transport: 'streamable-http', url: 'https://x.example.com', command: 'nope' } },
-    }))
+    writeFileSync(
+      join(d3, 'mcp.json'),
+      JSON.stringify({
+        version: 1,
+        servers: { r: { transport: 'streamable-http', url: 'https://x.example.com', command: 'nope' } },
+      }),
+      'utf8',
+    )
     expect(() => loadMcpConfig(d3)).toThrow(ConfigError)
 
     const d4 = tempDir()
-    write(d4, 'mcp.json', JSON.stringify({ version: 1, servers: { r: {} } }))
+    writeFileSync(
+      join(d4, 'mcp.json'),
+      JSON.stringify({ version: 1, servers: { r: {} } }),
+      'utf8',
+    )
     expect(() => loadMcpConfig(d4)).toThrow(ConfigError)
   })
 
@@ -440,15 +456,15 @@ describe('MCP streamable-http（阶段十九 19.4 / ADR D46）', () => {
         },
       },
     }
-    const masked = maskMcpConfigForClient(withHeaders)
+    const masked = maskMcpConfigForClient({ servers: withHeaders.servers })
     expect(masked.servers['remote']?.headers).toEqual({ Authorization: '__SPARK_KEEP__' })
     // 占位 → 盘上真值回填
-    const merged = mergeMaskedMcpConfig(withHeaders.servers, masked)
+    const merged = mergeMaskedMcpConfig({ servers: withHeaders.servers }, masked)
     expect(merged.servers['remote']?.headers).toEqual({ Authorization: 'Bearer secret' })
     // 新 key 掩码 → ConfigError（掩码不是值）
-    const bad = maskMcpConfigForClient(withHeaders)
+    const bad = maskMcpConfigForClient({ servers: withHeaders.servers })
     bad.servers['remote']!.headers!['X-New'] = '__SPARK_KEEP__'
-    expect(() => mergeMaskedMcpConfig(withHeaders.servers, bad)).toThrow(ConfigError)
+    expect(() => mergeMaskedMcpConfig({ servers: withHeaders.servers }, bad)).toThrow(ConfigError)
   })
 
   test('缺省工厂 + http 配置：连接失败 warn 跳过，状态显示 url（不真连——127.0.0.1:9 立即拒绝）', async () => {
