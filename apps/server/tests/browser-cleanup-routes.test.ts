@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { makeServer } from './helpers'
+import { makeServer } from './helpers.js'
 
 describe('POST /api/browser/cleanup（阶段十九 19.12 / ADR D49）', () => {
   test('清理 shotsDir 白名单产物：removed 计数 + 文件消失', async () => {
