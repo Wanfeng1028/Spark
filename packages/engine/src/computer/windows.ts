@@ -220,7 +220,7 @@ export class WindowsComputerExecutor implements ComputerExecutor {
     const file = `shot-${Date.now()}-${(shotSeq += 1)}.png`
     const path = join(this.shotsDir, file)
     await runPowerShell(PS_SCREENSHOT, { CU_FILE: path }, SCREENSHOT_TIMEOUT_MS, signal)
-    return { file, bytes: statSync(path).bytes }
+    return { file, bytes: statSync(path).size }
   }
 
   async click(input: ComputerClickInput, signal: AbortSignal): Promise<{ ok: true }> {
@@ -253,7 +253,7 @@ export class WindowsComputerExecutor implements ComputerExecutor {
     return { ok: true }
   }
 
-  async scroll(input: { deltaY: number; x?: number; y?: number }, signal: AbortSignal): Promise<{ ok: true }> {
+  async scroll(input: ComputerScrollInput, signal: AbortSignal): Promise<{ ok: true }> {
     await runPowerShell(
       PS_SCROLL,
       {
@@ -287,8 +287,9 @@ export class WindowsComputerExecutor implements ComputerExecutor {
   async app(input: ComputerAppInput, signal: AbortSignal): Promise<{ pid?: number; apps: ComputerAppInfo[] }> {
     if (input.action === 'launch') {
       const stdout = await runPowerShell(PS_APP_LAUNCH, { CU_CMD: input.command ?? '' }, OP_TIMEOUT_MS, signal)
-      const pid = parseKv(stdout, 'pid')
-      return { pid: pid === undefined ? undefined : Number(pid), apps: [] }
+      const raw = parseKv(stdout, 'pid')
+      const pid = raw === undefined ? Number.NaN : Number(raw)
+      return Number.isNaN(pid) ? { apps: [] } : { pid, apps: [] }
     }
     const stdout = await runPowerShell(PS_APP_LIST, {}, OP_TIMEOUT_MS, signal)
     return { apps: parseProcessList<ComputerAppInfo>(stdout) }

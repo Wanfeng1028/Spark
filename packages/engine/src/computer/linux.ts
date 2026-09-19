@@ -118,7 +118,7 @@ export class LinuxComputerExecutor implements ComputerExecutor {
       // scrot 缺则退 ImageMagick import（-window root 全屏）
       await run('import', ['-window', 'root', path], SCREENSHOT_TIMEOUT_MS, signal)
     }
-    return { file, bytes: statSync(path).bytes }
+    return { file, bytes: statSync(path).size }
   }
 
   async click(input: ComputerClickInput, signal: AbortSignal): Promise<{ ok: true }> {

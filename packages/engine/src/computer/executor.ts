@@ -32,36 +32,51 @@ export interface ComputerAppInfo {
 export interface ComputerClickInput {
   x: number
   y: number
-  button?: 'left' | 'right' | 'middle'
-  double?: boolean
+  button?: 'left' | 'right' | 'middle' | undefined
+  double?: boolean | undefined
+}
+
+/** 输入文本（UNICODE 逐字符 SendInput；\n 转回车） */
+export interface ComputerTypeInput {
+  text: string
+}
+
+/** 按键或组合键（key = 键名，如 Enter/F5/a；modifiers 组合） */
+export interface ComputerKeyInput {
+  key: string
+  modifiers?: string[] | undefined
+}
+
+/** 滚轮（deltaY > 0 向上滚一档格；x/y 缺省在当前位置滚） */
+export interface ComputerScrollInput {
+  deltaY: number
+  x?: number | undefined
+  y?: number | undefined
 }
 
 export interface ComputerWindowInput {
   action: 'list' | 'focus'
-  title?: string
-  pid?: number
+  title?: string | undefined
+  pid?: number | undefined
 }
 
 export interface ComputerAppInput {
   action: 'launch' | 'list'
-  command?: string
+  command?: string | undefined
 }
 
 export interface ComputerClipboardInput {
   action: 'read' | 'write'
-  text?: string
+  text?: string | undefined
 }
 
 export interface ComputerExecutor {
   /** 截取整个虚拟屏幕（多显示器全覆盖）为 PNG */
   screenshot(signal: AbortSignal): Promise<ComputerScreenshotResult>
   click(input: ComputerClickInput, signal: AbortSignal): Promise<{ ok: true }>
-  /** 输入文本（UNICODE 逐字符 SendInput；\n 转回车） */
-  type(input: { text: string }, signal: AbortSignal): Promise<{ ok: true }>
-  /** 按键或组合键（key = 键名，如 Enter/F5/a；modifiers 组合） */
-  key(input: { key: string; modifiers?: string[] }, signal: AbortSignal): Promise<{ ok: true }>
-  /** 滚轮（deltaY > 0 向上滚一档格；x/y 缺省在当前位置滚） */
-  scroll(input: { deltaY: number; x?: number; y?: number }, signal: AbortSignal): Promise<{ ok: true }>
+  type(input: ComputerTypeInput, signal: AbortSignal): Promise<{ ok: true }>
+  key(input: ComputerKeyInput, signal: AbortSignal): Promise<{ ok: true }>
+  scroll(input: ComputerScrollInput, signal: AbortSignal): Promise<{ ok: true }>
   /** 窗口：list = 有主窗口的进程清单；focus = 按 pid/标题子串置前 */
   window(input: ComputerWindowInput, signal: AbortSignal): Promise<{ windows: ComputerWindowInfo[] } | { focused: string }>
   /** 应用：launch = 启动可执行本体（无参数——带参数走 bash）；list = 运行中进程清单 */

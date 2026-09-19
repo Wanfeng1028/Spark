@@ -103,7 +103,7 @@ export class MacComputerExecutor implements ComputerExecutor {
     const file = `shot-${Date.now()}-${(shotSeq += 1)}.png`
     const path = join(this.shotsDir, file)
     await run('screapture', ['-x', path], SCREENSHOT_TIMEOUT_MS, signal)
-    return { file, bytes: statSync(path).bytes }
+    return { file, bytes: statSync(path).size }
   }
 
   async click(input: ComputerClickInput, signal: AbortSignal): Promise<{ ok: true }> {
