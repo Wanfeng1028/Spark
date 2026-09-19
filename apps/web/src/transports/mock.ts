@@ -464,7 +464,7 @@ export class MockTransport implements Transport {
     requestId: RequestId,
     reply: PermissionReply,
     feedback?: string,
-    scope?: 'user' | 'project',
+    _scope?: 'user' | 'project',
   ): Promise<void> {
     this.assertNotDisposed()
     if (this.suspended !== 'approval') {
