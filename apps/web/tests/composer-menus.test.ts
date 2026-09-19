@@ -69,9 +69,10 @@ describe('filterCommands（/ 菜单命令过滤）', () => {
     expect(SLASH_COMMANDS.some((c) => c.name === 'computer' && c.kind === 'client')).toBe(true)
   })
 
-  test('按名称过滤（大小写不敏感）', () => {
+  test('按名称过滤（大小写不敏感；COMP 命中 compact 与 19.2 /computer 两条）', () => {
     expect(filterCommands('COMP')).toEqual([
       { name: 'compact', description: '压缩上下文（保留摘要，释放窗口）', kind: 'action' },
+      { name: 'computer', description: '电脑控制面板：computer.* 主开关状态与八操作审批档位（开关在设置中心）', kind: 'client' },
     ])
   })
 
