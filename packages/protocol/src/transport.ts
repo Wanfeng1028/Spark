@@ -20,6 +20,9 @@ import type {
   FsTreeDto,
   LspServerStatusDto,
   LspInstallResultDto,
+  IndexStatsDto,
+  RebuildResultDto,
+  VacuumResultDto,
   McpConfigInput,
   McpServerDto,
   MemoryDto,
@@ -173,6 +176,12 @@ export interface Transport {
    * 未知 id → E_LSP_UNKNOWN_SERVER；npm 失败/校验失败 → E_LSP_INSTALL*（502）。
    * 配置写入后新 server 在下次使用该语言工具时惰性连接（config hash 变更自动重连，16.9 语义） */
   installLspServer(id: string): Promise<LspInstallResultDto>
+  /** GET /api/index/stats：索引库统计（条目/体积/路径；工单 19.11；降级时 available:false） */
+  indexStats(): Promise<IndexStatsDto>
+  /** POST /api/index/rebuild：清表重扫 sessions JSONL 全量重建（等待完成回条目数；工单 19.11） */
+  rebuildIndex(): Promise<RebuildResultDto>
+  /** POST /api/index/vacuum：SQLite VACUUM 空间回收（回前后库体积；工单 19.11） */
+  vacuumIndex(): Promise<VacuumResultDto>
   /** GET /api/usage/summary：成本看板（总账 + 按日/供应商明细 + 旧账差额 + 熔断状态，工单 13.6） */
   usageSummary(since?: string): Promise<UsageSummaryDto>
   /** GET /api/memories：长期记忆列表（设置页管理数据源，工单 7.5） */

@@ -12,6 +12,9 @@ import { SETTINGS_RESTART_REQUIRED, findKnownLspServer, ids, parseEnvelope } fro
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
 import type {
   LspInstallResultDto,
+  IndexStatsDto,
+  RebuildResultDto,
+  VacuumResultDto,
   AgentPresetDto,
   TraceDto,
   TraceTurnDto,
@@ -1137,6 +1140,41 @@ export class MockTransport implements Transport {
       setTimeout(() => {
         resolve({ language: known.language, command: known.command, args: [...known.args], written: true })
       }, 300)
+    })
+  }
+
+  /**
+   * 索引库管理（阶段十九 19.11 对等演示，纯 mock）：静态一笔统计 + 重建/回收延迟回假合理值。
+   * 重建后条目数按脚本演示口径减一（模拟重建精简），体积回落——真实通道=引擎 SQLite 全量重扫。
+   */
+  private mockIndexEntries = 128
+
+  indexStats(): Promise<IndexStatsDto> {
+    this.assertNotDisposed()
+    return Promise.resolve({
+      entries: this.mockIndexEntries,
+      sizeBytes: 264_192,
+      path: '~/.spark/search.db（mock 演示路径）',
+    })
+  }
+
+  rebuildIndex(): Promise<RebuildResultDto> {
+    this.assertNotDisposed()
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // mock：重建精简一成条目（演示数字，真实通道=JSONL 全量重扫的实数）
+        this.mockIndexEntries = Math.max(0, Math.floor(this.mockIndexEntries * 0.9))
+        resolve({ entries: this.mockIndexEntries })
+      }, 600)
+    })
+  }
+
+  vacuumIndex(): Promise<VacuumResultDto> {
+    this.assertNotDisposed()
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ sizeBytesBefore: 264_192, sizeBytesAfter: 237_568 })
+      }, 600)
     })
   }
 

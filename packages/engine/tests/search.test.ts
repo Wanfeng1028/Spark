@@ -7,15 +7,17 @@
  * - 引擎端到端：增量索引（user/assistant/title 三类命中 + 标题填充 + 摘要含命中词）/
  *   重启持久（水位持平跳同步）/ 删库后装载点增量重建（水位缺失全量补）。
  */
-import { mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync, existsSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import type { SparkEventEnvelope } from '@spark/protocol'
 import { ids } from '@spark/protocol'
 import type { EngineConfig } from '../src/config.js'
 import { Engine } from '../src/engine.js'
+import { Logger } from '../src/logger.js'
 import { SearchStore } from '../src/search/store.js'
+import { SearchIndexer } from '../src/search/indexer.js'
 import type { SearchEntry } from '../src/search/store.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
 
@@ -143,6 +145,31 @@ describe('SearchStore（~/.spark/search.db：FTS5 trigram + LIKE 降级）', () 
     expect(store.search('100%', 10).map((h) => h.content)).toEqual(['a_b 与 100% 的字面量'])
     store.close()
   })
+
+  test('vacuum：体积非增（after ≤ before）且数据完好（工单 19.11）', () => {
+    const dbPath = join(tempDir(), 'search.db')
+    const store = new SearchStore(dbPath)
+    for (let i = 0; i < 200; i++) {
+      store.upsert(
+        entry({
+          eventId: ids.event(`evt_search_vac${String(i).padStart(4, '0')}`),
+          seq: i + 1,
+          content: `空间回收填充内容行 ${i}——足够长的文本保证删行后留下可回收的空闲页`,
+        }),
+      )
+    }
+    store.removeAfter(SID, 50) // 删 150 行留下空闲页（触发器同步 FTS）
+    const r = store.vacuum()
+    expect(r.sizeBytesAfter).toBeLessThanOrEqual(r.sizeBytesBefore)
+    expect(store.count()).toBe(50)
+    // 剩余行 seq 1..50（i 0..49）：'49' 在剩余集中唯一；已截断行不再命中（FTS/LIKE 同步）
+    expect(store.search('内容行 49', 10).map((h) => h.content)).toEqual([
+      '空间回收填充内容行 49',
+    ])
+    expect(store.search('内容行 150', 10)).toEqual([])
+    store.close()
+  })
+})
 
   test('千事件检索 <500ms（DoD 性能线）', () => {
     const store = new SearchStore(join(tempDir(), 'search.db'))
@@ -297,5 +324,88 @@ describe('Engine 全文搜索端到端（工单 7.13 验收）', () => {
     const hits = second.engine.searchSessions('重建验证', 10)
     expect(hits).toHaveLength(1)
     expect(hits[0]?.sessionId).toBe(sid)
+  })
+})
+
+// ---------- 索引库管理（阶段十九工单 19.11：stats / rebuild / vacuum） ----------
+
+function makeIndexer(root: string): SearchIndexer {
+  return new SearchIndexer(root, new Logger({ root, level: 'silent' }), () => '测试标题')
+}
+
+/** 管理面测试信封：user.message 直入索引器（不过事件总线） */
+function userEnvelope(text: string, seq: number): SparkEventEnvelope {
+  return {
+    id: ids.event(`evt_mgmt_${String(seq).padStart(3, '0')}`),
+    sessionId: SID,
+    seq,
+    version: 1,
+    time: 1700000000000 + seq,
+    type: 'user.message',
+    data: { text },
+  }
+}
+
+describe('SearchIndexer 管理方法（工单 19.11）', () => {
+  test('stats 形状：entries = SQLite COUNT / sizeBytes > 0 / path = search.db 绝对路径', () => {
+    const root = tempDir()
+    const indexer = makeIndexer(root)
+    indexer.indexEvent(userEnvelope('管理面统计的验证文本', 1))
+    indexer.indexEvent(userEnvelope('第二条计入条目数', 2))
+    const s = indexer.stats()
+    expect(s.available).toBeUndefined() // 可用时省略（降级才携带 available:false）
+    expect(s.entries).toBe(2)
+    expect(s.sizeBytes).toBeGreaterThan(0)
+    expect(s.path).toBe(join(root, 'search.db'))
+    expect(isAbsolute(s.path)).toBe(true)
+    indexer.close()
+  })
+
+  test('打开失败降级：stats 如实 available:false + 零值（禁假数据）', () => {
+    const root = tempDir()
+    mkdirSync(join(root, 'search.db')) // 目录占位 → SQLite 打开失败 → 构造期降级
+    const indexer = makeIndexer(root)
+    const s = indexer.stats()
+    expect(s.available).toBe(false)
+    expect(s.entries).toBe(0)
+    expect(s.sizeBytes).toBe(0)
+    expect(indexer.vacuum()).toEqual({ sizeBytesBefore: 0, sizeBytesAfter: 0 })
+    indexer.close()
+  })
+
+  test('close 后短路：stats available:false；vacuum 零值（shutdown 时序纪律）', () => {
+    const root = tempDir()
+    const indexer = makeIndexer(root)
+    indexer.indexEvent(userEnvelope('关闭前入索引的一条', 1))
+    indexer.close()
+    const s = indexer.stats()
+    expect(s.available).toBe(false)
+    expect(s.entries).toBe(0)
+    expect(indexer.vacuum()).toEqual({ sizeBytesBefore: 0, sizeBytesAfter: 0 })
+  })
+
+  test('rebuild：清表重扫 sessions JSONL——条目数恢复、检索可命中', async () => {
+    const { root, engine, gateway, events } = makeEngineWith(makeConfig())
+    gateway.scriptStep({ deltas: [{ kind: 'text', text: '索引重建管理面的检索词' }] })
+    gateway.scriptOnce('标题丙')
+    const h = await engine.createSession()
+    await h.send('重建前先入索引的一条消息')
+    await waitTurnDone(events)
+    await waitForEvent(events, (e) => e.type === 'session.title')
+    await engine.shutdown()
+    engines = engines.filter((e) => e !== engine)
+
+    // 模拟索引损坏：删除测试自建的 search.db，新索引器 stats 归零
+    rmSync(join(root, 'search.db'))
+    const indexer = makeIndexer(root)
+    expect(indexer.stats().entries).toBe(0)
+
+    const r = await indexer.rebuild()
+    expect(r.entries).toBeGreaterThanOrEqual(2) // 用户消息 + 助手消息（标题落定与否不定，取下界）
+    expect(indexer.stats().entries).toBe(r.entries)
+    const hits = indexer.search('重建前先入索引', 10)
+    expect(hits).toHaveLength(1)
+    expect(hits[0]?.sessionId).toBe(h.meta.id)
+    indexer.close()
   })
 })

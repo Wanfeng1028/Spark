@@ -60,6 +60,9 @@ import type {
   AgentPresetDto,
   LspServerStatusDto,
   LspInstallResultDto,
+  IndexStatsDto,
+  RebuildResultDto,
+  VacuumResultDto,
   UsageSummaryDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
@@ -558,6 +561,21 @@ export class HttpTransport implements Transport {
       method: 'POST',
       body: JSON.stringify({ id }),
     })
+  }
+
+  /** GET /api/index/stats：索引库统计（工单 19.11） */
+  indexStats(): Promise<IndexStatsDto> {
+    return this.req<IndexStatsDto>('/api/index/stats')
+  }
+
+  /** POST /api/index/rebuild：清表重扫全量重建（等待完成回条目数；工单 19.11） */
+  rebuildIndex(): Promise<RebuildResultDto> {
+    return this.req<RebuildResultDto>('/api/index/rebuild', { method: 'POST' })
+  }
+
+  /** POST /api/index/vacuum：SQLite VACUUM 空间回收（工单 19.11） */
+  vacuumIndex(): Promise<VacuumResultDto> {
+    return this.req<VacuumResultDto>('/api/index/vacuum', { method: 'POST' })
   }
 
   usageSummary(since?: string): Promise<UsageSummaryDto> {

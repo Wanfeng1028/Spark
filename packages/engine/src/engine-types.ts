@@ -88,6 +88,18 @@ export interface SearchHit {
   snippet: string
 }
 
+/** 索引库统计（工单 19.11；GET /api/index/stats 的引擎数据源，server 原样转 IndexStatsDto） */
+export interface SearchIndexStats {
+  /** 全文索引条目数（SQLite COUNT，非内存数） */
+  entries: number
+  /** search.db 库文件体积（字节） */
+  sizeBytes: number
+  /** 库文件绝对路径 */
+  path: string
+  /** false = SQLite 打开失败降级（旁路纪律，JSONL 权威不受影响）；可用时省略 */
+  available?: boolean
+}
+
 /** UI 审批回复的三态（server 层映射 200 / 409 / 404） */
 export type ReplyOutcome = 'ok' | 'already-resolved' | 'unknown'
 

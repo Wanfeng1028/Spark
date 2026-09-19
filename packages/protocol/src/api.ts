@@ -900,6 +900,45 @@ export const LspInstallResultDtoSchema = z.strictObject({
   written: z.boolean(),
 })
 
+/** 索引库统计（GET /api/index/stats，阶段十九 19.11）：~/.spark/search.db 管理面只读快照 */
+export interface IndexStatsDto {
+  /** 全文索引条目数（引擎侧 SQLite COUNT） */
+  entries: number
+  /** search.db 库文件体积（字节） */
+  sizeBytes: number
+  /** 库文件绝对路径 */
+  path: string
+  /** false = SQLite 打开失败降级（旁路纪律，JSONL 权威不受影响）；可用时省略 */
+  available?: boolean
+}
+
+export const IndexStatsDtoSchema = z.strictObject({
+  entries: z.number().int().nonnegative(),
+  sizeBytes: z.number().int().nonnegative(),
+  path: z.string().min(1),
+  available: z.boolean().optional(),
+})
+
+/** 索引重建结果（POST /api/index/rebuild，工单 19.11）：清表重扫 sessions JSONL 后的条目数 */
+export interface RebuildResultDto {
+  entries: number
+}
+
+export const RebuildResultDtoSchema = z.strictObject({
+  entries: z.number().int().nonnegative(),
+})
+
+/** 空间回收结果（POST /api/index/vacuum，工单 19.11）：SQLite VACUUM 前后库文件体积（字节） */
+export interface VacuumResultDto {
+  sizeBytesBefore: number
+  sizeBytesAfter: number
+}
+
+export const VacuumResultDtoSchema = z.strictObject({
+  sizeBytesBefore: z.number().int().nonnegative(),
+  sizeBytesAfter: z.number().int().nonnegative(),
+})
+
 /** MCP server transport 类型（工单 19.4 / ADR D46）：stdio 缺省（本地子进程，既有配置零变化）；
  * streamable-http = 远程 HTTP 连接（url 必填，headers 携带鉴权头） */
 export type McpTransportKind = 'stdio' | 'streamable-http'

@@ -1854,6 +1854,56 @@ describe('契约：api.FsTreeQuerySchema', () => {
   })
 })
 
+describe('契约：api.IndexStatsDtoSchema', () => {
+  const sample = {
+    "entries": 1,
+    "sizeBytes": 1,
+    "path": "contract-sample",
+    "available": false
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.IndexStatsDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.IndexStatsDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.IndexStatsDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 entries → 解析失败', () => {
+    expect(() => api.IndexStatsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["entries"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 sizeBytes → 解析失败', () => {
+    expect(() => api.IndexStatsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["sizeBytes"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 path → 解析失败', () => {
+    expect(() => api.IndexStatsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["path"]; return m })())).toThrow()
+  })
+
+  it('字段 entries 类型错 → 解析失败', () => {
+    expect(() => api.IndexStatsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["entries"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 sizeBytes 类型错 → 解析失败', () => {
+    expect(() => api.IndexStatsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["sizeBytes"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 path 类型错 → 解析失败', () => {
+    expect(() => api.IndexStatsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["path"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 available 类型错 → 解析失败', () => {
+    expect(() => api.IndexStatsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["available"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.IndexStatsDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.LspInstallResultDtoSchema', () => {
   const sample = {
     "language": "contract-sample",
@@ -2633,6 +2683,33 @@ describe('契约：api.PermissionRuleDtoSchema', () => {
 
   it('未知键 → strictObject 拒收', () => {
     expect(() => api.PermissionRuleDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.RebuildResultDtoSchema', () => {
+  const sample = {
+    "entries": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.RebuildResultDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.RebuildResultDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.RebuildResultDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 entries → 解析失败', () => {
+    expect(() => api.RebuildResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["entries"]; return m })())).toThrow()
+  })
+
+  it('字段 entries 类型错 → 解析失败', () => {
+    expect(() => api.RebuildResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["entries"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.RebuildResultDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 
@@ -4588,5 +4665,41 @@ describe('契约：api.UsageSummaryQuerySchema', () => {
 
   it('未知键 → strictObject 拒收', () => {
     expect(() => api.UsageSummaryQuerySchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.VacuumResultDtoSchema', () => {
+  const sample = {
+    "sizeBytesBefore": 1,
+    "sizeBytesAfter": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.VacuumResultDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.VacuumResultDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.VacuumResultDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 sizeBytesBefore → 解析失败', () => {
+    expect(() => api.VacuumResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["sizeBytesBefore"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 sizeBytesAfter → 解析失败', () => {
+    expect(() => api.VacuumResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["sizeBytesAfter"]; return m })())).toThrow()
+  })
+
+  it('字段 sizeBytesBefore 类型错 → 解析失败', () => {
+    expect(() => api.VacuumResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["sizeBytesBefore"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 sizeBytesAfter 类型错 → 解析失败', () => {
+    expect(() => api.VacuumResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["sizeBytesAfter"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.VacuumResultDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })

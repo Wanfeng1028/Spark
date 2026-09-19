@@ -45,6 +45,9 @@ import type {
   FsTreeDto,
   LspServerStatusDto,
   LspInstallResultDto,
+  IndexStatsDto,
+  RebuildResultDto,
+  VacuumResultDto,
   McpConfigInput,
   McpServerDto,
   MemoryDto,
@@ -440,6 +443,22 @@ export class InProcessTransport implements Transport {
     const r = await this.engine.installLspServer(id)
     if (!r.ok) throw new Error(`${r.code}: ${r.message}`)
     return { language: r.language, command: r.command, args: r.args, written: r.written }
+  }
+
+  /** 索引库统计（工单 19.11）：引擎同步方法——走 sync 门（收口断言 + 同步抛错转拒绝） */
+  indexStats(): Promise<IndexStatsDto> {
+    return this.sync(() => this.engine.indexStats())
+  }
+
+  /** 索引库重建（工单 19.11）：清表重扫 sessions JSONL，等待完成回条目数 */
+  async rebuildIndex(): Promise<RebuildResultDto> {
+    this.assertNotDisposed()
+    return this.engine.rebuildIndex()
+  }
+
+  /** 索引库空间回收（工单 19.11）：SQLite VACUUM（同步方法——走 sync 门） */
+  vacuumIndex(): Promise<VacuumResultDto> {
+    return this.sync(() => this.engine.vacuumIndex())
   }
 
   usageSummary(since?: string): Promise<UsageSummaryDto> {

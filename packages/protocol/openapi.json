@@ -1962,6 +1962,66 @@
         }
       }
     },
+    "/api/index/stats": {
+      "get": {
+        "tags": [
+          "config"
+        ],
+        "summary": "索引库统计（阶段十九 19.11：~/.spark/search.db 条目/体积/路径；打开失败降级如实 available:false）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexStatsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/index/rebuild": {
+      "post": {
+        "tags": [
+          "config"
+        ],
+        "summary": "索引库全量重建（阶段十九 19.11：清表重扫 sessions JSONL，等待完成回条目数）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RebuildResultDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/index/vacuum": {
+      "post": {
+        "tags": [
+          "config"
+        ],
+        "summary": "索引库空间回收（阶段十九 19.11：SQLite VACUUM，回前后库文件体积）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VacuumResultDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/memories": {
       "get": {
         "tags": [
@@ -3320,6 +3380,35 @@
         ],
         "additionalProperties": false
       },
+      "IndexStatsDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "available": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entries",
+          "sizeBytes",
+          "path"
+        ],
+        "additionalProperties": false
+      },
       "LspInstallResultDto": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -3761,6 +3850,21 @@
           "medium",
           "high"
         ]
+      },
+      "RebuildResultDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "additionalProperties": false
       },
       "RoutingDto": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -5479,6 +5583,27 @@
           "unbucketed",
           "costLimitUsd",
           "exceeded"
+        ],
+        "additionalProperties": false
+      },
+      "VacuumResultDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "sizeBytesBefore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "sizeBytesAfter": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "sizeBytesBefore",
+          "sizeBytesAfter"
         ],
         "additionalProperties": false
       },

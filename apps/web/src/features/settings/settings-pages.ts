@@ -137,9 +137,8 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'index',
         title: '索引库',
-        description: '会话索引数据库（引擎 SQLite 索引已有；管理页）——去向：v2',
-        status: 'placeholder',
-        placeholderReason: 'v2 挂池',
+        description: '会话索引统计/重建/回收（工单 19.11）',
+        status: 'ready',
       },
       {
         id: 'usage',

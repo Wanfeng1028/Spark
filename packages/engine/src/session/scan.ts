@@ -47,6 +47,28 @@ export async function findSessionFile(sessionsRoot: string, id: SessionId): Prom
   return null
 }
 
+/** 全量会话文件定位（工单 19.11 索引重建用）：id 与路径成对返回，读事件交给调用方 */
+export async function scanSessionFilePaths(
+  sessionsRoot: string,
+): Promise<{ id: SessionId; path: string }[]> {
+  const out: { id: SessionId; path: string }[] = []
+  try {
+    const dirs = await readdir(sessionsRoot, { withFileTypes: true })
+    for (const dir of dirs) {
+      if (!dir.isDirectory()) continue
+      for (const file of await readdir(join(sessionsRoot, dir.name))) {
+        if (!file.endsWith('.jsonl')) continue
+        const id = idOfFileName(file)
+        if (id === null) continue
+        out.push({ id, path: join(sessionsRoot, dir.name, file) })
+      }
+    }
+  } catch {
+    // sessions 目录缺失 = 无会话（首次运行）
+  }
+  return out
+}
+
 /**
  * 磁盘全量扫描（§5.2.1 v1 路径）：boot 索引重建与索引不可用降级共用。
  * 单用户本地量级全量读即可；文件名即 id（列表排序免读 header，pi 做法）。

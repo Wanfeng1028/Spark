@@ -522,6 +522,27 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     body: obj({ id: { type: 'string' } }, ['id']),
     response: ref('LspInstallResultDto'),
   },
+  {
+    method: 'get',
+    path: '/api/index/stats',
+    summary: '索引库统计（阶段十九 19.11：~/.spark/search.db 条目/体积/路径；打开失败降级如实 available:false）',
+    tag: 'config',
+    response: ref('IndexStatsDto'),
+  },
+  {
+    method: 'post',
+    path: '/api/index/rebuild',
+    summary: '索引库全量重建（阶段十九 19.11：清表重扫 sessions JSONL，等待完成回条目数）',
+    tag: 'config',
+    response: ref('RebuildResultDto'),
+  },
+  {
+    method: 'post',
+    path: '/api/index/vacuum',
+    summary: '索引库空间回收（阶段十九 19.11：SQLite VACUUM，回前后库文件体积）',
+    tag: 'config',
+    response: ref('VacuumResultDto'),
+  },
 
   // ---- 记忆（阶段七工单 7.5 / ADR D25） ----
   {

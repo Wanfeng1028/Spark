@@ -95,6 +95,17 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
     })
   })
 
+  // 索引库管理（阶段十九 19.11）：统计 / 全量重建 / 空间回收——管理页「索引库」数据源。
+  // 停用开关不做（索引停用涉重启面，v1 范围外——页面明示"索引随引擎启停"）；
+  // 打开失败降级时 stats 如实 available:false（禁假数据），重建/回收回 0 值（旁路纪律）。
+  app.get('/api/index/stats', () => engine.indexStats())
+
+  app.post('/api/index/rebuild', async () => {
+    return engine.rebuildIndex()
+  })
+
+  app.post('/api/index/vacuum', () => engine.vacuumIndex())
+
   app.get('/api/skills', () => {
     // 纯内存读：已加载技能清单
     return engine.listSkills()

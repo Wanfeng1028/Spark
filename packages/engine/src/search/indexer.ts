@@ -4,11 +4,14 @@
  * 打开失败 / 写失败只 warn（旁路），关闭后增量写全部短路；JSONL 恒为权威。
  * 命中行会话标题经 titleOf 回调注入（引擎侧：已装载 meta → 会话索引 → 空串）。
  */
+import { statSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SessionId, SparkEventEnvelope, SparkEventMap } from '@spark/protocol'
 import { SearchStore, type SearchEntry, type SearchEntryType } from './store.js'
+import { scanSessionFilePaths } from '../session/scan.js'
+import { SessionStore } from '../session/store.js'
 import type { SparkLogger } from '../logger.js'
-import type { SearchHit } from '../engine-types.js'
+import type { SearchHit, SearchIndexStats } from '../engine-types.js'
 import { longestToken } from '../db/fts-recall.js'
 
 /**
@@ -32,24 +35,80 @@ function searchSnippet(content: string, q: string): string {
   return `${start > 0 ? '…' : ''}${content.slice(start, end)}${end < content.length ? '…' : ''}`
 }
 
+/** 库文件磁盘占用（工单 19.11）：主库 + WAL/SHM 旁文件求和——WAL 未合入时只 stat 主库
+ * 会低估真实占用；旁文件不存在（已 checkpoint）按 0 计。 */
+function dbFileBytesOf(dbPath: string): number {
+  let total = 0
+  for (const suffix of ['', '-wal', '-shm']) {
+    try {
+      total += statSync(`${dbPath}${suffix}`).size
+    } catch {
+      // 旁文件不存在 = 该文件无占用（不是吞异常：存在性即语义）
+    }
+  }
+  return total
+}
+
 export class SearchIndexer {
   private store: SearchStore | null
   private closed = false
+  /** 库文件绝对路径（stats/vacuum 的 stat 对象；工单 19.11） */
+  private readonly dbPath: string
+  /** 会话 JSONL 根目录（rebuild 全量重扫入口；工单 19.11） */
+  private readonly sessionsRoot: string
 
   constructor(
     root: string,
     private readonly logger: SparkLogger,
     private readonly titleOf: (id: SessionId) => string,
   ) {
+    this.dbPath = join(root, 'search.db')
+    this.sessionsRoot = join(root, 'sessions')
     try {
-      this.store = new SearchStore(join(root, 'search.db'))
+      this.store = new SearchStore(this.dbPath)
       if (!this.store.fts) {
-        this.logger.warn('search.fts.unavailable', { path: join(root, 'search.db') })
+        this.logger.warn('search.fts.unavailable', { path: this.dbPath })
       }
     } catch (err) {
       this.logger.warn('search.store.error', { err })
       this.store = null
     }
+  }
+
+  /** 索引库统计（工单 19.11 / GET /api/index/stats）：条目 = SQLite COUNT，体积 = 库文件占用。
+   * 打开失败降级时如实 available:false + entries 0（禁假数据；JSONL 权威不受影响）。 */
+  stats(): SearchIndexStats {
+    if (this.store === null || this.closed) {
+      return { entries: 0, sizeBytes: 0, path: this.dbPath, available: false }
+    }
+    return { entries: this.store.count(), sizeBytes: dbFileBytesOf(this.dbPath), path: this.dbPath }
+  }
+
+  /**
+   * 全量重建（工单 19.11 / POST /api/index/rebuild）：清表后重扫 sessions JSONL——
+   * 装载点水位增量同步（sync）的兜底动作；单用户本地量级全量读（同 boot 扫描纪律）。
+   * 坏文件逐个跳过只 warn（旁路纪律：JSONL 恒为权威，重建失败不阻塞主流程）。
+   */
+  async rebuild(): Promise<{ entries: number }> {
+    if (this.store === null || this.closed) return { entries: 0 }
+    this.store.clearAll()
+    const files = await scanSessionFilePaths(this.sessionsRoot)
+    for (const { id, path } of files) {
+      try {
+        const file = await SessionStore.read(path)
+        this.sync(id, file.events)
+      } catch (err) {
+        this.logger.warn('search.rebuild.file.error', { sid: id, err })
+      }
+    }
+    return { entries: this.store.count() }
+  }
+
+  /** 空间回收（工单 19.11 / POST /api/index/vacuum）：度量在 store 内做（WAL 先截断
+   * checkpoint 再 stat——避免未合入 WAL 导致的"回收后变大"统计失真） */
+  vacuum(): { sizeBytesBefore: number; sizeBytesAfter: number } {
+    if (this.store === null || this.closed) return { sizeBytesBefore: 0, sizeBytesAfter: 0 }
+    return this.store.vacuum()
   }
 
   /** GET /api/search 的引擎数据源（新→旧）；索引不可用 → 空数组（不阻塞主流程） */

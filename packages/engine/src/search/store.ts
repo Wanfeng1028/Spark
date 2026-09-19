@@ -9,6 +9,7 @@
  *   水位倒退（回滚截断）先删界外行再补差量。
  * - JSONL 恒为权威（同 SessionIndex 纪律）：本索引只加速检索，坏/缺不阻塞主流程。
  */
+import { statSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import type { EventId, SessionId } from '@spark/protocol'
 import { escapeLike, longestToken, TRIGRAM_MIN } from '../db/fts-recall.js'
@@ -36,10 +37,13 @@ interface EntryRowRaw {
 
 export class SearchStore {
   private readonly db: DatabaseSync
+  /** 库文件路径（vacuum 的 stat 对象；工单 19.11） */
+  private readonly dbPath: string
   /** FTS5 可用 = true；建表失败降级 LIKE（warn 由调用方落日志） */
   readonly fts: boolean
 
   constructor(dbPath: string) {
+    this.dbPath = dbPath
     this.db = new DatabaseSync(dbPath)
     // WAL + synchronous=NORMAL：索引是派生缓存（JSONL 恒为权威，丢行由装载点
     // 水位重建补齐），逐条 upsert 免每次 fsync——慢盘上批量入库吞吐差异显著。
@@ -99,6 +103,28 @@ export class SearchStore {
          VALUES (?, ?, ?, ?, ?, ?)`,
       )
       .run(entry.eventId, entry.sessionId, entry.seq, entry.type, entry.time, entry.content)
+  }
+
+  /** 索引条目总数（工单 19.11 /api/index/stats：SQLite COUNT，不内存数） */
+  count(): number {
+    const row = this.db.prepare('SELECT COUNT(*) AS n FROM search_entries').get() as { n: number }
+    return Number(row.n)
+  }
+
+  /** 清表（工单 19.11 重建前置）：条目与水位全删（AFTER DELETE 触发器同步倒排） */
+  clearAll(): void {
+    this.db.exec('DELETE FROM search_entries')
+    this.db.exec('DELETE FROM search_watermark')
+  }
+
+  /** 空间回收（工单 19.11 /api/index/vacuum）：WAL 先截断 checkpoint（主库文件如实反映
+   * 当前体积——否则 before 是未合入 WAL 的陈旧小值，VACUUM 后反而"变大"，统计失真），
+   * 前后各 stat 一次返回；VACUUM 只重排主库文件，不增体积。 */
+  vacuum(): { sizeBytesBefore: number; sizeBytesAfter: number } {
+    this.db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+    const sizeBytesBefore = statSync(this.dbPath).size
+    this.db.exec('VACUUM')
+    return { sizeBytesBefore, sizeBytesAfter: statSync(this.dbPath).size }
   }
 
   /** 回滚截断：删除会话 seq 界外行（触发器同步倒排） */

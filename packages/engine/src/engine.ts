@@ -136,6 +136,7 @@ import type {
   ForkChildInfo,
   ReplyOutcome,
   SearchHit,
+  SearchIndexStats,
   SessionEntry,
   SessionHandle,
   SessionMeta,
@@ -1174,6 +1175,21 @@ export class Engine {
    */
   searchSessions(q: string, limit: number): SearchHit[] {
     return this.search.search(q, limit)
+  }
+
+  /** 索引库统计（工单 19.11）：GET /api/index/stats 的引擎数据源（只读快照） */
+  indexStats(): SearchIndexStats {
+    return this.search.stats()
+  }
+
+  /** 索引库重建（工单 19.11）：POST /api/index/rebuild——清表重扫 sessions JSONL（等待完成回条目数） */
+  rebuildIndex(): Promise<{ entries: number }> {
+    return this.search.rebuild()
+  }
+
+  /** 索引库空间回收（工单 19.11）：POST /api/index/vacuum——SQLite VACUUM（前后体积如实回显） */
+  vacuumIndex(): { sizeBytesBefore: number; sizeBytesAfter: number } {
+    return this.search.vacuum()
   }
 
   // ---- 浏览器截图供图（工单 7.10 / H09 / ADR D27）----

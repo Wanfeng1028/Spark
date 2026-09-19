@@ -12,6 +12,7 @@ import { PermissionRulesPage } from '@/features/settings/PermissionRulesPage'
 import { McpSettingsPage } from '@/features/settings/McpSettingsPage'
 import { SkillsSettingsPage } from '@/features/settings/SkillsSettingsPage'
 import { LspSettingsPage } from '@/features/settings/LspSettingsPage'
+import { IndexSettingsPage } from '@/features/settings/IndexSettingsPage'
 import { SubagentsSettingsPage } from '@/features/settings/SubagentsSettingsPage'
 import { PluginsSettingsPage } from '@/features/settings/PluginsSettingsPage'
 import { SecurityTrustPage } from '@/features/settings/SecurityTrustPage'
@@ -37,6 +38,7 @@ const READY_COMPONENTS = {
   mcp: McpSettingsPage,
   skills: SkillsSettingsPage,
   lsp: LspSettingsPage,
+  index: IndexSettingsPage,
   subagents: SubagentsSettingsPage,
   commands: CommandsSettingsPage,
   hooks: HooksSettingsPage,

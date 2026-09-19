@@ -71,6 +71,9 @@ const COMPONENTS: Record<string, z.ZodType> = {
   TranscribeResultDto: api.TranscribeResultDtoSchema,
   LspServerStatusDto: api.LspServerStatusDtoSchema,
   LspInstallResultDto: api.LspInstallResultDtoSchema,
+  IndexStatsDto: api.IndexStatsDtoSchema,
+  RebuildResultDto: api.RebuildResultDtoSchema,
+  VacuumResultDto: api.VacuumResultDtoSchema,
   ReasoningEffort: ReasoningEffortSchema,
 }
 
