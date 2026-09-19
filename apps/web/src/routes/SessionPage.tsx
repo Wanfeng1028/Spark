@@ -342,6 +342,11 @@ export function SessionPage() {
             waiting={waiting}
             sessionId={sid}
             initialDraft={initialDraft}
+            folder={
+              sliceCwd !== undefined && sliceCwd !== ''
+                ? { label: projectOf(sliceCwd), cwd: sliceCwd }
+                : undefined
+            }
             permission={{
               preset: preset ?? 'confirm-each',
               onChange: (p) =>

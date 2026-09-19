@@ -1,9 +1,13 @@
 /**
- * Composer（doc/02 §6.2.2 / §6.3 / DESIGN §13.E，工单 6.3 重做）：
+ * Composer（doc/02 §6.2.2 / §6.3 / DESIGN §13.E，工单 6.3 重做；§13.L DSH 形态对齐）：
  * 容器=22px 全圆角白卡、无 border 无聚焦 ring（§13.L L.1）；多行 1→6 行自增后内滚。
- * 三态——空闲：Enter 发送；运行中：**输入不禁用**（Enter 按分段档发送，插话/排队）；
+ * 三态——空闲：Enter 发送；运行中：**输入不禁用**（Enter 按模式档发送，插话/排队）；
  * 审批挂起：输入禁用（焦点交还上方 ApprovalCard）。
- * 底部工具条（§13.E）：左=[＋菜单四项（附件/@///$，工单 10.5⑤）][权限档位]；右=[提交模式分段][发送/停止 32px 圆形主钮]。
+ * 上下文行（§13.L L.8，DSH 三批）：文件夹/提交模式两枚 chip 浮于卡片上方——
+ * 文件夹=欢迎页选新会话 cwd / 会话页只读；模式=原卡内 Segmented 上移（语义不变）。
+ * 底部工具条（§13.L L.2）：左=[＋菜单（附件/@///$/文件树）][权限档位][语音钮]；
+ * 右=[模型][推理档位][发送/停止 34px 圆形主钮]。语音错误不再占工具条（DSH Toast 位）——
+ * 并入瞬态提示行（错误红 4s 自动消退）。
  * @ 菜单 / / 菜单（composer-menus.ts 纯逻辑）：↑↓ 选择、Enter 确认、Esc 关闭。
  * 提交三态（started/steered/queued）内联提示反馈（DESIGN §5：异步动作必须有反馈）。
  * 快捷 chips 填充走 imperative handle（fill）——空态页 chips「点击即填入输入框」（§13.E）。
@@ -33,7 +37,6 @@ import type {
 } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useDismissOnOutsideClick } from '@/hooks/useDismissOnOutsideClick'
-import { Segmented } from '@/components/ui/segmented'
 import { AttachmentChips } from './AttachmentChips'
 import { FileTreePopover } from './FileTreePopover'
 import { ComposerMenu } from './ComposerMenu'
@@ -43,6 +46,8 @@ import { useVoiceInput } from './useVoiceInput'
 import { useUiStore } from '@/stores/ui'
 import { ModelPicker } from './ModelPicker'
 import { EffortPicker } from './EffortPicker'
+import { DeliveryPicker } from './DeliveryPicker'
+import { FolderPicker, type FolderOption } from './FolderPicker'
 import { useSettingsStore } from '@/stores/settings'
 import { cn } from '@/lib/utils'
 import { errorMessageOf } from '@/lib/error-copy'
@@ -82,6 +87,17 @@ export interface ComposerProps {
     current: ReasoningEffort | undefined
     onChange: (effort: ReasoningEffort) => Promise<ReasoningEffort>
   } | undefined
+  /**
+   * 工作区文件夹 chip（§13.L L.8，DSH 三批）：欢迎页传 options+selected+onPick
+   * （新会话按所选 cwd 创建）；会话页只读传 label+cwd。缺省不渲染——无数据不放假 chip。
+   */
+  folder?: {
+    label: string
+    cwd?: string
+    options?: readonly FolderOption[]
+    selected?: string | null
+    onPick?: (cwd: string | null) => void
+  }
   onSend: (text: string, delivery: Delivery, attachments?: string[]) => Promise<SubmitOutcome>
   onInterrupt: () => void
   /**
@@ -111,7 +127,7 @@ const OUTCOME_TEXT: Record<SubmitOutcome['result'], string> = {
 type SegmentValue = Delivery
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
-  { busy, waiting, initialDraft = '', permission, model, effort, sessionId, onSend, onInterrupt, onCommand, commands },
+  { busy, waiting, initialDraft = '', permission, model, effort, folder, sessionId, onSend, onInterrupt, onCommand, commands },
   ref,
 ) {
   const defaultDelivery = useSettingsStore((s) => s.defaultDelivery)
@@ -119,7 +135,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const [attachments, setAttachments] = useState<string[]>([])
   const [attachOpen, setAttachOpen] = useState(false)
   const [attachInput, setAttachInput] = useState('')
-  const [hint, setHint] = useState<string | null>(null)
+  /** 瞬态提示行（§5 异步反馈）：info=accent 2.5s；error=红 4s（发送/语音失败如实呈现后自动消退） */
+  const [hint, setHint] = useState<{ text: string; tone: 'info' | 'error' } | null>(null)
   const [caret, setCaret] = useState(0)
   const [menu, setMenu] = useState<MenuQuery | null>(null)
   const [menuIndex, setMenuIndex] = useState(0)
@@ -185,10 +202,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     })
   }
 
-  function showHint(text: string): void {
+  function showHint(text: string, tone: 'info' | 'error' = 'info'): void {
     if (hintTimer.current !== null) clearTimeout(hintTimer.current)
-    setHint(text)
-    hintTimer.current = setTimeout(() => setHint(null), 2500)
+    setHint({ text, tone })
+    hintTimer.current = setTimeout(() => setHint(null), tone === 'error' ? 4000 : 2500)
   }
 
   // ---- @ / / 菜单（§13.E）：光标词驱动，Esc 同词不重开 ----
@@ -248,6 +265,12 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       })
     },
   })
+
+  // 语音错误走瞬态提示行（§13.L L.8：DSH Toast 同位——不再以红字常驻工具条，
+  // 挤压布局致 justify-between 换行）；4s 自动消退，再次出错即重新呈现
+  useEffect(() => {
+    if (voice.error !== null) showHint(voice.error, 'error')
+  }, [voice.error])
 
   useEffect(() => {
     if (sessionId === undefined || menu?.kind !== 'at' || menu.query === '') {
@@ -363,7 +386,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       try {
         await onCommand(cmd.name, cmd.args)
       } catch (err) {
-        showHint(errorMessageOf(err))
+        showHint(errorMessageOf(err), 'error')
       }
       return
     }
@@ -377,7 +400,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     } catch (err) {
       // 失败闭合 + 不丢用户输入（§6.2.1）：发送失败如实提示并回填草稿
       setDraft(text)
-      showHint(errorMessageOf(err))
+      showHint(errorMessageOf(err), 'error')
     }
   }
 
@@ -392,8 +415,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     e.preventDefault()
     if (waiting) return
     if (busy) {
-      // Enter 按分段档发送（steer/queue）；Ctrl+Enter 恒排队（§6.2.2 原快捷键保留）
-      const delivery: Delivery = e.ctrlKey || e.metaKey ? 'queue' : segment
+      // Enter 按模式档发送——wire 取显示档（segmentDisplay 归一值，UI 与报文一致）；
+      // Ctrl+Enter 恒排队（§6.2.2 原快捷键保留）
+      const delivery: Delivery = e.ctrlKey || e.metaKey ? 'queue' : segmentValue
       void send(delivery)
     } else {
       void send('now')
@@ -426,7 +450,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         setAttachmentNames((m) => new Map(m).set(dto.file, dto.name))
         showHint(`已上传 ${dto.name}`)
       } catch (err) {
-        showHint(errorMessageOf(err))
+        showHint(errorMessageOf(err), 'error')
       }
     }
     uploadingRef.current = false
@@ -439,7 +463,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       // 显示态只随父级 onChange 成功后的 props 更新（禁乐观更新）；失败进 hint 如实反馈
       await permission.onChange(p)
     } catch (err) {
-      showHint(errorMessageOf(err))
+      showHint(errorMessageOf(err), 'error')
     }
   }
 
@@ -450,7 +474,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       showHint(`已切换 ${applied}（下一轮生效）`)
       return applied
     } catch (err) {
-      showHint(errorMessageOf(err))
+      showHint(errorMessageOf(err), 'error')
       return model.current
     }
   }
@@ -462,7 +486,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       showHint('推理档位已切换（下一轮生效）')
       return applied
     } catch (err) {
-      showHint(errorMessageOf(err))
+      showHint(errorMessageOf(err), 'error')
       return effort.current ?? value
     }
   }
@@ -500,6 +524,27 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         waiting && 'pointer-events-none',
       )}
     >
+      {/* 上下文行（§13.L L.8，DSH 三批）：文件夹/提交模式两枚 chip 浮于卡片上方（左对齐，
+          组距 12px）——文件夹欢迎页选 cwd / 会话页只读；模式=原卡内 Segmented 上移（语义不变） */}
+      <div className="flex items-center gap-3 px-1">
+        {folder !== undefined && (
+          <FolderPicker
+            label={folder.label}
+            {...(folder.cwd !== undefined ? { cwd: folder.cwd } : {})}
+            {...(folder.options !== undefined ? { options: folder.options } : {})}
+            {...(folder.selected !== undefined ? { selected: folder.selected } : {})}
+            {...(folder.onPick !== undefined ? { onPick: folder.onPick } : {})}
+            disabled={waiting}
+          />
+        )}
+        <DeliveryPicker
+          value={segmentValue}
+          busy={busy}
+          disabled={waiting}
+          onChange={(d) => setSegment(d)}
+        />
+      </div>
+
       <div
         className={cn(
           // §13.L L.1 精确值（dialog-redesign-spec §1.1 IB.css L59-63）：22px 全圆角白卡、
@@ -588,8 +633,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           className="max-h-[336px] min-h-9 w-full resize-none overflow-y-auto bg-transparent pt-1 pr-2 pb-0 pl-3.5 text-sm leading-6 text-foreground caret-send-accent outline-none placeholder:text-[#ADB2B8] dark:placeholder:text-[#81858C] disabled:cursor-not-allowed disabled:opacity-60"
         />
 
-        {/* 底部工具条（§13.L L.2 精确值 IB.css L254-389）：左右两组、组距 12px；
-            max-[479px] 保留 wrap 兜底（WO-079 窄屏验收），桌面恒单行 justify-between */}
+        {/* 底部工具条（§13.L L.2 精确值 IB.css L254-389）：左=[＋/权限/语音]、右=[模型/推理/发送]，
+            组距 12px justify-between；max-[479px] 保留 wrap 兜底（WO-079 窄屏验收）。
+            L.8：提交三态已上移卡上 DeliveryPicker；文件树入口并入 + 菜单（独立钮撤除） */}
         <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2 pb-1.5 pt-0.5">
           {/* L.6：左组必须 flex——两个块级按钮裸放会竖排（DSH 二批 WO-089 修复） */}
           <div className="relative flex min-w-0 items-center gap-3">
@@ -608,19 +654,72 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             >
               <Plus className="size-3.5" />
             </button>
-            <button
-              type="button"
-              aria-label="文件树"
-              aria-expanded={treeOpen}
-              disabled={waiting}
-              onClick={() => {
-                setPlusMenuOpen(false) // 弹层互斥（同上）
-                setTreeOpen((v) => !v)
-              }}
-              className="flex size-7 items-center justify-center rounded-full bg-secondary text-foreground hover:bg-[#F1F3F5] dark:hover:bg-[#353638] disabled:pointer-events-none disabled:opacity-40"
-            >
-              <FolderTree className="size-3.5" />
-            </button>
+
+            {permission !== undefined && (
+              <button
+                type="button"
+                data-preset-menu
+                aria-haspopup="menu"
+                aria-expanded={presetMenuOpen}
+                disabled={waiting}
+                onClick={() => setPresetMenuOpen((v) => !v)}
+                title={`权限档位：${tier.label}——${tier.description}`}
+                className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 pr-5 text-[13px] leading-5 font-medium text-muted-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
+              >
+                <tier.icon
+                  className={cn('size-4', tier.warn && 'text-[var(--spark-warn)]')}
+                />
+                <span className="max-[479px]:hidden">{tier.label}</span>
+                <ChevronDown className="size-3 opacity-60" />
+              </button>
+            )}
+
+            {/* 语音听写钮（工单 16.6）：hold=按住说话 / tap=点击开始停止 / off 不渲染；
+                录音中红点（§13.B 状态点 8px）；错误走瞬态提示行（L.8），不再占工具条 */}
+            {voiceMode !== 'off' && (
+              <button
+                type="button"
+                aria-label={voice.phase === 'recording' ? '停止录音' : '开始语音听写'}
+                aria-pressed={voice.phase === 'recording'}
+                title={
+                  voiceMode === 'hold'
+                    ? '按住说话，松开转写'
+                    : voice.phase === 'recording'
+                      ? '点击停止并转写'
+                      : '点击开始录音（tap 模式，/voice 切换）'
+                }
+                disabled={waiting || voice.phase === 'transcribing'}
+                onPointerDown={(e) => {
+                  if (voiceMode === 'hold' && !waiting) {
+                    e.preventDefault()
+                    void voice.start()
+                  }
+                }}
+                onPointerUp={() => {
+                  if (voiceMode === 'hold' && voice.phase === 'recording') voice.stop()
+                }}
+                onPointerLeave={() => {
+                  if (voiceMode === 'hold' && voice.phase === 'recording') voice.stop()
+                }}
+                onClick={() => {
+                  if (voiceMode === 'tap' && !waiting) {
+                    if (voice.phase === 'recording') voice.stop()
+                    else void voice.start()
+                  }
+                }}
+                className={cn(
+                  'relative flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40',
+                  voice.phase === 'recording' && 'bg-accent text-foreground',
+                )}
+              >
+                <Mic className="size-4" />
+                {voice.phase === 'recording' && (
+                  <span aria-hidden className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-destructive" />
+                )}
+              </button>
+            )}
+
+            {/* 文件树浮层（工单 12.5）：入口在 + 菜单「浏览文件树」项（L.8 撤独立钮） */}
             {treeOpen && !waiting && sessionId !== undefined && (
               <FileTreePopover
                 sessionId={sessionId}
@@ -643,7 +742,17 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                     { icon: AtSign, label: '使用 @ 添加上下文', run: () => insertTrigger('@') },
                     { icon: Slash, label: '使用 / 选择命令或能力', run: () => insertTrigger('/') },
                     { icon: DollarSign, label: '使用 $ 选择技能', run: () => insertTrigger('$') },
-                  ] as const
+                    ...(sessionId !== undefined
+                      ? [{
+                          icon: FolderTree,
+                          label: '浏览文件树',
+                          run: () => {
+                            setPlusMenuOpen(false) // 弹层互斥（L.6 开一关一）
+                            setTreeOpen(true)
+                          },
+                        }]
+                      : []),
+                  ]
                 ).map((m) => (
                   <li key={m.label} role="none">
                     <button
@@ -662,83 +771,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             )}
           </div>
 
-          {permission !== undefined && (
-            <button
-              type="button"
-              data-preset-menu
-              aria-haspopup="menu"
-              aria-expanded={presetMenuOpen}
-              disabled={waiting}
-              onClick={() => setPresetMenuOpen((v) => !v)}
-              title={`权限档位：${tier.label}——${tier.description}`}
-              className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 pr-5 text-[13px] leading-5 font-medium text-muted-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
-            >
-              <tier.icon
-                className={cn('size-4', tier.warn && 'text-[var(--spark-warn)]')}
-              />
-              <span className="max-[479px]:hidden">{tier.label}</span>
-              <ChevronDown className="size-3 opacity-60" />
-            </button>
-          )}
-
-          {/* 语音听写钮（工单 16.6）：hold=按住说话 / tap=点击开始停止 / off 不渲染；
-              录音中红点（§13.B 状态点 8px），错误行浮在工具条上方如实呈现 */}
-          {voice.error !== null && (
-            <button
-              type="button"
-              onClick={voice.dismissError}
-              aria-live="polite"
-              title={voice.error}
-              className="flex h-7 max-w-56 items-center truncate rounded-full px-1.5 text-xs text-destructive hover:bg-accent"
-            >
-              {voice.error}
-            </button>
-          )}
-          {voiceMode !== 'off' && (
-            <button
-              type="button"
-              aria-label={voice.phase === 'recording' ? '停止录音' : '开始语音听写'}
-              aria-pressed={voice.phase === 'recording'}
-              title={
-                voiceMode === 'hold'
-                  ? '按住说话，松开转写'
-                  : voice.phase === 'recording'
-                    ? '点击停止并转写'
-                    : '点击开始录音（tap 模式，/voice 切换）'
-              }
-              disabled={waiting || voice.phase === 'transcribing'}
-              onPointerDown={(e) => {
-                if (voiceMode === 'hold' && !waiting) {
-                  e.preventDefault()
-                  void voice.start()
-                }
-              }}
-              onPointerUp={() => {
-                if (voiceMode === 'hold' && voice.phase === 'recording') voice.stop()
-              }}
-              onPointerLeave={() => {
-                if (voiceMode === 'hold' && voice.phase === 'recording') voice.stop()
-              }}
-              onClick={() => {
-                if (voiceMode === 'tap' && !waiting) {
-                  if (voice.phase === 'recording') voice.stop()
-                  else void voice.start()
-                }
-              }}
-              className={cn(
-                'relative flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40',
-                voice.phase === 'recording' && 'bg-accent text-foreground',
-              )}
-            >
-              <Mic className="size-4" />
-              {voice.phase === 'recording' && (
-                <span aria-hidden className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-destructive" />
-              )}
-            </button>
-          )}
-
           <div className="ml-auto flex shrink-0 items-center gap-3">
-            {/* 模型/推理选择器（§13.L L.2 / WO-056：紧贴发送钮右侧） */}
+            {/* 模型/推理选择器（§13.L L.2 / WO-056：紧贴发送钮左侧） */}
             {model !== undefined && (
               <ModelPicker
                 current={model.current}
@@ -755,32 +789,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                 disabled={waiting}
               />
             )}
-            {!waiting && (
-              <Segmented<Delivery>
-                aria-label="提交模式"
-                value={segmentValue}
-                onChange={(v) => setSegment(v)}
-                options={[
-                  {
-                    value: 'now',
-                    label: '立即',
-                    ...(busy ? { disabledReason: '本轮已在进行' } : {}),
-                  },
-                  {
-                    value: 'steer',
-                    label: '插话',
-                    ...(!busy ? { disabledReason: '无进行中的轮可注入' } : {}),
-                  },
-                  {
-                    value: 'queue',
-                    label: '排队',
-                    ...(!busy ? { disabledReason: '空闲时无需排队' } : {}),
-                  },
-                ]}
-              />
-            )}
 
-            {/* 发送/停止 32px 圆形主钮（§13.E）：运行中变停止 ■ */}
+            {/* 发送/停止 34px 圆形主钮（§13.E）：运行中变停止 ■ */}
             {busy ? (
               <button
                 type="button"
@@ -808,10 +818,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       </div>
 
       {/* §13.L L.1：DSH 无常驻提示行（键位在帮助面板/占位文案承载）——只保留瞬态操作反馈
-          （DESIGN §5：异步动作必须有反馈），无反馈时不渲染、不再占一行 */}
+          （DESIGN §5：异步动作必须有反馈），无反馈时不渲染、不再占一行；错误红 4s / 信息 accent */}
       {hint !== null && (
-        <p aria-live="polite" className="text-xs text-[var(--spark-accent)]">
-          {hint}
+        <p
+          aria-live="polite"
+          className={cn('text-xs', hint.tone === 'error' ? 'text-destructive' : 'text-[var(--spark-accent)]')}
+        >
+          {hint.text}
         </p>
       )}
     </div>

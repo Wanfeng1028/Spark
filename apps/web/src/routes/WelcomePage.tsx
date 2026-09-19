@@ -6,7 +6,7 @@
  * 失败闭合——错误进 Composer 提示并回填草稿（§6.2.1 不丢用户输入）。
  * 权限档钮（工单 10.5⑥）：欢迎页选档为真实状态——建会话后即落档（setPermissionPreset）。
  */
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Blocks, Eraser, GitCommitHorizontal, PlayCircle } from 'lucide-react'
 import { PROMPT_CHIPS } from '@/lib/prompts'
@@ -14,6 +14,8 @@ import { ONBOARDING_DONE_KEY } from '@/routes/OnboardingPage'
 import type { LucideIcon } from 'lucide-react'
 import type { PermissionPreset, SubmitOutcome } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
+import { projectOf } from '@/components/layout/Sidebar'
 import { Composer, type ComposerHandle } from '@/features/chat/Composer'
 import { clientActionOf } from '@/features/chat/client-commands'
 import { useCommands } from '@/hooks/useCommands'
@@ -44,10 +46,25 @@ export function WelcomePage() {
   const composerRef = useRef<ComposerHandle>(null)
   // 权限档位（工单 10.5⑥）：欢迎页可选档，建会话后落档——真实状态非展示摆设
   const [preset, setPreset] = useState<PermissionPreset>('confirm-each')
+  // 工作区文件夹（§13.L L.8，DSH 三批）：最近会话 cwd 去重为可选项（≤8），选中后
+  // 新会话按该 cwd 创建（createSession({ cwd })）；未选=引擎缺省。无最近会话不渲染 chip
+  const { data: sessions } = useTransportQuery((t) => t.listSessions(), [])
+  const [cwd, setCwd] = useState<string | null>(null)
+  const folderOptions = useMemo(() => {
+    const seen = new Set<string>()
+    const out: { cwd: string; label: string }[] = []
+    for (const s of sessions ?? []) {
+      if (s.cwd === '' || seen.has(s.cwd)) continue
+      seen.add(s.cwd)
+      out.push({ cwd: s.cwd, label: projectOf(s.cwd) })
+      if (out.length >= 8) break
+    }
+    return out
+  }, [sessions])
 
   /** 新建会话并直发首条消息（新会话无活动轮，delivery 恒为 now 语义）；选档先落档再发送 */
   async function start(text: string, attachments?: string[]): Promise<SubmitOutcome> {
-    const dto = await transport.createSession()
+    const dto = await transport.createSession(cwd !== null ? { cwd } : {})
     await transport.setPermissionPreset(dto.id, preset)
     const outcome = await transport.sendMessage(dto.id, text, attachments ? { attachments } : {})
     void navigate(`/session/${dto.id}`)
@@ -62,6 +79,16 @@ export function WelcomePage() {
           ref={composerRef}
           busy={false}
           waiting={false}
+          folder={
+            folderOptions.length > 0
+              ? {
+                  label: cwd !== null ? projectOf(cwd) : '选择文件夹',
+                  options: folderOptions,
+                  selected: cwd,
+                  onPick: setCwd,
+                }
+              : undefined
+          }
           permission={{
             preset,
             onChange: (p) => {

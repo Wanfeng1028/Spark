@@ -87,14 +87,16 @@ describe('Composer 运行中（busy）态', () => {
     expect(onInterrupt).toHaveBeenCalledTimes(1)
   })
 
-  it('分段档：立即段禁用（本轮已在进行），切「插话」后 Enter 按 steer 发送', async () => {
+  it('模式档：立即项禁用（本轮已在进行），切「插话」后 Enter 按 steer 发送', async () => {
     const { onSend } = renderComposer({ busy: true })
     onSend.mockResolvedValueOnce(STEERED)
-    const now = screen.getByRole<HTMLButtonElement>('radio', { name: '立即' })
+    // §13.L L.8（DSH 三批）：提交模式上移为卡上 chip 下拉——先开菜单再选项
+    fireEvent.click(screen.getByRole('button', { name: '提交模式' }))
+    const now = screen.getByRole<HTMLButtonElement>('menuitemradio', { name: /立即/ })
     expect(now.disabled).toBe(true)
 
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /插话/ }))
     fireEvent.change(textarea(), { target: { value: '改用 pnpm' } })
-    fireEvent.click(screen.getByRole('radio', { name: '插话' }))
     fireEvent.keyDown(textarea(), { key: 'Enter' })
     await vi.waitFor(() => {
       expect(onSend).toHaveBeenCalledWith('改用 pnpm', 'steer', undefined)
@@ -105,8 +107,9 @@ describe('Composer 运行中（busy）态', () => {
   it('切「排队」后 Enter 按 queue 发送；Ctrl+Enter 恒排队', async () => {
     const { onSend } = renderComposer({ busy: true })
     onSend.mockResolvedValue(QUEUED)
+    fireEvent.click(screen.getByRole('button', { name: '提交模式' }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /排队/ }))
     fireEvent.change(textarea(), { target: { value: '下一轮做 X' } })
-    fireEvent.click(screen.getByRole('radio', { name: '排队' }))
     fireEvent.keyDown(textarea(), { key: 'Enter' })
     await vi.waitFor(() => {
       expect(onSend).toHaveBeenCalledWith('下一轮做 X', 'queue', undefined)
@@ -121,14 +124,51 @@ describe('Composer 运行中（busy）态', () => {
 })
 
 describe('Composer 审批挂起（waiting）态', () => {
-  it('输入禁用、无分段控件、提示等待审批；Enter 不发送', () => {
+  it('输入禁用、模式 chip 禁用、提示等待审批；Enter 不发送', () => {
     const { onSend } = renderComposer({ waiting: true })
     expect(textarea().disabled).toBe(true)
     // §13.L L.1：无常驻提示行，等待提示改由 textarea 占位符承载（DSH 二批）
     expect(screen.getByPlaceholderText('等待审批中——请先处理上方审批卡')).toBeTruthy()
-    expect(screen.queryByRole('radiogroup')).toBeNull()
+    // §13.L L.8：模式 chip 仍渲染但禁用（等待中不可切档）
+    expect(screen.getByRole('button', { name: '提交模式' }).disabled).toBe(true)
     fireEvent.keyDown(textarea(), { key: 'Enter' })
     expect(onSend).not.toHaveBeenCalled()
+  })
+})
+
+describe('Composer 上下文行（§13.L L.8，DSH 三批）', () => {
+  it('文件夹 chip：下拉选 cwd 回调 onPick；未选显示占位', () => {
+    const onPick = vi.fn()
+    renderComposer({
+      folder: {
+        label: '选择文件夹',
+        options: [
+          { cwd: 'E:/code/alpha', label: 'alpha' },
+          { cwd: 'E:/code/beta', label: 'beta' },
+        ],
+        selected: null,
+        onPick,
+      },
+    })
+    expect(screen.getByRole('button', { name: '工作区文件夹' }).textContent).toContain('选择文件夹')
+    fireEvent.click(screen.getByRole('button', { name: '工作区文件夹' }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'alpha' }))
+    expect(onPick).toHaveBeenCalledWith('E:/code/alpha')
+  })
+
+  it('语音错误走瞬态提示行（不再以红字常驻工具条——L.8）', async () => {
+    renderComposer()
+    // jsdom 无 mediaDevices：hold 按下即 fail-closed 报错
+    fireEvent.pointerDown(screen.getByRole('button', { name: '开始语音听写' }))
+    await vi.waitFor(() => {
+      expect(
+        screen.getByText('当前环境不支持麦克风采集（需浏览器 getUserMedia）'),
+      ).toBeTruthy()
+    })
+    // 工具条内不再渲染内联错误钮（原红字 pill 已撤——DSH Toast 同位）
+    expect(
+      screen.queryByTitle('当前环境不支持麦克风采集（需浏览器 getUserMedia）'),
+    ).toBeNull()
   })
 })
 

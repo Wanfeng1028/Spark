@@ -37,6 +37,7 @@
 | v2.26 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，官网改造指令——批次 A"字号档位 + 高保真截图 + Hero 排版"方案确认后开工） | **§12.3 官网字号档位登记（official/ 营销站）**：超大标题禁令是给产品四端 13px 密度 UI 定的，官网单列 display 档——Hero 标题 40/52/60px、页面大标题 36/44px、区块标题 30/38px（移动/桌面断点），正文 16-18px；官网布局纪律不变（居中落地页骨架照禁），其余产品黑名单（蓝紫渐变/毛玻璃/emoji/装饰阴影/bento/假状态）对官网同样适用；§12.8 grep 扫描范围不变（official/ 不在扫描面，该行加判注）。首批落地：Hero 与全站标题字号 + BlurText CJK 逐字分词（中文 display 标题逐字 stagger）+ 四张产品截图 SVG 由灰色骨架线框重绘为高保真 mock（内容可回源码核对，禁假状态纪律保持）。后续批次（深色主演示带/会话流脚本动画/架构图重绘/四端 tab）待批次 A 验收后推进 |
 | v2.27 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，参考拍板："https://x.ai/（主参考，可以copy）+ https://blog.google/（参考细节），就定下这两个了"） | **批次 B：官网 xAI 化改版（视觉方向拍板登记）**。① §12 辨析行补**官网暗色基调豁免**——official/ 转 xAI 式纯黑单主题（bg `#000`、卡片 zinc-950、边框 zinc-800、正文 zinc-50/zinc-400；语义色 dark 档值 accent #818cf8/ok #34d399/warn #fbbf24），不设主题切换；产品四端亮色默认不变。② §12.5 补**官网居中 hero 豁免**（仅 official/；含 eyebrow pill，x.ai 实测骨架：eyebrow → 居中巨字 → 副标 → 双 CTA → 内联 agent 演示）。③ §12.3 官网 Hero 档上调 **44/60/72px**。④ 新增官网主演示组件 SessionDemo（对标 x.ai coding-agent 内联演示的 `❯ → 思考 → ▸ 工具行 → 审批框 → ✓ → 流式输出` 转录循环，内容取 Spark 真实事件序列 permission.asked/resolved + tool.completed，§13.K CLI 字形 `>` `◆` `▸`，reduced-motion 静态降级）。实现=official/ tokens.css 全量翻转 + Header（去 ThemeToggle、加主 CTA）+ Hero 重构（居中）+ SessionDemo + FactBar 数字升 text-4xl/5xl |
 | v2.28 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"官网还是太简陋了，文字字体很low 官网不一定必须要全部都是黑色或者白色，这个规则在官网可以改"） | **批次 C：字体升级 + 色彩节奏（推翻 v2.27 全黑单主题）**。① §12.1 补**官网色彩豁免**：亮色回归 + 区块级明暗节奏（SessionDemo 与 QuickStart/Footer 两段 zinc-950 暗带、Architecture 灰带）；主按钮品牌 indigo（`--spark-accent` 浅档，button default 变体改色）；hero 全站唯一渐变字（indigo→sky 冷色）+ `.hero-dot-grid` 点阵底纹（globals.css，radial-gradient + mask 椭圆渐隐）。② §12.3 补**官网主字体**：Noto Sans SC variable（@fontsource 自托管、无 CDN、安装由人执行 §2.3a）——Windows 缺省雅黑在 display 档显廉价是"字体很 low"主因。产品四端禁令全部不变。实现=package.json + globals.css（字体栈/点阵）+ tokens.css 亮色回归 + button.tsx 主变体 + Hero（两行标题：逐字浮现行 + 渐变行）+ SessionDemo/QuickStart/Footer 暗带化 + Architecture 灰带 |
+| v2.29 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，四图指认"这个对话框完全用 deepseek harness 的来写——文件夹和模式放到对话框的上边框上面；卡内靠左=加号+访问权限，靠右=模型+推理强度+发送按钮"） | **§13.L 新增 L.8 上下文行 + L.2 工具条重排（DSH 三批）**：① 文件夹/提交模式两枚 chip 上移卡片上方（DSH WorkspaceChip 同构：16px 圆角/13px 全对比度文本/chevron caption）——文件夹欢迎页选新会话 cwd（最近会话去重 ≤8+默认工作区，`createSession({cwd})`）、会话页只读、无数据不渲染；② 提交三态 Segmented 上移为模式 chip 下拉（禁用矩阵不变，busy Enter wire=显示档）；③ 工具条左组=＋/权限/语音、右组=模型/推理/发送，文件树独立钮撤除（并入 + 菜单「浏览文件树」项）；④ 语音错误改瞬态提示行分色调（info accent 2.5s/error destructive 4s 自动消退）——修工具条红字挤压换行 bug。工单 doc/10 §14 WO-097/098 |
 
 > 本文件是**视觉决策文档**：回答"页面应该保持什么风格，遇到新场景怎么选"，让不同页面看起来仍属于同一个产品。
 > 架构与设计决策见 `ARCHITECTURE.md`；实现规格（做什么）见 `doc/02-development-plan.md` §6——本文件管"做成什么感觉、什么不许做"。所有前端 PR 以本文为验收依据之一。
@@ -687,7 +688,7 @@
 
 **L.1 Composer 卡**：容器 `rounded-[22px]`、**无 border**（删 `border-input` 与 `focus-within` ring——聚焦仅 caret 变色 `caret-send-accent`）、浅色白底 / 深色 `#2C2C2E`、**0.5px 描边环 + 双层柔影**（v2.21 精确值：`0 0 0 0.5px rgba(0,0,0,.10), 0 4px 16px rgba(0,0,0,.03), 0 0 24px rgba(0,0,0,.03)`，深色环 white/0.12——§12.2 阴影豁免位；**卡内距仅 pt-2**，14/8px 内距由 textarea/工具条自带）；textarea **14px/24px**、单行 36px 起、自动增高上限 **336px（14 行）**后内部滚动；placeholder 色 `#ADB2B8`/暗 `#81858C`、文案「描述你想要构建的内容，/ 调用指令，@ 文件或对话」。＋钮 28px 圆（secondary 底、14px 图标、text-foreground、hover `#F1F3F5`/暗 `#353638`）；选择器（权限/模型/推理）统一 DSH select 皮肤 `h-7 rounded-lg px-2 pr-5 text-[13px] leading-5 font-medium`（非 mono 非 full）；工具条左右两组、组距 12px（`justify-between`，max-[479px] wrap 兜底 WO-079）；**无常驻提示行**（键位进帮助面板；瞬态反馈保留）。
 
-**L.2 工具条**：发送/停止钮 **34px 圆、`--send-accent` 底、白图标**、hover `--send-accent-hover`；ModelPicker/EffortPicker 居右紧贴发送钮（重排后：左组=＋/语音/权限档位，右组=模型/推理/发送）；模型与权限钮 **8px 圆角**（本域豁免胶囊档）、13px 非 mono、右侧 12px chevron。提交三态与权限档位语义不变（§13.E）。
+**L.2 工具条**（v2.29 重排）：发送/停止钮 **34px 圆、`--send-accent` 底、白图标**、hover `--send-accent-hover`；**左组=＋菜单（附件/@///$/文件树——独立文件树钮撤除，入口并入 + 菜单「浏览文件树」项）/权限档位/语音钮，右组=模型/推理/发送**（模型与权限钮 8px 圆角（本域豁免胶囊档）、13px 非 mono、右侧 12px chevron，居右紧贴发送钮）；提交三态上移卡上模式 chip（L.8），语义与禁用矩阵不变（§13.E）；语音错误不占工具条——并入瞬态提示行（L.8）。
 
 **L.3 消息流**：相邻 flow item 间距 **16px**；内容列 768px 不变；user 气泡=右对齐、**22px 全圆角（无右下收角）**、max-w **82%**、`--user-bubble` 底、**无 YOU 标签**、14px/22px；assistant 块左锚全宽、正文 **14px/24px**（会话域字号 13→14px，管理面 13px 不变）；助手尾操作钮 28px 命中 / 15px 图标、非尾部行 hover 渐显。
 
@@ -705,6 +706,11 @@
 - **工具栏左组并排**：＋/文件树两钮容器必须 flex（块级按钮裸放天生竖排）；**弹层互斥**——开一关一，+菜单与文件树浮层禁止同屏叠放。
 
 **L.7 grep 与黑名单关系**：22px/14px 任意值圆角与 sweep keyframes 的豁免判注见 §12.4/§12.8/§6；本节豁免**不放松**其余 §12 条款（毛玻璃/emoji/超大标题/暖调照禁）。
+
+**L.8 上下文行（DSH 三批，v2.29；晚风 2026-09-20 四图指认"文件夹和模式放到对话框的上边框上面——卡内靠左=加号+访问权限，靠右=模型+推理强度+发送"）**：Composer 卡片上方新增一行**左对齐**两枚 chip（DSH hero WorkspaceChip/模式钮同构：`h-7 rounded-2xl(16px 登记档) px-2 gap-1 13px/20px wt500`、**文本全对比度 `text-foreground`**（区别于工具条选择器的 muted 皮肤）、chevron caption 灰、transparent 底无边框、hover `bg-accent`；组距 12px）：
+- **文件夹 chip**：欢迎页=新会话 cwd 选择——选项=最近会话 cwd 去重（≤8）+「默认工作区」项（引擎缺省），未选显示「选择文件夹」占位（DSH "Choose workspace" 同位），选中经 `createSession({ cwd })` 落地；会话页=**只读**（无 chevron 无弹层，title=完整 cwd——会话 cwd 中途不可迁，禁假切换）；无最近会话整枚不渲染（禁假状态）。
+- **模式 chip**：提交三态（立即/插话/排队）由卡内 Segmented 上移为下拉——禁用矩阵不变（空闲 steer/queue 禁、运行中 now 禁，禁用原因行内明示）；显示值经 `segmentDisplay` 归一，**busy Enter 的 wire 值取显示档**（UI 与报文一致）；Segmented 组件本体保留（设置页在用）。
+- **瞬态提示行分色调**：语音/发送错误原以红字常驻工具条（挤压 justify-between 提前换行——截图实证的布局 bug），改卡下瞬态提示行：info=`--spark-accent` 2.5s、error=`destructive` 4s 自动消退（DSH Toast hold-then-fade 同构）；弹层一律向上展开（与工具条弹层同向）。
 
 ---
 
