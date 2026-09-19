@@ -47,7 +47,8 @@ export function FactBar(): React.JSX.Element {
               )}
             >
               <dt className="text-sm text-muted-foreground">{fact.label}</dt>
-              <dd className="font-mono text-3xl font-semibold tabular-nums text-foreground">
+              {/* 数字升到 x.ai 式大号 mono（v2.27） */}
+              <dd className="font-mono text-4xl font-semibold tabular-nums text-foreground sm:text-5xl">
                 {fact.kind === "number" ? (
                   <NumberTicker
                     value={typeof fact.value === "number" ? fact.value : 0}

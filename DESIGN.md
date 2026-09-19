@@ -35,6 +35,7 @@
 | v2.20 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，五张截图指认："对话框完全按照 deepseek harness 的对话框做，没必要把长方形的格子线显示出来"+"滚动条显示成细窄滑块即可"） | **§13.L 新增 L.6 去格子线条款（DSH 二批，规格先行）**：全部弹层（+菜单/@ // 菜单/文件树/权限档位/模型选择）删 `border` 改 0.5px 描边环+柔影（暗色环 white/0.16）；Composer 容器顶线（SessionPage footer `border-t`）去除改 `pt-2`；Segmented 轨道去边框（选中胶囊自承载）；全局细滚动条（`scrollbar-width: thin` + `scrollbar-color`，浅 black/0.2 暗 white/0.2，单点维护在 theme.css）；会话流空 text 块不渲染（假空白根因）；助手操作行完成态**常显**（修订 L.3 hover 渐显）；工具栏左组 +/文件树并排（裸块级按钮竖排 bug）+ 弹层互斥开一关一。实现同批，工单登记 doc/10 §14（WO-089~094） |
 | v2.19 | 2026-09-19 | AI 编写：ZCode · Union Alpha；发起与拍板：晚风（Wanfeng1028，"这个我需要 dsh 的对话框改造，你把相应的文档改一下"指令；核验原判决记录 doc/10 v1.1 §5） | **新增 §13.L web 对话框 DSH 形态对齐规格（ADR D43）**：晚风拍板采纳 DSH 对话框改造（推翻 doc/10 v1.1 的整体退回判决），规格唯一来源落本文件新增 §13.L（数值基准=docs/audit/dialog-redesign-spec.md 的 DSH token 译码）。配套修订：① §13.B 圆角封闭集新增 **22px（web 对话框域 Composer 卡/user 气泡）与 14px（加载更早胶囊）** 两档（18px 保留为移动端 §13.J.3 档）；② §12.1 新增 **DSH 点睛色豁免**（`--send-accent` #4176E6/#679EFE 与 `--user-bubble` #EDF3FE，仅发送钮/caret/气泡三处）；③ §6 新增 **流式 sweep 豁免**（2.6s 横向扫光 keyframes，仅 running 态，reduced-motion 禁用）；④ §12.8 补 grep 判注（任意值圆角不在扫描词内、sweep 走 CSS keyframes 不走渐变类）；⑤ §13.E/§13.H web 冲突处由 §13.L 接管；⑥ 会话域正文/输入字号 **13→14px**（管理面 13px 不变，D32 密度不变项按域修订，ARCHITECTURE D43 登记）。**本期明确不做**（DSH 有但 §13.L 排除，需另立决策）：审批接管输入框（WO-065）、Lexical contenteditable（WO-067）、TurnRail（WO-070）、StatsPills/TurnUsagePanel（WO-071/072）、"Deep diving" 英文 shimmer（WO-063——保留中文状态行）。实现工单=docs/audit/dialog-redesign-workorder.md WO-052~078 按 §13.L 过滤后执行；ARCHITECTURE v1.50（D43）同批 |
 | v2.26 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，官网改造指令——批次 A"字号档位 + 高保真截图 + Hero 排版"方案确认后开工） | **§12.3 官网字号档位登记（official/ 营销站）**：超大标题禁令是给产品四端 13px 密度 UI 定的，官网单列 display 档——Hero 标题 40/52/60px、页面大标题 36/44px、区块标题 30/38px（移动/桌面断点），正文 16-18px；官网布局纪律不变（居中落地页骨架照禁），其余产品黑名单（蓝紫渐变/毛玻璃/emoji/装饰阴影/bento/假状态）对官网同样适用；§12.8 grep 扫描范围不变（official/ 不在扫描面，该行加判注）。首批落地：Hero 与全站标题字号 + BlurText CJK 逐字分词（中文 display 标题逐字 stagger）+ 四张产品截图 SVG 由灰色骨架线框重绘为高保真 mock（内容可回源码核对，禁假状态纪律保持）。后续批次（深色主演示带/会话流脚本动画/架构图重绘/四端 tab）待批次 A 验收后推进 |
+| v2.27 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，参考拍板："https://x.ai/（主参考，可以copy）+ https://blog.google/（参考细节），就定下这两个了"） | **批次 B：官网 xAI 化改版（视觉方向拍板登记）**。① §12 辨析行补**官网暗色基调豁免**——official/ 转 xAI 式纯黑单主题（bg `#000`、卡片 zinc-950、边框 zinc-800、正文 zinc-50/zinc-400；语义色 dark 档值 accent #818cf8/ok #34d399/warn #fbbf24），不设主题切换；产品四端亮色默认不变。② §12.5 补**官网居中 hero 豁免**（仅 official/；含 eyebrow pill，x.ai 实测骨架：eyebrow → 居中巨字 → 副标 → 双 CTA → 内联 agent 演示）。③ §12.3 官网 Hero 档上调 **44/60/72px**。④ 新增官网主演示组件 SessionDemo（对标 x.ai coding-agent 内联演示的 `❯ → 思考 → ▸ 工具行 → 审批框 → ✓ → 流式输出` 转录循环，内容取 Spark 真实事件序列 permission.asked/resolved + tool.completed，§13.K CLI 字形 `>` `◆` `▸`，reduced-motion 静态降级）。实现=official/ tokens.css 全量翻转 + Header（去 ThemeToggle、加主 CTA）+ Hero 重构（居中）+ SessionDemo + FactBar 数字升 text-4xl/5xl |
 
 > 本文件是**视觉决策文档**：回答"页面应该保持什么风格，遇到新场景怎么选"，让不同页面看起来仍属于同一个产品。
 > 架构与设计决策见 `ARCHITECTURE.md`；实现规格（做什么）见 `doc/02-development-plan.md` §6——本文件管"做成什么感觉、什么不许做"。所有前端 PR 以本文为验收依据之一。
@@ -187,7 +188,7 @@
 
 > 本节是全仓库"AI 生成风"特征的**唯一完整清单**（AGENTS.md §2.6 / ARCHITECTURE.md D2 / 工具 shim 均引用此处，不复制）。与 §7 反"网站化"黑名单互补：§7 挡"营销网站味"，本节挡"AI 模板味"；后端/通用代码的"AI 生成味"黑名单在 ARCHITECTURE.md §9。
 > **成因**（2026-08-23 外部调研考证）：主流模型的训练语料被 v0/Lovable 时代模板与 Tailwind 早期默认审美污染——Tailwind 早期文档所有按钮示例默认 `indigo-500`，作者 Adam Wathan 已公开致歉；"做界面"于是被学成了"套默认模板"。
-> 辨析：社区另把"默认永久暗色"列为 AI 特征——那是针对营销落地页的；本产品 v2.0 起**亮色为默认主题**（§13.C，工单 6.1），深/浅/跟随系统三档并存且都是一级公民，与此无关。
+> 辨析：社区另把"默认永久暗色"列为 AI 特征——那是针对营销落地页的；本产品 v2.0 起**亮色为默认主题**（§13.C，工单 6.1），深/浅/跟随系统三档并存且都是一级公民，与此无关。**官网暗色基调豁免（v2.27，2026-09-20 晚风拍板）**：official/ 营销站采用 xAI 式纯黑单主题（bg `#000`、zinc 边框、白色正文；主参考 x.ai 实测），"永久暗色"信号被显式参考决策豁免——产品四端亮色默认不变，官网不设主题切换（单主题无切换面）。
 > **严重度分级**（依社区审计工具 avoid-ai-design 的分级法）：**P0 一眼 AI**——出现即打回，无需讨论；**P1 强信号**——默认禁止，除非 PR 中给出书面理由；**P2 细微信号**——评审时说明为什么。
 
 ### 12.1 颜色
@@ -209,7 +210,7 @@
 
 ### 12.3 字体与排版
 
-- **超大标题字体**（hero 式 text-4xl/5xl/6xl/7xl 粗体大标题）——§3 封顶：UI 13px、页面级标题 15px。【P0】**官网（official/）例外档位（v2.26 登记）**：营销站单列 display 档——Hero 标题 40/52/60px、页面大标题 36/44px、区块标题 30/38px（移动/桌面三断点），正文 16-18px；产品四端禁令不变，官网布局纪律不变（§12.5 居中落地页骨架照禁）。
+- **超大标题字体**（hero 式 text-4xl/5xl/6xl/7xl 粗体大标题）——§3 封顶：UI 13px、页面级标题 15px。【P0】**官网（official/）例外档位（v2.26 登记，v2.27 上调）**：营销站单列 display 档——Hero 标题 44/60/72px（移动/平板/桌面）、页面大标题 36/44px、区块标题 30/38px，正文 16-18px；产品四端禁令不变。
 - Inter / Poppins / Space Grotesk / Geist 等被当成"不用想"的默认主字体（Hallmark 称 Inter "在训练数据里被过度代表"）。【P1——我们用系统栈 + IBM Plex Mono】
 - 全大写 section 小标签滥用；正文中孤立的衬线斜体"强调词"。【P1】
 - 装饰性等宽字体（"hacker vibe"）——mono 只用于代码/路径/工具输出（§3）。【P1】
@@ -225,7 +226,7 @@
 
 ### 12.5 布局
 
-- 居中 hero + 徽章 pill + 大标题 + CTA 的落地页骨架（应用内无落地页，§7.1）。【P0】
+- 居中 hero + 徽章 pill + 大标题 + CTA 的落地页骨架（应用内无落地页，§7.1）。【P0——官网豁免（v2.27）：official/ 按晚风拍板主参考 x.ai 改居中 hero + eyebrow pill 骨架，豁免仅限官网，产品四端照禁】
 - 恰好三张特性卡一行、"1·2·3"编号步骤行、横向统计数字条。【P1】
 - bento 网格默认化（信息本可线性呈现却硬切成大小格子）。【P1】
 - 假仪表盘/装饰性统计卡（与真实数据无关的 mock 数字块——同时违反 §5"禁止假状态"）。【P0】

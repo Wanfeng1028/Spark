@@ -1,52 +1,29 @@
 /*
- * 设计 Token（来源：apps/web/src/styles/tokens.css，官网适配）
- * 基调 zinc 中性、light 默认（:root 即浅色，深色收 .dark）；
+ * 设计 Token（官网单主题：xAI 式纯黑，DESIGN v2.27 登记）
+ * 晚风 2026-09-20 拍板主参考 x.ai——官网不设主题切换，亮/暗两套收一套纯黑；
+ * 产品四端（apps/web）亮色默认不受影响（token 语义与 §13.C 暗色档对齐）。
  * 禁止组件内硬编码 hex。
  */
 
 :root {
-  --background: #ffffff;
-  --foreground: #18181b;
-  --card: #ffffff;
-  --card-foreground: #18181b;
-  --primary: #18181b;
-  --primary-foreground: #fafafa;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
-  --destructive: #dc2626;
-  --destructive-foreground: #fafafa;
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  --ring: #a1a1aa;
-  /* spark 语义色（accent 单一，语义色只表达状态） */
-  --spark-accent: #4f46e5;
-  --spark-warn: #b45309;
-  --spark-ok: #047857;
-  --spark-err: #b91c1c;
-}
-
-.dark {
-  --background: #09090b;
+  --background: #000000;
   --foreground: #fafafa;
-  --card: #18181b;
+  --card: #09090b;
   --card-foreground: #fafafa;
   --primary: #fafafa;
   --primary-foreground: #18181b;
-  --secondary: #27272a;
+  --secondary: #18181b;
   --secondary-foreground: #fafafa;
-  --muted: #27272a;
+  --muted: #18181b;
   --muted-foreground: #a1a1aa;
-  --accent: #27272a;
+  --accent: #18181b;
   --accent-foreground: #fafafa;
   --destructive: #f87171;
   --destructive-foreground: #18181b;
   --border: #27272a;
   --input: #27272a;
   --ring: #52525b;
+  /* spark 语义色（accent 单一，语义色只表达状态）——取 §13.C 暗色档值 */
   --spark-accent: #818cf8;
   --spark-warn: #fbbf24;
   --spark-ok: #34d399;

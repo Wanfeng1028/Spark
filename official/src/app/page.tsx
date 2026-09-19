@@ -1,4 +1,5 @@
 import { Hero } from "@/components/sections/Hero";
+import { SessionDemo } from "@/components/sections/SessionDemo";
 import { FactBar } from "@/components/sections/FactBar";
 import { FeatureShowcase } from "@/components/sections/FeatureShowcase";
 import { ArchitectureDiagram } from "@/components/sections/ArchitectureDiagram";
@@ -11,6 +12,7 @@ export default function HomePage() {
   return (
     <>
       <Hero />
+      <SessionDemo />
       <FactBar />
       <FeatureShowcase />
       <ArchitectureDiagram />

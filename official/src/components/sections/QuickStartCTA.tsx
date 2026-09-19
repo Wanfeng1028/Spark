@@ -53,6 +53,8 @@ export function QuickStartCTA(): React.JSX.Element {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="浏览源码（在新标签打开 GitHub 仓库）"
+            /* 官网纯黑单主题下按钮底为白色，微光用深色（v2.27） */
+            shimmerColor="rgba(0, 0, 0, 0.08)"
           >
             <span className="inline-flex items-center">浏览源码</span>
           </ShimmerButton>

@@ -8,7 +8,6 @@ import { Github, Menu, X } from "lucide-react";
 import { NAV_ITEMS, LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 /** 判断是否为外部链接 */
 function isExternal(href: string): boolean {
@@ -116,9 +115,17 @@ const Header: React.FC = () => {
           )}
         </nav>
 
-        {/* 右侧操作区 */}
+        {/* 右侧操作区（官网单主题纯黑，无主题切换面——DESIGN v2.27） */}
         <div className="flex items-center gap-1">
-          <ThemeToggle />
+          <Link
+            href="/quickstart"
+            className={cn(
+              buttonVariants({ variant: "default", size: "sm" }),
+              "mr-1 hidden rounded-full px-4 sm:inline-flex",
+            )}
+          >
+            快速上手
+          </Link>
 
           {/* GitHub 图标链接 */}
           <a
