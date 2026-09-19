@@ -58,6 +58,7 @@
 | v1.56 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D46 MCP transport = stdio 缺省 + streamable-http（阶段十九 19.4，翻案 D16；doc/02 v4.70 同批）**：mcp.json transport/url/headers（掩码同 env）；StreamableHTTPClientTransport 零新依赖；schema 分支校验混写拒载。编排注记：19.4 由后台子代理起草、验证码超时中断于 connect 改造前，主会话审核采纳其 config/manager 改动并补完 connect 接线/状态显示/web 表单/测试 |
 | v1.57 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D47 LSP server 下载器 = 内置清单 + npm 全局装（阶段十九 19.5，翻案 16.9 判决；doc/02 v4.70 同批）**：protocol lsp-servers.ts 清单三端同源 + LspInstaller（probe 幂等/npm 600s/装后校验/writeLspConfig，全链 fail-closed）+ POST /api/lsp/install + web 安装区 + cli /lsp install <id>。真实下载走查留用户 |
 | v1.58 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十九工单 19.10 开工指令） | **D42 条目尾部 19.10 翻案补记（不新建 ADR；doc/02 v4.73 同批）**：arena 竞答记录落盘 `~/.spark/arena/<arenaId>.json`（ArenaStore 每场一文件 + manager 四时机写盘 + loadHistory mtime 降序损坏跳过）；翻案边界：零新事件与"非可回放状态"裁决不变，只翻"重启丢失"登记限制——历史查询面 GET /api/arena/history + listArenaHistory 三通道。本机零验证，CI 裁决 |
+| v1.59 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D48 审批作用域 = always-user 缺省 + always-project 项目级（阶段十九 19.9；doc/02 v4.74 同批）**：scope 参数全链贯通 + projectRuleStore 项目落盘 + E_PERMISSION_SCOPE fail-closed + 四端第四入口（v2 候选清偿）。19.10（D42 翻案补记）由后台子代理并行落地（v1.58/v4.73/v1.59 先行登记）。本机零验证，CI 裁决 |
 
 ---
 
@@ -476,6 +477,12 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 背景：16.9 判决"v1 无下载器，server 安装归用户环境"；晚风拍板翻案立项。
 决策：内置清单（protocol lsp-servers.ts，7 语言 npm caret 版本 pin，三端同源单一来源）+ 引擎 LspInstaller（已装探测幂等跳过 → `npm install -g` 600s 超时 → 装后命令可用性校验 → writeLspConfig）。npm registry 自带完整性校验，替代手工 checksum（直链/校验和类下载源 v1 不做，需要时另立）。
 约束与失败语义：未知 id 404；npm 缺失/失败/超时/装后校验失败各专属错误码（E_LSP_INSTALL*），全链 fail-closed 不写配置；写入后新 server 惰性连接（per-server config hash 变更自动重连，16.9 语义）；runNpm/probe 注入缝使单测免真实网络。POST /api/lsp/install + web 安装区 + CLI `/lsp install <id>` 双入口。
+
+### D48 审批作用域 = always-user 缺省 + always-project 项目级（2026-09-19，阶段十九工单 19.9，翻案判决）
+
+背景：原判决"always 恒写用户级规则"（CLI §13.K 四选项不虚设的注记）；晚风拍板翻案立项。
+决策：PermissionReply 增 scope 参数（'user' 缺省原行为零变化 / 'project' 写 <cwd>/.spark/permissions.json）——project 作用域复用 UserRuleStore（同文件形状），评估列表与落盘同引用（就地追加即全会话可见）；审计 source 区分 reply:always:project。
+约束与失败语义：无项目规则仓注入时 project 作用域如实 E_PERMISSION_SCOPE 拒固化，审批保持挂起可改答 once（fail-closed 不假状态）；规则先于 settle 固化的 AUD-01 顺序在两作用域一致；四端入口——web ApprovalCard 第四按钮、CLI 数字键 4、keymap 表同步（原 v2 候选"作用域扩展"清偿）。
 
 ## 6. 模块速览（职责边界）
 
