@@ -4,8 +4,8 @@
  * 失败 → 502（E_LSP_INSTALL*）。缺省 id 缺失 → 400。
  */
 import { describe, expect, test } from 'vitest'
-import type { LspInstaller } from '@spark/engine'
-import { makeServer } from './helpers'
+import type { LspInstaller } from '@spark/engine/internal'
+import { makeServer } from './helpers.js'
 
 function fakeInstaller(outcome: { ok: true; language: string; command: string; args: string[]; written: boolean } | { ok: false; code: string; message: string }): LspInstaller {
   // 测试假体：LspInstaller 形状的 install-only 实现（免真实 npm；纪律：无 async/await）
