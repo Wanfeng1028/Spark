@@ -385,7 +385,7 @@ AUD-01（§3）为本轮独立发现，与豆包报告零重叠（其报告未�
 | WO-089 | 立即/插话/排队分段控件画框 | Segmented 轨道 `border border-border` | 轨道去边框，选中胶囊（bg-secondary）自承载选中态 |
 | WO-090 | +菜单与文件树浮层同屏叠放（图1） | 两浮层各自独立 state，开一不清另一 | 两钮 onClick 开一关一（互斥） |
 | WO-091 | 会话流两段大空白（思考过程后/审批已允许后） | AssistantBlock 对空/纯空白 text 块照渲染——Streamdown 空 `<p>` 自带外距=假空白 | `c.text.trim()===''` 跳过渲染 |
-| WO-092 | 回复完成后复制/👍/👎 不可见（仅 hover 渐显） | AssistantActions 行 `opacity-0 group-hover/msg:opacity-100` | 去 hover 门控，完成态**常显**（修订 §13.L L.3） |
+| WO-092 | 回复完成后复制/👍/👎 不可见（仅 hover 渐显） | AssistantActions 行 `opacity-0 group-hover/msg:opacity-100`；且隐形行占布局空间——空正文 assistant（纯工具调用/中断空稿）的隐形行正是会话流"假空白"另一半根因 | 去 hover 门控完成态**常显**（修订 §13.L L.3）+ MessageItem 空正文不挂操作行（`assistantTextOf().trim()!==''` 闸门） |
 | WO-093 | 滚动条为 Windows 经典粗轨+箭头 | 未定制滚动条样式 | theme.css 全局 `scrollbar-width: thin` + `scrollbar-color`（浅 black/0.2 暗 white/0.2，透明轨道；单点维护） |
 | WO-094 | 工具栏 + 与文件树两钮竖排堆叠 | 左组容器 `relative shrink-0` 无 flex——两个块级按钮裸放天生竖排（非折行问题） | 容器补 `flex items-center gap-1` |
 

@@ -90,14 +90,18 @@ export const MessageItem = memo(function MessageItem({
           <div>
             <AssistantBlock content={item.content} streaming={item.streaming} />
           </div>
-          {item.streaming === undefined && item.time !== undefined && (
-            <AssistantActions
-              sid={sid}
-              eventId={item.eventId}
-              time={item.time}
-              copyText={assistantTextOf(item.content)}
-            />
-          )}
+          {/* §13.L L.6：空正文 assistant（纯工具调用/中断空稿）不挂操作行——
+              隐形行占位是会话流"假空白"的另一半根因，常显后更是孤儿行（禁假状态） */}
+          {item.streaming === undefined &&
+            item.time !== undefined &&
+            assistantTextOf(item.content).trim() !== '' && (
+              <AssistantActions
+                sid={sid}
+                eventId={item.eventId}
+                time={item.time}
+                copyText={assistantTextOf(item.content)}
+              />
+            )}
         </article>
       )
     case 'reasoning':
