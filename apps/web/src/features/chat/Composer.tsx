@@ -490,9 +490,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const preset: PermissionPreset = permission?.preset ?? 'confirm-each'
   const tier = tierOf(preset)
   const segmentValue = segmentDisplay(segment, busy, defaultDelivery)
-  const enterHint = busy
-    ? 'Enter 按分段档发送 · Ctrl+Enter 排队 · Shift+Enter 换行'
-    : 'Enter 发送 · Shift+Enter 换行'
 
   return (
     <div
@@ -505,10 +502,12 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     >
       <div
         className={cn(
-          // §13.L L.1（WO-052/053）：22px 全圆角白卡、无 border 无聚焦 ring（聚焦仅
-          // caret 变色）、单层 subtle 投影（§12.2 阴影豁免位）；深色 #2c2c2e + 0.5px 淡白描边环
-          'relative flex flex-col gap-3 rounded-[22px] bg-card pt-2 pr-2 pb-2 pl-2',
-          'shadow-[0_2px_10px_rgb(0_0_0/0.05)] dark:bg-[#2c2c2e] dark:shadow-[inset_0_0_0_0.5px_rgb(255_255_255/0.12)]',
+          // §13.L L.1 精确值（dialog-redesign-spec §1.1 IB.css L59-63）：22px 全圆角白卡、
+          // 无 border、卡内距仅 pt-2（内层元素自带 14/8px 内距）、0.5px 环+双层柔影
+          // （聚焦不加 ring——caret 变色即可）；深色 #2c2c2e + 0.5px 淡白环
+          'relative flex flex-col gap-3 rounded-[22px] bg-card pt-2',
+          'shadow-[0_0_0_0.5px_rgba(0,0,0,0.10),0_4px_16px_rgba(0,0,0,0.03),0_0_24px_rgba(0,0,0,0.03)]',
+          'dark:bg-[#2c2c2e] dark:shadow-[0_0_0_0.5px_rgba(255,255,255,0.12),0_4px_16px_rgba(0,0,0,0.03),0_0_24px_rgba(0,0,0,0.03)]',
         )}
       >
         {/* @ / / 菜单浮层（§13.E；展示层已拆 ComposerMenu——R-E③） */}
@@ -584,15 +583,16 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                 ? '输入将作为插话注入当前轮（Ctrl+Enter 排队）'
                 : busy
                   ? '继续输入以排队后续修改'
-                  : '向 Spark 提问，使用 @ 添加上下文，使用 / 选择命令或能力'
+                  : '描述你想要构建的内容，/ 调用指令，@ 文件或对话'
           }
-          className="max-h-[336px] min-h-9 w-full resize-none overflow-y-auto bg-transparent pt-1 pr-2 pb-0 pl-3.5 text-sm leading-6 text-foreground caret-send-accent outline-none placeholder:text-muted-foreground/60 disabled:cursor-not-allowed disabled:opacity-60"
+          className="max-h-[336px] min-h-9 w-full resize-none overflow-y-auto bg-transparent pt-1 pr-2 pb-0 pl-3.5 text-sm leading-6 text-foreground caret-send-accent outline-none placeholder:text-[#ADB2B8] dark:placeholder:text-[#81858C] disabled:cursor-not-allowed disabled:opacity-60"
         />
 
-        {/* 底部工具条（§13.L L.2 重排）：左=[＋/文件树/权限档位/语音]；右=[模型/推理/提交模式/发送] */}
-        <div className="flex min-h-8 flex-wrap items-center gap-x-1.5 gap-y-1 px-1.5 pb-0.5">
+        {/* 底部工具条（§13.L L.2 精确值 IB.css L254-389）：左右两组、组距 12px；
+            max-[479px] 保留 wrap 兜底（WO-079 窄屏验收），桌面恒单行 justify-between */}
+        <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2 pb-1.5 pt-0.5">
           {/* L.6：左组必须 flex——两个块级按钮裸放会竖排（DSH 二批 WO-089 修复） */}
-          <div className="relative flex shrink-0 items-center gap-1">
+          <div className="relative flex min-w-0 items-center gap-3">
             <button
               type="button"
               data-plus-menu
@@ -604,7 +604,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                 setTreeOpen(false) // L.6 弹层互斥：开一关一，禁止同屏叠放
                 setPlusMenuOpen((v) => !v)
               }}
-              className="flex size-7 items-center justify-center rounded-full bg-secondary text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+              className="flex size-7 items-center justify-center rounded-full bg-secondary text-foreground hover:bg-[#F1F3F5] dark:hover:bg-[#353638] disabled:pointer-events-none disabled:opacity-40"
             >
               <Plus className="size-3.5" />
             </button>
@@ -617,7 +617,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                 setPlusMenuOpen(false) // 弹层互斥（同上）
                 setTreeOpen((v) => !v)
               }}
-              className="flex size-7 items-center justify-center rounded-full bg-secondary text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+              className="flex size-7 items-center justify-center rounded-full bg-secondary text-foreground hover:bg-[#F1F3F5] dark:hover:bg-[#353638] disabled:pointer-events-none disabled:opacity-40"
             >
               <FolderTree className="size-3.5" />
             </button>
@@ -671,7 +671,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               disabled={waiting}
               onClick={() => setPresetMenuOpen((v) => !v)}
               title={`权限档位：${tier.label}——${tier.description}`}
-              className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-1.5 text-[13px] text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+              className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 pr-5 text-[13px] leading-5 font-medium text-muted-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
             >
               <tier.icon
                 className={cn('size-4', tier.warn && 'text-[var(--spark-warn)]')}
@@ -737,7 +737,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             </button>
           )}
 
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <div className="ml-auto flex shrink-0 items-center gap-3">
             {/* 模型/推理选择器（§13.L L.2 / WO-056：紧贴发送钮右侧） */}
             {model !== undefined && (
               <ModelPicker
@@ -807,15 +807,13 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         </div>
       </div>
 
-      <p
-        aria-live="polite"
-        className={cn(
-          'h-4 text-xs',
-          hint !== null ? 'text-[var(--spark-accent)]' : 'text-muted-foreground/60',
-        )}
-      >
-        {hint ?? (waiting ? '等待审批中——请先处理上方审批卡' : enterHint)}
-      </p>
+      {/* §13.L L.1：DSH 无常驻提示行（键位在帮助面板/占位文案承载）——只保留瞬态操作反馈
+          （DESIGN §5：异步动作必须有反馈），无反馈时不渲染、不再占一行 */}
+      {hint !== null && (
+        <p aria-live="polite" className="text-xs text-[var(--spark-accent)]">
+          {hint}
+        </p>
+      )}
     </div>
   )
 })

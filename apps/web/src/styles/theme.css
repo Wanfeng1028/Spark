@@ -128,13 +128,23 @@ html.spark-code-wrap [data-streamdown='code-block-body'] pre {
  * 替换 Windows 经典粗轨+箭头。Chromium 121+/Firefox 均支持标准属性
  * （scrollbar-width/color 生效时 ::-webkit-scrollbar 伪元素被忽略，无需双写）。
  * 若需改色/改宽：只动这里，别在组件里写局部滚动条样式。
+ *
+ * overlay 观感（WO-096，晚风指认"平时不要显示"）：scrollbar-color 默认全透明——滑块
+ * 平时不可见；悬停该滚动区（或其内获得焦点）才显现淡色滑块，滚轮滚动时指针本就在
+ * 悬停态、滑块随显随隐。滚动槽位仍按 thin 预留（内容右缘留白与 DSH 一致）。
  */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgb(0 0 0 / 0.2) transparent;
+  scrollbar-color: transparent transparent;
 }
 
-.dark,
-.dark * {
-  scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+*:hover,
+*:focus-within {
+  scrollbar-color: rgb(0 0 0 / 0.18) transparent;
 }
+
+.dark *:hover,
+.dark *:focus-within {
+  scrollbar-color: rgb(255 255 255 / 0.22) transparent;
+}
+

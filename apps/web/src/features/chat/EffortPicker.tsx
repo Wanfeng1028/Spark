@@ -57,7 +57,7 @@ export function EffortPicker({ current, onChange, disabled }: EffortPickerProps)
         disabled={disabled === true || busy}
         onClick={() => setOpen((v) => !v)}
         title={`推理档位：${label}（切换后下一轮生效）`}
-        className="flex h-7 items-center gap-1 rounded-full px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+        className="flex h-7 items-center gap-1 rounded-lg px-2 pr-5 text-[13px] leading-5 font-medium text-muted-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
       >
         <Gauge className="size-3.5 shrink-0" />
         {label}
@@ -68,7 +68,7 @@ export function EffortPicker({ current, onChange, disabled }: EffortPickerProps)
         <ul
           role="menu"
           aria-label="推理档位"
-          className="absolute bottom-full left-0 z-20 mb-1.5 w-44 overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-md"
+          className="absolute bottom-full left-0 z-20 mb-1.5 w-44 overflow-hidden rounded-xl bg-popover py-1 shadow-[0_0_0_0.5px_rgba(0,0,0,0.12),0_3px_8px_rgba(0,0,0,0.03),0_0_16px_rgba(0,0,0,0.02)] dark:shadow-[0_0_0_0.5px_rgb(255_255_255/0.16),0_3px_8px_rgb(0_0_0/0.25)]"
         >
           {EFFORT_OPTIONS.map((o) => (
             <li key={o.value} role="none">

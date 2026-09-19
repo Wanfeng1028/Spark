@@ -59,7 +59,7 @@ export function ModelPicker({ current, models, providers, onChange, disabled }: 
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         title={`当前模型：${current}（切换后下一轮生效）`}
-        className="flex h-7 max-w-56 items-center gap-1 rounded-full px-1.5 font-mono text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+        className="flex h-7 max-w-[220px] shrink-0 items-center gap-1 rounded-lg px-2 pr-5 text-[13px] leading-5 font-medium text-muted-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
       >
         {/* WO-079（§13.L L.2 窄屏适配）：<480px 收起模型名文本，保留图标可点 */}
         <Box className="hidden size-3.5 shrink-0 max-[479px]:block" />
