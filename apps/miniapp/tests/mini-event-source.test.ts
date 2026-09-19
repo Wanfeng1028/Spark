@@ -68,6 +68,9 @@ vi.mock('@tarojs/taro', () => ({
   default: {
     request: (opts: { url: string }) => harness.fakeRequest(opts),
     getSystemInfoSync: () => ({ SDKVersion: '2.20.2' }),
+    // WO-038：生产代码已拆用 getAppBaseInfo——桩同步提供（缺位会让 SDKVersion 判空
+    // 走错通道分支，I6 用例的 403 断言在错误通道下失败）
+    getAppBaseInfo: () => ({ SDKVersion: '2.20.2' }),
   },
 }))
 
