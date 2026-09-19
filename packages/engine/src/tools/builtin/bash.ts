@@ -157,11 +157,13 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
       // 常驻路径（19.3 / ADR D45）：POSIX bash + 主开关开 + 沙箱关。
       // 沙箱 'on' 时沙箱路径优先（wrapper 包常驻 shell 属 19.6，v1 不混用）。
       if (persistentOn && opts.sandbox === 'off') {
+        // cwd 语义（D45）：显式 cwd 才切目录；无 cwd = 保持常驻 shell 当前位置
+        //（命令内 cd 跨调用保持——常驻的核心价值），不强制拉回会话根
         const result = await pool.run(
           ctx.sessionId,
           shell.file,
           input.command,
-          workDir,
+          input.cwd !== undefined ? workDir : null,
           timeoutMs,
           ctx.signal,
           ctx.onProgress,
