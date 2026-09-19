@@ -1,12 +1,14 @@
 /**
- * 电脑控制执行体（阶段十九工单 19.1 / ADR D43）：computer.* 工具族的平台执行层。
- * 接口 = 八操作封闭集；平台实现分两层——Windows 走 PowerShell 脚本桥（零 npm 原生
- * 依赖，选型判决见 ARCHITECTURE D43），macOS/Linux 由 19.2 落地（此前一切操作如实
- * 报 E_COMPUTER_UNSUPPORTED，不假装可执行）。
+ * 电脑控制执行体（阶段十九工单 19.1/19.2 / ADR D44）：computer.* 工具族的平台执行层。
+ * 接口 = 八操作封闭集；平台实现三层——Windows PowerShell 脚本桥 / macOS osascript+系统
+ * 命令 / Linux X11 xdotool 家族（Wayland 不支持如实拒绝），全部零 npm 原生依赖；
+ * 其余平台如实 E_COMPUTER_UNSUPPORTED。
  * 主开关（spark.json engine.computerUseEnabled）在工具层判——每操作执行期读引擎内存
  * 配置，改设置下一操作即生效（热档，不入 SETTINGS_RESTART_REQUIRED）。
  */
 import { WindowsComputerExecutor } from './windows.js'
+import { MacComputerExecutor } from './macos.js'
+import { LinuxComputerExecutor } from './linux.js'
 
 /** 截图结果：文件名与字节数（图片本体落 shotsDir，经 GET /api/artifacts/:file 供图——browser.screenshot 同通道） */
 export interface ComputerScreenshotResult {
@@ -72,15 +74,23 @@ export interface ComputerExecutor {
  * 平台工厂（engine 装配期调用一次；构造零副作用——spawn 只发生在操作执行期）。
  * shotsDir 与 browser 截图共用（~/.spark/browser-shots）：GET /api/artifacts 的
  * 文件名白名单（shot-<ts>-<seq>.png）单通道供图，不另开面。
+ * Windows = PowerShell 脚本桥（D44）；macOS = osascript/screapture/pbpaste（19.2）；
+ * Linux = xdotool/wmctrl/scrot/xclip X11（19.2，Wayland 不支持如实拒绝）；其余平台 Unsupported。
  */
 export function createComputerExecutor(shotsDir: string): ComputerExecutor {
   if (process.platform === 'win32') {
     return new WindowsComputerExecutor(shotsDir)
   }
+  if (process.platform === 'darwin') {
+    return new MacComputerExecutor(shotsDir)
+  }
+  if (process.platform === 'linux') {
+    return new LinuxComputerExecutor(shotsDir)
+  }
   return new UnsupportedComputerExecutor(process.platform)
 }
 
-/** 未覆盖平台的如实降级（19.2 落地 macOS/Linux 前的 fail-closed 面） */
+/** 其余平台（freebsd 等）的如实降级（fail-closed，不假装可执行） */
 export class UnsupportedComputerExecutor implements ComputerExecutor {
   constructor(private readonly platform: string) {}
 

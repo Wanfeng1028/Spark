@@ -61,9 +61,8 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'computer',
         title: '电脑控制',
-        description: '系统级控制开关与审批档位——去向：v2（桌面能力面）',
-        status: 'placeholder',
-        placeholderReason: 'v2 挂池',
+        description: 'computer.* 工具族主开关与操作审批档位（工单 19.2 / ADR D44）',
+        status: 'ready',
       },
     ],
   },

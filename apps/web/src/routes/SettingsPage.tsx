@@ -15,6 +15,7 @@ import { LspSettingsPage } from '@/features/settings/LspSettingsPage'
 import { SubagentsSettingsPage } from '@/features/settings/SubagentsSettingsPage'
 import { PluginsSettingsPage } from '@/features/settings/PluginsSettingsPage'
 import { SecurityTrustPage } from '@/features/settings/SecurityTrustPage'
+import { ComputerSettingsPage } from '@/features/settings/ComputerSettingsPage'
 import { CommandsSettingsPage } from '@/features/settings/CommandsSettingsPage'
 import { HooksSettingsPage } from '@/features/settings/HooksSettingsPage'
 import { UsageSettingsPage } from '@/features/settings/UsageSettingsPage'
@@ -42,6 +43,7 @@ const READY_COMPONENTS = {
   usage: UsageSettingsPage,
   memory: MemorySettingsPage,
   audit: AuditSettingsPage,
+  computer: ComputerSettingsPage,
 } as const
 
 export function SettingsPage() {

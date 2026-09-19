@@ -139,7 +139,8 @@ export function makeComputerTools(opts: ComputerToolsOptions): ToolDefinition[] 
     name: 'computer.key',
     description:
       '按单个按键或组合键（如 Enter/F5/a；modifiers 组合 ctrl/alt/shift/meta）。' +
-      '键名按 Windows Keys 枚举拼写（Enter、Tab、Escape、F1-F12、字母与数字名）。',
+      '键名跟随平台：Windows 按键枚举名（Enter、Tab、Escape、F1-F12）、Linux X11 keysym 名、' +
+      'macOS 键名；不认识的键名如实报错，不静默吞掉。',
     inputSchema: KeyInput,
     permission: {
       action: 'computer.use',

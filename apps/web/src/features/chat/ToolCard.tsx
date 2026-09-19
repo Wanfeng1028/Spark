@@ -15,6 +15,7 @@ import {
   FilePen,
   FileText,
   Globe,
+  Monitor,
   Terminal,
   Wrench,
 } from 'lucide-react'
@@ -147,6 +148,7 @@ function ToolIcon({ name }: { name: string }) {
   if (name === 'edit' || name === 'write') return <FilePen className={cls} />
   if (name === 'read') return <FileText className={cls} />
   if (name.startsWith('browser.')) return <Globe className={cls} />
+  if (name.startsWith('computer.')) return <Monitor className={cls} />
   return <Wrench className={cls} />
 }
 
@@ -178,6 +180,46 @@ function ToolDetail({ name, output }: { name: string; output: unknown }) {
   if (name === 'edit' || name === 'write') return <DiffViewer output={output} />
   if (name === 'read') return <ReadMeta output={output} />
   if (name.startsWith('browser.')) return <BrowserDetail name={name} output={output} />
+  if (name.startsWith('computer.')) return <ComputerDetail name={name} output={output} />
+  return (
+    <pre className="max-h-64 overflow-auto px-3 py-2 font-mono text-xs leading-relaxed text-muted-foreground">
+      {JSON.stringify(output, null, 2)}
+    </pre>
+  )
+}
+
+/**
+ * computer 工具族可视化（阶段十九 19.2 / ADR D44）：screenshot 显示屏幕截图本体
+ * （与 browser.screenshot 同一 /api/artifacts 通道）；其余操作显示紧凑 JSON。
+ */
+function ComputerDetail({ name, output }: { name: string; output: unknown }) {
+  const r = (typeof output === 'object' && output !== null ? output : {}) as Record<string, unknown>
+  const [imgFailed, setImgFailed] = useState(false)
+
+  if (name === 'computer.screenshot' && typeof r.file === 'string') {
+    return (
+      <div>
+        <p className="truncate border-b border-border px-3 py-1.5 font-mono text-xs text-muted-foreground">
+          {r.file}
+          {typeof r.bytes === 'number' ? ` · ${(r.bytes / 1024).toFixed(1)} KB` : ''}
+        </p>
+        {imgFailed ? (
+          <p className="px-3 py-2 font-mono text-xs text-muted-foreground/70">
+            截图不可预览（{r.file}——服务未提供该文件）
+          </p>
+        ) : (
+          <div className="p-2">
+            <img
+              src={`/api/artifacts/${r.file}`}
+              alt={`屏幕截图 ${r.file}`}
+              onError={() => setImgFailed(true)}
+              className="max-h-80 w-auto rounded-lg border border-border"
+            />
+          </div>
+        )}
+      </div>
+    )
+  }
   return (
     <pre className="max-h-64 overflow-auto px-3 py-2 font-mono text-xs leading-relaxed text-muted-foreground">
       {JSON.stringify(output, null, 2)}

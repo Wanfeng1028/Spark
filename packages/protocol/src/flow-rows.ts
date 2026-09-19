@@ -35,6 +35,7 @@ export function toolCategoryOf(name: string): string {
   if (name === 'task') return '子代理'
   if (name === 'memory.save' || name === 'memory.search') return '记忆'
   if (name.startsWith('browser.')) return '浏览'
+  if (name.startsWith('computer.')) return '电脑控制'
   return name
 }
 
