@@ -329,14 +329,16 @@ describe('Engine 全文搜索端到端（工单 7.13 验收）', () => {
 
 // ---------- 索引库管理（阶段十九工单 19.11：stats / rebuild / vacuum） ----------
 
-/** 静默假体：不用真实 Logger——其文件流异步打开，afterEach 删临时目录会触发 ENOENT 未捕获异常 */
-const silentLogger: SparkLogger = {
+/** 静默假体：不用真实 Logger——其文件流异步打开，afterEach 删临时目录会触发 ENOENT 未捕获异常。
+ * inner/close 是接口必需面（宿主销毁用），索引器只消费四日志方法，故经 unknown 收窄（同 lsp 假安装器惯例）。 */
+const silentLogger = {
   level: 'silent',
   info: () => {},
   warn: () => {},
   error: () => {},
   debug: () => {},
-}
+  close: () => Promise.resolve(),
+} as unknown as SparkLogger
 
 function makeIndexer(root: string): SearchIndexer {
   return new SearchIndexer(root, silentLogger, () => '测试标题')
