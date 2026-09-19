@@ -2791,6 +2791,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.60 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，五图指认"对话框完全按 deepseek harness 做，不显示长方形格子线"+细滚动条+假空白+操作行常显） | **DSH 对话框二批落地（DESIGN v2.20 §13.L L.6 规格先行；工单库 doc/10 §14 WO-089~094；本机零验证以 CI 裁决）**：① 五弹层（+菜单/@ // 菜单/文件树/权限档位/模型选择）删 `border` 改 0.5px 描边环+柔影；② SessionPage footer 去 `border-t` 改 `pt-2`；③ Segmented 轨道去边框；④ +菜单×文件树浮层互斥（开一关一）；⑤ AssistantBlock 空 text 块跳过（会话流两段假空白根因——Streamdown 空 <p> 外距）；⑥ AssistantActions 完成态常显（修订 §13.L L.3）；⑦ theme.css 全局细滚动条（scrollbar-width thin + scrollbar-color，替代 Windows 粗轨箭头）；⑧ Composer 左组补 flex（+/文件树裸块级按钮竖排 bug）。现场走查留豆包 |
 | v4.62 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，"不是有源码吗？你为何都抄不来样子？？？？就把对话框这个先看人家的代码，给我好好的复现"+"进度条为啥还在"） | **DSH 二批收尾：Composer 逐值照抄 + 滚动条 overlay 化（doc/10 §14 WO-095/096；DESIGN v2.21 L.1/L.6 同步；本机零验证以 CI 裁决）**：① 卡阴影改 DSH 三段式精确值（0.5px 环+双层柔影，暗环 white/0.12 非 inset——上批误用单层 0.05 投影）；② 卡内距仅 pt-2（14/8px 归 textarea/工具条自带）；③ placeholder 色 #ADB2B8/暗 #81858C + 文案照抄；④ 权限/模型/推理三选择器统一 DSH select 皮肤（h-7 rounded-lg px-2 pr-5 13px/500，去 mono/rounded-full）；⑤ + 钮 text-foreground + hover #F1F3F5/#353638；⑥ 工具条组距 12px justify-between（max-[479px] wrap 兜底）；⑦ 移除常驻 Enter 提示行（瞬态反馈 §5 保留）；⑧ EffortPicker 下拉补去框（第六弹层漏网）；⑨ 滚动条 overlay 化——scrollbar-color 默认全透明、悬停/聚焦显淡滑块；⑩ e2e 三 spec 占位符定位器同步新文案（首跑红在 locator.fill 超时） |
 | v4.61 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"使用统计里面加点图表"指令；口头解禁第三方图表库，观感拍板仍走手写）。**版本号撞号顺延**：本行原拟 v4.60，已被并行会话（DSH 对话框二批）占用，顺延为 v4.61，不改他人历史行 | **§8 阶段十三新增 13.6a 完成并勾选：使用统计可视化图表**。UsageSettingsPage 三处升级：① 按日用量由单行平铺条改 **tokens 堆叠柱状**——cache 读/写、未命中输入、输出四分量单色明度阶梯（bg-primary 25/45/70/100），峰值标尺行，悬浮单日明细替换标尺且其余柱降灰，柱下日期/成本行 + 图例；② 按供应商/模型表上方加 **tokens 占比堆叠条**（段序=表序、行首色标补全图例闭环、全零不渲染）；③ 总账**命中率迷你条**（UsageBar 同款视觉语言，ratio null 不渲染）。**不引图表库判决维持**：本机零下载（AGENTS §2.3a）下加库即锁文件不同步、CI 红在 install 步，且 recharts 类默认风格与黑白 token 体系相逆——晚风解禁后仍拍板手写。组件测两态同步（堆叠柱/占比条/图例/峰值断言 + 空态零假图形）。本批本机零验证，CI 裁决；doc/08 v1.50（§13.6 增补）同批 |
+| v4.62 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与四项拍板：晚风（Wanfeng1028，"占位的全部都要立项实施……项目里面所有端的占位都得立项实现"指令） | **§8 新增阶段十九（全端占位清零与判决翻案，42 工单 19.1–19.42）并 lift 建表；§8.7 头注记（余项全量翻案立项，以阶段表勾选为准）**。立项依据 = 当日四端源码级占位盘点（web/CLI/mobile+miniapp/desktop+engine+protocol，识别 8 处陈旧占位与 mock 对等缺口）+ 晚风四项拍板：①电脑控制按完整 computer-use 立项；② i18n（V2-12）全量立项（推翻 Q-2 缓行）；③桌面大件分尸立项（托盘/保持运行/内置终端/多窗口立项，自更新立项但代码签名挂起待证书采购）；④既有 ADR 登记限制与候选池余项判决全部推翻立项。边界：不变量六项与后置池八条观察项不在本轮（doc/08 §5D.9 尾差待补拍板）。工单卡细则见 doc/08 §5D（v1.51 同批）。本批纯规划零代码，本机零验证 |
 
 
 ## 阶段十一：可发布（Release）——工单级
@@ -2918,6 +2919,57 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 
 > 备注：目标观感 = 胶囊控件 + 大圆角分层卡 + 浅灰底输入；不变项：密度 13px / 会话流转录形态 / 禁渐变阴影毛玻璃；与移动端 §13.J 视觉口径合流。
 
+## 阶段十九：全端占位清零与判决翻案——工单级（2026-09-19 立项）
+
+> 立项依据与工单卡细则：doc/08 §5D（四项拍板：电脑控制=完整 computer-use；i18n 全量；桌面大件分尸立项、签名挂起；登记限制与候选池余项判决全部推翻）。以 2026-09-19 四端源码级占位盘点为底。翻案单落地须出迷你 ADR 修订对应判决；未列举的不变量六项与后置池八条观察项不在本轮范围。
+
+| # | 工单 | 产出（目标 + 涉及面） | 验收标准 | 依赖 |
+| --- | --- | --- | --- | --- |
+| 19.1 | ⬜ computer-use 执行体底座（Windows 先行）+ ADR D43 | engine computer.* 八操作工具族（screenshot/click/type/key/scroll/window/app/clipboard；resource 前缀 computer://）+ 执行体选型 spike 出迷你 ADR + spark.json computerUse.enabled 缺省 false fail-closed | 工具四路径单测 + 开关拒绝路径 + 规则命中；真机走查留用户 | — |
+| 19.2 | ⬜ computer-use macOS/Linux 执行体 + 电脑控制设置页 | mac/Linux 执行体；web「电脑控制」页真落地（开关/操作类档位/授权记录）；CLI /computer 只读面板；mobile/miniapp 指示行 | 设置页走 Transport 非假控件；四端走查留用户 | 19.1 |
+| 19.3 | ⬜ bash 常驻 shell 会话（翻案） | bash persistent 会话池（cwd/env 保持/空闲回收/上限）+ 设置项 + ADR 修订 | 会话保持/回收/上限单测；既有独立 shell 缺省零回归 | — |
+| 19.4 | ⬜ MCP HTTP/SSE transport（翻案 D16，消解 V2-21） | mcp.json transport: stdio\|streamable-http（缺省 stdio 零变化）+ 远程连接管理 + 管理页/CLI 适配 + 迷你 ADR | 三态单测；stdio 既有测试零回归 | — |
+| 19.5 | ⬜ LSP server 下载器（翻案 16.9 判决） | known-servers 清单（pin 版本）+ 引擎运行时下载安装（用户机）+ lsp.json 引导 + 两端安装入口 | 清单 schema + 下载器 fail-closed 单测；真实下载 CI skipIf/走查留用户 | — |
+| 19.6 | ⬜ Windows OS 级沙箱（翻案 D15） | AppContainer/restricted token spike → 可行即落地 bash 沙箱 os 档，不可行出证据报告回拍板 | spike 产物 + 单测；与既有档位语义兼容 | — |
+| 19.7 | ⬜ 沙箱网络隔离（V2-19） | SOCKS5 本地代理 + 域名 allowlist + bash 沙箱联动 + 设置面 | 清单命中/拒绝单测；隔离实测留用户 | 19.6 或独立 |
+| 19.8 | ⬜ 向量语义检索（翻案 D25，消解 V2-18） | embedding 提供方抽象 + 索引/记忆向量 schema + 语义检索进 search 工具与记忆召回 + 索引库页开关；先出设计 ADR | 假 embedding 注入/检索单测；真实模型走查留用户 | — |
+| 19.9 | ⬜ 审批作用域扩展（翻案"always 恒用户级"） | replyPermission 作用域参数（always-user/always-project）+ 规则落点分流 + 四端审批卡补"本项目总是允许" | permission 作用域单测 + 四端渲染 | — |
+| 19.10 | ⬜ arena 竞答记录落盘（翻案 D42） | ~/.spark/arena/ 快照持久化 + 历史端点 + web/CLI 历史查看 + D42 修订 | 重启可查单测 | — |
+| 19.11 | ⬜ 索引库管理端点与管理页 | GET /api/index/stats·entries + POST rebuild·vacuum + 停用开关 + web 索引库页（统计/重建/清理走确认） | server 路由单测 + mock 对等；占位徽标摘除 | — |
+| 19.12 | ⬜ 浏览器设置面 | BrowserManager 设置（headless/超时/UA）进 spark.json+SettingsDto + 域名白名单管理视图 + 数据清理 + web 浏览器页 | 设置→引擎重载链路单测；占位徽标摘除 | — |
+| 19.13 | ⬜ 常规页占位接线（半陈旧批） | 自动归档策略行 + 任务通知/声音行（desktop.json UI + web Notification + 提示音）+ 全局代理/NO_PROXY/MCP·命令出口代理 + 自定义证书行；同批修正 8 处陈旧占位文案（doc/08 §5D 头注记清单） | 每行真数据源 + 单测；陈旧文案 grep 清零 | — |
+| 19.14 | ⬜ SettingsDto 补控件批（含 V2-37） | server.port/host + engine 四字段控件 + restartRequired 真值消费（RestartBadge 读数组）+ 默认模型/档位写路径统一 models.json 单写者 | 读写 round-trip 单测；V2-37 迷你 ADR | — |
+| 19.15 | ⬜ 引导页落地 | 引导状态查看 + 重跑引导收编 + 首启自动弹开关 | 占位徽标摘除；与 OnboardingPage 联动单测 | — |
+| 19.16 | ⬜ 多数据目录迁移 | SPARK_HOME 解析链（resolveInRoot 单源）+ 迁移向导 + ADR | 迁移幂等/失败闭合单测；cwd 硬边界红线不变 | — |
+| 19.17 | ⬜ i18n 全量（翻案 Q-2，消解 V2-12） | i18n 框架（语言包/检测/切换存储）+ web 全量文案抽取（ui-copy/error-copy 扩容）+ 界面语言行真落地；大件拆两批 | 切换即时生效单测；组件硬编码中文 grep 清零 | — |
+| 19.18 | ⬜ prompts 模板管理面（V2-16 前端半边） | spark.json prompts 三模板管理 UI（查看/编辑/恢复缺省） | 与 13.3 联调单测；"手工改 spark.json"描述清零 | — |
+| 19.19 | ⬜ 反馈存储全链路（消解 V2-25） | 引擎反馈表 + POST /api/feedback + Transport 三通道 + 四端 👍👎 接线 + 审计页过滤 | 端到端单测；置灰 grep 清零 | — |
+| 19.20 | ⬜ 会话改名全链路（/title /rename） | 引擎 setTitle 端点 + protocol DTO + 命令基线 + 四端入口 | 基线断言四包同改；改名后索引/列表同步单测 | — |
+| 19.21 | ⬜ web 会话流小件批 | client-commands 补 8 项映射（18/18）+ 状态点完成态灰档 + 附件文件选择器/拖拽（uploadAttachment 接线）+ 链接预览卡（V2-24） | 命令面板全渲染断言 + 组件单测 | — |
+| 19.22 | ⬜ Mock 对等修复批 | mock.ts 十项对齐 HttpTransport 语义（updateSettings 丢 agents/models/extensions patch 真 bug / createSession 丢 opts / getMcpConfig 掩码 / updateMcpConfig 持久 / listFs·listFsTree / transcribe / arena / testModelProvider / deleteSession 校验 / sendMessage 参数） | 每项一条对齐单测；e2e mock 零回归 | — |
+| 19.23 | ⬜ CLI 设置面（/settings 面板） | 对齐 web 可热改子集的 CLI 设置面板（模型缺省/effort/并行/超时/沙箱/各启停/通知/prompts），全走 Transport + keymap Ctrl+, surface 改 both | 写路径单测；键位表单测 | — |
+| 19.24 | ⬜ CLI 面板管理态批 | 六只读面板（/mcp /skills /agents /trust /extensions /lsp）升管理态 + /arena 应用胜者/取消 + ArenaPanel 轮询实时化（D42 漏登记补记）+ /checkpoint 面板内回滚 + 用量路由编辑 + 模型配置引导 | 每面板操作→引擎生效单测；"只读（走设置中心）"grep 清零 | 19.23 |
+| 19.25 | ⬜ CLI 小件批（含 i18n 消费） | surface 过滤落实（消兜底文案）+ /agents 会话前置修正 + /voice hold 语义或描述修正 + InputBox 编辑键扩展 + 多行输入（翻案 D19，ADR 修订）+ markdown 渲染扩展（表格/引用块）+ i18n 消费 | 键位表单测；D19 修订 ADR | 19.17 |
+| 19.26 | ⬜ V2-26 IME step2-4（阻塞：现场录制） | 晚风跑 scripts/spike-ime-stdin.mts 真机录制回传 → AI 实现 step2-4 判定/防御/回归 | 中文组字期无半字符/光标跳列真机走查 | 用户录制产物 |
+| 19.27 | ⬜ 移动端会话体验补齐批 | 已归档筛选接通（V2-23）+ 附件接入 + topBanner/attachments 渲染 + 会话菜单（置顶/改名/归档/删除/反馈）+ 页头副标题（§13.J.2.3）+ SubmitOutcome 排队语义 + 计划模式档位菜单 + 配对设备管理页（getPairStatus/revokePairDevice） | controller 路径单测；置灰/承诺缺口 grep 清零 | 19.19/19.20 |
+| 19.28 | ⬜ 移动端管理面批（含移动端语音 V2-28） | fork/checkpoint/回滚/会话树/arena/trust/extensions/lsp/agents 面板接入（两批交付）+ 移动端语音（Expo 录音+transcribe）+ i18n 消费 | 每面板接入冒烟；真机走查留用户 | 19.17/19.19 |
+| 19.29 | ⬜ 小程序补齐批（含分发中继翻案 D21） | 筛选菜单 + 附件入口 + topBanner/attachments + 语音可行性结论 + 正式分发中继（WSS/轮询网关 + 合法域名 + ADR）+ token 加密存储重估 + i18n 消费 | 中继联调走查留用户；mini README"记 v2"grep 清零 | 19.17 |
+| 19.30 | ⬜ 托盘与窗口行为 + 通知面扩容 | Tray + 关窗隐藏 + powerSaveBlocker 保持运行 + desktop.json 扩容（声音/事件/去抖/自启）+ notify SSE 断线重连 + 通知两行消费（与 19.13 合流） | 壳层单测 + 真机走查留用户；desktop 特化两行摘徽标 | — |
+| 19.31 | ⬜ 自定义证书注入（V2-06 桌面半边） | NODE_EXTRA_CA_CERTS 注入 sidecar env + 设置行接线 | 注入链路单测；公司网真机走查留用户 | — |
+| 19.32 | ⬜ 内置终端（V2-10） | node-pty + preload/IPC 首次引入（安全白名单通道 + 迷你 ADR）+ 终端面板 + Shell/字体设置行消费 | pty 生命周期单测；安全清单评审 | — |
+| 19.33 | ⬜ 多窗口多会话（V2-20） | BrowserWindow 多实例 + 会话↔窗口绑定 + 窗口菜单 | 窗口隔离走查 | — |
+| 19.34 | ⬜ 自更新基建（V2-15；签名挂起） | electron-updater + 差分更新 + 自动更新设置行消费（feed=GitHub Releases）；代码签名挂起待晚风证书采购，无签名不分发 | 更新链路 dry-run 单测 | 分发步依赖证书 |
+| 19.35 | ⬜ 审查模式（V2-08） | 多文件 diff 聚合 + 批量放行（checkpoint git 底子） | 聚合/放行单测 | — |
+| 19.36 | ⬜ 辅助会话抽屉（V2-09） | 纯前端形态（引擎跨会话并发已有） | 并发互不串流单测 | — |
+| 19.37 | ⬜ 数据管理页（V2-13） | ~/.spark 占用统计 + 清理（走 §2.10 确认纪律）+ 导出导入 | 统计/清理/导入导出单测 | — |
+| 19.38 | ⬜ 诊断页（V2-14） | 日志查看器 + 导出 + 级别过滤 | 大文件流式读单测 | — |
+| 19.39 | ⬜ 键位自定义（V2-22） | protocol keymap 用户覆盖层 + web 自定义 UI + CLI 只读展示 | 覆盖合并/冲突检测单测 | — |
+| 19.40 | ⬜ 侧栏两件（V2-36 + V2-39） | 折叠态会话直点 + 窄屏 overlay drawer；DESIGN §13 先补浮层/遮罩条款再实现 | DESIGN 条款先行；两形态走查 | — |
+| 19.41 | ⬜ 置顶 + Todo 工具与显示待办开关回归（V2-23 置顶半边 + V2-38 翻案） | 会话置顶（meta+索引列+四端）+ 引擎 Todo 工具（new-tool SKILL）+ 常规页开关恢复 | Todo 四路径单测 + 置顶排序单测 | — |
+| 19.42 | ⬜ prefix-merge 流式定稿优化（W12-FOLLOW） | session-page 流式定稿 prefix-merge 语义 | 定稿一致性单测 | — |
+
+> 备注：工单卡细则（涉及文件、翻案 ADR 对应、批内拆分）见 doc/08 §5D；19.26 阻塞在晚风真机录制；19.34 分发步依赖证书采购；执行顺序建议按批 A→H（同批内依赖已标注）。
+
 ## 8.6 测试矩阵（各阶段验收的测试面；框架 vitest）
 
 | 模块               | 用例要点                                                                                                                                                         |
@@ -2934,7 +2986,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | web                | **applyEvent 27 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
 | 集成               | MockTransport 四场景全跑（§4.7 表）；阶段三：ScriptedLlm 全闭环 + 崩溃恢复（kill -9 后 resume 无悬挂事件）                                                       |
 
-## 8.7 v2 候选池（未排期，部分已随阶段十二~十八落地，余项见 doc/08 §6 后置池；缺口编号对应 doc/07 §2.7）
+## 8.7 v2 候选池（未排期，部分已随阶段十二~十八落地；**2026-09-19 晚风拍板：余项凡属占位或判决登记限制的全部推翻立项进阶段十九**——落点映射见阶段十九表与 doc/08 §5D，行内"已立项/后置"状态不再逐行改写，以阶段表勾选为准；缺口编号对应 doc/07 §2.7）
 
 | 编号  | 项                       | 优先级 | 依赖 / 备注                                   |
 | ----- | ------------------------ | ------ | --------------------------------------------- |

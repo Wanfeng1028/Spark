@@ -122,8 +122,9 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 
 - **v1 已完成合入 main**：五阶段（骨架/前端/引擎/深度体验/产品化）+ 阶段六~十（UI ZCode 化 / Harness 补全 / CLI TUI / 移动端三端 / UI 对齐与 CLI 重构）+ 质量收尾批次；**全部验证（typecheck / lint / test / e2e / eval / 文档检查器）由 CI 执行，本地不跑**（AGENTS §2.2）。
 - **v2 已开工**：阶段十一（可发布）~十五（生态面：spark mcp / OpenAPI 导出 / skill-kit / skills 边界拍板）已完成；阶段十三（可证明）与阶段十四（SDK 化）全量落地；阶段十七（代码冗余整改）与阶段十八（web 观感对齐）已收官；阶段十六 16.1–16.9 **全部落地**（/init /agents /plan /trust /extensions /voice /goal /arena /lsp）。
+- **阶段十九已立项（2026-09-19）：全端占位清零与判决翻案**——42 工单 19.1–19.42 八批次（computer-use 完整能力族 / i18n 全量 / 索引库与浏览器设置页 / CLI 设置面与管理态 / 移动端小程序补齐 / 桌面壳托盘终端多窗口自更新 / 全部候选池余项与登记限制判决翻案落地），四项拍板与工单卡见 [doc/08 §5D](./doc/08-v2-roadmap.md)，执行表见 doc/02 §8 阶段十九。
 - 用户可见变更与里程碑：[CHANGELOG.md](./CHANGELOG.md)。
-- 下一程：阶段十六收尾（16.8 /arena 在途）→ 用户现场走查登记项（15.1 spark mcp 真实外配走查、15.2 Python 客户端生成待外部需求触发等），工单库见 [doc/08](./doc/08-v2-roadmap.md)。
+- 下一程：阶段十九按批 A→H 推进（19.26 阻塞在真机录制、19.34 分发步阻塞在证书采购）→ 用户现场走查登记项（15.1 spark mcp 真实外配走查等），工单库见 [doc/08](./doc/08-v2-roadmap.md)。
 
 ## 版本记录
 
@@ -174,5 +175,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.39 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：阶段十六 16.4（/trust 文件夹信任，ADR D40）与 16.5（/extensions 扩展，ADR D41）已落地。与 doc/02 v4.46、doc/08 v1.46 同批 |
 | v1.40 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：**阶段十五全量收官**——15.1 spark mcp stdio server（ADR D39）/ 15.2 OpenAPI 导出（CI gen+diff 门禁；Python 生成物待外部需求）/ 15.3 @spark/skill-kit 创作套件 / 15.4 Q-1 拍板维持纯声明 + MCP 兜工具面。与 doc/02 v4.47、doc/08 v1.47、ARCHITECTURE v1.47、AGENTS v1.46 同批 |
 | v1.41 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：阶段十六 16.8（/arena 多模型竞答，ADR D42）已落地；同批实修 loadConfig 组装漏透传 settings 名单段真 bug。与 doc/02 v4.48、doc/08 v1.48 同批 |
+| v1.42 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与四项拍板：晚风（Wanfeng1028，"占位的全部都要立项实施……项目里面所有端的占位都得立项实现"指令） | 当前状态行更新：**阶段十九已立项（全端占位清零与判决翻案，42 工单 19.1–19.42 八批次）**——四项拍板（computer-use 完整能力族 / i18n 全量 / 桌面大件分尸立项签名挂起 / 登记限制与候选池余项判决全部推翻）见 doc/08 §5D v1.51；README.en 状态段同步。与 doc/02 v4.62、ARCHITECTURE v1.52、AGENTS v1.55、DESIGN v2.22 同批 |
 
 </details>

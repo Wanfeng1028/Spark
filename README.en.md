@@ -120,8 +120,9 @@ pnpm eval                   # eval regression (deterministic scenarios; --real f
 ## Current Status
 
 - **v1 is complete and merged to main**: five stages (skeleton / frontend / engine / deep experience / productization) + stages 6–10 (UI ZCode-mode / harness completion / CLI TUI / mobile trio / UI alignment & CLI rebuild) plus a quality-cleanup batch; **all verification (typecheck / lint / tests / e2e / eval / doc checker) runs in CI — nothing is run locally** (AGENTS §2.2).
+- **v2 is underway**: stages 11–18 are complete (release / agent capabilities / provable / SDK / ecosystem / new command-surface mechanisms / redundancy cleanup / web visual alignment; 16.1–16.9 all landed). **Stage 19 was initiated on 2026-09-19: clearing every placeholder across all ends and overturning deferred decisions** — 42 work orders (19.1–19.42, batches A–H) covering full computer-use, full i18n, index-library & browser settings pages, CLI settings surface, mobile/mini-program catch-up, desktop shell (tray / terminal / multi-window / self-update), and every remaining v2-candidate-pool item. Rationale and work-order cards: [doc/08 §5D](./doc/08-v2-roadmap.md); the execution table lives in doc/02 §8 (Chinese edition).
 - User-visible changes and milestones: [CHANGELOG.md](./CHANGELOG.md).
-- Up next: stage 11 (release, doc/02 §8) → stages 12–16 ([doc/08](./doc/08-v2-roadmap.md) work-order library).
+- Up next: stage 19 batches A→H (19.26 is blocked on a real-machine recording; 19.34 distribution step is blocked on code-signing certificate purchase) → user-side walkthrough items ([doc/08](./doc/08-v2-roadmap.md)).
 
 ## Version History
 

@@ -61,14 +61,15 @@
 | v1.52 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"继续"指令） | §4 typecheck 项目数口径终修：写死数字随包数漂（13→14 两次）是错误模式——改写实数「17 个 workspace package 含内部包；对外按可发布四包记」。与 doc/02 v4.52 同批 |
 | v1.53 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，对账审计指令） | §4 质量闸注释补齐 gen:events / gen:openapi 两步（与 ci.yml 实际步骤对齐；对账审计 W7） |
 | v1.54 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，官网建设指令） | `official/` 官网落地：Next.js 15 + React 19 + Tailwind v4 + Motion 独立站（不入 workspace），5 页面路由 + 6 Section + shadcn/Magic UI/react-bits 组件层；`official/README.md` 重写为图文并茂展示页（旧快照 git mv 至 LEGACY-README-2026-09-13.md，v1.49 待决项收口）；新增 `.github/workflows/official.yml` 独立 CI（install/typecheck/build，路径过滤 official/**）；§12.8 grep 硬检查 22 模式零命中、事实数字（27 事件/23 命令/4 端）经源码取证 |
+| v1.55 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与四项拍板：晚风（Wanfeng1028，"占位的全部都要立项实施……项目里面所有端的占位都得立项实现"指令） | **§1 当前状态刷新：阶段十九已立项（全端占位清零与判决翻案）**——当日四端源码级占位盘点（web/CLI/mobile+miniapp/desktop+engine+protocol）+ 四项拍板：①电脑控制按完整 computer-use 立项；② i18n（V2-12）全量立项（推翻 Q-2 缓行）；③桌面大件分尸立项（自更新立项、代码签名挂起待证书采购）；④既有 ADR 登记限制与候选池余项判决全部推翻立项（不变量六项与后置池八条观察项除外）。42 工单 19.1–19.42 八批次见 doc/08 §5D（v1.51）与 doc/02 §8 阶段十九表（v4.62）；ARCHITECTURE v1.52 翻案总注记、DESIGN v2.22 占位行标注同批。本批纯规划零代码，本机零验证 |
 
 ## 1. 项目上下文（30 秒版）
 
 Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web 前端 + Electron 桌面壳（sidecar 复用同一 HTTP+SSE 事件流协议）+ CLI TUI（Ink 7，工单 10.56 升级）+ 移动端三端（apps/mobile Expo+RN / apps/miniapp Taro 4 微信小程序）。
 
-**当前状态（编年史细节见 doc/02 §8 阶段表与版本行，本文件只留一句话）**：v1（阶段一~十）已全量合 main 并记入 CHANGELOG `1.0.0`；**阶段十一~十八全部收官**（十五生态面 15.1–15.4、十六 16.1–16.9 含 16.8 /arena、十八观感对齐 18.1–18.5）；**全仓工单清点（2026-09-13）：doc/02 §8 与 doc/08 可执行工单全部落地，余项均为待人类决策（D28 重号/结构损坏/old-README 快照——已收口：v1.54 官网落地时旧快照 git mv 至 official/LEGACY-README-2026-09-13.md）或人类现场执行（真机走查/真实模型走查/外配实调）**。下一程按 doc/08 后置池触发条件推进。
+**当前状态（编年史细节见 doc/02 §8 阶段表与版本行，本文件只留一句话）**：v1（阶段一~十）已全量合 main 并记入 CHANGELOG `1.0.0`；**阶段十一~十八全部收官**（十五生态面 15.1–15.4、十六 16.1–16.9 含 16.8 /arena、十八观感对齐 18.1–18.5）；**阶段十九已立项（2026-09-19，全端占位清零与判决翻案：42 工单 19.1–19.42，四项拍板 = 电脑控制完整 computer-use / i18n 全量 / 桌面大件分尸立项签名挂起 / 登记限制与候选池余项判决全部推翻——见 doc/08 §5D 与 doc/02 §8 阶段十九表）**。下一程按阶段十九批次 A→H 推进（19.26 阻塞在真机录制、19.34 分发步阻塞在证书采购）。
 
-**必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD/ZCode 化四端规格 §13）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；完成度审计（阶段三后源码级核查）→ `doc/05-completion-audit.md`；测试体系规划 → `doc/06-testing-plan.md`；Harness 模块审计（缺口 H01–H36 与"不做"判决）→ `doc/07-harness-audit.md`；v2 展望与工单库（阶段十一~十八：发布化/可日用/可证明/SDK 化/生态面/命令面新机制/冗余整改/观感对齐，工单与开工提示词）→ `doc/08-v2-roadmap.md`；外部任务基准评估（Terminal-Bench/SWE-bench/自建容器三候选与"不接"判决）→ `doc/09-benchmark-feasibility.md`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
+**必读文档索引**：架构与决策 → `ARCHITECTURE.md`；视觉与交互规则（桌面应用感/反网站化黑名单/组件 DoD/ZCode 化四端规格 §13）→ `DESIGN.md`；实现规格 → `doc/02`；前端思路 → `doc/03`；调研依据 → `doc/01`；完成度审计（阶段三后源码级核查）→ `doc/05-completion-audit.md`；测试体系规划 → `doc/06-testing-plan.md`；Harness 模块审计（缺口 H01–H36 与"不做"判决）→ `doc/07-harness-audit.md`；v2 展望与工单库（阶段十一~十九：发布化/可日用/可证明/SDK 化/生态面/命令面新机制/冗余整改/观感对齐/占位清零与判决翻案 §5D，工单与开工提示词）→ `doc/08-v2-roadmap.md`；外部任务基准评估（Terminal-Bench/SWE-bench/自建容器三候选与"不接"判决）→ `doc/09-benchmark-feasibility.md`；可重复任务流程 → `.agents/skills/*/SKILL.md`。规则放哪见 §8 规则放置规范。
 
 ### 1.1 四端共享核（改任何一端前先读这段；这是本仓库最大的隐形契约）
 

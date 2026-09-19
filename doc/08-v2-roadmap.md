@@ -1,4 +1,4 @@
-# Spark v2 展望与工单库 —— 阶段十一～十八（发布化 / 可日用 / 可证明 / SDK 化 / 生态面 / 命令面新机制 / 冗余整改 /web 观感对齐）
+# Spark v2 展望与工单库 —— 阶段十一～十九（发布化 / 可日用 / 可证明 / SDK 化 / 生态面 / 命令面新机制 / 冗余整改 /web 观感对齐 / 占位清零与判决翻案）
 
 ## 版本记录
 
@@ -17,6 +17,7 @@
 | v1.48 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | **§16.8 /arena 多模型竞答落地登记（ADR D42）**：InProcess 子会话 + git worktree 零拷贝隔离（simple-git MIT）+ 快照端点零新事件；胜者应用整体一次 fs.write 审批（删除类跳过登记——§2.10）；命令基线 22→23；web ArenaCard/CLI ArenaPanel 只读（登记限制）；**同批实修 loadConfig 漏透传 agents/extensions 真 bug**（16.2/16.5 重启档失效）。测试 engine 4 例 + 四包基线 + 契约生成物。验收注：真实模型 2 模型竞答走查留用户。同步：doc/02 v4.48、ARCHITECTURE v1.49、AGENTS v1.47、README v1.41。本批本机零验证 |
 | v1.49 | 2026-09-13 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"现场走查也不能下载，需要下载的放远端 CI"指令） | **现场走查下沉 CI 登记（本地零下载总则，AGENTS §2.3a 扩展）**：16.6 SoX 真探用例 + 16.9 真实 tsserver 诊断冒烟（skipIf 条件化——CI 装工具真跑、本地 skip 绿）；release.yml npm 安装冒烟（11.2 下沉）；CI 无麦克风/pyright 二级下载两项仍留现场可选（前提 = 已具备环境的机器）。与 doc/02 v4.51、AGENTS v1.51 同批 |
 | v1.50 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"使用统计里面加点图表"指令） | **§13.6 增补登记（doc/02 §8 工单 13.6a，doc/02 v4.61 同批）**：使用统计页可视化升级——按日 tokens 堆叠柱状（cache 读/写、未命中输入、输出四分量单色明度阶梯 + 峰值标尺 + 悬浮单日明细 + 图例）、按供应商/模型 tokens 占比堆叠条（段序=表序、行首色标）、总账命中率迷你条；**纯 div 不引图表库判决维持**（晚风解禁第三方库后观感拍板仍手写——黑白 token 体系下手写更贴设计，且本机零下载约束下不破锁文件）。组件测两态同步 |
+| v1.51 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与四项拍板：晚风（Wanfeng1028，"占位的全部都要立项实施……项目里面所有端的占位都得立项实现"指令） | **阶段十九立项：全端占位清零与判决翻案（§5D 新增，42 工单 19.1–19.42 八批次；lift 表见 doc/02 §8 阶段十九，执行以彼处为准；doc/02 v4.62 同批）**。当日四端源码级占位盘点（web/CLI/mobile+miniapp/desktop+engine+protocol 全量取证，识别 8 处陈旧占位与 mock 对等缺口）为底，四项拍板：①电脑控制按**完整 computer-use** 立项；② i18n（V2-12）**全量立项**（推翻 Q-2 缓行）；③桌面大件**分尸立项**（托盘/保持运行/内置终端/多窗口立项，自更新立项但代码签名挂起待证书采购）；④**既有 ADR 登记限制与 §8.7 候选池余项判决全部推翻立项**。边界：§8 不变量六项不在本轮翻案范围；后置池八条观察项（A2A/IDE 集成/长任务心跳/验证闸技能/token 预算闸/LSP 诊断接入/会话导出分享/计划模式 todo）未在拍板列举内，列入 §5D 尾差待拍板。本批纯规划零代码，本机零验证 |
 | v1.0 | 2026-08-31 | AI 编写：ZCode CLI・GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，四轮 v2 展望会话；MIT /npm CLI 优先 / 本文档交付形式三项已拍板）                               | 初稿：定位与使用说明・决策记录（已拍板 / 待拍板）・阶段十一～十五共 34 张工单（每张含验收标准与开工提示词）・后置观察池・提示词总则（附录 A）                                                                                                                                                                                                                                                      |
 | v1.1 | 2026-08-31 | 同上；核查：晚风（Wanfeng1028，对照四轮展望清单逐条核查指出缺漏）                                                                                                                              | **对照四轮展望补全六处**：§0.3 终点图景与差异化五牌；§4.0 五层开发者面表（修 14.6/11.8 悬空引用）；13.1 补「Spark as eval harness」定位句；新增 §7 生命力风险与对策（原不变量节顺延为 §8）；后置池补 LSP / 会话导出分享 / 计划模式 todo/V2-21/V2-02 / 其余候选池归并行；新增附录 B 阶段十在途工单引用式提示词（治理注记：阶段十唯一来源 doc/02 §8）                                                                                                     |
 | v1.40 | 2026-09-10 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"先做不需要我拍板的"指令） | **18.1 改判的两处活引用同步（docs-update 第 3 步：结论变化要找全活引用）**。① `.agents/skills/frontend-component/SKILL.md` 第 3 步仍写"6px 圆角"——它是**流程文档**，不改就会让后续会话按旧口径把 6px 抄回来；改为"圆角只取 §13.B 封闭集档位"且**不复制数字**（规格唯一来源在 DESIGN，AGENTS §8），第 4 步的"11 项模式零命中"补 `rounded-2xl` 按档位判放行的注记。② 本库 §5C 批次总说明的"冲突点预先声明"仍把旧 §3 封顶写作"现行"——补消解注记（18.1 已立封闭集；旧原文保留为立项时的冲突记录，不再描述现状）。**全仓扫描口径**：`6px 圆角`/`控件 6px`/`卡片 8px`/`最大不超过 12px` 四模式全仓 .md 共 **39 次命中 = 活引用 4**（两处文本，doc/08 那一行同时命中三个模式）**+ 历史引用 7**（版本记录行与工单提示词，docs-update 禁改历史行）**+ `_scratch/lockfix*` 两份仓库旧快照 28**（Q-7 判决保留冻结，不动）。本批本机零验证 |
@@ -2696,9 +2697,107 @@ mock-transport 是回归网）、packages/protocol format.ts（若 R-B 已落地
 
 ***
 
+# 5D. 阶段十九：全端占位清零与判决翻案（2026-09-19 立项；42 工单 19.1–19.42，八批次 A–H）
+
+> **立项依据（晚风 2026-09-19 四项拍板，以当日四端源码级占位盘点为底）**：①「电脑控制」按**完整 computer-use** 立项（鼠标/键盘/窗口控制全做，不做残缺档位面）；② i18n（V2-12）**全量立项**（推翻 Q-2"等外部用户反馈"缓行判决）；③ 桌面大件**分尸立项**——托盘+保持运行+内置终端+多窗口立项，自更新立项但**代码签名挂起待证书采购**（人依赖，无签名不分发）；④ **既有 ADR 登记限制与 §8.7 候选池余项判决全部推翻立项**（arena 内存态、MCP 仅 stdio、审批无作用域、bash 常驻 shell 不做、LSP 无下载器、Windows OS 沙箱不做、沙箱网络隔离、RAG/记忆向量后置、CLI 单行输入、小程序分发中继，及 V2-08/09/12/13/14/18/22/24/25/36/38/39 等全部池项）。**边界**：本文件 §8 不变量六项（显式 Planner/虚拟文件系统/Python Worker/短期 Scratchpad/错误自修正回路/多用户公网）**不在本轮翻案范围**——如需推翻由晚风单独拍板，逐条修订判决。
+> **盘点来源**：2026-09-19 四端占位全量盘点（web/CLI/mobile+miniapp/desktop+engine+protocol 逐端 grep 取证；识别 8 处陈旧占位——MCP 页描述、子智能体描述、自动归档"需后端"、任务通知"去向 v2"、代理行滞后 12.9、引导页冗余、浏览器页理由弱化、mock agents patch 丢弃——与一批 mock 对等缺口，全部收编进对应工单）。
+> **执行口径**：lift 表见 doc/02 §8 阶段十九（执行以彼处为准，本节是工单卡细则）。翻案工单落地时**必须出迷你 ADR 修订对应判决条目**（D15/D16/D19/D21/D25/D42 等），ARCHITECTURE ADR 表同步；涉及新事件/新工具/新命令的走对应 SKILL 全流程；所有工单本机零验证、CI 裁决；依赖下载的运行时能力（LSP 下载器/自更新等）指**用户机运行时行为**，不违反 AGENTS §2.3a 开发机零下载。
+
+## 5D.0 共享开工提示词模板（六段式公共段，逐单复用）
+
+```text
+② 前置阅读：AGENTS.md；doc/02 §8 阶段十九对应行与 §8.7 对应池行；doc/08 §5D 本单工单卡；
+   翻案单另读 ARCHITECTURE.md 对应 ADR（D 编号见工单卡）。
+③ 逐条要求：见工单卡"产出"；协议改动从 packages/protocol 开始（§2.5）；
+   Transport 每加一个方法 mock 必须对等（AGENTS §1.1）；跨端能力落点按 §1.1 四问。
+④ 单测与验收：见工单卡"验收"；新事件/新工具/新命令走对应 SKILL 全流程 + 四包基线断言同步。
+⑤ 纪律：禁删文件（§2.10）/反 AI 味（§2.11）/本机零验证（§2.2）/本机禁下载（§2.3a）；
+   翻案单补迷你 ADR 并同步 ARCHITECTURE ADR 表。
+⑥ 提交：conventional commits + 中文 + 版本表追加；完成后 doc/02 §8 阶段表勾选。
+```
+
+（每单提示词 = ① 任务一句 + 拍板结论 + 工单卡全文，接上模板四段。）
+
+## 5D.1 A 批：引擎能力（computer-use 与判决翻案）
+
+- **19.1 computer-use 执行体底座（Windows 先行）+ ADR D43**。产出：`computer.*` 工具族八操作（screenshot / click / type / key / scroll / window / app / clipboard；zod input、resource 前缀 `computer://` 进既有 permission rules，档位缺省 ask）；执行体技术选型 spike（nut.js vs OS 原生 API vs PowerShell/AppleScript 脚本桥，跨平台分层接口先定，结论出迷你 ADR）；spark.json `computerUse.enabled` 主开关**缺省 false fail-closed**（关闭时全操作 `E_COMPUTER_DISABLED`）；截图/屏幕内容一律走既有工具输出管线进模型上下文（surface 纪律：必被记录），不新增事件词表条目（确需新事件走 new-event-type SKILL）。验收：工具四路径单测 + 开关拒绝路径 + resource 规则命中单测；Windows 真机走查留用户。依赖 —。
+- **19.2 computer-use macOS/Linux 执行体 + 「电脑控制」设置页**。产出：macOS（CGEvent/AXUIElement）与 Linux（X11 先行，Wayland 能力差异如实明示）执行体；web 设置中心「电脑控制」页真落地（主开关 + 操作类 ask/allow 档位 + 授权记录摘要——数据源 = permission rules `computer://` 前缀 + spark.json，非假控件）；CLI `/computer` 只读面板；mobile/miniapp 指示行。验收：设置页读写走 Transport；四端走查留用户。依赖 19.1。
+- **19.3 bash 常驻 shell 会话（翻案）**。产出：bash 工具 persistent 会话模式（会话池、cwd/env/上下文保持、空闲超时回收、并发上限）；spark.json 设置项 + 设置页控件；ADR 修订（原"v1 不做常驻"判决翻案）。验收：单测覆盖会话保持/回收/上限三态；bash 既有语义（独立 shell 缺省）零回归。依赖 —。
+- **19.4 MCP HTTP/SSE transport（翻案 D16，消解 V2-21）**。产出：mcp.json server 条目增 `transport: stdio | streamable-http` 字段（缺省 stdio 零变化红线）+ 远程连接管理（超时/鉴权头）+ web 管理页与 CLI 面板适配 + 迷你 ADR。验收：mock/inprocess/真实远端三态单测；stdio 既有测试零回归。依赖 —。
+- **19.5 LSP server 下载器（翻案 16.9"不做下载器"判决）**。产出：known-servers 内置清单（语言→候选 server→下载源，版本 pin）+ 引擎运行时下载/安装/版本管理（用户机行为）+ `~/.spark/lsp.json` 引导生成 + web 语言服务器页与 CLI 面板安装入口。验收：清单 schema 单测 + 下载器 fail-closed（校验和/超时）；真实下载走查留用户（CI skipIf 条件化）。依赖 —。
+- **19.6 Windows OS 级沙箱（翻案 D15）**。产出：AppContainer / restricted token spike 报告 + 可行即落地（bash 工具沙箱档新增 `os` 级别）；不可行则出证据报告与替代案让晚风再拍板。验收：spike 产物 + 单测（可行路径）；与既有 sandbox 档位语义兼容。依赖 —。
+- **19.7 沙箱网络隔离（V2-19）**。产出：SOCKS5 本地代理 + 域名清单（allowlist）+ bash 沙箱联动（隔离档自动走代理）；设置面（web/CLI）。验收：单测覆盖清单命中/拒绝；隔离档实测留用户。依赖 19.6（或独立落地，沙箱档缺省路径）。
+- **19.8 向量语义检索（翻案 D25"向量后置" + 消解 V2-18 RAG）**。产出：embedding 提供方抽象（models.json provider 增 embedding 配置）；会话索引与记忆库向量列 schema（SQLite 扩展）；语义检索进 search 工具与记忆召回；索引库页语义检索开关。**大件**：先出设计迷你 ADR 再动码。验收：注入/检索单测（假 embedding 可测）；真实模型走查留用户。依赖 —。
+- **19.9 审批作用域扩展（翻案"always 恒用户级"）**。产出：replyPermission 作用域参数（always-user / always-project）+ 规则落点分流（用户级/项目级规则表）+ 四端审批卡补"本项目总是允许"选项（CLI ApprovalPrompt 注记兑现）。验收：engine permission 单测（作用域写入与命中）+ 四端渲染。依赖 —。
+- **19.10 arena 竞答记录落盘（翻案 D42 内存态）**。产出：竞答快照与胜者应用记录持久化（`~/.spark/arena/`）+ 历史列表端点 + web/CLI 历史查看。验收：重启后可查单测；D42 迷你 ADR 修订。依赖 —。
+
+## 5D.2 B 批：索引库与浏览器（可见占位页背后能力）
+
+- **19.11 索引库管理端点与管理页（消解"索引库"占位页）**。产出：SessionIndex 管理面——`GET /api/index/stats`（条目数/体积/健康度）、`POST /api/index/rebuild`、`POST /api/index/vacuum`、`GET /api/index/entries`（分页）、停用开关（spark.json）；web「索引库」页真落地（统计卡 + 重建/清理按钮走确认纪律 + 条目表）。验收：server 路由单测 + mock 对等；占位徽标摘除。依赖 —。
+- **19.12 浏览器设置面（消解"浏览器"占位页）**。产出：BrowserManager 引擎设置（headless / 默认超时 / UA）进 spark.json 与 SettingsDto；域名白名单管理视图（permission rules `url:` 前缀的预置编辑面）；浏览器数据清理（截图临时物/缓存）。web「浏览器」页真落地。验收：设置→引擎重载链路单测；占位徽标摘除。依赖 —。
+
+## 5D.3 C 批：web 设置中心收尾（占位行接线与陈旧占位修正）
+
+- **19.13 常规页占位接线（半陈旧批）**。产出：自动归档策略行（归档后端 12.4 已在——补"完成且超期 N 天自动 archive"引擎侧策略 + 行接线）；任务通知/通知声音两行（desktop.json 既有两开关的管理 UI + web Notification API 降级面 + 提示音）；全局出站代理行（12.9 per-provider 之上补全局 proxy + MCP/命令工具出口代理——后者翻案 12.9"仅 LLM 面"登记）+ NO_PROXY 行；自定义证书 NODE_EXTRA_CA_CERTS 行（V2-06 收口，engine/env 注入）。同批修正 8 处陈旧占位文案（§5D 头注记清单）。验收：每行真数据源；server/ engine 单测；陈旧文案 grep 清零。依赖 —。
+- **19.14 SettingsDto 补控件批（含 V2-37）**。产出：server.port/host 控件 + engine maxToolParallel/progressThrottleMs/permissionTimeoutMs/checkpoints 四控件（后端可读写、前端无控件的"反向占位"清零）+ restartRequired 八字段真值消费（RestartBadge 改读 GET /api/settings 数组，去硬编码）+ **V2-37**：新建会话默认模型/档位写路径统一（models.json 单写者，与 PUT /api/routing 合流，消双写者）。验收：控件读写 round-trip 单测；V2-37 迷你 ADR。依赖 —。
+- **19.15 引导页落地（消解"引导"占位页）**。产出：引导状态查看（完成标记/供应商配置态）+ 重跑引导入口收编本页 + 首启自动弹开关；12.8 底子上补齐。验收：占位徽标摘除；与 OnboardingPage 联动单测。依赖 —。
+- **19.16 多数据目录迁移（收口"存储路径"行）**。产出：SPARK_HOME 环境变量与解析链（resolveInRoot 单源改造）+ 数据目录迁移向导（老目录整体搬迁 + 校验）+ ADR。验收：迁移幂等/失败闭合单测；127.0.0.1 与 cwd 硬边界红线不变。依赖 —。
+- **19.17 i18n 全量（翻案 Q-2，消解 V2-12）**。产出：i18n 框架（语言包结构/系统语言检测/切换存储 spark.ui）+ web 全量文案抽取（ui-copy/error-copy 单源扩容 + 组件硬编码中文迁移，grep 清零目标）+「界面语言」行真落地。**大件，拆两批交付**（框架+高频页先行，长尾页第二批）。验收：切换即时生效单测；文案表单一来源不破坏（protocol 消费三端同步由 19.25/19.28/19.29 各带）。依赖 —。
+- **19.18 prompts 模板管理面（V2-16 前端半边收口）**。产出：spark.json `prompts` 三模板路径的管理 UI（查看/编辑/恢复缺省——写入走审批面或明示手改重启档）。验收：与 13.3 引擎半边联调单测；grep "手工改 spark.json" 占位描述清零。依赖 —。
+
+## 5D.4 D 批：web 会话流与 mock 对等
+
+- **19.19 反馈存储全链路（消解 V2-25）**。产出：引擎反馈表（会话/回合级 👍👎 + 备注）+ `POST /api/feedback` + Transport 三通道 + web AssistantActions 解除置灰接线 + CLI/mobile/miniapp 接入 + 审计页反馈过滤。验收：端到端单测；置灰 title "规划中" grep 清零。依赖 —。
+- **19.20 会话改名全链路（消解 /title /rename 挂池）**。产出：引擎 setTitle 端点 + protocol DTO + 命令基线（/title /rename 按既有判决表入基线）+ 四端入口（web 菜单/CLI 命令/mobile 会话菜单/miniapp）。验收：基线断言四包同改；改名后索引/列表同步单测。依赖 —。
+- **19.21 web 会话流小件批**。产出：client-commands 补 8 项映射（new/stats/help/fork/checkpoint/rollback/effort/tree——缺 8/18 的命令面板入口）；会话状态点完成态灰档（ui-copy 注记兑现）；附件文件选择器与拖拽（uploadAttachment 12.2a 接线，替代手敲路径）；链接预览卡（V2-24：正文 URL → 图标+域名+标题卡）。验收：命令面板 18/18 渲染断言；组件单测。依赖 —。
+- **19.22 Mock 对等修复批（§1.1 纪律，当日盘点缺口清单）**。产出：mock.ts 十项对齐——updateSettings 丢 agents/models/extensions patch（真 bug，16.2/16.5 停用在 mock 下失效）、createSession 丢 opts、getMcpConfig 无掩码、updateMcpConfig 不持久、listFs/listFsTree 静态、transcribe、arena 状态机、testModelProvider、deleteSession 未知 id 校验、sendMessage 忽略参数。验收：每项一条 mock↔HttpTransport 行为对齐单测；e2e mock 场景零回归。依赖 —。
+
+## 5D.5 E 批：CLI
+
+- **19.23 CLI 设置面（/settings 面板）**。产出：CLI 设置面板（对齐 web 设置中心可热改子集：模型缺省/effort/工具并行/超时/沙箱档/MCP·agents·extensions·skills·lsp·trust 启停/通知/prompts——全部走 Transport 写通道，不旁路 spark.json 直改）。**大件**。验收：面板写路径单测；keymap 增 Ctrl+, 映射（surface 改 both，protocol 单源）。依赖 —。
+- **19.24 CLI 面板管理态批（六面板升管理态 + arena 交互补齐）**。产出：/mcp /skills /agents /trust /extensions /lsp 六只读面板启停与编辑（对等 web 管理页能力）；/arena 应用胜者/取消 + ArenaPanel 轮询实时化（D42"只读"漏登记"不实时"补记）；/checkpoint 面板内回滚；用量路由编辑（fallback 链/成本上限）；模型目录配置引导（未配置 provider 选中即给 models.json 路径指引）。验收：每面板操作→引擎生效单测；"只读（走设置中心）"文案 grep 清零。依赖 19.23（面板框架）可并行部分单项。
+- **19.25 CLI 小件批（含 i18n 消费）**。产出：命令清单按 surface 过滤落实（消 use-cli-actions.ts:254"本端未实现"兜底）；/agents 激活会话前置修正（与 /lsp 口径一致）；/voice hold 语义实现或描述符修正（二选一，如实）；InputBox 编辑键扩展（Home/End/Ctrl+A/E/W/K）+ **多行输入（翻案 D19 单行拍板，ADR 修订）**；markdown 渲染扩展（表格/引用块，登记限制清偿）；i18n 框架消费（19.17）。验收：键位表单测；D19 修订 ADR。依赖 19.17（i18n 部分）。
+- **19.26 V2-26 IME step2-4（前置 = 现场执行）**。产出：step1 真机录制（晚风跑 `scripts/spike-ime-stdin.mts` 回传产物）→ step2-4 判定/防御/回归。**阻塞在用户现场录制**，录制后 AI 接手。验收：中文组字期不出现半字符/光标跳列（真机走查）。依赖：晚风录制产物。
+
+## 5D.6 F 批：移动端 + 小程序
+
+- **19.27 移动端会话体验补齐批**。产出：已归档筛选接通（listSessions(archived) 已在，UI 置灰解除）；附件接入（uploadAttachment 替代置灰"+"）；topBanner（回合级错误横幅）与 user.attachments 渲染；会话菜单（置顶/改名[依赖 19.20]/归档/删除/反馈[依赖 19.19]）+ 页头副标题（DESIGN §13.J.2.3 规格兑现）；SubmitOutcome 排队语义呈现（started/steered/queued + 运行中占位文案切换）；计划模式档位菜单（解释横幅升真控件）；配对设备管理页（getPairStatus/revokePairDevice 接线——现文案承诺"设置页管理"而实际只有断开，属承诺未兑现缺口）。验收：controller 路径单测；置灰/承诺缺口 grep 清零。依赖 19.19/19.20（部分）。
+- **19.28 移动端管理面批（含移动端语音 V2-28）**。产出：fork/checkpoint/回滚/会话树/arena/trust/extensions/lsp/agents 面板接入（Transport 67 方法现只接 7 个的补齐，分两批交付）；移动端语音听写（Expo 录音 + transcribe 接线，V2-28 移动端半边）；i18n 消费（19.17）。**大件**。验收：每面板一条接入冒烟；真机走查留用户。依赖 19.17/19.19（部分）。
+- **19.29 小程序补齐批（含分发中继翻案 D21）**。产出：筛选菜单（全部/按项目/已归档）；附件入口落地；topBanner/attachments 渲染；语音评估（Taro 录音 API 可行性先出结论）；**正式分发中继（翻案 D21 记账项：WSS/轮询网关 + request 合法域名方案 + ADR）**；token 加密存储重估（平台上限内尽力 + 明示残余风险）；i18n 消费（19.17）。验收：中继联调走查留用户；mini README"记 v2"清单 grep 清零。依赖 19.17（i18n 部分）。
+
+## 5D.7 G 批：桌面壳
+
+- **19.30 托盘与窗口行为 + 通知面扩容**。产出：Tray（含"关闭窗口时隐藏到托盘"）+ 保持电脑运行（powerSaveBlocker，审批等待/长回合期）；desktop.json 配置面扩容（提示音/更多事件/去抖窗/开机自启）+ notify SSE 断线重连（现"壳层不重连"缺口）+ web 通知两行消费 desktop.json（与 19.13 合流）。验收：壳层单测 + 真机走查留用户；GeneralPage desktop 特化五行中两行（托盘/保持运行）摘徽标。依赖 —。
+- **19.31 自定义证书注入（V2-06 桌面半边）**。产出：NODE_EXTRA_CA_CERTS 注入 sidecar env + 设置行接线（与 19.13 引擎半边同族）。验收：注入链路单测；公司网真机走查留用户。依赖 —。
+- **19.32 内置终端（V2-10）**。产出：node-pty + Electron preload/IPC **首次引入**（安全白名单通道）+ 集成终端面板 + 终端 Shell/字体两设置行消费。**大件**。验收：pty 会话生命周期单测；preload 通道安全清单评审（迷您 ADR）。依赖 —。
+- **19.33 多窗口多会话（V2-20）**。产出：BrowserWindow 多实例 + 会话↔窗口绑定 + 窗口菜单。**大件**。验收：窗口隔离（每窗独立会话状态）走查。依赖 —。
+- **19.34 自更新基建（V2-15；签名挂起）**。产出：electron-updater 接入 + 差分更新 + "自动下载并安装更新"设置行消费（feed 先指 GitHub Releases）；**代码签名挂起待晚风证书采购（Apple Developer ID / Windows EV）——无签名不对外分发，安装包本地验证**。验收：更新链路 dry-run 单测；签名采购后人接手。依赖：晚风证书（仅分发步）。
+
+## 5D.8 H 批：池项翻案（不可见池项落地）
+
+- **19.35 审查模式（V2-08）**：多文件 diff 聚合 + 批量放行（checkpoint git 底子已有；形态参考 Codex Diff/Logs 双栏）。验收：聚合/放行单测。
+- **19.36 辅助会话抽屉（V2-09）**：引擎跨会话并发已有，纯前端形态。验收：并发会话互不串流单测。
+- **19.37 数据管理页（V2-13）**：~/.spark 占用统计 + 清理（走确认纪律 §2.10）+ 导出导入（JSONL 打包）。验收：统计/清理/导入导出单测；删除类操作全走确认。
+- **19.38 诊断页（V2-14）**：logs/engine.log 查看器 + 导出 + 级别过滤。验收：大文件流式读单测。
+- **19.39 键位自定义（V2-22）**：protocol keymap 单源扩展（用户覆盖层）+ web 键位自定义 UI + CLI 只读展示。验收：覆盖层合并/冲突检测单测。
+- **19.40 侧栏两件（V2-36 折叠态直点 + V2-39 窄屏 drawer）**：先在 DESIGN §13 补浮层/遮罩条款（两单判例同款），再实现。验收：DESIGN 条款先行；走查两形态。
+- **19.41 置顶 + Todo 工具与显示待办开关回归（V2-23 置顶半边 + V2-38 翻案）**：会话置顶（meta 标记 + 索引列 + 四端）；**引擎 Todo 工具立项**（tools/builtin 新工具走 new-tool SKILL）+ 常规页「显示待办」开关恢复（V2-38 判决翻案）。验收：Todo 工具四路径单测 + 置顶排序单测。
+- **19.42 prefix-merge 流式定稿优化（W12-FOLLOW）**：session-page 流式定稿 prefix-merge 语义落地。验收：定稿一致性单测（protocol）。
+
+## 5D.9 尾差（未在四项拍板列举内，待晚风补拍板）
+
+后置池中以下八条是**观察项/趋势项**而非占位或判决登记限制，本轮未立项；如需一并推进请补拍板：A2A/AG-UI 出站适配、IDE 集成（VS Code 扩展）/GitHub Actions、长任务/心跳 turn（Q-3）、验证闸技能、单会话 token 预算闸、LSP 诊断接入（P2）、会话导出/分享、计划模式 todo 交互层。
+
+***
+
+
+
+
+
+
 # 6. 后置池与观察项（不设工单号；每项含触发条件）
 
-
+> **2026-09-19 翻案注记（晚风拍板，见 §5D 立项依据④）**：本池与 doc/02 §8.7 余项中**凡属占位或判决登记限制的条目全部推翻立项**进入阶段十九——下表「触发条件」自本日起失效，行文保留仅作历史记录；V2-15/V2-19/V2-18/V2-12/V2-20/V2-10/D21 中继/MCP HTTP（V2-21）/插件市场壳（V2-02）/其余候选池项（V2-08/09/13/14/22 等）的落点见 §5D 各工单卡。仅 §5D.9 尾差八条观察项与本表 A2A、IDE 集成两条维持观察。
 
 | 项                                                                         | 来源              | 触发条件 / 备注                                             |
 | ------------------------------------------------------------------------- | --------------- | ----------------------------------------------------- |
@@ -2742,7 +2841,7 @@ mock-transport 是回归网）、packages/protocol format.ts（若 R-B 已落地
 
 1. **引擎 headless，UI 是事件流的投影**—— 一切新面（SDK/MCP/ 适配器）走协议，不开旁路；
 
-2. **"不做" 清单继续有效**（显式 Planner / 虚拟文件系统 / Python Worker / 短期 Scratchpad / 错误自修正回路 / 多用户公网）—— 每季度重审一次，重审之外不推翻；
+2. **"不做" 清单继续有效**（显式 Planner / 虚拟文件系统 / Python Worker / 短期 Scratchpad / 错误自修正回路 / 多用户公网）—— 每季度重审一次，重审之外不推翻；**2026-09-19 界定注记**：晚风"全部推翻"拍板（§5D 立项依据④）的范围是 §8.7 候选池余项与各 ADR **登记限制类**判决——本条六项不在其列举内、维持有效，如需推翻由晚风单独拍板并逐条修订；
 
 3. **铁律与审计纪律**——durable/live/surface 三属性、fail-closed、每步归因；新模块（SDK/MCP server / 生成客户端）一律同管线一视同仁。
 
