@@ -11,6 +11,7 @@
 import { SETTINGS_RESTART_REQUIRED, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
 import type {
+  BrowserCleanupResultDto,
   LspInstallResultDto,
   IndexStatsDto,
   RebuildResultDto,
@@ -899,6 +900,7 @@ export class MockTransport implements Transport {
       computerUseEnabled: false,
       bashPersistent: false,
     },
+    browser: { headless: true, defaultTimeoutMs: 30000, userAgent: '' },
     restartRequired: [...SETTINGS_RESTART_REQUIRED],
     models: { defaultModel: 'deepseek/deepseek-chat', defaultEffort: null },
   }
@@ -932,6 +934,7 @@ export class MockTransport implements Transport {
         computerUseEnabled: e.computerUseEnabled ?? prev.engine.computerUseEnabled,
         bashPersistent: e.bashPersistent ?? prev.engine.bashPersistent,
       },
+      ...(patch.browser !== undefined ? { browser: { ...prev.browser, ...patch.browser } } : {}),
       ...(patch.hooks !== undefined ? { ...(patch.hooks === null ? {} : { hooks: patch.hooks }) } : {}),
     }
     return Promise.resolve(this.settings)
@@ -1127,6 +1130,12 @@ export class MockTransport implements Transport {
         warnings: 0,
       },
     ])
+  }
+
+  /** 浏览器截图清理（阶段十九 19.12 对等演示）：模拟删除 6 张（真实通道=引擎清 shotsDir） */
+  cleanupBrowserArtifacts(): Promise<BrowserCleanupResultDto> {
+    this.assertNotDisposed()
+    return Promise.resolve({ removed: 6 })
   }
 
   /** LSP 安装（阶段十九 19.5 对等演示）：内置清单 id → 模拟安装延迟 → 返回写入条目（真实通道=npm 装 + 写 lsp.json） */

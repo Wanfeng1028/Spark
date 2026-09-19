@@ -54,9 +54,8 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'browser',
         title: '浏览器',
-        description: '浏览器工具数据与引擎设置——去向：v2（工具数据/权限面）',
-        status: 'placeholder',
-        placeholderReason: 'v2 挂池',
+        description: '浏览器引擎设置与域名审批规则（工单 19.12 / ADR D49）',
+        status: 'ready',
       },
       {
         id: 'computer',

@@ -76,6 +76,9 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   // 语言服务器只读状态（工单 16.9）：连接状态 + 诊断摘要（未配置空数组；坏配置 E_CONFIG 由全局映射）
   app.get('/api/lsp', () => engine.listLspServers())
 
+  // 浏览器截图产物清理（阶段十九 19.12 / ADR D49）：清 shotsDir 全部 shot-*.png
+  app.post('/api/browser/cleanup', () => engine.cleanupBrowserArtifacts())
+
   // LSP server 安装（阶段十九 19.5 / ADR D47）：内置清单 id → npm 全局装（已装幂等跳过）+ 写 lsp.json
   const LspInstallBody = z.strictObject({ id: z.string().min(1) })
   app.post('/api/lsp/install', async (req, reply) => {

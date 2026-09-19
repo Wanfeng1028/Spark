@@ -1245,6 +1245,78 @@ describe('契约：api.AutomationTriggerDtoSchema', () => {
   })
 })
 
+describe('契约：api.BrowserCleanupResultDtoSchema', () => {
+  const sample = {
+    "removed": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.BrowserCleanupResultDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.BrowserCleanupResultDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.BrowserCleanupResultDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 removed → 解析失败', () => {
+    expect(() => api.BrowserCleanupResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["removed"]; return m })())).toThrow()
+  })
+
+  it('字段 removed 类型错 → 解析失败', () => {
+    expect(() => api.BrowserCleanupResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["removed"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.BrowserCleanupResultDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.BrowserSettingsSchema', () => {
+  const sample = {
+    "headless": false,
+    "defaultTimeoutMs": 1,
+    "userAgent": "contract-sample"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.BrowserSettingsSchema.parse(sample)).toEqual(sample)
+    expect(api.BrowserSettingsSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.BrowserSettingsSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 headless → 解析失败', () => {
+    expect(() => api.BrowserSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["headless"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 defaultTimeoutMs → 解析失败', () => {
+    expect(() => api.BrowserSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["defaultTimeoutMs"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 userAgent → 解析失败', () => {
+    expect(() => api.BrowserSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["userAgent"]; return m })())).toThrow()
+  })
+
+  it('字段 headless 类型错 → 解析失败', () => {
+    expect(() => api.BrowserSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["headless"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('字段 defaultTimeoutMs 类型错 → 解析失败', () => {
+    expect(() => api.BrowserSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["defaultTimeoutMs"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 userAgent 类型错 → 解析失败', () => {
+    expect(() => api.BrowserSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["userAgent"] = 12345; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.BrowserSettingsSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.CheckpointDtoSchema', () => {
   const sample = {
     "checkpointId": "ckp_01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -3189,6 +3261,11 @@ describe('契约：api.SettingsDtoSchema', () => {
         "contract-sample"
       ]
     },
+    "browser": {
+      "headless": false,
+      "defaultTimeoutMs": 1,
+      "userAgent": "contract-sample"
+    },
     "restartRequired": [
       "contract-sample"
     ],
@@ -3241,6 +3318,10 @@ describe('契约：api.SettingsDtoSchema', () => {
 
   it('字段 extensions 类型错 → 解析失败', () => {
     expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["extensions"] = []; return m })())).toThrow()
+  })
+
+  it('字段 browser 类型错 → 解析失败', () => {
+    expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["browser"] = []; return m })())).toThrow()
   })
 
   it('字段 restartRequired 类型错 → 解析失败', () => {
@@ -3417,6 +3498,11 @@ describe('契约：api.SettingsUpdateSchema', () => {
       "disabledExtensions": [
         "contract-sample"
       ]
+    },
+    "browser": {
+      "headless": false,
+      "defaultTimeoutMs": 1,
+      "userAgent": "contract-sample"
     }
   }
 
@@ -3443,6 +3529,10 @@ describe('契约：api.SettingsUpdateSchema', () => {
 
   it('字段 extensions 类型错 → 解析失败', () => {
     expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["extensions"] = []; return m })())).toThrow()
+  })
+
+  it('字段 browser 类型错 → 解析失败', () => {
+    expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["browser"] = []; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {

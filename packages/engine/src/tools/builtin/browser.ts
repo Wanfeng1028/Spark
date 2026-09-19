@@ -71,7 +71,13 @@ type ClickInput = z.infer<typeof ClickInput>
 type ReadInput = z.infer<typeof ReadInput>
 type ScreenshotInput = z.infer<typeof ScreenshotInput>
 
-export function makeBrowserTools(manager: BrowserManager): ToolDefinition[] {
+export interface BrowserToolsOptions {
+  /** 缺省操作超时（spark.json browser.defaultTimeoutMs，19.12；缺省 30000） */
+  defaultTimeoutMs?: number
+}
+
+export function makeBrowserTools(manager: BrowserManager, opts?: BrowserToolsOptions): ToolDefinition[] {
+  const defaultTimeoutMs = opts?.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS
   /** 当前页 URL 作 resource（无页为 url:<none>）——域名级规则可命中 */
   const pageResource = (): string => {
     const url = manager.currentUrl()
@@ -95,7 +101,7 @@ export function makeBrowserTools(manager: BrowserManager): ToolDefinition[] {
       const url = parseHttpUrl(input.url)
       const r = await withAbort(
         ctx.signal,
-        manager.open(url, input.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+        manager.open(url, input.timeoutMs ?? defaultTimeoutMs),
       )
       return { output: { url: r.finalUrl, title: r.title }, isError: false }
     },
@@ -116,7 +122,7 @@ export function makeBrowserTools(manager: BrowserManager): ToolDefinition[] {
     async execute(ctx: ToolContext, input: ClickInput): Promise<ToolOutput> {
       const r = await withAbort(
         ctx.signal,
-        manager.click(input.selector, input.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+        manager.click(input.selector, input.timeoutMs ?? defaultTimeoutMs),
       )
       return { output: { clicked: true, url: r.finalUrl }, isError: false }
     },

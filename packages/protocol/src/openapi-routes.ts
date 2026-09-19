@@ -508,6 +508,13 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     response: arr(ref('AgentPresetDto')),
   },
   {
+    method: 'post',
+    path: '/api/browser/cleanup',
+    summary: '清空浏览器截图产物 shot-*.png（阶段十九 19.12 / ADR D49）',
+    tag: 'config',
+    response: ref('BrowserCleanupResultDto'),
+  },
+  {
     method: 'get',
     path: '/api/lsp',
     summary: '语言服务器只读状态（工单 16.9；未配置空数组）',

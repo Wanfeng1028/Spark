@@ -44,6 +44,7 @@ import type {
   FsListDto,
   FsTreeDto,
   LspServerStatusDto,
+  BrowserCleanupResultDto,
   LspInstallResultDto,
   IndexStatsDto,
   RebuildResultDto,
@@ -429,6 +430,11 @@ export class InProcessTransport implements Transport {
   listAgentPresets(): Promise<AgentPresetDto[]> {
     // 引擎回 readonly 数组（它对外只读），Transport 合同是可变数组——拷一份不泄露引擎内部引用
     return this.sync(() => [...this.engine.listAgentPresets()])
+  }
+
+  async cleanupBrowserArtifacts(): Promise<BrowserCleanupResultDto> {
+    this.assertNotDisposed()
+    return this.sync(() => this.engine.cleanupBrowserArtifacts())
   }
 
   async listLspServers(): Promise<LspServerStatusDto[]> {

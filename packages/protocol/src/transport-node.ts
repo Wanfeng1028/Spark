@@ -58,6 +58,7 @@ import type {
   TraceDto,
   TreeNodeDto,
   AgentPresetDto,
+  BrowserCleanupResultDto,
   LspServerStatusDto,
   LspInstallResultDto,
   IndexStatsDto,
@@ -550,6 +551,10 @@ export class HttpTransport implements Transport {
 
   listAgentPresets(): Promise<AgentPresetDto[]> {
     return this.req<AgentPresetDto[]>('/api/agents')
+  }
+
+  cleanupBrowserArtifacts(): Promise<BrowserCleanupResultDto> {
+    return this.req<BrowserCleanupResultDto>('/api/browser/cleanup', { method: 'POST' })
   }
 
   listLspServers(): Promise<LspServerStatusDto[]> {

@@ -40,6 +40,7 @@ interface PlaywrightBrowser {
 export function createPlaywrightDriver(
   shotsDir: string,
   logger: SparkLogger,
+  opts?: { headless?: boolean; userAgent?: string | undefined },
 ): () => Promise<BrowserDriver> {
   return async () => {
     let chromium: { launch(opts: { headless: boolean }): Promise<PlaywrightBrowser> }
@@ -53,7 +54,12 @@ export function createPlaywrightDriver(
 
     let browser: PlaywrightBrowser
     try {
-      browser = await chromium.launch({ headless: true })
+      const headless = opts?.headless ?? true
+      const ua = opts?.userAgent
+      browser = await chromium.launch({
+        headless,
+        ...(ua !== undefined && ua !== '' ? { userAgent: ua } : {}),
+      })
     } catch (err) {
       throw new Error(
         `E_BROWSER_LAUNCH: chromium 启动失败——请先运行 npx playwright install chromium（${errText(err)}）`,

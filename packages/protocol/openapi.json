@@ -1901,6 +1901,26 @@
         }
       }
     },
+    "/api/browser/cleanup": {
+      "post": {
+        "tags": [
+          "config"
+        ],
+        "summary": "清空浏览器截图产物 shot-*.png（阶段十九 19.12 / ADR D49）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserCleanupResultDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/lsp": {
       "get": {
         "tags": [
@@ -3072,6 +3092,45 @@
           "cwd",
           "prompt",
           "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "BrowserCleanupResultDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "removed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "removed"
+        ],
+        "additionalProperties": false
+      },
+      "BrowserSettings": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "headless": {
+            "type": "boolean"
+          },
+          "defaultTimeoutMs": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 300000
+          },
+          "userAgent": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "headless",
+          "defaultTimeoutMs",
+          "userAgent"
         ],
         "additionalProperties": false
       },
@@ -4418,6 +4477,29 @@
             ],
             "additionalProperties": false
           },
+          "browser": {
+            "type": "object",
+            "properties": {
+              "headless": {
+                "type": "boolean"
+              },
+              "defaultTimeoutMs": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 300000
+              },
+              "userAgent": {
+                "type": "string",
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "headless",
+              "defaultTimeoutMs",
+              "userAgent"
+            ],
+            "additionalProperties": false
+          },
           "restartRequired": {
             "type": "array",
             "items": {
@@ -4748,6 +4830,24 @@
                   "type": "string",
                   "minLength": 1
                 }
+              }
+            },
+            "additionalProperties": false
+          },
+          "browser": {
+            "type": "object",
+            "properties": {
+              "headless": {
+                "type": "boolean"
+              },
+              "defaultTimeoutMs": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 300000
+              },
+              "userAgent": {
+                "type": "string",
+                "maxLength": 300
               }
             },
             "additionalProperties": false

@@ -438,7 +438,19 @@ export const SETTINGS_RESTART_REQUIRED: readonly string[] = [
   'extensions.disabledExtensions',
   'server.port',
   'server.host',
+  'browser.headless',
+  'browser.defaultTimeoutMs',
+  'browser.userAgent',
 ]
+
+/** 浏览器工具族设置（阶段十九 19.12）：spark.json `browser` 段——重启档（BrowserManager
+ * 构造期装配，ADR D49 判决），缺省 headless=true / defaultTimeoutMs=30000 / UA 空即不覆盖 */
+export const BrowserSettingsSchema = z.strictObject({
+  headless: z.boolean(),
+  defaultTimeoutMs: z.number().int().positive().max(300_000),
+  userAgent: z.string().max(300),
+})
+export type BrowserSettings = z.infer<typeof BrowserSettingsSchema>
 
 /** GET /api/settings 响应（掩码红线：绝不回 apiKey 值——D28） */
 export const SettingsDtoSchema = z.strictObject({
@@ -461,6 +473,8 @@ export const SettingsDtoSchema = z.strictObject({
       disabledExtensions: z.array(z.string().min(1)),
     })
     .optional(),
+  /** 浏览器设置（阶段十九 19.12）：spark.json browser 段——重启档 */
+  browser: BrowserSettingsSchema.optional(),
   /** 需重启生效字段清单（前端标注"下次启动生效"；单一来源 SETTINGS_RESTART_REQUIRED） */
   restartRequired: z.array(z.string()),
   /** models.json 只读参考（写路径不经本端点——默认模型/档位迁移记录见工单） */
@@ -494,6 +508,8 @@ export const SettingsUpdateSchema = z.strictObject({
       disabledExtensions: z.array(z.string().min(1)).optional(),
     })
     .optional(),
+  /** 浏览器设置（阶段十九 19.12）：browser 段逐域合并（部分更新）；重启档 */
+  browser: BrowserSettingsSchema.partial().optional(),
 })
 export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>
 
@@ -882,6 +898,12 @@ export type TranscribeResultDto = z.infer<typeof TranscribeResultDtoSchema>
 
 /** RT3-07：mcp.json 读回通道的 env 值占位符——值永不明文出引擎（12.6 只进不回显纪律），
  * PUT 时引擎用盘上同 server 同 key 的真值替换占位（无真值 → 400 拒写，掩码不是值） */
+/** 浏览器截图产物清理结果（POST /api/browser/cleanup） */
+export interface BrowserCleanupResultDto {
+  removed: number
+}
+export const BrowserCleanupResultDtoSchema = z.strictObject({ removed: z.number().int().nonnegative() })
+
 export const MCP_ENV_MASK = '__SPARK_KEEP__'
 
 /** LSP 安装结果（POST /api/lsp/install 响应，阶段十九 19.5）：写入 lsp.json 的最终条目 */

@@ -167,6 +167,11 @@ export function persistSparkPatch(root: string, patch: SettingsUpdate): EngineCo
   if (patch.extensions !== undefined) {
     raw['extensions'] = patch.extensions
   }
+  // 浏览器设置（阶段十九 19.12 / ADR D49）：browser 段逐域合并（部分更新，重启档）
+  if (patch.browser !== undefined) {
+    const cur = (raw['browser'] as Record<string, unknown> | undefined) ?? {}
+    raw['browser'] = { ...cur, ...patch.browser }
+  }
   validateSparkWrite(raw)
   atomicWriteJson(sparkPath, raw)
   return loadConfig(root)

@@ -285,6 +285,19 @@ describe('spark.json engine/hooks 段单一来源（工单 R-B.4：复用 @spark
     })
   })
 
+  it('browser 段：合法解析 + 部分字段缺省归位（阶段十九 19.12 / ADR D49）', () => {
+    const dir = tempDir()
+    write(dir, 'spark.json', JSON.stringify({
+      browser: { headless: false, defaultTimeoutMs: 60000 },
+    }))
+    write(dir, 'models.json', VALID_MODELS)
+
+    expect(loadConfig(dir).spark.browser).toEqual({
+      headless: false,
+      defaultTimeoutMs: 60000,
+    })
+  })
+
   it('engine 段未知键剥离 → 该字段落默认值（宽松口径刻意保留；收紧属行为变更须另立工单）', () => {
     const dir = tempDir()
     write(dir, 'spark.json', JSON.stringify({

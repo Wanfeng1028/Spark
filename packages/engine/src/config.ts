@@ -7,7 +7,9 @@ import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { EngineSettingsShape, SettingsHooksSchema, SettingsPromptsSchema } from '@spark/protocol'
+import { BrowserSettingsSchema,
+  type BrowserSettings,
+  EngineSettingsShape, SettingsHooksSchema, SettingsPromptsSchema } from '@spark/protocol'
 import type { EngineSettings, ReasoningEffort, SettingsHooks, SettingsPrompts } from '@spark/protocol'
 import { errText } from './errs.js'
 
@@ -56,6 +58,9 @@ const sparkSchema = z.object({
       disabledExtensions: z.array(z.string().min(1)).optional(),
     })
     .optional(),
+
+  /** 浏览器设置（阶段十九 19.12 / ADR D49）：重启档（BrowserManager 构造期装配） */
+  browser: BrowserSettingsSchema.partial().optional(),
 })
 
 export interface SparkConfig {
@@ -70,6 +75,8 @@ export interface SparkConfig {
   agents?: { disabledAgents?: string[] | undefined } | undefined
   /** 扩展启停（工单 16.5；可选——缺省全启用） */
   extensions?: { disabledExtensions?: string[] | undefined } | undefined
+  /** 浏览器设置（阶段十九 19.12 / ADR D49；可选——缺省 headless/30s/不覆盖 UA，engine.ts 侧取默认） */
+  browser?: BrowserSettings | undefined
 }
 
 const SPARK_DEFAULTS: SparkConfig = {

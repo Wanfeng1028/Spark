@@ -11,7 +11,7 @@
  * shutdown 序列（§5.2）：拒新 → 逐会话 interrupt + 关输入队列 → 等待 run-loop
  * 退出 → 审批 pending 全部 fail-closed → 全量 flush + close。
  */
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import {
@@ -421,13 +421,25 @@ export class Engine {
     // 驱动（playwright-core）首次 browser.open 才启动，构造期零依赖
     this.shotsDir = join(this.root, 'browser-shots')
     this.browser = new BrowserManager(
-      deps.browserDriver ?? createPlaywrightDriver(this.shotsDir, this.logger),
+      deps.browserDriver ??
+        createPlaywrightDriver(this.shotsDir, this.logger, {
+          headless: browserCfg.headless,
+          ...(browserCfg.userAgent !== '' ? { userAgent: browserCfg.userAgent } : {}),
+        }),
     )
 
     // 阶段十九 19.1 / ADR D43：电脑控制执行体——截图与 browser 共享 shotsDir
     // （GET /api/artifacts 单通道供图）；构造零副作用（spawn 只在操作执行期）
     this.computerExecutor =
       deps.computerExecutor ?? createComputerExecutor(this.shotsDir)
+
+    // 浏览器设置（阶段十九 19.12 / ADR D49）：spark.json browser 段——重启档
+    //（BrowserManager 构造期装配）；缺省 headless/30s/不覆盖 UA
+    const browserCfg = this.config.spark.browser ?? {
+      headless: true,
+      defaultTimeoutMs: 30_000,
+      userAgent: '',
+    }
 
     // 工单 7.6 / H06 / ADR D26：自动化触发器（触发=自动建会话执行 prompt，走正常 turn 通道）；
     // 坏 automation.json 构造即抛 E_CONFIG（配置错误不带病运行，同 loadConfig 纪律）
@@ -452,7 +464,7 @@ export class Engine {
     }
     // browser 工具族（工单 7.10 / ADR D27）：恒广告——浏览器二进制缺失时
     // 执行期 E_BROWSER_LAUNCH fail-closed（缺失不是静默降级的理由）
-    for (const tool of makeBrowserTools(this.browser)) {
+    for (const tool of makeBrowserTools(this.browser, { defaultTimeoutMs: browserCfg.defaultTimeoutMs })) {
       this.registry.register(tool)
     }
     // computer.* 工具族（阶段十九 19.1 / ADR D43）：恒广告——主开关缺省关时
@@ -1207,6 +1219,25 @@ export class Engine {
     }
   }
 
+  /** 浏览器截图产物清理（阶段十九 19.12）：删除 shotsDir 全部 shot-*.png，返回删除数 */
+  cleanupBrowserArtifacts(): { removed: number } {
+    let removed = 0
+    try {
+      for (const f of readdirSync(this.shotsDir)) {
+        if (!SHOT_FILE_RE.test(f)) continue
+        try {
+          rmSync(join(this.shotsDir, f))
+          removed += 1
+        } catch {
+          // 单文件删除失败跳过（fail-soft——只读挂载等），继续清其余
+        }
+      }
+    } catch {
+      // 目录不存在 = 无产物可清
+    }
+    return { removed }
+  }
+
   /** 命中行的会话标题：已装载 meta → 会话索引（boot 重建）→ 空串兜底 */
   private sessionTitleOf(id: SessionId): string {
     const loaded = this.sessions.get(id)
@@ -1314,6 +1345,12 @@ export class Engine {
       ...(this.config.spark.extensions !== undefined
         ? { extensions: { disabledExtensions: this.config.spark.extensions.disabledExtensions ?? [] } }
         : {}),
+      // 浏览器设置（阶段十九 19.12 / ADR D49）：未配置时缺省值（headless/30s/UA 不覆盖）
+      browser: {
+        headless: browserCfg.headless,
+        defaultTimeoutMs: browserCfg.defaultTimeoutMs,
+        userAgent: browserCfg.userAgent,
+      },
     }
     return dto
   }

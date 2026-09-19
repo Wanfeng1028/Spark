@@ -17,6 +17,7 @@ import { SubagentsSettingsPage } from '@/features/settings/SubagentsSettingsPage
 import { PluginsSettingsPage } from '@/features/settings/PluginsSettingsPage'
 import { SecurityTrustPage } from '@/features/settings/SecurityTrustPage'
 import { ComputerSettingsPage } from '@/features/settings/ComputerSettingsPage'
+import { BrowserSettingsPage } from '@/features/settings/BrowserSettingsPage'
 import { CommandsSettingsPage } from '@/features/settings/CommandsSettingsPage'
 import { HooksSettingsPage } from '@/features/settings/HooksSettingsPage'
 import { UsageSettingsPage } from '@/features/settings/UsageSettingsPage'
@@ -46,6 +47,7 @@ const READY_COMPONENTS = {
   memory: MemorySettingsPage,
   audit: AuditSettingsPage,
   computer: ComputerSettingsPage,
+  browser: BrowserSettingsPage,
 } as const
 
 export function SettingsPage() {
