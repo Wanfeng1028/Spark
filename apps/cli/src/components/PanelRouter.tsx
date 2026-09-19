@@ -10,6 +10,7 @@ import {
   AgentsPanel,
   ArenaPanel,
   CheckpointsPanel,
+  ComputerPanel,
   ExtensionsPanel,
   LspPanel,
   McpPanel,
@@ -92,6 +93,9 @@ export function PanelRouter({
   }
   if (panel === 'agents') {
     return <AgentsPanel transport={transport} />
+  }
+  if (panel === 'computer') {
+    return <ComputerPanel transport={transport} />
   }
   if (panel === 'trust') {
     return <TrustPanel transport={transport} />

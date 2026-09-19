@@ -39,6 +39,7 @@ export type CliPanel =
   | 'trust'
   | 'extensions'
   | 'arena'
+  | 'computer'
 
 export interface CliState extends ProjectionState {
   status: CliConnectionStatus

@@ -15,6 +15,7 @@ import type {
   CheckpointDto,
   ModelsDto,
   RoutingDto,
+  SettingsDto,
   SkillDto,
   LspServerStatusDto,
   McpServerDto,
@@ -202,6 +203,45 @@ export function LspPanel({ transport }: { transport: Transport }) {
           ))
         )
       } />
+    </PanelShell>
+  )
+}
+
+/** 电脑控制面板（阶段十九 19.2 / ADR D44）：主开关状态 + 八操作与审批档位只读；开关写入在 web 设置中心（updateSettings 热档） */
+const COMPUTER_OPS: ReadonlyArray<{ op: string; desc: string }> = [
+  { op: 'screenshot', desc: '截屏 PNG（不进对话上下文）' },
+  { op: 'click', desc: '坐标点击（左/右/中、双击）' },
+  { op: 'type', desc: '键入文本（UNICODE）' },
+  { op: 'key', desc: '按键/组合键' },
+  { op: 'scroll', desc: '滚轮滚动' },
+  { op: 'window', desc: '窗口清单/聚焦' },
+  { op: 'app', desc: '进程清单/启动程序' },
+  { op: 'clipboard', desc: '剪贴板读写' },
+]
+
+export function ComputerPanel({ transport }: { transport: Transport }) {
+  const state = useLoad<SettingsDto>(() => transport.getSettings())
+  return (
+    <PanelShell title="电脑控制" hint="只读（主开关走设置中心，改完下一操作生效）">
+      <LoadState state={state} render={(s) => (
+        <>
+          <Text wrap="truncate-end">
+            <Text color={s.engine.computerUseEnabled ? 'green' : 'gray'}>
+              {s.engine.computerUseEnabled ? '● 已启用' : '○ 未启用'}
+            </Text>
+            <Text color="gray">  spark.json engine.computerUseEnabled（缺省关 fail-closed）</Text>
+          </Text>
+          {COMPUTER_OPS.map((o) => (
+            <Text key={o.op} wrap="truncate-end">
+              {'  computer://'}
+              {o.op}
+              <Text color="gray">  {o.desc}</Text>
+            </Text>
+          ))}
+          <Text color="gray">审批档位 = 权限规则 computer:// 前缀（未设逐次询问，deny 胜出）</Text>
+          <Text color="gray">执行体：Windows 全量 / macOS 需辅助功能授权 / Linux X11 需 xdotool 家族（Wayland 不支持）</Text>
+        </>
+      )} />
     </PanelShell>
   )
 }

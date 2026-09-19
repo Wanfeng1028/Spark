@@ -2905,7 +2905,8 @@
               "lsp",
               "agents",
               "trust",
-              "extensions"
+              "extensions",
+              "computer"
             ]
           }
         },

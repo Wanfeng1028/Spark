@@ -32,6 +32,7 @@ export const ClientActionSchema = z.enum([
   'agents',
   'trust',
   'extensions',
+  'computer',
 ])
 export type ClientAction = z.infer<typeof ClientActionSchema>
 
@@ -268,5 +269,16 @@ export const BUILTIN_COMMANDS: readonly CommandDescriptor[] = [
     group: 'session',
     surface: ['web', 'cli'],
     sessionRequired: true,
+  },
+  {
+    // 阶段十九 19.2：client 命令——/computer 电脑控制面板（主开关状态 + 八操作与审批档位）；
+    // 主开关写入在 web 设置页（updateSettings 热档），CLI 面板只读指引
+    name: 'computer',
+    description: '电脑控制面板：computer.* 主开关状态与八操作审批档位（开关在设置中心）',
+    kind: 'client',
+    group: 'info',
+    surface: ['web', 'cli'],
+    sessionRequired: false,
+    clientAction: 'computer',
   },
 ]

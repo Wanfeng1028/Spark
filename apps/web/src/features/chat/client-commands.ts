@@ -31,6 +31,8 @@ export const CLIENT_ACTIONS: Readonly<Partial<Record<ClientAction, ClientCommand
   // 文件夹信任（工单 16.4）与扩展（工单 16.5）
   trust: { kind: 'navigate', path: '/settings/security' },
   extensions: { kind: 'navigate', path: '/settings/plugins' },
+  // 电脑控制页（阶段十九 19.2）
+  computer: { kind: 'navigate', path: '/settings/computer' },
 }
 
 /** 是否 client 命令（前端本地执行，不进引擎） */
