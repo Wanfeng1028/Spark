@@ -86,7 +86,8 @@ function GradientLine({ line, width }: { line: string; width: number }) {
  */
 declare const __SPARK_VERSION__: string | undefined
 const require = createRequire(import.meta.url)
-function versionOf(): string {
+/** 导出供 main.tsx 的 `spark --version` 复用（RT3-02：版本单一来源，禁再写一份） */
+export function versionOf(): string {
   if (typeof __SPARK_VERSION__ === 'string') return __SPARK_VERSION__
   try {
     const pkg = require('../../package.json') as { version?: unknown }

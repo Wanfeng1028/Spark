@@ -10,6 +10,7 @@ import { App } from './app.js'
 import { startUp } from './up.js'
 import { PRINT_USAGE, parsePrintArgs, runPrint } from './print.js'
 import { runMcpServer } from './mcp-server.js'
+import { versionOf } from './components/BootHeader.js'
 
 const USAGE = `Spark CLI（Ink TUI）
 
@@ -24,6 +25,7 @@ const USAGE = `Spark CLI（Ink TUI）
 参数：
   --api <url>   API 基址（或 SPARK_API 环境变量；缺省 http://127.0.0.1:4318）
   -h, --help    显示本帮助
+  -v, --version 显示版本号并退出
 
 键位（单一来源 @spark/protocol keymap）：
 ${cliKeymapText()}
@@ -42,6 +44,11 @@ function baseUrlOf(argv: readonly string[]): string {
 const argv = process.argv.slice(2)
 if (argv.includes('-h') || argv.includes('--help')) {
   process.stdout.write(USAGE)
+  process.exit(0)
+}
+// RT3-02（WO-084）：--version 独立退出——此前落入 TUI 分支，headless 下 raw-mode 报错
+if (argv.includes('-v') || argv.includes('--version')) {
+  process.stdout.write(`${versionOf()}\n`)
   process.exit(0)
 }
 
