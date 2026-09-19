@@ -50,6 +50,17 @@ export default tseslint.config(
     },
   },
   {
+    // 松散 Node 脚本（ESM）的全局声明：console/process 等由 Node 运行时提供，
+    // projectService 白名单只解决解析归属，不解决 globals（no-undef 仍生效）
+    files: ['apps/server/scripts/check-dist.mjs', 'apps/desktop/scripts/build-server.mjs'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+      },
+    },
+  },
+  {
     // apps/miniapp 的 Babel 配置：CJS（同 mobile 判例——工单 9.4）
     files: ['apps/miniapp/babel.config.js'],
     languageOptions: {
