@@ -20,7 +20,7 @@ export const KEYMAP: readonly KeyBinding[] = [
   { keys: '/', action: '命令前缀（注册表：/compact 与自定义 .md）', surface: 'both' },
   { keys: 'Tab', action: '循环提交模式 now / steer / queue', surface: 'cli', note: 'web 为 Composer 分段选择' },
   { keys: 'Esc', action: '中断当前 turn', surface: 'cli', note: 'web 为停止按钮；面板开放时先关面板' },
-  { keys: '1 / 2 / 3（y / a / n）', action: '审批：允许一次 / 总是允许 / 拒绝（展开理由）', surface: 'cli', note: 'web 为审批卡按钮' },
+  { keys: '1 / 2 / 3 / 4（y / a / n）', action: '审批：允许一次 / 总是允许 / 拒绝（展开理由）/ 本项目总是允许', surface: 'cli', note: 'web 为审批卡按钮；4=项目级固化（19.9 / ADR D48）' },
   { keys: 'Ctrl+O', action: '展开/折叠最近一个工具或思考条目', surface: 'cli' },
   { keys: 'Ctrl+N', action: '新建会话（同 /new）', surface: 'cli', note: 'web 为侧栏按钮' },
   { keys: 'PageUp / PageDown', action: '切换会话', surface: 'cli' },

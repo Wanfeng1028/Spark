@@ -459,7 +459,12 @@ export class MockTransport implements Transport {
     })
   }
 
-  replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void> {
+  replyPermission(
+    requestId: RequestId,
+    reply: PermissionReply,
+    feedback?: string,
+    scope?: 'user' | 'project',
+  ): Promise<void> {
     this.assertNotDisposed()
     if (this.suspended !== 'approval') {
       console.warn(`[mock] replyPermission 在无审批挂起时被调用（requestId=${requestId}）——已忽略`)

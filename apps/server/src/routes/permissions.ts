@@ -23,11 +23,7 @@ export const registerPermissionRoutes: FastifyPluginCallback<RoutesOptions> = (a
   app.post('/api/permissions/:requestId', async (req, reply) => {
     const { requestId } = parseOr400(RequestIdParams, req.params)
     const body = parseOr400(ReplyBody, req.body)
-    const outcome = await engine.replyPermission(
-      requestId,
-      body.reply,
-      ...(body.feedback !== undefined ? [body.feedback] : []),
-    )
+    const outcome = await engine.replyPermission(requestId, body.reply, body.feedback, body.scope)
     if (outcome !== 'ok') {
       // 409/404 三态映射收敛到 errors.ts replyOutcomeError（R-A：消除路由内联与前缀版重复）
       return sendError(req, reply, replyOutcomeError(outcome))

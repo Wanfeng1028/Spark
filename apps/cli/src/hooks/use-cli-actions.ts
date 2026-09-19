@@ -94,9 +94,10 @@ export function useCliActions({
     requestId: RequestId,
     reply: 'once' | 'always' | 'reject',
     feedback?: string,
+    scope?: 'user' | 'project',
   ): void {
     transport
-      .replyPermission(requestId, reply, feedback)
+      .replyPermission(requestId, reply, feedback, scope)
       .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
   }
 

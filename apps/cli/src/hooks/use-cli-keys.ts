@@ -239,6 +239,11 @@ export function useCliKeys(opts: UseCliKeysOptions): void {
         actions.replyApproval(pendingApproval.requestId, 'always')
         return
       }
+      if (input === '4') {
+        // 本项目总是允许（阶段十九 19.9 / ADR D48）：project 作用域固化
+        actions.replyApproval(pendingApproval.requestId, 'always', undefined, 'project')
+        return
+      }
       if (input === '3' || input === 'n') {
         setRejecting(pendingApproval.requestId)
       }

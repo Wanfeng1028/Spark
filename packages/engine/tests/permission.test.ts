@@ -62,6 +62,8 @@ function makeService(opts?: {
   userRules?: PermissionRule[]
   projectRules?: PermissionRule[]
   timeoutMs?: number
+  /** 19.9：项目级规则仓注入（缺省不注入——project 作用域如实报 E_PERMISSION_SCOPE） */
+  projectRuleStore?: MemRuleStore
 }): { sink: MemSink; service: PermissionServiceImpl; store: MemRuleStore } {
   const sink = new MemSink()
   const bus = new EventBus({ sink })
@@ -71,6 +73,7 @@ function makeService(opts?: {
     ruleStore: store,
     projectRules: opts?.projectRules ?? [],
     timeoutMs: opts?.timeoutMs ?? 300_000,
+    ...(opts?.projectRuleStore !== undefined ? { projectRuleStore: opts.projectRuleStore } : {}),
   })
   return { sink, service, store }
 }
@@ -295,6 +298,30 @@ describe('ask → reply（§5.7.2 时序）', () => {
     expect(
       resolvedAll.every((e) => isEvent(e, 'permission.resolved') && e.data.reply === 'always'),
     ).toBe(true)
+  })
+
+  test('always project 作用域：写项目仓不写用户仓，评估列表就地可见（19.9 / ADR D48）', async () => {
+    const projectStore = new MemRuleStore([])
+    const { sink, service, store } = makeService({ projectRuleStore: projectStore })
+    const { check } = makeCheck()
+    const { requestId, promise } = await pendAsk(service, sink, check)
+    expect(await service.reply(requestId, 'always', undefined, 'project')).toBe(true)
+    expect(await promise).toBe(true)
+    // 用户仓零写入；项目仓持有规则
+    expect(store.list()).toHaveLength(0)
+    expect(projectStore.list()).toHaveLength(1)
+    // 第二次同规则直接 allow（项目规则进评估列表）
+    expect(await service.assert(makeCheck().check)).toBe(true)
+  })
+
+  test('always project 作用域无规则仓：E_PERMISSION_SCOPE 抛错且审批仍挂起（fail-closed）', async () => {
+    const { sink, service } = makeService()
+    const { requestId } = await pendAsk(service, sink, makeCheck().check)
+    await expect(service.reply(requestId, 'always', undefined, 'project')).rejects.toThrow(
+      'E_PERMISSION_SCOPE',
+    )
+    // 挂起未决：once 仍可答复
+    expect(await service.reply(requestId, 'once')).toBe(true)
   })
 
   test('reject 级联：同会话其余挂起一并自动 reject（补强 2）', async () => {

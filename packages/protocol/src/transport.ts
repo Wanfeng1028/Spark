@@ -5,7 +5,7 @@
  * MockTransport 单场景忽略）；getSession 为打开会话的全量 durable 回放入口（冷启动与断线重连同一路径）。
  */
 import type { SparkEventEnvelope } from './events.js'
-import type { Delivery, PermissionReply, ReasoningEffort } from './primitives.js'
+import type { Delivery, PermissionReply, PermissionScope, ReasoningEffort } from './primitives.js'
 import type {
   AuditEntryDto,
   AuditQuery,
@@ -70,7 +70,14 @@ export interface Transport {
   interrupt(sessionId: SessionId): Promise<void>
   /** 手动压缩（doc/02 §5.8.5）：触发 compaction.* 事件对（SSE 推送；turn 进行中拒绝） */
   compact(sessionId: SessionId): Promise<void>
-  replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void>
+  /** POST /api/permissions/:requestId（feedback = 拒绝原因；scope = always 固化作用域，
+   * 缺省 user——阶段十九 19.9 / ADR D48 项目级固化走 'project'） */
+  replyPermission(
+    requestId: RequestId,
+    reply: PermissionReply,
+    feedback?: string,
+    scope?: PermissionScope,
+  ): Promise<void>
   /**
    * GET /api/sessions/:id：meta + durable 事件（seq 升序——冷启动回放数据源）。
    * query 分页（工单 9.3）：limit 升序尾部切片 / before=seq 游标；无参 = 全量（向后兼容）。

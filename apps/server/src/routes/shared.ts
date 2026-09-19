@@ -8,6 +8,7 @@ import {
   DeliverySchema,
   EventIdSchema,
   PermissionReplySchema,
+  PermissionScopeSchema,
   PermissionPresetSchema,
   ReasoningEffortSchema,
   RequestIdSchema,
@@ -83,6 +84,8 @@ export const SendMessageBody = z.strictObject({
 export const ReplyBody = z.strictObject({
   reply: PermissionReplySchema,
   feedback: z.string().optional(),
+  /** always 固化作用域（阶段十九 19.9 / ADR D48）：缺省 user */
+  scope: PermissionScopeSchema.optional(),
 })
 
 export const IdParams = z.strictObject({ id: SessionIdSchema })

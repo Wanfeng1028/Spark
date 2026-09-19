@@ -34,6 +34,7 @@ import type {
   ModelsDto,
   PermissionPreset,
   PermissionReply,
+  PermissionScope,
   ReasoningEffort,
   RequestId,
   RoutingDto,
@@ -167,6 +168,8 @@ export class Engine {
   private readonly permission: PermissionServiceImpl
   /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
   private readonly ruleStore: UserRuleStore
+  /** 项目级权限规则仓（<cwd>/.spark/permissions.json；19.9 / ADR D48「本项目总是允许」落点） */
+  private readonly projectRuleStore: UserRuleStore
   /** 密钥仓（阶段七工单 7.1 / H01）：~/.spark/secrets.json，取用优先级 store > env */
   private readonly secrets: SecretStore
   /** I/O 护栏（阶段七工单 7.2 / H02）：工具输出注入检测 + 敏感过滤 */
@@ -492,6 +495,12 @@ export class Engine {
       join(this.root, 'permissions.json'),
       this.config.permissions.rules,
     )
+    // 项目级规则仓（19.9 / ADR D48）：装载与评估同源数组（projectRules 就地追加即全会话可见）
+    const projectRules = loadProjectRules(this.defaultCwd)
+    this.projectRuleStore = new UserRuleStore(
+      join(this.defaultCwd, '.spark', 'permissions.json'),
+      projectRules,
+    )
     this.secrets = new SecretStore(join(this.root, 'secrets.json'))
     // 工单 7.1 验收：store 值不落日志——启动即注册进脱敏层（deps.logger 未实现则跳过）
     this.logger.registerSecrets?.(this.secrets.values())
@@ -508,7 +517,8 @@ export class Engine {
     this.permission = new PermissionServiceImpl({
       bus: this.bus,
       ruleStore: this.ruleStore,
-      projectRules: loadProjectRules(this.defaultCwd),
+      projectRuleStore: this.projectRuleStore,
+      projectRules,
       timeoutMs: this.config.spark.engine.permissionTimeoutMs,
       metrics: this.metrics,
       audit: this.audit, // 工单 7.12：决策与 always 固化规则变更入审计明细流
@@ -1638,8 +1648,9 @@ export class Engine {
     requestId: RequestId,
     reply: PermissionReply,
     feedback?: string,
+    scope?: PermissionScope,
   ): Promise<ReplyOutcome> {
-    const ok = await this.permission.reply(requestId, reply, feedback)
+    const ok = await this.permission.reply(requestId, reply, feedback, scope)
     if (ok) {
       this.settledRequests.add(requestId)
       return 'ok'

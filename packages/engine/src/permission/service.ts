@@ -11,7 +11,14 @@
  * - 超时 / turn 中断（AbortSignal）/ dispose → 一律 resolve(deny) +
  *   permission.resolved{reject}（fail-closed，"宁可错杀"）。
  */
-import type { EventId, PermissionPreset, PermissionReply, RequestId, SessionId } from '@spark/protocol'
+import type {
+  EventId,
+  PermissionPreset,
+  PermissionReply,
+  PermissionScope,
+  RequestId,
+  SessionId,
+} from '@spark/protocol'
 import type { EventBus } from '../bus.js'
 import type { PermissionRule } from '../config.js'
 import { newIds } from '../ulid.js'
@@ -37,6 +44,9 @@ export interface PermissionServiceDeps {
   ruleStore: RuleStore
   /** 项目级 <cwd>/.spark/permissions.json 规则（loadProjectRules） */
   projectRules: readonly PermissionRule[]
+  /** 项目级规则仓（阶段十九 19.9 / ADR D48：<cwd>/.spark/permissions.json 落盘；
+   * 缺省未注入时 project 作用域如实报 E_PERMISSION_SCOPE 拒固化——禁假状态） */
+  projectRuleStore?: RuleStore
   /** 审批超时（spark.json permissionTimeoutMs，缺省 5min） */
   timeoutMs: number
   /** 进程内指标（§5.10 清单；缺省不计数——测试可省，工单 4.8） */
@@ -160,7 +170,12 @@ export class PermissionServiceImpl implements PermissionService {
    * UI 审批回复（POST /api/permissions/:requestId 的引擎侧入口）。
    * 返回 false = 未知/已决 requestId（server 层映射 404）。
    */
-  async reply(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<boolean> {
+  async reply(
+    requestId: RequestId,
+    reply: PermissionReply,
+    feedback?: string,
+    scope: PermissionScope = 'user',
+  ): Promise<boolean> {
     const entry = this.pending.get(requestId)
     if (entry === undefined) return false
     if (reply === 'once') {
@@ -175,13 +190,24 @@ export class PermissionServiceImpl implements PermissionService {
       // （用户固化意图是持久事实）而**当前调用按 deny 结清**——fail-closed 不回滚规则。
       const targets =
         entry.check.alwaysPatterns ?? entry.check.patterns ?? [entry.check.resource]
+      // 作用域分流（19.9 / ADR D48）：project = <cwd>/.spark/permissions.json（随仓库走，
+      // 仅当前工作区生效）；user = ~/.spark/permissions.json（全局，原行为缺省）。
+      const store = scope === 'project' ? this.deps.projectRuleStore : this.deps.ruleStore
+      if (store === undefined) {
+        throw new Error('E_PERMISSION_SCOPE: 项目级规则仓不可用——无法固化「本项目总是允许」')
+      }
+      const source = scope === 'project' ? 'reply:always:project' : 'reply:always'
       for (const resource of targets) {
         const rule: PermissionRule = {
           action: entry.check.action,
           resource,
           effect: 'allow',
         }
-        this.deps.ruleStore.add(rule)
+        store.add(rule)
+        if (scope === 'project') {
+          // 评估列表同一引用就地追加——其他会话 evaluateAll 立即可见（与 store.list 同源）
+          ;(this.deps.projectRules as PermissionRule[]).push(rule)
+        }
         this.sessionRulesOf(entry.sessionId).push(rule)
         // 审计（7.12）：always 答复附带规则固化——决策行之外另记规则变更行
         this.deps.audit?.record({
@@ -193,7 +219,7 @@ export class PermissionServiceImpl implements PermissionService {
           action: rule.action,
           resource,
           effect: 'allow',
-          source: 'reply:always',
+          source,
         })
       }
       await this.settle(entry, true, 'always', 'reply')
@@ -203,7 +229,7 @@ export class PermissionServiceImpl implements PermissionService {
           evaluateAll(
             other.check.action,
             other.check.patterns ?? [other.check.resource],
-            this.deps.ruleStore.list(),
+            store.list(),
             this.deps.projectRules,
             this.sessionRulesOf(other.sessionId),
             this.presetRulesOf(other.sessionId),

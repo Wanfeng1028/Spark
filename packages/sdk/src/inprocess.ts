@@ -55,6 +55,7 @@ import type {
   PairTokenDto,
   PermissionPreset,
   PermissionReply,
+  PermissionScope,
   PermissionRuleDto,
   ReasoningEffort,
   RequestId,
@@ -187,9 +188,14 @@ export class InProcessTransport implements Transport {
 
   // ---------- 审批 ----------
 
-  async replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void> {
+  async replyPermission(
+    requestId: RequestId,
+    reply: PermissionReply,
+    feedback?: string,
+    scope?: PermissionScope,
+  ): Promise<void> {
     this.assertNotDisposed()
-    const outcome = await this.engine.replyPermission(requestId, reply, feedback)
+    const outcome = await this.engine.replyPermission(requestId, reply, feedback, scope)
     // 三态映射与 server 的 replyOutcomeError 同码（ADR D31：审批同一路径、错误同形）
     if (outcome === 'already-resolved') throw new Error('E_ALREADY_RESOLVED: 审批请求已答复过')
     if (outcome !== 'ok') throw new Error(`E_NOT_FOUND: 审批请求 ${requestId} 不存在`)

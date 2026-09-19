@@ -62,7 +62,7 @@ import type {
   UsageSummaryDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
-import type { PermissionReply, ReasoningEffort } from './primitives.js'
+import type { PermissionReply, PermissionScope, ReasoningEffort } from './primitives.js'
 import type { SendMessageOptions, SubmitOutcome, Transport } from './transport.js'
 
 /**
@@ -275,10 +275,19 @@ export class HttpTransport implements Transport {
     }).then(() => undefined)
   }
 
-  replyPermission(requestId: RequestId, reply: PermissionReply, feedback?: string): Promise<void> {
+  replyPermission(
+    requestId: RequestId,
+    reply: PermissionReply,
+    feedback?: string,
+    scope?: PermissionScope,
+  ): Promise<void> {
     return this.req<{ ok: boolean }>(`/api/permissions/${requestId}`, {
       method: 'POST',
-      body: JSON.stringify({ reply, ...(feedback !== undefined ? { feedback } : {}) }),
+      body: JSON.stringify({
+        reply,
+        ...(feedback !== undefined ? { feedback } : {}),
+        ...(scope !== undefined ? { scope } : {}),
+      }),
     }).then(() => undefined)
   }
 

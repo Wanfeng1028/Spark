@@ -30,7 +30,7 @@ export interface ApprovalCardProps {
   status: 'pending' | 'resolved'
   /** resolved 时的实际回复（结果徽标与收起摘要的数据源，来自 permission.resolved 事件） */
   reply?: PermissionReply | undefined
-  onReply: (reply: PermissionReply, feedback?: string) => void
+  onReply: (reply: PermissionReply, feedback?: string, scope?: 'user' | 'project') => void
 }
 
 export function ApprovalCard({
@@ -122,8 +122,21 @@ export function ApprovalCard({
             <ConfirmationAction size="sm" onClick={() => onReply('once')}>
               允许一次
             </ConfirmationAction>
-            <ConfirmationAction variant="outline" size="sm" onClick={() => onReply('always')}>
+            <ConfirmationAction
+              variant="outline"
+              size="sm"
+              title="固化为用户级规则（~/.spark/permissions.json，全局跨会话生效）"
+              onClick={() => onReply('always')}
+            >
               总是允许
+            </ConfirmationAction>
+            <ConfirmationAction
+              variant="outline"
+              size="sm"
+              title="固化为项目级规则（.spark/permissions.json，仅当前工作区生效）"
+              onClick={() => onReply('always', undefined, 'project')}
+            >
+              本项目总是允许
             </ConfirmationAction>
             <ConfirmationAction
               variant="outline"

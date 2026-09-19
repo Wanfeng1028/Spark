@@ -155,8 +155,8 @@ function assistantTextOf(content: ContentItem[]): string {
 /** 审批行：ApprovalCard + transport 回复派发 */
 function ApprovalRow({ item }: { item: Extract<UiItem, { kind: 'approval' }> }) {
   const { transport } = useTransport()
-  function onReply(reply: PermissionReply, feedback?: string) {
-    void transport.replyPermission(ids.request(item.requestId), reply, feedback)
+  function onReply(reply: PermissionReply, feedback?: string, scope?: 'user' | 'project') {
+    void transport.replyPermission(ids.request(item.requestId), reply, feedback, scope)
   }
   return (
     <ApprovalCard

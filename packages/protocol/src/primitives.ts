@@ -61,6 +61,11 @@ export type TurnFinish = z.infer<typeof TurnFinishSchema>
 export const PermissionReplySchema = z.enum(['once', 'always', 'reject'])
 export type PermissionReply = z.infer<typeof PermissionReplySchema>
 
+/** always 固化作用域（阶段十九 19.9 / ADR D48）：user = ~/.spark/permissions.json（全局跨会话，
+ * 原行为缺省）；project = <cwd>/.spark/permissions.json（仅当前工作区，随仓库走） */
+export const PermissionScopeSchema = z.enum(['user', 'project'])
+export type PermissionScope = z.infer<typeof PermissionScopeSchema>
+
 /** 推理档位（工单 10.6）：OpenAI reasoning_effort 映射；pi-ai ThinkingLevel 子集透传 */
 export const ReasoningEffortSchema = z.enum(['low', 'medium', 'high'])
 export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>
