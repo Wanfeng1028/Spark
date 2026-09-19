@@ -6,10 +6,13 @@
  *   nonCachedInput 由三分量恒等式还原；
  * - 旧账如实：`unbucketed` 是旧平铺格式时期没有明细的累计，单列一行说明，不摊进按日/按供应商
  *   （伪造明细即假状态）；分母为 0 时命中率显示「—」而非 0%。
+ * - 竞答历史（工单 19.10，翻案 D42 内存态）：GET /api/arena/history 摘要表——落盘记录
+ *   在 ~/.spark/arena/（engine ArenaStore），本页是四端唯一的全量历史查看面（CLI 只给计数）。
  */
 import { useEffect, useMemo, useState } from 'react'
-import type { UsageBucketDto } from '@spark/protocol'
+import type { ArenaHistoryDto, UsageBucketDto } from '@spark/protocol'
 import { fmtTokens } from '@spark/protocol'
+import { formatRelative } from '@/lib/time'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
@@ -234,6 +237,11 @@ export function UsageSettingsPage() {
     error: summaryError,
     refresh: refreshSummary,
   } = useTransportQuery((t) => t.usageSummary())
+  // 竞答历史（工单 19.10）：独立加载——失败只在卡内呈现，不拖累上方看板
+  const {
+    data: arenaHistory,
+    error: arenaHistoryError,
+  } = useTransportQuery((t) => t.listArenaHistory())
   // 成本上限编辑态（工单 10.20 A①）：失焦/保存时解析；空串 = 清除上限（永不熔断）
   const [limitDraft, setLimitDraft] = useState('')
   const { busy, opError, setOpError, run } = useAsyncOp()
@@ -416,6 +424,67 @@ export function UsageSettingsPage() {
           </p>
         </div>
       </SettingGroupCard>
+
+      <ArenaHistoryCard history={arenaHistory} error={arenaHistoryError} />
     </div>
+  )
+}
+
+/** 竞答历史卡（工单 19.10，翻案 D42 内存态）：落盘记录摘要表（新→旧；CLI 端只显示计数） */
+function ArenaHistoryCard({
+  history,
+  error,
+}: {
+  history: ArenaHistoryDto | null
+  error: string | null
+}) {
+  return (
+    <SettingGroupCard>
+      <div className="flex flex-col gap-2 px-4 py-3">
+        <p className="text-[13px] font-medium">竞答历史</p>
+        {error !== null ? (
+          <p className="text-xs text-destructive">{error}</p>
+        ) : history === null ? (
+          <p className="text-xs text-muted-foreground">加载中…</p>
+        ) : history.runs.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            还没有竞答记录——会话里 /arena &lt;模型…&gt; &lt;任务&gt; 发起；记录落盘 ~/.spark/arena/，重启可查。
+          </p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-muted-foreground">
+                <th className="py-1 font-normal">时间</th>
+                <th className="py-1 font-normal">任务</th>
+                <th className="py-1 font-normal">模型</th>
+                <th className="py-1 font-normal">胜者</th>
+                <th className="py-1 font-normal">状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.runs.map((r) => (
+                <tr key={r.arenaId} className="border-t border-border">
+                  <td className="py-1 font-mono text-muted-foreground" title={new Date(r.startedAt).toLocaleString()}>
+                    {formatRelative(r.startedAt)}
+                  </td>
+                  <td className="max-w-64 py-1">
+                    <span className="block truncate" title={r.prompt}>
+                      {r.prompt}
+                    </span>
+                  </td>
+                  <td className="py-1 font-mono" title={r.models.join(' / ')}>
+                    <span className="block truncate">{r.models.join(' / ')}</span>
+                  </td>
+                  <td className="py-1 font-mono">{r.winnerModel ?? '—'}</td>
+                  <td className="py-1">
+                    {r.status === 'running' ? '进行中' : r.status === 'done' ? '已完成' : '已取消'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </SettingGroupCard>
   )
 }

@@ -253,6 +253,35 @@ describe('契约：primitives.PermissionReplySchema', () => {
   })
 })
 
+describe('契约：primitives.PermissionScopeSchema', () => {
+  const sample = "user"
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(primitives.PermissionScopeSchema.parse(sample)).toEqual(sample)
+    expect(primitives.PermissionScopeSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(primitives.PermissionScopeSchema)).toBeTypeOf('object')
+  })
+
+  it('类型错（数字）→ 解析失败', () => {
+    expect(() => primitives.PermissionScopeSchema.parse(12345)).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => primitives.PermissionScopeSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => primitives.PermissionScopeSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => primitives.PermissionScopeSchema.parse("")).toThrow()
+  })
+})
+
 describe('契约：primitives.ReasoningEffortSchema', () => {
   const sample = "low"
 
@@ -573,6 +602,130 @@ describe('契约：api.ArenaContenderDtoSchema', () => {
 
   it('未知键 → strictObject 拒收', () => {
     expect(() => api.ArenaContenderDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.ArenaHistoryDtoSchema', () => {
+  const sample = {
+    "runs": [
+      {
+        "arenaId": "contract-sample",
+        "sessionId": "contract-sample",
+        "startedAt": 1,
+        "completedAt": 1,
+        "prompt": "contract-sample",
+        "models": [
+          "contract-sample"
+        ],
+        "status": "running",
+        "winnerModel": "contract-sample"
+      }
+    ]
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.ArenaHistoryDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.ArenaHistoryDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.ArenaHistoryDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 runs → 解析失败', () => {
+    expect(() => api.ArenaHistoryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["runs"]; return m })())).toThrow()
+  })
+
+  it('字段 runs 类型错 → 解析失败', () => {
+    expect(() => api.ArenaHistoryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["runs"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.ArenaHistoryDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.ArenaHistoryEntryDtoSchema', () => {
+  const sample = {
+    "arenaId": "contract-sample",
+    "sessionId": "contract-sample",
+    "startedAt": 1,
+    "completedAt": 1,
+    "prompt": "contract-sample",
+    "models": [
+      "contract-sample"
+    ],
+    "status": "running",
+    "winnerModel": "contract-sample"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.ArenaHistoryEntryDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.ArenaHistoryEntryDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.ArenaHistoryEntryDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 arenaId → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["arenaId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 sessionId → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["sessionId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 startedAt → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["startedAt"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 completedAt → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["completedAt"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 prompt → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["prompt"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 models → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["models"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 status → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["status"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 winnerModel → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["winnerModel"]; return m })())).toThrow()
+  })
+
+  it('字段 arenaId 类型错 → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["arenaId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 sessionId 类型错 → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["sessionId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 startedAt 类型错 → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["startedAt"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 prompt 类型错 → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["prompt"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 models 类型错 → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["models"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 status 类型错 → 解析失败', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["status"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.ArenaHistoryEntryDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
   })
 })
 

@@ -153,6 +153,11 @@ export const AutomationRunsQuery = z.strictObject({
   limit: z.coerce.number().int().positive().max(500).optional(),
 })
 
+/** 竞答历史（工单 19.10，翻案 D42 内存态）：limit 缺省 20 上限 100 */
+export const ArenaHistoryQuery = z.strictObject({
+  limit: z.coerce.number().int().positive().max(100).optional(),
+})
+
 /** 审计日志（工单 7.12 / H11）：明细流查询（时间/决策/工具过滤器数据源） */
 export const AuditQuery = z.strictObject({
   limit: z.coerce.number().int().positive().max(500).optional(),

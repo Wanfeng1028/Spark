@@ -15,16 +15,18 @@
  *   非仓库文件）。
  *
  * 状态面：**零新事件词表条目**（ADR D42）——各 contender 是真实会话（自身事件流
- * 天然实时），聚合状态走 GET /api/sessions/:id/arena 快照轮询；竞答记录仅内存
- * （重启丢失登记限制——验收不含回放）。
+ * 天然实时），聚合状态走 GET /api/sessions/:id/arena 快照轮询；竞答记录落盘
+ * `~/.spark/arena/<arenaId>.json`（工单 19.10 ArenaStore，翻案 D42"仅内存"登记限制：
+ * 发起/contender 完成/胜者应用·取消四时机写盘，重启后经 history(limit) 可查）。
  */
 import { simpleGit } from 'simple-git'
 import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ids } from '@spark/protocol'
-import type { SessionId, Usage } from '@spark/protocol'
+import type { ArenaHistoryEntryDto, SessionId, Usage } from '@spark/protocol'
 import type { SparkEventEnvelope } from '@spark/protocol'
 import { errText } from '../errs.js'
+import type { ArenaStore } from './store.js'
 
 /** 竞答规模上限（qwen ARENA_MAX_AGENTS 同值） */
 const ARENA_MAX_CONTENDERS = 5
@@ -91,10 +93,14 @@ export interface ArenaDeps {
   engine: ArenaEngine
   /** 引擎 root（~/.spark）——worktree 根 `<root>/arena/<sid>/` */
   sparkRoot: string
+  /** 竞答记录落盘（工单 19.10，翻案 D42 内存态）：`<root>/arena/<arenaId>.json` */
+  store: ArenaStore
 }
 
 export class ArenaManager {
   private readonly runs = new Map<SessionId, ArenaRun>()
+  /** 各场竞答的发起时间（落盘记录字段；ArenaRun 是 wire 快照不加时间——本表内存侧账） */
+  private readonly startedAtByArena = new Map<string, number>()
 
   constructor(private readonly deps: ArenaDeps) {}
 
@@ -138,6 +144,10 @@ export class ArenaManager {
       applied: null,
     }
     this.runs.set(sessionId, run)
+    // 落盘（工单 19.10）：发起即写 running——进程崩了历史也见得到这场
+    const startedAt = Date.now()
+    this.startedAtByArena.set(arenaId, startedAt)
+    this.deps.store.save({ run, startedAt, completedAt: null })
 
     const base = join(this.deps.sparkRoot, 'arena', sessionId)
     for (const [i, model] of unique.entries()) {
@@ -146,6 +156,7 @@ export class ArenaManager {
         await git.raw(['worktree', 'add', wt, '-b', `spark-arena-${sessionId}-${i + 1}`])
       } catch (err) {
         await this.cleanup(run)
+        this.abortRecord(run)
         throw new Error(`E_ARENA_CONNECT: worktree 创建失败（${modelSafe(model)}）：${errText(err)}`)
       }
       let child: SessionId
@@ -159,6 +170,7 @@ export class ArenaManager {
         child = handle.id
       } catch (err) {
         await this.cleanup(run)
+        this.abortRecord(run)
         throw new Error(`E_ARENA_CONNECT: 子会话创建失败（${model}）：${errText(err)}`)
       }
       run.contenders.push({
@@ -217,6 +229,41 @@ export class ArenaManager {
     if (run.contenders.every((c) => c.status !== 'running')) {
       run.status = 'done'
     }
+    // 落盘（工单 19.10）：contender 完成即更新（最后一名收尾时 run.status 翻 done 一并写入）
+    this.persistRecord(run, null)
+  }
+
+  /** 落盘当前快照（completedAt 仅在终态写入时给定；startedAt 侧账丢失则跳过——不编造时间） */
+  private persistRecord(run: ArenaRun, completedAt: number | null): void {
+    const startedAt = this.startedAtByArena.get(run.arenaId)
+    if (startedAt === undefined) return
+    this.deps.store.save({ run, startedAt, completedAt })
+  }
+
+  /** start 半途失败撤记录（竞答从未成立——不留幻影 running 历史条目） */
+  private abortRecord(run: ArenaRun): void {
+    this.runs.delete(run.sessionId)
+    this.startedAtByArena.delete(run.arenaId)
+    this.deps.store.remove(run.arenaId)
+  }
+
+  /** 竞答历史摘要（工单 19.10；新→旧；prompt 截 100 字——列表展示面，全文在落盘记录） */
+  history(limit = 20): ArenaHistoryEntryDto[] {
+    return this.deps.store.loadHistory(limit).map((rec) => {
+      const { run } = rec
+      const winner =
+        run.winner === null ? null : (run.contenders.find((c) => c.sessionId === run.winner) ?? null)
+      return {
+        arenaId: run.arenaId,
+        sessionId: run.sessionId,
+        startedAt: rec.startedAt,
+        completedAt: rec.completedAt,
+        prompt: run.prompt.length > 100 ? `${run.prompt.slice(0, 100)}…` : run.prompt,
+        models: run.contenders.map((c) => c.model),
+        status: run.status,
+        winnerModel: winner === null ? null : winner.model,
+      }
+    })
   }
 
   /**
@@ -277,6 +324,8 @@ export class ArenaManager {
     }
     run.winner = contenderSessionId
     run.applied = { files: applied, skippedDeletions }
+    // 落盘（工单 19.10）：胜者应用后终态（completedAt = 应用时间）
+    this.persistRecord(run, Date.now())
   }
 
   /** 取消：中断运行中 contenders（interrupt）+ 清 worktree；已完成的保留记录 */
@@ -291,6 +340,8 @@ export class ArenaManager {
       }
     }
     await this.cleanup(run)
+    // 落盘（工单 19.10）：取消也是终态（completedAt = 取消时间）
+    this.persistRecord(run, Date.now())
   }
 
   /** worktree 清理（remove --force + branch -D；失败逐个吞——清理尽力而为，不阻塞主流程） */

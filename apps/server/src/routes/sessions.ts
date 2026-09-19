@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto'
 import type { CheckpointDto } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
-import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FsTreeQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, DeleteSessionBody, AttachmentFileParams, ArenaWinnerBody } from './shared.js'
+import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FsTreeQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, DeleteSessionBody, AttachmentFileParams, ArenaWinnerBody, ArenaHistoryQuery } from './shared.js'
 
 export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
   const { engine } = opts
@@ -195,6 +195,12 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
     const { id } = parseOr400(IdParams, req.params)
     await engine.arenaCancel(id)
     return reply.send({ ok: true })
+  })
+
+  // 竞答历史（工单 19.10，翻案 D42 内存态）：跨会话记录摘要（新→旧；数据源 ~/.spark/arena/*.json）
+  app.get('/api/arena/history', (req) => {
+    const query = parseOr400(ArenaHistoryQuery, req.query)
+    return { runs: engine.arenaHistory(query.limit) }
   })
 
   app.post('/api/sessions/:id/fork', async (req, reply) => {

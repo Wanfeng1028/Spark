@@ -51,6 +51,7 @@ import { SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
 import type {
   ExtensionDto,
 AgentPresetDto, SessionMode, SessionStatus, UsageSummaryDto } from '@spark/protocol'
+import type { ArenaHistoryEntryDto } from '@spark/protocol'
 import { EventBus } from './bus.js'
 import type { EventSink, SubscribeHandle } from './bus.js'
 import { CompactorImpl, COMPACTION_PROMPT } from './compaction.js'
@@ -79,6 +80,7 @@ import { loadTrustDoc, saveTrustDoc, trustKey, trustLevelOf, tightens } from './
 import { discoverExtensions } from './extensions/loader.js'
 import { ArenaManager } from './arena/manager.js'
 import type { ArenaRun } from './arena/manager.js'
+import { ArenaStore } from './arena/store.js'
 import type { FolderTrust, TrustDoc } from './trust.js'
 import { transcribeAudio } from './voice/transcriber.js'
 import type { RunLoopDeps } from './run-loop.js'
@@ -285,7 +287,7 @@ export class Engine {
       this.ownsLogger = true
     }
     this.logger.info('engine.start', { root: this.root, cwd: this.defaultCwd })
-    this.arenaManager = new ArenaManager({ engine: this, sparkRoot: this.root })
+    this.arenaManager = new ArenaManager({ engine: this, sparkRoot: this.root, store: new ArenaStore(this.root) })
     // 工单 16.4 / ADR D37：文件夹信任（坏文件 → 空表 + warn，不阻塞启动——同 commands/skills 纪律；
     // 装载在 logger 就绪后——onError 需要告警出口）
     this.trustDoc = loadTrustDoc(this.root, (err) => this.logger.warn('trust.load.error', { err }))
@@ -1114,6 +1116,12 @@ export class Engine {
   /** 取消竞答（中断运行中 contenders + 清 worktree） */
   arenaCancel(sessionId: SessionId): Promise<void> {
     return this.arenaManager.cancel(sessionId)
+  }
+
+  /** GET /api/arena/history 数据源（工单 19.10，翻案 D42 内存态）：竞答历史摘要（新→旧） */
+  arenaHistory(limit?: number): ArenaHistoryEntryDto[] {
+    this.assertNotShutdown()
+    return this.arenaManager.history(limit)
   }
 
   /**

@@ -2,6 +2,8 @@
  * /arena 多模型竞答单测（工单 16.8 / ADR D42）：临时 git 仓 + ScriptedLlm 双 contender——
  * 参数面（1 模型/重复模型/非 git 仓拒）+ 全链路（start → 并行 → done 快照用量/diffStat）+
  * 胜者应用（整体一次审批：allow 直通/ask 挂起；**删除类改动跳过登记**——§2.10）+ 取消清理。
+ * 历史落盘（工单 19.10，翻案 D42 内存态）：终态后 store 文件在盘 + arenaHistory 摘要 +
+ * 新 ArenaStore 同 root 读回（重启可查）。
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -13,6 +15,7 @@ import type { EngineConfig } from '../src/config.js'
 import type { ArenaRun } from '../src/arena/manager.js'
 import { Engine } from '../src/engine.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
+import { ArenaStore } from '../src/arena/store.js'
 
 const roots: string[] = []
 afterEach(() => {
@@ -90,7 +93,7 @@ function makeEngine(
   roots.push(root)
   const gateway = new ScriptedLlm()
   const engine = new Engine({ root, gateway, config: cfg, cwd })
-  return { engine, gateway }
+  return { engine, gateway, root }
 }
 
 describe('/arena 参数面（工单 16.8）', () => {
@@ -194,6 +197,69 @@ describe('/arena 全链路（双 contender）', () => {
       await engine.replyPermission(ids.request(asked.data.requestId), 'once')
       await applying
       expect(readFileSync(join(repo, 'ASKED.md'), 'utf8')).toBe('审批后落盘')
+    } finally {
+      await engine.shutdown()
+    }
+  })
+})
+
+describe('/arena 历史落盘（工单 19.10，翻案 D42 内存态）', () => {
+  test('终态后落盘可查：arenaHistory 摘要 + 新 ArenaStore 同 root 读回（重启可查）', async () => {
+    const repo = makeRepo({ 'README.md': 'base
+' })
+    const { engine, gateway, root } = makeEngine(repo)
+    try {
+      const handle = await engine.createSession({ cwd: repo })
+      gateway.scriptStep({ deltas: [{ kind: 'text', text: 'A 完成' }] })
+      gateway.scriptStep({ deltas: [{ kind: 'text', text: 'B 完成' }] })
+      await engine.arenaStart(handle.id, '补一节安装说明', ['fake/model-a', 'fake/model-b'])
+      const deadline = Date.now() + 10_000
+      for (;;) {
+        const snap = engine.arenaSnapshot(handle.id)
+        if (snap !== null && snap.status === 'done') break
+        if (Date.now() > deadline) throw new Error('等待 done 超时')
+        await new Promise((r) => setTimeout(r, 100))
+      }
+      // done（未应用胜者）：摘要在场、winnerModel 为 null、completedAt 为 null
+      const history = engine.arenaHistory(20)
+      expect(history).toHaveLength(1)
+      const entry = history[0] as (typeof history)[number]
+      expect(entry.models).toEqual(['fake/model-a', 'fake/model-b'])
+      expect(entry.winnerModel).toBeNull()
+      expect(entry.completedAt).toBeNull()
+      expect(entry.prompt).toBe('补一节安装说明')
+      // 落盘文件在场（<root>/arena/<arenaId>.json）
+      expect(existsSync(join(root, 'arena', `${entry.arenaId}.json`))).toBe(true)
+      // 胜者应用（无文件改动的胜者同样成立）→ 终态 completedAt + winnerModel
+      const snap = engine.arenaSnapshot(handle.id)
+      if (snap === null) throw new Error('快照丢失')
+      const winner = snap.contenders[0] as { sessionId: typeof snap.contenders[0]['sessionId'] }
+      await engine.arenaApplyWinner(handle.id, winner.sessionId)
+      const after = (engine.arenaHistory(20)[0] ?? null)
+      expect(after).not.toBeNull()
+      expect(after?.winnerModel).toBe('fake/model-a')
+      expect(after?.completedAt).not.toBeNull()
+      // 重启可查：新 store 同 root 读回同一条记录
+      const reloaded = new ArenaStore(root).loadHistory(20)
+      expect(reloaded).toHaveLength(1)
+      expect(reloaded[0]?.run.arenaId).toBe(entry.arenaId)
+      expect(reloaded[0]?.run.winner).toBe(winner.sessionId)
+      expect(reloaded[0]?.completedAt).not.toBeNull()
+    } finally {
+      await engine.shutdown()
+    }
+  })
+
+  test('start 半途失败不留幻影记录：发起即落盘、worktree 失败后撤销（内存与磁盘一致）', async () => {
+    // git 仓但零 commit：checkIsRepo 通过、worktree add 必败——正好落在 save(running) 之后
+    const bare = makeRoot({})
+    git(bare, ['init'])
+    const { engine } = makeEngine(bare)
+    try {
+      const handle = await engine.createSession({ cwd: bare })
+      await expect(engine.arenaStart(handle.id, '干活', ['fake/a', 'fake/b'])).rejects.toThrow('E_ARENA_CONNECT')
+      expect(engine.arenaHistory(20)).toEqual([])
+      expect(engine.arenaSnapshot(handle.id)).toBeNull()
     } finally {
       await engine.shutdown()
     }

@@ -81,6 +81,7 @@ import type {
   TrustStatusDto,
   ExtensionDto,
   ArenaStatusDto,
+  ArenaHistoryDto,
 } from '@spark/protocol'
 import { assembleClient } from './client.js'
 import type { SparkClient } from './client.js'
@@ -237,6 +238,11 @@ export class InProcessTransport implements Transport {
   async cancelArena(sessionId: SessionId): Promise<void> {
     this.assertNotDisposed()
     await this.engine.arenaCancel(sessionId)
+  }
+
+  /** 竞答历史（工单 19.10，翻案 D42 内存态）：arenaHistory 是引擎同步方法——走 sync 门 */
+  listArenaHistory(limit?: number): Promise<ArenaHistoryDto> {
+    return this.sync(() => ({ runs: this.engine.arenaHistory(limit) }))
   }
 
   listPermissionRules(): Promise<PermissionRuleDto[]> {

@@ -57,6 +57,7 @@
 | v1.55 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D45 bash 常驻 shell 会话（阶段十九 19.3；doc/02 v4.69 同批）**：每会话长驻 bash 池（哨兵协议 `__SPARK_DONE__<seq>_<rc>` + LRU 容量 8 + 空闲 10 分钟回收 + 超时/中断树杀重建）翻案"v1 不做常驻"判决；`engine.bashPersistent` 第十一项设置热档缺省关（独立 shell 零回归）；POSIX bash 才有常驻路径、沙箱 on 时沙箱优先。Windows 回落语义见 D45。本机零验证，CI 裁决 |
 | v1.56 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D46 MCP transport = stdio 缺省 + streamable-http（阶段十九 19.4，翻案 D16；doc/02 v4.70 同批）**：mcp.json transport/url/headers（掩码同 env）；StreamableHTTPClientTransport 零新依赖；schema 分支校验混写拒载。编排注记：19.4 由后台子代理起草、验证码超时中断于 connect 改造前，主会话审核采纳其 config/manager 改动并补完 connect 接线/状态显示/web 表单/测试 |
 | v1.57 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D47 LSP server 下载器 = 内置清单 + npm 全局装（阶段十九 19.5，翻案 16.9 判决；doc/02 v4.70 同批）**：protocol lsp-servers.ts 清单三端同源 + LspInstaller（probe 幂等/npm 600s/装后校验/writeLspConfig，全链 fail-closed）+ POST /api/lsp/install + web 安装区 + cli /lsp install <id>。真实下载走查留用户 |
+| v1.58 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十九工单 19.10 开工指令） | **D42 条目尾部 19.10 翻案补记（不新建 ADR；doc/02 v4.73 同批）**：arena 竞答记录落盘 `~/.spark/arena/<arenaId>.json`（ArenaStore 每场一文件 + manager 四时机写盘 + loadHistory mtime 降序损坏跳过）；翻案边界：零新事件与"非可回放状态"裁决不变，只翻"重启丢失"登记限制——历史查询面 GET /api/arena/history + listArenaHistory 三通道。本机零验证，CI 裁决 |
 
 ---
 
@@ -440,6 +441,8 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 4. **四端**：web ArenaCard（2s 轮询快照、胜者选择、取消）；CLI ArenaPanel 只读快照（应用/取消走 Web 端——登记限制）；命令基线 22→23（/arena action）。
 后果：protocol ArenaContenderDto/ArenaStatusDto + Transport getArena/applyArenaWinner/cancelArena 三通道；server 三路由；**同批实修一处真 bug**：loadConfig 组装漏透传 spark.agents/extensions 段（16.2/16.5 的 settings 名单在重启档实际失效——persistSparkPatch 写盘后重载即丢，extensions 测试暴露；D36/D41 的后果段据此补勘误）。
 编号注记：本 ADR 占 **D42**（顺延现表末张 D41）。
+
+> **19.10 翻案补记（2026-09-20，doc/02 v4.73 同批）**：竞答记录落盘 `~/.spark/arena/<arenaId>.json`——engine `arena/store.ts` ArenaStore 每场一文件（atomicWriteJson），manager 四时机写盘（发起即写 running / contender 完成更新 / 胜者应用终态 / 取消终态；start 半途失败撤记录），loadHistory 按文件 mtime 降序、损坏单文件跳过（fail-soft 同索引纪律）。**翻案边界**：结论 1 的"竞答是用户在场交互、非可回放状态"裁决不翻——零新事件词表条目不变，落盘只是历史查询面（GET /api/arena/history + Transport.listArenaHistory 三通道；web 使用统计页历史卡 / CLI 计数行），翻掉的是"重启丢失"登记限制。
 
 ### D43 web 对话框 DSH 形态对齐 = DESIGN §13.L 单一规格 + 域内豁免（2026-09-19，晚风拍板）
 

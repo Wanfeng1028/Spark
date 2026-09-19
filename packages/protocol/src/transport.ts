@@ -48,6 +48,7 @@ import type {
   TrustStatusDto,
   ExtensionDto,
   ArenaStatusDto,
+  ArenaHistoryDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
@@ -120,6 +121,8 @@ export interface Transport {
   applyArenaWinner(sessionId: SessionId, contenderSessionId: SessionId): Promise<void>
   /** POST /api/sessions/:id/arena/cancel：取消竞答（中断 + 清 worktree） */
   cancelArena(sessionId: SessionId): Promise<void>
+  /** GET /api/arena/history?limit=20：竞答历史摘要（工单 19.10，翻案 D42 内存态；新→旧） */
+  listArenaHistory(limit?: number): Promise<ArenaHistoryDto>
   /** GET /api/trust：文件夹信任清单 + 当前 cwd 有效档（工单 16.4 / ADR D37） */
   getTrust(): Promise<TrustStatusDto>
   /** PUT /api/trust：设置一条目录信任档（原子写；收紧语义 = 未信任下 bash/MCP 自动放行降级为问） */

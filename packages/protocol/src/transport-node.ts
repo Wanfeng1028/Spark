@@ -20,6 +20,7 @@ import type { StreamConnectionStatus, StreamCoreContext } from './session-stream
 import type { SparkEventEnvelope } from './events.js'
 import type {
   ArenaStatusDto,
+  ArenaHistoryDto,
   ExtensionDto,
   TrustStatusDto,
   TranscribeRequest,
@@ -411,6 +412,13 @@ export class HttpTransport implements Transport {
       method: 'POST',
     }).then(() => undefined)
   }
+
+  /** GET /api/arena/history?limit=20：竞答历史摘要（工单 19.10，翻案 D42 内存态） */
+  listArenaHistory(limit?: number): Promise<ArenaHistoryDto> {
+    const query = limit !== undefined ? `?limit=${limit}` : ''
+    return this.req<ArenaHistoryDto>(`/api/arena/history${query}`)
+  }
+
 
   listPermissionRules(): Promise<PermissionRuleDto[]> {
     return this.req<{ rules: PermissionRuleDto[] }>('/api/permissions/rules').then(

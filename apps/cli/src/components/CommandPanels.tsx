@@ -9,6 +9,7 @@ import { Box, Text, useInput } from 'ink'
 import { useEffect, useState } from 'react'
 import type {
   ArenaStatusDto,
+  ArenaHistoryDto,
   ExtensionDto,
   TrustStatusDto,
   AgentPresetDto,
@@ -253,6 +254,8 @@ export function ComputerPanel({ transport }: { transport: Transport }) {
 /** 竞答面板（工单 16.8 / ADR D42）：快照只读——胜者应用与取消走 Web 端（D42 登记限制） */
 export function ArenaPanel({ transport, sessionId }: { transport: Transport; sessionId: SessionId }) {
   const state = useLoad<ArenaStatusDto | null>(() => transport.getArena(sessionId))
+  // 竞答历史计数（工单 19.10，翻案 D42 内存态）：TUI 窄——只给一行计数，全量历史表走 web 使用统计页
+  const history = useLoad<ArenaHistoryDto>(() => transport.listArenaHistory())
   return (
     <PanelShell title="多模型竞答" hint="只读（应用/取消走 Web 端）">
       <LoadState state={state} render={(snap) =>
@@ -286,6 +289,9 @@ export function ArenaPanel({ transport, sessionId }: { transport: Transport; ses
           </>
         )
       } />
+      <LoadState state={history} render={(h) => (
+        <Text color="gray">历史 {h.runs.length} 场（全量历史表见 web 设置中心·使用统计页）</Text>
+      )} />
     </PanelShell>
   )
 }

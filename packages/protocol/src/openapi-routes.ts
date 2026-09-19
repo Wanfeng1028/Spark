@@ -230,6 +230,16 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     status: 204,
   },
 
+  // ---- 竞答（routes/sessions.ts 末段；工单 16.8 / 19.10） ----
+  {
+    method: 'get',
+    path: '/api/arena/history',
+    summary: '竞答历史摘要（工单 19.10，翻案 D42 内存态；~/.spark/arena/*.json，新→旧）',
+    tag: 'sessions',
+    query: { limit: { type: 'integer', minimum: 1, maximum: 100, description: '缺省 20' } },
+    response: ref('ArenaHistoryDto'),
+  },
+
   // ---- 权限域（routes/permissions.ts） ----
   {
     method: 'post',

@@ -559,6 +559,33 @@ export const ArenaStatusDtoSchema = z.strictObject({
 })
 export type ArenaStatusDto = z.infer<typeof ArenaStatusDtoSchema>
 
+/**
+ * 竞答历史条目（工单 19.10，翻案 D42"记录仅内存"登记限制）：GET /api/arena/history 摘要行。
+ * 全量快照落盘在 `~/.spark/arena/<arenaId>.json`（engine ArenaStore），本 DTO 只是列表展示面。
+ */
+export const ArenaHistoryEntryDtoSchema = z.strictObject({
+  arenaId: z.string().min(1),
+  /** 竞答发起会话 */
+  sessionId: z.string().min(1),
+  startedAt: z.number().int().nonnegative(),
+  /** 终态（胜者应用/取消）时间；done 但未应用胜者，或仍在进行为 null */
+  completedAt: z.number().int().nonnegative().nullable(),
+  /** 任务 prompt 截 100 字（列表展示面；全文在落盘记录与会话流） */
+  prompt: z.string(),
+  /** contender 模型名（发起序） */
+  models: z.array(z.string().min(1)),
+  status: z.enum(['running', 'done', 'cancelled']),
+  /** 被应用胜者的模型名；未应用为 null */
+  winnerModel: z.string().nullable(),
+})
+export type ArenaHistoryEntryDto = z.infer<typeof ArenaHistoryEntryDtoSchema>
+
+/** GET /api/arena/history 响应：{ runs: [...] }（新→旧，limit 缺省 20） */
+export const ArenaHistoryDtoSchema = z.strictObject({
+  runs: z.array(ArenaHistoryEntryDtoSchema),
+})
+export type ArenaHistoryDto = z.infer<typeof ArenaHistoryDtoSchema>
+
 // ---------- 子代理预设档（工单 13.5） ----------
 
 /**

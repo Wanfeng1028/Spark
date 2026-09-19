@@ -69,6 +69,7 @@ import type {
   TrustStatusDto,
   ExtensionDto,
   ArenaStatusDto,
+  ArenaHistoryDto,
 } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
@@ -589,6 +590,36 @@ export class MockTransport implements Transport {
   cancelArena(_sessionId: SessionId): Promise<void> {
     this.assertNotDisposed()
     return Promise.resolve()
+  }
+
+  /** 竞答历史对等演示（工单 19.10，翻案 D42 内存态）：静态两场（一场已应用胜者 / 一场取消） */
+  listArenaHistory(_limit?: number): Promise<ArenaHistoryDto> {
+    this.assertNotDisposed()
+    const now = Date.now()
+    return Promise.resolve({
+      runs: [
+        {
+          arenaId: 'ses_arena_mock0000000000000002',
+          sessionId: ids.session('ses_arena_mock_main000001'),
+          startedAt: now - 3_600_000,
+          completedAt: now - 3_000_000,
+          prompt: '（mock 演示）为 README 补一节安装说明',
+          models: ['mock/deepseek-chat', 'mock/glm-4'],
+          status: 'done',
+          winnerModel: 'mock/glm-4',
+        },
+        {
+          arenaId: 'ses_arena_mock0000000000000003',
+          sessionId: ids.session('ses_arena_mock_main000001'),
+          startedAt: now - 86_400_000,
+          completedAt: now - 82_800_000,
+          prompt: '（mock 演示）修复设置页保存按钮失焦不生效的问题',
+          models: ['mock/glm-4', 'mock/deepseek-chat'],
+          status: 'cancelled',
+          winnerModel: null,
+        },
+      ],
+    })
   }
 
   listPermissionRules(): Promise<PermissionRuleDto[]> {
