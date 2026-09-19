@@ -32,11 +32,11 @@ function RotatingWord(): React.JSX.Element {
   }, [reducedMotion]);
 
   if (reducedMotion) {
-    return <span className="border-b-4 border-zinc-900/90 pb-1">{ROTATE_WORDS[0]}</span>;
+    return <span className="border-b-2 border-zinc-300 pb-1">{ROTATE_WORDS[0]}</span>;
   }
 
   return (
-    <span className="inline-block border-b-4 border-zinc-900/90 pb-1">
+    <span className="inline-block border-b-2 border-zinc-300 pb-1">
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={ROTATE_WORDS[index]}
