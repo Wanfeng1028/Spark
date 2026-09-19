@@ -3824,6 +3824,9 @@
                   "off",
                   "on"
                 ]
+              },
+              "computerUseEnabled": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -3835,7 +3838,8 @@
               "toolOutputLimitKB",
               "compactionThreshold",
               "checkpoints",
-              "bashSandbox"
+              "bashSandbox",
+              "computerUseEnabled"
             ],
             "additionalProperties": false
           },
@@ -4162,6 +4166,9 @@
                   "off",
                   "on"
                 ]
+              },
+              "computerUseEnabled": {
+                "type": "boolean"
               }
             },
             "additionalProperties": false
