@@ -29,7 +29,8 @@ describe('ComputerSettingsPage（阶段十九 19.2 / ADR D44）', () => {
   it('八操作清单 + 缺省档位摘要 + 平台说明如实呈现', async () => {
     renderPage()
     expect(screen.getByText('启用电脑控制')).toBeTruthy()
-    await vi.waitFor(() => expect(screen.getAllByText('缺省逐次询问').length).toBe(8))
+    // effect 与操作描述同渲染进一个文本节点（${desc} · ${effect}）——按正则子串匹配（round5 P1-1 修正）
+    await vi.waitFor(() => expect(screen.getAllByText(/缺省逐次询问/).length).toBe(8))
     // 档位摘要卡列出八操作的 resource 名
     for (const op of ['screenshot', 'click', 'type', 'key', 'scroll', 'window', 'app', 'clipboard']) {
       expect(screen.getByText(op)).toBeTruthy()
