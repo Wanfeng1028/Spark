@@ -60,10 +60,10 @@ function run(
       child.stdin.write(stdinData)
       child.stdin.end()
     }
-    child.stdout.on('data', (c: Buffer) => {
+    child.stdout?.on('data', (c: Buffer) => {
       stdout += c.toString()
     })
-    child.stderr.on('data', (c: Buffer) => {
+    child.stderr?.on('data', (c: Buffer) => {
       stderr += c.toString()
     })
     child.on('error', (err) => {
