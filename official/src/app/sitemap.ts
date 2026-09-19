@@ -1,6 +1,9 @@
 import type { MetadataRoute } from "next";
 import { NAV_ITEMS } from "@/lib/constants";
 
+// output: export 静态导出要求路由显式声明静态（next build 校验）
+export const dynamic = "force-static"
+
 // WO-012：sitemap —— 基准与 layout.tsx 的 metadataBase 同源（SITE_URL 常量单点；
 // sitemap 与 robots 的 URL 基准必须一致，故不重复定义而是约定同步修改）。
 // 路由来源 = NAV_ITEMS 站内项（Docs/GitHub 均外链不入 sitemap——LINKS 无站内项）。

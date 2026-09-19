@@ -474,7 +474,14 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     : 'Enter 发送 · Shift+Enter 换行'
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div
+      className={cn(
+        'flex flex-col gap-1.5',
+        // waiting（审批挂起）时整卡穿透：控件已全部禁用，且审批卡是唯一交互焦点——
+        // 禁止卡面（textarea 等）对上方流程尾部的 hit-test 干扰（e2e reject 场景回归）
+        waiting && 'pointer-events-none',
+      )}
+    >
       <div
         className={cn(
           // §13.L L.1（WO-052/053）：22px 全圆角白卡、无 border 无聚焦 ring（聚焦仅
