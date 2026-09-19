@@ -20,32 +20,38 @@ import { cn } from "@/lib/utils";
  */
 
 const TS_LINES: readonly React.ReactNode[] = [
-  <>
+  <React.Fragment key="l0">
     <span className="text-sky-600">import</span>
     <span className="text-zinc-800"> {"{ createClient } "} </span>
     <span className="text-sky-600">from</span>
     <span className="text-rose-600"> &quot;@spark/sdk&quot;</span>
     <span className="text-zinc-800">;</span>
-  </>,
-  <span className="text-zinc-400">
+  </React.Fragment>,
+  <span key="l1" className="text-zinc-400">
     {"// HTTP 客户端：装配 HttpTransport + 便利分组（ADR D30）"}
   </span>,
-  <>
+  <React.Fragment key="l2">
     <span className="text-sky-600">const</span>
     <span className="text-zinc-800"> client = </span>
     <span className="text-indigo-600">createClient</span>
     <span className="text-zinc-800">(</span>
     <span className="text-rose-600">&quot;http://127.0.0.1:4318&quot;</span>
     <span className="text-zinc-800">);</span>
-  </>,
-  <span className="text-zinc-400">{"// 事件流是 UI 的唯一状态源：SSE 按 seq 续播"}</span>,
-  <>
+  </React.Fragment>,
+  <span key="l3" className="text-zinc-400">
+    {"// 事件流是 UI 的唯一状态源：SSE 按 seq 续播"}
+  </span>,
+  <React.Fragment key="l4">
     <span className="text-zinc-800">client.events.</span>
     <span className="text-indigo-600">onEvent</span>
     <span className="text-zinc-800">((envelope) =&gt; {"{"}</span>
-  </>,
-  <span className="text-zinc-400">{"  // 27 种事件经 applyEvent 折叠成 UI 状态"}</span>,
-  <span className="text-zinc-800">{"});"}</span>,
+  </React.Fragment>,
+  <span key="l5" className="text-zinc-400">
+    {"  // 27 种事件经 applyEvent 折叠成 UI 状态"}
+  </span>,
+  <span key="l6" className="text-zinc-800">
+    {"});"}
+  </span>,
 ];
 
 const SH_LINES: readonly string[] = ["npm i -g @spark/cli", "spark up", "# → 127.0.0.1:4318 · TUI 就绪"];
