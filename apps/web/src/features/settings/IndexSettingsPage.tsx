@@ -6,7 +6,6 @@
  * 打开失败降级（available:false）如实黄条（禁假数据）；索引随引擎启停（停用开关不做）。
  */
 import { useEffect, useRef, useState } from 'react'
-import type { IndexStatsDto } from '@spark/protocol'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { useTransport } from '@/transports/context'
