@@ -80,6 +80,9 @@ export default tseslint.config(
             // commonjs + 只含 src/tests，把顶层 await 的 .mjs 拉进去要改 module/allowJs（风险大于收益），
             // 故走本白名单——它正是为"不在任何 tsconfig 项目内的松散 JS"设的。
             'apps/desktop/scripts/build-server.mjs',
+            // apps/server 的 dist 外置导入自校验脚本（发布链路修复批）：同 desktop 判例——
+            // server tsconfig 只含 src/tests，顶层 await 的 .mjs 不入项目
+            'apps/server/scripts/check-dist.mjs',
           ],
         },
       },
