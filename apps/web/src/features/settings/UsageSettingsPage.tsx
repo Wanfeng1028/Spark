@@ -76,7 +76,7 @@ const DAY_SEGMENTS = [
   { key: 'cacheRead', label: 'cache 读', className: 'bg-primary/25' },
   { key: 'cacheWrite', label: 'cache 写', className: 'bg-primary/45' },
   { key: 'nonCachedInput', label: '未命中输入', className: 'bg-primary/70' },
-  { key: 'output', label: '输出', className: 'bg-primary' },
+  { key: 'outputTokens', label: '输出', className: 'bg-primary' },
 ] as const
 
 type DaySegmentKey = (typeof DAY_SEGMENTS)[number]['key']
@@ -200,7 +200,8 @@ function shareTokens(m: ModelUsage): number {
 const SHARE_STEPS = [1, 0.72, 0.52, 0.36, 0.24, 0.16]
 
 function shareOpacity(index: number): number {
-  return SHARE_STEPS[Math.min(index, SHARE_STEPS.length - 1)]
+  // Math.min 已夹在档位区间内，?? 只是 noUncheckedIndexedAccess 的收窄（取最浅档同值）
+  return SHARE_STEPS[Math.min(index, SHARE_STEPS.length - 1)] ?? 0.16
 }
 
 /** 模型 tokens 占比堆叠条（13.6a）：段序 = 表序，行首色标与段明度一一对应；全零不渲染（禁假状态） */
