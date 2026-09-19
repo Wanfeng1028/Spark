@@ -71,14 +71,18 @@ describe('proxyFetchFor（工单 12.9）', () => {
     const globalFetchSpy = vi.spyOn(globalThis, 'fetch')
     const f = proxyFetchFor('http://127.0.0.1:8888')
     expect(f).toBeTypeOf('function')
+    if (f === undefined) throw new Error('代理 fetch 未生成（测试前提不成立）')
     await f('https://api.example.com/v1/chat/completions')
     expect(undiciMock.fetch).toHaveBeenCalledTimes(1)
-    const call = undiciMock.fetch.mock.calls[0]
+    // mock.fn 实参形状未在替身类型中声明——经 unknown 收窄读取（严格模式）
+    const call = undiciMock.fetch.mock.calls[0] as unknown as
+      | [string, { dispatcher?: { url?: string } }]
+      | undefined
     expect(call).toBeDefined()
     if (call === undefined) return
     const [input, init] = call
     expect(input).toBe('https://api.example.com/v1/chat/completions')
-    expect((init as { dispatcher?: { url?: string } }).dispatcher?.url).toBe('http://127.0.0.1:8888')
+    expect(init.dispatcher?.url).toBe('http://127.0.0.1:8888')
     expect(globalFetchSpy).not.toHaveBeenCalled()
     globalFetchSpy.mockRestore()
   })
