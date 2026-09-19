@@ -182,7 +182,7 @@ export function McpPanel({ transport }: { transport: Transport }) {
 export function LspPanel({ transport }: { transport: Transport }) {
   const state = useLoad<LspServerStatusDto[]>(() => transport.listLspServers())
   return (
-    <PanelShell title="语言服务器" hint="只读">
+    <PanelShell title="语言服务器" hint="只读；安装 /lsp install <id>">
       <LoadState state={state} render={(servers) =>
         servers.length === 0 ? (
           <Text color="gray">（未配置语言服务器——~/.spark/lsp.json，v1 手写语言→command）</Text>
@@ -203,6 +203,10 @@ export function LspPanel({ transport }: { transport: Transport }) {
           ))
         )
       } />
+      <Text color="gray">
+        安装：/lsp install &lt;id&gt;——内置清单 typescript/python/html/css/json/bash/yaml
+        （npm 全局装 + 自动写 ~/.spark/lsp.json；阶段十九 19.5）
+      </Text>
     </PanelShell>
   )
 }

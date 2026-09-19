@@ -6,8 +6,10 @@
  * sha256）——hash 不变且进程存活即复用连接，**不重启进程**（必抄安全细节之二）。
  */
 import { createHash } from 'node:crypto'
+import { join } from 'node:path'
 import { z } from 'zod'
 import { parseOrThrow, readJsonFile } from '../config.js'
+import { atomicWriteJson } from '../fsutil.js'
 
 export interface LspServerEntry {
   command: string
@@ -35,6 +37,13 @@ export function loadLspConfig(dir: string): LspConfig | null {
   if (raw === undefined) return null
   const parsed = parseOrThrow(lspSchema, raw, 'lsp.json')
   return { languages: parsed.languages }
+}
+
+/** 写回 lsp.json（阶段十九 19.5 下载器用）：zod 校验后原子写——校验失败抛 ConfigError 不落盘。
+ * 写入后新 server 在下次使用该语言工具时惰性连接（per-server config hash 变更自动重连，16.9 语义）。 */
+export function writeLspConfig(dir: string, config: LspConfig): void {
+  parseOrThrow(lspSchema, { version: 1, languages: config.languages }, 'lsp.json')
+  atomicWriteJson(join(dir, 'lsp.json'), { version: 1, languages: config.languages })
 }
 
 /** 排序 JSON → 稳定序列化（qwen sortJsonValue 同款；Object.create(null) 防 __proto__ 污染） */

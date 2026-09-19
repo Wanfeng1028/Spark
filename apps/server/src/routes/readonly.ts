@@ -2,6 +2,7 @@
  * 只读与配置域（settings/commands/mcp/skills/agents/usage/memories/audit/search/artifacts/metrics）（工单 R-F③ 域拆分：自 routes.ts 机械搬移，路由与行为零变化）。
  */
 import type { FastifyPluginCallback } from 'fastify'
+import { z } from 'zod'
 import { ExecuteCommandBodySchema } from '@spark/protocol'
 import { SettingsUpdateSchema, UsageSummaryQuerySchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
@@ -74,6 +75,25 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
 
   // 语言服务器只读状态（工单 16.9）：连接状态 + 诊断摘要（未配置空数组；坏配置 E_CONFIG 由全局映射）
   app.get('/api/lsp', () => engine.listLspServers())
+
+  // LSP server 安装（阶段十九 19.5 / ADR D47）：内置清单 id → npm 全局装（已装幂等跳过）+ 写 lsp.json
+  const LspInstallBody = z.strictObject({ id: z.string().min(1) })
+  app.post('/api/lsp/install', async (req, reply) => {
+    const { id } = parseOr400(LspInstallBody, req.body)
+    const result = await engine.installLspServer(id)
+    if (!result.ok) {
+      if (result.code === 'E_LSP_UNKNOWN_SERVER') {
+        return reply.code(404).send({ code: result.code, message: result.message })
+      }
+      return reply.code(502).send({ code: result.code, message: result.message })
+    }
+    return reply.send({
+      language: result.language,
+      command: result.command,
+      args: result.args,
+      written: result.written,
+    })
+  })
 
   app.get('/api/skills', () => {
     // 纯内存读：已加载技能清单

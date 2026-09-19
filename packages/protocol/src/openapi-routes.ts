@@ -504,6 +504,14 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     tag: 'config',
     response: arr(ref('LspServerStatusDto')),
   },
+  {
+    method: 'post',
+    path: '/api/lsp/install',
+    summary: '安装内置清单语言服务器并写入 lsp.json（阶段十九 19.5 / ADR D47；未知 id 404，npm 失败 502）',
+    tag: 'config',
+    body: obj({ id: { type: 'string' } }, ['id']),
+    response: ref('LspInstallResultDto'),
+  },
 
   // ---- 记忆（阶段七工单 7.5 / ADR D25） ----
   {

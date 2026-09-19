@@ -58,6 +58,7 @@ import type {
   TreeNodeDto,
   AgentPresetDto,
   LspServerStatusDto,
+  LspInstallResultDto,
   UsageSummaryDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
@@ -533,6 +534,13 @@ export class HttpTransport implements Transport {
 
   listLspServers(): Promise<LspServerStatusDto[]> {
     return this.req<LspServerStatusDto[]>('/api/lsp')
+  }
+
+  installLspServer(id: string): Promise<LspInstallResultDto> {
+    return this.req<LspInstallResultDto>('/api/lsp/install', {
+      method: 'POST',
+      body: JSON.stringify({ id }),
+    })
   }
 
   usageSummary(since?: string): Promise<UsageSummaryDto> {

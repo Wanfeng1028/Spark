@@ -22,6 +22,8 @@ export interface CliActionDeps {
   trust(): void
   /** /extensions（工单 16.5）：扩展面板（CLI 只读） */
   extensions(): void
+  /** /lsp install <id>（阶段十九 19.5）：安装内置清单语言服务器（npm 全局装 + 写 lsp.json） */
+  installLsp(id: string): void
 }
 
 export type CliActionHandler = (args: string | undefined) => void
@@ -49,8 +51,15 @@ export function createCliActionHandlers(deps: CliActionDeps): Record<ClientActio
     rollback: (args) => needSession(() => deps.rollbackTo(args)),
     effort: (args) => needSession(() => deps.setEffort(args)),
     tree: () => needSession(() => st.setPanel('tree')),
-    // 语言服务器面板（工单 16.9）：连接状态 + 诊断摘要（连接管理在引擎，无需激活会话）
-    lsp: () => st.setPanel('lsp'),
+    // 语言服务器（工单 16.9 + 19.5）：无参开面板；install <id> 子命令触发安装（写 lsp.json）
+    lsp: (args) => {
+      const m = /^install\s+([A-Za-z0-9_-]+)$/.exec(args ?? '')
+      if (m !== null && m[1] !== undefined) {
+        deps.installLsp(m[1])
+        return
+      }
+      st.setPanel('lsp')
+    },
     agents: () => st.setPanel('agents'),
     trust: () => st.setPanel('trust'),
     extensions: () => st.setPanel('extensions'),

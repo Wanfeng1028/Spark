@@ -19,6 +19,7 @@ import type {
   AttachmentDto,
   FsTreeDto,
   LspServerStatusDto,
+  LspInstallResultDto,
   McpConfigInput,
   McpServerDto,
   MemoryDto,
@@ -158,6 +159,10 @@ export interface Transport {
   listAgentPresets(): Promise<AgentPresetDto[]>
   /** GET /api/lsp：语言服务器只读状态（连接状态 + 诊断摘要；工单 16.9，未配置返回空数组） */
   listLspServers(): Promise<LspServerStatusDto[]>
+  /** POST /api/lsp/install：安装内置清单中的语言服务器并写入 lsp.json（阶段十九 19.5；
+   * 未知 id → E_LSP_UNKNOWN_SERVER；npm 失败/校验失败 → E_LSP_INSTALL*（502）。
+   * 配置写入后新 server 在下次使用该语言工具时惰性连接（config hash 变更自动重连，16.9 语义） */
+  installLspServer(id: string): Promise<LspInstallResultDto>
   /** GET /api/usage/summary：成本看板（总账 + 按日/供应商明细 + 旧账差额 + 熔断状态，工单 13.6） */
   usageSummary(since?: string): Promise<UsageSummaryDto>
   /** GET /api/memories：长期记忆列表（设置页管理数据源，工单 7.5） */

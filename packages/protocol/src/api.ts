@@ -857,13 +857,44 @@ export type TranscribeResultDto = z.infer<typeof TranscribeResultDtoSchema>
  * PUT 时引擎用盘上同 server 同 key 的真值替换占位（无真值 → 400 拒写，掩码不是值） */
 export const MCP_ENV_MASK = '__SPARK_KEEP__'
 
+/** LSP 安装结果（POST /api/lsp/install 响应，阶段十九 19.5）：写入 lsp.json 的最终条目 */
+export interface LspInstallResultDto {
+  language: string
+  command: string
+  args: string[]
+  /** true = 全新写入配置；false = 该语言已有配置且与清单一致，跳过写入（幂等） */
+  written: boolean
+}
+
+export const LspInstallResultDtoSchema = z.strictObject({
+  language: z.string().min(1),
+  command: z.string().min(1),
+  args: z.array(z.string()),
+  written: z.boolean(),
+})
+
+/** MCP server transport 类型（工单 19.4 / ADR D46）：stdio 缺省（本地子进程，既有配置零变化）；
+ * streamable-http = 远程 HTTP 连接（url 必填，headers 携带鉴权头） */
+export type McpTransportKind = 'stdio' | 'streamable-http'
+
 /** MCP 服务器配置条目（PUT /api/mcp body 形状；与 ~/.spark/mcp.json 同构。
- * RT3-07 读回通道 GET /api/mcp/config 复用同形状：env 值一律为 MCP_ENV_MASK 占位） */
+ * RT3-07 读回通道 GET /api/mcp/config 复用同形状：env/headers 敏感值一律为 MCP_ENV_MASK 占位） */
 export interface McpConfigInput {
   version: 1
   servers: Record<
     string,
-    { command: string; args?: string[]; env?: Record<string, string>; connectTimeoutMs?: number }
+    {
+      /** stdio 启动命令（transport 缺省 = 'stdio' 时必填；streamable-http 下不得出现） */
+      command?: string
+      transport?: McpTransportKind
+      /** streamable-http 远程地址（该 transport 下必填） */
+      url?: string
+      /** streamable-http 请求头（鉴权等敏感值；读回按 MCP_ENV_MASK 掩码，同 env 纪律） */
+      headers?: Record<string, string>
+      args?: string[]
+      env?: Record<string, string>
+      connectTimeoutMs?: number
+    }
   >
 }
 

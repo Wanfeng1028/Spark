@@ -1892,6 +1892,44 @@
         }
       }
     },
+    "/api/lsp/install": {
+      "post": {
+        "tags": [
+          "config"
+        ],
+        "summary": "安装内置清单语言服务器并写入 lsp.json（阶段十九 19.5 / ADR D47；未知 id 404，npm 失败 502）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LspInstallResultDto"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/memories": {
       "get": {
         "tags": [
@@ -3095,6 +3133,36 @@
           "path",
           "entries",
           "truncated"
+        ],
+        "additionalProperties": false
+      },
+      "LspInstallResultDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string",
+            "minLength": 1
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "written": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "language",
+          "command",
+          "args",
+          "written"
         ],
         "additionalProperties": false
       },

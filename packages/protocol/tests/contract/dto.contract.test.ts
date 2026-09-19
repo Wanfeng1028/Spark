@@ -1701,6 +1701,62 @@ describe('契约：api.FsTreeQuerySchema', () => {
   })
 })
 
+describe('契约：api.LspInstallResultDtoSchema', () => {
+  const sample = {
+    "language": "contract-sample",
+    "command": "contract-sample",
+    "args": [
+      "contract-sample"
+    ],
+    "written": false
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.LspInstallResultDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.LspInstallResultDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.LspInstallResultDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 language → 解析失败', () => {
+    expect(() => api.LspInstallResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["language"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 command → 解析失败', () => {
+    expect(() => api.LspInstallResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["command"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 args → 解析失败', () => {
+    expect(() => api.LspInstallResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["args"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 written → 解析失败', () => {
+    expect(() => api.LspInstallResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["written"]; return m })())).toThrow()
+  })
+
+  it('字段 language 类型错 → 解析失败', () => {
+    expect(() => api.LspInstallResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["language"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 command 类型错 → 解析失败', () => {
+    expect(() => api.LspInstallResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["command"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 args 类型错 → 解析失败', () => {
+    expect(() => api.LspInstallResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["args"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 written 类型错 → 解析失败', () => {
+    expect(() => api.LspInstallResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["written"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.LspInstallResultDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.LspServerStatusDtoSchema', () => {
   const sample = {
     "language": "contract-sample",

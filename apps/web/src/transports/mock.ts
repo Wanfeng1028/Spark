@@ -8,9 +8,10 @@
  *   {"@speed":N}         全局倍率（实际间隔 = delay / speed）
  * sendMessage 不合成事件——脚本预录的 user.message 原样回放（假对话：文本以脚本为准）。
  */
-import { SETTINGS_RESTART_REQUIRED, ids, parseEnvelope } from '@spark/protocol'
+import { SETTINGS_RESTART_REQUIRED, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
 import type {
+  LspInstallResultDto,
   AgentPresetDto,
   TraceDto,
   TraceTurnDto,
@@ -1087,6 +1088,20 @@ export class MockTransport implements Transport {
         warnings: 0,
       },
     ])
+  }
+
+  /** LSP 安装（阶段十九 19.5 对等演示）：内置清单 id → 模拟安装延迟 → 返回写入条目（真实通道=npm 装 + 写 lsp.json） */
+  installLspServer(id: string): Promise<LspInstallResultDto> {
+    this.assertNotDisposed()
+    const known = findKnownLspServer(id)
+    if (known === undefined) {
+      return Promise.reject(new Error(`E_LSP_UNKNOWN_SERVER: 未知语言服务器 id：${id}`))
+    }
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ language: known.language, command: known.command, args: [...known.args], written: true })
+      }, 300)
+    })
   }
 
   /**

@@ -210,6 +210,19 @@ export function useCliActions({
       .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
   }
 
+  /** /lsp install <id>（阶段十九 19.5）：安装语言服务器（npm 全局装 + 写 lsp.json；notice 反馈） */
+  function installLsp(id: string): void {
+    useCliStore.getState().setNotice(`正在安装 ${id}（npm 全局装，可能数分钟）…`)
+    void transport
+      .installLspServer(id)
+      .then((r) => {
+        useCliStore
+          .getState()
+          .setNotice(`已${r.written ? '安装并写入' : '配置'} ${r.language}（${r.command}）——下次使用该语言工具时连接`)
+      })
+      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
+  }
+
   function runClientAction(action: ClientAction, args: string | undefined): void {
     const handlers = createCliActionHandlers({
       getState: useCliStore.getState,
@@ -221,6 +234,7 @@ export function useCliActions({
       agents,
       trust,
       extensions,
+      installLsp,
     })
     handlers[action](args)
   }

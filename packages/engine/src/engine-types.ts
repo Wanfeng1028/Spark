@@ -11,6 +11,7 @@ import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
 import type { SparkLogger } from './logger.js'
 import type { BrowserDriver } from './browser/driver.js'
 import type { ComputerExecutor } from './computer/executor.js'
+import type { LspInstaller } from './lsp/installer.js'
 import type { SessionStore } from './session/store.js'
 import type { SessionRuntime } from './session/runtime.js'
 import type { Compactor } from './run-loop.js'
@@ -108,6 +109,8 @@ export interface EngineDeps {
   browserDriver?: () => Promise<BrowserDriver>
   /** 电脑控制执行体（阶段十九 19.1；缺省按平台工厂——win32 PowerShell 桥，其余 Unsupported；测试注入假体） */
   computerExecutor?: ComputerExecutor
+  /** LSP 下载器（阶段十九 19.5 / ADR D47；缺省真实 npm 安装器；测试注入假体免真实网络） */
+  lspInstaller?: LspInstaller
 }
 
 /** 已装载会话的进程内登记项（Engine 私有仓储；Type-only 外泄给引擎内部模块） */

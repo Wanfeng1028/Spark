@@ -103,6 +103,8 @@ import type { SparkLogger } from './logger.js'
 import { loadMcpConfig } from './mcp/config.js'
 import { McpManager } from './mcp/manager.js'
 import { LspManager } from './lsp/manager.js'
+import { LspInstaller } from './lsp/installer.js'
+import type { LspInstallOutcome } from './lsp/installer.js'
 import { loadSkills } from './skills/loader.js'
 import type { LoadedSkill } from './skills/loader.js'
 import { BUILTIN_COMMANDS, expandCommandPrompt, loadCommands } from './commands/loader.js'
@@ -204,6 +206,8 @@ export class Engine {
   private readonly mcpReady: Promise<void>
   /** LSP 连接管理（工单 16.9）：惰性连接（首次查询才 spawn），经 ToolContext 注入 lsp 工具 */
   private readonly lsp: LspManager
+  /** LSP 下载器（阶段十九 19.5 / ADR D47）：内置清单安装面（deps 可注入测试假体） */
+  private readonly lspInstaller: LspInstaller
   /** skills/插件加载任务（工单 5.5 / ADR D18：词表注册 + hooks 订阅；ready() 等待） */
   private readonly skillsReady: Promise<LoadedSkill[]>
   /** 已加载 skills 快照（skillsReady 完成后非空；用户侧 hooks 的 skill 触发现读） */
@@ -474,6 +478,13 @@ export class Engine {
       bus: this.bus,
       logger: this.logger,
     })
+    // LSP 下载器（阶段十九 19.5 / ADR D47）：内置清单安装面（测试可经 deps 注入）
+    this.lspInstaller =
+      deps.lspInstaller ??
+      new LspInstaller({
+        root: this.root,
+        logger: this.logger,
+      })
     this.outputs = new ToolOutputStore(
       this.config.spark.engine.toolOutputLimitKB * 1024,
       join(this.root, 'tool-outputs'),
@@ -1408,6 +1419,14 @@ export class Engine {
   /** GET /api/lsp（工单 16.9）：语言服务器只读状态（连接状态 + 诊断摘要；未配置空数组） */
   listLspServers(): Promise<LspServerStatusDto[]> {
     return Promise.resolve(this.lsp.status())
+  }
+
+  /** POST /api/lsp/install（阶段十九 19.5 / ADR D47）：安装内置清单语言服务器并写入 lsp.json */
+  installLspServer(
+    id: string,
+    onProgress: (t: string) => void = () => {},
+  ): Promise<LspInstallOutcome> {
+    return this.lspInstaller.install(id, onProgress)
   }
 
   /** GET /api/skills：已加载技能只读清单（ready() 后为全量） */

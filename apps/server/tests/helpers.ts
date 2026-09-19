@@ -10,6 +10,7 @@ import Fastify from 'fastify'
 import type { FastifyInstance } from 'fastify'
 import type { EngineConfig } from '@spark/engine'
 import { Engine } from '@spark/engine'
+import type { LspInstaller } from '@spark/engine/internal'
 import { ScriptedLlm } from '@spark/engine/internal'
 import { registerAuth } from '../src/auth.js'
 import { registerErrorHandling } from '../src/errors.js'
@@ -67,13 +68,20 @@ export async function makeServer(
     checkpoints?: boolean
     /** 挂载配对鉴权面（工单 9.1）：authRequired = 非环回鉴权钩子启用 */
     pairing?: { authRequired: boolean }
+    /** LSP 安装器注入（阶段十九 19.5：路由测试注入假体免真实 npm） */
+    lspInstaller?: LspInstaller
   },
 ): Promise<ServerFixture> {
   const root = await mkdtemp(join(tmpdir(), 'spark-server-'))
   const gateway = new ScriptedLlm()
   const config = makeConfig()
   if (opts?.checkpoints === true) config.spark.engine.checkpoints = true // 工单 4.6 专项集成用例
-  const engine = new Engine({ root, gateway, config })
+  const engine = new Engine({
+    root,
+    gateway,
+    config,
+    ...(opts?.lspInstaller !== undefined ? { lspInstaller: opts.lspInstaller } : {}),
+  })
   const app = Fastify({ logger: false })
   registerErrorHandling(app) // 与 index.ts 同口径（工单 10.12）：宽容空 body + FST_ERR_* 收编
   let deviceStore: DeviceStore | undefined
