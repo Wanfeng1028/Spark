@@ -8,10 +8,9 @@ import { LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 /**
- * QuickStartCTA — 页尾三步启动 CTA。
- * 标题与按钮文案给具体动作（DESIGN §12.7 禁通用 CTA 模板文案），不用空泛动词；
- * 文案末尾也不焊箭头符号（§12.7 P1），外链语义靠 aria-label 与新标签打开表达。
- * 背景只用 bg-card/50 微区分，不用渐变（§12.1）。
+ * QuickStartCTA — 页尾三步启动 CTA（zinc-950 暗带收尾，与 SessionDemo 暗带首尾呼应，
+ * DESIGN v2.28 区块节奏）。标题与按钮文案给具体动作（DESIGN §12.7 禁通用 CTA 模板文案），
+ * 文案末尾不焊箭头符号（§12.7 P1）。暗带上主按钮翻白（bg-foreground 在暗底上是深色，需覆盖）。
  * 命令与路径与根 README「Quick Start」一致：`spark up` 拉起 server 并进 TUI（不自动开浏览器）。
  */
 
@@ -25,18 +24,18 @@ export function QuickStartCTA(): React.JSX.Element {
   return (
     <section
       id="quickstart"
-      className="border-t border-border bg-card/50 px-6 py-32"
+      className="border-t border-zinc-800 bg-zinc-950 px-6 py-32"
       aria-labelledby="quickstart-heading"
     >
       <div className="mx-auto flex max-w-2xl flex-col items-center gap-10 text-center">
         <header className="flex flex-col gap-3">
           <h2
             id="quickstart-heading"
-            className="text-[30px] font-semibold tracking-tight text-foreground sm:text-[38px]"
+            className="text-[30px] font-semibold tracking-tight text-zinc-50 sm:text-[38px]"
           >
             三步启动
           </h2>
-          <p className="text-base text-muted-foreground">
+          <p className="text-base text-zinc-400">
             安装 CLI、一条命令拉起 server 进 TUI、配一次模型。
           </p>
         </header>
@@ -53,8 +52,9 @@ export function QuickStartCTA(): React.JSX.Element {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="浏览源码（在新标签打开 GitHub 仓库）"
-            /* 官网纯黑单主题下按钮底为白色，微光用深色（v2.27） */
+            /* 暗带上按钮翻白；微光用深色（v2.28） */
             shimmerColor="rgba(0, 0, 0, 0.08)"
+            className="bg-white text-zinc-900 hover:bg-white/90"
           >
             <span className="inline-flex items-center">浏览源码</span>
           </ShimmerButton>
@@ -63,13 +63,16 @@ export function QuickStartCTA(): React.JSX.Element {
             href={LINKS.docs}
             target="_blank"
             rel="noopener noreferrer"
-            className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "lg" }),
+              "border-zinc-700 text-zinc-200 hover:bg-zinc-900 hover:text-zinc-50",
+            )}
           >
             阅读文档
           </a>
         </div>
 
-        <p className="font-mono text-xs text-muted-foreground">
+        <p className="font-mono text-xs text-zinc-500">
           MIT 许可 · 默认只监听 127.0.0.1 · 无云端依赖
         </p>
       </div>

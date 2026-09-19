@@ -7,7 +7,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-foreground text-background hover:bg-foreground/90",
+        /* default 主按钮走品牌色（DESIGN v2.28 官网色彩豁免）；产品四端 §13.C accent 口径不变 */
+        default: "bg-spark-accent text-white hover:bg-spark-accent/90",
         outline:
           "border border-border bg-transparent hover:bg-card hover:text-card-foreground",
         ghost: "hover:bg-card hover:text-card-foreground",

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@fontsource-variable/noto-sans-sc";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
 @import "../styles/tokens.css";
@@ -31,8 +32,8 @@
   --color-spark-err: var(--spark-err);
 
   --font-sans:
-    system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC",
-    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    "Noto Sans SC Variable", system-ui, -apple-system, "Segoe UI", Roboto,
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-mono:
     "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -92,6 +93,17 @@
   button:hover > .shimmer-sweep-layer,
   button:focus-visible > .shimmer-sweep-layer {
     animation: shimmer-sweep 0.9s ease-out 1;
+  }
+
+  /*
+   * Hero 点阵底纹（DESIGN v2.28 官网豁免）：radial-gradient 画点阵 + 椭圆渐隐收边，
+   * 冷灰色不引入色相、不构成光晕/毛玻璃；zinc-300 点在白底上隐约可见。
+   */
+  .hero-dot-grid {
+    background-image: radial-gradient(circle, #d4d4d8 1px, transparent 1.4px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse 72% 58% at 50% 0%, black 28%, transparent 76%);
+    -webkit-mask-image: radial-gradient(ellipse 72% 58% at 50% 0%, black 28%, transparent 76%);
   }
 }
 

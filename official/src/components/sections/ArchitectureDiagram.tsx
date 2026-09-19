@@ -39,7 +39,8 @@ export function ArchitectureDiagram(): React.JSX.Element {
     <section
       id="architecture"
       // Bug 6 修复：sticky header 高 56px，锚点跳转留 64px 余量避免遮挡。
-      className="px-6 py-32 scroll-mt-16"
+      // 灰带节奏（v2.28）：白 → 暗（demo）→ 白 → 灰（本区）→ 白 → 暗（quickstart）
+      className="scroll-mt-16 border-y border-border bg-zinc-50 px-6 py-32"
       aria-labelledby="architecture-heading"
     >
       <div className="mx-auto max-w-7xl">

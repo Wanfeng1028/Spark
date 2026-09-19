@@ -36,6 +36,7 @@
 | v2.19 | 2026-09-19 | AI 编写：ZCode · Union Alpha；发起与拍板：晚风（Wanfeng1028，"这个我需要 dsh 的对话框改造，你把相应的文档改一下"指令；核验原判决记录 doc/10 v1.1 §5） | **新增 §13.L web 对话框 DSH 形态对齐规格（ADR D43）**：晚风拍板采纳 DSH 对话框改造（推翻 doc/10 v1.1 的整体退回判决），规格唯一来源落本文件新增 §13.L（数值基准=docs/audit/dialog-redesign-spec.md 的 DSH token 译码）。配套修订：① §13.B 圆角封闭集新增 **22px（web 对话框域 Composer 卡/user 气泡）与 14px（加载更早胶囊）** 两档（18px 保留为移动端 §13.J.3 档）；② §12.1 新增 **DSH 点睛色豁免**（`--send-accent` #4176E6/#679EFE 与 `--user-bubble` #EDF3FE，仅发送钮/caret/气泡三处）；③ §6 新增 **流式 sweep 豁免**（2.6s 横向扫光 keyframes，仅 running 态，reduced-motion 禁用）；④ §12.8 补 grep 判注（任意值圆角不在扫描词内、sweep 走 CSS keyframes 不走渐变类）；⑤ §13.E/§13.H web 冲突处由 §13.L 接管；⑥ 会话域正文/输入字号 **13→14px**（管理面 13px 不变，D32 密度不变项按域修订，ARCHITECTURE D43 登记）。**本期明确不做**（DSH 有但 §13.L 排除，需另立决策）：审批接管输入框（WO-065）、Lexical contenteditable（WO-067）、TurnRail（WO-070）、StatsPills/TurnUsagePanel（WO-071/072）、"Deep diving" 英文 shimmer（WO-063——保留中文状态行）。实现工单=docs/audit/dialog-redesign-workorder.md WO-052~078 按 §13.L 过滤后执行；ARCHITECTURE v1.50（D43）同批 |
 | v2.26 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，官网改造指令——批次 A"字号档位 + 高保真截图 + Hero 排版"方案确认后开工） | **§12.3 官网字号档位登记（official/ 营销站）**：超大标题禁令是给产品四端 13px 密度 UI 定的，官网单列 display 档——Hero 标题 40/52/60px、页面大标题 36/44px、区块标题 30/38px（移动/桌面断点），正文 16-18px；官网布局纪律不变（居中落地页骨架照禁），其余产品黑名单（蓝紫渐变/毛玻璃/emoji/装饰阴影/bento/假状态）对官网同样适用；§12.8 grep 扫描范围不变（official/ 不在扫描面，该行加判注）。首批落地：Hero 与全站标题字号 + BlurText CJK 逐字分词（中文 display 标题逐字 stagger）+ 四张产品截图 SVG 由灰色骨架线框重绘为高保真 mock（内容可回源码核对，禁假状态纪律保持）。后续批次（深色主演示带/会话流脚本动画/架构图重绘/四端 tab）待批次 A 验收后推进 |
 | v2.27 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，参考拍板："https://x.ai/（主参考，可以copy）+ https://blog.google/（参考细节），就定下这两个了"） | **批次 B：官网 xAI 化改版（视觉方向拍板登记）**。① §12 辨析行补**官网暗色基调豁免**——official/ 转 xAI 式纯黑单主题（bg `#000`、卡片 zinc-950、边框 zinc-800、正文 zinc-50/zinc-400；语义色 dark 档值 accent #818cf8/ok #34d399/warn #fbbf24），不设主题切换；产品四端亮色默认不变。② §12.5 补**官网居中 hero 豁免**（仅 official/；含 eyebrow pill，x.ai 实测骨架：eyebrow → 居中巨字 → 副标 → 双 CTA → 内联 agent 演示）。③ §12.3 官网 Hero 档上调 **44/60/72px**。④ 新增官网主演示组件 SessionDemo（对标 x.ai coding-agent 内联演示的 `❯ → 思考 → ▸ 工具行 → 审批框 → ✓ → 流式输出` 转录循环，内容取 Spark 真实事件序列 permission.asked/resolved + tool.completed，§13.K CLI 字形 `>` `◆` `▸`，reduced-motion 静态降级）。实现=official/ tokens.css 全量翻转 + Header（去 ThemeToggle、加主 CTA）+ Hero 重构（居中）+ SessionDemo + FactBar 数字升 text-4xl/5xl |
+| v2.28 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"官网还是太简陋了，文字字体很low 官网不一定必须要全部都是黑色或者白色，这个规则在官网可以改"） | **批次 C：字体升级 + 色彩节奏（推翻 v2.27 全黑单主题）**。① §12.1 补**官网色彩豁免**：亮色回归 + 区块级明暗节奏（SessionDemo 与 QuickStart/Footer 两段 zinc-950 暗带、Architecture 灰带）；主按钮品牌 indigo（`--spark-accent` 浅档，button default 变体改色）；hero 全站唯一渐变字（indigo→sky 冷色）+ `.hero-dot-grid` 点阵底纹（globals.css，radial-gradient + mask 椭圆渐隐）。② §12.3 补**官网主字体**：Noto Sans SC variable（@fontsource 自托管、无 CDN、安装由人执行 §2.3a）——Windows 缺省雅黑在 display 档显廉价是"字体很 low"主因。产品四端禁令全部不变。实现=package.json + globals.css（字体栈/点阵）+ tokens.css 亮色回归 + button.tsx 主变体 + Hero（两行标题：逐字浮现行 + 渐变行）+ SessionDemo/QuickStart/Footer 暗带化 + Architecture 灰带 |
 
 > 本文件是**视觉决策文档**：回答"页面应该保持什么风格，遇到新场景怎么选"，让不同页面看起来仍属于同一个产品。
 > 架构与设计决策见 `ARCHITECTURE.md`；实现规格（做什么）见 `doc/02-development-plan.md` §6——本文件管"做成什么感觉、什么不许做"。所有前端 PR 以本文为验收依据之一。
@@ -188,7 +189,7 @@
 
 > 本节是全仓库"AI 生成风"特征的**唯一完整清单**（AGENTS.md §2.6 / ARCHITECTURE.md D2 / 工具 shim 均引用此处，不复制）。与 §7 反"网站化"黑名单互补：§7 挡"营销网站味"，本节挡"AI 模板味"；后端/通用代码的"AI 生成味"黑名单在 ARCHITECTURE.md §9。
 > **成因**（2026-08-23 外部调研考证）：主流模型的训练语料被 v0/Lovable 时代模板与 Tailwind 早期默认审美污染——Tailwind 早期文档所有按钮示例默认 `indigo-500`，作者 Adam Wathan 已公开致歉；"做界面"于是被学成了"套默认模板"。
-> 辨析：社区另把"默认永久暗色"列为 AI 特征——那是针对营销落地页的；本产品 v2.0 起**亮色为默认主题**（§13.C，工单 6.1），深/浅/跟随系统三档并存且都是一级公民，与此无关。**官网暗色基调豁免（v2.27，2026-09-20 晚风拍板）**：official/ 营销站采用 xAI 式纯黑单主题（bg `#000`、zinc 边框、白色正文；主参考 x.ai 实测），"永久暗色"信号被显式参考决策豁免——产品四端亮色默认不变，官网不设主题切换（单主题无切换面）。
+> 辨析：社区另把"默认永久暗色"列为 AI 特征——那是针对营销落地页的；本产品 v2.0 起**亮色为默认主题**（§13.C，工单 6.1），深/浅/跟随系统三档并存且都是一级公民，与此无关。**官网相关口径（v2.27 立纯黑单主题，v2.28 修订）**：official/ 现为**亮色主调 + 两段 zinc-950 暗带**（SessionDemo 与 QuickStart/Footer，见 §12.1 官网色彩豁免），无全站级永久暗色面，不设主题切换；产品四端亮色默认不变。
 > **严重度分级**（依社区审计工具 avoid-ai-design 的分级法）：**P0 一眼 AI**——出现即打回，无需讨论；**P1 强信号**——默认禁止，除非 PR 中给出书面理由；**P2 细微信号**——评审时说明为什么。
 
 ### 12.1 颜色
@@ -200,6 +201,7 @@
 - 渐变文字（`text-transparent bg-clip-text` + 渐变）、渐变大数字。【P0】
 - 渐变光球（purple orb）/ mesh 渐变漂浮在内容区后面。【P0】
 - **DSH 对齐点睛色豁免（§13.L，2026-09-19 拍板）**：`--send-accent`（浅 `#4176e6` / 暗 `#679efe`）与 `--user-bubble`（浅 `#edf3fe`）仅限发送钮/caret/web 用户气泡三处，是黑白主题下唯一彩色点睛；蓝紫渐变、vibecode 紫、大面积蓝紫照禁。【豁免，非解禁】
+- **官网色彩豁免（v2.28，2026-09-20 晚风反馈"官网不一定必须全黑或全白"）**：official/ 亮色回归 + **区块级明暗节奏**（SessionDemo 与 QuickStart/Footer 两段 zinc-950 暗带、Architecture 灰带，首尾暗带呼应）；主按钮用品牌 `--spark-accent`（indigo-600 档）；hero 允许**全站唯一一处**渐变文字（indigo→sky 冷色系，刻意避开蓝紫 AI 渐变）与 `.hero-dot-grid` 点阵底纹（radial-gradient 点阵 + 椭圆渐隐，无光晕无毛玻璃）；产品四端本条全部照禁。
 
 ### 12.2 玻璃与特效
 
@@ -212,6 +214,7 @@
 
 - **超大标题字体**（hero 式 text-4xl/5xl/6xl/7xl 粗体大标题）——§3 封顶：UI 13px、页面级标题 15px。【P0】**官网（official/）例外档位（v2.26 登记，v2.27 上调）**：营销站单列 display 档——Hero 标题 44/60/72px（移动/平板/桌面）、页面大标题 36/44px、区块标题 30/38px，正文 16-18px；产品四端禁令不变。
 - Inter / Poppins / Space Grotesk / Geist 等被当成"不用想"的默认主字体（Hallmark 称 Inter "在训练数据里被过度代表"）。【P1——我们用系统栈 + IBM Plex Mono】
+- **官网主字体（v2.28）**：official/ 中文 display 换 **Noto Sans SC variable**（`@fontsource-variable/noto-sans-sc` 自托管，无运行时 CDN；系统栈退居回退）——Windows 缺省雅黑在 display 大字档显廉价，是"官网字体很 low"的主因；IBM Plex Mono 不变；Inter 禁令不变（官网亦未用）。依赖安装由人类执行（§2.3a）。
 - 全大写 section 小标签滥用；正文中孤立的衬线斜体"强调词"。【P1】
 - 装饰性等宽字体（"hacker vibe"）——mono 只用于代码/路径/工具输出（§3）。【P1】
 - 全篇一档字号一字重的"扁平"层级；拉大 letter-spacing 当"设计感"。【P2】

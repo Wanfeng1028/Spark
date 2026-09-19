@@ -180,10 +180,14 @@ export function SessionDemo(): React.JSX.Element {
   }, [reducedMotion]);
 
   return (
-    <section id="demo" className="scroll-mt-16 px-6 pb-32" aria-label="Spark 会话流演示">
+    <section
+      id="demo"
+      className="scroll-mt-16 border-y border-zinc-800 bg-zinc-950 px-6 py-28"
+      aria-label="Spark 会话流演示"
+    >
       <div className="mx-auto max-w-3xl">
         <div
-          className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950"
+          className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"
           role="img"
           aria-label="Spark CLI 会话流演示：提问、思考、工具调用、fail-closed 审批与流式输出"
         >
@@ -281,7 +285,7 @@ export function SessionDemo(): React.JSX.Element {
           </div>
         </div>
 
-        <p className="mt-4 text-center font-mono text-xs text-muted-foreground">
+        <p className="mt-4 text-center font-mono text-xs text-zinc-500">
           真实事件流形态 · 27 种事件 · 断线重连按 seq 续播
         </p>
       </div>
