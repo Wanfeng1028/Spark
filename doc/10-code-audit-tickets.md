@@ -12,6 +12,7 @@
 | v1.7 | 2026-09-19 | AI 编写：ZCode · Union Alpha；回归验证执行：豆包 | **AUD-RT-01 部分回报收编（550385a）**：豆包回归报告（基线 6e4219b，2477 测试全绿 + AUD-01~14 逐单源码/单测核对 + AUD-12 Electron 首启引导窗现场确认 + step-3.7-flash 真实模型端到端）经 PR #25 提交——**PR 不合并**（分支基线落后约 30 提交，diff 为对 main 现有修复的反向回滚），仅提取报告与 5 张截图入 docs/audit/regression/。报告发现①采纳（proxy-fetch 测试全组代理桩）；②③登记备查（checkpoint 非 git cwd 预期报错 / server dist esbuild external 链路）。**AUD-RT-01 余项仍留豆包**：① 移动端真机四场景 ② 小程序走查 ⑤ 语音真实链路 ⑥ LSP 真实 server ⑦ MCP 外配 ⑧ mitm 代理 ⑨ npm 发布冒烟（已完成：③ Electron 首启、④ 真实模型端到端） |
 | v1.8 | 2026-09-19 | AI 编写：ZCode · Union Alpha；第二轮测试执行：豆包（PR #26 已合并 6764e97） | **第二轮复测收编 + 7 项 UI 修复批**（新增 §11）：2341 单测全绿无新增回归，官网标题/复制按钮两项闭环确认；复测不变的 7 项全部修复——WO-079 窄屏（工具栏可换行+模型选择器收图标+chips 防竖排）、裸 /settings 重定向路由缺失、WO-080 Esc 关 + 菜单、WO-081 面板开时收起弹层、WO-082 沙箱标签收短、搜索清除钮、侧边栏右键菜单（归档/删除两段式内联确认，替换违反 DESIGN §5 的 window.confirm；重命名需 header 重写设计登记缺口）。MCP github（环境预期）与技能页只读（v2 挂池）维持 |
 | v1.9 | 2026-09-19 | AI 编写：ZCode · Union Alpha；拍板：晚风（Wanfeng1028，四问四答） | **三项人类决策落地**：① WO-015 官网死代码 → **冻结保留**（不删除）；② G7 spike-pi-ai lock 残留 → **冻结保留**（doc/05 v1.3 同步）；③ 两张 D28 重号 → **永久维持双编号 + 主题消歧**（ARCHITECTURE v1.51 同步）。**发布拍板：先修链路再发**——apps/server 打包链路修复（pi-ai/pino 入 bundle + check-dist 自校验，回归报告发现③消解）；五公开包版本 1.0.0 + CHANGELOG 1.0.0 节；tag v1.0.0 触发 release.yml（npm publish 需 NPM_TOKEN/或 Trusted Publishing + @spark scope 组织，缺则发布步红如实报告）。池子决策：会话重命名做（标题已事件化——session.title durable + titleOf 取最新，端点=发事件+自动标题覆盖守卫，小 ADR 随批）；其余四项（检查器版本校验/loadOlder 优化/ContextMeter/技能启停）defer 挂池 |
+| v1.10 | 2026-09-19 | AI 编写：ZCode · Union Alpha；第三轮测试执行：豆包（PR #27 已合并 72e18a3） | **第三轮复测收编 + 发布启动**（新增 §12）：二轮 7 项修复**全部验收通过**；真机走查——真实模型 E2E ✓、LSP server ✓、移动端/小程序/语音 headless 不可走查仍留；新立 RT3-01（P0 Electron 空 HOME 仍无配置向导——错误窗已交付，向导属增强，随桌面批次）、RT3-03（P1 带代理 LLM 请求无响应——undici dispatcher 兼容）、RT3-04（P2 MCP npx 冷启动 10s 超时）；**RT3-02 已由并行会话修复**（40ddd97 WO-084：spark --version/-v 独立退出，发布冒烟硬前置消解）。发版：五包 1.0.0 + CHANGELOG 1.0.0 + tag v1.0.0 触发 release.yml（发布结果如实登记） |
 | v1.1 | 2026-09-18 | AI 编写：ZCode · Union Alpha；发起：晚风（Wanfeng1028，"核验豆包审查报告+评估工单+补充发现+真机工单交豆包"指令） | 新增 §4 外部审查报告（docs/audit/，78 工单）逐条核验结论（40 条技术单：33 属实/6 部分属实/3 不属实）；§5 DSH 对话框改造 27 项判决退回（与 DESIGN.md 视觉宪法冲突清单）；§8 新增 AUD-02~AUD-14 工单（引擎资源/投影竞态/生命周期批）；§9 新增 AUD-RT-01 现场走查工单（交豆包执行）。仅文档，未改源码。 |
 | v1.0 | 2026-09-18 | AI 编写：ZCode · Union Alpha；发起：晚风（Wanfeng1028） | 登记 AUD-01：审批事件持久化失败仍放行的静态审查证据、修复方案、执行计划与验收条件。仅创建工单，未修改源码或执行验证。 |
 
@@ -335,3 +336,13 @@ AUD-01（§3）为本轮独立发现，与豆包报告零重叠（其报告未�
 **登记缺口**：会话重命名无后端端点——会话标题存 JSONL header 首行，重命名需 header 重写设计（append-only 语义冲突），随 v2 会话管理立项；DESIGN §13.J.2.3 会话菜单的「重命名」项同此依赖。
 
 **维持不变**：MCP github 连接失败（无凭证环境预期）；技能页只读（v2 挂池，占位即明示）。
+## 12. 第三轮复测与真机走查（round-3，豆包）
+
+> 报告：`docs/audit/round3/round3-test-report.md`（PR #27）。二轮 7 项修复全部验收通过；AUD-RT-01 完成度：③ Electron 首启（部分——错误窗 ✓ 向导缺）、④ 真实模型 E2E ✓、⑥ LSP server ✓；①②⑤（移动端真机/小程序/语音）headless 环境不可走查，仍留现场。
+
+| 编号 | 优先级 | 问题 | 状态 |
+| --- | --- | --- | --- |
+| RT3-01 | P0 | Electron 空 ~/.spark 首启：错误对话框已交付（AUD-12），配置向导仍缺 | 立单待桌面批次（向导属增强，不阻塞 npm 发布） |
+| RT3-02 | P1 | spark --version 掉 TUI raw-mode 报错 | **已修**（40ddd97，WO-084）——发布冒烟硬前置消解 |
+| RT3-03 | P1 | 带代理环境 LLM 请求无响应（undici dispatcher 兼容） | 立单待修（用户环境常见，发布后优先） |
+| RT3-04 | P2 | MCP filesystem npx 冷启动 10s 超时 | 立单待修（包可拉取，仅超时；可调 mcp.json 超时参数缓解） |
