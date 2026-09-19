@@ -250,12 +250,13 @@ describe('/arena 历史落盘（工单 19.10，翻案 D42 内存态）', () => {
   })
 
   test('start 半途失败不留幻影记录：发起即落盘、worktree 失败后撤销（内存与磁盘一致）', async () => {
-    // git 仓但零 commit：checkIsRepo 通过、worktree add 必败——正好落在 save(running) 之后
-    const bare = makeRoot({})
-    git(bare, ['init'])
-    const { engine } = makeEngine(bare)
+    // 预占第一个 contender 的 worktree 分支名 → worktree add -b 必败（跨 git 版本确定性；
+    // 零 commit 仓在 CI 的 git 上 add 竟成功，不作为失败注入点）
+    const repo = makeRepo({ 'README.md': 'base\n' })
+    const { engine } = makeEngine(repo)
     try {
-      const handle = await engine.createSession({ cwd: bare })
+      const handle = await engine.createSession({ cwd: repo })
+      git(repo, ['branch', `spark-arena-${handle.id}-1`])
       await expect(engine.arenaStart(handle.id, '干活', ['fake/a', 'fake/b'])).rejects.toThrow('E_ARENA_CONNECT')
       expect(engine.arenaHistory(20)).toEqual([])
       expect(engine.arenaSnapshot(handle.id)).toBeNull()
