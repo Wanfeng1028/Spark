@@ -13,6 +13,7 @@
 | v1.8 | 2026-09-19 | AI 编写：ZCode · Union Alpha；第二轮测试执行：豆包（PR #26 已合并 6764e97） | **第二轮复测收编 + 7 项 UI 修复批**（新增 §11）：2341 单测全绿无新增回归，官网标题/复制按钮两项闭环确认；复测不变的 7 项全部修复——WO-079 窄屏（工具栏可换行+模型选择器收图标+chips 防竖排）、裸 /settings 重定向路由缺失、WO-080 Esc 关 + 菜单、WO-081 面板开时收起弹层、WO-082 沙箱标签收短、搜索清除钮、侧边栏右键菜单（归档/删除两段式内联确认，替换违反 DESIGN §5 的 window.confirm；重命名需 header 重写设计登记缺口）。MCP github（环境预期）与技能页只读（v2 挂池）维持 |
 | v1.9 | 2026-09-19 | AI 编写：ZCode · Union Alpha；拍板：晚风（Wanfeng1028，四问四答） | **三项人类决策落地**：① WO-015 官网死代码 → **冻结保留**（不删除）；② G7 spike-pi-ai lock 残留 → **冻结保留**（doc/05 v1.3 同步）；③ 两张 D28 重号 → **永久维持双编号 + 主题消歧**（ARCHITECTURE v1.51 同步）。**发布拍板：先修链路再发**——apps/server 打包链路修复（pi-ai/pino 入 bundle + check-dist 自校验，回归报告发现③消解）；五公开包版本 1.0.0 + CHANGELOG 1.0.0 节；tag v1.0.0 触发 release.yml（npm publish 需 NPM_TOKEN/或 Trusted Publishing + @spark scope 组织，缺则发布步红如实报告）。池子决策：会话重命名做（标题已事件化——session.title durable + titleOf 取最新，端点=发事件+自动标题覆盖守卫，小 ADR 随批）；其余四项（检查器版本校验/loadOlder 优化/ContextMeter/技能启停）defer 挂池 |
 | v1.11 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你先看豆包的测试报告，根据报告行动"指令；PR #27 已合并 72e18a3） | **第三轮走查项 RT3-01/03/04/06 修复收官（§12 状态表更新 + RT3-05/07 登记）**：RT3-01 首启引导窗+自动续启（622f96a，壳侧判例 A）、RT3-03 代理同源 undici 配对（3fd0336，根因=跨包 dispatcher 不互通；修红 5cf0d4f）、RT3-04 MCP 30s+connectTimeoutMs 全链（1b5f96f）、RT3-06 窄视口一次性折叠（d2c1ba5）；新发现 RT3-07（MCP 管理页保存丢 args/env，12.6 遗留）立单。真实代理/npx 冷启动/Electron 首启复测留豆包现场 |
+| v1.14 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；第四轮测试执行：豆包（PR #28 已合并 f860b9e） | **第四轮全功能深度测试收编（新增 §13）**：2481 单测全绿；11/11 修复验收通过——RT3-01/02/03/04/06 五项现场闭环（三轮对比见报告 §四）；全量回归（Web 核心流/20 设置子页/CLI/官网/Electron/375-768px）无 P0/P1；OBS-1（P3 窄屏展开侧栏挤压 → 挂池 V2-39）与 OBS-2（P3 偶发 oneshot 超时 → 不立项）登记；RT3-07 基线未含，现场复测留第五轮 |
 | v1.13 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，对 v1.11 总结中 RT3-07 的点名指令"你把这个修好"） | **RT3-07 修复落地（§12 状态更新，WO-088）**：MCP 配置读回通道全链——protocol `MCP_ENV_MASK` + `Transport.getMcpConfig`（GET /api/mcp/config）、engine `maskMcpConfigForClient`/`mergeMaskedMcpConfig` 纯函数（公共面单源）、PUT /api/mcp 掩码合并、web 管理页以读回配置为底保存/停用、sdk inprocess 与 mock 对等；env 明文不出引擎，掩码占位无既有真值 400 拒写。修复 12.6 遗留数据丢失（保存静默丢 args/env/connectTimeoutMs）。engine 4 例 + server 3 例新增。全本机零验证以 CI 裁决 |
 | v1.12 | 2026-09-19 | AI 编写：ZCode · Union Alpha | **v1.0.0 发布执行记录**：tag v1.0.0 已打（指向 30babbe，main CI 绿）；release.yml run 35441250244——构建/文档检查/typecheck/test/四包 build/**check-dist 外置导入自校验全部通过**，publish 步红于 `ENEEDAUTH`（NPM_TOKEN secret 未配置）+ docs 步红于 GitHub Pages 未启用——两项均为**用户侧账号配置**（npmjs 建 @spark 组织 + 生成 publish token 后 `gh secret set NPM_TOKEN`，或按 release.yml 注记改用 Trusted Publishing；仓库 Settings→Pages 启用 GitHub Actions 源），配置后在 run 页 rerun failed jobs 即可，无需代码改动 |
 | v1.10 | 2026-09-19 | AI 编写：ZCode · Union Alpha；第三轮测试执行：豆包（PR #27 已合并 72e18a3） | **第三轮复测收编 + 发布启动**（新增 §12）：二轮 7 项修复**全部验收通过**；真机走查——真实模型 E2E ✓、LSP server ✓、移动端/小程序/语音 headless 不可走查仍留；新立 RT3-01（P0 Electron 空 HOME 仍无配置向导——错误窗已交付，向导属增强，随桌面批次）、RT3-03（P1 带代理 LLM 请求无响应——undici dispatcher 兼容）、RT3-04（P2 MCP npx 冷启动 10s 超时）；**RT3-02 已由并行会话修复**（40ddd97 WO-084：spark --version/-v 独立退出，发布冒烟硬前置消解）。发版：五包 1.0.0 + CHANGELOG 1.0.0 + tag v1.0.0 触发 release.yml（发布结果如实登记） |
@@ -354,3 +355,20 @@ AUD-01（§3）为本轮独立发现，与豆包报告零重叠（其报告未�
 | RT3-07 | P2 | 本批实施中新发现：MCP 管理页保存时"保留其余 server"仅回填 command——args/env/connectTimeoutMs 被静默丢弃（GET /api/mcp 状态 DTO 无配置字段，属 12.6 遗留数据丢失缺陷，先于本批存在） | **已修**（本批，WO-088）——新增配置读回通道：protocol `MCP_ENV_MASK` 占位 + Transport.getMcpConfig（GET /api/mcp/config）+ engine 纯函数 maskMcpConfigForClient/mergeMaskedMcpConfig（公共面单源，server 路由与 sdk inprocess 共用装配）；env 值永不明文出引擎（12.6 只进不回显纪律延续），PUT 掩码占位由引擎合并盘上真值、无真值 400 拒写；管理页保存/停用改以读回配置为底，未编辑 server 原样保留；mock 对等（静态配置，不持久语义如实）；engine 4 例 + server 路由 3 例新增 |
 
 **实施记录（本仓修复批，全本机零验证以 CI 裁决）**：RT3-02=40ddd97（复用 WO-050 versionOf 单一来源，禁再写一份）；RT3-03=3fd0336（类型收窄修红 5cf0d4f）；RT3-04=1b5f96f（doc/02 §5.1 + ARCHITECTURE D16 正文同步）；RT3-06=d2c1ba5；RT3-01=622f96a（renderFirstRunHtml 纯函数 + fatal.test 补 3 例）。
+
+## 13. 第四轮全功能深度测试验收（round-4，豆包）
+
+> 报告：`docs/audit/round4/round4-test-report.md`（PR #28 已合并 f860b9e）。被测基线 `1a49044`（含 round3 修复批 WO-083~087；**RT3-07 修复 d909635 在基线之后，现场复测留第五轮**）。构建绿、`pnpm -r test` **2481 passed / 4 skipped / 0 failed**（protocol 1244 / engine 715 / web 236 / server 134 / cli 77 / miniapp 41 / desktop 11 / sdk 14 / skill-kit 7 / sdk-bot 2）。
+
+**修复验收 11/11 全部通过**（逐项方法与 20 张证据截图见报告 §二）：裸 /settings 重定向、WO-080 +菜单 Esc、WO-081 Ctrl+K 无残留、WO-082 沙箱下拉、搜索清除钮、侧栏右键菜单（归档/两段式删除/抽屉恢复全链）、WO-079+RT3-06 375px（无溢出 + 侧栏折叠 48px + 工具栏不重叠）、RT3-02 `spark --version`、RT3-03 带代理 LLM 真实流式（WO-085 undici 同源配对生效）、RT3-04 MCP filesystem 30s 连接成功（round3 的 10s 超时未复现）、RT3-01 空 HOME 首启引导页（不再 E_CONFIG 崩溃，xdg-open 配置目录行为确认）。
+
+**全量回归无 P0/P1**：Web 核心流（流式/审批三按钮/停止/模型自适应）、20 个设置子页逐一渲染、自动化页、搜索跳转、CLI（--version/--help/oneshot）、官网 build（5 路由标题唯一 + Copy code 钮）、Electron 桌面单测 11/11、375/768px 两档视口无横向溢出。三轮对比表见报告 §四——RT3-01/02/03/04/06 **五项全部闭环**。
+
+**新发现登记（均非阻断）**：
+
+| 编号 | 级别 | 内容 | 去向 |
+| --- | --- | --- | --- |
+| OBS-1 | P3 | 375px 下用户手动展开侧栏再进会话，展开态侧栏挤压主区为预期态（WO-087「挂载缺省折叠、可再展开」口径），非回归 | 改造建议（展开态做 overlay drawer）挂池 **V2-39**（doc/02 §8.7），浮层规格先过 DESIGN 再立项 |
+| OBS-2 | P3 | 一次 oneshot 60s 超时被 kill（EXIT=124），重跑 3.9s 正常——npx 冷启动 × 代理抖动叠加的偶发，未稳定复现 | 不立项；若后续可稳定触发，重评 RT3-04 的 connectTimeoutMs 缺省值 |
+
+**已知不修项维持**（报告 §六）：MCP github 无凭证环境预期、技能页只读归 v2、会话重命名后端缺口已登记、审批拒绝二次确认设计如此。
