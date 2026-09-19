@@ -40,8 +40,7 @@ interface DropdownSpec {
  * NavDropdown — 点击展开的下拉菜单（x.ai 实拍同构，DESIGN v2.32）：
  * 白色圆角面板（分组小标签 + 条目 hover 灰底 + 外部条目 ↗ + 底部行），
  * 动效 = fade + y(-6) + scale(.97)，180ms ease-out；触发钮 chevron 180° 翻转。
- * 外点/ESC 关闭；aria-expanded/haspopup/menu 语义齐全。
- * x.ai 线上为压缩 bundle 无可读源码，参数按截图 + 标准曲线复刻（抄设计不抄框架）。
+ * 外点/ESC 关闭；aria-haspopup/expanded/menu 语义齐全。
  */
 function NavDropdown({ label, groups, footer, align = "left", triggerClassName }: DropdownSpec): React.JSX.Element {
   const [open, setOpen] = React.useState(false);
@@ -154,10 +153,62 @@ function NavDropdown({ label, groups, footer, align = "left", triggerClassName }
   );
 }
 
+/** 移动端可展开分组（x.ai 实拍同构：条目带一句描述，chevron 翻转） */
+function MobileAccordion({ onClose }: { onClose: () => void }): React.JSX.Element {
+  const [open, setOpen] = React.useState(false);
+  const items = [
+    { label: "Web 工作台", desc: "React 会话工作台，事件流的投影" },
+    { label: "Desktop 壳", desc: "Electron 壳，sidecar 复用同一引擎" },
+    { label: "CLI TUI", desc: "Ink 7 终端，纯单栏转录流" },
+    { label: "移动端与小程序", desc: "Expo + RN 配对即连；Taro 同源" },
+  ] as const;
+
+  return (
+    <div className="border-b border-zinc-100">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between py-4 text-left text-xl text-zinc-900"
+      >
+        产品
+        <ChevronDown
+          aria-hidden="true"
+          className={cn("h-4 w-4 text-zinc-400 transition-transform duration-200", open && "rotate-180")}
+        />
+      </button>
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="flex flex-col gap-4 pb-5 pl-4">
+              {items.map((item) => (
+                <Link
+                  key={item.label}
+                  href="/features"
+                  onClick={onClose}
+                  className="block"
+                >
+                  <p className="text-base font-medium text-zinc-900">{item.label}</p>
+                  <p className="mt-0.5 text-sm leading-relaxed text-zinc-500">{item.desc}</p>
+                </Link>
+              ))}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 const Header: React.FC = () => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const menuButtonRef = React.useRef<HTMLButtonElement>(null);
-  const firstLinkRef = React.useRef<HTMLAnchorElement>(null);
   const pathname = usePathname();
 
   /* Bug#6.1: 路由变化时关闭移动菜单 */
@@ -165,7 +216,7 @@ const Header: React.FC = () => {
     setMobileOpen(false);
   }, [pathname]);
 
-  /* Bug#6.3: ESC 键关闭菜单 */
+  /* ESC 键关闭菜单 */
   React.useEffect(() => {
     if (!mobileOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -178,12 +229,12 @@ const Header: React.FC = () => {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [mobileOpen]);
 
-  /* Bug#6.3: 展开时焦点移入第一个菜单项 */
+  /* 全屏菜单期间锁定背景滚动 */
   React.useEffect(() => {
-    if (mobileOpen) {
-      // 等动画帧后 focus
-      requestAnimationFrame(() => firstLinkRef.current?.focus());
-    }
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [mobileOpen]);
 
   /* WO-014（WCAG 2.4.3）：焦点陷阱——菜单展开期间 Tab 循环限制在菜单项内 */
@@ -262,12 +313,12 @@ const Header: React.FC = () => {
           )}
         </nav>
 
-        {/* 右侧操作区：CTA 带▾ 下拉（x.ai "Try for free ⌄" 同构）+ GitHub 图标 */}
+        {/* 右侧操作区：黑色胶囊 CTA 带 ▾ 下拉（x.ai "Try for free ⌄" 同构）+ GitHub 图标 */}
         <div className="flex items-center gap-1">
           <NavDropdown
             label="快速上手"
             align="right"
-            triggerClassName="rounded-full bg-spark-accent px-4 py-2 font-medium text-white hover:bg-spark-accent/90 hover:text-white mr-1"
+            triggerClassName="rounded-full bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-800 hover:text-white mr-1"
             groups={[
               {
                 label: "开始",
@@ -301,12 +352,12 @@ const Header: React.FC = () => {
             <Github className="h-4 w-4" aria-hidden="true" />
           </a>
 
-          {/* 移动端菜单开关 — Bug#6.3: aria-expanded + aria-controls */}
+          {/* 移动端菜单开关 — aria-expanded + aria-controls */}
           <Button
             ref={menuButtonRef}
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="rounded-full bg-zinc-100 md:hidden"
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
             aria-controls={MOBILE_MENU_ID}
@@ -321,47 +372,90 @@ const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Bug#6.2: 移动端下拉菜单 — absolute 脱离文档流，不推移页面内容 */}
+      {/* 移动端全屏菜单（x.ai 实拍同构：大字条目 + 发丝线 + 可展开分组带描述 + 底部 CTA） */}
       <AnimatePresence>
         {mobileOpen ? (
-          <motion.nav
+          <motion.div
             id={MOBILE_MENU_ID}
-            aria-label="Mobile"
             onKeyDown={handleMenuKeyDown}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="absolute left-0 right-0 top-full overflow-hidden border-b border-border bg-background shadow-sm md:hidden"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="fixed inset-0 z-50 flex flex-col bg-white md:hidden"
           >
-            <div className="flex flex-col gap-1 px-6 py-3">
-              {NAV_ITEMS.map((item, index) =>
+            <div className="flex h-14 items-center justify-between px-6">
+              <Link
+                href="/"
+                onClick={handleClose}
+                className="text-base font-semibold tracking-tight text-foreground"
+              >
+                Spark
+              </Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full bg-zinc-100"
+                aria-label="Close menu"
+                onClick={handleClose}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
+
+            <nav aria-label="Mobile" className="flex-1 overflow-y-auto px-6 pt-2">
+              <MobileAccordion onClose={handleClose} />
+              {NAV_ITEMS.map((item) =>
                 isExternal(item.href) ? (
                   <a
                     key={item.href}
-                    ref={index === 0 ? firstLinkRef : undefined}
                     href={item.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={handleClose}
-                    className="rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                    className="flex items-center justify-between border-b border-zinc-100 py-4 text-xl text-zinc-900"
                   >
                     {item.label}
+                    <ArrowUpRight aria-hidden="true" className="h-4 w-4 text-zinc-400" />
                   </a>
                 ) : (
                   <Link
                     key={item.href}
-                    ref={index === 0 ? firstLinkRef : undefined}
                     href={item.href}
                     onClick={handleClose}
-                    className="rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                    className="block border-b border-zinc-100 py-4 text-xl text-zinc-900"
                   >
                     {item.label}
                   </Link>
                 ),
               )}
+            </nav>
+
+            <div className="px-6 pb-8 pt-4">
+              <Link
+                href="/quickstart"
+                onClick={handleClose}
+                className={cn(buttonVariants({ size: "lg" }), "w-full rounded-full")}
+              >
+                快速上手
+              </Link>
+              <p className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-400">
+                <a href={LINKS.github} target="_blank" rel="noopener noreferrer" className="hover:text-zinc-600">
+                  GitHub
+                </a>
+                <span aria-hidden="true">·</span>
+                <a
+                  href={`${LINKS.github}/blob/main/LICENSE`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-zinc-600"
+                >
+                  LICENSE
+                </a>
+                <span aria-hidden="true">·</span>
+                <span>MIT</span>
+              </p>
             </div>
-          </motion.nav>
+          </motion.div>
         ) : null}
       </AnimatePresence>
     </header>

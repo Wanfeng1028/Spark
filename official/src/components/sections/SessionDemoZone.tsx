@@ -360,7 +360,7 @@ function ChatCard(): React.JSX.Element {
           append-only JSONL：第 0 行是 header，其后每行一个事件信封，seq
           等于文件行号。只追加不改写，因此可回放、可分叉、可回滚。
         </p>
-        <p className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-indigo-500 px-3.5 py-2 text-white">
+        <p className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-zinc-900 px-3.5 py-2 text-white">
           断线重连之后界面怎么恢复？
         </p>
         <p className="max-w-[90%] leading-relaxed text-zinc-600">

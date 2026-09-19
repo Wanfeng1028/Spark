@@ -32,11 +32,11 @@ function RotatingWord(): React.JSX.Element {
   }, [reducedMotion]);
 
   if (reducedMotion) {
-    return <span className="border-b-2 border-zinc-300 pb-1">{ROTATE_WORDS[0]}</span>;
+    return <span className="pb-1">{ROTATE_WORDS[0]}</span>;
   }
 
   return (
-    <span className="inline-block border-b-2 border-zinc-300 pb-1">
+    <span className="inline-block pb-1">
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={ROTATE_WORDS[index]}
@@ -66,9 +66,9 @@ export function Hero(): React.JSX.Element {
         className="hero-dot-grid pointer-events-none absolute inset-x-0 top-0 h-[520px]"
       />
 
-      {/* eyebrow pill：内嵌 mini 标签（x.ai "New" 同位） */}
+      {/* eyebrow pill：内嵌 mini 标签（x.ai "New" 同位，橙色点睛 v2.33） */}
       <p className="relative flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1.5 pr-4 text-xs text-muted-foreground shadow-sm">
-        <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 font-medium text-indigo-700">
+        <span className="rounded-full bg-orange-100 px-2.5 py-0.5 font-medium text-orange-700">
           开源
         </span>
         MIT · 本地优先 · 四端同一协议
@@ -84,8 +84,13 @@ export function Hero(): React.JSX.Element {
           duration={0.55}
           className="block"
         />
-        <span className="mt-1 block">
+        <span className="mt-1 inline-flex flex-col items-center">
           <RotatingWord />
+          {/* 旋转词渐变条（x.ai 移动端 "build." 下划线同构：橙→粉→黄，v2.33） */}
+          <span
+            aria-hidden="true"
+            className="mt-2 h-1 w-full rounded-full bg-[linear-gradient(90deg,#f97316_0%,#ec4899_55%,#f59e0b_100%)]"
+          />
         </span>
       </h1>
 
