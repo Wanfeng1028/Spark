@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
   <!--
     高保真产品 mock（替代旧灰色骨架线框）。全部事实可回源码核对（DESIGN §5 禁假状态）：
-    - 三栏骨架/密度：DESIGN §13.A（侧栏 240 级、会话内容列 768 居中、顶栏 44、StatusBar 24）
-    - user 气泡 #edf3fe：DESIGN §13.L（--user-bubble 浅色值）
-    - 审批卡 warn 左条 + once/always/reject：DESIGN §8/§13.L（语义左边框豁免）
-    - Composer 胶囊 22px 档、发送钮 accent：DESIGN §13.B/§13.L
-    - 127.0.0.1:4318：packages/engine/src/config.ts SPARK_DEFAULTS；~/.spark/sessions：SessionStore
+    三栏骨架/密度见 DESIGN §13.A（侧栏 240 级、会话内容列 768 居中、顶栏 44、StatusBar 24）；
+    user 气泡 #edf3fe 为 DESIGN §13.L 的 user-bubble 浅色值（XML 注释内不写双连字符，token 名略）；
+    审批卡 warn 左条 + once/always/reject：DESIGN §8/§13.L（语义左边框豁免）；
+    Composer 胶囊 22px 档、发送钮 accent：DESIGN §13.B/§13.L；
+    127.0.0.1:4318：packages/engine/src/config.ts SPARK_DEFAULTS；~/.spark/sessions：SessionStore
   -->
   <rect width="1200" height="800" fill="#f4f4f5"/>
 
