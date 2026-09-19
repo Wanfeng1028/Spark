@@ -42,6 +42,7 @@ export function makeConfig(): EngineConfig {
         compactionThreshold: 0.8,
         checkpoints: false, // 路由用例不落 git 快照；4.6 专项集成用例单开
         bashSandbox: 'off',
+        computerUseEnabled: false,
       },
     },
     models: {
