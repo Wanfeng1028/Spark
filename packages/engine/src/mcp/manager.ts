@@ -54,7 +54,7 @@ function defaultTransport(name: string, cfg: McpServerConfig): Transport {
     if (cfg.url === undefined) {
       throw new Error(`MCP server ${name} 配置缺 url（streamable-http transport 必填）`)
     }
-    const opts: { requestInit: RequestInit } = {
+    const opts: ConstructorParameters<typeof StreamableHTTPClientTransport>[1] = {
       requestInit: {
         ...(cfg.headers !== undefined ? { headers: cfg.headers } : {}),
       },
