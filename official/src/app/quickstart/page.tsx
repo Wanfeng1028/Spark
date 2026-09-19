@@ -14,7 +14,7 @@ import { LINKS } from "@/lib/constants";
  */
 
 export const metadata: Metadata = {
-  title: "快速上手 — Spark",
+  title: "快速上手",
   description: "三步安装，本地启动 Agent 工作台",
 };
 

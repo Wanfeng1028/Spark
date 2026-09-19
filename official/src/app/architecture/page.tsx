@@ -4,7 +4,7 @@ import { BlurFade } from "@/components/magicui/blur-fade";
 import { CodeBlock } from "@/components/ui/code-block";
 
 export const metadata: Metadata = {
-  title: "架构 — Spark",
+  title: "架构",
   description: "五层分离，协议驱动，事件溯源。27 种事件词表统一四端。",
 };
 

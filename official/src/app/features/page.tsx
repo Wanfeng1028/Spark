@@ -3,7 +3,7 @@ import { BlurFade } from "@/components/magicui/blur-fade";
 import { CodeBlock } from "@/components/ui/code-block";
 
 export const metadata: Metadata = {
-  title: "核心能力 — Spark",
+  title: "核心能力",
   description: "流式对话、工具调用可视化、人工审批、四端同一协议",
 };
 

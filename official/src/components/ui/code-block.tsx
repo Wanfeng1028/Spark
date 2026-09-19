@@ -42,7 +42,8 @@ const CodeBlock = React.forwardRef<HTMLPreElement, CodeBlockProps>(
 
     const resetTimer = React.useCallback(() => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setStatus("idle"), 1500);
+      // WO-047：反馈时长 2.5s——1.5s 过短易被当作未生效
+      timerRef.current = setTimeout(() => setStatus("idle"), 2500);
     }, []);
 
     React.useEffect(

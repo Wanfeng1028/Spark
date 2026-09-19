@@ -8,7 +8,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "dependencies": {
     "next": "^15.3.0",
@@ -29,6 +30,13 @@
     "tailwindcss": "^4.1.0",
     "@tailwindcss/postcss": "^4.1.0",
     "@fontsource/ibm-plex-mono": "^5.2.0",
-    "postcss": "^8.5.0"
+    "postcss": "^8.5.0",
+    "eslint": "^9.15.0",
+    "eslint-config-next": "^15.3.0",
+    "@eslint/eslintrc": "^3.3.1"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=24"
   }
 }

@@ -67,7 +67,7 @@ export function QuickStartCTA(): React.JSX.Element {
           </a>
         </div>
 
-        <p className="font-mono text-xs text-muted-foreground/70">
+        <p className="font-mono text-xs text-muted-foreground">
           MIT 许可 · 默认只监听 127.0.0.1 · 无云端依赖
         </p>
       </div>

@@ -54,6 +54,26 @@ const Header: React.FC = () => {
     }
   }, [mobileOpen]);
 
+  /* WO-014（WCAG 2.4.3）：焦点陷阱——菜单展开期间 Tab 循环限制在菜单项内，
+   * 不再逃逸到菜单背后的页面元素；ESC 关闭与焦点归还已有（上方 effect） */
+  const handleMenuKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const nav = document.getElementById(MOBILE_MENU_ID);
+    if (nav === null) return;
+    const focusables = nav.querySelectorAll<HTMLElement>("a[href], button:not([disabled])");
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (first === undefined || last === undefined) return;
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
   const handleClose = React.useCallback(() => {
     setMobileOpen(false);
     menuButtonRef.current?.focus();
@@ -137,6 +157,7 @@ const Header: React.FC = () => {
           <motion.nav
             id={MOBILE_MENU_ID}
             aria-label="Mobile"
+            onKeyDown={handleMenuKeyDown}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}

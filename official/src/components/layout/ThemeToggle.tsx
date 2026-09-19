@@ -41,11 +41,14 @@ const ThemeToggle: React.FC = () => {
 
   const Icon = isSystem ? Monitor : isDark ? Moon : Sun;
 
+  /* WO-048：循环态 confusion 缓解——按钮 title 同时给出当前态与动作 */
+  const stateLabel = isSystem ? "当前：跟随系统" : isDark ? "当前：深色" : "当前：浅色";
   return (
     <Button
       variant="ghost"
       size="icon"
       aria-label={ariaLabel}
+      title={`${stateLabel} · ${ariaLabel}`}
       onClick={() => setTheme(nextTheme)}
     >
       <Icon className="h-4 w-4" aria-hidden="true" />

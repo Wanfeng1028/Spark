@@ -1,6 +1,7 @@
 # official/ 官网独立 CI：official/ 是 Spark 产品官网（独立 Next.js 15 项目，**不在 pnpm workspace**——
 # 根 pnpm-workspace.yaml 的 packages 不含 official，亦无锁文件入库）。
-# 本工作流独立于 ci.yml：只跑 install / typecheck / build 三步，不触发产品端 eval / test / knip 等
+# 本工作流独立于 ci.yml：只跑 install / lint / typecheck / build 四步（WO-031 起 lint 入列），
+# 不触发产品端 eval / test / knip 等
 # 任何步骤；official 构建失败不阻塞产品端 CI（ci.yml 无路径过滤照常全量跑，两路互不牵连）。
 name: Official
 
@@ -40,6 +41,9 @@ jobs:
       # workspace（pnpm ≥ 9.7 标志，根 packageManager 9.15.9 支持）。-C 指定目录跑
       # official/package.json 已声明的 scripts（同 nightly.yml `pnpm -C <dir>` 先例）。
       - run: pnpm -C official install --no-frozen-lockfile --ignore-workspace
+      # WO-031：ESLint 接入（eslint.config.mjs flat config）——此前只有孤立
+      # disable 注释而无本体；lint 是 next 语义的静态门，排在 typecheck 前
+      - run: pnpm -C official lint
       - run: pnpm -C official typecheck
       # next build（next.config.ts output: "export" 静态导出至 official/out）；
       # 产物不入库不上传，本步只作"能构建"的回归门
