@@ -7,7 +7,7 @@
  */
 import { expect, test, type Page } from '@playwright/test'
 
-const composer = (page: Page) => page.getByPlaceholder(/向 Spark 提问/)
+const composer = (page: Page) => page.getByPlaceholder(/描述你想要构建的内容/)
 
 test.describe('断线与错误态（H14 / 工单 6.7 验收）', () => {
   test('模拟断线：StatusBar 转「已断线，重连中…」，恢复后回「已连接」', async ({ page }) => {

@@ -7,7 +7,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
 /** Composer 输入框（侧栏「搜索会话」同为 textbox——按占位文案唯一定位） */
-const composer = (page: Page) => page.getByPlaceholder(/向 Spark 提问/)
+const composer = (page: Page) => page.getByPlaceholder(/描述你想要构建的内容/)
 
 /** 进入任一会话（normal 场景）——暴露 mock 夹具条 */
 async function enterSession(page: Page): Promise<void> {

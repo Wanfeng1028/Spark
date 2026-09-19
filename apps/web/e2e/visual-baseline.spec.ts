@@ -25,7 +25,7 @@ test('三视口截图：欢迎页（空态垂直居中）+ 会话页（normal �
 
     // 会话页：normal 场景直发 → 内容回放进行中截图
     // （就绪信号用 TurnStatusBar——虚拟列表在窄视口会裁剪早期消息文本，断言 DOM 文本不可靠）
-    const box = page.getByPlaceholder(/向 Spark 提问/)
+    const box = page.getByPlaceholder(/描述你想要构建的内容/)
     await box.fill('读一下 src/index.ts，把 MAX_RETRY 改名为 RETRY_LIMIT，然后跑测试')
     await page.keyboard.press('Enter')
     await page.waitForURL(/\/session\//)
