@@ -1,7 +1,9 @@
 /**
  * 设置中心导航（DESIGN §13.D：复用左栏 264px，三组——基础设置/Agent 能力/数据与统计）。
  * 设置路由下替代会话侧栏渲染（AppShell 条件切换）；顶部"返回"直达目的地。
- * 组头 28px / 导航项 32px（§13.A 同规格）；折叠态由 AppShell 栅格统一驱动（此组件不折叠）。
+ * 组头 28px / 导航项 32px（§13.A 同规格）；桌面折叠态由 AppShell 栅格统一驱动（此组件不折叠）。
+ * compact（round5 P2-3）：窄视口（<640 一次性判定，同 WO-087 口径）转顶部横排 chip 条——
+ * 分组标题省略、页面平铺为横滚胶囊，内容列独占全宽；AppShell 栅格随行切换。
  * 导航纪律（工单 10.14）：返回=直达最后激活会话（无则欢迎页）且 replace——不再
  * navigate(-1) 逐历史回退（逛过 N 个分区要按 N 次返回）；分区互切 replace:true——
  * 同层平级不堆历史，浏览器后退不陷入设置内部。
@@ -18,7 +20,7 @@ export function settingsBackTarget(activeSessionId: SessionId | null): string {
   return activeSessionId !== null ? `/session/${activeSessionId}` : '/welcome'
 }
 
-export function SettingsSidebar() {
+export function SettingsSidebar({ compact = false }: { compact?: boolean }) {
   const navigate = useNavigate()
   const location = useLocation()
   const activeSessionId = useSessionStore((s) => s.activeId)
@@ -29,6 +31,44 @@ export function SettingsSidebar() {
   /** 返回=直达目的地（工单 10.14①）；replace 不堆历史，浏览器后退不陷入设置内部 */
   function backHome(): void {
     void navigate(settingsBackTarget(activeSessionId), { replace: true })
+  }
+
+  if (compact) {
+    return (
+      <nav
+        aria-label="设置导航"
+        className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-sidebar p-2"
+      >
+        <button
+          type="button"
+          onClick={backHome}
+          className="flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        >
+          <ArrowLeft className="size-4 shrink-0" />
+          返回
+        </button>
+        <ul className="flex items-center gap-1">
+          {SETTINGS_GROUPS.flatMap((g) => g.pages).map((p) => (
+            <li key={p.id}>
+              <button
+                type="button"
+                onClick={() => void navigate(`/settings/${p.id}`, { replace: true })}
+                aria-current={p.id === activePage ? 'page' : undefined}
+                className={cn(
+                  'flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-transparent px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  p.id === activePage && 'border-border bg-secondary text-foreground',
+                )}
+              >
+                {p.title}
+                {p.status === 'ready' && (
+                  <span className="size-1.5 shrink-0 rounded-full bg-[var(--spark-ok)]" aria-label="已落地" />
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )
   }
 
   return (

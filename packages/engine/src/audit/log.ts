@@ -79,7 +79,8 @@ export class AuditLog {
       if (query.since !== undefined && e.time < query.since) return false
       if (query.kind !== undefined && e.kind !== query.kind) return false
       if (query.result !== undefined && e.result !== query.result) return false
-      if (query.tool !== undefined && e.tool !== query.tool) return false
+      // round5 P2-2：大小写不敏感——占位符示例即小写（如 bash），精确匹配会必落空
+      if (query.tool !== undefined && e.tool?.toLowerCase() !== query.tool.toLowerCase()) return false
       return true
     })
     return filtered.slice(-query.limit).reverse()

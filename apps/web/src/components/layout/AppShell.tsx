@@ -91,17 +91,27 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [setPaletteOpen, navigate, transport])
 
+  // P2-3（round5）：375 预研档设置页双栏挤压——窄视口一次性判定（同 WO-087 一次性缺省
+  // 口径，非响应式断点体系），设置导航转顶部横排 chip 条、内容列独占全宽；桌面/iPad 双栏不变
+  const [narrowViewport] = useState(() => window.innerWidth < 640)
+  const stackedSettings = narrowViewport && inSettings
+
   return (
     <div className="grid h-full grid-rows-[auto_1fr_24px] bg-background text-foreground">
       {status !== 'open' && <ReconnectBanner status={status} />}
       <div
         className={cn(
-          'row-start-2 grid min-h-0 grid-cols-[auto_1fr]',
-          !suppressColTransition && 'transition-[grid-template-columns] duration-150',
-          !inSettings && collapsed ? 'grid-cols-[48px_1fr]' : 'grid-cols-[264px_1fr]',
+          'row-start-2 grid min-h-0',
+          stackedSettings
+            ? 'grid-rows-[auto_minmax(0,1fr)]'
+            : cn(
+                'grid-cols-[auto_1fr]',
+                !suppressColTransition && 'transition-[grid-template-columns] duration-150',
+                !inSettings && collapsed ? 'grid-cols-[48px_1fr]' : 'grid-cols-[264px_1fr]',
+              ),
         )}
       >
-        {inSettings ? <SettingsSidebar /> : <Sidebar />}
+        {inSettings ? <SettingsSidebar {...(stackedSettings ? { compact: true } : {})} /> : <Sidebar />}
         <main className="min-h-0 overflow-hidden">{children}</main>
       </div>
       <div className="row-start-3">

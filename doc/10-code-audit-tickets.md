@@ -393,3 +393,14 @@ AUD-01（§3）为本轮独立发现，与豆包报告零重叠（其报告未�
 | WO-096 | 滚动条细窄化后仍常显（晚风："进度条为啥还在"） | thin 滑块恒可见——DSH 是 overlay 观感（平时隐形） | theme.css：scrollbar-color 默认全透明，悬停滚动区/其内聚焦才显淡滑块（浅 black/0.18 暗 white/0.22，轨道恒透明）；滚轮滚动时指针本在悬停态，滑块随显随隐 |
 
 **验收口径**：五弹层无框线只剩柔影；Composer 区无顶部分隔线；分段控件无框；空块不留白；回复完成即见操作行；全应用细滚动条；+/文件树并排且两浮层互斥。现场走查留豆包下一轮。
+## 15. 第五轮全功能深度测试（round-5，豆包）
+
+> 报告：`docs/audit/round5/round5-test-report.md`（PR #29 已合并 ae376c1）。2497 passed / 4 skipped；Web 全功能（欢迎/会话/审批三按钮+拒绝二次确认/停止/@补全//命令/+菜单/语音降级/搜索/自动化/设置全子页含阶段十九电脑控制页）、移动端视口、重叠专项、CLI、官网逐项点验通过，round3/4 闭环项无回退。
+
+| 编号 | 优先级 | 问题 | 状态 |
+| --- | --- | --- | --- |
+| P1-1 | P1 | ComputerSettingsPage 单测确定性失败——测试-实现契约漂移：effect 内联进 description 文本节点（`${a.desc} · ${effect}`），`getAllByText('缺省逐次询问')` 按独立节点精确匹配必失配；页面渲染本身正常 | **已修**（并行会话 4968fb0：档位断言改正则子串匹配，语义 8 行不变） |
+| WO-097 | P2 | 审计日志工具过滤大小写敏感——占位符示例即小写 `bash`，过滤必落空（engine audit/log.ts `e.tool !== query.tool` 精确比较） | **已修**（本批）：过滤 toLowerCase 两边归一（round5 P2-2） |
+| WO-098 | P2 | 375px 设置页双栏挤压——`/settings/*` 恒 264px 侧栏，内容列 ~175px、描述逐字竖排 | **已修**（本批）：AppShell 窄视口一次性判定（<640，同 WO-087 一次性缺省口径）+ SettingsSidebar `compact` 变体——设置导航转顶部横滚 chip 条（返回+页面平铺、active bg-secondary、status 点保留），内容列独占全宽；桌面/iPad 双栏不变（round5 P2-3） |
+
+**观察项登记（均非缺陷）**：OBS-1 engine 并行套件偶发 `write EPIPE`（vscode-jsonrpc LSP 子进程 teardown，单跑干净 725 断言全过）；OBS-2 `spark -p` 未导 `STEP_PLAN_API_KEY` 返回空（密钥注入前置）；OBS-3 TUI 偶现「目标不存在」（临时 root + 会话引用同步，复现稳定再查）。**复测归 round6**。
