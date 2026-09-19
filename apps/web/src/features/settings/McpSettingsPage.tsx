@@ -21,6 +21,7 @@ interface ServerDraft {
   command: string
   args: string // 每行一个参数（表单友好；保存时 split）
   env: string // 每行 KEY=VALUE
+  connectTimeoutMs: string // 可选；空 = 引擎缺省 30000ms（RT3-04：npx 冷启动可按 server 调大）
 }
 
 function draftOf(name: string, command: string, args: string[], env: Record<string, string>): ServerDraft {
@@ -31,6 +32,7 @@ function draftOf(name: string, command: string, args: string[], env: Record<stri
     env: Object.entries(env)
       .map(([k, v]) => `${k}=${v}`)
       .join('\n'),
+    connectTimeoutMs: '',
   }
 }
 
@@ -75,10 +77,23 @@ export function McpSettingsPage() {
       }
       env[t.slice(0, eq)] = t.slice(eq + 1)
     }
+    const timeoutRaw = d.connectTimeoutMs.trim()
+    let connectTimeoutMs: number | undefined
+    if (timeoutRaw !== '') {
+      const n = Number(timeoutRaw)
+      if (!Number.isInteger(n) || n <= 0 || n > 600_000) {
+        setOpError('连接超时须为 1~600000 的整数毫秒')
+        return
+      }
+      connectTimeoutMs = n
+    }
     await run(async () => {
       // 单 server 编辑语义：替换同名项，保留其余（GET 状态表拿全名单——command 回填用列表）
       const existing = (servers ?? []).filter((s) => s.name !== d.name.trim())
-      const serversBody: Record<string, { command: string; args?: string[]; env?: Record<string, string> }> = {}
+      const serversBody: Record<
+        string,
+        { command: string; args?: string[]; env?: Record<string, string>; connectTimeoutMs?: number }
+      > = {}
       for (const s of existing) {
         serversBody[s.name] = { command: s.command }
       }
@@ -86,6 +101,7 @@ export function McpSettingsPage() {
         command: d.command.trim(),
         ...(args.length > 0 ? { args } : {}),
         ...(Object.keys(env).length > 0 ? { env } : {}),
+        ...(connectTimeoutMs !== undefined ? { connectTimeoutMs } : {}),
       }
       await transport.updateMcpConfig({ version: 1, servers: serversBody })
       setRestartHint(true) // 运行中改动需重启重连——如实标注（禁假状态：状态点不变）
@@ -192,6 +208,13 @@ export function McpSettingsPage() {
               placeholder={'env（每行 KEY=VALUE，可留空；值只进不回显）'}
               rows={2}
               className="font-mono text-xs"
+            />
+            <Input
+              value={draft.connectTimeoutMs}
+              onChange={(e) => setDraft({ ...draft, connectTimeoutMs: e.target.value })}
+              placeholder="连接超时毫秒（可留空 = 缺省 30000；npx 冷启动慢可调大）"
+              className="font-mono text-xs"
+              inputMode="numeric"
             />
             <div className="flex items-center gap-2">
               <Button variant="outline" disabled={busy} onClick={() => void save()}>

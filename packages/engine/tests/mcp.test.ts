@@ -61,6 +61,39 @@ describe('loadMcpConfig', () => {
     expect(cfg.servers['fs']).toEqual({ command: 'npx', args: ['-y', 'x'], env: { K: 'v' } })
   })
 
+  test('RT3-04：connectTimeoutMs 合法值透传，越界/非整数 → ConfigError', () => {
+    const dir = tempDir()
+    writeFileSync(
+      join(dir, 'mcp.json'),
+      JSON.stringify({
+        version: 1,
+        servers: { slow: { command: 'npx', connectTimeoutMs: 60_000 } },
+      }),
+      'utf8',
+    )
+    expect(loadMcpConfig(dir).servers['slow']?.connectTimeoutMs).toBe(60_000)
+    const dir2 = tempDir()
+    writeFileSync(
+      join(dir2, 'mcp.json'),
+      JSON.stringify({
+        version: 1,
+        servers: { bad: { command: 'npx', connectTimeoutMs: 600_001 } },
+      }),
+      'utf8',
+    )
+    expect(() => loadMcpConfig(dir2)).toThrow(ConfigError)
+    const dir3 = tempDir()
+    writeFileSync(
+      join(dir3, 'mcp.json'),
+      JSON.stringify({
+        version: 1,
+        servers: { bad2: { command: 'npx', connectTimeoutMs: 1.5 } },
+      }),
+      'utf8',
+    )
+    expect(() => loadMcpConfig(dir3)).toThrow(ConfigError)
+  })
+
   test('坏 JSON / 缺 command → ConfigError', () => {
     const dir = tempDir()
     writeFileSync(join(dir, 'mcp.json'), '{oops', 'utf8')

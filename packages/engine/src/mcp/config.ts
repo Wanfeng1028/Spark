@@ -12,6 +12,8 @@ export interface McpServerConfig {
   command: string
   args?: string[] | undefined
   env?: Record<string, string> | undefined
+  /** 单 server 连接超时毫秒（RT3-04）：npx 冷启动可超缺省 30s，按 server 覆盖 */
+  connectTimeoutMs?: number | undefined
 }
 
 export interface McpConfig {
@@ -26,6 +28,7 @@ const mcpSchema = z.object({
       command: z.string().min(1),
       args: z.array(z.string()).optional(),
       env: z.record(z.string().min(1), z.string()).optional(),
+      connectTimeoutMs: z.number().int().positive().max(600_000).optional(),
     }),
   ),
 })

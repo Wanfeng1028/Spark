@@ -46,7 +46,10 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
     }
     try {
       writeMcpConfig(engine.dataRoot, {
-        servers: body.servers as Record<string, { command: string; args?: string[]; env?: Record<string, string> }>,
+        servers: body.servers as Record<
+          string,
+          { command: string; args?: string[]; env?: Record<string, string>; connectTimeoutMs?: number }
+        >,
       })
     } catch (err) {
       // zod 校验失败（ConfigError）→ 400 人话（坏配置不落盘——工单 12.6 验收）

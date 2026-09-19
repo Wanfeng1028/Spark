@@ -180,7 +180,7 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 
 ### D16 MCP 工具 = ToolRegistry 一等公民，同一管线一视同仁（2026-08-25，阶段五工单 5.3）
 
-决策：外部 MCP server 经 `~/.spark/mcp.json`（可选；version 1 + servers 表，stdio transport）声明。引擎构造时 `McpManager` 逐 server 连接（spawn + initialize + listTools，10s 墙钟上限）并把每个工具包成 `ToolDefinition` 注册进**同一 ToolRegistry**——命名 `mcp__<server>__<tool>`（register 重复名抛错兜底与内置冲突）、审批 `action=mcp.call` + `resource=<server>/<tool>`（默认 ask，permissions.json 三态规则照常生效）、`parallelizable=false`（外部进程副作用不透明，串行 barrier）、inputSchema 用 `z.fromJSONSchema`（materialize 的 toJSONSchema 往返已实证）。限界/溢写/事件纪律由管线免费复用——外部工具与内置四工具零差别路径。server 入口 `await engine.ready()` 后才 listen；shutdown 关闭全部子进程。
+决策：外部 MCP server 经 `~/.spark/mcp.json`（可选；version 1 + servers 表，stdio transport）声明。引擎构造时 `McpManager` 逐 server 连接（spawn + initialize + listTools，缺省 30s 墙钟上限——RT3-04 由 10s 上调（npx 冷启动普遍超 10s），per-server `connectTimeoutMs` 可覆盖、上限 600s）并把每个工具包成 `ToolDefinition` 注册进**同一 ToolRegistry**——命名 `mcp__<server>__<tool>`（register 重复名抛错兜底与内置冲突）、审批 `action=mcp.call` + `resource=<server>/<tool>`（默认 ask，permissions.json 三态规则照常生效）、`parallelizable=false`（外部进程副作用不透明，串行 barrier）、inputSchema 用 `z.fromJSONSchema`（materialize 的 toJSONSchema 往返已实证）。限界/溢写/事件纪律由管线免费复用——外部工具与内置四工具零差别路径。server 入口 `await engine.ready()` 后才 listen；shutdown 关闭全部子进程。
 理由：工具管线（审批/限界/溢写/事件）是本仓库引擎铁律的核心资产，任何绕过管线的外挂工具通道（独立调用路径、独立审批 UI）都会制造第二事实源；schema 往返（JSON Schema ↔ zod）打通后 MCP 工具对模型就是普通工具。
 否决备选：① 按 server 独立聚合层（McpToolGateway 旁路管线）——重复实现审批与限界，违反"一视同仁"验收语义；② HTTP/SSE transport 一并支持——本地 stdio 是 MCP 主流形态（npx 一行拉起），远程 server 排期到有真实诉求（§9.1 配置化膨胀警戒）。
 失败闭合：单 server 连接失败只 warn 跳过（该 server 工具不注册，引擎照常启动）；工具调用失败 `E_MCP_CALL`；turn 中断 `E_ABORTED`。依据：doc/02 §8 阶段五工单 5.3；@modelcontextprotocol/sdk 1.30.0（Client/StdioClientTransport/InMemoryTransport）。

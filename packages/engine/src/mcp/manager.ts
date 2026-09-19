@@ -20,8 +20,10 @@ import type { ToolDefinition } from '../tools/definition.js'
 import type { ToolRegistry } from '../tools/registry.js'
 import type { McpConfig, McpServerConfig } from './config.js'
 
-/** 单 server 连接（spawn + initialize + listTools）的墙钟上限；超时关进程跳过 */
-const CONNECT_TIMEOUT_MS = 10_000
+/** 单 server 连接（spawn + initialize + listTools）的墙钟上限；超时关进程跳过。
+ * RT3-04：10s → 30s 缺省——npx 冷启动（首次拉包）普遍超 10s；个别 server 可经
+ * mcp.json `connectTimeoutMs` 覆盖（上限 600s，zod 校验） */
+const CONNECT_TIMEOUT_MS = 30_000
 
 /** listTools 条目中引擎消费的字段（SDK 类型宽，收敛成窄形状） */
 interface McpToolInfo {
@@ -120,7 +122,7 @@ export class McpManager {
                 ...(cfg.args !== undefined ? { args: cfg.args } : {}),
                 ...(cfg.env !== undefined ? { env: cfg.env } : {}),
               })
-        await withTimeout(client.connect(transport), CONNECT_TIMEOUT_MS, name)
+        await withTimeout(client.connect(transport), cfg.connectTimeoutMs ?? CONNECT_TIMEOUT_MS, name)
         const listed = await client.listTools()
         for (const tool of listed.tools as McpToolInfo[]) {
           registry.register(makeMcpToolDef(name, tool, client, this.deps.toolTimeoutMs))

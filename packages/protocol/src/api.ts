@@ -851,7 +851,10 @@ export type TranscribeResultDto = z.infer<typeof TranscribeResultDtoSchema>
 /** MCP 服务器配置条目（PUT /api/mcp body 形状；与 ~/.spark/mcp.json 同构） */
 export interface McpConfigInput {
   version: 1
-  servers: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>
+  servers: Record<
+    string,
+    { command: string; args?: string[]; env?: Record<string, string>; connectTimeoutMs?: number }
+  >
 }
 
 /**
