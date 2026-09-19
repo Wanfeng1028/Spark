@@ -59,7 +59,9 @@ function defaultTransport(name: string, cfg: McpServerConfig): Transport {
         ...(cfg.headers !== undefined ? { headers: cfg.headers } : {}),
       },
     }
-    return new StreamableHTTPClientTransport(new URL(cfg.url), opts)
+    // SDK 1.30 d.ts 在 exactOptionalPropertyTypes 下类与 Transport 接口可选成员失配——
+    // 运行时同源实现，显式断言收口（错配仅为类型层，无行为差异）
+    return new StreamableHTTPClientTransport(new URL(cfg.url), opts) as Transport
   }
   if (cfg.command === undefined) {
     throw new Error(`MCP server ${name} 配置缺 command（stdio transport 必填）`)
