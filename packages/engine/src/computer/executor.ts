@@ -106,7 +106,7 @@ export function createComputerExecutor(shotsDir: string): ComputerExecutor {
 }
 
 /** 其余平台（freebsd 等）的如实降级（fail-closed，不假装可执行） */
-export class UnsupportedComputerExecutor implements ComputerExecutor {
+class UnsupportedComputerExecutor implements ComputerExecutor {
   constructor(private readonly platform: string) {}
 
   screenshot(): Promise<ComputerScreenshotResult> {
