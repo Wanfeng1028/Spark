@@ -1,6 +1,6 @@
 {
   "name": "@spark/skill-kit",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "license": "MIT",
   "type": "module",
   "description": "Spark 技能创作套件（工单 15.3）：skill.json 骨架生成（init）与清单校验（lint）——D18 声明式边界的作者体验层",

@@ -50,6 +50,7 @@
 | v1.48 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D40 /trust 文件夹信任（工单 16.4，Q-6 经"全部做完"授权确认）与 D41 /extensions 扩展管理（工单 16.5）**：D40——evaluateAll 后处理压 allow（deny/ask 不变，收紧审批而非扩权）、祖先链深匹配顺序无关、不引锁；D41——声明式内容包不执行代码（D18）、symlink 逃逸拒载、settings 名单启停（D36 同构）、清单热可见装配重启生效。命令基线 20→22（/trust、/extensions）。与 doc/02 v4.46、AGENTS v1.45、README v1.39、doc/08 v1.46 同批（D40/D41 顺延现表末张 D39——15.1 先行占用） |
 | v1.49 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"工单要全部做完"指令） | **新增 D42 /arena 多模型竞答（工单 16.8）**：InProcess 子会话（createSession parentId+model）+ git worktree 零拷贝隔离 + 快照端点（零新事件——竞答是用户在场交互非可回放状态）；胜者应用整体一次 fs.write 审批（删除类跳过登记——§2.10 禁删含应用路径）；simple-git 新依赖（MIT，规格指定）。命令基线 22→23（/arena action）。**同批实修 loadConfig 组装漏透传 agents/extensions 段真 bug**（16.2/16.5 重启档失效，D36/D41 补勘误）。与 doc/02 v4.48、AGENTS v1.47、README v1.41、doc/08 v1.48 同批 |
 | v1.50 | 2026-09-19 | AI 编写：ZCode · Union Alpha；发起与拍板：晚风（Wanfeng1028，"我需要 dsh 的对话框改造，把相应的文档改一下"指令） | **新增 D43 web 对话框 DSH 形态对齐（DESIGN §13.L v2.19 同批）**：晚风拍板采纳 DSH 对话框改造（推翻审查批次 doc/10 v1.1 的整体退回判决），规格唯一来源 DESIGN §13.L；**D32 不变项清单按域修订**——圆角封闭集新增 22px/14px（web 对话框域）、会话域字号 13→14px、新增 `--send-accent`/`--user-bubble` 点睛色豁免（DESIGN §12.1）与流式 sweep 动效豁免（§6）；范围仅 apps/web 会话域，CLI/mobile/miniapp 不适用；**本期不做**：审批接管/Lexical/TurnRail/StatsPills/英文 shimmer。实现工单=docs/audit/dialog-redesign-workorder.md WO-052~078 过滤后执行（豆包） |
+| v1.51 | 2026-09-19 | AI 编写：ZCode · Union Alpha；拍板：晚风（Wanfeng1028） | **三项人类决策落地登记**：① 两张 D28 重号判决——永久维持双编号 + 主题消歧（两处消歧注记与 D29~D33 各尾注同步改写为已判决口径，历史版本行不动）；② 发布准备启动（WO-015/G7 均拍板冻结保留不删）：apps/server 打包链路修复——pi-ai/pino 非 server 直接依赖，external 在发布形态必解析失败（回归报告发现③），改入 bundle 并加 scripts/check-dist.mjs 自校验（照 CLI server bundle 判例）；③ 版本 1.0.0：五公开包（protocol/engine/sdk/cli/skill-kit）同版本 bump + CHANGELOG 1.0.0 节，tag v1.0.0 触发 release.yml |
 
 ---
 
@@ -269,7 +270,7 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 
 ### D28 LLM 出网代理 = 方案 A per-provider ProxyAgent（2026-09-06，阶段十二工单 12.9）
 
-> **重号消歧**：与上文 D28（设置读写 API，10.20 B，先立）重号——本张为后立。引用建议以主题区分（"D28 出网代理"）；编号改判留待人类（历史行不动）。
+> **重号消歧**：与上文 D28（设置读写 API，10.20 B，先立）重号——本张为后立。引用建议以主题区分（"D28 出网代理"）；编号改判留待人类（历史行不动）。**已判决（2026-09-19，晚风）**：永久维持双编号 + 主题消歧，不合并不改号。
 
 **调研结论**：pi-ai `ProviderRequestOptions.fetch?: FetchFunction` 原生支持 per-request fetch 注入（各 provider adapter 统一走该面）——**方案 A 成立**，无需方案 B（全局 setGlobalDispatcher 兜底）。
 
@@ -277,7 +278,7 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 
 ### D28 设置读写 API = GET|PUT /api/settings，热生效/重启两档策略（2026-09-01，阶段十工单 10.20 B；晚风已确认执行）
 
-> **重号消歧（2026-09-13，登记于 doc/02 v3.93 的缺陷的本仓内注记）**：本表现存两张 D28——本张（设置读写 API，10.20 B，先立）与下文 D28（LLM 出网代理，12.9，后立）。历史版本行不改写；正文引用时以主题区分（"D28 设置读写" / "D28 出网代理"），编号合并改判仍留待人类。
+> **重号消歧（2026-09-13，登记于 doc/02 v3.93 的缺陷的本仓内注记）**：本表现存两张 D28——本张（设置读写 API，10.20 B，先立）与下文 D28（LLM 出网代理，12.9，后立）。历史版本行不改写；正文引用时以主题区分（"D28 设置读写" / "D28 出网代理"），编号合并改判仍留待人类。**已判决（2026-09-19，晚风）**：永久维持双编号 + 主题消歧，不合并不改号。
 
 背景：设置中心的引擎行为类设置（压缩阈值/最大步数/工具超时/沙箱档/工具输出上限等）在 spark.json 有字段、无端点——doc/02 v3.4 遗留「沙箱读写分歧留决策」未结项；工单 10.20 B 新增 `GET|PUT /api/settings` 解锁；10.21 hooks 拍板并入同一端点的 `hooks` 字段（doc/02 v3.43），不单设 `GET /api/hooks`。
 候选：① 全部字段热生效——需把构造期注入的子系统（ToolExecutor/PermissionService/沙箱装配）重构为配置活引用，改动面大、收益仅四个低频字段；② 全部重启生效——压缩阈值/最大步数这类调参场景每次重启，体验差；③ **按引擎实际消费点分两档**——分类依据是代码事实而非期望。
@@ -299,7 +300,7 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 4. **投影层“逐字直通”的唯一例外**：§5.8.3 第 5 步禁止投影层二次加工（dsh framing is caller-owned）；蒸馏替换不算自创加工——替换文本本身就存在 `compaction.completed` 这个 durable 事件里，而非投影层凭空生成；surface 纪律（模型可见必被记录）双面成立。
 5. **失败闭合**：单条蒸馏失败 → 结构化 warn `compaction.distill.failed` + 不入表 = 降级为原文（pipeline 32KB 限界已生效），不推翻压缩；坏标记 → warn `compaction.kept_files.invalid`。蒸馏提示词 `DISTILL_PROMPT` **未纳入工单 13.3 的三键可配面**（要可配另立工单，doc/02 §5.11 可配性表已注明）。
 后果：protocol `compaction.completed` 增 `keptFiles?: string[]` 与 `distilled?: Record<CallId, string>` 两个**可选**字段（旧磁盘行与旧 wire 帧仍合法，round-trip 单测已钉）；词表计数不变（21 种）；engine compaction.ts 增 parseKeptFiles / distillKeptOutputs 与 logger 告警出口，projector.ts 增 applyDistillation 与摘要附加行；成本上界 = 每次压缩最多 8 次额外 generateOnce（各 500 tokens 上限）；四端 UI 零改动（两字段不进展示面；若未来要展示“本次压缩蒸馏 N 条”属另立工单）。
-编号注记：本 ADR 占用 **D29**（顺延现表末张）；doc/08 §5C 阶段十八 18.1 原预称的 D29 顺延为 **D30**。**已知缺陷待人类判决**：ADR 表现存两张 D28（LLM 出网代理 12.9 / 设置读写 API 10.20 B），登记于 doc/02 v3.93，本单不擅改历史行。
+编号注记：本 ADR 占用 **D29**（顺延现表末张）；doc/08 §5C 阶段十八 18.1 原预称的 D29 顺延为 **D30**。两张 D28 重号已判决（2026-09-19，晚风）：永久维持双编号 + 主题消歧。
 
 ### D30 SDK 包形态 = 薄装配层 + 双子入口（HTTP / InProcess），engine 为可选 peer（2026-09-09，阶段十四工单 14.3/14.4）
 
@@ -323,7 +324,7 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 4. **DTO 装配单一来源**：`SessionDto`/`TreeNodeDto` 的组装原本住在 apps/server（`toDto`/`treeToDto`）；InProcess 需要同一套装配，故把纯映射函数上提到 **engine 公共面**（`sessionMetaDtoOf`/`sessionDtoOf`/`sessionTreeToDto`，`packages/engine/src/dto.ts`）由 server 与 sdk 共用——**不拷第三份**（AGENTS §1.1 的漂移教训，阶段十七已抓到三例）。**落点修正（实现批发现，本张原文写的是"下沉 protocol"）**：protocol 的硬约束是**零依赖 engine**（AGENTS §1.1），而这些函数要读 engine 的 `SessionMeta`/`SessionTreeInfo` 形状——放 protocol 会倒转依赖；engine 本就是 DTO 的产地（`listModels(): ModelsDto`、`getSettings(): SettingsDto`、`listCommands(): CommandDto[]`），会话三件只是补齐同一层职责。
 5. **审批同一路径**：两通道的 `replyPermission` 最终都走 engine 的权限服务（HTTP 经 POST /api/permissions/reply，InProcess 直调 `engine.replyPermission`），fail-closed 语义（超时/异常一律拒绝）不因通道而变。
 后果：InProcess 让嵌入宿主（含 `spark -p`）省掉起 server 与端口占用；契约套件成为通道演进的常设回归网；`E_UNSUPPORTED` 进 doc/02 §5.10 错误码表；**engine 公共面增三个纯映射函数**（值导出 13 → 16，白名单不变量网与 doc/02 §4.6.2 裁决表同步；属 §4.6.1 的四端共享运行时类思路，走 §4.4 演进规则）；逐方法映射表见 doc/02 §4.7。
-编号注记：本两张 ADR 占 **D30/D31**（顺延现表末张 D29）；doc/08 §5C 阶段十八 18.1 原预称的 D30 顺延为 **D32**。**两张 D28 重号仍待人类判决**（登记于 doc/02 v3.93，不擅改历史行）。
+编号注记：本两张 ADR 占 **D30/D31**（顺延现表末张 D29）；doc/08 §5C 阶段十八 18.1 原预称的 D30 顺延为 **D32**。两张 D28 重号已判决（2026-09-19，晚风）：永久维持双编号 + 主题消歧。
 
 ### D32 web 观感 = 胶囊控件 + 分层大圆角卡（作废旧圆角封顶；2026-09-10，阶段十八工单 18.1 规格先行）
 
@@ -335,7 +336,7 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 3. **黑名单改口径不改词**：§12.8 的 `rounded-2xl`/`rounded-3xl` grep 行保留，命中后按档位判——16px（`rounded-2xl`）属登记的"大信息卡"档则放行，24px（`rounded-3xl`）超封顶一律违规；§12.4 的禁止项由"模板大圆角"改述为"**脱离 §13.B 登记档位**的大圆角"（判据是脱离档位，不是圆角大小）。
 4. **不变项（边界，全清单）**：密度体系不动（13px 基础字号 / sm28-md32-lg38 高度档 / 4-8px 网格）；会话流转录形态不动（§13.H：user 行气泡、assistant 与工具/思考/审批块左锚全宽，不 IM 化）；禁渐变 / 禁阴影（分隔优先边框与留白）/ 禁毛玻璃 / mono 只给代码路径与工具输出 / 焦点环中性 / 单一 accent / 主按钮每屏至多一个——§12 其余各条全部照旧生效。
 后果：DESIGN v2.14 已按本张修订（§3 圆角行、§9 copy-in 行、§10 DoD 行、§12.4、§12.8 表与注记、§13.B 表与两条新增、§13.C 用户消息块行、§13.D 分组卡；验收口径 `rg "控件 6px" DESIGN.md` 零命中已自证）；AGENTS.md 不动（视觉规则唯一来源在 DESIGN，AGENTS §8 规则放置规范）；代码侧由阶段十八 18.2（八组件胶囊化）→ 18.3（补件 copy-in）→ 18.4（页面清扫）→ 18.5（收口走查）逐张落地，**本张不动一行代码**。
-编号注记：本 ADR 占 **D32**（顺延现表末张 D31；doc/08 §5C 18.1 原预称 D29，D29 已被工单 13.4 占用、D30/D31 已被 14.3/14.4 占用，故两次顺延——与 D30/D31 行注记一致）。**两张 D28 重号仍待人类判决**（登记于 doc/02 v3.93，本单不擅改历史行）。
+编号注记：本 ADR 占 **D32**（顺延现表末张 D31；doc/08 §5C 18.1 原预称 D29，D29 已被工单 13.4 占用、D30/D31 已被 14.3/14.4 占用，故两次顺延——与 D30/D31 行注记一致）。两张 D28 重号已判决（2026-09-19，晚风）：永久维持双编号 + 主题消歧。
 
 ### D33 /goal 持续目标循环 = 旁路 judge + 三护栏 + 合成续跑（2026-09-11，阶段十六工单 16.7）
 
@@ -348,7 +349,7 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 4. **事件语义**：goal.set / updated / completed / paused 四枚全 durable、非 surface——回放即重建状态（GoalRunner.rebuild 在会话装载单点重建；进程重启/回滚不丢目标）；目标文本进模型历史的唯一通道是合成续跑 user.message（surface 载体在那边）。
 5. **红线**：续跑 turn 与用户 turn 走完全相同的管线——审批、I/O 护栏、成本熔断、hooks 全部生效，goal 不提供任何旁路。
 后果：protocol 词表 22 → 26 种（六处计数同步）；RunLoopDeps 增可选 goal 端口（既有测试 stub 不受影响）；web StatusBar 增 goal 徽标（/goal status 的可见面）；MockTransport 增 /goal 对等分支（set/clear/status 事件语义）。eval 验收留 16.7 验收段（小目标 2-3 轮完成）由 ScriptedLlm 测试覆盖（packages/engine/tests/goals.test.ts）。
-编号注记：本 ADR 占 **D33**（顺延现表末张 D32）。**两张 D28 重号仍待人类判决**（登记于 doc/02 v3.93，本单不擅改历史行）。
+编号注记：本 ADR 占 **D33**（顺延现表末张 D32）。两张 D28 重号已判决（2026-09-19，晚风）：永久维持双编号 + 主题消歧。
 
 ### D34 /voice 语音听写 = 引擎侧转写 + SSRF 硬门 + 音频不落盘（2026-09-11，阶段十六工单 16.6）
 

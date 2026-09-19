@@ -1,6 +1,6 @@
 {
   "name": "@spark/sdk",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "license": "MIT",
   "type": "module",
   "description": "Spark 薄客户端 SDK（L2 层，工单 14.3/14.4）：两个子入口——`.`（HTTP，零 engine 依赖）与 `./inprocess`（进程内直连引擎，engine 为 optional peer）；均为装配 + 便利分组，零业务逻辑",
