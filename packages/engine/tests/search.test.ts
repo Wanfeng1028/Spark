@@ -169,7 +169,6 @@ describe('SearchStore（~/.spark/search.db：FTS5 trigram + LIKE 降级）', () 
     expect(store.search('内容行 150', 10)).toEqual([])
     store.close()
   })
-})
 
   test('千事件检索 <500ms（DoD 性能线）', () => {
     const store = new SearchStore(join(tempDir(), 'search.db'))
