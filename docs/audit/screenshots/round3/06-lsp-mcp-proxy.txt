@@ -1,0 +1,15 @@
+=== ⑥ LSP 真实 server ===
+lsp.json: {  "version": 1,  "languages": {    "typescript": {      "command": "npx",      "args": ["--yes", "typescript-language-server", "--stdio"]    },    "javascript": {      "command": "npx",      "args": 
+tsserver(本地): /opt/vm/preinstall/npm-global/bin/tsserver
+npx typescript-language-server: 6.0.0
+结论: v6.0.0 可启动，配置层 OK（完整诊断触发需在带模型的会话内验证）
+
+=== ⑦ MCP 外配实调 ===
+mcp.json: filesystem -> npx -y @modelcontextprotocol/server-filesystem /tmp
+包版本: 2026.8.31
+engine.log: MCP server filesystem 连接超时（10000ms） — 与上轮一致，npx 冷启动仍超 10s
+
+=== ⑧ 代理实流验证 ===
+代理: http://proxy-sid-45253735:@vortex-3e0s8vctxbmdc6uqpftnfzswr.vortexip.cn-beijing2.volces.com:8080
+unset 代理后真实模型 E2E: 正常返回（见 04-real-model-e2e.txt）
+带代理跑 oneshot: 空输出（模型请求未返回）— undici 代理兼容问题仍在
