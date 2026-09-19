@@ -124,7 +124,8 @@ describe('Composer 审批挂起（waiting）态', () => {
   it('输入禁用、无分段控件、提示等待审批；Enter 不发送', () => {
     const { onSend } = renderComposer({ waiting: true })
     expect(textarea().disabled).toBe(true)
-    expect(screen.getByText('等待审批中——请先处理上方审批卡')).toBeTruthy()
+    // §13.L L.1：无常驻提示行，等待提示改由 textarea 占位符承载（DSH 二批）
+    expect(screen.getByPlaceholderText('等待审批中——请先处理上方审批卡')).toBeTruthy()
     expect(screen.queryByRole('radiogroup')).toBeNull()
     fireEvent.keyDown(textarea(), { key: 'Enter' })
     expect(onSend).not.toHaveBeenCalled()
