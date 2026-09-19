@@ -3,10 +3,12 @@
  * （server 名/command/args/env 脱敏显示）+ PUT /api/mcp 整文件原子写。
  * 运行中改动需重启引擎重连生效——保存后如实标注"重启后生效"（禁假状态）。
  * env 值只进不回（PUT 后回显不回填明文——脱敏同 secrets 纪律）。
+ * RT3-07：保存/停用以 GET /api/mcp/config 读回（env 值掩码）为底——未编辑 server
+ * 原样保留（不再从状态表重建而丢 args/env）；编辑项 env 掩码行由引擎合并盘上真值。
  */
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
-import type { McpServerDto } from '@spark/protocol'
+import { MCP_ENV_MASK, type McpServerDto } from '@spark/protocol'
 import { Button } from '@/components/ui/button'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
@@ -39,6 +41,10 @@ function draftOf(name: string, command: string, args: string[], env: Record<stri
 export function McpSettingsPage() {
   const { transport } = useTransport()
   const { data: servers, error, refresh } = useTransportQuery((t) => t.listMcpServers())
+  // RT3-07：mcp.json 读回（env 值掩码）——整文件保存/停用的底表
+  const { data: mcpConfig, error: configError, refresh: refreshConfig } = useTransportQuery((t) =>
+    t.getMcpConfig(),
+  )
   const [draft, setDraft] = useState<ServerDraft | null>(null)
   const [restartHint, setRestartHint] = useState(false)
   const { busy, opError, setOpError, run } = useAsyncOp()
@@ -47,12 +53,18 @@ export function McpSettingsPage() {
     if (servers === null) return
     // 全量编辑：所有 server 汇成一个草稿表单的第一项不可行——按单 server 逐个编辑；
     // 这里取第一个 server 作为草稿起点（无 server 时 = 新增空白）。多 server 逐条编辑。
+    // RT3-07：args/超时从配置读回预填；env 只回显 key，值以掩码占位（保存时引擎合并原值）
     const first = servers[0]
-    setDraft(
-      first === undefined
-        ? { name: '', command: '', args: '', env: '', connectTimeoutMs: '' }
-        : draftOf(first.name, first.command, [], {}),
-    )
+    if (first === undefined) {
+      setDraft({ name: '', command: '', args: '', env: '', connectTimeoutMs: '' })
+      return
+    }
+    const entry = mcpConfig?.servers[first.name]
+    const maskedEnv = Object.fromEntries(Object.keys(entry?.env ?? {}).map((k) => [k, MCP_ENV_MASK]))
+    setDraft({
+      ...draftOf(first.name, first.command, entry?.args ?? [], maskedEnv),
+      connectTimeoutMs: entry?.connectTimeoutMs !== undefined ? String(entry.connectTimeoutMs) : '',
+    })
   }
 
   async function save(): Promise<void> {
@@ -88,16 +100,12 @@ export function McpSettingsPage() {
       connectTimeoutMs = n
     }
     await run(async () => {
-      // 单 server 编辑语义：替换同名项，保留其余（GET 状态表拿全名单——command 回填用列表）
-      const existing = (servers ?? []).filter((s) => s.name !== d.name.trim())
-      const serversBody: Record<
-        string,
-        { command: string; args?: string[]; env?: Record<string, string>; connectTimeoutMs?: number }
-      > = {}
-      for (const s of existing) {
-        serversBody[s.name] = { command: s.command }
-      }
-      serversBody[d.name.trim()] = {
+      // RT3-07：以配置读回为底做整文件保存——未编辑 server 原样保留（含 args/env/超时），
+      // 编辑项 env 中的掩码行由引擎合并盘上真值（掩码不是值）
+      const name = d.name.trim()
+      const serversBody = { ...(mcpConfig?.servers ?? {}) }
+      delete serversBody[name]
+      serversBody[name] = {
         command: d.command.trim(),
         ...(args.length > 0 ? { args } : {}),
         ...(Object.keys(env).length > 0 ? { env } : {}),
@@ -107,23 +115,26 @@ export function McpSettingsPage() {
       setRestartHint(true) // 运行中改动需重启重连——如实标注（禁假状态：状态点不变）
       setDraft(null)
       await refresh()
+      await refreshConfig()
     })
   }
 
   async function removeServer(name: string): Promise<void> {
     await run(async () => {
-      const existing = (servers ?? []).filter((s) => s.name !== name)
-      const serversBody: Record<string, { command: string }> = {}
-      for (const s of existing) serversBody[s.name] = { command: s.command }
+      // RT3-07：以配置读回为底删除——其余 server 原样保留（不再从状态表重建丢字段）
+      const serversBody = { ...(mcpConfig?.servers ?? {}) }
+      delete serversBody[name]
       await transport.updateMcpConfig({ version: 1, servers: serversBody })
       setRestartHint(true)
       setDraft(null)
       await refresh()
+      await refreshConfig()
     })
   }
 
   if (error !== null) return <p className="text-xs text-destructive">{error}</p>
-  if (servers === null) return <p className="text-xs text-muted-foreground">加载中…</p>
+  if (configError !== null) return <p className="text-xs text-destructive">{configError}</p>
+  if (servers === null || mcpConfig === null) return <p className="text-xs text-muted-foreground">加载中…</p>
 
   return (
     <div className="flex flex-col gap-3">
@@ -205,7 +216,7 @@ export function McpSettingsPage() {
             <Textarea
               value={draft.env}
               onChange={(e) => setDraft({ ...draft, env: e.target.value })}
-              placeholder={'env（每行 KEY=VALUE，可留空；值只进不回显）'}
+              placeholder={'env（每行 KEY=VALUE，可留空；值只进不回显——已有项回显为 KEY=__SPARK_KEEP__，保存时保留原值）'}
               rows={2}
               className="font-mono text-xs"
             />

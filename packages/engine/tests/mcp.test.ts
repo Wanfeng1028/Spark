@@ -15,10 +15,16 @@ import { z } from 'zod'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { ids, type SparkEventEnvelope } from '@spark/protocol'
+import { MCP_ENV_MASK } from '@spark/protocol'
 import { EventBus, type EventSink } from '../src/bus.js'
 import { ConfigError } from '../src/config.js'
 import { ZERO_USAGE } from '../src/llm-gateway.js'
-import { loadMcpConfig } from '../src/mcp/config.js'
+import {
+  loadMcpConfig,
+  maskMcpConfigForClient,
+  mergeMaskedMcpConfig,
+  type McpConfig,
+} from '../src/mcp/config.js'
 import { McpManager, mcpToolName } from '../src/mcp/manager.js'
 import { PermissionServiceImpl } from '../src/permission/service.js'
 import { UserRuleStore } from '../src/permission/store.js'
@@ -105,6 +111,70 @@ describe('loadMcpConfig', () => {
       'utf8',
     )
     expect(() => loadMcpConfig(dir2)).toThrow(ConfigError)
+  })
+})
+
+// ---- RT3-07：配置读回掩码与 PUT 合并（server 路由与 sdk inprocess 共用装配） ----
+
+describe('maskMcpConfigForClient / mergeMaskedMcpConfig（RT3-07）', () => {
+  const withEnv: McpConfig = {
+    servers: {
+      fs: {
+        command: 'npx',
+        args: ['-y', 'x'],
+        env: { GITHUB_TOKEN: 'ghp_real_secret', K: 'v' },
+        connectTimeoutMs: 45_000,
+      },
+      bare: { command: 'node' },
+    },
+  }
+
+  test('读回掩码：env 值一律占位（明文不出引擎），args/超时原样，无 env 不出 env 键', () => {
+    const masked = maskMcpConfigForClient(withEnv)
+    expect(masked.version).toBe(1)
+    expect(masked.servers['fs']).toEqual({
+      command: 'npx',
+      args: ['-y', 'x'],
+      env: { GITHUB_TOKEN: MCP_ENV_MASK, K: MCP_ENV_MASK },
+      connectTimeoutMs: 45_000,
+    })
+    expect(masked.servers['bare']).toEqual({ command: 'node' })
+    expect(JSON.stringify(masked)).not.toContain('ghp_real_secret')
+  })
+
+  test('合并：掩码 → 盘上真值，明文 → 原样，其余字段以 incoming 为准', () => {
+    const merged = mergeMaskedMcpConfig(withEnv, {
+      version: 1,
+      servers: {
+        fs: {
+          command: 'npx',
+          args: ['-y', 'x'],
+          env: { GITHUB_TOKEN: MCP_ENV_MASK, K: 'new-v' },
+          connectTimeoutMs: 45_000,
+        },
+      },
+    })
+    expect(merged.servers['fs']).toEqual({
+      command: 'npx',
+      args: ['-y', 'x'],
+      env: { GITHUB_TOKEN: 'ghp_real_secret', K: 'new-v' },
+      connectTimeoutMs: 45_000,
+    })
+  })
+
+  test('合并：掩码占位无既有真值（新 server/新 key）→ ConfigError 拒写', () => {
+    expect(() =>
+      mergeMaskedMcpConfig(withEnv, {
+        version: 1,
+        servers: { fresh: { command: 'node', env: { N: MCP_ENV_MASK } } },
+      }),
+    ).toThrow(ConfigError)
+    expect(() =>
+      mergeMaskedMcpConfig(withEnv, {
+        version: 1,
+        servers: { fs: { command: 'npx', env: { NEW_KEY: MCP_ENV_MASK } } },
+      }),
+    ).toThrow(ConfigError)
   })
 })
 

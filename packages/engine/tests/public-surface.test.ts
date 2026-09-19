@@ -29,6 +29,9 @@ const PUBLIC_VALUES = [
   'buildTrace',
   'loadConfig',
   'loadMcpConfig',
+  // MCP 配置读回/掩码合并（RT3-07）：server 路由与 sdk inprocess 共用的装配纯函数
+  'maskMcpConfigForClient',
+  'mergeMaskedMcpConfig',
   'newIds',
   'resolveInRoot',
   // DTO 装配纯函数（工单 14.4 / ADR D31）：server 路由与 sdk 的 InProcessTransport 共用

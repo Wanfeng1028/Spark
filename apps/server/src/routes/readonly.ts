@@ -6,7 +6,7 @@ import { ExecuteCommandBodySchema } from '@spark/protocol'
 import { SettingsUpdateSchema, UsageSummaryQuerySchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
-import { writeMcpConfig } from '@spark/engine'
+import { loadMcpConfig, maskMcpConfigForClient, mergeMaskedMcpConfig, writeMcpConfig } from '@spark/engine'
 import { CommandNameParams, MemoryIdParams, AuditQuery, SearchQuery, ArtifactParams } from './shared.js'
 
 export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
@@ -38,21 +38,24 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
     return reply.send({ ok: true })
   })
 
-  /** PUT /api/mcp：整文件校验后原子写 mcp.json（工单 12.6；重启后生效——响应如实标注） */
+  /** PUT /api/mcp：整文件校验后原子写 mcp.json（工单 12.6；重启后生效——响应如实标注）。
+   * RT3-07：env 掩码占位经 mergeMaskedMcpConfig 合并盘上真值（掩码不是值，无真值 400） */
   app.put('/api/mcp', async (req, reply) => {
     const body = req.body as { version?: number; servers?: Record<string, unknown> } | undefined
     if (body === undefined || typeof body !== 'object' || body.version !== 1) {
       throw validationError('mcp 配置须为 {version: 1, servers: {...}}', undefined)
     }
     try {
-      writeMcpConfig(engine.dataRoot, {
+      const incoming = {
+        version: 1,
         servers: body.servers as Record<
           string,
           { command: string; args?: string[]; env?: Record<string, string>; connectTimeoutMs?: number }
         >,
-      })
+      }
+      writeMcpConfig(engine.dataRoot, mergeMaskedMcpConfig(loadMcpConfig(engine.dataRoot), incoming))
     } catch (err) {
-      // zod 校验失败（ConfigError）→ 400 人话（坏配置不落盘——工单 12.6 验收）
+      // zod 校验失败 / 掩码无既有真值（ConfigError）→ 400 人话（坏配置不落盘——12.6 验收）
       throw validationError(err instanceof Error ? err.message : String(err), undefined)
     }
     return reply.send({ ok: true, restartRequired: true })
@@ -62,6 +65,9 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
     // 纯内存读：各 server 连接结果快照（失败也列出 connected:false）
     return engine.listMcpServers()
   })
+
+  /** GET /api/mcp/config：mcp.json 读回（RT3-07）——env 值一律掩码占位，不明文出引擎 */
+  app.get('/api/mcp/config', () => maskMcpConfigForClient(loadMcpConfig(engine.dataRoot)))
 
   // 语言服务器只读状态（工单 16.9）：连接状态 + 诊断摘要（未配置空数组；坏配置 E_CONFIG 由全局映射）
   app.get('/api/lsp', () => engine.listLspServers())

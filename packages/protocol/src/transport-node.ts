@@ -518,6 +518,11 @@ export class HttpTransport implements Transport {
     return this.req<McpServerDto[]>('/api/mcp')
   }
 
+  /** GET /api/mcp/config：mcp.json 读回（RT3-07；env 值一律 MCP_ENV_MASK 占位） */
+  getMcpConfig(): Promise<McpConfigInput> {
+    return this.req<McpConfigInput>('/api/mcp/config')
+  }
+
   listSkills(): Promise<SkillDto[]> {
     return this.req<SkillDto[]>('/api/skills')
   }

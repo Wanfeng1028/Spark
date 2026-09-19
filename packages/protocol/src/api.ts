@@ -848,7 +848,12 @@ export const TranscribeResultDtoSchema = z.strictObject({
 })
 export type TranscribeResultDto = z.infer<typeof TranscribeResultDtoSchema>
 
-/** MCP 服务器配置条目（PUT /api/mcp body 形状；与 ~/.spark/mcp.json 同构） */
+/** RT3-07：mcp.json 读回通道的 env 值占位符——值永不明文出引擎（12.6 只进不回显纪律），
+ * PUT 时引擎用盘上同 server 同 key 的真值替换占位（无真值 → 400 拒写，掩码不是值） */
+export const MCP_ENV_MASK = '__SPARK_KEEP__'
+
+/** MCP 服务器配置条目（PUT /api/mcp body 形状；与 ~/.spark/mcp.json 同构。
+ * RT3-07 读回通道 GET /api/mcp/config 复用同形状：env 值一律为 MCP_ENV_MASK 占位） */
 export interface McpConfigInput {
   version: 1
   servers: Record<

@@ -189,8 +189,12 @@ export interface Transport {
   listFs(sessionId: SessionId, path?: string): Promise<FsListDto>
   /** GET /api/sessions/:id/fs/tree?path=：递归文件树（工单 12.5；深度 ≤4 条目 ≤500） */
   listFsTree(sessionId: SessionId, path?: string): Promise<FsTreeDto>
-  /** PUT /api/mcp：整文件校验后原子写（工单 12.6；重启后生效——调用方如实提示） */
+  /** PUT /api/mcp：整文件校验后原子写（工单 12.6；重启后生效——调用方如实提示）。
+   * RT3-07：env 值为 MCP_ENV_MASK 占位 → 引擎合并盘上真值（掩码不是值，无真值 400） */
   updateMcpConfig(config: McpConfigInput): Promise<{ ok: true }>
+  /** GET /api/mcp/config：mcp.json 读回（RT3-07）——env 值一律 MCP_ENV_MASK 占位，
+   * 供管理页以完整配置为底做整文件保存（不再从状态表重建而丢 args/env） */
+  getMcpConfig(): Promise<McpConfigInput>
   /** POST /api/sessions/:id/attachments：上传图片（工单 12.2a；≤10MB image/* 白名单） */
   uploadAttachment(
     sessionId: SessionId,

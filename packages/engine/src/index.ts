@@ -45,6 +45,8 @@ export { resolveInRoot } from './tools/definition.js'
 export {
   loadMcpConfig,
   writeMcpConfig,
+  maskMcpConfigForClient,
+  mergeMaskedMcpConfig,
   type McpConfig,
   type McpServerConfig,
 } from './mcp/config.js'

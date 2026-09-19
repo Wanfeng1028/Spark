@@ -2,10 +2,12 @@
  * 会话归档与两段式删除路由单测（阶段十二工单 12.4）：
  * PUT /api/sessions/:id/archive（归档→默认列表消失→?archived=true 可见→恢复）；
  * DELETE /api/sessions/:id（缺 confirm 400 → confirm:true 204 + trash 落盘 → 列表消失）。
+ * 另：PUT /api/mcp（工单 12.6）与 GET /api/mcp/config 掩码读回/合并（RT3-07）。
  */
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { MCP_ENV_MASK } from '@spark/protocol'
 import { makeServer } from './helpers.js'
 
 type Json = Record<string, unknown>
@@ -143,6 +145,70 @@ describe('PUT /api/mcp（工单 12.6）', () => {
       method: 'PUT',
       url: '/api/mcp',
       payload: { version: 1, servers: { broken: { args: [] } } },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(existsSync(join(f.root, 'mcp.json'))).toBe(false)
+  })
+
+  it('RT3-07：GET /api/mcp/config 读回——env 值一律掩码占位，明文不出引擎', async () => {
+    const f = await makeServer()
+    await f.app.inject({
+      method: 'PUT',
+      url: '/api/mcp',
+      payload: {
+        version: 1,
+        servers: { filesystem: { command: 'npx', env: { GITHUB_TOKEN: 'ghp_real_secret' } } },
+      },
+    })
+    const res = await f.app.inject({ method: 'GET', url: '/api/mcp/config' })
+    expect(res.statusCode).toBe(200)
+    const cfg = jsonOf(res) as { version: number; servers: Record<string, Json> }
+    expect(cfg.version).toBe(1)
+    expect(cfg.servers['filesystem']).toEqual({
+      command: 'npx',
+      env: { GITHUB_TOKEN: MCP_ENV_MASK },
+    })
+    expect(res.body).not.toContain('ghp_real_secret')
+  })
+
+  it('RT3-07：PUT 掩码占位 → 引擎合并盘上真值落盘（掩码不覆盖真值）', async () => {
+    const f = await makeServer()
+    await f.app.inject({
+      method: 'PUT',
+      url: '/api/mcp',
+      payload: {
+        version: 1,
+        servers: { filesystem: { command: 'npx', env: { GITHUB_TOKEN: 'ghp_real_secret' } } },
+      },
+    })
+    // 客户端以读回为底改 args 后保存：env 值只有掩码占位
+    const ok = await f.app.inject({
+      method: 'PUT',
+      url: '/api/mcp',
+      payload: {
+        version: 1,
+        servers: {
+          filesystem: { command: 'npx', args: ['-y', 'pkg'], env: { GITHUB_TOKEN: MCP_ENV_MASK } },
+        },
+      },
+    })
+    expect(ok.statusCode).toBe(200)
+    const onDisk = JSON.parse(readFileSync(join(f.root, 'mcp.json'), 'utf8')) as {
+      servers: Record<string, Json>
+    }
+    expect(onDisk.servers['filesystem']?.env).toEqual({ GITHUB_TOKEN: 'ghp_real_secret' })
+    expect(onDisk.servers['filesystem']?.args).toEqual(['-y', 'pkg'])
+  })
+
+  it('RT3-07：掩码占位无既有真值（新 server）→ 400 不落盘', async () => {
+    const f = await makeServer()
+    const res = await f.app.inject({
+      method: 'PUT',
+      url: '/api/mcp',
+      payload: {
+        version: 1,
+        servers: { fresh: { command: 'npx', env: { N: MCP_ENV_MASK } } },
+      },
     })
     expect(res.statusCode).toBe(400)
     expect(existsSync(join(f.root, 'mcp.json'))).toBe(false)

@@ -1389,7 +1389,19 @@ export class MockTransport implements Transport {
 
   private readonly attachmentStore = new Map<string, { mime: string; bytes: Buffer }>()
 
-  /** 上传（mock 对等）：内存存储，返回 dto（缩略渲染走 objectURL 由调用方处理） */
+  /** GET /api/mcp/config（RT3-07 mock 对等）：返回与 listMcpServers 状态表同名的静态配置
+   * （mock 无 env 值可掩码；updateMcpConfig 不持久 → 读回恒为初始值，同"重启语义如实"口径） */
+  getMcpConfig(): Promise<McpConfigInput> {
+    this.assertNotDisposed()
+    return Promise.resolve({
+      version: 1,
+      servers: {
+        filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp/spark'] },
+        github: { command: 'npx' },
+      },
+    })
+  }
+
   /** PUT /api/mcp（工单 12.6 mock 对等）：内存无持久——重启后生效语义如实为不生效 */
   updateMcpConfig(_config: McpConfigInput): Promise<{ ok: true }> {
     return Promise.resolve({ ok: true })
@@ -1399,6 +1411,7 @@ export class MockTransport implements Transport {
     _sessionId: SessionId,
     file: { name: string; mime: string; bytes: Uint8Array },
   ): Promise<AttachmentDto> {
+    // 上传（mock 对等）：内存存储，返回 dto（缩略渲染走 objectURL 由调用方处理）
     const id = globalThis.crypto.randomUUID().replaceAll('-', '')
     const fileKey = id + '.' + (file.mime.split('/')[1] ?? 'png')
     this.attachmentStore.set(fileKey, { mime: file.mime, bytes: Buffer.from(file.bytes) })

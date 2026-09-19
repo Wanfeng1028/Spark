@@ -17,7 +17,16 @@
  * 依赖方向（ADR D30）：本文件是子入口 `@spark/sdk/inprocess`，`@spark/engine` 声明为
  * optional peerDependency——主入口 `.`（HTTP）零 engine 依赖，浏览器端永不牵连引擎依赖面。
  */
-import { buildTrace, sessionDtoOf, sessionMetaDtoOf, sessionTreeToDto, writeMcpConfig } from '@spark/engine'
+import {
+  buildTrace,
+  loadMcpConfig,
+  maskMcpConfigForClient,
+  mergeMaskedMcpConfig,
+  sessionDtoOf,
+  sessionMetaDtoOf,
+  sessionTreeToDto,
+  writeMcpConfig,
+} from '@spark/engine'
 import type { Engine, SessionHandle } from '@spark/engine'
 import { ids } from '@spark/protocol'
 import type {
@@ -380,9 +389,15 @@ export class InProcessTransport implements Transport {
 
   updateMcpConfig(config: McpConfigInput): Promise<{ ok: true }> {
     return this.sync(() => {
-      writeMcpConfig(this.engine.dataRoot, { servers: config.servers })
+      // RT3-07：env 掩码占位先合并盘上真值再整文件写（与 HTTP 通道同语义，装配单源 engine）
+      writeMcpConfig(this.engine.dataRoot, mergeMaskedMcpConfig(loadMcpConfig(this.engine.dataRoot), config))
       return { ok: true }
     })
+  }
+
+  /** GET /api/mcp/config 对等（RT3-07）：env 值一律 MCP_ENV_MASK 占位 */
+  getMcpConfig(): Promise<McpConfigInput> {
+    return this.sync(() => maskMcpConfigForClient(loadMcpConfig(this.engine.dataRoot)))
   }
 
   // ---------- 只读面 ----------
