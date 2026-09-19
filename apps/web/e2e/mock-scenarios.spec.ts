@@ -26,8 +26,14 @@ async function switchScenario(page: Page, name: string): Promise<void> {
 
 /** 虚拟列表未跟随到底时把会话流滚到底（审批卡/工具卡可能在渲染窗口外） */
 async function scrollToBottom(page: Page): Promise<void> {
-  const btn = page.getByRole('button', { name: '回到底部' })
-  if (await btn.isVisible()) await btn.click()
+  // 直滚 Virtuoso scroller——BackBottom 钮在流式 smooth 跟随期间随 atBottom 状态
+  // 闪现/消失，以它为点击目标存在"元素不稳定"竞态（CI run e3a3830 实测）；
+  // 程序化滚动后 atBottom 归位，与产品交互路径等价
+  await page
+    .locator('[data-virtuoso-scroller]')
+    .first()
+    .evaluate((el) => el.scrollTo({ top: el.scrollHeight }))
+  await page.waitForTimeout(300)
 }
 
 test.describe('mock 场景 normal：流式→审批挂起→允许→续播', () => {
