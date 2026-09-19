@@ -11,7 +11,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { proxyFetchFor, clearProxyAgents } from '../src/proxy-fetch.js'
 
 const undiciMock = vi.hoisted(() => ({
-  fetch: vi.fn(async () => ({ ok: true })),
+  // 无 await 的 async 箭头触发 require-await（lint 硬门，run 5cf0d4f）——用 Promise.resolve 表达
+  fetch: vi.fn(() => Promise.resolve({ ok: true })),
   agents: [] as string[],
 }))
 

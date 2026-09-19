@@ -50,7 +50,7 @@ export function McpSettingsPage() {
     const first = servers[0]
     setDraft(
       first === undefined
-        ? { name: '', command: '', args: '', env: '' }
+        ? { name: '', command: '', args: '', env: '', connectTimeoutMs: '' }
         : draftOf(first.name, first.command, [], {}),
     )
   }
