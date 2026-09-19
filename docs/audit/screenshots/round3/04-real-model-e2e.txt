@@ -1,0 +1,6 @@
+=== ④ 真实模型端到端（复测） ===
+$ node apps/cli/bin/spark.js -p '用一句话介绍你自己' --cwd /tmp/spark-e2e
+[provider] step-plan  baseUrl https://api.stepfun.com/step_plan/v1  model step-3.7-flash
+--- stdout ---
+我是一个AI助手，可以帮助你完成各种任务，包括文本处理、代码编写、信息检索和文件操作等。
+--- exit 0 (0=OK) ---

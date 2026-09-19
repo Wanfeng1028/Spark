@@ -1,0 +1,19 @@
+=== ① 移动端真机四场景 ===
+apps/mobile 存在（Expo/Taro 工程）
+adb: 未安装
+emulator: 未安装
+ANDROID_SDK: 无
+expo CLI: 未安装
+结论: Linux headless 无 Android SDK/模拟器/真机，无法走查
+
+=== ② 小程序开发者工具 ===
+apps/miniapp 存在（Taro 小程序工程）
+wechat-devtools: 未安装
+/opt/wechat*: 无
+结论: Linux 无微信开发者工具，无法走查
+
+=== ⑤ 语音真实链路 ===
+sox: 未安装
+arecord: 未安装
+/dev/snd: 无音频硬件
+结论: headless 无麦克风/无 sox，无法录音走查
