@@ -339,6 +339,10 @@ describe('真实语言服务器冒烟（CI 装工具后自动启用；本地无�
         diagnostics: Array<{ message: string }>
       }
       expect(Array.isArray(diag.diagnostics)).toBe(true)
+      // 收尾必须有序关闭连接（与上方夹具 e2e 同款）——否则测试进程退出时
+      // tsserver 的 stdio 仍在写，vscode-jsonrpc 抛 EPIPE unhandled rejection
+      // 使整个 run 红（CI run 6aa2941 实测的偶发 flake 根因）
+      await manager.shutdown()
     },
   )
 })
