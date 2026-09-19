@@ -1,18 +1,17 @@
 import * as React from "react";
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { BlurFade } from "@/components/magicui/blur-fade";
 import { buttonVariants } from "@/components/ui/button";
 import { LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 /**
- * QuickStartCTA — 页尾双栏起跑区（对标 x.ai "Choose how to get started" 两栏骨架，
- * DESIGN v2.29；zinc-950 暗带收尾，与 SessionDemo 暗带首尾呼应）。
- * 左栏=使用者路径，右栏=贡献者路径；每条 bullet 都是可核实事实（禁假状态 §5）：
- * - Node >=24：根 package.json engines；4318/回环：SPARK_DEFAULTS
- * - Mock 同构与 e2e：AGENTS §1.1 MockTransport 对等纪律、doc/06
- * - 契约用例/词表页生成物入库：工单 14.2/14.6（CI git diff 校同步）
- * 文案不焊箭头（§12.7 对按钮生效；此处 CTA 均为按钮故不带箭头）。
+ * QuickStartCTA — 页尾双栏起跑区（x.ai "Choose how to get started" 实拍同构，v2.31）：
+ * 巨字居中 + 两张浅灰大卡（bg-zinc-100），卡内=标题 + 描述 + 分隔线 + ✓ 清单 +
+ * 全宽 CTA（左=黑底胶囊，右=描边）——v2.30 的暗带版依实拍翻亮。
+ * 每条 bullet 都是可核实事实（禁假状态 §5）：Node >=24=根 engines；4318=SPARK_DEFAULTS；
+ * Mock 同构=AGENTS §1.1；生成物入库=工单 14.2/14.6。
  */
 
 interface StartPath {
@@ -22,6 +21,7 @@ interface StartPath {
   ctaLabel: string;
   ctaHref: string;
   ctaExternal: boolean;
+  primary: boolean;
 }
 
 const PATHS: readonly StartPath[] = [
@@ -37,6 +37,7 @@ const PATHS: readonly StartPath[] = [
     ctaLabel: "阅读快速上手",
     ctaHref: "/quickstart",
     ctaExternal: false,
+    primary: true,
   },
   {
     title: "先读源码与文档",
@@ -50,6 +51,7 @@ const PATHS: readonly StartPath[] = [
     ctaLabel: "浏览源码",
     ctaHref: LINKS.github,
     ctaExternal: true,
+    primary: false,
   },
 ];
 
@@ -57,41 +59,44 @@ export function QuickStartCTA(): React.JSX.Element {
   return (
     <section
       id="quickstart"
-      className="border-t border-zinc-800 bg-zinc-950 px-6 py-32"
+      className="scroll-mt-16 px-6 py-32"
       aria-labelledby="quickstart-heading"
     >
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <BlurFade delay={0}>
-          <header className="mx-auto max-w-2xl text-center">
-            <h2
-              id="quickstart-heading"
-              className="text-[30px] font-semibold tracking-tight text-zinc-50 sm:text-[38px]"
-            >
-              两条路，都在你自己的机器上
-            </h2>
-            <p className="mt-3 text-base text-zinc-400">
-              使用者一条命令进 TUI；贡献者从协议包读起。没有云端依赖，也没有绕过本机的路径。
-            </p>
-          </header>
+          <h2
+            id="quickstart-heading"
+            className="text-center text-[36px] font-semibold tracking-tight text-zinc-900 sm:text-[52px]"
+          >
+            两条路，都在你自己的机器上
+          </h2>
         </BlurFade>
 
-        <div className="mt-14 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="mt-16 grid grid-cols-1 gap-4 md:grid-cols-2">
           {PATHS.map((path, index) => (
             <BlurFade key={path.title} delay={0.05 + index * 0.08} yOffset={16}>
-              <div className="flex h-full flex-col rounded-xl border border-zinc-800 bg-zinc-900 p-8">
-                <h3 className="text-lg font-semibold text-zinc-50">{path.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-400">{path.desc}</p>
-                <ul className="mt-6 flex flex-1 flex-col gap-3">
+              <div className="flex h-full flex-col rounded-2xl bg-zinc-100 p-8 sm:p-10">
+                <h3 className="text-2xl font-semibold tracking-tight text-zinc-900">
+                  {path.title}
+                </h3>
+                <p className="mt-3 text-base leading-relaxed text-zinc-600">{path.desc}</p>
+
+                {/* 分隔线（x.ai 起跑卡同构：标题区与清单间一条 hairline） */}
+                <div aria-hidden="true" className="my-7 border-t border-zinc-200" />
+
+                <ul className="flex flex-1 flex-col gap-4">
                   {path.bullets.map((bullet) => (
-                    <li key={bullet} className="flex gap-3 text-sm text-zinc-300">
-                      <span aria-hidden="true" className="shrink-0 font-mono text-zinc-600">
-                        —
-                      </span>
+                    <li key={bullet} className="flex items-start gap-3 text-base text-zinc-700">
+                      <Check
+                        className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400"
+                        aria-hidden="true"
+                      />
                       {bullet}
                     </li>
                   ))}
                 </ul>
-                <div className="mt-8">
+
+                <div className="mt-10">
                   {path.ctaExternal ? (
                     <a
                       href={path.ctaHref}
@@ -99,7 +104,7 @@ export function QuickStartCTA(): React.JSX.Element {
                       rel="noopener noreferrer"
                       className={cn(
                         buttonVariants({ variant: "outline", size: "lg" }),
-                        "border-zinc-700 bg-transparent text-zinc-200 hover:bg-zinc-800 hover:text-zinc-50",
+                        "w-full rounded-full border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50",
                       )}
                     >
                       {path.ctaLabel}
@@ -107,7 +112,10 @@ export function QuickStartCTA(): React.JSX.Element {
                   ) : (
                     <Link
                       href={path.ctaHref}
-                      className={cn(buttonVariants({ size: "lg" }))}
+                      className={cn(
+                        buttonVariants({ variant: "default", size: "lg" }),
+                        "w-full rounded-full bg-zinc-900 text-white hover:bg-zinc-800",
+                      )}
                     >
                       {path.ctaLabel}
                     </Link>
@@ -118,7 +126,7 @@ export function QuickStartCTA(): React.JSX.Element {
           ))}
         </div>
 
-        <p className="mt-12 text-center font-mono text-xs text-zinc-500">
+        <p className="mt-14 text-center font-mono text-xs text-muted-foreground">
           MIT 许可 · 默认只监听 127.0.0.1 · 无云端依赖
         </p>
       </div>

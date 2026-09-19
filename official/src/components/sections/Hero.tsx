@@ -2,34 +2,76 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BlurText } from "@/components/animations/blur-text";
 import { buttonVariants } from "@/components/ui/button";
 import { LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 /**
- * Hero — x.ai 居中骨架 + Stripe 式品牌色（DESIGN v2.28 官网色彩豁免）。
- * 标题两行：第一行 CJK 逐字浮现（zinc-900），第二行「Agent 工作台」是全站唯一的
- * 渐变文字（indigo→sky 冷色系，非蓝紫 AI 渐变，§12.1 官网豁免处）。
- * 底纹用 .hero-dot-grid（点阵 + 椭圆渐隐，globals.css）——无光晕无毛玻璃。
- * 内容全部是可核实事实（禁假状态，DESIGN §5）；按钮文案不焊箭头（§12.7 P1）。
+ * Hero — x.ai 居中骨架的实拍校正版（DESIGN v2.31，依据用户提供的 x.ai 截图）：
+ * eyebrow pill（内嵌 mini 标签）→ 居中巨字（第二行为旋转词 + 粗下划线，对标
+ * "everything you imagine." 的 imagine.）→ 副标 → 双 CTA（主按钮带箭头，x.ai
+ * "Get API Access →" 同构——按钮箭头豁免仅此一处，v2.31 登记）→ mono 元信息行。
+ * 旋转词在 reduced-motion 下静态取首项。
+ * 内容全部是可核实事实（禁假状态，DESIGN §5）；渐变字已移除（x.ai 实拍为纯黑+下划线）。
  */
+
+const ROTATE_WORDS = ["Agent 工作台", "AI 编码搭档", "自动化队友"] as const;
+
+function RotatingWord(): React.JSX.Element {
+  const reducedMotion = useReducedMotion();
+  const [index, setIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    if (reducedMotion) return;
+    const timer = setInterval(() => {
+      setIndex((i) => (i + 1) % ROTATE_WORDS.length);
+    }, 3200);
+    return () => clearInterval(timer);
+  }, [reducedMotion]);
+
+  if (reducedMotion) {
+    return <span className="border-b-4 border-zinc-900/90 pb-1">{ROTATE_WORDS[0]}</span>;
+  }
+
+  return (
+    <span className="inline-block border-b-4 border-zinc-900/90 pb-1">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={ROTATE_WORDS[index]}
+          className="inline-block"
+          initial={{ y: "55%", opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: "-55%", opacity: 0 }}
+          transition={{ duration: 0.32, ease: "easeOut" }}
+        >
+          {ROTATE_WORDS[index]}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
+
 export function Hero(): React.JSX.Element {
   return (
     <section
       id="hero"
-      className="relative flex min-h-[88vh] scroll-mt-16 flex-col items-center justify-center overflow-hidden px-6 pb-24 pt-36 text-center"
+      className="relative flex min-h-[82vh] scroll-mt-16 flex-col items-center justify-center overflow-hidden px-6 pb-20 pt-32 text-center"
       aria-labelledby="hero-title"
     >
       {/* 点阵底纹（纯装饰，对辅助技术隐藏） */}
       <div
         aria-hidden="true"
-        className="hero-dot-grid pointer-events-none absolute inset-x-0 top-0 h-[560px]"
+        className="hero-dot-grid pointer-events-none absolute inset-x-0 top-0 h-[520px]"
       />
 
-      {/* eyebrow pill（x.ai "New — …" 同位；内容为可核实事实，非营销口号） */}
-      <p className="relative rounded-full border border-indigo-200 bg-indigo-50 px-4 py-1.5 font-mono text-xs text-indigo-700">
-        开源 · MIT — Web / Desktop / CLI / Mobile 四端同一协议
+      {/* eyebrow pill：内嵌 mini 标签（x.ai "New" 同位） */}
+      <p className="relative flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1.5 pr-4 text-xs text-muted-foreground shadow-sm">
+        <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 font-medium text-indigo-700">
+          开源
+        </span>
+        MIT · 本地优先 · 四端同一协议
       </p>
 
       <h1
@@ -42,8 +84,8 @@ export function Hero(): React.JSX.Element {
           duration={0.55}
           className="block"
         />
-        <span className="mt-1 block bg-[linear-gradient(92deg,#4f46e5_0%,#0ea5e9_100%)] bg-clip-text text-transparent">
-          Agent 工作台
+        <span className="mt-1 block">
+          <RotatingWord />
         </span>
       </h1>
 
@@ -57,13 +99,16 @@ export function Hero(): React.JSX.Element {
           href="/quickstart"
           className={cn(buttonVariants({ size: "lg" }), "rounded-full px-8")}
         >
-          快速上手
+          快速上手&nbsp;&nbsp;→
         </Link>
         <a
           href={LINKS.github}
           target="_blank"
           rel="noopener noreferrer"
-          className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+          className={cn(
+            buttonVariants({ variant: "outline", size: "lg" }),
+            "border-transparent bg-zinc-100 hover:bg-zinc-200",
+          )}
         >
           查看源码
         </a>

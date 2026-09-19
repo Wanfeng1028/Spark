@@ -12,12 +12,12 @@ const FOOTER_LINKS = [
 ] as const;
 
 /**
- * 页脚：简洁单行/双行布局，随 QuickStart 暗带收尾（DESIGN v2.28 区块节奏）。
+ * 页脚：简洁单行/双行布局，亮色（x.ai 实拍页脚为亮色，v2.31 翻回）。
  * 严禁四列营销链接墙（DESIGN §12）。最大宽度与 Header 一致。
  */
 const Footer: React.FC = () => (
-  <footer className="border-t border-zinc-800 bg-zinc-950">
-    <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-6 py-6 text-sm text-zinc-500 sm:flex-row">
+  <footer className="border-t border-border">
+    <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-6 py-6 text-sm text-muted-foreground sm:flex-row">
       <p>© 2026 Spark · MIT License</p>
       <nav className="flex flex-wrap items-center justify-center gap-4" aria-label="Footer">
         {FOOTER_LINKS.map((link) => (
@@ -26,7 +26,7 @@ const Footer: React.FC = () => (
             href={link.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="transition-colors hover:text-zinc-200"
+            className="transition-colors hover:text-foreground"
           >
             {link.label}
           </a>
