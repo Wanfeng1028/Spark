@@ -59,6 +59,7 @@
 | v1.57 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D47 LSP server 下载器 = 内置清单 + npm 全局装（阶段十九 19.5，翻案 16.9 判决；doc/02 v4.70 同批）**：protocol lsp-servers.ts 清单三端同源 + LspInstaller（probe 幂等/npm 600s/装后校验/writeLspConfig，全链 fail-closed）+ POST /api/lsp/install + web 安装区 + cli /lsp install <id>。真实下载走查留用户 |
 | v1.58 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十九工单 19.10 开工指令） | **D42 条目尾部 19.10 翻案补记（不新建 ADR；doc/02 v4.73 同批）**：arena 竞答记录落盘 `~/.spark/arena/<arenaId>.json`（ArenaStore 每场一文件 + manager 四时机写盘 + loadHistory mtime 降序损坏跳过）；翻案边界：零新事件与"非可回放状态"裁决不变，只翻"重启丢失"登记限制——历史查询面 GET /api/arena/history + listArenaHistory 三通道。本机零验证，CI 裁决 |
 | v1.59 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D48 审批作用域 = always-user 缺省 + always-project 项目级（阶段十九 19.9；doc/02 v4.74 同批）**：scope 参数全链贯通 + projectRuleStore 项目落盘 + E_PERMISSION_SCOPE fail-closed + 四端第四入口（v2 候选清偿）。19.10（D42 翻案补记）由后台子代理并行落地（v1.58/v4.73/v1.59 先行登记）。本机零验证，CI 裁决 |
+| v1.60 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D49 浏览器设置 = browser 独立段重启档（阶段十九 19.12；doc/02 v4.76 同批）**：headless/超时/UA 进 spark.json browser 段（driver/工具选项贯通）+ 截图清理白名单单源。19.6 spike 报告（doc/spike-win-sandbox.md）归不可行分支待晚风拍板（替代案 A/B/C），D15 判决注记待拍板后补。本机零验证，CI 裁决 |
 
 ---
 
@@ -483,6 +484,10 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 背景：原判决"always 恒写用户级规则"（CLI §13.K 四选项不虚设的注记）；晚风拍板翻案立项。
 决策：PermissionReply 增 scope 参数（'user' 缺省原行为零变化 / 'project' 写 <cwd>/.spark/permissions.json）——project 作用域复用 UserRuleStore（同文件形状），评估列表与落盘同引用（就地追加即全会话可见）；审计 source 区分 reply:always:project。
 约束与失败语义：无项目规则仓注入时 project 作用域如实 E_PERMISSION_SCOPE 拒固化，审批保持挂起可改答 once（fail-closed 不假状态）；规则先于 settle 固化的 AUD-01 顺序在两作用域一致；四端入口——web ApprovalCard 第四按钮、CLI 数字键 4、keymap 表同步（原 v2 候选"作用域扩展"清偿）。
+
+### D49 浏览器设置 = spark.json browser 独立段重启档（2026-09-19，阶段十九工单 19.12）
+
+决策：浏览器工具族设置（headless/defaultTimeoutMs/userAgent）放 spark.json **独立 `browser` 段**（不挤 engine.* 十一项），沿 agents/extensions 独立 section 判例；**重启档**（BrowserManager 构造期装配，D28 分类"构造期注入子系统"），SETTINGS_RESTART_REQUIRED 登记 browser.* 三路径；宽松 partial 解析（未知键剥离落默认，spark.json 全族口径）。清理面 = cleanupBrowserArtifacts 按 SHOT_FILE_RE 白名单删产物（非白名单文件不误删——与 /api/artifacts 供图同一白名单单源）。
 
 ## 6. 模块速览（职责边界）
 
