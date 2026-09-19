@@ -483,7 +483,6 @@ export class Engine {
       deps.lspInstaller ??
       new LspInstaller({
         root: this.root,
-        logger: this.logger,
       })
     this.outputs = new ToolOutputStore(
       this.config.spark.engine.toolOutputLimitKB * 1024,

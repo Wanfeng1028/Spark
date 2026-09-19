@@ -118,7 +118,8 @@ export class LspInstaller {
         message: `未知语言服务器 id：${id}（可用：见 web 设置页语言服务器页清单）`,
       }
     }
-    const entry: LspServerEntry = { command: known.command, args: [...known.args] }
+    const args: string[] = [...known.args]
+    const entry: LspServerEntry = { command: known.command, args }
 
     // 已装探测：命令可用即跳过 npm（重复安装幂等入口的快路径）
     const available = await this.probeCommand(known.command, ['--version'])
@@ -145,14 +146,14 @@ export class LspInstaller {
     const prev = languages[known.language]
     if (prev !== undefined && prev.command === entry.command) {
       const sameArgs =
-        (prev.args ?? []).length === entry.args.length &&
-        (prev.args ?? []).every((a, i) => a === entry.args[i])
+        (prev.args ?? []).length === args.length &&
+        (prev.args ?? []).every((a, i) => a === args[i])
       if (sameArgs) {
-        return { ok: true, language: known.language, command: entry.command, args: [...entry.args], written: false }
+        return { ok: true, language: known.language, command: entry.command, args, written: false }
       }
     }
     languages[known.language] = entry
     writeLspConfig(this.deps.root, { languages })
-    return { ok: true, language: known.language, command: entry.command, args: [...entry.args], written: true }
+    return { ok: true, language: known.language, command: entry.command, args, written: true }
   }
 }

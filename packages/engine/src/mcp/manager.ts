@@ -54,9 +54,12 @@ function defaultTransport(name: string, cfg: McpServerConfig): Transport {
     if (cfg.url === undefined) {
       throw new Error(`MCP server ${name} 配置缺 url（streamable-http transport 必填）`)
     }
-    return new StreamableHTTPClientTransport(new URL(cfg.url), {
-      ...(cfg.headers !== undefined ? { requestInit: { headers: cfg.headers } } : {}),
-    })
+    const opts: { requestInit: RequestInit } = {
+      requestInit: {
+        ...(cfg.headers !== undefined ? { headers: cfg.headers } : {}),
+      },
+    }
+    return new StreamableHTTPClientTransport(new URL(cfg.url), opts)
   }
   if (cfg.command === undefined) {
     throw new Error(`MCP server ${name} 配置缺 command（stdio transport 必填）`)
