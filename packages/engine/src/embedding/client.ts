@@ -5,7 +5,7 @@
  * 解析优先级：models.json `embedding.provider` 指名（须声明 embeddings）→ 否则文件序
  * 第一个声明者。无声明者 → 语义检索不可用（调用方如实降级到关键词，禁假状态）。
  */
-import type { ModelProviderMap } from '../config.js'
+import type { ModelsConfig } from '../config.js'
 
 /** 生效的 embedding 提供方（引擎装配一次，运行期不变——换提供方改 models.json 重启） */
 export interface EmbeddingProviderInfo {
@@ -37,7 +37,7 @@ export class EmbeddingError extends Error {
  * dimensions 缺省 = 首次响应后由 VectorStore 侧推断（不猜——不同模型维度不同）。
  */
 export function resolveEmbeddingProvider(
-  providers: ModelProviderMap,
+  providers: ModelsConfig['providers'],
   preferred?: string | undefined,
 ): EmbeddingProviderInfo | null {
   const entries = Object.entries(providers).filter(([, p]) => p.embeddings !== undefined)

@@ -52,6 +52,7 @@ import { SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED } from '@spark/prot
 import type {
   ExtensionDto,
   SandboxNetworkStatusDto,
+  SemanticIndexStats,
 AgentPresetDto, SessionMode, SessionStatus, UsageSummaryDto } from '@spark/protocol'
 import type { ArenaHistoryEntryDto } from '@spark/protocol'
 import { EventBus } from './bus.js'
@@ -439,55 +440,6 @@ export class Engine {
     // 工单 7.13 / H12：会话全文搜索索引（打开失败 null 降级——检索不可用不阻塞引擎）
     this.search = new SearchIndexer(this.root, this.logger, (id) => this.sessionTitleOf(id))
 
-    // 阶段十九 19.8 / ADR D51：语义检索——models.json 有 provider 声明 embeddings 才建。
-    // 总开关 spark.json embedding.enabled 缺省 true（关 = 不嵌不检索，FTS 照常）。
-    // 无 baseUrl / 向量库打不开 → semantic 为 null，关键词通道零变化（禁假状态）。
-    const embProvider = resolveEmbeddingProvider(
-      this.config.models.providers,
-      this.config.models.embedding?.provider,
-    )
-    this.embeddingProvider = embProvider
-    let vectors: VectorStore | null = null
-    let semantic: SemanticIndexer | null = null
-    if (embProvider !== null) {
-      const providerCfg = this.config.models.providers[embProvider.providerId]
-      const baseUrl = providerCfg?.baseUrl ?? PROVIDER_CATALOG[embProvider.providerId.toLowerCase()]?.defaultBaseUrl
-      if (baseUrl === undefined) {
-        this.logger.warn('embedding.provider.no_base_url', { provider: embProvider.providerId })
-      } else {
-        try {
-          vectors = new VectorStore(join(this.root, 'vectors.db'))
-          semantic = new SemanticIndexer({
-            client: new HttpEmbeddingClient({
-              baseUrl,
-              apiKey:
-                providerCfg?.apiKeyEnv != null
-                  ? resolveApiKey(this.secrets, embProvider.providerId, providerCfg.apiKeyEnv)
-                  : undefined,
-              provider: embProvider,
-            }),
-            store: vectors,
-            sources: {
-              memories: () => this.memory?.all() ?? [],
-              events: () => this.search.allEntries(),
-            },
-            titleOf: (id) => this.sessionTitleOf(id),
-          })
-          this.logger.info('embedding.provider.ready', {
-            provider: embProvider.providerId,
-            model: embProvider.model,
-          })
-        } catch (err) {
-          // 向量库打不开 = 语义不可用（派生缓存，不阻塞引擎）；关键词照常
-          this.logger.warn('vector.store.error', { err })
-          vectors = null
-          semantic = null
-        }
-      }
-    }
-    this.vectors = vectors
-    this.semantic = semantic
-
     // 工单 7.10 / H09 / ADR D27：browser 工具族——引擎级单例单页；
     // 驱动（playwright-core）首次 browser.open 才启动，构造期零依赖
     this.shotsDir = join(this.root, 'browser-shots')
@@ -598,6 +550,56 @@ export class Engine {
       projectRules,
     )
     this.secrets = new SecretStore(join(this.root, 'secrets.json'))
+
+    // 阶段十九 19.8 / ADR D51：语义检索——models.json 有 provider 声明 embeddings 才建。
+    // 总开关 spark.json embedding.enabled 缺省 true（关 = 不嵌不检索，FTS 照常）。
+    // 无 baseUrl / 向量库打不开 → semantic 为 null，关键词通道零变化（禁假状态）。
+    const embProvider = resolveEmbeddingProvider(
+      this.config.models.providers,
+      this.config.models.embedding?.provider,
+    )
+    this.embeddingProvider = embProvider
+    let vectors: VectorStore | null = null
+    let semantic: SemanticIndexer | null = null
+    if (embProvider !== null) {
+      const providerCfg = this.config.models.providers[embProvider.providerId]
+      const baseUrl = providerCfg?.baseUrl ?? PROVIDER_CATALOG[embProvider.providerId.toLowerCase()]?.defaultBaseUrl
+      if (baseUrl === undefined) {
+        this.logger.warn('embedding.provider.no_base_url', { provider: embProvider.providerId })
+      } else {
+        try {
+          vectors = new VectorStore(join(this.root, 'vectors.db'))
+          semantic = new SemanticIndexer({
+            client: new HttpEmbeddingClient({
+              baseUrl,
+              apiKey:
+                providerCfg?.apiKeyEnv != null
+                  ? resolveApiKey(this.secrets, embProvider.providerId, providerCfg.apiKeyEnv).apiKey
+                  : undefined,
+              provider: embProvider,
+            }),
+            store: vectors,
+            sources: {
+              memories: () => this.memory?.all() ?? [],
+              events: () => this.search.allEntries(),
+            },
+            titleOf: (id: SessionId) => this.sessionTitleOf(id),
+          })
+          this.logger.info('embedding.provider.ready', {
+            provider: embProvider.providerId,
+            model: embProvider.model,
+          })
+        } catch (err) {
+          // 向量库打不开 = 语义不可用（派生缓存，不阻塞引擎）；关键词照常
+          this.logger.warn('vector.store.error', { err })
+          vectors = null
+          semantic = null
+        }
+      }
+    }
+    this.vectors = vectors
+    this.semantic = semantic
+
     // 工单 7.1 验收：store 值不落日志——启动即注册进脱敏层（deps.logger 未实现则跳过）
     this.logger.registerSecrets?.(this.secrets.values())
     // 工单 7.2：I/O 护栏——store 值动态取（setSecret 即时生效，与日志脱敏同纪律）
@@ -1330,7 +1332,7 @@ export class Engine {
       indexMemory: (id, content) => {
         void (async () => {
           try {
-            const [vec] = await sem.embedOne(content)
+            const vec = await sem.embedOne(content)
             if (vec === undefined) return
             this.vectors?.upsert('memory', String(id), content, vec, { id }, this.now())
           } catch (err) {

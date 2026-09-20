@@ -271,16 +271,16 @@ describe('Engine 全文搜索端到端（工单 7.13 验收）', () => {
     await waitTurnDone(events)
     await waitForEvent(events, (e) => e.type === 'session.title')
 
-    const userHits = engine.searchSessions('定位', 10)
+    const userHits = await engine.searchSessions('定位', 10)
     expect(userHits.some((r) => r.type === 'user.message')).toBe(true)
     const first = userHits.find((r) => r.type === 'user.message')
     expect(first?.sessionTitle).toBe('聊聊 Spark 的架构')
     expect(first?.snippet).toContain('定位')
 
-    const asstHits = engine.searchSessions('工作台', 10)
+    const asstHits = await engine.searchSessions('工作台', 10)
     expect(asstHits.some((r) => r.type === 'assistant.message')).toBe(true)
 
-    const titleHits = engine.searchSessions('架构', 10)
+    const titleHits = await engine.searchSessions('架构', 10)
     expect(titleHits.some((r) => r.type === 'session.title')).toBe(true)
   })
 
@@ -293,13 +293,13 @@ describe('Engine 全文搜索端到端（工单 7.13 验收）', () => {
     await h.send('记录一条消息')
     await waitTurnDone(events)
     await waitForEvent(events, (e) => e.type === 'session.title')
-    expect(engine.searchSessions('跨进程持久', 10)).toHaveLength(1)
+    expect(await engine.searchSessions('跨进程持久', 10)).toHaveLength(1)
     await engine.shutdown()
     engines = engines.filter((e) => e !== engine)
 
     const second = makeEngineWith(makeConfig(), root)
     await second.engine.resumeSession(sid) // 装载点：水位持平跳过同步
-    expect(second.engine.searchSessions('跨进程持久', 10)).toHaveLength(1)
+    expect(await second.engine.searchSessions('跨进程持久', 10)).toHaveLength(1)
   })
 
   test('删库后装载点增量重建：search.db 缺失由 JSONL 全量补回', async () => {
@@ -319,9 +319,9 @@ describe('Engine 全文搜索端到端（工单 7.13 验收）', () => {
     rmSync(dbPath) // 测试自建临时文件——模拟索引损坏/缺失
 
     const second = makeEngineWith(makeConfig(), root)
-    expect(second.engine.searchSessions('重建验证', 10)).toEqual([]) // 未装载：水位缺失且未同步
+    expect(await second.engine.searchSessions('重建验证', 10)).toEqual([]) // 未装载：水位缺失且未同步
     await second.engine.resumeSession(sid) // 装载点全量重建
-    const hits = second.engine.searchSessions('重建验证', 10)
+    const hits = await second.engine.searchSessions('重建验证', 10)
     expect(hits).toHaveLength(1)
     expect(hits[0]?.sessionId).toBe(sid)
   })

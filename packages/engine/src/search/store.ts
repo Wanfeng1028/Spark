@@ -122,8 +122,8 @@ export class SearchStore {
       )
       .all() as unknown as EntryRowRaw[]
     return rows.map((r) => ({
-      sessionId: r.session_id,
-      eventId: r.event_id,
+      sessionId: r.session_id as SessionId,
+      eventId: r.event_id as EventId,
       seq: r.seq,
       type: r.type as SearchEntryType,
       time: r.time,

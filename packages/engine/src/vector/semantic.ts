@@ -79,19 +79,20 @@ export class SemanticIndexer {
     const budget = Math.max(0, limit)
     let embedded = 0
     let remaining = 0
-    for (const [kind, items] of this.pendingBuckets()) {
+    for (const { kind, items } of this.pendingBuckets()) {
       const room = budget - embedded
       if (room <= 0) {
         remaining += items.length
         continue
       }
       const batch = items.slice(0, room)
-      const vecs = await this.client.embed(batch.map((i) => i.content))
+      const contents = batch.map((it) => it.content)
+      const vecs = await this.client.embed(contents)
       this.assertDimensions(vecs)
       const ts = this.now()
-      for (let i = 0; i < batch.length; i++) {
-        const item = batch[i] as (typeof batch)[number]
-        const vec = vecs[i] as Float32Array
+      for (const [i, item] of batch.entries()) {
+        const vec = vecs[i]
+        if (vec === undefined) continue
         this.store.upsert(kind, item.ref, item.content, vec, item.meta, ts)
         embedded++
       }
