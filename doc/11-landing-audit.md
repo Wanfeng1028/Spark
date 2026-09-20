@@ -462,3 +462,9 @@
 4. 非交互 bash 从管道读入时语法错误是否整输入致命退出。
 5. 官网/移动端/小程序/桌面的全部视觉与交互表现（本审计未打开任何浏览器）。
 6. 审批链/权限规则真实生效需引擎实跑；§4.1 的 P0 只证明了"审批归零"与"路径边界只挡 cwd 外"，未实跑证明 hook 被触发的完整链条。
+7. **横切不变量的真实爆炸半径**：pi-ai 是否按 `Model.cost` 计价、是否按 `Model.input` 过滤 image（决定 LA-29 是"护栏惰性"还是"图像输入也静默失效"）；真实 provider 对"tool_use 无配对 tool_result"是拒绝请求还是仅上下文不优（决定 LA-30 严重度）。
+8. `appendFile` 短写停在 `}` 与 `\n` 之间的真实概率（LA-35 可达性）；SSE 慢客户端 + 全 durable 流下 `pushRing` 溢出是否真可达（LA-36）；SIGKILL 后无 `fsync` 的实际丢尾程度（LA-40）。
+9. `z.strictObject(...).partial()` 在 zod 运行时是否仍拒未知键（决定 §4.6 那条 D49 口径分叉是否成立——一条 `loadConfig` 塞未知 browser 键的用例即可判死）。
+10. Windows 桌面首启续启竞态的实际交错（`window-all-closed` 与 `main()` await 续体的先后）；`child.kill()` 后孙进程是否真残留；CLI raw-mode 下每键重跑的体感卡顿程度。
+11. Playwright e2e 是否真能盖住 WO-099/101 一类交互缺陷（本审计未跑，也无法从静态判断 e2e 断言覆盖面）；`settings-nav.test.ts` 是否逐页断言组件身份（LA-59 的相关判据）。
+12. **工作区与时间线**：本稿核查期间并行会话推进了多次提交——报告所据 HEAD 从 `171eeb2` 经 `42a5030` 前进到 **`cd04be7`（阶段十九 19.7 沙箱网络隔离，ADR D50）**。**19.7 不在本稿范围内**（立稿时它是 ⬜，落地发生在审查过程中），其代码需另行核查；且 §4.6/§4.7/§4.9 中落在 `packages/engine/src/config.ts`、`engine.ts`、`protocol/src/api.ts`、`sandbox/`、`tools/builtin/bash.ts`、`apps/web/src/transports/mock.ts` 的行号在 19.7 合入后可能位移，执行 LA 前须二次定位。
