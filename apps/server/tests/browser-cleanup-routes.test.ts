@@ -2,7 +2,7 @@
  * 浏览器产物清理路由测试（阶段十九 19.12 / ADR D49）：POST /api/browser/cleanup——
  * 临时 shotsDir 放置白名单命名文件 → 清理后 200 {removed} 且文件消失。
  */
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { makeServer } from './helpers.js'
@@ -12,6 +12,8 @@ describe('POST /api/browser/cleanup（阶段十九 19.12 / ADR D49）', () => {
     const server = await makeServer()
     // 引擎 shotsDir = <root>/browser-shots——直接摆两个合法名 + 一个白名单外文件
     const shots = join(server.root, 'browser-shots')
+    // shotsDir 由引擎首次截图时懒建，本例不截图故自建
+    mkdirSync(shots, { recursive: true })
     writeFileSync(join(shots, 'shot-1700000000000-1.png'), 'a')
     writeFileSync(join(shots, 'shot-1700000000000-2.png'), 'b')
     writeFileSync(join(shots, 'not-a-shot.txt'), 'c')
