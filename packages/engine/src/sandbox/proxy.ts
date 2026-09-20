@@ -162,7 +162,9 @@ class ChunkQueue {
 
   /** 读到 marker 为止（含 marker）；超 max 字节或 EOF → null */
   async readUntil(marker: Buffer, max: number): Promise<Buffer | null> {
-    let acc = Buffer.alloc(0)
+    // 显式 Buffer（ArrayBufferLike）：Buffer.alloc 推狭的 ArrayBuffer 与队列里的
+    // ArrayBufferLike 块互相赋值会 TS2322——@types/node 的 Buffer 泛型方差
+    let acc: Buffer = Buffer.alloc(0)
     while (true) {
       const idx = acc.indexOf(marker)
       if (idx !== -1) return acc

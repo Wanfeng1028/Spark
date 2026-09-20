@@ -97,7 +97,7 @@ describe('mergeSlashCommands（工单 7.4：基线 + 引擎动态清单合并）
     ]
     const merged = mergeSlashCommands(dynamic)
     expect(merged.map((c) => c.name)).toEqual([
-      'init', 'compact', 'plan', 'goal', 'voice', 'resume', 'model', 'mcp', 'skills', 'usage', 'lsp', 'agents', 'trust', 'extensions', 'arena', 'computer', 'review',
+      'init', 'compact', 'plan', 'goal', 'voice', 'resume', 'model', 'mcp', 'skills', 'usage', 'lsp', 'agents', 'trust', 'extensions', 'arena', 'computer', 'sandbox', 'review',
     ])
     expect(merged.find((c) => c.name === 'compact')?.description).toBe(
       '压缩上下文（保留摘要，释放窗口）',

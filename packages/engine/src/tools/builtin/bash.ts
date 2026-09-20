@@ -27,7 +27,7 @@ import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { resolveInRoot } from '../definition.js'
 import { resolveSandboxWrapper, wrapperAvailable } from '../sandbox.js'
 import type { BashSandboxMode } from '../sandbox.js'
-import { sandboxProxyEnv, sandboxProxyExportLine } from '../sandbox/network-env.js'
+import { sandboxProxyEnv, sandboxProxyExportLine } from '../../sandbox/network-env.js'
 import { BashShellPool } from '../bash-pool.js'
 import type { ShellPoolOpts } from '../bash-pool.js'
 

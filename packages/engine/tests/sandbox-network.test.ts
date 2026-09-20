@@ -13,11 +13,16 @@ import { formatIPv6, hostAllowed, parseAuthority, SandboxNetworkProxy } from '..
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
-/** 起一个临时 TCP 服务，返回端口与关闭函数 */
+/** 起一个临时 TCP 服务，返回端口与关闭函数（连接自行跟踪——不依赖 server.sockets 迭代面） */
 async function listen(
   onConnection: (sock: Socket) => void,
 ): Promise<{ port: number; close: () => Promise<void> }> {
-  const server: Server = createServer(onConnection)
+  const conns = new Set<Socket>()
+  const server: Server = createServer((sock) => {
+    conns.add(sock)
+    sock.on('close', () => conns.delete(sock))
+    onConnection(sock)
+  })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const addr = server.address()
   const port = typeof addr === 'object' && addr !== null ? addr.port : 0
@@ -25,7 +30,8 @@ async function listen(
     port,
     close: () =>
       new Promise<void>((resolve) => {
-        for (const s of server.sockets) s.destroy()
+        for (const s of conns) s.destroy()
+        conns.clear()
         server.close(() => resolve())
       }),
   }
@@ -34,7 +40,7 @@ async function listen(
 /** 起一个代理实例（allowlist 可变——热切换验证），返回端口/停代理/换清单 */
 async function startProxy(
   initial: readonly string[],
-): Promise<{ port: number; stop: () => Promise<void>; setAllowlist: (next: string[]) => void }> {
+): Promise<{ port: number; stop: () => Promise<void>; setAllowlist: (next: string[]) => void; status: () => { ready: boolean } }> {
   let current: string[] = [...initial]
   // 先用探针服务占一个空闲端口再释放，代理按该端口 listen（代理自身端口由配置给定）
   const probe = await listen(() => {})
@@ -48,6 +54,7 @@ async function startProxy(
     setAllowlist: (next) => {
       current = next
     },
+    status: () => ({ ready: proxy.status.ready }),
   }
 }
 
@@ -265,7 +272,7 @@ describe('SandboxNetworkProxy（SOCKS5 + HTTP CONNECT 同端口分流）', () =>
     const proxy = await startProxy(['localhost'])
     const { sock } = await socksConnect(proxy.port, 'localhost', upstream.port)
     await proxy.stop()
-    expect(proxy.status.ready).toBe(false)
+    expect(proxy.status().ready).toBe(false)
     const closed = await new Promise<boolean>((resolve) => {
       sock.once('close', () => resolve(true))
       setTimeout(() => resolve(false), 500)
