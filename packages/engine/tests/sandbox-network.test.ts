@@ -71,6 +71,29 @@ async function readSome(sock: Socket, ms = 500): Promise<Buffer> {
 }
 
 /**
+ * 持续收集器：一个 socket 一个，attach 后不离场（定时窗口读会把"方法选择应答 +
+ * 请求应答"两段搅在一起，而按长度切包又会丢掉同段到达的应用字节——收集器两者兼顾：
+ * wait(n) 等够 n 字节，drain() 取走已收的全部，尾字节不丢）。
+ */
+function collector(sock: Socket): { wait: (n: number, timeoutMs?: number) => Promise<void>; drain: () => Buffer } {
+  let buf = Buffer.alloc(0)
+  sock.on('data', (c: Buffer) => {
+    buf = buf.length === 0 ? c : Buffer.concat([buf, c])
+  })
+  return {
+    async wait(n, timeoutMs = 1000) {
+      const deadline = Date.now() + timeoutMs
+      while (buf.length < n && Date.now() < deadline) await sleep(10)
+    },
+    drain() {
+      const out = buf
+      buf = Buffer.alloc(0)
+      return out
+    },
+  }
+}
+
+/**
  * SOCKS5 客户端最小实现：greeting+请求一次写出，**先读 2 字节方法选择应答再读 10 字节
  * 请求应答**（两段应答——只读一段会把方法选择的 0x00 当成请求应答码）。
  */
@@ -78,20 +101,20 @@ async function socksConnect(
   proxyPort: number,
   host: string,
   port: number,
-): Promise<{ code: number; raw: Buffer; sock: Socket }> {
+): Promise<{ code: number; sock: Socket; col: ReturnType<typeof collector> }> {
   const sock = netConnect({ host: '127.0.0.1', port: proxyPort })
   await new Promise<void>((resolve, reject) => {
     sock.once('connect', resolve)
     sock.once('error', reject)
   })
   const name = Buffer.from(host, 'latin1')
+  const col = collector(sock)
   sock.write(Buffer.concat([Buffer.from([0x05, 0x01, 0x00]), Buffer.from([0x05, 0x01, 0x00, 0x03, name.length]), name, Buffer.from([port >> 8, port & 0xff])]))
-  const method = await readSome(sock, 300)
-  expect(method.length).toBe(2)
-  expect(method[0]).toBe(0x05)
-  expect(method[1]).toBe(0x00)
-  const raw = await readSome(sock, 500)
-  return { code: raw.length >= 2 ? (raw[1] as number) : -1, raw, sock }
+  // 两段应答：方法选择 2 字节 + 请求应答 10 字节（一次写完时代理连续回复）
+  await col.wait(12)
+  const raw = col.drain()
+  expect(raw.subarray(0, 2)).toEqual(Buffer.from([0x05, 0x00]))
+  return { code: raw.length >= 12 ? (raw[11] as number) : -1, sock, col }
 }
 
 afterEach(async () => {
@@ -148,10 +171,11 @@ describe('SandboxNetworkProxy（SOCKS5 + HTTP CONNECT 同端口分流）', () =>
     const upstream = await listen((sock) => sock.write('pong'))
     const proxy = await startProxy(['localhost'])
     try {
-      const { code, sock } = await socksConnect(proxy.port, 'localhost', upstream.port)
+      const { code, sock, col } = await socksConnect(proxy.port, 'localhost', upstream.port)
       expect(code).toBe(0x00)
-      const data = await readSome(sock, 300)
-      expect(data.toString()).toContain('pong')
+      await sleep(200)
+      // 上游回包可能紧随应答到达（收集器已收）——尾字节不丢
+      expect(col.drain().toString()).toContain('pong')
       sock.destroy()
     } finally {
       await proxy.stop()
@@ -265,8 +289,8 @@ describe('SandboxNetworkProxy（SOCKS5 + HTTP CONNECT 同端口分流）', () =>
       proxy.setAllowlist(['localhost'])
       const allowed = await socksConnect(proxy.port, 'localhost', upstream.port)
       expect(allowed.code).toBe(0x00)
-      const data = await readSome(allowed.sock, 300)
-      expect(data.toString()).toContain('hot')
+      await sleep(200)
+      expect(allowed.col.drain().toString()).toContain('hot')
       allowed.sock.destroy()
     } finally {
       await proxy.stop()
