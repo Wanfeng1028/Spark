@@ -85,7 +85,7 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 | [AGENTS.md](./AGENTS.md)                                     | AI 代理工作规范——任何 AI 助手进入本仓库先读；硬性约定 + 规则放置规范                            |
 | [ARCHITECTURE.md](./ARCHITECTURE.md)                         | 架构总览 · 关键决策记录（ADR）· 代码"AI 生成味"黑名单（§9，后端/通用）                          |
 | [DESIGN.md](./DESIGN.md)                                     | 视觉与交互规则——桌面应用感（对标 Codex/ZCode）· token/密度 · "AI 生成风"黑名单（§12）· 组件 DoD |
-| [doc/01-research-report.md](./doc/01-research-report.md)     | 调研档案：10 个参考项目源码级调研 + 前后端生态选型                                              |
+| [doc/01-research-report.md](./doc/01-research-report.md)     | 调研档案：11 个参考项目源码级调研 + 前后端生态选型                                              |
 | [doc/02-development-plan.md](./doc/02-development-plan.md)   | 完整开发方案：协议 / 引擎 / 前端 / 服务端实现级规格 + 阶段路线图与工单表                        |
 | [doc/03-frontend-approach.md](./doc/03-frontend-approach.md) | 前端专题：参考实现分析 · 我方前端思路 · 与传统 Web 开发的差异                                   |
 | [doc/05-completion-audit.md](./doc/05-completion-audit.md)   | 完成度审计（阶段三后）：源码级核查实测结果 · 缺口清单 G1–G7 · 动工顺序                          |
@@ -176,5 +176,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.40 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：**阶段十五全量收官**——15.1 spark mcp stdio server（ADR D39）/ 15.2 OpenAPI 导出（CI gen+diff 门禁；Python 生成物待外部需求）/ 15.3 @spark/skill-kit 创作套件 / 15.4 Q-1 拍板维持纯声明 + MCP 兜工具面。与 doc/02 v4.47、doc/08 v1.47、ARCHITECTURE v1.47、AGENTS v1.46 同批 |
 | v1.41 | 2026-09-12 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（"工单要全部做完"指令） | 当前状态行更新：阶段十六 16.8（/arena 多模型竞答，ADR D42）已落地；同批实修 loadConfig 组装漏透传 settings 名单段真 bug。与 doc/02 v4.48、doc/08 v1.48 同批 |
 | v1.42 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与四项拍板：晚风（Wanfeng1028，"占位的全部都要立项实施……项目里面所有端的占位都得立项实现"指令） | 当前状态行更新：**阶段十九已立项（全端占位清零与判决翻案，42 工单 19.1–19.42 八批次）**——四项拍板（computer-use 完整能力族 / i18n 全量 / 桌面大件分尸立项签名挂起 / 登记限制与候选池余项判决全部推翻）见 doc/08 §5D v1.51；README.en 状态段同步。与 doc/02 v4.62、ARCHITECTURE v1.52、AGENTS v1.55、DESIGN v2.22 同批 |
+| v1.43 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028） | 文档索引行更新：调研档案"10 个参考项目"→"11 个"（新增 MiniMax Code：MIT 第一方代码可抄、保留版权声明，third_party/sandbox-runtime 为 Apache-2.0）。与 AGENTS v1.56、doc/01 v1.9、doc/02 v4.77 同批 |
 
 </details>

@@ -62,6 +62,7 @@
 | v1.53 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，对账审计指令） | §4 质量闸注释补齐 gen:events / gen:openapi 两步（与 ci.yml 实际步骤对齐；对账审计 W7） |
 | v1.54 | 2026-09-14 | AI 编写：Qoder；发起：晚风（Wanfeng1028，官网建设指令） | `official/` 官网落地：Next.js 15 + React 19 + Tailwind v4 + Motion 独立站（不入 workspace），5 页面路由 + 6 Section + shadcn/Magic UI/react-bits 组件层；`official/README.md` 重写为图文并茂展示页（旧快照 git mv 至 LEGACY-README-2026-09-13.md，v1.49 待决项收口）；新增 `.github/workflows/official.yml` 独立 CI（install/typecheck/build，路径过滤 official/**）；§12.8 grep 硬检查 22 模式零命中、事实数字（27 事件/23 命令/4 端）经源码取证 |
 | v1.55 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与四项拍板：晚风（Wanfeng1028，"占位的全部都要立项实施……项目里面所有端的占位都得立项实现"指令） | **§1 当前状态刷新：阶段十九已立项（全端占位清零与判决翻案）**——当日四端源码级占位盘点（web/CLI/mobile+miniapp/desktop+engine+protocol）+ 四项拍板：①电脑控制按完整 computer-use 立项；② i18n（V2-12）全量立项（推翻 Q-2 缓行）；③桌面大件分尸立项（自更新立项、代码签名挂起待证书采购）；④既有 ADR 登记限制与候选池余项判决全部推翻立项（不变量六项与后置池八条观察项除外）。42 工单 19.1–19.42 八批次见 doc/08 §5D（v1.51）与 doc/02 §8 阶段十九表（v4.62）；ARCHITECTURE v1.52 翻案总注记、DESIGN v2.22 占位行标注同批。本批纯规划零代码，本机零验证 |
+| v1.56 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"其实可以抄的，新增加一条，参考项目 minimax code"指令） | **§5/§6/§12 新增参考项目第 11 项 MiniMax Code**（MiniMax-AI/minimax-code；MIT；终端 coding agent，约 1.5k★，2026-09 开源）：在线核验（gh api + raw 直读，遵守 §2.12 禁克隆）——第一方默认 MIT 可复用（root LICENSE + NOTICE 署名 MiniMax Code）；例外见其仓内 LICENSE-STATUS.md：third_party/sandbox-runtime 为 Apache-2.0，Pi 派生的终端代码/模型目录/打包资产保留原声明（root MIT 不覆盖每个文件）。§5 速查表 **29→31 条**（两行：headless 契约 packages/tui/src/headless——对 12.3 spark -p 与 CLI 退出码纪律直接参考；runtime→UI 事件桥与显示脱敏 packages/agent-core/src/event-bridge——对齐 surface 纪律与日志脱敏）；§6.2 许可证纪律补该条目与边界；§12 "全部 10 项"改"全部 11 项"。同步：doc/01 v1.9（§10 #11 行）、doc/02 v4.77（§9 标题计数 + 两行）、README v1.43（索引行 10→11 个参考项目）。**遗留待决（§2.9 不夹带修）**：doc/01 §10 表 #7–#9 与"2026-08-23 增"两组历史重复行（v1.4–v1.7 并行会话追加所致）是否修净待人类决策。本批纯文档零代码，本机零验证 |
 
 ## 1. 项目上下文（30 秒版）
 
@@ -95,7 +96,7 @@ Spark 是一个 **Agent 工作台**：Node/TS 引擎（headless）+ React Web �
 9. **不做的事**：不加多用户/登录/公网暴露（本地 127.0.0.1 是刻意的）；不上 Effect/RxJS 等响应式框架（抄设计不抄框架）；**不做当前工单之外的事**——新想法即使"顺手"也不夹带，登记进 doc/02 §8.7 v2 候选池或 doc/08 立项后再动（v1 阶段的 MVP 边界约束已由阶段五完成交付，不再适用）。
 10. **文件删除保护**：AI 编程助手**无权删除任何文件**——不得直接或间接执行删除（`rm`/`del`/`git rm`/`git clean`/移动出仓库/清空目录等），提交中也不得夹带删除。任何文件（含临时文件、生成物）的删除都必须由人类发起或确认，并完成**五层级确认**（逐级明示确认，缺一不可）：① 意图确认（为何删）→ ② 对象确认（逐个列出精确路径）→ ③ 影响确认（全仓引用与构建影响）→ ④ 替代确认（归档/移动/改名能否替代删除）→ ⑤ 终确认（人类明示"确认删除"）。五级全部通过后，方可由人类执行或明确授权 AI 执行；重命名/移动不在此列，但移动出仓库视同删除。
 11. **禁止"AI 生成味"代码**（前端与后端都算）：前端外观六类黑名单 + 文案语气 + 代码级 grep 硬检查见 DESIGN.md §12；后端/通用代码六类黑名单（无据设计模式、吞异常/空 catch、幻觉防御、冗余注释、泛化命名、any 逃逸/幻觉依赖）见 ARCHITECTURE.md §9——其中吞异常与假实现直接违反引擎铁律（失败闭合/禁止假状态）。总原则 **boring code**：无聊、可读、只做好一件事；删掉一层抽象若不破坏功能，就删。
-12. **参考项目禁止克隆到本地**：调研或参考任何参考项目（doc/01 §10 全部 10 项、Claude Code 泄露源码仓 `Wanfeng1028/claude-code-analysis`、以及未来新增的参考）时，一律**在线访问**——`gh api repos/<owner>/<repo>/contents/<path>`（列目录/读文件，可加 `Accept: application/vnd.github.raw` 取原文）、raw 文件直读、npm registry（版本/依赖/tarball 清单）、pkg.go.dev / 官方文档站。**禁止 `git clone`、下载整仓压缩包、或把参考项目副本放进本仓库/本机工作目录**。理由：在线读取足以完成源码级调研（本仓库全部调研均以此模式完成）；克隆整仓浪费磁盘且有误引入代码的许可证风险。派调研子代理时必须在提示词中写明本条。
+12. **参考项目禁止克隆到本地**：调研或参考任何参考项目（doc/01 §10 全部 11 项、Claude Code 泄露源码仓 `Wanfeng1028/claude-code-analysis`、以及未来新增的参考）时，一律**在线访问**——`gh api repos/<owner>/<repo>/contents/<path>`（列目录/读文件，可加 `Accept: application/vnd.github.raw` 取原文）、raw 文件直读、npm registry（版本/依赖/tarball 清单）、pkg.go.dev / 官方文档站。**禁止 `git clone`、下载整仓压缩包、或把参考项目副本放进本仓库/本机工作目录**。理由：在线读取足以完成源码级调研（本仓库全部调研均以此模式完成）；克隆整仓浪费磁盘且有误引入代码的许可证风险。派调研子代理时必须在提示词中写明本条。
 
 ## 3. 常见任务指引（改哪里）
 
@@ -163,12 +164,12 @@ pnpm eval                                     # ScriptedLlm 回归集；pnpm eva
 
 ## 5. 参考项目速查（遇到问题先查这里）
 
-完整 29 条速查表在 `doc/02-development-plan.md` §9（问题 → 项目 → 精确到文件路径）。要点：run loop 抄 pi、事件纪律抄 dsh、协议形状抄 Codex、steer/queue 与权限抄 opencode、**审批策略引擎与调度状态机抄 Gemini CLI（⚠️ pin 版本，Google 有迁闭源 Antigravity 风险）**、**网关线协议与契约分包查 OpenClaw**、checkpoint 抄 Grok、实现疑难查 Claude Code 泄露源码分析（用户仓库 `Wanfeng1028/claude-code-analysis`）。闭源不可参考清单（原因见 01 §7.3）：Antigravity / ZCode / Qoder / Trae IDE——仅 UX 观察。
+完整 31 条速查表在 `doc/02-development-plan.md` §9（问题 → 项目 → 精确到文件路径）。要点：run loop 抄 pi、事件纪律抄 dsh、协议形状抄 Codex、steer/queue 与权限抄 opencode、**审批策略引擎与调度状态机抄 Gemini CLI（⚠️ pin 版本，Google 有迁闭源 Antigravity 风险）**、**网关线协议与契约分包查 OpenClaw**、**终端 agent 的 headless 契约与 runtime→UI 事件桥（含显示脱敏）抄 MiniMax Code（第一方 MIT 可抄；third_party/sandbox-runtime 为 Apache-2.0、Pi 派生终端代码保留原声明——边界见其仓内 LICENSE-STATUS.md）**、checkpoint 抄 Grok、实现疑难查 Claude Code 泄露源码分析（用户仓库 `Wanfeng1028/claude-code-analysis`）。闭源不可参考清单（原因见 01 §7.3）：Antigravity / ZCode / Qoder / Trae IDE——仅 UX 观察。
 
 ## 6. 红线（法律与安全）
 
 1. **Claude Code 泄露源码（2026-03-31 sourcemap 事件）只读不抄**：可用于理解实现（"它是怎么做的"），**一行代码不得复制进本仓库**——专有许可。接口规格与设计思想不受版权保护，可用。
-2. 许可证纪律：pi/dsh/opencode（MIT）、Codex/Grok（Apache-2.0）代码可复用但**保留版权声明**；Rust 参考是"翻译思路"不是复制。
+2. 许可证纪律：pi/dsh/opencode/MiniMax Code 第一方代码（MIT）、Codex/Grok（Apache-2.0）代码可复用但**保留版权声明**（MiniMax Code 边界见其仓内 LICENSE-STATUS.md：root MIT 不覆盖每个文件——third_party/sandbox-runtime 为 Apache-2.0，Pi 派生的终端代码、模型目录与打包资产保留原声明）；Rust 参考是"翻译思路"不是复制。
 3. 密钥与隐私：`models.json` 的 apiKey 只从环境变量读；日志固定脱敏；`.env` 不入库（见 .gitignore）。
 4. 工具安全：bash 工具默认全审批；路径硬边界（cwd 外拒读）优先于审批兜底。
 
