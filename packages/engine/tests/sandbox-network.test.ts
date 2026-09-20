@@ -76,7 +76,9 @@ async function readSome(sock: Socket, ms = 500): Promise<Buffer> {
  * wait(n) 等够 n 字节，drain() 取走已收的全部，尾字节不丢）。
  */
 function collector(sock: Socket): { wait: (n: number, timeoutMs?: number) => Promise<void>; drain: () => Buffer } {
-  let buf = Buffer.alloc(0)
+  // 显式 Buffer（ArrayBufferLike）——Buffer.alloc 推狭的 ArrayBuffer 与 data 块的
+  // ArrayBufferLike 互相赋值会 TS2322（@types/node 的 Buffer 泛型方差）
+  let buf: Buffer = Buffer.alloc(0)
   sock.on('data', (c: Buffer) => {
     buf = buf.length === 0 ? c : Buffer.concat([buf, c])
   })
