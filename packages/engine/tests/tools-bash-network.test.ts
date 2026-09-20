@@ -32,13 +32,14 @@ async function run(
   tool: ReturnType<typeof makeBashTool>,
   ctx: ToolContext,
   command: string,
-): Promise<{ isError: boolean; text: string; code?: string | undefined }> {
+): Promise<{ isError: boolean; text: string; message: string; code?: string | undefined }> {
   const r = await tool.execute(ctx, { command })
-  if (typeof r.output === 'string') return { isError: r.isError, text: r.output }
+  if (typeof r.output === 'string') return { isError: r.isError, text: r.output, message: '' }
   const o = r.output as Record<string, unknown>
   return {
     isError: r.isError,
     text: typeof o.output === 'string' ? o.output : '',
+    message: typeof o.message === 'string' ? o.message : '',
     code: typeof o.code === 'string' ? o.code : undefined,
   }
 }
@@ -73,7 +74,7 @@ describe('bash 网络隔离联动（阶段十九 19.7 / ADR D50）', () => {
     const r = await run(tool, makeCtx(root), 'echo hi')
     expect(r.isError).toBe(true)
     expect(r.code).toBe('E_SANDBOX_NETWORK_UNAVAILABLE')
-    expect(r.text).toContain('fail-closed')
+    expect(r.message).toContain('fail-closed')
   })
 
   test.skipIf(!posix)('off 档：零注入（缺省行为不变）', async () => {

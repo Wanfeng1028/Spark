@@ -78,11 +78,14 @@ export function formatIPv6(bytes: Buffer): string {
       curLen = 0
     }
   }
-  const parts = groups.map((g, i) => {
-    if (bestLen > 1 && i >= bestStart && i < bestStart + bestLen) return i === bestStart ? '' : null
-    return g.toString(16)
-  })
-  return parts.filter((p) => p !== null).join(':')
+  const parts = groups.map((g) => g.toString(16))
+  // 最长零跑（≥2 组）压成 '::'——单组零不压（RFC 5952）；全零 → '::'
+  if (bestLen > 1 && bestStart >= 0) {
+    const head = parts.slice(0, bestStart).join(':')
+    const tail = parts.slice(bestStart + bestLen).join(':')
+    return `${head}::${tail}`
+  }
+  return parts.join(':')
 }
 
 /** 分块读取器：握手期手动消费，隧道期 attachSink 后直达上游（积压先冲刷） */

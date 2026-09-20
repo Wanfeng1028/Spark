@@ -70,7 +70,10 @@ async function readSome(sock: Socket, ms = 500): Promise<Buffer> {
   return Buffer.concat(chunks)
 }
 
-/** SOCKS5 客户端最小实现：greeting → 请求（domain），回应答码与前 10 字节 */
+/**
+ * SOCKS5 客户端最小实现：greeting+请求一次写出，**先读 2 字节方法选择应答再读 10 字节
+ * 请求应答**（两段应答——只读一段会把方法选择的 0x00 当成请求应答码）。
+ */
 async function socksConnect(
   proxyPort: number,
   host: string,
@@ -83,7 +86,11 @@ async function socksConnect(
   })
   const name = Buffer.from(host, 'latin1')
   sock.write(Buffer.concat([Buffer.from([0x05, 0x01, 0x00]), Buffer.from([0x05, 0x01, 0x00, 0x03, name.length]), name, Buffer.from([port >> 8, port & 0xff])]))
-  const raw = await readSome(sock, 300)
+  const method = await readSome(sock, 300)
+  expect(method.length).toBe(2)
+  expect(method[0]).toBe(0x05)
+  expect(method[1]).toBe(0x00)
+  const raw = await readSome(sock, 500)
   return { code: raw.length >= 2 ? (raw[1] as number) : -1, raw, sock }
 }
 
