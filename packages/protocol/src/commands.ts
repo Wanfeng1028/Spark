@@ -33,6 +33,7 @@ export const ClientActionSchema = z.enum([
   'trust',
   'extensions',
   'computer',
+  'sandbox',
 ])
 export type ClientAction = z.infer<typeof ClientActionSchema>
 
@@ -280,5 +281,16 @@ export const BUILTIN_COMMANDS: readonly CommandDescriptor[] = [
     surface: ['web', 'cli'],
     sessionRequired: false,
     clientAction: 'computer',
+  },
+  {
+    // 阶段十九 19.7：client 命令——/sandbox 沙箱与网络面板（模式/清单/端口 + 代理运行
+    // 状态，只读；清单与模式写在 web 设置页 updateSettings，CLI 面板只读指引）
+    name: 'sandbox',
+    description: '沙箱与网络面板：出口域名过滤模式、清单与代理运行状态（开关在设置中心）',
+    kind: 'client',
+    group: 'info',
+    surface: ['web', 'cli'],
+    sessionRequired: false,
+    clientAction: 'sandbox',
   },
 ]

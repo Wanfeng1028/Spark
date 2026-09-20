@@ -8,7 +8,7 @@
  *   {"@speed":N}         全局倍率（实际间隔 = delay / speed）
  * sendMessage 不合成事件——脚本预录的 user.message 原样回放（假对话：文本以脚本为准）。
  */
-import { SETTINGS_RESTART_REQUIRED, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
+import { SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
 import type {
   BrowserCleanupResultDto,
@@ -74,6 +74,7 @@ import type {
   ExtensionDto,
   ArenaStatusDto,
   ArenaHistoryDto,
+  SandboxNetworkStatusDto,
 } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
@@ -901,6 +902,8 @@ export class MockTransport implements Transport {
       bashPersistent: false,
     },
     browser: { headless: true, defaultTimeoutMs: 30000, userAgent: '' },
+    // 沙箱网络隔离（阶段十九 19.7 / ADR D50）：mock 缺省 off（不拦截）；对等写路径同下
+    sandbox: { network: { ...SANDBOX_NETWORK_DEFAULTS } },
     restartRequired: [...SETTINGS_RESTART_REQUIRED],
     models: { defaultModel: 'deepseek/deepseek-chat', defaultEffort: null },
   }
@@ -940,6 +943,18 @@ export class MockTransport implements Transport {
               headless: patch.browser.headless ?? prev.browser?.headless ?? true,
               defaultTimeoutMs: patch.browser.defaultTimeoutMs ?? prev.browser?.defaultTimeoutMs ?? 30000,
               userAgent: patch.browser.userAgent ?? prev.browser?.userAgent ?? '',
+            },
+          }
+        : {}),
+      // 沙箱网络隔离（阶段十九 19.7 / ADR D50）：network 逐字段合并——显式 undefined 不覆盖现值
+      ...(patch.sandbox !== undefined
+        ? {
+            sandbox: {
+              network: {
+                mode: patch.sandbox.network.mode ?? prev.sandbox?.network.mode ?? SANDBOX_NETWORK_DEFAULTS.mode,
+                allowlist: patch.sandbox.network.allowlist ?? prev.sandbox?.network.allowlist ?? [],
+                port: patch.sandbox.network.port ?? prev.sandbox?.network.port ?? SANDBOX_NETWORK_DEFAULTS.port,
+              },
             },
           }
         : {}),
@@ -1172,6 +1187,23 @@ export class MockTransport implements Transport {
       entries: this.mockIndexEntries,
       sizeBytes: 264_192,
       path: '~/.spark/search.db（mock 演示路径）',
+    })
+  }
+
+  /**
+   * 沙箱网络隔离代理状态（阶段十九 19.7 对等演示）：mock 无真实代理——按设置档位
+   * 派生（allowlist 档 = 演示"过滤中"，off = 未启动）。端口占用/绑定失败只发生在
+   * 真实引擎，mock 不假装。
+   */
+  sandboxNetworkStatus(): Promise<SandboxNetworkStatusDto> {
+    this.assertNotDisposed()
+    const net = this.settings.sandbox?.network
+    const enabled = net?.mode === 'allowlist'
+    return Promise.resolve({
+      ready: enabled,
+      reason: null,
+      activeConnections: 0,
+      port: net?.port ?? SANDBOX_NETWORK_DEFAULTS.port,
     })
   }
 

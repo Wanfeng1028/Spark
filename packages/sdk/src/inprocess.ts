@@ -49,6 +49,7 @@ import type {
   IndexStatsDto,
   RebuildResultDto,
   VacuumResultDto,
+  SandboxNetworkStatusDto,
   McpConfigInput,
   McpServerDto,
   MemoryDto,
@@ -454,6 +455,11 @@ export class InProcessTransport implements Transport {
   /** 索引库统计（工单 19.11）：引擎同步方法——走 sync 门（收口断言 + 同步抛错转拒绝） */
   indexStats(): Promise<IndexStatsDto> {
     return this.sync(() => this.engine.indexStats())
+  }
+
+  /** 沙箱网络隔离代理状态（阶段十九 19.7 / ADR D50）：引擎同步方法——走 sync 门 */
+  sandboxNetworkStatus(): Promise<SandboxNetworkStatusDto> {
+    return this.sync(() => this.engine.sandboxNetworkStatus())
   }
 
   /** 索引库重建（工单 19.11）：清表重扫 sessions JSONL，等待完成回条目数 */

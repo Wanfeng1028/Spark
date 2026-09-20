@@ -64,6 +64,7 @@ import type {
   IndexStatsDto,
   RebuildResultDto,
   VacuumResultDto,
+  SandboxNetworkStatusDto,
   UsageSummaryDto,
 } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
@@ -571,6 +572,11 @@ export class HttpTransport implements Transport {
   /** GET /api/index/stats：索引库统计（工单 19.11） */
   indexStats(): Promise<IndexStatsDto> {
     return this.req<IndexStatsDto>('/api/index/stats')
+  }
+
+  /** GET /api/sandbox/network：沙箱网络隔离代理运行时状态（阶段十九 19.7 / ADR D50） */
+  sandboxNetworkStatus(): Promise<SandboxNetworkStatusDto> {
+    return this.req<SandboxNetworkStatusDto>('/api/sandbox/network')
   }
 
   /** POST /api/index/rebuild：清表重扫全量重建（等待完成回条目数；工单 19.11） */

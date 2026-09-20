@@ -24,6 +24,8 @@ export interface BuiltinToolsOptions {
   bashSandbox?: BashSandboxMode
   /** bash 常驻会话开关（spark.json engine.bashPersistent，19.3 / ADR D45；getter 执行期读，热档） */
   bashPersistent?: () => boolean
+  /** 沙箱网络隔离状态（spark.json sandbox.network，19.7 / ADR D50；getter 执行期读，mode/allowlist 热档） */
+  networkIsolation?: () => { enabled: boolean; port: number; ready: boolean }
 }
 
 export function registerBuiltinTools(registry: ToolRegistry, opts: BuiltinToolsOptions = {}): void {
@@ -35,6 +37,7 @@ export function registerBuiltinTools(registry: ToolRegistry, opts: BuiltinToolsO
     makeBashTool({
       sandbox: opts.bashSandbox ?? 'off',
       ...(opts.bashPersistent !== undefined ? { persistent: opts.bashPersistent } : {}),
+      ...(opts.networkIsolation !== undefined ? { networkIsolation: opts.networkIsolation } : {}),
     }),
   )
   // 工单 16.3：计划模式退出工具（非计划模式不进广告面——engine 侧 hiddenTools getter 控）

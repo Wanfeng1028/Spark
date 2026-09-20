@@ -441,6 +441,7 @@ export const SETTINGS_RESTART_REQUIRED: readonly string[] = [
   'browser.headless',
   'browser.defaultTimeoutMs',
   'browser.userAgent',
+  'sandbox.network.port',
 ]
 
 /** 浏览器工具族设置（阶段十九 19.12）：spark.json `browser` 段——重启档（BrowserManager
@@ -451,6 +452,43 @@ export const BrowserSettingsSchema = z.strictObject({
   userAgent: z.string().max(300),
 })
 export type BrowserSettings = z.infer<typeof BrowserSettingsSchema>
+
+/**
+ * 沙箱网络隔离设置（阶段十九 19.7 / ADR D50，翻案 D15"网络隔离 v1 不做"登记）：
+ * spark.json `sandbox.network` 段。mode='allowlist' 时 bash 出口经本地代理过滤——
+ * SOCKS5 与 HTTP CONNECT 同端口按首字节分流，仅 allowlist 命中域名放行。
+ * allowlist 条目 = 精确主机名，或 `*.example.com`（匹配任意层子域，不含本域自身）。
+ * port 变更需重启（SETTINGS_RESTART_REQUIRED：代理构造期绑定监听）。
+ * **诚实边界**：代理只引导尊重 HTTP_PROXY/ALL_PROXY 环境变量的客户端；忽略它们的
+ * 命令（裸 socket）仍可直连——OS 级强制属 19.6（spike 判 Windows 不可行）。
+ * 本单交付出口过滤而非内核隔离，页面与文档不得宣称"沙箱内断网"。
+ */
+export const SandboxNetworkSettingsSchema = z.strictObject({
+  mode: z.enum(['off', 'allowlist']),
+  allowlist: z.array(z.string().min(1).max(253)).max(200),
+  port: z.number().int().min(1024).max(65535),
+})
+export type SandboxNetworkSettings = z.infer<typeof SandboxNetworkSettingsSchema>
+
+/** 沙箱网络隔离缺省值（引擎归一化 / web mock 对等 / 代理装配共用的单一来源） */
+export const SANDBOX_NETWORK_DEFAULTS: SandboxNetworkSettings = {
+  mode: 'off',
+  allowlist: [],
+  port: 1080,
+}
+
+/** GET /api/sandbox/network：代理运行时状态（设置页/CLI 面板展示"是否在过滤出口"） */
+export const SandboxNetworkStatusDtoSchema = z.strictObject({
+  /** 代理已监听（true = 出口正在过滤；false = 未启动或绑定失败） */
+  ready: z.boolean(),
+  /** 未就绪原因（绑定失败等）；ready 为 true 时 null */
+  reason: z.string().nullable(),
+  /** 活跃隧道数（进行中的连接） */
+  activeConnections: z.number().int().nonnegative(),
+  /** 当前配置端口（spark.json sandbox.network.port） */
+  port: z.number().int().min(1024).max(65535),
+})
+export type SandboxNetworkStatusDto = z.infer<typeof SandboxNetworkStatusDtoSchema>
 
 /** GET /api/settings 响应（掩码红线：绝不回 apiKey 值——D28） */
 export const SettingsDtoSchema = z.strictObject({
@@ -475,6 +513,12 @@ export const SettingsDtoSchema = z.strictObject({
     .optional(),
   /** 浏览器设置（阶段十九 19.12）：spark.json browser 段——重启档 */
   browser: BrowserSettingsSchema.optional(),
+  /** 沙箱网络隔离（阶段十九 19.7 / ADR D50）：spark.json sandbox.network 段——mode/allowlist 热档，port 重启档 */
+  sandbox: z
+    .strictObject({
+      network: SandboxNetworkSettingsSchema,
+    })
+    .optional(),
   /** 需重启生效字段清单（前端标注"下次启动生效"；单一来源 SETTINGS_RESTART_REQUIRED） */
   restartRequired: z.array(z.string()),
   /** models.json 只读参考（写路径不经本端点——默认模型/档位迁移记录见工单） */
@@ -510,6 +554,12 @@ export const SettingsUpdateSchema = z.strictObject({
     .optional(),
   /** 浏览器设置（阶段十九 19.12）：browser 段逐域合并（部分更新）；重启档 */
   browser: BrowserSettingsSchema.partial().optional(),
+  /** 沙箱网络隔离（阶段十九 19.7）：sandbox.network 逐域合并（部分更新）；mode/allowlist 热档，port 重启档 */
+  sandbox: z
+    .strictObject({
+      network: SandboxNetworkSettingsSchema.partial(),
+    })
+    .optional(),
 })
 export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>
 

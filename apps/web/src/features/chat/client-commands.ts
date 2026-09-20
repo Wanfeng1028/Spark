@@ -33,6 +33,8 @@ export const CLIENT_ACTIONS: Readonly<Partial<Record<ClientAction, ClientCommand
   extensions: { kind: 'navigate', path: '/settings/plugins' },
   // 电脑控制页（阶段十九 19.2）
   computer: { kind: 'navigate', path: '/settings/computer' },
+  // 沙箱与网络页（阶段十九 19.7）：出口域名过滤与代理状态
+  sandbox: { kind: 'navigate', path: '/settings/sandbox' },
 }
 
 /** 是否 client 命令（前端本地执行，不进引擎） */

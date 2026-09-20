@@ -15,6 +15,7 @@ import {
   LspPanel,
   McpPanel,
   ModelPanel,
+  SandboxPanel,
   SkillsPanel,
   TreePanel,
   TrustPanel,
@@ -96,6 +97,9 @@ export function PanelRouter({
   }
   if (panel === 'computer') {
     return <ComputerPanel transport={transport} />
+  }
+  if (panel === 'sandbox') {
+    return <SandboxPanel transport={transport} />
   }
   if (panel === 'trust') {
     return <TrustPanel transport={transport} />

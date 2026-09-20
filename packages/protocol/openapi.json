@@ -3247,7 +3247,8 @@
               "agents",
               "trust",
               "extensions",
-              "computer"
+              "computer",
+              "sandbox"
             ]
           }
         },
@@ -4500,6 +4501,47 @@
             ],
             "additionalProperties": false
           },
+          "sandbox": {
+            "type": "object",
+            "properties": {
+              "network": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "off",
+                      "allowlist"
+                    ]
+                  },
+                  "allowlist": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 253
+                    }
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1024,
+                    "maximum": 65535
+                  }
+                },
+                "required": [
+                  "mode",
+                  "allowlist",
+                  "port"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "network"
+            ],
+            "additionalProperties": false
+          },
           "restartRequired": {
             "type": "array",
             "items": {
@@ -4850,6 +4892,42 @@
                 "maxLength": 300
               }
             },
+            "additionalProperties": false
+          },
+          "sandbox": {
+            "type": "object",
+            "properties": {
+              "network": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "off",
+                      "allowlist"
+                    ]
+                  },
+                  "allowlist": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 253
+                    }
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1024,
+                    "maximum": 65535
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "network"
+            ],
             "additionalProperties": false
           }
         },

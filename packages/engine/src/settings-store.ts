@@ -172,6 +172,18 @@ export function persistSparkPatch(root: string, patch: SettingsUpdate): EngineCo
     const cur = (raw['browser'] as Record<string, unknown> | undefined) ?? {}
     raw['browser'] = { ...cur, ...patch.browser }
   }
+  // 沙箱网络隔离（阶段十九 19.7 / ADR D50）：sandbox.network 逐域合并（部分更新）。
+  // 显式跳过 undefined 值——exactOptionalPropertyTypes 下 partial patch 的未传字段
+  // 不得以 undefined 覆盖盘上真值（模式/清单热档、port 重启档）。
+  if (patch.sandbox !== undefined) {
+    const cur = (raw['sandbox'] as Record<string, unknown> | undefined) ?? {}
+    const curNet = (cur['network'] as Record<string, unknown> | undefined) ?? {}
+    const net: Record<string, unknown> = { ...curNet }
+    for (const [k, v] of Object.entries(patch.sandbox.network)) {
+      if (v !== undefined) net[k] = v
+    }
+    raw['sandbox'] = { ...cur, network: net }
+  }
   validateSparkWrite(raw)
   atomicWriteJson(sparkPath, raw)
   return loadConfig(root)

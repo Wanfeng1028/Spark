@@ -2955,6 +2955,103 @@ describe('契约：api.RoutingUsageDtoSchema', () => {
   })
 })
 
+describe('契约：api.SandboxNetworkSettingsSchema', () => {
+  const sample = {
+    "mode": "off",
+    "allowlist": [
+      "contract-sample"
+    ],
+    "port": 1024
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.SandboxNetworkSettingsSchema.parse(sample)).toEqual(sample)
+    expect(api.SandboxNetworkSettingsSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.SandboxNetworkSettingsSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 mode → 解析失败', () => {
+    expect(() => api.SandboxNetworkSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["mode"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 allowlist → 解析失败', () => {
+    expect(() => api.SandboxNetworkSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["allowlist"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 port → 解析失败', () => {
+    expect(() => api.SandboxNetworkSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["port"]; return m })())).toThrow()
+  })
+
+  it('字段 mode 类型错 → 解析失败', () => {
+    expect(() => api.SandboxNetworkSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["mode"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 allowlist 类型错 → 解析失败', () => {
+    expect(() => api.SandboxNetworkSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["allowlist"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 port 类型错 → 解析失败', () => {
+    expect(() => api.SandboxNetworkSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["port"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.SandboxNetworkSettingsSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.SandboxNetworkStatusDtoSchema', () => {
+  const sample = {
+    "ready": false,
+    "reason": "contract-sample",
+    "activeConnections": 1,
+    "port": 1024
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.SandboxNetworkStatusDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.SandboxNetworkStatusDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.SandboxNetworkStatusDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 ready → 解析失败', () => {
+    expect(() => api.SandboxNetworkStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["ready"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 reason → 解析失败', () => {
+    expect(() => api.SandboxNetworkStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["reason"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 activeConnections → 解析失败', () => {
+    expect(() => api.SandboxNetworkStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["activeConnections"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 port → 解析失败', () => {
+    expect(() => api.SandboxNetworkStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["port"]; return m })())).toThrow()
+  })
+
+  it('字段 ready 类型错 → 解析失败', () => {
+    expect(() => api.SandboxNetworkStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["ready"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('字段 activeConnections 类型错 → 解析失败', () => {
+    expect(() => api.SandboxNetworkStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["activeConnections"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 port 类型错 → 解析失败', () => {
+    expect(() => api.SandboxNetworkStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["port"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.SandboxNetworkStatusDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.SearchHitDtoSchema', () => {
   const sample = {
     "sessionId": "ses_01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -3266,6 +3363,15 @@ describe('契约：api.SettingsDtoSchema', () => {
       "defaultTimeoutMs": 1,
       "userAgent": "contract-sample"
     },
+    "sandbox": {
+      "network": {
+        "mode": "off",
+        "allowlist": [
+          "contract-sample"
+        ],
+        "port": 1024
+      }
+    },
     "restartRequired": [
       "contract-sample"
     ],
@@ -3322,6 +3428,10 @@ describe('契约：api.SettingsDtoSchema', () => {
 
   it('字段 browser 类型错 → 解析失败', () => {
     expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["browser"] = []; return m })())).toThrow()
+  })
+
+  it('字段 sandbox 类型错 → 解析失败', () => {
+    expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["sandbox"] = []; return m })())).toThrow()
   })
 
   it('字段 restartRequired 类型错 → 解析失败', () => {
@@ -3503,6 +3613,15 @@ describe('契约：api.SettingsUpdateSchema', () => {
       "headless": false,
       "defaultTimeoutMs": 1,
       "userAgent": "contract-sample"
+    },
+    "sandbox": {
+      "network": {
+        "mode": "off",
+        "allowlist": [
+          "contract-sample"
+        ],
+        "port": 1024
+      }
     }
   }
 
@@ -3533,6 +3652,10 @@ describe('契约：api.SettingsUpdateSchema', () => {
 
   it('字段 browser 类型错 → 解析失败', () => {
     expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["browser"] = []; return m })())).toThrow()
+  })
+
+  it('字段 sandbox 类型错 → 解析失败', () => {
+    expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["sandbox"] = []; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {

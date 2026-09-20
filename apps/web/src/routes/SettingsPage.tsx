@@ -18,6 +18,7 @@ import { PluginsSettingsPage } from '@/features/settings/PluginsSettingsPage'
 import { SecurityTrustPage } from '@/features/settings/SecurityTrustPage'
 import { ComputerSettingsPage } from '@/features/settings/ComputerSettingsPage'
 import { BrowserSettingsPage } from '@/features/settings/BrowserSettingsPage'
+import { SandboxSettingsPage } from '@/features/settings/SandboxSettingsPage'
 import { CommandsSettingsPage } from '@/features/settings/CommandsSettingsPage'
 import { HooksSettingsPage } from '@/features/settings/HooksSettingsPage'
 import { UsageSettingsPage } from '@/features/settings/UsageSettingsPage'
@@ -48,6 +49,7 @@ const READY_COMPONENTS = {
   audit: AuditSettingsPage,
   computer: ComputerSettingsPage,
   browser: BrowserSettingsPage,
+  sandbox: SandboxSettingsPage,
 } as const
 
 export function SettingsPage() {

@@ -298,6 +298,31 @@ describe('spark.json engine/hooks 段单一来源（工单 R-B.4：复用 @spark
     })
   })
 
+  it('sandbox.network 段：合法解析 + 缺省归位 + 未知键拒载（阶段十九 19.7 / ADR D50）', () => {
+    const dir = tempDir()
+    write(dir, 'spark.json', JSON.stringify({
+      sandbox: { network: { mode: 'allowlist', allowlist: ['github.com', '*.npmjs.org'] } },
+    }))
+    write(dir, 'models.json', VALID_MODELS)
+
+    const cfg = loadConfig(dir)
+    expect(cfg.spark.sandbox?.network).toEqual({
+      mode: 'allowlist',
+      allowlist: ['github.com', '*.npmjs.org'],
+    })
+
+    // 未配 sandbox 段 = undefined（引擎侧归一化 off/[]/1080）
+    const dir2 = tempDir()
+    write(dir2, 'models.json', VALID_MODELS)
+    expect(loadConfig(dir2).spark.sandbox).toBeUndefined()
+
+    // network 未知键 → E_CONFIG（配置错误不带病运行）
+    const dir3 = tempDir()
+    write(dir3, 'spark.json', JSON.stringify({ sandbox: { network: { nope: 1 } } }))
+    write(dir3, 'models.json', VALID_MODELS)
+    expect(() => loadConfig(dir3)).toThrow(/spark.json 校验失败/)
+  })
+
   it('engine 段未知键剥离 → 该字段落默认值（宽松口径刻意保留；收紧属行为变更须另立工单）', () => {
     const dir = tempDir()
     write(dir, 'spark.json', JSON.stringify({

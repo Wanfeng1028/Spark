@@ -48,9 +48,10 @@ import type {
   SparkEventMap,
   TurnId,
 } from '@spark/protocol'
-import { SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
+import { SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
 import type {
   ExtensionDto,
+  SandboxNetworkStatusDto,
 AgentPresetDto, SessionMode, SessionStatus, UsageSummaryDto } from '@spark/protocol'
 import type { ArenaHistoryEntryDto } from '@spark/protocol'
 import { EventBus } from './bus.js'
@@ -131,6 +132,7 @@ import { createPlaywrightDriver, SHOT_FILE_RE } from './browser/playwright.js'
 import { makeBrowserTools } from './tools/builtin/browser.js'
 import { makeComputerTools } from './tools/builtin/computer.js'
 import { createComputerExecutor, type ComputerExecutor } from './computer/executor.js'
+import { SandboxNetworkProxy } from './sandbox/proxy.js'
 
 import type {
   EngineDeps,
@@ -188,6 +190,12 @@ export class Engine {
   private readonly browserSettings: BrowserSettings
   /** 电脑控制执行体（阶段十九 19.1 / ADR D43）：构造零副作用，spawn 只在操作执行期 */
   private readonly computerExecutor: ComputerExecutor
+  /**
+   * 沙箱网络隔离代理（阶段十九 19.7 / ADR D50）：allowlist 档才建实例并监听 127.0.0.1；
+   * 启动失败也保留实例（status.ready=false + reason）——bash 侧据此 fail-closed 拒跑。
+   * allowlist 内容经 getter 热读（PUT 即时生效，不重启代理）。
+   */
+  private sandboxProxy: SandboxNetworkProxy | null = null
   /** 截图落盘目录（~/.spark/browser-shots；GET /api/artifacts/:file 供图） */
   private readonly shotsDir: string
   /** 成本累计（阶段七工单 7.7 / H07）：~/.spark/usage.json 持久化，熔断判定数据源 */
@@ -455,10 +463,20 @@ export class Engine {
     })
 
     this.registry = new ToolRegistry()
+    // 沙箱网络隔离（阶段十九 19.7 / ADR D50）：allowlist 档先建代理再注册 bash 工具
+    //（工具经 getter 执行期读状态——mode/allowlist 热档，port 重启档）。构造期绑定失败
+    // 不抛（引擎照常启动），代理留 fail-closed 态由 bash 拒跑，如实可查。
+    void this.reconcileSandboxNetwork()
     registerBuiltinTools(this.registry, {
       bashSandbox: this.config.spark.engine.bashSandbox,
       // bash 常驻会话（阶段十九 19.3 / ADR D45）：getter 执行期读，主开关热档
       bashPersistent: () => this.config.spark.engine.bashPersistent,
+      // 沙箱网络隔离（阶段十九 19.7 / ADR D50）：getter 执行期读（热档）
+      networkIsolation: () => ({
+        enabled: this.config.spark.sandbox?.network?.mode === 'allowlist',
+        port: this.config.spark.sandbox?.network?.port ?? SANDBOX_NETWORK_DEFAULTS.port,
+        ready: this.sandboxProxy?.status.ready === true,
+      }),
     })
     // 记忆工具族（工单 7.5）：仓不可用不注册（模型无从调用，fail 路径不存在）
     if (this.memory !== null) {
@@ -1354,6 +1372,14 @@ export class Engine {
         defaultTimeoutMs: this.browserSettings.defaultTimeoutMs,
         userAgent: this.browserSettings.userAgent,
       },
+      // 沙箱网络隔离（阶段十九 19.7 / ADR D50）：未配置时缺省 off/空清单/1080
+      sandbox: {
+        network: {
+          mode: this.config.spark.sandbox?.network?.mode ?? SANDBOX_NETWORK_DEFAULTS.mode,
+          allowlist: this.config.spark.sandbox?.network?.allowlist ?? SANDBOX_NETWORK_DEFAULTS.allowlist,
+          port: this.config.spark.sandbox?.network?.port ?? SANDBOX_NETWORK_DEFAULTS.port,
+        },
+      },
     }
     return dto
   }
@@ -1368,6 +1394,9 @@ export class Engine {
     this.assertNotShutdown()
     // 校验/写盘失败 → 内存与磁盘都不动（fail-closed，D28）；成功后重载内存 config
     this.config = persistSparkPatch(this.root, patch)
+    // 沙箱网络隔离（阶段十九 19.7 / ADR D50）：mode 热切换——allowlist 开即建代理，
+    // 关即停代理（在途隧道随之断开；allowlist 内容本就热读，无需 reconcile）
+    void this.reconcileSandboxNetwork()
     // 旧 runner 先收口（工单 10.24）：在途子进程 kill + disposed 置位，防迟到回调写日志
     this.hooks.dispose()
     this.hooks = new UserHookRunner(this.config.spark.hooks ?? {}, {
@@ -1377,6 +1406,50 @@ export class Engine {
       defaultTimeoutMs: DEFAULT_HOOK_TIMEOUT_MS,
     })
     return this.getSettings()
+  }
+
+  /**
+   * 沙箱网络隔离代理生命周期（阶段十九 19.7 / ADR D50）：mode='allowlist' 且无实例 →
+   * 建代理并监听（端口占用等失败 → 实例保留在 fail-closed 态，bash 拒跑不降级直连）；
+   * mode='off' 且有实例 → 停代理清实例。allowlist 清单经代理内 getter 热读，不在本方法。
+   */
+  private async reconcileSandboxNetwork(): Promise<void> {
+    const net = this.config.spark.sandbox?.network
+    if (net?.mode !== 'allowlist') {
+      const proxy = this.sandboxProxy
+      if (proxy === null) return
+      this.sandboxProxy = null
+      await proxy.stop()
+      this.logger.info('sandbox.proxy.stopped', {})
+      return
+    }
+    if (this.sandboxProxy !== null) return
+    const port = net.port ?? SANDBOX_NETWORK_DEFAULTS.port
+    const proxy = new SandboxNetworkProxy({
+      port,
+      allowlist: () => this.config.spark.sandbox?.network?.allowlist ?? [],
+      onConnectionError: (err) => this.logger.warn('sandbox.proxy.conn.error', { err }),
+    })
+    this.sandboxProxy = proxy
+    try {
+      await proxy.start()
+      this.logger.info('sandbox.proxy.started', { port })
+    } catch (err) {
+      proxy.markFailed(`代理启动失败：${errText(err)}`)
+      this.logger.warn('sandbox.proxy.start_failed', { port, err })
+    }
+  }
+
+  /** GET /api/sandbox/network：代理运行时状态（未建实例 = 未启动） */
+  sandboxNetworkStatus(): SandboxNetworkStatusDto {
+    const port = this.config.spark.sandbox?.network?.port ?? SANDBOX_NETWORK_DEFAULTS.port
+    const status = this.sandboxProxy?.status
+    return {
+      ready: status?.ready === true,
+      reason: status?.reason ?? null,
+      activeConnections: status?.activeConnections ?? 0,
+      port,
+    }
   }
 
   /**
@@ -1788,6 +1861,17 @@ export class Engine {
       // 6.8) hooks runner 收口（工单 10.24）：kill 在途子进程 + 置 disposed——迟到的
       //      close 回调不再写已关闭的 logger 流（pino "write after end"，先于 finally 关日志）
       this.hooks.dispose()
+      // 6.9) 沙箱网络隔离代理收尾（阶段十九 19.7 / ADR D50）：关监听 + 断在途隧道
+      //      （allowlist 档未启时为空操作）
+      if (this.sandboxProxy !== null) {
+        const proxy = this.sandboxProxy
+        this.sandboxProxy = null
+        try {
+          await proxy.stop()
+        } catch (err) {
+          this.logger.warn('sandbox.proxy.stop.error', { err })
+        }
+      }
       this.logger.info('engine.shutdown.done')
     } catch (err) {
       this.logger.error('engine.shutdown.error', { err })

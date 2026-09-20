@@ -24,6 +24,7 @@ import type {
   IndexStatsDto,
   RebuildResultDto,
   VacuumResultDto,
+  SandboxNetworkStatusDto,
   McpConfigInput,
   McpServerDto,
   MemoryDto,
@@ -181,6 +182,9 @@ export interface Transport {
   installLspServer(id: string): Promise<LspInstallResultDto>
   /** GET /api/index/stats：索引库统计（条目/体积/路径；工单 19.11；降级时 available:false） */
   indexStats(): Promise<IndexStatsDto>
+  /** GET /api/sandbox/network：沙箱网络隔离代理运行时状态（阶段十九 19.7 / ADR D50；
+   * allowlist 档未启动/绑定失败时 ready=false + reason——bash 侧据此 fail-closed） */
+  sandboxNetworkStatus(): Promise<SandboxNetworkStatusDto>
   /** POST /api/index/rebuild：清表重扫 sessions JSONL 全量重建（等待完成回条目数；工单 19.11） */
   rebuildIndex(): Promise<RebuildResultDto>
   /** POST /api/index/vacuum：SQLite VACUUM 空间回收（回前后库体积；工单 19.11） */

@@ -99,6 +99,12 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
         status: 'ready',
       },
       {
+        id: 'sandbox',
+        title: '沙箱与网络',
+        description: 'bash 出口域名过滤与代理运行状态（工单 19.7 / ADR D50）',
+        status: 'ready',
+      },
+      {
         id: 'mcp',
         title: 'MCP 服务器',
         description: 'MCP 连接状态与工具数（只读；启停编辑归 v2）',

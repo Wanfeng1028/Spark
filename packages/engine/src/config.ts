@@ -8,8 +8,8 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { BrowserSettingsSchema,
-  EngineSettingsShape, SettingsHooksSchema, SettingsPromptsSchema } from '@spark/protocol'
-import type { EngineSettings, ReasoningEffort, SettingsHooks, SettingsPrompts } from '@spark/protocol'
+  EngineSettingsShape, SandboxNetworkSettingsSchema, SettingsHooksSchema, SettingsPromptsSchema } from '@spark/protocol'
+import type { EngineSettings, ReasoningEffort, SandboxNetworkSettings, SettingsHooks, SettingsPrompts } from '@spark/protocol'
 import { errText } from './errs.js'
 
 /** E_CONFIG（§5.10）：进程退出 + stderr 的载体由启动方（server）负责 */
@@ -60,6 +60,12 @@ const sparkSchema = z.object({
 
   /** 浏览器设置（阶段十九 19.12 / ADR D49）：重启档（BrowserManager 构造期装配） */
   browser: BrowserSettingsSchema.partial().optional(),
+  /** 沙箱网络隔离（阶段十九 19.7 / ADR D50）：network 段宽松——mode/allowlist 热档，port 重启档 */
+  sandbox: z
+    .object({
+      network: SandboxNetworkSettingsSchema.partial().optional(),
+    })
+    .optional(),
 })
 
 export interface SparkConfig {
@@ -80,6 +86,18 @@ export interface SparkConfig {
         headless?: boolean | undefined
         defaultTimeoutMs?: number | undefined
         userAgent?: string | undefined
+      }
+    | undefined
+  /** 沙箱网络隔离（阶段十九 19.7 / ADR D50；可选宽松形——缺省 mode=off 不拦截，engine.ts 归一化） */
+  sandbox?:
+    | {
+        network?:
+          | {
+              mode?: SandboxNetworkSettings['mode'] | undefined
+              allowlist?: string[] | undefined
+              port?: number | undefined
+            }
+          | undefined
       }
     | undefined
 }
@@ -285,6 +303,7 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
             agents: p.agents, // 工单 16.2 / ADR D36：原样透传（undefined = 全启用）
             extensions: p.extensions, // 工单 16.5 / ADR D38：原样透传（undefined = 全启用）
             browser: p.browser, // 阶段十九 19.12 / ADR D49：原样透传（undefined = engine.ts 侧取默认）
+            sandbox: p.sandbox, // 阶段十九 19.7 / ADR D50：原样透传（undefined = mode off 不拦截）
           }
         })()
 

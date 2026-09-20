@@ -60,6 +60,7 @@
 | v1.58 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十九工单 19.10 开工指令） | **D42 条目尾部 19.10 翻案补记（不新建 ADR；doc/02 v4.73 同批）**：arena 竞答记录落盘 `~/.spark/arena/<arenaId>.json`（ArenaStore 每场一文件 + manager 四时机写盘 + loadHistory mtime 降序损坏跳过）；翻案边界：零新事件与"非可回放状态"裁决不变，只翻"重启丢失"登记限制——历史查询面 GET /api/arena/history + listArenaHistory 三通道。本机零验证，CI 裁决 |
 | v1.59 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D48 审批作用域 = always-user 缺省 + always-project 项目级（阶段十九 19.9；doc/02 v4.74 同批）**：scope 参数全链贯通 + projectRuleStore 项目落盘 + E_PERMISSION_SCOPE fail-closed + 四端第四入口（v2 候选清偿）。19.10（D42 翻案补记）由后台子代理并行落地（v1.58/v4.73/v1.59 先行登记）。本机零验证，CI 裁决 |
 | v1.60 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D49 浏览器设置 = browser 独立段重启档（阶段十九 19.12；doc/02 v4.76 同批）**：headless/超时/UA 进 spark.json browser 段（driver/工具选项贯通）+ 截图清理白名单单源。19.6 spike 报告（doc/spike-win-sandbox.md）归不可行分支待晚风拍板（替代案 A/B/C），D15 判决注记待拍板后补。本机零验证，CI 裁决 |
+| v1.61 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D50 沙箱网络隔离 = 本地出口过滤代理 + 域名 allowlist（阶段十九 19.7，翻案 D15"网络隔离 v1 不做"登记；doc/02 v4.78 同批）**：spark.json `sandbox.network` 段（mode/allowlist 热档 + port 重启档）；引擎 sandbox/proxy.ts 零新依赖手写——SOCKS5 无鉴权+CONNECT 与 HTTP CONNECT 同端口按首字节分流，未命中 0x02/403、上游失败 0x01/502、未就绪 E_SANDBOX_NETWORK_UNAVAILABLE fail-closed 拒跑不降级；bash 出口引导 spawn env + 常驻逐命令 export 前缀（socks5h 让代理解析主机名——清单按域名判定的前提）；web「沙箱与网络」页 + CLI /sandbox 面板 + GET /api/sandbox/network。**诚实边界**：出口域名过滤而非内核隔离（尊重代理变量的客户端才走过滤；OS 级强制归 19.6）。本机零验证，CI 裁决 |
 
 ---
 
@@ -488,6 +489,12 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 ### D49 浏览器设置 = spark.json browser 独立段重启档（2026-09-19，阶段十九工单 19.12）
 
 决策：浏览器工具族设置（headless/defaultTimeoutMs/userAgent）放 spark.json **独立 `browser` 段**（不挤 engine.* 十一项），沿 agents/extensions 独立 section 判例；**重启档**（BrowserManager 构造期装配，D28 分类"构造期注入子系统"），SETTINGS_RESTART_REQUIRED 登记 browser.* 三路径；宽松 partial 解析（未知键剥离落默认，spark.json 全族口径）。清理面 = cleanupBrowserArtifacts 按 SHOT_FILE_RE 白名单删产物（非白名单文件不误删——与 /api/artifacts 供图同一白名单单源）。
+
+### D50 沙箱网络隔离 = 本地出口过滤代理 + 域名 allowlist（2026-09-20，阶段十九工单 19.7，翻案 D15"网络隔离 v1 不做"登记）
+
+背景：D15（工单 5.2）判"网络隔离 v1 不做（Claude Code 走沙箱外 SOCKS5 代理，复杂度后置）"；19.6 spike 证明 Windows OS 级强制不可行后，晚风拍板网络面按用户态代理落地（替代案 B）。
+决策：spark.json `sandbox.network` 段（mode off|allowlist + allowlist 域名清单 + port；mode/allowlist 热档，port 重启档）+ 引擎 `sandbox/proxy.ts` **零新依赖**手写本地代理——SOCKS5（无鉴权 + CONNECT）与 HTTP CONNECT **同端口按首字节分流**（一个端口同时喂 curl/wget 与只认 SOCKS5 的客户端）；bash 出口引导 = 独立 shell spawn env（HTTP_PROXY/HTTPS_PROXY/ALL_PROXY=**socks5h**/NO_PROXY 回环放行）、常驻 shell **逐命令 export 前缀**（shell 环境跨调用保持，创建时注入会在模式热切换后 fail-open——逐命令前缀保证 allowlist 档始终生效）。清单匹配 = 精确主机名或 `*.example.com`（任意层子域，不含本域）；allowlist 经 getter 热读（PUT 即时生效，代理不重启）。
+约束与失败语义：**代理未就绪（端口绑定失败）→ bash E_SANDBOX_NETWORK_UNAVAILABLE fail-closed 拒跑，不降级直连**；未命中域名 → SOCKS 0x02 / HTTP 403 后断开；上游连不上 → 0x01 / 502（连接不悬挂）；stop 断在途隧道。**诚实边界（本 ADR 的核心）**：这是**出口域名过滤，不是内核隔离**——只引导尊重代理环境变量的客户端，裸 socket 或显式绕过代理的命令仍可直连；OS 级强制归 19.6（spike 判不可行）。socks5h（而非 socks5）是功能前提：主机名交代理解析，清单才能按域名判定。与 D15 平台 wrapper 正交——Windows 无 OS 沙箱路线时网络隔离单独生效。
 
 ## 6. 模块速览（职责边界）
 

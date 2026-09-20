@@ -27,6 +27,7 @@ import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { resolveInRoot } from '../definition.js'
 import { resolveSandboxWrapper, wrapperAvailable } from '../sandbox.js'
 import type { BashSandboxMode } from '../sandbox.js'
+import { sandboxProxyEnv, sandboxProxyExportLine } from '../sandbox/network-env.js'
 import { BashShellPool } from '../bash-pool.js'
 import type { ShellPoolOpts } from '../bash-pool.js'
 
@@ -111,6 +112,13 @@ export interface BashToolOptions {
   sandbox: BashSandboxMode
   /** 常驻会话开关（spark.json engine.bashPersistent，19.3 / ADR D45）：getter 执行期读（热档）；缺省 undefined = 永远独立 shell（旧行为） */
   persistent?: () => boolean
+  /**
+   * 沙箱网络隔离（spark.json sandbox.network，19.7 / ADR D50）：getter 执行期读（热档）。
+   * enabled = allowlist 档——命令出口注入本地代理环境变量；ready = 代理已监听
+   * （未就绪即拒跑 E_SANDBOX_NETWORK_UNAVAILABLE，不降级直连）。与 OS wrapper
+   * 正交：Windows 无 OS 沙箱路线时网络隔离单独生效（出口过滤，非内核隔离）。
+   */
+  networkIsolation?: () => { enabled: boolean; port: number; ready: boolean }
   /** 常驻池（测试注入；缺省按 poolOpts 构造——maxEntries 8 / idleMs 10 分钟） */
   pool?: BashShellPool
   poolOpts?: Partial<ShellPoolOpts>
@@ -137,7 +145,9 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
       '危险命令（rm/网络写入等）会经过审批。' +
       '启用常驻会话（bashPersistent）时同一会话的 cwd/环境变量跨调用保持，' +
       '超时/中断会丢失该状态（整 shell 重建）；避免直接读标准输入的命令。' +
-      'Windows 无 POSIX bash 时常驻自动回落独立 shell。',
+      'Windows 无 POSIX bash 时常驻自动回落独立 shell。' +
+      '沙箱网络隔离（sandbox.network=allowlist）时命令出口经本地代理过滤，仅清单域名放行' +
+      '——忽略代理环境变量的命令仍可直连（出口引导，非内核隔离）。',
     inputSchema: BashInput,
     permission: {
       action: 'shell.exec',
@@ -154,15 +164,33 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
       const shell = resolveShell()
       const persistentOn = opts.persistent?.() === true && pool !== null && shell.file !== 'powershell'
 
+      // 网络隔离（19.7 / ADR D50）：allowlist 档且代理未就绪 → fail-closed 拒跑，
+      // 不降级为直连（否则"已隔离"是假状态）。就绪 → 出口引导变量（见 network-env.ts）。
+      const isolation = opts.networkIsolation?.()
+      const isolated = isolation !== undefined && isolation.enabled
+      if (isolated && !isolation.ready) {
+        return {
+          output: {
+            code: 'E_SANDBOX_NETWORK_UNAVAILABLE',
+            message: '沙箱网络隔离代理未就绪（端口绑定失败？）——fail-closed 拒跑，不降级直连',
+          },
+          isError: true,
+        }
+      }
+      const proxyPort = isolated && isolation.ready ? isolation.port : null
+
       // 常驻路径（19.3 / ADR D45）：POSIX bash + 主开关开 + 沙箱关。
       // 沙箱 'on' 时沙箱路径优先（wrapper 包常驻 shell 属 19.6，v1 不混用）。
       if (persistentOn && opts.sandbox === 'off') {
+        // 隔离档逐命令前缀 export（不依赖 shell 创建时的环境——常驻 shell 跨调用
+        // 保持环境，创建时注入会在模式热切换后 fail-open）
+        const command = proxyPort !== null ? `${sandboxProxyExportLine(proxyPort)}\n${input.command}` : input.command
         // cwd 语义（D45）：显式 cwd 才切目录；无 cwd = 保持常驻 shell 当前位置
         //（命令内 cd 跨调用保持——常驻的核心价值），不强制拉回会话根
         const result = await pool.run(
           ctx.sessionId,
           shell.file,
-          input.command,
+          command,
           input.cwd !== undefined ? workDir : null,
           timeoutMs,
           ctx.signal,
@@ -224,6 +252,8 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
       return new Promise<ToolOutput>((resolve) => {
         const child = spawn(file, args, {
           cwd: workDir,
+          // 隔离档（19.7）：出口引导变量覆盖在进程环境之上；wrapper 内的 shell 同样继承
+          ...(proxyPort !== null ? { env: { ...process.env, ...sandboxProxyEnv(proxyPort) } } : {}),
           ...(process.platform === 'win32' ? {} : { detached: true }),
           stdio: ['ignore', 'pipe', 'pipe'],
         })

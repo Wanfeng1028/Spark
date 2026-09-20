@@ -109,6 +109,10 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
 
   app.post('/api/index/vacuum', () => engine.vacuumIndex())
 
+  // 沙箱网络隔离代理状态（阶段十九 19.7 / ADR D50）：设置页与 CLI 面板数据源——
+  // allowlist 档未启动/绑定失败时 ready=false + reason（bash 侧据此 fail-closed 拒跑）
+  app.get('/api/sandbox/network', () => engine.sandboxNetworkStatus())
+
   app.get('/api/skills', () => {
     // 纯内存读：已加载技能清单
     return engine.listSkills()

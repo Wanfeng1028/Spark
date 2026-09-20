@@ -65,6 +65,8 @@ export function createCliActionHandlers(deps: CliActionDeps): Record<ClientActio
     extensions: () => st.setPanel('extensions'),
     // 电脑控制面板（阶段十九 19.2）：主开关状态 + 八操作档位只读（开关写入在 web 设置中心）
     computer: () => st.setPanel('computer'),
+    // 沙箱与网络面板（阶段十九 19.7）：模式/清单/端口 + 代理运行状态只读（写入在 web 设置中心）
+    sandbox: () => st.setPanel('sandbox'),
     voice: (args) => needSession(() => deps.voice(args)),
   }
 }

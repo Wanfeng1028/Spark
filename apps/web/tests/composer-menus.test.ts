@@ -47,9 +47,9 @@ describe('detectMenu（§13.E 触发词检测）', () => {
 })
 
 describe('filterCommands（/ 菜单命令过滤）', () => {
-  test('空查询 → 全量内置基线（16 条 = 14 基线 + /init + /plan + /goal + /voice + /lsp + /agents + /trust + /extensions + /arena + 19.2 /computer，全部可用）', () => {
+  test('空查询 → 全量内置基线（17 条 = 14 基线 + /init + /plan + /goal + /voice + /lsp + /agents + /trust + /extensions + /arena + 19.2 /computer + 19.7 /sandbox，全部可用）', () => {
     expect(filterCommands('')).toEqual(SLASH_COMMANDS)
-    expect(SLASH_COMMANDS).toHaveLength(16)
+    expect(SLASH_COMMANDS).toHaveLength(17)
     expect(SLASH_COMMANDS.some((c) => c.name === 'init')).toBe(true)
     // 工单 16.3：/plan 的 surface 含 web 且为 action（不需 clientAction 映射），必进本端清单
     expect(SLASH_COMMANDS.some((c) => c.name === 'plan' && c.kind === 'action')).toBe(true)
@@ -67,6 +67,8 @@ describe('filterCommands（/ 菜单命令过滤）', () => {
     expect(SLASH_COMMANDS.some((c) => c.name === 'arena' && c.kind === 'action')).toBe(true)
     // 阶段十九 19.2：/computer 是 client 命令（设置页导航），web CLIENT_ACTIONS 已实现必含
     expect(SLASH_COMMANDS.some((c) => c.name === 'computer' && c.kind === 'client')).toBe(true)
+    // 阶段十九 19.7：/sandbox 是 client 命令（设置页导航），web CLIENT_ACTIONS 已实现必含
+    expect(SLASH_COMMANDS.some((c) => c.name === 'sandbox' && c.kind === 'client')).toBe(true)
   })
 
   test('按名称过滤（大小写不敏感；COMP 命中 compact 与 19.2 /computer 两条）', () => {

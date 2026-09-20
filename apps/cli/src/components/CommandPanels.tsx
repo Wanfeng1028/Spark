@@ -20,6 +20,7 @@ import type {
   SkillDto,
   LspServerStatusDto,
   McpServerDto,
+  SandboxNetworkStatusDto,
   SessionId,
   TreeNodeDto,
   Transport,
@@ -247,6 +248,56 @@ export function ComputerPanel({ transport }: { transport: Transport }) {
           <Text color="gray">执行体：Windows 全量 / macOS 需辅助功能授权 / Linux X11 需 xdotool 家族（Wayland 不支持）</Text>
         </>
       )} />
+    </PanelShell>
+  )
+}
+
+/**
+ * 沙箱与网络面板（阶段十九 19.7 / ADR D50）：模式 / 清单 / 端口 + 代理运行状态只读
+ * （清单与模式写在 web 设置中心 updateSettings）。未就绪时如实呈现 reason——allowlist
+ * 档下 bash fail-closed 拒跑，不假称"已隔离"。
+ */
+export function SandboxPanel({ transport }: { transport: Transport }) {
+  const state = useLoad<SettingsDto>(() => transport.getSettings())
+  const status = useLoad<SandboxNetworkStatusDto>(() => transport.sandboxNetworkStatus())
+  return (
+    <PanelShell title="沙箱与网络" hint="只读（模式与清单走设置中心）">
+      <LoadState state={state} render={(s) => {
+        const net = s.sandbox?.network
+        const enabled = net?.mode === 'allowlist'
+        return (
+          <>
+            <Text wrap="truncate-end">
+              <Text color={enabled ? 'green' : 'gray'}>{enabled ? '● allowlist' : '○ off（不拦截）'}</Text>
+              <Text color="gray">  spark.json sandbox.network.mode</Text>
+            </Text>
+            <LoadState state={status} render={(st) => (
+              <Text wrap="truncate-end">
+                <Text color={st.ready ? 'green' : 'yellow'}>{st.ready ? '● 代理运行中' : '○ 代理未运行'}</Text>
+                <Text color="gray">
+                  {`  127.0.0.1:${String(st.port)}，活跃隧道 ${String(st.activeConnections)}`}
+                  {st.reason !== null ? `（${st.reason}）` : ''}
+                </Text>
+              </Text>
+            )} />
+            <Text wrap="truncate-end">
+              <Text color="gray">清单（{String((net?.allowlist ?? []).length)} 条）：</Text>
+              {(net?.allowlist ?? []).length === 0 ? <Text color="gray">（空 = 全部拒绝）</Text> : null}
+            </Text>
+            {(net?.allowlist ?? []).slice(0, 8).map((d) => (
+              <Text key={d} wrap="truncate-end">
+                <Text color="gray">{'  '}</Text>
+                {d}
+              </Text>
+            ))}
+            {(net?.allowlist ?? []).length > 8 ? (
+              <Text color="gray">{`  …余 ${String((net?.allowlist ?? []).length - 8)} 条（web 设置页看全量）`}</Text>
+            ) : null}
+            <Text color="gray">端口 spark.json sandbox.network.port（改端口需重启）</Text>
+            <Text color="gray">边界：出口引导非内核隔离——尊重代理变量的客户端才走过滤（ADR D50）</Text>
+          </>
+        )
+      }} />
     </PanelShell>
   )
 }
