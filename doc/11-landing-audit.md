@@ -467,4 +467,5 @@
 9. `z.strictObject(...).partial()` 在 zod 运行时是否仍拒未知键（决定 §4.6 那条 D49 口径分叉是否成立——一条 `loadConfig` 塞未知 browser 键的用例即可判死）。
 10. Windows 桌面首启续启竞态的实际交错（`window-all-closed` 与 `main()` await 续体的先后）；`child.kill()` 后孙进程是否真残留；CLI raw-mode 下每键重跑的体感卡顿程度。
 11. Playwright e2e 是否真能盖住 WO-099/101 一类交互缺陷（本审计未跑，也无法从静态判断 e2e 断言覆盖面）；`settings-nav.test.ts` 是否逐页断言组件身份（LA-59 的相关判据）。
-12. **工作区与时间线**：本稿核查期间并行会话推进了多次提交——报告所据 HEAD 从 `171eeb2` 经 `42a5030` 前进到 **`cd04be7`（阶段十九 19.7 沙箱网络隔离，ADR D50）**。**19.7 不在本稿范围内**（立稿时它是 ⬜，落地发生在审查过程中），其代码需另行核查；且 §4.6/§4.7/§4.9 中落在 `packages/engine/src/config.ts`、`engine.ts`、`protocol/src/api.ts`、`sandbox/`、`tools/builtin/bash.ts`、`apps/web/src/transports/mock.ts` 的行号在 19.7 合入后可能位移，执行 LA 前须二次定位。
+12. **工作区与时间线（含本报告自身的归属事故）**：本稿核查期间并行会话推进了多次提交——报告所据 HEAD 从 `171eeb2` 经 `42a5030` 前进到 **`cd04be7`（阶段十九 19.7 沙箱网络隔离，ADR D50）**。**19.7 不在本稿范围内**（立稿时它是 ⬜，落地发生在审查过程中），其代码需另行核查；且 §4.6/§4.7/§4.9 中落在 `packages/engine/src/config.ts`、`engine.ts`、`protocol/src/api.ts`、`sandbox/`、`tools/builtin/bash.ts`、`apps/web/src/transports/mock.ts` 的行号在 19.7 合入后可能位移，执行 LA 前须二次定位。
+    另须登记一条与 §1.4 同类的事实：本报告的正文初稿（464 行）与 `AGENTS.md` 的 v1.57 索引行，在主会话完成 `git add` 之后、`git commit` 之前，被并行会话的一次宽范围暂存扫进了 **`c986a28`（一条"修 19.7 CI typecheck 红"的提交）**并已推送——即**本报告的归属被记在了别人的提交信息下**。未做历史重写（AGENTS §7 不 revert 不 force push），只在此留证。这也是"多会话并行 + 宽 `git add`"下的常规风险，与本报告 §3 S2 的结论同源：**自报链路本身就不可靠**。
