@@ -8,7 +8,6 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { BrowserSettingsSchema,
-  type BrowserSettings,
   EngineSettingsShape, SettingsHooksSchema, SettingsPromptsSchema } from '@spark/protocol'
 import type { EngineSettings, ReasoningEffort, SettingsHooks, SettingsPrompts } from '@spark/protocol'
 import { errText } from './errs.js'
