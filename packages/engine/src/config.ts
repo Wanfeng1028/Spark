@@ -76,7 +76,13 @@ export interface SparkConfig {
   /** 扩展启停（工单 16.5；可选——缺省全启用） */
   extensions?: { disabledExtensions?: string[] | undefined } | undefined
   /** 浏览器设置（阶段十九 19.12 / ADR D49；可选宽松形——缺省 headless/30s/不覆盖 UA，engine.ts 归一化） */
-  browser?: Partial<BrowserSettings> | undefined
+  browser?:
+    | {
+        headless?: boolean | undefined
+        defaultTimeoutMs?: number | undefined
+        userAgent?: string | undefined
+      }
+    | undefined
 }
 
 const SPARK_DEFAULTS: SparkConfig = {
