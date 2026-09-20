@@ -425,10 +425,11 @@ export class Engine {
     this.shotsDir = join(this.root, 'browser-shots')
     // 浏览器设置（阶段十九 19.12 / ADR D49）：spark.json browser 段——重启档
     //（BrowserManager 构造期装配）；缺省 headless/30s/不覆盖 UA
-    this.browserSettings = this.config.spark.browser ?? {
-      headless: true,
-      defaultTimeoutMs: 30_000,
-      userAgent: '',
+    const b = this.config.spark.browser
+    this.browserSettings = {
+      headless: b?.headless ?? true,
+      defaultTimeoutMs: b?.defaultTimeoutMs ?? 30_000,
+      userAgent: b?.userAgent ?? '',
     }
     this.browser = new BrowserManager(
       deps.browserDriver ??
