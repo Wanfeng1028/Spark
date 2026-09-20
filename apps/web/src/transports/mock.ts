@@ -937,9 +937,9 @@ export class MockTransport implements Transport {
       ...(patch.browser !== undefined
         ? {
             browser: {
-              headless: patch.browser.headless ?? prev.browser.headless,
-              defaultTimeoutMs: patch.browser.defaultTimeoutMs ?? prev.browser.defaultTimeoutMs,
-              userAgent: patch.browser.userAgent ?? prev.browser.userAgent,
+              headless: patch.browser.headless ?? prev.browser?.headless ?? true,
+              defaultTimeoutMs: patch.browser.defaultTimeoutMs ?? prev.browser?.defaultTimeoutMs ?? 30000,
+              userAgent: patch.browser.userAgent ?? prev.browser?.userAgent ?? '',
             },
           }
         : {}),
