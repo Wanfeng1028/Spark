@@ -2,7 +2,7 @@
  * 引擎公共类型与注入依赖（工单 R-D 第①刀：自 engine.ts 类型区拆出，零逻辑纯类型）。
  * 对外面（index.ts）经 engine.ts 再导出保持兼容；子模块不得反向 import engine.ts 门面。
  */
-import type { Delivery, EventId, SessionId, SessionStatus, SparkEventEnvelope, TurnId } from '@spark/protocol'
+import type { Delivery, EventId, SemanticIndexStats, SessionId, SessionStatus, SparkEventEnvelope, TurnId } from '@spark/protocol'
 import type { ReasoningEffort } from '@spark/protocol'
 import type { GoalRunner } from './goals.js'
 import type { SubmitResult } from './session/input-queue.js'
@@ -98,6 +98,8 @@ export interface SearchIndexStats {
   path: string
   /** false = SQLite 打开失败降级（旁路纪律，JSONL 权威不受影响）；可用时省略 */
   available?: boolean
+  /** 语义（向量）索引状态（阶段十九 19.8 / ADR D51）；与 protocol SemanticIndexStats 同形 */
+  semantic?: SemanticIndexStats
 }
 
 /** UI 审批回复的三态（server 层映射 200 / 409 / 404） */

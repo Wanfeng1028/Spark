@@ -17,6 +17,7 @@ import { errText } from '../errs.js'
 import type { EventBus } from '../bus.js'
 import type { UserHookRunner } from '../hooks/runner.js'
 import type { MemoryStore } from '../memory/store.js'
+import type { SemanticRecallPort } from './definition.js'
 import type { LspExecutor } from '../lsp/manager.js'
 import type { ToolSpec } from '../llm-gateway.js'
 import type { Metrics } from '../observability/metrics.js'
@@ -44,6 +45,8 @@ export interface PipelineDeps {
   hooks?: UserHookRunner
   /** 长期记忆仓（工单 7.5 / ADR D25；缺省 memory 工具族不予执行——测试 stub 可省） */
   memory?: MemoryStore
+  /** 语义检索端口（阶段十九 19.8 / ADR D51；缺省 = 纯关键词检索——测试 stub 可省） */
+  semantic?: SemanticRecallPort
   /** 退出计划模式钩子（工单 16.3；缺省 exit_plan_mode 报 E_UNSUPPORTED——测试 stub 可省） */
   exitPlanMode?: () => Promise<void>
   /** LSP 连接管理（工单 16.9；缺省 lsp 工具报 E_LSP_UNAVAILABLE——测试 stub 可省） */
@@ -309,6 +312,7 @@ export class ToolPipelineImpl implements ToolPipeline {
             ? { outputLimitBytes: this.deps.outputLimitBytes }
             : {}),
           ...(this.deps.memory !== undefined ? { memory: this.deps.memory } : {}),
+          ...(this.deps.semantic !== undefined ? { semantic: this.deps.semantic } : {}),
           ...(this.deps.exitPlanMode !== undefined ? { exitPlanMode: this.deps.exitPlanMode } : {}),
           ...(this.deps.lsp !== undefined ? { lsp: this.deps.lsp } : {}),
           ...(this.deps.now !== undefined ? { now: this.deps.now } : {}),

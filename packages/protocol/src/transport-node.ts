@@ -64,6 +64,7 @@ import type {
   IndexStatsDto,
   RebuildResultDto,
   VacuumResultDto,
+  RebuildVectorsResultDto,
   SandboxNetworkStatusDto,
   UsageSummaryDto,
 } from './api.js'
@@ -587,6 +588,11 @@ export class HttpTransport implements Transport {
   /** POST /api/index/vacuum：SQLite VACUUM 空间回收（工单 19.11） */
   vacuumIndex(): Promise<VacuumResultDto> {
     return this.req<VacuumResultDto>('/api/index/vacuum', { method: 'POST' })
+  }
+
+  /** POST /api/index/vectors/rebuild：向量索引增量补嵌（阶段十九 19.8 / ADR D51） */
+  rebuildVectors(): Promise<RebuildVectorsResultDto> {
+    return this.req<RebuildVectorsResultDto>('/api/index/vectors/rebuild', { method: 'POST' })
   }
 
   usageSummary(since?: string): Promise<UsageSummaryDto> {

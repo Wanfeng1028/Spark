@@ -519,6 +519,13 @@ export const SettingsDtoSchema = z.strictObject({
       network: SandboxNetworkSettingsSchema,
     })
     .optional(),
+  /** 语义检索总开关（阶段十九 19.8 / ADR D51）：spark.json embedding.enabled——热档
+   * （每次检索现读；关 = 不嵌不检索，关键词 FTS 照常）。提供方能力在 models.json。 */
+  embedding: z
+    .strictObject({
+      enabled: z.boolean(),
+    })
+    .optional(),
   /** 需重启生效字段清单（前端标注"下次启动生效"；单一来源 SETTINGS_RESTART_REQUIRED） */
   restartRequired: z.array(z.string()),
   /** models.json 只读参考（写路径不经本端点——默认模型/档位迁移记录见工单） */
@@ -558,6 +565,12 @@ export const SettingsUpdateSchema = z.strictObject({
   sandbox: z
     .strictObject({
       network: SandboxNetworkSettingsSchema.partial(),
+    })
+    .optional(),
+  /** 语义检索总开关（阶段十九 19.8）：embedding.enabled——热档（关停即时生效） */
+  embedding: z
+    .strictObject({
+      enabled: z.boolean().optional(),
     })
     .optional(),
 })
@@ -972,6 +985,26 @@ export const LspInstallResultDtoSchema = z.strictObject({
   written: z.boolean(),
 })
 
+/**
+ * 语义（向量）索引状态（阶段十九 19.8 / ADR D51，翻案 D25"向量后置"登记）：
+ * 索引库页与 GET /api/index/stats 的数据源。**未配置 embedding 提供方 / 向量库不可用 /
+ * 总开关关 → available:false + 关键词检索照常**（禁假状态：不宣称"语义已启用"）。
+ */
+export const SemanticIndexStatsSchema = z.strictObject({
+  available: z.boolean(),
+  /** 生效提供方 id（models.json providers 键）；未配置为 null */
+  provider: z.string().nullable(),
+  /** embedding 模型名；未配置为 null */
+  model: z.string().nullable(),
+  /** 向量维度；未配置为 null */
+  dimensions: z.number().int().positive().nullable(),
+  /** spark.json embedding.enabled 总开关（关 = 不嵌不检索，FTS 照常） */
+  enabled: z.boolean(),
+  /** 已嵌条目数（memory + event 两类合计） */
+  embedded: z.number().int().nonnegative(),
+})
+export type SemanticIndexStats = z.infer<typeof SemanticIndexStatsSchema>
+
 /** 索引库统计（GET /api/index/stats，阶段十九 19.11）：~/.spark/search.db 管理面只读快照 */
 export interface IndexStatsDto {
   /** 全文索引条目数（引擎侧 SQLite COUNT） */
@@ -982,6 +1015,8 @@ export interface IndexStatsDto {
   path: string
   /** false = SQLite 打开失败降级（旁路纪律，JSONL 权威不受影响）；可用时省略 */
   available?: boolean
+  /** 语义（向量）索引状态（阶段十九 19.8 / ADR D51）；未配置提供方时 available:false 如实降级 */
+  semantic?: SemanticIndexStats
 }
 
 export const IndexStatsDtoSchema = z.strictObject({
@@ -989,6 +1024,7 @@ export const IndexStatsDtoSchema = z.strictObject({
   sizeBytes: z.number().int().nonnegative(),
   path: z.string().min(1),
   available: z.boolean().optional(),
+  semantic: SemanticIndexStatsSchema.optional(),
 })
 
 /** 索引重建结果（POST /api/index/rebuild，工单 19.11）：清表重扫 sessions JSONL 后的条目数 */
@@ -998,6 +1034,20 @@ export interface RebuildResultDto {
 
 export const RebuildResultDtoSchema = z.strictObject({
   entries: z.number().int().nonnegative(),
+})
+
+/** 向量索引重建结果（POST /api/index/vectors/rebuild，阶段十九 19.8 / ADR D51）：
+ * 增量补嵌——只嵌缺向量的条目（不清表，已嵌条目零重复计费）。 */
+export interface RebuildVectorsResultDto {
+  /** 本次嵌入条目数 */
+  embedded: number
+  /** 仍缺向量的条目数（达单次上限或失败剩余；0 = 全覆盖） */
+  remaining: number
+}
+
+export const RebuildVectorsResultDtoSchema = z.strictObject({
+  embedded: z.number().int().nonnegative(),
+  remaining: z.number().int().nonnegative(),
 })
 
 /** 空间回收结果（POST /api/index/vacuum，工单 19.11）：SQLite VACUUM 前后库文件体积（字节） */

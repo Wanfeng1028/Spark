@@ -550,6 +550,21 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     tag: 'config',
     response: ref('VacuumResultDto'),
   },
+  {
+    method: 'post',
+    path: '/api/index/vectors/rebuild',
+    summary: '向量索引增量补嵌（阶段十九 19.8 / ADR D51：只嵌缺向量条目，不清表；'
+      + '语义不可用 → 502 E_EMBEDDING_UNAVAILABLE）',
+    tag: 'config',
+    response: ref('RebuildVectorsResultDto'),
+  },
+  {
+    method: 'get',
+    path: '/api/sandbox/network',
+    summary: '沙箱网络隔离代理运行时状态（阶段十九 19.7 / ADR D50：ready/reason/activeConnections/port）',
+    tag: 'config',
+    response: ref('SandboxNetworkStatusDto'),
+  },
 
   // ---- 记忆（阶段七工单 7.5 / ADR D25） ----
   {

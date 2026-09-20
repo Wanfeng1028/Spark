@@ -123,6 +123,22 @@ export class MemoryStore {
     return (stmt.all() as unknown as MemoryRowRaw[]).map(toDto)
   }
 
+  /**
+   * 全量条目（阶段十九 19.8 / ADR D51：向量补嵌源——记忆表是用户级小表，
+   * 一次性读出在内存里筛"缺向量"比跨库 join 简单）。
+   */
+  all(): { id: number; content: string; createdAt: number; sessionId: string }[] {
+    const stmt = this.db.prepare(
+      'SELECT id, content, created_at, session_id FROM memories ORDER BY created_at DESC',
+    )
+    return (stmt.all() as unknown as MemoryRowRaw[]).map((r) => ({
+      id: r.id,
+      content: r.content,
+      createdAt: r.created_at,
+      sessionId: r.session_id,
+    }))
+  }
+
   remove(id: number): boolean {
     const stmt = this.db.prepare('DELETE FROM memories WHERE id = ?')
     return stmt.run(id).changes > 0

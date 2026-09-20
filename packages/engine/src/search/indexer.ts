@@ -125,6 +125,12 @@ export class SearchIndexer {
     }))
   }
 
+  /** 全量已索引条目（阶段十九 19.8 / ADR D51：向量补嵌源；索引不可用 → 空数组） */
+  allEntries(): SearchEntry[] {
+    if (this.store === null || this.closed) return []
+    return this.store.all()
+  }
+
   /** durable 事件增量入索引（bus 钩子；旁路——失败只 warn，不碰事件流） */
   indexEvent(e: SparkEventEnvelope): void {
     if (this.store === null || this.closed || e.seq === undefined) return

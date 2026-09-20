@@ -76,6 +76,9 @@ const COMPONENTS: Record<string, z.ZodType> = {
   IndexStatsDto: api.IndexStatsDtoSchema,
   RebuildResultDto: api.RebuildResultDtoSchema,
   VacuumResultDto: api.VacuumResultDtoSchema,
+  RebuildVectorsResultDto: api.RebuildVectorsResultDtoSchema,
+  SandboxNetworkStatusDto: api.SandboxNetworkStatusDtoSchema,
+  SemanticIndexStats: api.SemanticIndexStatsSchema,
   ReasoningEffort: ReasoningEffortSchema,
 }
 

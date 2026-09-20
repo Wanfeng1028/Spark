@@ -66,6 +66,13 @@ const sparkSchema = z.object({
       network: SandboxNetworkSettingsSchema.partial().optional(),
     })
     .optional(),
+  /** 语义检索总开关（阶段十九 19.8 / ADR D51）：热档（每次检索现读；缺省 true——
+   * 有提供方即用，无提供方时自动降级关键词） */
+  embedding: z
+    .object({
+      enabled: z.boolean().optional(),
+    })
+    .optional(),
 })
 
 export interface SparkConfig {
@@ -100,6 +107,8 @@ export interface SparkConfig {
           | undefined
       }
     | undefined
+  /** 语义检索总开关（阶段十九 19.8 / ADR D51；可选——缺省 enabled=true） */
+  embedding?: { enabled?: boolean | undefined } | undefined
 }
 
 const SPARK_DEFAULTS: SparkConfig = {
@@ -154,10 +163,27 @@ const modelsSchema = z.object({
           model: z.string().min(1).optional(),
         })
         .optional(),
+      /** embedding 能力声明（阶段十九 19.8 / ADR D51）：声明即参与语义检索提供方解析；
+       * dimensions 缺省 = 首次响应推断（不猜——不同模型维度不同） */
+      embeddings: z
+        .object({
+          model: z.string().min(1),
+          dimensions: z.number().int().positive().max(8192).optional(),
+        })
+        .strict()
+        .optional(),
     }),
   ),
   defaultModel: defaultModelSchema,
   compactionModel: compactionModelSchema.optional(),
+  /** embedding 提供方指名（阶段十九 19.8 / ADR D51）：多个 provider 声明 embeddings 时
+   * 用哪个；缺省 = 文件序第一个声明者。指名未声明 → 语义检索不可用（不静默回落别家） */
+  embedding: z
+    .object({
+      provider: z.string().min(1).optional(),
+    })
+    .strict()
+    .optional(),
   /** 工单 7.7 / H07：provider fallback 链（主模型不可用且无已交付内容时逐个切换） */
   fallbacks: z.array(routingModelSchema).optional(),
   /** 工单 7.7：标题生成路由档（缺省 compactionModel——§5.11 辅助通道同一模型） */
@@ -194,9 +220,13 @@ export interface ModelsConfig {
     proxy?: string | undefined
     /** 语音转写（工单 16.6）：endpoint/model 均可选（endpoint 缺省 = baseUrl + /audio/transcriptions） */
     transcription?: { endpoint?: string | undefined; model?: string | undefined } | undefined
+    /** embedding 能力声明（阶段十九 19.8 / ADR D51） */
+    embeddings?: { model: string; dimensions?: number | undefined } | undefined
   }>
   defaultModel: ModelRef
   compactionModel: ModelRef
+  /** embedding 提供方指名（阶段十九 19.8）；缺省 = 第一个声明者 */
+  embedding?: { provider?: string | undefined } | undefined
   /** 工单 7.7：fallback 链（主模型失败且无已交付内容时逐个切换；空链 = 不切换） */
   fallbacks: ModelRef[]
   /** 工单 7.7：标题生成路由档（缺省 compactionModel） */
@@ -304,6 +334,7 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
             extensions: p.extensions, // 工单 16.5 / ADR D38：原样透传（undefined = 全启用）
             browser: p.browser, // 阶段十九 19.12 / ADR D49：原样透传（undefined = engine.ts 侧取默认）
             sandbox: p.sandbox, // 阶段十九 19.7 / ADR D50：原样透传（undefined = mode off 不拦截）
+            embedding: p.embedding, // 阶段十九 19.8 / ADR D51：原样透传（undefined = 缺省开）
           }
         })()
 

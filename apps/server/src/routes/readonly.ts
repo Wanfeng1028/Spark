@@ -113,6 +113,18 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   // allowlist 档未启动/绑定失败时 ready=false + reason（bash 侧据此 fail-closed 拒跑）
   app.get('/api/sandbox/network', () => engine.sandboxNetworkStatus())
 
+  // 向量索引增量补嵌（阶段十九 19.8 / ADR D51）：只嵌缺向量条目（不清表，已嵌零重复计费）。
+  // 语义不可用（无提供方/开关关）→ 502 E_EMBEDDING_UNAVAILABLE（fail-closed，不假装成功）
+  app.post('/api/index/vectors/rebuild', async (_req, reply) => {
+    try {
+      return await engine.rebuildVectors()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      const code = message.startsWith('E_') ? message.split(':')[0] : 'E_EMBEDDING_FAILED'
+      return reply.code(502).send({ code, message })
+    }
+  })
+
   app.get('/api/skills', () => {
     // 纯内存读：已加载技能清单
     return engine.listSkills()

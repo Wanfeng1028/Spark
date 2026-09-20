@@ -111,6 +111,26 @@ export class SearchStore {
     return Number(row.n)
   }
 
+  /**
+   * 全量条目（阶段十九 19.8 / ADR D51：向量补嵌源——FTS 已收录的三类事件；
+   * 千级条目一次性读出在内存里筛"缺向量"，比跨库 join 简单）。
+   */
+  all(): SearchEntry[] {
+    const rows = this.db
+      .prepare(
+        'SELECT session_id, event_id, seq, type, time, content FROM search_entries ORDER BY time ASC',
+      )
+      .all() as unknown as EntryRowRaw[]
+    return rows.map((r) => ({
+      sessionId: r.session_id,
+      eventId: r.event_id,
+      seq: r.seq,
+      type: r.type as SearchEntryType,
+      time: r.time,
+      content: r.content,
+    }))
+  }
+
   /** 清表（工单 19.11 重建前置）：条目与水位全删（AFTER DELETE 触发器同步倒排） */
   clearAll(): void {
     this.db.exec('DELETE FROM search_entries')

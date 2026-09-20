@@ -323,6 +323,30 @@ describe('spark.json engine/hooks 段单一来源（工单 R-B.4：复用 @spark
     expect(() => loadConfig(dir3)).toThrow(/spark.json 校验失败/)
   })
 
+  it('embedding 段 + models.json embeddings 声明：合法解析与缺省归位（阶段十九 19.8 / ADR D51）', () => {
+    const dir = tempDir()
+    write(dir, 'spark.json', JSON.stringify({ embedding: { enabled: false } }))
+    write(dir, 'models.json', JSON.stringify({
+      ...JSON.parse(VALID_MODELS),
+      providers: {
+        ...JSON.parse(VALID_MODELS).providers,
+        fake: { apiKeyEnv: null, baseUrl: 'https://example.invalid/v1', embeddings: { model: 'text-embed-3-small' } },
+      },
+      embedding: { provider: 'fake' },
+    }))
+
+    const cfg = loadConfig(dir)
+    expect(cfg.spark.embedding).toEqual({ enabled: false })
+    expect(cfg.models.embedding).toEqual({ provider: 'fake' })
+    expect(cfg.models.providers.fake?.embeddings).toEqual({ model: 'text-embed-3-small' })
+
+    // 未配 embedding 段 = undefined（引擎侧缺省开）
+    const dir2 = tempDir()
+    write(dir2, 'models.json', VALID_MODELS)
+    expect(loadConfig(dir2).spark.embedding).toBeUndefined()
+    expect(loadConfig(dir2).models.embedding).toBeUndefined()
+  })
+
   it('engine 段未知键剥离 → 该字段落默认值（宽松口径刻意保留；收紧属行为变更须另立工单）', () => {
     const dir = tempDir()
     write(dir, 'spark.json', JSON.stringify({

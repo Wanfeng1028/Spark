@@ -24,6 +24,7 @@ import type {
   IndexStatsDto,
   RebuildResultDto,
   VacuumResultDto,
+  RebuildVectorsResultDto,
   SandboxNetworkStatusDto,
   McpConfigInput,
   McpServerDto,
@@ -189,6 +190,9 @@ export interface Transport {
   rebuildIndex(): Promise<RebuildResultDto>
   /** POST /api/index/vacuum：SQLite VACUUM 空间回收（回前后库体积；工单 19.11） */
   vacuumIndex(): Promise<VacuumResultDto>
+  /** POST /api/index/vectors/rebuild：向量索引增量补嵌（只嵌缺向量条目；阶段十九 19.8 / ADR D51。
+   * 未配置 embedding 提供方 → 502 E_EMBEDDING_UNAVAILABLE（fail-closed，不假装已嵌） */
+  rebuildVectors(): Promise<RebuildVectorsResultDto>
   /** GET /api/usage/summary：成本看板（总账 + 按日/供应商明细 + 旧账差额 + 熔断状态，工单 13.6） */
   usageSummary(since?: string): Promise<UsageSummaryDto>
   /** GET /api/memories：长期记忆列表（设置页管理数据源，工单 7.5） */

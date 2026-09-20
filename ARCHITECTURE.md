@@ -61,6 +61,7 @@
 | v1.59 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D48 审批作用域 = always-user 缺省 + always-project 项目级（阶段十九 19.9；doc/02 v4.74 同批）**：scope 参数全链贯通 + projectRuleStore 项目落盘 + E_PERMISSION_SCOPE fail-closed + 四端第四入口（v2 候选清偿）。19.10（D42 翻案补记）由后台子代理并行落地（v1.58/v4.73/v1.59 先行登记）。本机零验证，CI 裁决 |
 | v1.60 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D49 浏览器设置 = browser 独立段重启档（阶段十九 19.12；doc/02 v4.76 同批）**：headless/超时/UA 进 spark.json browser 段（driver/工具选项贯通）+ 截图清理白名单单源。19.6 spike 报告（doc/spike-win-sandbox.md）归不可行分支待晚风拍板（替代案 A/B/C），D15 判决注记待拍板后补。本机零验证，CI 裁决 |
 | v1.61 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D50 沙箱网络隔离 = 本地出口过滤代理 + 域名 allowlist（阶段十九 19.7，翻案 D15"网络隔离 v1 不做"登记；doc/02 v4.78 同批）**：spark.json `sandbox.network` 段（mode/allowlist 热档 + port 重启档）；引擎 sandbox/proxy.ts 零新依赖手写——SOCKS5 无鉴权+CONNECT 与 HTTP CONNECT 同端口按首字节分流，未命中 0x02/403、上游失败 0x01/502、未就绪 E_SANDBOX_NETWORK_UNAVAILABLE fail-closed 拒跑不降级；bash 出口引导 spawn env + 常驻逐命令 export 前缀（socks5h 让代理解析主机名——清单按域名判定的前提）；web「沙箱与网络」页 + CLI /sandbox 面板 + GET /api/sandbox/network。**诚实边界**：出口域名过滤而非内核隔离（尊重代理变量的客户端才走过滤；OS 级强制归 19.6）。本机零验证，CI 裁决 |
+| v1.62 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D51 向量语义检索 = 提供方抽象 + 派生向量库 + 语义/关键词合流（阶段十九 19.8，翻案 D25"向量后置"登记 + 消解 V2-18；doc/02 v4.79 同批）**：models.json provider embeddings 声明 + OpenAI 兼容 /embeddings fetch 直调（零新依赖）；vectors.db 派生缓存（node:sqlite + 暴力余弦 + 维度不符跳过）；语义优先关键词兜底合流，嵌入失败 fail-soft；补嵌只嵌缺失（上限 200）；无提供方/关开关 → 端口不注入（禁假状态）。本机零验证，CI 裁决 |
 
 ---
 
@@ -495,6 +496,12 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 背景：D15（工单 5.2）判"网络隔离 v1 不做（Claude Code 走沙箱外 SOCKS5 代理，复杂度后置）"；19.6 spike 证明 Windows OS 级强制不可行后，晚风拍板网络面按用户态代理落地（替代案 B）。
 决策：spark.json `sandbox.network` 段（mode off|allowlist + allowlist 域名清单 + port；mode/allowlist 热档，port 重启档）+ 引擎 `sandbox/proxy.ts` **零新依赖**手写本地代理——SOCKS5（无鉴权 + CONNECT）与 HTTP CONNECT **同端口按首字节分流**（一个端口同时喂 curl/wget 与只认 SOCKS5 的客户端）；bash 出口引导 = 独立 shell spawn env（HTTP_PROXY/HTTPS_PROXY/ALL_PROXY=**socks5h**/NO_PROXY 回环放行）、常驻 shell **逐命令 export 前缀**（shell 环境跨调用保持，创建时注入会在模式热切换后 fail-open——逐命令前缀保证 allowlist 档始终生效）。清单匹配 = 精确主机名或 `*.example.com`（任意层子域，不含本域）；allowlist 经 getter 热读（PUT 即时生效，代理不重启）。
 约束与失败语义：**代理未就绪（端口绑定失败）→ bash E_SANDBOX_NETWORK_UNAVAILABLE fail-closed 拒跑，不降级直连**；未命中域名 → SOCKS 0x02 / HTTP 403 后断开；上游连不上 → 0x01 / 502（连接不悬挂）；stop 断在途隧道。**诚实边界（本 ADR 的核心）**：这是**出口域名过滤，不是内核隔离**——只引导尊重代理环境变量的客户端，裸 socket 或显式绕过代理的命令仍可直连；OS 级强制归 19.6（spike 判不可行）。socks5h（而非 socks5）是功能前提：主机名交代理解析，清单才能按域名判定。与 D15 平台 wrapper 正交——Windows 无 OS 沙箱路线时网络隔离单独生效。
+
+### D51 向量语义检索 = 提供方抽象 + 派生向量库 + 语义/关键词合流（2026-09-20，阶段十九工单 19.8，翻案 D25"向量后置"登记 + 消解 V2-18 RAG）
+
+背景：D25 判"向量检索后置——中文整句语义召回是已知限制"；晚风拍板翻案立项（V2-18 代码库 RAG 的会话/记忆半边）。
+决策：① **提供方抽象**：models.json `providers.<id>.embeddings = {model, dimensions?}` 声明能力，`embedding.provider` 指名（缺省文件序首个声明者）；HTTP 走 **OpenAI 兼容 /embeddings**（fetch 直调，零新依赖——本机禁下载，LLM 网关同款手法），批 16 条 + 30s 超时 + 按 index 回填保序 + 首答推断维度。② **派生向量库**：`~/.spark/vectors.db`（node:sqlite，kind='memory'|'event' + ref 主键 + content/meta 随行存 + Float32Array BLOB）；**暴力余弦 top-k**——千级规模全表扫描毫秒级，ANN 索引是负优化（且引 sqlite-vec 违反本机禁下载）；**维度不符的行跳过**（换模型的旧向量参与比较只得无意义分数，跳过比误判诚实，旧行留待重建）。③ **合流而非替换**：语义优先 + 关键词兜底去重（两路都跑——语义漏字面、关键词漏语义，中文整句 trigram 不命中正是原痛点）；嵌入失败 **fail-soft 回落关键词**，注入与搜索永不因语义悬空。
+约束与失败语义：无提供方 / 无 baseUrl / 向量库打不开 / 总开关关 → semantic 端口不注入（**禁假状态**：页面与工具不宣称"语义已启用"）；补嵌只嵌缺向量条目（单次上限 200，已嵌零重复计费）；维度不一致 → E_EMBEDDING_DIMENSION 拒混嵌；**总开关 spark.json `embedding.enabled` 热档**（缺省 true——有提供方即用）。诚实边界：向量是派生缓存（JSONL 与记忆库恒为权威，丢向量只丢语义检索不丢数据）；不接本地 embedding 模型（下载依赖违反 §2.3a，留作重评触发项）；真实模型走查留用户。
 
 ## 6. 模块速览（职责边界）
 

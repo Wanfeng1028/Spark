@@ -75,6 +75,7 @@ import type {
   ArenaStatusDto,
   ArenaHistoryDto,
   SandboxNetworkStatusDto,
+  RebuildVectorsResultDto,
 } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
@@ -904,6 +905,8 @@ export class MockTransport implements Transport {
     browser: { headless: true, defaultTimeoutMs: 30000, userAgent: '' },
     // 沙箱网络隔离（阶段十九 19.7 / ADR D50）：mock 缺省 off（不拦截）；对等写路径同下
     sandbox: { network: { ...SANDBOX_NETWORK_DEFAULTS } },
+    // 语义检索总开关（阶段十九 19.8 / ADR D51）：mock 缺省开（但无提供方 → available:false）
+    embedding: { enabled: true },
     restartRequired: [...SETTINGS_RESTART_REQUIRED],
     models: { defaultModel: 'deepseek/deepseek-chat', defaultEffort: null },
   }
@@ -945,6 +948,10 @@ export class MockTransport implements Transport {
               userAgent: patch.browser.userAgent ?? prev.browser?.userAgent ?? '',
             },
           }
+        : {}),
+      // 语义检索总开关（阶段十九 19.8 / ADR D50 同族热档）：显式 undefined 不覆盖现值
+      ...(patch.embedding !== undefined
+        ? { embedding: { enabled: patch.embedding.enabled ?? prev.embedding?.enabled ?? true } }
         : {}),
       // 沙箱网络隔离（阶段十九 19.7 / ADR D50）：network 逐字段合并——显式 undefined 不覆盖现值
       ...(patch.sandbox !== undefined
@@ -1183,11 +1190,30 @@ export class MockTransport implements Transport {
 
   indexStats(): Promise<IndexStatsDto> {
     this.assertNotDisposed()
+    // 语义状态派生（19.8）：mock 无真实 embedding 提供方——按总开关演示"未配置"
+    // （available:false 是 mock 的如实呈现：没有提供方就没有语义检索）
+    const enabled = this.settings.embedding?.enabled ?? true
     return Promise.resolve({
       entries: this.mockIndexEntries,
       sizeBytes: 264_192,
       path: '~/.spark/search.db（mock 演示路径）',
+      semantic: {
+        available: false,
+        provider: null,
+        model: null,
+        dimensions: null,
+        enabled,
+        embedded: 0,
+      },
     })
+  }
+
+  /** 向量补嵌（19.8 对等演示）：mock 无提供方 → 拒执并说明（fail-closed，不假装成功） */
+  rebuildVectors(): Promise<RebuildVectorsResultDto> {
+    this.assertNotDisposed()
+    return Promise.reject(
+      new Error('E_EMBEDDING_UNAVAILABLE: mock 未配置 embedding 提供方——语义检索不可用'),
+    )
   }
 
   /**

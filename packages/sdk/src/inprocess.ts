@@ -49,6 +49,7 @@ import type {
   IndexStatsDto,
   RebuildResultDto,
   VacuumResultDto,
+  RebuildVectorsResultDto,
   SandboxNetworkStatusDto,
   McpConfigInput,
   McpServerDto,
@@ -471,6 +472,13 @@ export class InProcessTransport implements Transport {
   /** 索引库空间回收（工单 19.11）：SQLite VACUUM（同步方法——走 sync 门） */
   vacuumIndex(): Promise<VacuumResultDto> {
     return this.sync(() => this.engine.vacuumIndex())
+  }
+
+  /** 向量索引增量补嵌（阶段十九 19.8 / ADR D51）：引擎方法异步（HTTP 嵌入批），
+   * 语义不可用时引擎抛 E_EMBEDDING_UNAVAILABLE（调用方如实处理，不假装成功） */
+  async rebuildVectors(): Promise<RebuildVectorsResultDto> {
+    this.assertNotDisposed()
+    return this.engine.rebuildVectors()
   }
 
   usageSummary(since?: string): Promise<UsageSummaryDto> {

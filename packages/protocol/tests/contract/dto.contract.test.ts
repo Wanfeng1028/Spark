@@ -1931,7 +1931,15 @@ describe('契约：api.IndexStatsDtoSchema', () => {
     "entries": 1,
     "sizeBytes": 1,
     "path": "contract-sample",
-    "available": false
+    "available": false,
+    "semantic": {
+      "available": false,
+      "provider": "contract-sample",
+      "model": "contract-sample",
+      "dimensions": 1,
+      "enabled": false,
+      "embedded": 1
+    }
   }
 
   it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
@@ -1969,6 +1977,10 @@ describe('契约：api.IndexStatsDtoSchema', () => {
 
   it('字段 available 类型错 → 解析失败', () => {
     expect(() => api.IndexStatsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["available"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('字段 semantic 类型错 → 解析失败', () => {
+    expect(() => api.IndexStatsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["semantic"] = []; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
@@ -2785,6 +2797,42 @@ describe('契约：api.RebuildResultDtoSchema', () => {
   })
 })
 
+describe('契约：api.RebuildVectorsResultDtoSchema', () => {
+  const sample = {
+    "embedded": 1,
+    "remaining": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.RebuildVectorsResultDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.RebuildVectorsResultDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.RebuildVectorsResultDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 embedded → 解析失败', () => {
+    expect(() => api.RebuildVectorsResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["embedded"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 remaining → 解析失败', () => {
+    expect(() => api.RebuildVectorsResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["remaining"]; return m })())).toThrow()
+  })
+
+  it('字段 embedded 类型错 → 解析失败', () => {
+    expect(() => api.RebuildVectorsResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["embedded"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 remaining 类型错 → 解析失败', () => {
+    expect(() => api.RebuildVectorsResultDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["remaining"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.RebuildVectorsResultDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.RoutingDtoSchema', () => {
   const sample = {
     "fallbacks": [
@@ -3169,6 +3217,66 @@ describe('契约：api.SecretStatusDtoSchema', () => {
   })
 })
 
+describe('契约：api.SemanticIndexStatsSchema', () => {
+  const sample = {
+    "available": false,
+    "provider": "contract-sample",
+    "model": "contract-sample",
+    "dimensions": 1,
+    "enabled": false,
+    "embedded": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.SemanticIndexStatsSchema.parse(sample)).toEqual(sample)
+    expect(api.SemanticIndexStatsSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.SemanticIndexStatsSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 available → 解析失败', () => {
+    expect(() => api.SemanticIndexStatsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["available"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 provider → 解析失败', () => {
+    expect(() => api.SemanticIndexStatsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["provider"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 model → 解析失败', () => {
+    expect(() => api.SemanticIndexStatsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["model"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 dimensions → 解析失败', () => {
+    expect(() => api.SemanticIndexStatsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["dimensions"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 enabled → 解析失败', () => {
+    expect(() => api.SemanticIndexStatsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["enabled"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 embedded → 解析失败', () => {
+    expect(() => api.SemanticIndexStatsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["embedded"]; return m })())).toThrow()
+  })
+
+  it('字段 available 类型错 → 解析失败', () => {
+    expect(() => api.SemanticIndexStatsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["available"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('字段 enabled 类型错 → 解析失败', () => {
+    expect(() => api.SemanticIndexStatsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["enabled"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('字段 embedded 类型错 → 解析失败', () => {
+    expect(() => api.SemanticIndexStatsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["embedded"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.SemanticIndexStatsSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.SessionMetaDtoSchema', () => {
   const sample = {
     "id": "ses_01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -3372,6 +3480,9 @@ describe('契约：api.SettingsDtoSchema', () => {
         "port": 1024
       }
     },
+    "embedding": {
+      "enabled": false
+    },
     "restartRequired": [
       "contract-sample"
     ],
@@ -3432,6 +3543,10 @@ describe('契约：api.SettingsDtoSchema', () => {
 
   it('字段 sandbox 类型错 → 解析失败', () => {
     expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["sandbox"] = []; return m })())).toThrow()
+  })
+
+  it('字段 embedding 类型错 → 解析失败', () => {
+    expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["embedding"] = []; return m })())).toThrow()
   })
 
   it('字段 restartRequired 类型错 → 解析失败', () => {
@@ -3622,6 +3737,9 @@ describe('契约：api.SettingsUpdateSchema', () => {
         ],
         "port": 1024
       }
+    },
+    "embedding": {
+      "enabled": false
     }
   }
 
@@ -3656,6 +3774,10 @@ describe('契约：api.SettingsUpdateSchema', () => {
 
   it('字段 sandbox 类型错 → 解析失败', () => {
     expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["sandbox"] = []; return m })())).toThrow()
+  })
+
+  it('字段 embedding 类型错 → 解析失败', () => {
+    expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["embedding"] = []; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {

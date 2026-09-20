@@ -64,7 +64,7 @@ import { loadConfig, loadProjectRules } from './config.js'
 import type { PermissionRule } from './config.js'
 import type { EngineConfig, ModelRef } from './config.js'
 import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
-import { listModels, testProvider } from './model-catalog.js'
+import { listModels, testProvider, PROVIDER_CATALOG } from './model-catalog.js'
 import { PiGateway } from './pi-gateway.js'
 import { FallbackGateway } from './fallback-gateway.js'
 import { CostTracker } from './cost-tracker.js'
@@ -98,7 +98,7 @@ import { ToolOutputStore } from './tools/output-store.js'
 import { ToolPipelineImpl } from './tools/pipeline.js'
 import { IoGuard } from './tools/guard.js'
 import { ToolRegistry } from './tools/registry.js'
-import type { ToolContext, ToolOutput } from './tools/definition.js'
+import type { ToolContext, ToolOutput, SemanticRecallPort } from './tools/definition.js'
 import { registerBuiltinTools } from './tools/builtin/index.js'
 import { makeTaskTool } from './tools/builtin/task.js'
 import type { TaskInput } from './tools/builtin/task.js'
@@ -133,6 +133,9 @@ import { makeBrowserTools } from './tools/builtin/browser.js'
 import { makeComputerTools } from './tools/builtin/computer.js'
 import { createComputerExecutor, type ComputerExecutor } from './computer/executor.js'
 import { SandboxNetworkProxy } from './sandbox/proxy.js'
+import { resolveEmbeddingProvider, HttpEmbeddingClient, type EmbeddingProviderInfo } from './embedding/client.js'
+import { VectorStore } from './vector/store.js'
+import { SemanticIndexer, mergeMemories, mergeEvents, snippetOf } from './vector/semantic.js'
 
 import type {
   EngineDeps,
@@ -196,6 +199,14 @@ export class Engine {
    * allowlist 内容经 getter 热读（PUT 即时生效，不重启代理）。
    */
   private sandboxProxy: SandboxNetworkProxy | null = null
+  /**
+   * 语义检索（阶段十九 19.8 / ADR D51）：向量库 + 语义编排器——models.json 有 provider
+   * 声明 embeddings 且 spark.json embedding.enabled 才建；否则两者为 null（关键词照常）。
+   * 换提供方/维度需重建（维度不一致如实 E_EMBEDDING_DIMENSION，不混嵌）。
+   */
+  private readonly vectors: VectorStore | null
+  private readonly semantic: SemanticIndexer | null
+  private readonly embeddingProvider: EmbeddingProviderInfo | null
   /** 截图落盘目录（~/.spark/browser-shots；GET /api/artifacts/:file 供图） */
   private readonly shotsDir: string
   /** 成本累计（阶段七工单 7.7 / H07）：~/.spark/usage.json 持久化，熔断判定数据源 */
@@ -427,6 +438,55 @@ export class Engine {
 
     // 工单 7.13 / H12：会话全文搜索索引（打开失败 null 降级——检索不可用不阻塞引擎）
     this.search = new SearchIndexer(this.root, this.logger, (id) => this.sessionTitleOf(id))
+
+    // 阶段十九 19.8 / ADR D51：语义检索——models.json 有 provider 声明 embeddings 才建。
+    // 总开关 spark.json embedding.enabled 缺省 true（关 = 不嵌不检索，FTS 照常）。
+    // 无 baseUrl / 向量库打不开 → semantic 为 null，关键词通道零变化（禁假状态）。
+    const embProvider = resolveEmbeddingProvider(
+      this.config.models.providers,
+      this.config.models.embedding?.provider,
+    )
+    this.embeddingProvider = embProvider
+    let vectors: VectorStore | null = null
+    let semantic: SemanticIndexer | null = null
+    if (embProvider !== null) {
+      const providerCfg = this.config.models.providers[embProvider.providerId]
+      const baseUrl = providerCfg?.baseUrl ?? PROVIDER_CATALOG[embProvider.providerId.toLowerCase()]?.defaultBaseUrl
+      if (baseUrl === undefined) {
+        this.logger.warn('embedding.provider.no_base_url', { provider: embProvider.providerId })
+      } else {
+        try {
+          vectors = new VectorStore(join(this.root, 'vectors.db'))
+          semantic = new SemanticIndexer({
+            client: new HttpEmbeddingClient({
+              baseUrl,
+              apiKey:
+                providerCfg?.apiKeyEnv != null
+                  ? resolveApiKey(this.secrets, embProvider.providerId, providerCfg.apiKeyEnv)
+                  : undefined,
+              provider: embProvider,
+            }),
+            store: vectors,
+            sources: {
+              memories: () => this.memory?.all() ?? [],
+              events: () => this.search.allEntries(),
+            },
+            titleOf: (id) => this.sessionTitleOf(id),
+          })
+          this.logger.info('embedding.provider.ready', {
+            provider: embProvider.providerId,
+            model: embProvider.model,
+          })
+        } catch (err) {
+          // 向量库打不开 = 语义不可用（派生缓存，不阻塞引擎）；关键词照常
+          this.logger.warn('vector.store.error', { err })
+          vectors = null
+          semantic = null
+        }
+      }
+    }
+    this.vectors = vectors
+    this.semantic = semantic
 
     // 工单 7.10 / H09 / ADR D27：browser 工具族——引擎级单例单页；
     // 驱动（playwright-core）首次 browser.open 才启动，构造期零依赖
@@ -1203,16 +1263,95 @@ export class Engine {
   // ---- 会话全文搜索（工单 7.13 / H12）----
 
   /**
-   * 会话全文搜索（工单 7.13 / H12）：GET /api/search 的引擎数据源（新→旧）。
-   * 索引不可用（打开失败降级）→ 空数组——搜索失败不阻塞主流程（同 SessionIndex 纪律）。
+   * 会话全文搜索（工单 7.13 / H12；阶段十九 19.8 / ADR D51 语义合流）：
+   * GET /api/search 的引擎数据源。语义可用 = 语义优先 + 关键词兜底去重合流（两路都跑）；
+   * 不可用（无提供方/关开关/嵌入失败）→ 纯关键词旧行为（零变化）。
+   * 嵌入失败不阻塞——catch 后走关键词（fail-soft，禁假状态）。
    */
-  searchSessions(q: string, limit: number): SearchHit[] {
-    return this.search.search(q, limit)
+  async searchSessions(q: string, limit: number): Promise<SearchHit[]> {
+    const keyword = this.search.search(q, limit)
+    const sem = this.semantic
+    if (sem === null || !this.embeddingEnabled()) return keyword
+    try {
+      const semantic = await sem.searchEvents(q, limit)
+      return mergeEvents(semantic, keyword, limit)
+    } catch (err) {
+      this.logger.warn('semantic.search_events.error', { err })
+      return keyword
+    }
   }
 
-  /** 索引库统计（工单 19.11）：GET /api/index/stats 的引擎数据源（只读快照） */
+  /** 索引库统计（工单 19.11；阶段十九 19.8 语义状态并展）：GET /api/index/stats 的引擎数据源 */
   indexStats(): SearchIndexStats {
-    return this.search.stats()
+    const base = this.search.stats()
+    return { ...base, semantic: this.semanticStats() }
+  }
+
+  /** 语义索引状态（设置页/索引库页数据源）：available = 提供方 + 向量库 + 总开关三条件齐备 */
+  semanticStats(): SemanticIndexStats {
+    const enabled = this.embeddingEnabled()
+    const available = this.semantic !== null && enabled
+    return {
+      available,
+      provider: this.embeddingProvider?.providerId ?? null,
+      model: this.embeddingProvider?.model ?? null,
+      dimensions: this.semantic?.dimensions ?? this.embeddingProvider?.dimensions ?? null,
+      enabled,
+      embedded: this.vectors?.count() ?? 0,
+    }
+  }
+
+  /** 总开关现读（spark.json embedding.enabled；缺省 true） */
+  private embeddingEnabled(): boolean {
+    return this.config.spark.embedding?.enabled ?? true
+  }
+
+  /**
+   * 语义检索端口（阶段十九 19.8 / ADR D51）：memory 工具与记忆注入共用一份装配。
+   * searchMemories = 语义优先 + 关键词兜底去重合流（嵌入失败 fail-soft 回关键词）；
+   * indexMemory = 新存记忆即时补嵌（fire-and-forget，失败只 warn 不抛——
+   * 保存已成功，向量是派生缓存）。
+   */
+  private semanticPort(): SemanticRecallPort {
+    const sem = this.semantic
+    if (sem === null) throw new Error('E_EMBEDDING_UNAVAILABLE: 语义检索未启用')
+    const m = this.memory
+    return {
+      searchMemories: async (query, k) => {
+        const keyword = m?.search(query, k) ?? []
+        try {
+          const semantic = await sem.searchMemories(query, k)
+          return mergeMemories(semantic, keyword, k)
+        } catch (err) {
+          this.logger.warn('semantic.search_memories.error', { err })
+          return keyword
+        }
+      },
+      indexMemory: (id, content) => {
+        void (async () => {
+          try {
+            const [vec] = await sem.embedOne(content)
+            if (vec === undefined) return
+            this.vectors?.upsert('memory', String(id), content, vec, { id }, this.now())
+          } catch (err) {
+            this.logger.warn('semantic.index_memory.error', { id, err })
+          }
+        })()
+      },
+    }
+  }
+
+  /**
+   * 向量索引增量补嵌（阶段十九 19.8 / ADR D51）：POST /api/index/vectors/rebuild——
+   * 只嵌缺向量条目（不清表，已嵌零重复计费）。语义不可用 → 抛 E_EMBEDDING_UNAVAILABLE
+   * （fail-closed，不返回假装成功的 0）；维度不一致 → E_EMBEDDING_DIMENSION（需重建）。
+   */
+  async rebuildVectors(): Promise<{ embedded: number; remaining: number }> {
+    const sem = this.semantic
+    if (sem === null || !this.embeddingEnabled()) {
+      throw new Error('E_EMBEDDING_UNAVAILABLE: 未配置 embedding 提供方或语义检索已关闭')
+    }
+    return sem.backfill()
   }
 
   /** 索引库重建（工单 19.11）：POST /api/index/rebuild——清表重扫 sessions JSONL（等待完成回条目数） */
@@ -1380,6 +1519,8 @@ export class Engine {
           port: this.config.spark.sandbox?.network?.port ?? SANDBOX_NETWORK_DEFAULTS.port,
         },
       },
+      // 语义检索总开关（阶段十九 19.8 / ADR D51）：未配置时缺省开（有提供方即用）
+      embedding: { enabled: this.config.spark.embedding?.enabled ?? true },
     }
     return dto
   }
@@ -1846,6 +1987,15 @@ export class Engine {
       // 6.6) 全文搜索索引收尾（工单 7.13）：关闭 search.db 句柄；
       //      closed 先行置位——迟到的 bus 增量写全部短路（同索引关闭纪律）
       this.search.close()
+      // 6.6.1) 向量库收尾（阶段十九 19.8 / ADR D51）：关闭 vectors.db 句柄
+      //      （未建实例 = 无提供方，空操作；派生缓存关闭不丢权威数据）
+      if (this.vectors !== null) {
+        try {
+          this.vectors.close()
+        } catch (err) {
+          this.logger.warn('vector.store.close.error', { err })
+        }
+      }
       // 6.6.5) LSP 语言服务器收尾（工单 16.9）：shutdown 请求 + 杀子进程（未启动为空操作）
       try {
         await this.lsp.shutdown()
@@ -2000,6 +2150,11 @@ export class Engine {
         await this.setSessionMode(sid, 'default')
       },
       ...(this.memory !== null ? { memory: this.memory, now: this.now } : {}),
+      // 语义检索端口（阶段十九 19.8 / ADR D51）：memory 工具族语义通道 + 即时补嵌。
+      // 与 memory 同条件（仓可用）——但还要求 semantic 本身已建（提供方 + 向量库 + 开关）
+      ...(this.memory !== null && this.semantic !== null && this.embeddingEnabled()
+        ? { semantic: this.semanticPort() }
+        : {}),
     })
     // 工单 13.3：base 模板在此渲染（会话级 system 组装一次，与既有 baseSystem 冻结口径一致）
     // 工单 13.5：预设档 systemAppend 拼在基座之后（只作用于本子会话）
@@ -2072,7 +2227,12 @@ export class Engine {
                 const hasUser = path.some((e) => e.type === 'user.message')
                 const injected = path.some((e) => e.type === 'memory.injected')
                 if (hasUser || injected) return // 非首条/已注入
-                const hits = m.search(query, 3)
+                // 语义合流（19.8 / ADR D51）：semantic 端口内部语义优先 + 关键词兜底去重；
+                // 嵌入失败 fail-soft 回关键词（端口内 catch）——注入永不因此悬空
+                const hits =
+                  this.semantic !== null && this.embeddingEnabled()
+                    ? await this.semanticPort().searchMemories(query, 3)
+                    : m.search(query, 3)
                 if (hits.length === 0) return
                 await this.bus.emit(meta.id, 'memory.injected', {
                   turnId,

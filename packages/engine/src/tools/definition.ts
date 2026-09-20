@@ -5,7 +5,7 @@
 import { isAbsolute, relative, resolve, dirname, basename } from 'node:path'
 import { realpathSync } from 'node:fs'
 import type { z } from 'zod'
-import type { CallId, EventId, SessionId, TurnId } from '@spark/protocol'
+import type { CallId, EventId, MemoryDto, SessionId, TurnId } from '@spark/protocol'
 import type { MemoryStore } from '../memory/store.js'
 import type { LspExecutor } from '../lsp/manager.js'
 
@@ -41,8 +41,22 @@ export interface ToolContext {
    * 工具如实报 E_LSP_UNAVAILABLE，不假装可查。
    */
   lsp?: LspExecutor
+  /**
+   * 语义检索端口（阶段十九 19.8 / ADR D51）：memory.search 的语义通道（与关键词合流）
+   * 与 memory.save 的即时补嵌。未配置 embedding 提供方 / 向量库不可用 / 总开关关时
+   * 缺省未注入——工具走关键词路径（禁假状态：不宣称有语义）。
+   */
+  semantic?: SemanticRecallPort
   /** 时间源（memory.save 记 created_at；缺省 Date.now） */
   now?: () => number
+}
+
+/** 语义检索端口（ToolContext.semantic 形状；实现在 vector/semantic.ts + 引擎装配） */
+export interface SemanticRecallPort {
+  /** 记忆语义 + 关键词合流检索（top-k；语义优先去重） */
+  searchMemories(query: string, k: number): Promise<MemoryDto[]>
+  /** 新存记忆即时补嵌（单条，fire-and-forget；失败只记日志不阻塞保存） */
+  indexMemory(id: number, content: string): void
 }
 
 export interface ToolOutput {
