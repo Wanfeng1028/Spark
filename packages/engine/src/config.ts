@@ -279,6 +279,7 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
             prompts: p.prompts, // 工单 13.3：原样透传（undefined = 用内置模板）
             agents: p.agents, // 工单 16.2 / ADR D36：原样透传（undefined = 全启用）
             extensions: p.extensions, // 工单 16.5 / ADR D38：原样透传（undefined = 全启用）
+            browser: p.browser, // 阶段十九 19.12 / ADR D49：原样透传（undefined = engine.ts 侧取默认）
           }
         })()
 
