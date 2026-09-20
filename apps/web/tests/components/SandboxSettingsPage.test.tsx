@@ -30,8 +30,8 @@ describe('SandboxSettingsPage（阶段十九 19.7 / ADR D50）', () => {
     renderPage()
     const sw = (await waitFor(() => screen.getByRole('switch', { name: '网络隔离' }))) as HTMLButtonElement
     expect(sw.getAttribute('aria-checked')).toBe('false')
-    expect((screen.getByLabelText('域名清单') as HTMLTextAreaElement).value).toBe('')
-    expect((screen.getByLabelText('代理端口') as HTMLInputElement).value).toBe('1080')
+    expect(screen.getByLabelText<HTMLTextAreaElement>('域名清单').value).toBe('')
+    expect(screen.getByLabelText<HTMLInputElement>('代理端口').value).toBe('1080')
     // 诚实边界：出口引导不是内核隔离（页面不得宣称"沙箱内断网"）
     expect(screen.getByText(/不是内核级断网/)).toBeTruthy()
   })
@@ -52,7 +52,7 @@ describe('SandboxSettingsPage（阶段十九 19.7 / ADR D50）', () => {
     fireEvent.click(sw)
     await waitFor(() => expect(sw.getAttribute('aria-checked')).toBe('true'))
     // 填清单并保存
-    const area = screen.getByLabelText('域名清单') as HTMLTextAreaElement
+    const area = screen.getByLabelText<HTMLTextAreaElement>('域名清单')
     fireEvent.change(area, { target: { value: 'github.com\n*.npmjs.org' } })
     fireEvent.click(screen.getByRole('button', { name: '保存清单' }))
     await waitFor(async () => {
