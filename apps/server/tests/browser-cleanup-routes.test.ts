@@ -2,8 +2,6 @@
  * 浏览器产物清理路由测试（阶段十九 19.12 / ADR D49）：POST /api/browser/cleanup——
  * 临时 shotsDir 放置白名单命名文件 → 清理后 200 {removed} 且文件消失。
  */
-import { mkdtemp } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
 import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
