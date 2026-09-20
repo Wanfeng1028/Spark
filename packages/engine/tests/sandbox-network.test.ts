@@ -103,7 +103,7 @@ async function socksConnect(
   proxyPort: number,
   host: string,
   port: number,
-): Promise<{ code: number; sock: Socket; col: ReturnType<typeof collector> }> {
+): Promise<{ code: number; tail: Buffer; sock: Socket; col: ReturnType<typeof collector> }> {
   const sock = netConnect({ host: '127.0.0.1', port: proxyPort })
   await new Promise<void>((resolve, reject) => {
     sock.once('connect', resolve)
@@ -112,11 +112,13 @@ async function socksConnect(
   const name = Buffer.from(host, 'latin1')
   const col = collector(sock)
   sock.write(Buffer.concat([Buffer.from([0x05, 0x01, 0x00]), Buffer.from([0x05, 0x01, 0x00, 0x03, name.length]), name, Buffer.from([port >> 8, port & 0xff])]))
-  // 两段应答：方法选择 2 字节 + 请求应答 10 字节（一次写完时代理连续回复）
+  // 两段应答：方法选择 2 字节 + 请求应答 10 字节（一次写完时代理连续回复）。
+  // 请求应答布局 [ver, code, rsv, atyp, bnd×4, port×2]——code 在整体第 3 字节。
   await col.wait(12)
   const raw = col.drain()
   expect(raw.subarray(0, 2)).toEqual(Buffer.from([0x05, 0x00]))
-  return { code: raw.length >= 12 ? (raw[11] as number) : -1, sock, col }
+  // 第 12 字节起可能已跟来上游数据（同段到达）——随 tail 交还，调用方不得丢
+  return { code: raw.length >= 4 ? (raw[3] as number) : -1, tail: raw.subarray(12), sock, col }
 }
 
 afterEach(async () => {
@@ -173,11 +175,11 @@ describe('SandboxNetworkProxy（SOCKS5 + HTTP CONNECT 同端口分流）', () =>
     const upstream = await listen((sock) => sock.write('pong'))
     const proxy = await startProxy(['localhost'])
     try {
-      const { code, sock, col } = await socksConnect(proxy.port, 'localhost', upstream.port)
+      const { code, tail, sock, col } = await socksConnect(proxy.port, 'localhost', upstream.port)
       expect(code).toBe(0x00)
       await sleep(200)
-      // 上游回包可能紧随应答到达（收集器已收）——尾字节不丢
-      expect(col.drain().toString()).toContain('pong')
+      // 上游回包可能紧随应答到达（tail 已收）或稍后到（收集器续收）——两处都看
+      expect(`${tail.toString()}${col.drain().toString()}`).toContain('pong')
       sock.destroy()
     } finally {
       await proxy.stop()
@@ -292,7 +294,7 @@ describe('SandboxNetworkProxy（SOCKS5 + HTTP CONNECT 同端口分流）', () =>
       const allowed = await socksConnect(proxy.port, 'localhost', upstream.port)
       expect(allowed.code).toBe(0x00)
       await sleep(200)
-      expect(allowed.col.drain().toString()).toContain('hot')
+      expect(`${allowed.tail.toString()}${allowed.col.drain().toString()}`).toContain('hot')
       allowed.sock.destroy()
     } finally {
       await proxy.stop()
