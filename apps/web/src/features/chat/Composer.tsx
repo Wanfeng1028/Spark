@@ -434,6 +434,12 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   /** 图片上传（工单 12.2a）：uploadAttachment → 附件 id 进 attachments；名称映射供 chips 展示 */
   const [attachmentNames, setAttachmentNames] = useState<Map<string, string>>(new Map())
   const uploadingRef = useRef(false)
+  /** 拖拽上传（工单 19.21）：卡片域内拖入图片走与文件选择器同一条 uploadAttachment 通道 */
+  const [dragOver, setDragOver] = useState(false)
+  const dragDepthRef = useRef(0)
+  /** 只认文件拖入（文本拖选等不接管）——dataTransfer.types 是判据，dropEffect 才给 copy 光标 */
+  const dropsFiles = (e: React.DragEvent): boolean =>
+    Array.from(e.dataTransfer.types).includes('Files')
   async function uploadImages(files: FileList | File[]): Promise<void> {
     if (sessionId === undefined || uploadingRef.current) return
     uploadingRef.current = true
@@ -554,7 +560,39 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           'shadow-[0_0_0_0.5px_rgba(0,0,0,0.10),0_4px_16px_rgba(0,0,0,0.03),0_0_24px_rgba(0,0,0,0.03)]',
           'dark:bg-[#2c2c2e] dark:shadow-[0_0_0_0.5px_rgba(255,255,255,0.12),0_4px_16px_rgba(0,0,0,0.03),0_0_24px_rgba(0,0,0,0.03)]',
         )}
+        onDragEnter={(e) => {
+          if (!dropsFiles(e)) return
+          e.preventDefault()
+          dragDepthRef.current += 1
+          setDragOver(true)
+        }}
+        onDragOver={(e) => {
+          if (!dropsFiles(e)) return
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+        }}
+        onDragLeave={(e) => {
+          if (!dropsFiles(e)) return
+          // 子元素间移动会连续 leave，计数归零才算真的离开
+          dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+          if (dragDepthRef.current === 0) setDragOver(false)
+        }}
+        onDrop={(e) => {
+          if (!dropsFiles(e)) return
+          e.preventDefault()
+          dragDepthRef.current = 0
+          setDragOver(false)
+          void uploadImages(Array.from(e.dataTransfer.files))
+        }}
       >
+        {dragOver && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[22px] border border-dashed border-foreground/30 text-xs text-muted-foreground"
+          >
+            松手上传图片
+          </div>
+        )}
         {/* @ / / 菜单浮层（§13.E；展示层已拆 ComposerMenu——R-E③） */}
         {menu !== null && !waiting && (
           <ComposerMenu

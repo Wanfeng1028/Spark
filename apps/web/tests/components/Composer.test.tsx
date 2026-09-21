@@ -5,8 +5,8 @@
  */
 import './dom-stubs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import type { SubmitOutcome } from '@spark/protocol'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { ids, type SubmitOutcome } from '@spark/protocol'
 import { TestTransportContext } from '@/transports/context'
 import { MockTransport } from '@/transports/mock'
 import { Composer } from '@/features/chat/Composer'
@@ -41,6 +41,32 @@ function renderComposer(
 }
 
 const textarea = (): HTMLTextAreaElement => screen.getByRole<HTMLTextAreaElement>('textbox')
+
+describe('Composer 附件拖拽（工单 19.21）', () => {
+  it('拖入图片 → 经 uploadAttachment 上传；非图片文件被跳过', async () => {
+    const upload = vi.spyOn(MockTransport.prototype, 'uploadAttachment')
+    renderComposer({ sessionId: ids.session('ses_drag000000000000000001') })
+    const img = new File(['\x89PNG'], 'shot.png', { type: 'image/png' })
+    const txt = new File(['hi'], 'note.txt', { type: 'text/plain' })
+    // 拖拽事件挂在卡片容器上，textarea 是其后代——fireEvent 按 DOM 语义冒泡即可命中
+    const dt = { dataTransfer: { types: ['Files'], files: [img, txt], dropEffect: '' } }
+    fireEvent.dragEnter(textarea(), dt)
+    fireEvent.drop(textarea(), dt)
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(1))
+    expect(upload.mock.calls[0]?.[1].name).toBe('shot.png')
+    upload.mockRestore()
+  })
+
+  it('非文件拖入（文本拖选）不接管、不上传', () => {
+    const upload = vi.spyOn(MockTransport.prototype, 'uploadAttachment')
+    renderComposer({ sessionId: ids.session('ses_drag000000000000000002') })
+    const dt = { dataTransfer: { types: ['text/plain'], files: [] } }
+    fireEvent.dragEnter(textarea(), dt)
+    fireEvent.drop(textarea(), dt)
+    expect(upload).not.toHaveBeenCalled()
+    upload.mockRestore()
+  })
+})
 
 describe('Composer 空闲态', () => {
   it('Enter 发送（delivery=now），成功后清空草稿并提示「已开始本轮」', async () => {
