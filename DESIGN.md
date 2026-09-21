@@ -43,6 +43,7 @@
 | v2.32 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"鼠标点击时候的有下拉按钮的那种动效，你去抓一下代码看看" + x.ai 下拉展开/Company/Colossus/News 截图 4 张） | **批次 F：导航下拉交互（x.ai 实拍同构）**。① 抓码事实声明：x.ai 线上为压缩 bundle 无可读源码，动效参数按截图+标准曲线复刻（抄设计不抄框架）。② Header 重构：新增 NavDropdown 组件——点击展开白色圆角面板（w-60/p-2/rounded-xl/border+shadow-md 弹层合规 §13.B），**分组小标签**（11px zinc-400 tracking-wider，x.ai PRODUCTS/DOWNLOAD/DEVELOPERS 同构）+ 条目 hover 灰底 + **外部条目 ↗**（ArrowUpRight zinc-400）+ **底部"查看全部"行**（border-t 分隔+加粗，x.ai "Explore all use cases ↗" 同构）；动效=fade+y(-6)+scale(.97) 180ms ease-out（AnimatePresence），**触发钮 chevron 180° 翻转**；外点/ESC 关闭；aria-haspopup/expanded/menu 全语义。③ 两处挂载：导航「产品 ⌄」（四端条目+查看全部能力 footer）与 CTA「快速上手 ⌄」（indigo 胶囊触发钮右对齐面板，开始/源码两组）——CTA 从纯 Link 改为带菜单触发钮。④ 旋转词下划线实拍校正：v2.31 的 border-b-4 黑线改 **border-b-2 zinc-300 细灰线**（截图 "you write." 同款）。实现=Header.tsx 全量重构（NavDropdown 内联组件）+ Hero.tsx 下划线 |
 | v2.33 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，x.ai 移动端实拍 8 张：iPhone 16 Pro 440px 视口全页/菜单开合/Grok Bot 页） | **批次 G：accent 收敛 + 移动端全屏菜单（x.ai 移动端实拍同构）**。① §12.1 官网色彩豁免修订：**主按钮废止 indigo 改黑色胶囊**（`bg-zinc-900`，button default 变体）——x.ai 实拍按钮全为黑白，彩色仅点睛；官方站 accent 收敛为**橙色系统**（eyebrow mini 标签 bg-orange-100、旋转词下划线改**橙→粉→黄渐变条**（移动端 "build." 同构，h-1 rounded-full 随词宽）、开发者区橙色插画块），hero 渐变字例外条款由"渐变文字"改记"渐变条"；产品四端 indigo accent 不变。② 移动端菜单升级为**全屏白幕**（fixed inset-0）：大字条目（text-xl）+ 发丝线分隔 + **可展开"产品"分组**（MobileAccordion，条目带一句端描述，chevron 翻转，height auto 动画）+ 底部黑色胶囊 CTA + 小字链接行（GitHub · LICENSE · MIT）；背景滚动锁定；X 圆钮关闭+焦点归还。③ 桌面 CTA 触发钮同步黑色（v2.32 的 indigo 触发钮废止）。④ ChatCard 用户气泡 indigo→**黑色**（x.ai Bot 卡 "two nights…" 黑气泡同构）。实现=button.tsx + Hero.tsx（标签/渐变条）+ Header.tsx（全屏菜单/触发钮）+ SessionDemoZone.tsx（气泡） |
 | v2.34 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，x.ai/bot 页实拍 4 张："Give each Bot a job" 胶囊选择器/视频区/定价区） | **批次 H：任务选择器区（x.ai "Give each Bot a job" 实拍同构）**。新增 JobPicker：胶囊选择器（选中=黑底白字胶囊，对齐 v2.33 黑色按钮系统）点击切换下方**黑体导语 + 灰色正文**（x.ai "Generate pipeline overnight." 同构），AnimatePresence fade+y 0.22s（reduced-motion 静态）+ mono 事实行（沿用 FeatureShowcase 的顶部分隔线样式）；六个"活"全部对应 Spark 真实能力并逐条标注出处（审批三值/沙箱 wrapper ADR D15//goal 三护栏 ADR D33//arena ADR D42/task 子代理 ADR D36/JSONL 回放），禁假状态 §5。不移植项：视频区（Spark 无视频素材）、定价区（MIT 免费无定价）。实现=JobPicker.tsx 新增 + page.tsx 插入（四端瓦片与开发者区之间） |
+| v2.35 | 2026-09-21 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"把所有未完成的工单全部完成"指令；条款为工单 19.40 的"先补条款再实现"前置） | **新增 §13.M 侧栏浮层与遮罩**（V2-36 折叠态直点 / V2-39 窄屏 overlay drawer + 19.36 辅助会话停靠面板一并登记）：640px 单断点只管侧栏形态、三形态（rail 48 / overlay / inline 264，窄屏展开不占列宽）、rail 分组浮层规格（256px/32px 行/最多 8 条 + 溢出出口/弹层影不画框线/数据源复用侧栏既有投影禁新请求）、模态抽屉与 `bg-black/60` 遮罩（**禁 backdrop-blur**，§12.2 延伸）、非模态停靠面板 360px 让出 StatusBar、反 AI 味自查条 |
 
 > 本文件是**视觉决策文档**：回答"页面应该保持什么风格，遇到新场景怎么选"，让不同页面看起来仍属于同一个产品。
 > 架构与设计决策见 `ARCHITECTURE.md`；实现规格（做什么）见 `doc/02-development-plan.md` §6——本文件管"做成什么感觉、什么不许做"。所有前端 PR 以本文为验收依据之一。
@@ -716,6 +717,15 @@
 - **文件夹 chip**：欢迎页=新会话 cwd 选择——选项=最近会话 cwd 去重（≤8）+「默认工作区」项（引擎缺省），未选显示「选择文件夹」占位（DSH "Choose workspace" 同位），选中经 `createSession({ cwd })` 落地；会话页=**只读**（无 chevron 无弹层，title=完整 cwd——会话 cwd 中途不可迁，禁假切换）；无最近会话整枚不渲染（禁假状态）。
 - **模式 chip**：提交三态（立即/插话/排队）由卡内 Segmented 上移为下拉——禁用矩阵不变（空闲 steer/queue 禁、运行中 now 禁，禁用原因行内明示）；显示值经 `segmentDisplay` 归一，**busy Enter 的 wire 值取显示档**（UI 与报文一致）；Segmented 组件本体保留（设置页在用）。
 - **瞬态提示行分色调**：语音/发送错误原以红字常驻工具条（挤压 justify-between 提前换行——截图实证的布局 bug），改卡下瞬态提示行：info=`--spark-accent` 2.5s、error=`destructive` 4s 自动消退（DSH Toast hold-then-fade 同构）；弹层一律向上展开（与工具条弹层同向）。
+
+### 13.M 侧栏浮层与遮罩（工单 19.40 条款先行；V2-36 / V2-39）
+
+① **断点**：单一 640px（`(max-width: 639px)`），只服务侧栏形态开关，不构成响应式体系（§2 桌面应用优先不变）。
+② **三形态**：折叠 → rail 48px；展开 + 窄 → overlay 抽屉；展开 + 宽 → inline 264px 列。窄屏展开**不占列宽**（栅格恒 48px），主区不被挤扁。
+③ **rail 分组浮层（非模态）**：悬停或点击分组弹出，贴按钮右侧 4px、宽 256px、圆角 12px、`bg-popover`；边界取 §13.L.6 弹层影（0.5px 环 + 一层柔影，**不画矩形框线**）；行高 32px / 13px 字号 / 左内距 10px / 状态点 8px；组头 11px meta + 内部 hairline；**最多 8 条**，超出走「剩余 N 个（展开侧栏）」28px 出口；数据源 = 侧栏既有列表投影，**禁新请求**。
+④ **overlay 抽屉（模态）**：与 inline 同宽 264px、`inset-y-0 left-0`、z-40、同套弹层影；遮罩 `bg-black/60`（与 DialogOverlay 同 token）、z-30，**禁 backdrop-blur / 渐变 / 玻璃**（§12.2）；关闭三途径 = 遮罩点击 / Esc / 面板内收起钮，点选会话即收；遮罩为可聚焦按钮（Tab 首站即关闭）。
+⑤ **非模态停靠面板（工单 19.36 辅助会话抽屉）**：无遮罩、不占 dialog 角色；宽 360px（§13.A 右栏档）`max-w-full`、`top-0 bottom-6` 让出 StatusBar；边界用 1px `--border` 左边框（停靠面板优先边框而非阴影，§3）；Esc 只收本面板。
+⑥ **反 AI 味自查**：以上全部落在 §13.B 封闭圆角档与 13px 密度内，阴影至多一层；任何"浮层加毛玻璃"的写法一律拒收。
 
 ---
 
