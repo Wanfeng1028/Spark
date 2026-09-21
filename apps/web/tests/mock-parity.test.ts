@@ -2,9 +2,11 @@
  * MockTransport 对等修复批（阶段十九 19.22 / §1.1 纪律）：mock 与 HttpTransport 的
  * 行为对齐单测——此前 mock 丢 patch/opts/不校验 id，导致"mock 走查绿、真实通道红"。
  * 覆盖：updateSettings 的 agents/extensions 段不再丢弃、createSession 接 opts、
- * updateMcpConfig 内存持久（读回一致）、deleteSession/sendMessage 未知 id 拒执。
+ * updateMcpConfig 内存持久（读回一致）、deleteSession/sendMessage 未知 id 拒执、
+ * getMcpConfig 凭据掩码回显（19.22 第二批）。
  */
 import { describe, expect, test } from 'vitest'
+import { MCP_ENV_MASK } from '@spark/protocol'
 import { MockTransport } from '@/transports/mock'
 
 function fresh(): MockTransport {
@@ -56,5 +58,27 @@ describe('MockTransport 对等修复（阶段十九 19.22 / §1.1）', () => {
     // 已知会话（脚本 sid）不抛
     const known = await t.listSessions()
     await expect(t.sendMessage(known[0]?.id as never)).resolves.toBeTruthy()
+  })
+
+  test('getMcpConfig：读回按掩码回显（凭据不出引擎——真实通道同语义）', async () => {
+    const t = fresh()
+    await t.updateMcpConfig({
+      version: 1,
+      servers: {
+        remote: {
+          transport: 'streamable-http',
+          url: 'https://example.test/mcp',
+          headers: { Authorization: 'Bearer real-token' },
+          env: { MCP_TOKEN: 'plain-value' },
+        },
+      },
+    })
+    const back = await t.getMcpConfig()
+    // 敏感面掩码：表单据此保存时走掩码合并，不会把占位写进盘、也不会拿到明文
+    expect(back.servers['remote']?.headers?.['Authorization']).toBe(MCP_ENV_MASK)
+    expect(back.servers['remote']?.env?.['MCP_TOKEN']).toBe(MCP_ENV_MASK)
+    // 非敏感字段原样回读（掩码只覆盖凭据面）
+    expect(back.servers['remote']?.url).toBe('https://example.test/mcp')
+    expect(back.servers['remote']?.transport).toBe('streamable-http')
   })
 })

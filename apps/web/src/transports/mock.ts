@@ -8,7 +8,7 @@
  *   {"@speed":N}         全局倍率（实际间隔 = delay / speed）
  * sendMessage 不合成事件——脚本预录的 user.message 原样回放（假对话：文本以脚本为准）。
  */
-import { SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
+import { MCP_ENV_MASK, SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
 import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
@@ -1637,7 +1637,22 @@ export class MockTransport implements Transport {
    * 初始静态值）；mock 无 env 真值可掩码——与真实通道的掩码回读差异如实保留 */
   getMcpConfig(): Promise<McpConfigInput> {
     this.assertNotDisposed()
-    return Promise.resolve(this.mcpConfig)
+    // 19.22 对等修复：真实通道读回时 env/headers 值一律替换为 MCP_ENV_MASK（凭据不出引擎）。
+    // 初值虽无 env，但用户经 updateMcpConfig 存过 env 后，原实现会把明文回吐给表单——
+    // 与真实通道行为不一致，且下一次保存会把明文再写一遍（掩码合并语义在 mock 下失效）。
+    const maskMap = (m: Record<string, string> | undefined): Record<string, string> | undefined =>
+      m === undefined ? undefined : Object.fromEntries(Object.keys(m).map((k) => [k, MCP_ENV_MASK]))
+    const servers: McpConfigInput['servers'] = {}
+    for (const [name, s] of Object.entries(this.mcpConfig.servers)) {
+      const env = maskMap(s.env)
+      const headers = maskMap(s.headers)
+      servers[name] = {
+        ...s,
+        ...(env !== undefined ? { env } : {}),
+        ...(headers !== undefined ? { headers } : {}),
+      }
+    }
+    return Promise.resolve({ version: this.mcpConfig.version, servers })
   }
 
   /** PUT /api/mcp（工单 12.6 mock 对等）：**内存持久**（19.22 修复：此前写后读回恒初始值，
