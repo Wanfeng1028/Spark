@@ -81,6 +81,7 @@ export function PanelRouter({
         models={models}
         current={slice !== null && slice.meta.model !== '' ? slice.meta.model : null}
         onPick={actions.pickModel}
+        transport={transport}
       />
     )
   }

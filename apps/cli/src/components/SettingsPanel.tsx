@@ -17,7 +17,7 @@ import type {
   SettingsDto,
   Transport,
 } from '@spark/protocol'
-import { PanelShell } from './CommandPanels.js'
+import { PanelShell, useEditor } from './panel-core.js'
 import { useCliStore } from '../store.js'
 
 type Value = string | number | boolean | null
@@ -391,7 +391,9 @@ export function SettingsPanel({ transport }: { transport: Transport }) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [cursor, setCursor] = useState(0)
   const [top, setTop] = useState(0)
-  const [editing, setEditing] = useState<{ id: string; buf: string } | null>(null)
+  /** 行内编辑器（panel-core 共用）+ 当前被编辑字段 id（渲染与提交定位用） */
+  const editor = useEditor()
+  const [editId, setEditId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   /** 最近一次写入结果（成功与失败都占一行——失败不得静默，禁假状态） */
   const [msg, setMsg] = useState<string | null>(null)
@@ -443,11 +445,11 @@ export function SettingsPanel({ transport }: { transport: Transport }) {
 
   // 编辑态向 App 层让位 Esc（键位两处消费同一键会互相吞——19.23）
   useEffect(() => {
-    useCliStore.getState().setPanelEditing(editing !== null)
+    useCliStore.getState().setPanelEditing(editor.active)
     return () => {
       useCliStore.getState().setPanelEditing(false)
     }
-  }, [editing])
+  }, [editor.active])
 
   useEffect(() => {
     if (cursor < top) setTop(cursor)
@@ -492,38 +494,24 @@ export function SettingsPanel({ transport }: { transport: Transport }) {
       return
     }
     const cur = field.read(ctx)
-    setEditing({ id: field.id, buf: cur === null ? '' : String(cur) })
+    setEditId(field.id)
+    editor.begin(cur === null ? '' : String(cur))
   }
 
   useInput((input, key) => {
     if (ctx === null || fields.length === 0) return
-    if (editing !== null) {
-      const field = fields.find((f) => f.id === editing.id)
-      if (field === undefined) {
-        setEditing(null)
-        return
-      }
-      if (key.escape) {
-        setEditing(null)
-        setMsg(null)
-        return
-      }
-      if (key.return) {
-        const parsed = parse(field, editing.buf)
-        setEditing(null)
+    if (
+      editor.handle(input, key, (buf) => {
+        const field = fields.find((f) => f.id === editId)
+        if (field === undefined) return
+        const parsed = parse(field, buf)
         if (!parsed.ok) {
           setMsg(`${field.label}：${parsed.error}`)
           return
         }
         void commit(field, parsed.value)
-        return
-      }
-      if (key.backspace || key.delete) {
-        setEditing((e) => (e === null ? e : { ...e, buf: e.buf.slice(0, -1) }))
-        return
-      }
-      if (key.upArrow || key.downArrow || key.ctrl || key.meta) return
-      if (input !== '') setEditing((e) => (e === null ? e : { ...e, buf: e.buf + input }))
+      })
+    ) {
       return
     }
     if (key.upArrow || key.downArrow) {
@@ -558,8 +546,8 @@ export function SettingsPanel({ transport }: { transport: Transport }) {
       const f = line.field
       const isRestart = f.restart === true || ctx.settings.restartRequired.includes(f.id)
       const selected = line.index === cursor
-      const editingThis = editing?.id === f.id
-      const value = editingThis ? `[${editing.buf}]` : show(f.read(ctx))
+      const editingThis = editor.active && editId === f.id
+      const value = editingThis ? `[${editor.buf}]_` : show(f.read(ctx))
       rows.push(
         <Text key={f.id} inverse={selected} wrap="truncate-end">
           {selected ? '> ' : '  '}
@@ -577,7 +565,7 @@ export function SettingsPanel({ transport }: { transport: Transport }) {
     <PanelShell
       title="设置"
       hint={
-        editing !== null
+        editor.active
           ? '输入后 Enter 保存 · Esc 取消'
           : busy
             ? '写入中…'
