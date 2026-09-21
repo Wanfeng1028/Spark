@@ -283,8 +283,14 @@ export class MockTransport implements Transport {
     // 脚本耗尽：回放自然结束（等待切场景或耗尽后的 sendMessage 语义见下）
   }
 
-  sendMessage(_sessionId: SessionId): Promise<SubmitOutcome> {
-    // 单场景回放：sessionId 即脚本会话（调用方传当前路由 sid；mock 不校验——夹具宽松）
+  sendMessage(sessionId: SessionId): Promise<SubmitOutcome> {
+    // 19.22 对等修复：校验会话存在（真实通道未知 id → E_NOT_FOUND）；回放内容仍由脚本
+    // 决定（text 不改变回放——mock 是脚本化假对话，如实保留该语义）
+    const known =
+      sessionId === this.script.sessionId || this.forkChildren.some((f) => f.dto.id === sessionId)
+    if (!known) {
+      return Promise.reject(new Error(`E_NOT_FOUND: 会话不存在：${sessionId}`))
+    }
     return Promise.resolve(this.submit())
   }
 
@@ -911,6 +917,22 @@ export class MockTransport implements Transport {
             network: {
               proxy: patch.network.proxy ?? prev.network?.proxy ?? '',
               noProxy: patch.network.noProxy ?? prev.network?.noProxy ?? '',
+            },
+          }
+        : {}),
+      // 子代理停用名单（19.22 对等修复：此前 mock 丢 agents patch——16.2 停用在 mock 下失效）
+      ...(patch.agents !== undefined
+        ? {
+            agents: {
+              disabledAgents: patch.agents.disabledAgents ?? prev.agents?.disabledAgents ?? [],
+            },
+          }
+        : {}),
+      // 扩展停用名单（19.22 对等修复：同上，16.5）
+      ...(patch.extensions !== undefined
+        ? {
+            extensions: {
+              disabledExtensions: patch.extensions.disabledExtensions ?? prev.extensions?.disabledExtensions ?? [],
             },
           }
         : {}),
@@ -1544,22 +1566,27 @@ export class MockTransport implements Transport {
   }
 
   private readonly attachmentStore = new Map<string, { mime: string; bytes: Buffer }>()
-
-  /** GET /api/mcp/config（RT3-07 mock 对等）：返回与 listMcpServers 状态表同名的静态配置
-   * （mock 无 env 值可掩码；updateMcpConfig 不持久 → 读回恒为初始值，同"重启语义如实"口径） */
-  getMcpConfig(): Promise<McpConfigInput> {
-    this.assertNotDisposed()
-    return Promise.resolve({
-      version: 1,
-      servers: {
-        filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp/spark'] },
-        github: { command: 'npx' },
-      },
-    })
+  /** MCP 配置（PUT 后读回一致；跨实例不持久 = 重启语义如实） */
+  private mcpConfig: McpConfigInput = {
+    version: 1,
+    servers: {
+      filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp/spark'] },
+      github: { command: 'npx' },
+    },
   }
 
-  /** PUT /api/mcp（工单 12.6 mock 对等）：内存无持久——重启后生效语义如实为不生效 */
-  updateMcpConfig(_config: McpConfigInput): Promise<{ ok: true }> {
+  /** GET /api/mcp/config（RT3-07 mock 对等）：读回本次实例写入的配置（19.22 修复前恒为
+   * 初始静态值）；mock 无 env 真值可掩码——与真实通道的掩码回读差异如实保留 */
+  getMcpConfig(): Promise<McpConfigInput> {
+    this.assertNotDisposed()
+    return Promise.resolve(this.mcpConfig)
+  }
+
+  /** PUT /api/mcp（工单 12.6 mock 对等）：**内存持久**（19.22 修复：此前写后读回恒初始值，
+   * 表单"保存—重开"看起来像丢配置）；跨实例不持久 = 重启语义如实为不生效 */
+  updateMcpConfig(config: McpConfigInput): Promise<{ ok: true }> {
+    this.assertNotDisposed()
+    this.mcpConfig = config
     return Promise.resolve({ ok: true })
   }
 
@@ -1702,6 +1729,12 @@ export class MockTransport implements Transport {
   }
 
   deleteSession(sessionId: string): Promise<void> {
+    // 19.22 对等修复：未知 id 拒执（真实通道 404 E_NOT_FOUND）——mock 此前静默 resolve
+    const isFork = this.forkChildren.some((f) => f.dto.id === sessionId)
+    const isScript = sessionId === this.script.sessionId
+    if (!isFork && !isScript) {
+      return Promise.reject(new Error(`E_NOT_FOUND: 会话不存在：${sessionId}`))
+    }
     const idx = this.forkChildren.findIndex((f) => f.dto.id === sessionId)
     if (idx !== -1) this.forkChildren.splice(idx, 1)
     this.archived.delete(sessionId)
@@ -1873,10 +1906,16 @@ export class MockTransport implements Transport {
     })
   }
 
-  createSession(): Promise<SessionDto> {
+  createSession(opts?: { title?: string; model?: string; cwd?: string }): Promise<SessionDto> {
     this.assertNotDisposed()
     this.startSession()
-    return Promise.resolve(MockTransport.dtoOf(this.script, this.status()))
+    const dto = MockTransport.dtoOf(this.script, this.status())
+    // 19.22 对等修复：opts 不再丢弃——显式 title/model 覆盖演示脚本值（cwd 只读展示面）
+    return Promise.resolve({
+      ...dto,
+      ...(opts?.title !== undefined && opts.title !== '' ? { title: opts.title } : {}),
+      ...(opts?.model !== undefined && opts.model !== '' ? { model: opts.model } : {}),
+    })
   }
 
   status(): SessionStatus {
