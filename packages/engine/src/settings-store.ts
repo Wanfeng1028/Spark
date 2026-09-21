@@ -222,6 +222,15 @@ export function persistSparkPatch(root: string, patch: SettingsUpdate): EngineCo
     }
     raw['network'] = seg
   }
+  // 界面语言（阶段十九 19.17 / V2-12）：ui 段逐字段合并（热档）
+  if (patch.ui !== undefined) {
+    const cur = (raw['ui'] as Record<string, unknown> | undefined) ?? {}
+    const seg: Record<string, unknown> = { ...cur }
+    for (const [k, v] of Object.entries(patch.ui)) {
+      if (v !== undefined) seg[k] = v
+    }
+    raw['ui'] = seg
+  }
   // 提示词模板路径（阶段十九 19.18）：逐槽位替换——null = 删该键（回内置模板）
   if (patch.prompts !== undefined) {
     const cur = (raw['prompts'] as Record<string, unknown> | undefined) ?? {}

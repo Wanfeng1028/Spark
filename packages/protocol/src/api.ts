@@ -11,6 +11,7 @@ import {
 } from './ids.js'
 import { DeliverySchema, ReasoningEffortSchema, TurnFinishSchema } from './primitives.js'
 import { ClientActionSchema, CommandArgsSchema, CommandSurfaceSchema } from './commands.js'
+import { LanguageSchema } from './i18n.js'
 import type { SparkEventEnvelope } from './events.js'
 
 export const SessionStatusSchema = z.enum(['idle', 'running', 'waiting-approval'])
@@ -610,6 +611,12 @@ export const SettingsDtoSchema = z.strictObject({
   certificates: CertificatesInfoSchema,
   /** 数据目录（阶段十九 19.16）：SPARK_HOME 或 ~/.spark 的解析值（只读——启动期定） */
   home: z.string().min(1),
+  /** 界面语言（阶段十九 19.17 / V2-12）：spark.json ui.language——热档（切换即时生效） */
+  ui: z
+    .strictObject({
+      language: LanguageSchema,
+    })
+    .optional(),
   /** 需重启生效字段清单（前端标注"下次启动生效"；单一来源 SETTINGS_RESTART_REQUIRED） */
   restartRequired: z.array(z.string()),
   /** models.json 只读参考（写路径不经本端点——默认模型/档位迁移记录见工单） */
@@ -667,6 +674,12 @@ export const SettingsUpdateSchema = z.strictObject({
       base: z.string().min(1).nullable().optional(),
       compaction: z.string().min(1).nullable().optional(),
       title: z.string().min(1).nullable().optional(),
+    })
+    .optional(),
+  /** 界面语言（阶段十九 19.17）：ui.language——热档（切换即时生效，写服务端单源） */
+  ui: z
+    .strictObject({
+      language: LanguageSchema.optional(),
     })
     .optional(),
 })

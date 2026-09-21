@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { AppShell } from '@/components/layout/AppShell'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { TransportProvider, useTransport } from '@/transports/context'
+import { I18nProvider } from '@/i18n/context'
 import { WelcomePage } from '@/routes/WelcomePage'
 import { SessionPage } from '@/routes/SessionPage'
 import { SettingsPage } from '@/routes/SettingsPage'
@@ -17,6 +18,7 @@ import { OnboardingPage, shouldOnboard } from '@/routes/OnboardingPage'
 export function App() {
   return (
     <TransportProvider>
+      <I18nProvider>
       <FirstRunRedirect />
       <ErrorBoundary label="应用">
         <AppShell>
@@ -33,7 +35,8 @@ export function App() {
           </Routes>
         </AppShell>
       </ErrorBoundary>
-    </TransportProvider>
+    </I18nProvider>
+      </TransportProvider>
   )
 }
 

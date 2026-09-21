@@ -3775,6 +3775,9 @@ describe('契约：api.SettingsDtoSchema', () => {
       "nodeExtraCaCerts": "contract-sample"
     },
     "home": "contract-sample",
+    "ui": {
+      "language": "zh-CN"
+    },
     "restartRequired": [
       "contract-sample"
     ],
@@ -3863,6 +3866,10 @@ describe('契约：api.SettingsDtoSchema', () => {
 
   it('字段 home 类型错 → 解析失败', () => {
     expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["home"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 ui 类型错 → 解析失败', () => {
+    expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["ui"] = []; return m })())).toThrow()
   })
 
   it('字段 restartRequired 类型错 → 解析失败', () => {
@@ -4069,6 +4076,9 @@ describe('契约：api.SettingsUpdateSchema', () => {
       "base": "contract-sample",
       "compaction": "contract-sample",
       "title": "contract-sample"
+    },
+    "ui": {
+      "language": "zh-CN"
     }
   }
 
@@ -4119,6 +4129,10 @@ describe('契约：api.SettingsUpdateSchema', () => {
 
   it('字段 prompts 类型错 → 解析失败', () => {
     expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["prompts"] = []; return m })())).toThrow()
+  })
+
+  it('字段 ui 类型错 → 解析失败', () => {
+    expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["ui"] = []; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {

@@ -914,6 +914,10 @@ export class MockTransport implements Transport {
             },
           }
         : {}),
+      // 界面语言（阶段十九 19.17）：显式 undefined 不覆盖现值
+      ...(patch.ui !== undefined
+        ? { ui: { language: patch.ui.language ?? prev.ui?.language } }
+        : {}),
       // 语义检索总开关（阶段十九 19.8 / ADR D50 同族热档）：显式 undefined 不覆盖现值
       ...(patch.embedding !== undefined
         ? { embedding: { enabled: patch.embedding.enabled ?? prev.embedding?.enabled ?? true } }

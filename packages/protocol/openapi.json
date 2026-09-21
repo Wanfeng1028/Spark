@@ -4958,6 +4958,22 @@
             "type": "string",
             "minLength": 1
           },
+          "ui": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "zh-CN",
+                  "en"
+                ]
+              }
+            },
+            "required": [
+              "language"
+            ],
+            "additionalProperties": false
+          },
           "restartRequired": {
             "type": "array",
             "items": {
@@ -5419,6 +5435,19 @@
                   {
                     "type": "null"
                   }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "ui": {
+            "type": "object",
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "zh-CN",
+                  "en"
                 ]
               }
             },

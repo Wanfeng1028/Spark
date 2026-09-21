@@ -13,7 +13,16 @@ import { ArrowLeft } from 'lucide-react'
 import type { SessionId } from '@spark/protocol'
 import { useSessionStore } from '@/stores/session'
 import { SETTINGS_GROUPS } from './settings-pages'
+import { useI18n } from '@/i18n/context'
+import { SETTINGS_PAGE_KEY } from '@spark/protocol'
 import { cn } from '@/lib/utils'
+
+/** 组标签 → 字典键（19.17 第一批：导航文案入翻译层） */
+const GROUP_KEY: Readonly<Record<string, string>> = {
+  基础设置: 'settings.groupBasic',
+  Agent 能力: 'settings.groupAgent',
+  数据与统计: 'settings.groupData',
+}
 
 /** 返回目的地（工单 10.14①）：最后激活会话直达；无激活会话回欢迎页（纯函数可单测） */
 export function settingsBackTarget(activeSessionId: SessionId | null): string {
@@ -21,6 +30,7 @@ export function settingsBackTarget(activeSessionId: SessionId | null): string {
 }
 
 export function SettingsSidebar({ compact = false }: { compact?: boolean }) {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const location = useLocation()
   const activeSessionId = useSessionStore((s) => s.activeId)
@@ -82,14 +92,14 @@ export function SettingsSidebar({ compact = false }: { compact?: boolean }) {
         className="flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2 text-[13px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       >
         <ArrowLeft className="size-4 shrink-0" />
-        返回
+        {t('shell.back')}
       </button>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {SETTINGS_GROUPS.map((g) => (
           <section key={g.label} className="mb-1">
             <p className="flex h-7 items-center px-2 text-xs font-medium text-muted-foreground">
-              {g.label}
+              {t(GROUP_KEY[g.label] ?? g.label)}
             </p>
             <ul className="flex flex-col">
               {g.pages.map((p) => (
@@ -103,7 +113,9 @@ export function SettingsSidebar({ compact = false }: { compact?: boolean }) {
                       p.id === activePage && 'border-border bg-secondary',
                     )}
                   >
-                    <span className="min-w-0 flex-1 truncate">{p.title}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {t(SETTINGS_PAGE_KEY[p.id] ?? p.title)}
+                    </span>
                     {p.status === 'ready' && (
                       <span className="size-1.5 shrink-0 rounded-full bg-[var(--spark-ok)]" aria-label="已落地" />
                     )}

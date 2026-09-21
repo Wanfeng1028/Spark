@@ -78,6 +78,12 @@ const sparkSchema = z.object({
   archive: ArchiveSettingsSchema.partial().optional(),
   /** 全局出网代理（阶段十九 19.13，翻案 12.9）：热档（每次出网现读；缺省空 = 不设） */
   network: NetworkSettingsSchema.partial().optional(),
+  /** 界面语言（阶段十九 19.17 / V2-12）：热档（切换即时生效；缺省未设置） */
+  ui: z
+    .object({
+      language: z.enum(['zh-CN', 'en']).optional(),
+    })
+    .optional(),
 })
 
 export interface SparkConfig {
@@ -118,6 +124,8 @@ export interface SparkConfig {
   archive?: { autoArchive?: boolean | undefined; afterDays?: number | undefined } | undefined
   /** 全局出网代理（阶段十九 19.13；可选宽松形——缺省空串 = 不设全局代理） */
   network?: { proxy?: string | undefined; noProxy?: string | undefined } | undefined
+  /** 界面语言（阶段十九 19.17 / V2-12；可选——缺省未设置，端侧探测） */
+  ui?: { language?: 'zh-CN' | 'en' | undefined } | undefined
 }
 
 const SPARK_DEFAULTS: SparkConfig = {
@@ -346,6 +354,7 @@ export function loadConfig(dir: string = sparkHome()): EngineConfig {
             embedding: p.embedding, // 阶段十九 19.8 / ADR D51：原样透传（undefined = 缺省开）
             archive: p.archive, // 阶段十九 19.13：原样透传（undefined = 关 + 30 天）
             network: p.network, // 阶段十九 19.13：原样透传（undefined = 不设全局代理）
+            ui: p.ui, // 阶段十九 19.17：原样透传（undefined = 端侧探测）
           }
         })()
 

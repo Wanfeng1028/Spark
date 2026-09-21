@@ -24,6 +24,7 @@ import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { useNotifyPrefs } from '@/hooks/useNotifyPrefs'
+import { useI18n } from '@/i18n/context'
 
 const DELIVERY_OPTIONS: { value: Delivery; label: string }[] = [
   { value: 'now', label: '立即' },
@@ -492,8 +493,15 @@ function EngineBehaviorSection() {
   )
 }
 
+/** 语言选项（阶段十九 19.17 第一批；值 = protocol LanguageSchema 封闭集） */
+const LANGUAGE_OPTIONS: { value: 'zh-CN' | 'en'; label: string }[] = [
+  { value: 'zh-CN', label: '中文' },
+  { value: 'en', label: 'English' },
+]
+
 export function GeneralSettingsPage() {
   const navigate = useNavigate()
+  const { lang, setLang } = useI18n()
   const defaultDelivery = useSettingsStore((s) => s.defaultDelivery)
   const setDefaultDelivery = useSettingsStore((s) => s.setDefaultDelivery)
   const showReasoning = useSettingsStore((s) => s.showReasoning)
@@ -524,11 +532,15 @@ export function GeneralSettingsPage() {
       </SettingGroupCard>
 
       <SettingGroupCard>
-        <SettingRow
-          title="界面语言"
-          description="多语言界面——阶段十九 19.17 已立项（i18n 全量翻案 Q-2），本批之后交付"
-          placeholderBadge="19.17 立项"
-        />
+        <SettingRow title="界面语言" description="界面语言（切换即时生效；长尾页面文案随批次迁移）">
+          <Select
+            aria-label="界面语言"
+            value={lang}
+            options={LANGUAGE_OPTIONS}
+            onChange={setLang}
+            className="w-28"
+          />
+        </SettingRow>
         <SettingRow
           title="显示思考过程"
           description="关闭时每轮仅展示第一次思考（会话域 §13.H 开关；即存即生效）"

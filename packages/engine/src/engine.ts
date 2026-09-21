@@ -1613,6 +1613,10 @@ export class Engine {
       certificates: { nodeExtraCaCerts: process.env.NODE_EXTRA_CA_CERTS ?? null },
       // 数据目录（阶段十九 19.16）：只读（启动期定；搬迁走 spark migrate CLI）
       home: this.root,
+      // 界面语言（阶段十九 19.17 / V2-12）：未配置时缺省不设（端侧探测）
+      ...(this.config.spark.ui?.language !== undefined
+        ? { ui: { language: this.config.spark.ui.language } }
+        : {}),
     }
     return dto
   }
