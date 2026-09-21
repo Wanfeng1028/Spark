@@ -24,7 +24,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { useLocation, useNavigate } from 'react-router'
-import { Archive, CalendarClock, ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, Trash2, Undo2, User } from 'lucide-react'
+import { Archive, CalendarClock, ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Pin, Plus, Search, Settings, Trash2, Undo2, User } from 'lucide-react'
 import type { SessionDto, SessionStatus } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useActiveSlice } from '@/stores/session'
@@ -33,6 +33,7 @@ import { useUiStore } from '@/stores/ui'
 import { errorMessageOf } from '@/lib/error-copy'
 import { formatRelative } from '@/lib/time'
 import { cn } from '@/lib/utils'
+import { groupSessionsForSidebar } from './session-groups'
 
 /**
  * 会话状态点（DESIGN §13.J.2.2；animate-pulse 属状态点白名单）。
@@ -143,6 +144,17 @@ export function Sidebar({ mode = 'inline', onOverlayClose }: SidebarProps) {
     }
   }
 
+  /** 置顶/取消（工单 19.41）：写完 refresh() 重取——组归属与"置顶首组"由服务端回显决定，不在本地挪位（禁乐观更新） */
+  const pinSession = async (s: SessionDto, pinned: boolean): Promise<void> => {
+    try {
+      await transport.pinSession(s.id, pinned)
+      await refresh()
+      if (archivedOpen) await loadArchived()
+    } catch (err) {
+      setOpError(errorMessageOf(err))
+    }
+  }
+
   const deleteSession = async (s: SessionDto): Promise<void> => {
     // 确认由触发点内联两段式完成（DESIGN §5：禁原生 confirm）；此处明示去向：
     // 记录移入 ~/.spark/trash/ 可人工找回（非硬删）
@@ -178,29 +190,16 @@ export function Sidebar({ mode = 'inline', onOverlayClose }: SidebarProps) {
     return activeSlice.meta.title !== '' ? activeSlice.meta.title : dto.title
   }
 
-  /** 分组推导（工单 10.5②）：项目=按 cwd 目录名；时间=按更新时间段；组间按最近活动序（时间模式固定段序），组内按 updatedAt 倒序 */
+  /** 分组推导（工单 10.5②）：项目=按 cwd 目录名；时间=按更新时间段；组内 updatedAt 倒序。
+   *  置顶单列首组的规则在 session-groups.ts（纯函数，可单测）。 */
   const groups = useMemo<ProjectGroup[] | null>(() => {
     if (sessions === null) return null
-    const filtered = sessions.filter((s) =>
-      (s.title === '' ? '新会话' : s.title).toLowerCase().includes(query.trim().toLowerCase()),
+    return groupSessionsForSidebar(
+      sessions,
+      query,
+      groupMode === 'project' ? (s) => projectOf(s.cwd) : (s) => timeGroupOf(s.updatedAt),
+      groupMode === 'time' ? (name) => TIME_GROUP_ORDER.indexOf(name) : () => -1,
     )
-    const keyOf = groupMode === 'project' ? (s: SessionDto) => projectOf(s.cwd) : (s: SessionDto) => timeGroupOf(s.updatedAt)
-    const byKey = new Map<string, SessionDto[]>()
-    for (const s of filtered) {
-      const key = keyOf(s)
-      const list = byKey.get(key)
-      if (list === undefined) byKey.set(key, [s])
-      else list.push(s)
-    }
-    const entries = [...byKey.entries()].map(([name, list]) => ({
-      name,
-      sessions: [...list].sort((a, b) => b.updatedAt - a.updatedAt),
-    }))
-    if (groupMode === 'time') {
-      const order = TIME_GROUP_ORDER
-      return entries.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name))
-    }
-    return entries.sort((a, b) => (b.sessions[0]?.updatedAt ?? 0) - (a.sessions[0]?.updatedAt ?? 0))
   }, [sessions, query, groupMode])
 
   async function createSession() {
@@ -453,6 +452,7 @@ export function Sidebar({ mode = 'inline', onOverlayClose }: SidebarProps) {
               statusOf={liveStatus}
               titleOf={liveTitle}
               onArchive={(s) => void archiveSession(s, true)}
+              onPin={(s, pinned) => void pinSession(s, pinned)}
               onDelete={(s) => void deleteSession(s)}
             />
           ))}
@@ -679,6 +679,8 @@ interface SidebarGroupProps {
   statusOf: (dto: SessionDto) => SessionStatus
   titleOf: (dto: SessionDto) => string
   onArchive: (s: SessionDto) => void
+  /** 置顶/取消置顶（工单 19.41） */
+  onPin: (s: SessionDto, pinned: boolean) => void
   onDelete: (s: SessionDto) => void
   /** 打开会话的唯一出口（工单 19.40：overlay 形态点选要顺带收抽屉，故由 Sidebar 持有） */
   onOpenSession: (id: string) => void
@@ -696,6 +698,7 @@ function SidebarGroup({
   statusOf,
   titleOf,
   onArchive,
+  onPin,
   onDelete,
   onOpenSession,
   confirmDel,
@@ -742,6 +745,8 @@ function SidebarGroup({
                   className="flex h-full min-w-0 flex-1 items-center gap-2 text-left"
                 >
                   <SessionStatusDot status={statusOf(s)} archived={s.archivedAt !== undefined} />
+                  {/* 置顶态常驻可见（悬停钮只在 hover 时出现，不能承载状态显示）——工单 19.41 */}
+                  {s.pinned === true && <Pin className="size-3 shrink-0 text-muted-foreground" />}
                   <span className="min-w-0 flex-1 truncate text-[13px]">
                     {titleOf(s) === '' ? '新会话' : titleOf(s)}
                   </span>
@@ -751,6 +756,19 @@ function SidebarGroup({
                 </button>
                 {/* 悬停动作（工单 12.4）：归档 / 删除（删除确认在 deleteSession 内） */}
                 <span className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+                  <button
+                    type="button"
+                    aria-label={`${s.pinned === true ? '取消置顶' : '置顶'}会话 ${titleOf(s) === '' ? '新会话' : titleOf(s)}`}
+                    aria-pressed={s.pinned === true}
+                    title={s.pinned === true ? '取消置顶' : '置顶（恒在列表最上方的「置顶」组）'}
+                    onClick={() => onPin(s, s.pinned !== true)}
+                    className={cn(
+                      'rounded-full p-1 text-muted-foreground/70 hover:bg-accent hover:text-foreground',
+                      s.pinned === true && 'text-foreground',
+                    )}
+                  >
+                    <Pin className="size-3.5" />
+                  </button>
                   <button
                     type="button"
                     aria-label={`归档会话 ${titleOf(s) === '' ? '新会话' : titleOf(s)}`}
