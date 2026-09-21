@@ -138,6 +138,28 @@ export const InputBox = forwardRef<InputBoxHandle, InputBoxProps>(function Input
         commit('', 0)
         return
       }
+      // 编辑键扩展（工单 19.25）：readline 同语义——Home/End 与 Ctrl+A/E 移首尾，
+      // Ctrl+K 删到行尾，Ctrl+W 删前一个词（按空格分词，字位口径不切半代理对）
+      if (key.home || (key.ctrl && (input === 'a' || input === 'e')) || key.end) {
+        const toEnd = key.end || (key.ctrl && input === 'e')
+        commit(v, toEnd ? graphemesOf(v).length : 0)
+        return
+      }
+      if (key.ctrl && input === 'k') {
+        const g = graphemesOf(v)
+        const c = Math.min(cur, g.length)
+        commit(g.slice(0, c).join(''), c)
+        return
+      }
+      if (key.ctrl && input === 'w') {
+        const g = graphemesOf(v)
+        const c = Math.min(cur, g.length)
+        let i = c
+        while (i > 0 && (g[i - 1] ?? '') === ' ') i -= 1
+        while (i > 0 && (g[i - 1] ?? '') !== ' ') i -= 1
+        commit(g.slice(0, i).join('') + g.slice(c).join(''), i)
+        return
+      }
       if (!key.ctrl && !key.meta && input !== '') {
         // 输入为空的空格交给 onSpace（resume 预览切换——过滤词不以空格开头无歧义）
         if (input === ' ' && onSpace !== undefined && v === '') {

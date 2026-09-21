@@ -8,6 +8,7 @@ import { create } from 'zustand'
 import type {
   CommandDto,
   Delivery,
+  Language,
   ModelsDto,
   ProjectionState,
   SessionDto,
@@ -78,6 +79,8 @@ export interface CliState extends ProjectionState {
   voiceMode: CliVoiceMode
   /** 回放重订阅 nonce（工单 10.18 rollback：seq 倒退后 since=0 重放需重订阅） */
   replayNonce: number
+  /** 界面语言（工单 19.25）：服务端 settings.ui.language 单源，boot 装载 + 改档后刷新 */
+  language: Language
 
   apply: (e: SparkEventEnvelope) => void
   /** 清会话投影（回滚后 seq 倒退，重放重建——工单 10.18 /rollback） */
@@ -98,6 +101,7 @@ export interface CliState extends ProjectionState {
   setDraftPreview: (v: string) => void
   setBootError: (msg: string | null) => void
   setVoiceMode: (m: CliVoiceMode) => void
+  setLanguage: (l: Language) => void
   bumpReplay: () => void
   /** 新建会话的 UI 态归位（工单 10.35）：展开集合/草稿/提示/面板/错误全部回到初始 */
   resetUi: () => void
@@ -135,6 +139,7 @@ export const useCliStore = create<CliState>()((set) => ({
   draftPreview: '',
   bootError: null,
   voiceMode: 'tap',
+  language: 'zh-CN',
   replayNonce: 0,
 
   // ProjectionState 部分交共享 reducer（zustand set 接受 Partial——byId/activeId 即全部所需）
@@ -161,6 +166,7 @@ export const useCliStore = create<CliState>()((set) => ({
   setDraftPreview: (draftPreview) => set({ draftPreview }),
   setBootError: (bootError) => set({ bootError }),
   setVoiceMode: (voiceMode) => set({ voiceMode }),
+  setLanguage: (language) => set({ language }),
   bumpReplay: () => set((s) => ({ replayNonce: s.replayNonce + 1 })),
   lastFailed: null,
   setLastFailed: (lastFailed) => set({ lastFailed }),

@@ -26,6 +26,8 @@ export const KEYMAP: readonly KeyBinding[] = [
   { keys: 'PageUp / PageDown', action: '切换会话', surface: 'cli' },
   { keys: '?', action: '帮助面板（三 tab：概览/命令/键位，Tab/Shift+Tab 切换）', surface: 'cli' },
   { keys: 'Ctrl+U', action: '清空输入', surface: 'cli' },
+  { keys: 'Home / End / Ctrl+A / Ctrl+E', action: '光标移到行首 / 行尾', surface: 'cli', note: '工单 19.25' },
+  { keys: 'Ctrl+K / Ctrl+W', action: '删除光标到行尾 / 删除前一个词', surface: 'cli', note: '工单 19.25（readline 同语义）' },
   { keys: 'Ctrl+C ×2', action: '退出（在途 turn 先中断，不悬挂）', surface: 'cli' },
   { keys: 'Ctrl+R', action: '重试最近一次发送（错误提示存在、无在途 turn 时）', surface: 'cli', note: '工单 10.11 / §13.K K.8' },
   { keys: 'Ctrl/Cmd+K', action: '命令面板', surface: 'web' },

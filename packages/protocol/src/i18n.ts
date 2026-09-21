@@ -80,6 +80,18 @@ export type UiDictionary = {
     restartBadge: string
     saved: string
   }
+  /** CLI（终端）面板共用文案——工单 19.25 起消费翻译层；面板标题与键位长尾随后批次 */
+  cli: {
+    loading: string
+    writing: string
+    saved: string
+    failed: string
+    confirmAgain: string
+    escClose: string
+    restartBadge: string
+    navHint: string
+    editHint: string
+  }
 }
 
 const ZH: UiDictionary = {
@@ -130,6 +142,17 @@ const ZH: UiDictionary = {
     restartBadge: '下次启动生效',
     saved: '已保存',
   },
+  cli: {
+    loading: '装载中…',
+    writing: '写入中…',
+    saved: '已保存',
+    failed: '失败',
+    confirmAgain: '再按一次 Enter 确认：{label}',
+    escClose: 'Esc 关闭',
+    restartBadge: '下次启动生效',
+    navHint: '↑↓ 选择 · Enter 执行',
+    editHint: '输入后 Enter 保存 · Esc 取消',
+  },
 }
 
 const EN: UiDictionary = {
@@ -179,6 +202,17 @@ const EN: UiDictionary = {
     languageDesc: 'Interface language (applies immediately; long-tail pages migrate in later batches)',
     restartBadge: 'Takes effect after restart',
     saved: 'Saved',
+  },
+  cli: {
+    loading: 'Loading…',
+    writing: 'Writing…',
+    saved: 'Saved',
+    failed: 'Failed',
+    confirmAgain: 'Press Enter again to confirm: {label}',
+    escClose: 'Esc to close',
+    restartBadge: 'Takes effect after restart',
+    navHint: '↑↓ select · Enter act',
+    editHint: 'Type then Enter to save · Esc to cancel',
   },
 }
 

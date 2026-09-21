@@ -5,13 +5,26 @@
  * （与 app 组件解耦，键位层与命令分派共用同一组动作）。
  */
 import { useCallback, useMemo } from 'react'
-import type { RequestId, SessionId } from '@spark/protocol'
+import type { ClientAction, CommandDto, RequestId, SessionId } from '@spark/protocol'
 import { errorMessageOf } from '@spark/protocol'
 import { ids, type ClientAction } from '@spark/protocol'
 import { createCliActionHandlers } from '../client-actions.js'
 import { parseEffort } from './effort.js'
 import { useCliStore } from '../store.js'
 import type { HttpTransport } from '@spark/protocol'
+
+/**
+ * 本端可见命令过滤（工单 19.25）：`surface` 含 cli（旧载荷无该字段时按可见处理），
+ * 且 client 命令必须带 clientAction——无 clientAction 的 client 命令 CLI 无法分派，
+ * 列进 slash 菜单只会点了没反应（禁假入口）。过滤在装载处一次做，端上不再兜底。
+ */
+export function visibleToCli(list: readonly CommandDto[]): CommandDto[] {
+  return list.filter(
+    (c) =>
+      (c.surface === undefined || c.surface.includes('cli')) &&
+      (c.kind !== 'client' || c.clientAction !== undefined),
+  )
+}
 
 export interface UseCliActionsOptions {
   transport: HttpTransport
@@ -82,7 +95,15 @@ export function useCliActions({
     transport
       .listCommands()
       .then((c) => {
-        if (!disposed) useCliStore.getState().setCommands(c)
+        // 工单 19.25：清单按本端可见性过滤——原"该命令本端未实现"兜底因此不可达（已删）
+        if (!disposed) useCliStore.getState().setCommands(visibleToCli(c))
+      })
+      .catch(() => undefined)
+    // 界面语言（工单 19.25 消费 19.17）：服务端 settings.ui.language 单源；读不到保持 zh-CN
+    transport
+      .getSettings()
+      .then((s) => {
+        if (!disposed) useCliStore.getState().setLanguage(s.ui?.language ?? 'zh-CN')
       })
       .catch(() => undefined)
     return () => {
@@ -250,8 +271,10 @@ export function useCliActions({
       return
     }
 
+    // 工单 19.25：client 命令不再被"无激活会话"前置挡掉——/agents /mcp /settings /help
+    // 与会话无关（原实现在此 return，令全部 client 命令在无会话时静默失效）；
+    // 需要会话的命令仍由各端 handler 的 needSession 闸门把关
     const sid = useCliStore.getState().activeSessionId
-    if (sid === null) return
 
     // 命令（工单 10.18 描述符分派）：词表单一来源 = 注册表快照（协议描述符下发）
     if (text.startsWith('/')) {
@@ -262,15 +285,15 @@ export function useCliActions({
       const args = sp === -1 ? undefined : body.slice(sp + 1).trim()
       if (name === '') return
       const cmd = useCliStore.getState().commands.find((c) => c.name === name)
-      if (cmd !== undefined && cmd.kind === 'client') {
-        if (cmd.clientAction !== undefined) {
-          runClientAction(cmd.clientAction, args !== '' ? args : undefined)
-        } else {
-          setNotice('该命令本端未实现') // 清单面向本端过滤后不应出现——兜底不假执行
-        }
+      if (cmd !== undefined && cmd.kind === 'client' && cmd.clientAction !== undefined) {
+        runClientAction(cmd.clientAction, args !== '' ? args : undefined)
         return
       }
-      // action（compact）与 prompt（.md 自定义）走引擎统一入口（工单 7.4）
+      // action（compact）与 prompt（.md 自定义）走引擎统一入口（工单 7.4）——需激活会话
+      if (sid === null) {
+        setNotice('该命令需要激活会话')
+        return
+      }
       transport
         .executeCommand(sid, name, args !== '' ? args : undefined)
         .then(() => {
@@ -281,6 +304,8 @@ export function useCliActions({
       return
     }
 
+    // 正文发送需激活会话（client 命令已在上面分派，不受此限）
+    if (sid === null) return
     transport
       .sendMessage(sid, text, { delivery: mode })
       .catch((err: unknown) => {

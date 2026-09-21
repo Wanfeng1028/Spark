@@ -10,6 +10,7 @@ import { Box, Text, useInput } from 'ink'
 import { useEffect, useState } from 'react'
 import { errorMessageOf } from '@spark/protocol'
 import type { ReactNode } from 'react'
+import { cliT } from '../i18n.js'
 
 /** 面板壳：标题 + 关闭提示 + 内容 */
 export function PanelShell({
@@ -25,7 +26,7 @@ export function PanelShell({
     <Box flexDirection="column" flexGrow={1} paddingX={1}>
       <Text>
         {title}
-        <Text color="gray">  {hint} · Esc 关闭</Text>
+        <Text color="gray">  {hint} · {cliT('cli.escClose')}</Text>
       </Text>
       <Box flexDirection="column" marginTop={1}>
         {children}
@@ -47,7 +48,7 @@ export function LoadState<T>({
   state: Loadable<T>
   render: (data: T) => ReactNode
 }) {
-  if (state.status === 'loading') return <Text color="gray">装载中…</Text>
+  if (state.status === 'loading') return <Text color="gray">{cliT('cli.loading')}</Text>
   if (state.status === 'error') return <Text color="red">{state.message}</Text>
   return <>{render(state.data)}</>
 }
@@ -102,7 +103,7 @@ export function usePanelWrite(): {
       after?.()
       setMsg(okMessage)
     } catch (err: unknown) {
-      setMsg(`失败：${errorMessageOf(err)}`)
+      setMsg(`${cliT('cli.failed')}：${errorMessageOf(err)}`)
     } finally {
       setBusy(false)
     }
@@ -126,7 +127,7 @@ export function useConfirm(notify: (s: string | null) => void): {
       return
     }
     setPending(key)
-    notify(`再按一次 Enter 确认：${label}`)
+    notify(cliT('cli.confirmAgain', { label }))
   }
   return { pending, arm }
 }

@@ -119,6 +119,11 @@ export function useVoiceCli({ transport, inputRef }: VoiceCliDeps) {
         st.setNotice('语音听写模式 tap——输入 /voice 开始录音')
         return
       }
+      // 描述符列了 hold（按住说话），但终端拿不到 keyup——不假称已切档，如实说明并给可用档
+      if (arg === 'hold') {
+        st.setNotice('终端形态无"按住说话"语义（拿不到 keyup）——本端只有 tap：/voice 开始，再按一次停止')
+        return
+      }
       if (phase === 'recording') {
         stopRecording()
         return
