@@ -1,9 +1,11 @@
 /**
- * 浮层开关 + 侧栏折叠态/分组模式（doc/02 §6.3 / DESIGN §13.A）：
+ * 浮层开关 + 侧栏折叠态/分组模式 + 辅助会话抽屉（doc/02 §6.3 / DESIGN §13.A）：
  * SettingsDialog / CommandPalette 的受控态（快捷键 Cmd/Ctrl+, 与 Cmd/Ctrl+K 共用）；
- * 侧栏 264px ↔ 48px 图标态、分组双模式（项目/时间，工单 10.5②），localStorage 持久化（spark.ui）。
+ * 侧栏 264px ↔ 48px 图标态、分组双模式（项目/时间，工单 10.5②），localStorage 持久化（spark.ui）；
+ * 辅助会话抽屉态（工单 19.36）只存会话 id 与开关，不持久化——重开浏览器不该凭空多出面板。
  */
 import { create } from 'zustand'
+import type { SessionId } from '@spark/protocol'
 
 const STORAGE_KEY = 'spark.ui'
 
@@ -50,6 +52,8 @@ export interface UiState {
   setSettingsOpen: (b: boolean) => void
   setPaletteOpen: (b: boolean) => void
   toggleSidebar: () => void
+  /** 强制折叠（工单 19.40 窄屏 overlay 抽屉的关闭动作——toggle 在"已是折叠态"时会反向展开） */
+  setSidebarCollapsed: (b: boolean) => void
   setSidebarGroupMode: (m: SidebarGroupMode) => void
   voiceMode: VoiceMode
   cycleVoiceMode: () => void
@@ -61,6 +65,16 @@ export interface UiState {
   /** 推理档循环（阶段十九 19.21：/effort）——SessionPage 订阅后改 Composer 档位 */
   effortCycleSeq: number
   cycleEffort: () => void
+  /**
+   * 辅助会话抽屉（工单 19.36 / V2-09）：抽屉里另开的第二个会话页实例所指会话。
+   * null = 未选（抽屉呈现会话选择器）；closeAux 只收面板不清此值——重开续看同一会话，
+   * 且卸载实例不打断引擎在途 turn（事件流在 TransportProvider 全局入 store）。
+   */
+  auxSessionId: SessionId | null
+  auxOpen: boolean
+  setAuxSession: (sid: SessionId | null) => void
+  openAux: () => void
+  closeAux: () => void
 }
 
 export const useUiStore = create<UiState>()((set, get) => ({
@@ -83,6 +97,15 @@ export const useUiStore = create<UiState>()((set, get) => ({
   voiceMode: loadPersisted().voiceMode,
   sessionDialogRequest: null,
   effortCycleSeq: 0,
+  auxSessionId: null,
+  auxOpen: false,
+  setAuxSession: (auxSessionId) => set({ auxSessionId }),
+  openAux: () => set({ auxOpen: true }),
+  closeAux: () => set({ auxOpen: false }),
+  setSidebarCollapsed: (sidebarCollapsed) => {
+    persist({ sidebarCollapsed, sidebarGroupMode: get().sidebarGroupMode, voiceMode: get().voiceMode })
+    set({ sidebarCollapsed })
+  },
   openSessionDialog: (sessionDialogRequest) => set({ sessionDialogRequest }),
   clearSessionDialogRequest: () => set({ sessionDialogRequest: null }),
   cycleEffort: () => set((s) => ({ effortCycleSeq: s.effortCycleSeq + 1 })),

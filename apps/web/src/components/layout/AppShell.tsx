@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { CONNECTION_TEXT } from '@spark/protocol'
-import { Sidebar } from './Sidebar'
+import { Sidebar, sidebarModeOf } from './Sidebar'
 import { StatusBar } from './StatusBar'
 import { SettingsDialog } from '@/features/settings/SettingsDialog'
 import { SettingsSidebar } from '@/features/settings/SettingsSidebar'
 import { CommandPalette } from '@/features/palette/CommandPalette'
+import { AuxSessionDrawer } from '@/features/chat/AuxSessionDrawer'
 import { useConnectionStore } from '@/stores/connection'
 import { useUiStore } from '@/stores/ui'
+import { useNarrowViewport } from '@/hooks/useNarrowViewport'
 import { useTransport } from '@/transports/context'
 import { cn } from '@/lib/utils'
 
@@ -22,16 +24,26 @@ import { cn } from '@/lib/utils'
  * 断线重连条（DESIGN §9 顶部强提示）占一行 auto 行高，仅断线时出现。
  * 列宽过渡只服务侧栏折叠/展开（工单 10.14②）：进出设置的那一帧禁用过渡——
  * 否则内容列随 264px 列切换持续重排（视觉上的"逐行位移"来源之一）。
+ * 工单 19.40：侧栏形态由 sidebarModeOf(折叠态, 窄视口) 推导，264px 列只在 inline 形态
+ * 出现（窄屏展开态是覆盖式抽屉，栅格列仍 48px，主区不被挤扁）。
+ * 工单 19.36：辅助会话抽屉挂在会话路由内（非模态第二个 SessionSurface 实例）。
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const status = useConnectionStore((s) => s.status)
   const collapsed = useUiStore((s) => s.sidebarCollapsed)
+  const setSidebarCollapsed = useUiStore((s) => s.setSidebarCollapsed)
   const paletteOpen = useUiStore((s) => s.paletteOpen)
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen)
+  const narrow = useNarrowViewport()
   const location = useLocation()
   const navigate = useNavigate()
   const { transport } = useTransport()
   const inSettings = location.pathname.startsWith('/settings')
+  /** 会话路由内（辅助会话抽屉的挂载域，工单 19.36：入口只在会话页，别处不飘面板） */
+  const onSessionRoute = location.pathname.startsWith('/session/')
+  const auxOpen = useUiStore((s) => s.auxOpen)
+  /** 侧栏三形态（工单 19.40）：折叠=rail、展开且窄屏=overlay 抽屉、否则 inline 常规列 */
+  const sidebarMode = sidebarModeOf(collapsed, narrow)
 
   // 工单 10.14②：进出设置帧抑制列宽过渡。切换提交后移除 transition-property，
   // 进行中的过渡立即收敛到终值；≥duration-150 后恢复（折叠/展开动画不受影响）
@@ -45,14 +57,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => clearTimeout(t)
   }, [inSettings])
 
-  // RT3-06（WO-087）：窄视口（375 预研档）一次性自动折叠侧栏——264px 列吃掉 2/3 宽，
-  // 主内容区不可用。DESIGN §2 不做响应式断点：这里是挂载时的一次性缺省值（复用
-  // toggleSidebar，持久化同口径），不是断点体系；用户可再展开，桌面 ≥640 无感。
+  // RT3-06（WO-087）+ 工单 19.40（V2-39）：窄视口（375 预研档）折叠侧栏——264px 列吃掉
+  // 2/3 宽，主内容区不可用。原为挂载时一次性判定，drawer 化后跟随缩放（依赖 narrow）：
+  // 进入窄屏即收成 48px 图标轨，用户再点展开才以 overlay 抽屉呈现（展开态在窄屏不占列宽）。
+  // DESIGN §2 不做响应式断点：这里仍是单一 640px 缺省值判定（持久化同口径），不是断点体系。
   useEffect(() => {
-    if (window.innerWidth < 640 && !useUiStore.getState().sidebarCollapsed) {
-      useUiStore.getState().toggleSidebar()
+    if (narrow && !useUiStore.getState().sidebarCollapsed) {
+      useUiStore.getState().setSidebarCollapsed(true)
     }
-  }, [])
+  }, [narrow])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -107,11 +120,19 @@ export function AppShell({ children }: { children: ReactNode }) {
             : cn(
                 'grid-cols-[auto_1fr]',
                 !suppressColTransition && 'transition-[grid-template-columns] duration-150',
-                !inSettings && collapsed ? 'grid-cols-[48px_1fr]' : 'grid-cols-[264px_1fr]',
+                // 只有 inline 形态占 264px 列；rail 与 overlay 都留 48px——overlay 的面板
+                // 自身 fixed 脱栅格覆盖在内容上（工单 19.40：窄屏展开不再挤压内容列）
+                !inSettings && sidebarMode !== 'inline'
+                  ? 'grid-cols-[48px_1fr]'
+                  : 'grid-cols-[264px_1fr]',
               ),
         )}
       >
-        {inSettings ? <SettingsSidebar {...(stackedSettings ? { compact: true } : {})} /> : <Sidebar />}
+        {inSettings ? (
+          <SettingsSidebar {...(stackedSettings ? { compact: true } : {})} />
+        ) : (
+          <Sidebar mode={sidebarMode} onOverlayClose={() => setSidebarCollapsed(true)} />
+        )}
         <main className="min-h-0 overflow-hidden">{children}</main>
       </div>
       <div className="row-start-3">
@@ -119,6 +140,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
       <SettingsDialog />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      {/* 辅助会话抽屉（工单 19.36）：只挂在会话路由内；非模态（无遮罩）——主区可继续操作 */}
+      {onSessionRoute && auxOpen && <AuxSessionDrawer />}
     </div>
   )
 }

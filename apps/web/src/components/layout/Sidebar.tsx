@@ -11,8 +11,17 @@
  * 单键快捷键仅在非输入态生效（AppShell 全局键位，§6.11 登记）。
  * 状态点（DESIGN §8）：绿=空闲、accent 脉动=运行中、amber=等待审批——当前激活会话
  * 由事件流实时推导（UI 状态只来自事件流），其余用 DTO 携带的 status。
+ *
+ * 工单 19.40（V2-36 + V2-39）侧栏三形态（mode 由 AppShell 依折叠态与视口宽度推导）：
+ * - rail：48px 图标态，分组钮悬停/点击弹**非模态浮层**列出该组会话并可直点切换
+ *   （V2-36 盲区消解：折叠态不再只能先展开；数据源仍是同一份 useSessionList，零新请求）；
+ * - inline：264px 常规列（桌面缺省）；
+ * - overlay：窄视口（<640px）展开态改**模态抽屉**——遮罩 + 面板覆盖在内容上，栅格列
+ *   仍留 48px，内容列不被挤扁（V2-39）；关闭三途径：遮罩点击 / Esc / 面板内折叠钮。
+ * 浮层与遮罩视觉沿用既有 token（DESIGN §13.L.6 弹层影、DialogOverlay 的 bg-black/60 遮罩），
+ * 条款文本随本单交付补入 DESIGN §13（本轮不改 DESIGN 文件）。
  */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { useLocation, useNavigate } from 'react-router'
 import { Archive, CalendarClock, ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, Trash2, Undo2, User } from 'lucide-react'
@@ -68,17 +77,40 @@ interface ProjectGroup {
   sessions: SessionDto[]
 }
 
-export function Sidebar() {
+/** 侧栏三形态（工单 19.40）：图标轨 / 264px 常规列 / 窄屏覆盖式抽屉 */
+export type SidebarMode = 'rail' | 'inline' | 'overlay'
+
+/**
+ * 形态推导（纯函数，单测点）：折叠优先于窄屏——窄屏折叠时仍是 48px 图标轨
+ * （抽屉是"展开态在窄屏的呈现方式"，不是第三个开关）；展开 + 窄屏才 overlay。
+ */
+export function sidebarModeOf(collapsed: boolean, narrow: boolean): SidebarMode {
+  if (collapsed) return 'rail'
+  return narrow ? 'overlay' : 'inline'
+}
+
+/** 浮层/抽屉面板的边界阴影（DESIGN §13.L.6 同源 token：0.5px 描边环 + 一层柔影，不画矩形框线） */
+const OVERLAY_SHADOW =
+  'shadow-[0_0_0_0.5px_rgba(0,0,0,0.12),0_3px_8px_rgba(0,0,0,0.03),0_0_16px_rgba(0,0,0,0.02)] dark:shadow-[0_0_0_0.5px_rgb(255_255_255/0.16),0_3px_8px_rgb(0_0_0/0.25)]'
+
+export interface SidebarProps {
+  mode?: SidebarMode
+  /** overlay 形态的关闭回调（遮罩点击 / Esc / 折叠钮）；其余形态忽略 */
+  onOverlayClose?: () => void
+}
+
+export function Sidebar({ mode = 'inline', onOverlayClose }: SidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const { transport } = useTransport()
   const { sessions, error, refresh } = useSessionList()
-  const collapsed = useUiStore((s) => s.sidebarCollapsed)
   const toggleSidebar = useUiStore((s) => s.toggleSidebar)
   const groupMode = useUiStore((s) => s.sidebarGroupMode)
   const setGroupMode = useUiStore((s) => s.setSidebarGroupMode)
   const [query, setQuery] = useState('')
   const [foldedGroups, setFoldedGroups] = useState<Set<string>>(new Set())
+  /** 折叠态分组浮层锚定的分组名（null = 关闭；工单 19.40 V2-36） */
+  const [flyoutGroup, setFlyoutGroup] = useState<string | null>(null)
   const activeSlice = useActiveSlice()
   // 工单 12.4：归档/删除动作 + 已归档抽屉（列表按需拉取）
   const [archivedOpen, setArchivedOpen] = useState(false)
@@ -173,8 +205,28 @@ export function Sidebar() {
 
   async function createSession() {
     const dto = await transport.createSession()
-    void navigate(`/session/${dto.id}`)
+    openSession(dto.id)
   }
+
+  /**
+   * 打开会话的唯一出口（列表项 / 折叠态浮层 / 新建）：overlay 形态点选即收抽屉——
+   * 窄屏下"选完还得手动关"会把刚切的会话 again 遮住一半（工单 19.40）。
+   */
+  function openSession(id: string): void {
+    if (mode === 'overlay') onOverlayClose?.()
+    void navigate(`/session/${id}`)
+  }
+
+  // overlay 形态 Esc 关闭（DESIGN §5「Esc 关闭浮层」，与遮罩点击同一关闭途径）；
+  // rail 的分组浮层随鼠标移出即收，不吃 Esc
+  useEffect(() => {
+    if (mode !== 'overlay') return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onOverlayClose?.()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [mode, onOverlayClose])
 
   function toggleGroup(name: string): void {
     setFoldedGroups((prev) => {
@@ -185,7 +237,7 @@ export function Sidebar() {
     })
   }
 
-  if (collapsed) {
+  if (mode === 'rail') {
     return (
       <nav
         aria-label="会话列表（折叠）"
@@ -249,37 +301,70 @@ export function Sidebar() {
         {groups !== null &&
           groups.map((g) => {
             const active = g.sessions.some((s) => s.id === routeSessionId)
+            const open = flyoutGroup === g.name
             return (
-              <button
+              // 折叠态会话直点（V2-36）：悬停即弹、点击钉住（触屏与键盘无 hover 时的替代路径）；
+              // 浮层内联在触发钮的 relative 容器里（与 FileTreePopover/PermissionTierMenu 同做法，
+              // 不走 portal——左栏 overflow 可见，z-40 已盖住内容列）
+              <div
                 key={g.name}
-                type="button"
-                aria-label={`项目 ${g.name}（${g.sessions.length} 个会话）`}
-                title={`${g.name} · ${g.sessions.length} 个会话`}
-                onClick={toggleSidebar}
-                className={cn(
-                  'flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-accent hover:text-accent-foreground',
-                  active ? 'bg-secondary text-foreground' : 'text-muted-foreground',
-                )}
+                className="relative shrink-0"
+                onMouseLeave={() => setFlyoutGroup((cur) => (cur === g.name ? null : cur))}
               >
-                <FolderGit2 className="size-4" />
-              </button>
+                <button
+                  type="button"
+                  aria-label={`项目 ${g.name}（${g.sessions.length} 个会话）`}
+                  aria-expanded={open}
+                  onMouseEnter={() => setFlyoutGroup(g.name)}
+                  onFocus={() => setFlyoutGroup(g.name)}
+                  onBlur={(e) => {
+                    // 焦点移出整个容器（含浮层内部）才收——Tab 进浮层项不应瞬闭
+                    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                      setFlyoutGroup((cur) => (cur === g.name ? null : cur))
+                    }
+                  }}
+                  onClick={() => setFlyoutGroup((cur) => (cur === g.name ? null : g.name))}
+                  className={cn(
+                    'flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-accent hover:text-accent-foreground',
+                    active || open ? 'bg-secondary text-foreground' : 'text-muted-foreground',
+                  )}
+                >
+                  <FolderGit2 className="size-4" />
+                </button>
+                {open && (
+                  <GroupSessionFlyout
+                    group={g}
+                    activeId={routeSessionId}
+                    statusOf={liveStatus}
+                    titleOf={liveTitle}
+                    onOpenSession={openSession}
+                    onExpandSidebar={toggleSidebar}
+                  />
+                )}
+              </div>
             )
           })}
       </nav>
     )
   }
 
-  return (
+  const nav = (
     <nav
       aria-label="会话列表"
-      className="flex h-full min-h-0 flex-col gap-2 border-r border-border bg-sidebar p-2"
+      role={mode === 'overlay' ? 'dialog' : undefined}
+      aria-modal={mode === 'overlay' ? true : undefined}
+      className={cn(
+        'flex min-h-0 flex-col gap-2 bg-sidebar p-2',
+        // overlay：覆盖式抽屉（fixed 脱栅格，列宽仍由 AppShell 留 48px）；inline：常规列
+        mode === 'overlay' ? cn('fixed inset-y-0 left-0 z-40 w-[264px]', OVERLAY_SHADOW) : 'h-full border-r border-border',
+      )}
     >
       <div className="flex shrink-0 items-center gap-1">
         <button
           type="button"
-          aria-label="折叠侧栏"
-          title="折叠侧栏"
-          onClick={toggleSidebar}
+          aria-label={mode === 'overlay' ? '收起侧栏' : '折叠侧栏'}
+          title={mode === 'overlay' ? '收起侧栏（Esc）' : '折叠侧栏'}
+          onClick={mode === 'overlay' ? (onOverlayClose ?? toggleSidebar) : toggleSidebar}
           className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <PanelLeftClose className="size-4" />
@@ -364,6 +449,7 @@ export function Sidebar() {
               activeId={routeSessionId}
               confirmDel={confirmDel}
               askConfirmDel={askConfirmDel}
+              onOpenSession={openSession}
               statusOf={liveStatus}
               titleOf={liveTitle}
               onArchive={(s) => void archiveSession(s, true)}
@@ -483,6 +569,96 @@ export function Sidebar() {
       </div>
     </nav>
   )
+
+  if (mode !== 'overlay') return nav
+
+  return (
+    <>
+      {/* 遮罩（V2-39）：与 DialogOverlay 同 token（bg-black/60，无 backdrop-blur——DESIGN §12.2
+          禁毛玻璃遮罩）；做成 button 让键盘 Tab 的首站即「关闭侧栏」，与点遮罩同一语义 */}
+      <button
+        type="button"
+        aria-label="关闭侧栏"
+        onClick={() => onOverlayClose?.()}
+        className="fixed inset-0 z-30 cursor-default bg-black/60"
+      />
+      {nav}
+    </>
+  )
+}
+
+/** 折叠态分组浮层列出条数上限（超出走「展开侧栏」出口——浮层不做分页，避免在 48px 轨里再造一套列表交互） */
+const FLYOUT_MAX_SESSIONS = 8
+
+interface GroupSessionFlyoutProps {
+  group: ProjectGroup
+  activeId: string
+  statusOf: (dto: SessionDto) => SessionStatus
+  titleOf: (dto: SessionDto) => string
+  onOpenSession: (id: string) => void
+  onExpandSidebar: () => void
+}
+
+/**
+ * 折叠态分组浮层（工单 19.40 / V2-36）：48px 图标态下直达该组会话。
+ * 数据源是 Sidebar 已算好的 groups（同一份 useSessionList 投影），零新请求；
+ * 行高 32px / 13px 字号与会话项同规格，边界走 §13.L.6 弹层影（不画矩形框线）。
+ */
+function GroupSessionFlyout({
+  group,
+  activeId,
+  statusOf,
+  titleOf,
+  onOpenSession,
+  onExpandSidebar,
+}: GroupSessionFlyoutProps) {
+  const shown = group.sessions.slice(0, FLYOUT_MAX_SESSIONS)
+  const rest = group.sessions.length - shown.length
+  return (
+    <div
+      role="menu"
+      aria-label={`${group.name} 的会话`}
+      className={cn(
+        'absolute left-full top-0 z-40 ml-1 w-64 overflow-hidden rounded-xl bg-popover py-1',
+        OVERLAY_SHADOW,
+      )}
+    >
+      <p className="border-b border-border px-2.5 pb-1 text-[11px] text-muted-foreground">
+        {group.name}
+      </p>
+      <ul>
+        {shown.map((s) => (
+          <li key={s.id} role="none">
+            <button
+              type="button"
+              role="menuitem"
+              aria-current={s.id === activeId ? 'page' : undefined}
+              onClick={() => onOpenSession(s.id)}
+              className={cn(
+                'flex h-8 w-full items-center gap-2 px-2.5 text-left text-[13px] hover:bg-accent',
+                s.id === activeId && 'bg-secondary',
+              )}
+            >
+              <SessionStatusDot status={statusOf(s)} archived={s.archivedAt !== undefined} />
+              <span className="min-w-0 flex-1 truncate">{titleOf(s) === '' ? '新会话' : titleOf(s)}</span>
+              <span className="shrink-0 text-[11px] text-muted-foreground/70">
+                {formatRelative(s.updatedAt)}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {rest > 0 && (
+        <button
+          type="button"
+          onClick={onExpandSidebar}
+          className="flex h-7 w-full items-center px-2.5 text-left text-xs text-muted-foreground/70 hover:bg-accent hover:text-accent-foreground"
+        >
+          剩余 {rest} 个（展开侧栏）
+        </button>
+      )}
+    </div>
+  )
 }
 
 function SidebarSkeleton() {
@@ -504,6 +680,8 @@ interface SidebarGroupProps {
   titleOf: (dto: SessionDto) => string
   onArchive: (s: SessionDto) => void
   onDelete: (s: SessionDto) => void
+  /** 打开会话的唯一出口（工单 19.40：overlay 形态点选要顺带收抽屉，故由 Sidebar 持有） */
+  onOpenSession: (id: string) => void
   /** 右键菜单的两段式删除确认 id（状态提升到 Sidebar——与抽屉共用一套语义） */
   confirmDel: string | null
   askConfirmDel: (id: string) => void
@@ -519,10 +697,10 @@ function SidebarGroup({
   titleOf,
   onArchive,
   onDelete,
+  onOpenSession,
   confirmDel,
   askConfirmDel,
 }: SidebarGroupProps) {
-  const navigate = useNavigate()
   const [visible, setVisible] = useState(GROUP_VISIBLE_STEP)
   /** 二轮 P2-2：右键上下文菜单锚定的会话 id（null = 关闭） */
   const [menuFor, setMenuFor] = useState<string | null>(null)
@@ -559,7 +737,7 @@ function SidebarGroup({
               >
                 <button
                   type="button"
-                  onClick={() => void navigate(`/session/${s.id}`)}
+                  onClick={() => onOpenSession(s.id)}
                   aria-current={s.id === activeId ? 'page' : undefined}
                   className="flex h-full min-w-0 flex-1 items-center gap-2 text-left"
                 >
