@@ -1500,13 +1500,13 @@ export class Engine {
 
   /** POST /api/models/:id/test：连通测试（时延/错误人话文案；ok=false 仍 200） */
   testModel(providerId: string): Promise<ModelTestResultDto> {
+    // 全局出网代理（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：显式传入即覆盖
+    // model-catalog 内的 per-provider 兜底（provider.proxy 仍作次选）。
+    // 值守卫后再进键——exactOptionalPropertyTypes 下 `{fetchImpl: X|undefined}` 不可赋值
+    const fetchImpl = this.engineFetchFor(this.config.models.providers[providerId]?.proxy)
     return testProvider(providerId, this.config.models, {
       resolveKey: (provider, apiKeyEnv) => resolveApiKey(this.secrets, provider, apiKeyEnv),
-      // 全局出网代理（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：显式传入即覆盖
-      // model-catalog 内的 per-provider 兜底（provider.proxy 仍作次选）
-      ...(this.engineFetchFor(this.config.models.providers[providerId]?.proxy) !== undefined
-        ? { fetchImpl: this.engineFetchFor(this.config.models.providers[providerId]?.proxy) }
-        : {}),
+      ...(fetchImpl !== undefined ? { fetchImpl } : {}),
     })
   }
 

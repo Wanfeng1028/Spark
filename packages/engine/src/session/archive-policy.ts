@@ -5,7 +5,8 @@
  * （会话还在工作——"自动归档进行中的会话"会把它从用户眼前藏掉）。
  * 归档动作本身走 Engine.archiveSession（`<jsonl>.archived` 标记，与手动归档同一事实源）。
  */
-import type { SessionMeta, SessionStatus } from '@spark/protocol'
+import type { SessionStatus } from '@spark/protocol'
+import type { SessionMeta } from '../engine-types.js'
 
 const DAY_MS = 86_400_000
 
