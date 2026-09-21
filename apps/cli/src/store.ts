@@ -8,6 +8,7 @@ import { create } from 'zustand'
 import type {
   CommandDto,
   Delivery,
+  KeyOverride,
   Language,
   ModelsDto,
   ProjectionState,
@@ -81,6 +82,8 @@ export interface CliState extends ProjectionState {
   replayNonce: number
   /** 界面语言（工单 19.25）：服务端 settings.ui.language 单源，boot 装载 + 改档后刷新 */
   language: Language
+  /** 键位覆盖层（工单 19.39）：服务端 settings.ui.keymap.overrides；帮助面板据此显示生效表 */
+  keymapOverrides: KeyOverride[]
 
   apply: (e: SparkEventEnvelope) => void
   /** 清会话投影（回滚后 seq 倒退，重放重建——工单 10.18 /rollback） */
@@ -102,6 +105,7 @@ export interface CliState extends ProjectionState {
   setBootError: (msg: string | null) => void
   setVoiceMode: (m: CliVoiceMode) => void
   setLanguage: (l: Language) => void
+  setKeymapOverrides: (o: KeyOverride[]) => void
   bumpReplay: () => void
   /** 新建会话的 UI 态归位（工单 10.35）：展开集合/草稿/提示/面板/错误全部回到初始 */
   resetUi: () => void
@@ -140,6 +144,7 @@ export const useCliStore = create<CliState>()((set) => ({
   bootError: null,
   voiceMode: 'tap',
   language: 'zh-CN',
+  keymapOverrides: [],
   replayNonce: 0,
 
   // ProjectionState 部分交共享 reducer（zustand set 接受 Partial——byId/activeId 即全部所需）
@@ -167,6 +172,7 @@ export const useCliStore = create<CliState>()((set) => ({
   setBootError: (bootError) => set({ bootError }),
   setVoiceMode: (voiceMode) => set({ voiceMode }),
   setLanguage: (language) => set({ language }),
+  setKeymapOverrides: (keymapOverrides) => set({ keymapOverrides }),
   bumpReplay: () => set((s) => ({ replayNonce: s.replayNonce + 1 })),
   lastFailed: null,
   setLastFailed: (lastFailed) => set({ lastFailed }),

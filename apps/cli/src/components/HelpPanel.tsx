@@ -4,7 +4,7 @@
  * 键位数据源=单一键位表 @spark/protocol KEYMAP（§6.11.1 纪律：只读同一来源不复制）。
  */
 import { Box, Text } from 'ink'
-import { KEYMAP } from '@spark/protocol'
+import { mergeKeymap } from '@spark/protocol'
 import { displayWidth, padEndByWidth } from '../text-width.js'
 import type { CommandDto, KeyBinding } from '@spark/protocol'
 import { useCliStore } from '../store.js'
@@ -82,21 +82,37 @@ const SURFACE_COPY: Record<KeyBinding['surface'], string> = {
   both: '两端',
 }
 
+/**
+ * 生效键位表（工单 19.39）：数据源 = `mergeKeymap(store.keymapOverrides)`——
+ * 用户在 spark.json ui.keymap.overrides 改过的键在此如实呈现（含"已自定义"与"未绑定"），
+ * CLI 不提供编辑面（编辑在 web 设置中心·键位页），但**不展示一张与按下行为不同的假表**。
+ */
 function Keymap() {
+  const { entries, conflicts } = mergeKeymap(useCliStore.getState().keymapOverrides)
   return (
     <Box flexDirection="column">
       <Text color="gray">{padEndByWidth('键', 14)}行为（生效区 · 备注）</Text>
-      {KEYMAP.filter((k) => k.surface !== 'web').map((k) => (
-        <Text key={k.keys} wrap="truncate-end">
-          <Text color="cyan">{padEndByWidth(k.keys, 16)}</Text>
+      {entries.filter((k) => k.surface !== 'web').map((k) => (
+        <Text key={`${k.keys}:${k.action}`} wrap="truncate-end">
+          <Text color={k.unbound ? 'gray' : 'cyan'}>
+            {padEndByWidth(k.unbound ? '（未绑定）' : k.keys, 16)}
+          </Text>
           {k.action}
           <Text color="gray">
             {' '}
             〔{SURFACE_COPY[k.surface]}〕
+            {k.overridden ? '已自定义' : ''}
             {k.note !== undefined ? `（${k.note}）` : ''}
           </Text>
         </Text>
       ))}
+      {conflicts.length > 0 && (
+        <Text color="yellow">
+          键位冲突：
+          {conflicts.map((c) => `${c.keys} → ${c.actions.join(' / ')}`).join('；')}
+          （改回请走网页设置中心·键位页）
+        </Text>
+      )}
     </Box>
   )
 }

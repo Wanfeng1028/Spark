@@ -99,11 +99,14 @@ export function useCliActions({
         if (!disposed) useCliStore.getState().setCommands(visibleToCli(c))
       })
       .catch(() => undefined)
-    // 界面语言（工单 19.25 消费 19.17）：服务端 settings.ui.language 单源；读不到保持 zh-CN
+    // 界面语言与键位覆盖层（工单 19.25 / 19.39）：服务端 settings.ui 单源；读不到保持缺省
     transport
       .getSettings()
       .then((s) => {
-        if (!disposed) useCliStore.getState().setLanguage(s.ui?.language ?? 'zh-CN')
+        if (disposed) return
+        const st = useCliStore.getState()
+        st.setLanguage(s.ui?.language ?? 'zh-CN')
+        st.setKeymapOverrides(s.ui?.keymap?.overrides ?? [])
       })
       .catch(() => undefined)
     return () => {

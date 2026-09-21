@@ -8,7 +8,7 @@ import { homedir } from 'node:os'
 import { sparkHome } from './home.js'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { ArchiveSettingsSchema, BrowserSettingsSchema, NetworkSettingsSchema,
+import { ArchiveSettingsSchema, BrowserSettingsSchema, KeymapSettingsSchema, NetworkSettingsSchema,
   EngineSettingsShape, SandboxNetworkSettingsSchema, SettingsHooksSchema, SettingsPromptsSchema } from '@spark/protocol'
 import type { ArchiveSettings, EngineSettings, NetworkSettings, ReasoningEffort, SandboxNetworkSettings, SettingsHooks, SettingsPrompts } from '@spark/protocol'
 import { errText } from './errs.js'
@@ -78,10 +78,12 @@ const sparkSchema = z.object({
   archive: ArchiveSettingsSchema.partial().optional(),
   /** 全局出网代理（阶段十九 19.13，翻案 12.9）：热档（每次出网现读；缺省空 = 不设） */
   network: NetworkSettingsSchema.partial().optional(),
-  /** 界面语言（阶段十九 19.17 / V2-12）：热档（切换即时生效；缺省未设置） */
+  /** 界面语言（阶段十九 19.17 / V2-12）：热档（切换即时生效；缺省未设置）。
+   *  keymap = 键位覆盖层（阶段十九 19.39 / V2-22）：热档（生效表按 mergeKeymap 现推） */
   ui: z
     .object({
       language: z.enum(['zh-CN', 'en']).optional(),
+      keymap: KeymapSettingsSchema.optional(),
     })
     .optional(),
 })

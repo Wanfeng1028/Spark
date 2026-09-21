@@ -12,6 +12,7 @@ import {
 import { DeliverySchema, ReasoningEffortSchema, TurnFinishSchema } from './primitives.js'
 import { ClientActionSchema, CommandArgsSchema, CommandSurfaceSchema } from './commands.js'
 import { LanguageSchema } from './i18n.js'
+import { KeymapSettingsSchema } from './keymap.js'
 import type { SparkEventEnvelope } from './events.js'
 
 export const SessionStatusSchema = z.enum(['idle', 'running', 'waiting-approval'])
@@ -658,7 +659,10 @@ export const SettingsDtoSchema = z.strictObject({
   /** 界面语言（阶段十九 19.17 / V2-12）：spark.json ui.language——热档（切换即时生效） */
   ui: z
     .strictObject({
-      language: LanguageSchema,
+      language: LanguageSchema.optional(),
+      /** 键位覆盖层（阶段十九 19.39 / V2-22）：只改物理键不新增语义；生效表由
+       *  `mergeKeymap` 单源推导（各端不得自行拼）；键串是展示态，按下逻辑仍在各端物理层 */
+      keymap: KeymapSettingsSchema.optional(),
     })
     .optional(),
   /** 需重启生效字段清单（前端标注"下次启动生效"；单一来源 SETTINGS_RESTART_REQUIRED） */
@@ -724,6 +728,8 @@ export const SettingsUpdateSchema = z.strictObject({
   ui: z
     .strictObject({
       language: LanguageSchema.optional(),
+      /** 键位覆盖层（阶段十九 19.39）：整段替换（不是逐条合并）——半路合并会留下孤儿绑定 */
+      keymap: KeymapSettingsSchema.optional(),
     })
     .optional(),
 })

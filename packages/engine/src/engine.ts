@@ -1669,9 +1669,19 @@ export class Engine {
       certificates: { nodeExtraCaCerts: process.env.NODE_EXTRA_CA_CERTS ?? null },
       // 数据目录（阶段十九 19.16）：只读（启动期定；搬迁走 spark migrate CLI）
       home: this.root,
-      // 界面语言（阶段十九 19.17 / V2-12）：未配置时缺省不设（端侧探测）
-      ...(this.config.spark.ui?.language !== undefined
-        ? { ui: { language: this.config.spark.ui.language } }
+      // 界面语言与键位覆盖层（阶段十九 19.17 / 19.39）：两者都未配置时整段不设
+      // （端侧自行探测语言 / 用内置键位表——不留 ui:{} 这种半截假值）
+      ...(this.config.spark.ui?.language !== undefined || this.config.spark.ui?.keymap !== undefined
+        ? {
+            ui: {
+              ...(this.config.spark.ui?.language !== undefined
+                ? { language: this.config.spark.ui.language }
+                : {}),
+              ...(this.config.spark.ui?.keymap !== undefined
+                ? { keymap: this.config.spark.ui.keymap }
+                : {}),
+            },
+          }
         : {}),
     }
     return dto

@@ -5157,11 +5157,37 @@
                   "zh-CN",
                   "en"
                 ]
+              },
+              "keymap": {
+                "type": "object",
+                "properties": {
+                  "overrides": {
+                    "maxItems": 16,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "action": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "keys": {
+                          "type": "string",
+                          "maxLength": 60
+                        }
+                      },
+                      "required": [
+                        "action",
+                        "keys"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
               }
             },
-            "required": [
-              "language"
-            ],
             "additionalProperties": false
           },
           "restartRequired": {
@@ -5639,6 +5665,35 @@
                   "zh-CN",
                   "en"
                 ]
+              },
+              "keymap": {
+                "type": "object",
+                "properties": {
+                  "overrides": {
+                    "maxItems": 16,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "action": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "keys": {
+                          "type": "string",
+                          "maxLength": 60
+                        }
+                      },
+                      "required": [
+                        "action",
+                        "keys"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
               }
             },
             "additionalProperties": false

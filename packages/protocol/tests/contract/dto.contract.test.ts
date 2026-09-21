@@ -3992,7 +3992,15 @@ describe('契约：api.SettingsDtoSchema', () => {
     },
     "home": "contract-sample",
     "ui": {
-      "language": "zh-CN"
+      "language": "zh-CN",
+      "keymap": {
+        "overrides": [
+          {
+            "action": "contract-sample",
+            "keys": "contract-sample"
+          }
+        ]
+      }
     },
     "restartRequired": [
       "contract-sample"
@@ -4294,7 +4302,15 @@ describe('契约：api.SettingsUpdateSchema', () => {
       "title": "contract-sample"
     },
     "ui": {
-      "language": "zh-CN"
+      "language": "zh-CN",
+      "keymap": {
+        "overrides": [
+          {
+            "action": "contract-sample",
+            "keys": "contract-sample"
+          }
+        ]
+      }
     }
   }
 
