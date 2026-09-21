@@ -10,7 +10,7 @@
  */
 import { MCP_ENV_MASK, SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, Delivery, SendMessageOptions, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, Delivery, SendMessageOptions, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
 import rawReject from '../../../../examples/mock-sessions/reject.jsonl?raw'
@@ -1827,6 +1827,40 @@ export class MockTransport implements Transport {
         events,
       }),
     )
+  }
+
+  /**
+   * 引擎日志尾部（工单 19.38 mock 对等）：mock 不起引擎、没有 engine.log，故回一份**合成日志**——
+   * 但级别/子串/limit 三道过滤与真实通道同一套判据（诊断页在 mock 下要能真走查过滤交互）。
+   * path 明示是合成来源，不伪装成某个真实文件。
+   */
+  getLogs(query?: LogsQuery): Promise<LogsDto> {
+    const base = Date.now()
+    const synthetic: LogsDto['entries'] = [
+      { time: base - 60_000, level: 'info', msg: 'engine.start', fields: { root: '~/.spark' } },
+      { time: base - 50_000, level: 'info', msg: 'session.create', fields: { sid: 'ses_mock' } },
+      { time: base - 40_000, level: 'warn', msg: 'llm.stream.retry', fields: { attempt: 2 } },
+      { time: base - 30_000, level: 'error', msg: 'tool.completed', fields: { code: 'E_TOOL_TIMEOUT' } },
+      { time: base - 20_000, level: 'info', msg: 'turn.completed', fields: {} },
+    ]
+    const rank: Record<string, number> = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 }
+    let entries = synthetic
+    if (query?.level !== undefined) {
+      const min = rank[query.level] ?? 30
+      entries = entries.filter((e) => (rank[e.level] ?? 30) >= min)
+    }
+    const needle = query?.match?.trim().toLowerCase() ?? ''
+    if (needle !== '') {
+      entries = entries.filter((e) =>
+        (e.msg + ' ' + JSON.stringify(e.fields)).toLowerCase().includes(needle),
+      )
+    }
+    const limit = Math.min(query?.limit ?? 500, 500)
+    return Promise.resolve({
+      path: '(mock) 合成日志——浏览器形态无引擎进程，真实来源是 ~/.spark/logs/engine.log',
+      entries: entries.slice(-limit),
+      truncated: false,
+    })
   }
 
   /** 归档登记（工单 12.4 mock 对等）+ 列表过滤开关（archived=true 只列归档） */

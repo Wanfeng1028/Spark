@@ -6,7 +6,7 @@
  */
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply, PermissionScope, ReasoningEffort } from './primitives.js'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, SkillDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, SkillDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
 export interface SendMessageOptions {
@@ -151,6 +151,8 @@ export interface Transport {
   /** GET /api/sandbox/network：沙箱网络隔离代理运行时状态（阶段十九 19.7 / ADR D50；
    * allowlist 档未启动/绑定失败时 ready=false + reason——bash 侧据此 fail-closed） */
   sandboxNetworkStatus(): Promise<SandboxNetworkStatusDto>
+  /** GET /api/logs：引擎日志尾部（阶段十九 19.38 诊断页；level 取"该级别及以上"，limit ≤500） */
+  getLogs(query?: LogsQuery): Promise<LogsDto>
   /** POST /api/index/rebuild：清表重扫 sessions JSONL 全量重建（等待完成回条目数；工单 19.11） */
   rebuildIndex(): Promise<RebuildResultDto>
   /** POST /api/index/vacuum：SQLite VACUUM 空间回收（回前后库体积；工单 19.11） */

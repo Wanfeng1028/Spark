@@ -55,7 +55,7 @@ import type {
   PromptSlot,
   SandboxNetworkStatusDto,
   SemanticIndexStats,
-AgentPresetDto, SessionMode, SessionStatus, UsageSummaryDto } from '@spark/protocol'
+AgentPresetDto, LogsDto, SessionMode, SessionStatus, UsageSummaryDto } from '@spark/protocol'
 import type { ArenaHistoryEntryDto } from '@spark/protocol'
 import { EventBus } from './bus.js'
 import type { EventSink, SubscribeHandle } from './bus.js'
@@ -94,6 +94,7 @@ import { PermissionServiceImpl } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
 import { SessionIndexMaintainer } from './session/index-maintainer.js'
 import { findSessionFile as findSessionFileOnDisk, scanArchivedMarkers, scanPinnedMarkers, scanDiskSessions as scanDiskSessionsOnDisk, scanForkChildren as scanForkChildrenOnDisk, titleOf } from './session/scan.js'
+import { readLogs, type ReadLogsQuery } from './logs.js'
 import { Metrics } from './observability/metrics.js'
 import { SessionRuntime } from './session/runtime.js'
 import { SessionStore, danglingTurnIds, mungeDir, sessionFileName } from './session/store.js'
@@ -1685,6 +1686,14 @@ export class Engine {
         : {}),
     }
     return dto
+  }
+
+  /**
+   * 引擎日志尾部（阶段十九 19.38 / V2-14 诊断页）：只读 `~/.spark/logs/engine.log`，
+   * 判据全在 logs.ts（尾部字节窗口 + 半行丢弃 + 写入侧脱敏不二次加工）。
+   */
+  logs(query?: ReadLogsQuery): LogsDto {
+    return readLogs(this.root, query ?? {})
   }
 
   /**

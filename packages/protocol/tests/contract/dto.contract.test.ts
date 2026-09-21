@@ -2231,6 +2231,149 @@ describe('契约：api.IndexStatsDtoSchema', () => {
   })
 })
 
+describe('契约：api.LogEntryDtoSchema', () => {
+  const sample = {
+    "time": 1,
+    "level": "trace",
+    "msg": "contract-sample",
+    "fields": {
+      "contract-sample": "contract-sample"
+    }
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.LogEntryDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.LogEntryDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.LogEntryDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 time → 解析失败', () => {
+    expect(() => api.LogEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["time"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 level → 解析失败', () => {
+    expect(() => api.LogEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["level"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 msg → 解析失败', () => {
+    expect(() => api.LogEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["msg"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 fields → 解析失败', () => {
+    expect(() => api.LogEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["fields"]; return m })())).toThrow()
+  })
+
+  it('字段 time 类型错 → 解析失败', () => {
+    expect(() => api.LogEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["time"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 level 类型错 → 解析失败', () => {
+    expect(() => api.LogEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["level"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 msg 类型错 → 解析失败', () => {
+    expect(() => api.LogEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["msg"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 fields 类型错 → 解析失败', () => {
+    expect(() => api.LogEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["fields"] = []; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.LogEntryDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.LogsDtoSchema', () => {
+  const sample = {
+    "path": "contract-sample",
+    "entries": [
+      {
+        "time": 1,
+        "level": "trace",
+        "msg": "contract-sample",
+        "fields": {
+          "contract-sample": "contract-sample"
+        }
+      }
+    ],
+    "truncated": false
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.LogsDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.LogsDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.LogsDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 path → 解析失败', () => {
+    expect(() => api.LogsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["path"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 entries → 解析失败', () => {
+    expect(() => api.LogsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["entries"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 truncated → 解析失败', () => {
+    expect(() => api.LogsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["truncated"]; return m })())).toThrow()
+  })
+
+  it('字段 path 类型错 → 解析失败', () => {
+    expect(() => api.LogsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["path"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 entries 类型错 → 解析失败', () => {
+    expect(() => api.LogsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["entries"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 truncated 类型错 → 解析失败', () => {
+    expect(() => api.LogsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["truncated"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.LogsDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.LogsQuerySchema', () => {
+  const sample = {
+    "level": "trace",
+    "match": "contract-sample",
+    "limit": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.LogsQuerySchema.parse(sample)).toEqual(sample)
+    expect(api.LogsQuerySchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.LogsQuerySchema)).toBeTypeOf('object')
+  })
+
+  it('字段 level 类型错 → 解析失败', () => {
+    expect(() => api.LogsQuerySchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["level"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 match 类型错 → 解析失败', () => {
+    expect(() => api.LogsQuerySchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["match"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 limit 类型错 → 解析失败', () => {
+    expect(() => api.LogsQuerySchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["limit"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.LogsQuerySchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.LspInstallResultDtoSchema', () => {
   const sample = {
     "language": "contract-sample",

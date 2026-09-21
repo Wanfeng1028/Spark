@@ -4,7 +4,7 @@
 import type { FastifyPluginCallback } from 'fastify'
 import { z } from 'zod'
 import { ExecuteCommandBodySchema } from '@spark/protocol'
-import { FeedbackInputSchema, FeedbackQuerySchema, PromptsUpdateSchema, SettingsUpdateSchema, UsageSummaryQuerySchema } from '@spark/protocol'
+import { FeedbackInputSchema, FeedbackQuerySchema, LogsQuerySchema, PromptsUpdateSchema, SettingsUpdateSchema, UsageSummaryQuerySchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
 import { loadMcpConfig, maskMcpConfigForClient, mergeMaskedMcpConfig, writeMcpConfig } from '@spark/engine'
@@ -227,6 +227,13 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
       return notFound(reply)
     }
     return reply.type('image/png').send(buf)
+  })
+
+  // 引擎日志尾部（阶段十九 19.38 / V2-14 诊断页）：只读；level 取"该级别及以上"，
+  // 非法 level/limit → 400（parseOr400 单源，不在端上自己判）
+  app.get('/api/logs', (req) => {
+    const query = parseOr400(LogsQuerySchema, req.query ?? {})
+    return engine.logs(query)
   })
 
   app.get('/api/metrics', async (_req, reply) => {

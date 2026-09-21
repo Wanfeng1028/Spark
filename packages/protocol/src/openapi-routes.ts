@@ -230,6 +230,13 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     response: ref('SessionMetaDto'),
   },
   {
+    method: 'get',
+    path: '/api/logs',
+    summary: '引擎日志尾部（阶段十九 19.38 / V2-14 诊断页：只读，level 取"该级别及以上"，脱敏在写入侧已完成）',
+    tag: 'readonly',
+    response: ref('LogsDto'),
+  },
+  {
     method: 'delete',
     path: '/api/sessions/{id}',
     summary: '两段式删除（confirm:true 必带；JSONL 移入 ~/.spark/trash 可找回；运行中 → 409）',

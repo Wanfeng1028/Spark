@@ -44,6 +44,37 @@ export interface SessionDto extends SessionMetaDto {
 }
 
 /**
+ * 引擎日志条目（阶段十九工单 19.38 / V2-14 诊断页）：pino 行的 `time/level/msg` +
+ * 其余字段原样（`sid`/`turnId`/`code` 等）。**脱敏在写入侧已完成**（logger 三类模式），
+ * 读取侧不二次加工；解析不出的行以 `fields.unparsed = true` 如实标出。
+ */
+export const LogEntryDtoSchema = z.strictObject({
+  time: z.number().int().nonnegative(),
+  level: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']),
+  msg: z.string(),
+  fields: z.record(z.string(), z.unknown()),
+})
+export type LogEntryDto = z.infer<typeof LogEntryDtoSchema>
+
+/** GET /api/logs 响应（尾部窗口 + 级别/子串过滤；文件不存在 = 空 entries，不是错误） */
+export const LogsDtoSchema = z.strictObject({
+  /** 日志文件路径（诊断页要能告诉用户"看的是哪个文件"） */
+  path: z.string(),
+  entries: z.array(LogEntryDtoSchema),
+  /** true = 还有更早的内容未返回（尾部字节窗口截断或超出条目上限） */
+  truncated: z.boolean()
+})
+export type LogsDto = z.infer<typeof LogsDtoSchema>
+
+/** GET /api/logs 查询（level = 该级别及以上，pino 语义；limit 上限 500） */
+export const LogsQuerySchema = z.strictObject({
+  level: LogEntryDtoSchema.shape.level.optional(),
+  match: z.string().max(200).optional(),
+  limit: z.number().int().positive().max(500).optional(),
+})
+export type LogsQuery = z.infer<typeof LogsQuerySchema>
+
+/**
  * GET /api/sessions/:id 事件分页查询（阶段九工单 9.3——移动端上拉加载历史）。
  * 全可选——缺省参数 = 现状全量回放（向后兼容红线）：
  * limit = 返回条数上限（升序尾部切片，上限 200）；before = seq 游标（只返回 seq < before 的事件）。

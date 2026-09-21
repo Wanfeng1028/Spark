@@ -40,6 +40,9 @@
       "name": "permissions"
     },
     {
+      "name": "readonly"
+    },
+    {
       "name": "search"
     },
     {
@@ -840,6 +843,26 @@
                 "required": [
                   "pinned"
                 ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logs": {
+      "get": {
+        "tags": [
+          "readonly"
+        ],
+        "summary": "引擎日志尾部（阶段十九 19.38 / V2-14 诊断页：只读，level 取\"该级别及以上\"，脱敏在写入侧已完成）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogsDto"
+                }
               }
             }
           }
@@ -3788,6 +3811,104 @@
           "entries",
           "sizeBytes",
           "path"
+        ],
+        "additionalProperties": false
+      },
+      "LogEntryDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "time": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "trace",
+              "debug",
+              "info",
+              "warn",
+              "error",
+              "fatal"
+            ]
+          },
+          "msg": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "time",
+          "level",
+          "msg",
+          "fields"
+        ],
+        "additionalProperties": false
+      },
+      "LogsDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "time": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "level": {
+                  "type": "string",
+                  "enum": [
+                    "trace",
+                    "debug",
+                    "info",
+                    "warn",
+                    "error",
+                    "fatal"
+                  ]
+                },
+                "msg": {
+                  "type": "string"
+                },
+                "fields": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                }
+              },
+              "required": [
+                "time",
+                "level",
+                "msg",
+                "fields"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "entries",
+          "truncated"
         ],
         "additionalProperties": false
       },
