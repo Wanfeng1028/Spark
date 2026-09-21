@@ -83,7 +83,14 @@ export interface StatusDotTokens {
   sparkOk: string
 }
 
-/** 会话列表状态点配色（DESIGN §13.J.2.2：绿空闲 / accent 运行 / amber 待审批；灰=完成态 v2 归档预留，故无此分支） */
+/**
+ * 会话列表状态点配色（DESIGN §13.J.2.2：绿空闲 / accent 运行 / amber 待审批）。
+ * 灰档 = 已归档（工单 19.21 兑现此预留）：归档会话未装载、`status` 一律 'idle'，
+ * 画绿点等于谎称其仍在工作区活跃。归档位取 `SessionMetaDto.archivedAt`（12.4 仅已归档携带）。
+ * 现状：web 侧已实现（`Sidebar.tsx` SessionStatusDot 的 archived 分支，取 `--muted-foreground`）；
+ * 本函数尚未承载灰档——mobile/miniapp 的 ThemeTokens 无对应字段，补齐 `sparkMeta` 后再收敛到此
+ * 单源（登记为 19.21 尾巴，勿在两端另写第四色）。
+ */
 export function dotColor(status: SessionStatus, t: StatusDotTokens): string {
   switch (status) {
     case 'running':

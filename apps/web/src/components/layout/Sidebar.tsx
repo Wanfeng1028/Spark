@@ -25,10 +25,16 @@ import { errorMessageOf } from '@/lib/error-copy'
 import { formatRelative } from '@/lib/time'
 import { cn } from '@/lib/utils'
 
-/** 状态点（DESIGN §8；animate-pulse 属状态点白名单） */
-export function SessionStatusDot({ status }: { status: SessionStatus }) {
-  const cls =
-    status === 'running'
+/**
+ * 会话状态点（DESIGN §13.J.2.2；animate-pulse 属状态点白名单）。
+ * `archived` 为真时走灰档（工单 19.21 兑现 ui-copy 预留）：
+ * 已归档会话未装载，引擎 statusOf 一律回 'idle'——若仍画绿点等于谎称它在你工作区里活跃。
+ * 归档位来自 SessionMetaDto.archivedAt（12.4：仅已归档携带，禁假状态）。
+ */
+export function SessionStatusDot({ status, archived = false }: { status: SessionStatus; archived?: boolean }) {
+  const cls = archived
+    ? 'bg-muted-foreground'
+    : status === 'running'
       ? 'bg-[var(--spark-accent)] animate-pulse'
       : status === 'waiting-approval'
         ? 'bg-[var(--spark-warn)]'
@@ -557,7 +563,7 @@ function SidebarGroup({
                   aria-current={s.id === activeId ? 'page' : undefined}
                   className="flex h-full min-w-0 flex-1 items-center gap-2 text-left"
                 >
-                  <SessionStatusDot status={statusOf(s)} />
+                  <SessionStatusDot status={statusOf(s)} archived={s.archivedAt !== undefined} />
                   <span className="min-w-0 flex-1 truncate text-[13px]">
                     {titleOf(s) === '' ? '新会话' : titleOf(s)}
                   </span>
