@@ -63,7 +63,10 @@ export class FeedbackStore {
   }
 
   /** 列表（新→旧；sessionId/vote 可选过滤） */
-  list(query: { sessionId?: string; vote?: FeedbackVote }, limit: number): FeedbackEntryDto[] {
+  list(
+    query: { sessionId?: string | undefined; vote?: FeedbackVote | undefined },
+    limit: number,
+  ): FeedbackEntryDto[] {
     const where: string[] = []
     const args: (string | number)[] = []
     if (query.sessionId !== undefined) {

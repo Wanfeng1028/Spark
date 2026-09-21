@@ -1704,7 +1704,7 @@ export class Engine {
     if (cfg?.autoArchive !== true) return { archived: 0, scanned: 0 }
     const afterDays = cfg.afterDays ?? DEFAULT_AFTER_DAYS
     const sessions = await this.listSessions({ archived: false })
-    const due = selectDueForAutoArchive(sessions, afterDays, now)
+    const due = selectDueForAutoArchive(sessions, (id) => this.statusOf(id), afterDays, now)
     let archived = 0
     for (const m of due) {
       try {

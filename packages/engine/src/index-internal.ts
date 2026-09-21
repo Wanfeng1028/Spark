@@ -15,6 +15,13 @@ export * from './index.js'
 export { loadProjectRules } from './config.js'
 export { EventBus, type EventSink, type SubscribeHandle } from './bus.js'
 
+// ---- 自动归档策略（纯函数；apps/server 单测直打——19.13）----
+export {
+  DEFAULT_AFTER_DAYS,
+  dueForAutoArchive,
+  selectDueForAutoArchive,
+} from './session/archive-policy.js'
+
 // ---- 会话存储 / 树 / 输入队列 / 运行时 ----
 export {
   SessionStore,

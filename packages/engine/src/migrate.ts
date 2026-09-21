@@ -9,7 +9,7 @@
  * - **拒绝覆盖**：目标已存在且非空 → 拒迁（不猜测用户想合并还是覆盖）。
  */
 import { cp, rename, rm, stat } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { sparkHome } from './home.js'
 
 export interface MigrationPlan {

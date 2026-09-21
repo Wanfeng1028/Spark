@@ -6,9 +6,16 @@
  *    certificates 只读回显形状。
  */
 import { describe, expect, test } from 'vitest'
-import type { SessionMeta } from '@spark/protocol'
 import { ids } from '@spark/protocol'
-import { DEFAULT_AFTER_DAYS, dueForAutoArchive, selectDueForAutoArchive } from '../src/session/archive-policy.js'
+import type { SessionId, SessionStatus } from '@spark/protocol'
+// 归档策略纯函数在 engine 侧；apps/server 单测经 internal 入口直打（生产代码禁引 internal，
+// 测试豁免——见 packages/engine/tests/public-surface.test.ts 的不变量网）
+import {
+  DEFAULT_AFTER_DAYS,
+  dueForAutoArchive,
+  selectDueForAutoArchive,
+  type SessionMeta,
+} from '@spark/engine/internal'
 import { makeServer } from './helpers.js'
 import type { ServerFixture } from './helpers.js'
 
@@ -16,17 +23,17 @@ const NOW = 1_800_000_000_000
 const DAY = 86_400_000
 
 function meta(over: Partial<SessionMeta> & { id: string }): SessionMeta {
+  const { id, ...rest } = over
   return {
-    id: ids.session(over.id),
     title: 't',
     model: 'fake/fake-chat',
     cwd: '/tmp',
     createdAt: NOW - 100 * DAY,
     updatedAt: NOW - 40 * DAY,
-    status: 'idle',
-    eventCount: 1,
-    ...over,
-  } as SessionMeta
+    lastSeq: 1,
+    id: ids.session(id),
+    ...rest,
+  }
 }
 
 describe('dueForAutoArchive（阶段十九 19.13 纯函数）', () => {
@@ -56,14 +63,17 @@ describe('dueForAutoArchive（阶段十九 19.13 纯函数）', () => {
     expect(DEFAULT_AFTER_DAYS).toBe(30)
   })
 
-  test('selectDueForAutoArchive：保持入序，只取到期集合', () => {
+  test('selectDueForAutoArchive：保持入序，只取到期集合（running 经 statusOf 排除）', () => {
     const list = [
       meta({ id: 'ses_due0000000000000001', updatedAt: NOW - 40 * DAY }),
       meta({ id: 'ses_fresh00000000000002', updatedAt: NOW - 2 * DAY }),
-      meta({ id: 'ses_run0000000000000003', status: 'running', updatedAt: NOW - 90 * DAY }),
+      meta({ id: 'ses_run0000000000000003', updatedAt: NOW - 90 * DAY }),
       meta({ id: 'ses_due2000000000000004', updatedAt: NOW - 31 * DAY }),
     ]
-    const due = selectDueForAutoArchive(list, 30, NOW)
+    // 运行态不在 SessionMeta 上（磁盘元数据），由调用方注入访问器——第 3 条超期但在跑，不得归档
+    const running = new Set<string>(['ses_run0000000000000003'])
+    const statusOf = (id: SessionId): SessionStatus => (running.has(id) ? 'running' : 'idle')
+    const due = selectDueForAutoArchive(list, statusOf, 30, NOW)
     expect(due.map((m) => m.id)).toEqual(['ses_due0000000000000001', 'ses_due2000000000000004'])
   })
 })
