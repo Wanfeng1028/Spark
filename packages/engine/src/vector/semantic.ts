@@ -9,7 +9,7 @@
  *   已嵌条目照常语义命中，缺向量条目仍可由 FTS 兜底；
  * - 维度不一致（换模型后旧向量长度不同）→ 该批拒嵌并如实报，旧向量留待重建。
  */
-import type { MemoryDto } from '@spark/protocol'
+import type { MemoryDto, SessionId } from '@spark/protocol'
 import type { SearchHit } from '../engine-types.js'
 import type { EmbeddingClient } from '../embedding/client.js'
 import { type VectorHit, type VectorKind, VectorStore } from './store.js'
@@ -25,7 +25,7 @@ export interface SemanticIndexerOptions {
   store: VectorStore
   sources: SemanticSources
   /** 会话标题解析（事件命中回填 SearchHitDto.sessionTitle；同 SearchIndexer 手法） */
-  titleOf: (sessionId: string) => string
+  titleOf: (sessionId: SessionId) => string
   /** 测试注入：时间源 */
   now?: () => number
 }

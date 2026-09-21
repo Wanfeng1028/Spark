@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import type { EmbeddingClient, EmbeddingProviderInfo } from '../src/embedding/client.js'
+import { ids } from '@spark/protocol'
 import { blobToVec, cosine, VectorStore, vecToBlob } from '../src/vector/store.js'
 import {
   BACKFILL_LIMIT,
@@ -113,7 +114,7 @@ describe('VectorStore（node:sqlite 临时库）', () => {
 })
 
 describe('SemanticIndexer（假 embedding，免网络）', () => {
-  function makeIndexer(opts: { store: VectorStore; dims?: number; client?: EmbeddingClient }) {
+  function makeIndexer(opts: { store: VectorStore; dims?: number; client?: FakeEmbeddingClient }) {
     const client = opts.client ?? new FakeEmbeddingClient(opts.dims ?? 8)
     const memories = [
       { id: 1, content: '用户偏好中文回复', createdAt: 10, sessionId: 'ses_a' },
@@ -210,9 +211,9 @@ describe('合流与摘要（纯函数）', () => {
 
   test('mergeEvents：按 sessionId:eventId 去重，语义在前', () => {
     const mk = (id: string): SearchHit => ({
-      sessionId: 'ses_a',
+      sessionId: ids.session('ses_a'),
       sessionTitle: 't',
-      eventId: id,
+      eventId: ids.event(id),
       seq: 1,
       type: 'user.message',
       time: 1,
