@@ -259,6 +259,12 @@ export class InProcessTransport implements Transport {
     return sessionMetaDtoOf(meta, this.engine.statusOf(sessionId))
   }
 
+  async pinSession(sessionId: SessionId, pinned: boolean): Promise<SessionDto> {
+    this.assertNotDisposed()
+    const meta = await this.engine.pinSession(sessionId, pinned)
+    return sessionMetaDtoOf(meta, this.engine.statusOf(sessionId))
+  }
+
   async deleteSession(sessionId: SessionId): Promise<void> {
     this.assertNotDisposed()
     await this.engine.deleteSession(sessionId)

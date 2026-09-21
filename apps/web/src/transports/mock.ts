@@ -1799,6 +1799,19 @@ export class MockTransport implements Transport {
       return Promise.resolve({ ...fork.dto, events: page(fork.events) })
     }
     if (sessionId !== this.script.sessionId) {
+      // 工单 19.36 mock 对等：listSessions 列出的其它场景会话必须可 GET（真实 server 任意
+      // sid 都能打开——辅助会话抽屉在 mock 下点选它们此前全落 E_MOCK_UNKNOWN_SESSION）。
+      // 给静态脚本投影：只读历史、无直播流（假流只有一条，绑在当前场景会话上——
+      // 在抽屉里发消息仍如实拒执，不把事件错灌进主会话）
+      const other = MOCK_SCENARIOS.filter((s) => s !== this.scenario)
+        .map((s) => this.parseFor(s))
+        .find((sc) => sc.sessionId === sessionId)
+      if (other !== undefined) {
+        const otherDurable = other.lines.flatMap((l) =>
+          l.kind === 'event' && l.envelope.seq !== undefined ? [l.envelope] : [],
+        )
+        return Promise.resolve({ ...MockTransport.dtoOf(other, 'idle'), events: page(otherDurable) })
+      }
       return Promise.reject(new Error(`E_MOCK_UNKNOWN_SESSION: ${sessionId}`))
     }
     // 已回放的事件即"当前态"（含 rollbackCheckpoint 截断后的现状）——
@@ -1828,6 +1841,17 @@ export class MockTransport implements Transport {
     return Promise.resolve(archived ? { ...dto, archivedAt: new Date().toISOString() } : dto)
   }
 
+  /** 置顶登记（工单 19.41 mock 对等）：与真实通道同口径——仅已置顶携带 true，列表置顶优先 */
+  private readonly pinned = new Set<string>()
+
+  pinSession(sessionId: string, pinned: boolean): Promise<SessionDto> {
+    if (pinned) this.pinned.add(sessionId)
+    else this.pinned.delete(sessionId)
+    const dto = [...this.listAllDtos()].find((d) => d.id === sessionId)
+    if (dto === undefined) return Promise.reject(new Error(`E_NOT_FOUND: 会话 ${sessionId} 不存在`))
+    return Promise.resolve(pinned ? { ...dto, pinned: true } : dto)
+  }
+
   deleteSession(sessionId: string): Promise<void> {
     // 19.22 对等修复：未知 id 拒执（真实通道 404 E_NOT_FOUND）——mock 此前静默 resolve
     const isFork = this.forkChildren.some((f) => f.dto.id === sessionId)
@@ -1838,6 +1862,7 @@ export class MockTransport implements Transport {
     const idx = this.forkChildren.findIndex((f) => f.dto.id === sessionId)
     if (idx !== -1) this.forkChildren.splice(idx, 1)
     this.archived.delete(sessionId)
+    this.pinned.delete(sessionId)
     return Promise.resolve()
   }
 
@@ -1862,7 +1887,10 @@ export class MockTransport implements Transport {
           ),
         ),
         ...this.forkChildren.map((f) => f.dto),
-      ].filter((d) => this.archived.has(d.id) === this.archivedFilter),
+      ].filter((d) => this.archived.has(d.id) === this.archivedFilter)
+        .map((d) => (this.pinned.has(d.id) ? { ...d, pinned: true } : d))
+        // 置顶第一键（稳定排序：同档保持脚本序，与引擎 ORDER BY pinned DESC, updated_at DESC 同口径）
+        .sort((a, b) => (b.pinned === true ? 1 : 0) - (a.pinned === true ? 1 : 0)),
     )
   }
 

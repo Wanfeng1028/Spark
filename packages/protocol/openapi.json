@@ -798,6 +798,54 @@
         }
       }
     },
+    "/api/sessions/{id}/pin": {
+      "put": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "置顶/取消置顶（阶段十九 19.41：.pinned 标记文件为事实源，列表排序第一键，幂等）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionMetaDto"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pinned": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "pinned"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/arena/history": {
       "get": {
         "tags": [
@@ -3421,7 +3469,8 @@
               "extensions",
               "computer",
               "sandbox",
-              "rename"
+              "rename",
+              "settings"
             ]
           }
         },
@@ -4640,6 +4689,9 @@
           },
           "archivedAt": {
             "type": "string"
+          },
+          "pinned": {
+            "type": "boolean"
           }
         },
         "required": [

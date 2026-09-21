@@ -18,11 +18,13 @@ const ARCHIVABLE: ReadonlySet<SessionStatus> = new Set<SessionStatus>(['idle'])
 
 /** 单条会话是否到期应归档（纯函数——不碰文件系统，测试不需要夹具） */
 export function dueForAutoArchive(
-  meta: { id: string; status: SessionStatus; updatedAt: number },
+  meta: { id: string; status: SessionStatus; updatedAt: number; pinned?: boolean },
   afterDays: number,
   now: number,
 ): boolean {
   if (!ARCHIVABLE.has(meta.status)) return false
+  // 置顶 = 用户显式"别把它藏起来"，永不被自动归档（工单 19.41 / DESIGN §13 自动归档排除项）
+  if (meta.pinned === true) return false
   if (!Number.isFinite(afterDays) || afterDays <= 0) return false
   return meta.updatedAt <= now - afterDays * DAY_MS
 }
@@ -40,6 +42,10 @@ export function selectDueForAutoArchive(
   now: number,
 ): SessionMeta[] {
   return sessions.filter((m) =>
-    dueForAutoArchive({ id: String(m.id), status: statusOf(m.id), updatedAt: m.updatedAt }, afterDays, now),
+    dueForAutoArchive(
+      { id: String(m.id), status: statusOf(m.id), updatedAt: m.updatedAt, pinned: m.pinned },
+      afterDays,
+      now,
+    ),
   )
 }

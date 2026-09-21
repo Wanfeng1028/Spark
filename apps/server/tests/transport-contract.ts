@@ -72,6 +72,30 @@ export function transportContractSuite(name: string, makeChannel: () => Promise<
       await expect(t.getSession(created.id)).rejects.toThrow(/E_[A-Z_]+/)
     })
 
+    test('置顶：pin → DTO 携带 pinned=true 且排到列表首位 → unpin 幂等回落（工单 19.41）', async () => {
+      const t = channel.transport
+      const a = await t.createSession({ title: '置顶契约 A' })
+      const b = await t.createSession({ title: '置顶契约 B' })
+      // 未置顶不写 false（与 archivedAt 同口径——禁假状态）
+      expect((await t.listSessions()).find((s) => s.id === a.id)?.pinned).toBeUndefined()
+
+      const pinnedA = await t.pinSession(a.id, true)
+      expect(pinnedA.pinned).toBe(true)
+      const listed = await t.listSessions()
+      expect(listed[0]?.id, '置顶会话必须排第一').toBe(a.id)
+      expect(listed.findIndex((s) => s.id === b.id)).toBeGreaterThan(0)
+
+      // 重复置顶幂等；取消后 DTO 不再携带 pinned（列表次序不作断言——各通道基线序不同）
+      await t.pinSession(a.id, true)
+      expect((await t.listSessions())[0]?.id).toBe(a.id)
+      const unpinned = await t.pinSession(a.id, false)
+      expect(unpinned.pinned).toBeUndefined()
+      expect((await t.listSessions()).find((s) => s.id === a.id)?.pinned).toBeUndefined()
+
+      await t.deleteSession(a.id)
+      await t.deleteSession(b.id)
+    })
+
     test('未知会话 → E_NOT_FOUND（错误码跨通道同形）', async () => {
       await expect(channel.transport.getSession(ids.session('ses_contractunknown1'))).rejects.toThrow(
         /E_NOT_FOUND/,

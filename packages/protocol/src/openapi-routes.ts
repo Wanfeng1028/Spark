@@ -222,6 +222,14 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     response: ref('SessionMetaDto'),
   },
   {
+    method: 'put',
+    path: '/api/sessions/{id}/pin',
+    summary: '置顶/取消置顶（阶段十九 19.41：.pinned 标记文件为事实源，列表排序第一键，幂等）',
+    tag: 'sessions',
+    body: obj({ pinned: { type: 'boolean' } }, ['pinned']),
+    response: ref('SessionMetaDto'),
+  },
+  {
     method: 'delete',
     path: '/api/sessions/{id}',
     summary: '两段式删除（confirm:true 必带；JSONL 移入 ~/.spark/trash 可找回；运行中 → 409）',

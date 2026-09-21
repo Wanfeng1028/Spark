@@ -115,4 +115,18 @@ describe('MockTransport 对等修复（阶段十九 19.22 / §1.1）', () => {
     expect(back.servers['remote']?.url).toBe('https://example.test/mcp')
     expect(back.servers['remote']?.transport).toBe('streamable-http')
   })
+
+  test('pinSession：仅已置顶携带 pinned、列表置顶优先、未知 id 拒执（工单 19.41 对等）', async () => {
+    const t = fresh()
+    const list = await t.listSessions()
+    const target = list[list.length - 1]
+    expect(target).toBeDefined()
+    if (target === undefined) return
+    // 未置顶不写 false（与真实通道同口径——禁假状态）
+    expect(target.pinned).toBeUndefined()
+    expect((await t.pinSession(target.id, true)).pinned).toBe(true)
+    expect((await t.listSessions())[0]?.id).toBe(target.id)
+    expect((await t.pinSession(target.id, false)).pinned).toBeUndefined()
+    await expect(t.pinSession('ses_0000000000000000000000000000ff', true)).rejects.toThrow(/E_NOT_FOUND/)
+  })
 })

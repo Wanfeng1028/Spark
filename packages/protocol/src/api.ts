@@ -32,6 +32,8 @@ export const SessionMetaDtoSchema = z.strictObject({
   effort: ReasoningEffortSchema.optional(),
   /** 归档时刻 ISO 串（工单 12.4：仅已归档会话携带——禁假状态） */
   archivedAt: z.string().optional(),
+  /** 置顶（工单 19.41 / V2-23 置顶半边）：仅已置顶携带 true，未置顶不写 false（同 archivedAt 口径） */
+  pinned: z.boolean().optional(),
 })
 export type SessionMetaDto = z.infer<typeof SessionMetaDtoSchema>
 

@@ -51,6 +51,9 @@ export const CreateSessionBody = z.strictObject({
 
 export const ArchiveBody = z.strictObject({ archived: z.boolean() })
 
+/** 工单 19.41：置顶请求体（PUT /api/sessions/:id/pin） */
+export const PinBody = z.strictObject({ pinned: z.boolean() })
+
 /** 工单 12.4：DELETE 需显式 confirm: true（防误删——两层护栏的第一层） */
 export const DeleteSessionBody = z.strictObject({ confirm: z.literal(true) })
 

@@ -36,6 +36,8 @@ export interface SessionMeta {
   effort?: ReasoningEffort
   /** 归档时刻（工单 12.4：归档标记文件的 ISO 串；未归档不携带——禁假状态） */
   archivedAt?: string
+  /** 置顶（阶段十九 19.41 / V2-23 置顶半边）：仅已置顶携带（禁假状态，同 archivedAt 口径） */
+  pinned?: boolean
 }
 
 export interface SessionHandle {

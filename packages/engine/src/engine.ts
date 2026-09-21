@@ -93,7 +93,7 @@ import type { RunLoopDeps } from './run-loop.js'
 import { PermissionServiceImpl } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
 import { SessionIndexMaintainer } from './session/index-maintainer.js'
-import { findSessionFile as findSessionFileOnDisk, scanArchivedMarkers, scanDiskSessions as scanDiskSessionsOnDisk, scanForkChildren as scanForkChildrenOnDisk, titleOf } from './session/scan.js'
+import { findSessionFile as findSessionFileOnDisk, scanArchivedMarkers, scanPinnedMarkers, scanDiskSessions as scanDiskSessionsOnDisk, scanForkChildren as scanForkChildrenOnDisk, titleOf } from './session/scan.js'
 import { Metrics } from './observability/metrics.js'
 import { SessionRuntime } from './session/runtime.js'
 import { SessionStore, danglingTurnIds, mungeDir, sessionFileName } from './session/store.js'
@@ -281,6 +281,8 @@ export class Engine {
   /** 归档会话登记（工单 12.4：标记文件为事实源，本 Set 为内存加速；boot 扫描填充） */
   private readonly archivedIds = new Set<SessionId>()
   private readonly archivedAtById = new Map<SessionId, string>()
+  /** 置顶会话登记（工单 19.41 / V2-23 置顶半边）：`<jsonl>.pinned` 标记为事实源，本 Set 加速 */
+  private readonly pinnedIds = new Set<SessionId>()
   /** 子代理执行体（subagent.ts 工厂；依赖引擎 Map/Set 引用——构造器内装配） */
   private readonly runSubagentFn: (input: TaskInput, ctx: ToolContext) => Promise<ToolOutput>
   private shuttingDown = false
@@ -330,13 +332,18 @@ export class Engine {
     this.indexReady = this.index.rebuild(() => this.scanDiskSessions()).catch((err: unknown) => {
       this.index.disable(err, 'session.index.rebuild.error')
     })
-    // 工单 12.4：归档标记扫描填充内存登记（标记文件 = 事实源）
-    this.archivedReady = scanArchivedMarkers(join(this.root, 'sessions')).then(({ ids, at }) => {
-      for (const id of ids) {
+    // 工单 12.4：归档标记扫描填充内存登记（标记文件 = 事实源）；
+    // 工单 19.41 置顶标记同一路径共用一个 ready 闸门（列表排序两态都要等）
+    this.archivedReady = Promise.all([
+      scanArchivedMarkers(join(this.root, 'sessions')),
+      scanPinnedMarkers(join(this.root, 'sessions')),
+    ]).then(([archived, pinned]) => {
+      for (const id of archived.ids) {
         this.archivedIds.add(id)
-        const ts = at.get(id)
+        const ts = archived.at.get(id)
         if (ts !== undefined) this.archivedAtById.set(id, ts)
       }
+      for (const id of pinned) this.pinnedIds.add(id)
     })
 
     // sink 路由：EventBus 单例 → 按 sessionId 找到对应 SessionStore（单写者）
@@ -921,6 +928,37 @@ export class Engine {
   }
 
   /**
+   * 置顶/取消置顶（工单 19.41 / V2-23 置顶半边）：写删 `<jsonl>.pinned` 标记（事实源，
+   * 与归档同口径——管理面 REST、不入事件流：置顶对模型不可见，不触 surface 纪律）
+   * + 内存登记 + 索引列同步（列表排序第一键）。幂等：重复置顶无副作用。
+   */
+  async pinSession(id: SessionId, pinned: boolean): Promise<SessionMeta> {
+    this.assertNotShutdown()
+    const path = await this.locateSessionFile(id)
+    const marker = `${path}.pinned`
+    if (pinned) {
+      writeFileSync(marker, new Date().toISOString(), 'utf8')
+      this.pinnedIds.add(id)
+    } else {
+      rmSync(marker, { force: true })
+      this.pinnedIds.delete(id)
+    }
+    this.index.setPinned(id, pinned)
+    this.logger.info(pinned ? 'session.pinned' : 'session.unpinned', { sid: id })
+    const loaded = this.sessions.get(id)?.meta
+    const base: SessionMeta = loaded ?? {
+      id,
+      title: '',
+      model: '',
+      cwd: '',
+      createdAt: 0,
+      updatedAt: 0,
+      lastSeq: 0,
+    }
+    return pinned ? { ...base, pinned: true } : base
+  }
+
+  /**
    * 两段式安全删除（与 AGENTS §2.10 不删除哲学同构）：① 关闭在途（loaded 先停
    * run-loop + flush close——Windows 文件锁）；② JSONL rename 进 ~/.spark/trash/
    * （同盘原子，可人工找回）→ 成功才清标记与索引行；移动失败原样保留（失败闭合）。
@@ -952,6 +990,9 @@ export class Engine {
       throw new Error(`E_DELETE_FAILED: 会话文件移入 trash 失败：${errText(err)}`)
     }
     rmSync(`${path}.archived`, { force: true })
+    // 置顶标记随会话一并清理（工单 19.41；标记是目录内文件，不清会成孤儿并被 boot 误认）
+    rmSync(`${path}.pinned`, { force: true })
+    this.pinnedIds.delete(id)
     this.index.remove(id)
     this.archivedIds.delete(id)
     this.archivedAtById.delete(id)
@@ -2109,7 +2150,12 @@ export class Engine {
         return at !== undefined ? { ...m, archivedAt: at } : m
       })
     }
-    out.sort((a, b) => b.updatedAt - a.updatedAt)
+    // 置顶注入（工单 19.41：同样"仅已置顶携带"）+ 排序第一键（置顶恒在前，其次更新时间）
+    out = out.map((m) => (this.pinnedIds.has(m.id) ? { ...m, pinned: true } : m))
+    out.sort((a, b) => {
+      const rank = (m: SessionMeta): number => (m.pinned === true ? 1 : 0)
+      return rank(b) - rank(a) || b.updatedAt - a.updatedAt
+    })
     return out
   }
 

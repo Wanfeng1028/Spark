@@ -97,6 +97,7 @@ export function assembleClient<T extends Transport>(transport: T): SparkClient<T
       compact: (sessionId) => transport.compact(sessionId),
       fork: (sessionId, fromEventId) => transport.fork(sessionId, fromEventId),
       archive: (sessionId, archived) => transport.archiveSession(sessionId, archived),
+      pin: (sessionId, pinned) => transport.pinSession(sessionId, pinned),
       remove: (sessionId) => transport.deleteSession(sessionId),
       trace: (sessionId) => transport.getSessionTrace(sessionId),
       tree: (sessionId) => transport.getTree(sessionId),

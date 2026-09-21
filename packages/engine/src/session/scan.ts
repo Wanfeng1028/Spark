@@ -135,6 +135,29 @@ export async function scanArchivedMarkers(
   return { ids, at }
 }
 
+/**
+ * 置顶标记扫描（工单 19.41 / V2-23 置顶半边）：`<file>.pinned` 标记 = 置顶的事实源。
+ * 与归档同口径——管理面 REST、不入事件流（置顶对模型不可见，不触 surface 纪律），
+ * 且旧会话文件无需迁移即可回落未置顶。
+ */
+export async function scanPinnedMarkers(sessionsRoot: string): Promise<SessionId[]> {
+  const ids: SessionId[] = []
+  try {
+    const dirs = await readdir(sessionsRoot, { withFileTypes: true })
+    for (const dir of dirs) {
+      if (!dir.isDirectory()) continue
+      for (const file of await readdir(join(sessionsRoot, dir.name))) {
+        if (!file.endsWith('.jsonl.pinned')) continue
+        const id = idOfFileName(file.slice(0, -'.pinned'.length))
+        if (id !== null) ids.push(id)
+      }
+    }
+  } catch {
+    // sessions 目录缺失 = 无置顶
+  }
+  return ids
+}
+
 /** 磁盘扫描 header.parentSession === id 的会话 → 边界事件 + 子会话信息（标题须读事件） */
 export async function scanForkChildren(
   sessionsRoot: string,

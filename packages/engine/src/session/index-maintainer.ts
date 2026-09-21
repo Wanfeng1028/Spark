@@ -19,6 +19,7 @@ function metaToRow(m: SessionMeta): SessionIndexRow {
     createdAt: m.createdAt,
     updatedAt: m.updatedAt,
     lastSeq: m.lastSeq,
+    pinned: m.pinned === true,
   }
 }
 
@@ -65,6 +66,16 @@ export class SessionIndexMaintainer {
   }
 
   /** 装载点 upsert：以内存 meta 全量覆盖索引行 */
+  /** 置顶同步（工单 19.41）：坏/降级即跳过——索引是加速件，标记文件才是事实源 */
+  setPinned(id: SessionId, pinned: boolean): void {
+    if (this.index === null || this.broken || this.closed) return
+    try {
+      this.index.setPinned(id, pinned)
+    } catch (err) {
+      this.disable(err, 'session.index.pin.error')
+    }
+  }
+
   upsert(meta: SessionMeta): void {
     if (this.index === null || this.broken || this.closed) return
     try {

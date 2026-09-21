@@ -146,4 +146,17 @@ describe('设置路由：archive / network / certificates（阶段十九 19.13�
     await f.app.close()
     await f.engine.shutdown()
   })
+
+  test('置顶会话永不被自动归档（工单 19.41；DESIGN §13 自动归档排除项）', async () => {
+    const { dueForAutoArchive } = await import('@spark/engine/internal')
+    const stale = NOW - 40 * DAY
+    expect(dueForAutoArchive({ id: 'ses_plain', status: 'idle', updatedAt: stale }, 30, NOW)).toBe(true)
+    expect(
+      dueForAutoArchive({ id: 'ses_pinned', status: 'idle', updatedAt: stale, pinned: true }, 30, NOW),
+    ).toBe(false)
+    // pinned 缺省（未置顶不携带字段）不得被误判为置顶
+    expect(
+      dueForAutoArchive({ id: 'ses_absent', status: 'idle', updatedAt: stale, pinned: undefined }, 30, NOW),
+    ).toBe(true)
+  })
 })

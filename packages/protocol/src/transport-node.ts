@@ -276,6 +276,14 @@ export class HttpTransport implements Transport {
     })
   }
 
+  /** 置顶/取消置顶（工单 19.41） */
+  pinSession(sessionId: SessionId, pinned: boolean): Promise<SessionDto> {
+    return this.req<SessionDto>(`/api/sessions/${sessionId}/pin`, {
+      method: 'PUT',
+      body: JSON.stringify({ pinned }),
+    })
+  }
+
   /** 两段式删除（工单 12.4）：confirm 由本方法恒带（客户端 API 不裸删） */
   deleteSession(sessionId: SessionId): Promise<void> {
     return this.req<void>(`/api/sessions/${sessionId}`, {

@@ -45,6 +45,8 @@ export interface Transport {
   listSessions(archived?: boolean): Promise<SessionDto[]>
   /** 归档/恢复（工单 12.4）：archived=true 归档，false 恢复 */
   archiveSession(sessionId: SessionId, archived: boolean): Promise<SessionDto>
+  /** 置顶/取消置顶（阶段十九 19.41 / V2-23）：PUT /api/sessions/:id/pin；列表排序第一键 */
+  pinSession(sessionId: SessionId, pinned: boolean): Promise<SessionDto>
   /** 两段式删除：JSONL 移入 ~/.spark/trash/（可人工找回）；运行中会话 409 */
   deleteSession(sessionId: SessionId): Promise<void>
   /**

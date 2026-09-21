@@ -31,6 +31,8 @@ export function sessionMetaDtoOf(meta: SessionMeta, status: SessionMetaDto['stat
     ...(meta.effort !== undefined ? { effort: meta.effort } : {}),
     // 工单 12.4：归档时刻透传（仅已归档携带）
     ...(meta.archivedAt !== undefined ? { archivedAt: meta.archivedAt } : {}),
+    // 工单 19.41：置顶透传（仅已置顶携带——未置顶不写 false，同 archivedAt 禁假状态口径）
+    ...(meta.pinned === true ? { pinned: true } : {}),
   }
 }
 

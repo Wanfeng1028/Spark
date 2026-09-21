@@ -12,7 +12,7 @@ import type { CheckpointDto } from '@spark/protocol'
 import { RenameSessionSchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
-import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FsTreeQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, DeleteSessionBody, AttachmentFileParams, ArenaWinnerBody, ArenaHistoryQuery } from './shared.js'
+import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FsTreeQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, PinBody, DeleteSessionBody, AttachmentFileParams, ArenaWinnerBody, ArenaHistoryQuery } from './shared.js'
 
 export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
   const { engine } = opts
@@ -310,6 +310,14 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
     const { id } = parseOr400(IdParams, req.params)
     const body = parseOr400(ArchiveBody, req.body)
     const meta = await engine.archiveSession(id, body.archived)
+    return reply.send(toDto(engine, meta))
+  })
+
+  /** PUT /api/sessions/:id/pin {pinned: boolean}：置顶/取消（工单 19.41；列表排序第一键） */
+  app.put('/api/sessions/:id/pin', async (req, reply) => {
+    const { id } = parseOr400(IdParams, req.params)
+    const body = parseOr400(PinBody, req.body)
+    const meta = await engine.pinSession(id, body.pinned)
     return reply.send(toDto(engine, meta))
   })
 

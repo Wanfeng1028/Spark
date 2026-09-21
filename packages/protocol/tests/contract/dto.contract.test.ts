@@ -3780,7 +3780,8 @@ describe('契约：api.SessionMetaDtoSchema', () => {
     "status": "idle",
     "branch": "contract-sample",
     "effort": "low",
-    "archivedAt": "contract-sample"
+    "archivedAt": "contract-sample",
+    "pinned": false
   }
 
   it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
@@ -3866,6 +3867,10 @@ describe('契约：api.SessionMetaDtoSchema', () => {
 
   it('字段 archivedAt 类型错 → 解析失败', () => {
     expect(() => api.SessionMetaDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["archivedAt"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 pinned 类型错 → 解析失败', () => {
+    expect(() => api.SessionMetaDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["pinned"] = "not-a-boolean"; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
