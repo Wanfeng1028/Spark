@@ -907,6 +907,12 @@ export class MockTransport implements Transport {
     sandbox: { network: { ...SANDBOX_NETWORK_DEFAULTS } },
     // 语义检索总开关（阶段十九 19.8 / ADR D51）：mock 缺省开（但无提供方 → available:false）
     embedding: { enabled: true },
+    // 自动归档策略（阶段十九 19.13）：mock 缺省关 + 30 天
+    archive: { autoArchive: false, afterDays: 30 },
+    // 全局出网代理（阶段十九 19.13）：mock 缺省空（不设）
+    network: { proxy: '', noProxy: '' },
+    // 自定义证书（阶段十九 19.13）：mock 无注入 → null
+    certificates: { nodeExtraCaCerts: null },
     restartRequired: [...SETTINGS_RESTART_REQUIRED],
     models: { defaultModel: 'deepseek/deepseek-chat', defaultEffort: null },
   }
@@ -946,6 +952,24 @@ export class MockTransport implements Transport {
               headless: patch.browser.headless ?? prev.browser?.headless ?? true,
               defaultTimeoutMs: patch.browser.defaultTimeoutMs ?? prev.browser?.defaultTimeoutMs ?? 30000,
               userAgent: patch.browser.userAgent ?? prev.browser?.userAgent ?? '',
+            },
+          }
+        : {}),
+      // 自动归档策略（阶段十九 19.13）：逐字段合并，显式 undefined 不覆盖现值
+      ...(patch.archive !== undefined
+        ? {
+            archive: {
+              autoArchive: patch.archive.autoArchive ?? prev.archive?.autoArchive ?? false,
+              afterDays: patch.archive.afterDays ?? prev.archive?.afterDays ?? 30,
+            },
+          }
+        : {}),
+      // 全局出网代理（阶段十九 19.13）：逐字段合并
+      ...(patch.network !== undefined
+        ? {
+            network: {
+              proxy: patch.network.proxy ?? prev.network?.proxy ?? '',
+              noProxy: patch.network.noProxy ?? prev.network?.noProxy ?? '',
             },
           }
         : {}),

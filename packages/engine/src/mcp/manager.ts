@@ -66,10 +66,18 @@ function defaultTransport(name: string, cfg: McpServerConfig): Transport {
   if (cfg.command === undefined) {
     throw new Error(`MCP server ${name} 配置缺 command（stdio transport 必填）`)
   }
+  // 全局出网代理（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：spark.json network.proxy/noProxy
+  // 以 env 注入子进程（MCP server 自己发起的请求才走代理——尊重环境变量的客户端才生效）。
+  // 用户显式写的 cfg.env 优先（同键不覆盖——用户配置是更具体的意图）。
+  const proxyEnv = this.deps.proxyEnv?.()
+  const merged =
+    proxyEnv !== undefined && cfg.env !== undefined
+      ? { ...proxyEnv, ...cfg.env }
+      : (proxyEnv ?? cfg.env)
   return new StdioClientTransport({
     command: cfg.command,
     ...(cfg.args !== undefined ? { args: cfg.args } : {}),
-    ...(cfg.env !== undefined ? { env: cfg.env } : {}),
+    ...(merged !== undefined ? { env: merged } : {}),
   })
 }
 
@@ -129,6 +137,8 @@ export interface McpManagerDeps {
   toolTimeoutMs: number
   /** 测试注入 transport 工厂（缺省 stdio spawn） */
   transportFactory?: (server: McpServerConfig) => Transport
+  /** 全局出网代理 env（阶段十九 19.13）：getter 现读 spark.json network；undefined = 不注入 */
+  proxyEnv?: () => Record<string, string> | undefined
 }
 
 export class McpManager {

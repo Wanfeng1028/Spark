@@ -135,6 +135,10 @@ import { makeComputerTools } from './tools/builtin/computer.js'
 import { createComputerExecutor, type ComputerExecutor } from './computer/executor.js'
 import { SandboxNetworkProxy } from './sandbox/proxy.js'
 import { resolveEmbeddingProvider, HttpEmbeddingClient, type EmbeddingProviderInfo } from './embedding/client.js'
+import { DEFAULT_AFTER_DAYS, selectDueForAutoArchive } from './session/archive-policy.js'
+import { proxyFetchFor } from './proxy-fetch.js'
+import { DEFAULT_AFTER_DAYS, selectDueForAutoArchive } from './session/archive-policy.js'
+import { proxyFetchFor } from './proxy-fetch.js'
 import { VectorStore } from './vector/store.js'
 import { SemanticIndexer, mergeMemories, mergeEvents, snippetOf } from './vector/semantic.js'
 
@@ -479,6 +483,14 @@ export class Engine {
     //（工具经 getter 执行期读状态——mode/allowlist 热档，port 重启档）。构造期绑定失败
     // 不抛（引擎照常启动），代理留 fail-closed 态由 bash 拒跑，如实可查。
     void this.reconcileSandboxNetwork()
+    // 自动归档巡检（阶段十九 19.13）：6 小时一轮 + unref（不拖进程退出）；
+    // 开关现读（this.config 热替换），关时每轮空转返回
+    const archiveTimer = setInterval(() => {
+      void this.runArchiveSweep().catch((err: unknown) => {
+        this.logger.warn('archive.sweep.error', { err })
+      })
+    }, 6 * 60 * 60 * 1000)
+    archiveTimer.unref()
     registerBuiltinTools(this.registry, {
       bashSandbox: this.config.spark.engine.bashSandbox,
       // bash 常驻会话（阶段十九 19.3 / ADR D45）：getter 执行期读，主开关热档
@@ -518,6 +530,9 @@ export class Engine {
       config: loadMcpConfig(this.root),
       logger: this.logger,
       toolTimeoutMs: this.config.spark.engine.toolTimeoutMs,
+      // 全局出网代理 env（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：getter 现读，
+      // MCP server 自身发起的请求经环境变量走代理（尊重代理设置的客户端才生效）
+      proxyEnv: () => this.globalProxyEnv(),
     })
     this.mcpReady = this.mcp.connect(this.registry).catch((err: unknown) => {
       this.logger.warn('mcp.connect.error', { err })
@@ -572,6 +587,7 @@ export class Engine {
           semantic = new SemanticIndexer({
             client: new HttpEmbeddingClient({
               baseUrl,
+              fetchImpl: this.engineFetchFor(providerCfg?.proxy),
               apiKey:
                 providerCfg?.apiKeyEnv != null
                   ? resolveApiKey(this.secrets, embProvider.providerId, providerCfg.apiKeyEnv).apiKey
@@ -1481,6 +1497,9 @@ export class Engine {
   testModel(providerId: string): Promise<ModelTestResultDto> {
     return testProvider(providerId, this.config.models, {
       resolveKey: (provider, apiKeyEnv) => resolveApiKey(this.secrets, provider, apiKeyEnv),
+      // 全局出网代理（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：显式传入即覆盖
+      // model-catalog 内的 per-provider 兜底（provider.proxy 仍作次选）
+      fetchImpl: this.engineFetchFor(this.config.models.providers[providerId]?.proxy),
     })
   }
 
@@ -1523,6 +1542,18 @@ export class Engine {
       },
       // 语义检索总开关（阶段十九 19.8 / ADR D51）：未配置时缺省开（有提供方即用）
       embedding: { enabled: this.config.spark.embedding?.enabled ?? true },
+      // 自动归档策略（阶段十九 19.13）：未配置时缺省关 + 30 天
+      archive: {
+        autoArchive: this.config.spark.archive?.autoArchive ?? false,
+        afterDays: this.config.spark.archive?.afterDays ?? DEFAULT_AFTER_DAYS,
+      },
+      // 全局出网代理（阶段十九 19.13）：未配置时缺省空串（回落 per-provider 与 env）
+      network: {
+        proxy: this.config.spark.network?.proxy ?? '',
+        noProxy: this.config.spark.network?.noProxy ?? '',
+      },
+      // 自定义证书（阶段十九 19.13 / V2-06 收口）：只读回显——运行期注入不生效
+      certificates: { nodeExtraCaCerts: process.env.NODE_EXTRA_CA_CERTS ?? null },
     }
     return dto
   }
@@ -1581,6 +1612,61 @@ export class Engine {
       proxy.markFailed(`代理启动失败：${errText(err)}`)
       this.logger.warn('sandbox.proxy.start_failed', { port, err })
     }
+  }
+
+  // ---- 自动归档（阶段十九 19.13）----
+
+  /**
+   * 自动归档巡检：空闲且超期 N 天的会话按手动归档同款路径归档（`<jsonl>.archived` 标记）。
+   * 开关关 / 无到期会话 → 空结果（不写盘）。单条失败不中断整轮（fail-soft——下轮自然重试；
+   * 归档是清理动作，不是正确性依赖）。
+   */
+  async runArchiveSweep(now = this.now()): Promise<{ archived: number; scanned: number }> {
+    const cfg = this.config.spark.archive
+    if (cfg?.autoArchive !== true) return { archived: 0, scanned: 0 }
+    const afterDays = cfg.afterDays ?? DEFAULT_AFTER_DAYS
+    const sessions = await this.listSessions({ archived: false })
+    const due = selectDueForAutoArchive(sessions, afterDays, now)
+    let archived = 0
+    for (const m of due) {
+      try {
+        await this.archiveSession(m.id, true)
+        archived += 1
+        this.logger.info('archive.auto', { id: m.id, afterDays })
+      } catch (err) {
+        this.logger.warn('archive.auto.error', { id: m.id, err })
+      }
+    }
+    return { archived, scanned: sessions.length }
+  }
+
+  /** 全局出网代理 URL（spark.json network.proxy；空 = 不设——回落 per-provider/env） */
+  private globalProxy(): string | undefined {
+    const p = this.config.spark.network?.proxy?.trim()
+    return p === undefined || p === '' ? undefined : p
+  }
+
+  /** 全局代理 env（阶段十九 19.13）：spark.json network.proxy/noProxy → 子进程环境变量。
+   *  未设全局代理 → undefined（子进程继承进程环境，零变化）。 */
+  private globalProxyEnv(): Record<string, string> | undefined {
+    const proxy = this.globalProxy()
+    if (proxy === undefined) return undefined
+    const noProxy = this.config.spark.network?.noProxy?.trim() ?? ''
+    return {
+      HTTP_PROXY: proxy,
+      http_proxy: proxy,
+      HTTPS_PROXY: proxy,
+      https_proxy: proxy,
+      ...(noProxy !== '' ? { NO_PROXY: noProxy, no_proxy: noProxy } : {}),
+    }
+  }
+
+  /** 引擎出网 fetch（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：全局代理 > per-provider >
+   *  环境变量 > 全局 fetch。用于 embedding / 模型连通测试等非 LLM 出口（LLM 链路的
+   *  per-provider 装配不变）。 */
+  engineFetchFor(providerProxy?: string | undefined): typeof fetch | undefined {
+    const fn = proxyFetchFor(this.globalProxy() ?? providerProxy)
+    return fn as unknown as typeof fetch | undefined
   }
 
   /** GET /api/sandbox/network：代理运行时状态（未建实例 = 未启动） */

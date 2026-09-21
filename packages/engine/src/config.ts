@@ -7,9 +7,9 @@ import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { BrowserSettingsSchema,
+import { ArchiveSettingsSchema, BrowserSettingsSchema, NetworkSettingsSchema,
   EngineSettingsShape, SandboxNetworkSettingsSchema, SettingsHooksSchema, SettingsPromptsSchema } from '@spark/protocol'
-import type { EngineSettings, ReasoningEffort, SandboxNetworkSettings, SettingsHooks, SettingsPrompts } from '@spark/protocol'
+import type { ArchiveSettings, EngineSettings, NetworkSettings, ReasoningEffort, SandboxNetworkSettings, SettingsHooks, SettingsPrompts } from '@spark/protocol'
 import { errText } from './errs.js'
 
 /** E_CONFIG（§5.10）：进程退出 + stderr 的载体由启动方（server）负责 */
@@ -73,6 +73,10 @@ const sparkSchema = z.object({
       enabled: z.boolean().optional(),
     })
     .optional(),
+  /** 自动归档策略（阶段十九 19.13）：热档（sweep 现读；缺省关 + 30 天） */
+  archive: ArchiveSettingsSchema.partial().optional(),
+  /** 全局出网代理（阶段十九 19.13，翻案 12.9）：热档（每次出网现读；缺省空 = 不设） */
+  network: NetworkSettingsSchema.partial().optional(),
 })
 
 export interface SparkConfig {
@@ -109,6 +113,10 @@ export interface SparkConfig {
     | undefined
   /** 语义检索总开关（阶段十九 19.8 / ADR D51；可选——缺省 enabled=true） */
   embedding?: { enabled?: boolean | undefined } | undefined
+  /** 自动归档策略（阶段十九 19.13；可选宽松形——缺省 autoArchive=false / afterDays=30） */
+  archive?: { autoArchive?: boolean | undefined; afterDays?: number | undefined } | undefined
+  /** 全局出网代理（阶段十九 19.13；可选宽松形——缺省空串 = 不设全局代理） */
+  network?: { proxy?: string | undefined; noProxy?: string | undefined } | undefined
 }
 
 const SPARK_DEFAULTS: SparkConfig = {
@@ -335,6 +343,8 @@ export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfi
             browser: p.browser, // 阶段十九 19.12 / ADR D49：原样透传（undefined = engine.ts 侧取默认）
             sandbox: p.sandbox, // 阶段十九 19.7 / ADR D50：原样透传（undefined = mode off 不拦截）
             embedding: p.embedding, // 阶段十九 19.8 / ADR D51：原样透传（undefined = 缺省开）
+            archive: p.archive, // 阶段十九 19.13：原样透传（undefined = 关 + 30 天）
+            network: p.network, // 阶段十九 19.13：原样透传（undefined = 不设全局代理）
           }
         })()
 

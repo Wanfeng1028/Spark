@@ -184,6 +184,24 @@ export function persistSparkPatch(root: string, patch: SettingsUpdate): EngineCo
     }
     raw['sandbox'] = { ...cur, network: net }
   }
+  // 自动归档策略（阶段十九 19.13）：archive 段逐字段合并（热档）
+  if (patch.archive !== undefined) {
+    const cur = (raw['archive'] as Record<string, unknown> | undefined) ?? {}
+    const seg: Record<string, unknown> = { ...cur }
+    for (const [k, v] of Object.entries(patch.archive)) {
+      if (v !== undefined) seg[k] = v
+    }
+    raw['archive'] = seg
+  }
+  // 全局出网代理（阶段十九 19.13）：network 段逐字段合并（热档）
+  if (patch.network !== undefined) {
+    const cur = (raw['network'] as Record<string, unknown> | undefined) ?? {}
+    const seg: Record<string, unknown> = { ...cur }
+    for (const [k, v] of Object.entries(patch.network)) {
+      if (v !== undefined) seg[k] = v
+    }
+    raw['network'] = seg
+  }
   // 语义检索总开关（阶段十九 19.8 / ADR D51）：embedding 段逐字段合并（热档）
   if (patch.embedding !== undefined) {
     const cur = (raw['embedding'] as Record<string, unknown> | undefined) ?? {}

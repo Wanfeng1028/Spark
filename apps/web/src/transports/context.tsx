@@ -9,6 +9,13 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { SessionId, SparkEventEnvelope, Transport } from '@spark/protocol'
+import { notifyTask } from '@/hooks/useNotifyPrefs'
+
+/** 任务通知触发源事件（阶段十九 19.13）：回合终止/审批待处理三类 */
+const TASK_NOTIFY_EVENTS: ReadonlySet<SparkEventEnvelope['type']> = new Set([
+  'turn.completed',
+  'permission.asked',
+])
 import { createClient } from '@spark/sdk'
 import { useSessionStore } from '@/stores/session'
 import { useConnectionStore } from '@/stores/connection'
@@ -90,6 +97,9 @@ export function TransportProvider({ children }: { children: ReactNode }) {
         useSessionStore.getState().applyEvent(e)
         if (e.seq !== undefined) useConnectionStore.getState().noteSeq(e.seq)
       }
+      // 任务通知（阶段十九 19.13）：本帧出现回合终止类事件 → 按本地偏好发通知/提示音
+      // （页面在前台时不发——notifyTask 内部判定 visibilityState）
+      if (batch.some((e) => TASK_NOTIFY_EVENTS.has(e.type))) notifyTask('Spark', '任务有更新')
     }
     const off = transport.onEvent((e) => {
       // AUD-08：该会话回放进行中 → 事件进协调器缓冲（快照提交后补应用），

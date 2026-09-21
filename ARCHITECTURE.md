@@ -62,6 +62,7 @@
 | v1.60 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"） | **新增 D49 浏览器设置 = browser 独立段重启档（阶段十九 19.12；doc/02 v4.76 同批）**：headless/超时/UA 进 spark.json browser 段（driver/工具选项贯通）+ 截图清理白名单单源。19.6 spike 报告（doc/spike-win-sandbox.md）归不可行分支待晚风拍板（替代案 A/B/C），D15 判决注记待拍板后补。本机零验证，CI 裁决 |
 | v1.61 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D50 沙箱网络隔离 = 本地出口过滤代理 + 域名 allowlist（阶段十九 19.7，翻案 D15"网络隔离 v1 不做"登记；doc/02 v4.78 同批）**：spark.json `sandbox.network` 段（mode/allowlist 热档 + port 重启档）；引擎 sandbox/proxy.ts 零新依赖手写——SOCKS5 无鉴权+CONNECT 与 HTTP CONNECT 同端口按首字节分流，未命中 0x02/403、上游失败 0x01/502、未就绪 E_SANDBOX_NETWORK_UNAVAILABLE fail-closed 拒跑不降级；bash 出口引导 spawn env + 常驻逐命令 export 前缀（socks5h 让代理解析主机名——清单按域名判定的前提）；web「沙箱与网络」页 + CLI /sandbox 面板 + GET /api/sandbox/network。**诚实边界**：出口域名过滤而非内核隔离（尊重代理变量的客户端才走过滤；OS 级强制归 19.6）。本机零验证，CI 裁决 |
 | v1.62 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D51 向量语义检索 = 提供方抽象 + 派生向量库 + 语义/关键词合流（阶段十九 19.8，翻案 D25"向量后置"登记 + 消解 V2-18；doc/02 v4.79 同批）**：models.json provider embeddings 声明 + OpenAI 兼容 /embeddings fetch 直调（零新依赖）；vectors.db 派生缓存（node:sqlite + 暴力余弦 + 维度不符跳过）；语义优先关键词兜底合流，嵌入失败 fail-soft；补嵌只嵌缺失（上限 200）；无提供方/关开关 → 端口不注入（禁假状态）。本机零验证，CI 裁决 |
+| v1.63 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D52 全局出网代理 + 自动归档 + 端侧通知（阶段十九 19.13，翻案 12.9"仅 LLM 面"登记；doc/02 v4.80 同批）**：spark.json network 段全局代理（优先级 全局>per-provider>env>fetch；MCP stdio env 注入，用户 env 同键优先）+ archive 段自动归档（idle 且超期，6 小时巡检，进行中会话永不自动归档）+ web 通知偏好（localStorage + Notification API 降级 + WebAudio 提示音，前台不发）；自定义证书只读回显（启动前注入，禁假控件）。本机零验证，CI 裁决 |
 
 ---
 
@@ -502,6 +503,12 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 背景：D25 判"向量检索后置——中文整句语义召回是已知限制"；晚风拍板翻案立项（V2-18 代码库 RAG 的会话/记忆半边）。
 决策：① **提供方抽象**：models.json `providers.<id>.embeddings = {model, dimensions?}` 声明能力，`embedding.provider` 指名（缺省文件序首个声明者）；HTTP 走 **OpenAI 兼容 /embeddings**（fetch 直调，零新依赖——本机禁下载，LLM 网关同款手法），批 16 条 + 30s 超时 + 按 index 回填保序 + 首答推断维度。② **派生向量库**：`~/.spark/vectors.db`（node:sqlite，kind='memory'|'event' + ref 主键 + content/meta 随行存 + Float32Array BLOB）；**暴力余弦 top-k**——千级规模全表扫描毫秒级，ANN 索引是负优化（且引 sqlite-vec 违反本机禁下载）；**维度不符的行跳过**（换模型的旧向量参与比较只得无意义分数，跳过比误判诚实，旧行留待重建）。③ **合流而非替换**：语义优先 + 关键词兜底去重（两路都跑——语义漏字面、关键词漏语义，中文整句 trigram 不命中正是原痛点）；嵌入失败 **fail-soft 回落关键词**，注入与搜索永不因语义悬空。
 约束与失败语义：无提供方 / 无 baseUrl / 向量库打不开 / 总开关关 → semantic 端口不注入（**禁假状态**：页面与工具不宣称"语义已启用"）；补嵌只嵌缺向量条目（单次上限 200，已嵌零重复计费）；维度不一致 → E_EMBEDDING_DIMENSION 拒混嵌；**总开关 spark.json `embedding.enabled` 热档**（缺省 true——有提供方即用）。诚实边界：向量是派生缓存（JSONL 与记忆库恒为权威，丢向量只丢语义检索不丢数据）；不接本地 embedding 模型（下载依赖违反 §2.3a，留作重评触发项）；真实模型走查留用户。
+
+### D52 全局出网代理 + 自动归档 + 端侧通知（2026-09-20，阶段十九工单 19.13，翻案 12.9"仅 LLM 面"登记）
+
+背景：12.9 判"出网代理仅 LLM 面（per-provider proxy + env 兜底）"，MCP/命令工具出口与全局代理登记为不做；常规页代理/证书/归档/通知四组占位行待接线。
+决策：① **全局代理**：spark.json `network.proxy/noProxy`（热档）作为引擎出网总闸——优先级 全局 > per-provider > HTTPS_PROXY env > 全局 fetch；落点 = `engineFetchFor`（embedding / 模型连通测试等非 LLM 出口）与 **MCP stdio 子进程 env**（HTTP_PROXY/HTTPS_PROXY/NO_PROXY；用户 mcp.json 显式 env 同键优先——更具体的意图不被全局配置覆盖）。② **自动归档**：`archive.autoArchive/afterDays`（热档）+ 6 小时 unref 巡检；判据 = **idle 且 updatedAt 超期**（running/waiting-approval 永不自动归档——进行中的会话被藏掉是伤害）；归档走既有 `archiveSession`（`.archived` 标记同一事实源），单条失败 fail-soft 下轮重试。③ **端侧通知**：web 本地偏好（localStorage，不写 spark.json——通知是端侧偏好不是引擎行为）+ Notification API（不支持时禁用并如实呈现）+ WebAudio 合成提示音（零音频文件）+ 事件流回合终止触发（**页面可见时不发**——前台无需打扰）。
+约束与失败语义：**自定义证书不设运行时控件**——NODE_EXTRA_CA_CERTS 由 Node 进程启动时读取，运行期注入对已建立的 TLS 不生效；GET /api/settings 只读回显当前值并引导启动前设置（禁假状态：不提供"保存后生效"的假控件）。streamable-http MCP 走 Node fetch（不读代理 env）——已知限制，如实登记；全局代理只引导尊重代理设置的客户端（同 D50 边界）。
 
 ## 6. 模块速览（职责边界）
 

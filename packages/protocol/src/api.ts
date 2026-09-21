@@ -477,6 +477,37 @@ export const SANDBOX_NETWORK_DEFAULTS: SandboxNetworkSettings = {
   port: 1080,
 }
 
+/**
+ * 自动归档策略（阶段十九 19.13）：spark.json `archive` 段——热档（sweep 现读）。
+ * autoArchive=true 时，空闲会话按 afterDays 超期自动归档（`<jsonl>.archived` 标记，
+ * 与手动 PUT /api/sessions/:id/archive 同一事实源）；running/waiting-approval 永不自动归档。
+ */
+export const ArchiveSettingsSchema = z.strictObject({
+  autoArchive: z.boolean(),
+  afterDays: z.number().int().min(1).max(3650),
+})
+export type ArchiveSettings = z.infer<typeof ArchiveSettingsSchema>
+
+/**
+ * 全局出网代理（阶段十九 19.13，翻案 12.9"仅 LLM 面"登记）：spark.json `network` 段——
+ * 热档（每次出网现读）。proxy 覆盖 models.json per-provider proxy 之后的**全部引擎出网**
+ * （LLM / embedding / MCP 子进程 env / 模型连通测试）；空串 = 不设全局代理（回落
+ * per-provider 与 HTTPS_PROXY 环境变量）。noProxy = 逗号分隔主机规则（透传子进程 env）。
+ */
+export const NetworkSettingsSchema = z.strictObject({
+  proxy: z.string().max(500),
+  noProxy: z.string().max(1000),
+})
+export type NetworkSettings = z.infer<typeof NetworkSettingsSchema>
+
+/** 自定义证书信息（阶段十九 19.13 / V2-06 收口）：**只读**——NODE_EXTRA_CA_CERTS 由
+ * Node 在进程启动时读取，运行期注入对已建立的 TLS 不生效；本字段只如实回显当前值，
+ * 引导用户在启动前设置（禁假状态：不提供"保存后生效"的假控件）。 */
+export const CertificatesInfoSchema = z.strictObject({
+  nodeExtraCaCerts: z.string().nullable(),
+})
+export type CertificatesInfo = z.infer<typeof CertificatesInfoSchema>
+
 /** GET /api/sandbox/network：代理运行时状态（设置页/CLI 面板展示"是否在过滤出口"） */
 export const SandboxNetworkStatusDtoSchema = z.strictObject({
   /** 代理已监听（true = 出口正在过滤；false = 未启动或绑定失败） */
@@ -526,6 +557,12 @@ export const SettingsDtoSchema = z.strictObject({
       enabled: z.boolean(),
     })
     .optional(),
+  /** 自动归档策略（阶段十九 19.13）：spark.json archive 段——热档 */
+  archive: ArchiveSettingsSchema.optional(),
+  /** 全局出网代理（阶段十九 19.13，翻案 12.9）：spark.json network 段——热档 */
+  network: NetworkSettingsSchema.optional(),
+  /** 自定义证书只读信息（阶段十九 19.13 / V2-06 收口）：启动前注入，运行期只读 */
+  certificates: CertificatesInfoSchema,
   /** 需重启生效字段清单（前端标注"下次启动生效"；单一来源 SETTINGS_RESTART_REQUIRED） */
   restartRequired: z.array(z.string()),
   /** models.json 只读参考（写路径不经本端点——默认模型/档位迁移记录见工单） */
@@ -573,6 +610,10 @@ export const SettingsUpdateSchema = z.strictObject({
       enabled: z.boolean().optional(),
     })
     .optional(),
+  /** 自动归档策略（阶段十九 19.13）：archive 段逐字段合并（热档） */
+  archive: ArchiveSettingsSchema.partial().optional(),
+  /** 全局出网代理（阶段十九 19.13）：network 段逐字段合并（热档） */
+  network: NetworkSettingsSchema.partial().optional(),
 })
 export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>
 

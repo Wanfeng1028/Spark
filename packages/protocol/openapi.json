@@ -4766,6 +4766,61 @@
             ],
             "additionalProperties": false
           },
+          "archive": {
+            "type": "object",
+            "properties": {
+              "autoArchive": {
+                "type": "boolean"
+              },
+              "afterDays": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3650
+              }
+            },
+            "required": [
+              "autoArchive",
+              "afterDays"
+            ],
+            "additionalProperties": false
+          },
+          "network": {
+            "type": "object",
+            "properties": {
+              "proxy": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "noProxy": {
+                "type": "string",
+                "maxLength": 1000
+              }
+            },
+            "required": [
+              "proxy",
+              "noProxy"
+            ],
+            "additionalProperties": false
+          },
+          "certificates": {
+            "type": "object",
+            "properties": {
+              "nodeExtraCaCerts": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "nodeExtraCaCerts"
+            ],
+            "additionalProperties": false
+          },
           "restartRequired": {
             "type": "array",
             "items": {
@@ -4804,6 +4859,7 @@
         "required": [
           "server",
           "engine",
+          "certificates",
           "restartRequired",
           "models"
         ],
@@ -5159,6 +5215,34 @@
             "properties": {
               "enabled": {
                 "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "archive": {
+            "type": "object",
+            "properties": {
+              "autoArchive": {
+                "type": "boolean"
+              },
+              "afterDays": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3650
+              }
+            },
+            "additionalProperties": false
+          },
+          "network": {
+            "type": "object",
+            "properties": {
+              "proxy": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "noProxy": {
+                "type": "string",
+                "maxLength": 1000
               }
             },
             "additionalProperties": false

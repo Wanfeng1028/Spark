@@ -4,8 +4,11 @@
  * 会话域显示开关（显示思考过程/工具分组）接 settings-store 即存即生效（工单 10.20 A③）；
  * 引擎行为卡（压缩阈值/最大步数/工具超时/输出上限/沙箱档）走 GET|PUT /api/settings
  * （工单 10.20 B / D28：热档下一 turn 生效，重启档标注"下次启动生效"）；
- * 其余字段分卡明示去向（精确 v2 编号）——界面语言 V2-12 / 代理与证书 V2-06；
- * 终端/托盘/更新为 desktop 特化（徽标+占位页文案明示，web 端不提供）。
+ * 阶段十九 19.13：代理/证书/归档/通知四组占位行转真控件——全局出网代理 + NO_PROXY
+ * （spark.json network 段，翻案 12.9"仅 LLM 面"）、自动归档策略（archive 段）、
+ * 任务通知与提示音（web 本地偏好 + Notification API 降级面）；自定义证书只读回显
+ * （NODE_EXTRA_CA_CERTS 启动前注入，运行期不生效——不设假控件）。
+ * 界面语言一行明示阶段十九 19.17 已立项；终端/托盘/更新为 desktop 特化（web 不提供）。
  * 「显示待办」不设开关：引擎无 Todo 工具，不留无效开关（工单 10.20 拍板）。
  */
 import { useEffect, useMemo, useState } from 'react'
@@ -20,6 +23,7 @@ import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { useNotifyPrefs } from '@/hooks/useNotifyPrefs'
 
 const DELIVERY_OPTIONS: { value: Delivery; label: string }[] = [
   { value: 'now', label: '立即' },
@@ -42,6 +46,162 @@ function RestartBadge() {
     >
       下次启动生效
     </span>
+  )
+}
+
+
+/** 全局出网代理（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：spark.json network 段读写（热档） */
+function NetworkProxySection() {
+  const { transport } = useTransport()
+  const { data, refresh } = useTransportQuery((t) => t.getSettings())
+  const { busy, opError, run } = useAsyncOp()
+  const [proxy, setProxy] = useState('')
+  const [noProxy, setNoProxy] = useState('')
+
+  useEffect(() => {
+    if (data === null) return
+    setProxy(data.network?.proxy ?? '')
+    setNoProxy(data.network?.noProxy ?? '')
+  }, [data])
+
+  async function save(): Promise<void> {
+    await run(async () => {
+      await transport.updateSettings({
+        network: { proxy: proxy.trim(), noProxy: noProxy.trim() },
+      })
+      await refresh()
+    })
+  }
+
+  return (
+    <SettingGroupCard>
+      <SettingRow
+        title="HTTP 代理"
+        description="全局出网代理（http/https URL）——覆盖 LLM/embedding/MCP 子进程 env/连通测试全部引擎出口；留空 = 不设（回落 per-provider 与 HTTPS_PROXY 环境变量）"
+      >
+        <Input
+          value={proxy}
+          onChange={(e) => setProxy(e.target.value)}
+          aria-label="HTTP 代理"
+          placeholder="http://127.0.0.1:7890"
+          className="h-7 w-56 font-mono text-xs"
+        />
+      </SettingRow>
+      <SettingRow title="不使用代理的地址" description="逗号分隔主机规则（如 localhost,127.0.0.1,*.internal）——匹配主机直连">
+        <Input
+          value={noProxy}
+          onChange={(e) => setNoProxy(e.target.value)}
+          aria-label="不使用代理的地址"
+          placeholder="localhost,127.0.0.1"
+          className="h-7 w-56 font-mono text-xs"
+        />
+      </SettingRow>
+      <div className="flex items-center gap-2 px-4 py-3">
+        <Button type="button" variant="outline" disabled={busy} onClick={() => void save()}>
+          保存
+        </Button>
+        {opError !== null && <span className="font-mono text-xs text-destructive">{opError}</span>}
+        <span className="text-xs text-muted-foreground">
+          热档即时生效。边界：只引导尊重代理设置的客户端；streamable-http MCP 走 Node fetch
+          （不读代理 env），stdio MCP 经注入 env 生效。
+        </span>
+      </div>
+    </SettingGroupCard>
+  )
+}
+
+/** 自动归档策略（阶段十九 19.13）：spark.json archive 段读写（热档，6 小时巡检一轮） */
+function ArchivePolicySection() {
+  const { transport } = useTransport()
+  const { data, refresh } = useTransportQuery((t) => t.getSettings())
+  const { busy, opError, run } = useAsyncOp()
+  const [autoArchive, setAutoArchive] = useState(false)
+  const [afterDays, setAfterDays] = useState('30')
+
+  useEffect(() => {
+    if (data === null) return
+    setAutoArchive(data.archive?.autoArchive ?? false)
+    setAfterDays(String(data.archive?.afterDays ?? 30))
+  }, [data])
+
+  async function save(): Promise<void> {
+    const n = Number(afterDays.trim())
+    if (!Number.isInteger(n) || n < 1 || n > 3650) {
+      return
+    }
+    await run(async () => {
+      await transport.updateSettings({ archive: { autoArchive, afterDays: n } })
+      await refresh()
+    })
+  }
+
+  return (
+    <SettingGroupCard>
+      <SettingRow
+        title="自动归档旧会话"
+        description="开启后，空闲（idle）且超过 N 天无活动的会话自动归档（与手动归档同一 .archived 标记，可随时取消）"
+      >
+        <Switch aria-label="自动归档旧会话" checked={autoArchive} onChange={setAutoArchive} />
+      </SettingRow>
+      <SettingRow title="超期天数" description="1~3650 天；进行中（running）与等待审批的会话永不自动归档">
+        <Input
+          value={afterDays}
+          onChange={(e) => setAfterDays(e.target.value)}
+          aria-label="超期天数"
+          placeholder="30"
+          className="h-7 w-20 font-mono text-xs"
+          inputMode="numeric"
+        />
+      </SettingRow>
+      <div className="flex items-center gap-2 px-4 py-3">
+        <Button type="button" variant="outline" disabled={busy} onClick={() => void save()}>
+          保存
+        </Button>
+        {opError !== null && <span className="font-mono text-xs text-destructive">{opError}</span>}
+        <span className="text-xs text-muted-foreground">热档即时生效；引擎每 6 小时巡检一轮（重启也巡）</span>
+      </div>
+    </SettingGroupCard>
+  )
+}
+
+/** 任务通知与提示音（阶段十九 19.13）：web 本地偏好（localStorage）+ Notification API 降级面。
+ *  desktop 端的任务通知/提示音开关在 desktop.json（desktop 特化），web 不跨管。 */
+function NotificationSection() {
+  const prefs = useNotifyPrefs()
+  const unsupported = typeof Notification === 'undefined'
+  return (
+    <SettingGroupCard>
+      <SettingRow
+        title="任务通知"
+        description="回合完成/失败时发系统通知（浏览器 Notification API；页面在前台时不发）"
+      >
+        <Switch
+          aria-label="任务通知"
+          checked={prefs.enabled}
+          disabled={unsupported}
+          onChange={(v) => prefs.set({ enabled: v })}
+        />
+      </SettingRow>
+      <SettingRow title="通知声音" description="通知时播放提示音（WebAudio 合成，无音频文件依赖）">
+        <Switch
+          aria-label="通知声音"
+          checked={prefs.sound}
+          disabled={!prefs.enabled}
+          onChange={(v) => prefs.set({ sound: v })}
+        />
+      </SettingRow>
+      <div className="px-4 pb-3">
+        {unsupported && (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            当前环境不支持 Notification API（非安全上下文或浏览器限制）——开关已禁用，
+            提示音仍可用。通知权限在首次触发时由浏览器询问。
+          </p>
+        )}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          偏好存本机浏览器（localStorage），不写 spark.json；desktop 端有独立开关（desktop.json）。
+        </p>
+      </div>
+    </SettingGroupCard>
   )
 }
 
@@ -212,6 +372,8 @@ export function GeneralSettingsPage() {
   const showToolGroups = useSettingsStore((s) => s.showToolGroups)
   const setShowToolGroups = useSettingsStore((s) => s.setShowToolGroups)
   const deliveryOptions = useMemo(() => DELIVERY_OPTIONS, [])
+  // 自定义证书只读回显（阶段十九 19.13 / V2-06 收口）：NODE_EXTRA_CA_CERTS 启动前注入
+  const { data: certs } = useTransportQuery((t) => t.getSettings())
 
   return (
     <div className="flex flex-col gap-5">
@@ -233,8 +395,8 @@ export function GeneralSettingsPage() {
       <SettingGroupCard>
         <SettingRow
           title="界面语言"
-          description="多语言界面——去向：v2 池 V2-12（i18n 框架）"
-          placeholderBadge="v2 挂池"
+          description="多语言界面——阶段十九 19.17 已立项（i18n 全量翻案 Q-2），本批之后交付"
+          placeholderBadge="19.17 立项"
         />
         <SettingRow
           title="显示思考过程"
@@ -265,46 +427,40 @@ export function GeneralSettingsPage() {
       {/* 引擎行为（工单 10.20 B / D28）：GET|PUT /api/settings */}
       <EngineBehaviorSection />
 
+      {/* 全局出网代理（阶段十九 19.13，翻案 12.9"仅 LLM 面"） */}
+      <NetworkProxySection />
+
       <SettingGroupCard>
         <SettingRow
-          title="HTTP 代理"
-          description="模型/MCP/命令工具出口流量代理——去向：v2 池 V2-06（代理/证书）"
-          placeholderBadge="v2 挂池"
-        />
-        <SettingRow
-          title="不使用代理的地址"
-          description="逗号分隔规则，匹配主机直连——去向：v2 池 V2-06（随代理能力）"
-          placeholderBadge="v2 挂池"
-        />
-        <SettingRow
           title="自定义证书"
-          description="PEM 路径注入（NODE_EXTRA_CA_CERTS）——去向：v2 池 V2-06（代理/证书）"
-          placeholderBadge="v2 挂池"
-        />
+          description="NODE_EXTRA_CA_CERTS 由 Node 在进程启动时读取——运行期注入对已建立的 TLS 不生效，故只读回显"
+        >
+          <span className="max-w-[280px] truncate font-mono text-xs text-muted-foreground" title={certs?.nodeExtraCaCerts ?? ''}>
+            {certs?.nodeExtraCaCerts ?? '未设置（用系统默认 CA）'}
+          </span>
+        </SettingRow>
+        <div className="px-4 pb-3">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            自签 CA 场景：启动 server 前设置环境变量（如{' '}
+            <span className="font-mono">NODE_EXTRA_CA_CERTS=/path/ca.pem</span>）再重启；
+            此处如实回显当前进程读到的值，不提供"保存后生效"的假控件。
+          </p>
+        </div>
       </SettingGroupCard>
 
       <SettingGroupCard>
         <SettingRow
           title="数据存储路径"
-          description="现固定 ~/.spark/（启动期定）；多数据目录迁移去向：v2"
-          placeholderBadge="v2 挂池"
-        />
-        <SettingRow
-          title="自动归档旧任务"
-          description="已完成且超期会话自动归档——去向：v2（需会话归档后端）"
-          placeholderBadge="v2 挂池"
-        />
-        <SettingRow
-          title="任务通知"
-          description="完成/失败/需确认时系统通知——去向：v2（通知体系）"
-          placeholderBadge="v2 挂池"
-        />
-        <SettingRow
-          title="通知声音"
-          description="通知提示音——去向：v2（随任务通知）"
-          placeholderBadge="v2 挂池"
+          description="现固定 ~/.spark/（启动期定）；多数据目录迁移已立项（阶段十九 19.16）"
+          placeholderBadge="19.16 立项"
         />
       </SettingGroupCard>
+
+      {/* 自动归档策略（阶段十九 19.13） */}
+      <ArchivePolicySection />
+
+      {/* 任务通知与提示音（阶段十九 19.13）：web 本地偏好 + Notification API 降级面 */}
+      <NotificationSection />
 
       <SettingGroupCard>
         <SettingRow title="首启引导" description="重新运行三步引导（欢迎 / 配模型 / 建会话）">
