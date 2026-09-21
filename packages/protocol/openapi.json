@@ -4074,6 +4074,24 @@
               }
             ]
           },
+          "defaultModel": {
+            "type": "string"
+          },
+          "defaultEffort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "usage": {
             "type": "object",
             "properties": {
@@ -4110,6 +4128,8 @@
           "titleModel",
           "subagentModel",
           "costLimitUsd",
+          "defaultModel",
+          "defaultEffort",
           "usage"
         ],
         "additionalProperties": false
@@ -4142,6 +4162,25 @@
               {
                 "type": "number",
                 "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "defaultModel": {
+            "type": "string",
+            "minLength": 1
+          },
+          "defaultEffort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
               },
               {
                 "type": "null"

@@ -8,7 +8,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { RoutingDto, RoutingUpdate, SettingsUpdate } from '@spark/protocol'
+import type { ReasoningEffort, RoutingDto, RoutingUpdate, SettingsUpdate } from '@spark/protocol'
 import { loadConfig, validateSparkWrite, type EngineConfig, type ModelRef } from './config.js'
 import type { ResolvedModel } from './llm-gateway.js'
 import { atomicWriteJson } from './fsutil.js'
@@ -23,6 +23,10 @@ export interface RoutingState {
   titleModel: ResolvedModel
   subagentModel: ResolvedModel
   costLimitUsd: number | undefined
+  /** 新建会话默认模型（阶段十九 19.14 / V2-37，ADR D53：models.json 单写者经本类持久化） */
+  defaultModel: ResolvedModel
+  /** 新建会话默认推理档（undefined = 不设置） */
+  defaultEffort: ReasoningEffort | undefined
 }
 
 /** 引擎侧模型解析链（resolveModelRef：字符串 → ModelRef；resolveModel：ModelRef → 解析结果） */
@@ -47,6 +51,8 @@ export class SettingsStore {
       titleModel: resolvers.resolveModel(config.models.titleModel),
       subagentModel: resolvers.resolveModel(config.models.subagentModel),
       costLimitUsd: config.models.costLimitUsd,
+      defaultModel: resolvers.resolveModel(config.models.defaultModel),
+      defaultEffort: config.models.defaultEffort,
     }
   }
 
@@ -60,6 +66,9 @@ export class SettingsStore {
       titleModel: id(this.routing.titleModel),
       subagentModel: id(this.routing.subagentModel),
       costLimitUsd: this.routing.costLimitUsd ?? null,
+      // 新建会话默认模型/档位（阶段十九 19.14 / V2-37）
+      defaultModel: id(this.routing.defaultModel),
+      defaultEffort: this.routing.defaultEffort ?? null,
       usage: {
         costUsd: spend.costUsd,
         inputTokens: spend.inputTokens,
@@ -88,6 +97,14 @@ export class SettingsStore {
     }
     if (patch.costLimitUsd !== undefined) {
       this.routing.costLimitUsd = patch.costLimitUsd ?? undefined
+    }
+    // 新建会话默认模型/档位（阶段十九 19.14 / V2-37）：经本端点写 models.json——
+    // 设置页不再另起写路径（消双写者）。显式 null 的 defaultEffort = 清除
+    if (patch.defaultModel !== undefined) {
+      this.routing.defaultModel = this.resolvers.resolveModel(this.resolvers.resolveModelRef(patch.defaultModel))
+    }
+    if (patch.defaultEffort !== undefined) {
+      this.routing.defaultEffort = patch.defaultEffort ?? undefined
     }
     this.persistRouting()
     this.logger.info('routing.update', {
@@ -122,6 +139,9 @@ export class SettingsStore {
       model: m.model,
       contextWindow: m.contextWindow,
     })
+    doc.defaultModel = toRef(this.routing.defaultModel)
+    if (this.routing.defaultEffort === undefined) delete doc.defaultEffort
+    else doc.defaultEffort = this.routing.defaultEffort
     doc.fallbacks = this.routing.fallbacks.map(toRef)
     doc.compactionModel = toRef(this.routing.compactionModel)
     doc.titleModel = toRef(this.routing.titleModel)

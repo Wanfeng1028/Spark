@@ -2937,6 +2937,8 @@ describe('契约：api.RoutingDtoSchema', () => {
     "titleModel": "contract-sample",
     "subagentModel": "contract-sample",
     "costLimitUsd": 0.5,
+    "defaultModel": "contract-sample",
+    "defaultEffort": "low",
     "usage": {
       "costUsd": 1,
       "inputTokens": 1,
@@ -2974,6 +2976,14 @@ describe('契约：api.RoutingDtoSchema', () => {
     expect(() => api.RoutingDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["costLimitUsd"]; return m })())).toThrow()
   })
 
+  it('缺必填字段 defaultModel → 解析失败', () => {
+    expect(() => api.RoutingDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["defaultModel"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 defaultEffort → 解析失败', () => {
+    expect(() => api.RoutingDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["defaultEffort"]; return m })())).toThrow()
+  })
+
   it('缺必填字段 usage → 解析失败', () => {
     expect(() => api.RoutingDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["usage"]; return m })())).toThrow()
   })
@@ -2994,6 +3004,10 @@ describe('契约：api.RoutingDtoSchema', () => {
     expect(() => api.RoutingDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["subagentModel"] = 12345; return m })())).toThrow()
   })
 
+  it('字段 defaultModel 类型错 → 解析失败', () => {
+    expect(() => api.RoutingDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["defaultModel"] = 12345; return m })())).toThrow()
+  })
+
   it('字段 usage 类型错 → 解析失败', () => {
     expect(() => api.RoutingDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["usage"] = []; return m })())).toThrow()
   })
@@ -3011,7 +3025,9 @@ describe('契约：api.RoutingUpdateSchema', () => {
     "compactionModel": "contract-sample",
     "titleModel": "contract-sample",
     "subagentModel": "contract-sample",
-    "costLimitUsd": 0.5
+    "costLimitUsd": 0.5,
+    "defaultModel": "contract-sample",
+    "defaultEffort": "low"
   }
 
   it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
@@ -3037,6 +3053,10 @@ describe('契约：api.RoutingUpdateSchema', () => {
 
   it('字段 subagentModel 类型错 → 解析失败', () => {
     expect(() => api.RoutingUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["subagentModel"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 defaultModel 类型错 → 解析失败', () => {
+    expect(() => api.RoutingUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["defaultModel"] = 12345; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {

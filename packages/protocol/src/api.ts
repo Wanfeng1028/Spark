@@ -188,6 +188,10 @@ export const RoutingDtoSchema = z.strictObject({
   subagentModel: z.string(),
   /** 成本上限美元值（null = 未配置，永不熔断） */
   costLimitUsd: z.number().positive().nullable(),
+  /** 新建会话默认模型（阶段十九 19.14 / V2-37；models.json defaultModel，热生效） */
+  defaultModel: z.string(),
+  /** 新建会话默认推理档（null = 不设置，按 provider 默认） */
+  defaultEffort: z.enum(['low', 'medium', 'high']).nullable(),
   usage: RoutingUsageDtoSchema,
 })
 export type RoutingDto = z.infer<typeof RoutingDtoSchema>
@@ -200,6 +204,11 @@ export const RoutingUpdateSchema = z.strictObject({
   subagentModel: z.string().min(1).optional(),
   /** null = 清除上限（不限） */
   costLimitUsd: z.number().positive().nullable().optional(),
+  /** 新建会话默认模型（阶段十九 19.14 / V2-37，ADR D53）：models.json 单写者——
+   *  经本端点写入，消"设置页另起写路径"的双写者；缺省 = 不改 */
+  defaultModel: z.string().min(1).optional(),
+  /** 新建会话默认推理档（阶段十九 19.14 / V2-37）：null = 清除（按 provider 默认） */
+  defaultEffort: z.enum(['low', 'medium', 'high']).nullable().optional(),
 })
 export type RoutingUpdate = z.infer<typeof RoutingUpdateSchema>
 

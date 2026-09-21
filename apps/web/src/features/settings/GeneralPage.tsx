@@ -37,8 +37,15 @@ const SANDBOX_OPTIONS: { value: 'off' | 'on'; label: string }[] = [
   { value: 'on', label: '开启（隔离）' },
 ]
 
-/** 重启档徽标（D28：构造期注入字段，写盘成功、下次启动生效） */
-function RestartBadge() {
+/**
+ * 重启档徽标（D28：构造期注入字段，写盘成功、下次启动生效）。
+ * 阶段十九 19.14：**字段清单读 GET /api/settings 的 restartRequired 数组**（单一来源），
+ * 去硬编码——新增重启档字段只改 protocol 一处，前端自动跟上。
+ */
+function RestartBadge({ field }: { field: string }) {
+  const { data } = useTransportQuery((t) => t.getSettings())
+  const hit = data?.restartRequired.includes(field) ?? false
+  if (!hit) return null
   return (
     <span
       className="shrink-0 rounded-full border border-border px-1.5 text-[10px] text-muted-foreground"
@@ -49,6 +56,70 @@ function RestartBadge() {
   )
 }
 
+
+/** 服务端监听（阶段十九 19.14）：spark.json server 段读写——**重启档**（listen 绑定级，D28） */
+function ServerBindSection() {
+  const { transport } = useTransport()
+  const { data, refresh } = useTransportQuery((t) => t.getSettings())
+  const { busy, opError, run } = useAsyncOp()
+  const [port, setPort] = useState('')
+  const [host, setHost] = useState('')
+
+  useEffect(() => {
+    if (data === null) return
+    setPort(String(data.server.port))
+    setHost(data.server.host)
+  }, [data])
+
+  async function save(): Promise<void> {
+    const n = Number(port.trim())
+    if (!Number.isInteger(n) || n < 1 || n > 65535) return
+    if (host.trim() === '') return
+    await run(async () => {
+      await transport.updateSettings({
+        server: { port: n, host: host.trim() },
+      })
+      await refresh()
+    })
+  }
+
+  return (
+    <SettingGroupCard>
+      <SettingRow title="监听端口" description="HTTP + SSE 端口（缺省 4318）；改端口需重启引擎后生效">
+        <div className="flex items-center gap-1.5">
+          <Input
+            value={port}
+            onChange={(e) => setPort(e.target.value)}
+            aria-label="监听端口"
+            placeholder="4318"
+            className="h-7 w-24 font-mono text-xs"
+            inputMode="numeric"
+          />
+          <RestartBadge field="server.port" />
+        </div>
+      </SettingRow>
+      <SettingRow title="监听地址" description="缺省 127.0.0.1（本地专用，刻意不对网卡暴露——§2.9 红线：不上公网）">
+        <div className="flex items-center gap-1.5">
+          <Input
+            value={host}
+            onChange={(e) => setHost(e.target.value)}
+            aria-label="监听地址"
+            placeholder="127.0.0.1"
+            className="h-7 w-32 font-mono text-xs"
+          />
+          <RestartBadge field="server.host" />
+        </div>
+      </SettingRow>
+      <div className="flex items-center gap-2 px-4 py-3">
+        <Button type="button" variant="outline" disabled={busy} onClick={() => void save()}>
+          保存
+        </Button>
+        {opError !== null && <span className="font-mono text-xs text-destructive">{opError}</span>}
+        <span className="text-xs text-muted-foreground">重启档：写盘后下次启动生效（当前进程监听不变）</span>
+      </div>
+    </SettingGroupCard>
+  )
+}
 
 /** 全局出网代理（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：spark.json network 段读写（热档） */
 function NetworkProxySection() {
@@ -215,6 +286,11 @@ function EngineBehaviorSection() {
   const [outputLimit, setOutputLimit] = useState('')
   const [sandbox, setSandbox] = useState<'off' | 'on'>('off')
   const [bashPersistent, setBashPersistent] = useState(false)
+  // 阶段十九 19.14：四个"后端可读写、前端无控件"的反向占位字段
+  const [maxToolParallel, setMaxToolParallel] = useState('')
+  const [progressThrottleMs, setProgressThrottleMs] = useState('')
+  const [permissionTimeoutMs, setPermissionTimeoutMs] = useState('')
+  const [checkpoints, setCheckpoints] = useState(false)
 
   // 加载走 useTransportQuery；五字段编辑态从数据播种（R-E① 二批）
   const { data, error, refresh } = useTransportQuery((t) => t.getSettings())
@@ -227,6 +303,10 @@ function EngineBehaviorSection() {
     setOutputLimit(String(data.engine.toolOutputLimitKB))
     setSandbox(data.engine.bashSandbox)
     setBashPersistent(data.engine.bashPersistent)
+    setMaxToolParallel(String(data.engine.maxToolParallel))
+    setProgressThrottleMs(String(data.engine.progressThrottleMs))
+    setPermissionTimeoutMs(String(data.engine.permissionTimeoutMs))
+    setCheckpoints(data.engine.checkpoints)
   }, [data])
 
   const { busy, opError, setOpError, run } = useAsyncOp()
@@ -236,11 +316,17 @@ function EngineBehaviorSection() {
     const th = Number(threshold)
     const timeout = Number(toolTimeout)
     const limit = Number(outputLimit)
+    const parallel = Number(maxToolParallel)
+    const throttle = Number(progressThrottleMs)
+    const permTimeout = Number(permissionTimeoutMs)
     if (
       !Number.isInteger(steps) || steps < 1 ||
       Number.isNaN(th) || th <= 0 || th >= 1 ||
       !Number.isInteger(timeout) || timeout <= 0 ||
-      !Number.isInteger(limit) || limit <= 0
+      !Number.isInteger(limit) || limit <= 0 ||
+      !Number.isInteger(parallel) || parallel < 1 ||
+      !Number.isInteger(throttle) || throttle <= 0 ||
+      !Number.isInteger(permTimeout) || permTimeout <= 0
     ) {
       setOpError('数值不合法：步数/超时/上限为正整数，压缩阈值取 0–1 之间小数')
       return
@@ -254,6 +340,10 @@ function EngineBehaviorSection() {
           toolOutputLimitKB: limit,
           bashSandbox: sandbox,
           bashPersistent,
+          maxToolParallel: parallel,
+          progressThrottleMs: throttle,
+          permissionTimeoutMs: permTimeout,
+          checkpoints,
         },
       })
       await refresh()
@@ -305,7 +395,7 @@ function EngineBehaviorSection() {
                 disabled={busy}
                 className={inputCls}
               />
-              <RestartBadge />
+              <RestartBadge field="engine.toolTimeoutMs" />
             </div>
           </SettingRow>
           <SettingRow title="工具输出上限（KB）" description="超限截断（防输出打爆上下文）">
@@ -317,7 +407,7 @@ function EngineBehaviorSection() {
                 disabled={busy}
                 className={inputCls}
               />
-              <RestartBadge />
+              <RestartBadge field="engine.toolOutputLimitKB" />
             </div>
           </SettingRow>
           <SettingRow title="bash 沙箱" description="平台 wrapper 前缀隔离；不可用时拒跑（ADR D15）">
@@ -329,7 +419,7 @@ function EngineBehaviorSection() {
                 onChange={setSandbox}
                 className="w-44"
               />
-              <RestartBadge />
+              <RestartBadge field="engine.bashSandbox" />
             </div>
           </SettingRow>
           <SettingRow
@@ -341,6 +431,44 @@ function EngineBehaviorSection() {
               checked={bashPersistent}
               disabled={busy}
               onChange={setBashPersistent}
+            />
+          </SettingRow>
+          <SettingRow title="工具并行上限" description="同一步内并行执行的工具数上限（parallelizable=true 的 read/grep/lsp 等）">
+            <Input
+              value={maxToolParallel}
+              onChange={(e) => setMaxToolParallel(e.target.value)}
+              aria-label="工具并行上限"
+              disabled={busy}
+              className={inputCls}
+            />
+          </SettingRow>
+          <SettingRow title="进度节流（毫秒）" description="tool.progress 直播节流窗（200ms 量级；过小刷屏，过大手感迟滞）">
+            <Input
+              value={progressThrottleMs}
+              onChange={(e) => setProgressThrottleMs(e.target.value)}
+              aria-label="进度节流毫秒"
+              disabled={busy}
+              className={inputCls}
+            />
+          </SettingRow>
+          <SettingRow title="审批超时（毫秒）" description="审批请求挂起上限；超时按拒绝处理（fail-closed，§5.7）">
+            <div className="flex items-center gap-1.5">
+              <Input
+                value={permissionTimeoutMs}
+                onChange={(e) => setPermissionTimeoutMs(e.target.value)}
+                aria-label="审批超时毫秒"
+                disabled={busy}
+                className={inputCls}
+              />
+              <RestartBadge field="engine.permissionTimeoutMs" />
+            </div>
+          </SettingRow>
+          <SettingRow title="回合边界检查点" description="每回合结束打 git 快照（回滚/fork 的数据源；测试夹具常关掉提速）">
+            <Switch
+              aria-label="回合边界检查点"
+              checked={checkpoints}
+              disabled={busy}
+              onChange={setCheckpoints}
             />
           </SettingRow>
           <div className="flex items-center gap-2 px-4 py-3">
@@ -426,6 +554,9 @@ export function GeneralSettingsPage() {
 
       {/* 引擎行为（工单 10.20 B / D28）：GET|PUT /api/settings */}
       <EngineBehaviorSection />
+
+      {/* 服务端监听（阶段十九 19.14）：server.port/host 重启档控件 */}
+      <ServerBindSection />
 
       {/* 全局出网代理（阶段十九 19.13，翻案 12.9"仅 LLM 面"） */}
       <NetworkProxySection />

@@ -745,14 +745,21 @@ export class Engine {
       opts.parentId !== undefined
         ? `${this.routing.subagentModel.provider}/${this.routing.subagentModel.model}`
         : undefined
-    const modelRef = this.resolveModelRef(opts.model ?? preset?.model ?? subagentDefault)
+    // 新建会话默认模型（阶段十九 19.14 / V2-37，ADR D53）：显式 opts.model > 预设档 >
+    // 子代理路由档 > routing.defaultModel（= models.json defaultModel，PUT /api/routing 热改）
+    const modelRef = this.resolveModelRef(
+      opts.model ??
+        preset?.model ??
+        subagentDefault ??
+        `${this.routing.defaultModel.provider}/${this.routing.defaultModel.model}`,
+    )
     const modelStr = `${modelRef.provider}/${modelRef.model}`
     const sessionId = this.newSessionId()
     const createdAt = this.now()
     // 工单 10.6：分支只读探测（非仓库/无 git → null，不携带——禁假状态）
     const branch = await gitBranchOf(cwd)
-    // 工单 10.6：推理档位缺省取 models.json defaultEffort（未配置 = 不设置）
-    const defaultEffort = this.config.models.defaultEffort
+    // 工单 10.6：推理档位缺省取默认档（V2-37 后经 routing 状态热改，回退 models.json 装载值）
+    const defaultEffort = this.routing.defaultEffort ?? this.config.models.defaultEffort
 
     const dir = join(this.root, 'sessions', mungeDir(cwd))
     const path = join(dir, sessionFileName(createdAt, sessionId))

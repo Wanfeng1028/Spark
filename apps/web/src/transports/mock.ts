@@ -842,6 +842,9 @@ export class MockTransport implements Transport {
     titleModel: 'deepseek/deepseek-chat',
     subagentModel: 'deepseek/deepseek-chat',
     costLimitUsd: null,
+    // 新建会话默认模型/档位（阶段十九 19.14 / V2-37）
+    defaultModel: 'deepseek/deepseek-chat',
+    defaultEffort: null,
     usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, exceeded: false },
   }
 
@@ -871,6 +874,8 @@ export class MockTransport implements Transport {
       ...(patch.titleModel !== undefined ? { titleModel: providerOf(patch.titleModel) } : {}),
       ...(patch.subagentModel !== undefined ? { subagentModel: providerOf(patch.subagentModel) } : {}),
       ...(patch.costLimitUsd !== undefined ? { costLimitUsd: patch.costLimitUsd } : {}),
+      ...(patch.defaultModel !== undefined ? { defaultModel: providerOf(patch.defaultModel) } : {}),
+      ...(patch.defaultEffort !== undefined ? { defaultEffort: patch.defaultEffort } : {}),
     }
     this.routing = next
     return Promise.resolve(next)

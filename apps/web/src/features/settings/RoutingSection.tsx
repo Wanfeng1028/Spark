@@ -6,12 +6,22 @@ import { SettingRow, SettingGroupCard } from './SettingRow'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
+
+/** 推理档选项（空串 = 不设置，按 provider 默认） */
+const EFFORT_OPTIONS: { value: 'low' | 'medium' | 'high' | ''; label: string }[] = [
+  { value: '', label: '不设置' },
+  { value: 'low', label: '低' },
+  { value: 'medium', label: '中' },
+  { value: 'high', label: '高' },
+]
 
 
 
 /**
- * 模型路由（工单 10.20 A②）：fallback 链 + 任务三档位（压缩/标题/子代理）——
- * GET|PUT /api/routing 端点与 RoutingDto 四字段本就可读写，页面此前缺接线。
+ * 模型路由（工单 10.20 A②；阶段十九 19.14 / V2-37，ADR D53）：fallback 链 + 任务三档位
+ * （压缩/标题/子代理）+ **新建会话默认模型/推理档**——经同一 PUT /api/routing 写入
+ * models.json（单写者：设置页不另起写路径，消双写者）。
  * 三档位不可清空（引擎运行时依赖；留空按未改处理），fallback 链可清空（= 不切换）。
  */
 export function RoutingSection() {
@@ -23,6 +33,9 @@ export function RoutingSection() {
   const [compactionDraft, setCompactionDraft] = useState('')
   const [titleDraft, setTitleDraft] = useState('')
   const [subagentDraft, setSubagentDraft] = useState('')
+  // 新建会话默认模型/档位（阶段十九 19.14 / V2-37）
+  const [defaultModelDraft, setDefaultModelDraft] = useState('')
+  const [defaultEffortDraft, setDefaultEffortDraft] = useState<'low' | 'medium' | 'high' | ''>('')
 
   useEffect(() => {
     // 四草稿编辑态从数据播种（R-E① 二批）
@@ -31,6 +44,8 @@ export function RoutingSection() {
     setCompactionDraft(routing.compactionModel)
     setTitleDraft(routing.titleModel)
     setSubagentDraft(routing.subagentModel)
+    setDefaultModelDraft(routing.defaultModel)
+    setDefaultEffortDraft(routing.defaultEffort ?? '')
   }, [routing])
 
   async function save(): Promise<void> {
@@ -44,12 +59,19 @@ export function RoutingSection() {
       compactionModel: compactionDraft.trim(),
       titleModel: titleDraft.trim(),
       subagentModel: subagentDraft.trim(),
+      ...(defaultModelDraft.trim() !== '' ? { defaultModel: defaultModelDraft.trim() } : {}),
+      // 显式携带（含空串=清除）；与现值相同则不传，保持现值
+      ...(defaultEffortDraft !== (routing?.defaultEffort ?? '')
+        ? { defaultEffort: defaultEffortDraft === '' ? null : defaultEffortDraft }
+        : {}),
     })
     await refresh()
     setFallbacksDraft(next.fallbacks.join('\n'))
     setCompactionDraft(next.compactionModel)
     setTitleDraft(next.titleModel)
     setSubagentDraft(next.subagentModel)
+    setDefaultModelDraft(next.defaultModel)
+    setDefaultEffortDraft(next.defaultEffort ?? '')
     })
   }
 
@@ -110,6 +132,25 @@ export function RoutingSection() {
               disabled={busy}
               placeholder="provider/model"
               className={inputCls}
+            />
+          </SettingRow>
+          <SettingRow title="新建会话默认模型" description="新会话未显式指定模型时使用（provider/model）——与任务档位同一写路径（models.json 单写者）">
+            <Input
+              value={defaultModelDraft}
+              onChange={(e) => setDefaultModelDraft(e.target.value)}
+              aria-label="新建会话默认模型"
+              disabled={busy}
+              placeholder="provider/model"
+              className={inputCls}
+            />
+          </SettingRow>
+          <SettingRow title="新建会话默认推理档" description="新会话未显式选档时使用；不设置 = 按 provider 默认">
+            <Select
+              aria-label="新建会话默认推理档"
+              value={defaultEffortDraft}
+              options={EFFORT_OPTIONS}
+              onChange={setDefaultEffortDraft}
+              className="w-32"
             />
           </SettingRow>
           <div className="flex items-center gap-2 px-4 py-3">
