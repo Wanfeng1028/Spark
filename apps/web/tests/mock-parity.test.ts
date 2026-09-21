@@ -78,6 +78,22 @@ describe('MockTransport 对等修复（阶段十九 19.22 / §1.1）', () => {
     ).rejects.toThrow(/E_TURN_MISMATCH/)
   })
 
+  test('arena：按会话归属，非发起会话不得看到竞答（19.22 对等）', async () => {
+    const t = fresh()
+    const other = 'ses_other0000000000000001' as never
+    // 原实现忽略 sessionId：任意会话都返回同一场演示竞答（幽灵竞答）、cancel 也无归属校验。
+    // 只断确定性的反面——不依赖 listSessions()[0] 是否恰为脚本会话（fork 子会话也在表里）
+    expect(await t.getArena(other)).toBeNull()
+    await expect(t.cancelArena(other)).rejects.toThrow(/E_NOT_FOUND/)
+    await expect(t.applyArenaWinner(other, other)).rejects.toThrow(/E_NOT_FOUND/)
+  })
+
+  test('listArenaHistory：limit 生效（与 server 缺省 20 / 上限 100 同口径）', async () => {
+    const t = fresh()
+    expect((await t.listArenaHistory()).runs.length).toBeGreaterThan(0)
+    expect((await t.listArenaHistory(1)).runs).toHaveLength(1)
+  })
+
   test('getMcpConfig：读回按掩码回显（凭据不出引擎——真实通道同语义）', async () => {
     const t = fresh()
     await t.updateMcpConfig({

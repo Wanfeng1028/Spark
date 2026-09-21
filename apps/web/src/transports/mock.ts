@@ -509,11 +509,14 @@ export class MockTransport implements Transport {
   }
 
   /** 竞答对等演示（工单 16.8 / ADR D42）：静态已完成快照 + 应用/取消幂等（judge 并行真实跑属引擎运行时） */
-  private arenaApplied = false
+  /** 演示竞答是否已收口（应用胜者或取消）——收口后 getArena 对任何会话都返回 null */
+  private arenaSettled = false
 
-  getArena(_sessionId: SessionId): Promise<ArenaStatusDto | null> {
+  getArena(sessionId: SessionId): Promise<ArenaStatusDto | null> {
     this.assertNotDisposed()
-    if (this.arenaApplied) return Promise.resolve(null)
+    // 19.22 对等修复：竞答属于发起它的那个会话——原实现忽略 sessionId，
+    // 任意会话都拿到同一场演示竞答（mock 走查会看到幽灵竞答）
+    if (sessionId !== this.script.sessionId || this.arenaSettled) return Promise.resolve(null)
     return Promise.resolve({
       arenaId: 'ses_arena_mock0000000000000001',
       prompt: '（mock 演示）为 README 补一节安装说明',
@@ -543,44 +546,53 @@ export class MockTransport implements Transport {
 
   applyArenaWinner(sessionId: SessionId, contenderSessionId: SessionId): Promise<void> {
     this.assertNotDisposed()
-    this.arenaApplied = true
+    // 无待应用的竞答 → 拒（真实通道 E_NOT_FOUND；原实现无论哪个会话都置位成功）
+    if (sessionId !== this.script.sessionId || this.arenaSettled) {
+      return Promise.reject(new Error(`E_NOT_FOUND: 该会话无待应用的竞答：${sessionId}`))
+    }
+    this.arenaSettled = true
     void contenderSessionId
     return Promise.resolve()
   }
 
-  cancelArena(_sessionId: SessionId): Promise<void> {
+  cancelArena(sessionId: SessionId): Promise<void> {
     this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId || this.arenaSettled) {
+      return Promise.reject(new Error(`E_NOT_FOUND: 该会话无进行中的竞答：${sessionId}`))
+    }
+    this.arenaSettled = true
     return Promise.resolve()
   }
 
   /** 竞答历史对等演示（工单 19.10，翻案 D42 内存态）：静态两场（一场已应用胜者 / 一场取消） */
-  listArenaHistory(_limit?: number): Promise<ArenaHistoryDto> {
+  listArenaHistory(limit?: number): Promise<ArenaHistoryDto> {
     this.assertNotDisposed()
+    // 19.22 对等修复：与 server GET /api/arena/history 同口径——缺省 20、上限 100（原吞 limit）
+    const cap = Math.min(limit ?? 20, 100)
     const now = Date.now()
-    return Promise.resolve({
-      runs: [
-        {
-          arenaId: 'ses_arena_mock0000000000000002',
-          sessionId: ids.session('ses_arena_mock_main000001'),
-          startedAt: now - 3_600_000,
-          completedAt: now - 3_000_000,
-          prompt: '（mock 演示）为 README 补一节安装说明',
-          models: ['mock/deepseek-chat', 'mock/glm-4'],
-          status: 'done',
-          winnerModel: 'mock/glm-4',
-        },
-        {
-          arenaId: 'ses_arena_mock0000000000000003',
-          sessionId: ids.session('ses_arena_mock_main000001'),
-          startedAt: now - 86_400_000,
-          completedAt: now - 82_800_000,
-          prompt: '（mock 演示）修复设置页保存按钮失焦不生效的问题',
-          models: ['mock/glm-4', 'mock/deepseek-chat'],
-          status: 'cancelled',
-          winnerModel: null,
-        },
-      ],
-    })
+    const runs: ArenaHistoryDto['runs'] = [
+      {
+        arenaId: 'ses_arena_mock0000000000000002',
+        sessionId: ids.session('ses_arena_mock_main000001'),
+        startedAt: now - 3_600_000,
+        completedAt: now - 3_000_000,
+        prompt: '（mock 演示）为 README 补一节安装说明',
+        models: ['mock/deepseek-chat', 'mock/glm-4'],
+        status: 'done',
+        winnerModel: 'mock/glm-4',
+      },
+      {
+        arenaId: 'ses_arena_mock0000000000000003',
+        sessionId: ids.session('ses_arena_mock_main000001'),
+        startedAt: now - 86_400_000,
+        completedAt: now - 82_800_000,
+        prompt: '（mock 演示）修复设置页保存按钮失焦不生效的问题',
+        models: ['mock/glm-4', 'mock/deepseek-chat'],
+        status: 'cancelled',
+        winnerModel: null,
+      },
+    ]
+    return Promise.resolve({ runs: runs.slice(0, cap) })
   }
 
   listPermissionRules(): Promise<PermissionRuleDto[]> {
