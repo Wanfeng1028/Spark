@@ -433,6 +433,42 @@ export const PROMPT_PLACEHOLDERS = ['{{cwd}}', '{{model}}', '{{platform}}'] as c
 export type PromptPlaceholder = (typeof PROMPT_PLACEHOLDERS)[number]
 
 /**
+/**
+ * 提示词模板槽位管理（阶段十九 19.18 / V2-16 前端半边收口）：GET /api/prompts 只读快照
+ * （配置路径 + 当前内容 + 是否覆盖内置 + 占位符白名单）；PUT 写模板文件（原子写 + 占位符
+ * 校验，**重启档**——模板在引擎构造期装载一次，同 D28 构造期注入语义）。
+ */
+export const PromptSlotSchema = z.enum(['base', 'compaction', 'title'])
+export type PromptSlot = z.infer<typeof PromptSlotSchema>
+
+export const PromptSlotInfoSchema = z.strictObject({
+  slot: PromptSlotSchema,
+  /** spark.json prompts.<slot> 配置的路径（未配置 = null，用内置模板） */
+  path: z.string().nullable(),
+  /** 当前生效的模板原文（内置 or 文件内容——管理面查看用） */
+  content: z.string(),
+  /** true = 已被文件覆盖；false = 内置模板 */
+  overridden: z.boolean(),
+})
+
+export const PromptsDtoSchema = z.strictObject({
+  slots: z.array(PromptSlotInfoSchema),
+  /** 占位符白名单（封闭集，写模板时非白名单 {{...}} 会被拒） */
+  placeholders: z.array(z.string()),
+})
+export type PromptsDto = z.infer<typeof PromptsDtoSchema>
+
+/** PUT /api/prompts：写一个槽位的模板文件（路径缺省 = 写入 <home>/prompts/<slot>.md 并把
+ *  spark.json prompts.<slot> 指向它）；content 空串 = 恢复缺省（删配置，回内置模板）。 */
+export const PromptsUpdateSchema = z.strictObject({
+  slot: PromptSlotSchema,
+  content: z.string().max(100_000),
+  /** 目标文件路径（相对 spark.json 目录或绝对路径）；缺省 = <home>/prompts/<slot>.md */
+  path: z.string().min(1).max(500).optional(),
+})
+export type PromptsUpdate = z.infer<typeof PromptsUpdateSchema>
+
+/**
  * 需重启生效的字段（D28 分类：构造期注入子系统 / listen 绑定级）。
  * 热档七项（maxStepsPerTurn/maxToolParallel/compactionThreshold/
  * progressThrottleMs/checkpoints/computerUseEnabled/bashPersistent——均 turn 边界或执行期注入）
@@ -625,6 +661,14 @@ export const SettingsUpdateSchema = z.strictObject({
   archive: ArchiveSettingsSchema.partial().optional(),
   /** 全局出网代理（阶段十九 19.13）：network 段逐字段合并（热档） */
   network: NetworkSettingsSchema.partial().optional(),
+  /** 提示词模板路径（阶段十九 19.18）：逐槽位替换；null = 清空该槽位配置（回内置模板） */
+  prompts: z
+    .strictObject({
+      base: z.string().min(1).nullable().optional(),
+      compaction: z.string().min(1).nullable().optional(),
+      title: z.string().min(1).nullable().optional(),
+    })
+    .optional(),
 })
 export type SettingsUpdate = z.infer<typeof SettingsUpdateSchema>
 

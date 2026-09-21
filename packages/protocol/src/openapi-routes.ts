@@ -560,6 +560,20 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
   },
   {
     method: 'get',
+    path: '/api/prompts',
+    summary: '提示词模板三槽位只读快照（阶段十九 19.18 / V2-16：路径/当前内容/是否覆盖内置 + 占位符白名单）',
+    tag: 'config',
+    response: ref('PromptsDto'),
+  },
+  {
+    method: 'put',
+    path: '/api/prompts',
+    summary: '写提示词模板文件（阶段十九 19.18：空 content = 恢复缺省；非白名单占位符 → 400 E_CONFIG；重启档）',
+    tag: 'config',
+    response: ref('PromptsDto'),
+  },
+  {
+    method: 'get',
     path: '/api/sandbox/network',
     summary: '沙箱网络隔离代理运行时状态（阶段十九 19.7 / ADR D50：ready/reason/activeConnections/port）',
     tag: 'config',

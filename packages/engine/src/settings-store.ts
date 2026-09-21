@@ -222,6 +222,18 @@ export function persistSparkPatch(root: string, patch: SettingsUpdate): EngineCo
     }
     raw['network'] = seg
   }
+  // 提示词模板路径（阶段十九 19.18）：逐槽位替换——null = 删该键（回内置模板）
+  if (patch.prompts !== undefined) {
+    const cur = (raw['prompts'] as Record<string, unknown> | undefined) ?? {}
+    const seg: Record<string, unknown> = { ...cur }
+    for (const [k, v] of Object.entries(patch.prompts)) {
+      if (v === undefined) continue
+      if (v === null) delete seg[k]
+      else seg[k] = v
+    }
+    if (Object.keys(seg).length === 0) delete raw['prompts']
+    else raw['prompts'] = seg
+  }
   // 语义检索总开关（阶段十九 19.8 / ADR D51）：embedding 段逐字段合并（热档）
   if (patch.embedding !== undefined) {
     const cur = (raw['embedding'] as Record<string, unknown> | undefined) ?? {}

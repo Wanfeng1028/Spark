@@ -14,12 +14,7 @@
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import {
-  basename,
-  dirname,
-  join,
-  resolve,
-} from 'node:path'
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import type {
   BrowserSettings,
   AutomationCreate,
@@ -48,9 +43,12 @@ import type {
   SparkEventMap,
   TurnId,
 } from '@spark/protocol'
-import { SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
+import { PROMPT_PLACEHOLDERS, SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
 import type {
   ExtensionDto,
+  PromptsDto,
+  PromptsUpdate,
+  PromptSlot,
   SandboxNetworkStatusDto,
   SemanticIndexStats,
 AgentPresetDto, SessionMode, SessionStatus, UsageSummaryDto } from '@spark/protocol'
@@ -73,6 +71,7 @@ import { BASE_PROMPT, buildSystemPrompt, INIT_PROMPT, PLAN_MODE_DIRECTIVE } from
 import {
   loadPromptTemplates,
   renderPromptTemplate,
+  assertPlaceholders,
   type PromptTemplates,
 } from './prompt-templates.js'
 import { ProjectorImpl } from './projector.js'
@@ -1509,6 +1508,56 @@ export class Engine {
         ? { fetchImpl: this.engineFetchFor(this.config.models.providers[providerId]?.proxy) }
         : {}),
     })
+  }
+
+  // ---- 提示词模板管理（阶段十九 19.18 / V2-16 前端半边收口）----
+
+  /**
+   * GET /api/prompts：三槽位只读快照（路径/当前内容/是否覆盖内置 + 占位符白名单）。
+   * 内置模板也如实给出 content（管理面要能看"现在用的是什么"——只给路径不够）。
+   */
+  promptsInfo(): PromptsDto {
+    const cfg = this.config.spark.prompts
+    const builtin: Record<PromptSlot, string> = {
+      base: BASE_PROMPT,
+      compaction: COMPACTION_PROMPT,
+      title: TITLE_PROMPT,
+    }
+    const slots = (['base', 'compaction', 'title'] as const).map((slot) => {
+      const p = cfg?.[slot]
+      return {
+        slot,
+        path: p ?? null,
+        content: this.promptTemplates[slot],
+        overridden: p !== undefined,
+      }
+    })
+    return { slots, placeholders: [...PROMPT_PLACEHOLDERS] }
+  }
+
+  /**
+   * PUT /api/prompts：写槽位模板文件（原子写 + 占位符白名单校验）。
+   * content 空串 = 恢复缺省（删 spark.json prompts.<slot> 配置，回内置模板）。
+   * 路径缺省 = <home>/prompts/<slot>.md（自动把配置指向它）。
+   * **重启档**：模板构造期装载一次——写盘成功后需重启生效（如实标注，不假装热切换）。
+   */
+  updatePrompt(update: PromptsUpdate): PromptsDto {
+    this.assertNotShutdown()
+    const slot = update.slot
+    const rel = update.path ?? join('prompts', `${slot}.md`)
+    const abs = isAbsolute(rel) ? rel : join(this.root, rel)
+    // 占位符校验（非白名单 {{...}} → E_CONFIG；与装载期同一函数，防注入面扩大）
+    assertPlaceholders(update.content, `prompts.${slot}`)
+    if (update.content === '') {
+      // 恢复缺省：删配置键（文件保留——用户可能想留档；删文件属 §2.10 人类决策）
+      this.config = persistSparkPatch(this.root, { prompts: { [slot]: null } })
+      return this.promptsInfo()
+    }
+    // 目标目录不存在先建（~/.spark/prompts/ 首次写入）；文件已存在则覆盖
+    mkdirSync(dirname(abs), { recursive: true })
+    writeFileSync(abs, update.content, 'utf8')
+    this.config = persistSparkPatch(this.root, { prompts: { [slot]: rel } })
+    return this.promptsInfo()
   }
 
   // ---- 设置读写（工单 10.20 B / 10.21 / ADR D28） ----

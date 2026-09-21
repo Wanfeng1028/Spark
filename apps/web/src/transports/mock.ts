@@ -10,73 +10,7 @@
  */
 import { SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
-import type {
-  BrowserCleanupResultDto,
-  LspInstallResultDto,
-  IndexStatsDto,
-  RebuildResultDto,
-  VacuumResultDto,
-  AgentPresetDto,
-  TraceDto,
-  TraceTurnDto,
-  UsageBucketDto,
-  UsageSummaryDto,
-  AuditEntryDto,
-  AuditQuery,
-  AutomationCreate,
-  AutomationRunDto,
-  AutomationTriggerDto,
-  CheckpointDto,
-  CheckpointId,
-  CommandDto,
-  ContentItem,
-  EventId,
-  AttachmentDto,
-  FsEntryDto,
-  FsListDto,
-  FsTreeDto,
-  LspServerStatusDto,
-  McpConfigInput,
-  McpServerDto,
-  MemoryDto,
-  ModelTestResultDto,
-  ModelsDto,
-  PairCodeDto,
-  PairRedeemBody,
-  PairStatusDto,
-  PairTokenDto,
-  RoutingDto,
-  RoutingUpdate,
-  PermissionPreset,
-  PermissionReply,
-  PermissionRuleDto,
-  ReasoningEffort,
-  RequestId,
-  SecretStatusDto,
-  SessionDto,
-  SessionEventsQuery,
-  SessionId,
-  SessionMode,
-  SessionStatus,
-  SearchHitDto,
-  SettingsDto,
-  SettingsUpdate,
-  SkillDto,
-  SparkEventEnvelope,
-  SparkEventType,
-  SubmitOutcome,
-  TreeNodeDto,
-  Transport,
-  TurnId,
-  TranscribeRequest,
-  TranscribeResultDto,
-  TrustStatusDto,
-  ExtensionDto,
-  ArenaStatusDto,
-  ArenaHistoryDto,
-  SandboxNetworkStatusDto,
-  RebuildVectorsResultDto,
-} from '@spark/protocol'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, CommandDto, ContentItem, EventId, ExtensionDto, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
 import rawReject from '../../../../examples/mock-sessions/reject.jsonl?raw'
@@ -1240,6 +1174,25 @@ export class MockTransport implements Transport {
   }
 
   /** 向量补嵌（19.8 对等演示）：mock 无提供方 → 拒执并说明（fail-closed，不假装成功） */
+  /** 提示词模板快照（阶段十九 19.18 对等演示）：三槽位内置内容 + 未覆盖 */
+  promptsInfo(): Promise<PromptsDto> {
+    this.assertNotDisposed()
+    return Promise.resolve({
+      slots: [
+        { slot: 'base', path: null, content: '（mock：内置 base 模板演示）', overridden: false },
+        { slot: 'compaction', path: null, content: '（mock：内置 compaction 模板演示）', overridden: false },
+        { slot: 'title', path: null, content: '（mock：内置 title 模板演示）', overridden: false },
+      ],
+      placeholders: ['{{cwd}}', '{{model}}', '{{platform}}'],
+    })
+  }
+
+  /** 写槽位模板（19.18 对等演示）：mock 不落盘——拒执并说明（fail-closed，不假装已写） */
+  updatePrompt(): Promise<PromptsDto> {
+    this.assertNotDisposed()
+    return Promise.reject(new Error('E_MOCK_READONLY: mock 通道不写模板文件——真实通道走引擎'))
+  }
+
   rebuildVectors(): Promise<RebuildVectorsResultDto> {
     this.assertNotDisposed()
     return Promise.reject(

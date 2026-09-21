@@ -4,7 +4,7 @@
 import type { FastifyPluginCallback } from 'fastify'
 import { z } from 'zod'
 import { ExecuteCommandBodySchema } from '@spark/protocol'
-import { SettingsUpdateSchema, UsageSummaryQuerySchema } from '@spark/protocol'
+import { PromptsUpdateSchema, SettingsUpdateSchema, UsageSummaryQuerySchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
 import { loadMcpConfig, maskMcpConfigForClient, mergeMaskedMcpConfig, writeMcpConfig } from '@spark/engine'
@@ -112,6 +112,20 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   // 沙箱网络隔离代理状态（阶段十九 19.7 / ADR D50）：设置页与 CLI 面板数据源——
   // allowlist 档未启动/绑定失败时 ready=false + reason（bash 侧据此 fail-closed 拒跑）
   app.get('/api/sandbox/network', () => engine.sandboxNetworkStatus())
+
+  // 提示词模板管理（阶段十九 19.18 / V2-16 前端半边收口）：GET 只读快照 +
+  // PUT 写文件（占位符白名单校验；重启档——模板构造期装载一次）
+  app.get('/api/prompts', () => engine.promptsInfo())
+  app.put('/api/prompts', async (req, reply) => {
+    const body = parseOr400(PromptsUpdateSchema, req.body)
+    try {
+      return await engine.updatePrompt(body)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      const code = message.startsWith('E_') ? message.split(':')[0] : 'E_CONFIG'
+      return reply.code(400).send({ code, message })
+    }
+  })
 
   // 向量索引增量补嵌（阶段十九 19.8 / ADR D51）：只嵌缺向量条目（不清表，已嵌零重复计费）。
   // 语义不可用（无提供方/开关关）→ 502 E_EMBEDDING_UNAVAILABLE（fail-closed，不假装成功）

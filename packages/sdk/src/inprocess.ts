@@ -29,66 +29,7 @@ import {
 } from '@spark/engine'
 import type { Engine, SessionHandle } from '@spark/engine'
 import { ids } from '@spark/protocol'
-import type {
-  AgentPresetDto,
-  AttachmentDto,
-  AuditEntryDto,
-  AuditQuery,
-  AutomationCreate,
-  AutomationRunDto,
-  AutomationTriggerDto,
-  CheckpointDto,
-  CheckpointId,
-  CommandDto,
-  EventId,
-  FsListDto,
-  FsTreeDto,
-  LspServerStatusDto,
-  BrowserCleanupResultDto,
-  LspInstallResultDto,
-  IndexStatsDto,
-  RebuildResultDto,
-  VacuumResultDto,
-  RebuildVectorsResultDto,
-  SandboxNetworkStatusDto,
-  McpConfigInput,
-  McpServerDto,
-  MemoryDto,
-  ModelTestResultDto,
-  ModelsDto,
-  PairCodeDto,
-  PairStatusDto,
-  PairTokenDto,
-  PermissionPreset,
-  PermissionReply,
-  PermissionScope,
-  PermissionRuleDto,
-  ReasoningEffort,
-  RequestId,
-  RoutingDto,
-  RoutingUpdate,
-  SearchHitDto,
-  SecretStatusDto,
-  SendMessageOptions,
-  SessionDto,
-  SessionEventsQuery,
-  SessionId,
-  SettingsDto,
-  SettingsUpdate,
-  SkillDto,
-  SparkEventEnvelope,
-  SubmitOutcome,
-  TraceDto,
-  TranscribeRequest,
-  TranscribeResultDto,
-  Transport,
-  TreeNodeDto,
-  UsageSummaryDto,
-  TrustStatusDto,
-  ExtensionDto,
-  ArenaStatusDto,
-  ArenaHistoryDto,
-} from '@spark/protocol'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, CommandDto, EventId, ExtensionDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PermissionScope, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SendMessageOptions, SessionDto, SessionEventsQuery, SessionId, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, SubmitOutcome, TraceDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
 import { assembleClient } from './client.js'
 import type { SparkClient } from './client.js'
 
@@ -456,6 +397,16 @@ export class InProcessTransport implements Transport {
   /** 索引库统计（工单 19.11）：引擎同步方法——走 sync 门（收口断言 + 同步抛错转拒绝） */
   indexStats(): Promise<IndexStatsDto> {
     return this.sync(() => this.engine.indexStats())
+  }
+
+  /** 提示词模板快照（阶段十九 19.18 / V2-16）：引擎同步方法——走 sync 门 */
+  promptsInfo(): Promise<PromptsDto> {
+    return this.sync(() => this.engine.promptsInfo())
+  }
+
+  /** 写槽位模板（阶段十九 19.18）：引擎同步方法（原子写盘）——走 sync 门 */
+  updatePrompt(update: PromptsUpdate): Promise<PromptsDto> {
+    return this.sync(() => this.engine.updatePrompt(update))
   }
 
   /** 沙箱网络隔离代理状态（阶段十九 19.7 / ADR D50）：引擎同步方法——走 sync 门 */

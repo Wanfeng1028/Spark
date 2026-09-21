@@ -134,6 +134,12 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
         description: '生命周期事件钩子（四挂点清单与 JSON 编辑；经 /api/settings 读写）',
         status: 'ready',
       },
+      {
+        id: 'prompts',
+        title: '提示词模板',
+        description: 'base/compaction/title 三模板查看与编辑（阶段十九 19.18 / V2-16；重启档）',
+        status: 'ready',
+      },
     ],
   },
   {

@@ -2062,6 +2062,44 @@
         }
       }
     },
+    "/api/prompts": {
+      "get": {
+        "tags": [
+          "config"
+        ],
+        "summary": "提示词模板三槽位只读快照（阶段十九 19.18 / V2-16：路径/当前内容/是否覆盖内置 + 占位符白名单）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptsDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "config"
+        ],
+        "summary": "写提示词模板文件（阶段十九 19.18：空 content = 恢复缺省；非白名单占位符 → 400 E_CONFIG；重启档）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sandbox/network": {
       "get": {
         "tags": [
@@ -3999,6 +4037,62 @@
         ],
         "additionalProperties": false
       },
+      "PromptsDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "slots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slot": {
+                  "type": "string",
+                  "enum": [
+                    "base",
+                    "compaction",
+                    "title"
+                  ]
+                },
+                "path": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "content": {
+                  "type": "string"
+                },
+                "overridden": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "slot",
+                "path",
+                "content",
+                "overridden"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "placeholders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "slots",
+          "placeholders"
+        ],
+        "additionalProperties": false
+      },
       "ReasoningEffort": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "string",
@@ -5287,6 +5381,45 @@
               "noProxy": {
                 "type": "string",
                 "maxLength": 1000
+              }
+            },
+            "additionalProperties": false
+          },
+          "prompts": {
+            "type": "object",
+            "properties": {
+              "base": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "compaction": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "title": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "additionalProperties": false

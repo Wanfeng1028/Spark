@@ -2865,6 +2865,171 @@ describe('契约：api.PermissionRuleDtoSchema', () => {
   })
 })
 
+describe('契约：api.PromptsDtoSchema', () => {
+  const sample = {
+    "slots": [
+      {
+        "slot": "base",
+        "path": "contract-sample",
+        "content": "contract-sample",
+        "overridden": false
+      }
+    ],
+    "placeholders": [
+      "contract-sample"
+    ]
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.PromptsDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.PromptsDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.PromptsDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 slots → 解析失败', () => {
+    expect(() => api.PromptsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["slots"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 placeholders → 解析失败', () => {
+    expect(() => api.PromptsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["placeholders"]; return m })())).toThrow()
+  })
+
+  it('字段 slots 类型错 → 解析失败', () => {
+    expect(() => api.PromptsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["slots"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 placeholders 类型错 → 解析失败', () => {
+    expect(() => api.PromptsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["placeholders"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.PromptsDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.PromptSlotInfoSchema', () => {
+  const sample = {
+    "slot": "base",
+    "path": "contract-sample",
+    "content": "contract-sample",
+    "overridden": false
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.PromptSlotInfoSchema.parse(sample)).toEqual(sample)
+    expect(api.PromptSlotInfoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.PromptSlotInfoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 slot → 解析失败', () => {
+    expect(() => api.PromptSlotInfoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["slot"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 path → 解析失败', () => {
+    expect(() => api.PromptSlotInfoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["path"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 content → 解析失败', () => {
+    expect(() => api.PromptSlotInfoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["content"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 overridden → 解析失败', () => {
+    expect(() => api.PromptSlotInfoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["overridden"]; return m })())).toThrow()
+  })
+
+  it('字段 slot 类型错 → 解析失败', () => {
+    expect(() => api.PromptSlotInfoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["slot"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 content 类型错 → 解析失败', () => {
+    expect(() => api.PromptSlotInfoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["content"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 overridden 类型错 → 解析失败', () => {
+    expect(() => api.PromptSlotInfoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["overridden"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.PromptSlotInfoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.PromptSlotSchema', () => {
+  const sample = "base"
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.PromptSlotSchema.parse(sample)).toEqual(sample)
+    expect(api.PromptSlotSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.PromptSlotSchema)).toBeTypeOf('object')
+  })
+
+  it('类型错（数字）→ 解析失败', () => {
+    expect(() => api.PromptSlotSchema.parse(12345)).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => api.PromptSlotSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => api.PromptSlotSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => api.PromptSlotSchema.parse("")).toThrow()
+  })
+})
+
+describe('契约：api.PromptsUpdateSchema', () => {
+  const sample = {
+    "slot": "base",
+    "content": "contract-sample",
+    "path": "contract-sample"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.PromptsUpdateSchema.parse(sample)).toEqual(sample)
+    expect(api.PromptsUpdateSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.PromptsUpdateSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 slot → 解析失败', () => {
+    expect(() => api.PromptsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["slot"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 content → 解析失败', () => {
+    expect(() => api.PromptsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["content"]; return m })())).toThrow()
+  })
+
+  it('字段 slot 类型错 → 解析失败', () => {
+    expect(() => api.PromptsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["slot"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 content 类型错 → 解析失败', () => {
+    expect(() => api.PromptsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["content"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 path 类型错 → 解析失败', () => {
+    expect(() => api.PromptsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["path"] = 12345; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.PromptsUpdateSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.RebuildResultDtoSchema', () => {
   const sample = {
     "entries": 1
@@ -3899,6 +4064,11 @@ describe('契约：api.SettingsUpdateSchema', () => {
     "network": {
       "proxy": "contract-sample",
       "noProxy": "contract-sample"
+    },
+    "prompts": {
+      "base": "contract-sample",
+      "compaction": "contract-sample",
+      "title": "contract-sample"
     }
   }
 
@@ -3945,6 +4115,10 @@ describe('契约：api.SettingsUpdateSchema', () => {
 
   it('字段 network 类型错 → 解析失败', () => {
     expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["network"] = []; return m })())).toThrow()
+  })
+
+  it('字段 prompts 类型错 → 解析失败', () => {
+    expect(() => api.SettingsUpdateSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["prompts"] = []; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {

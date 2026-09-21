@@ -20,6 +20,7 @@ import { ComputerSettingsPage } from '@/features/settings/ComputerSettingsPage'
 import { BrowserSettingsPage } from '@/features/settings/BrowserSettingsPage'
 import { SandboxSettingsPage } from '@/features/settings/SandboxSettingsPage'
 import { OnboardingSettingsPage } from '@/features/settings/OnboardingSettingsPage'
+import { PromptsSettingsPage } from '@/features/settings/PromptsSettingsPage'
 import { CommandsSettingsPage } from '@/features/settings/CommandsSettingsPage'
 import { HooksSettingsPage } from '@/features/settings/HooksSettingsPage'
 import { UsageSettingsPage } from '@/features/settings/UsageSettingsPage'
@@ -52,6 +53,7 @@ const READY_COMPONENTS = {
   browser: BrowserSettingsPage,
   sandbox: SandboxSettingsPage,
   onboarding: OnboardingSettingsPage,
+  prompts: PromptsSettingsPage,
 } as const
 
 export function SettingsPage() {

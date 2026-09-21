@@ -18,56 +18,7 @@ import { parseEnvelope } from './schema.js'
 import { SessionStreamCore } from './session-stream-core.js'
 import type { StreamConnectionStatus, StreamCoreContext } from './session-stream-core.js'
 import type { SparkEventEnvelope } from './events.js'
-import type {
-  ArenaStatusDto,
-  ArenaHistoryDto,
-  ExtensionDto,
-  TrustStatusDto,
-  TranscribeRequest,
-  TranscribeResultDto,
-  AuditEntryDto,
-  AuditQuery,
-  AutomationCreate,
-  AutomationRunDto,
-  AutomationTriggerDto,
-  CheckpointDto,
-  CommandDto,
-  FsListDto,
-  AttachmentDto,
-  FsTreeDto,
-  McpConfigInput,
-  McpServerDto,
-  MemoryDto,
-  ModelTestResultDto,
-  ModelsDto,
-  PairCodeDto,
-  PairRedeemBody,
-  PairStatusDto,
-  PairTokenDto,
-  PermissionPreset,
-  PermissionRuleDto,
-  RoutingDto,
-  RoutingUpdate,
-  SecretStatusDto,
-  SearchHitDto,
-  SessionDto,
-  SessionEventsQuery,
-  SettingsDto,
-  SettingsUpdate,
-  SkillDto,
-  TraceDto,
-  TreeNodeDto,
-  AgentPresetDto,
-  BrowserCleanupResultDto,
-  LspServerStatusDto,
-  LspInstallResultDto,
-  IndexStatsDto,
-  RebuildResultDto,
-  VacuumResultDto,
-  RebuildVectorsResultDto,
-  SandboxNetworkStatusDto,
-  UsageSummaryDto,
-} from './api.js'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, SkillDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
 import type { PermissionReply, PermissionScope, ReasoningEffort } from './primitives.js'
 import type { SendMessageOptions, SubmitOutcome, Transport } from './transport.js'
@@ -573,6 +524,19 @@ export class HttpTransport implements Transport {
   /** GET /api/index/stats：索引库统计（工单 19.11） */
   indexStats(): Promise<IndexStatsDto> {
     return this.req<IndexStatsDto>('/api/index/stats')
+  }
+
+  /** GET /api/prompts：提示词模板三槽位快照（阶段十九 19.18 / V2-16） */
+  promptsInfo(): Promise<PromptsDto> {
+    return this.req<PromptsDto>('/api/prompts')
+  }
+
+  /** PUT /api/prompts：写槽位模板（阶段十九 19.18；重启档） */
+  updatePrompt(update: PromptsUpdate): Promise<PromptsDto> {
+    return this.req<PromptsDto>('/api/prompts', {
+      method: 'PUT',
+      body: JSON.stringify(update),
+    })
   }
 
   /** GET /api/sandbox/network：沙箱网络隔离代理运行时状态（阶段十九 19.7 / ADR D50） */
