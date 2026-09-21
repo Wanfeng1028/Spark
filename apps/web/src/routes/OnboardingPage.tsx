@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button'
 
 export const ONBOARDING_DONE_KEY = 'spark-onboarding-done'
 const ONBOARDING_STEP_KEY = 'spark-onboarding-step'
+/** 首启自动弹偏好（阶段十九 19.15；'0' = 关，缺省弹） */
+const AUTOPOP_KEY = 'spark-onboarding-autopop'
 
 function onboardingDone(): void {
   localStorage.setItem(ONBOARDING_DONE_KEY, '1')
@@ -26,11 +28,16 @@ export function clearOnboarding(): void {
   localStorage.removeItem(ONBOARDING_STEP_KEY)
 }
 
-/** 首启判定（AppShell 挂载时调用一次）：无完成标记且服务端无任何已配置供应商 */
+/**
+ * 首启判定（AppShell 挂载时调用一次）：无完成标记、**自动弹未被关掉**（阶段十九 19.15：
+ * 设置页开关写 spark-onboarding-autopop='0'）且服务端无任何已配置供应商。
+ * 关掉自动弹 = 用户明确选择不看引导，不强弹。
+ */
 export async function shouldOnboard(
   listModels: () => Promise<{ providers: ModelProviderDto[] }>,
 ): Promise<boolean> {
   if (localStorage.getItem(ONBOARDING_DONE_KEY) === '1') return false
+  if (localStorage.getItem(AUTOPOP_KEY) === '0') return false
   try {
     const dto = await listModels()
     return !dto.providers.some((p) => p.hasKey)

@@ -19,6 +19,7 @@ import { SecurityTrustPage } from '@/features/settings/SecurityTrustPage'
 import { ComputerSettingsPage } from '@/features/settings/ComputerSettingsPage'
 import { BrowserSettingsPage } from '@/features/settings/BrowserSettingsPage'
 import { SandboxSettingsPage } from '@/features/settings/SandboxSettingsPage'
+import { OnboardingSettingsPage } from '@/features/settings/OnboardingSettingsPage'
 import { CommandsSettingsPage } from '@/features/settings/CommandsSettingsPage'
 import { HooksSettingsPage } from '@/features/settings/HooksSettingsPage'
 import { UsageSettingsPage } from '@/features/settings/UsageSettingsPage'
@@ -50,6 +51,7 @@ const READY_COMPONENTS = {
   computer: ComputerSettingsPage,
   browser: BrowserSettingsPage,
   sandbox: SandboxSettingsPage,
+  onboarding: OnboardingSettingsPage,
 } as const
 
 export function SettingsPage() {

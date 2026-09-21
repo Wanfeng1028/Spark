@@ -160,9 +160,8 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'onboarding',
         title: '引导',
-        description: '重新打开新手引导——去向：v2（引导体系）',
-        status: 'placeholder',
-        placeholderReason: 'v2 挂池',
+        description: '引导状态、重跑入口与首启自动弹开关（阶段十九 19.15）',
+        status: 'ready',
       },
     ],
   },

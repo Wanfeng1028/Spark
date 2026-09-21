@@ -12,9 +12,9 @@
  * 「显示待办」不设开关：引擎无 Todo 工具，不留无效开关（工单 10.20 拍板）。
  */
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router'
 import type { Delivery, SettingsDto } from '@spark/protocol'
 import { Button } from '@/components/ui/button'
-import { clearOnboarding } from '@/routes/OnboardingPage'
 import { useSettingsStore } from '@/stores/settings'
 import { SettingRow, SettingGroupCard } from './SettingRow'
 import { Input } from '@/components/ui/input'
@@ -493,6 +493,7 @@ function EngineBehaviorSection() {
 }
 
 export function GeneralSettingsPage() {
+  const navigate = useNavigate()
   const defaultDelivery = useSettingsStore((s) => s.defaultDelivery)
   const setDefaultDelivery = useSettingsStore((s) => s.setDefaultDelivery)
   const showReasoning = useSettingsStore((s) => s.showReasoning)
@@ -594,15 +595,12 @@ export function GeneralSettingsPage() {
       <NotificationSection />
 
       <SettingGroupCard>
-        <SettingRow title="首启引导" description="重新运行三步引导（欢迎 / 配模型 / 建会话）">
-          <Button
-            variant="outline"
-            onClick={() => {
-              clearOnboarding()
-              location.assign('/onboarding')
-            }}
-          >
-            重跑引导
+        <SettingRow
+          title="首启引导"
+          description="重新运行三步引导（欢迎 / 配模型 / 建会话）——入口与状态查看已收编至「引导」设置页（阶段十九 19.15）"
+        >
+          <Button variant="outline" onClick={() => navigate('/settings/onboarding')}>
+            前往引导设置
           </Button>
         </SettingRow>
         <SettingRow title="集成终端 Shell" description="Git Bash 优先，回退 cmd.exe" placeholderBadge="desktop 特化" />
