@@ -1,22 +1,79 @@
 # @spark/miniapp —— Spark 微信小程序壳（Taro 4）
 
-阶段九工单 9.4 产物（ADR D21）。逻辑层复用 `@spark/protocol`（applyEvent 投影、
-splitSseFrames/envelopeFromSseFrame 帧解析、ERROR_COPY 错误文案、DEFAULT_BACKOFF_MS 退避），
+阶段九工单 9.4 产物（ADR D21），阶段十九工单 19.29 补齐批（筛选菜单 / 附件入口 /
+topBanner+attachments 渲染 / i18n 消费 / token 存储重估 / 语音与中继结论）。
+逻辑层复用 `@spark/protocol`（applyEvent 投影、session-page controller、
+splitSseFrames/envelopeFromSseFrame 帧解析、ERROR_COPY 错误文案、i18n 字典），
 与 web/cli/RN 四端同口径。
 
-## v1 口径（如实说明）
+## 运行形态与合法域名（如实说明）
 
-- **运行方式**：微信开发者工具打开 `dist` 目录（`pnpm --filter @spark/miniapp dev` 生成）；
-  体验版走局域网 IP 直连。
-- **合法域名**：`project.config.json` 设 `urlCheck: false` 仅开发态生效（不校验合法域名）。
-  正式分发需配置 request 合法域名或中继服务——**记 v2（届时补 ADR，本阶段不做）**。
-- **体验版限制**：体验版要求 https/合法域名，局域网 IP 直连仅在开发者工具
-  （勾选"不校验合法域名"）可用；此为平台能力边界，如实记录。
+- **可用形态（两种，都不是正式发布形态）**：
+  ① 微信开发者工具打开 `dist`（`pnpm --filter @spark/miniapp dev` 生成），配合
+  `project.config.json` 的 `urlCheck: false`（不校验合法域名）；
+  ② 真机预览 / 体验版**开调试模式**（体验版菜单里打开"调试"后同样跳过域名校验）。
+- **为什么不能直接正式发布**：小程序 `request` 合法域名只收 **https + 已备案域名 +
+  443 端口**，不接受 IP 与自定义端口；`connectSocket` 只支持 **wss**。Spark 服务端
+  缺省 `127.0.0.1:4318` 纯 http，无任何公网入口 → 正式版连不上是平台规则的必然后果，
+  不是端上少写了代码。正式分发的前置是**中继/反代**，判决与待落地改动见下节。
 - **配对**：手输 6 位码为主路径；`Taro.scanCode` 扫码解析 `spark://pair?...` 为可选
   增强，失败不阻塞。
-- **token 存储**：小程序无密钥链，token 明文存本地缓存（`Taro.setStorageSync`），
-  平台能力上限，v2 重估。
-- **本机联调**：服务端以非环回地址启动（局域网 IP），体验版局域网可见。
+- **token 存储**：明文存本地缓存（`Taro.setStorageSync`）——小程序侧没有安全存储 API，
+  重估结论与残余风险见 `src/store/config-store.ts` 头注释（设置页在 token 输入框下
+  把"明文 + 撤销兜底"直接写给用户）。
+- **本机联调**：服务端以非环回地址启动（局域网 IP），预览/体验版局域网可见。
+
+## 正式分发中继：结论（工单 19.29；ADR 待与中继实现同批立）
+
+三档路线按"改动量 / 时延 / 依赖"排序，判决 = **短期不接，接的时候走 C→B**：
+
+| 方案 | 做法 | 端上/协议代价 | 外部前置 |
+| --- | --- | --- | --- |
+| A 反代直连 | caddy/nginx 挂 TLS + 备案域名转发到局域网引擎，SSE 原样透传（需 `X-Accel-Buffering: no` 关缓冲） | 零改码（`?token=` 与 Bearer 双口径已就绪） | 公网 IP/内网穿透 + 域名备案 + 证书；把家庭网络上的引擎整体暴露到公网，与"本地优先、127.0.0.1 是刻意的"（AGENTS §2.9）冲突面最大 |
+| B WSS 中继 | 公网中继持配对 token，`connectSocket(wss://…)` 收帧、内部订阅引擎 SSE 后转发 | 端上需新增 socket 通道（帧解析可复用 `splitSseFrames`）；**`baseUrlOf` 写死 `http://`** 与 `PairCodeDto.qr` 只能带局域网 host:port 是硬阻塞，需协议面开 scheme/公网基址 | 一台常驻中继服务（不在本仓）+ 域名备案；中继要持凭据转发 = 新增信任边界，审批与数据都不该经过它 |
+| C 轮询网关 | 只做 HTTPS 反代，事件流走本端**已有的轮询降级通道**（`forcePolling` + `filterFreshEvents`，数据面 `GET /api/sessions/:id?limit=200`） | 零新事件、零新协议方法；3s 时延与 REST 开销换掉 SSE | 与 A 同（TLS + 备案域名），但可关掉除 sessions 之外的端点面 |
+
+判决要点：本端不新增 Transport 方法（§1.1 落点纪律），中继若在服务端开新端点必须先经
+protocol 登记；因此**中继落地 = 一次跨包工单（protocol `pair-link` 扩 scheme + server
+settings 增公网基址 + 反代配置文档 + ADR）**，不在补齐批内偷做。
+
+## 语音听写：可行性结论（工单 19.29，先出结论不出代码）
+
+**技术上能做，卡点在审核与分发形态，不在代码**：
+
+- 平台能力齐：`Taro.getRecorderManager()`（微信 `wx.getRecorderManager`，基础库 2.1.0 起，
+  本端 2.20.2 门槛已覆盖）→ `start({format:'mp3'})` → `onStop` 给 `tempFilePath` →
+  FileSystemManager 读 → base64 → `POST /api/transcribe`。mp3 对应 `audio/mpeg`，
+  **恰在引擎转写白名单内**（`packages/engine/src/voice/transcriber.ts` 的 `ALLOWED_MIME`），
+  10MB 上限与附件同量级；协议面 `Transport.transcribe` 已存在（工单 16.6），本端只需给
+  `MiniRestClient` 加一个方法 + 输入条一个录音钮，约 60 行。
+- 三条真卡点：① 录音要 `app.config.ts` 声明 `permission.scope.record` 并在公众平台
+  「用户隐私保护指引」勾选麦克风（附使用场景说明），未过审 `start()` 直接 fail；
+  ② 开发者工具不支持录音，验证只能真机走查（本仓本机零验证，且需上表的中继形态才进得了正式版）；
+  ③ 音频上传仍受 request 合法域名约束——与中继是同一条前置。
+- 因此：在正式分发中继落地前接语音，只会做出一条"永远只能在真机调试里按一次"的路径，
+  故本批不动代码。中继工单开工时，语音作为其附带项（同一次走查能覆盖）。
+
+## 本端已接 / 未接的协议面（防"以为端上漏了"式误判）
+
+- 已接：`listSessions(archived?)`（筛选菜单三档）、`uploadAttachment`（附件入口）、
+  `getSettings`（电脑控制指示 + 界面语言）、`getSession` 分页回放、`sendMessage`、
+  `interrupt`、`replyPermission`、`redeemPair`。
+- **未接（后端已有方法，缺的是端上 UI）**：反馈投票 `submitFeedback/listFeedback/withdrawFeedback`
+  —— 👍👎 需要 assistant 行的 eventId 定位与投票态回读，本批范围外，实现形状与 web 同形；
+  归档写入 `archiveSession`（本端只读筛选，归档动作在 web 侧栏）；Transport 其余方法按
+  D21 体积纪律不进小程序包（本端 REST 子集只列用到的）。
+- **未接（后端本身没通）**：附件随消息发出——见下条整改清单。
+
+## 附件通道现状（工单 19.29 抓到的跨包缺口）
+
+选图 → 读字节 → 上传（`POST /api/sessions/:id/attachments`）→ 缩略图渲染已通；
+但 `user.message.attachments` 在真实链路上**永远不会出现**，因为发送通道三处都不承载该字段：
+`server SendMessageBody`（strictObject，多塞只换 400）→ `SessionHandle.send` 形参
+（`runtime.submit` 已支持 attachments、`projector` 已会读图转 base64）→
+`SessionPageController.send`（四端共享的会话页控制器，无附件入参）。
+所以本端与 `HttpTransport` 同口径**不发 attachments**，待发条不清空并带一行状态说明
+（不冒充已发送）。整改清单见 doc/08 与本目录 `src/session/attachments.ts` 头注释。
 
 ## 依赖与许可证（ADR D23：MIT 白名单）
 

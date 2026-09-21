@@ -1,5 +1,6 @@
 /**
- * 会话页（工单 9.4——语义对齐 apps/mobile SessionScreen，DESIGN §13.J.2.3/J.3）。
+ * 会话页（工单 9.4——语义对齐 apps/mobile SessionScreen，DESIGN §13.J.2.3/J.3；
+ * 工单 19.29 小程序补齐批：topBanner/attachments 渲染 + 附件入口接线）。
  *
  * 数据通道：打开会话 = REST 最新一页（?limit=）升序回放 + MiniSessionEventSource
  * 续播流（since=回放水位；SSE 分块主路径，低基础库/异常自动降级轮询）；
@@ -7,6 +8,10 @@
  * 上拉到顶向上翻页（?limit=&before=最早seq），本地升序合并后全量重放重建投影。
  * 时间戳分隔需事件时间而 UiItem 无 time 字段——页面层维护 eventId→time 侧表。
  * 错误文案一律 ERROR_COPY/errorMessageOf（ADR D22，禁自造文案）。
+ *
+ * 顶部细条族（同一 sp-bar 载体，各条独立数据源）：断线重连 / 人话错误 /
+ * 计划模式（slice.mode）/ **本轮以 error 结束（slice.topBanner，19.29 补）** +
+ * 附件流程的人话提示（页面局部态，不进事件流——上传是 REST 动作不是投影）。
  *
  * 小程序差异：无 inverted FlatList——ScrollView 正向渲染，贴底判定用
  * scrollTop+clientHeight≥scrollHeight-阈值，贴底时新消息 scrollTop=大值跟随；
@@ -16,11 +21,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import type { BaseEventOrig, ScrollViewProps } from '@tarojs/components'
-import type { RequestId } from '@spark/protocol'
+import type { AttachmentDto, RequestId } from '@spark/protocol'
 import {
   CONNECTION_TEXT,
   createSessionPageController,
   emptySessionSlice,
+  errorMessageOf,
   formatTimestamp,
   ids,
   type PermissionReply,
@@ -30,8 +36,15 @@ import {
 import { useConfigStore } from '../../store/config-store'
 import { useTheme } from '../../store/theme-store'
 import { BATCH_WINDOW_MS, useAppStore } from '../../store/app-store'
+import { miniT } from '../../i18n'
 import { getRestClient, openSessionStream } from '../../transport/runtime'
-import { buildSessionRows } from '../../session/session-rows'
+import { pickImages, readFileBytes } from '../../transport/media'
+import {
+  mergeUploaded,
+  removePending,
+  uploadPickedImages,
+} from '../../session/attachments'
+import { buildSessionRows, lastUserTextOf } from '../../session/session-rows'
 import {
   ApprovalCard,
   AssistantBlock,
@@ -140,7 +153,10 @@ export default function SessionPage() {
   }, [sid, serverUrl, token, setNotice])
 
   // 发消息 / 中断 / 审批决策（防抖闸门 H3 在 controller 内）
-  const handleSend = useCallback((text: string): void => {
+  const handleSend = useCallback((text: string, _pendingFiles: string[]): void => {
+    // _pendingFiles 暂不进发送体：服务端 SendMessageBody 与引擎 SessionHandle.send 都不
+    // 承载 attachments（整改清单见 README）——待发条不清空、不冒充已发送，
+    // 清空会让已上传的附件在界面上无声消失
     void controllerRef.current?.send(text)
   }, [])
   const handleStop = useCallback((): void => {
@@ -148,6 +164,52 @@ export default function SessionPage() {
   }, [])
   const handleReply = useCallback((requestId: RequestId, reply: PermissionReply): void => {
     void controllerRef.current?.reply(requestId, reply)
+  }, [])
+
+  // 附件入口（工单 19.29）：选图即上传，成功进待发条；提示走页面局部条（5s 自清，
+  // 与 controller notice 同律）——上传是 REST 动作，不进事件流也不借 store notice
+  const [attachments, setAttachments] = useState<AttachmentDto[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [attachNotice, setAttachNotice] = useState<string | null>(null)
+  const uploadingRef = useRef(false)
+
+  useEffect(() => {
+    if (attachNotice === null) return () => undefined
+    const timer = setTimeout(() => setAttachNotice(null), 5000)
+    return () => clearTimeout(timer)
+  }, [attachNotice])
+
+  const handlePickAttachment = useCallback((): void => {
+    const rest = getRestClient(serverUrl, token)
+    if (rest === null) {
+      setAttachNotice('未配置服务器：请先在设置页完成配对')
+      return
+    }
+    if (uploadingRef.current) return
+    uploadingRef.current = true
+    setUploading(true)
+    void pickImages(1)
+      .then((picked) =>
+        picked.length === 0
+          ? null
+          : uploadPickedImages({ sessionId: sid, picked, read: readFileBytes, channel: rest }),
+      )
+      .then((outcome) => {
+        if (outcome === null) return
+        if (outcome.uploaded.length > 0) {
+          setAttachments((cur) => outcome.uploaded.reduce(mergeUploaded, cur))
+        }
+        if (outcome.errors.length > 0) setAttachNotice(outcome.errors.join('；'))
+      })
+      .catch((err: unknown) => setAttachNotice(errorMessageOf(err)))
+      .finally(() => {
+        uploadingRef.current = false
+        setUploading(false)
+      })
+  }, [serverUrl, token, sid])
+
+  const handleRemoveAttachment = useCallback((file: string): void => {
+    setAttachments((cur) => removePending(cur, file))
   }, [])
 
 
@@ -172,6 +234,9 @@ export default function SessionPage() {
   }
 
   const running = slice.activeTurn !== null
+
+  // topBanner 的重试目标（仅错误条出现时算一次——不在每帧重扫全列表）
+  const retryText = slice.topBanner !== null ? lastUserTextOf(slice.items) : null
 
   const connectionText =
     status === 'closed'
@@ -207,6 +272,34 @@ export default function SessionPage() {
           </Text>
         </View>
       )}
+      {/* 本轮以 error 结束（工单 19.29 补 topBanner 渲染）：数据源 = turn.completed
+          finish='error' 投影出的 slice.topBanner（durable，回放即可重建）。
+          重试 = 重发最后一条 user 文本（与 web SessionSurface.retryLastMessage 同语义：
+          追加一条新 user.message，不原地改写）；无 user 消息时不出钮——不拿空文本撞 zod min(1) */}
+      {slice.topBanner !== null && (
+        <View className="sp-bar" style={{ backgroundColor: t.card }}>
+          <Text className="sp-meta" style={{ color: t.sparkErr }}>
+            本轮以 error 结束
+          </Text>
+          {retryText !== null && (
+            <Text
+              className="sp-bar-action"
+              style={{ color: t.sparkAccent }}
+              onClick={() => void controllerRef.current?.send(retryText)}
+            >
+              {miniT('action.retry')}
+            </Text>
+          )}
+        </View>
+      )}
+      {/* 附件流程人话条（选图/读文件/上传三段失败与格式拒绝；5s 自清同 controller notice） */}
+      {attachNotice !== null && (
+        <View className="sp-bar" style={{ backgroundColor: t.card }}>
+          <Text className="sp-meta" style={{ color: t.sparkErr }}>
+            {attachNotice}
+          </Text>
+        </View>
+      )}
       <View className="sp-list-wrap">
         <ScrollView
           className="sp-list"
@@ -221,7 +314,7 @@ export default function SessionPage() {
         >
           {loadingOlder ? (
             <Text className="sp-pager" style={{ color: t.mutedForeground }}>
-              加载中…
+              {miniT('shell.loading')}
             </Text>
           ) : !snap.hasMore && snap.slice.items.length > 0 ? (
             <Text className="sp-pager" style={{ color: t.mutedForeground }}>
@@ -246,7 +339,12 @@ export default function SessionPage() {
                 case 'user':
                   return (
                     <View key={row.key} className="sp-row-gap">
-                      <UserBubble text={it.text} />
+                      <UserBubble
+                        text={it.text}
+                        attachments={it.attachments ?? []}
+                        baseUrl={serverUrl.trim()}
+                        token={token}
+                      />
                     </View>
                   )
                 case 'assistant':
@@ -319,7 +417,13 @@ export default function SessionPage() {
         <Composer
           running={running}
           busy={snap.sending}
-          onSend={(text) => void handleSend(text)}
+          attachments={attachments}
+          uploading={uploading}
+          baseUrl={serverUrl.trim()}
+          token={token}
+          onPickAttachment={handlePickAttachment}
+          onRemoveAttachment={handleRemoveAttachment}
+          onSend={(text, files) => void handleSend(text, files)}
           onStop={() => void handleStop()}
         />
       </View>

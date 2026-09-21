@@ -19,15 +19,42 @@ import {
   type UiItem,
 } from '@spark/protocol'
 import { useTheme } from '../store/theme-store'
-import { Card, Hairline } from './ui'
+import { attachmentUrlOf } from '../session/attachments'
+import { AttachmentThumb, Card, Hairline } from './ui'
 import './session-items.css'
 
-/** user 消息：右对齐浅灰胶囊（无头像；最大宽 80%，radius 36rpx） */
-export function UserBubble({ text }: { text: string }) {
+/** user 消息：右对齐浅灰胶囊（无头像；最大宽 80%，radius 36rpx）。
+ *  附件缩略（工单 19.29 补齐批；投影字段 `user.message.attachments` 自 12.2a 就在）：
+ *  文本上方一排 64px 方块，取图走 GET /api/attachments/:file，非环回带 ?token=。
+ *  历史事件的 attachments 存的是文件名（`<id>.<ext>`），原始名不随事件落盘——
+ *  加载失败回落的就是这个文件名。 */
+export function UserBubble({
+  text,
+  attachments = [],
+  baseUrl = '',
+  token = '',
+}: {
+  text: string
+  attachments?: readonly string[]
+  /** 取图基址：空串 = 未配置服务器（不出缩略，只出文件名行——不拿坏 URL 冒充能取图） */
+  baseUrl?: string
+  token?: string
+}) {
   const t = useTheme()
   return (
     <View className="si-user-row">
       <View className="si-user-bubble" style={{ backgroundColor: t.muted }}>
+        {attachments.length > 0 && baseUrl !== '' && (
+          <View className="si-user-attachments">
+            {attachments.map((file) => (
+              <AttachmentThumb
+                key={file}
+                url={attachmentUrlOf(baseUrl, file, token)}
+                name={file}
+              />
+            ))}
+          </View>
+        )}
         <Text className="si-user-text" style={{ color: t.foreground }}>
           {text}
         </Text>
@@ -84,7 +111,10 @@ export function AssistantBlock({
           {fullText}
         </Text>
       )}
-      {/* 操作行（J.2.3：v1 只做复制+合规标注；👍👎 记 v2 需反馈存储） */}
+      {/* 操作行（J.2.3）：只做复制 + 合规标注。👍👎 本端未接——后端已有
+          `Transport.submitFeedback`（工单 19.19），缺的是端上的两件事：assistant 行的
+          eventId 定位与投票态回读（GET /api/feedback 按 session+event 过滤）。
+          接法与 web 同形，登记在 apps/miniapp/README「未接面」段，不留"以后再说"式占位。 */}
       {!streaming && (
         <View className="si-action-row">
           <View className="si-copy-btn" aria-label="复制消息" onClick={onCopy}>

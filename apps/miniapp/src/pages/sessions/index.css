@@ -15,9 +15,21 @@
   position: relative;
 }
 
+/* 标题行即筛选入口（J.2.2："全部会话 ⌄"）——整块可点，chevron 只是指示符 */
+.sl-title-button {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
 .sl-title {
   font-size: 36rpx;
   font-weight: 600;
+}
+
+.sl-title-caret {
+  font-size: 32rpx;
+  margin-left: 8rpx;
 }
 
 .sl-settings {
@@ -101,4 +113,50 @@
   position: fixed;
   right: 32rpx;
   bottom: 48rpx;
+}
+
+/* 筛选菜单（J.2.2）：满屏遮罩 + 居中白卡 radius 24rpx（12px×2），行高 88rpx（44px×2）。
+   rpx 一律 4 的倍数（§13.I 小程序行）；阴影至多一档（ui.css 同律）。 */
+.sl-menu-backdrop {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.sl-menu-mask {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.sl-menu-card {
+  position: absolute;
+  left: 50%;
+  top: 104rpx;
+  width: 400rpx;
+  margin-left: -200rpx;
+  border-radius: 24rpx;
+  padding: 8rpx 16rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
+}
+
+.sl-menu-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 88rpx;
+  padding: 0 16rpx;
+}
+
+.sl-menu-label {
+  flex: 1;
+  font-size: 32rpx;
+}
+
+.sl-menu-check {
+  font-size: 28rpx;
 }

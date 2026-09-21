@@ -46,3 +46,56 @@
   line-height: 48rpx;
   font-weight: 600;
 }
+
+/* 附件缩略（工单 19.29）：64px×2 方块、radius 16rpx（§13.B 小件 8px 档×2）、
+   移除角标 40rpx 圆点压在方块右上（点按区不外溢到图本体，防误开大图） */
+.spark-thumb-wrap {
+  position: relative;
+  width: 128rpx;
+  height: 128rpx;
+}
+
+.spark-thumb {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 16rpx;
+}
+
+.spark-thumb-fallback {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 16rpx;
+  border-width: 1px;
+  border-style: solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8rpx;
+  box-sizing: border-box;
+}
+
+.spark-thumb-fallback-text {
+  font-size: 20rpx;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 108rpx;
+}
+
+.spark-thumb-remove {
+  position: absolute;
+  right: -8rpx;
+  top: -8rpx;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spark-thumb-remove-glyph {
+  font-size: 28rpx;
+  line-height: 32rpx;
+}

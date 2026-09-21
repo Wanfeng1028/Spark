@@ -1,8 +1,21 @@
 /**
  * 小程序连接配置与外观偏好（设置页数据源；镜像 apps/mobile config-store 语义）。
- * 存储选择：Taro.setStorageSync/getStorageSync（微信本地缓存，单键 1MB 上限内绰绰有余）。
- * 小程序无系统密钥链——token 明文存本地缓存是平台能力上限（体验版局域网场景，
- * v1 口径；正式分发记 v2 时重估）。持久化边界封装在 load/persist 两函数。
+ * 存储选择：Taro.setStorageSync/getStorageSync（微信本地缓存）。
+ *
+ * **token 加密存储重估（工单 19.29 结论，替换此前的占位口径）**：
+ * 小程序侧没有任何安全存储 API——`wx.setStorage` 系落进应用沙箱的明文 KV，
+ * 微信官方也不提供密钥链/生物识别解锁（对比：移动端 apps/mobile 用
+ * expo-secure-store 的系统 Keychain/Keystore）。可选项逐条核过：
+ * ① 前端自加解密后存缓存——密钥必须存在同样的可读位置（代码常量/同一份缓存），
+ *    能读到密文的人就能读到密钥，**只是把明文换个写法**，属假实现（ARCHITECTURE §9），不做；
+ * ② 只存内存不持久化——冷启动即要求重新配对，而配对码 60s 一次性且要桌面端在场，
+ *    可用性坍塌，且体验版/正式版每次重进都要人配合，判决留给有公网分发形态时重议；
+ * ③ 服务端侧兜底（采纳）：token 是**设备级长效凭据**，可在桌面端「设备与配对」页
+ *    `revokePairDevice` 即时撤销（撤销后已连 SSE 立即断开，auth.ts 头注），本机
+ *    「断开连接」等价于清本机凭据；日志侧 `redactTokenQuery` 保证 ?token= 不落 pino。
+ * 残余风险如实登记：拿到已解锁手机 + 本小程序缓存的人，在撤销前可读写本机所连
+ * 会话。缓解面 = 服务端撤销 + 本机清除 + 127.0.0.1 缺省无鉴权形态（未配对设备
+ * 连不上非环回地址）。设置页在 token 输入框下把这段判断与撤销动作直接写给用户。
  */
 import Taro from '@tarojs/taro'
 import { create } from 'zustand'

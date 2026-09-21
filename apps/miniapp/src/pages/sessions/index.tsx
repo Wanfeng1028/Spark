@@ -1,27 +1,38 @@
 /**
- * 会话列表页（工单 9.4——语义对齐 apps/mobile SessionsScreen，DESIGN §13.J.2.2）。
+ * 会话列表页（工单 9.4——语义对齐 apps/mobile SessionsScreen，DESIGN §13.J.2.2；
+ * 工单 19.29 小程序补齐批：筛选菜单落地）。
  * 形态收敛说明（§13.J.1 + 工单口径）：
- * - 小程序原生页面栈导航：头部右侧"设置"文字钮直达设置页（替代 RN 抽屉）；
- *   无 tab bar。筛选菜单（全部/按项目/已归档）依赖较多浮层交互，小程序端收敛为
- *   仅时间分组（今天/更早）——记偏离：筛选档留 v2。
- * - 下拉刷新 = 页面级 enablePullDownRefresh + usePullDownRefresh（transport.listSessions()）。
+ * - 小程序原生页面栈导航：头部右侧"设置"文字钮直达设置页（替代 RN 抽屉）；无 tab bar。
+ * - 标题行"全部会话 ⌄"→ 筛选菜单（全部 / 按项目 / 已归档）：三档皆有后端支撑
+ *   （listSessions(archived?) 工单 12.4），原"浮层交互成本高故收敛为仅时间分组"的
+ *   偏离声明作废。菜单为页内浮层（绝对定位白卡 + 透明遮罩收点），不用原生 ActionSheet
+ *   ——后者只给行高 44 的选项列表，装不下"选中 ✓ + 档位说明"的 J.2.2 形态。
+ * - 下拉刷新 = 页面级 enablePullDownRefresh + usePullDownRefresh（当前档重取快照）。
  * - 行：状态点 16rpx + 标题单行截断 + 右侧日期 24rpx meta，行高 104rpx（J.2.2 52px×2）。
+ *   已归档档的状态点灰档**不在本端自绘**（protocol ui-copy `dotColor` 预留，等端主题
+ *   补 sparkMeta 后收敛单源），归档上下文由页头标题与分组标题承载。
  * - 右下 FAB 112rpx accent 白"+"。
  * 列表快照纪律同四端（AGENTS §2.7）：刷新/聚焦时刻 REST 快照，不轮询。
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Text, View } from '@tarojs/components'
 import Taro, { usePullDownRefresh } from '@tarojs/taro'
 import type { SessionDto } from '@spark/protocol'
-import { dotColor, errorMessageOf, fmtDate, isToday } from '@spark/protocol'
+import { dotColor, errorMessageOf, fmtDate } from '@spark/protocol'
 import { useAppStore } from '../../store/app-store'
 import { useConfigStore } from '../../store/config-store'
 import { useTheme } from '../../store/theme-store'
+import { miniT } from '../../i18n'
 import { getRestClient } from '../../transport/runtime'
+import {
+  SESSION_FILTERS,
+  archivedQueryOf,
+  buildSections,
+  listTitleOf,
+  type SessionFilter,
+} from '../../session/session-list-filter'
 import { Card, EmptyState, FloatButton, Hairline } from '../../components/ui'
 import './index.css'
-
-type Section = { key: string; title: string; items: SessionDto[] }
 
 export default function SessionsPage() {
   const t = useTheme()
@@ -33,6 +44,8 @@ export default function SessionsPage() {
   const serverUrl = useConfigStore((s) => s.serverUrl)
   const token = useConfigStore((s) => s.token)
   const [refreshing, setRefreshing] = useState(false)
+  const [filter, setFilter] = useState<SessionFilter>('all')
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const refresh = useCallback(async (): Promise<void> => {
     const rest = getRestClient(serverUrl, token)
@@ -41,14 +54,16 @@ export default function SessionsPage() {
       return
     }
     try {
-      setSessions(await rest.listSessions())
+      const archived = archivedQueryOf(filter)
+      setSessions(await rest.listSessions(archived))
       setNotice(null)
     } catch (err: unknown) {
       // 失败闭合：列表失败如实提示，保留旧快照（不拿空列表冒充）
       setNotice(errorMessageOf(err))
     }
-  }, [serverUrl, token, setSessions, setNotice])
+  }, [serverUrl, token, filter, setSessions, setNotice])
 
+  // 档位切换即重取快照（数据源随档变化——归档档不在"全部"的返回里，客户端筛不出）
   useEffect(() => {
     setRefreshing(true)
     void refresh().finally(() => setRefreshing(false))
@@ -66,15 +81,7 @@ export default function SessionsPage() {
     return () => clearTimeout(timer)
   }, [notice, setNotice])
 
-  const sections = useMemo<Section[]>(() => {
-    const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)
-    const today = sorted.filter((s) => isToday(s.updatedAt))
-    const earlier = sorted.filter((s) => !isToday(s.updatedAt))
-    const out: Section[] = []
-    if (today.length > 0) out.push({ key: 'today', title: '今天', items: today })
-    if (earlier.length > 0) out.push({ key: 'earlier', title: '更早', items: earlier })
-    return out
-  }, [sessions])
+  const sections = buildSections(sessions, filter)
 
   const openSession = useCallback(
     (dto: SessionDto): void => {
@@ -103,12 +110,28 @@ export default function SessionsPage() {
       .catch((err: unknown) => setNotice(errorMessageOf(err)))
   }, [serverUrl, token, setActiveSession, setNotice])
 
+  const emptyDetail =
+    filter === 'archived'
+      ? '没有已归档的会话（归档在桌面/网页端侧栏操作）'
+      : serverUrl === ''
+        ? '先在设置页完成配对，再从右下角新建'
+        : '下拉刷新，或从右下角新建会话'
+
   return (
     <View className="sl-screen" style={{ backgroundColor: t.pageBackground }}>
       <View className="sl-header">
-        <Text className="sl-title" style={{ color: t.foreground }}>
-          全部会话
-        </Text>
+        <View
+          className="sl-title-button"
+          aria-label="会话筛选"
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          <Text className="sl-title" style={{ color: t.foreground }}>
+            {listTitleOf(filter)}
+          </Text>
+          <Text className="sl-title-caret" style={{ color: t.mutedForeground }}>
+            ⌄
+          </Text>
+        </View>
         <Text
           className="sl-settings"
           aria-label="打开设置"
@@ -117,7 +140,7 @@ export default function SessionsPage() {
             void Taro.navigateTo({ url: '/pages/settings/index' })
           }}
         >
-          设置
+          {miniT('shell.settings')}
         </Text>
       </View>
       {notice !== null && (
@@ -133,19 +156,12 @@ export default function SessionsPage() {
               void refresh()
             }}
           >
-            重试
+            {miniT('action.retry')}
           </Text>
         </View>
       )}
       {sections.length === 0 && !refreshing ? (
-        <EmptyState
-          title="暂无会话"
-          detail={
-            serverUrl === ''
-              ? '先在设置页完成配对，再从右下角新建'
-              : '下拉刷新，或从右下角新建会话'
-          }
-        />
+        <EmptyState title="暂无会话" detail={emptyDetail} />
       ) : (
         <View className="sl-list">
           {sections.map((section) => (
@@ -157,10 +173,7 @@ export default function SessionsPage() {
                 {section.items.map((dto, i) => (
                   <View key={dto.id}>
                     {i > 0 ? <Hairline /> : null}
-                    <View
-                      className="sl-row"
-                      onClick={() => openSession(dto)}
-                    >
+                    <View className="sl-row" onClick={() => openSession(dto)}>
                       <View className="sl-dot" style={{ backgroundColor: dotColor(dto.status, t) }} />
                       <Text className="sl-row-title sl-ellipsis" style={{ color: t.foreground }}>
                         {dto.title !== '' ? dto.title : '新会话'}
@@ -185,6 +198,40 @@ export default function SessionsPage() {
           glyphColor="#ffffff"
         />
       </View>
+      {/* 筛选菜单（J.2.2：白卡 radius 12、行高 44、选中 ✓；遮罩层先挂故点外即收） */}
+      {menuOpen && (
+        <View className="sl-menu-backdrop">
+          <View
+            className="sl-menu-mask"
+            aria-label="关闭筛选菜单"
+            onClick={() => setMenuOpen(false)}
+          />
+          <View className="sl-menu-card" style={{ backgroundColor: t.card }}>
+            {SESSION_FILTERS.map((opt, i) => (
+              <View key={opt.value}>
+                {i > 0 ? <Hairline /> : null}
+                <View
+                  className="sl-menu-row"
+                  aria-label={`筛选：${opt.label}`}
+                  onClick={() => {
+                    setFilter(opt.value)
+                    setMenuOpen(false)
+                  }}
+                >
+                  <Text className="sl-menu-label" style={{ color: t.foreground }}>
+                    {opt.label}
+                  </Text>
+                  {filter === opt.value ? (
+                    <Text className="sl-menu-check" style={{ color: t.sparkAccent }}>
+                      ✓
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   )
 }

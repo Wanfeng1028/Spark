@@ -18,6 +18,16 @@
   line-height: 44rpx;
 }
 
+/* 附件缩略行（工单 19.29）：右对齐贴着 user 气泡，方块间距 16rpx（8px×2） */
+.si-user-attachments {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
 /* assistant 全宽纯文本 */
 .si-assistant {
   display: flex;

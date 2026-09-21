@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 import type { ProjectionState, SparkEventEnvelope } from '@spark/protocol'
 import { applyEvent, emptySessionSlice, ids } from '@spark/protocol'
 import { BATCH_WINDOW_MS } from '../src/store/app-store'
-import { buildSessionRows } from '../src/session/session-rows'
+import { buildSessionRows, lastUserTextOf } from '../src/session/session-rows'
 
 const SID = ids.session('ses_mini_proj_1')
 const TID = ids.turn('trn_mini_proj_1')
@@ -93,5 +93,63 @@ describe('BATCH_WINDOW_MS（setData 频次口径——miniapp 专属约束）', 
   it('缺省时间窗落在任务口径内', () => {
     expect(BATCH_WINDOW_MS).toBeGreaterThanOrEqual(16)
     expect(BATCH_WINDOW_MS).toBeLessThanOrEqual(32)
+  })
+})
+
+/**
+ * 工单 19.29 小程序补齐批新接的两个投影消费面：
+ * topBanner（本轮以 error 结束 → 重试条）与 user.message.attachments（缩略图数据源）。
+ * 断言走真实 applyEvent——端上渲染只吃投影，不自己解析事件。
+ */
+describe('topBanner / attachments 投影消费面（工单 19.29）', () => {
+  function project(events: readonly SparkEventEnvelope[]) {
+    let s: ProjectionState = { byId: {}, activeId: SID }
+    for (const e of events) s = applyEvent(s, e)
+    return s.byId[SID] ?? emptySessionSlice(SID)
+  }
+
+  it('turn.completed finish=error 落 topBanner；下一 turn.started 清空', () => {
+    const withError = project([
+      env('user.message', 1000, 1, { text: '跑一下' }),
+      env('turn.started', 1050, 2, { turnId: TID, delivery: 'now', userEventId: ids.event('evt_mini_dummy') }),
+      env('turn.completed', 2000, 3, { turnId: TID, finish: 'error' }),
+    ])
+    expect(withError.topBanner?.kind).toBe('turn-error')
+    expect(lastUserTextOf(withError.items)).toBe('跑一下')
+
+    const nextTurn = project([
+      env('turn.completed', 2000, 3, { turnId: TID, finish: 'error' }),
+      env('turn.started', 3000, 4, { turnId: TID, delivery: 'now', userEventId: ids.event('evt_mini_dummy') }),
+    ])
+    expect(nextTurn.topBanner).toBeNull()
+  })
+
+  it('正常收尾不留错误横幅（finish=stop 不得冒充 error）', () => {
+    const slice = project([
+      env('turn.started', 1050, 1, { turnId: TID, delivery: 'now', userEventId: ids.event('evt_mini_dummy') }),
+      env('turn.completed', 2000, 2, { turnId: TID, finish: 'stop' }),
+    ])
+    expect(slice.topBanner).toBeNull()
+  })
+
+  it('user.message 的 attachments 进投影项（缩略图渲染数据源）；无附件不建字段', () => {
+    const withAttach = project([
+      env('user.message', 1000, 1, { text: '看图', attachments: ['ab12.png', 'cd34.jpg'] }),
+    ])
+    const item = withAttach.items[0]
+    expect(item?.kind === 'user' ? item.attachments : undefined).toEqual(['ab12.png', 'cd34.jpg'])
+
+    const plain = project([env('user.message', 1000, 1, { text: '无图' })])
+    const plainItem = plain.items[0]
+    expect(plainItem?.kind === 'user' ? plainItem.attachments : undefined).toBeUndefined()
+  })
+
+  it('lastUserTextOf 取最后一条 user 文本；无 user 消息返回 null（重试钮不出，不撞 zod min(1)）', () => {
+    const slice = project([
+      env('user.message', 1000, 1, { text: '第一条' }),
+      env('user.message', 1500, 2, { text: '第二条' }),
+    ])
+    expect(lastUserTextOf(slice.items)).toBe('第二条')
+    expect(lastUserTextOf(project([env('turn.started', 1, 1, { turnId: TID, delivery: 'now', userEventId: ids.event('evt_mini_dummy') })]).items)).toBeNull()
   })
 })

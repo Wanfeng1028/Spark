@@ -1,5 +1,30 @@
 /* Composer 胶囊（工单 9.4，J.2.1/J.2.3）：高 104rpx 起（52px×2）、radius 全圆、rpx 4 的倍数 */
 
+/* 待发附件条 + 胶囊的外层堆叠（附件条贴在胶囊上沿，同一卡底色成一组） */
+.composer-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.composer-attach-strip {
+  border-radius: 24rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 12rpx;
+}
+
+.composer-attach-thumbs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.composer-attach-note {
+  display: block;
+  font-size: 24rpx;
+  margin-top: 12rpx;
+}
+
 .composer-capsule {
   display: flex;
   flex-direction: row;
@@ -8,6 +33,23 @@
   border-radius: 52rpx;
   padding: 12rpx 20rpx;
   box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+}
+
+/* 附件入口（19.29）：与发送钮同尺寸的弱色圆钮——不放 accent，避免与主 CTA 抢焦点 */
+.composer-attach {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16rpx;
+}
+
+.composer-attach-glyph {
+  font-size: 44rpx;
+  line-height: 48rpx;
+  font-weight: 600;
 }
 
 .composer-input {

@@ -19,6 +19,13 @@
   line-height: 36rpx;
 }
 
+/* 细条内联动作（topBanner 重试；与列表页 sl-notice-retry 同形态） */
+.sp-bar-action {
+  font-size: 24rpx;
+  margin-left: 24rpx;
+  padding: 4rpx 16rpx;
+}
+
 .sp-list-wrap {
   flex: 1;
   position: relative;

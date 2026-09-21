@@ -8,6 +8,7 @@
  */
 import { create } from 'zustand'
 import type {
+  Language,
   ProjectionState,
   SessionDto,
   SessionId,
@@ -25,12 +26,15 @@ export interface AppState extends ProjectionState {
   activeSessionId: SessionId | null
   /** 最近一条人话提示（REST 失败/引擎 error 事件；顶部细条数据源，J.4） */
   notice: string | null
+  /** 界面语言（工单 19.29 消费 19.17 框架：服务端 ui.language 单源，缺则系统探测） */
+  language: Language
 
   apply: (e: SparkEventEnvelope) => void
   setStatus: (s: MiniAppConnectionStatus) => void
   setSessions: (list: SessionDto[]) => void
   setActiveSession: (sid: SessionId | null) => void
   setNotice: (msg: string | null) => void
+  setLanguage: (l: Language) => void
 }
 
 export const useAppStore = create<AppState>()((set) => ({
@@ -40,6 +44,8 @@ export const useAppStore = create<AppState>()((set) => ({
   sessions: [],
   activeSessionId: null,
   notice: null,
+  // 装载前按中文渲染（字典缺省档）——不空文案、不显 key 名
+  language: 'zh-CN',
 
   // ProjectionState 部分交共享 reducer（与 web/cli/mobile 同口径）
   apply: (e) => set((s) => applyEvent(s, e)),
@@ -47,6 +53,7 @@ export const useAppStore = create<AppState>()((set) => ({
   setSessions: (sessions) => set({ sessions }),
   setActiveSession: (activeSessionId) => set({ activeSessionId }),
   setNotice: (notice) => set({ notice }),
+  setLanguage: (language) => set({ language }),
 }))
 
 /** 批处理时间窗（ms）：setData 频次敏感，窗口内事件一次提交 */

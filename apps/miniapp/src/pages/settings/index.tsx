@@ -1,5 +1,6 @@
 /**
- * 设置页（工单 9.4——语义对齐 apps/mobile SettingsScreen，DESIGN §13.J.2.4 精简）。
+ * 设置页（工单 9.4——语义对齐 apps/mobile SettingsScreen，DESIGN §13.J.2.4 精简；
+ * 工单 19.29 小程序补齐批：token 存储重估结论落到配置现场 + 通用动作词走 i18n）。
  * 服务器地址+token 配置区、深链/扫码待配对确认卡（spark://pair 解析）、
  * 手输配对（地址+6 位码——小程序主路径；扫码失败不阻塞落回手输）、
  * 外观三档（跟随系统/浅色/深色）、断开连接（红字独立白卡，J.2.4⑤）。
@@ -9,8 +10,10 @@ import { Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { BaseEventOrig, InputProps } from '@tarojs/components'
 import { baseUrlOf, errorMessageOf, parsePairLink } from '@spark/protocol'
+import { useAppStore } from '../../store/app-store'
 import { useConfigStore } from '../../store/config-store'
 import { useTheme } from '../../store/theme-store'
+import { miniT } from '../../i18n'
 import type { AppearancePreference } from '../../theme/tokens'
 import { getRestClient, invalidateRest, redeemPairCode } from '../../transport/runtime'
 import { parsePairCode } from '../../transport/pair'
@@ -56,7 +59,11 @@ export default function SettingsPage() {
     client
       .getSettings()
       .then((s) => {
-        if (alive) setComputerUse(s.engine.computerUseEnabled)
+        if (!alive) return
+        setComputerUse(s.engine.computerUseEnabled)
+        // 服务端声明了语言才覆盖（19.17 单源）：未声明时保留启动期的系统探测结果，
+        // 拿缺省值回写会把英文设备的界面刷回中文
+        if (s.ui?.language !== undefined) useAppStore.getState().setLanguage(s.ui.language)
       })
       .catch(() => {
         if (alive) setComputerUse(null)
@@ -190,7 +197,7 @@ export default function SettingsPage() {
               style={{ borderColor: t.border }}
             >
               <Text className="st-cta-ghost-text" style={{ color: t.mutedForeground }}>
-                取消
+                {miniT('action.cancel')}
               </Text>
             </View>
           </Card>
@@ -277,6 +284,13 @@ export default function SettingsPage() {
             placeholderStyle={`color: ${t.ring}`}
             onInput={inputOf(setTokenDraft)}
           />
+          {/* token 存储重估结论（工单 19.29）落在校验点：小程序侧没有安全存储 API，
+              明文留本机缓存是平台上限——把残余风险与兜底动作（桌面端撤销本设备）
+              写在配置现场，而不是只写在 README 里等人来查。 */}
+          <Text className="st-field-label" style={{ color: t.mutedForeground }}>
+            token 明文存本机缓存（小程序无系统密钥链 API）；换机或丢失请到桌面端
+            「设备与配对」撤销本设备，或在此「断开连接」清除本机配置
+          </Text>
           {localNotice !== null ? (
             <Text className="st-notice" style={{ color: t.sparkErr }}>
               {localNotice}
@@ -290,7 +304,7 @@ export default function SettingsPage() {
             style={{ backgroundColor: t.primary, opacity: busy ? 0.5 : 1 }}
           >
             <Text className="st-cta-text" style={{ color: t.primaryForeground }}>
-              保存
+              {miniT('action.save')}
             </Text>
           </View>
         </Card>

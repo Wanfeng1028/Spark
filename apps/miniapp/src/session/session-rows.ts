@@ -51,3 +51,17 @@ export function buildSessionRows(
   }
   return rows
 }
+
+/**
+ * topBanner（本轮以 error 结束）的重试目标：投影里最后一条 user 文本。
+ * 无 user 消息（首轮即错）返回 null——重试钮不出，不拿空文本去撞 zod min(1)。
+ * 与 web SessionSurface.retryLastMessage 同语义（重发即新一条 user.message，
+ * 不做原地改写——事件流只追加）。
+ */
+export function lastUserTextOf(items: readonly UiItem[]): string | null {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i]
+    if (it !== undefined && it.kind === 'user') return it.text
+  }
+  return null
+}
