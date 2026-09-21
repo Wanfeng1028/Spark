@@ -77,6 +77,6 @@ describe('会话改名（阶段十九 19.20）', () => {
     expect(title?.kind).toBe('client')
     expect(rename?.clientAction).toBe('rename')
     expect(title?.clientAction).toBe('rename')
-    expect(BUILTIN_COMMANDS).toHaveLength(27) // 25（19.7 基线）+ /rename + /title
+    expect(BUILTIN_COMMANDS).toHaveLength(28) // 25（19.7 基线）+ /rename + /title + 19.23 /settings
   })
 })

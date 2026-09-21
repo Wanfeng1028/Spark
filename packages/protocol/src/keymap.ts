@@ -29,7 +29,7 @@ export const KEYMAP: readonly KeyBinding[] = [
   { keys: 'Ctrl+C ×2', action: '退出（在途 turn 先中断，不悬挂）', surface: 'cli' },
   { keys: 'Ctrl+R', action: '重试最近一次发送（错误提示存在、无在途 turn 时）', surface: 'cli', note: '工单 10.11 / §13.K K.8' },
   { keys: 'Ctrl/Cmd+K', action: '命令面板', surface: 'web' },
-  { keys: 'Ctrl/Cmd+,', action: '设置页', surface: 'web' },
+  { keys: 'Ctrl/Cmd+,', action: '设置面（web 设置中心整页 / CLI 设置面板）', surface: 'both', note: '工单 19.23 CLI 侧落地' },
 ]
 
 /** cli --help 的键位段（只取 cli/both 条目） */

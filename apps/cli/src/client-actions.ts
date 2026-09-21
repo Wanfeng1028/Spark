@@ -67,6 +67,8 @@ export function createCliActionHandlers(deps: CliActionDeps): Record<ClientActio
     computer: () => st.setPanel('computer'),
     // 沙箱与网络面板（阶段十九 19.7）：模式/清单/端口 + 代理运行状态只读（写入在 web 设置中心）
     sandbox: () => st.setPanel('sandbox'),
+    // 设置面板（阶段十九 19.23）：可改子集表单（GET/PUT /api/settings + /api/routing）
+    settings: () => st.setPanel('settings'),
     voice: (args) => needSession(() => deps.voice(args)),
   }
 }

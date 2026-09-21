@@ -35,6 +35,7 @@ export const ClientActionSchema = z.enum([
   'computer',
   'sandbox',
   'rename',
+  'settings',
 ])
 export type ClientAction = z.infer<typeof ClientActionSchema>
 
@@ -316,5 +317,16 @@ export const BUILTIN_COMMANDS: readonly CommandDescriptor[] = [
     surface: ['web', 'cli'],
     sessionRequired: false,
     clientAction: 'sandbox',
+  },
+  {
+    // 阶段十九 19.23：client 命令——/settings 设置面。web 是设置中心整页；CLI 是终端表单
+    // （GET /api/settings 可改子集 + PUT 写回，热/重启分档标注取服务端 restartRequired 单源）
+    name: 'settings',
+    description: '设置面板：模型缺省与引擎/沙箱/归档/浏览器/界面各项（改完即写 spark.json）',
+    kind: 'client',
+    group: 'info',
+    surface: ['web', 'cli'],
+    sessionRequired: false,
+    clientAction: 'settings',
   },
 ]

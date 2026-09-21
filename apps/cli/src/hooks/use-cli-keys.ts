@@ -134,6 +134,8 @@ export function useCliKeys(opts: UseCliKeysOptions): void {
     if (key.escape) {
       // 面板优先关闭（键位表纪律：Esc 面板开放时先关面板）
       if (useCliStore.getState().panel !== 'none') {
+        // 面板自持编辑态时让位（工单 19.23：设置面板行内编辑的 Esc 先取消编辑，不关整面板）
+        if (useCliStore.getState().panelEditing) return
         useCliStore.getState().setPanel('none')
         useCliStore.getState().setDraftPreview('')
         return
@@ -230,6 +232,12 @@ export function useCliKeys(opts: UseCliKeysOptions): void {
           return
         }
       }
+      return
+    }
+    // Ctrl/Cmd+, 设置面板（阶段十九 19.23）：与 web 同语义，再按一次关闭
+    if (key.ctrl && input === ',') {
+      const s = useCliStore.getState()
+      s.setPanel(s.panel === 'settings' ? 'none' : 'settings')
       return
     }
     // 审批键（工单 10.9：1/2/3 数字键直达，y/a/n 别名；挂起且非反馈模式时接管）。

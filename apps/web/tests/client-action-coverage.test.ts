@@ -1,5 +1,5 @@
 /**
- * 命令面板入口覆盖（阶段十九 19.21 第一批）：web 端 18 个 client 命令的映射覆盖。
+ * 命令面板入口覆盖（阶段十九 19.21 第一批）：web 端 client 命令的映射覆盖。
  * /help 刻意不映射（web 无帮助面板）——**未实现端不渲染**是本仓库既定纪律
  * （client-commands.ts 头注），命令面板过滤掉它，禁假状态。
  */
@@ -8,13 +8,13 @@ import { BUILTIN_COMMANDS, ClientActionSchema } from '@spark/protocol'
 import { CLIENT_ACTIONS } from '@/features/chat/client-commands'
 
 describe('web client 命令映射覆盖（阶段十九 19.21）', () => {
-  test('surface 含 web 的 client 命令：17/18 有映射，/help 如实缺席', () => {
+  test('surface 含 web 的 client 命令：18/19 有映射，/help 如实缺席', () => {
     const webClient = BUILTIN_COMMANDS.filter(
       (c) => c.kind === 'client' && c.surface.includes('web') && c.clientAction !== undefined,
     )
-    expect(webClient).toHaveLength(18)
+    expect(webClient).toHaveLength(19)
     const mapped = webClient.filter((c) => CLIENT_ACTIONS[c.clientAction!] !== undefined)
-    expect(mapped).toHaveLength(17)
+    expect(mapped).toHaveLength(18)
     const missing = webClient.filter((c) => CLIENT_ACTIONS[c.clientAction!] === undefined)
     expect(missing.map((c) => c.name)).toEqual(['help'])
   })

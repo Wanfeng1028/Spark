@@ -26,8 +26,8 @@ import type {
   Transport,
 } from '@spark/protocol'
 
-/** 面板壳：标题 + 关闭提示 + 内容 */
-function PanelShell({
+/** 面板壳：标题 + 关闭提示 + 内容（SettingsPanel 共用——19.23） */
+export function PanelShell({
   title,
   hint,
   children,

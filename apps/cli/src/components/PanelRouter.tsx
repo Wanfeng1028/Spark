@@ -22,6 +22,7 @@ import {
   UsagePanel,
 } from './CommandPanels.js'
 import { HelpPanel } from './HelpPanel.js'
+import { SettingsPanel } from './SettingsPanel.js'
 import { StatsPanel } from './StatsPanel.js'
 import { MessagePane } from './MessagePane.js'
 import { ResumePanel } from './ResumePanel.js'
@@ -100,6 +101,10 @@ export function PanelRouter({
   }
   if (panel === 'sandbox') {
     return <SandboxPanel transport={transport} />
+  }
+  // 设置面板（阶段十九 19.23）：可改子集表单（GET/PUT settings 与 routing）
+  if (panel === 'settings') {
+    return <SettingsPanel transport={transport} />
   }
   if (panel === 'trust') {
     return <TrustPanel transport={transport} />

@@ -47,6 +47,8 @@ export const CLIENT_ACTIONS: Readonly<Partial<Record<ClientAction, ClientCommand
   sandbox: { kind: 'navigate', path: '/settings/sandbox' },
   // 会话改名（阶段十九 19.20）：/rename 与 /title 同实现
   rename: { kind: 'rename' },
+  // 设置中心（阶段十九 19.23）：与 Ctrl/Cmd+, 同一入口（键位表 surface=both）
+  settings: { kind: 'navigate', path: '/settings' },
   // 以下七项（阶段十九 19.21）：补 18 个 client 命令中 web 缺映射的 8 项里的 7 项。
   // /help 不映射：web 无帮助面板（键位说明在 CLI /help 与文档站）——**未实现端不渲染**，
   // 命令面板过滤掉它，禁假状态（不做一个点了没反应的入口）。

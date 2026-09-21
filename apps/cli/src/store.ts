@@ -41,6 +41,7 @@ export type CliPanel =
   | 'arena'
   | 'computer'
   | 'sandbox'
+  | 'settings'
 
 export interface CliState extends ProjectionState {
   status: CliConnectionStatus
@@ -62,6 +63,11 @@ export interface CliState extends ProjectionState {
   notice: string | null
   /** 面板开关（工单 10.10/10.11/10.18） */
   panel: CliPanel
+  /**
+   * 面板内自持编辑态（工单 19.23）：设置面板进入字段编辑时为 true——
+   * App 层 Esc 让位（先取消编辑，不关整面板），否则键位两处消费互相吞。
+   */
+  panelEditing: boolean
   /** 帮助面板 tab（0 概览 / 1 命令 / 2 键位；Tab/Shift+Tab 切换） */
   helpTab: number
   /** 输入预览（InputBox 逐键上报；slash 菜单可见性与过滤数据源） */
@@ -87,6 +93,7 @@ export interface CliState extends ProjectionState {
   toggleToolGroup: (groupKey: string) => void
   setNotice: (msg: string | null) => void
   setPanel: (p: CliPanel) => void
+  setPanelEditing: (v: boolean) => void
   cycleHelpTab: (dir: 1 | -1) => void
   setDraftPreview: (v: string) => void
   setBootError: (msg: string | null) => void
@@ -123,6 +130,7 @@ export const useCliStore = create<CliState>()((set) => ({
   expandedGroups: new Set<string>(),
   notice: null,
   panel: 'none',
+  panelEditing: false,
   helpTab: 0,
   draftPreview: '',
   bootError: null,
@@ -148,7 +156,7 @@ export const useCliStore = create<CliState>()((set) => ({
   toggleToolGroup: (groupKey) =>
     set((s) => ({ expandedGroups: toggle(s.expandedGroups, groupKey) })),
   setNotice: (notice) => set({ notice }),
-  setPanel: (panel) => set({ panel, ...(panel === 'help' ? { helpTab: 0 } : {}) }),
+  setPanel: (panel) => set({ panel, panelEditing: false, ...(panel === 'help' ? { helpTab: 0 } : {}) }),
   cycleHelpTab: (dir) => set((s) => ({ helpTab: (s.helpTab + dir + 3) % 3 })),
   setDraftPreview: (draftPreview) => set({ draftPreview }),
   setBootError: (bootError) => set({ bootError }),
@@ -165,6 +173,7 @@ export const useCliStore = create<CliState>()((set) => ({
       expandedGroups: new Set<string>(),
       notice: null,
       panel: 'none',
+      panelEditing: false,
       helpTab: 0,
       draftPreview: '',
       bootError: null,
