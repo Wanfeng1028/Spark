@@ -114,4 +114,7 @@ export const mobileMetrics = {
   /** J.2.2 筛选菜单：白卡 radius 12、行高 44（评审 G2） */
   menuRadius: 12,
   menuRowHeight: 44,
+  /** J.2.3 会话菜单：白卡 radius 16、行高 48、图标 20 + 文案 16 */
+  actionMenuRadius: 16,
+  actionRowHeight: 48,
 } as const

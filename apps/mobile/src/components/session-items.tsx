@@ -1,12 +1,21 @@
 /**
- * 会话页消息流子组件（工单 9.3，DESIGN §13.J.2.3 实测定死形态）：
- * user 右对齐浅灰胶囊（无头像）/ assistant 全宽纯文本+操作行（复制+"内容由 AI 生成"）/
- * 工具卡单行折叠 / 思考块折叠（§13.H 迁移）/ 审批卡白卡+warn 左边条+三键纵向全宽（J.3）；
+ * 会话页消息流子组件（工单 9.3，DESIGN §13.J.2.3 实测定死形态；19.27 补齐两半）：
+ * user 右对齐浅灰胶囊（无头像；attachments 缩略）/ assistant 全宽纯文本+操作行
+ * （复制 + 反馈两票 + "内容由 AI 生成"）/ 工具卡单行折叠 / 思考块折叠（§13.H 迁移）/
+ * 审批卡白卡+warn 左边条+三键纵向全宽（J.3）；
  * 回合头单行裸文本与 LSP 诊断折叠卡（工单 W18）。
  * 反 AI 味（§13.I/J.5）：系统字体、单档阴影、禁渐变/emoji，动效仅微动效。
  */
 import { useEffect, useRef, useState } from 'react'
-import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  Animated,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import * as Clipboard from 'expo-clipboard'
 import {
@@ -15,19 +24,55 @@ import {
   severityOf,
   toolStatusText,
   turnDurationText,
+  type FeedbackVote,
   type UiItem,
 } from '@spark/protocol'
 import { useTheme } from '../theme/use-theme'
 import { Card, Hairline } from './ui'
 import { mobileMetrics } from '../theme/tokens'
 
-/** user 消息：右对齐浅灰胶囊（zinc-100 底、radius 18、内边距 10/14、最大宽 80%、16px、无头像） */
-export function UserBubble({ text }: { text: string }) {
+/**
+ * user 消息：右对齐浅灰胶囊（zinc-100 底、radius 18、内边距 10/14、最大宽 80%、16px、无头像）。
+ * 附件缩略（工单 19.27）：投影里的 `attachments` 是服务端文件名，渲染侧经
+ * `attachmentUrlOf` 拼成 /api/attachments/<file>；取不到地址（未配置服务器）就退成
+ * mono 文件名行——不画破图。
+ */
+export function UserBubble({
+  text,
+  attachments = [],
+  urlOf,
+}: {
+  text: string
+  attachments?: readonly string[]
+  urlOf: (file: string) => string | null
+}) {
   const t = useTheme()
   return (
     <View style={styles.userRow}>
       <View style={[styles.userBubble, { backgroundColor: t.muted }]}>
-        <Text style={[styles.userText, { color: t.foreground }]}>{text}</Text>
+        {attachments.length > 0 && (
+          <View style={styles.userAttachments}>
+            {attachments.map((file) => {
+              const uri = urlOf(file)
+              return uri === null ? (
+                <Text key={file} style={[styles.mono, { color: t.mutedForeground }]}>
+                  {file}
+                </Text>
+              ) : (
+                <Image
+                  key={file}
+                  source={{ uri }}
+                  accessibilityLabel={`附件 ${file}`}
+                  resizeMode="cover"
+                  style={styles.userAttachmentThumb}
+                />
+              )
+            })}
+          </View>
+        )}
+        {text !== '' && (
+          <Text style={[styles.userText, { color: t.foreground }]}>{text}</Text>
+        )}
       </View>
     </View>
   )
@@ -42,16 +87,30 @@ function StreamingText({ text, color }: { text: string; color: string }) {
   return <Animated.Text style={[styles.assistantText, { color, opacity }]}>{text}</Animated.Text>
 }
 
-/** assistant 消息：全宽纯文本 17、段落间空行、无底色无边框；尾部操作行=复制+"内容由 AI 生成" */
+/** assistant 消息：全宽纯文本 17、段落间空行、无底色无边框；
+ *  尾部操作行=复制 + 反馈两票 + "内容由 AI 生成"（J.2.3；👍👎 用线性图标不用 emoji——§12.7）。
+ *  反馈真接线（工单 19.19 消解 V2-25）：同票再点撤回、异票改票，备注走 submitFeedback 幂等更新。 */
 export function AssistantBlock({
   item,
   streaming,
+  votes,
+  feedbackBusy,
+  onVote,
+  onSaveNote,
 }: {
   item: Extract<UiItem, { kind: 'assistant' }>
   streaming: boolean
+  /** 本条已提交的票型（数据源 GET /api/feedback；空数组 = 未反馈） */
+  votes: readonly FeedbackVote[]
+  /** 反馈请求在途（单飞闸门的渲染面） */
+  feedbackBusy: boolean
+  onVote: (vote: FeedbackVote) => void
+  onSaveNote: (vote: FeedbackVote, note: string) => void
 }) {
   const t = useTheme()
   const [copied, setCopied] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(false)
+  const [noteDraft, setNoteDraft] = useState('')
   // AUD-13：定时器存 ref——连点先清旧再设新（防前次提前复位"已复制"态），卸载清理
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
@@ -78,11 +137,19 @@ export function AssistantBlock({
     })
   }
 
+  /** 存备注：票型是提交过的那张（无票时本行不渲染，走不到这里） */
+  const saveNote = (): void => {
+    const voted = votes[0]
+    if (voted === undefined) return
+    onSaveNote(voted, noteDraft)
+    setNoteOpen(false)
+    setNoteDraft('')
+  }
+
   return (
     <View style={styles.assistantBlock}>
       {finalized !== '' && <Text style={[styles.assistantText, { color: t.foreground }]}>{finalized}</Text>}
       {buf !== '' && <StreamingText text={buf} color={t.foreground} />}
-      {/* 操作行（J.2.3：v1 只做复制+合规标注；👍👎 记 v2 需反馈存储） */}
       {!streaming && (
         <View style={styles.actionRow}>
           <TouchableOpacity
@@ -97,7 +164,83 @@ export function AssistantBlock({
               {copied ? COPY_TEXT.copied : COPY_TEXT.copy}
             </Text>
           </TouchableOpacity>
+          {(['up', 'down'] as const).map((v) => {
+            const on = votes.includes(v)
+            return (
+              <TouchableOpacity
+                key={v}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on, busy: feedbackBusy }}
+                accessibilityLabel={
+                  on
+                    ? v === 'up'
+                      ? '已标记有帮助（再点撤回）'
+                      : '已标记无帮助（再点撤回）'
+                    : v === 'up'
+                      ? '有帮助'
+                      : '无帮助'
+                }
+                disabled={feedbackBusy}
+                onPress={() => {
+                  onVote(v)
+                  // 有票才留备注入口；撤到无票时收起编辑态（不留悬空输入框）
+                  if (on) setNoteOpen(false)
+                }}
+                style={[styles.copyButton, feedbackBusy ? styles.dimmed : null]}
+                activeOpacity={0.7}
+              >
+                <Feather
+                  name={v === 'up' ? 'thumbs-up' : 'thumbs-down'}
+                  size={14}
+                  color={on ? t.foreground : t.mutedForeground}
+                />
+              </TouchableOpacity>
+            )
+          })}
+          {votes.length > 0 && !noteOpen && (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="补充反馈备注"
+              onPress={() => setNoteOpen(true)}
+              style={styles.copyButton}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.meta, { color: t.mutedForeground }]}>备注</Text>
+            </TouchableOpacity>
+          )}
           <Text style={[styles.meta, { color: t.mutedForeground }]}>内容由 AI 生成</Text>
+        </View>
+      )}
+      {noteOpen && (
+        <View style={styles.noteRow}>
+          <TextInput
+            accessibilityLabel="反馈备注"
+            value={noteDraft}
+            onChangeText={setNoteDraft}
+            placeholder="补充备注（可空）"
+            placeholderTextColor={t.mutedForeground}
+            maxLength={2000}
+            style={[styles.noteInput, { color: t.foreground, borderColor: t.border }]}
+          />
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="保存备注"
+            disabled={feedbackBusy}
+            onPress={saveNote}
+            style={styles.copyButton}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.meta, { color: t.mutedForeground }]}>保存</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="取消备注"
+            onPress={() => setNoteOpen(false)}
+            style={styles.copyButton}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.meta, { color: t.mutedForeground }]}>取消</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -358,6 +501,22 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 10,
     paddingHorizontal: 14,
+    gap: 6,
+  },
+  userAttachments: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  userAttachmentThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: '#00000008',
+  },
+  mono: {
+    fontFamily: 'monospace',
+    fontSize: mobileMetrics.caption,
   },
   userText: {
     fontSize: mobileMetrics.rowTitle,
@@ -379,6 +538,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingVertical: 4,
+  },
+  dimmed: {
+    opacity: 0.5,
+  },
+  noteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  noteInput: {
+    flex: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 36,
+    fontSize: mobileMetrics.caption,
   },
   meta: {
     fontSize: mobileMetrics.caption,

@@ -1,8 +1,10 @@
 /**
- * 设置屏（DESIGN §13.J.2.4 精简——工单 9.2 范围）：
- * 服务器地址+token 配置区（未配置时展示配对引导占位，J.2.10 简化）、
+ * 设置屏（DESIGN §13.J.2.4 精简）：
+ * 服务器地址+token 配置区（未配置时给配对引导卡，J.2.10）、
  * 深链待配对确认卡（spark://pair 解析产物，连接=短码兑长效 token）、
- * 外观三档（跟随系统/浅色/深色）、断开连接（红字独立白卡）。
+ * 外观三档（跟随系统/浅色/深色）、电脑控制只读指示（19.2）、
+ * 配对设备（J.2.8；工单 19.27 接真 getPairStatus/revokePairDevice/createPairCode）、
+ * 断开连接（红字独立白卡）。
  */
 import { useCallback, useEffect, useState } from 'react'
 import {
@@ -23,6 +25,7 @@ import { useTheme } from '../theme/use-theme'
 import type { AppearancePreference } from '../theme/tokens'
 import { mobileMetrics } from '../theme/tokens'
 import { Card, Hairline, ScreenHeader } from '../components/ui'
+import { PairDevicesSheet } from '../components/pair-devices-sheet'
 import type { DrawerParamList } from '../navigation/params'
 
 const APPEARANCE_OPTIONS: ReadonlyArray<{ value: AppearancePreference; label: string }> = [
@@ -46,8 +49,32 @@ export function SettingsScreen() {
   const [tokenDraft, setTokenDraft] = useState(token)
   const [busy, setBusy] = useState(false)
   const [localNotice, setLocalNotice] = useState<string | null>(null)
+  const [devicesOpen, setDevicesOpen] = useState(false)
+  const [deviceCount, setDeviceCount] = useState<number | null>(null)
 
   const configured = serverUrl !== ''
+
+  // 配对设备计数（"配对设备 已配对 N 台"行数据源；详情在 sheet 里自取，此处只给摘要）
+  useEffect(() => {
+    const transport = getHttpTransport(serverUrl, token)
+    if (transport === null) {
+      setDeviceCount(null)
+      return
+    }
+    let alive = true
+    transport
+      .getPairStatus()
+      .then((s) => {
+        if (alive) setDeviceCount(s.devices.length)
+      })
+      .catch(() => {
+        // fail-soft：读不到就显示"读取中…"，不报 0 台（禁假状态）
+        if (alive) setDeviceCount(null)
+      })
+    return () => {
+      alive = false
+    }
+  }, [serverUrl, token])
 
   // 电脑控制指示（J.2.11 / 阶段十九 19.2）：只读状态行——开关写入面在 web 设置中心（热生效）
   const [computerUse, setComputerUse] = useState<boolean | null>(null)
@@ -226,6 +253,25 @@ export function SettingsScreen() {
           </Card>
         ) : null}
 
+        {/* 配对设备（J.2.8"配对设备 >"；工单 19.27 接真——此前文案承诺"设置页管理"
+            而页面里只有断开本机连接，撤销服务端设备记录从未接线） */}
+        {configured ? (
+          <Card style={styles.card}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => setDevicesOpen(true)}
+              activeOpacity={0.7}
+              style={styles.deviceRow}
+            >
+              <Text style={[styles.rowTitle, { color: t.foreground }]}>配对设备</Text>
+              <Text style={[styles.rowValue, { color: t.mutedForeground }]}>
+                {deviceCount === null ? '读取中…' : `已配对 ${deviceCount} 台`}
+              </Text>
+              <Feather name="chevron-right" size={16} color={t.mutedForeground} />
+            </TouchableOpacity>
+          </Card>
+        ) : null}
+
         {/* 断开连接（J.2.4⑤：红字、独立白卡） */}
         {configured ? (
           <TouchableOpacity
@@ -247,6 +293,7 @@ export function SettingsScreen() {
           </TouchableOpacity>
         ) : null}
       </ScrollView>
+      {devicesOpen ? <PairDevicesSheet onClose={() => setDevicesOpen(false)} /> : null}
     </View>
   )
 }
@@ -355,6 +402,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  deviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: mobileMetrics.rowHeight,
+  },
+  rowTitle: {
+    flex: 1,
+    fontSize: mobileMetrics.rowTitle,
+  },
+  rowValue: {
+    fontSize: mobileMetrics.caption,
   },
   appearanceLabel: {
     fontSize: mobileMetrics.rowTitle,

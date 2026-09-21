@@ -1,15 +1,17 @@
 /**
  * 会话列表屏（DESIGN §13.J.2.2）：标题行“全部会话 ˅”→ 筛选菜单（评审 G2：
- * 白卡 radius 12、行高 44、图标+文案、选中 ✓；已归档无后端支撑置灰禁用），
- * 下拉刷新（transport.listSessions()）、时间分组（今天/更早；“按项目”档改按
- * cwd 目录名分组，无项目信息归“未分组”）、行=状态点 8px+标题 16 单行截断+
- * 右侧日期 13 meta、行高 52、右下 FAB 56 accent 白“+”。列表快照纪律同 cli
- * （AGENTS §2.7）：刷新/聚焦时刻 REST 快照，不轮询。
+ * 白卡 radius 12、行高 44、图标+文案、选中 ✓），下拉刷新（transport.listSessions()），
+ * 时间分组（今天/更早；“按项目”档改按 cwd 目录名分组，无项目信息归“未分组”）、
+ * 行=状态点 8px+标题 16 单行截断+右侧日期 13 meta、行高 52、右下 FAB 56 accent 白“+”。
+ * 列表快照纪律同 cli（AGENTS §2.7）：刷新/聚焦时刻 REST 快照，不轮询。
+ *
+ * 工单 19.27：三档筛选全接真数据源——“已归档”此前是置灰占位（V2-23 判“无后端支撑”），
+ * 现走 `listSessions(true)`（工单 12.4 落的后端），V2-23 在移动端消解。
+ * 取数与筛选态收敛到 src/session/session-list.ts 的控制器，屏幕只渲染与接线。
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -17,96 +19,106 @@ import {
   View,
 } from 'react-native'
 import { Feather } from '@expo/vector-icons'
-import { useNavigation } from '@react-navigation/native'
+import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { DrawerNavigationProp } from '@react-navigation/drawer'
 import type { SessionDto } from '@spark/protocol'
-import { dotColor, errorMessageOf, fmtDate, isToday } from '@spark/protocol'
+import { dotColor, errorMessageOf, fmtDate } from '@spark/protocol'
 import { useAppStore } from '../store/app-store'
 import { useConfigStore } from '../store/config-store'
 import { getHttpTransport } from '../transport/runtime'
 import { useTheme } from '../theme/use-theme'
 import type { ThemeTokens } from '../theme/tokens'
 import { mobileMetrics } from '../theme/tokens'
-import { Card, EmptyState, Hairline, RoundFloatButton } from '../components/ui'
-import type { FeatherIconName } from '../components/ui'
+import { Card, EmptyState, Hairline, MenuCard, RoundFloatButton } from '../components/ui'
+import type { MenuRowSpec } from '../components/ui'
 import type { DrawerParamList } from '../navigation/params'
+import {
+  createSessionListController,
+  groupSessions,
+  type SessionFilter,
+  type SessionListController,
+  type SessionListSnapshot,
+} from '../session/session-list'
 
-/** 筛选档（J.2.2；“已归档”无后端支撑（V2-23），菜单项置灰禁用占位） */
-type FilterMode = 'all' | 'project'
+const UNCONFIGURED_NOTICE = '未配置服务器：请先在设置页完成配对'
 
-/** “按项目”档分组键：cwd 目录名（数据面=现有 listSessions 返回字段；取不到归“未分组”） */
-function projectOf(dto: SessionDto): string {
-  const m = /([^/\\]+)[/\\]*$/.exec(dto.cwd.trim())
-  const name = m?.[1] ?? ''
-  return name === '' ? '未分组' : name
+const FILTERS: ReadonlyArray<{
+  value: SessionFilter
+  label: string
+  icon: 'list' | 'folder' | 'archive'
+}> = [
+  { value: 'all', label: '全部', icon: 'list' },
+  { value: 'project', label: '按项目', icon: 'folder' },
+  { value: 'archived', label: '已归档', icon: 'archive' },
+]
+
+/** 标题行措辞：全部档保留“全部会话”（J.2.2 实测原文），其余档即档位名 */
+const HEADER_LABELS: Record<SessionFilter, string> = {
+  all: '全部会话',
+  project: '按项目',
+  archived: '已归档',
 }
 
-type Section = { key: string; title: string; items: SessionDto[] }
+const EMPTY_SNAPSHOT: SessionListSnapshot = {
+  filter: 'all',
+  sessions: [],
+  refreshing: false,
+  notice: null,
+  loaded: false,
+}
 
 export function SessionsScreen() {
   const t = useTheme()
   const insets = useSafeAreaInsets()
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>()
-  const sessions = useAppStore((s) => s.sessions)
   const setSessions = useAppStore((s) => s.setSessions)
-  const setActiveSession = useAppStore((s) => s.setActiveSession)
   const setNotice = useAppStore((s) => s.setNotice)
+  const setActiveSession = useAppStore((s) => s.setActiveSession)
   const serverUrl = useConfigStore((s) => s.serverUrl)
   const token = useConfigStore((s) => s.token)
-  const [refreshing, setRefreshing] = useState(false)
-  const [filter, setFilter] = useState<FilterMode>('all')
+  const [snap, setSnap] = useState<SessionListSnapshot>(EMPTY_SNAPSHOT)
   const [menuOpen, setMenuOpen] = useState(false)
-
-  const refresh = useCallback(async (): Promise<void> => {
-    const transport = getHttpTransport(serverUrl, token)
-    if (transport === null) {
-      setNotice('未配置服务器：请先在设置页完成配对')
-      return
-    }
-    try {
-      setSessions(await transport.listSessions())
-      setNotice(null)
-    } catch (err: unknown) {
-      // 失败闭合：列表失败如实提示，保留旧快照（不拿空列表冒充）
-      setNotice(errorMessageOf(err))
-    }
-  }, [serverUrl, token, setSessions, setNotice])
+  const controllerRef = useRef<SessionListController | null>(null)
 
   useEffect(() => {
-    setRefreshing(true)
-    void refresh().finally(() => setRefreshing(false))
-  }, [refresh])
-
-  const sections = useMemo<Section[]>(() => {
-    const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)
-    if (filter === 'project') {
-      // 按项目分组：首现顺序（组内仍按 updatedAt 倒序）
-      const groups = new Map<string, SessionDto[]>()
-      for (const dto of sorted) {
-        const key = projectOf(dto)
-        const list = groups.get(key)
-        if (list === undefined) groups.set(key, [dto])
-        else list.push(dto)
-      }
-      return [...groups.entries()].map(([name, items]) => ({
-        key: `project:${name}`,
-        title: name,
-        items,
-      }))
+    const c = createSessionListController({
+      rest: () => getHttpTransport(serverUrl, token),
+      onUpdate: setSnap,
+      unconfiguredNotice: UNCONFIGURED_NOTICE,
+    })
+    controllerRef.current = c
+    return () => {
+      c.dispose()
+      controllerRef.current = null
     }
-    const today = sorted.filter((s) => isToday(s.updatedAt))
-    const earlier = sorted.filter((s) => !isToday(s.updatedAt))
-    const out: Section[] = []
-    if (today.length > 0) out.push({ key: 'today', title: '今天', items: today })
-    if (earlier.length > 0) out.push({ key: 'earlier', title: '更早', items: earlier })
-    return out
-  }, [sessions, filter])
+  }, [serverUrl, token])
+
+  // 聚焦即重取（列表快照纪律）：装载、下拉之外的第二个入口，也是归档/改名/删除
+  // 在会话页发生后回到列表能看到新态的原因——不轮询。effect 声明顺序保证
+  // 首次聚焦时控制器已就绪。
+  useFocusEffect(
+    useCallback(() => {
+      void controllerRef.current?.refresh()
+    }, []),
+  )
+
+  // 列表快照同时喂 app-store（会话页的归档态数据源 = 这张表）
+  useEffect(() => {
+    if (!snap.loaded) return
+    setSessions(snap.sessions)
+    setNotice(snap.notice)
+  }, [snap, setSessions, setNotice])
+
+  const sections = useMemo(
+    () => groupSessions(snap.sessions, snap.filter),
+    [snap.sessions, snap.filter],
+  )
 
   const onCreate = useCallback((): void => {
     const transport = getHttpTransport(serverUrl, token)
     if (transport === null) {
-      setNotice('未配置服务器：请先在设置页完成配对')
+      setNotice(UNCONFIGURED_NOTICE)
       return
     }
     void transport
@@ -132,6 +144,28 @@ export function SessionsScreen() {
     [navigation, setActiveSession],
   )
 
+  const emptyTitle = snap.filter === 'archived' ? '暂无已归档会话' : '暂无会话'
+  const emptyDetail =
+    serverUrl === ''
+      ? '先在设置页完成配对，再从右下角新建'
+      : snap.filter === 'archived'
+        ? '在会话页的“…”菜单里归档的会话会出现在这里'
+        : '下拉刷新，或从右下角新建会话'
+
+  const menuRows = useMemo<readonly MenuRowSpec[]>(
+    () =>
+      FILTERS.map((f) => ({
+        icon: f.icon,
+        label: f.label,
+        selected: snap.filter === f.value,
+        onPress: () => {
+          setMenuOpen(false)
+          controllerRef.current?.setFilter(f.value)
+        },
+      })),
+    [snap.filter],
+  )
+
   return (
     <View style={[styles.screen, { backgroundColor: t.pageBackground }]}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
@@ -151,30 +185,27 @@ export function SessionsScreen() {
           style={styles.titleButton}
         >
           <Text numberOfLines={1} style={[styles.headerTitle, { color: t.foreground }]}>
-            全部会话
+            {HEADER_LABELS[snap.filter]}
           </Text>
           <Feather name="chevron-down" size={16} color={t.mutedForeground} />
         </TouchableOpacity>
       </View>
-      {sections.length === 0 && !refreshing ? (
-        <EmptyState
-          title="暂无会话"
-          detail={
-            serverUrl === ''
-              ? '先在设置页完成配对，再从右下角新建'
-              : '下拉刷新，或从右下角新建会话'
-          }
-        />
+      {snap.notice !== null && (
+        <View style={[styles.noticeBar, { backgroundColor: t.card }]}>
+          <Text style={[styles.rowDate, { color: t.sparkErr }]}>{snap.notice}</Text>
+        </View>
+      )}
+      {sections.length === 0 && !snap.refreshing ? (
+        <EmptyState title={emptyTitle} detail={emptyDetail} />
       ) : (
         <FlatList
           style={styles.list}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
+              refreshing={snap.refreshing}
               onRefresh={() => {
-                setRefreshing(true)
-                void refresh().finally(() => setRefreshing(false))
+                void controllerRef.current?.refresh()
               }}
               tintColor={t.mutedForeground}
             />
@@ -208,95 +239,15 @@ export function SessionsScreen() {
         <Feather name="plus" size={24} color="#ffffff" />
       </TouchableOpacity>
       {menuOpen ? (
-        <FilterMenu
-          filter={filter}
-          headerOffset={insets.top + 48}
-          onSelect={(mode) => {
-            setFilter(mode)
-            setMenuOpen(false)
-          }}
+        <MenuCard
+          accessibleName="会话筛选"
+          rows={menuRows}
+          top={insets.top + 60}
+          rowHeight={mobileMetrics.menuRowHeight}
           onDismiss={() => setMenuOpen(false)}
         />
       ) : null}
     </View>
-  )
-}
-
-/** 筛选菜单（J.2.2：白卡 radius 12、行高 44、图标+文案、选中 ✓；已归档置灰禁用占位） */
-function FilterMenu({
-  filter,
-  headerOffset,
-  onSelect,
-  onDismiss,
-}: {
-  filter: FilterMode
-  headerOffset: number
-  onSelect: (mode: FilterMode) => void
-  onDismiss: () => void
-}) {
-  const t = useTheme()
-  return (
-    <View style={styles.menuBackdrop}>
-      <Pressable accessibilityLabel="关闭筛选菜单" style={StyleSheet.absoluteFill} onPress={onDismiss} />
-      <View
-        style={[
-          styles.menuCard,
-          { backgroundColor: t.card, top: headerOffset },
-        ]}
-      >
-        <FilterRow
-          icon="list"
-          label="全部"
-          selected={filter === 'all'}
-          onPress={() => onSelect('all')}
-        />
-        <FilterRow
-          icon="folder"
-          label="按项目"
-          selected={filter === 'project'}
-          onPress={() => onSelect('project')}
-        />
-        {/* 已归档：无后端支撑（V2-23）——置灰禁用占位并标注 */}
-        <FilterRow icon="archive" label="已归档" disabled note="v2 可用" />
-      </View>
-    </View>
-  )
-}
-
-function FilterRow({
-  icon,
-  label,
-  selected = false,
-  disabled = false,
-  note,
-  onPress,
-}: {
-  icon: FeatherIconName
-  label: string
-  selected?: boolean
-  disabled?: boolean
-  note?: string
-  onPress?: () => void
-}) {
-  const t = useTheme()
-  // 禁用态：前景 opacity 40%（§13.B 三态色同律）
-  const color = disabled ? `${t.foreground}66` : t.foreground
-  return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      accessibilityState={{ selected, disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      activeOpacity={0.7}
-      style={[styles.menuRow, { height: mobileMetrics.menuRowHeight }]}
-    >
-      <Feather name={icon} size={20} color={color} />
-      <Text style={[styles.menuRowLabel, { color }]}>{label}</Text>
-      {selected ? <Feather name="check" size={16} color={t.sparkAccent} /> : null}
-      {note !== undefined ? (
-        <Text style={[styles.menuRowNote, { color: t.mutedForeground }]}>{note}</Text>
-      ) : null}
-    </TouchableOpacity>
   )
 }
 
@@ -354,36 +305,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flexShrink: 1,
   },
-  menuBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 1,
-  },
-  menuCard: {
-    position: 'absolute',
-    left: '50%',
-    width: 220,
-    marginLeft: -110,
-    borderRadius: mobileMetrics.menuRadius,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    elevation: 2,
-  },
-  menuRow: {
-    flexDirection: 'row',
+  noticeBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     alignItems: 'center',
-    paddingHorizontal: 8,
-    gap: 10,
-  },
-  menuRowLabel: {
-    flex: 1,
-    fontSize: mobileMetrics.rowTitle,
-  },
-  menuRowNote: {
-    fontSize: mobileMetrics.caption,
   },
   list: {
     flex: 1,
