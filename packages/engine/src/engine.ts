@@ -1747,6 +1747,23 @@ export class Engine {
     return fn as unknown as typeof fetch | undefined
   }
 
+  // ---- 会话改名（阶段十九 19.20，消解 /title /rename 挂池）----
+
+  /**
+   * 手动改名：emit session.title（durable——改名是用户可见的持久状态，与自动标题同一事件），
+   * 索引与列表经既有 meta 增量维护同步（engine.ts bus 钩子已处理 session.title）。
+   * 空串标题由 zod 挡在门外（min(1)）——"新会话"是空标题的展示态，不是可写入的值。
+   */
+  async renameSession(id: SessionId, title: string): Promise<SessionMeta> {
+    this.assertNotShutdown()
+    const entry = await this.requireEntry(id)
+    await this.bus.emit(id, 'session.title', { title })
+    // emit 是同步落盘 + 同步维护 meta 的；此处再读一次内存 meta 保证返回值是新值
+    entry.meta.title = title
+    this.index.setTitle(id, title)
+    return entry.meta
+  }
+
   // ---- 反馈（阶段十九 19.19 / V2-25）----
 
   /** POST /api/feedback：提交/更新反馈（同 session+event+vote 幂等） */

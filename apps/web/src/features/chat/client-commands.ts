@@ -9,11 +9,13 @@
  */
 import type { ClientAction, CommandDto } from '@spark/protocol'
 
-/** client 命令动作：navigate = 跳设置页；palette = 打开命令面板（会话切换） */
+/** client 命令动作：navigate = 跳设置页；palette = 打开命令面板（会话切换）；
+ *  rename = 会话改名（阶段十九 19.20：端侧收标题后调 Transport） */
 export type ClientCommandAction =
   | { kind: 'navigate'; path: string }
   | { kind: 'palette' }
   | { kind: 'voice' }
+  | { kind: 'rename' }
 
 /** web 端实现映射（键空间 = ClientAction；未实现端不渲染，故为 Partial） */
 export const CLIENT_ACTIONS: Readonly<Partial<Record<ClientAction, ClientCommandAction>>> = {
@@ -35,6 +37,8 @@ export const CLIENT_ACTIONS: Readonly<Partial<Record<ClientAction, ClientCommand
   computer: { kind: 'navigate', path: '/settings/computer' },
   // 沙箱与网络页（阶段十九 19.7）：出口域名过滤与代理状态
   sandbox: { kind: 'navigate', path: '/settings/sandbox' },
+  // 会话改名（阶段十九 19.20）：/rename 与 /title 同实现
+  rename: { kind: 'rename' },
 }
 
 /** 是否 client 命令（前端本地执行，不进引擎） */

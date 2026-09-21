@@ -559,6 +559,13 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     response: ref('RebuildVectorsResultDto'),
   },
   {
+    method: 'put',
+    path: '/api/sessions/{id}/title',
+    summary: '会话改名（阶段十九 19.20，消解 /title /rename 挂池：emit session.title，索引与列表同步）',
+    tag: 'sessions',
+    response: ref('SessionDto'),
+  },
+  {
     method: 'post',
     path: '/api/feedback',
     summary: '提交/更新反馈（阶段十九 19.19 / V2-25：会话/回合级 👍👎 + 备注；同 session+event+vote 幂等）',

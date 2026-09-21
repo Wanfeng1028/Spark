@@ -2062,6 +2062,36 @@
         }
       }
     },
+    "/api/sessions/{id}/title": {
+      "put": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "会话改名（阶段十九 19.20，消解 /title /rename 挂池：emit session.title，索引与列表同步）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/api/feedback": {
       "post": {
         "tags": [
@@ -3390,7 +3420,8 @@
               "trust",
               "extensions",
               "computer",
-              "sandbox"
+              "sandbox",
+              "rename"
             ]
           }
         },

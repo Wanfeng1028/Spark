@@ -132,6 +132,8 @@ export interface Transport {
    * 未知 id → E_LSP_UNKNOWN_SERVER；npm 失败/校验失败 → E_LSP_INSTALL*（502）。
    * 配置写入后新 server 在下次使用该语言工具时惰性连接（config hash 变更自动重连，16.9 语义） */
   installLspServer(id: string): Promise<LspInstallResultDto>
+  /** PUT /api/sessions/:id/title：会话改名（阶段十九 19.20；emit session.title，索引/列表同步） */
+  renameSession(sessionId: SessionId, title: string): Promise<SessionDto>
   /** POST /api/feedback：提交/更新反馈（阶段十九 19.19 / V2-25；同 session+event+vote 幂等） */
   submitFeedback(input: FeedbackInput): Promise<FeedbackEntryDto>
   /** GET /api/feedback：反馈列表（新→旧；sessionId/vote 可选过滤） */

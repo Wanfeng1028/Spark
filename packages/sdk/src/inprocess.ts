@@ -399,6 +399,13 @@ export class InProcessTransport implements Transport {
     return this.sync(() => this.engine.indexStats())
   }
 
+  /** 会话改名（阶段十九 19.20）：引擎异步方法（bus.emit 落盘）——不走 sync 门 */
+  async renameSession(sessionId: SessionId, title: string): Promise<SessionDto> {
+    this.assertNotDisposed()
+    const meta = await this.engine.renameSession(sessionId, title)
+    return sessionMetaDtoOf(meta, this.engine.statusOf(sessionId))
+  }
+
   /** 提交反馈（阶段十九 19.19 / V2-25）：引擎同步方法——走 sync 门 */
   submitFeedback(input: FeedbackInput): Promise<FeedbackEntryDto> {
     return this.sync(() => this.engine.submitFeedback(input))

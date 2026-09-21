@@ -435,6 +435,13 @@ export type PromptPlaceholder = (typeof PROMPT_PLACEHOLDERS)[number]
 
 /**
 /**
+/** 会话改名（阶段十九 19.20，消解 /title /rename 挂池）：PUT /api/sessions/:id/title */
+export const RenameSessionSchema = z.strictObject({
+  /** 新标题（1–200 字符；空串 = 清空回"新会话"） */
+  title: z.string().min(1).max(200),
+})
+export type RenameSession = z.infer<typeof RenameSessionSchema>
+
 /** 反馈评级（阶段十九 19.19 / V2-25）：👍 up / 👎 down（封闭集，不设中评——中评是噪声） */
 export const FeedbackVoteSchema = z.enum(['up', 'down'])
 export type FeedbackVote = z.infer<typeof FeedbackVoteSchema>

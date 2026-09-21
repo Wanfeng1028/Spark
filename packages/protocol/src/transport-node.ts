@@ -526,6 +526,14 @@ export class HttpTransport implements Transport {
     return this.req<IndexStatsDto>('/api/index/stats')
   }
 
+  /** PUT /api/sessions/:id/title（阶段十九 19.20） */
+  renameSession(sessionId: SessionId, title: string): Promise<SessionDto> {
+    return this.req<SessionDto>(`/api/sessions/${sessionId}/title`, {
+      method: 'PUT',
+      body: JSON.stringify({ title }),
+    })
+  }
+
   /** POST /api/feedback（阶段十九 19.19 / V2-25） */
   submitFeedback(input: FeedbackInput): Promise<FeedbackEntryDto> {
     return this.req<FeedbackEntryDto>('/api/feedback', {

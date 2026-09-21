@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import type { SessionDto } from '@spark/protocol'
+import type { SessionDto, SessionId } from '@spark/protocol'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useSessionList } from '@/hooks/useSessionList'
@@ -44,6 +44,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const { commands } = useCommands()
   const toggleTheme = useSettingsStore((s) => s.toggleTheme)
   const [query, setQuery] = useState('')
+  // 改名内联态（阶段十九 19.20）：选中 /rename 后在本面板内收标题，禁原生 prompt
+  const [renaming, setRenaming] = useState<SessionId | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
 
   // 打开时重置过滤词——上次会话的残留不该带进来
   useEffect(() => {
@@ -82,6 +85,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         useUiStore.getState().cycleVoiceMode()
         return
       }
+      if (client.kind === 'rename') {
+        // 会话改名（阶段十九 19.20）：内联输入（禁原生 prompt——DESIGN §5）
+        if (activeId === null) return
+        setRenaming(activeId)
+        return
+      }
       void navigate(client.path)
       return
     }
@@ -97,7 +106,51 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       >
         <DialogTitle className="sr-only">命令面板</DialogTitle>
         <Command>
-          <CommandInput placeholder="输入命令或会话名…" value={query} onValueChange={setQuery} />
+          {renaming !== null ? (
+        <form
+          className="flex items-center gap-2 border-b border-border p-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const title = renameDraft.trim()
+            const sid = renaming
+            setRenaming(null)
+            setRenameDraft('')
+            close()
+            if (title === '' || sid === null) return
+            void transport.renameSession(sid, title).catch(() => {
+              // 失败不假装已改名（禁假状态；标题由事件流驱动，失败即保持原值）
+            })
+          }}
+        >
+          <input
+            autoFocus
+            value={renameDraft}
+            onChange={(e) => setRenameDraft(e.target.value)}
+            placeholder="新标题（1–200 字符）"
+            aria-label="新标题"
+            maxLength={200}
+            className="h-8 flex-1 rounded-md border border-input bg-transparent px-3 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground"
+          >
+            改名
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setRenaming(null)
+              setRenameDraft('')
+            }}
+            className="rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            取消
+          </button>
+        </form>
+      ) : (
+        <CommandInput placeholder="输入命令或会话名…" value={query} onValueChange={setQuery} />
+      )}
           <CommandList>
             <CommandEmpty>无匹配命令</CommandEmpty>
 

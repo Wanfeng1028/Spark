@@ -1200,6 +1200,16 @@ export class MockTransport implements Transport {
   }
 
   /** 向量补嵌（19.8 对等演示）：mock 无提供方 → 拒执并说明（fail-closed，不假装成功） */
+  /** 会话改名（阶段十九 19.20 对等演示）：改脚本会话标题（fork 子会话同名一并改） */
+  renameSession(sessionId: SessionId, title: string): Promise<SessionDto> {
+    this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId && !this.forkChildren.some((f) => f.dto.id === sessionId)) {
+      return Promise.reject(new Error(`E_NOT_FOUND: 会话不存在：${sessionId}`))
+    }
+    const base = MockTransport.dtoOf(this.script, this.status())
+    return Promise.resolve({ ...base, id: sessionId, title })
+  }
+
   /** 反馈（阶段十九 19.19 对等演示）：内存仓——同 session+event+vote 幂等，撤回删行 */
   private readonly mockFeedback = new Map<string, { vote: 'up' | 'down'; note: string; createdAt: number }>()
 

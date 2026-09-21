@@ -3277,6 +3277,33 @@ describe('契约：api.RebuildVectorsResultDtoSchema', () => {
   })
 })
 
+describe('契约：api.RenameSessionSchema', () => {
+  const sample = {
+    "title": "contract-sample"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.RenameSessionSchema.parse(sample)).toEqual(sample)
+    expect(api.RenameSessionSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.RenameSessionSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 title → 解析失败', () => {
+    expect(() => api.RenameSessionSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["title"]; return m })())).toThrow()
+  })
+
+  it('字段 title 类型错 → 解析失败', () => {
+    expect(() => api.RenameSessionSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["title"] = 12345; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.RenameSessionSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.RoutingDtoSchema', () => {
   const sample = {
     "fallbacks": [

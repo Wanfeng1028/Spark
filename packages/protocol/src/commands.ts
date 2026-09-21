@@ -34,6 +34,7 @@ export const ClientActionSchema = z.enum([
   'extensions',
   'computer',
   'sandbox',
+  'rename',
 ])
 export type ClientAction = z.infer<typeof ClientActionSchema>
 
@@ -281,6 +282,29 @@ export const BUILTIN_COMMANDS: readonly CommandDescriptor[] = [
     surface: ['web', 'cli'],
     sessionRequired: false,
     clientAction: 'computer',
+  },
+  {
+    // 阶段十九 19.20：client 命令——/rename <新标题> 会话改名（PUT /api/sessions/:id/title，
+    // 消解 /title /rename 挂池）。端侧收集参数后调 Transport；CLI 面板/web 菜单共用。
+    name: 'rename',
+    description: '会话改名：/rename <新标题>（emit session.title，索引与列表同步）',
+    kind: 'client',
+    group: 'session',
+    surface: ['web', 'cli'],
+    sessionRequired: true,
+    args: { placeholder: '<新标题>', hint: '1–200 字符' },
+    clientAction: 'rename',
+  },
+  {
+    // 阶段十九 19.20：client 命令——/title 与 /rename 同义（历史入口名；单实现不分叉）
+    name: 'title',
+    description: '会话改名（/title 与 /rename 同义）：/title <新标题>',
+    kind: 'client',
+    group: 'session',
+    surface: ['web', 'cli'],
+    sessionRequired: true,
+    args: { placeholder: '<新标题>', hint: '1–200 字符' },
+    clientAction: 'rename',
   },
   {
     // 阶段十九 19.7：client 命令——/sandbox 沙箱与网络面板（模式/清单/端口 + 代理运行

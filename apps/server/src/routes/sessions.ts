@@ -4,11 +4,12 @@
 import type { FastifyPluginCallback } from 'fastify'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import type { Dirent } from 'node:fs'
-import { buildTrace, resolveInRoot } from '@spark/engine'
+import { buildTrace, resolveInRoot, sessionDtoOf } from '@spark/engine'
 import { join } from 'node:path'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import type { CheckpointDto } from '@spark/protocol'
+import { RenameSessionSchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
 import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FsTreeQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, DeleteSessionBody, AttachmentFileParams, ArenaWinnerBody, ArenaHistoryQuery } from './shared.js'
@@ -296,7 +297,16 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
   // ---- 会话归档与两段式删除（工单 12.4 / V2-23） ----
 
   /** PUT /api/sessions/:id/archive {archived: boolean}：归档/恢复（返回更新后的 DTO） */
-  app.put('/api/sessions/:id/archive', async (req, reply) => {
+    // 会话改名（阶段十九 19.20，消解 /title /rename 挂池）：emit session.title（durable），
+  // 索引与列表经既有 meta 增量维护同步；空标题由 zod min(1) 挡门外
+  app.put('/api/sessions/:id/title', async (req, reply) => {
+    const { id } = parseOr400(SessionIdParams, req.params)
+    const body = parseOr400(RenameSessionSchema, req.body)
+    const meta = await engine.renameSession(id, body.title)
+    return reply.send(engine.sessionDtoOf(meta))
+  })
+
+app.put('/api/sessions/:id/archive', async (req, reply) => {
     const { id } = parseOr400(IdParams, req.params)
     const body = parseOr400(ArchiveBody, req.body)
     const meta = await engine.archiveSession(id, body.archived)
