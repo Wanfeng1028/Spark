@@ -60,7 +60,7 @@ describe('MockTransport 回放状态机', () => {
   it('sendMessage 触发回放：先吐 session.created，事件按序、脚本尾自然停止', async () => {
     const t = new MockTransport('normal')
     const { events } = recorder(t)
-    const outcome = await t.sendMessage(SID)
+    const outcome = await t.sendMessage(SID, 'mock 输入')
     expect(outcome.result).toBe('started')
     await vi.advanceTimersByTimeAsync(10_000)
 
@@ -77,7 +77,7 @@ describe('MockTransport 回放状态机', () => {
   it('@wait approval：permission.asked 后挂起，replyPermission 覆写 resolved 并恢复', async () => {
     const t = new MockTransport('normal')
     const { events } = recorder(t)
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(10_000)
 
     expect(t.status()).toBe('waiting-approval')
@@ -95,11 +95,11 @@ describe('MockTransport 回放状态机', () => {
 
   it('审批挂起中 sendMessage 返回 queued 且不解除挂起', async () => {
     const t = new MockTransport('normal')
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(10_000)
     const before = t.status()
 
-    const outcome = await t.sendMessage(SID)
+    const outcome = await t.sendMessage(SID, 'mock 输入')
     expect(outcome.result).toBe('queued')
     expect(t.status()).toBe(before)
   })
@@ -107,7 +107,7 @@ describe('MockTransport 回放状态机', () => {
   it('@wait message：sendMessage 恢复回放并返回 steered（第二 turn 至脚本尾）', async () => {
     const t = new MockTransport('normal')
     const { events } = recorder(t)
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(10_000)
     await t.replyPermission(ids.request('req_01HXMOCKNRMLPERM00000000000'), 'once')
     await vi.advanceTimersByTimeAsync(60_000)
@@ -115,19 +115,19 @@ describe('MockTransport 回放状态机', () => {
     expect(events.filter((e) => e.type === 'turn.completed')).toHaveLength(1)
     expect(events.filter((e) => e.type === 'user.message')).toHaveLength(1)
 
-    const outcome = await t.sendMessage(SID)
+    const outcome = await t.sendMessage(SID, 'mock 输入')
     expect(outcome.result).toBe('steered')
     await vi.advanceTimersByTimeAsync(60_000)
 
     expect(events.filter((e) => e.type === 'turn.completed')).toHaveLength(2)
     // 脚本耗尽后再发 → queued（无假回放）
-    expect((await t.sendMessage(SID)).result).toBe('queued')
+    expect((await t.sendMessage(SID, 'mock 输入')).result).toBe('queued')
   })
 
   it('@delay 锚点：其后事件按固定间隔发射（fake clock 验证）', async () => {
     const t = new MockTransport('normal')
     const { events, at } = recorder(t)
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(60_000)
     // bash 工具段在审批锚点之后：先放行审批，回放进入 @delay 120 段
     await t.replyPermission(ids.request('req_01HXMOCKNRMLPERM00000000000'), 'once')
@@ -148,7 +148,7 @@ describe('MockTransport 回放状态机', () => {
   it('error-finish 场景：error 事件与 turn.completed{error} 闭合（失败闭合演示）', async () => {
     const t = new MockTransport('error-finish')
     const { events } = recorder(t)
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(10_000)
     const types = events.map((e) => e.type)
     expect(types).toContain('error')
@@ -159,7 +159,7 @@ describe('MockTransport 回放状态机', () => {
   it('interrupt 停止回放并合成 turn.completed{aborted}（失败闭合）；场景切换重置指向新脚本会话', async () => {
     const t = new MockTransport('normal')
     const { events } = recorder(t)
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(1_000)
     await t.interrupt(SID)
     const countAfterStop = events.length
@@ -181,7 +181,7 @@ describe('MockTransport 回放状态机', () => {
   it('审批挂起中 interrupt：合成 permission.resolved{reject} + aborted，且可从下一 turn 继续', async () => {
     const t = new MockTransport('normal')
     const { events } = recorder(t)
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(10_000)
     expect(t.status()).toBe('waiting-approval')
 
@@ -196,7 +196,7 @@ describe('MockTransport 回放状态机', () => {
     expect(aborted?.data).toMatchObject({ finish: 'aborted' })
 
     // 中断后 sendMessage：从第二 turn 的 user.message 继续回放到脚本尾
-    const outcome = await t.sendMessage(SID)
+    const outcome = await t.sendMessage(SID, 'mock 输入')
     expect(outcome.result).toBe('started')
     await vi.advanceTimersByTimeAsync(60_000)
     const finishes = events.filter((e) => e.type === 'turn.completed')
@@ -207,7 +207,7 @@ describe('MockTransport 回放状态机', () => {
   it('compact（工单 4.3）：合成 started → 600ms → completed 事件对；锚点=最近 surface 事件', async () => {
     const t = new MockTransport('normal')
     const { events } = recorder(t)
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(10_000)
     const before = events.length
 
@@ -229,7 +229,7 @@ describe('MockTransport 回放状态机', () => {
   it('checkpoint（工单 4.6）：turn 边界派生快照事件；rollbackCheckpoint 截断回放与 getSession 现状', async () => {
     const t = new MockTransport('normal')
     const { events } = recorder(t)
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(10_000)
 
     // 回放挂起中（suspended）→ E_OPEN_TURN（运行检查先于快照存在性）
@@ -248,7 +248,7 @@ describe('MockTransport 回放状态机', () => {
     expect(created?.data).toMatchObject({ checkpointId: cps[0]?.checkpointId })
 
     // 第二 turn 完成后回滚到第一快照：回放截断到该 turn.completed（含）
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(60_000)
     expect(events.filter((e) => e.type === 'turn.completed')).toHaveLength(2)
     const first = cps[0]
@@ -269,7 +269,7 @@ describe('MockTransport 回放状态机', () => {
 
   it('权限规则（工单 4.7 对等）：always 按 alwaysPatterns 固化到内存规则表；CRUD 同引擎语义', async () => {
     const t = new MockTransport('normal')
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(10_000) // 挂在审批锚点
     expect(await t.listPermissionRules()).toEqual([])
 
@@ -308,7 +308,7 @@ describe('MockTransport 回放状态机', () => {
   it('自动标题（工单 4.4）：首个 turn.completed 后 400ms 合成 session.title，且仅一次', async () => {
     const t = new MockTransport('normal')
     const { events } = recorder(t)
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(10_000)
     await t.replyPermission(ids.request('req_01HXMOCKNRMLPERM00000000000'), 'once')
     // 第一 turn 闭合（@wait message 挂起前）：标题事件在其后 400ms 到达
@@ -321,7 +321,7 @@ describe('MockTransport 回放状态机', () => {
     ).toBeGreaterThan(events.findIndex((e) => e.type === 'turn.completed'))
 
     // 第二 turn（解除 @wait message 继续回放）后不再重复合成
-    await t.sendMessage(SID)
+    await t.sendMessage(SID, 'mock 输入')
     await vi.advanceTimersByTimeAsync(60_000)
     expect(events.filter((e) => e.type === 'session.title')).toHaveLength(1)
   })

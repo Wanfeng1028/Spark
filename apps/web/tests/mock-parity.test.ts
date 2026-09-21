@@ -54,10 +54,28 @@ describe('MockTransport 对等修复（阶段十九 19.22 / §1.1）', () => {
 
   test('sendMessage：未知会话 → E_NOT_FOUND；已知会话照常受理', async () => {
     const t = fresh()
-    await expect(t.sendMessage('ses_nope0000000000000001' as never)).rejects.toThrow(/E_NOT_FOUND/)
+    await expect(t.sendMessage('ses_nope0000000000000001' as never, 'hi')).rejects.toThrow(/E_NOT_FOUND/)
     // 已知会话（脚本 sid）不抛
     const known = await t.listSessions()
-    await expect(t.sendMessage(known[0]?.id as never)).resolves.toBeTruthy()
+    await expect(t.sendMessage(known[0]?.id as never, 'hi')).resolves.toBeTruthy()
+  })
+
+  test('sendMessage：delivery 与 expectedTurnId 校验对等（19.22 第二批）', async () => {
+    const t = fresh()
+    const sid = (await t.listSessions())[0]?.id as never
+    const first = await t.sendMessage(sid, '第一条', { delivery: 'now' })
+    expect(first.result).toBe('started')
+    // 不变量断言（不依赖脚本此刻停在哪个锚点）：本 turn 未结束前不再起第二个 turn，
+    // 且 queue 档永不被判成插话——原实现吞 opts，运行中一律返回 steered，两条都会红。
+    const queued = await t.sendMessage(sid, '排队', { delivery: 'queue' })
+    expect(queued.result).not.toBe('steered')
+    expect(queued.result).not.toBe('started')
+    const steered = await t.sendMessage(sid, '插话', { delivery: 'steer' })
+    expect(steered.result).not.toBe('started')
+    // steer 目标 turn 校验：与当前活动 turn 不符 → E_TURN_MISMATCH（§5.4 真实通道同码）
+    await expect(
+      t.sendMessage(sid, '错目标', { delivery: 'steer', expectedTurnId: 'trn_stale000000000000000000' as never }),
+    ).rejects.toThrow(/E_TURN_MISMATCH/)
   })
 
   test('getMcpConfig：读回按掩码回显（凭据不出引擎——真实通道同语义）', async () => {

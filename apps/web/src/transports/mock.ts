@@ -10,7 +10,7 @@
  */
 import { MCP_ENV_MASK, SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, Delivery, SendMessageOptions, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
 import rawReject from '../../../../examples/mock-sessions/reject.jsonl?raw'
@@ -283,19 +283,28 @@ export class MockTransport implements Transport {
     // 脚本耗尽：回放自然结束（等待切场景或耗尽后的 sendMessage 语义见下）
   }
 
-  sendMessage(sessionId: SessionId): Promise<SubmitOutcome> {
-    // 19.22 对等修复：校验会话存在（真实通道未知 id → E_NOT_FOUND）；回放内容仍由脚本
-    // 决定（text 不改变回放——mock 是脚本化假对话，如实保留该语义）
+  sendMessage(sessionId: SessionId, text: string, opts?: SendMessageOptions): Promise<SubmitOutcome> {
+    // 19.22 对等修复：会话存在性 + delivery 三态 + expectedTurnId 校验，与 engine
+    // input-queue 的 now/steer/queue × idle/running 矩阵同语义（此前 mock 吞掉整个 opts，
+    // L.8 提交模式 chip 的排队/插话差异在 mock 走查与 e2e 下永不可见）。
+    // 回放内容仍由脚本决定——text 不改变假对话，如实保留该语义。
     const known =
       sessionId === this.script.sessionId || this.forkChildren.some((f) => f.dto.id === sessionId)
     if (!known) {
       return Promise.reject(new Error(`E_NOT_FOUND: 会话不存在：${sessionId}`))
     }
-    return Promise.resolve(this.submit())
+    if (opts?.expectedTurnId !== undefined && opts.expectedTurnId !== this.currentTurnId) {
+      return Promise.reject(
+        new Error(
+          `E_TURN_MISMATCH: steer 目标 turn 已变（期望 ${opts.expectedTurnId}，当前 ${String(this.currentTurnId)}）`,
+        ),
+      )
+    }
+    return Promise.resolve(this.submit(opts?.delivery))
   }
 
-  /** 同步受理逻辑（假对话：text 不改变回放内容） */
-  private submit(): SubmitOutcome {
+  /** 同步受理逻辑（假对话：text 不改变回放内容；delivery 决定运行中是插话还是排队） */
+  private submit(delivery: Delivery = 'now'): SubmitOutcome {
     this.assertNotDisposed()
     if (this.suspended === 'message') {
       this.suspended = null
@@ -306,11 +315,17 @@ export class MockTransport implements Transport {
       // 审批挂起中 sendMessage = steer/queue 受理，但不解除审批挂起（须 replyPermission）
       return { result: 'queued' }
     }
-    if (this.timer !== null) return { result: 'steered' } // 回放进行中：受理为插话（脚本固定，不真正注入）
+    if (this.timer !== null) {
+      // 运行中：queue 档排队等本 turn 结束，now/steer 档按插话受理（脚本固定，不真正注入）
+      return { result: delivery === 'queue' ? 'queued' : 'steered' }
+    }
     if (this.cursor >= this.script.lines.length) return { result: 'queued' } // 场景已播完
     this.startSession()
     this.advance()
-    return { result: 'started' }
+    return {
+      result: 'started',
+      ...(this.currentTurnId !== null ? { turnId: this.currentTurnId } : {}),
+    }
   }
 
   /** 首次交互补吐 session.created（若未吐） */
@@ -1032,7 +1047,7 @@ export class MockTransport implements Transport {
     }
     if (name === 'review') {
       // 对等演示：自定义命令展开为 prompt 走正常 turn（sendMessage 假对话回放）
-      return this.sendMessage(sessionId).then(() => undefined)
+      return this.sendMessage(sessionId, '/review 展开的审查提示词（mock 回放）').then(() => undefined)
     }
     if (MOCK_COMMANDS.some((c) => c.name === name && c.kind === 'client')) {
       return Promise.reject(new Error(`E_COMMAND_CLIENT: /${name} 是界面命令，由前端执行`))
