@@ -257,9 +257,11 @@ function createTray(): Tray {
     width: TRAY_ICON_PX,
     height: TRAY_ICON_PX,
   })
+  // macOS：按菜单栏配色单色渲染（我们的位图是黑环白心，template 化后由系统决定明暗）。
+  // 章打在 NativeImage 上——Electron 44 的类型面里 setTemplateImage 属于 NativeImage，
+  // Tray 上没有该方法（运行期同机制，new Tray(image) 直接吃这张图）
+  if (process.platform === 'darwin') image.setTemplateImage(true)
   const t = new Tray(image)
-  // macOS：按菜单栏配色单色渲染（我们的位图是黑环白心，template 化后由系统决定明暗）
-  if (process.platform === 'darwin') t.setTemplateImage(true)
   t.setToolTip('Spark')
   // 左键直接唤窗（Windows 托盘的习惯动作），右键出菜单；macOS 单击也是唤窗
   t.on('click', () => revealMainWindow())

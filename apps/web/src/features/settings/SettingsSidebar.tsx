@@ -17,11 +17,13 @@ import { useI18n } from '@/i18n/context'
 import { SETTINGS_PAGE_KEY } from '@spark/protocol'
 import { cn } from '@/lib/utils'
 
-/** 组标签 → 字典键（19.17 第一批：导航文案入翻译层） */
+/** 组标签 → 字典键（19.17 第一批：导航文案入翻译层）。
+ * 键必须加引号：`Agent 能力` 含空格，裸写成标识符是语法错（esbuild 报 Expected "}" but found "能力"，
+ * 整个 web 打包不起来、e2e 全量超时） */
 const GROUP_KEY: Readonly<Record<string, string>> = {
-  基础设置: 'settings.groupBasic',
-  Agent 能力: 'settings.groupAgent',
-  数据与统计: 'settings.groupData',
+  '基础设置': 'settings.groupBasic',
+  'Agent 能力': 'settings.groupAgent',
+  '数据与统计': 'settings.groupData',
 }
 
 /** 返回目的地（工单 10.14①）：最后激活会话直达；无激活会话回欢迎页（纯函数可单测） */
