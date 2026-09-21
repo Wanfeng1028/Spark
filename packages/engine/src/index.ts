@@ -42,6 +42,10 @@ export {
   type OnceRequest,
 } from './llm-gateway.js'
 export { resolveInRoot } from './tools/definition.js'
+// 数据目录解析与迁移（阶段十九 19.16）：SPARK_HOME 单一来源 + spark migrate CLI 消费
+export { sparkHome, hasExplicitSparkHome, SPARK_HOME_DIR } from './home.js'
+export { planMigration, runMigration, isCurrentHome, MigrationError } from './migrate.js'
+export type { MigrationPlan } from './migrate.js'
 export {
   loadMcpConfig,
   writeMcpConfig,

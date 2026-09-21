@@ -3609,6 +3609,7 @@ describe('契约：api.SettingsDtoSchema', () => {
     "certificates": {
       "nodeExtraCaCerts": "contract-sample"
     },
+    "home": "contract-sample",
     "restartRequired": [
       "contract-sample"
     ],
@@ -3637,6 +3638,10 @@ describe('契约：api.SettingsDtoSchema', () => {
 
   it('缺必填字段 certificates → 解析失败', () => {
     expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["certificates"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 home → 解析失败', () => {
+    expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["home"]; return m })())).toThrow()
   })
 
   it('缺必填字段 restartRequired → 解析失败', () => {
@@ -3689,6 +3694,10 @@ describe('契约：api.SettingsDtoSchema', () => {
 
   it('字段 certificates 类型错 → 解析失败', () => {
     expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["certificates"] = []; return m })())).toThrow()
+  })
+
+  it('字段 home 类型错 → 解析失败', () => {
+    expect(() => api.SettingsDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["home"] = 12345; return m })())).toThrow()
   })
 
   it('字段 restartRequired 类型错 → 解析失败', () => {

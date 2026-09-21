@@ -5,6 +5,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
+import { sparkHome } from './home.js'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { ArchiveSettingsSchema, BrowserSettingsSchema, NetworkSettingsSchema,
@@ -308,7 +309,7 @@ export function parseOrThrow<T>(schema: z.ZodType<T>, raw: unknown, name: string
  * - models.json 的 defaultModel 必填——文件缺失或校验失败 → ConfigError（E_CONFIG）。
  * - compactionModel 可缺省：fallback 到 defaultModel（文档未明说缺省行为，最小合理实现）。
  */
-export function loadConfig(dir: string = join(homedir(), '.spark')): EngineConfig {
+export function loadConfig(dir: string = sparkHome()): EngineConfig {
   // spark.json：合并默认值（字段级覆盖）
   const sparkRaw = readJsonFile(dir, 'spark.json')
   const spark: SparkConfig =

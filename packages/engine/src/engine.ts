@@ -137,6 +137,7 @@ import { SandboxNetworkProxy } from './sandbox/proxy.js'
 import { resolveEmbeddingProvider, HttpEmbeddingClient, type EmbeddingProviderInfo } from './embedding/client.js'
 import { DEFAULT_AFTER_DAYS, selectDueForAutoArchive } from './session/archive-policy.js'
 import { proxyFetchFor } from './proxy-fetch.js'
+import { sparkHome } from './home.js'
 import { VectorStore } from './vector/store.js'
 import { SemanticIndexer, mergeMemories, mergeEvents, snippetOf } from './vector/semantic.js'
 
@@ -282,7 +283,7 @@ export class Engine {
   private readonly ownsLogger: boolean
 
   constructor(deps: EngineDeps = {}) {
-    this.root = deps.root ?? join(homedir(), '.spark')
+    this.root = deps.root ?? sparkHome()
     this.defaultCwd = deps.cwd ?? process.cwd()
     this.config = deps.config ?? loadConfig(this.root)
     // 工单 13.3：spark.json `prompts` 段 → 三处模板装载（缺文件/非白名单占位符 → E_CONFIG 拒启动）
@@ -1561,6 +1562,8 @@ export class Engine {
       },
       // 自定义证书（阶段十九 19.13 / V2-06 收口）：只读回显——运行期注入不生效
       certificates: { nodeExtraCaCerts: process.env.NODE_EXTRA_CA_CERTS ?? null },
+      // 数据目录（阶段十九 19.16）：只读（启动期定；搬迁走 spark migrate CLI）
+      home: this.root,
     }
     return dto
   }

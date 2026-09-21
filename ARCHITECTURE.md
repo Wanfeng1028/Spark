@@ -64,6 +64,7 @@
 | v1.62 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D51 向量语义检索 = 提供方抽象 + 派生向量库 + 语义/关键词合流（阶段十九 19.8，翻案 D25"向量后置"登记 + 消解 V2-18；doc/02 v4.79 同批）**：models.json provider embeddings 声明 + OpenAI 兼容 /embeddings fetch 直调（零新依赖）；vectors.db 派生缓存（node:sqlite + 暴力余弦 + 维度不符跳过）；语义优先关键词兜底合流，嵌入失败 fail-soft；补嵌只嵌缺失（上限 200）；无提供方/关开关 → 端口不注入（禁假状态）。本机零验证，CI 裁决 |
 | v1.63 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D52 全局出网代理 + 自动归档 + 端侧通知（阶段十九 19.13，翻案 12.9"仅 LLM 面"登记；doc/02 v4.80 同批）**：spark.json network 段全局代理（优先级 全局>per-provider>env>fetch；MCP stdio env 注入，用户 env 同键优先）+ archive 段自动归档（idle 且超期，6 小时巡检，进行中会话永不自动归档）+ web 通知偏好（localStorage + Notification API 降级 + WebAudio 提示音，前台不发）；自定义证书只读回显（启动前注入，禁假控件）。本机零验证，CI 裁决 |
 | v1.64 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D53 默认模型/档位单写者 = models.json 经 PUT /api/routing（阶段十九 19.14，消解 V2-37；doc/02 v4.81 同批）**：RoutingUpdate/RoutingDto 增 defaultModel/defaultEffort，经既有 persistRouting 原子写 models.json（消双写者）；createSession 读 routing 状态（显式>预设档>子代理档>默认，热改生效）；同批 server.port/host 与 engine 四控件补批 + RestartBadge 读 restartRequired 数组。本机零验证，CI 裁决 |
+| v1.65 | 2026-09-21 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D54 数据目录 = SPARK_HOME 单源 + 搬迁不删源（阶段十九 19.16；doc/02 v4.83 同批）**：home.ts 单源解析（引擎 root/loadConfig/CLI 共用）+ migrate 模块（只读规划+复制校验+源改名备份，失败闭合）+ CLI spark migrate + SettingsDto.home 只读回显。本机零验证，CI 裁决 |
 
 ---
 
@@ -516,6 +517,12 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 背景：新建会话默认模型/推理档读 models.json defaultModel/defaultEffort，但**没有任何写端点**——设置页面若要改它就得另起一条写路径（双写者：与 persistRouting 各写各的，互相覆盖风险）。
 决策：`RoutingUpdate`/`RoutingDto` 增 `defaultModel`/`defaultEffort`，经**既有 PUT /api/routing → SettingsStore.persistRouting** 落盘 models.json（路由四档位与成本上限的同一条原子写路径）；读侧 `createSession` 以 `routing.defaultModel/defaultEffort` 为准（显式 opts.model > 预设档 model > 子代理路由档 > 默认模型；档位未设 = 按 provider 默认），内存态热改即时生效、重启回 models.json 装载值。
 约束与失败语义：defaultEffort 显式 null = 清除（回落 provider 默认）；defaultModel 指向未配置 provider → resolveModelRef E_CONFIG 拒写（内存与磁盘都不动，同路由四档位纪律）；models.json 读取失败时 persistRouting 显式抛错（不兜底重写空文档——那会抹掉 providers/defaultModel）。
+
+### D54 数据目录 = SPARK_HOME 单源 + 搬迁不删源（2026-09-21，阶段十九工单 19.16）
+
+背景：数据目录写死 ~/.spark（三处各自 join(homedir(), '.spark')——改一处漏两处的漂移模板），用户无搬迁路径。
+决策：① **单源解析**：`home.ts sparkHome()`（SPARK_HOME 优先，空串回退缺省，相对路径按 cwd 明确化）——引擎 root / loadConfig 缺省 / CLI / server 全部经它。② **搬迁 = CLI 而非网页控件**：引擎在跑时搬自己的目录会坏在途 SQLite 句柄与水位——网页只读回显当前目录并指引 `spark migrate <dir>`。③ **不删源**：复制 → 字节校验 → 源改名 `<src>.bak-<ts>`（§2.10 禁删的兑现：备份可人工找回）；校验任何一步不过 → 目标侧清场、源原样保留（fail-closed）。
+约束与失败语义：目标非空拒迁（不覆盖用户数据）；目标=当前目录拒迁；SettingsDto.home 只读（启动期定，运行期改路径不被承认——不假状态）。
 
 ## 6. 模块速览（职责边界）
 

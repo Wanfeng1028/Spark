@@ -501,8 +501,10 @@ export function GeneralSettingsPage() {
   const showToolGroups = useSettingsStore((s) => s.showToolGroups)
   const setShowToolGroups = useSettingsStore((s) => s.setShowToolGroups)
   const deliveryOptions = useMemo(() => DELIVERY_OPTIONS, [])
-  // 自定义证书只读回显（阶段十九 19.13 / V2-06 收口）：NODE_EXTRA_CA_CERTS 启动前注入
-  const { data: certs } = useTransportQuery((t) => t.getSettings())
+  // 自定义证书只读回显 + 数据目录（阶段十九 19.13 / 19.16）
+  const { data: settingsInfo } = useTransportQuery((t) => t.getSettings())
+  const certs = settingsInfo
+  const dataHome = settingsInfo?.home ?? null
 
   return (
     <div className="flex flex-col gap-5">
@@ -583,9 +585,19 @@ export function GeneralSettingsPage() {
       <SettingGroupCard>
         <SettingRow
           title="数据存储路径"
-          description="现固定 ~/.spark/（启动期定）；多数据目录迁移已立项（阶段十九 19.16）"
-          placeholderBadge="19.16 立项"
-        />
+          description="启动期定（SPARK_HOME 环境变量优先，缺省 ~/.spark）；改路径用 spark migrate <dir> 整体搬迁（复制+字节校验+源改名备份，不删源）"
+        >
+          <span className="max-w-[280px] truncate font-mono text-xs text-muted-foreground" title={dataHome ?? ''}>
+            {dataHome === null ? '读取中…' : dataHome}
+          </span>
+        </SettingRow>
+        <div className="px-4 pb-3">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            运行期改路径会坏在途句柄（SQLite/水位都在旧路径上）——故不提供网页搬迁控件；
+            终端执行 <span className="font-mono">spark migrate /new/path</span>，按提示确认，
+            完成后把 SPARK_HOME 指向新目录再启动。
+          </p>
+        </div>
       </SettingGroupCard>
 
       {/* 自动归档策略（阶段十九 19.13） */}

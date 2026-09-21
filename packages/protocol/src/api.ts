@@ -572,6 +572,8 @@ export const SettingsDtoSchema = z.strictObject({
   network: NetworkSettingsSchema.optional(),
   /** 自定义证书只读信息（阶段十九 19.13 / V2-06 收口）：启动前注入，运行期只读 */
   certificates: CertificatesInfoSchema,
+  /** 数据目录（阶段十九 19.16）：SPARK_HOME 或 ~/.spark 的解析值（只读——启动期定） */
+  home: z.string().min(1),
   /** 需重启生效字段清单（前端标注"下次启动生效"；单一来源 SETTINGS_RESTART_REQUIRED） */
   restartRequired: z.array(z.string()),
   /** models.json 只读参考（写路径不经本端点——默认模型/档位迁移记录见工单） */

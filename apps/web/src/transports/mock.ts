@@ -918,6 +918,8 @@ export class MockTransport implements Transport {
     network: { proxy: '', noProxy: '' },
     // 自定义证书（阶段十九 19.13）：mock 无注入 → null
     certificates: { nodeExtraCaCerts: null },
+    // 数据目录（阶段十九 19.16）：mock 演示路径
+    home: '~/.spark（mock 演示路径）',
     restartRequired: [...SETTINGS_RESTART_REQUIRED],
     models: { defaultModel: 'deepseek/deepseek-chat', defaultEffort: null },
   }
