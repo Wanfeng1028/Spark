@@ -1,16 +1,20 @@
 /**
  * Spark 桌面壳主进程（阶段五工单 5.1，ADR D14：sidecar 模式）。
  *
- * 职责只有三件事：
+ * 职责只有四件事：
  *  1. 拉起 server sidecar——用 Electron 自带二进制以 ELECTRON_RUN_AS_NODE=1 跑
  *     server 单文件 bundle（用户机零 Node 依赖；打包产物 resources/server/index.mjs）；
  *     env 装配含桌面设置里的自定义 CA → NODE_EXTRA_CA_CERTS（工单 19.31，见 sidecar-env.ts）；
  *  2. 轮询 /api/healthz 直到就绪（server listen 成功即引擎可用）；
  *  3. BrowserWindow 加载 http://127.0.0.1:<port>——Web 前端与 HttpTransport 零改动复用
- *     （doc/02 §1.2：desktop 复用同一 HttpTransport）。
+ *     （doc/02 §1.2：desktop 复用同一 HttpTransport）；
+ *  4. 壳层行为（工单 19.30）：托盘 + 关窗隐藏 / 保持运行（powerSaveBlocker）/ 开机自启
+ *     / 系统通知（12.7，含断线重连）——判据全在纯模块（window-behavior.ts / notify.ts /
+ *     notify-stream.ts / tray-icon.ts），本文件只做 Electron 调用与装配。
  *
  * 退出：SIGTERM sidecar（Windows 上为强制终止，崩溃一致性由 durable 日志 +
- * resume 补闭合兜底——阶段三 kill -9 验收已覆盖该路径）。
+ * resume 补闭合兜底——阶段三 kill -9 验收已覆盖该路径）。关窗隐藏（desktop.json
+ * hideOnClose，工单 19.30）期间 sidecar 不退出：通知照常弹，点击唤回窗口。
  * sidecar 意外退出：就绪后崩溃 = 壳没有数据源，跟随退出；就绪前早退（AUD-12，
  * 典型根因 = models.json 缺失抛 ConfigError）= showFatalWindow 引导窗替代静默
  * 秒退——展示原因/stderr 尾部、配置指引与日志位置，用户关窗即退出。
@@ -23,11 +27,23 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { app, BrowserWindow, net, Notification, shell } from 'electron'
-import { startNotifications } from './notify-wiring.js'
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  nativeImage,
+  net,
+  Notification,
+  powerSaveBlocker,
+  shell,
+  Tray,
+} from 'electron'
+import { startNotifications, type NotifyWiring } from './notify-wiring.js'
 import { loadDesktopConfig, type DesktopConfig } from './notify.js'
 import { renderFatalHtml, renderFirstRunHtml } from './fatal.js'
 import { buildSidecarEnv } from './sidecar-env.js'
+import { buildTrayBitmap, TRAY_ICON_PX } from './tray-icon.js'
+import { decideCloseAction, resolveAutoLaunch, SleepBlocker } from './window-behavior.js'
 
 const START_TIMEOUT_MS = 20_000
 const PROBE_INTERVAL_MS = 250
@@ -44,6 +60,14 @@ let fatalWin: BrowserWindow | null = null
 let firstRunWin: BrowserWindow | null = null
 /** sidecar stderr 尾部环形缓冲（AUD-12） */
 const stderrTail: string[] = []
+/** 主窗口（19.30：托盘/关窗隐藏/通知唤窗都要它）；null = 未创建或已销毁 */
+let mainWindow: BrowserWindow | null = null
+/** 托盘（创建失败即为 null——hideOnClose 随之退化为退出，见 decideCloseAction） */
+let tray: Tray | null = null
+/** 通知订阅句柄（退出前 stop：不让重连循环在收尾阶段继续打 sidecar） */
+let notify: NotifyWiring | null = null
+/** 保持运行的持锁生命周期（19.30 keepAwake）：will-quit 无条件 release，防 powerSaveBlocker 泄漏 */
+const sleepBlocker = new SleepBlocker(powerSaveBlocker, (m) => console.warn(`[desktop] ${m}`))
 
 function noteStderr(chunk: string): void {
   for (const line of chunk.split('\n')) {
@@ -212,6 +236,51 @@ async function waitReady(port: number): Promise<void> {
   }
 }
 
+/**
+ * 唤回主窗口（19.30）：托盘点击/菜单/通知点击/macOS activate 共用。
+ * 隐藏态下 isMinimized() 为 false，必须先 show() 再 focus()——只 focus 唤不出来。
+ */
+function revealMainWindow(): void {
+  if (mainWindow === null) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
+/**
+ * 托盘（19.30）：菜单两项——唤窗与退出（退出走 app.quit()，与窗口关闭按钮同一路径）。
+ * Linux 缺 app-indicator 时 new Tray 会抛：调用方 catch 后置 null，hideOnClose 自动退化
+ * 为退出（不会把应用藏成一个找不回来的进程）。
+ */
+function createTray(): Tray {
+  const image = nativeImage.createFromBitmap(buildTrayBitmap(TRAY_ICON_PX), {
+    width: TRAY_ICON_PX,
+    height: TRAY_ICON_PX,
+  })
+  const t = new Tray(image)
+  // macOS：按菜单栏配色单色渲染（我们的位图是黑环白心，template 化后由系统决定明暗）
+  if (process.platform === 'darwin') t.setTemplateImage(true)
+  t.setToolTip('Spark')
+  // 左键直接唤窗（Windows 托盘的习惯动作），右键出菜单；macOS 单击也是唤窗
+  t.on('click', () => revealMainWindow())
+  t.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: '显示主窗口', click: () => revealMainWindow() },
+      { type: 'separator' },
+      { label: '退出 Spark', click: () => app.quit() },
+    ]),
+  )
+  return t
+}
+
+/** 保持运行 / 开机自启（19.30）：判据在 window-behavior.ts，这里只落 Electron 调用 */
+function applyDesktopBehavior(cfg: DesktopConfig): void {
+  sleepBlocker.apply(cfg.keepAwake)
+  const login = resolveAutoLaunch(cfg, { platform: process.platform, packaged: app.isPackaged })
+  if (login.note !== null) console.warn(`[desktop] ${login.note}`)
+  if (login.supported) app.setLoginItemSettings({ openAtLogin: login.openAtLogin })
+}
+
 async function main(): Promise<void> {
   // RT3-01（WO-083）：首启检测先行——models.json 缺失时引导配置而不是拉起必失败的
   // sidecar；文件出现后自动续启。用户关窗引导 = 返回 false，随 window-all-closed 退出
@@ -245,6 +314,16 @@ async function main(): Promise<void> {
   }
   ready = true
 
+  // 托盘（19.30）：先于主窗口创建——hideOnClose 的判据要看托盘是否真的可用
+  try {
+    tray = createTray()
+  } catch (err) {
+    // Linux 缺 app-indicator/libappmenu 支持时 new Tray 抛错：如实报，关窗随之退化为退出
+    // （decideCloseAction 的 trayReady=false 分支），不留一个"隐藏后找不回来"的进程
+    console.error('[desktop] 托盘创建失败，关窗将按退出处理', err)
+    tray = null
+  }
+
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -254,6 +333,22 @@ async function main(): Promise<void> {
     // WO-025：显式声明安全缺省（同 fatalWin）
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   })
+  mainWindow = win
+  win.on('closed', () => {
+    mainWindow = null
+  })
+  // 关窗行为（19.30）：hideOnClose 且托盘可用 → 隐藏（sidecar 与通知继续跑）；否则维持
+  // 既有语义销毁窗口（销毁后 window-all-closed → app.quit）
+  win.on('close', (event) => {
+    const action = decideCloseAction({
+      hideOnClose: desktopCfg.hideOnClose,
+      trayReady: tray !== null,
+      quitting,
+    })
+    if (action === 'quit') return
+    event.preventDefault()
+    win.hide()
+  })
   // WO-025：只允许本机 sidecar 页面——外部导航一律交给系统浏览器（§7.4），
   // 禁 window.open 弹窗
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
@@ -262,12 +357,17 @@ async function main(): Promise<void> {
   })
   await win.loadURL(`http://127.0.0.1:${port}`)
 
-  // 工单 12.7：回合完成/审批等待系统通知（壳层第四件事——D14 补记）
-  startNotifications({
+  // 保持运行与开机自启（19.30）：都在窗口就绪后落地——自启注册是进程级副作用，
+  // 首启失败/引导窗阶段不该写用户的登录项
+  applyDesktopBehavior(desktopCfg)
+
+  // 工单 12.7：回合完成/审批等待系统通知（壳层第四件事——D14 补记）；
+  // 19.30 起断线退避重连 + 提示音/事件面/去抖窗走 desktop.json，点击唤窗
+  notify = startNotifications({
     port,
-    win,
+    cfg: desktopCfg,
     NotificationCtor: Notification,
-    configPath: desktopConfigPath,
+    reveal: revealMainWindow,
   })
 }
 
@@ -275,8 +375,27 @@ app.on('window-all-closed', () => {
   app.quit()
 })
 
+// macOS 惯例（19.30）：Dock 图标点击时把隐藏态的主窗口唤回来（关窗隐藏形态的第二个入口）
+app.on('activate', () => {
+  revealMainWindow()
+})
+
+// 退出意图先行置位：app.quit() 会先关窗口，close 处理器要据此放行（否则 hideOnClose
+// 会 preventDefault 把退出卡住）——Electron 顺序 before-quit → close → will-quit
+app.on('before-quit', () => {
+  quitting = true
+})
+
 // 优雅退出：SIGTERM sidecar，5s 未退则 SIGKILL；sidecar 退出后再放行 app 退出
 app.on('will-quit', (event) => {
+  // 19.30 收口：持锁、通知订阅、托盘都不该活过退出（powerSaveBlocker 泄漏 = 笔记本永不停止发热）
+  sleepBlocker.release()
+  if (notify !== null) notify.stop()
+  notify = null
+  if (tray !== null) {
+    tray.destroy()
+    tray = null
+  }
   if (sidecar === null || sidecar.exitCode !== null) return
   event.preventDefault()
   quitting = true

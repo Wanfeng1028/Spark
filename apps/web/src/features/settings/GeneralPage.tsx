@@ -9,7 +9,9 @@
  * 任务通知与提示音（web 本地偏好 + Notification API 降级面）；自定义证书只读回显
  * （NODE_EXTRA_CA_CERTS 启动前注入，运行期不生效——不设假控件；桌面半边由壳读
  * desktop.json 的 certificates 段注入 sidecar env，工单 19.31）。
- * 界面语言一行明示阶段十九 19.17 已立项；终端/托盘/更新为 desktop 特化（web 不提供）。
+ * 界面语言一行明示阶段十九 19.17 已立项；终端/更新仍为 desktop 特化占位；托盘与保持运行
+ * 已由桌面壳落地（阶段十九 19.30，配置面在 ~/.spark/desktop.json 由壳读，服务端与 web
+ * 都无从读写——故这两行只给入口与生效时机，不做点了没反应的假开关）。
  * 「显示待办」不设开关：引擎无 Todo 工具，不留无效开关（工单 10.20 拍板）。
  */
 import { useEffect, useMemo, useState } from 'react'
@@ -238,7 +240,8 @@ function ArchivePolicySection() {
 }
 
 /** 任务通知与提示音（阶段十九 19.13）：web 本地偏好（localStorage）+ Notification API 降级面。
- *  desktop 端的任务通知/提示音开关在 desktop.json（desktop 特化），web 不跨管。 */
+ *  desktop 端的通知开关在 desktop.json（工单 19.30：notifications 段的
+ *  turnCompleted/approvalWaiting/sound/events/debounceMs），web 不跨管。 */
 function NotificationSection() {
   const prefs = useNotifyPrefs()
   const unsupported = typeof Notification === 'undefined'
@@ -633,8 +636,16 @@ export function GeneralSettingsPage() {
         </SettingRow>
         <SettingRow title="集成终端 Shell" description="Git Bash 优先，回退 cmd.exe" placeholderBadge="desktop 特化" />
         <SettingRow title="终端字体" description="留空自动探测" placeholderBadge="desktop 特化" />
-        <SettingRow title="关闭窗口时隐藏到托盘" description="后台驻留" placeholderBadge="desktop 特化" />
-        <SettingRow title="保持电脑运行" description="任务运行时阻止空闲休眠" placeholderBadge="desktop 特化" />
+        {/* 阶段十九 19.30 两行摘徽标：桌面壳已落地，但配置面是壳读的 desktop.json——
+            服务端与 web 都没有读写的口子，故只给入口与生效时机，不设假开关（真值回显需新端点，挂尾） */}
+        <SettingRow
+          title="关闭窗口时隐藏到托盘"
+          description="仅桌面应用可改：写 ~/.spark/desktop.json 的 hideOnClose 后重启桌面应用；托盘不可用时按退出处理"
+        />
+        <SettingRow
+          title="保持电脑运行"
+          description="仅桌面应用可改：写 ~/.spark/desktop.json 的 keepAwake 后重启桌面应用；开启期间阻止系统空闲休眠（隐藏到托盘时仍生效）"
+        />
         <SettingRow title="自动下载并安装更新" description="任务运行时重启前确认" placeholderBadge="desktop 特化" />
       </SettingGroupCard>
     </div>
