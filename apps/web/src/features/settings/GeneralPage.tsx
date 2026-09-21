@@ -7,7 +7,8 @@
  * 阶段十九 19.13：代理/证书/归档/通知四组占位行转真控件——全局出网代理 + NO_PROXY
  * （spark.json network 段，翻案 12.9"仅 LLM 面"）、自动归档策略（archive 段）、
  * 任务通知与提示音（web 本地偏好 + Notification API 降级面）；自定义证书只读回显
- * （NODE_EXTRA_CA_CERTS 启动前注入，运行期不生效——不设假控件）。
+ * （NODE_EXTRA_CA_CERTS 启动前注入，运行期不生效——不设假控件；桌面半边由壳读
+ * desktop.json 的 certificates 段注入 sidecar env，工单 19.31）。
  * 界面语言一行明示阶段十九 19.17 已立项；终端/托盘/更新为 desktop 特化（web 不提供）。
  * 「显示待办」不设开关：引擎无 Todo 工具，不留无效开关（工单 10.20 拍板）。
  */
@@ -587,9 +588,12 @@ export function GeneralSettingsPage() {
         </SettingRow>
         <div className="px-4 pb-3">
           <p className="text-xs leading-relaxed text-muted-foreground">
-            自签 CA 场景：启动 server 前设置环境变量（如{' '}
-            <span className="font-mono">NODE_EXTRA_CA_CERTS=/path/ca.pem</span>）再重启；
-            此处如实回显当前进程读到的值，不提供"保存后生效"的假控件。
+            自签 CA 场景（公司网根证书）两条入口，都只在进程启动时生效：独立 server 在启动前设{' '}
+            <span className="font-mono">NODE_EXTRA_CA_CERTS=/path/ca.pem</span>；桌面应用写{' '}
+            <span className="font-mono">~/.spark/desktop.json</span> 的{' '}
+            <span className="font-mono">{'certificates.nodeExtraCaCerts'}</span> 后重启应用
+            （sidecar 由壳拉起，随壳重启才读该值——工单 19.31）。此处如实回显当前进程读到的值，
+            不提供"保存后生效"的假控件。
           </p>
         </div>
       </SettingGroupCard>

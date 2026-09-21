@@ -1,6 +1,7 @@
 /**
- * 通知纯逻辑单测（工单 12.7 / new-tool 判例第 7 步精神——纯逻辑可测，Notification 本体壳层 mock）：
- * 配置装载三态（缺省/合法/坏 JSON 回缺省）、开关过滤、去抖合并、审批一次一发与 resolved 清除。
+ * 桌面配置与通知纯逻辑单测（工单 12.7 / new-tool 判例第 7 步精神——纯逻辑可测，Notification 本体壳层 mock）：
+ * 配置装载（缺省/合法/坏 JSON 回缺省；certificates 段自工单 19.31）、开关过滤、去抖合并、
+ * 审批一次一发与 resolved 清除。
  */
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -39,6 +40,42 @@ describe('loadDesktopConfig（~/.spark/desktop.json）', () => {
     expect(loadDesktopConfig(p1, (m) => warns.push(m))).toEqual(DEFAULT_DESKTOP_CONFIG)
     const p2 = join(dir, 'wrong.json')
     writeFileSync(p2, '{"notifications":{"turnCompleted":"yes"}}', 'utf8')
+    expect(loadDesktopConfig(p2, (m) => warns.push(m))).toEqual(DEFAULT_DESKTOP_CONFIG)
+    expect(warns).toHaveLength(2)
+  })
+
+  // 工单 19.31（V2-06 桌面半边）：certificates 段是 sidecar env 注入的唯一入口——手改
+  // 文件的人往往只写这一段，故缺某段时该段回缺省，不连带判废另一段（键越界仍整份回缺省）
+  test('只配 certificates → 证书装载、通知回缺省全开', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'spark-dt-'))
+    const p = join(dir, 'cert-only.json')
+    writeFileSync(p, '{"certificates":{"nodeExtraCaCerts":"/etc/certs/company-ca.pem"}}', 'utf8')
+    const cfg = loadDesktopConfig(p)
+    expect(cfg.certificates.nodeExtraCaCerts).toBe('/etc/certs/company-ca.pem')
+    expect(cfg.notifications).toEqual(DEFAULT_DESKTOP_CONFIG.notifications)
+  })
+
+  test('certificates 与 notifications 同时装载', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'spark-dt-'))
+    const p = join(dir, 'both.json')
+    writeFileSync(
+      p,
+      '{"notifications":{"turnCompleted":false,"approvalWaiting":true},"certificates":{"nodeExtraCaCerts":null}}',
+      'utf8',
+    )
+    const cfg = loadDesktopConfig(p)
+    expect(cfg.notifications.turnCompleted).toBe(false)
+    expect(cfg.certificates.nodeExtraCaCerts).toBeNull()
+  })
+
+  test('certificates 段类型错 / 键越界 → 整份回缺省且 warn（不半截生效）', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'spark-dt-'))
+    const warns: string[] = []
+    const p1 = join(dir, 'cert-wrong-type.json')
+    writeFileSync(p1, '{"certificates":{"nodeExtraCaCerts":4096}}', 'utf8')
+    expect(loadDesktopConfig(p1, (m) => warns.push(m))).toEqual(DEFAULT_DESKTOP_CONFIG)
+    const p2 = join(dir, 'cert-extra-key.json')
+    writeFileSync(p2, '{"certificates":{"nodeExtraCaCerts":"/ca.pem","caBundle":"/ca2.pem"}}', 'utf8')
     expect(loadDesktopConfig(p2, (m) => warns.push(m))).toEqual(DEFAULT_DESKTOP_CONFIG)
     expect(warns).toHaveLength(2)
   })

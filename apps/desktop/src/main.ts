@@ -4,6 +4,7 @@
  * 职责只有三件事：
  *  1. 拉起 server sidecar——用 Electron 自带二进制以 ELECTRON_RUN_AS_NODE=1 跑
  *     server 单文件 bundle（用户机零 Node 依赖；打包产物 resources/server/index.mjs）；
+ *     env 装配含桌面设置里的自定义 CA → NODE_EXTRA_CA_CERTS（工单 19.31，见 sidecar-env.ts）；
  *  2. 轮询 /api/healthz 直到就绪（server listen 成功即引擎可用）；
  *  3. BrowserWindow 加载 http://127.0.0.1:<port>——Web 前端与 HttpTransport 零改动复用
  *     （doc/02 §1.2：desktop 复用同一 HttpTransport）。
@@ -24,7 +25,9 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { app, BrowserWindow, net, Notification, shell } from 'electron'
 import { startNotifications } from './notify-wiring.js'
+import { loadDesktopConfig, type DesktopConfig } from './notify.js'
 import { renderFatalHtml, renderFirstRunHtml } from './fatal.js'
+import { buildSidecarEnv } from './sidecar-env.js'
 
 const START_TIMEOUT_MS = 20_000
 const PROBE_INTERVAL_MS = 250
@@ -82,20 +85,19 @@ function pickPort(): Promise<number> {
   })
 }
 
-function startSidecar(port: number): ChildProcess {
+function startSidecar(port: number, cfg: DesktopConfig): ChildProcess {
   const serverJs = serverBundlePath()
   if (!existsSync(serverJs)) {
     throw new Error(`E_SIDECAR_START: server bundle 不存在（${serverJs}）——先执行 pnpm --filter @spark/desktop build`)
   }
   const child = spawn(process.execPath, [serverJs], {
     cwd: homedir(), // 引擎默认会话工作区 = 用户主目录（桌面态无项目上下文）
-    env: {
-      ...process.env,
-      ELECTRON_RUN_AS_NODE: '1',
-      SPARK_PORT: String(port),
-      SPARK_HOST: '127.0.0.1',
-      SPARK_WEB_DIST: webDistPath(),
-    },
+    env: buildSidecarEnv({
+      baseEnv: process.env,
+      nodeExtraCaCerts: cfg.certificates.nodeExtraCaCerts,
+      port,
+      webDist: webDistPath(),
+    }),
     // AUD-12：stderr 收管道——环形留尾部 20 行，首启失败时进引导窗（stdout 保持 inherit）
     stdio: ['ignore', 'inherit', 'pipe'],
     windowsHide: true,
@@ -215,12 +217,16 @@ async function main(): Promise<void> {
   // sidecar；文件出现后自动续启。用户关窗引导 = 返回 false，随 window-all-closed 退出
   const sparkDir = join(homedir(), '.spark')
   if (!(await waitForFirstRunConfig(sparkDir, join(sparkDir, 'models.json')))) return
+  // 工单 19.31：桌面设置在拉起 sidecar 前装载——NODE_EXTRA_CA_CERTS 只在进程启动时生效，
+  // 装载晚于 spawn 就等于这一版配置整个启动周期不生效（坏配置回缺省并 warn，不静默）
+  const desktopConfigPath = join(sparkDir, 'desktop.json')
+  const desktopCfg = loadDesktopConfig(desktopConfigPath, (m) => console.warn(m))
   // AUD-12：启动序列（取端口/拉 sidecar/探活）失败 → 引导窗，不再静默 app.exit(1)。
   // 首启失败的典型根因（models.json 缺失抛 ConfigError）只有 stderr 可见，随窗展示
   let port: number
   try {
     port = await pickPort()
-    sidecar = startSidecar(port)
+    sidecar = startSidecar(port, desktopCfg)
     sidecar.on('exit', (code) => {
       if (quitting) return
       if (ready) {
@@ -261,7 +267,7 @@ async function main(): Promise<void> {
     port,
     win,
     NotificationCtor: Notification,
-    configPath: join(homedir(), '.spark', 'desktop.json'),
+    configPath: desktopConfigPath,
   })
 }
 
