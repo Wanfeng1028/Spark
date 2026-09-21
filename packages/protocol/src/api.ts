@@ -435,6 +435,41 @@ export type PromptPlaceholder = (typeof PROMPT_PLACEHOLDERS)[number]
 
 /**
 /**
+/** 反馈评级（阶段十九 19.19 / V2-25）：👍 up / 👎 down（封闭集，不设中评——中评是噪声） */
+export const FeedbackVoteSchema = z.enum(['up', 'down'])
+export type FeedbackVote = z.infer<typeof FeedbackVoteSchema>
+
+/** POST /api/feedback 请求体（会话/回合级；备注可空） */
+export const FeedbackInputSchema = z.strictObject({
+  sessionId: SessionIdSchema,
+  /** 被反馈的 assistant 消息事件（锚定具体一条，不落"整轮好评"这种粗粒度） */
+  eventId: EventIdSchema,
+  vote: FeedbackVoteSchema,
+  /** 可选备注（≤2000 字符；空串 = 无备注） */
+  note: z.string().max(2000).optional(),
+})
+export type FeedbackInput = z.infer<typeof FeedbackInputSchema>
+
+/** GET /api/feedback 查询（全可选；limit 缺省 100 上限 500） */
+export const FeedbackQuerySchema = z.strictObject({
+  sessionId: SessionIdSchema.optional(),
+  vote: FeedbackVoteSchema.optional(),
+  limit: z.number().int().positive().max(500).optional(),
+})
+export type FeedbackQuery = z.infer<typeof FeedbackQuerySchema>
+
+/** 反馈条目（GET /api/feedback 行；创建时间 + 备注原文） */
+export const FeedbackEntryDtoSchema = z.strictObject({
+  id: z.number().int().positive(),
+  sessionId: SessionIdSchema,
+  eventId: EventIdSchema,
+  vote: FeedbackVoteSchema,
+  note: z.string(),
+  createdAt: z.number().int().nonnegative(),
+})
+export type FeedbackEntryDto = z.infer<typeof FeedbackEntryDtoSchema>
+
+/**
  * 提示词模板槽位管理（阶段十九 19.18 / V2-16 前端半边收口）：GET /api/prompts 只读快照
  * （配置路径 + 当前内容 + 是否覆盖内置 + 占位符白名单）；PUT 写模板文件（原子写 + 占位符
  * 校验，**重启档**——模板在引擎构造期装载一次，同 D28 构造期注入语义）。

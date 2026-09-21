@@ -10,7 +10,7 @@
  */
 import { SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, CommandDto, ContentItem, EventId, ExtensionDto, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
 import rawReject from '../../../../examples/mock-sessions/reject.jsonl?raw'
@@ -1200,6 +1200,54 @@ export class MockTransport implements Transport {
   }
 
   /** 向量补嵌（19.8 对等演示）：mock 无提供方 → 拒执并说明（fail-closed，不假装成功） */
+  /** 反馈（阶段十九 19.19 对等演示）：内存仓——同 session+event+vote 幂等，撤回删行 */
+  private readonly mockFeedback = new Map<string, { vote: 'up' | 'down'; note: string; createdAt: number }>()
+
+  submitFeedback(input: FeedbackInput): Promise<FeedbackEntryDto> {
+    this.assertNotDisposed()
+    const key = `${input.sessionId}:${input.eventId}:${input.vote}`
+    const prev = this.mockFeedback.get(key)
+    const entry = {
+      vote: input.vote,
+      note: input.note ?? '',
+      createdAt: prev?.createdAt ?? Date.now(),
+    }
+    this.mockFeedback.set(key, entry)
+    return Promise.resolve({
+      id: this.mockFeedback.size,
+      sessionId: input.sessionId,
+      eventId: input.eventId,
+      vote: entry.vote,
+      note: entry.note,
+      createdAt: entry.createdAt,
+    })
+  }
+
+  listFeedback(query: FeedbackQuery = {}): Promise<FeedbackEntryDto[]> {
+    this.assertNotDisposed()
+    const out: FeedbackEntryDto[] = []
+    for (const [key, v] of this.mockFeedback) {
+      const [sid, eid, vote] = key.split(':')
+      if (query.sessionId !== undefined && sid !== query.sessionId) continue
+      if (query.vote !== undefined && vote !== query.vote) continue
+      out.push({
+        id: out.length + 1,
+        sessionId: sid as FeedbackEntryDto['sessionId'],
+        eventId: eid as FeedbackEntryDto['eventId'],
+        vote: vote === 'up' ? 'up' : 'down',
+        note: v.note,
+        createdAt: v.createdAt,
+      })
+    }
+    return Promise.resolve(out.reverse().slice(0, query.limit ?? 100))
+  }
+
+  withdrawFeedback(sessionId: SessionId, eventId: EventId, vote: FeedbackVote): Promise<boolean> {
+    this.assertNotDisposed()
+    const key = `${sessionId}:${eventId}:${vote}`
+    return Promise.resolve(this.mockFeedback.delete(key))
+  }
+
   /** 提示词模板快照（阶段十九 19.18 对等演示）：三槽位内置内容 + 未覆盖 */
   promptsInfo(): Promise<PromptsDto> {
     this.assertNotDisposed()

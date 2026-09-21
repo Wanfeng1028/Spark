@@ -6,7 +6,7 @@
  */
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply, PermissionScope, ReasoningEffort } from './primitives.js'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, SkillDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, SkillDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
 export interface SendMessageOptions {
@@ -132,6 +132,12 @@ export interface Transport {
    * 未知 id → E_LSP_UNKNOWN_SERVER；npm 失败/校验失败 → E_LSP_INSTALL*（502）。
    * 配置写入后新 server 在下次使用该语言工具时惰性连接（config hash 变更自动重连，16.9 语义） */
   installLspServer(id: string): Promise<LspInstallResultDto>
+  /** POST /api/feedback：提交/更新反馈（阶段十九 19.19 / V2-25；同 session+event+vote 幂等） */
+  submitFeedback(input: FeedbackInput): Promise<FeedbackEntryDto>
+  /** GET /api/feedback：反馈列表（新→旧；sessionId/vote 可选过滤） */
+  listFeedback(query?: FeedbackQuery): Promise<FeedbackEntryDto[]>
+  /** DELETE /api/feedback：撤回一条（不存在 = 幂等 false） */
+  withdrawFeedback(sessionId: SessionId, eventId: EventId, vote: FeedbackVote): Promise<boolean>
   /** GET /api/prompts：提示词模板三槽位只读快照（阶段十九 19.18 / V2-16） */
   promptsInfo(): Promise<PromptsDto>
   /** PUT /api/prompts：写槽位模板文件（空 content = 恢复缺省；重启档） */

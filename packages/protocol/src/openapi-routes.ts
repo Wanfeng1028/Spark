@@ -559,6 +559,27 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     response: ref('RebuildVectorsResultDto'),
   },
   {
+    method: 'post',
+    path: '/api/feedback',
+    summary: '提交/更新反馈（阶段十九 19.19 / V2-25：会话/回合级 👍👎 + 备注；同 session+event+vote 幂等）',
+    tag: 'sessions',
+    response: ref('FeedbackEntryDto'),
+  },
+  {
+    method: 'get',
+    path: '/api/feedback',
+    summary: '反馈列表（阶段十九 19.19；新→旧，sessionId/vote 可选过滤，limit 缺省 100 上限 500）',
+    tag: 'sessions',
+    response: arr(ref('FeedbackEntryDto')),
+  },
+  {
+    method: 'delete',
+    path: '/api/feedback',
+    summary: '撤回反馈（阶段十九 19.19；不存在 = 幂等 removed:false）',
+    tag: 'sessions',
+    response: { type: 'object', properties: { removed: { type: 'boolean' } } },
+  },
+  {
     method: 'get',
     path: '/api/prompts',
     summary: '提示词模板三槽位只读快照（阶段十九 19.18 / V2-16：路径/当前内容/是否覆盖内置 + 占位符白名单）',

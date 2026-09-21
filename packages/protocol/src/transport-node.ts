@@ -18,7 +18,7 @@ import { parseEnvelope } from './schema.js'
 import { SessionStreamCore } from './session-stream-core.js'
 import type { StreamConnectionStatus, StreamCoreContext } from './session-stream-core.js'
 import type { SparkEventEnvelope } from './events.js'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, SkillDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, SkillDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
 import type { PermissionReply, PermissionScope, ReasoningEffort } from './primitives.js'
 import type { SendMessageOptions, SubmitOutcome, Transport } from './transport.js'
@@ -524,6 +524,32 @@ export class HttpTransport implements Transport {
   /** GET /api/index/stats：索引库统计（工单 19.11） */
   indexStats(): Promise<IndexStatsDto> {
     return this.req<IndexStatsDto>('/api/index/stats')
+  }
+
+  /** POST /api/feedback（阶段十九 19.19 / V2-25） */
+  submitFeedback(input: FeedbackInput): Promise<FeedbackEntryDto> {
+    return this.req<FeedbackEntryDto>('/api/feedback', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  }
+
+  /** GET /api/feedback（阶段十九 19.19；query 可选） */
+  listFeedback(query?: FeedbackQuery): Promise<FeedbackEntryDto[]> {
+    const params = new URLSearchParams()
+    if (query?.sessionId !== undefined) params.set('sessionId', query.sessionId)
+    if (query?.vote !== undefined) params.set('vote', query.vote)
+    if (query?.limit !== undefined) params.set('limit', String(query.limit))
+    const qs = params.toString()
+    return this.req<FeedbackEntryDto[]>(`/api/feedback${qs === '' ? '' : `?${qs}`}`)
+  }
+
+  /** DELETE /api/feedback（阶段十九 19.19；撤回） */
+  withdrawFeedback(sessionId: SessionId, eventId: EventId, vote: FeedbackVote): Promise<boolean> {
+    return this.req<boolean>('/api/feedback', {
+      method: 'DELETE',
+      body: JSON.stringify({ sessionId, eventId, vote }),
+    })
   }
 
   /** GET /api/prompts：提示词模板三槽位快照（阶段十九 19.18 / V2-16） */

@@ -46,6 +46,10 @@ import type {
 import { PROMPT_PLACEHOLDERS, SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED } from '@spark/protocol'
 import type {
   ExtensionDto,
+  FeedbackEntryDto,
+  FeedbackInput,
+  FeedbackQuery,
+  FeedbackVote,
   PromptsDto,
   PromptsUpdate,
   PromptSlot,
@@ -138,6 +142,7 @@ import { DEFAULT_AFTER_DAYS, selectDueForAutoArchive } from './session/archive-p
 import { proxyFetchFor } from './proxy-fetch.js'
 import { sparkHome } from './home.js'
 import { VectorStore } from './vector/store.js'
+import { FeedbackStore } from './feedback/store.js'
 import { SemanticIndexer, mergeMemories, mergeEvents, snippetOf } from './vector/semantic.js'
 
 import type {
@@ -210,6 +215,8 @@ export class Engine {
   private readonly vectors: VectorStore | null
   private readonly semantic: SemanticIndexer | null
   private readonly embeddingProvider: EmbeddingProviderInfo | null
+  /** 反馈仓（阶段十九 19.19 / V2-25）：打不开 = null（端点拒执，禁假状态） */
+  private readonly feedbackStore: FeedbackStore | null
   /** 截图落盘目录（~/.spark/browser-shots；GET /api/artifacts/:file 供图） */
   private readonly shotsDir: string
   /** 成本累计（阶段七工单 7.7 / H07）：~/.spark/usage.json 持久化，熔断判定数据源 */
@@ -613,6 +620,14 @@ export class Engine {
     }
     this.vectors = vectors
     this.semantic = semantic
+
+    // 反馈仓（阶段十九 19.19 / V2-25）：派生缓存——打不开不阻塞引擎，端点拒执
+    try {
+      this.feedbackStore = new FeedbackStore(join(this.root, 'feedback.db'))
+    } catch (err) {
+      this.logger.warn('feedback.store.error', { err })
+      this.feedbackStore = null
+    }
 
     // 工单 7.1 验收：store 值不落日志——启动即注册进脱敏层（deps.logger 未实现则跳过）
     this.logger.registerSecrets?.(this.secrets.values())
@@ -1732,6 +1747,38 @@ export class Engine {
     return fn as unknown as typeof fetch | undefined
   }
 
+  // ---- 反馈（阶段十九 19.19 / V2-25）----
+
+  /** POST /api/feedback：提交/更新反馈（同 session+event+vote 幂等） */
+  submitFeedback(input: FeedbackInput): FeedbackEntryDto {
+    this.assertNotShutdown()
+    if (this.feedbackStore === null) {
+      throw new Error('E_FEEDBACK_UNAVAILABLE: 反馈仓不可用（feedback.db 打开失败）')
+    }
+    return this.feedbackStore.submit(input, this.now())
+  }
+
+  /** GET /api/feedback：反馈列表（新→旧；sessionId/vote 可选过滤） */
+  listFeedback(query: FeedbackQuery): FeedbackEntryDto[] {
+    if (this.feedbackStore === null) {
+      throw new Error('E_FEEDBACK_UNAVAILABLE: 反馈仓不可用（feedback.db 打开失败）')
+    }
+    return this.feedbackStore.list({ sessionId: query.sessionId, vote: query.vote }, query.limit ?? 100)
+  }
+
+  /** DELETE /api/feedback：撤回一条（同 session+event+vote；不存在 = 幂等） */
+  withdrawFeedback(sessionId: SessionId, eventId: EventId, vote: FeedbackVote): boolean {
+    if (this.feedbackStore === null) {
+      throw new Error('E_FEEDBACK_UNAVAILABLE: 反馈仓不可用（feedback.db 打开失败）')
+    }
+    return this.feedbackStore.withdraw(sessionId, eventId, vote)
+  }
+
+  /** 某条消息的反馈态（web 操作行回显） */
+  feedbackStateOf(sessionId: SessionId, eventId: EventId): FeedbackVote | null {
+    return this.feedbackStore?.stateOf(sessionId, eventId) ?? null
+  }
+
   /** GET /api/sandbox/network：代理运行时状态（未建实例 = 未启动） */
   sandboxNetworkStatus(): SandboxNetworkStatusDto {
     const port = this.config.spark.sandbox?.network?.port ?? SANDBOX_NETWORK_DEFAULTS.port
@@ -2140,6 +2187,13 @@ export class Engine {
       this.search.close()
       // 6.6.1) 向量库收尾（阶段十九 19.8 / ADR D51）：关闭 vectors.db 句柄
       //      （未建实例 = 无提供方，空操作；派生缓存关闭不丢权威数据）
+      if (this.feedbackStore !== null) {
+        try {
+          this.feedbackStore.close()
+        } catch (err) {
+          this.logger.warn('feedback.store.close.error', { err })
+        }
+      }
       if (this.vectors !== null) {
         try {
           this.vectors.close()

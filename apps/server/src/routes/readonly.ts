@@ -4,7 +4,7 @@
 import type { FastifyPluginCallback } from 'fastify'
 import { z } from 'zod'
 import { ExecuteCommandBodySchema } from '@spark/protocol'
-import { PromptsUpdateSchema, SettingsUpdateSchema, UsageSummaryQuerySchema } from '@spark/protocol'
+import { FeedbackInputSchema, FeedbackQuerySchema, PromptsUpdateSchema, SettingsUpdateSchema, UsageSummaryQuerySchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
 import { loadMcpConfig, maskMcpConfigForClient, mergeMaskedMcpConfig, writeMcpConfig } from '@spark/engine'
@@ -112,6 +112,36 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   // 沙箱网络隔离代理状态（阶段十九 19.7 / ADR D50）：设置页与 CLI 面板数据源——
   // allowlist 档未启动/绑定失败时 ready=false + reason（bash 侧据此 fail-closed 拒跑）
   app.get('/api/sandbox/network', () => engine.sandboxNetworkStatus())
+
+  // 反馈（阶段十九 19.19 / V2-25）：POST 提交/更新、GET 列表、DELETE 撤回。
+  // 反馈不进事件流（用户侧评价，不是会话状态机的一部分——回放重建的是模型可见历史）
+  app.post('/api/feedback', async (req, reply) => {
+    const body = parseOr400(FeedbackInputSchema, req.body)
+    try {
+      return await engine.submitFeedback(body)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      const code = message.startsWith('E_') ? message.split(':')[0] : 'E_FEEDBACK_FAILED'
+      return reply.code(503).send({ code, message })
+    }
+  })
+
+  app.get('/api/feedback', async (req) => {
+    const q = parseOr400(FeedbackQuerySchema, req.query)
+    return engine.listFeedback(q)
+  })
+
+  app.delete('/api/feedback', async (req, reply) => {
+    const body = parseOr400(FeedbackInputSchema, req.body)
+    try {
+      const removed = engine.withdrawFeedback(body.sessionId, body.eventId, body.vote)
+      return reply.send({ removed })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      const code = message.startsWith('E_') ? message.split(':')[0] : 'E_FEEDBACK_FAILED'
+      return reply.code(503).send({ code, message })
+    }
+  })
 
   // 提示词模板管理（阶段十九 19.18 / V2-16 前端半边收口）：GET 只读快照 +
   // PUT 写文件（占位符白名单校验；重启档——模板构造期装载一次）

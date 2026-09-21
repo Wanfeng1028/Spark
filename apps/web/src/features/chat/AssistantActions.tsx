@@ -1,7 +1,8 @@
 /**
  * AssistantActions（工单 10.4①，§13.H:519 扩展版）：assistant 尾操作行——
  * 复制 + 👍 + 👎 + hairline + "内容由 AI 生成" + 时间戳 + fork 到分支会话。
- * 👍👎 置灰：存储依赖未落地（§8.7 V2-25），先给形态不给假交互；
+ * 👍👎 真接线（阶段十九 19.19 / 消解 V2-25）：POST /api/feedback（同 event 重复点是
+ * 撤回——再点一次取消；备注经内联输入收集）。反馈不进事件流（用户侧评价非会话状态）。
  * fork 数据源=引擎既有 fork 端点（工单 4.5），POST 成功导航新会话，
  * 三拒绝码等人话呈现（失败闭合：不导航不造会话）；线性图标禁 emoji（§12）。
  */
@@ -33,6 +34,11 @@ export function AssistantActions({ sid, eventId, time, copyText }: AssistantActi
   const { copied, copy } = useCopy()
   const [forking, setForking] = useState(false)
   const [forkError, setForkError] = useState<string | null>(null)
+  // 反馈态（19.19）：当前票型（null = 未反馈）；busy 防连点
+  const [vote, setVote] = useState<'up' | 'down' | null>(null)
+  const [feedbackBusy, setFeedbackBusy] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(false)
+  const [note, setNote] = useState('')
 
   /** fork 到分支会话：引擎既有端点（工单 4.5）——成功后导航；失败如实呈现不跳转 */
   async function fork() {
@@ -45,6 +51,39 @@ export function AssistantActions({ sid, eventId, time, copyText }: AssistantActi
       setForkError(errorMessageOf(err))
     } finally {
       setForking(false)
+    }
+  }
+
+  /** 反馈（19.19）：同票再点 = 撤回；异票 = 改票（后端按 vote 分行，互不覆盖） */
+  async function feedback(next: 'up' | 'down'): Promise<void> {
+    setFeedbackBusy(true)
+    try {
+      if (vote === next) {
+        await transport.withdrawFeedback(sid, eventId, next)
+        setVote(null)
+        setNoteOpen(false)
+      } else {
+        await transport.submitFeedback({ sessionId: sid, eventId, vote: next })
+        setVote(next)
+      }
+    } catch {
+      // 失败保持原态（不假装已反馈——禁假状态）
+    } finally {
+      setFeedbackBusy(false)
+    }
+  }
+
+  /** 存备注（19.19）：同票幂等更新，不堆行 */
+  async function saveNote(): Promise<void> {
+    if (vote === null) return
+    setFeedbackBusy(true)
+    try {
+      await transport.submitFeedback({ sessionId: sid, eventId, vote, note })
+      setNoteOpen(false)
+    } catch {
+      // 失败不关编辑态（用户可重试）
+    } finally {
+      setFeedbackBusy(false)
     }
   }
 
@@ -66,22 +105,64 @@ export function AssistantActions({ sid, eventId, time, copyText }: AssistantActi
       </button>
       <button
         type="button"
-        disabled
-        title="反馈（规划中，V2-25）"
-        aria-label="有帮助（规划中）"
-        className={cn(ICON_BTN, 'cursor-not-allowed opacity-40')}
+        disabled={feedbackBusy}
+        onClick={() => void feedback('up')}
+        title={vote === 'up' ? '已点赞（再点取消）' : '有帮助'}
+        aria-label="有帮助"
+        aria-pressed={vote === 'up'}
+        className={cn(ICON_BTN, vote === 'up' && 'text-foreground', feedbackBusy && 'opacity-40')}
       >
         <ThumbsUp className="size-[15px]" />
       </button>
       <button
         type="button"
-        disabled
-        title="反馈（规划中，V2-25）"
-        aria-label="无帮助（规划中）"
-        className={cn(ICON_BTN, 'cursor-not-allowed opacity-40')}
+        disabled={feedbackBusy}
+        onClick={() => void feedback('down')}
+        title={vote === 'down' ? '已点踩（再点取消）' : '无帮助'}
+        aria-label="无帮助"
+        aria-pressed={vote === 'down'}
+        className={cn(ICON_BTN, vote === 'down' && 'text-foreground', feedbackBusy && 'opacity-40')}
       >
         <ThumbsDown className="size-[15px]" />
       </button>
+      {vote !== null && !noteOpen && (
+        <button
+          type="button"
+          onClick={() => setNoteOpen(true)}
+          title="补充备注"
+          aria-label="补充备注"
+          className="text-[11px] text-muted-foreground/70 hover:text-foreground"
+        >
+          备注
+        </button>
+      )}
+      {noteOpen && vote !== null && (
+        <span className="flex items-center gap-1">
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="补充备注（可空）"
+            aria-label="反馈备注"
+            maxLength={2000}
+            className="h-6 w-40 rounded-md border border-input bg-transparent px-2 text-[11px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+          <button
+            type="button"
+            onClick={() => void saveNote()}
+            disabled={feedbackBusy}
+            className="text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            存
+          </button>
+          <button
+            type="button"
+            onClick={() => setNoteOpen(false)}
+            className="text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            取消
+          </button>
+        </span>
+      )}
       <span aria-hidden className="mx-1 h-3 border-l border-border" />
       <span className="max-[479px]:hidden text-[11px] text-muted-foreground/60">内容由 AI 生成</span>
       <span className="max-[479px]:hidden text-[11px] text-muted-foreground/60" title={full}>

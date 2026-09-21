@@ -2062,6 +2062,70 @@
         }
       }
     },
+    "/api/feedback": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "提交/更新反馈（阶段十九 19.19 / V2-25：会话/回合级 👍👎 + 备注；同 session+event+vote 幂等）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackEntryDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "反馈列表（阶段十九 19.19；新→旧，sessionId/vote 可选过滤，limit 缺省 100 上限 500）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FeedbackEntryDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "撤回反馈（阶段十九 19.19；不存在 = 幂等 removed:false）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "removed": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prompts": {
       "get": {
         "tags": [
@@ -3410,6 +3474,49 @@
           "id",
           "enabled",
           "path"
+        ],
+        "additionalProperties": false
+      },
+      "FeedbackEntryDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "sessionId": {
+            "type": "string",
+            "pattern": "^ses_[0-9A-Za-z]+$"
+          },
+          "eventId": {
+            "type": "string",
+            "pattern": "^evt_[0-9A-Za-z]+$"
+          },
+          "vote": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ]
+          },
+          "note": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "sessionId",
+          "eventId",
+          "vote",
+          "note",
+          "createdAt"
         ],
         "additionalProperties": false
       },

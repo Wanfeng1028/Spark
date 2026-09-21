@@ -1747,6 +1747,190 @@ describe('契约：api.ExtensionDtoSchema', () => {
   })
 })
 
+describe('契约：api.FeedbackEntryDtoSchema', () => {
+  const sample = {
+    "id": 1,
+    "sessionId": "ses_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "eventId": "evt_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "vote": "up",
+    "note": "contract-sample",
+    "createdAt": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.FeedbackEntryDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.FeedbackEntryDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.FeedbackEntryDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 id → 解析失败', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["id"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 sessionId → 解析失败', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["sessionId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 eventId → 解析失败', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["eventId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 vote → 解析失败', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["vote"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 note → 解析失败', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["note"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 createdAt → 解析失败', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["createdAt"]; return m })())).toThrow()
+  })
+
+  it('字段 id 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["id"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 sessionId 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["sessionId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 eventId 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["eventId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 vote 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["vote"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 note 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["note"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 createdAt 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["createdAt"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.FeedbackEntryDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.FeedbackInputSchema', () => {
+  const sample = {
+    "sessionId": "ses_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "eventId": "evt_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "vote": "up",
+    "note": "contract-sample"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.FeedbackInputSchema.parse(sample)).toEqual(sample)
+    expect(api.FeedbackInputSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.FeedbackInputSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 sessionId → 解析失败', () => {
+    expect(() => api.FeedbackInputSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["sessionId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 eventId → 解析失败', () => {
+    expect(() => api.FeedbackInputSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["eventId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 vote → 解析失败', () => {
+    expect(() => api.FeedbackInputSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["vote"]; return m })())).toThrow()
+  })
+
+  it('字段 sessionId 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackInputSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["sessionId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 eventId 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackInputSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["eventId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 vote 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackInputSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["vote"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 note 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackInputSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["note"] = 12345; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.FeedbackInputSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.FeedbackQuerySchema', () => {
+  const sample = {
+    "sessionId": "ses_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "vote": "up",
+    "limit": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.FeedbackQuerySchema.parse(sample)).toEqual(sample)
+    expect(api.FeedbackQuerySchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.FeedbackQuerySchema)).toBeTypeOf('object')
+  })
+
+  it('字段 sessionId 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackQuerySchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["sessionId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 vote 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackQuerySchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["vote"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 limit 类型错 → 解析失败', () => {
+    expect(() => api.FeedbackQuerySchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["limit"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.FeedbackQuerySchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.FeedbackVoteSchema', () => {
+  const sample = "up"
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.FeedbackVoteSchema.parse(sample)).toEqual(sample)
+    expect(api.FeedbackVoteSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.FeedbackVoteSchema)).toBeTypeOf('object')
+  })
+
+  it('类型错（数字）→ 解析失败', () => {
+    expect(() => api.FeedbackVoteSchema.parse(12345)).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => api.FeedbackVoteSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => api.FeedbackVoteSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => api.FeedbackVoteSchema.parse("")).toThrow()
+  })
+})
+
 describe('契约：api.ForkChildDtoSchema', () => {
   const sample = {
     "sessionId": "ses_01ARZ3NDEKTSV4RRFFQ69G5FAV",
