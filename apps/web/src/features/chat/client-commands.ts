@@ -10,12 +10,20 @@
 import type { ClientAction, CommandDto } from '@spark/protocol'
 
 /** client 命令动作：navigate = 跳设置页；palette = 打开命令面板（会话切换）；
- *  rename = 会话改名（阶段十九 19.20：端侧收标题后调 Transport） */
+ *  rename = 会话改名（阶段十九 19.20）；new-session = 新建并跳转（19.21）；
+ *  open-dialog = 开会话级对话框（checkpoint/tree，19.21——SessionPage 持有开合态）；
+ *  cycle-effort = 循环推理档（19.21，Composer 既有 setter）；fork-last = 从最后一条
+ *  消息 fork（19.21）；rollback-last = 回滚到上一检查点（19.21，CheckpointDialog 同端点） */
 export type ClientCommandAction =
   | { kind: 'navigate'; path: string }
   | { kind: 'palette' }
   | { kind: 'voice' }
   | { kind: 'rename' }
+  | { kind: 'new-session' }
+  | { kind: 'open-dialog'; dialog: 'checkpoint' | 'tree' }
+  | { kind: 'cycle-effort' }
+  | { kind: 'fork-last' }
+  | { kind: 'rollback-last' }
 
 /** web 端实现映射（键空间 = ClientAction；未实现端不渲染，故为 Partial） */
 export const CLIENT_ACTIONS: Readonly<Partial<Record<ClientAction, ClientCommandAction>>> = {
@@ -39,6 +47,16 @@ export const CLIENT_ACTIONS: Readonly<Partial<Record<ClientAction, ClientCommand
   sandbox: { kind: 'navigate', path: '/settings/sandbox' },
   // 会话改名（阶段十九 19.20）：/rename 与 /title 同实现
   rename: { kind: 'rename' },
+  // 以下七项（阶段十九 19.21）：补 18 个 client 命令中 web 缺映射的 8 项里的 7 项。
+  // /help 不映射：web 无帮助面板（键位说明在 CLI /help 与文档站）——**未实现端不渲染**，
+  // 命令面板过滤掉它，禁假状态（不做一个点了没反应的入口）。
+  new: { kind: 'new-session' },
+  stats: { kind: 'navigate', path: '/settings/usage' },
+  checkpoint: { kind: 'open-dialog', dialog: 'checkpoint' },
+  tree: { kind: 'open-dialog', dialog: 'tree' },
+  effort: { kind: 'cycle-effort' },
+  fork: { kind: 'fork-last' },
+  rollback: { kind: 'rollback-last' },
 }
 
 /** 是否 client 命令（前端本地执行，不进引擎） */

@@ -53,6 +53,14 @@ export interface UiState {
   setSidebarGroupMode: (m: SidebarGroupMode) => void
   voiceMode: VoiceMode
   cycleVoiceMode: () => void
+  /** 命令面板请求打开的会话级对话框（阶段十九 19.21：/checkpoint /tree）——
+   *  SessionPage 订阅后开合并自行清 Request（一次性信号，不常驻状态） */
+  sessionDialogRequest: 'checkpoint' | 'tree' | null
+  openSessionDialog: (d: 'checkpoint' | 'tree') => void
+  clearSessionDialogRequest: () => void
+  /** 推理档循环（阶段十九 19.21：/effort）——SessionPage 订阅后改 Composer 档位 */
+  effortCycleSeq: number
+  cycleEffort: () => void
 }
 
 export const useUiStore = create<UiState>()((set, get) => ({
@@ -73,6 +81,11 @@ export const useUiStore = create<UiState>()((set, get) => ({
     set({ sidebarGroupMode })
   },
   voiceMode: loadPersisted().voiceMode,
+  sessionDialogRequest: null,
+  effortCycleSeq: 0,
+  openSessionDialog: (sessionDialogRequest) => set({ sessionDialogRequest }),
+  clearSessionDialogRequest: () => set({ sessionDialogRequest: null }),
+  cycleEffort: () => set((s) => ({ effortCycleSeq: s.effortCycleSeq + 1 })),
   cycleVoiceMode: () => {
     // /voice 命令与长按菜单共用：hold → tap → off → hold 循环（§13.E 语音钮三态）
     const order: VoiceMode[] = ['hold', 'tap', 'off']

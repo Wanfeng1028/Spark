@@ -68,10 +68,24 @@ export function SessionPage() {
   const [reloadKey, setReloadKey] = useState(0)
   // 会话树浮层（工单 4.5）：分叉入口 + 树视图
   const [treeOpen, setTreeOpen] = useState(false)
+  // 命令面板对话框/档位信号（阶段十九 19.21：/checkpoint /tree /effort）
+  const dialogRequest = useUiStore((s) => s.sessionDialogRequest)
+  const clearDialogRequest = useUiStore((s) => s.clearSessionDialogRequest)
+  const effortCycleSeq = useUiStore((s) => s.effortCycleSeq)
   // 链路浮层（工单 13.7）：回合级聚合——时长/步与 token/工具调用与重试/护栏告警
   const [traceOpen, setTraceOpen] = useState(false)
   // 检查点浮层（工单 4.6）：快照列表 + 回滚入口；turn 进行中回滚按钮禁用
   const [ckptOpen, setCkptOpen] = useState(false)
+
+  // 一次性信号消费（19.21）：dialogRequest 非空 → 开对应对话框并清信号；
+  // effortCycleSeq 变化 → 按 low→medium→high→null(provider 缺省) 循环
+  useEffect(() => {
+    if (dialogRequest === null) return
+    if (dialogRequest === 'checkpoint') setCkptOpen(true)
+    else setTreeOpen(true)
+    clearDialogRequest()
+  }, [dialogRequest, clearDialogRequest])
+
   // 权限档位（§13.E 四档）。null = 复位中/未装载（AUD-14：sid 切换即清，杜绝旧会话
   // 档位串台）；装载失败保持缺省档 confirm-each——与引擎缺省一致且最安全
   // （fail-closed 方向），切档失败由 Composer hint 如实反馈
@@ -112,6 +126,17 @@ export function SessionPage() {
     setEffortOverride(null)
     setPreset(null)
   }, [sid])
+
+  // /effort 循环（阶段十九 19.21）：low → medium → high → provider 缺省（null）
+  useEffect(() => {
+    if (effortCycleSeq === 0) return
+    const order: (ReasoningEffort | null)[] = ['low', 'medium', 'high', null]
+    const cur = effortOverride ?? sliceEffort ?? null
+    const next = order[(order.indexOf(cur) + 1) % order.length] ?? null
+    setEffortOverride(next)
+    // effortOverride/sliceEffort 刻意不入依赖：只在序号变化时循环（入依赖会把切会话复位当一次循环）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effortCycleSeq])
 
   const busy = turn !== null
   const waiting = turn?.waiting === true

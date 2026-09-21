@@ -91,6 +91,46 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         setRenaming(activeId)
         return
       }
+      // 阶段十九 19.21：七项新映射的执行（对话框/档位/fork/rollback 需激活会话）
+      if (client.kind === 'new-session') {
+        void createSession()
+        return
+      }
+      if (client.kind === 'open-dialog') {
+        if (activeId === null) return
+        useUiStore.getState().openSessionDialog(client.dialog)
+        close()
+        return
+      }
+      if (client.kind === 'cycle-effort') {
+        if (activeId === null) return
+        useUiStore.getState().cycleEffort()
+        close()
+        return
+      }
+      if (client.kind === 'fork-last' || client.kind === 'rollback-last') {
+        if (activeId === null) return
+        // 两者都要最新事件 id：经 store 快照取最后一条 durable 事件（无事件 = 无处可 fork/回滚）
+        const slice = useSessionStore.getState().byId[activeId]
+        const lastEvent = slice?.items[slice.items.length - 1]
+        if (lastEvent === undefined) return
+        void (async () => {
+          try {
+            if (client.kind === 'fork-last') {
+              const dto = await transport.fork(activeId, lastEvent.eventId)
+              void navigate(`/session/${dto.id}`)
+            } else {
+              // 回滚到该事件之前的检查点（引擎端点幂等；无检查点 → 404 由错误文案承接）
+              const ckpts = await transport.listCheckpoints(activeId)
+              const target = ckpts.find((c) => c.eventId === lastEvent.eventId) ?? ckpts[ckpts.length - 1]
+              if (target !== undefined) await transport.rollbackCheckpoint(activeId, target.id)
+            }
+          } catch {
+            // 失败不导航不假造状态（禁假状态；错误由端点错误码与人话文案承接）
+          }
+        })()
+        return
+      }
       void navigate(client.path)
       return
     }
