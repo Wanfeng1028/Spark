@@ -32,5 +32,7 @@ export function selectDueForAutoArchive(
   afterDays: number,
   now: number,
 ): SessionMeta[] {
-  return sessions.filter((m) => dueForAutoArchive(m, afterDays, now))
+  return sessions.filter((m) =>
+    dueForAutoArchive({ id: String(m.id), status: m.status, updatedAt: m.updatedAt }, afterDays, now),
+  )
 }

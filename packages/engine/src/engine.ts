@@ -137,8 +137,6 @@ import { SandboxNetworkProxy } from './sandbox/proxy.js'
 import { resolveEmbeddingProvider, HttpEmbeddingClient, type EmbeddingProviderInfo } from './embedding/client.js'
 import { DEFAULT_AFTER_DAYS, selectDueForAutoArchive } from './session/archive-policy.js'
 import { proxyFetchFor } from './proxy-fetch.js'
-import { DEFAULT_AFTER_DAYS, selectDueForAutoArchive } from './session/archive-policy.js'
-import { proxyFetchFor } from './proxy-fetch.js'
 import { VectorStore } from './vector/store.js'
 import { SemanticIndexer, mergeMemories, mergeEvents, snippetOf } from './vector/semantic.js'
 
@@ -1506,7 +1504,9 @@ export class Engine {
       resolveKey: (provider, apiKeyEnv) => resolveApiKey(this.secrets, provider, apiKeyEnv),
       // 全局出网代理（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：显式传入即覆盖
       // model-catalog 内的 per-provider 兜底（provider.proxy 仍作次选）
-      fetchImpl: this.engineFetchFor(this.config.models.providers[providerId]?.proxy),
+      ...(this.engineFetchFor(this.config.models.providers[providerId]?.proxy) !== undefined
+        ? { fetchImpl: this.engineFetchFor(this.config.models.providers[providerId]?.proxy) }
+        : {}),
     })
   }
 

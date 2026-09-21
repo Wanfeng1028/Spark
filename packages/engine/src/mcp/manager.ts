@@ -49,7 +49,7 @@ export function mcpToolName(server: string, tool: string): string {
  * 配置文件即达服务端）；其余（缺省 'stdio'）→ StdioClientTransport 原语义。
  * schema（config.ts superRefine）已按 transport 分支校验必填；此处判空兜底抛错，
  * 由 connect() 的失败闭合（warn 跳过）承接，不带病运行。 */
-function defaultTransport(name: string, cfg: McpServerConfig): Transport {
+function defaultTransport(name: string, cfg: McpServerConfig, proxyEnv?: (() => Record<string, string> | undefined) | undefined): Transport {
   if (cfg.transport === 'streamable-http') {
     if (cfg.url === undefined) {
       throw new Error(`MCP server ${name} 配置缺 url（streamable-http transport 必填）`)
@@ -69,11 +69,11 @@ function defaultTransport(name: string, cfg: McpServerConfig): Transport {
   // 全局出网代理（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：spark.json network.proxy/noProxy
   // 以 env 注入子进程（MCP server 自己发起的请求才走代理——尊重环境变量的客户端才生效）。
   // 用户显式写的 cfg.env 优先（同键不覆盖——用户配置是更具体的意图）。
-  const proxyEnv = this.deps.proxyEnv?.()
+  const injected = proxyEnv?.()
   const merged =
-    proxyEnv !== undefined && cfg.env !== undefined
-      ? { ...proxyEnv, ...cfg.env }
-      : (proxyEnv ?? cfg.env)
+    injected !== undefined && cfg.env !== undefined
+      ? { ...injected, ...cfg.env }
+      : (injected ?? cfg.env)
   return new StdioClientTransport({
     command: cfg.command,
     ...(cfg.args !== undefined ? { args: cfg.args } : {}),
@@ -157,7 +157,7 @@ export class McpManager {
         const transport =
           this.deps.transportFactory !== undefined
             ? this.deps.transportFactory(cfg)
-            : defaultTransport(name, cfg)
+            : defaultTransport(name, cfg, this.deps.proxyEnv)
         await withTimeout(client.connect(transport), cfg.connectTimeoutMs ?? CONNECT_TIMEOUT_MS, name)
         const listed = await client.listTools()
         for (const tool of listed.tools as McpToolInfo[]) {

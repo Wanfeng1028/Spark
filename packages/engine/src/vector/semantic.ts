@@ -45,7 +45,7 @@ export class SemanticIndexer {
   private readonly client: EmbeddingClient
   private readonly store: VectorStore
   private readonly sources: SemanticSources
-  private readonly titleOf: (sessionId: string) => string
+  private readonly titleOf: (sessionId: SessionId) => string
   private readonly now: () => number
 
   constructor(opts: SemanticIndexerOptions) {
@@ -130,7 +130,7 @@ export class SemanticIndexer {
       const time = typeof h.meta['time'] === 'number' ? h.meta['time'] : 0
       return {
         sessionId: sessionId as SearchHit['sessionId'],
-        sessionTitle: this.titleOf(sessionId),
+        sessionTitle: this.titleOf(sessionId as SearchHit['sessionId']),
         eventId: eventId as SearchHit['eventId'],
         seq,
         type: type as SearchHit['type'],
