@@ -297,7 +297,7 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
   // 会话改名（阶段十九 19.20，消解 /title /rename 挂池）：emit session.title（durable），
   // 索引与列表经既有 meta 增量维护同步；空标题由 zod min(1) 挡门外
   app.put('/api/sessions/:id/title', async (req, reply) => {
-    const { id } = parseOr400(SessionIdParams, req.params)
+    const { id } = parseOr400(IdParams, req.params)
     const body = parseOr400(RenameSessionSchema, req.body)
     const meta = await engine.renameSession(id, body.title)
     return reply.send(toDto(engine, meta))

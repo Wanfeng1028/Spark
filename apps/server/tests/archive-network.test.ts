@@ -22,7 +22,7 @@ import type { ServerFixture } from './helpers.js'
 const NOW = 1_800_000_000_000
 const DAY = 86_400_000
 
-function meta(over: Partial<SessionMeta> & { id: string }): SessionMeta {
+function meta(over: Omit<Partial<SessionMeta>, 'id'> & { id: string }): SessionMeta {
   const { id, ...rest } = over
   return {
     title: 't',

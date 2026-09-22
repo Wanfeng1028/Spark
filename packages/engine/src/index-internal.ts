@@ -22,6 +22,9 @@ export {
   selectDueForAutoArchive,
 } from './session/archive-policy.js'
 
+// ---- 反馈存储（19.19 落点在 engine；apps/server 单测直打 store 层判据）----
+export { FeedbackStore } from './feedback/store.js'
+
 // ---- 会话存储 / 树 / 输入队列 / 运行时 ----
 export {
   SessionStore,

@@ -8,7 +8,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import { ids } from '@spark/protocol'
-import { FeedbackStore } from '../src/feedback/store.js'
+// FeedbackStore 落点在 engine（19.19）；server 侧只有路由，故 store 层判据经 internal 入口
+// 直打（生产代码禁引 internal，测试豁免——见 packages/engine/tests/public-surface.test.ts）
+import { FeedbackStore } from '@spark/engine/internal'
 import { makeServer } from './helpers.js'
 import type { ServerFixture } from './helpers.js'
 
