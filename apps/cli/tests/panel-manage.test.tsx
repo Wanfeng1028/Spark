@@ -5,7 +5,16 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { render } from 'ink-testing-library'
-import { ids, type Transport } from '@spark/protocol'
+import {
+  ids,
+  type CheckpointId,
+  type McpConfigInput,
+  type ModelsDto,
+  type RoutingUpdate,
+  type SessionId,
+  type SettingsUpdate,
+  type Transport,
+} from '@spark/protocol'
 import {
   AgentsPanel,
   ArenaPanel,
@@ -19,7 +28,7 @@ import {
   TrustPanel,
   UsagePanel,
 } from '../src/components/CommandPanels.js'
-import type { ReactNode } from 'react'
+import type { ReactElement } from 'react'
 
 const SID = ids.session('ses_0000000000000000000000000000a1')
 
@@ -30,7 +39,7 @@ interface H {
   frame: () => string
 }
 
-async function open(node: ReactNode): Promise<H> {
+async function open(node: ReactElement): Promise<H> {
   const { stdin, lastFrame } = render(node)
   await tick()
   return {
@@ -99,10 +108,29 @@ const SETTINGS = {
   models: { defaultModel: 'deepseek/deepseek-chat', defaultEffort: null },
 }
 
-const MODELS = {
+/** 供应商条目按引擎 listModels 的合成口径取值：未配置 → apiKeyEnv null + hasKey false +
+ *  baseUrl 不带（自定义 glm 不在 PROVIDER_CATALOG，label 回落 id、api 回落 openai-completions） */
+const MODELS: ModelsDto = {
   providers: [
-    { id: 'deepseek', configured: true },
-    { id: 'glm', configured: false },
+    {
+      id: 'deepseek',
+      label: 'DeepSeek',
+      builtin: true,
+      configured: true,
+      baseUrl: 'https://api.deepseek.com/v1',
+      apiKeyEnv: 'DEEPSEEK_API_KEY',
+      hasKey: true,
+      api: 'openai-completions',
+    },
+    {
+      id: 'glm',
+      label: 'glm',
+      builtin: false,
+      configured: false,
+      apiKeyEnv: null,
+      hasKey: false,
+      api: 'openai-completions',
+    },
   ],
   models: [
     { provider: 'deepseek', model: 'deepseek-chat', contextWindow: 65536 },
@@ -113,7 +141,7 @@ const MODELS = {
 
 describe('CLI 面板管理态（阶段十九 19.24）', () => {
   it('子代理：Enter 停用写入 disabledAgents（保留既有停用项）', async () => {
-    const updateSettings = vi.fn(async () => SETTINGS)
+    const updateSettings = vi.fn(async (_patch: SettingsUpdate) => SETTINGS)
     const h = await open(
       <AgentsPanel
         transport={asTransport({
@@ -129,15 +157,15 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
     expect(selected(h)).toContain('reviewer')
     h.stdin.write('\r')
     await tick()
-    const patch = updateSettings.mock.calls[0]?.[0] as {
-      agents?: { disabledAgents: string[] }
-    }
-    expect(patch.agents?.disabledAgents.sort()).toEqual(['reviewer', 'scout'])
+    const patch = updateSettings.mock.calls[0]?.[0]
+    expect(patch?.agents?.['disabledAgents']?.sort()).toEqual(['reviewer', 'scout'])
     expect(h.frame()).toContain('重启后生效')
   })
 
   it('扩展：Enter 调 setExtensionEnabled 取反', async () => {
-    const setExtensionEnabled = vi.fn(async () => undefined)
+    const setExtensionEnabled = vi.fn(
+      async (_id: string, _enabled: boolean): Promise<void> => undefined,
+    )
     const h = await open(
       <ExtensionsPanel
         transport={asTransport({
@@ -152,7 +180,9 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('信任：当前目录行进 Enter 写 setTrust(cwd, trusted)（未信任→信任）', async () => {
-    const setTrust = vi.fn(async () => undefined)
+    const setTrust = vi.fn(
+      async (_path: string, _trust: 'trusted' | 'untrusted'): Promise<void> => undefined,
+    )
     const h = await open(
       <TrustPanel
         transport={asTransport({
@@ -169,7 +199,7 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('MCP：两次 Enter 才删除条目，其余 server 配置原样保留', async () => {
-    const updateMcpConfig = vi.fn(async () => ({ ok: true }))
+    const updateMcpConfig = vi.fn(async (_config: McpConfigInput) => ({ ok: true }))
     const h = await open(
       <McpPanel
         transport={asTransport({
@@ -187,16 +217,15 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
     )
     await moveTo(h, 'drop')
     await enterTwice(h, updateMcpConfig, 0)
-    const config = updateMcpConfig.mock.calls[0]?.[0] as {
-      servers: Record<string, unknown>
-    }
-    expect(Object.keys(config.servers)).toEqual(['keep'])
+    const config = updateMcpConfig.mock.calls[0]?.[0]
+    expect(Object.keys(config?.servers ?? {})).toEqual(['keep'])
   })
 
   it('检查点：两次 Enter 才回滚到所选快照', async () => {
-    const rollbackCheckpoint = vi.fn(async () => ({ id: SID }))
+    const rollbackCheckpoint = vi.fn(async (_sid: SessionId, _cid: CheckpointId) => ({ id: SID }))
     const h = await open(
       <CheckpointsPanel
+        sessionId={SID}
         transport={asTransport({
           listCheckpoints: async () => [
             { checkpointId: ids.checkpoint('ckp_one'), turnId: ids.turn('trn_one'), createdAt: 1, files: [] },
@@ -213,7 +242,9 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('竞答：done 状态 Enter 两次应用所选模型为胜者', async () => {
-    const applyArenaWinner = vi.fn(async () => undefined)
+    const applyArenaWinner = vi.fn(
+      async (_sid: SessionId, _contender: SessionId): Promise<void> => undefined,
+    )
     const h = await open(
       <ArenaPanel
         transport={asTransport({
@@ -245,8 +276,10 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('竞答：running 状态不得应用胜者，取消行需二次确认', async () => {
-    const applyArenaWinner = vi.fn(async () => undefined)
-    const cancelArena = vi.fn(async () => undefined)
+    const applyArenaWinner = vi.fn(
+      async (_sid: SessionId, _contender: SessionId): Promise<void> => undefined,
+    )
+    const cancelArena = vi.fn(async (_sid: SessionId): Promise<void> => undefined)
     const h = await open(
       <ArenaPanel
         transport={asTransport({
@@ -286,7 +319,7 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('语言服务器：内置目录未装项 Enter 两次触发安装', async () => {
-    const installLspServer = vi.fn(async () => ({
+    const installLspServer = vi.fn(async (_id: string) => ({
       language: 'typescript',
       command: 'typescript-language-server',
       args: ['--stdio'],
@@ -302,7 +335,7 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('用量路由：模型档 Enter 在已配置模型间循环，写 PUT /api/routing', async () => {
-    const updateRouting = vi.fn(async () => ROUTING)
+    const updateRouting = vi.fn(async (_patch: RoutingUpdate) => ROUTING)
     const h = await open(
       <UsagePanel
         transport={asTransport({
@@ -327,7 +360,7 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('用量路由：非法成本上限不落写', async () => {
-    const updateRouting = vi.fn(async () => ROUTING)
+    const updateRouting = vi.fn(async (_patch: RoutingUpdate) => ROUTING)
     const h = await open(
       <UsagePanel
         transport={asTransport({
@@ -348,7 +381,7 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('模型面板：未配置项 Enter 录入 apiKey → setSecret 并重取目录', async () => {
-    const setSecret = vi.fn(async () => undefined)
+    const setSecret = vi.fn(async (_provider: string, _value: string): Promise<void> => undefined)
     const listModels = vi.fn(async () => MODELS)
     const onPick = vi.fn()
     const h = await open(
@@ -374,7 +407,7 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('电脑控制：Enter 取反主开关并整段回传 engine', async () => {
-    const updateSettings = vi.fn(async () => SETTINGS)
+    const updateSettings = vi.fn(async (_patch: SettingsUpdate) => SETTINGS)
     const h = await open(
       <ComputerPanel transport={asTransport({ getSettings: async () => SETTINGS, updateSettings })} />,
     )
@@ -386,7 +419,7 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('沙箱：Enter 切换出口过滤档并保留 allowlist', async () => {
-    const updateSettings = vi.fn(async () => SETTINGS)
+    const updateSettings = vi.fn(async (_patch: SettingsUpdate) => SETTINGS)
     const h = await open(
       <SandboxPanel
         transport={asTransport({
@@ -403,11 +436,9 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
     )
     h.stdin.write('\r')
     await tick()
-    const patch = updateSettings.mock.calls[0]?.[0] as {
-      sandbox?: { network: Record<string, unknown> }
-    }
-    expect(patch.sandbox?.network['mode']).toBe('allowlist')
-    expect(patch.sandbox?.network['allowlist']).toEqual(['example.com'])
+    const patch = updateSettings.mock.calls[0]?.[0]
+    expect(patch?.sandbox?.network['mode']).toBe('allowlist')
+    expect(patch?.sandbox?.network['allowlist']).toEqual(['example.com'])
   })
 })
 

@@ -5,7 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'ink-testing-library'
-import type { Transport } from '@spark/protocol'
+import type { RoutingUpdate, SettingsUpdate, Transport } from '@spark/protocol'
 import { SettingsPanel } from '../src/components/SettingsPanel.js'
 import { useCliStore } from '../src/store.js'
 
@@ -45,8 +45,8 @@ const BASE_ROUTING = {
 /** 夹具只覆盖面板实际读取的字段（其余字段本组件不消费，故不构造） */
 function makeTransport() {
   const getSettings = vi.fn(async () => BASE_SETTINGS)
-  const putSettings = vi.fn(async () => BASE_SETTINGS)
-  const putRouting = vi.fn(async () => BASE_ROUTING)
+  const putSettings = vi.fn(async (_patch: SettingsUpdate) => BASE_SETTINGS)
+  const putRouting = vi.fn(async (_patch: RoutingUpdate) => BASE_ROUTING)
   const transport = {
     getSettings,
     getRouting: async () => BASE_ROUTING,
@@ -117,10 +117,10 @@ describe('SettingsPanel（阶段十九 19.23）', () => {
     expect(h.frame()).toContain('[99]')
     h.stdin.write('\r')
     await tick()
-    const patch = putSettings.mock.calls[0]?.[0] as { engine?: Record<string, unknown> }
-    expect(patch.engine?.['maxStepsPerTurn']).toBe(99)
+    const patch = putSettings.mock.calls[0]?.[0]
+    expect(patch?.engine?.['maxStepsPerTurn']).toBe(99)
     // 整段回传（不受服务端合并语义牵连）+ 未变动字段保持现值
-    expect(patch.engine?.['maxToolParallel']).toBe(4)
+    expect(patch?.engine?.['maxToolParallel']).toBe(4)
     expect(getSettings.mock.calls.length).toBe(2)
   })
 
@@ -143,8 +143,8 @@ describe('SettingsPanel（阶段十九 19.23）', () => {
     await moveTo(h, 'turn 边界检查点')
     h.stdin.write('\r')
     await tick()
-    const patch = putSettings.mock.calls[0]?.[0] as { engine?: Record<string, unknown> }
-    expect(patch.engine?.['checkpoints']).toBe(false)
+    const patch = putSettings.mock.calls[0]?.[0]
+    expect(patch?.engine?.['checkpoints']).toBe(false)
   })
 
   it('枚举循环两档：ui.language 走 settings、默认推理档走 routing', async () => {
@@ -159,8 +159,8 @@ describe('SettingsPanel（阶段十九 19.23）', () => {
     await moveTo(h, '界面语言')
     h.stdin.write('\r')
     await tick()
-    const patch = putSettings.mock.calls[0]?.[0] as { ui?: Record<string, unknown> }
-    expect(patch.ui?.['language']).toBe('en')
+    const patch = putSettings.mock.calls[0]?.[0]
+    expect(patch?.ui?.['language']).toBe('en')
   })
 
   it('Esc 只取消行内编辑、不关整面板（panelEditing 让位契约）', async () => {

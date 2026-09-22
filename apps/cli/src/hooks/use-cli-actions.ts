@@ -7,7 +7,7 @@
 import { useCallback, useMemo } from 'react'
 import type { ClientAction, CommandDto, RequestId, SessionId } from '@spark/protocol'
 import { errorMessageOf } from '@spark/protocol'
-import { ids, type ClientAction } from '@spark/protocol'
+import { ids } from '@spark/protocol'
 import { createCliActionHandlers } from '../client-actions.js'
 import { parseEffort } from './effort.js'
 import { useCliStore } from '../store.js'
@@ -248,6 +248,23 @@ export function useCliActions({
       .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
   }
 
+  /** 会话改名（/rename <新标题>，工单 19.20）：PUT /api/sessions/:id/title，
+   *  列表与索引经 session.title 事件同步——CLI 不做内联编辑器，标题走命令参数 */
+  function renameSession(arg: string | undefined): void {
+    const st = useCliStore.getState()
+    const sid = st.activeSessionId
+    if (sid === null) return
+    const title = arg?.trim() ?? ''
+    if (title === '') {
+      st.setNotice('用法：/rename <新标题>（1–200 字符）')
+      return
+    }
+    transport
+      .renameSession(sid, title)
+      .then(() => useCliStore.getState().setNotice(`已改名为「${title}」`))
+      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
+  }
+
   function runClientAction(action: ClientAction, args: string | undefined): void {
     const handlers = createCliActionHandlers({
       getState: useCliStore.getState,
@@ -260,6 +277,7 @@ export function useCliActions({
       trust,
       extensions,
       installLsp,
+      renameSession,
     })
     handlers[action](args)
   }

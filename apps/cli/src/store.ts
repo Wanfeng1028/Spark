@@ -167,6 +167,7 @@ export const useCliStore = create<CliState>()((set) => ({
     set((s) => ({ expandedGroups: toggle(s.expandedGroups, groupKey) })),
   setNotice: (notice) => set({ notice }),
   setPanel: (panel) => set({ panel, panelEditing: false, ...(panel === 'help' ? { helpTab: 0 } : {}) }),
+  setPanelEditing: (panelEditing) => set({ panelEditing }),
   cycleHelpTab: (dir) => set((s) => ({ helpTab: (s.helpTab + dir + 3) % 3 })),
   setDraftPreview: (draftPreview) => set({ draftPreview }),
   setBootError: (bootError) => set({ bootError }),

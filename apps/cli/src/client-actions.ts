@@ -24,6 +24,8 @@ export interface CliActionDeps {
   extensions(): void
   /** /lsp install <id>（阶段十九 19.5）：安装内置清单语言服务器（npm 全局装 + 写 lsp.json） */
   installLsp(id: string): void
+  /** /rename <新标题>（阶段十九 19.20）：会话改名（PUT /api/sessions/:id/title） */
+  renameSession(args: string | undefined): void
 }
 
 export type CliActionHandler = (args: string | undefined) => void
@@ -50,6 +52,8 @@ export function createCliActionHandlers(deps: CliActionDeps): Record<ClientActio
     checkpoint: () => needSession(() => st.setPanel('checkpoints')),
     rollback: (args) => needSession(() => deps.rollbackTo(args)),
     effort: (args) => needSession(() => deps.setEffort(args)),
+    // 会话改名（工单 19.20）：/rename 与 /title 同一 clientAction，标题走参数（无内联编辑器）
+    rename: (args) => needSession(() => deps.renameSession(args)),
     tree: () => needSession(() => st.setPanel('tree')),
     // 语言服务器（工单 16.9 + 19.5）：无参开面板；install <id> 子命令触发安装（写 lsp.json）
     lsp: (args) => {
