@@ -501,8 +501,10 @@ export class InProcessTransport implements Transport {
     )
   }
 
-  search(q: string, limit?: number): Promise<SearchHitDto[]> {
-    return this.sync(() => this.engine.searchSessions(q, limit ?? 20))
+  /** 会话检索：引擎方法是 async，不走 sync 门（否则 Promise 套 Promise） */
+  async search(q: string, limit?: number): Promise<SearchHitDto[]> {
+    this.assertNotDisposed()
+    return this.engine.searchSessions(q, limit ?? 20)
   }
 
   // ---------- 密钥 ----------

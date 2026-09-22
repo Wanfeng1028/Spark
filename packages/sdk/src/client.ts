@@ -50,6 +50,8 @@ export interface SparkClient<T extends Transport = HttpTransport> {
     fork(sessionId: SessionId, fromEventId: EventId): Promise<SessionDto>
     /** 归档/恢复（archived=false 为恢复） */
     archive(sessionId: SessionId, archived: boolean): Promise<SessionDto>
+    /** 置顶/取消置顶（工单 19.41）：不入事件流，故列表顺序与自动归档排除都靠 meta 标记 */
+    pin(sessionId: SessionId, pinned: boolean): Promise<SessionDto>
     /** 两段式删除：JSONL 移入 ~/.spark/trash/；运行中会话 409 */
     remove(sessionId: SessionId): Promise<void>
     /** 回合级链路聚合（工单 13.7） */

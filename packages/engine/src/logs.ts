@@ -36,12 +36,14 @@ const LEVEL_RANK: Readonly<Record<LogEntryDto['level'], number>> = {
 }
 
 export interface ReadLogsQuery {
-  level?: LogEntryDto['level']
+  /** 键带 `| undefined`：调用方传的是 protocol `LogsQuery`（zod 推导，可选键含 undefined），
+   *  exactOptionalPropertyTypes 下不收（sdk inprocess.getLogs 即为此撞红） */
+  level?: LogEntryDto['level'] | undefined
   /** 子串匹配（msg 与序列化后的字段一起比，大小写不敏感） */
-  match?: string
-  limit?: number
+  match?: string | undefined
+  limit?: number | undefined
   /** 尾部窗口字节数（测试与"看更多"用；上限 4 MB） */
-  tailBytes?: number
+  tailBytes?: number | undefined
 }
 
 function logPath(root: string): string {
