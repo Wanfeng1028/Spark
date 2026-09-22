@@ -8,7 +8,7 @@ import { createInterface } from 'node:readline'
 import { planMigration, runMigration, MigrationError } from '@spark/engine'
 import { sparkHome } from '@spark/engine'
 
-export const MIGRATE_USAGE = `用法：spark migrate <target-dir>
+const MIGRATE_USAGE = `用法：spark migrate <target-dir>
 
 把当前数据目录（SPARK_HOME 或 ~/.spark）整体搬迁到 target-dir：
   1. 校验源可读、目标为空、目标不是当前目录

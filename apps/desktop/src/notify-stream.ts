@@ -17,7 +17,7 @@
 /** 与 protocol/session-stream-core.ts 的 DEFAULT_BACKOFF_MS 同表（末位封顶） */
 export const NOTIFY_BACKOFF_MS: readonly number[] = [1000, 2000, 5000, 10_000]
 
-export type NotifyStreamStatus = 'open' | 'reconnecting'
+type NotifyStreamStatus = 'open' | 'reconnecting'
 
 export interface NotifyStreamOptions {
   url: string

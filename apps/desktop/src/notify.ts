@@ -13,10 +13,10 @@ import { z } from 'zod'
  * "配了没反应"的假开关）。
  */
 export const EXTRA_NOTIFY_EVENTS = ['error', 'goal.completed', 'goal.paused'] as const
-export type ExtraNotifyEvent = (typeof EXTRA_NOTIFY_EVENTS)[number]
+type ExtraNotifyEvent = (typeof EXTRA_NOTIFY_EVENTS)[number]
 
 /** 内置开关对应的通知种类 */
-export type NotifyKind = 'turnCompleted' | 'approvalWaiting'
+type NotifyKind = 'turnCompleted' | 'approvalWaiting'
 /** 全部可通知种类（闸门 key 与文案表同源） */
 export type NotifyTarget = NotifyKind | ExtraNotifyEvent
 

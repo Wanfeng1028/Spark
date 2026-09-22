@@ -86,7 +86,20 @@
   //   故本目录的未引用导出/类型不算缺陷（例：DialogTrigger/DialogClose/buttonVariants 上游有、本仓未用）。
   "ignoreIssues": {
     "apps/mobile/app.json": ["unlisted"],
-    "apps/web/src/components/ui/**": ["exports", "types"]
+    "apps/web/src/components/ui/**": ["exports", "types"],
+    // ---- 阶段十九遗留死符号：冻结不删，待人类五层级确认（AGENTS §2.10，同 10.30 / 14.1
+    //      的"ignore 只是不让门禁长期红灯，不等于判决保留"）。逐项现状写在这里供裁决：----
+    // web 通知：19.13 的活路径是 transports/context.tsx 直调 notifyTask；本文件的
+    // useTaskNotifier（hook 形态旧变体）无人调用，而 **playNotifySound 的唯一调用方就是它**
+    // ——即设置页"提示音"开关与通知之间没有活链路，疑为提示音未接线；requestNotifyPermission
+    // 同样无人调（权限改由 notifyTask 内 Notification.permission 判定侧承担）。待裁：接线或删
+    "apps/web/src/hooks/useNotifyPrefs.ts": ["exports"],
+    // 19.15 把"重跑引导"入口收编进「引导」设置页，本页这份 clearOnboarding 成旧实现残留
+    "apps/web/src/routes/OnboardingPage.tsx": ["exports"],
+    // 19.8 类型 cruft：EmbeddingDecl 的形状实际由 resolveEmbeddingProvider 内部结构承载
+    "packages/engine/src/embedding/client.ts": ["types"],
+    // 19.8 类型 cruft：语义降级原因在调用侧按 E_EMBEDDING_* 错误码分流，此枚举无消费者
+    "packages/engine/src/vector/semantic.ts": ["types"]
   },
 
   // bash 工具文案里出现的 Windows 内建命令名，不是本仓需要安装的可执行文件

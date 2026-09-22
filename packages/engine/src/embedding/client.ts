@@ -18,12 +18,12 @@ export interface EmbeddingProviderInfo {
 }
 
 /** 单次请求超时（embedding 批量小、响应快；超时即失败不重试——由调用方降级） */
-export const EMBEDDING_TIMEOUT_MS = 30_000
+const EMBEDDING_TIMEOUT_MS = 30_000
 
 /** 批量上限（OpenAI 兼容端点单请求 input 数组长度；超出分批） */
-export const EMBEDDING_BATCH = 16
+const EMBEDDING_BATCH = 16
 
-export class EmbeddingError extends Error {
+class EmbeddingError extends Error {
   readonly code: string
   constructor(message: string, code = 'E_EMBEDDING_FAILED') {
     super(message)
@@ -174,7 +174,7 @@ export class HttpEmbeddingClient {
 }
 
 /** 数值数组 → Float32Array；非数值/空 → null（fail-closed 不猜维度） */
-export function toVector(raw: unknown): Float32Array | null {
+function toVector(raw: unknown): Float32Array | null {
   if (!Array.isArray(raw) || raw.length === 0) return null
   const out = new Float32Array(raw.length)
   for (let i = 0; i < raw.length; i++) {

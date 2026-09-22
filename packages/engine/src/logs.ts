@@ -142,4 +142,3 @@ export function readLogs(root: string, query: ReadLogsQuery = {}): LogsDto {
   return { path, entries: out, truncated: byBytes || entries.length > out.length }
 }
 
-export { logPath as engineLogPath, MAX_ENTRIES as LOGS_MAX_ENTRIES }
