@@ -64,19 +64,19 @@ export class MiniRestClient {
     }
     if (this.opts.token !== undefined) header['Authorization'] = `Bearer ${this.opts.token}`
     const raw = init?.raw
+    // 请求体与超时先算成一张显式类型的表：在调用位做三元展开会让 Taro 的 data 泛型
+    // 从 ArrayBuffer 分支收窄，string 分支即报 TS2379（exactOptionalPropertyTypes 下尤甚）
+    const option: Taro.request.Option<unknown, string | ArrayBuffer> = {
+      url: `${this.opts.baseUrl}${path}`,
+      method: init?.method ?? 'GET',
+      header,
+      timeout: raw !== undefined ? UPLOAD_TIMEOUT_MS : (this.opts.timeoutMs ?? 15_000),
+    }
+    if (raw !== undefined) option.data = toArrayBuffer(raw.bytes)
+    else if (init?.body !== undefined) option.data = init.body
     let res: Taro.request.SuccessCallbackResult
     try {
-      res = await Taro.request({
-        url: `${this.opts.baseUrl}${path}`,
-        method: init?.method ?? 'GET',
-        header,
-        ...(raw !== undefined
-          ? { data: toArrayBuffer(raw.bytes), timeout: UPLOAD_TIMEOUT_MS }
-          : {
-              ...(init?.body !== undefined ? { data: init.body } : {}),
-              timeout: this.opts.timeoutMs ?? 15_000,
-            }),
-      })
+      res = await Taro.request(option)
     } catch (err: unknown) {
       // 网络层失败（超时/拒连/域名不合法）：无 HTTP 语义，给人话出口
       const msg = err instanceof Error ? err.message : String(err)
