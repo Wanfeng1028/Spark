@@ -23,6 +23,10 @@ const PUBLIC_VALUES = [
   'ConfigError',
   'Engine',
   'Logger',
+  // 多数据目录迁移（工单 19.16 / ADR D54）：apps/cli/src/migrate.ts 是真实生产消费者
+  // （`spark migrate` 两段式确认），故 plan/run/错误类进公共面；home 侧只放 sparkHome，
+  // SPARK_HOME_DIR 与 hasExplicitSparkHome/isCurrentHome 留在源模块由本包单测直打
+  'MigrationError',
   'SPARK_VERSION',
   'ZERO_USAGE',
   'addUsage',
@@ -33,11 +37,14 @@ const PUBLIC_VALUES = [
   'maskMcpConfigForClient',
   'mergeMaskedMcpConfig',
   'newIds',
+  'planMigration',
   'resolveInRoot',
+  'runMigration',
   // DTO 装配纯函数（工单 14.4 / ADR D31）：server 路由与 sdk 的 InProcessTransport 共用
   'sessionDtoOf',
   'sessionMetaDtoOf',
   'sessionTreeToDto',
+  'sparkHome',
   'ulid',
   'writeMcpConfig',
 ] as const
