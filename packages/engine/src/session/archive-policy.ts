@@ -18,7 +18,7 @@ const ARCHIVABLE: ReadonlySet<SessionStatus> = new Set<SessionStatus>(['idle'])
 
 /** 单条会话是否到期应归档（纯函数——不碰文件系统，测试不需要夹具） */
 export function dueForAutoArchive(
-  meta: { id: string; status: SessionStatus; updatedAt: number; pinned?: boolean },
+  meta: { id: string; status: SessionStatus; updatedAt: number; pinned?: boolean | undefined },
   afterDays: number,
   now: number,
 ): boolean {

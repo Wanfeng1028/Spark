@@ -23,6 +23,7 @@ function row(over: Partial<SessionIndexRow> = {}): SessionIndexRow {
     createdAt: 1700000000000,
     updatedAt: 1700000000000,
     lastSeq: 5,
+    pinned: false,
     ...over,
   }
 }

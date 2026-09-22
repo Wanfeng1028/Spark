@@ -10,7 +10,7 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import { ArchiveSettingsSchema, BrowserSettingsSchema, KeymapSettingsSchema, NetworkSettingsSchema,
   EngineSettingsShape, SandboxNetworkSettingsSchema, SettingsHooksSchema, SettingsPromptsSchema } from '@spark/protocol'
-import type { ArchiveSettings, EngineSettings, NetworkSettings, ReasoningEffort, SandboxNetworkSettings, SettingsHooks, SettingsPrompts } from '@spark/protocol'
+import type { ArchiveSettings, EngineSettings, KeymapSettings, NetworkSettings, ReasoningEffort, SandboxNetworkSettings, SettingsHooks, SettingsPrompts } from '@spark/protocol'
 import { errText } from './errs.js'
 
 /** E_CONFIG（§5.10）：进程退出 + stderr 的载体由启动方（server）负责 */
@@ -126,8 +126,8 @@ export interface SparkConfig {
   archive?: { autoArchive?: boolean | undefined; afterDays?: number | undefined } | undefined
   /** 全局出网代理（阶段十九 19.13；可选宽松形——缺省空串 = 不设全局代理） */
   network?: { proxy?: string | undefined; noProxy?: string | undefined } | undefined
-  /** 界面语言（阶段十九 19.17 / V2-12；可选——缺省未设置，端侧探测） */
-  ui?: { language?: 'zh-CN' | 'en' | undefined } | undefined
+  /** 界面语言与键位覆盖层（阶段十九 19.17 / 19.39；可选——缺省未设置，端侧探测 + 用内置键位表） */
+  ui?: { language?: 'zh-CN' | 'en' | undefined; keymap?: KeymapSettings | undefined } | undefined
 }
 
 const SPARK_DEFAULTS: SparkConfig = {
