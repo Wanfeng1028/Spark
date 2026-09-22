@@ -29,6 +29,7 @@ function handlersOf() {
     trust: () => {},
     extensions: () => {},
     installLsp: () => {},
+    renameSession: () => {},
   })
 }
 
