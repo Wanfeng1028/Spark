@@ -183,9 +183,11 @@ describe('会话菜单动作——反馈（19.19）', () => {
 
   it('提交失败：票型表不写（不假装已反馈）+ 人话错误条', async () => {
     const h = harness({
-      submitFeedback: jest.fn(async () => {
-        throw new Error('E_NOT_FOUND: 反馈没落库')
-      }),
+      submitFeedback: jest.fn(
+        async (_input: { vote: 'up' | 'down' }): Promise<FeedbackEntryDto> => {
+          throw new Error('E_NOT_FOUND: 反馈没落库')
+        },
+      ),
     })
     expect(await h.actions.toggleVote(EID, 'up')).toBe(false)
     expect(h.last()?.votes[EID]).toBeUndefined()
@@ -198,7 +200,7 @@ describe('会话菜单动作——失败闭合与单飞闸门', () => {
     const settled: { resolve: ((v: SessionDto) => void) | null } = { resolve: null }
     const h = harness({
       renameSession: jest.fn(
-        () =>
+        async (_sid: unknown, _title: string) =>
           new Promise<SessionDto>((res) => {
             settled.resolve = res
           }),

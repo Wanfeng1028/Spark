@@ -218,7 +218,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   confirmBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    /* RN 0.86 的类型面只留了 absoluteFill（注册样式 id，不可展开），absoluteFillObject 已不在面上 */
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     justifyContent: 'center',
     padding: 32,
     backgroundColor: 'rgba(0,0,0,0.3)',
