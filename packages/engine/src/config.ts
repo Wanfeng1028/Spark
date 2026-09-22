@@ -402,6 +402,9 @@ export function loadConfig(dir: string = sparkHome()): EngineConfig {
     providers: modelsParsed.providers,
     defaultModel,
     compactionModel,
+    /** embedding 提供方指名（阶段十九 19.8 / ADR D51）：原样透传，engine.ts 装配处经
+     *  resolveEmbeddingProvider 消费；此前只声明未装配 → 指名静默失效回落文件序首个声明者 */
+    embedding: modelsParsed.embedding,
     fallbacks,
     titleModel,
     subagentModel,

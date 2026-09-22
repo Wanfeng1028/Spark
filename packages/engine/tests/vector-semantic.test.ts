@@ -64,7 +64,8 @@ describe('cosine / blob 往返（向量纯函数）', () => {
   })
 
   test('维度不齐取较短长度（不越界；调用方维度守卫在语义层）', () => {
-    expect(cosine(new Float32Array([1, 1, 1]), new Float32Array([1, 0]))).toBeCloseTo(1, 5)
+    // 公共前缀 [1,1]·[1,0] → 1/√2；若按零补齐全长归一则是 1/√3（非本实现口径）
+    expect(cosine(new Float32Array([1, 1, 1]), new Float32Array([1, 0]))).toBeCloseTo(Math.SQRT1_2, 5)
   })
 
   test('Float32Array ↔ BLOB 往返逐字节一致', () => {
@@ -166,7 +167,7 @@ describe('SemanticIndexer（假 embedding，免网络）', () => {
     const { store } = await tempStore()
     const { idx } = makeIndexer({ store })
     await idx.backfill()
-    const hits = await idx.searchMemories('中文', 2)
+    const hits = await idx.searchMemories('用户偏好中文回复', 2)
     expect(hits.length).toBe(2)
     expect(hits[0]?.content).toBe('用户偏好中文回复') // 同文本恒同向量 → 余弦 1 居首
     expect(typeof hits[0]?.id).toBe('number')

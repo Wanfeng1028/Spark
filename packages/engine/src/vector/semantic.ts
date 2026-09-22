@@ -80,6 +80,7 @@ export class SemanticIndexer {
     let embedded = 0
     let remaining = 0
     for (const { kind, items } of this.pendingBuckets()) {
+      if (items.length === 0) continue // 该类无缺向量条目 → 不向提供方发空批量（"零重复计费"）
       const room = budget - embedded
       if (room <= 0) {
         remaining += items.length
