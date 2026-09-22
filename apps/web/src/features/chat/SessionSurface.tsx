@@ -476,9 +476,62 @@ export function SessionSurface({
               // action（compact）/prompt（自定义 .md）走引擎统一入口
               const client = clientActionOf(name)
               if (client !== undefined) {
-                if (client.kind === 'palette') setPaletteOpen(true)
-                else if (client.kind === 'voice') useUiStore.getState().cycleVoiceMode()
-                else void navigate(client.path)
+                // 逐 kind 穷举，动作与命令面板同一套（19.21 的 ui store 信号）：
+                // 原先的兜底 `navigate(client.path)` 对非 navigate 的 kind 取到 undefined 路径
+                switch (client.kind) {
+                  case 'palette':
+                    setPaletteOpen(true)
+                    break
+                  case 'voice':
+                    useUiStore.getState().cycleVoiceMode()
+                    break
+                  case 'navigate':
+                    void navigate(client.path)
+                    break
+                  case 'new-session':
+                    void transport.createSession({}).then((dto) => navigate(`/session/${dto.id}`))
+                    break
+                  case 'open-dialog':
+                    useUiStore.getState().openSessionDialog(client.dialog)
+                    break
+                  case 'cycle-effort':
+                    useUiStore.getState().cycleEffort()
+                    break
+                  case 'rename': {
+                    // 带参数就地改名（与 CLI /rename <新标题> 同端点）；无参数交给面板的内联输入
+                    const title = args?.trim() ?? ''
+                    if (title === '') setPaletteOpen(true)
+                    else
+                      void transport
+                        .renameSession(sid, title)
+                        .catch(() => {
+                          // 失败不假装已改名（标题由事件流驱动，失败即保持原值）
+                        })
+                    break
+                  }
+                  case 'fork-last':
+                  case 'rollback-last': {
+                    const slice = useSessionStore.getState().byId[sid]
+                    const lastEvent = slice?.items[slice.items.length - 1]
+                    if (lastEvent === undefined) break
+                    void (async () => {
+                      try {
+                        if (client.kind === 'fork-last') {
+                          const dto = await transport.fork(sid, lastEvent.eventId)
+                          void navigate(`/session/${dto.id}`)
+                        } else {
+                          const ckpts = await transport.listCheckpoints(sid)
+                          const target = ckpts[ckpts.length - 1]
+                          if (target !== undefined)
+                            await transport.rollbackCheckpoint(sid, target.checkpointId)
+                        }
+                      } catch {
+                        // 失败不导航不假造状态（错误由端点错误码与人话文案承接）
+                      }
+                    })()
+                    break
+                  }
+                }
                 return
               }
               return transport.executeCommand(sid, name, args === '' ? undefined : args)

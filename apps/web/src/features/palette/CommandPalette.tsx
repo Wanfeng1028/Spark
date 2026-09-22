@@ -120,10 +120,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               const dto = await transport.fork(activeId, lastEvent.eventId)
               void navigate(`/session/${dto.id}`)
             } else {
-              // 回滚到该事件之前的检查点（引擎端点幂等；无检查点 → 404 由错误文案承接）
+              // 回滚到**上一个**检查点（rollback-last 的既有语义）：CheckpointDto 不携带事件号，
+              // 无从按"该事件之前"匹配；引擎端点幂等，无检查点时 404 由错误文案承接
               const ckpts = await transport.listCheckpoints(activeId)
-              const target = ckpts.find((c) => c.eventId === lastEvent.eventId) ?? ckpts[ckpts.length - 1]
-              if (target !== undefined) await transport.rollbackCheckpoint(activeId, target.id)
+              const target = ckpts[ckpts.length - 1]
+              if (target !== undefined) await transport.rollbackCheckpoint(activeId, target.checkpointId)
             }
           } catch {
             // 失败不导航不假造状态（禁假状态；错误由端点错误码与人话文案承接）

@@ -10,7 +10,7 @@ import { SessionStatusDot } from '@/components/layout/Sidebar'
 
 function dotClass(
   status: 'idle' | 'running' | 'waiting-approval',
-  archived?: boolean,
+  archived = false,
 ): string {
   const { container } = render(<SessionStatusDot status={status} archived={archived} />)
   const el = container.firstChild

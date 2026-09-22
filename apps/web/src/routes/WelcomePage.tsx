@@ -106,9 +106,18 @@ export function WelcomePage() {
             if (client === undefined) {
               return Promise.reject(new Error(`会话尚未创建——/${name} 需在会话中使用`))
             }
-            if (client.kind === 'palette') setPaletteOpen(true)
-            else if (client.kind === 'voice') useUiStore.getState().cycleVoiceMode()
-            else void navigate(client.path)
+            if (client.kind === 'palette') {
+              setPaletteOpen(true)
+            } else if (client.kind === 'voice') {
+              useUiStore.getState().cycleVoiceMode()
+            } else if (client.kind === 'navigate') {
+              void navigate(client.path)
+            } else if (client.kind === 'new-session') {
+              void transport.createSession({}).then((dto) => navigate(`/session/${dto.id}`))
+            } else {
+              // 改名/对话框/档位/fork/回滚都指向一个还不存在的会话——与上面非 client 命令同一出口
+              return Promise.reject(new Error(`会话尚未创建——/${name} 需在会话中使用`))
+            }
             return undefined
           }}
         />

@@ -515,7 +515,7 @@ export function GeneralSettingsPage() {
   const deliveryOptions = useMemo(() => DELIVERY_OPTIONS, [])
   // 自定义证书只读回显 + 数据目录（阶段十九 19.13 / 19.16）
   const { data: settingsInfo } = useTransportQuery((t) => t.getSettings())
-  const certs = settingsInfo
+  const certs = settingsInfo?.certificates
   const dataHome = settingsInfo?.home ?? null
 
   return (
