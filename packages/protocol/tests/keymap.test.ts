@@ -6,8 +6,6 @@
 import { describe, expect, test } from 'vitest'
 import { KEYMAP, keymapRejected, mergeKeymap } from '../src/keymap.js'
 
-const find = (action: string) => mergeKeymap(undefined).entries.find((e) => e.action === action)
-
 describe('mergeKeymap（内置表 + 用户覆盖）', () => {
   test('无覆盖：逐条等值、全未改、零冲突', () => {
     const r = mergeKeymap(undefined)
@@ -62,7 +60,9 @@ describe('mergeKeymap（内置表 + 用户覆盖）', () => {
       { action: '中断当前 turn', keys: 'Ctrl+U' },
     ])
     expect(r.conflicts).toEqual([])
-    expect(find('清空输入')?.unbound).toBe(true)
+    // 断言打在刚合并出的 r 上：文件顶部的 find() 走的是 mergeKeymap(undefined)（无覆盖），
+    // 用它查 unbound 恒为 false
+    expect(r.entries.find((e) => e.action === '清空输入')?.unbound).toBe(true)
   })
 })
 

@@ -61,7 +61,14 @@ describe('BUILTIN_COMMANDS 不变量（工单 10.18③）', () => {
         c.clientAction !== undefined,
       ).map((c) => c.clientAction),
     )
-    // 每个 client 命令的动作键不重复（一命令一动作）
-    expect(actions.size).toBe(BUILTIN_COMMANDS.filter((c) => c.kind === 'client').length)
+    // 每个 client 命令的动作键不重复（一命令一动作）；唯一例外是**同义入口**：
+    // /title 与 /rename 共用动作 rename（工单 19.20 判决"两入口单实现不分叉"，
+    // 描述符注释同步）。再加同义入口要把命令名登进这张表，别改断言本身。
+    const ALIAS_COMMANDS: readonly string[] = ['title']
+    const clientCmds = BUILTIN_COMMANDS.filter((c) => c.kind === 'client')
+    expect(actions.size).toBe(clientCmds.length - ALIAS_COMMANDS.length)
+    for (const name of ALIAS_COMMANDS) {
+      expect(clientCmds.find((c) => c.name === name)?.clientAction).toBe('rename')
+    }
   })
 })
