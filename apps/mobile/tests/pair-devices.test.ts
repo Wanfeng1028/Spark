@@ -2,6 +2,7 @@
  * 配对设备控制器单测（工单 19.27）：列表/撤销/签发三动作的调用序列与状态迁移。
  * 关键纪律：撤销成功后一律重取列表（服务端是终态，本地摘行会与服务端记录分叉）。
  */
+import { errorMessageOf } from '@spark/protocol'
 import type { PairCodeDto, PairStatusDto } from '@spark/protocol'
 import {
   createPairDevicesController,
@@ -69,16 +70,16 @@ describe('配对设备控制器', () => {
   })
 
   it('撤销失败：如实挂错误、不重取（服务端记录未变）', async () => {
+    const message = 'E_NOT_FOUND: 无此设备'
     const h = harness({
-      revokePairDevice: jest.fn((): Promise<void> =>
-        Promise.reject(new Error('E_NOT_FOUND: 无此设备')),
-      ),
+      revokePairDevice: jest.fn((): Promise<void> => Promise.reject(new Error(message))),
     })
     await h.controller.refresh()
     h.mocks.getPairStatus.mockClear()
     expect(await h.controller.revoke('gone')).toBe(false)
     expect(h.mocks.getPairStatus).not.toHaveBeenCalled()
-    expect(h.last()?.notice).toContain('无此设备')
+    // notice 取 errorMessageOf 的 title（纯文本出口不带 detail 折叠区）；期望值同由文案单源算出
+    expect(h.last()?.notice).toBe(errorMessageOf(new Error(message)))
     h.controller.dispose()
   })
 

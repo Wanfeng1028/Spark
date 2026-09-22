@@ -8,7 +8,7 @@ import type {
   PermissionPreset,
   SessionDto,
 } from '@spark/protocol'
-import { ids } from '@spark/protocol'
+import { errorMessageOf, ids } from '@spark/protocol'
 import {
   createSessionActionsController,
   votesOf,
@@ -186,14 +186,17 @@ describe('会话菜单动作——反馈（19.19）', () => {
   })
 
   it('提交失败：票型表不写（不假装已反馈）+ 人话错误条', async () => {
+    const message = 'E_NOT_FOUND: 反馈没落库'
     const h = harness({
       submitFeedback: jest.fn((_input: { vote: 'up' | 'down' }): Promise<FeedbackEntryDto> =>
-        Promise.reject(new Error('E_NOT_FOUND: 反馈没落库')),
+        Promise.reject(new Error(message)),
       ),
     })
     expect(await h.actions.toggleVote(EID, 'up')).toBe(false)
     expect(h.last()?.votes[EID]).toBeUndefined()
-    expect(h.last()?.notice).toContain('反馈没落库')
+    // notice 是纯文本出口，取 errorMessageOf 的 title（detail 只在带折叠区的端露出）——
+    // 期望值同样由文案单源算出，不硬编中文措辞，映射被改动时本断言仍会红
+    expect(h.last()?.notice).toBe(errorMessageOf(new Error(message)))
   })
 })
 
@@ -242,15 +245,16 @@ describe('会话菜单动作——失败闭合与单飞闸门', () => {
   })
 
   it('档位读取失败：标不可用而不是回落缺省档（禁假状态）', async () => {
+    const message = 'E_NOT_FOUND: 无此会话'
     const h = harness({
       getPermissionPreset: jest.fn((): Promise<PermissionPreset> =>
-        Promise.reject(new Error('E_NOT_FOUND: 无此会话')),
+        Promise.reject(new Error(message)),
       ),
     })
     await h.actions.loadPreset()
     expect(h.last()?.preset).toBeNull()
     expect(h.last()?.presetUnavailable).toBe(true)
-    expect(h.last()?.notice).toContain('无此会话')
+    expect(h.last()?.notice).toBe(errorMessageOf(new Error(message)))
   })
 })
 
