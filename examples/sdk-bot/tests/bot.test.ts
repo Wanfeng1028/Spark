@@ -26,6 +26,9 @@ afterEach(async () => {
 })
 
 describe('sdk-bot（演示模式 = 进程内通道 + ScriptedLlm）', () => {
+  // 30s 而非缺省 5s：本条是文件里第一条走 makeClient() 的用例，演示模式下它要付
+  // @spark/engine 整个模块图的冷转译（engine 侧含 node:sqlite / 工具注册链）+
+  // engine.ready() 的启动扫描；第二条同代码走的是已装载的模块，5s 内即过。
   test('建会话 → 发任务 → 拿到预录回答与 turn.completed(stop)', async () => {
     handle = await makeClient()
     const result = await runBot(handle.client, { task: '报一下包名' })
@@ -33,7 +36,7 @@ describe('sdk-bot（演示模式 = 进程内通道 + ScriptedLlm）', () => {
     expect(result.finish).toBe('stop')
     expect(result.text).toContain('ScriptedLlm') // 预录回答确实经事件流回到了 bot
     expect(result.sessionId.startsWith('ses_')).toBe(true)
-  })
+  }, 30_000)
 
   test('回放面也能看到同一批 durable 事件（bot 不依赖直播才成立）', async () => {
     handle = await makeClient()
