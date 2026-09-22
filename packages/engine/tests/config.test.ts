@@ -326,10 +326,12 @@ describe('spark.json engine/hooks 段单一来源（工单 R-B.4：复用 @spark
   it('embedding 段 + models.json embeddings 声明：合法解析与缺省归位（阶段十九 19.8 / ADR D51）', () => {
     const dir = tempDir()
     write(dir, 'spark.json', JSON.stringify({ embedding: { enabled: false } }))
+    // JSON.parse 出 any，先收到具名类型再拼（否则 no-unsafe-assignment 打在展开位）
+    const base = JSON.parse(VALID_MODELS) as Record<string, unknown>
     write(dir, 'models.json', JSON.stringify({
-      ...JSON.parse(VALID_MODELS),
+      ...base,
       providers: {
-        ...JSON.parse(VALID_MODELS).providers,
+        ...(base['providers'] as Record<string, unknown>),
         fake: { apiKeyEnv: null, baseUrl: 'https://example.invalid/v1', embeddings: { model: 'text-embed-3-small' } },
       },
       embedding: { provider: 'fake' },

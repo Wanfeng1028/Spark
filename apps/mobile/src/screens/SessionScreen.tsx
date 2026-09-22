@@ -394,7 +394,7 @@ export function SessionScreen() {
         ? [
             ...tierRows,
             {
-              icon: 'log-out' as FeatherIconName,
+              icon: 'log-out',
               label: '退出计划模式',
               onPress: () => {
                 setTierOpen(false)

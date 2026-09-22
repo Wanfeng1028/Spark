@@ -12,7 +12,7 @@
 import type { MemoryDto, SessionId } from '@spark/protocol'
 import type { SearchHit } from '../engine-types.js'
 import type { EmbeddingClient } from '../embedding/client.js'
-import { type VectorHit, type VectorKind, VectorStore } from './store.js'
+import type { VectorHit, VectorKind, VectorStore } from './store.js'
 
 /** 补嵌源（引擎装配时接 MemoryStore.all 与 SearchStore.all） */
 export interface SemanticSources {

@@ -13,7 +13,6 @@
  */
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import type {
   BrowserSettings,
@@ -52,7 +51,6 @@ import type {
   FeedbackVote,
   PromptsDto,
   PromptsUpdate,
-  PromptSlot,
   SandboxNetworkStatusDto,
   SemanticIndexStats,
 AgentPresetDto, LogsDto, SessionMode, SessionStatus, UsageSummaryDto } from '@spark/protocol'
@@ -144,7 +142,7 @@ import { proxyFetchFor } from './proxy-fetch.js'
 import { sparkHome } from './home.js'
 import { VectorStore } from './vector/store.js'
 import { FeedbackStore } from './feedback/store.js'
-import { SemanticIndexer, mergeMemories, mergeEvents, snippetOf } from './vector/semantic.js'
+import { SemanticIndexer, mergeMemories, mergeEvents } from './vector/semantic.js'
 
 import type {
   EngineDeps,
@@ -1575,11 +1573,6 @@ export class Engine {
    */
   promptsInfo(): PromptsDto {
     const cfg = this.config.spark.prompts
-    const builtin: Record<PromptSlot, string> = {
-      base: BASE_PROMPT,
-      compaction: COMPACTION_PROMPT,
-      title: TITLE_PROMPT,
-    }
     const slots = (['base', 'compaction', 'title'] as const).map((slot) => {
       const p = cfg?.[slot]
       return {
@@ -1802,9 +1795,9 @@ export class Engine {
   /** 引擎出网 fetch（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：全局代理 > per-provider >
    *  环境变量 > 全局 fetch。用于 embedding / 模型连通测试等非 LLM 出口（LLM 链路的
    *  per-provider 装配不变）。 */
-  engineFetchFor(providerProxy?: string | undefined): typeof fetch | undefined {
+  engineFetchFor(providerProxy?: string): typeof fetch | undefined {
     const fn = proxyFetchFor(this.globalProxy() ?? providerProxy)
-    return fn as unknown as typeof fetch | undefined
+    return fn
   }
 
   // ---- 会话改名（阶段十九 19.20，消解 /title /rename 挂池）----

@@ -42,8 +42,8 @@ function restOf(transport: Pick<Transport, 'listSessions'>): () => Pick<Transpor
 function harness(initial: SessionDto[] = []) {
   const snapshots: SessionListSnapshot[] = []
   const page = initial
-  const listSessions = jest.fn(async (archived?: boolean): Promise<SessionDto[]> =>
-    archived === true ? [dto('archived-1', 500)] : page,
+  const listSessions = jest.fn((archived?: boolean): Promise<SessionDto[]> =>
+    Promise.resolve(archived === true ? [dto('archived-1', 500)] : page),
   )
   const controller = createSessionListController({
     rest: restOf({ listSessions }),
@@ -123,9 +123,9 @@ describe('session-list 控制器——失败闭合与就地校正', () => {
     let shouldFail = false
     const controller = createSessionListController({
       rest: restOf({
-        listSessions: async () => {
-          if (shouldFail) throw new Error('E_NETWORK: 连不上')
-          return [dto(SID, 1000)]
+        listSessions: (): Promise<SessionDto[]> => {
+          if (shouldFail) return Promise.reject(new Error('E_NETWORK: 连不上'))
+          return Promise.resolve([dto(SID, 1000)])
         },
       }),
       onUpdate: (s) => snapshots.push(s),

@@ -91,14 +91,14 @@ describe('uploadPickedImages（编排：部分成功不连坐）', () => {
 
   it('成功项带 name/mime/bytes 进上传口，回传 DTO 收进 uploaded', async () => {
     let lastBytes: Uint8Array | undefined
-    const { channel, calls } = fakeChannel(async (file) => {
+    const { channel, calls } = fakeChannel((file) => {
       lastBytes = file.bytes
-      return dto(file.name)
+      return Promise.resolve(dto(file.name))
     })
     const out = await uploadPickedImages({
       sessionId: SID,
       picked: [picked('/tmp/a.png')],
-      read: async () => new Uint8Array([1, 2, 3]),
+      read: () => Promise.resolve(new Uint8Array([1, 2, 3])),
       channel,
     })
     expect(out.errors).toEqual([])
@@ -109,13 +109,13 @@ describe('uploadPickedImages（编排：部分成功不连坐）', () => {
 
   it('白名单外拒传：不读文件、不上传，给人话原因', async () => {
     let readCalls = 0
-    const { channel, calls } = fakeChannel(async (file) => dto(file.name))
+    const { channel, calls } = fakeChannel((file) => Promise.resolve(dto(file.name)))
     const out = await uploadPickedImages({
       sessionId: SID,
       picked: [picked('/tmp/x.heic')],
-      read: async () => {
+      read: () => {
         readCalls += 1
-        return new Uint8Array()
+        return Promise.resolve(new Uint8Array())
       },
       channel,
     })
@@ -126,14 +126,14 @@ describe('uploadPickedImages（编排：部分成功不连坐）', () => {
   })
 
   it('单张失败不连坐：坏的那张出人话、其余照常上传（不整批抛、不假成功）', async () => {
-    const { channel, calls } = fakeChannel(async (file) => {
-      if (file.name === 'bad.png') throw new Error('E_ATTACHMENT_TOO_LARGE: 图片超过 10MB 上限')
-      return dto(file.name)
+    const { channel, calls } = fakeChannel((file) => {
+      if (file.name === 'bad.png') return Promise.reject(new Error('E_ATTACHMENT_TOO_LARGE: 图片超过 10MB 上限'))
+      return Promise.resolve(dto(file.name))
     })
     const out = await uploadPickedImages({
       sessionId: SID,
       picked: [picked('/tmp/bad.png'), picked('/tmp/good.png')],
-      read: async () => new Uint8Array([9]),
+      read: () => Promise.resolve(new Uint8Array([9])),
       channel,
     })
     expect(out.uploaded.map((d) => d.file)).toEqual(['good.png'])

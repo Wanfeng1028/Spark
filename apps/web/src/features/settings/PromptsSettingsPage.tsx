@@ -7,7 +7,7 @@
  * 重启档：模板引擎构造期装载一次，保存后下次启动生效（如实标注，不假装热切换）。
  */
 import { useEffect, useState } from 'react'
-import type { PromptsDto, PromptSlot } from '@spark/protocol'
+import type { PromptSlot } from '@spark/protocol'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { useTransport } from '@/transports/context'

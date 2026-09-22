@@ -20,7 +20,7 @@ describe('会话改名（阶段十九 19.20）', () => {
   test('PUT /title：改名成功 + 列表可见新标题（索引同步）', async () => {
     f = await makeServer({})
     const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: { title: '旧名' } })
-    const sid = (created.json() as { id: string }).id
+    const sid = created.json<{ id: string }>().id
 
     const renamed = await f.app.inject({
       method: 'PUT',
@@ -38,7 +38,7 @@ describe('会话改名（阶段十九 19.20）', () => {
   test('空标题 → 400（min(1)；"新会话"是展示态不是可写入值）', async () => {
     f = await makeServer({})
     const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
-    const sid = (created.json() as { id: string }).id
+    const sid = created.json<{ id: string }>().id
     const res = await f.app.inject({
       method: 'PUT',
       url: `/api/sessions/${sid}/title`,
@@ -50,7 +50,7 @@ describe('会话改名（阶段十九 19.20）', () => {
   test('超长标题 → 400（max(200)）', async () => {
     f = await makeServer({})
     const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
-    const sid = (created.json() as { id: string }).id
+    const sid = created.json<{ id: string }>().id
     const res = await f.app.inject({
       method: 'PUT',
       url: `/api/sessions/${sid}/title`,

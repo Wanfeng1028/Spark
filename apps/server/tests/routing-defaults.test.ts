@@ -69,7 +69,7 @@ describe('V2-37 默认模型/档位单写者（阶段十九 19.14 / ADR D53）',
       url: '/api/routing',
       payload: { defaultEffort: 'high' },
     })
-    expect((set.json() as RoutingDto).defaultEffort).toBe('high')
+    expect(set.json<RoutingDto>().defaultEffort).toBe('high')
     expect(readModels(f).defaultEffort).toBe('high')
 
     const cleared = await f.app.inject({
@@ -77,7 +77,7 @@ describe('V2-37 默认模型/档位单写者（阶段十九 19.14 / ADR D53）',
       url: '/api/routing',
       payload: { defaultEffort: null },
     })
-    expect((cleared.json() as RoutingDto).defaultEffort).toBeNull()
+    expect(cleared.json<RoutingDto>().defaultEffort).toBeNull()
     expect(readModels(f).defaultEffort).toBeUndefined()
   })
 
@@ -104,7 +104,7 @@ describe('V2-37 默认模型/档位单写者（阶段十九 19.14 / ADR D53）',
     })
     const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
     expect(created.statusCode).toBe(200)
-    const sid = (created.json() as { id: string }).id
+    const sid = created.json<{ id: string }>().id
     const detail = await f.app.inject({ method: 'GET', url: `/api/sessions/${sid}` })
     expect(detail.statusCode).toBe(200)
     const body = detail.json<{ meta: { model: string } }>()

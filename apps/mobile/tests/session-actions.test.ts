@@ -7,7 +7,6 @@ import type {
   FeedbackEntryDto,
   PermissionPreset,
   SessionDto,
-  Transport,
 } from '@spark/protocol'
 import { ids } from '@spark/protocol'
 import {
@@ -43,20 +42,25 @@ function feedbackEntry(vote: 'up' | 'down'): FeedbackEntryDto {
 
 function baseMocks() {
   return {
-    renameSession: jest.fn(async (_sid: unknown, _title: string): Promise<SessionDto> => sessionDto()),
+    renameSession: jest.fn(
+      (_sid: unknown, _title: string): Promise<SessionDto> => Promise.resolve(sessionDto()),
+    ),
     archiveSession: jest.fn(
-      async (_sid: unknown, archived: boolean): Promise<SessionDto> =>
-        sessionDto(archived ? { archivedAt: '2026-09-22T00:00:00.000Z' } : {}),
+      (_sid: unknown, archived: boolean): Promise<SessionDto> =>
+        Promise.resolve(sessionDto(archived ? { archivedAt: '2026-09-22T00:00:00.000Z' } : {})),
     ),
-    deleteSession: jest.fn(async (): Promise<void> => undefined),
+    deleteSession: jest.fn((): Promise<void> => Promise.resolve(undefined)),
     submitFeedback: jest.fn(
-      async (input: { vote: 'up' | 'down' }): Promise<FeedbackEntryDto> => feedbackEntry(input.vote),
+      (input: { vote: 'up' | 'down' }): Promise<FeedbackEntryDto> =>
+        Promise.resolve(feedbackEntry(input.vote)),
     ),
-    listFeedback: jest.fn(async (): Promise<FeedbackEntryDto[]> => [feedbackEntry('up')]),
-    withdrawFeedback: jest.fn(async (): Promise<boolean> => true),
-    getPermissionPreset: jest.fn(async (): Promise<PermissionPreset> => 'auto-edit'),
-    setPermissionPreset: jest.fn(async (): Promise<void> => undefined),
-    executeCommand: jest.fn(async (): Promise<void> => undefined),
+    listFeedback: jest.fn(
+      (): Promise<FeedbackEntryDto[]> => Promise.resolve([feedbackEntry('up')]),
+    ),
+    withdrawFeedback: jest.fn((): Promise<boolean> => Promise.resolve(true)),
+    getPermissionPreset: jest.fn((): Promise<PermissionPreset> => Promise.resolve('auto-edit')),
+    setPermissionPreset: jest.fn((): Promise<void> => Promise.resolve(undefined)),
+    executeCommand: jest.fn((): Promise<void> => Promise.resolve(undefined)),
   }
 }
 
@@ -183,10 +187,8 @@ describe('会话菜单动作——反馈（19.19）', () => {
 
   it('提交失败：票型表不写（不假装已反馈）+ 人话错误条', async () => {
     const h = harness({
-      submitFeedback: jest.fn(
-        async (_input: { vote: 'up' | 'down' }): Promise<FeedbackEntryDto> => {
-          throw new Error('E_NOT_FOUND: 反馈没落库')
-        },
+      submitFeedback: jest.fn((_input: { vote: 'up' | 'down' }): Promise<FeedbackEntryDto> =>
+        Promise.reject(new Error('E_NOT_FOUND: 反馈没落库')),
       ),
     })
     expect(await h.actions.toggleVote(EID, 'up')).toBe(false)
@@ -218,9 +220,9 @@ describe('会话菜单动作——失败闭合与单飞闸门', () => {
 
   it('服务端拒绝删除（运行中 409）：返回 false、不回调 onChanged、不导航', async () => {
     const h = harness({
-      deleteSession: jest.fn(async () => {
-        throw new Error('E_RUNNING: 会话运行中不可删除')
-      }),
+      deleteSession: jest.fn((): Promise<void> =>
+        Promise.reject(new Error('E_RUNNING: 会话运行中不可删除')),
+      ),
     })
     expect(await h.actions.remove()).toBe(false)
     expect(h.changed).toEqual([])
@@ -241,9 +243,9 @@ describe('会话菜单动作——失败闭合与单飞闸门', () => {
 
   it('档位读取失败：标不可用而不是回落缺省档（禁假状态）', async () => {
     const h = harness({
-      getPermissionPreset: jest.fn(async () => {
-        throw new Error('E_NOT_FOUND: 无此会话')
-      }),
+      getPermissionPreset: jest.fn((): Promise<PermissionPreset> =>
+        Promise.reject(new Error('E_NOT_FOUND: 无此会话')),
+      ),
     })
     await h.actions.loadPreset()
     expect(h.last()?.preset).toBeNull()

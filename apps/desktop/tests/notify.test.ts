@@ -282,7 +282,7 @@ describe('handleNotifyEnvelope（一条信封的投递判据）', () => {
     ...base,
     notifications: { ...base.notifications, events: ['error'] },
   }
-  const titleOf = async (id: string): Promise<string> => `标题-${id}`
+  const titleOf = (id: string): Promise<string> => Promise.resolve(`标题-${id}`)
 
   function harness(cfg: DesktopConfig) {
     const sent: Array<{ title: string; body: string }> = []

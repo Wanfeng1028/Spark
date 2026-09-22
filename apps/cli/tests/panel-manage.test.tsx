@@ -141,15 +141,16 @@ const MODELS: ModelsDto = {
 
 describe('CLI 面板管理态（阶段十九 19.24）', () => {
   it('子代理：Enter 停用写入 disabledAgents（保留既有停用项）', async () => {
-    const updateSettings = vi.fn(async (_patch: SettingsUpdate) => SETTINGS)
+    const updateSettings = vi.fn((_patch: SettingsUpdate) => Promise.resolve(SETTINGS))
     const h = await open(
       <AgentsPanel
         transport={asTransport({
-          listAgentPresets: async () => [
-            { name: 'reviewer', source: 'user' },
-            { name: 'scout', disabled: true, source: 'project' },
-          ],
-          getSettings: async () => SETTINGS,
+          listAgentPresets: () =>
+            Promise.resolve([
+              { name: 'reviewer', source: 'user' },
+              { name: 'scout', disabled: true, source: 'project' },
+            ]),
+          getSettings: () => Promise.resolve(SETTINGS),
           updateSettings,
         })}
       />,
@@ -164,12 +165,13 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
 
   it('扩展：Enter 调 setExtensionEnabled 取反', async () => {
     const setExtensionEnabled = vi.fn(
-      async (_id: string, _enabled: boolean): Promise<void> => undefined,
+      (_id: string, _enabled: boolean): Promise<void> => Promise.resolve(undefined),
     )
     const h = await open(
       <ExtensionsPanel
         transport={asTransport({
-          listExtensions: async () => [{ id: 'pack-a', enabled: true, version: '1.0.0' }],
+          listExtensions: () =>
+            Promise.resolve([{ id: 'pack-a', enabled: true, version: '1.0.0' }]),
           setExtensionEnabled,
         })}
       />,
@@ -181,12 +183,13 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
 
   it('信任：当前目录行进 Enter 写 setTrust(cwd, trusted)（未信任→信任）', async () => {
     const setTrust = vi.fn(
-      async (_path: string, _trust: 'trusted' | 'untrusted'): Promise<void> => undefined,
+      (_path: string, _trust: 'trusted' | 'untrusted'): Promise<void> => Promise.resolve(undefined),
     )
     const h = await open(
       <TrustPanel
         transport={asTransport({
-          getTrust: async () => ({ folders: [{ path: '/other', trust: 'trusted' }], current: 'none' }),
+          getTrust: () =>
+            Promise.resolve({ folders: [{ path: '/other', trust: 'trusted' }], current: 'none' }),
           setTrust,
         })}
       />,
@@ -199,18 +202,20 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('MCP：两次 Enter 才删除条目，其余 server 配置原样保留', async () => {
-    const updateMcpConfig = vi.fn(async (_config: McpConfigInput) => ({ ok: true }))
+    const updateMcpConfig = vi.fn((_config: McpConfigInput) => Promise.resolve({ ok: true }))
     const h = await open(
       <McpPanel
         transport={asTransport({
-          listMcpServers: async () => [
-            { name: 'keep', connected: true, tools: 1, command: 'keep-cmd' },
-            { name: 'drop', connected: false, tools: 0, command: 'drop-cmd' },
-          ],
-          getMcpConfig: async () => ({
-            version: 1,
-            servers: { keep: { command: 'keep-cmd' }, drop: { command: 'drop-cmd' } },
-          }),
+          listMcpServers: () =>
+            Promise.resolve([
+              { name: 'keep', connected: true, tools: 1, command: 'keep-cmd' },
+              { name: 'drop', connected: false, tools: 0, command: 'drop-cmd' },
+            ]),
+          getMcpConfig: () =>
+            Promise.resolve({
+              version: 1,
+              servers: { keep: { command: 'keep-cmd' }, drop: { command: 'drop-cmd' } },
+            }),
           updateMcpConfig,
         })}
       />,
@@ -222,15 +227,18 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('检查点：两次 Enter 才回滚到所选快照', async () => {
-    const rollbackCheckpoint = vi.fn(async (_sid: SessionId, _cid: CheckpointId) => ({ id: SID }))
+    const rollbackCheckpoint = vi.fn(
+      (_sid: SessionId, _cid: CheckpointId) => Promise.resolve({ id: SID }),
+    )
     const h = await open(
       <CheckpointsPanel
         sessionId={SID}
         transport={asTransport({
-          listCheckpoints: async () => [
-            { checkpointId: ids.checkpoint('ckp_one'), turnId: ids.turn('trn_one'), createdAt: 1, files: [] },
-            { checkpointId: ids.checkpoint('ckp_two'), turnId: ids.turn('trn_two'), createdAt: 2, files: [] },
-          ],
+          listCheckpoints: () =>
+            Promise.resolve([
+              { checkpointId: ids.checkpoint('ckp_one'), turnId: ids.turn('trn_one'), createdAt: 1, files: [] },
+              { checkpointId: ids.checkpoint('ckp_two'), turnId: ids.turn('trn_two'), createdAt: 2, files: [] },
+            ]),
           rollbackCheckpoint,
         })}
       />,
@@ -243,29 +251,30 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
 
   it('竞答：done 状态 Enter 两次应用所选模型为胜者', async () => {
     const applyArenaWinner = vi.fn(
-      async (_sid: SessionId, _contender: SessionId): Promise<void> => undefined,
+      (_sid: SessionId, _contender: SessionId): Promise<void> => Promise.resolve(undefined),
     )
     const h = await open(
       <ArenaPanel
         transport={asTransport({
-          getArena: async () => ({
-            arenaId: 'arn_1',
-            prompt: 'p',
-            status: 'done',
-            contenders: [
-              {
-                sessionId: 'ses_contender_a',
-                model: 'deepseek/deepseek-chat',
-                status: 'done',
-                usage: { inputTokens: 1, outputTokens: 2 },
-                durationMs: 1000,
-                diffStat: null,
-              },
-            ],
-            winner: null,
-            applied: null,
-          }),
-          listArenaHistory: async () => ({ runs: [] }),
+          getArena: () =>
+            Promise.resolve({
+              arenaId: 'arn_1',
+              prompt: 'p',
+              status: 'done',
+              contenders: [
+                {
+                  sessionId: 'ses_contender_a',
+                  model: 'deepseek/deepseek-chat',
+                  status: 'done',
+                  usage: { inputTokens: 1, outputTokens: 2 },
+                  durationMs: 1000,
+                  diffStat: null,
+                },
+              ],
+              winner: null,
+              applied: null,
+            }),
+          listArenaHistory: () => Promise.resolve({ runs: [] }),
           applyArenaWinner,
         })}
         sessionId={SID}
@@ -277,30 +286,33 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
 
   it('竞答：running 状态不得应用胜者，取消行需二次确认', async () => {
     const applyArenaWinner = vi.fn(
-      async (_sid: SessionId, _contender: SessionId): Promise<void> => undefined,
+      (_sid: SessionId, _contender: SessionId): Promise<void> => Promise.resolve(undefined),
     )
-    const cancelArena = vi.fn(async (_sid: SessionId): Promise<void> => undefined)
+    const cancelArena = vi.fn(
+      (_sid: SessionId): Promise<void> => Promise.resolve(undefined),
+    )
     const h = await open(
       <ArenaPanel
         transport={asTransport({
-          getArena: async () => ({
-            arenaId: 'arn_1',
-            prompt: 'p',
-            status: 'running',
-            contenders: [
-              {
-                sessionId: 'ses_contender_a',
-                model: 'deepseek/deepseek-chat',
-                status: 'running',
-                usage: { inputTokens: 0, outputTokens: 0 },
-                durationMs: null,
-                diffStat: null,
-              },
-            ],
-            winner: null,
-            applied: null,
-          }),
-          listArenaHistory: async () => ({ runs: [] }),
+          getArena: () =>
+            Promise.resolve({
+              arenaId: 'arn_1',
+              prompt: 'p',
+              status: 'running',
+              contenders: [
+                {
+                  sessionId: 'ses_contender_a',
+                  model: 'deepseek/deepseek-chat',
+                  status: 'running',
+                  usage: { inputTokens: 0, outputTokens: 0 },
+                  durationMs: null,
+                  diffStat: null,
+                },
+              ],
+              winner: null,
+              applied: null,
+            }),
+          listArenaHistory: () => Promise.resolve({ runs: [] }),
           applyArenaWinner,
           cancelArena,
         })}
@@ -319,14 +331,16 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('语言服务器：内置目录未装项 Enter 两次触发安装', async () => {
-    const installLspServer = vi.fn(async (_id: string) => ({
-      language: 'typescript',
-      command: 'typescript-language-server',
-      args: ['--stdio'],
-      written: true,
-    }))
+    const installLspServer = vi.fn((_id: string) =>
+      Promise.resolve({
+        language: 'typescript',
+        command: 'typescript-language-server',
+        args: ['--stdio'],
+        written: true,
+      }),
+    )
     const h = await open(
-      <LspPanel transport={asTransport({ listLspServers: async () => [], installLspServer })} />,
+      <LspPanel transport={asTransport({ listLspServers: () => Promise.resolve([]), installLspServer })} />,
     )
     await moveTo(h, 'typescript')
     expect(h.frame()).toContain('未安装')
@@ -335,12 +349,12 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('用量路由：模型档 Enter 在已配置模型间循环，写 PUT /api/routing', async () => {
-    const updateRouting = vi.fn(async (_patch: RoutingUpdate) => ROUTING)
+    const updateRouting = vi.fn((_patch: RoutingUpdate) => Promise.resolve(ROUTING))
     const h = await open(
       <UsagePanel
         transport={asTransport({
-          getRouting: async () => ROUTING,
-          listModels: async () => MODELS,
+          getRouting: () => Promise.resolve(ROUTING),
+          listModels: () => Promise.resolve(MODELS),
           updateRouting,
         })}
       />,
@@ -360,12 +374,12 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('用量路由：非法成本上限不落写', async () => {
-    const updateRouting = vi.fn(async (_patch: RoutingUpdate) => ROUTING)
+    const updateRouting = vi.fn((_patch: RoutingUpdate) => Promise.resolve(ROUTING))
     const h = await open(
       <UsagePanel
         transport={asTransport({
-          getRouting: async () => ROUTING,
-          listModels: async () => MODELS,
+          getRouting: () => Promise.resolve(ROUTING),
+          listModels: () => Promise.resolve(MODELS),
           updateRouting,
         })}
       />,
@@ -381,8 +395,10 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('模型面板：未配置项 Enter 录入 apiKey → setSecret 并重取目录', async () => {
-    const setSecret = vi.fn(async (_provider: string, _value: string): Promise<void> => undefined)
-    const listModels = vi.fn(async () => MODELS)
+    const setSecret = vi.fn(
+      (_provider: string, _value: string): Promise<void> => Promise.resolve(undefined),
+    )
+    const listModels = vi.fn(() => Promise.resolve(MODELS))
     const onPick = vi.fn()
     const h = await open(
       <ModelPanel
@@ -407,9 +423,11 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('电脑控制：Enter 取反主开关并整段回传 engine', async () => {
-    const updateSettings = vi.fn(async (_patch: SettingsUpdate) => SETTINGS)
+    const updateSettings = vi.fn((_patch: SettingsUpdate) => Promise.resolve(SETTINGS))
     const h = await open(
-      <ComputerPanel transport={asTransport({ getSettings: async () => SETTINGS, updateSettings })} />,
+      <ComputerPanel
+        transport={asTransport({ getSettings: () => Promise.resolve(SETTINGS), updateSettings })}
+      />,
     )
     h.stdin.write('\r')
     await tick()
@@ -419,17 +437,18 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
   })
 
   it('沙箱：Enter 切换出口过滤档并保留 allowlist', async () => {
-    const updateSettings = vi.fn(async (_patch: SettingsUpdate) => SETTINGS)
+    const updateSettings = vi.fn((_patch: SettingsUpdate) => Promise.resolve(SETTINGS))
     const h = await open(
       <SandboxPanel
         transport={asTransport({
-          getSettings: async () => SETTINGS,
-          sandboxNetworkStatus: async () => ({
-            ready: false,
-            reason: '未启动',
-            activeConnections: 0,
-            port: 1080,
-          }),
+          getSettings: () => Promise.resolve(SETTINGS),
+          sandboxNetworkStatus: () =>
+            Promise.resolve({
+              ready: false,
+              reason: '未启动',
+              activeConnections: 0,
+              port: 1080,
+            }),
           updateSettings,
         })}
       />,

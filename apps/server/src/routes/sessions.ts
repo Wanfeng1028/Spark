@@ -4,7 +4,7 @@
 import type { FastifyPluginCallback } from 'fastify'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import type { Dirent } from 'node:fs'
-import { buildTrace, resolveInRoot, sessionDtoOf } from '@spark/engine'
+import { buildTrace, resolveInRoot } from '@spark/engine'
 import { join } from 'node:path'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'

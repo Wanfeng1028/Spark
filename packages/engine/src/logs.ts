@@ -86,7 +86,16 @@ function toEntry(line: string, lineNo: number): LogEntryDto {
       fields: { unparsed: true, line: lineNo },
     }
   }
-  const { time, level, msg, pid, hostname, name, ...rest } = parsed
+  // pid/hostname/name 是 pino 的信封字段，摘出来不进 fields（改名带 _ 前缀仅为满足 no-unused-vars）
+  const {
+    time,
+    level,
+    msg,
+    pid: _pid,
+    hostname: _hostname,
+    name: _name,
+    ...rest
+  } = parsed
   const numeric = typeof level === 'number' ? LEVEL_BY_NUM[level] : undefined
   const named =
     typeof level === 'string' && level.toLowerCase() in LEVEL_RANK
@@ -95,7 +104,13 @@ function toEntry(line: string, lineNo: number): LogEntryDto {
   return {
     time: typeof time === 'number' ? time : 0,
     level: numeric ?? named ?? 'info',
-    msg: typeof msg === 'string' ? msg : String(msg ?? ''),
+    // 非字符串的 msg（理论不该出现，但坏行不得读成"没有内容"）按 JSON 落，不走 Object 默认字串化
+    msg:
+      typeof msg === 'string'
+        ? msg
+        : msg === undefined || msg === null
+          ? ''
+          : JSON.stringify(msg),
     fields: rest,
   }
 }

@@ -233,7 +233,7 @@ export function LspPanel({ transport }: { transport: Transport }) {
     ...KNOWN_LSP_SERVERS.filter((k) => !servers.some((s) => s.language === k.language)).map((k) => ({
       key: `install:${k.id}`,
       label: k.language,
-      installId: k.id as string | null,
+      installId: k.id,
       connected: false,
       detail: `未安装 · ${k.description}`,
     })),
@@ -435,7 +435,7 @@ export function ArenaPanel({ transport, sessionId }: { transport: Transport; ses
       : [
           ...snap.contenders.map((c) => ({
             key: `c:${c.sessionId}`,
-            contenderId: c.sessionId as string | null,
+            contenderId: c.sessionId,
             model: c.model,
             detail: [
               c.status === 'done' ? '完成' : c.status === 'running' ? '进行中' : '出错',

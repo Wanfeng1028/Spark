@@ -157,7 +157,6 @@ export function SessionSurface({
     const next = order[(order.indexOf(cur) + 1) % order.length] ?? null
     setEffortOverride(next)
     // effortOverride/sliceEffort 刻意不入依赖：只在序号变化时循环（入依赖会把切会话复位当一次循环）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effortCycleSeq, isPage])
 
   const busy = turn !== null

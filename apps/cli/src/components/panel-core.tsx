@@ -78,7 +78,6 @@ export function useLoad<T>(load: () => Promise<T>, revision = 0): Loadable<T> {
     }
     // load 是调用处闭包（依赖 transport 与 sessionId），重取由 revision 显式驱动——
     // 放进依赖数组会让每次渲染都重新装载
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revision])
   return state
 }

@@ -34,13 +34,15 @@ class FakeEmbeddingClient implements EmbeddingClient {
     this.provider = provider
   }
 
-  async embed(texts: string[]): Promise<Float32Array[]> {
+  embed(texts: string[]): Promise<Float32Array[]> {
     this.calls += 1
-    return texts.map((t) => {
-      const v = new Float32Array(this.dims)
-      for (let i = 0; i < t.length; i++) v[i % this.dims] = (v[i % this.dims] as number) + t.charCodeAt(i)
-      return v
-    })
+    return Promise.resolve(
+      texts.map((t) => {
+        const v = new Float32Array(this.dims)
+        for (let i = 0; i < t.length; i++) v[i % this.dims] = (v[i % this.dims] as number) + t.charCodeAt(i)
+        return v
+      }),
+    )
   }
 
   get dimensions(): number | undefined {

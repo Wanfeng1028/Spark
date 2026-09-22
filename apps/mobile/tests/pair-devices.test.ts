@@ -2,7 +2,7 @@
  * 配对设备控制器单测（工单 19.27）：列表/撤销/签发三动作的调用序列与状态迁移。
  * 关键纪律：撤销成功后一律重取列表（服务端是终态，本地摘行会与服务端记录分叉）。
  */
-import type { PairCodeDto, PairStatusDto, Transport } from '@spark/protocol'
+import type { PairCodeDto, PairStatusDto } from '@spark/protocol'
 import {
   createPairDevicesController,
   type PairDevicesController,
@@ -33,9 +33,9 @@ function harness(over: Partial<{
   createPairCode: jest.Mock
 }> = {}) {
   const mocks = {
-    getPairStatus: jest.fn(async (): Promise<PairStatusDto> => status(2)),
-    revokePairDevice: jest.fn(async (): Promise<void> => undefined),
-    createPairCode: jest.fn(async (): Promise<PairCodeDto> => CODE),
+    getPairStatus: jest.fn((): Promise<PairStatusDto> => Promise.resolve(status(2))),
+    revokePairDevice: jest.fn((): Promise<void> => Promise.resolve(undefined)),
+    createPairCode: jest.fn((): Promise<PairCodeDto> => Promise.resolve(CODE)),
     ...over,
   }
   const transport: PairDevicesRest = mocks
@@ -70,9 +70,9 @@ describe('配对设备控制器', () => {
 
   it('撤销失败：如实挂错误、不重取（服务端记录未变）', async () => {
     const h = harness({
-      revokePairDevice: jest.fn(async () => {
-        throw new Error('E_NOT_FOUND: 无此设备')
-      }),
+      revokePairDevice: jest.fn((): Promise<void> =>
+        Promise.reject(new Error('E_NOT_FOUND: 无此设备')),
+      ),
     })
     await h.controller.refresh()
     h.mocks.getPairStatus.mockClear()
@@ -111,8 +111,8 @@ describe('配对设备控制器', () => {
           new Promise<PairStatusDto>((res) => {
             settled.resolve = res
         }),
-        revokePairDevice: (async () => undefined) as Transport['revokePairDevice'],
-        createPairCode: (async () => CODE) as Transport['createPairCode'],
+        revokePairDevice: (): Promise<void> => Promise.resolve(undefined),
+        createPairCode: (): Promise<PairCodeDto> => Promise.resolve(CODE),
       }),
       onUpdate: (s) => snapshots.push(s),
     })

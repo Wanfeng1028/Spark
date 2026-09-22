@@ -38,7 +38,7 @@ export class EmbeddingError extends Error {
  */
 export function resolveEmbeddingProvider(
   providers: ModelsConfig['providers'],
-  preferred?: string | undefined,
+  preferred?: string,
 ): EmbeddingProviderInfo | null {
   const entries = Object.entries(providers).filter(([, p]) => p.embeddings !== undefined)
   if (entries.length === 0) return null
@@ -110,7 +110,7 @@ export class HttpEmbeddingClient {
 
   async embed(texts: string[]): Promise<Float32Array[]> {
     if (texts.length === 0) return []
-    const out: Float32Array[] = new Array(texts.length)
+    const out: Float32Array[] = []
     for (let i = 0; i < texts.length; i += EMBEDDING_BATCH) {
       const batch = texts.slice(i, i + EMBEDDING_BATCH)
       const vectors = await this.embedBatch(batch)
@@ -178,7 +178,7 @@ export function toVector(raw: unknown): Float32Array | null {
   if (!Array.isArray(raw) || raw.length === 0) return null
   const out = new Float32Array(raw.length)
   for (let i = 0; i < raw.length; i++) {
-    const n = raw[i]
+    const n: unknown = raw[i]
     if (typeof n !== 'number' || !Number.isFinite(n)) return null
     out[i] = n
   }

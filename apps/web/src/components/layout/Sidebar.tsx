@@ -318,7 +318,7 @@ export function Sidebar({ mode = 'inline', onOverlayClose }: SidebarProps) {
                   onFocus={() => setFlyoutGroup(g.name)}
                   onBlur={(e) => {
                     // 焦点移出整个容器（含浮层内部）才收——Tab 进浮层项不应瞬闭
-                    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                    if (!e.currentTarget.contains(e.relatedTarget)) {
                       setFlyoutGroup((cur) => (cur === g.name ? null : cur))
                     }
                   }}

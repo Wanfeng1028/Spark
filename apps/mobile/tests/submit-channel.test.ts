@@ -21,26 +21,30 @@ interface Policy {
 }
 
 function harness(policy: Policy, reports: SubmitOutcome[] = []) {
-  const sendMessage = jest.fn(async (
-    _sid: unknown,
-    _text: string,
-    opts?: Parameters<Transport['sendMessage']>[2],
-  ): Promise<SubmitOutcome> => {
-    if (policy.failWith !== undefined) throw policy.failWith
-    return policy.outcome ?? { result: 'started' }
-  })
-  const getSession = jest.fn(async (): Promise<SessionDto> => ({
-    id: SID,
-    title: '',
-    model: 'test/model',
-    cwd: '/work/spark',
-    createdAt: 0,
-    updatedAt: 0,
-    lastSeq: 0,
-    status: 'idle',
-  }))
-  const interrupt = jest.fn(async () => undefined)
-  const replyPermission = jest.fn(async () => undefined)
+  const sendMessage = jest.fn(
+    (
+      _sid: unknown,
+      _text: string,
+      _opts?: Parameters<Transport['sendMessage']>[2],
+    ): Promise<SubmitOutcome> => {
+      if (policy.failWith !== undefined) return Promise.reject(policy.failWith)
+      return Promise.resolve(policy.outcome ?? { result: 'started' })
+    },
+  )
+  const getSession = jest.fn((): Promise<SessionDto> =>
+    Promise.resolve({
+      id: SID,
+      title: '',
+      model: 'test/model',
+      cwd: '/work/spark',
+      createdAt: 0,
+      updatedAt: 0,
+      lastSeq: 0,
+      status: 'idle',
+    }),
+  )
+  const interrupt = jest.fn((): Promise<void> => Promise.resolve(undefined))
+  const replyPermission = jest.fn((): Promise<void> => Promise.resolve(undefined))
   const base: SessionPageRestSlice = {
     getSession,
     sendMessage,

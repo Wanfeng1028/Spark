@@ -44,13 +44,13 @@ const BASE_ROUTING = {
 
 /** 夹具只覆盖面板实际读取的字段（其余字段本组件不消费，故不构造） */
 function makeTransport() {
-  const getSettings = vi.fn(async () => BASE_SETTINGS)
-  const putSettings = vi.fn(async (_patch: SettingsUpdate) => BASE_SETTINGS)
-  const putRouting = vi.fn(async (_patch: RoutingUpdate) => BASE_ROUTING)
+  const getSettings = vi.fn(() => Promise.resolve(BASE_SETTINGS))
+  const putSettings = vi.fn((_patch: SettingsUpdate) => Promise.resolve(BASE_SETTINGS))
+  const putRouting = vi.fn((_patch: RoutingUpdate) => Promise.resolve(BASE_ROUTING))
   const transport = {
     getSettings,
-    getRouting: async () => BASE_ROUTING,
-    promptsInfo: async () => ({ slots: [], placeholders: [] }),
+    getRouting: () => Promise.resolve(BASE_ROUTING),
+    promptsInfo: () => Promise.resolve({ slots: [], placeholders: [] }),
     updateSettings: putSettings,
     updateRouting: putRouting,
   } as unknown as Transport

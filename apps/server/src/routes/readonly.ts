@@ -115,10 +115,10 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
 
   // 反馈（阶段十九 19.19 / V2-25）：POST 提交/更新、GET 列表、DELETE 撤回。
   // 反馈不进事件流（用户侧评价，不是会话状态机的一部分——回放重建的是模型可见历史）
-  app.post('/api/feedback', async (req, reply) => {
+  app.post('/api/feedback', (req, reply) => {
     const body = parseOr400(FeedbackInputSchema, req.body)
     try {
-      return await engine.submitFeedback(body)
+      return engine.submitFeedback(body)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       const code = message.startsWith('E_') ? message.split(':')[0] : 'E_FEEDBACK_FAILED'
@@ -126,7 +126,7 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
     }
   })
 
-  app.get('/api/feedback', async (req) => {
+  app.get('/api/feedback', (req) => {
     const q = parseOr400(FeedbackQuerySchema, req.query)
     return engine.listFeedback(q)
   })
@@ -146,10 +146,10 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   // 提示词模板管理（阶段十九 19.18 / V2-16 前端半边收口）：GET 只读快照 +
   // PUT 写文件（占位符白名单校验；重启档——模板构造期装载一次）
   app.get('/api/prompts', () => engine.promptsInfo())
-  app.put('/api/prompts', async (req, reply) => {
+  app.put('/api/prompts', (req, reply) => {
     const body = parseOr400(PromptsUpdateSchema, req.body)
     try {
-      return await engine.updatePrompt(body)
+      return engine.updatePrompt(body)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       const code = message.startsWith('E_') ? message.split(':')[0] : 'E_CONFIG'

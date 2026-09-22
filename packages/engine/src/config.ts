@@ -4,13 +4,12 @@
  * 默认值来源 §5.1 jsonc 示例；permissions.json 缺省 = 空规则表（全部落默认 ask）。
  */
 import { existsSync, readFileSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { sparkHome } from './home.js'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { ArchiveSettingsSchema, BrowserSettingsSchema, KeymapSettingsSchema, NetworkSettingsSchema,
   EngineSettingsShape, SandboxNetworkSettingsSchema, SettingsHooksSchema, SettingsPromptsSchema } from '@spark/protocol'
-import type { ArchiveSettings, EngineSettings, KeymapSettings, NetworkSettings, ReasoningEffort, SandboxNetworkSettings, SettingsHooks, SettingsPrompts } from '@spark/protocol'
+import type { EngineSettings, KeymapSettings, ReasoningEffort, SandboxNetworkSettings, SettingsHooks, SettingsPrompts } from '@spark/protocol'
 import { errText } from './errs.js'
 
 /** E_CONFIG（§5.10）：进程退出 + stderr 的载体由启动方（server）负责 */

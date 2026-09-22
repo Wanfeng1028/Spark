@@ -11,10 +11,12 @@ function sseResponse(chunks: string[], ok = true): Response {
   let i = 0
   const encoder = new TextEncoder()
   const reader = {
-    read: async () =>
-      i < chunks.length
-        ? { done: false as const, value: encoder.encode(chunks[i++] as string) }
-        : { done: true as const, value: undefined },
+    read: () =>
+      Promise.resolve(
+        i < chunks.length
+          ? { done: false as const, value: encoder.encode(chunks[i++]) }
+          : { done: true as const, value: undefined },
+      ),
   }
   return {
     ok,
@@ -50,21 +52,22 @@ function run(
 
   const promise = runNotifyStream({
     url: 'http://127.0.0.1:4399/api/event',
-    fetchFn: async () => {
+    fetchFn: () => {
       fetched++
       const next = queue.shift()
-      if (next === undefined) throw new Error('E_NO_MORE_RESPONSE')
-      return next()
+      if (next === undefined) return Promise.reject(new Error('E_NO_MORE_RESPONSE'))
+      return Promise.resolve(next())
     },
     signal: controller.signal,
     onEvent: (p) => events.push(p),
     onStatus: (s) => statuses.push(s),
     // exactOptionalPropertyTypes：可选属性不写 undefined，未注入时整个键省略
     ...(backoffMs === undefined ? {} : { backoffMs }),
-    sleep: async (ms) => {
+    sleep: (ms) => {
       delays.push(ms)
       slept++
       if (slept >= stopAfterSleeps) controller.abort()
+      return Promise.resolve()
     },
   })
   return { events, statuses, delays, attempts: () => fetched, promise }
@@ -110,13 +113,13 @@ describe('runNotifyStream 首连', () => {
     let fetched = 0
     await runNotifyStream({
       url: 'http://127.0.0.1:4399/api/event',
-      fetchFn: async () => {
+      fetchFn: () => {
         fetched++
-        return sseResponse([frame(turn('s1'))])
+        return Promise.resolve(sseResponse([frame(turn('s1'))]))
       },
       signal: controller.signal,
       onEvent: () => undefined,
-      sleep: async () => undefined,
+      sleep: () => Promise.resolve(),
     })
     expect(fetched).toBe(0)
   })

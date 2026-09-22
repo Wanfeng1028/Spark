@@ -630,7 +630,9 @@ export function GeneralSettingsPage() {
           title="首启引导"
           description="重新运行三步引导（欢迎 / 配模型 / 建会话）——入口与状态查看已收编至「引导」设置页（阶段十九 19.15）"
         >
-          <Button variant="outline" onClick={() => navigate('/settings/onboarding')}>
+          <Button variant="outline" onClick={() => {
+              void navigate('/settings/onboarding')
+            }}>
             前往引导设置
           </Button>
         </SettingRow>

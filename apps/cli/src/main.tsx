@@ -10,7 +10,7 @@ import { App } from './app.js'
 import { startUp } from './up.js'
 import { PRINT_USAGE, parsePrintArgs, runPrint } from './print.js'
 import { runMcpServer } from './mcp-server.js'
-import { runMigrate, MIGRATE_USAGE } from './migrate.js'
+import { runMigrate } from './migrate.js'
 import { versionOf } from './components/BootHeader.js'
 
 const USAGE = `Spark CLI（Ink TUI）
