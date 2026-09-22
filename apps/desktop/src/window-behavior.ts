@@ -45,7 +45,7 @@ export function resolveAutoLaunch(
     return {
       supported: false,
       openAtLogin: false,
-      note: cfg.autoLaunch ? '开机自启仅 Windows/macOS 支持，autoLaunch 在本平台不生效' : null,
+      note: cfg.autoLaunch ? '开机自启仅 Windows/macOS 实现，Linux 上 autoLaunch 不生效' : null,
     }
   }
   if (!env.packaged) {
