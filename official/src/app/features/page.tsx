@@ -96,7 +96,7 @@ timer: setTimeout(() => {
       "web / 桌面 / CLI / 移动端与小程序共用 @spark/protocol：事件词表、zod schema、applyEvent reducer、Transport 都在这个包里，是运行时代码而不是类型声明。",
     technicalDetail:
       "Transport 是前端唯一数据通道抽象；HttpTransport（SSE）与 MockTransport 同构实现，后端不存在时前端可全量开发。@spark/sdk 再分两个子入口：根入口走 HTTP（零 engine 依赖、浏览器可用），./inprocess 进程内直连引擎（engine 为 optional peer）。",
-    code: `// packages/protocol/src/transport.ts — 接口面节选（全量 67 个方法）
+    code: `// packages/protocol/src/transport.ts — 接口面节选（全量 84 个方法）
 export interface Transport {
   /** 订阅事件流；返回退订函数 */
   onEvent(handler: (e: SparkEventEnvelope) => void): () => void

@@ -14,9 +14,10 @@ import { cn } from "@/lib/utils";
  * 不用 mono——对齐 x.ai 统计行排版）；右=橙色插画块上浮白色代码窗（macOS 三色点 +
  * Copy 按钮 + 手工语法高亮），四角选中手柄是 x.ai 的签名视觉；语言 tab 在插画块下方。
  *
- * 代码为真实 API 面（禁假状态 §5）：createClient（ADR D30，@spark/sdk 根入口）、
- * 便利分组 sessions/events/approvals、Transport.onEvent（packages/protocol/src/transport.ts，
- * features 页引用同源）。高亮色 span 为手写标注，不改 CodeBlock 组件。
+ * 代码为真实 API 面（禁假状态 §5）：createClient（ADR D30，@spark/sdk 根入口）与便利分组
+ * sessions/events/approvals 的签名对照 packages/sdk/src/client.ts——事件订阅在该面叫
+ * `events.subscribe`（内部才装配到 Transport.onEvent，packages/protocol/src/transport.ts:26）。
+ * 高亮色 span 为手写标注，不改 CodeBlock 组件。
  */
 
 const TS_LINES: readonly React.ReactNode[] = [
@@ -43,7 +44,7 @@ const TS_LINES: readonly React.ReactNode[] = [
   </span>,
   <React.Fragment key="l4">
     <span className="text-zinc-800">client.events.</span>
-    <span className="text-indigo-600">onEvent</span>
+    <span className="text-indigo-600">subscribe</span>
     <span className="text-zinc-800">((envelope) =&gt; {"{"}</span>
   </React.Fragment>,
   <span key="l5" className="text-zinc-400">
@@ -54,13 +55,34 @@ const TS_LINES: readonly React.ReactNode[] = [
   </span>,
 ];
 
-const SH_LINES: readonly string[] = ["npm i -g @spark/cli", "spark up", "# → 127.0.0.1:4318 · TUI 就绪"];
+const SH_LINES: readonly string[] = [
+  "# @spark/cli 的 npm 发布未落地——当前从源码跑（Node ≥ 24 · pnpm 9）",
+  "git clone https://github.com/Wanfeng1028/Spark && cd Spark",
+  "pnpm install && pnpm --filter @spark/cli build",
+  "node apps/cli/dist/main.js up   # → 127.0.0.1:4318 · TUI 就绪",
+];
 
 const STATS = [
   { value: FACTS.eventTypes, label: "事件词表" },
   { value: FACTS.builtinCommands, label: "内置命令" },
   { value: FACTS.endpoints, label: "端形态" },
 ] as const;
+
+/**
+ * Copy 用的纯文本：递归下钻取字符串。TS_LINES 的 l0/l2/l4 是 Fragment 包 span（文本在第三层），
+ * 按固定深度取值会把这些行整个丢成空串——复制出的"代码"就只剩注释与收尾的 `});`。
+ */
+function textOf(node: React.ReactNode): string {
+  return React.Children.toArray(node)
+    .map((child) => {
+      if (typeof child === "string") return child;
+      if (React.isValidElement(child)) {
+        return textOf((child.props as { children?: React.ReactNode }).children);
+      }
+      return "";
+    })
+    .join("");
+}
 
 function CodeWindow(): React.JSX.Element {
   const [tab, setTab] = React.useState<"ts" | "sh">("ts");
@@ -75,21 +97,7 @@ function CodeWindow(): React.JSX.Element {
   );
 
   const plainText =
-    tab === "ts"
-      ? TS_LINES.map((node) => {
-          // 提取纯文本仅用于复制：ReactChildren 摊平取字符串
-          return React.Children.toArray(node).map((child) => {
-            if (typeof child === "string") return child;
-            if (React.isValidElement(child)) {
-              const inner = child.props as { children?: React.ReactNode };
-              return React.Children.toArray(inner.children ?? [])
-                .map((c) => (typeof c === "string" ? c : ""))
-                .join("");
-            }
-            return "";
-          }).join("");
-        }).join("\n")
-      : SH_LINES.join("\n");
+    tab === "ts" ? TS_LINES.map(textOf).join("\n") : SH_LINES.join("\n");
 
   const handleCopy = React.useCallback(async () => {
     try {

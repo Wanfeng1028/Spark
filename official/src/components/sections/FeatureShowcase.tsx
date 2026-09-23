@@ -1,6 +1,6 @@
 import * as React from "react";
 import { BlurFade } from "@/components/magicui/blur-fade";
-import { cn } from "@/lib/utils";
+import { asset, cn } from "@/lib/utils";
 
 /**
  * FeatureShowcase — 四项核心能力纵向堆叠，图文交替。
@@ -131,7 +131,7 @@ export function FeatureShowcase(): React.JSX.Element {
                     <div className="overflow-hidden rounded-xl border border-border bg-card">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={feature.screenshot}
+                        src={asset(feature.screenshot)}
                         alt={feature.alt}
                         loading="lazy"
                         width={feature.width}

@@ -58,14 +58,27 @@ export default function QuickStartPage() {
             <section className="border-t border-border pt-12">
               <h2 className="text-xl font-semibold text-foreground">安装</h2>
               <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                全局安装 CLI（包内附带 server 的 esbuild 单文件
-                bundle，依赖 @spark/engine），无需另外起后端：
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">@spark/cli</code>
+                的 npm 发布尚未落地（v1.0.0 已打 tag，发布步卡在 CI 凭证），当前只能从源码跑。
+                装一次依赖、出一条 server bundle，之后的
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">up</code>
+                与全局安装后的
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">spark up</code>
+                走的是同一条代码路径：
               </p>
               <div className="mt-4">
-                <CodeBlock code="npm i -g @spark/cli" language="bash" />
+                <CodeBlock
+                  code={`git clone https://github.com/Wanfeng1028/Spark && cd Spark
+pnpm install                    # Node ≥ 24 · pnpm 9
+pnpm --filter @spark/cli build  # 出 server 的 esbuild 单文件 bundle`}
+                  language="bash"
+                />
               </div>
               <p className="mt-4 text-sm text-muted-foreground">
-                如果使用 pnpm：<code className="rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">pnpm add -g @spark/cli</code>
+                发布落地后这一段回到
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">npm i -g @spark/cli</code>
+                （pnpm 为
+                <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">pnpm add -g @spark/cli</code>）。
               </p>
             </section>
           </BlurFade>
@@ -81,7 +94,7 @@ export default function QuickStartPage() {
               </p>
               <div className="mt-4">
                 <CodeBlock
-                  code={`cd your-project\nspark up`}
+                  code={`cd your-project\nnode <Spark 仓库路径>/apps/cli/dist/main.js up   # 源码态；npm 发布后即 spark up`}
                   language="bash"
                 />
               </div>
@@ -185,8 +198,8 @@ export default function QuickStartPage() {
                 在 TUI 直接输入自然语言即可开聊；Web 工作台访问
                 <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">http://127.0.0.1:4318</code>
                 。每次工具调用的输入、输出、耗时都以事件形式实时投影到界面，写类工具与
-                bash 会弹审批卡（1 允许一次 / 2 本项目总是 / 3 该用户总是 / 4
-                拒绝），超时未响应一律拒绝。
+                bash 会弹审批卡（1 允许一次 / 2 总是允许 / 4 本项目总是允许 / 3
+                拒绝并给建议），超时未响应一律拒绝。
               </p>
             </section>
           </BlurFade>

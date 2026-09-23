@@ -58,6 +58,11 @@ jobs:
   # 理由：`environment: github-pages` 是 job 级配置（actions/deploy-pages 要求），
   # 若并进 publish job，一旦仓库给 Pages environment 配了审批/限制，npm 发布也会被卡住。
   docs:
+    # [停用 2026-09-24] 一个仓库只有一个 Pages 站，且 actions/deploy-pages 是**整站覆盖**：
+    # 本 job 若照常发，下一次打 tag 就会把官网首页换成文档站。晚风拍板「官网先占 /Spark/」
+    # （见 .github/workflows/official.yml 的 deploy job）。文档站将来并入官网子目录后，
+    # 删掉下面这行 `if: false` 即可恢复；此前它也从未成功跑过（Pages 源未启用，见 doc/10 v1.12）。
+    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: read

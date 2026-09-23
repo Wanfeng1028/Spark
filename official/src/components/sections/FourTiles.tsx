@@ -1,6 +1,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { BlurFade } from "@/components/magicui/blur-fade";
+import { asset } from "@/lib/utils";
 
 /**
  * FourTiles — 四端产品瓦片区（对标 x.ai 的产品 tile 行，DESIGN v2.29）。
@@ -80,7 +81,7 @@ export function FourTiles(): React.JSX.Element {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={tile.img}
+                  src={asset(tile.img)}
                   alt={tile.alt}
                   loading="lazy"
                   className="h-44 w-full border-b border-border object-cover object-top"

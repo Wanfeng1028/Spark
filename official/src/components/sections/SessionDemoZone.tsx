@@ -116,14 +116,15 @@ function ApprovalBox({ stage }: { stage: "pending" | "approved" }): React.JSX.El
       </p>
       {stage === "pending" ? (
         <p className="mt-2 text-xs text-zinc-400">
-          <span className="text-zinc-100">[a]</span> 批准一次{"　"}
-          <span className="text-zinc-100">[A]</span> 总是允许{"　"}
-          <span className="text-zinc-100">[r]</span> 拒绝
+          <span className="text-zinc-100">[y]</span> 允许一次{"　"}
+          <span className="text-zinc-100">[a]</span> 总是允许{"　"}
+          <span className="text-zinc-100">[4]</span> 本项目总是{"　"}
+          <span className="text-zinc-100">[n]</span> 拒绝并给建议
         </p>
       ) : (
         <p className="mt-2 text-xs">
           <span className="rounded border border-emerald-400/40 px-1 py-0.5 text-emerald-400">
-            a
+            y
           </span>
           <span className="ml-2 text-zinc-300">已批准（一次）</span>
           <span className="ml-2 text-zinc-500">超时未答复将自动拒绝（fail-closed）</span>

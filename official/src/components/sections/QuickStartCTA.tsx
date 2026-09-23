@@ -27,10 +27,10 @@ interface StartPath {
 const PATHS: readonly StartPath[] = [
   {
     title: "在终端里跑",
-    desc: "全局装一个 CLI 包，一条命令拉起本机 server 并进入 TUI。",
+    desc: "npm 发布落地前先 clone 源码：装一次依赖、出一条 server bundle，一条命令进 TUI。",
     bullets: [
-      "Node.js ≥ 24 · npm i -g @spark/cli",
-      "spark up → TUI，server 缺省 127.0.0.1:4318",
+      "Node.js ≥ 24 · pnpm 9（源码跑）",
+      "node apps/cli/dist/main.js up → TUI，server 缺省 127.0.0.1:4318",
       "首回合前配一次模型：~/.spark/models.json",
       "退出连带回收 server，会话落盘 ~/.spark/sessions/",
     ],

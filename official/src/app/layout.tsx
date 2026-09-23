@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { asset } from "@/lib/utils";
 import "./globals.css";
 
 // WO-001：metadataBase —— OG/canonical 绝对 URL 的基准（无它全部输出相对路径，
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
   description:
     "引擎 headless，UI 是事件流的投影。流式对话、工具调用可视化、人工审批、四端同一协议。",
   icons: {
-    icon: "/favicon.svg",
+    icon: asset("/favicon.svg"),
   },
   // WO-002：1200×630 PNG（社交平台不解析 SVG——public/og-image.svg 仅作源稿留档）
   openGraph: {
@@ -27,13 +28,13 @@ export const metadata: Metadata = {
     locale: "zh_CN",
     url: SITE_URL,
     siteName: "Spark",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Spark — 本地 Agent 工作台" }],
+    images: [{ url: asset("/og-image.png"), width: 1200, height: 630, alt: "Spark — 本地 Agent 工作台" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Spark — 本地 Agent 工作台",
     description: "引擎 headless，UI 是事件流的投影。",
-    images: ["/og-image.png"],
+    images: [asset("/og-image.png")],
   },
   robots: { index: true, follow: true },
 };
