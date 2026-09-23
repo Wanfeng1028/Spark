@@ -1,9 +1,21 @@
 /**
  * 组件测试共享的 jsdom 缺失 API stub（doc/06 §1 L2）：
  * - matchMedia：settings-store 模块加载即调用（theme=system 档）；
- * - requestAnimationFrame：Composer fill/菜单确认回调依赖。
+ * - requestAnimationFrame：Composer fill/菜单确认回调依赖；
+ * - ResizeObserver：cmdk（CommandPalette 底层）挂载即建观察器——渲染 AppShell 的测试
+ *   会连带挂上它，缺这个就在 mount 阶段抛 ReferenceError（CI run 107321015152 实测）。
  * 仅补齐最小行为，不做真实现。
  */
+
+class ResizeObserverStub {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver
+}
 
 interface MediaQueryListLike {
   matches: boolean

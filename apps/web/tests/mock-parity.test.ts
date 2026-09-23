@@ -133,16 +133,27 @@ describe('MockTransport 对等修复（阶段十九 19.22 / §1.1）', () => {
 
   // ---- 第三批：listFs / listFsTree / transcribe / testModelProvider ----
 
-  test('listFs 与 listFsTree 对同一目录给出同一批子项（此前各持一棵静态树、互相矛盾）', async () => {
+  test('listFs 与 listFsTree 共用一份虚拟树（此前各持一棵、对同一目录给出矛盾子项）', async () => {
     const t = fresh()
     const sid = (await t.listSessions())[0]!.id
     const flat = await t.listFs(sid, 'src/')
     const tree = await t.listFsTree(sid, 'src')
     expect(flat.path).toBe('src')
     expect(tree.path).toBe('src')
-    // 目录优先再字典序——两端同一排序口径（mockFsSort）
-    expect(tree.entries.map((e) => e.name)).toEqual(['components', 'app.tsx', 'main.tsx'])
-    expect(flat.entries.map((e) => e.name)).toEqual(tree.entries.map((e) => e.name))
+    // 目录优先再字典序，两端同一排序口径（mockFsSort）。**两者语义本就不同、别断言相等**：
+    // listFs 只列一层，listFsTree 递归（服务端 depth ≤4）——所以树里多一个 src/components/InputBox.tsx
+    expect(flat.entries.map((e) => e.name)).toEqual(['components', 'app.tsx', 'main.tsx'])
+    expect(tree.entries.map((e) => e.name)).toEqual([
+      'components',
+      'app.tsx',
+      'InputBox.tsx',
+      'main.tsx',
+    ])
+    // 一致性的真含义：一层列出的恰是递归结果中直接挂在 src 下的那批，路径逐字相同
+    const treePaths = tree.entries.map((e) => e.path)
+    expect(flat.entries.map((e) => e.path).sort()).toEqual(
+      treePaths.filter((p) => p.split('/').length === 2).sort(),
+    )
   })
 
   test('listFs：末段作前缀过滤（此前注释声称镜像服务端、实际根本不过滤）+ 反斜杠归一', async () => {

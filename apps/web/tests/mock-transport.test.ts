@@ -422,11 +422,14 @@ describe('MockTransport 计划模式对等演示（工单 16.3 第三批 B）', 
 })
 
 describe('MockTransport 语音转写对等演示（工单 16.6）', () => {
-  it('transcribe 返回确定性假文本（provider 缺省回退 mock；dispose 后拒绝）', async () => {
+  it('transcribe 返回确定性假文本（provider 缺省 = defaultModel.provider；dispose 后拒绝）', async () => {
     const t = new MockTransport('normal')
     const r = await t.transcribe({ audio: { mime: 'audio/webm', dataBase64: 'SGVsbG8=' } })
     expect(r.text).toContain('（mock 转写演示）')
-    expect(r.provider).toBe('mock')
+    // 19.22 第三批对等修正（原断言 `toBe('mock')` 钉的是 mock 自己的假行为）：引擎
+    // transcribeAudio 的 provider 缺省是 `models.defaultModel.provider`，返回的也是解析后的
+    // 那个 id——字面量 'mock' 不对应任何真实供应商，UI 拿它显示"用的是哪家"就是错的
+    expect(r.provider).toBe('deepseek')
     expect(r.model).toBe('mock-transcribe')
     const t2 = new MockTransport('normal')
     t2.dispose()

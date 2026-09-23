@@ -46,8 +46,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { presses } = useEffectiveKeymap()
   const setKeymapOverrides = useUiStore((s) => s.setKeymapOverrides)
   const { data: keymapSettings } = useTransportQuery((t) => t.getSettings())
+  /** 只在第一次取回时装载：内联 fetcher 会反复换回新引用的同一内容，若每次都写 store，
+   *  一次晚到的**旧**响应就能把键位页刚保存的覆盖层冲回去（= 保存即失效）。此后 ui store 的
+   *  唯一写者是键位页（与 CLI 的 boot 装载 + 面板写回同模式）。 */
+  const keymapSeeded = useRef(false)
   useEffect(() => {
-    if (keymapSettings === null) return
+    if (keymapSettings === null || keymapSeeded.current) return
+    keymapSeeded.current = true
     setKeymapOverrides(keymapSettings.ui?.keymap?.overrides ?? [])
   }, [keymapSettings, setKeymapOverrides])
   const inSettings = location.pathname.startsWith('/settings')

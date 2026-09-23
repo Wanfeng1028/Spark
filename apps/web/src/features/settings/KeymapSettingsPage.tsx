@@ -46,15 +46,23 @@ export function KeymapSettingsPage(): React.JSX.Element {
   const [draft, setDraft] = useState<Record<string, string>>({})
 
   const stored = settings?.ui?.keymap?.overrides ?? []
+  /**
+   * deps 取"覆盖层内容的字符串"而非 settings 对象：useTransportQuery 拿到的是内联 fetcher，
+   * 每次渲染换身份 ⇒ 会反复取回**内容相同、引用不同**的 settings；直接 deps `[settings]`
+   * 会在用户刚敲完一个字时把草稿重置回服务端值（CI 实测：输入框退回内置值、提示块根本没渲染，
+   * 而冲突那条只是恰好被 waitFor 抢在重置前抓到了那一帧——同属运气）。
+   * 字符串派生也让依赖是诚实的，不需要 eslint-disable。
+   */
+  const storedJson = JSON.stringify(stored)
 
   useEffect(() => {
-    if (settings === null) return
-    const byAction = new Map(stored.map((o) => [o.action, o.keys]))
+    const byAction = new Map(
+      (JSON.parse(storedJson) as KeyOverride[]).map((o) => [o.action, o.keys]),
+    )
     const next: Record<string, string> = {}
     for (const k of EDITABLE) next[k.action] = byAction.get(k.action) ?? k.keys
     setDraft(next)
-    // stored 由 settings 派生，deps 只列 settings（列 stored 会每次渲染都是新数组而反复重置草稿）
-  }, [settings]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [storedJson])
 
   const overrides = useMemo<KeyOverride[]>(
     () =>
