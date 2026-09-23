@@ -7,7 +7,7 @@
  *    换目标即撤销待确认态——防"手滑 Enter"改坏用户数据。
  */
 import { Box, Text, useInput } from 'ink'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { errorMessageOf } from '@spark/protocol'
 import type { ReactNode } from 'react'
 import { cliT } from '../i18n.js'
@@ -173,32 +173,42 @@ export interface InlineEditor {
 
 export function useEditor(): InlineEditor {
   const [state, setState] = useState<{ active: boolean; buf: string }>({ active: false, buf: '' })
+  /**
+   * 键处理读 ref、渲染读 state（InputBox 文件头同款判例）：同一批键位是逐键同步回调，
+   * 渲染闭包里的 state 尚未提交——连打几个字符后立刻按 Enter，读 state.buf 会拿到空串，
+   * 于是提交空值（模型面板丢密钥、成本上限丢数字）。ref 保证逐键累积不漏。
+   */
+  const cur = useRef(state)
+  const commit = (next: { active: boolean; buf: string }): void => {
+    cur.current = next
+    setState(next)
+  }
   return {
     active: state.active,
     buf: state.buf,
-    begin: (initial) => setState({ active: true, buf: initial }),
-    end: () => setState((s) => ({ active: false, buf: s.buf })),
+    begin: (initial) => commit({ active: true, buf: initial }),
+    end: () => commit({ active: false, buf: cur.current.buf }),
     handle: (input, key, onCommit) => {
-      if (!state.active) return false
+      if (!cur.current.active) return false
       if (key.escape) {
-        setState({ active: false, buf: '' })
+        commit({ active: false, buf: '' })
         return true
       }
       if (key.return) {
-        const committed = state.buf
-        setState({ active: false, buf: '' })
+        const committed = cur.current.buf
+        commit({ active: false, buf: '' })
         onCommit(committed)
         return true
       }
       if (key.backspace || key.delete) {
-        setState((s) => ({ active: true, buf: s.buf.slice(0, -1) }))
+        commit({ active: true, buf: cur.current.buf.slice(0, -1) })
         return true
       }
       // 导航键与控制键在编辑期一律吞下（不移动光标选中行、不触发端上快捷键）
       if (key.upArrow || key.downArrow || key.leftArrow || key.rightArrow || key.ctrl || key.meta) {
         return true
       }
-      if (input !== '') setState((s) => ({ active: true, buf: s.buf + input }))
+      if (input !== '') commit({ active: true, buf: cur.current.buf + input })
       return true
     },
   }

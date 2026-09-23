@@ -63,27 +63,43 @@ interface Harness {
 }
 
 /**
- * 等一帧落地：Ink 7 按 maxFps 节流渲染（ink.js:198 `renderThrottleMs = ceil(1000/maxFps)`
- * ≈ 34ms），`render()` 只保证 leading 帧；本面板的字段值来自 GET /api/settings 的 promise，
- * 其帧落在节流窗口之后。等 5ms 会一直停在"装载中"，于是行找不到、Enter 不触发写。
- * 150ms ≈ 四帧窗口，容得下"编辑 → 提交 → 重取回显"这条链。
+ * 等一拍让装载与渲染落地。本面板的字段值来自 GET /api/settings 的 promise（useEffect 里发出），
+ * 断言选中行/按 Enter 都要等它 setState 重渲染完成；一拍 150ms 覆盖
+ * "装载 → 编辑 → 提交 → 重取回显"整条链的余量（拍数不足时表现为找不到行、Enter 不触发写）。
  */
 const tick = () => new Promise((r) => setTimeout(r, 150))
 
+/**
+ * 等到装载落定再返回：字段行来自 getSettings/getRouting 的 promise → setState → 重渲染，
+ * 装载未落定就断言选中行/按 Enter，读到的是还没有字段行的那一帧。
+ */
+async function settleLoaded(h: Harness): Promise<void> {
+  for (let i = 0; i < 40; i += 1) {
+    const f = h.frame()
+    if (f !== '' && !f.includes('装载中')) return
+    await tick()
+  }
+  throw new Error('面板装载未落定——40 拍后帧里仍是"装载中"')
+}
+
 async function open(transport: Transport): Promise<Harness> {
   const { stdin, lastFrame } = render(<SettingsPanel transport={transport} />)
-  await tick()
-  return {
+  const h: Harness = {
     stdin: stdin as unknown as Harness['stdin'],
     frame: () => lastFrame() ?? '',
   }
+  await settleLoaded(h)
+  return h
 }
 
-/** 当前反白行（'> ' 前缀）= 光标所在字段 */
+/**
+ * 当前反白行（'> ' 前缀）= 光标所在字段。PanelShell 带 paddingX=1，整帧每行都前置一格
+ * 空白，故按 trimStart 判行首标记——从列 0 起算永远找不到行（本文件与 panel-manage 同源）。
+ */
 function selected(h: Harness): string {
   const line = h.frame()
     .split('\n')
-    .find((l) => l.startsWith('> '))
+    .find((l) => l.trimStart().startsWith('> '))
   return (line ?? '').trim().slice(2)
 }
 
@@ -104,8 +120,7 @@ beforeEach(() => {
 describe('SettingsPanel（阶段十九 19.23）', () => {
   it('装载：渲染字段值、重启标注与只读项说明', async () => {
     const h = await open(makeTransport().transport)
-    // 诊断用（定位后随修复撤掉）：真实帧进失败信息
-    expect(selected(h), `帧=<<<${h.frame()}>>>`).toContain('默认模型')
+    expect(selected(h)).toContain('默认模型')
     expect(h.frame()).toContain('每回合最大步数')
     expect(h.frame()).toContain('24')
     // restartRequired 单源标注（engine.toolTimeoutMs 在名单内）
@@ -154,6 +169,7 @@ describe('SettingsPanel（阶段十九 19.23）', () => {
     expect(patch?.engine?.['checkpoints']).toBe(false)
   })
 
+  // 走字段表要按下箭头十几到二十几次，每拍等 150ms（见 tick 注释）——缺省 5s 用例超时不够
   it('枚举循环两档：ui.language 走 settings、默认推理档走 routing', async () => {
     const { transport, putSettings, putRouting } = makeTransport()
     const h = await open(transport)
@@ -168,7 +184,7 @@ describe('SettingsPanel（阶段十九 19.23）', () => {
     await tick()
     const patch = putSettings.mock.calls[0]?.[0]
     expect(patch?.ui?.['language']).toBe('en')
-  })
+  }, 20000)
 
   it('Esc 只取消行内编辑、不关整面板（panelEditing 让位契约）', async () => {
     const { transport } = makeTransport()
@@ -192,5 +208,5 @@ describe('SettingsPanel（阶段十九 19.23）', () => {
     await tick()
     expect(putSettings).not.toHaveBeenCalled()
     expect(h.frame()).toContain('只读')
-  })
+  }, 20000)
 })

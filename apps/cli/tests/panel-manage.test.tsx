@@ -33,10 +33,9 @@ import type { ReactElement } from 'react'
 const SID = ids.session('ses_0000000000000000000000000000a1')
 
 /**
- * 等一帧落地。Ink 7 按 maxFps 节流渲染（ink.js:198 `renderThrottleMs = ceil(1000/maxFps)`，
- * 默认约 34ms），`render()` 只保证 leading 帧；面板的行来自 useLoad 的 promise → setState，
- * 其帧落在节流窗口之后。等 5ms 只能看到"装载中"那一帧，于是断言读到空行、Enter 找不到目标。
- * 150ms ≈ 四帧窗口，容得下"写入 → 重取 → 再渲染"这条链，最慢也只为几毫秒的余量买单。
+ * 等一拍让装载与渲染落地。面板的行来自 useLoad 的 promise（useEffect 里发出），Enter 的
+ * 目标行、写回后的重取都要等它 setState 重渲染完成；一拍 150ms 覆盖
+ * "写入 → 重取 → 再渲染"这条链的余量（拍数不足时表现为选中行为空、Enter 找不到目标）。
  */
 const tick = () => new Promise((r) => setTimeout(r, 150))
 
@@ -45,19 +44,37 @@ interface H {
   frame: () => string
 }
 
+/**
+ * 等到装载落定再返回：与装载同批的键位/选中行断言若抢在前面，读到的是还没有数据行的那一帧。
+ * 判据 = 帧里不再有 LoadState 装载态那一行的"装载中"（cli.loading 文案）。
+ */
+async function settleLoaded(h: H): Promise<void> {
+  for (let i = 0; i < 40; i += 1) {
+    const f = h.frame()
+    if (f !== '' && !f.includes('装载中')) return
+    await tick()
+  }
+  throw new Error('面板装载未落定——40 拍后帧里仍是"装载中"')
+}
+
 async function open(node: ReactElement): Promise<H> {
   const { stdin, lastFrame } = render(node)
-  await tick()
-  return {
+  const h: H = {
     stdin: stdin as unknown as H['stdin'],
     frame: () => lastFrame() ?? '',
   }
+  await settleLoaded(h)
+  return h
 }
 
+/**
+ * 当前选中行（行首 '> ' = rowMark）。PanelShell 带 paddingX=1（panel-core.tsx 的面板壳），
+ * 整帧每行都前置一格空白，故按 trimStart 判行首标记——从列 0 起算永远找不到行。
+ */
 function selected(h: H): string {
   const line = h.frame()
     .split('\n')
-    .find((l) => l.startsWith('> '))
+    .find((l) => l.trimStart().startsWith('> '))
   return (line ?? '').trim().slice(2)
 }
 
@@ -161,8 +178,7 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
         })}
       />,
     )
-    // 诊断用（定位后随修复一并撤掉）：把真实帧打进失败信息，看此刻面板停在装载中还是有行
-    expect(selected(h), `帧=<<<${h.frame()}>>>`).toContain('reviewer')
+    expect(selected(h)).toContain('reviewer')
     h.stdin.write('\r')
     await tick()
     const patch = updateSettings.mock.calls[0]?.[0]
