@@ -14,7 +14,8 @@ class ResizeObserverStub {
 }
 
 if (typeof globalThis.ResizeObserver === 'undefined') {
-  globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver
+  // 与下方 matchMedia 同口径：结构化兼容即可直译赋值，不加断言
+  globalThis.ResizeObserver = ResizeObserverStub
 }
 
 interface MediaQueryListLike {
