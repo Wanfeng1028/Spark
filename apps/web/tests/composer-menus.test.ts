@@ -47,9 +47,9 @@ describe('detectMenu（§13.E 触发词检测）', () => {
 })
 
 describe('filterCommands（/ 菜单命令过滤）', () => {
-  test('空查询 → 全量内置基线（17 条 = 14 基线 + /init + /plan + /goal + /voice + /lsp + /agents + /trust + /extensions + /arena + 19.2 /computer + 19.7 /sandbox，全部可用）', () => {
+  test('空查询 → 全量内置基线（20 条 = 5 action + 15 client，全部可用）', () => {
     expect(filterCommands('')).toEqual(SLASH_COMMANDS)
-    expect(SLASH_COMMANDS).toHaveLength(19)
+    expect(SLASH_COMMANDS).toHaveLength(20)
     expect(SLASH_COMMANDS.some((c) => c.name === 'init')).toBe(true)
     // 工单 16.3：/plan 的 surface 含 web 且为 action（不需 clientAction 映射），必进本端清单
     expect(SLASH_COMMANDS.some((c) => c.name === 'plan' && c.kind === 'action')).toBe(true)
@@ -69,6 +69,8 @@ describe('filterCommands（/ 菜单命令过滤）', () => {
     expect(SLASH_COMMANDS.some((c) => c.name === 'computer' && c.kind === 'client')).toBe(true)
     // 阶段十九 19.7：/sandbox 是 client 命令（设置页导航），web CLIENT_ACTIONS 已实现必含
     expect(SLASH_COMMANDS.some((c) => c.name === 'sandbox' && c.kind === 'client')).toBe(true)
+    // 阶段十九 19.23：/settings 同为 client 命令（设置中心入口）
+    expect(SLASH_COMMANDS.some((c) => c.name === 'settings' && c.kind === 'client')).toBe(true)
   })
 
   test('按名称过滤（大小写不敏感；COMP 命中 compact 与 19.2 /computer 两条）', () => {
@@ -80,8 +82,9 @@ describe('filterCommands（/ 菜单命令过滤）', () => {
 
   test('按描述过滤（中文包含）', () => {
     const hit = filterCommands('模型')
-    // 断全命中集而不取样：/plan 的描述里有"模型只读地出计划"、/arena 描述里有"多模型竞答"，同样命中（工单 16.3/16.8）
-    expect(hit.map((c) => c.name)).toEqual(['plan', 'model', 'arena'])
+    // 断全命中集而不取样：/plan 的描述里有"模型只读地出计划"、/arena 描述里有"多模型竞答"、
+    // /settings 描述里有"模型缺省"，同样命中（工单 16.3/16.8、阶段十九 19.23）
+    expect(hit.map((c) => c.name)).toEqual(['plan', 'model', 'arena', 'settings'])
   })
 
   test('无匹配 → 空列表', () => {
@@ -97,7 +100,9 @@ describe('mergeSlashCommands（工单 7.4：基线 + 引擎动态清单合并）
     ]
     const merged = mergeSlashCommands(dynamic)
     expect(merged.map((c) => c.name)).toEqual([
-      'init', 'compact', 'plan', 'goal', 'voice', 'resume', 'model', 'mcp', 'skills', 'usage', 'lsp', 'agents', 'trust', 'extensions', 'arena', 'computer', 'sandbox', 'rename', 'title', 'review',
+      'init', 'compact', 'plan', 'goal', 'voice', 'resume', 'model', 'mcp', 'skills', 'usage',
+      'lsp', 'agents', 'trust', 'extensions', 'arena', 'computer', 'rename', 'title', 'sandbox',
+      'settings', 'review',
     ])
     expect(merged.find((c) => c.name === 'compact')?.description).toBe(
       '压缩上下文（保留摘要，释放窗口）',

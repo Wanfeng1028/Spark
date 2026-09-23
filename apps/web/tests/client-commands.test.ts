@@ -22,7 +22,8 @@ describe('client 命令 web 端覆盖不变量（工单 10.18③）', () => {
   it('clientActionOf：已实现命令命中；未实现/未知返 undefined', () => {
     expect(clientActionOf('model')).toEqual({ kind: 'navigate', path: '/settings/models' })
     expect(clientActionOf('resume')).toEqual({ kind: 'palette' })
-    expect(clientActionOf('new')).toBeUndefined() // surface 无 web
+    expect(clientActionOf('new')).toEqual({ kind: 'new-session' }) // 19.21 已补映射
+    expect(clientActionOf('help')).toBeUndefined() // 词表里有、本端不实现
     expect(clientActionOf('nope')).toBeUndefined()
   })
 

@@ -8,15 +8,19 @@ import { BUILTIN_COMMANDS, ClientActionSchema } from '@spark/protocol'
 import { CLIENT_ACTIONS } from '@/features/chat/client-commands'
 
 describe('web client 命令映射覆盖（阶段十九 19.21）', () => {
-  test('surface 含 web 的 client 命令：18/19 有映射，/help 如实缺席', () => {
+  test('surface 含 web 的 client 命令：15/15 全有映射；未映射项恰为 help', () => {
     const webClient = BUILTIN_COMMANDS.filter(
       (c) => c.kind === 'client' && c.surface.includes('web') && c.clientAction !== undefined,
     )
-    expect(webClient).toHaveLength(19)
+    expect(webClient).toHaveLength(15)
     const mapped = webClient.filter((c) => CLIENT_ACTIONS[c.clientAction!] !== undefined)
-    expect(mapped).toHaveLength(18)
-    const missing = webClient.filter((c) => CLIENT_ACTIONS[c.clientAction!] === undefined)
-    expect(missing.map((c) => c.name)).toEqual(['help'])
+    expect(mapped).toHaveLength(15)
+    // help 的 surface 只有 cli，压根不进 web 集；按 clientAction 全量核未映射项，仍只有它一项
+    const allClient = BUILTIN_COMMANDS.filter(
+      (c) => c.kind === 'client' && c.clientAction !== undefined,
+    )
+    const unmapped = allClient.filter((c) => CLIENT_ACTIONS[c.clientAction!] === undefined)
+    expect(unmapped.map((c) => c.name)).toEqual(['help'])
   })
 
   test('19.21 补的 7 项映射形状正确', () => {
