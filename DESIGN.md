@@ -44,6 +44,7 @@
 | v2.33 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，x.ai 移动端实拍 8 张：iPhone 16 Pro 440px 视口全页/菜单开合/Grok Bot 页） | **批次 G：accent 收敛 + 移动端全屏菜单（x.ai 移动端实拍同构）**。① §12.1 官网色彩豁免修订：**主按钮废止 indigo 改黑色胶囊**（`bg-zinc-900`，button default 变体）——x.ai 实拍按钮全为黑白，彩色仅点睛；官方站 accent 收敛为**橙色系统**（eyebrow mini 标签 bg-orange-100、旋转词下划线改**橙→粉→黄渐变条**（移动端 "build." 同构，h-1 rounded-full 随词宽）、开发者区橙色插画块），hero 渐变字例外条款由"渐变文字"改记"渐变条"；产品四端 indigo accent 不变。② 移动端菜单升级为**全屏白幕**（fixed inset-0）：大字条目（text-xl）+ 发丝线分隔 + **可展开"产品"分组**（MobileAccordion，条目带一句端描述，chevron 翻转，height auto 动画）+ 底部黑色胶囊 CTA + 小字链接行（GitHub · LICENSE · MIT）；背景滚动锁定；X 圆钮关闭+焦点归还。③ 桌面 CTA 触发钮同步黑色（v2.32 的 indigo 触发钮废止）。④ ChatCard 用户气泡 indigo→**黑色**（x.ai Bot 卡 "two nights…" 黑气泡同构）。实现=button.tsx + Hero.tsx（标签/渐变条）+ Header.tsx（全屏菜单/触发钮）+ SessionDemoZone.tsx（气泡） |
 | v2.34 | 2026-09-20 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，x.ai/bot 页实拍 4 张："Give each Bot a job" 胶囊选择器/视频区/定价区） | **批次 H：任务选择器区（x.ai "Give each Bot a job" 实拍同构）**。新增 JobPicker：胶囊选择器（选中=黑底白字胶囊，对齐 v2.33 黑色按钮系统）点击切换下方**黑体导语 + 灰色正文**（x.ai "Generate pipeline overnight." 同构），AnimatePresence fade+y 0.22s（reduced-motion 静态）+ mono 事实行（沿用 FeatureShowcase 的顶部分隔线样式）；六个"活"全部对应 Spark 真实能力并逐条标注出处（审批三值/沙箱 wrapper ADR D15//goal 三护栏 ADR D33//arena ADR D42/task 子代理 ADR D36/JSONL 回放），禁假状态 §5。不移植项：视频区（Spark 无视频素材）、定价区（MIT 免费无定价）。实现=JobPicker.tsx 新增 + page.tsx 插入（四端瓦片与开发者区之间） |
 | v2.35 | 2026-09-21 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"把所有未完成的工单全部完成"指令；条款为工单 19.40 的"先补条款再实现"前置） | **新增 §13.M 侧栏浮层与遮罩**（V2-36 折叠态直点 / V2-39 窄屏 overlay drawer + 19.36 辅助会话停靠面板一并登记）：640px 单断点只管侧栏形态、三形态（rail 48 / overlay / inline 264，窄屏展开不占列宽）、rail 分组浮层规格（256px/32px 行/最多 8 条 + 溢出出口/弹层影不画框线/数据源复用侧栏既有投影禁新请求）、模态抽屉与 `bg-black/60` 遮罩（**禁 backdrop-blur**，§12.2 延伸）、非模态停靠面板 360px 让出 StatusBar、反 AI 味自查条 |
+| v2.36 | 2026-09-23 | AI 编写：Qoder；发起与拍板：晚风（Wanfeng1028，"只是增加个性化主题供用户选择。这 9 个个性化主题可以不遵循我的黑白风格的规则"指令） | **新增 §12.9 用户自选主题层豁免（限定）**：外观页「主题壁纸」九套背景主题（四套 WebGL2 程序化流体 + 五套 Coverr 视频壁纸，源自 MIT 项目 dsh-beyond-glass）豁免 §12.1 配色与 §12.6 图像动效禁令，两节各加指针 bullet（沿用既有"DSH 点睛色豁免 / 官网色彩豁免"的【豁免，非解禁】体例）。**四条边界**：① 只豁免画布内部，默认外观一寸不动且主题层缺省关闭；② 承载 UI 仍黑白中性、§12.8 grep 在 `apps/web` 零命中（彩色只存在于 canvas 像素）；③ **§12.2 玻璃不豁免**且有实证判例——上游 v0.1.3 修的正是玻璃折射层使左栏成 stacking context、其内 fixed 浮层被压到栏层级致点击命中错位、真实点击 3s 超时，故底板改用不透明 scrim（§13.M token）；④ 对比度 / 焦点可见 / 密度 / 字号四条硬约束不豁免（上游判例：最亮壁纸下标签对比度 3.98:1，解法是加深底板而非降低要求）。适用端 web + desktop，CLI 不适用且不显假开关；动效护栏 reduced-motion 静态帧 + 不可见暂停 RAF。§12"唯一完整清单"地位不变（本节是清单内的限定豁免，非另立清单）。工单 19.43 见 doc/08 §5D.10（v1.75）、doc/02 v4.101 同批 |
 
 > 本文件是**视觉决策文档**：回答"页面应该保持什么风格，遇到新场景怎么选"，让不同页面看起来仍属于同一个产品。
 > 架构与设计决策见 `ARCHITECTURE.md`；实现规格（做什么）见 `doc/02-development-plan.md` §6——本文件管"做成什么感觉、什么不许做"。所有前端 PR 以本文为验收依据之一。
@@ -209,6 +210,7 @@
 - 渐变光球（purple orb）/ mesh 渐变漂浮在内容区后面。【P0】
 - **DSH 对齐点睛色豁免（§13.L，2026-09-19 拍板）**：`--send-accent`（浅 `#4176e6` / 暗 `#679efe`）与 `--user-bubble`（浅 `#edf3fe`）仅限发送钮/caret/web 用户气泡三处，是黑白主题下唯一彩色点睛；蓝紫渐变、vibecode 紫、大面积蓝紫照禁。【豁免，非解禁】
 - **官网色彩豁免（v2.28 立，v2.33 依 x.ai 移动端实拍修订）**：official/ 亮色 + **区块级明暗节奏**（SessionDemo 与 QuickStart/Footer 两段 zinc-950 暗带、Architecture 灰带）；**主按钮=黑色胶囊**（`bg-zinc-900`，x.ai "Get API Access"/"Try for free" 同构——v2.28 的 indigo 主按钮废止，官方站 accent 收敛为**橙色点睛**：eyebrow mini 标签、旋转词渐变条（橙→粉→黄）、开发者区橙色插画块；对齐 x.ai "黑白灰+单一暖 accent"系统）；hero 允许**全站唯一一处**渐变元素=旋转词渐变条 + `.hero-dot-grid` 点阵底纹（无光晕无毛玻璃）；产品四端本条全部照禁（产品 accent 仍为 §13.C indigo）。
+- **用户自选主题层豁免（§12.9，2026-09-23 拍板；工单 19.43）**：外观页「主题壁纸」里用户主动开启的九套背景主题，其紫 / 蓝 / 暖橙高饱和渐变调色板不受本节禁令约束——**仅限背景层画布内部**，画布外一寸不动，承载 UI 仍须黑白中性且 §12.8 grep 零命中。【豁免，非解禁】
 
 ### 12.2 玻璃与特效
 
@@ -248,6 +250,7 @@
 - 标题上方居中的巨大圆角图标（Lucide 放大到 48px+ 当主视觉）。【P1】
 - **emoji 当装饰、功能图标或列表符号**（✨🚀⚡，AI 刷课工具截图的星号装饰即判例同款）——中文社区总结的"AI 四大通病"之一。【P1】
 - 所有元素同一个 fade-in 入场编排、按钮 hover 无过渡或瞬移、动效完全为零——动效规则见 §6（只允许微动效）。【P2】
+- **用户自选主题层豁免（§12.9，2026-09-23 拍板；工单 19.43）**：程序化流体背景与视频壁纸不受本节"3D 抽象漂浮物 / 通用库存图"禁令约束——用户主动开启的个性化背景不等于模板默认装饰；仍须 `prefers-reduced-motion` 静态帧与页面不可见暂停 RAF。【豁免，非解禁】
 
 ### 12.7 文案与语气（UI copy）
 
@@ -290,6 +293,25 @@
 - [优设《AI 生成的网页总爱用蓝紫渐变？真相藏在5年前！》](https://www.uisdc.com/ai-design-bias)：蓝紫渐变成因考证（Tailwind 默认 indigo 污染训练语料；Adam Wathan 致歉）。
 - [Beyond "Make it Beautiful": The Anti-Slop Framework — Medium](https://moelkholy1995.medium.com/beyond-make-it-beautiful-the-anti-slop-framework-for-ai-frontend-craftsmanship-c99bbee6c994)：紫蓝渐变背景 / 居中徽章+大标题+三卡 / 假仪表盘。
 - 中文社区总结（腾讯云开发者 / 优网科技）：AI 前端"四大通病"——蓝紫渐变、滥用 emoji、圆角泛滥、布局雷同。
+
+---
+
+### 12.9 用户自选主题层豁免（限定；2026-09-23 拍板，工单 19.43）
+
+**豁免对象**：外观页「主题壁纸」里**由用户主动开启**的九套背景主题——四套程序化流体（深海流光 / 极光翡翠 / 紫晶云海 / 熔金暮色，WebGL2 canvas 绘制）与五套视频壁纸（雾隐森林 / 潮汐漫游 / 雪峰天际 / 雪岭电影感 / 雪野滑踪）。其调色板含紫 / 蓝 / 暖橙高饱和渐变与 bloom 光效，是本仓**唯一成体系的彩色面**；来源为外部 MIT 项目 dsh-beyond-glass（转录时保留 DeepSeek 版权声明，AGENTS §6.2），视频素材来自 Coverr（免费商用免署名）。
+
+**为什么给豁免**：§12 挡的是"AI 模板味"——即**默认就长这样**的界面。用户主动挑选的个性化背景不是模板默认值，而是用户表达；一并禁掉等于把"反 AI 味"误伤成"反个性化"。
+
+**豁免边界（四条，逐条硬约束，越界即打回）**：
+
+1. **只豁免背景层画布内部的配色与图像**。画布之外一寸不动：默认外观仍是黑白中性极简 + 亮色默认（§13.C），主题层**缺省关闭**，关闭态与未装该功能时逐像素一致。
+2. **承载 UI 本身必须黑白中性**。主题选择器、设置行、缩略图边框、状态徽标一律走既有 token；因此 §12.8 的 grep 模式在 `apps/web` **仍要求零命中**——不得用 `bg-gradient-to-*` / `from-purple` / `backdrop-blur` 等类实现选择器或底板。**彩色只允许存在于 canvas 像素里。**
+3. **§12.2 玻璃与特效不豁免**。主题层**禁止**引入 `backdrop-filter` 面板——除黑名单理由外还有实证判例：上游 v0.1.3 修的正是玻璃折射层使左栏成为 stacking context、其内 fixed 定位的设置浮层被压到栏层级，导致点击命中错位到应用卡、不加 force 的真实点击 3s 超时。内容底板改用**不透明 / 高不透明 scrim**（复用 §13.M 遮罩 token）。
+4. **对比度、焦点可见、密度、字号四条硬约束不豁免**。主题开启时正文、图标与 `:focus-visible` 焦点环仍须达既有档位（由 scrim 保证）；13px 密度与 §3 字号封顶不因主题改变。上游判例可引：最亮壁纸下标签对比度掉到 3.98:1，解法是加深底板而不是降低要求。
+
+**适用端**：web 与 desktop（复用同一 web bundle）。CLI 无图形面，**不适用且不显示假开关**；mobile/miniapp 为后续候选（RN 需新依赖，AGENTS §2.3a）。
+
+**动效护栏**：`prefers-reduced-motion` 走静态帧；页面不可见（`visibilitychange`）即暂停 RAF；主题层不得成为常驻 GPU 开销的黑箱——设置页须明示代价。
 
 ---
 
