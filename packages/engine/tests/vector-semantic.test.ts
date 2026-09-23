@@ -3,13 +3,16 @@
  * ① 纯函数——cosine（含零向量/维度不齐）、vecToBlob/blobToVec 往返、hostAllowed 无关；
  * ② VectorStore——upsert/topK/refs/remove/clear/count/sizeBytes（真实 node:sqlite 临时库）；
  * ③ SemanticIndexer——**假 embedding client**（确定性哈希向量，免网络免 key）：
- *    补嵌只嵌缺向量条目、检索 top-k 排序、merge 合流去重、维度不一致拒嵌。
+ *    补嵌只嵌缺向量条目、检索 top-k 排序、merge 合流去重、维度不一致拒嵌；
+ * ④ resolveEmbeddingProvider——ADR D51 指名口径（指名未声明即不可用，不回落别家）。
  */
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import type { EmbeddingClient, EmbeddingProviderInfo } from '../src/embedding/client.js'
+import { resolveEmbeddingProvider } from '../src/embedding/client.js'
+import type { ModelsConfig } from '../src/config.js'
 import { ids } from '@spark/protocol'
 import { blobToVec, cosine, VectorStore, vecToBlob } from '../src/vector/store.js'
 import {
@@ -231,5 +234,47 @@ describe('合流与摘要（纯函数）', () => {
     const long = snippetOf('x'.repeat(200))
     expect(long.length).toBe(121)
     expect(long.endsWith('…')).toBe(true)
+  })
+})
+
+/**
+ * 提供方解析（ADR D51 指名口径）：此函数此前不可达（loadConfig 漏装 models.embedding），
+ * 装配补上后才发现它把"指名那家没声明 embeddings"静默换成文件序首个声明者——
+ * 换家等于把向量写进另一个语义空间，检索结果错而无信号。以下第四例锁住这个回归。
+ */
+describe('resolveEmbeddingProvider（ADR D51 指名口径）', () => {
+  type Providers = ModelsConfig['providers']
+  const declaring = (model: string): Providers[string] => ({
+    apiKeyEnv: null,
+    embeddings: { model, dimensions: 64 },
+  })
+
+  test('指名命中：返回被指名那家，带 model 与 dimensions', () => {
+    const providers: Providers = { alpha: { apiKeyEnv: null }, beta: declaring('b-emb') }
+    expect(resolveEmbeddingProvider(providers, 'beta')).toEqual({
+      providerId: 'beta',
+      model: 'b-emb',
+      dimensions: 64,
+    })
+  })
+
+  test('未指名：取文件序第一个声明者；dimensions 未声明则留 undefined（不猜维度）', () => {
+    const providers: Providers = { alpha: { apiKeyEnv: null }, beta: declaring('b-emb') }
+    expect(resolveEmbeddingProvider(providers)?.providerId).toBe('beta')
+    const noDims: Providers = { beta: { apiKeyEnv: null, embeddings: { model: 'b-emb' } } }
+    expect(resolveEmbeddingProvider(noDims)?.dimensions).toBeUndefined()
+  })
+
+  test('无任何 provider 声明 embeddings → null（语义不可用，关键词通道照常）', () => {
+    const providers: Providers = { alpha: { apiKeyEnv: null }, beta: { apiKeyEnv: null } }
+    expect(resolveEmbeddingProvider(providers)).toBeNull()
+    expect(resolveEmbeddingProvider({})).toBeNull()
+  })
+
+  test('指名的那家没声明 embeddings → null，绝不回落别家', () => {
+    const providers: Providers = { alpha: declaring('a-emb'), beta: { apiKeyEnv: null } }
+    expect(resolveEmbeddingProvider(providers, 'beta')).toBeNull()
+    // 名字整体写错同理：不可用而不是"随便给一个"
+    expect(resolveEmbeddingProvider(providers, 'gamma')).toBeNull()
   })
 })

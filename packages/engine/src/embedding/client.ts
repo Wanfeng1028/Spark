@@ -2,8 +2,10 @@
  * embedding 提供方（阶段十九 19.8 / ADR D51，翻案 D25"向量后置"登记）：
  * models.json `providers.<id>.embeddings = { model, dimensions? }` 声明能力；
  * 走 **OpenAI 兼容 /embeddings** HTTP 端点（零新依赖——与 LLM 网关同款 fetch 直调）。
- * 解析优先级：models.json `embedding.provider` 指名（须声明 embeddings）→ 否则文件序
- * 第一个声明者。无声明者 → 语义检索不可用（调用方如实降级到关键词，禁假状态）。
+ * 解析优先级：models.json `embedding.provider` 指名 → 否则文件序第一个声明者。
+ * 指名者**未声明 embeddings** = 语义检索不可用（不静默换成别家，ADR D51）——换家会把
+ * 向量写进另一个语义空间，之后检索拿它比对，结果错而没有任何信号。
+ * 无声明者 → 同样不可用（调用方如实降级到关键词，禁假状态）。
  */
 import type { ModelsConfig } from '../config.js'
 
@@ -34,6 +36,7 @@ class EmbeddingError extends Error {
 
 /**
  * 从 models.json 解析生效提供方。providers 为空表/无声明 → null（语义不可用）。
+ * 指名（preferred 给了）时**只认它**：它没声明 embeddings 即 null，不回落别家（ADR D51）。
  * dimensions 缺省 = 首次响应后由 VectorStore 侧推断（不猜——不同模型维度不同）。
  */
 export function resolveEmbeddingProvider(
@@ -43,7 +46,7 @@ export function resolveEmbeddingProvider(
   const entries = Object.entries(providers).filter(([, p]) => p.embeddings !== undefined)
   if (entries.length === 0) return null
   const picked =
-    (preferred !== undefined ? entries.find(([id]) => id === preferred) : undefined) ?? entries[0]
+    preferred !== undefined ? entries.find(([id]) => id === preferred) : entries[0]
   if (picked === undefined) return null
   const [providerId, p] = picked
   const emb = p.embeddings

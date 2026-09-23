@@ -585,6 +585,13 @@ export class Engine {
       this.config.models.embedding?.provider,
     )
     this.embeddingProvider = embProvider
+    // 指了名却没解析出来（名字写错 / 那家没声明 embeddings）要留痕：静默关掉语义检索
+    // 与"没配语义检索"在日志里长一样，用户只会觉得检索变差而查不到原因
+    if (embProvider === null && this.config.models.embedding?.provider !== undefined) {
+      this.logger.warn('embedding.provider.unresolved', {
+        preferred: this.config.models.embedding.provider,
+      })
+    }
     let vectors: VectorStore | null = null
     let semantic: SemanticIndexer | null = null
     if (embProvider !== null) {
