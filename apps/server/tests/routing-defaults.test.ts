@@ -13,11 +13,16 @@ import type { RoutingDto } from '@spark/protocol'
 import { makeServer } from './helpers.js'
 import type { ServerFixture } from './helpers.js'
 
+/**
+ * 夹具的引擎是直注入 config 启动的（helpers.ts makeConfig），装载后不再读盘——
+ * 本函数写的 models.json 只作 persistRouting 的读写靶子（providers 与引擎内存里那份保持一致：
+ * 只有 fake，多写一个 provider 也不会被解析到，见 engine.ts:2632 resolveModelRef）。
+ */
 function seedModels(fixture: ServerFixture, extra: Record<string, unknown> = {}): void {
   writeFileSync(
     join(fixture.root, 'models.json'),
     JSON.stringify({
-      providers: { fake: { apiKeyEnv: null }, other: { apiKeyEnv: null } },
+      providers: { fake: { apiKeyEnv: null } },
       defaultModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       ...extra,
     }),
@@ -36,29 +41,32 @@ describe('V2-37 默认模型/档位单写者（阶段十九 19.14 / ADR D53）',
     await f.engine.shutdown()
   })
 
-  test('GET /api/routing：defaultModel/defaultEffort 在场（缺省取 models.json）', async () => {
+  test('GET /api/routing：defaultModel/defaultEffort 在场（缺省取装载值）', async () => {
     f = await makeServer({})
-    seedModels(f, { defaultEffort: 'high' })
-    // 夹具引擎已用旧 config 启动——本断言只验形状与缺省回退
+    // 本端点是纯内存读（routes/models.ts:53）：回显引擎装载态。夹具的 config 是直注入的
+    // （helpers.ts makeConfig：defaultModel=fake/fake-chat、defaultEffort 未设），启动后改写
+    // 磁盘 models.json 不参与本回显——ADR D53「内存态热改即时生效、重启回 models.json 装载值」。
     const body: RoutingDto = (await f.app.inject({ method: 'GET', url: '/api/routing' })).json()
     expect(body.defaultModel).toBe('fake/fake-chat')
-    expect(body.defaultEffort).toBe('high')
+    expect(body.defaultEffort).toBeNull() // §5.1：defaultEffort 缺省 = 不设置（按 provider 默认）
   })
 
   test('PUT defaultModel：写盘 models.json.defaultModel + 回显', async () => {
     f = await makeServer({})
     seedModels(f)
+    // 换的是模型名不是 provider：defaultModel 经 resolveModelRef 校验**装载进内存**的 providers
+    // 表（engine.ts:2632），夹具只配了 fake 一家——换 provider 的用例见下方「未知 provider」例
     const res = await f.app.inject({
       method: 'PUT',
       url: '/api/routing',
-      payload: { defaultModel: 'other/other-chat' },
+      payload: { defaultModel: 'fake/other-chat' },
     })
     expect(res.statusCode).toBe(200)
     const body: RoutingDto = res.json()
-    expect(body.defaultModel).toBe('other/other-chat')
+    expect(body.defaultModel).toBe('fake/other-chat')
     // 单写者：写的是 models.json defaultModel（不是另起一份配置）
     const doc = readModels(f)
-    expect(doc.defaultModel).toEqual({ provider: 'other', model: 'other-chat', contextWindow: 100_000 })
+    expect(doc.defaultModel).toEqual({ provider: 'fake', model: 'other-chat', contextWindow: 100_000 })
   })
 
   test('PUT defaultEffort：high 写入 / null 清除', async () => {
@@ -97,17 +105,20 @@ describe('V2-37 默认模型/档位单写者（阶段十九 19.14 / ADR D53）',
   test('新建会话读默认模型（单写者读侧：routing.defaultModel 优先）', async () => {
     f = await makeServer({})
     seedModels(f)
-    await f.app.inject({
+    const put = await f.app.inject({
       method: 'PUT',
       url: '/api/routing',
-      payload: { defaultModel: 'other/other-chat' },
+      payload: { defaultModel: 'fake/other-chat' },
     })
+    expect(put.statusCode).toBe(200)
     const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
-    expect(created.statusCode).toBe(200)
+    // 建资源 201 是本包既有口径（routes.test.ts:66 / empty-body.test.ts:72 同断）
+    expect(created.statusCode).toBe(201)
     const sid = created.json<{ id: string }>().id
     const detail = await f.app.inject({ method: 'GET', url: `/api/sessions/${sid}` })
     expect(detail.statusCode).toBe(200)
-    const body = detail.json<{ meta: { model: string } }>()
-    expect(body.meta.model).toBe('other/other-chat')
+    // GET /api/sessions/:id = SessionDto（meta 字段平铺 + events，protocol api.ts:41）
+    const body = detail.json<{ model: string }>()
+    expect(body.model).toBe('fake/other-chat')
   })
 })

@@ -5,6 +5,8 @@
  * ② 路由——GET /api/settings 三段归一化缺省、PUT 逐字段合并不清他段、
  *    certificates 只读回显形状。
  */
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { ids } from '@spark/protocol'
 import type { SessionId, SessionStatus } from '@spark/protocol'
@@ -21,6 +23,21 @@ import type { ServerFixture } from './helpers.js'
 
 const NOW = 1_800_000_000_000
 const DAY = 86_400_000
+
+/**
+ * PUT /api/settings 写 spark.json 后经 loadConfig 全量重载内存 config（D28 fail-closed），
+ * 而夹具是直注入 config（磁盘无配置文件）——不补 models.json 则重载即抛 ConfigError，
+ * 落 500 E_INTERNAL。补盘是本包 PUT 用例的既有纪律（判例见 settings.test.ts 的 seedModelsJson）。
+ */
+function seedModelsJson(root: string): void {
+  writeFileSync(
+    join(root, 'models.json'),
+    JSON.stringify({
+      providers: { fake: { apiKeyEnv: null } },
+      defaultModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+    }),
+  )
+}
 
 function meta(over: Omit<Partial<SessionMeta>, 'id'> & { id: string }): SessionMeta {
   const { id, ...rest } = over
@@ -99,6 +116,7 @@ describe('设置路由：archive / network / certificates（阶段十九 19.13�
 
   test('PUT archive 部分更新：只改 afterDays 不清 autoArchive', async () => {
     f = await makeServer({})
+    seedModelsJson(f.root)
     const first = await f.app.inject({
       method: 'PUT',
       url: '/api/settings',
@@ -118,6 +136,7 @@ describe('设置路由：archive / network / certificates（阶段十九 19.13�
 
   test('PUT network 部分更新：proxy/noProxy 各自独立', async () => {
     f = await makeServer({})
+    seedModelsJson(f.root)
     await f.app.inject({
       method: 'PUT',
       url: '/api/settings',

@@ -4,10 +4,26 @@
  * GET /api/index/stats 的 semantic 状态（夹具无提供方 → available:false 如实降级）；
  * POST /api/index/vectors/rebuild 无提供方 → 502 E_EMBEDDING_UNAVAILABLE（fail-closed）。
  */
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import type { SettingsDto } from '@spark/protocol'
 import { makeServer } from './helpers.js'
 import type { ServerFixture } from './helpers.js'
+
+/**
+ * PUT /api/settings 写盘后经 loadConfig 全量重载（D28）——夹具直注入 config、磁盘无
+ * models.json 时重载即抛（落 500）。本包 PUT 用例的既有纪律，判例见 settings.test.ts。
+ */
+function seedModelsJson(root: string): void {
+  writeFileSync(
+    join(root, 'models.json'),
+    JSON.stringify({
+      providers: { fake: { apiKeyEnv: null } },
+      defaultModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+    }),
+  )
+}
 
 describe('语义检索（阶段十九 19.8 / ADR D51）', () => {
   let f: ServerFixture
@@ -25,6 +41,7 @@ describe('语义检索（阶段十九 19.8 / ADR D51）', () => {
 
   test('PUT embedding.enabled=false：写盘 + 回读（热档）', async () => {
     f = await makeServer({})
+    seedModelsJson(f.root)
     const res = await f.app.inject({
       method: 'PUT',
       url: '/api/settings',

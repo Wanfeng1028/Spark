@@ -4,12 +4,27 @@
  * PUT 写文件（落盘 + spark.json prompts 指向它）+ 空 content 恢复缺省（删配置）；
  * 非白名单占位符 → 400 不落盘（fail-closed，防注入面扩大）。
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import type { PromptsDto } from '@spark/protocol'
 import { makeServer } from './helpers.js'
 import type { ServerFixture } from './helpers.js'
+
+/**
+ * updatePrompt 经 persistSparkPatch 写 spark.json 后 loadConfig 全量重载（同 PUT settings）——
+ * 夹具直注入 config、磁盘无 models.json 时重载即抛，被路由的 catch 归 400。
+ * 本包写盘用例的既有纪律，判例见 settings.test.ts。
+ */
+function seedModelsJson(root: string): void {
+  writeFileSync(
+    join(root, 'models.json'),
+    JSON.stringify({
+      providers: { fake: { apiKeyEnv: null } },
+      defaultModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+    }),
+  )
+}
 
 describe('提示词模板管理（阶段十九 19.18 / V2-16）', () => {
   let f: ServerFixture
@@ -36,6 +51,7 @@ describe('提示词模板管理（阶段十九 19.18 / V2-16）', () => {
 
   test('PUT：写模板文件 + spark.json 指向它（重启档）', async () => {
     f = await makeServer({})
+    seedModelsJson(f.root)
     const res = await f.app.inject({
       method: 'PUT',
       url: '/api/prompts',
@@ -59,6 +75,7 @@ describe('提示词模板管理（阶段十九 19.18 / V2-16）', () => {
 
   test('PUT 空 content = 恢复缺省（删配置，文件保留）', async () => {
     f = await makeServer({})
+    seedModelsJson(f.root)
     await f.app.inject({
       method: 'PUT',
       url: '/api/prompts',
