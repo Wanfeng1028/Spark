@@ -42,12 +42,13 @@ describe('KeymapSettingsPage（19.39 第二批）', () => {
 
   it('无改动时保存禁用；改一个键后可编辑', async () => {
     renderPage()
-    const save = (await waitFor(() =>
-      screen.getByRole('button', { name: '保存' }),
-    )) as HTMLButtonElement
-    expect(save.disabled).toBe(true)
+    // 读 hasAttribute 而非 `.disabled`：getByRole 返回 HTMLElement（上没有 disabled 属性），
+    // 补 `as HTMLButtonElement` 又被 no-unnecessary-type-assertion 判多余——两道闸互斥，
+    // 只能换成读真实属性（按钮禁用本就以该属性呈现，语义等价）
+    const save = await waitFor(() => screen.getByRole('button', { name: '保存' }))
+    expect(save.hasAttribute('disabled')).toBe(true)
     fireEvent.change(screen.getByLabelText(KEYMAP_ACTIONS.palette), { target: { value: 'Ctrl+J' } })
-    await waitFor(() => expect(screen.getByRole('button', { name: '保存' }).disabled).toBe(false))
+    await waitFor(() => expect(screen.getByRole('button', { name: '保存' }).hasAttribute('disabled')).toBe(false))
   })
 
   it('冲突在保存前挡下：两条绑到同一个键 → 提示 + 保存禁用', async () => {
@@ -56,7 +57,7 @@ describe('KeymapSettingsPage（19.39 第二批）', () => {
     // 与「设置面」的缺省 Ctrl/Cmd+, 撞车（palette=web、settings=both，共享生效面）
     fireEvent.change(screen.getByLabelText(KEYMAP_ACTIONS.palette), { target: { value: 'Ctrl/Cmd+,' } })
     await waitFor(() => expect(screen.getByText(/键位冲突/)).toBeTruthy())
-    expect(screen.getByRole('button', { name: '保存' }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: '保存' }).hasAttribute('disabled')).toBe(true)
   })
 
   it('解析不出的键串在保存前挡下——放行等于静默解绑', async () => {
@@ -64,7 +65,7 @@ describe('KeymapSettingsPage（19.39 第二批）', () => {
     await waitFor(() => expect(screen.getByLabelText(KEYMAP_ACTIONS.palette)).toBeTruthy())
     fireEvent.change(screen.getByLabelText(KEYMAP_ACTIONS.palette), { target: { value: 'Ctrl+C ×2' } })
     await waitFor(() => expect(screen.getByText(/解析不出单一按键/)).toBeTruthy())
-    expect(screen.getByRole('button', { name: '保存' }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: '保存' }).hasAttribute('disabled')).toBe(true)
   })
 
   it('保存后落盘并写回 ui store（快捷键当场生效，不必重载）', async () => {
