@@ -30,8 +30,9 @@ describe('SandboxSettingsPage（阶段十九 19.7 / ADR D50）', () => {
     renderPage()
     const sw = (await waitFor(() => screen.getByRole('switch', { name: '网络隔离' }))) as HTMLButtonElement
     expect(sw.getAttribute('aria-checked')).toBe('false')
+    // 端口与清单都由 getSettings 异步播种：不等落地就取值会读到播种前的空串（"清单为空"也会退化成空断言）
+    await waitFor(() => expect(screen.getByLabelText<HTMLInputElement>('代理端口').value).toBe('1080'))
     expect(screen.getByLabelText<HTMLTextAreaElement>('域名清单').value).toBe('')
-    expect(screen.getByLabelText<HTMLInputElement>('代理端口').value).toBe('1080')
     // 诚实边界：出口引导不是内核隔离（页面不得宣称"沙箱内断网"）
     expect(screen.getByText(/不是内核级断网/)).toBeTruthy()
   })

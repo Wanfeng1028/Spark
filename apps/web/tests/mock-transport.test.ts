@@ -12,6 +12,8 @@ import rawNormal from '../../../examples/mock-sessions/normal.jsonl?raw'
 
 /** normal 场景脚本固定会话（接口带 sessionId 后的调用目标） */
 const SID = ids.session('ses_01HXMOCKNRML0000000000')
+/** error-finish 场景脚本固定会话：每个场景脚本自带 sessionId，sendMessage 校验会话存在性（19.22 对等），跨场景用 SID 会 E_NOT_FOUND */
+const SID_ERROR = ids.session('ses_01HXMOCKERRF0000000000')
 
 /** 记录事件与 fake-clock 发射时刻（验证 @delay 固定间隔） */
 function recorder(t: MockTransport): { events: SparkEventEnvelope[]; at: number[] } {
@@ -148,7 +150,7 @@ describe('MockTransport 回放状态机', () => {
   it('error-finish 场景：error 事件与 turn.completed{error} 闭合（失败闭合演示）', async () => {
     const t = new MockTransport('error-finish')
     const { events } = recorder(t)
-    await t.sendMessage(SID, 'mock 输入')
+    await t.sendMessage(SID_ERROR, 'mock 输入')
     await vi.advanceTimersByTimeAsync(10_000)
     const types = events.map((e) => e.type)
     expect(types).toContain('error')

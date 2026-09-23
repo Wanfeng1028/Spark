@@ -24,6 +24,8 @@ function dto(id: string, over: Partial<SessionDto> = {}): SessionDto {
 }
 
 const projectKey = (s: SessionDto): string => s.cwd.split('/').pop() ?? s.cwd
+/** 最小时间键（真实口径 timeGroupOf 在 Sidebar）：只分今天/更早，够验证固定段序 */
+const timeKey = (s: SessionDto): string => (NOW - s.updatedAt < DAY ? '今天' : '更早')
 const noOrder = (): number => -1
 
 describe('groupSessionsForSidebar（置顶首组）', () => {
@@ -38,8 +40,10 @@ describe('groupSessionsForSidebar（置顶首组）', () => {
       projectKey,
       noOrder,
     )
-    expect(groups.map((g) => g.name)).toEqual(['置顶', 'alpha', 'beta', 'gamma'])
+    expect(groups.map((g) => g.name)).toEqual(['置顶', 'alpha'])
     expect(groups[0]?.sessions.map((s) => s.id)).toEqual(['a', 'c'])
+    // 提出 = 不留在原项目组：a/c 移出后 beta、gamma 组随之消失（禁同一会话两处渲染）
+    expect(groups[1]?.sessions.map((s) => s.id)).toEqual(['b'])
   })
 
   test('无置顶时不得出现空的「置顶」组（禁假结构）', () => {
@@ -73,7 +77,7 @@ describe('groupSessionsForSidebar（置顶首组）', () => {
         dto('pin', { pinned: true, updatedAt: NOW - 40 * DAY }),
       ],
       '',
-      () => 'x',
+      timeKey,
       orderOf,
     )
     expect(groups.map((g) => g.name)).toEqual(['置顶', '今天', '更早'])

@@ -33,8 +33,8 @@ describe('OnboardingSettingsPage（阶段十九 19.15）', () => {
   it('未完成态：步骤与供应商配置态如实呈现', async () => {
     renderPage()
     expect(screen.getByText(/未完成/)).toBeTruthy()
-    // 供应商配置态来自 MockTransport（0 / N——mock 无 hasKey 供应商）
-    await waitFor(() => expect(screen.getByText(/^0 \/ \d+$/)).toBeTruthy())
+    // 供应商配置态来自 MockTransport 的 MOCK_MODELS：四家供应商、deepseek 带 apiKeyEnv（hasKey）→ 1 / 4
+    await waitFor(() => expect(screen.getByText(/^1 \/ \d+$/)).toBeTruthy())
   })
 
   it('已完成态：done 徽标与步骤回显', () => {
