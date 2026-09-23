@@ -162,8 +162,8 @@ describe('requestNotifyPermission（设置页开关的用户手势入口）', ()
     expect(FakeNotification.promptCalls).toBe(0)
   })
 
-  it('prompt 态请求权限，被拒即返回 false（开关不得置为开）', async () => {
-    FakeNotification.permission = 'prompt'
+  it('未决态（permission=default）请求权限，被拒即返回 false（开关不得置为开）', async () => {
+    FakeNotification.permission = 'default'
     FakeNotification.promptResult = 'denied'
     await expect(requestNotifyPermission()).resolves.toBe(false)
     expect(FakeNotification.promptCalls).toBe(1)
