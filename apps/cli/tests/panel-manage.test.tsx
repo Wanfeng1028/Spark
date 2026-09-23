@@ -60,7 +60,7 @@ async function settleLoaded(h: H): Promise<void> {
 async function open(node: ReactElement): Promise<H> {
   const { stdin, lastFrame } = render(node)
   const h: H = {
-    stdin: stdin as unknown as H['stdin'],
+    stdin,
     frame: () => lastFrame() ?? '',
   }
   await settleLoaded(h)

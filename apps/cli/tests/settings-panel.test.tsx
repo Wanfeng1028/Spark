@@ -85,7 +85,7 @@ async function settleLoaded(h: Harness): Promise<void> {
 async function open(transport: Transport): Promise<Harness> {
   const { stdin, lastFrame } = render(<SettingsPanel transport={transport} />)
   const h: Harness = {
-    stdin: stdin as unknown as Harness['stdin'],
+    stdin,
     frame: () => lastFrame() ?? '',
   }
   await settleLoaded(h)
