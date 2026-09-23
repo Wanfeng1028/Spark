@@ -5,7 +5,7 @@
  * 辅助会话抽屉态（工单 19.36）只存会话 id 与开关，不持久化——重开浏览器不该凭空多出面板。
  */
 import { create } from 'zustand'
-import type { SessionId } from '@spark/protocol'
+import type { KeyOverride, SessionId } from '@spark/protocol'
 
 const STORAGE_KEY = 'spark.ui'
 
@@ -75,6 +75,14 @@ export interface UiState {
   setAuxSession: (sid: SessionId | null) => void
   openAux: () => void
   closeAux: () => void
+  /**
+   * 键位覆盖层（阶段十九 19.39 第二批）：服务端 `settings.ui.keymap.overrides` 的本地镜像。
+   * 端侧物理层经 `useEffectiveKeymap` 读它比对按键，**保存后必须同步写回**——否则新键位要
+   * 重载页面才生效，就成了"改了不生效"的假控件。不持久化：服务端是权威，boot 时装载
+   * （与 CLI `store.keymapOverrides` 同模式）。
+   */
+  keymapOverrides: KeyOverride[]
+  setKeymapOverrides: (overrides: KeyOverride[]) => void
 }
 
 export const useUiStore = create<UiState>()((set, get) => ({
@@ -102,6 +110,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
   setAuxSession: (auxSessionId) => set({ auxSessionId }),
   openAux: () => set({ auxOpen: true }),
   closeAux: () => set({ auxOpen: false }),
+  keymapOverrides: [],
+  setKeymapOverrides: (keymapOverrides) => set({ keymapOverrides }),
   setSidebarCollapsed: (sidebarCollapsed) => {
     persist({ sidebarCollapsed, sidebarGroupMode: get().sidebarGroupMode, voiceMode: get().voiceMode })
     set({ sidebarCollapsed })

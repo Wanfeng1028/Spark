@@ -41,6 +41,12 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
         status: 'ready',
       },
       {
+        id: 'keymap',
+        title: '键位',
+        description: '快捷键覆盖层——仅已接入端侧物理层的条目可改（阶段十九 19.39）',
+        status: 'ready',
+      },
+      {
         id: 'models',
         title: '模型设置',
         description: '供应商与模型管理（完整管理为工单 6.5）',

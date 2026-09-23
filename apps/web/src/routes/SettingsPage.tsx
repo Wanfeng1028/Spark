@@ -28,6 +28,7 @@ import { MemorySettingsPage } from '@/features/settings/MemorySettingsPage'
 import { DevicesSettingsPage } from '@/features/settings/DevicesSettingsPage'
 import { AuditSettingsPage } from '@/features/settings/AuditSettingsPage'
 import { DiagnosticsSettingsPage } from '@/features/settings/DiagnosticsSettingsPage'
+import { KeymapSettingsPage } from '@/features/settings/KeymapSettingsPage'
 import { PlaceholderPage } from '@/features/settings/PlaceholderPage'
 import { PageHeader } from '@/components/layout/PageHeader'
 
@@ -37,6 +38,7 @@ const READY_COMPONENTS = {
   security: SecurityTrustPage,
   general: GeneralSettingsPage,
   appearance: AppearancePage,
+  keymap: KeymapSettingsPage,
   models: ModelSettingsPage,
   devices: DevicesSettingsPage,
   'permission-rules': PermissionRulesPage,

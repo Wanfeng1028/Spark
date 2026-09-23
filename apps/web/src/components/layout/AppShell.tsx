@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { CONNECTION_TEXT } from '@spark/protocol'
+import { CONNECTION_TEXT, KEYMAP_ACTIONS } from '@spark/protocol'
 import { Sidebar, sidebarModeOf } from './Sidebar'
 import { StatusBar } from './StatusBar'
 import { SettingsDialog } from '@/features/settings/SettingsDialog'
@@ -11,6 +11,8 @@ import { AuxSessionDrawer } from '@/features/chat/AuxSessionDrawer'
 import { useConnectionStore } from '@/stores/connection'
 import { useUiStore } from '@/stores/ui'
 import { useNarrowViewport } from '@/hooks/useNarrowViewport'
+import { useEffectiveKeymap, strokeOf } from '@/hooks/useEffectiveKeymap'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useTransport } from '@/transports/context'
 import { cn } from '@/lib/utils'
 
@@ -19,8 +21,9 @@ import { cn } from '@/lib/utils'
  * 主区（Sidebar 264px 可折叠 48px ｜ 内容列）+ StatusBar 24px 单行细条；
  * 会话态顶栏 44px 由 SessionPage 自带（标题+项目 chip），空态无顶栏。
  * 设置路由下左栏切 SettingsSidebar（§13.D 复用 264px，不折叠）。
- * 全局浮层与快捷键挂这里：Cmd/Ctrl+K 命令面板、Cmd/Ctrl+, 设置（doc/02 §6.3）；
- * 单键 c 新建会话 / / 搜索（工单 10.5①，非输入态生效，§6.11 登记）。
+ * 全局浮层与快捷键挂这里：命令面板与设置面两个快捷键查**生效键位表**（19.39 第二批——
+ * 缺省 Cmd/Ctrl+K 与 Cmd/Ctrl+,，用户可在设置中心「键位」页改，此处不再硬编码键名；
+ * doc/02 §6.3）；单键 c 新建会话 / / 搜索仍硬编码（KEYMAP 未登记这两条，见 19.39 限制登记）。
  * 断线重连条（DESIGN §9 顶部强提示）占一行 auto 行高，仅断线时出现。
  * 列宽过渡只服务侧栏折叠/展开（工单 10.14②）：进出设置的那一帧禁用过渡——
  * 否则内容列随 264px 列切换持续重排（视觉上的"逐行位移"来源之一）。
@@ -38,6 +41,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { transport } = useTransport()
+  /** 生效键位表（19.39 第二批）：覆盖层 boot 时从服务端装载进 ui store，键位页保存后写回同一份，
+   *  故改键当场生效不必重载。只有 KEYMAP 带 `spec` 的条目可改（见 protocol/keymap.ts） */
+  const { presses } = useEffectiveKeymap()
+  const setKeymapOverrides = useUiStore((s) => s.setKeymapOverrides)
+  const { data: keymapSettings } = useTransportQuery((t) => t.getSettings())
+  useEffect(() => {
+    if (keymapSettings === null) return
+    setKeymapOverrides(keymapSettings.ui?.keymap?.overrides ?? [])
+  }, [keymapSettings, setKeymapOverrides])
   const inSettings = location.pathname.startsWith('/settings')
   /** 会话路由内（辅助会话抽屉的挂载域，工单 19.36：入口只在会话页，别处不飘面板） */
   const onSessionRoute = location.pathname.startsWith('/session/')
@@ -69,14 +81,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      const mod = e.metaKey || e.ctrlKey
-      if (mod) {
-        if (e.key === 'k' || e.key === 'K') {
+      const stroke = strokeOf(e)
+      if (e.metaKey || e.ctrlKey) {
+        // 键名不再硬编码：查生效表，用户在键位页改过就按改后的键触发（19.39 第二批）。
+        // 比对是四位修饰键全等，故 Ctrl+Shift+K 不再触发命令面板——可改键位后必须精确匹配，
+        // 否则用户把某条改绑到 'Ctrl+Shift+K' 就会与旧的宽松匹配同时命中。
+        if (presses(KEYMAP_ACTIONS.palette, stroke)) {
           e.preventDefault()
           setPaletteOpen(!useUiStore.getState().paletteOpen)
-        } else if (e.key === ',') {
+        } else if (presses(KEYMAP_ACTIONS.settings, stroke)) {
           e.preventDefault()
-          // 设置中心为全屏页（工单 6.4）；Cmd/Ctrl+, 直达外观页
+          // 设置中心为全屏页（工单 6.4）；缺省 Cmd/Ctrl+, 直达外观页
           void navigate('/settings/appearance')
         }
         return
@@ -102,7 +117,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setPaletteOpen, navigate, transport])
+  }, [setPaletteOpen, navigate, transport, presses])
 
   // P2-3（round5）：375 预研档设置页双栏挤压——窄视口一次性判定（同 WO-087 一次性缺省
   // 口径，非响应式断点体系），设置导航转顶部横排 chip 条、内容列独占全宽；桌面/iPad 双栏不变

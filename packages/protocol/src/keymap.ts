@@ -14,6 +14,118 @@ export interface KeyBinding {
   surface: 'cli' | 'web' | 'both'
   /** 与另一端的对位说明（可选） */
   note?: string
+  /**
+   * 机器可读键规格（阶段十九 19.39 第二批）：**有 spec 的条目才是真能被覆盖层改动的**——
+   * 端侧物理层按它比对按键；无 spec 的条目 `keys` 只是给人看的描述（如
+   * 'Home / End / Ctrl+A / Ctrl+E'、'Ctrl+C ×2' 这类多键/计数写法无从比对），
+   * 编辑面对它们只读并如实说明，不给一个改了不生效的输入框。
+   */
+  spec?: KeySpec
+}
+
+/** 机器可读键规格：与 KeyboardEvent 的字段一一对应，但不依赖 DOM 类型（protocol 零平台依赖）。
+ * 三个修饰位缺省即 false，故内置表能写成 `{ key: 'k', ctrlOrMeta: true }` 而不必逐位补 false。 */
+export interface KeySpec {
+  /** `KeyboardEvent.key`；单字符统一小写比对（'K' 与 'k' 同键），'Enter'/',' 等原样 */
+  key: string
+  /** true = Ctrl 或 Cmd 任一即算（'Ctrl/Cmd+K' 的跨平台写法） */
+  ctrlOrMeta?: boolean
+  shift?: boolean
+  alt?: boolean
+}
+
+/** 物理按键快照：各端从自己的事件对象抽出这一份，protocol 不认识 KeyboardEvent */
+export interface KeyStroke {
+  key: string
+  ctrl: boolean
+  meta: boolean
+  shift: boolean
+  alt: boolean
+}
+
+const MOD_CTRL = new Set(['ctrl', 'control', 'cmd', 'command', 'meta', 'win'])
+const MOD_SHIFT = new Set(['shift'])
+const MOD_ALT = new Set(['alt', 'option'])
+
+/**
+ * 具名键 → `KeyboardEvent.key` 的实际取值。列这张表是为了**拒绝解析不出按键的键串**：
+ * 若只按 '+' 切分取末段，'Ctrl+C ×2' 会解析成 key='C ×2'——一个永不匹配任何真实按键的规格，
+ * 端侧比对不到就等于静默解绑，而 UI 上还显示着用户写的那串字（比直接拒存坏得多）。
+ */
+const NAMED_KEY_CANON: Record<string, string> = {
+  enter: 'Enter',
+  return: 'Enter',
+  escape: 'Escape',
+  esc: 'Escape',
+  tab: 'Tab',
+  space: ' ',
+  backspace: 'Backspace',
+  delete: 'Delete',
+  insert: 'Insert',
+  home: 'Home',
+  end: 'End',
+  pageup: 'PageUp',
+  pagedown: 'PageDown',
+  arrowup: 'ArrowUp',
+  arrowdown: 'ArrowDown',
+  arrowleft: 'ArrowLeft',
+  arrowright: 'ArrowRight',
+  up: 'ArrowUp',
+  down: 'ArrowDown',
+  left: 'ArrowLeft',
+  right: 'ArrowRight',
+}
+for (let i = 1; i <= 24; i += 1) NAMED_KEY_CANON[`f${i}`] = `F${i}`
+
+/** 主键规范形：单字符取小写，具名键查表；查不到即 null（调用方据此拒存） */
+function canonicalKey(raw: string): string | null {
+  if (raw.length === 1) return raw.toLowerCase()
+  return NAMED_KEY_CANON[raw.toLowerCase()] ?? null
+}
+
+/**
+ * 键串 → 规格。覆盖层要真生效就必须解析用户写的那串字，认 'Ctrl+G' / 'Ctrl/Cmd+K' /
+ * 'Shift+Enter' / '/' 这几类写法；**解析不出一律回 null**（多主键、空串、只有修饰键、
+ * 'Ctrl+C ×2' 这类计数写法、以及任何不是合法 `KeyboardEvent.key` 的主键），
+ * 由调用方拒存并说明原因——静默当成"没改"或"死绑定"都会让用户以为改成功了。
+ */
+export function parseKeySpec(raw: string): KeySpec | null {
+  const text = raw.trim()
+  if (text === '') return null
+  let ctrlOrMeta = false
+  let shift = false
+  let alt = false
+  const mains: string[] = []
+  for (const part of text.split('+')) {
+    const token = part.trim().toLowerCase()
+    if (token === '') return null
+    // 'ctrl/cmd' 这类斜杠并列写法：每段都命中同一类修饰词才算修饰键，否则当主键
+    const words = token.split('/')
+    if (words.every((w) => MOD_CTRL.has(w))) {
+      ctrlOrMeta = true
+    } else if (words.every((w) => MOD_SHIFT.has(w))) {
+      shift = true
+    } else if (words.every((w) => MOD_ALT.has(w))) {
+      alt = true
+    } else {
+      mains.push(part.trim())
+    }
+  }
+  if (mains.length !== 1) return null
+  const key = canonicalKey(mains[0] as string)
+  if (key === null) return null
+  return { key, ctrlOrMeta, shift, alt }
+}
+
+/** 一次按键是否命中某规格（四个修饰位全等 + 主键小写归一后相等） */
+export function specMatchesStroke(spec: KeySpec, s: KeyStroke): boolean {
+  const key = s.key.length === 1 ? s.key.toLowerCase() : s.key
+  return (
+    key === spec.key &&
+    (spec.ctrlOrMeta ?? false) === (s.ctrl || s.meta) &&
+    (spec.shift ?? false) === s.shift &&
+    (spec.alt ?? false) === s.alt
+  )
 }
 
 export const KEYMAP: readonly KeyBinding[] = [
@@ -31,9 +143,29 @@ export const KEYMAP: readonly KeyBinding[] = [
   { keys: 'Ctrl+K / Ctrl+W', action: '删除光标到行尾 / 删除前一个词', surface: 'cli', note: '工单 19.25（readline 同语义）' },
   { keys: 'Ctrl+C ×2', action: '退出（在途 turn 先中断，不悬挂）', surface: 'cli' },
   { keys: 'Ctrl+R', action: '重试最近一次发送（错误提示存在、无在途 turn 时）', surface: 'cli', note: '工单 10.11 / §13.K K.8' },
-  { keys: 'Ctrl/Cmd+K', action: '命令面板', surface: 'web' },
-  { keys: 'Ctrl/Cmd+,', action: '设置面（web 设置中心整页 / CLI 设置面板）', surface: 'both', note: '工单 19.23 CLI 侧落地' },
+  { keys: 'Ctrl/Cmd+K', action: '命令面板', surface: 'web', spec: { key: 'k', ctrlOrMeta: true } },
+  {
+    keys: 'Ctrl/Cmd+,',
+    action: '设置面（web 设置中心整页 / CLI 设置面板）',
+    surface: 'both',
+    note: '工单 19.23 CLI 侧落地',
+    spec: { key: ',', ctrlOrMeta: true },
+  },
 ]
+
+/**
+ * 端侧物理层查生效规格用的 action 常量（阶段十九 19.39 第二批）。
+ * 存在理由：`action` 是覆盖层的身份标识，端侧若各自抄字符串，一个错字就会静默废掉一个快捷键
+ * （比对不到 → 按键无反应，且不报错）。keymap.test 有一条断言把本表每个值钉在 KEYMAP 上，
+ * 使漂移变成红灯而不是静默故障。**只收已接端侧物理层（有 spec）的条目**——
+ * 没接的放进来会诱导消费端以为它可生效。
+ */
+export const KEYMAP_ACTIONS = {
+  /** 命令面板（web AppShell） */
+  palette: '命令面板',
+  /** 设置面（web AppShell；CLI 侧仍硬编码，见 19.39 登记限制） */
+  settings: '设置面（web 设置中心整页 / CLI 设置面板）',
+} as const
 
 /** cli --help 的键位段（只取 cli/both 条目） */
 export function cliKeymapText(): string {
@@ -73,6 +205,13 @@ export interface EffectiveKeyBinding extends KeyBinding {
   overridden: boolean
   /** true = 用户解除了绑定（各端应显式标"未绑定"，不得静默回落） */
   unbound: boolean
+  /**
+   * 覆盖后**真正生效**的规格；null = 当前没有机器可比对的键，三种成因要分开看：
+   * ① `spec === undefined`（该条目本就没接端侧物理层，改了也不生效）；
+   * ② `unbound`（用户主动解绑）；③ `spec` 有但覆盖键串解析不出（`parseKeySpec` 回 null，
+   * 保存前必须拒——静默当成解绑会让用户以为改成功了）。区分靠 `spec` 与 `unbound` 两个字段。
+   */
+  effectiveSpec: KeySpec | null
 }
 
 /** 键串归一（比较用）：大小写不敏感、去空白，`Ctrl/Cmd+,` 与 `ctrl + ,` 视为一键 */
@@ -107,11 +246,22 @@ export function mergeKeymap(overrides: readonly KeyOverride[] | undefined): {
   }
   const entries = KEYMAP.map<EffectiveKeyBinding>((k) => {
     const next = byAction.get(k.action)
-    if (next === undefined) return { ...k, overridden: false, unbound: false }
+    if (next === undefined) {
+      return { ...k, overridden: false, unbound: false, effectiveSpec: k.spec ?? null }
+    }
     const keys = next.trim()
-    return keys === ''
-      ? { ...k, keys: k.keys, overridden: true, unbound: true }
-      : { ...k, keys, overridden: true, unbound: false }
+    if (keys === '') {
+      // 解绑：保留内置键串只为显示"原本是什么"，effectiveSpec 一律 null（无键可按下）
+      return { ...k, keys: k.keys, overridden: true, unbound: true, effectiveSpec: null }
+    }
+    return {
+      ...k,
+      keys,
+      overridden: true,
+      unbound: false,
+      // 只有本就接了端侧物理层的条目才谈得上"改后生效"；解析不出即 null，由 keymapUnparseable 拒存
+      effectiveSpec: k.spec === undefined ? null : parseKeySpec(keys),
+    }
   })
   const grouped = new Map<string, string[]>()
   for (const e of entries) {
@@ -143,4 +293,26 @@ export function keymapRejected(
   const merged = mergeKeymap(overrides)
   if (merged.conflicts.length === 0 && merged.unknownActions.length === 0) return null
   return { conflicts: merged.conflicts, unknownActions: merged.unknownActions }
+}
+
+/**
+ * 保存前判据之二（19.39 第二批）：**已接端侧物理层**（有 `spec`）的条目被改成解析不出的键串
+ * → 拒存。与 `keymapRejected` 分开是因为语义不同：那边是"这张表不自洽"（撞车/条目已不存在），
+ * 这边是"这一行写不出一个能比对的键"——若放行，端侧比对不到任何按键即等于静默解绑，
+ * 而 UI 上还显示着用户刚输入的那串字，比拒绝更坏。
+ */
+export function keymapUnparseable(
+  overrides: readonly KeyOverride[] | undefined,
+): { action: string; keys: string }[] {
+  return mergeKeymap(overrides)
+    .entries.filter((e) => e.overridden && !e.unbound && e.spec !== undefined && e.effectiveSpec === null)
+    .map((e) => ({ action: e.action, keys: e.keys }))
+}
+
+/** 按 action 取生效规格（端侧物理层比对按键走这一条，不自己从表里挑）；未接规格/已解绑 → null */
+export function effectiveSpecOf(
+  entries: readonly EffectiveKeyBinding[],
+  action: string,
+): KeySpec | null {
+  return entries.find((e) => e.action === action)?.effectiveSpec ?? null
 }

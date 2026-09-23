@@ -55,6 +55,7 @@ export type UiDictionary = {
     groupData: string
     pageGeneral: string
     pageAppearance: string
+    pageKeymap: string
     pageModels: string
     pageDevices: string
     pageBrowser: string
@@ -118,6 +119,7 @@ const ZH: UiDictionary = {
     groupData: '数据与统计',
     pageGeneral: '常规',
     pageAppearance: '外观',
+    pageKeymap: '键位',
     pageModels: '模型设置',
     pageDevices: '设备与配对',
     pageBrowser: '浏览器',
@@ -180,6 +182,7 @@ const EN: UiDictionary = {
     groupData: 'Data & Stats',
     pageGeneral: 'General',
     pageAppearance: 'Appearance',
+    pageKeymap: 'Keymap',
     pageModels: 'Models',
     pageDevices: 'Devices & Pairing',
     pageBrowser: 'Browser',
@@ -244,6 +247,7 @@ function lookup(dict: UiDictionary, key: string): string | undefined {
 export const SETTINGS_PAGE_KEY: Readonly<Partial<Record<string, string>>> = {
   general: 'settings.pageGeneral',
   appearance: 'settings.pageAppearance',
+  keymap: 'settings.pageKeymap',
   models: 'settings.pageModels',
   devices: 'settings.pageDevices',
   browser: 'settings.pageBrowser',
