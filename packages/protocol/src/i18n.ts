@@ -74,6 +74,7 @@ export type UiDictionary = {
     pageIndex: string
     pageUsage: string
     pageAudit: string
+    pageDiagnostics: string
     pageOnboarding: string
     language: string
     languageDesc: string
@@ -136,6 +137,7 @@ const ZH: UiDictionary = {
     pageIndex: '索引库',
     pageUsage: '使用统计',
     pageAudit: '审计日志',
+    pageDiagnostics: '诊断',
     pageOnboarding: '引导',
     language: '界面语言',
     languageDesc: '界面语言（切换即时生效；长尾页面文案随批次迁移）',
@@ -197,6 +199,7 @@ const EN: UiDictionary = {
     pageIndex: 'Index',
     pageUsage: 'Usage',
     pageAudit: 'Audit Log',
+    pageDiagnostics: 'Diagnostics',
     pageOnboarding: 'Onboarding',
     language: 'Language',
     languageDesc: 'Interface language (applies immediately; long-tail pages migrate in later batches)',
@@ -260,5 +263,6 @@ export const SETTINGS_PAGE_KEY: Readonly<Partial<Record<string, string>>> = {
   index: 'settings.pageIndex',
   usage: 'settings.pageUsage',
   audit: 'settings.pageAudit',
+  diagnostics: 'settings.pageDiagnostics',
   onboarding: 'settings.pageOnboarding',
 }

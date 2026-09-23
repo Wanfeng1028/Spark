@@ -27,6 +27,7 @@ import { UsageSettingsPage } from '@/features/settings/UsageSettingsPage'
 import { MemorySettingsPage } from '@/features/settings/MemorySettingsPage'
 import { DevicesSettingsPage } from '@/features/settings/DevicesSettingsPage'
 import { AuditSettingsPage } from '@/features/settings/AuditSettingsPage'
+import { DiagnosticsSettingsPage } from '@/features/settings/DiagnosticsSettingsPage'
 import { PlaceholderPage } from '@/features/settings/PlaceholderPage'
 import { PageHeader } from '@/components/layout/PageHeader'
 
@@ -49,6 +50,7 @@ const READY_COMPONENTS = {
   usage: UsageSettingsPage,
   memory: MemorySettingsPage,
   audit: AuditSettingsPage,
+  diagnostics: DiagnosticsSettingsPage,
   computer: ComputerSettingsPage,
   browser: BrowserSettingsPage,
   sandbox: SandboxSettingsPage,

@@ -994,9 +994,21 @@ export class MockTransport implements Transport {
             },
           }
         : {}),
-      // 界面语言（阶段十九 19.17）：显式 undefined 不覆盖现值
+      // 界面语言与键位覆盖层（阶段十九 19.17 / 19.39）：language 逐字段合并、显式 undefined
+      // 不覆盖现值；keymap **整段替换**（api.ts SettingsUpdate 注记：半路合并会留孤儿绑定）。
+      // 19.22 第三批对等修复：此前本段只保留 language，19.39 的 keymap 写进去即丢——
+      // 与第一批 agents/extensions 同一类病（写成功、重取弹回、零报错）。
       ...(patch.ui !== undefined
-        ? { ui: { language: patch.ui.language ?? prev.ui?.language } }
+        ? {
+            ui: {
+              language: patch.ui.language ?? prev.ui?.language,
+              ...(patch.ui.keymap !== undefined
+                ? { keymap: patch.ui.keymap }
+                : prev.ui?.keymap !== undefined
+                  ? { keymap: prev.ui.keymap }
+                  : {}),
+            },
+          }
         : {}),
       // 语义检索总开关（阶段十九 19.8 / ADR D50 同族热档）：显式 undefined 不覆盖现值
       ...(patch.embedding !== undefined

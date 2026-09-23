@@ -201,4 +201,20 @@ describe('MockTransport 对等修复（阶段十九 19.22 / §1.1）', () => {
       '未知供应商：不在 models.json providers，也不在内置目录',
     )
   })
+
+  test('updateSettings：ui.keymap 整段替换不再丢弃（19.39 尾巴）', async () => {
+    const t = fresh()
+    const first = [{ action: '发送消息', keys: 'Ctrl+Enter' }]
+    await t.updateSettings({ ui: { keymap: { overrides: first } } })
+    expect((await t.getSettings()).ui?.keymap?.overrides).toEqual(first)
+    // 整段替换而非逐条合并——再写一份不同的，旧绑定不得残留（api.ts：半路合并会留孤儿绑定）
+    const second = [{ action: '中断当前 turn', keys: 'Ctrl+C' }]
+    await t.updateSettings({ ui: { keymap: { overrides: second } } })
+    expect((await t.getSettings()).ui?.keymap?.overrides).toEqual(second)
+    // 只改 language 不得把已存 keymap 冲掉（ui 段两键各自独立）
+    await t.updateSettings({ ui: { language: 'en' } })
+    const s = await t.getSettings()
+    expect(s.ui?.keymap?.overrides).toEqual(second)
+    expect(s.ui?.language).toBe('en')
+  })
 })

@@ -1,5 +1,6 @@
 /**
- * 设置中心信息架构（DESIGN §13.D 三组 20 页 + 用户指令“Agent 能力组先迁入权限规则页”）：
+ * 设置中心信息架构（§13.D 原列三组 15 页，余为后续工单增补——本文件是页数的实数来源；
+ * 另含用户指令“Agent 能力组先迁入权限规则页”）：
  * 每页声明 group/id/title/description 与落地状态——ready 页在 SettingsPage 路由
  * 组件内映射真组件，其余统一渲染占位页（标注去向：desktop 特化 / v2 挂池）。
  * 权限规则页为 §13.D 15 页之外的本阶段迁入项（原 SettingsDialog RulesSection）。
@@ -161,6 +162,12 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
         id: 'audit',
         title: '审计日志',
         description: '权限决策 / 规则变更 / 会话回滚的明细流（§13.G 聚合投影）',
+        status: 'ready',
+      },
+      {
+        id: 'diagnostics',
+        title: '诊断',
+        description: '引擎日志尾部查看与导出（级别过滤 + 子串匹配，阶段十九 19.38）',
         status: 'ready',
       },
       {
