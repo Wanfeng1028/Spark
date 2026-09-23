@@ -12,6 +12,7 @@ import { Feather } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '../theme/use-theme'
 import { darkTheme, mobileMetrics } from '../theme/tokens'
+import type { ThemeTokens } from '../theme/tokens'
 
 export type FeatherIconName = ComponentProps<typeof Feather>['name']
 
@@ -63,7 +64,7 @@ export function RoundFloatButton({
       style={[
         styles.floatButton,
         { backgroundColor: t.card },
-        floatShadow(),
+        floatShadowOf(t),
       ]}
     >
       <Feather name={icon} size={20} color={t.foreground} />
@@ -169,7 +170,7 @@ export function MenuCard({
       />
       <View
         accessibilityLabel={accessibleName}
-        style={[styles.menuCard, { backgroundColor: t.card, top, width, marginLeft: -width / 2, borderRadius: radius }, floatShadow()]}
+        style={[styles.menuCard, { backgroundColor: t.card, top, width, marginLeft: -width / 2, borderRadius: radius }, floatShadowOf(t)]}
       >
         {rows.map((row, i) => (
           <View key={row.label}>
@@ -260,9 +261,9 @@ const subtleShadow: StyleProp<ViewStyle> = {
   shadowOffset: { width: 0, height: 1 },
 }
 
-function floatShadow(): StyleProp<ViewStyle> {
+function floatShadowOf(t: ThemeTokens): StyleProp<ViewStyle> {
   // 暗色：不叠阴影层次，靠卡底色差分层（J.0 同律）
-  return useTheme() === darkTheme ? undefined : subtleShadow
+  return t === darkTheme ? undefined : subtleShadow
 }
 
 const styles = StyleSheet.create({
