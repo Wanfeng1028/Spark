@@ -6,7 +6,7 @@
  * 不直接捅 store：那样既测不到装载路径，也会与 boot 的异步写入打架。
  */
 import './dom-stubs'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { KEYMAP_ACTIONS, type KeyOverride } from '@spark/protocol'
@@ -14,6 +14,14 @@ import { TestTransportContext } from '@/transports/context'
 import { MockTransport } from '@/transports/mock'
 import { useUiStore } from '@/stores/ui'
 import { AppShell } from '@/components/layout/AppShell'
+
+/**
+ * 只替掉 cmdk 那一层：Ctrl+K 一旦开面板，CommandPalette 挂载就会调 jsdom 未实现的
+ * `Element.scrollIntoView`（cmdk@1.1.1 抛 TypeError）——那是测试环境缺口，不是产品缺陷。
+ * 本用例要证的是"keydown 查生效键位表并翻转 paletteOpen"，与面板自身渲染无关。
+ * 整棵 web 树里 cmdk 只有一条入口（ui/command.tsx → CommandPalette → AppShell），替掉即全隔离。
+ */
+vi.mock('@/features/palette/CommandPalette', () => ({ CommandPalette: () => null }))
 
 afterEach(() => {
   cleanup()
