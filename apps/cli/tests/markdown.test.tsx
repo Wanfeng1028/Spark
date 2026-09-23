@@ -13,10 +13,13 @@ function frameOf(text: string): string[] {
   return (lastFrame() ?? '').split('\n').map((l) => l.replace(/\s+$/, ''))
 }
 
-/** 竖线分隔符所在显示宽度列（对齐判据） */
+/** 分隔符所在显示宽度列（对齐判据）：表头与表体的分隔符是 `│`，分隔线那一行是 `┼`——
+ *  两者按实现都在"列宽 + 1"同一列（行拼 `' │ '`、线拼 `'─┼─'`），只找 `│` 会把分隔线
+ *  读成 -1，于是"各行同列"永远不成立 */
 function ruleColumn(line: string): number {
-  const at = line.indexOf('│')
-  return at === -1 ? -1 : displayWidth(line.slice(0, at))
+  const hits = ['│', '┼'].map((c) => line.indexOf(c)).filter((i) => i >= 0)
+  if (hits.length === 0) return -1
+  return displayWidth(line.slice(0, Math.min(...hits)))
 }
 
 describe('Markdown 引用块（工单 19.25）', () => {
