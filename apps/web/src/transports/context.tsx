@@ -9,7 +9,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { SessionId, SparkEventEnvelope, Transport } from '@spark/protocol'
-import { notifyTask } from '@/hooks/useNotifyPrefs'
+import { publishTurnSettled, useTaskNotifier } from '@/hooks/useNotifyPrefs'
 
 /** 任务通知触发源事件（阶段十九 19.13）：回合终止/审批待处理三类 */
 const TASK_NOTIFY_EVENTS: ReadonlySet<SparkEventEnvelope['type']> = new Set([
@@ -54,6 +54,9 @@ export const TestTransportContext = TransportContext
 export function TransportProvider({ children }: { children: ReactNode }) {
   const mock = import.meta.env.VITE_SPARK_MOCK === '1'
   const [scenario, setScenarioState] = useState<MockScenario>('normal')
+  // 任务通知订阅点（阶段十九 19.13 接线）：偏好（通知/提示音）与前台静默的判定都在 hook 内，
+  // 本文件只负责在事件流 flush 时派发（见下方 TASK_NOTIFY_EVENTS 判据）
+  useTaskNotifier()
 
   const mockTransport = useMemo(() => (mock ? new MockTransport('normal') : null), [mock])
   // onResync 闭包引用自身实例：ref 容器解开构造期自引用（运行期已赋值）
@@ -97,9 +100,9 @@ export function TransportProvider({ children }: { children: ReactNode }) {
         useSessionStore.getState().applyEvent(e)
         if (e.seq !== undefined) useConnectionStore.getState().noteSeq(e.seq)
       }
-      // 任务通知（阶段十九 19.13）：本帧出现回合终止类事件 → 按本地偏好发通知/提示音
-      // （页面在前台时不发——notifyTask 内部判定 visibilityState）
-      if (batch.some((e) => TASK_NOTIFY_EVENTS.has(e.type))) notifyTask('Spark', '任务有更新')
+      // 任务通知（阶段十九 19.13）：本帧出现回合终止类事件 → 派发一次（每帧至多一条），
+      // 是否发系统通知/放提示音由 useTaskNotifier 按本地偏好与前台状态判定
+      if (batch.some((e) => TASK_NOTIFY_EVENTS.has(e.type))) publishTurnSettled('Spark', '任务有更新')
     }
     const off = transport.onEvent((e) => {
       // AUD-08：该会话回放进行中 → 事件进协调器缓冲（快照提交后补应用），

@@ -26,7 +26,7 @@ import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { useNotifyPrefs } from '@/hooks/useNotifyPrefs'
+import { requestNotifyPermission, useNotifyPrefs } from '@/hooks/useNotifyPrefs'
 import { useI18n } from '@/i18n/context'
 
 const DELIVERY_OPTIONS: { value: Delivery; label: string }[] = [
@@ -249,28 +249,36 @@ function NotificationSection() {
     <SettingGroupCard>
       <SettingRow
         title="任务通知"
-        description="回合完成/失败时发系统通知（浏览器 Notification API；页面在前台时不发）"
+        description="回合结束/审批待处理时发系统通知（浏览器 Notification API；页面在前台时不发）"
       >
         <Switch
           aria-label="任务通知"
           checked={prefs.enabled}
           disabled={unsupported}
-          onChange={(v) => prefs.set({ enabled: v })}
+          onChange={(v) => {
+            if (!v) {
+              prefs.set({ enabled: false })
+              return
+            }
+            // 开启即请求权限：浏览器的用户手势就是这次点击（notifyTask 只在已授权时发，
+            // 未授权不把开关拨上去——不留"开着却永不通知"的假状态）
+            void requestNotifyPermission().then((granted) => {
+              prefs.set({ enabled: granted })
+            })
+          }}
         />
       </SettingRow>
-      <SettingRow title="通知声音" description="通知时播放提示音（WebAudio 合成，无音频文件依赖）">
-        <Switch
-          aria-label="通知声音"
-          checked={prefs.sound}
-          disabled={!prefs.enabled}
-          onChange={(v) => prefs.set({ sound: v })}
-        />
+      <SettingRow
+        title="通知声音"
+        description="回合结束时播放提示音（WebAudio 合成，无音频文件依赖；页面在前台时不响）"
+      >
+        <Switch aria-label="通知声音" checked={prefs.sound} onChange={(v) => prefs.set({ sound: v })} />
       </SettingRow>
       <div className="px-4 pb-3">
         {unsupported && (
           <p className="text-xs leading-relaxed text-muted-foreground">
-            当前环境不支持 Notification API（非安全上下文或浏览器限制）——开关已禁用，
-            提示音仍可用。通知权限在首次触发时由浏览器询问。
+            当前环境不支持 Notification API（非安全上下文或浏览器限制）——通知开关已禁用，
+            提示音不依赖通知权限，仍可用。
           </p>
         )}
         <p className="text-xs leading-relaxed text-muted-foreground">
