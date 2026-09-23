@@ -8,7 +8,7 @@
  *   {"@speed":N}         全局倍率（实际间隔 = delay / speed）
  * sendMessage 不合成事件——脚本预录的 user.message 原样回放（假对话：文本以脚本为准）。
  */
-import { MCP_ENV_MASK, SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
+import { MCP_ENV_MASK, SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED, TRANSCRIBE_ALLOWED_MIME, TRANSCRIBE_MAX_AUDIO_BYTES, base64ByteLength, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
 import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, Delivery, SendMessageOptions, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
@@ -128,6 +128,33 @@ function mockLabelOf(e: SparkEventEnvelope): string {
 function ofType<T extends SparkEventType>(e: SparkEventEnvelope, t: T): e is SparkEventEnvelope<T> {
   return e.type === t
 }
+
+/**
+ * mock 虚拟工作区（19.22 第三批）：`listFs` 与 `listFsTree` 共用这一份。此前两个方法各持一棵
+ * 静态树，对同一目录给出不一致的子项（问 `src/` 里有什么，一个答 README.md/package.json、
+ * 另一个答 main.tsx/app.tsx/components），据 mock 走查调 @ 补全与文件树会得出错误结论。
+ * 路径口径同服务端：相对 cwd、posix 分隔符、不含前导 `./`。
+ */
+const MOCK_FS: readonly { path: string; isDir: boolean }[] = [
+  { path: 'src', isDir: true },
+  { path: 'src/components', isDir: true },
+  { path: 'src/components/InputBox.tsx', isDir: false },
+  { path: 'src/app.tsx', isDir: false },
+  { path: 'src/main.tsx', isDir: false },
+  { path: 'README.md', isDir: false },
+  { path: 'package.json', isDir: false },
+]
+
+const mockFsName = (p: string): string => p.slice(p.lastIndexOf('/') + 1)
+const mockFsParent = (p: string): string => {
+  const i = p.lastIndexOf('/')
+  return i === -1 ? '' : p.slice(0, i)
+}
+/** 目录优先再字典序——镜像 sessions.ts 两处列举的排序口径 */
+const mockFsSort = (
+  a: { name: string; isDir: boolean },
+  b: { name: string; isDir: boolean },
+): number => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1)
 
 export class MockTransport implements Transport {
   private readonly handlers = new Set<(e: SparkEventEnvelope) => void>()
@@ -756,10 +783,14 @@ export class MockTransport implements Transport {
       })
     }
     if (!p.hasKey) {
+      // 文案逐字对齐 engine `model-catalog.ts`。真实通道按 apiKeyEnv 是否为 null 分两种说法，
+      // 但 MOCK_MODELS 里 hasKey=false 的三个供应商 apiKeyEnv 全为 null（openai/anthropic 更早就
+      // 被 !configured 拦下），故只取可达的那一种——不写无夹具可触达的分支。日后若加了
+      // "apiKeyEnv 有值但无 key"的供应商，此处要补上另一句「环境变量 X 未设置」。
       return Promise.resolve({
         provider: providerId,
         ok: false,
-        message: '缺少 API Key：models.json 未设置 apiKeyEnv',
+        message: '缺少 API Key：models.json 未设置 apiKeyEnv，密钥仓亦无条目',
       })
     }
     return Promise.resolve({
@@ -1067,12 +1098,27 @@ export class MockTransport implements Transport {
     return Promise.reject(new Error(`E_NOT_FOUND: 未知命令 /${name}`))
   }
 
-  /** 语音转写对等演示（工单 16.6）：mock 不连真实供应商，返回确定性假文本（禁静默失败） */
+  /** 语音转写对等（工单 16.6 / 19.22 第三批）：护栏判据与引擎共用 protocol 同一份常量，
+   * 故 E_TRANSCRIBE_UNCONFIGURED / _MIME / _TOO_LARGE 三条失败分支在 mock 走查与 e2e 下也可达
+   * ——此前恒返回成功，error-copy 里那三条文案在 web 侧从未被任何通道触发过。
+   * 网络面（SSRF 拦截、上游状态码）无从对等：过护栏后返回确定性假文本。
+   * 供应商缺省口径同引擎（`defaultModel.provider`），此前回的字面量 'mock' 不是任何真实 id。 */
   transcribe(req: TranscribeRequest): Promise<TranscribeResultDto> {
     this.assertNotDisposed()
+    const provider = req.provider ?? MOCK_MODELS.defaultModel.provider
+    const p = MOCK_MODELS.providers.find((x) => x.id === provider)
+    if (p === undefined) {
+      return Promise.reject(new Error(`E_TRANSCRIBE_UNCONFIGURED: 未知的模型供应商：${provider}`))
+    }
+    if (!TRANSCRIBE_ALLOWED_MIME.has(req.audio.mime)) {
+      return Promise.reject(new Error(`E_TRANSCRIBE_MIME: 不支持的录音格式：${req.audio.mime}`))
+    }
+    if (base64ByteLength(req.audio.dataBase64) > TRANSCRIBE_MAX_AUDIO_BYTES) {
+      return Promise.reject(new Error('E_TRANSCRIBE_TOO_LARGE: 录音超过 10MB 上限'))
+    }
     return Promise.resolve({
       text: '（mock 转写演示）这是一段语音听写的确定性假文本，接入真实后端后由供应商转写。',
-      provider: req.provider ?? 'mock',
+      provider,
       model: 'mock-transcribe',
     })
   }
@@ -1630,24 +1676,23 @@ export class MockTransport implements Transport {
     return Promise.resolve(hits.slice(0, limit ?? 20))
   }
 
-  /** 目录列举（工单 10.53）：mock 固定小树——web @ 菜单壳的占位数据源（真实列举见 server /api/sessions/:id/fs） */
-  /** 递归文件树（工单 12.5 mock 对等）：静态示例树（mock 无真实 fs；UI 开发用） */
-  listFsTree(_sessionId: SessionId, path = ''): Promise<FsTreeDto> {
-    const entries: FsEntryDto[] = [
-      { name: 'src', path: 'src', isDir: true },
-      { name: 'main.tsx', path: 'src/main.tsx', isDir: false },
-      { name: 'app.tsx', path: 'src/app.tsx', isDir: false },
-      { name: 'components', path: 'src/components', isDir: true },
-      { name: 'InputBox.tsx', path: 'src/components/InputBox.tsx', isDir: false },
-      { name: 'package.json', path: 'package.json', isDir: false },
-      { name: 'README.md', path: 'README.md', isDir: false },
-    ]
-    const prefix = path === '' ? '' : path + '/'
-    return Promise.resolve({
-      path,
-      entries: entries.filter((e) => e.path.startsWith(prefix)),
-      truncated: false,
-    })
+  /** 递归文件树（工单 12.5 mock 对等；判据镜像 server `sessions.ts` 的 `/fs/tree`）：
+   * 未知会话拒执、越出 cwd 抛 E_PATH_OUTSIDE——该端点与 `/fs` 不同（后者越界回空清单不报错），
+   * 这处不对称是服务端既有语义，mock 照抄而不是"统一成更合理的一种"。
+   * `truncated` 恒 false：虚拟树够不着服务端 4 层/500 条上限。 */
+  listFsTree(sessionId: SessionId, path = ''): Promise<FsTreeDto> {
+    this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId && !this.forkChildren.some((f) => f.dto.id === sessionId)) {
+      return Promise.reject(new Error(`E_NOT_FOUND: 会话不存在：${sessionId}`))
+    }
+    if (path.split('/').includes('..')) {
+      return Promise.reject(new Error(`E_PATH_OUTSIDE: 路径 ${path} 越出会话工作目录`))
+    }
+    const prefix = path === '' ? '' : `${path}/`
+    const entries: FsEntryDto[] = MOCK_FS.filter((e) => e.path.startsWith(prefix))
+      .map((e) => ({ name: mockFsName(e.path), path: e.path, isDir: e.isDir }))
+      .sort(mockFsSort)
+    return Promise.resolve({ path, entries, truncated: false })
   }
 
   private readonly attachmentStore = new Map<string, { mime: string; bytes: Buffer }>()
@@ -1701,20 +1746,26 @@ export class MockTransport implements Transport {
     return Promise.resolve({ id, file: fileKey, mime: file.mime, size: file.bytes.length, name: file.name })
   }
 
-  listFs(_sessionId: SessionId, path = ''): Promise<FsListDto> {
+  /** 目录列举（工单 10.53 mock 对等；判据镜像 server `sessions.ts` 的 `/fs`）：反斜杠归一 →
+   * 末段作前缀过滤、列举其父目录（此前注释声称镜像前缀语义，实际根本没过滤）。
+   * **越界与不存在的目录一律回空清单、不报错**——补全 UI 不因输入中断，也不泄露 cwd 外任何项；
+   * 与 listFsTree 的抛错口径刻意不同，两处不对称都照抄服务端。 */
+  listFs(sessionId: SessionId, path = ''): Promise<FsListDto> {
     this.assertNotDisposed()
-    // 镜像服务端语义：path 末段为前缀，列举其父目录；mock 只回固定三项（目录优先）
-    const slash = path.lastIndexOf('/')
-    const dir = slash === -1 ? '' : path.slice(0, slash)
-    const base = dir === '' ? '' : `${dir}/`
-    return Promise.resolve({
-      path: dir,
-      entries: [
-        { name: 'src', path: `${base}src`, isDir: true },
-        { name: 'README.md', path: `${base}README.md`, isDir: false },
-        { name: 'package.json', path: `${base}package.json`, isDir: false },
-      ],
-    })
+    if (sessionId !== this.script.sessionId && !this.forkChildren.some((f) => f.dto.id === sessionId)) {
+      return Promise.reject(new Error(`E_NOT_FOUND: 会话不存在：${sessionId}`))
+    }
+    const rel = path.replace(/\\/g, '/')
+    const slash = rel.lastIndexOf('/')
+    const dir = slash === -1 ? '' : rel.slice(0, slash)
+    const prefix = slash === -1 ? rel : rel.slice(slash + 1)
+    if (dir.split('/').includes('..')) return Promise.resolve({ path: dir, entries: [] })
+    const entries: FsEntryDto[] = MOCK_FS.filter(
+      (e) => mockFsParent(e.path) === dir && mockFsName(e.path).startsWith(prefix),
+    )
+      .map((e) => ({ name: mockFsName(e.path), path: e.path, isDir: e.isDir }))
+      .sort(mockFsSort)
+    return Promise.resolve({ path: dir, entries })
   }
 
   fireAutomationWebhook(id: string): Promise<void> {

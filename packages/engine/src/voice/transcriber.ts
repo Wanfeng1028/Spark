@@ -7,25 +7,11 @@
  * 音频纪律：音频本体 live 不落盘（不进 JSONL/日志/模型上下文）——只有转写文本返回给端侧，
  * 用户主动发送后才经 user.message 进模型历史（surface 纪律双面成立）。
  */
+import { TRANSCRIBE_ALLOWED_MIME, TRANSCRIBE_MAX_AUDIO_BYTES, base64ByteLength } from '@spark/protocol'
 import { resolveApiKey } from '../secrets/store.js'
 import type { SecretStore } from '../secrets/store.js'
 import type { ModelsConfig } from '../config.js'
 import { assertPublicUrl, type PublicUrlDeps } from './ssrf.js'
-
-/** 音频字节上限（10MB，与附件 12.2a 同量级护栏；base64 前口径） */
-const MAX_AUDIO_BYTES = 10 * 1024 * 1024
-
-/** 转写容器白名单（OpenAI 兼容端点公开支持的 mime） */
-const ALLOWED_MIME = new Set([
-  'audio/webm',
-  'audio/mp4',
-  'audio/mpeg',
-  'audio/mpga',
-  'audio/m4a',
-  'audio/ogg',
-  'audio/wav',
-  'audio/x-wav',
-])
 
 /** mime → 上传文件扩展名（FormData 文件名后缀；provider 按后缀嗅探格式） */
 const MIME_EXT: Record<string, string> = {
@@ -64,13 +50,6 @@ export interface TranscribeOutput {
   model: string
 }
 
-function base64Bytes(dataBase64: string): number {
-  // base64 长度 → 原始字节数（去 padding；3/4 比例，够护栏判断用，不做完整解码）
-  const cleaned = dataBase64.replace(/[^A-Za-z0-9+/=]/g, '')
-  const padding = cleaned.endsWith('==') ? 2 : cleaned.endsWith('=') ? 1 : 0
-  return Math.max(0, Math.floor((cleaned.length * 3) / 4) - padding)
-}
-
 /** 转写主流程：配置解析 → mime/体积护栏 → SSRF 校验 → multipart 上传 → 解析 text */
 export async function transcribeAudio(
   deps: TranscribeDeps,
@@ -91,10 +70,10 @@ export async function transcribeAudio(
   }
   const model = p.transcription?.model ?? 'whisper-1'
 
-  if (!ALLOWED_MIME.has(input.mime)) {
+  if (!TRANSCRIBE_ALLOWED_MIME.has(input.mime)) {
     throw new Error(`E_TRANSCRIBE_MIME: 不支持的录音格式：${input.mime}`)
   }
-  if (base64Bytes(input.dataBase64) > MAX_AUDIO_BYTES) {
+  if (base64ByteLength(input.dataBase64) > TRANSCRIBE_MAX_AUDIO_BYTES) {
     throw new Error('E_TRANSCRIBE_TOO_LARGE: 录音超过 10MB 上限')
   }
 

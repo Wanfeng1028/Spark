@@ -3,7 +3,8 @@
  * 行为对齐单测——此前 mock 丢 patch/opts/不校验 id，导致"mock 走查绿、真实通道红"。
  * 覆盖：updateSettings 的 agents/extensions 段不再丢弃、createSession 接 opts、
  * updateMcpConfig 内存持久（读回一致）、deleteSession/sendMessage 未知 id 拒执、
- * getMcpConfig 凭据掩码回显（19.22 第二批）。
+ * getMcpConfig 凭据掩码回显（第二批）、listFs/listFsTree 统一虚拟树与前缀过滤与越界口径、
+ * transcribe 三条护栏分支、testModelProvider 文案对齐引擎（第三批）。
  */
 import { describe, expect, test } from 'vitest'
 import { MCP_ENV_MASK } from '@spark/protocol'
@@ -128,5 +129,76 @@ describe('MockTransport 对等修复（阶段十九 19.22 / §1.1）', () => {
     expect((await t.listSessions())[0]?.id).toBe(target.id)
     expect((await t.pinSession(target.id, false)).pinned).toBeUndefined()
     await expect(t.pinSession('ses_0000000000000000000000000000ff', true)).rejects.toThrow(/E_NOT_FOUND/)
+  })
+
+  // ---- 第三批：listFs / listFsTree / transcribe / testModelProvider ----
+
+  test('listFs 与 listFsTree 对同一目录给出同一批子项（此前各持一棵静态树、互相矛盾）', async () => {
+    const t = fresh()
+    const sid = (await t.listSessions())[0]!.id
+    const flat = await t.listFs(sid, 'src/')
+    const tree = await t.listFsTree(sid, 'src')
+    expect(flat.path).toBe('src')
+    expect(tree.path).toBe('src')
+    // 目录优先再字典序——两端同一排序口径（mockFsSort）
+    expect(tree.entries.map((e) => e.name)).toEqual(['components', 'app.tsx', 'main.tsx'])
+    expect(flat.entries.map((e) => e.name)).toEqual(tree.entries.map((e) => e.name))
+  })
+
+  test('listFs：末段作前缀过滤（此前注释声称镜像服务端、实际根本不过滤）+ 反斜杠归一', async () => {
+    const t = fresh()
+    const sid = (await t.listSessions())[0]!.id
+    expect((await t.listFs(sid, 'src/a')).entries.map((e) => e.name)).toEqual(['app.tsx'])
+    expect((await t.listFs(sid, 'src\\a')).entries.map((e) => e.name)).toEqual(['app.tsx'])
+    // 无斜杠 = 末段整体当前缀、列举根目录（server sessions.ts:121-123 同口径）
+    expect((await t.listFs(sid, 'src')).entries.map((e) => e.name)).toEqual(['src'])
+  })
+
+  test('越界路径：listFs 回空清单不报错，listFsTree 抛 E_PATH_OUTSIDE（服务端两处口径本就不同）', async () => {
+    const t = fresh()
+    const sid = (await t.listSessions())[0]!.id
+    expect(await t.listFs(sid, '../etc')).toEqual({ path: '..', entries: [] })
+    await expect(t.listFsTree(sid, '../etc')).rejects.toThrow(/E_PATH_OUTSIDE/)
+  })
+
+  test('fs 两端：未知会话拒执；dispose 后拒执（listFsTree 此前连 assertNotDisposed 都没有）', async () => {
+    const t = fresh()
+    const nope = 'ses_0000000000000000000000000000ff' as never
+    await expect(t.listFs(nope, '')).rejects.toThrow(/E_NOT_FOUND/)
+    await expect(t.listFsTree(nope, '')).rejects.toThrow(/E_NOT_FOUND/)
+    const t2 = fresh()
+    t2.dispose()
+    // assertNotDisposed 是同步 throw（非 async 方法），故用 toThrow 而非 rejects
+    expect(() => t2.listFsTree(nope, '')).toThrow(/E_MOCK_DISPOSED/)
+  })
+
+  test('transcribe：三条护栏分支可达（此前恒成功，E_TRANSCRIBE_* 文案在 web 侧无从触发）', async () => {
+    const t = fresh()
+    const wav = { mime: 'audio/wav', dataBase64: 'AAAA' }
+    // 供应商缺省 = defaultModel.provider；此前回字面量 'mock'，不是任何真实 provider id
+    expect(await t.transcribe({ audio: wav })).toMatchObject({ provider: 'deepseek', model: 'mock-transcribe' })
+    await expect(t.transcribe({ provider: 'no-such', audio: wav })).rejects.toThrow(/E_TRANSCRIBE_UNCONFIGURED/)
+    await expect(t.transcribe({ audio: { mime: 'audio/flac', dataBase64: 'AAAA' } })).rejects.toThrow(
+      /E_TRANSCRIBE_MIME/,
+    )
+    // 上限是 base64 前的 10MB ⇒ 需约 14M 字符。这条开销刻意：要证的正是"体积分支可达"，
+    // 而判据与引擎共用 protocol 同一份常量（TRANSCRIBE_MAX_AUDIO_BYTES），不是 mock 另写一个数。
+    await expect(
+      t.transcribe({ audio: { mime: 'audio/wav', dataBase64: 'A'.repeat(14_000_000) } }),
+    ).rejects.toThrow(/E_TRANSCRIBE_TOO_LARGE/)
+  })
+
+  test('testModelProvider：三条失败文案与 engine model-catalog 逐字一致', async () => {
+    const t = fresh()
+    // ollama-local = configured:true + hasKey:false + apiKeyEnv:null，是唯一能走到 !hasKey 的夹具
+    expect(await t.testModelProvider('ollama-local')).toEqual({
+      provider: 'ollama-local',
+      ok: false,
+      message: '缺少 API Key：models.json 未设置 apiKeyEnv，密钥仓亦无条目',
+    })
+    expect((await t.testModelProvider('openai')).message).toBe('未配置：该供应商未写入 models.json providers')
+    expect((await t.testModelProvider('no-such')).message).toBe(
+      '未知供应商：不在 models.json providers，也不在内置目录',
+    )
   })
 })

@@ -1127,15 +1127,39 @@ export const AttachmentDtoSchema = z.strictObject({
 })
 export type AttachmentDto = z.infer<typeof AttachmentDtoSchema>
 
+/** 转写音频护栏（工单 16.6；19.22 第三批自 engine `voice/transcriber.ts` 下沉）：二者本就是
+ * TranscribeRequestSchema 的成文约束。落 protocol 后引擎与 web mock 共用同一份判据——端不得
+ * 依赖 engine，此前 mock 拿不到白名单与上限，只能恒返回成功、失败分支零对等（§1.1）。 */
+export const TRANSCRIBE_MAX_AUDIO_BYTES = 10 * 1024 * 1024
+
+/** 转写容器白名单（OpenAI 兼容端点公开支持的 mime） */
+export const TRANSCRIBE_ALLOWED_MIME: ReadonlySet<string> = new Set([
+  'audio/webm',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/mpga',
+  'audio/m4a',
+  'audio/ogg',
+  'audio/wav',
+  'audio/x-wav',
+])
+
+/** base64 串 → 原始字节数（3/4 比例去 padding；够护栏判断用，不做完整解码） */
+export function base64ByteLength(dataBase64: string): number {
+  const cleaned = dataBase64.replace(/[^A-Za-z0-9+/=]/g, '')
+  const padding = cleaned.endsWith('==') ? 2 : cleaned.endsWith('=') ? 1 : 0
+  return Math.max(0, Math.floor((cleaned.length * 3) / 4) - padding)
+}
+
 /** 语音听写请求（工单 16.6）：音频 base64 直传，转写在引擎侧走 OpenAI 兼容 /audio/transcriptions；
  * 音频本体 live 不落盘（④）——只有用户把转写文本发出后才进 user.message */
 export const TranscribeRequestSchema = z.strictObject({
   /** 供应商（缺省 = 引擎 defaultModel.provider）；须配置 baseUrl/transcription 端点 */
   provider: z.string().min(1).optional(),
   audio: z.strictObject({
-    /** 采集容器 mime（webm/mp4/wav/ogg/mpeg/m4a；白名单校验在引擎侧） */
+    /** 采集容器 mime（白名单 = TRANSCRIBE_ALLOWED_MIME，校验在引擎侧） */
     mime: z.string().min(1),
-    /** ≤10MB（base64 前的字节数；与附件同一量级护栏） */
+    /** ≤ TRANSCRIBE_MAX_AUDIO_BYTES（base64 前的字节数；与附件同一量级护栏） */
     dataBase64: z.string().min(1),
   }),
 })

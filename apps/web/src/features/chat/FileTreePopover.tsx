@@ -48,8 +48,10 @@ export function FileTreePopover({
       }
       setExpanded((prev) => new Set(prev).add(entry.path))
       if (!children.has(entry.path)) {
+        // `/fs` 的成文语义是"末段作前缀过滤、列举其父目录"（server sessions.ts:64-66），
+        // 故展开目录必须补尾斜杠——传 'src' 会把 src 当前缀去列根目录、只回到 src 自己。
         void transport
-          .listFs(sessionId, entry.path)
+          .listFs(sessionId, `${entry.path}/`)
           .then((r) => setChildren((prev) => new Map(prev).set(entry.path, r.entries)))
           .catch(() => setChildren((prev) => new Map(prev).set(entry.path, [])))
       }
