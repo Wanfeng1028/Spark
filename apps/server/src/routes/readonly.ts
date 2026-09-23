@@ -212,10 +212,13 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
     )
   })
 
-  // 会话全文搜索（阶段七工单 7.13 / H12）：用户/助手消息 + 会话标题入 FTS5
+  // 会话全文搜索（阶段七工单 7.13 / H12）：用户/助手消息 + 会话标题入 FTS5。
+  // searchSessions 是 async（19.8 语义合流），必须 await 后再 send——Fastify v5 的
+  // reply.send 不解包 thenable，直接把 Promise 序列化会落成 `{}`（判例：models.ts 的
+  // `reply.send(await engine.testModel(...))`）
   app.get('/api/search', async (req, reply) => {
     const q = parseOr400(SearchQuery, req.query)
-    return reply.send(engine.searchSessions(q.q, q.limit ?? 20))
+    return reply.send(await engine.searchSessions(q.q, q.limit ?? 20))
   })
 
   // 浏览器截图供图（阶段七工单 7.10 / H09 / ADR D27）：
