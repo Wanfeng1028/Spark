@@ -161,7 +161,8 @@ describe('CLI 面板管理态（阶段十九 19.24）', () => {
         })}
       />,
     )
-    expect(selected(h)).toContain('reviewer')
+    // 诊断用（定位后随修复一并撤掉）：把真实帧打进失败信息，看此刻面板停在装载中还是有行
+    expect(selected(h), `帧=<<<${h.frame()}>>>`).toContain('reviewer')
     h.stdin.write('\r')
     await tick()
     const patch = updateSettings.mock.calls[0]?.[0]

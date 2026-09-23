@@ -104,7 +104,8 @@ beforeEach(() => {
 describe('SettingsPanel（阶段十九 19.23）', () => {
   it('装载：渲染字段值、重启标注与只读项说明', async () => {
     const h = await open(makeTransport().transport)
-    expect(selected(h)).toContain('默认模型')
+    // 诊断用（定位后随修复撤掉）：真实帧进失败信息
+    expect(selected(h), `帧=<<<${h.frame()}>>>`).toContain('默认模型')
     expect(h.frame()).toContain('每回合最大步数')
     expect(h.frame()).toContain('24')
     // restartRequired 单源标注（engine.toolTimeoutMs 在名单内）
