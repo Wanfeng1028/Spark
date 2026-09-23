@@ -32,7 +32,13 @@ import type { ReactElement } from 'react'
 
 const SID = ids.session('ses_0000000000000000000000000000a1')
 
-const tick = () => new Promise((r) => setTimeout(r, 5))
+/**
+ * 等一帧落地。Ink 7 按 maxFps 节流渲染（ink.js:198 `renderThrottleMs = ceil(1000/maxFps)`，
+ * 默认约 34ms），`render()` 只保证 leading 帧；面板的行来自 useLoad 的 promise → setState，
+ * 其帧落在节流窗口之后。等 5ms 只能看到"装载中"那一帧，于是断言读到空行、Enter 找不到目标。
+ * 150ms ≈ 四帧窗口，容得下"写入 → 重取 → 再渲染"这条链，最慢也只为几毫秒的余量买单。
+ */
+const tick = () => new Promise((r) => setTimeout(r, 150))
 
 interface H {
   stdin: { write: (s: string) => void }

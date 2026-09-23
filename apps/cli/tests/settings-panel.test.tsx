@@ -62,7 +62,13 @@ interface Harness {
   frame: () => string
 }
 
-const tick = () => new Promise((r) => setTimeout(r, 5))
+/**
+ * 等一帧落地：Ink 7 按 maxFps 节流渲染（ink.js:198 `renderThrottleMs = ceil(1000/maxFps)`
+ * ≈ 34ms），`render()` 只保证 leading 帧；本面板的字段值来自 GET /api/settings 的 promise，
+ * 其帧落在节流窗口之后。等 5ms 会一直停在"装载中"，于是行找不到、Enter 不触发写。
+ * 150ms ≈ 四帧窗口，容得下"编辑 → 提交 → 重取回显"这条链。
+ */
+const tick = () => new Promise((r) => setTimeout(r, 150))
 
 async function open(transport: Transport): Promise<Harness> {
   const { stdin, lastFrame } = render(<SettingsPanel transport={transport} />)
