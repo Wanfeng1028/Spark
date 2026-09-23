@@ -7,6 +7,7 @@
 import './dom-stubs'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { SettingsDto } from '@spark/protocol'
 import { TestTransportContext } from '@/transports/context'
 import { MockTransport } from '@/transports/mock'
 import { SandboxSettingsPage } from '@/features/settings/SandboxSettingsPage'
@@ -56,10 +57,15 @@ describe('SandboxSettingsPage（阶段十九 19.7 / ADR D50）', () => {
     const area = screen.getByLabelText<HTMLTextAreaElement>('域名清单')
     fireEvent.change(area, { target: { value: 'github.com\n*.npmjs.org' } })
     fireEvent.click(screen.getByRole('button', { name: '保存清单' }))
-    await waitFor(async () => {
-      const settings = await transport.getSettings()
-      expect(settings.sandbox?.network.mode).toBe('allowlist') // 模式未被清单保存清掉
-      expect(settings.sandbox?.network.allowlist).toEqual(['github.com', '*.npmjs.org'])
-    })
+    // 不写 waitFor(async () => {...})：回调返 promise 时断言脱离等待链，失败会漂到别的
+    // 用例上（94b92a2 即把这条的 [] 记成了本用例的失败）。改成显式轮询服务端回显。
+    let saved: SettingsDto | undefined
+    for (let i = 0; i < 20; i += 1) {
+      saved = await transport.getSettings()
+      if (saved.sandbox?.network.allowlist.length === 2) break
+      await new Promise((r) => setTimeout(r, 25))
+    }
+    expect(saved?.sandbox?.network.mode).toBe('allowlist') // 模式未被清单保存清掉
+    expect(saved?.sandbox?.network.allowlist).toEqual(['github.com', '*.npmjs.org'])
   })
 })
