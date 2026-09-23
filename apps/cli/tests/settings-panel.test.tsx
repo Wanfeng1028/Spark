@@ -143,7 +143,14 @@ describe('SettingsPanel（阶段十九 19.23）', () => {
     expect(patch?.engine?.['maxStepsPerTurn']).toBe(99)
     // 整段回传（不受服务端合并语义牵连）+ 未变动字段保持现值
     expect(patch?.engine?.['maxToolParallel']).toBe(4)
-    expect(getSettings.mock.calls.length).toBe(2)
+    // 禁乐观更新：写完必以服务端回显重读一次。重读要等 revision 变更后的 effect 跑完，
+    // 单拍断计数会读到 effect 之前的计数——改为等计数增长，40 拍仍不增长即如实失败。
+    const before = getSettings.mock.calls.length
+    for (let i = 0; i < 40; i += 1) {
+      if (getSettings.mock.calls.length > before) break
+      await tick()
+    }
+    expect(getSettings.mock.calls.length, '提交后未按服务端回显重读').toBe(before + 1)
   })
 
   it('非法数值不发写请求：端侧预校验拦下并如实提示', async () => {
