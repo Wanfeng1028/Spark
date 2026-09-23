@@ -1,6 +1,7 @@
 // ESLint flat config——typescript-eslint 严格档（doc/02 §3.1：CI 四关之一）
 import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
+import reactHooks from 'eslint-plugin-react-hooks'
 
 export default tseslint.config(
   {
@@ -106,6 +107,20 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+    },
+  },
+  {
+    // React Hooks 规则只挂四个 React 端（web/cli/mobile/miniapp）——desktop 与 server 无 tsx、
+    // 也不依赖 react，official/ 已在 ignores 内由 .github/workflows/official.yml 独立把守。
+    // 只取插件的两条基础规则，不用 configs.flat.recommended：后者会连带打开 React Compiler
+    // 的十余条规则，那是一次独立的口径决策，不在"补上 hooks 零覆盖"这一步里夹带。
+    // exhaustive-deps 先记 warn（CI 的 `pnpm lint` 不带 --max-warnings，warn 不红），
+    // 目的是先让日志给出存量积压量级，再分批升级为 error。
+    files: ['apps/{web,cli,mobile,miniapp}/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
     },
   },
 )
