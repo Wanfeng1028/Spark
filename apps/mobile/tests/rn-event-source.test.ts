@@ -6,11 +6,15 @@
  * react-native-sse 以可回放事件的 Mock 类替换（不落真实网络）；重连状态机已下沉
  * SessionStreamCore（packages/protocol/tests/session-stream-core.test.ts 测内核契约），
  * 本文件只测 RN 侧的平台接线（库事件 → 内核事实上报）。
+ * 建流一律经 `openSource`，afterEach 统一 dispose——见下方登记处注释的 teardown 纪律。
  */
 import { ids } from '@spark/protocol'
 import EventSource from 'react-native-sse'
 import { RnSessionEventSource } from '../src/transport/rn-event-source'
-import type { RnConnectionStatus } from '../src/transport/rn-event-source'
+import type {
+  RnConnectionStatus,
+  RnSessionEventSourceOptions,
+} from '../src/transport/rn-event-source'
 
 jest.mock('react-native-sse', () => {
   // jest.mock 工厂禁止引用外部变量（参数名也扫描）——一律 mock 前缀
@@ -69,15 +73,33 @@ async function tick(ms = 10): Promise<void> {
   })
 }
 
+/**
+ * 建流登记处：afterEach 统一 dispose。
+ * 不 dispose 的后果不只是"留着一条在途连接"——SessionStreamCore 的重连循环会一直
+ * 挂在那条永不 resolve 的 connectOnce promise 上（用例结束后仍能推进状态机），
+ * 真机下底层是 react-native-sse 的 XHR（自带约 5s 轮询重开的定时器）。
+ */
+const opened: RnSessionEventSource[] = []
+
+function openSource(opts: RnSessionEventSourceOptions): RnSessionEventSource {
+  const src = new RnSessionEventSource(opts)
+  opened.push(src)
+  return src
+}
+
 beforeEach(() => {
   MockEventSource.reset()
+})
+
+afterEach(() => {
+  for (const src of opened.splice(0)) src.dispose()
 })
 
 describe('G1：dispose 关闭底层连接', () => {
   it('连接 open 且空闲时，dispose 即刻 es.close()，回调不再驱动状态机', async () => {
     const statuses: RnConnectionStatus[] = []
     const events: string[] = []
-    const src = new RnSessionEventSource({
+    const src = openSource({
       baseUrl: 'http://h:8080',
       sessionId: SID,
       backoffMs: [0],
@@ -103,7 +125,7 @@ describe('G1：dispose 关闭底层连接', () => {
 
   it('连接尚未 open 时 dispose 同样关闭（无僵尸等待）', async () => {
     const statuses: RnConnectionStatus[] = []
-    const src = new RnSessionEventSource({
+    const src = openSource({
       baseUrl: 'http://h:8080',
       sessionId: SID,
       backoffMs: [0],
@@ -122,7 +144,7 @@ describe('G1：dispose 关闭底层连接', () => {
 describe('G4：库轮询重开的状态诚实补报', () => {
   it('同实例第二次 open 补报 reconnecting → open', () => {
     const statuses: RnConnectionStatus[] = []
-    new RnSessionEventSource({
+    openSource({
       baseUrl: 'http://h:8080',
       sessionId: SID,
       backoffMs: [0],
@@ -141,7 +163,7 @@ describe('G5：鉴权失败收敛（去重 + 终态）', () => {
   it('连续 3 次 401：onError 只上抛一次，第 3 次后进终态不再重连', async () => {
     const errors: string[] = []
     const statuses: RnConnectionStatus[] = []
-    new RnSessionEventSource({
+    openSource({
       baseUrl: 'http://h:8080',
       sessionId: SID,
       backoffMs: [0],
@@ -164,7 +186,7 @@ describe('G5：鉴权失败收敛（去重 + 终态）', () => {
 
   it('重连成功后复位：再次鉴权失败可再次上抛', async () => {
     const errors: string[] = []
-    new RnSessionEventSource({
+    openSource({
       baseUrl: 'http://h:8080',
       sessionId: SID,
       backoffMs: [0],

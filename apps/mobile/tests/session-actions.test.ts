@@ -2,6 +2,11 @@
  * 会话菜单动作控制器单测（工单 19.27）：调用序列（用到哪个 Transport 方法、参数是什么）、
  * 单飞闸门（连点不产生第二次请求）、失败闭合（不写成功态、不假报）、
  * 反馈票型表只在请求成功后更新（禁乐观更新）。
+ *
+ * teardown 纪律：notice 自清定时器（本文件给 60s）是**活动句柄**——用例结束不 dispose
+ * 就把它留在事件循环上，jest worker 收尾时等不到进程退出，只能被强制 kill
+ * （CI 的 "A worker process has failed to exit gracefully and has been force exited"
+ * 即此）。控制器一律经 `created` 登记、由 afterEach 统一 dispose，不靠每个用例记得关。
  */
 import type {
   FeedbackEntryDto,
@@ -12,6 +17,7 @@ import { errorMessageOf, ids } from '@spark/protocol'
 import {
   createSessionActionsController,
   votesOf,
+  type SessionActions,
   type SessionActionsRest,
   type SessionActionsSnapshot,
 } from '../src/session/session-actions'
@@ -66,6 +72,13 @@ function baseMocks() {
 
 type Mocks = ReturnType<typeof baseMocks>
 
+/** 用例创建的控制器登记处：afterEach 统一 dispose（见文件头 teardown 纪律） */
+const created: SessionActions[] = []
+
+afterEach(() => {
+  for (const actions of created.splice(0)) actions.dispose()
+})
+
 function harness(over: Partial<Mocks> = {}) {
   const mocks = { ...baseMocks(), ...over }
   const transport: SessionActionsRest = mocks
@@ -78,6 +91,7 @@ function harness(over: Partial<Mocks> = {}) {
     onChanged: (kind, dto) => changed.push([kind, dto]),
     noticeMs: NOTICE_MS,
   })
+  created.push(actions)
   return {
     mocks,
     snapshots,
@@ -240,6 +254,7 @@ describe('会话菜单动作——失败闭合与单飞闸门', () => {
       onUpdate: (s) => snapshots.push(s),
       noticeMs: NOTICE_MS,
     })
+    created.push(actions)
     expect(await actions.setArchived(true)).toBeNull()
     expect(snapshots[snapshots.length - 1]?.notice).toBe('未配置服务器：请先在设置页完成配对')
   })
@@ -255,6 +270,24 @@ describe('会话菜单动作——失败闭合与单飞闸门', () => {
     expect(h.last()?.preset).toBeNull()
     expect(h.last()?.presetUnavailable).toBe(true)
     expect(h.last()?.notice).toBe(errorMessageOf(new Error(message)))
+  })
+})
+
+describe('会话菜单动作——dispose 收口（进程句柄纪律）', () => {
+  // 假定时器只为把"还剩几枚待发定时器"变成可断言的量（本文件其余用例仍走真定时器）：
+  // 只在本例内开关，不删不改任何断言——notice 定时器在 dispose 之前确实挂在事件循环上。
+  it('notice 挂着自清定时器；dispose 后归零（不留拖住 worker 收尾的活动句柄）', async () => {
+    jest.useFakeTimers()
+    try {
+      const h = harness()
+      expect(await h.actions.rename('   ')).toBeNull() // 空白标题：只走 setNotice，不发请求
+      expect(h.last()?.notice).toBe('标题不能为空')
+      expect(jest.getTimerCount()).toBe(1)
+      h.actions.dispose()
+      expect(jest.getTimerCount()).toBe(0)
+    } finally {
+      jest.useRealTimers()
+    }
   })
 })
 

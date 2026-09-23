@@ -1,6 +1,10 @@
 /**
  * 会话列表控制器单测（工单 19.27）：筛选档→数据源映射（已归档档必须真的带
  * `archived=true` 去请求）、失败闭合（旧快照不丢）、切档重取、就地校正、dispose 静默。
+ *
+ * teardown 纪律：notice 自清定时器（本文件给 60s）是**活动句柄**，用例结束不 dispose
+ * 就会留在事件循环上拖住 jest worker 收尾（CI 的 force-exit 告警即由此而来）。
+ * 控制器一律经 `created` 登记、由 afterEach 统一 dispose——收口只有一处，不靠每个用例记得关。
  */
 import type { SessionDto, Transport } from '@spark/protocol'
 import { ids } from '@spark/protocol'
@@ -8,6 +12,7 @@ import {
   createSessionListController,
   groupSessions,
   projectNameOf,
+  type SessionListController,
   type SessionListSnapshot,
 } from '../src/session/session-list'
 
@@ -39,6 +44,13 @@ function restOf(transport: Pick<Transport, 'listSessions'>): () => Pick<Transpor
   return () => transport
 }
 
+/** 用例创建的控制器登记处：afterEach 统一 dispose（见文件头 teardown 纪律） */
+const created: SessionListController[] = []
+
+afterEach(() => {
+  for (const controller of created.splice(0)) controller.dispose()
+})
+
 function harness(initial: SessionDto[] = []) {
   const snapshots: SessionListSnapshot[] = []
   const page = initial
@@ -51,6 +63,7 @@ function harness(initial: SessionDto[] = []) {
     unconfiguredNotice: '未配置服务器',
     noticeMs: NOTICE_MS,
   })
+  created.push(controller)
   return {
     controller,
     snapshots,
@@ -67,7 +80,6 @@ describe('session-list 控制器——筛选档与数据源', () => {
     expect(h.last()?.sessions).toHaveLength(1)
     expect(h.last()?.loaded).toBe(true)
     expect(h.last()?.notice).toBeNull()
-    h.controller.dispose()
   })
 
   it('切到"已归档"档即以 archived=true 重取（V2-23 接通，不再是置灰占位）', async () => {
@@ -78,7 +90,6 @@ describe('session-list 控制器——筛选档与数据源', () => {
     expect(h.listSessions).toHaveBeenLastCalledWith(true)
     expect(h.last()?.filter).toBe('archived')
     expect(h.last()?.sessions.map((s) => s.title)).toEqual(['archived-1'])
-    h.controller.dispose()
   })
 
   it('切回"全部"再取 archived=false（两次 REST，不是本地过滤）', async () => {
@@ -88,7 +99,6 @@ describe('session-list 控制器——筛选档与数据源', () => {
     h.controller.setFilter('all')
     await flush()
     expect(h.listSessions.mock.calls.flat()).toEqual([true, false])
-    h.controller.dispose()
   })
 
   it('同档重复 setFilter 不重取（无谓请求）', async () => {
@@ -97,7 +107,6 @@ describe('session-list 控制器——筛选档与数据源', () => {
     const calls = h.listSessions.mock.calls.length
     h.controller.setFilter('all')
     expect(h.listSessions.mock.calls.length).toBe(calls)
-    h.controller.dispose()
   })
 
   it('未配置服务器：不发请求、如实提示、结束装载态', async () => {
@@ -108,12 +117,12 @@ describe('session-list 控制器——筛选档与数据源', () => {
       unconfiguredNotice: '未配置服务器',
       noticeMs: NOTICE_MS,
     })
+    created.push(controller)
     await controller.refresh()
     const last = snapshots[snapshots.length - 1]
     expect(last?.notice).toBe('未配置服务器')
     expect(last?.loaded).toBe(true)
     expect(last?.refreshing).toBe(false)
-    controller.dispose()
   })
 })
 
@@ -132,13 +141,13 @@ describe('session-list 控制器——失败闭合与就地校正', () => {
       unconfiguredNotice: '未配置服务器',
       noticeMs: NOTICE_MS,
     })
+    created.push(controller)
     await controller.refresh()
     shouldFail = true
     await controller.refresh()
     const last = snapshots[snapshots.length - 1]
     expect(last?.sessions).toHaveLength(1)
     expect(last?.notice).toContain('连不上')
-    controller.dispose()
   })
 
   it('dispose 后在途结果不写回（切页竞态：旧 controller 不得污染新页面）', async () => {
@@ -155,12 +164,36 @@ describe('session-list 控制器——失败闭合与就地校正', () => {
       unconfiguredNotice: '未配置服务器',
       noticeMs: NOTICE_MS,
     })
+    created.push(controller)
     const inflight = controller.refresh()
     controller.dispose()
     const afterDispose = snapshots.length
     settled.resolve?.([dto(SID, 1000)])
     await inflight
     expect(snapshots.length).toBe(afterDispose)
+  })
+
+  // 假定时器只为把"还剩几枚待发定时器"变成可断言的量（本文件其余用例仍走真定时器）：
+  // 只在本例内开关，不删不改任何断言——notice 定时器在 dispose 之前确实挂在事件循环上。
+  it('notice 挂着自清定时器；dispose 后归零（不留拖住 worker 收尾的活动句柄）', async () => {
+    jest.useFakeTimers()
+    try {
+      const snapshots: SessionListSnapshot[] = []
+      const controller = createSessionListController({
+        rest: () => null,
+        onUpdate: (s) => snapshots.push(s),
+        unconfiguredNotice: '未配置服务器',
+        noticeMs: NOTICE_MS,
+      })
+      created.push(controller)
+      await controller.refresh()
+      expect(snapshots[snapshots.length - 1]?.notice).toBe('未配置服务器')
+      expect(jest.getTimerCount()).toBe(1)
+      controller.dispose()
+      expect(jest.getTimerCount()).toBe(0)
+    } finally {
+      jest.useRealTimers()
+    }
   })
 })
 
