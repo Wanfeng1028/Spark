@@ -25,11 +25,11 @@ afterEach(() => {
 function renderPage(): void {
   const transport = new MockTransport('normal')
   // jsdom 无 createObjectURL；导出走浏览器 Blob，此处只截获产物做断言
-  URL.createObjectURL = ((b: Blob) => {
+  URL.createObjectURL = (b: Blob) => {
     capturedBlob = b
     return 'blob:stub'
-  }) as typeof URL.createObjectURL
-  URL.revokeObjectURL = (() => {}) as typeof URL.revokeObjectURL
+  }
+  URL.revokeObjectURL = () => {}
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
     capturedDownload = this.download
   })
