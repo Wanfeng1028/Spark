@@ -8,7 +8,6 @@
  */
 import { Text, useInput } from 'ink'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { errorMessageOf } from '@spark/protocol'
 import type {
   Language,
   PromptsDto,
@@ -17,6 +16,7 @@ import type {
   SettingsDto,
   Transport,
 } from '@spark/protocol'
+import { cliErrorMessageOf } from '../i18n.js'
 import { PanelShell, useEditor } from './panel-core.js'
 import { useCliStore } from '../store.js'
 
@@ -426,7 +426,7 @@ export function SettingsPanel({ transport }: { transport: Transport }) {
       .catch((err: unknown) => {
         if (!disposed) {
           setData(null)
-          setLoadError(errorMessageOf(err))
+          setLoadError(cliErrorMessageOf(err))
         }
       })
     // 模板三项是可选展示信息：失败回退为"未装载"，不连带拖垮整面板
@@ -467,7 +467,7 @@ export function SettingsPanel({ transport }: { transport: Transport }) {
       setRevision((r) => r + 1)
       setMsg(`已保存 ${field.label}`)
     } catch (err: unknown) {
-      setMsg(`保存失败：${errorMessageOf(err)}`)
+      setMsg(`保存失败：${cliErrorMessageOf(err)}`)
     } finally {
       setBusy(false)
     }

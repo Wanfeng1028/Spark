@@ -2,15 +2,14 @@
  * 面板共用原语（阶段十九 19.24，自 CommandPanels 抽出）：壳 / 装载 / 写回 / 列表导航 / 二次确认。
  * 管理态三条纪律做进 hook，面板不各自发明一套：
  * ① 写成功才改口——写完立即重取（revision 递增）拿服务端回显，禁乐观更新；
- * ② 失败原样呈现 errorMessageOf（禁假状态、禁吞异常），busy 期间吞键防连击；
+ * ② 失败原样呈现 cliErrorMessageOf（19.17：经本端语言收口；禁假状态、禁吞异常），busy 期间吞键防连击；
  * ③ 破坏性动作（删除 / 回滚 / 应用胜者）走二次确认：同一目标连按两次 Enter 才执行，
  *    换目标即撤销待确认态——防"手滑 Enter"改坏用户数据。
  */
 import { Box, Text, useInput } from 'ink'
 import { useEffect, useRef, useState } from 'react'
-import { errorMessageOf } from '@spark/protocol'
 import type { ReactNode } from 'react'
-import { cliT } from '../i18n.js'
+import { cliErrorMessageOf, cliT } from '../i18n.js'
 
 /** 面板壳：标题 + 关闭提示 + 内容 */
 export function PanelShell({
@@ -102,7 +101,7 @@ export function usePanelWrite(): {
       after?.()
       setMsg(okMessage)
     } catch (err: unknown) {
-      setMsg(`${cliT('cli.failed')}：${errorMessageOf(err)}`)
+      setMsg(`${cliT('cli.failed')}：${cliErrorMessageOf(err)}`)
     } finally {
       setBusy(false)
     }

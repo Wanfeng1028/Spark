@@ -10,8 +10,8 @@
  */
 import { useCallback, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import { errorMessageOf } from '@spark/protocol'
 import type { HttpTransport } from '@spark/protocol'
+import { cliErrorMessageOf } from '../i18n.js'
 import { useCliStore } from '../store.js'
 import type { InputBoxHandle } from '../components/InputBox.js'
 import { soxAvailable, startSoxRecording } from '../voice/sox.js'
@@ -56,7 +56,7 @@ export function useVoiceCli({ transport, inputRef }: VoiceCliDeps) {
           st.setNotice('语音文本已填入输入框——Enter 发送（音频未留存）')
         })
         .catch((err: unknown) => {
-          useCliStore.getState().setNotice(errorMessageOf(err))
+          useCliStore.getState().setNotice(cliErrorMessageOf(err))
         })
         .finally(() => {
           recordingRef.current = null
@@ -86,7 +86,7 @@ export function useVoiceCli({ transport, inputRef }: VoiceCliDeps) {
         })
         .catch(() => {})
     } catch (err) {
-      useCliStore.getState().setNotice(errorMessageOf(err))
+      useCliStore.getState().setNotice(cliErrorMessageOf(err))
     }
   }, [settle])
 

@@ -5,8 +5,9 @@
  * （不是中文），所以长尾文案直写中文而不是先接键再指望回落。
  */
 import { afterEach, describe, expect, it } from 'vitest'
+import { connectionText, copyButtonText } from '@spark/protocol'
 import { useAppStore } from '../src/store/app-store'
-import { miniT, resolveLanguage } from '../src/i18n'
+import { miniErrorMessageOf, miniT, resolveLanguage } from '../src/i18n'
 
 afterEach(() => {
   useAppStore.getState().setLanguage('zh-CN')
@@ -35,5 +36,32 @@ describe('miniT（store 语言 → 取词）', () => {
     expect(miniT('shell.settings')).toBe('设置')
     expect(miniT('action.save')).toBe('保存')
     expect(miniT('mini.unregistered')).toBe('mini.unregistered')
+  })
+})
+
+describe('miniErrorMessageOf（store 语言 → 错误码人话文案，19.17 第三批）', () => {
+  it('同一错误码随 store 语言给出两套文案，切回即恢复', () => {
+    const err = new Error('E_ALREADY_RESOLVED: request r1')
+    expect(miniErrorMessageOf(err)).toBe('该审批已答复过，无需重复操作')
+    useAppStore.getState().setLanguage('en')
+    expect(miniErrorMessageOf(err)).toBe(
+      'This approval was already answered — no need to reply again',
+    )
+    useAppStore.getState().setLanguage('zh-CN')
+    expect(miniErrorMessageOf(err)).toBe('该审批已答复过，无需重复操作')
+  })
+
+  it('未知码回落原始消息而非把键名当文案（err.E_* 不得上屏）', () => {
+    useAppStore.getState().setLanguage('en')
+    expect(miniErrorMessageOf(new Error('E_NO_SUCH_CODE: 上游给的生僻码'))).toBe('上游给的生僻码')
+  })
+})
+
+describe('连接态与复制按钮文案随语言（19.17 第三批接线）', () => {
+  it('connectionText 与 copyButtonText 给出两套逐字文案', () => {
+    expect(connectionText('reconnecting')).toBe('已断线，重连中…')
+    expect(connectionText('reconnecting', 'en')).toBe('Disconnected, reconnecting…')
+    expect(copyButtonText('copied', 'en')).toBe('Copied')
+    expect(copyButtonText('copied')).toBe('已复制')
   })
 })

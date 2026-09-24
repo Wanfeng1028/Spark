@@ -9,11 +9,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { BaseEventOrig, InputProps } from '@tarojs/components'
-import { baseUrlOf, errorMessageOf, parsePairLink } from '@spark/protocol'
+import { baseUrlOf, parsePairLink } from '@spark/protocol'
 import { useAppStore } from '../../store/app-store'
 import { useConfigStore } from '../../store/config-store'
 import { useTheme } from '../../store/theme-store'
-import { miniT } from '../../i18n'
+import { miniErrorMessageOf, miniT } from '../../i18n'
 import type { AppearancePreference } from '../../theme/tokens'
 import { getRestClient, invalidateRest, redeemPairCode } from '../../transport/runtime'
 import { parsePairCode } from '../../transport/pair'
@@ -99,7 +99,7 @@ export default function SettingsPage() {
         setPendingPair(null)
         setLocalNotice(null)
       })
-      .catch((err: unknown) => setLocalNotice(errorMessageOf(err)))
+      .catch((err: unknown) => setLocalNotice(miniErrorMessageOf(err)))
       .finally(() => {
         busyRef.current = false
         setBusy(false)
@@ -130,7 +130,7 @@ export default function SettingsPage() {
         setPairCodeDraft('')
         setLocalNotice(null)
       })
-      .catch((err: unknown) => setLocalNotice(errorMessageOf(err)))
+      .catch((err: unknown) => setLocalNotice(miniErrorMessageOf(err)))
       .finally(() => {
         busyRef.current = false
         setBusy(false)

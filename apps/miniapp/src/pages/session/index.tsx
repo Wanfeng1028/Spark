@@ -23,10 +23,9 @@ import Taro, { useRouter } from '@tarojs/taro'
 import type { BaseEventOrig, ScrollViewProps } from '@tarojs/components'
 import type { AttachmentDto, RequestId } from '@spark/protocol'
 import {
-  CONNECTION_TEXT,
+  connectionText,
   createSessionPageController,
   emptySessionSlice,
-  errorMessageOf,
   formatTimestamp,
   ids,
   type PermissionReply,
@@ -36,7 +35,7 @@ import {
 import { useConfigStore } from '../../store/config-store'
 import { useTheme } from '../../store/theme-store'
 import { BATCH_WINDOW_MS, useAppStore } from '../../store/app-store'
-import { miniT } from '../../i18n'
+import { miniErrorMessageOf, miniT } from '../../i18n'
 import { getRestClient, openSessionStream } from '../../transport/runtime'
 import { pickImages, readFileBytes } from '../../transport/media'
 import {
@@ -77,6 +76,7 @@ export default function SessionPage() {
   const serverUrl = useConfigStore((s) => s.serverUrl)
   const token = useConfigStore((s) => s.token)
   const setNotice = useAppStore((s) => s.setNotice)
+  const lang = useAppStore((s) => s.language)
 
   const [atBottom, setAtBottom] = useState(true)
   const [scrollTop, setScrollTop] = useState(0)
@@ -201,7 +201,7 @@ export default function SessionPage() {
         }
         if (outcome.errors.length > 0) setAttachNotice(outcome.errors.join('；'))
       })
-      .catch((err: unknown) => setAttachNotice(errorMessageOf(err)))
+      .catch((err: unknown) => setAttachNotice(miniErrorMessageOf(err)))
       .finally(() => {
         uploadingRef.current = false
         setUploading(false)
@@ -238,20 +238,20 @@ export default function SessionPage() {
   // topBanner 的重试目标（仅错误条出现时算一次——不在每帧重扫全列表）
   const retryText = slice.topBanner !== null ? lastUserTextOf(slice.items) : null
 
-  const connectionText =
+  const bannerText =
     status === 'closed'
       ? CLOSED_TEXT
       : status === 'connecting' || status === 'reconnecting'
-        ? CONNECTION_TEXT[status]
+        ? connectionText(status, lang)
         : null
 
   return (
     <View className="sp-screen" style={{ backgroundColor: t.pageBackground }}>
       {/* 断线重连细条（onStatus 订阅；恢复后自动消失） */}
-      {connectionText !== null && (
+      {bannerText !== null && (
         <View className="sp-bar" style={{ backgroundColor: t.card }}>
           <Text className="sp-meta" style={{ color: t.sparkWarn }}>
-            {connectionText}
+            {bannerText}
           </Text>
         </View>
       )}

@@ -6,9 +6,9 @@
  */
 import { useCallback, useMemo } from 'react'
 import type { ClientAction, CommandDto, RequestId, SessionId } from '@spark/protocol'
-import { errorMessageOf } from '@spark/protocol'
 import { ids } from '@spark/protocol'
 import { createCliActionHandlers } from '../client-actions.js'
+import { cliErrorMessageOf } from '../i18n.js'
 import { parseEffort } from './effort.js'
 import { useCliStore } from '../store.js'
 import type { HttpTransport } from '@spark/protocol'
@@ -76,7 +76,7 @@ export function useCliActions({
       })
       .catch((err: unknown) => {
         // 工单 10.17④：显式错误屏+重试键位，不再只挂 notice
-        if (!disposed) useCliStore.getState().setBootError(errorMessageOf(err))
+        if (!disposed) useCliStore.getState().setBootError(cliErrorMessageOf(err))
       })
     // 模型目录：水位 + 信息盒真值数据源（工单 10.38 门控下 models===null 会阻塞面板
     // 渲染）——失败每 2s 重试直至成功（10.42 实测：启动期瞬时失败曾致界面永久"连接中"）
@@ -122,7 +122,7 @@ export function useCliActions({
   ): void {
     transport
       .replyPermission(requestId, reply, feedback, scope)
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
+      .catch((err: unknown) => useCliStore.getState().setNotice(cliErrorMessageOf(err)))
   }
 
   function newSession(): void {
@@ -139,7 +139,7 @@ export function useCliActions({
         s2.resetUi()
         clearScreen()
       })
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
+      .catch((err: unknown) => useCliStore.getState().setNotice(cliErrorMessageOf(err)))
   }
 
   function switchSession(offset: 1 | -1): void {
@@ -182,7 +182,7 @@ export function useCliActions({
         st2.setActiveSession(dto.id)
         st2.setNotice(`已分叉新会话 ${dto.id}`)
       })
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
+      .catch((err: unknown) => useCliStore.getState().setNotice(cliErrorMessageOf(err)))
   }
 
   /** 回滚到快照（/rollback <id>）：回滚后 seq 倒退，resetSlice + 重订阅重放 */
@@ -202,7 +202,7 @@ export function useCliActions({
         st2.bumpReplay() // 事件流 since=0 重订阅
         st2.setNotice('已回滚，重放中')
       })
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
+      .catch((err: unknown) => useCliStore.getState().setNotice(cliErrorMessageOf(err)))
   }
 
   /** 设置推理档位（/effort <low|medium|high>）：走既有 setSessionEffort 端点 */
@@ -218,7 +218,7 @@ export function useCliActions({
     transport
       .setSessionEffort(sid, effort)
       .then((applied) => useCliStore.getState().setNotice(`推理档位已设 ${applied}（下一轮生效）`))
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
+      .catch((err: unknown) => useCliStore.getState().setNotice(cliErrorMessageOf(err)))
   }
 
   /** 面板内模型切换（/model 面板确认——走既有 setSessionModel 端点） */
@@ -232,7 +232,7 @@ export function useCliActions({
         useCliStore.getState().setPanel('none')
         useCliStore.getState().setNotice(`模型已切 ${applied}（下一轮生效）`)
       })
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
+      .catch((err: unknown) => useCliStore.getState().setNotice(cliErrorMessageOf(err)))
   }
 
   /** /lsp install <id>（阶段十九 19.5）：安装语言服务器（npm 全局装 + 写 lsp.json；notice 反馈） */
@@ -245,7 +245,7 @@ export function useCliActions({
           .getState()
           .setNotice(`已${r.written ? '安装并写入' : '配置'} ${r.language}（${r.command}）——下次使用该语言工具时连接`)
       })
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
+      .catch((err: unknown) => useCliStore.getState().setNotice(cliErrorMessageOf(err)))
   }
 
   /** 会话改名（/rename <新标题>，工单 19.20）：PUT /api/sessions/:id/title，
@@ -262,7 +262,7 @@ export function useCliActions({
     transport
       .renameSession(sid, title)
       .then(() => useCliStore.getState().setNotice(`已改名为「${title}」`))
-      .catch((err: unknown) => useCliStore.getState().setNotice(errorMessageOf(err)))
+      .catch((err: unknown) => useCliStore.getState().setNotice(cliErrorMessageOf(err)))
   }
 
   function runClientAction(action: ClientAction, args: string | undefined): void {
@@ -321,7 +321,7 @@ export function useCliActions({
           // /arena 发起成功即打开竞答面板（快照轮询只读——工单 16.8）
           if (name === 'arena') useCliStore.getState().setPanel('arena')
         })
-        .catch((err: unknown) => setNotice(errorMessageOf(err)))
+        .catch((err: unknown) => setNotice(cliErrorMessageOf(err)))
       return
     }
 
@@ -332,7 +332,7 @@ export function useCliActions({
       .catch((err: unknown) => {
         // 发送失败记录原文（Ctrl+R 重试数据源——工单 10.11 / §13.K K.8）
         useCliStore.getState().setLastFailed(text)
-        useCliStore.getState().setNotice(errorMessageOf(err))
+        useCliStore.getState().setNotice(cliErrorMessageOf(err))
       })
   }
 

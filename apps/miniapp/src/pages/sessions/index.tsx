@@ -18,11 +18,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { Text, View } from '@tarojs/components'
 import Taro, { usePullDownRefresh } from '@tarojs/taro'
 import type { SessionDto } from '@spark/protocol'
-import { dotColor, errorMessageOf, fmtDate } from '@spark/protocol'
+import { dotColor, fmtDate } from '@spark/protocol'
 import { useAppStore } from '../../store/app-store'
 import { useConfigStore } from '../../store/config-store'
 import { useTheme } from '../../store/theme-store'
-import { miniT } from '../../i18n'
+import { miniErrorMessageOf, miniT } from '../../i18n'
 import { getRestClient } from '../../transport/runtime'
 import {
   SESSION_FILTERS,
@@ -59,7 +59,7 @@ export default function SessionsPage() {
       setNotice(null)
     } catch (err: unknown) {
       // 失败闭合：列表失败如实提示，保留旧快照（不拿空列表冒充）
-      setNotice(errorMessageOf(err))
+      setNotice(miniErrorMessageOf(err))
     }
   }, [serverUrl, token, filter, setSessions, setNotice])
 
@@ -107,7 +107,7 @@ export default function SessionsPage() {
           url: `/pages/session/index?sessionId=${dto.id}&title=${encodeURIComponent(dto.title)}`,
         })
       })
-      .catch((err: unknown) => setNotice(errorMessageOf(err)))
+      .catch((err: unknown) => setNotice(miniErrorMessageOf(err)))
   }, [serverUrl, token, setActiveSession, setNotice])
 
   const emptyDetail =

@@ -14,7 +14,8 @@
  * 保留在输入条上方并如实提示未随消息发出（整改清单见 apps/miniapp/README.md）。
  */
 import type { AttachmentDto, SessionId } from '@spark/protocol'
-import { errorMessageOf } from '@spark/protocol'
+// 错误文案经本端语言收口（19.17 第三批）：i18n → app-store 链无 Taro 依赖，本模块仍零平台依赖可整条单测
+import { miniErrorMessageOf } from '../i18n'
 
 /** 选图结果（平台无关形态：路径 + 展示名 + 部分平台自带的 mime） */
 export interface PickedImage {
@@ -127,7 +128,7 @@ export async function uploadPickedImages(opts: {
       })
       uploaded.push(dto)
     } catch (err: unknown) {
-      errors.push(errorMessageOf(err))
+      errors.push(miniErrorMessageOf(err))
     }
   }
   return { uploaded, errors }

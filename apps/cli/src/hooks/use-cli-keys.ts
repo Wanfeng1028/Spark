@@ -7,7 +7,8 @@
  */
 import { useInput } from 'ink'
 import type { SessionId } from '@spark/protocol'
-import { errorMessageOf, flowRowsOf, type HttpTransport, type RequestId } from '@spark/protocol'
+import { flowRowsOf, type HttpTransport, type RequestId } from '@spark/protocol'
+import { cliErrorMessageOf } from '../i18n.js'
 import { useCliStore } from '../store.js'
 import { CTRL_C_WINDOW_MS } from './constants.js'
 
@@ -127,7 +128,7 @@ export function useCliKeys(opts: UseCliKeysOptions): void {
         .sendMessage(sid, text, { delivery: useCliStore.getState().delivery })
         .catch((err: unknown) => {
           useCliStore.getState().setLastFailed(text)
-          useCliStore.getState().setNotice(errorMessageOf(err))
+          useCliStore.getState().setNotice(cliErrorMessageOf(err))
         })
       return
     }
@@ -153,7 +154,7 @@ export function useCliKeys(opts: UseCliKeysOptions): void {
       const st = useCliStore.getState()
       if (st.activeSessionId !== null) {
         transport.interrupt(st.activeSessionId).catch((err: unknown) => {
-          st.setNotice(errorMessageOf(err))
+          st.setNotice(cliErrorMessageOf(err))
         })
       }
       st.setNotice(null)

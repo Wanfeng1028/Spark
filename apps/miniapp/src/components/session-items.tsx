@@ -11,13 +11,14 @@ import { useEffect, useRef, useState } from 'react'
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import {
-  COPY_TEXT,
   approvalResolvedText,
+  copyButtonText,
   severityOf,
   toolStatusText,
   turnDurationText,
   type UiItem,
 } from '@spark/protocol'
+import { useAppStore } from '../store/app-store'
 import { useTheme } from '../store/theme-store'
 import { attachmentUrlOf } from '../session/attachments'
 import { AttachmentThumb, Card, Hairline } from './ui'
@@ -72,6 +73,8 @@ export function AssistantBlock({
   streaming: boolean
 }) {
   const t = useTheme()
+  // 订阅而非直读 store：语言改档后本行要跟着重渲染（miniT 的直读形态在纯展示组件里会漏更新）
+  const lang = useAppStore((s) => s.language)
   const [copied, setCopied] = useState(false)
   // AUD-13：定时器存 ref——连点先清旧再设新（防前次提前复位"已复制"态），卸载清理
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -119,8 +122,8 @@ export function AssistantBlock({
         <View className="si-action-row">
           <View className="si-copy-btn" aria-label="复制消息" onClick={onCopy}>
             <Text className="si-meta" style={{ color: t.mutedForeground }}>
-              {/* 小程序无图标组件——✓ 是视觉补偿记号（非 emoji 装饰）；文案本体走 protocol COPY_TEXT 单源，见 ui-copy.ts 头注释边界说明 2 */}
-              {copied ? `✓ ${COPY_TEXT.copied}` : COPY_TEXT.copy}
+              {/* 小程序无图标组件——✓ 是视觉补偿记号（非 emoji 装饰）；文案本体走 protocol 字典单源（19.17 第三批起随界面语言），见 ui-copy.ts 头注释边界说明 2 */}
+              {copied ? `✓ ${copyButtonText('copied', lang)}` : copyButtonText('copy', lang)}
             </Text>
           </View>
           <Text className="si-meta" style={{ color: t.mutedForeground }}>

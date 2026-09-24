@@ -52,6 +52,8 @@ export function App({ baseUrl }: { baseUrl: string }) {
   const draftPreview = useCliStore((s) => s.draftPreview)
   const bootError = useCliStore((s) => s.bootError)
   const replayNonce = useCliStore((s) => s.replayNonce)
+  // 语言要进 errorInfo 的 deps：这是渲染点（不是失败时存串的 notice），订阅了才随改档重渲染
+  const language = useCliStore((s) => s.language)
   const slice = useCliStore((s) =>
     s.activeSessionId === null ? null : (s.byId[s.activeSessionId] ?? null),
   )
@@ -223,9 +225,9 @@ export function App({ baseUrl }: { baseUrl: string }) {
   const errorInfo = useMemo(() => {
     if (notice !== null) return { title: notice, code: null as string | null, detail: null as string | null }
     const le = slice?.lastError
-    if (le !== undefined && le !== null) return humanizeError(le.message)
+    if (le !== undefined && le !== null) return humanizeError(le.message, language)
     return null
-  }, [notice, slice])
+  }, [notice, slice, language])
 
   const inputActive = pendingApproval === null || rejecting !== null
   // 输入框只在主界面与 resume 过滤态激活（其余面板 ↑↓/Enter 归面板——键位分层）
