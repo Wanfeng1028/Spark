@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BlurText } from "@/components/animations/blur-text";
 import { buttonVariants } from "@/components/ui/button";
 import { LINKS } from "@/lib/constants";
@@ -9,15 +10,52 @@ import { cn } from "@/lib/utils";
 
 /**
  * Hero — x.ai 居中骨架的实拍校正版（DESIGN v2.31，依据用户提供的 x.ai 截图）：
- * eyebrow pill（内嵌 mini 标签）→ 居中巨字（第二行带粗下划线，对标
+ * eyebrow pill（内嵌 mini 标签）→ 居中巨字（第二行为旋转词 + 粗下划线，对标
  * "everything you imagine." 的 imagine.）→ 副标 → 双 CTA（主按钮带箭头，x.ai
  * "Get API Access →" 同构——按钮箭头豁免仅此一处，v2.31 登记）→ mono 元信息行。
+ * 旋转词在 reduced-motion 下静态取首项。
  * 内容全部是可核实事实（禁假状态，DESIGN §5）；渐变字已移除（x.ai 实拍为纯黑+下划线）。
  *
- * 工单 19.44 文案整改：原主标题是第二人称喊话式定位句，第二行是三词同义轮换
- * （工作台 / 编码搭档 / 自动化队友）——无可核实指涉，属 DESIGN §12.7 两条新禁项，
- * 故主标题改陈述式、轮换词组件随之退场（一个名词无需轮换）。
+ * 工单 19.44 文案整改：主标题原为第二人称喊话式定位句，改陈述式；轮播机制保留（晚风指示），
+ * 但词表由三句同义口号（工作台 / 编码搭档 / 自动化队友——指同一件事，轮无可指）换成四个
+ * 各有实体的端名，轮换从此承担信息而非声势。判据见 DESIGN §12.7。
  */
+
+const ROTATE_WORDS = ["Web 工作台", "Electron 桌面壳", "CLI TUI", "移动端 App"] as const;
+
+function RotatingWord(): React.JSX.Element {
+  const reducedMotion = useReducedMotion();
+  const [index, setIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    if (reducedMotion) return;
+    const timer = setInterval(() => {
+      setIndex((i) => (i + 1) % ROTATE_WORDS.length);
+    }, 3200);
+    return () => clearInterval(timer);
+  }, [reducedMotion]);
+
+  if (reducedMotion) {
+    return <span className="pb-1">{ROTATE_WORDS[0]}</span>;
+  }
+
+  return (
+    <span className="inline-block pb-1">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={ROTATE_WORDS[index]}
+          className="inline-block"
+          initial={{ y: "55%", opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: "-55%", opacity: 0 }}
+          transition={{ duration: 0.32, ease: "easeOut" }}
+        >
+          {ROTATE_WORDS[index]}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
 
 export function Hero(): React.JSX.Element {
   return (
@@ -51,8 +89,8 @@ export function Hero(): React.JSX.Element {
           className="block"
         />
         <span className="mt-1 inline-flex flex-col items-center">
-          <span className="pb-1">Agent 工作台</span>
-          {/* 下划线渐变条（x.ai 移动端 "build." 同构：橙→粉→黄，v2.33） */}
+          <RotatingWord />
+          {/* 旋转词下划线渐变条（x.ai 移动端 "build." 同构：橙→粉→黄，v2.33） */}
           <span
             aria-hidden="true"
             className="mt-2 h-1 w-full rounded-full bg-[linear-gradient(90deg,#f97316_0%,#ec4899_55%,#f59e0b_100%)]"
