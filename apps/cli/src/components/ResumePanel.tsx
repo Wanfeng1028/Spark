@@ -1,6 +1,7 @@
 /**
  * /resume 恢复面板（工单 10.11 / §13.K K.7；10.54 双行化 qwen SessionPicker 同款）：
- * 会话列表每条 2 行——行1=标题（prompt 首句），行2=相对时间 · 事件数 · git 分支。
+ * 会话列表每条 2 行——行1=标题（prompt 首句，置顶会话带 ★ 角标，工单 19.41），
+ * 行2=相对时间 · 事件数 · git 分支。
  * / 过滤、↑↓ 移动、Space 预览（选中项详情——列表快照字段如实呈现）、Enter 恢复
  * （=切激活会话，事件流 since=0 全量重放——引擎既有回放路径，durable 事件重放呈现）、
  * Esc 关闭。数据源=连接/重连时刻的 listSessions 快照（store.sessions，如实呈现）。
@@ -59,9 +60,12 @@ export function ResumePanel({ sessions, selected, filter, activeId, preview }: R
           const active = i === selected
           return (
             <Box key={s.id} flexDirection="column">
-              {/* 行 1（工单 10.54）：标题（prompt 首句）；选中行反色 + > 标记 */}
+              {/* 行 1（工单 10.54）：标题（prompt 首句）；选中行反色 + > 标记；
+                  置顶角标 ★（工单 19.41）——终端无图标组件，★ 与既有 ✓/… 同属排版记号
+                  非 emoji 装饰（AGENTS §2.6）；放标题行是因为它在 truncate-end 下仍一眼可见 */}
               <Text inverse={active} wrap="truncate-end">
                 {active ? '> ' : '  '}
+                {s.pinned === true ? '★ ' : ''}
                 {title}
               </Text>
               {/* 行 2（工单 10.54，qwen SessionPicker 第二行同款）：相对时间 · 事件数 · git 分支（缺省不渲染该段） */}
@@ -84,6 +88,7 @@ export function ResumePanel({ sessions, selected, filter, activeId, preview }: R
           </Text>
           <Text color="gray">
             {[
+              preview.pinned === true ? '置顶' : null,
               preview.model !== '' ? preview.model : null,
               projectOf(preview.cwd),
               preview.branch !== undefined && preview.branch !== '' ? `git:(${preview.branch})` : null,

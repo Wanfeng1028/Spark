@@ -797,8 +797,9 @@ function SidebarGroup({
                     <Trash2 className="size-3.5" />
                   </button>
                 </span>
-                {/* 右键上下文菜单（DESIGN §5：会话列表项——归档/删除；重命名需后端
-                    端点（append-only header 重写设计），缺口登记 doc/10） */}
+                {/* 右键上下文菜单（DESIGN §5：会话列表项——置顶/归档/删除，与悬停动作同项同序）。
+                    重命名不在此菜单：端点自 19.20 已有，入口是命令面板的内联改名（本菜单加同项
+                    要先定"菜单里怎么编辑"的形态，属 19.21 会话流小件批的口径，不在此半做） */}
                 {menuFor === s.id && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setMenuFor(null)} onContextMenu={(e) => { e.preventDefault(); setMenuFor(null) }} />
@@ -807,6 +808,21 @@ function SidebarGroup({
                       aria-label={`会话操作：${titleOf(s) === '' ? '新会话' : titleOf(s)}`}
                       className="absolute right-1 top-9 z-40 w-36 overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-md"
                     >
+                      <li role="none">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          aria-pressed={s.pinned === true}
+                          onClick={() => {
+                            setMenuFor(null)
+                            onPin(s, s.pinned !== true)
+                          }}
+                          className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] hover:bg-accent"
+                        >
+                          <Pin className="size-3.5 text-muted-foreground" />
+                          {s.pinned === true ? '取消置顶' : '置顶'}
+                        </button>
+                      </li>
                       <li role="none">
                         <button
                           type="button"

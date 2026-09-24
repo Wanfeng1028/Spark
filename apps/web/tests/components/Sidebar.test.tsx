@@ -161,3 +161,47 @@ describe('sidebarModeOf 形态推导（工单 19.40）', () => {
     expect(sidebarModeOf(false, false)).toBe('inline')
   })
 })
+
+describe('右键菜单置顶项（工单 19.41「web 右键菜单同项」）', () => {
+  /** 与 DEFAULT_SESSIONS[0] 同一条会话的置顶态（api.ts 口径：仅已置顶携带 pinned） */
+  const PINNED_ALPHA: SessionDto = {
+    ...dto(ALPHA, '浮层里的会话', '/work/alpha', T0 + 3_000_000),
+    pinned: true,
+  }
+
+  it('未置顶：菜单三项 = 置顶/归档/删除（置顶在首位，与悬停动作同项同序），点击即 pinSession(id, true)', async () => {
+    const pin = vi.spyOn(MockTransport.prototype, 'pinSession').mockResolvedValue(PINNED_ALPHA)
+    renderSidebar('inline')
+    // 事件冒泡到带 onContextMenu 的行容器（不必先定位那层 div）
+    fireEvent.contextMenu(await screen.findByText('浮层里的会话'))
+    await waitFor(() =>
+      expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual([
+        '置顶',
+        '归档',
+        '删除',
+      ]),
+    )
+    fireEvent.click(screen.getByRole('menuitem', { name: '置顶' }))
+    await waitFor(() => expect(pin).toHaveBeenCalledWith(ALPHA, true))
+  })
+
+  it('已置顶：首项改口「取消置顶」（aria-pressed 同步），点击即 pinSession(id, false)', async () => {
+    sessions = [PINNED_ALPHA, ...DEFAULT_SESSIONS.slice(1)]
+    const plain = dto(ALPHA, '浮层里的会话', '/work/alpha', T0 + 3_000_000)
+    const pin = vi.spyOn(MockTransport.prototype, 'pinSession').mockResolvedValue(plain)
+    renderSidebar('inline')
+    fireEvent.contextMenu(await screen.findByText('浮层里的会话'))
+    const item = await screen.findByRole('menuitem', { name: '取消置顶' })
+    expect(item.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(item)
+    await waitFor(() => expect(pin).toHaveBeenCalledWith(ALPHA, false))
+  })
+
+  it('点菜单项即收菜单（与归档/删除同口径，不留悬空浮层）', async () => {
+    vi.spyOn(MockTransport.prototype, 'pinSession').mockResolvedValue(PINNED_ALPHA)
+    renderSidebar('inline')
+    fireEvent.contextMenu(await screen.findByText('浮层里的会话'))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '置顶' }))
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+  })
+})
