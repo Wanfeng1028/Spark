@@ -16,6 +16,12 @@
    仅检查已知根前缀（packages/apps/doc/scripts/examples/.github/.agents 等），
    自动跳过外部参考项目的同名前缀路径（如 pi 的 packages/agent/**）与含占位符的路径。
 4. 【error】doc/02 版本记录表重复版本号检测（防止 v4.50 重号类漂移复发）
+5. 【error】对外文案口号扫描（DESIGN §12.7/§12.8，工单 19.44）：扫 official/src、
+   apps/*/src 与门面 README 正文，命中"本地优先/数据不出本机/无云端依赖/跑在你自己/
+   local-first"即报错。文档（DESIGN/AGENTS/doc/*）不扫——那里这些词是"被禁项的判据
+   文本"与版本表勘误记录，出现属预期；README 内的版本记录表行同样跳过（拍板证据）。
+   由来：「本地优先」在 AGENTS v1.3 / ARCHITECTURE v1.2 / README v1.3 三次拍板移除后，
+   2026-09-14 官网落地第四次写回——纯 md 提醒挡不住，须有硬检查层（AGENTS §8 第四条纪律）。
 
 用法：python scripts/check_doc_links.py [--root REPO_ROOT] [--strict]
 退出码：0 = 通过；1 = 存在 error（或 strict 下存在 warn）
@@ -249,6 +255,59 @@ def check_backtick_paths(files: list[Path], root: Path, report: Report) -> None:
                 report.warn(f"{rel}:{line} 仓库路径不存在：`{candidate}`")
 
 
+# ---------------------------------------------------------------- 检查 5：对外文案口号
+
+# 禁项字面量。判据层是 DESIGN §12.8 表的新增行，本表是执行层——两处须同改。
+COPY_SLOP_PATTERNS: tuple[str, ...] = ("本地优先", "数据不出本机", "无云端依赖", "跑在你自己")
+COPY_SLOP_RE = re.compile("|".join([*(re.escape(p) for p in COPY_SLOP_PATTERNS), r"[Ll]ocal-first"]))
+COPY_SLOP_SUFFIXES = (".ts", ".tsx", ".js", ".jsx", ".css", ".html")
+COPY_SLOP_READMES = ("README.md", "README.en.md", "official/README.md")
+COPY_SLOP_SKIP_DIRS = {"node_modules", "dist", ".next", ".pnpm-store", "out"}
+# 版本记录表行（`| v1.3 | 2026-08-22 |`）——引用被禁词是拍板证据本身，不判违规。
+# 与检查 3 的 VERSION_ROW_RE 是两个用途（那个要捕获版本号做重号比对），故另立名字不复用。
+COPY_SLOP_VERSION_ROW_RE = re.compile(r"^\s*\|\s*v\d+\.\d+")
+
+
+def _hit(line: str) -> str | None:
+    match = COPY_SLOP_RE.search(line)
+    return match.group(0) if match else None
+
+
+def _iter_copy_code_files(root: Path) -> list[Path]:
+    bases = [root / "official" / "src"]
+    apps_dir = root / "apps"
+    if apps_dir.is_dir():
+        bases.extend(sorted(p / "src" for p in apps_dir.iterdir() if (p / "src").is_dir()))
+    out: list[Path] = []
+    for base in bases:
+        if not base.is_dir():
+            continue
+        for dirpath, dirnames, filenames in os.walk(base, onerror=lambda _e: None):
+            dirnames[:] = [d for d in dirnames if d not in COPY_SLOP_SKIP_DIRS]
+            out.extend(Path(dirpath, n) for n in filenames if n.endswith(COPY_SLOP_SUFFIXES))
+    return sorted(out)
+
+
+def check_copy_slop(root: Path, report: Report) -> None:
+    targets = [(p, False) for p in _iter_copy_code_files(root)]
+    targets += [(root / r, True) for r in COPY_SLOP_READMES if (root / r).exists()]
+    for path, skip_version_rows in targets:
+        rel = path.relative_to(root).as_posix()
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for lineno, line in enumerate(text.splitlines(), 1):
+            if skip_version_rows and COPY_SLOP_VERSION_ROW_RE.match(line):
+                continue
+            phrase = _hit(line)
+            if phrase is not None:
+                report.error(
+                    f"[文案口号] {rel}:{lineno} 命中「{phrase}」——DESIGN §12.7 禁"
+                    f"口号标签与第二人称喊话，改说事实（工单 19.44）"
+                )
+
+
 # ---------------------------------------------------------------- 主流程
 
 def main() -> int:
@@ -273,6 +332,7 @@ def main() -> int:
     check_facts(files, root, report)
     check_backtick_paths(files, root, report)
     check_version_duplicates(root, report)
+    check_copy_slop(root, report)
 
     for w in report.warnings:
         print(f"[WARN] {w}")
