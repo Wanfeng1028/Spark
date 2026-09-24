@@ -67,3 +67,7 @@ jobs:
         run: pnpm -C packages/engine exec vitest run tests/perf-memory.test.ts
         env:
           SPARK_PERF: "1"
+      - name: 移动端翻页 fold 实测（protocol，工单 19.42 前置基线——首轮出数字，暂不设性能门槛）
+        run: pnpm -C packages/protocol exec vitest run tests/perf-session-page.test.ts
+        env:
+          SPARK_PERF: "1"

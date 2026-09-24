@@ -17,6 +17,8 @@
 | v1.10 | 2026-09-09 | AI 编写：Qoder；发起：晚风（Wanfeng1028，"继续"指令） | **§1 补两段（工单 14.2 第二批）**：① **Transport 接口契约套件已落地**——`apps/server/tests/transport-contract.ts` 的参数化套件（任何实现跑同一组传输层语义断言：生命周期与归档过滤 / 未知会话 E_NOT_FOUND 同形 / 直播与回放一致且 seq 升序 / 退订生效），HTTP 通道已接、InProcess 随 14.4 接同一份（双通道 parity 的载体），并写明套件刻意不管的三件事（SSE 时序/DTO 形状/审批与工具语义）与 `replyPermission` parity 为何待 14.4；② **路由级 payload 生成改归 15.2 OpenAPI**（第二批核对后的裁决：需一张路由×body schema 映射表，那是 server 的知识、protocol 里没有；而 400/404/409 映射已由 routes.test.ts 手写覆盖），据此 **§4 的"server 重复部分由生成物替代"收敛为不替代**（层次不同：生成物管 schema 形状，手写件管路由映射与时序）。**验收第 3 条的红绿演练已做并记录**（见 doc/02 v4.17）：临时给 `UsageAmountsSchema` 加一个可选字段 → 重跑生成器 → `git diff --exit-code` 输出非空 diff（即门禁红），且一处改动扩散到所有依赖它的 DTO（Bucket/Summary/Trace 的 usage）；随后还原 schema 与生成物，演练零残留、不进提交。与 doc/02 v4.17、doc/08 v1.26 同批 |
 | v1.11 | 2026-09-24 | AI 编写：Qoder · Qwen3.8-Max（Qwen3.8-Max-0902）；发起：CI 红灯（晚风"远端的 ci 失败了你修一下"指令） | **e2e 环境补 locale 钉定（§2 L3 行）**：`apps/web/playwright.config.ts` 的 `use.locale` 设 `zh-CN`。因由：19.17 第二批把 `StatusBar` 连接态与错误人话接进 protocol 字典后，`disconnect-error.spec.ts` 两条用例红在 CI——实收值是英文（`Session does not exist or was cleaned up`）。根因不在产品：`ui.language` 在 `engine/config.ts:84` 是 optional 且**无缺省值**，全新配置下 `I18nProvider`（`i18n/context.tsx:35`）落到 `detectLanguage(navigator.languages)`，而 chromium 缺省 locale 是 en-US ⇒ 探测出 `en`。**断言中文界面的用例必须自己钉住浏览器语言**，否则红绿随 runner 漂；不改产品回落逻辑（系统语言探测是 19.17 的设计行为，不是 bug）。**英文面（`lang='en'`）目前无 e2e 覆盖**，登记为待补项。与 doc/02 v4.114 同批。本机零验证，CI 裁决 |
 
+| v1.12 | 2026-09-25 | AI 编写：Qoder · Qwen3.8-Max（Qwen3.8-Max-0902）；发起与拍板：晚风（Wanfeng1028，19.42 两条路里选"先测"，"那就先测，你写吧，去远端 ci 测试"指令） | **§3 表补第三项：移动端翻页 fold 基线落地**（工单 19.42 的前置测量）。W11 那两项口径都在服务端侧（读盘回放 / 引擎 RSS），**不覆盖 `session-page.loadOlder()` 的翻页重放**，故 19.42 一直零实测。新用例 `packages/protocol/tests/perf-session-page.test.ts`：3000 条真实形状事件（1000 轮 × user/turn.started/assistant.message/tool started+completed/turn.completed）、每页 50 条（`apps/mobile SessionScreen.tsx:88` 与 `apps/miniapp index.tsx:61` 实值）、走 controller 真路径 60 次翻页，另测一次性全量 fold 作对照并打印放大倍数。门控同族（SPARK_PERF=1，主 CI 跳过），nightly performance job 增第三步。**阈值政策**：首轮只出数字不写门槛（无历史样本，写死即臆测），只留 60s 数量级护栏 + 一条正确性断言（翻页重放须与一次性全量 fold 同形——否则测的是个错的东西）。与 doc/02 v4.120、doc/08 v1.93 同批。本机零验证，数字由远端 CI 出 |
+
 > **定位**：本文是测试体系的**规划文档**——只定分层、选型、命令、基线与入库位置；workflow 与代码随 doc/02 §8 各阶段工单落地（阶段六工单 6.8 落首批组件/E2E，阶段七工单 7.11 接 eval 与 nightly，阶段八补 CLI 层，阶段九补移动端层）。落地时若与本文冲突，先改本文（附版本记录）再写代码。
 > **现状基线**（2026-08-26 实测，main=`ace77d5`）：456 例单测全绿 + typecheck/lint 全绿 + CI（`check_doc_links.py` → typecheck → lint → test）；测试框架 vitest ^3.2.4 全仓统一。
 > **阶段六 6.8 后**（2026-08-26，feat/stage6-ui）：L2 组件 22 例 + L3 E2E 7 例 + L3.5 基线截图 6 张已入库（见版本记录 v1.1）；CI 追加 Playwright job 待 PR 合并后接（§2 PR 行）。
@@ -82,7 +84,8 @@
 | CLI 冷启 | <1s（进程起到首帧渲染） | `node apps/cli` 计时到 Ink 首帧回调 | 阶段八起 vitest 断言 | 待 11.4b |
 | 移动端冷启 | <2s（点击图标到会话列表可交互） | Maestro `launchApp` 计时 | 阶段九起 nightly Maestro 断言 | 待 11.4b |
 | 长会话内存上限 | 引擎常驻 RSS <512MB（10 万 durable 事件会话回放后静置 5min）；web 渲染 10k 项 heap <1GB | engine：测试进程 `process.memoryUsage()` 断言；web：Playwright CDP `Performance.getMetrics` | nightly 断言 | ✅ engine 侧已断言（`packages/engine/tests/perf-memory.test.ts`，11.4）；web heap 待 11.4b |
-| 压缩触发及时性 | tokens 越阈值后下一 step 前必触发（0.8×contextWindow） | 既有 run-loop 单测覆盖（ScriptedLlm 构造超限序列） | 已在 L1（不新增） | ✅ 既有覆盖 |
+| 压缩触发及时性 | tokens 越阈值后下一 step 前必触发（0.8×contextWindow） | 既有 run-loop 单测覆盖（ScriptedLlm 构造超限序列） | 已在 L1（不新增） |
+| 移动端翻页 fold（会话页重放） | **首轮只出数字**（无历史样本不写阈值；仅留 60s 数量级护栏） | `packages/protocol/tests/perf-session-page.test.ts`：3000 条真实形状事件、每页 50 条走 `createSessionPageController.loadOlder()` 真路径 120 次；另测一次性全量 fold 作对照，打印"翻页/单次"放大倍数；附正确性断言（两条路径结果须同形） | SPARK_PERF=1 门控，nightly performance job 第三步 | ✅ 工单 19.42 前置基线（2026-09-25 落地；W11 两项口径都是服务端侧，不覆盖此路径） |✅ 既有覆盖 |
 
 ---
 
