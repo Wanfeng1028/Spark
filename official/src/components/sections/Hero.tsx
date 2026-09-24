@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BlurText } from "@/components/animations/blur-text";
 import { buttonVariants } from "@/components/ui/button";
 import { LINKS } from "@/lib/constants";
@@ -10,48 +9,15 @@ import { cn } from "@/lib/utils";
 
 /**
  * Hero — x.ai 居中骨架的实拍校正版（DESIGN v2.31，依据用户提供的 x.ai 截图）：
- * eyebrow pill（内嵌 mini 标签）→ 居中巨字（第二行为旋转词 + 粗下划线，对标
+ * eyebrow pill（内嵌 mini 标签）→ 居中巨字（第二行带粗下划线，对标
  * "everything you imagine." 的 imagine.）→ 副标 → 双 CTA（主按钮带箭头，x.ai
  * "Get API Access →" 同构——按钮箭头豁免仅此一处，v2.31 登记）→ mono 元信息行。
- * 旋转词在 reduced-motion 下静态取首项。
  * 内容全部是可核实事实（禁假状态，DESIGN §5）；渐变字已移除（x.ai 实拍为纯黑+下划线）。
+ *
+ * 工单 19.44 文案整改：原主标题是第二人称喊话式定位句，第二行是三词同义轮换
+ * （工作台 / 编码搭档 / 自动化队友）——无可核实指涉，属 DESIGN §12.7 两条新禁项，
+ * 故主标题改陈述式、轮换词组件随之退场（一个名词无需轮换）。
  */
-
-const ROTATE_WORDS = ["Agent 工作台", "AI 编码搭档", "自动化队友"] as const;
-
-function RotatingWord(): React.JSX.Element {
-  const reducedMotion = useReducedMotion();
-  const [index, setIndex] = React.useState(0);
-
-  React.useEffect(() => {
-    if (reducedMotion) return;
-    const timer = setInterval(() => {
-      setIndex((i) => (i + 1) % ROTATE_WORDS.length);
-    }, 3200);
-    return () => clearInterval(timer);
-  }, [reducedMotion]);
-
-  if (reducedMotion) {
-    return <span className="pb-1">{ROTATE_WORDS[0]}</span>;
-  }
-
-  return (
-    <span className="inline-block pb-1">
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span
-          key={ROTATE_WORDS[index]}
-          className="inline-block"
-          initial={{ y: "55%", opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: "-55%", opacity: 0 }}
-          transition={{ duration: 0.32, ease: "easeOut" }}
-        >
-          {ROTATE_WORDS[index]}
-        </motion.span>
-      </AnimatePresence>
-    </span>
-  );
-}
 
 export function Hero(): React.JSX.Element {
   return (
@@ -71,7 +37,7 @@ export function Hero(): React.JSX.Element {
         <span className="rounded-full bg-orange-100 px-2.5 py-0.5 font-medium text-orange-700">
           开源
         </span>
-        MIT · 本地优先 · 四端同一协议
+        MIT · 四端同一协议 · 事件溯源
       </p>
 
       <h1
@@ -79,14 +45,14 @@ export function Hero(): React.JSX.Element {
         className="relative mt-10 max-w-4xl text-[44px] font-bold leading-[1.12] tracking-tight text-zinc-900 sm:text-[60px] lg:text-[72px]"
       >
         <BlurText
-          text="跑在你自己机器上的"
+          text="引擎 headless 的"
           staggerDelay={0.045}
           duration={0.55}
           className="block"
         />
         <span className="mt-1 inline-flex flex-col items-center">
-          <RotatingWord />
-          {/* 旋转词渐变条（x.ai 移动端 "build." 下划线同构：橙→粉→黄，v2.33） */}
+          <span className="pb-1">Agent 工作台</span>
+          {/* 下划线渐变条（x.ai 移动端 "build." 同构：橙→粉→黄，v2.33） */}
           <span
             aria-hidden="true"
             className="mt-2 h-1 w-full rounded-full bg-[linear-gradient(90deg,#f97316_0%,#ec4899_55%,#f59e0b_100%)]"
@@ -96,7 +62,8 @@ export function Hero(): React.JSX.Element {
 
       <p className="relative mt-8 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
         流式对话、工具调用可视化、fail-closed 人工审批——27
-        种事件实时驱动四端界面。引擎 headless，数据全程落在本机。
+        种事件实时驱动四端界面。会话以
+        append-only JSONL 落盘，可回放、可分叉、可回滚。
       </p>
 
       <div className="relative mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -120,7 +87,7 @@ export function Hero(): React.JSX.Element {
       </div>
 
       <p className="relative mt-10 font-mono text-sm text-muted-foreground">
-        MIT License · Node.js ≥ 24 · 数据落盘 ~/.spark · 无云端依赖
+        MIT License · Node.js ≥ 24 · 默认监听 127.0.0.1:4318 · 数据落盘 ~/.spark
       </p>
     </section>
   );

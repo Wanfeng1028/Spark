@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Spark — 本地 Agent 工作台">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Spark — Agent 工作台">
   <rect width="1200" height="630" fill="#f4f4f5"/>
   <text x="600" y="300" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="96" font-weight="600" fill="#18181b">Spark</text>
-  <text x="600" y="380" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="36" fill="#71717a">本地 Agent 工作台</text>
+  <text x="600" y="380" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="36" fill="#71717a">Agent 工作台</text>
 </svg>

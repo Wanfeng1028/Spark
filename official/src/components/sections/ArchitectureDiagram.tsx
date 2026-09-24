@@ -52,7 +52,7 @@ export function ArchitectureDiagram(): React.JSX.Element {
             架构一览
           </h2>
           <p className="mt-3 text-lg text-muted-foreground">
-            五层分离，协议驱动。
+            五层：四端 UI / 协议 / 服务端 / 引擎 / 会话文件。
           </p>
         </header>
 

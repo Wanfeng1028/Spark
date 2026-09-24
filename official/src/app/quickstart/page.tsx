@@ -15,7 +15,7 @@ import { LINKS } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "快速上手",
-  description: "三步安装，本地启动 Agent 工作台",
+  description: "安装 CLI、启动 server 与 TUI、配置模型、开始对话四步。",
 };
 
 export const dynamic = "force-static";
@@ -209,7 +209,7 @@ pnpm --filter @spark/cli build  # 出 server 的 esbuild 单文件 bundle`}
             <section className="border-t border-border pt-12">
               <h2 className="text-xl font-semibold text-foreground">下一步</h2>
               <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                深入了解更多细节：
+                相关文档：
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link

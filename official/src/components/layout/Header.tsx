@@ -157,7 +157,7 @@ function NavDropdown({ label, groups, footer, align = "left", triggerClassName }
 function MobileAccordion({ onClose }: { onClose: () => void }): React.JSX.Element {
   const [open, setOpen] = React.useState(false);
   const items = [
-    { label: "Web 工作台", desc: "React 会话工作台，事件流的投影" },
+    { label: "Web 工作台", desc: "React 19 SPA，只消费事件流" },
     { label: "Desktop 壳", desc: "Electron 壳，sidecar 复用同一引擎" },
     { label: "CLI TUI", desc: "Ink 7 终端，纯单栏转录流" },
     { label: "移动端与小程序", desc: "Expo + RN 配对即连；Taro 同源" },

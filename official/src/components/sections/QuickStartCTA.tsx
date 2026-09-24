@@ -68,7 +68,7 @@ export function QuickStartCTA(): React.JSX.Element {
             id="quickstart-heading"
             className="text-center text-[36px] font-semibold tracking-tight text-zinc-900 sm:text-[52px]"
           >
-            两条路，都在你自己的机器上
+            两条起步路径
           </h2>
         </BlurFade>
 
@@ -127,7 +127,7 @@ export function QuickStartCTA(): React.JSX.Element {
         </div>
 
         <p className="mt-14 text-center font-mono text-xs text-muted-foreground">
-          MIT 许可 · 默认只监听 127.0.0.1 · 无云端依赖
+          MIT 许可 · 默认只监听 127.0.0.1 · 无账号体系
         </p>
       </div>
     </section>

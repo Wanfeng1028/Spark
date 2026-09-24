@@ -4,7 +4,7 @@
 
 # Spark
 
-**跑在你自己机器上的 Agent 工作台**
+**Agent 工作台**
 
 引擎 headless · UI 是事件流的投影 · 四端同一协议
 

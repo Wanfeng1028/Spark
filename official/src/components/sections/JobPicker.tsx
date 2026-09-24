@@ -137,7 +137,7 @@ export function JobPicker(): React.JSX.Element {
               "border-transparent bg-zinc-100 hover:bg-zinc-200",
             )}
           >
-            了解更多能力
+            查看功能清单
           </Link>
         </div>
       </div>

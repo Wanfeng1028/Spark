@@ -27,7 +27,7 @@ interface SecurityPromise {
 
 const PROMISES: readonly SecurityPromise[] = [
   {
-    title: "本地优先",
+    title: "缺省绑定回环",
     description:
       "server 缺省只监听回环地址，会话数据全部落在本机 ~/.spark/ 下。需要对外暴露时（非环回绑定）强制开启配对鉴权：6 位短码换长效 token。",
     evidence: "server: { host: '127.0.0.1', port: 4318 }",

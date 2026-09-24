@@ -6,7 +6,7 @@
 
 ![status](https://img.shields.io/badge/status-v1_完成-green) ![license](https://img.shields.io/badge/license-MIT-3f3f46) ![node](https://img.shields.io/badge/node-%E2%89%A5_24-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
 
-**Spark 是一个跑在你自己机器上的 Agent 工作台**——数据不出机器，四端连着同一个引擎，每一步可审计、可回放。它为"想要一个能看懂、能管住的编码 Agent"的人而做：不是云服务，没有账号体系，引擎负责运行循环、工具执行与审批，界面只做一件事——把事件流投影成你看到的样子。
+**Spark 是一个 Agent 工作台**——四端（web / 桌面 / CLI / 移动端与小程序）连同一条 HTTP+SSE 事件流，每一步可审计、可回放。它面向想看懂、想管住编码 Agent 的人：引擎负责运行循环、工具执行与审批，界面只做一件事——把事件流投影成界面。
 
 核心体验四件事：
 
@@ -47,7 +47,7 @@ spark up
 
 ## 安全模型（摘要）
 
-- **本地优先**：默认只监听 `127.0.0.1`；非环回绑定强制开启配对鉴权（6 位码换长效 token，ADR D24），缺省行为不变是红线。
+- **缺省绑定回环**：默认只监听 `127.0.0.1`；非环回绑定强制开启配对鉴权（6 位码换长效 token，ADR D24），缺省行为不变是红线。
 - **审批 fail-closed**：超时、异常、中断一律拒绝而非放行；bash 工具默认全审批。
 - **硬边界先行**：路径越界在审批之前直接拒绝；密钥只从环境变量与本机密钥仓读取，日志与审计流统一脱敏。
 - **每一步可审计**：durable 事件 append-only 落盘 `~/.spark/sessions/`——可回放、可分叉、可回滚（checkpoint）。
@@ -122,9 +122,9 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 
 - **v1 已完成合入 main**：五阶段（骨架/前端/引擎/深度体验/产品化）+ 阶段六~十（UI ZCode 化 / Harness 补全 / CLI TUI / 移动端三端 / UI 对齐与 CLI 重构）+ 质量收尾批次；**全部验证（typecheck / lint / test / e2e / eval / 文档检查器）由 CI 执行，本地不跑**（AGENTS §2.2）。
 - **v2 已开工**：阶段十一（可发布）~十五（生态面：spark mcp / OpenAPI 导出 / skill-kit / skills 边界拍板）已完成；阶段十三（可证明）与阶段十四（SDK 化）全量落地；阶段十七（代码冗余整改）与阶段十八（web 观感对齐）已收官；阶段十六 16.1–16.9 **全部落地**（/init /agents /plan /trust /extensions /voice /goal /arena /lsp）。
-- **阶段十九已立项（2026-09-19）：全端占位清零与判决翻案**——43 工单 19.1–19.43 九批次（computer-use 完整能力族 / i18n 全量 / 索引库与浏览器设置页 / CLI 设置面与管理态 / 移动端小程序补齐 / 桌面壳托盘终端多窗口自更新 / 全部候选池余项与登记限制判决翻案落地），四项拍板与工单卡见 [doc/08 §5D](./doc/08-v2-roadmap.md)，执行表见 doc/02 §8 阶段十九。
+- **阶段十九已立项（2026-09-19）：全端占位清零与判决翻案**——44 工单 19.1–19.44 十批次（computer-use 完整能力族 / i18n 全量 / 索引库与浏览器设置页 / CLI 设置面与管理态 / 移动端小程序补齐 / 桌面壳托盘终端多窗口自更新 / 全部候选池余项与登记限制判决翻案落地 / 个性化主题层 / 对外文案 AI 味整改），四项拍板与工单卡见 [doc/08 §5D](./doc/08-v2-roadmap.md)，执行表见 doc/02 §8 阶段十九。
 - 用户可见变更与里程碑：[CHANGELOG.md](./CHANGELOG.md)。
-- 下一程：阶段十九按批 A→I 推进（19.26 阻塞在真机录制、19.34 分发步阻塞在证书采购、19.43 第二批视频素材策略待拍板）→ 用户现场走查登记项（15.1 spark mcp 真实外配走查等），工单库见 [doc/08](./doc/08-v2-roadmap.md)。
+- 下一程：阶段十九按批 A→J 推进（19.26 阻塞在真机录制、19.34 分发步阻塞在证书采购、19.43 第二批静帧素材待下载、19.44 第二批含 og-image.png 重导出与口号 grep 接硬检查）→ 用户现场走查登记项（15.1 spark mcp 真实外配走查等），工单库见 [doc/08](./doc/08-v2-roadmap.md)。
 
 ## 版本记录
 
@@ -179,5 +179,6 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.43 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028） | 文档索引行更新：调研档案"10 个参考项目"→"11 个"（新增 MiniMax Code：MIT 第一方代码可抄、保留版权声明，third_party/sandbox-runtime 为 Apache-2.0）。与 AGENTS v1.56、doc/01 v1.9、doc/02 v4.77 同批 |
 | v1.44 | 2026-09-23 | AI 编写：Qoder · Qwen3.8-Max（Qwen3.8-Max-0902）；发起与拍板：晚风（Wanfeng1028，"只是增加个性化主题供用户选择。这 9 个个性化主题可以不遵循我的黑白风格的规则"指令） | 当前状态行计数同步：阶段十九 **42→43 工单、八批次→九批次**（2026-09-23 追加 I 批 19.43 个性化主题层——九套可选壁纸主题作为缺省关闭的端侧个性化层，默认外观一寸不动，限定豁免 DESIGN §12.9）；下一程批次 **A→H 改 A→I** 并补阻塞项"19.43 第二批视频素材策略待拍板"。工单卡见 doc/08 §5D.10（v1.75）、doc/02 v4.101、DESIGN v2.36、AGENTS v1.59 同批。本批纯规划零代码，本机零验证 |
 | v1.45 | 2026-09-24 | AI 编写：Qoder · Qwen3.8-Max（Qwen3.8-Max-0902）；发起：晚风（Wanfeng1028，"把官网部署在 github pages"指令） | **Quick Start 第 ④ 步审批键位口径修正**（官网 quickstart 的同句错文案由此处抄来，一并改）：原写"1 允许一次 / 2 本项目总是 / 3 该用户总是 / 4 拒绝"与产品实况不符——真实为 **1（y）允许一次 / 2（a）总是允许 / 4 本项目总是允许 / 3（n）拒绝并给建议**（事实源 `apps/cli/src/components/ApprovalPrompt.tsx:22`；第四入口 = 阶段十九 19.9 / ADR D48 的项目级作用域）。同批 `official/` 上 GitHub Pages：`next.config.ts` 补 `basePath`+`trailingSlash`、`asset()` 前缀 10 处裸资产路径、`public/.nojekyll`、`official.yml` 增 deploy job（`release.yml` 的 docs job 因同槽位已 `if: false` 停用）、修 WO-111/112/113/114；官网侧代码改动不进本表其余条目。与 doc/10 勾单同批。本批本机零验证，CI 裁决 |
+| v1.46 | 2026-09-24 | AI 编写：Qoder · Qwen3.8-Max（Qwen3.8-Max-0902）；发起与拍板：晚风（Wanfeng1028，"我不希望我的官网出现过多这种『本地优先』『跑在你自己』这种明显都是 ai 的语言，写一个工单查一下改一下，包括整个项目"指令） | 导语与安全模型条改文案：删"跑在你自己机器上的 / 数据不出机器"第二人称喊话，`**本地优先**` 标签改 `**缺省绑定回环**`（技术句原样保留）；README.en 同步两处。当前状态行计数同步：阶段十九 **43→44 工单、九批次→十批次（A→J）**，J 批 19.44 对外文案 AI 味清查与整改；下一程行补两项尾巴（og-image.png 重导出、口号 grep 接硬检查）并把"19.43 视频素材待拍板"改"静帧素材待下载"。判据与根因见 DESIGN v2.39 §12.7 两条新禁项、工单卡见 doc/08 §5D.11。与 doc/02 v4.112、doc/08 v1.86、AGENTS v1.61 同批。本批本机零验证，CI 裁决 |
 
 </details>

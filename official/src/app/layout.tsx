@@ -12,7 +12,7 @@ const SITE_URL = "https://wanfeng1028.github.io/Spark";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Spark — 本地 Agent 工作台",
+    default: "Spark — Agent 工作台",
     template: "%s — Spark",
   },
   description:
@@ -22,17 +22,17 @@ export const metadata: Metadata = {
   },
   // WO-002：1200×630 PNG（社交平台不解析 SVG——public/og-image.svg 仅作源稿留档）
   openGraph: {
-    title: "Spark — 本地 Agent 工作台",
+    title: "Spark — Agent 工作台",
     description: "引擎 headless，UI 是事件流的投影。27 种事件类型驱动四端界面。",
     type: "website",
     locale: "zh_CN",
     url: SITE_URL,
     siteName: "Spark",
-    images: [{ url: asset("/og-image.png"), width: 1200, height: 630, alt: "Spark — 本地 Agent 工作台" }],
+    images: [{ url: asset("/og-image.png"), width: 1200, height: 630, alt: "Spark — Agent 工作台" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Spark — 本地 Agent 工作台",
+    title: "Spark — Agent 工作台",
     description: "引擎 headless，UI 是事件流的投影。",
     images: [asset("/og-image.png")],
   },

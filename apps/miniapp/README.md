@@ -29,7 +29,7 @@ splitSseFrames/envelopeFromSseFrame 帧解析、ERROR_COPY 错误文案、i18n �
 
 | 方案 | 做法 | 端上/协议代价 | 外部前置 |
 | --- | --- | --- | --- |
-| A 反代直连 | caddy/nginx 挂 TLS + 备案域名转发到局域网引擎，SSE 原样透传（需 `X-Accel-Buffering: no` 关缓冲） | 零改码（`?token=` 与 Bearer 双口径已就绪） | 公网 IP/内网穿透 + 域名备案 + 证书；把家庭网络上的引擎整体暴露到公网，与"本地优先、127.0.0.1 是刻意的"（AGENTS §2.9）冲突面最大 |
+| A 反代直连 | caddy/nginx 挂 TLS + 备案域名转发到局域网引擎，SSE 原样透传（需 `X-Accel-Buffering: no` 关缓冲） | 零改码（`?token=` 与 Bearer 双口径已就绪） | 公网 IP/内网穿透 + 域名备案 + 证书；把家庭网络上的引擎整体暴露到公网，与"缺省绑定 127.0.0.1、不做公网暴露"（AGENTS §2.9）冲突面最大 |
 | B WSS 中继 | 公网中继持配对 token，`connectSocket(wss://…)` 收帧、内部订阅引擎 SSE 后转发 | 端上需新增 socket 通道（帧解析可复用 `splitSseFrames`）；**`baseUrlOf` 写死 `http://`** 与 `PairCodeDto.qr` 只能带局域网 host:port 是硬阻塞，需协议面开 scheme/公网基址 | 一台常驻中继服务（不在本仓）+ 域名备案；中继要持凭据转发 = 新增信任边界，审批与数据都不该经过它 |
 | C 轮询网关 | 只做 HTTPS 反代，事件流走本端**已有的轮询降级通道**（`forcePolling` + `filterFreshEvents`，数据面 `GET /api/sessions/:id?limit=200`） | 零新事件、零新协议方法；3s 时延与 REST 开销换掉 SSE | 与 A 同（TLS + 备案域名），但可关掉除 sessions 之外的端点面 |
 

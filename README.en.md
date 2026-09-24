@@ -6,7 +6,7 @@
 
 ![status](https://img.shields.io/badge/status-v1_complete-green) ![license](https://img.shields.io/badge/license-MIT-3f3f46) ![node](https://img.shields.io/badge/node-%E2%89%A5_24-3f3f46) ![react](https://img.shields.io/badge/react-19-3f3f46) ![ts](https://img.shields.io/badge/typescript-strict-3f3f46) ![monorepo](https://img.shields.io/badge/pnpm-monorepo-3f3f46)
 
-**Spark is an Agent workbench that runs on your own machine** — your data never leaves it, four clients speak one protocol, and every step is auditable and replayable. It is built for people who want a coding agent they can understand and control: no cloud service, no account system. The engine runs the loop, tools, and approvals; the UI does exactly one thing — project the event stream into what you see.
+**Spark is an Agent workbench** — four clients (web / desktop / CLI / mobile & mini-program) read one HTTP+SSE event stream, so every step is auditable and replayable. It is built for people who want a coding agent they can understand and control: the engine runs the loop, tools, and approvals, and the UI does exactly one thing — project the event stream into the interface.
 
 Four core experiences:
 
@@ -48,7 +48,7 @@ spark up
 
 ## Security Model (Summary)
 
-- **Local-first**: binds to `127.0.0.1` by default; non-loopback binding requires pairing auth (6-digit code exchanges for a long-lived token, ADR D24). Keeping the default behavior unchanged is a hard rule.
+- **Loopback by default**: binds to `127.0.0.1` by default; non-loopback binding requires pairing auth (6-digit code exchanges for a long-lived token, ADR D24). Keeping the default behavior unchanged is a hard rule.
 - **Fail-closed approvals**: timeouts, errors, and interruptions always deny rather than allow; bash tools require approval by default.
 - **Hard boundaries first**: path escapes are rejected before approval is even consulted; keys come only from environment variables and the local secrets store; logs and the audit stream are uniformly redacted.
 - **Every step auditable**: durable events are appended to `~/.spark/sessions/` — replayable, forkable, and restorable via checkpoints.
@@ -120,9 +120,9 @@ pnpm eval                   # eval regression (deterministic scenarios; --real f
 ## Current Status
 
 - **v1 is complete and merged to main**: five stages (skeleton / frontend / engine / deep experience / productization) + stages 6–10 (UI ZCode-mode / harness completion / CLI TUI / mobile trio / UI alignment & CLI rebuild) plus a quality-cleanup batch; **all verification (typecheck / lint / tests / e2e / eval / doc checker) runs in CI — nothing is run locally** (AGENTS §2.2).
-- **v2 is underway**: stages 11–18 are complete (release / agent capabilities / provable / SDK / ecosystem / new command-surface mechanisms / redundancy cleanup / web visual alignment; 16.1–16.9 all landed). **Stage 19 was initiated on 2026-09-19: clearing every placeholder across all ends and overturning deferred decisions** — 43 work orders (19.1–19.43, batches A–I) covering full computer-use, full i18n, index-library & browser settings pages, CLI settings surface, mobile/mini-program catch-up, desktop shell (tray / terminal / multi-window / self-update), every remaining v2-candidate-pool item, and an opt-in personalization theme layer (batch I, added 2026-09-23 — nine wallpapers, off by default, the default look untouched, under a scoped exemption from the DESIGN §12 monochrome rules). Rationale and work-order cards: [doc/08 §5D](./doc/08-v2-roadmap.md); the execution table lives in doc/02 §8 (Chinese edition).
+- **v2 is underway**: stages 11–18 are complete (release / agent capabilities / provable / SDK / ecosystem / new command-surface mechanisms / redundancy cleanup / web visual alignment; 16.1–16.9 all landed). **Stage 19 was initiated on 2026-09-19: clearing every placeholder across all ends and overturning deferred decisions** — 44 work orders (19.1–19.44, batches A–J) covering full computer-use, full i18n, index-library & browser settings pages, CLI settings surface, mobile/mini-program catch-up, desktop shell (tray / terminal / multi-window / self-update), every remaining v2-candidate-pool item, an opt-in personalization theme layer (batch I, added 2026-09-23 — nine wallpapers, off by default, the default look untouched, under a scoped exemption from the DESIGN §12 monochrome rules), and an outward-facing copy cleanup that removes second-person hype and slogan labels from the site, READMEs and client UI (batch J, added 2026-09-24). Rationale and work-order cards: [doc/08 §5D](./doc/08-v2-roadmap.md); the execution table lives in doc/02 §8 (Chinese edition).
 - User-visible changes and milestones: [CHANGELOG.md](./CHANGELOG.md).
-- Up next: stage 19 batches A→I (19.26 is blocked on a real-machine recording; 19.34 distribution step is blocked on code-signing certificate purchase; 19.43 second batch is blocked on a wallpaper-asset decision) → user-side walkthrough items ([doc/08](./doc/08-v2-roadmap.md)).
+- Up next: stage 19 batches A→J (19.26 is blocked on a real-machine recording; 19.34 distribution step is blocked on code-signing certificate purchase; 19.43 second batch needs the still-image assets downloaded; 19.44 second batch covers re-exporting og-image.png and wiring the slogan grep into a hard check) → user-side walkthrough items ([doc/08](./doc/08-v2-roadmap.md)).
 
 ## Version History
 

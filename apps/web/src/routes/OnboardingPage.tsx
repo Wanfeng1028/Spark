@@ -103,12 +103,12 @@ function WelcomeStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => voi
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border p-5">
       <h2 className="flex items-center gap-2 text-[13px] font-medium">
-        <ShieldCheck className="size-4" /> 本地优先 · 数据不出本机
+        <ShieldCheck className="size-4" /> 默认只监听 127.0.0.1
       </h2>
       <ul className="flex flex-col gap-1.5 text-[13px] text-muted-foreground">
-        <li>· 引擎运行在你自己的机器上（127.0.0.1，无公网暴露）。</li>
+        <li>· 引擎与会话数据都在本机，server 缺省只监听 127.0.0.1，无公网暴露。</li>
         <li>· API Key 只存本地密钥仓（~/.spark/secrets.json），不进对话、不进日志。</li>
-        <li>· 敏感操作默认需你逐条审批（可按规则固化）。</li>
+        <li>· 敏感操作默认逐条审批，可按规则固化为自动放行。</li>
       </ul>
       <div className="mt-2 flex gap-2">
         <Button onClick={onNext}>开始配置模型</Button>

@@ -5,7 +5,7 @@ import { CodeBlock } from "@/components/ui/code-block";
 
 export const metadata: Metadata = {
   title: "架构",
-  description: "五层分离，协议驱动，事件溯源。27 种事件词表统一四端。",
+  description: "四端 UI、协议、服务端、引擎、会话文件五层；27 种事件词表统一四端。",
 };
 
 export const dynamic = "force-static";
@@ -57,7 +57,7 @@ export default function ArchitecturePage() {
             架构
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            五层分离，协议驱动，事件溯源。
+            四端 UI、协议、服务端、引擎、会话文件——自上而下五层。
           </p>
         </div>
       </div>
