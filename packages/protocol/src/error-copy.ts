@@ -8,36 +8,15 @@
  * 与 miniapp rest.ts req 两份同构收敛）。
  */
 
-/** 错误码 → 人话文案（title 级，一句可行动的描述） */
-export const ERROR_COPY: Record<string, string> = {
-  // ---- server §7.4 错误映射表 ----
-  E_VALIDATION: '请求参数不合法，请检查输入后重试',
-  E_NOT_FOUND: '目标不存在（会话/请求/快照可能已被清理）',
-  E_ALREADY_RESOLVED: '该审批已答复过，无需重复操作',
-  E_TURN_ACTIVE: '本轮对话仍在进行中，请等待结束后再操作',
-  E_TURN_MISMATCH: '要插话的目标轮已变化，请重新发送',
-  E_INVALID_BOUNDARY: '所选分叉位置不存在，请刷新会话树后重试',
-  E_OPEN_TURN: '本轮对话尚未结束，暂不可分叉',
-  E_ALREADY_EXISTS: '目标会话已存在',
-  E_CHECKPOINT_ROLLBACK: '回滚失败：git 操作异常，详情见服务端日志',
-  E_CONFIG: '模型配置无效：须为已配置供应商的 provider/model',
-  E_SHUTTING_DOWN: '引擎正在关闭，请稍后重启应用',
-  E_AUTH: '连接未通过鉴权：请重新配对设备或检查 token',
-  E_PAIR: '配对码无效或已过期，请在桌面端重新获取',
-  E_PAIR_DISABLED: '配对鉴权未启用：请先在桌面端设置页添加设备',
-  E_COMMAND_CLIENT: '这是界面命令，由界面执行——不经引擎（检查命令面分派）',
-  E_INTERNAL: '服务内部错误，请重试；若持续出现请查看服务端日志',
-  // ---- 语音听写（工单 16.6；fail-closed 不裸降） ----
-  E_TRANSCRIBE_UNCONFIGURED: '当前供应商未配置语音转写端点：在 models.json 给该供应商补 baseUrl 或 transcription 配置',
-  E_TRANSCRIBE_BLOCKED: '转写端点地址被安全策略拒绝（内网/环回地址不可达）',
-  E_TRANSCRIBE_UPSTREAM: '转写服务返回错误：请检查供应商密钥与转写模型配置',
-  E_TRANSCRIBE_MIME: '不支持的录音格式：请使用 webm/mp4/wav/ogg/mpeg 录音',
-  E_TRANSCRIBE_TOO_LARGE: '录音超过 10MB 上限：请缩短录音时长',
-  // ---- transport / mock 特有 ----
-  E_MOCK_UNKNOWN_SESSION: '会话不存在或已被清理',
-  E_MOCK_DISPOSED: '演示通道已关闭，请刷新页面',
-  E_HTTP_DISPOSED: '连接已释放，请重启应用',
-}
+import { ERROR_COPY_ZH, errorCopyOf, type Language } from './i18n.js'
+
+/**
+ * 错误码 → 人话文案（title 级，一句可行动的描述）。
+ * 19.17 第二批起本表**由 i18n 的 zh-CN 字典派生**（`ERROR_COPY_ZH`），不再在此并列第二份——
+ * 两份表必然漂移，而漂移的表现是"某码在某端显示另一端的旧文案"，很难被注意到。
+ * 取其它语言走 `errorCopyOf(code, lang)`；本常量仍是 zh-CN 的公开读面（既有消费者不变）。
+ */
+export const ERROR_COPY: Record<string, string> = { ...ERROR_COPY_ZH }
 
 export interface ErrorCopy {
   /** 人话文案（表中命中；未命中且无码 = 原始消息） */
@@ -55,11 +34,13 @@ function parseCode(msg: string): { code: string | null; rest: string } {
   return { code: m[1] ?? '', rest: m[2] ?? '' }
 }
 
-/** 错误消息 → {title 人话, code, detail 折叠原码} */
-export function humanizeError(msg: string): ErrorCopy {
+/** 错误消息 → {title 人话, code, detail 折叠原码}。
+ *  `lang` 是**尾部可选参数**、缺省 zh-CN：全仓 139 处调用点一行不改，只有渲染点按需传语言
+ *  （把 lang 穿到每个调用点就是工单明令禁止的"拆散"）。 */
+export function humanizeError(msg: string, lang: Language = 'zh-CN'): ErrorCopy {
   const { code, rest } = parseCode(msg)
   if (code === null) return { title: msg, code: null, detail: null }
-  const copy = ERROR_COPY[code]
+  const copy = errorCopyOf(code, lang)
   // 命中：title 用文案；未命中：title 用原始消息（保持可读），码进折叠详情
   return {
     title: copy ?? (rest !== '' ? rest : msg),
@@ -68,10 +49,10 @@ export function humanizeError(msg: string): ErrorCopy {
   }
 }
 
-/** unknown 错误 → 人话 title（hint/toast 等纯文本出口用） */
-export function errorMessageOf(err: unknown): string {
+/** unknown 错误 → 人话 title（hint/toast 等纯文本出口用）；lang 同上为尾部可选参数 */
+export function errorMessageOf(err: unknown, lang: Language = 'zh-CN'): string {
   const msg = err instanceof Error ? err.message : String(err)
-  return humanizeError(msg).title
+  return humanizeError(msg, lang).title
 }
 
 /**

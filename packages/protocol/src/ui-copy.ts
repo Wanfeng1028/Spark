@@ -20,45 +20,67 @@
  * 2) miniapp 复制态的 ✓ 是「无图标组件平台」的视觉补偿记号（同 cli ✓/… 排版记号先例，
  *    非 emoji 装饰，AGENTS §2.6），留渲染层附加，不进文案表——文案本体两端已统一。
  */
+import { translate, type Language } from './i18n.js'
 import type { SessionStatus } from './api.js'
 
-/** 连接态人话文案（四端逐字同的三态；closed 见文件头边界说明 1） */
+/** 连接态人话文案（四端逐字同的三态；closed 见文件头边界说明 1）。
+ *  19.17 第二批起值由 i18n 的 zh-CN 字典派生——本文件不再持有第二份中文原文。 */
 export const CONNECTION_TEXT = {
-  connecting: '连接中…',
-  open: '已连接',
-  reconnecting: '已断线，重连中…',
+  connecting: translate('zh-CN', 'copy.connecting'),
+  open: translate('zh-CN', 'copy.open'),
+  reconnecting: translate('zh-CN', 'copy.reconnecting'),
 } as const
 
 /** CONNECTION_TEXT 的可索引键（各端 status 联合含 closed 时须先排除再索引） */
 export type ConnectionTextKey = keyof typeof CONNECTION_TEXT
 
+/** 连接态文案（可指定语言）。closed 刻意不入本表，理由见文件头边界说明 1——
+ *  两个触发源语义不同，单份文案无法如实覆盖，强并即造假状态。 */
+export function connectionText(status: ConnectionTextKey, lang: Language = 'zh-CN'): string {
+  return translate(lang, `copy.${status}`)
+}
+
 /** 工具状态词（工具卡 meta 与无障碍标签共用同一口径） */
-export function toolStatusText(status: 'running' | 'completed' | 'error'): string {
-  if (status === 'running') return '运行中'
-  if (status === 'error') return '失败'
-  return '完成'
+export function toolStatusText(
+  status: 'running' | 'completed' | 'error',
+  lang: Language = 'zh-CN',
+): string {
+  if (status === 'running') return translate(lang, 'copy.toolRunning')
+  if (status === 'error') return translate(lang, 'copy.toolError')
+  return translate(lang, 'copy.toolCompleted')
 }
 
 /** 审批决策后的回显（reply 缺省 = 已处理但决策未知——不给假具体值） */
-export function approvalResolvedText(reply: 'once' | 'always' | 'reject' | undefined): string {
-  if (reply === 'once') return '已允许本次'
-  if (reply === 'always') return '已始终允许'
-  if (reply === 'reject') return '已拒绝'
-  return '已处理'
+export function approvalResolvedText(
+  reply: 'once' | 'always' | 'reject' | undefined,
+  lang: Language = 'zh-CN',
+): string {
+  if (reply === 'once') return translate(lang, 'copy.approvalOnce')
+  if (reply === 'always') return translate(lang, 'copy.approvalAlways')
+  if (reply === 'reject') return translate(lang, 'copy.approvalReject')
+  return translate(lang, 'copy.approvalHandled')
 }
 
-/** 复制按钮两态文案（miniapp 的 ✓ 记号在渲染层附加，见文件头边界说明 2） */
+/** 复制按钮两态文案（miniapp 的 ✓ 记号在渲染层附加，见文件头边界说明 2）；值由 zh 字典派生 */
 export const COPY_TEXT = {
-  copy: '复制',
-  copied: '已复制',
+  copy: translate('zh-CN', 'copy.copyButton'),
+  copied: translate('zh-CN', 'copy.copied'),
 } as const
 
-/** 回合头时长（工单 10.4②；W18 mobile/miniapp 落地入单源）：中文口语形态「N 秒 / N 分 N 秒」——
- *  与 web formatTurnDuration（apps/web/src/lib/time.ts）逐字同实现（web 侧改引本表记后续对账）；
+/** 复制按钮文案（可指定语言） */
+export function copyButtonText(state: 'copy' | 'copied', lang: Language = 'zh-CN'): string {
+  return translate(lang, state === 'copy' ? 'copy.copyButton' : 'copy.copied')
+}
+
+/** 回合头时长（工单 10.4②；W18 mobile/miniapp 落地入单源）：口语形态「N 秒 / N 分 N 秒」
+ *  （en 为 `{n}s` / `{m}m {s}s`，同走字典占位符）——与 web formatTurnDuration
+ *  （apps/web/src/lib/time.ts）逐字同实现（web 侧改引本表记后续对账）；
  *  cli 保持终端秒表口径（K.2 `${sec} 秒`）不强并。毫秒向下取整（回合头不虚报）。 */
-export function turnDurationText(ms: number): string {
+export function turnDurationText(ms: number, lang: Language = 'zh-CN'): string {
   const s = Math.floor(ms / 1000)
-  return s < 60 ? `${s} 秒` : `${Math.floor(s / 60)} 分 ${s % 60} 秒`
+  return s < 60
+    ? translate(lang, 'copy.durationSeconds', { n: s })
+    : translate(lang, 'copy.durationMinutes', { m: Math.floor(s / 60), s: s % 60 })
 }
 
 /** 严重度取色所需的最小 token 面（同 StatusDotTokens 手法：结构化子集，各端完整 ThemeTokens 可直传） */

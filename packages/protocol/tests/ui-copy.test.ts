@@ -8,6 +8,8 @@ import {
   CONNECTION_TEXT,
   COPY_TEXT,
   approvalResolvedText,
+  connectionText,
+  copyButtonText,
   dotColor,
   severityOf,
   toolStatusText,
@@ -111,5 +113,42 @@ describe('dotColor（会话列表状态点取色，DESIGN §13.J.2.2）', () => 
     const full = { ...TOKENS, foreground: '#fg', mutedForeground: '#muted', sparkErr: '#err' }
     expect(dotColor('idle', full)).toBe('#ok')
     expect(dotColor('running', full)).toBe('#accent')
+  })
+})
+
+describe('接入翻译层（阶段十九 19.17 第二批）', () => {
+  it('zh 值逐字未变——接入翻译层不是改文案（中文用户零观感变化的回归保护）', () => {
+    expect(CONNECTION_TEXT).toEqual({
+      connecting: '连接中…',
+      open: '已连接',
+      reconnecting: '已断线，重连中…',
+    })
+    expect(COPY_TEXT).toEqual({ copy: '复制', copied: '已复制' })
+    expect(toolStatusText('running')).toBe('运行中')
+    expect(toolStatusText('completed')).toBe('完成')
+    expect(toolStatusText('error')).toBe('失败')
+    expect(approvalResolvedText('once')).toBe('已允许本次')
+    expect(approvalResolvedText('always')).toBe('已始终允许')
+    expect(approvalResolvedText('reject')).toBe('已拒绝')
+    expect(approvalResolvedText(undefined)).toBe('已处理')
+    expect(turnDurationText(5_000)).toBe('5 秒')
+    expect(turnDurationText(125_000)).toBe('2 分 5 秒')
+  })
+
+  it('传 lang=en 出英文；缺省仍 zh-CN（尾部可选参数不破坏既有调用点）', () => {
+    expect(toolStatusText('running', 'en')).toBe('Running')
+    expect(toolStatusText('error', 'en')).toBe('Failed')
+    expect(approvalResolvedText('reject', 'en')).toBe('Rejected')
+    expect(approvalResolvedText(undefined, 'en')).toBe('Handled')
+    expect(copyButtonText('copy', 'en')).toBe('Copy')
+    expect(copyButtonText('copied', 'en')).toBe('Copied')
+    expect(connectionText('reconnecting', 'en')).toBe('Disconnected, reconnecting…')
+    // 时长是占位符两种语言各自成句，不是把中文语序逐词替换
+    expect(turnDurationText(5_000, 'en')).toBe('5s')
+    expect(turnDurationText(125_000, 'en')).toBe('2m 5s')
+  })
+
+  it('closed 仍不入表：文件头边界说明 1 的判决未随接入翻译层而松动', () => {
+    expect(Object.keys(CONNECTION_TEXT)).toEqual(['connecting', 'open', 'reconnecting'])
   })
 })
