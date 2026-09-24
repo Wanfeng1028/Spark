@@ -25,7 +25,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { useLocation, useNavigate } from 'react-router'
 import { Archive, CalendarClock, ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Pin, Plus, Search, Settings, Trash2, Undo2, User } from 'lucide-react'
-import type { SessionDto, SessionStatus } from '@spark/protocol'
+import { dotTokenOf, type DotTokenKey, type SessionDto, type SessionStatus } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useActiveSlice } from '@/stores/session'
 import { useSessionList } from '@/hooks/useSessionList'
@@ -37,19 +37,26 @@ import { groupSessionsForSidebar } from './session-groups'
 
 /**
  * 会话状态点（DESIGN §13.J.2.2；animate-pulse 属状态点白名单）。
- * `archived` 为真时走灰档（工单 19.21 兑现 ui-copy 预留）：
+ * 「归档压过状态色」这条规则不在本组件里判断——取 protocol `dotTokenOf` 的键再映射类名
+ * （mobile/miniapp 走同一个键取色值），三端不再各写一遍分支。web 侧映射到 Tailwind token
+ * 类而非内联色值（§2.6）：`--spark-*` 是 CSS 变量，运行时才解析。
  * 已归档会话未装载，引擎 statusOf 一律回 'idle'——若仍画绿点等于谎称它在你工作区里活跃。
  * 归档位来自 SessionMetaDto.archivedAt（12.4：仅已归档携带，禁假状态）。
  */
+const DOT_CLASS: Record<DotTokenKey, string> = {
+  sparkAccent: 'bg-[var(--spark-accent)] animate-pulse',
+  sparkWarn: 'bg-[var(--spark-warn)]',
+  sparkOk: 'bg-[var(--spark-ok)]',
+  mutedForeground: 'bg-muted-foreground',
+}
+
 export function SessionStatusDot({ status, archived = false }: { status: SessionStatus; archived?: boolean }) {
-  const cls = archived
-    ? 'bg-muted-foreground'
-    : status === 'running'
-      ? 'bg-[var(--spark-accent)] animate-pulse'
-      : status === 'waiting-approval'
-        ? 'bg-[var(--spark-warn)]'
-        : 'bg-[var(--spark-ok)]'
-  return <span aria-hidden className={cn('size-2 shrink-0 rounded-full', cls)} />
+  return (
+    <span
+      aria-hidden
+      className={cn('size-2 shrink-0 rounded-full', DOT_CLASS[dotTokenOf(status, archived)])}
+    />
+  )
 }
 
 /** 项目名 = cwd 目录名（跨平台分隔符；空 cwd 兜底「未分组」）——分组数据源，纯前端 */

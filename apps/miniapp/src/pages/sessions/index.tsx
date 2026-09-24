@@ -9,8 +9,9 @@
  *   ——后者只给行高 44 的选项列表，装不下"选中 ✓ + 档位说明"的 J.2.2 形态。
  * - 下拉刷新 = 页面级 enablePullDownRefresh + usePullDownRefresh（当前档重取快照）。
  * - 行：状态点 16rpx + 标题单行截断 + 右侧日期 24rpx meta，行高 104rpx（J.2.2 52px×2）。
- *   已归档档的状态点灰档**不在本端自绘**（protocol ui-copy `dotColor` 预留，等端主题
- *   补 sparkMeta 后收敛单源），归档上下文由页头标题与分组标题承载。
+ *   已归档档的状态点走灰档（工单 19.21 尾巴兑现）：规则单源在 protocol `dotTokenOf`，
+ *   本端只把 `dotColor` 的第三参传归档位——原"等端主题补 sparkMeta 再收敛"的注记作废，
+ *   两端 ThemeTokens 早有 `mutedForeground`，再立同值同义的第四色只会让人分不清用哪个。
  * - 右下 FAB 112rpx accent 白"+"。
  * 列表快照纪律同四端（AGENTS §2.7）：刷新/聚焦时刻 REST 快照，不轮询。
  */
@@ -174,7 +175,13 @@ export default function SessionsPage() {
                   <View key={dto.id}>
                     {i > 0 ? <Hairline /> : null}
                     <View className="sl-row" onClick={() => openSession(dto)}>
-                      <View className="sl-dot" style={{ backgroundColor: dotColor(dto.status, t) }} />
+                      {/* 归档压过状态色（工单 19.21 尾巴，规则单源在 protocol dotTokenOf） */}
+                      <View
+                        className="sl-dot"
+                        style={{
+                          backgroundColor: dotColor(dto.status, t, dto.archivedAt !== undefined),
+                        }}
+                      />
                       <Text className="sl-row-title sl-ellipsis" style={{ color: t.foreground }}>
                         {dto.title !== '' ? dto.title : '新会话'}
                       </Text>

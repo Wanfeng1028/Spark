@@ -263,7 +263,14 @@ function SessionRow({
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <View style={[styles.row, { height: mobileMetrics.sessionRowHeight }]}>
-        <View style={[styles.dot, { backgroundColor: dotColor(dto.status, t) }]} />
+        {/* 归档压过状态色（工单 19.21 尾巴，规则单源在 protocol dotTokenOf）：已归档会话
+            未装载、status 一律 'idle'，画绿点等于谎称它仍在工作区里活跃 */}
+        <View
+          style={[
+            styles.dot,
+            { backgroundColor: dotColor(dto.status, t, dto.archivedAt !== undefined) },
+          ]}
+        />
         <Text
           numberOfLines={1}
           style={[styles.rowTitle, { color: t.foreground }]}

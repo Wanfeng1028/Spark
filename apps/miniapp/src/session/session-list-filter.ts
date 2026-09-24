@@ -5,8 +5,9 @@
  * 归档档数据源 = `Transport.listSessions(archived=true)`（工单 12.4 后端已通），
  * 本端不再按 §13.J.2.2 原口径置灰（apps/mobile 端那句"已归档——待后端支撑"的占位
  * 随本批一并作废：后端 12.4 就通了，缺的只是两端没接）。
- * 归档状态点的灰档**不在本端自绘**——ui-copy `dotColor` 头注记明确要求先补
- * 端主题 `sparkMeta` token 再收敛单源（"勿在两端另写第四色"）。
+ * 归档状态点的灰档已由 protocol `dotColor(status, t, archived)` 承载（工单 19.21 尾巴）：
+ * 规则单源在 `dotTokenOf`，页面只传归档位；原"先补端主题 sparkMeta token"的注记作废——
+ * 两端 ThemeTokens 早有 `mutedForeground`，另立同值同义的第四色只会让人分不清用哪个。
  */
 import type { SessionDto } from '@spark/protocol'
 import { isToday } from '@spark/protocol'

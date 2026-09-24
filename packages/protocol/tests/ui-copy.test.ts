@@ -11,14 +11,21 @@ import {
   connectionText,
   copyButtonText,
   dotColor,
+  dotTokenOf,
   severityOf,
   toolStatusText,
   turnDurationText,
+  type DotTokenKey,
   type SeverityTokens,
   type StatusDotTokens,
 } from '../src/ui-copy'
 
-const TOKENS: StatusDotTokens = { sparkAccent: '#accent', sparkWarn: '#warn', sparkOk: '#ok' }
+const TOKENS: StatusDotTokens = {
+  sparkAccent: '#accent',
+  sparkWarn: '#warn',
+  sparkOk: '#ok',
+  mutedForeground: '#muted',
+}
 
 const SEV_TOKENS: SeverityTokens = { sparkWarn: '#warn', foreground: '#fg', mutedForeground: '#muted' }
 
@@ -109,10 +116,37 @@ describe('dotColor（会话列表状态点取色，DESIGN §13.J.2.2）', () => 
     expect(dotColor('idle', TOKENS)).toBe('#ok')
   })
 
-  it('只依赖三字段的结构化子集：各端完整 ThemeTokens 可直传', () => {
-    const full = { ...TOKENS, foreground: '#fg', mutedForeground: '#muted', sparkErr: '#err' }
+  it('只依赖四字段的结构化子集：各端完整 ThemeTokens 可直传', () => {
+    const full = { ...TOKENS, foreground: '#fg', sparkErr: '#err' }
     expect(dotColor('idle', full)).toBe('#ok')
     expect(dotColor('running', full)).toBe('#accent')
+  })
+
+  it('归档压过三态取灰档（19.21 尾巴）：已归档会话 status 一律 idle，画绿点即谎称活跃', () => {
+    expect(dotColor('idle', TOKENS, true)).toBe('#muted')
+    expect(dotColor('running', TOKENS, true)).toBe('#muted')
+    expect(dotColor('waiting-approval', TOKENS, true)).toBe('#muted')
+  })
+
+  it('archived 缺省 false（三端既有调用点不传即维持原语义）', () => {
+    expect(dotColor('idle', TOKENS)).toBe(dotColor('idle', TOKENS, false))
+  })
+})
+
+describe('dotTokenOf（「归档压过状态色」规则单源——web 取类名 / 两端取值共用同一分支）', () => {
+  it('四键穷尽且与 dotColor 取值一致（web 的类名映射不得再自己判一遍归档）', () => {
+    const keys: DotTokenKey[] = ['sparkAccent', 'sparkWarn', 'sparkOk', 'mutedForeground']
+    for (const status of ['running', 'waiting-approval', 'idle'] as const) {
+      for (const archived of [false, true]) {
+        const k = dotTokenOf(status, archived)
+        expect(keys).toContain(k)
+        expect(TOKENS[k]).toBe(dotColor(status, TOKENS, archived))
+      }
+    }
+    expect(dotTokenOf('running')).toBe('sparkAccent')
+    expect(dotTokenOf('waiting-approval')).toBe('sparkWarn')
+    expect(dotTokenOf('idle')).toBe('sparkOk')
+    expect(dotTokenOf('running', true)).toBe('mutedForeground')
   })
 })
 

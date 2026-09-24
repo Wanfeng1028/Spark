@@ -98,28 +98,46 @@ export function severityOf(severity: number, t: SeverityTokens): { label: string
   return { label: 'I', color: t.mutedForeground }
 }
 
-/** 状态点取色所需的最小 token 面（各端 ThemeTokens 均含此三字段——结构化子集，protocol 不依赖端主题类型） */
+/** 状态点取色所需的最小 token 面（各端 ThemeTokens 均含此四字段——结构化子集，protocol 不依赖端主题类型） */
 export interface StatusDotTokens {
   sparkAccent: string
   sparkWarn: string
   sparkOk: string
+  /**
+   * 归档灰档（工单 19.21 尾巴兑现）。两端 ThemeTokens **早已有本字段**（meta 文字在用），
+   * 故不另立原注记里预想的 `sparkMeta`——同值同义的第四个 token 只会让人分不清该用哪个。
+   */
+  mutedForeground: string
 }
 
 /**
- * 会话列表状态点配色（DESIGN §13.J.2.2：绿空闲 / accent 运行 / amber 待审批）。
- * 灰档 = 已归档（工单 19.21 兑现此预留）：归档会话未装载、`status` 一律 'idle'，
- * 画绿点等于谎称其仍在工作区活跃。归档位取 `SessionMetaDto.archivedAt`（12.4 仅已归档携带）。
- * 现状：web 侧已实现（`Sidebar.tsx` SessionStatusDot 的 archived 分支，取 `--muted-foreground`）；
- * 本函数尚未承载灰档——mobile/miniapp 的 ThemeTokens 无对应字段，补齐 `sparkMeta` 后再收敛到此
- * 单源（登记为 19.21 尾巴，勿在两端另写第四色）。
+ * 状态点的 token 键 = **「归档压过状态色」这条规则的单一来源**（DESIGN §13.J.2.2）：
+ * 已归档会话未装载、引擎 `statusOf` 一律回 'idle'，画绿点等于谎称它在你工作区里活跃。
+ * web 由键取 Tailwind 类名（§2.6 token 纪律，不内联 JS 色值），mobile/miniapp 由
+ * `dotColor` 取值（RN/Taro 的内联 style 要色值）——三端不再各写一遍同一条分支。
  */
-export function dotColor(status: SessionStatus, t: StatusDotTokens): string {
+export type DotTokenKey = keyof StatusDotTokens
+
+export function dotTokenOf(status: SessionStatus, archived = false): DotTokenKey {
+  if (archived) return 'mutedForeground'
   switch (status) {
     case 'running':
-      return t.sparkAccent
+      return 'sparkAccent'
     case 'waiting-approval':
-      return t.sparkWarn
+      return 'sparkWarn'
     case 'idle':
-      return t.sparkOk
+      return 'sparkOk'
   }
+}
+
+/**
+ * 会话列表状态点配色（DESIGN §13.J.2.2：绿空闲 / accent 运行 / amber 待审批 / 灰已归档）。
+ * 归档位取 `SessionMetaDto.archivedAt`（12.4 仅已归档携带——禁假状态，不传即视为未归档）。
+ */
+export function dotColor(
+  status: SessionStatus,
+  t: StatusDotTokens,
+  archived = false,
+): string {
+  return t[dotTokenOf(status, archived)]
 }
