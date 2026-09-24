@@ -113,6 +113,8 @@ export type UiDictionary = {
     approvalHandled: string
     copyButton: string
     copied: string
+    /** streamdown 代码块控件的库特有键（原为 web 本地字面量，切语言不跟着变） */
+    copyCode: string
     /** 占位 {n} */
     durationSeconds: string
     /** 占位 {m} {s} */
@@ -226,6 +228,7 @@ const ZH: UiDictionary = {
     approvalHandled: '已处理',
     copyButton: '复制',
     copied: '已复制',
+    copyCode: '复制代码',
     durationSeconds: '{n} 秒',
     durationMinutes: '{m} 分 {s} 秒',
   },
@@ -333,6 +336,7 @@ const EN: UiDictionary = {
     approvalHandled: 'Handled',
     copyButton: 'Copy',
     copied: 'Copied',
+    copyCode: 'Copy code',
     durationSeconds: '{n}s',
     durationMinutes: '{m}m {s}s',
   },

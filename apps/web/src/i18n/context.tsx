@@ -4,11 +4,12 @@
  * localStorage 本机选择 > navigator 系统语言探测。写入经 PUT /api/settings
  * （服务端单源，四端一致）；探测/回落只在无服务端配置时生效。
  */
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { detectLanguage, translate, type Language } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
+import { setUiLanguage } from '@/lib/error-copy'
 
 const LOCAL_KEY = 'spark.ui.language'
 
@@ -32,6 +33,12 @@ export function I18nProvider({ children }: { children: ReactNode }): React.React
   const [local, setLocal] = useState<Language | null>(localLang)
 
   const lang: Language = serverLang ?? local ?? detectLanguage(navigator.languages ?? [navigator.language])
+
+  // 错误文案在错误发生那刻就定稿（约 40 处 setOpError/setError 存的是人话串），渲染时再翻译来不及；
+  // 故由本 provider 单点把语言同步给 lib/error-copy 的模块单例，调用点不必逐个传 lang
+  useEffect(() => {
+    setUiLanguage(lang)
+  }, [lang])
 
   const setLang = useCallback(
     (l: Language) => {

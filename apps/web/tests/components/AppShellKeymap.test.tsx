@@ -13,6 +13,7 @@ import { KEYMAP_ACTIONS, type KeyOverride } from '@spark/protocol'
 import { TestTransportContext } from '@/transports/context'
 import { MockTransport } from '@/transports/mock'
 import { useUiStore } from '@/stores/ui'
+import { I18nProvider } from '@/i18n/context'
 import { AppShell } from '@/components/layout/AppShell'
 
 /**
@@ -38,9 +39,13 @@ async function renderShell(overrides?: readonly KeyOverride[]): Promise<void> {
       <TestTransportContext.Provider
         value={{ transport, mock: true, scenario: 'normal', setScenario: () => {} }}
       >
-        <AppShell>
-          <div>内容</div>
-        </AppShell>
+        {/* status !== 'open' 就渲染 ReconnectBanner，而它取 connectionText(status, lang)
+            ⇒ 缺省连接态下必然走到 useI18n，故必须包 Provider（19.17 第二批） */}
+        <I18nProvider>
+          <AppShell>
+            <div>内容</div>
+          </AppShell>
+        </I18nProvider>
       </TestTransportContext.Provider>
     </MemoryRouter>,
   )

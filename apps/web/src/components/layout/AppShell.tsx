@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { CONNECTION_TEXT, KEYMAP_ACTIONS } from '@spark/protocol'
+import { KEYMAP_ACTIONS, connectionText } from '@spark/protocol'
 import { Sidebar, sidebarModeOf } from './Sidebar'
 import { StatusBar } from './StatusBar'
 import { SettingsDialog } from '@/features/settings/SettingsDialog'
@@ -14,6 +14,7 @@ import { useNarrowViewport } from '@/hooks/useNarrowViewport'
 import { useEffectiveKeymap, strokeOf } from '@/hooks/useEffectiveKeymap'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useTransport } from '@/transports/context'
+import { useI18n } from '@/i18n/context'
 import { cn } from '@/lib/utils'
 
 /**
@@ -170,7 +171,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 const BANNER_CLOSED_TEXT = '连接已断开'
 
 function ReconnectBanner({ status }: { status: 'connecting' | 'reconnecting' | 'closed' }) {
-  const text = status === 'closed' ? BANNER_CLOSED_TEXT : CONNECTION_TEXT[status]
+  const { lang } = useI18n()
+  const text = status === 'closed' ? BANNER_CLOSED_TEXT : connectionText(status, lang)
   return (
     <div
       role="status"

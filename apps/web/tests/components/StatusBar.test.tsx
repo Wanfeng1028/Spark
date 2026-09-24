@@ -13,6 +13,7 @@ import { useSessionStore } from '@/stores/session'
 import { TestTransportContext } from '@/transports/context'
 import { MockTransport } from '@/transports/mock'
 import { StatusBar } from '@/components/layout/StatusBar'
+import { I18nProvider } from '@/i18n/context'
 
 afterEach(cleanup)
 
@@ -48,7 +49,11 @@ function renderBar(): void {
     <TestTransportContext.Provider
       value={{ transport, mock: true, scenario: 'normal', setScenario: () => {} }}
     >
-      <StatusBar />
+      {/* 19.17 第二批：连接态文案改走 connectionText(status, lang)，StatusBar 因此依赖 I18nProvider；
+          Provider 自身要用 useTransport，故必须嵌在 TestTransportContext 里面 */}
+      <I18nProvider>
+        <StatusBar />
+      </I18nProvider>
     </TestTransportContext.Provider>,
   )
 }

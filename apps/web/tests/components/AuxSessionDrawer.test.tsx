@@ -19,6 +19,7 @@ import { ids } from '@spark/protocol'
 import { MockTransport } from '@/transports/mock'
 import { TestTransportContext } from '@/transports/context'
 import { AuxSessionDrawer } from '@/features/chat/AuxSessionDrawer'
+import { I18nProvider } from '@/i18n/context'
 import { useSessionStore } from '@/stores/session'
 import { useUiStore } from '@/stores/ui'
 
@@ -72,9 +73,13 @@ function renderDrawer() {
     <TestTransportContext.Provider
       value={{ transport, mock: true, scenario: 'normal', setScenario: () => {} }}
     >
-      <MemoryRouter initialEntries={[`/session/${MAIN}`]}>
-        <AuxSessionDrawer />
-      </MemoryRouter>
+      {/* 抽屉内是 SessionSurface，一旦喂进 assistant 消息就挂 AssistantBlock——它自 19.17
+          第二批起用 useI18n 取代码块控件文案，故包 Provider（真实 app 里它恒在 App.tsx 根部） */}
+      <I18nProvider>
+        <MemoryRouter initialEntries={[`/session/${MAIN}`]}>
+          <AuxSessionDrawer />
+        </MemoryRouter>
+      </I18nProvider>
     </TestTransportContext.Provider>,
   )
   return { create, interrupt }

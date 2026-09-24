@@ -9,10 +9,12 @@
  * 对齐 CLI items.tsx 只取 text 块的口径。
  * 代码主题对与行号来自外观设置（工单 6.4 §13.D②）：浅深两主题 + 显示行号即存即生效。
  */
+import { useMemo } from 'react'
 import type { BundledTheme } from 'shiki'
-import { COPY_TEXT, type ContentItem, type Usage } from '@spark/protocol'
+import { copyButtonText, type ContentItem, type Usage } from '@spark/protocol'
 import { Streamdown } from 'streamdown'
 import { useSettingsStore } from '@/stores/settings'
+import { useI18n } from '@/i18n/context'
 
 export interface AssistantBlockProps {
   content: ContentItem[]
@@ -23,10 +25,15 @@ export interface AssistantBlockProps {
 /** 代码块控件（工单 10.4⑤）：语言标签 + 复制钮（streamdown 内建能力）；表格/图表控件不开 */
 const CODE_CONTROLS = { code: { copy: true, download: false } }
 
-/** 控件文案中文化（库缺省英文）；copied 接 protocol COPY_TEXT 单源（工单 R-B），copyCode 是库特有键留本地 */
-const CONTROLS_ZH = { copyCode: '复制代码', copied: COPY_TEXT.copied }
-
 export function AssistantBlock({ content, streaming, usage }: AssistantBlockProps) {
+  const { lang, t } = useI18n()
+  /** 控件文案（库缺省英文）：copied 接 protocol 单源，copyCode 是库特有键也入字典。
+   *  必须在组件内 useMemo 而非模块级常量——模块级只求值一次，切语言不跟着变（19.17 第二批）。
+   *  用 useMemo 是因为它作为 prop 传给 streamdown，流式期间每帧重渲染，换新引用会白破它的 memo。 */
+  const controlsText = useMemo(
+    () => ({ copyCode: t('copy.copyCode'), copied: copyButtonText('copied', lang) }),
+    [t, lang],
+  )
   const codeThemeLight = useSettingsStore((s) => s.codeThemeLight)
   const codeThemeDark = useSettingsStore((s) => s.codeThemeDark)
   const showLineNumbers = useSettingsStore((s) => s.showLineNumbers)
@@ -44,7 +51,7 @@ export function AssistantBlock({ content, streaming, usage }: AssistantBlockProp
             shikiTheme={shikiTheme}
             lineNumbers={showLineNumbers}
             controls={CODE_CONTROLS}
-            translations={CONTROLS_ZH}
+            translations={controlsText}
           >
             {streaming.textBuf}
           </Streamdown>
@@ -66,7 +73,7 @@ export function AssistantBlock({ content, streaming, usage }: AssistantBlockProp
                 shikiTheme={shikiTheme}
                 lineNumbers={showLineNumbers}
                 controls={CODE_CONTROLS}
-                translations={CONTROLS_ZH}
+                translations={controlsText}
               >
                 {c.text}
               </Streamdown>

@@ -8,13 +8,14 @@
  */
 import { useEffect, useState } from 'react'
 import { Monitor, Moon, Settings, Sun } from 'lucide-react'
-import { CONNECTION_TEXT, fmtTokens } from '@spark/protocol'
+import { connectionText, fmtTokens } from '@spark/protocol'
 import { useConnectionStore, type ConnectionStatus } from '@/stores/connection'
 import { useSettingsStore } from '@/stores/settings'
 import { useActiveSlice } from '@/stores/session'
 import { useModelsStore } from '@/stores/models-store'
 import { useTransport } from '@/transports/context'
 import { useUiStore } from '@/stores/ui'
+import { useI18n } from '@/i18n/context'
 import { CONTEXT_WARN_RATIO, contextRatio, contextTokensOf, contextWindowOf } from '@/features/chat/context-usage'
 import { cn } from '@/lib/utils'
 
@@ -57,6 +58,7 @@ function CheckpointBadge({ checkpointId }: { checkpointId: string }) {
 
 export function StatusBar() {
   const status = useConnectionStore((s) => s.status)
+  const { lang } = useI18n()
   const theme = useSettingsStore((s) => s.theme)
   const toggleTheme = useSettingsStore((s) => s.toggleTheme)
   const delivery = useSettingsStore((s) => s.defaultDelivery)
@@ -84,7 +86,7 @@ export function StatusBar() {
         <span className="flex shrink-0 items-center gap-1.5">
           <ConnectionDot status={status} />
           <span className={status === 'reconnecting' || status === 'closed' ? 'text-[var(--spark-err)]' : undefined}>
-            {status === 'closed' ? CLOSED_TEXT : CONNECTION_TEXT[status]}
+            {status === 'closed' ? CLOSED_TEXT : connectionText(status, lang)}
           </span>
         </span>
         <span className="shrink-0 font-mono" title="当前会话模型">

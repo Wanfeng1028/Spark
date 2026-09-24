@@ -2,8 +2,8 @@
  * 错误码→文案表单测（工单 6.7）：前缀解析、命中/未命中路径、errorMessageOf、
  * 工单指定判例 E_MOCK_UNKNOWN_SESSION。
  */
-import { describe, expect, it } from 'vitest'
-import { ERROR_COPY, errorMessageOf, humanizeError } from '../src/lib/error-copy'
+import { afterEach, describe, expect, it } from 'vitest'
+import { ERROR_COPY, errorMessageOf, humanizeError, setUiLanguage } from '../src/lib/error-copy'
 
 describe('humanizeError', () => {
   it('工单判例：E_MOCK_UNKNOWN_SESSION → 「会话不存在或已被清理」，原码折叠详情', () => {
@@ -63,5 +63,32 @@ describe('errorMessageOf', () => {
     )
     expect(errorMessageOf('E_SHUTTING_DOWN: 引擎正在关闭')).toBe('引擎正在关闭，请稍后重启应用')
     expect(errorMessageOf('plain text')).toBe('plain text')
+  })
+})
+
+describe('错误文案随界面语言切换（阶段十九 19.17 第二批）', () => {
+  // 语言是模块级单例：每例后复原，别把脏语言漏给同文件其它用例
+  afterEach(() => setUiLanguage('zh-CN'))
+
+  it('切语言后既有调用点无需改动即出对应语言——约 40 处调用点一个都不用传 lang', () => {
+    expect(errorMessageOf(new Error('E_AUTH: token 无效'))).toBe(ERROR_COPY['E_AUTH'])
+    setUiLanguage('en')
+    expect(errorMessageOf(new Error('E_AUTH: token 无效'))).toBe(
+      'Connection failed authentication — re-pair the device or check the token',
+    )
+    // detail 是排查用的原码原消息，不翻译
+    expect(humanizeError('E_AUTH: token 无效').detail).toBe('E_AUTH: token 无效')
+  })
+
+  it('未知码在任何语言下都回落原始消息，不把字典键名当文案显示', () => {
+    setUiLanguage('en')
+    expect(errorMessageOf(new Error('E_SUCH_CODE: 出事了'))).toBe('出事了')
+  })
+
+  it('切回 zh-CN 即恢复中文（语言可来回切，不是单向闩）', () => {
+    setUiLanguage('en')
+    expect(errorMessageOf('E_PAIR: x')).not.toBe(ERROR_COPY['E_PAIR'])
+    setUiLanguage('zh-CN')
+    expect(errorMessageOf('E_PAIR: x')).toBe(ERROR_COPY['E_PAIR'])
   })
 })
