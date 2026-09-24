@@ -5,7 +5,6 @@
  * 命中行会话标题经 titleOf 回调注入（引擎侧：已装载 meta → 会话索引 → 空串）。
  */
 import { statSync } from 'node:fs'
-import { join } from 'node:path'
 import type { SessionId, SparkEventEnvelope, SparkEventMap } from '@spark/protocol'
 import { SearchStore, type SearchEntry, type SearchEntryType } from './store.js'
 import { scanSessionFilePaths } from '../session/scan.js'
@@ -13,6 +12,7 @@ import { SessionStore } from '../session/store.js'
 import type { SparkLogger } from '../logger.js'
 import type { SearchHit, SearchIndexStats } from '../engine-types.js'
 import { longestToken } from '../db/fts-recall.js'
+import { sparkDir, sparkFile } from '../storage/paths.js'
 
 /**
  * 命中摘要（工单 7.13）：整串命中取命中处窗口（前 30 / 后 90 字符，越界加省略号）；
@@ -62,8 +62,8 @@ export class SearchIndexer {
     private readonly logger: SparkLogger,
     private readonly titleOf: (id: SessionId) => string,
   ) {
-    this.dbPath = join(root, 'search.db')
-    this.sessionsRoot = join(root, 'sessions')
+    this.dbPath = sparkFile(root, 'searchDb')
+    this.sessionsRoot = sparkDir(root, 'sessions')
     try {
       this.store = new SearchStore(this.dbPath)
       if (!this.store.fts) {

@@ -14,9 +14,9 @@
  * （trusted.json 唯一写者是引擎进程，原子写已覆盖完整性——无跨进程并发写者）。
  */
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { atomicWriteJson } from './fsutil.js'
 import { errText } from './errs.js'
+import { sparkFile } from './storage/paths.js'
 
 export type FolderTrust = 'trusted' | 'untrusted'
 
@@ -67,7 +67,7 @@ export function trustLevelOf(cwd: string, folders: Record<string, FolderTrust>):
 
 /** 读 trusted.json（不存在 = 空表；坏 JSON/形状 → 空表 + 由调用方告警——不阻塞引擎启动） */
 export function loadTrustDoc(root: string, onError?: (err: string) => void): TrustDoc {
-  const path = join(root, 'trusted.json')
+  const path = sparkFile(root, 'trusted')
   if (!existsSync(path)) return { version: 1, folders: {} }
   try {
     const raw: unknown = JSON.parse(readFileSync(path, 'utf8'))
@@ -86,7 +86,7 @@ export function loadTrustDoc(root: string, onError?: (err: string) => void): Tru
 
 /** 原子写 trusted.json（单写者纪律：引擎进程是唯一写者，无需跨进程锁——ADR D37） */
 export function saveTrustDoc(root: string, doc: TrustDoc): void {
-  atomicWriteJson(join(root, 'trusted.json'), doc)
+  atomicWriteJson(sparkFile(root, 'trusted'), doc)
 }
 
 /** 未信任目录下该 action 是否收紧（allow → ask） */

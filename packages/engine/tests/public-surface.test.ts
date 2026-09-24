@@ -30,6 +30,8 @@ const PUBLIC_VALUES = [
   'SPARK_VERSION',
   'ZERO_USAGE',
   'addUsage',
+  // 附件目录单源（工单 19.37）：apps/server 上传/下载两条路由是真实消费者
+  'attachmentsDir',
   'buildTrace',
   'loadConfig',
   'loadMcpConfig',
@@ -44,6 +46,10 @@ const PUBLIC_VALUES = [
   'sessionDtoOf',
   'sessionMetaDtoOf',
   'sessionTreeToDto',
+  // 数据根子路径单源（工单 19.37）：与其为每个子项加一次性 getter，不如放出这两个通用取径
+  // 函数——server 的 devices.json 与 CLI 后续都是真实消费者
+  'sparkDir',
+  'sparkFile',
   'sparkHome',
   'ulid',
   'writeMcpConfig',

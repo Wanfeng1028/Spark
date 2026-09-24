@@ -4,11 +4,11 @@
  * 不受影响）；关闭后增量写全部短路（shutdown 时序纪律）。
  * 维护器不持有会话仓储——boot 重建的磁盘扫描经 rebuild(scan) 注入。
  */
-import { join } from 'node:path'
 import type { SessionId } from '@spark/protocol'
 import { SessionIndex, type SessionIndexRow } from './index.js'
 import type { SparkLogger } from '../logger.js'
 import type { SessionMeta } from '../engine-types.js'
+import { sparkFile } from '../storage/paths.js'
 
 function metaToRow(m: SessionMeta): SessionIndexRow {
   return {
@@ -30,7 +30,7 @@ export class SessionIndexMaintainer {
 
   constructor(root: string, private readonly logger: SparkLogger) {
     try {
-      this.index = new SessionIndex(join(root, 'index.db'))
+      this.index = new SessionIndex(sparkFile(root, 'sessionIndexDb'))
     } catch (err) {
       this.logger.error('session.index.open.error', { err })
       this.broken = true

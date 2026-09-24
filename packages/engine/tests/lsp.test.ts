@@ -93,7 +93,7 @@ async function writeConfig(root: string, languages: Record<string, unknown>): Pr
 }
 
 function makeManager(root: string, bus: EventBus, deps: Partial<LspManagerDeps> = {}): LspManager {
-  return new LspManager({ dataRoot: root, bus, diagnosticsGraceMs: 0, ...deps })
+  return new LspManager({ root, bus, diagnosticsGraceMs: 0, ...deps })
 }
 
 // ---- 配置与 hash ----

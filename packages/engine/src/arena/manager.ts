@@ -26,6 +26,7 @@ import { ids } from '@spark/protocol'
 import type { ArenaHistoryEntryDto, SessionId, Usage } from '@spark/protocol'
 import type { SparkEventEnvelope } from '@spark/protocol'
 import { errText } from '../errs.js'
+import { sparkDir } from '../storage/paths.js'
 import type { ArenaStore } from './store.js'
 
 /** 竞答规模上限（qwen ARENA_MAX_AGENTS 同值） */
@@ -149,7 +150,7 @@ export class ArenaManager {
     this.startedAtByArena.set(arenaId, startedAt)
     this.deps.store.save({ run, startedAt, completedAt: null })
 
-    const base = join(this.deps.sparkRoot, 'arena', sessionId)
+    const base = join(sparkDir(this.deps.sparkRoot, 'arena'), sessionId)
     for (const [i, model] of unique.entries()) {
       const wt = join(base, `${i + 1}-${modelSafe(model)}`)
       try {
@@ -348,7 +349,7 @@ export class ArenaManager {
   private async cleanup(run: ArenaRun): Promise<void> {
     if (run.contenders.length === 0) {
       // start 中途失败：contenders 还没登记，worktree 目录逐个清（base 目录整体删）
-      const base = join(this.deps.sparkRoot, 'arena', run.sessionId)
+      const base = join(sparkDir(this.deps.sparkRoot, 'arena'), run.sessionId)
       await rm(base, { recursive: true, force: true }).catch(() => {})
       return
     }
@@ -359,7 +360,7 @@ export class ArenaManager {
       await git.raw(['worktree', 'remove', '--force', c.worktree]).catch(() => {})
       await git.raw(['branch', '-D', `spark-arena-${run.sessionId}-${i + 1}`]).catch(() => {})
     }
-    await rm(join(this.deps.sparkRoot, 'arena', run.sessionId), {
+    await rm(join(sparkDir(this.deps.sparkRoot, 'arena'), run.sessionId), {
       recursive: true,
       force: true,
     }).catch(() => {})

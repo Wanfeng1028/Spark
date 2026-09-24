@@ -4,7 +4,7 @@
 import type { FastifyPluginCallback } from 'fastify'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import type { Dirent } from 'node:fs'
-import { buildTrace, resolveInRoot } from '@spark/engine'
+import { attachmentsDir, buildTrace, resolveInRoot } from '@spark/engine'
 import { join } from 'node:path'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -272,7 +272,7 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
       }
     }
     const attachmentId = randomUUID().replaceAll('-', '')
-    const dir = join(engine.dataRoot, 'attachments')
+    const dir = attachmentsDir(engine.dataRoot)
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, attachmentId + '.' + ext), body)
     const file = attachmentId + '.' + ext
@@ -285,7 +285,7 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
     const ext = file.split('.').pop() ?? ''
     const mime = EXT_MIME[ext]
     if (mime === undefined) return notFound(reply)
-    const abs = join(engine.dataRoot, 'attachments', file)
+    const abs = join(attachmentsDir(engine.dataRoot), file)
     try {
       const bytes = await readFile(abs)
       return reply.type(mime).send(bytes)

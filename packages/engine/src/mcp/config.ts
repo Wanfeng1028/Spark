@@ -6,9 +6,9 @@
  */
 import { z } from 'zod'
 import { ConfigError, parseOrThrow, readJsonFile } from '../config.js'
-import { join } from 'node:path'
 import { atomicWriteJson } from '../fsutil.js'
 import { MCP_ENV_MASK, type McpConfigInput, type McpTransportKind } from '@spark/protocol'
+import { SPARK_FILE, sparkFile } from '../storage/paths.js'
 
 export interface McpServerConfig {
   /** stdio 启动命令（transport 缺省 = 'stdio' 时必填；streamable-http 下不得出现） */
@@ -66,7 +66,7 @@ const mcpSchema = z.object({
 
 /** mcp.json 不存在 → 空表（引擎零外部工具照常启动） */
 export function loadMcpConfig(dir: string): McpConfig {
-  const raw = readJsonFile(dir, 'mcp.json')
+  const raw = readJsonFile(dir, SPARK_FILE.mcp)
   if (raw === undefined) return { servers: {} }
   const parsed = parseOrThrow(mcpSchema, raw, 'mcp.json')
   return { servers: parsed.servers }
@@ -76,7 +76,7 @@ export function loadMcpConfig(dir: string): McpConfig {
  * 运行中改动需重启引擎重连生效（调用方如实提示，禁假状态）。 */
 export function writeMcpConfig(dir: string, config: McpConfig): void {
   parseOrThrow(mcpSchema, { version: 1, servers: config.servers }, 'mcp.json')
-  atomicWriteJson(join(dir, 'mcp.json'), { version: 1, servers: config.servers })
+  atomicWriteJson(sparkFile(dir, 'mcp'), { version: 1, servers: config.servers })
 }
 
 /** 读回掩码（RT3-07 / WO-088）：mcp.json → 客户端形状，env/headers 值一律替换为

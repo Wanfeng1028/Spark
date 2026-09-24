@@ -6,7 +6,6 @@
  * 阻塞列表）。
  */
 import { appendJsonLine, readJsonLines } from '../fsutil.js'
-import { join } from 'node:path'
 import {
   BEARER_RE,
   REPLACEMENT,
@@ -14,6 +13,7 @@ import {
   buildEnvPatterns,
   escapeRegex,
 } from '../observability/redaction.js'
+import { sparkFile } from '../storage/paths.js'
 
 export type AuditKind = 'permission.decision' | 'permission.rule' | 'session.rollback'
 
@@ -59,7 +59,7 @@ export class AuditLog {
     /** 密钥仓动态取值（同 IoGuard：setSecret 即时纳入脱敏；缺省仅静态三层） */
     private readonly secretValues?: () => Iterable<string>,
   ) {
-    this.filePath = join(root, 'audit.jsonl')
+    this.filePath = sparkFile(root, 'audit')
     this.envPatterns = buildEnvPatterns()
   }
 

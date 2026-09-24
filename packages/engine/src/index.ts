@@ -44,6 +44,9 @@ export {
 export { resolveInRoot } from './tools/definition.js'
 // 数据目录解析与迁移（阶段十九 19.16）：SPARK_HOME 单一来源 + spark migrate CLI 消费
 export { sparkHome } from './home.js'
+// 附件目录（工单 19.37）：server 上传与引擎取回此前各拼一次 'attachments' 字面量，
+// 两处改名即分叉（表现是「上传成功、取回 404」）。路径单源在 storage/paths.ts，这里只出这一面。
+export { attachmentsDir, sparkDir, sparkFile } from './storage/paths.js'
 // SPARK_HOME_DIR / hasExplicitSparkHome / isCurrentHome 刻意不进公共入口：
 // 只被本包单测（经 ../src/*.js）消费，公共面按 14.1 口径只放有真实消费者的嵌入 API
 export { planMigration, runMigration, MigrationError } from './migrate.js'

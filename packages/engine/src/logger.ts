@@ -5,12 +5,12 @@
  * - 写入前脱敏：/sk-[A-Za-z0-9]{20,}/、/Bearer\s+\S+/、process.env 非空短值（≥6）出现处 → ***
  */
 import { mkdirSync, createWriteStream, type WriteStream } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import pino from 'pino'
 import type { BaseLogger, LevelWithSilent } from 'pino'
 import type { CallId, SessionId, TurnId } from '@spark/protocol'
 import { BEARER_RE, REPLACEMENT, SECRET_RE, buildEnvPatterns, escapeRegex } from './observability/redaction.js'
+import { sparkHome } from './home.js'
+import { engineLogFile, sparkDir } from './storage/paths.js'
 
 export interface LogFields {
   sid?: SessionId
@@ -133,10 +133,10 @@ export class Logger implements SparkLogger {
       this.fileStream = deps.fileStream ?? null
       return
     }
-    const root = deps.root ?? join(homedir(), '.spark')
-    const logDir = join(root, 'logs')
-    mkdirSync(logDir, { recursive: true })
-    const logFile = join(logDir, 'engine.log')
+    const root = deps.root ?? sparkHome()
+    mkdirSync(sparkDir(root, 'logs'), { recursive: true })
+    // 日志全路径读写两侧共用 engineLogFile：此前这里拼一份 'engine.log'、logs.ts 再拼一份
+    const logFile = engineLogFile(root)
     this.fileStream =
       deps.fileStream ??
       createWriteStream(logFile, { flags: 'a', encoding: 'utf8' })

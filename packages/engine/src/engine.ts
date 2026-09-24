@@ -169,6 +169,13 @@ export type {
   SessionTreeInfo,
   SessionTreeNode,
 } from './engine-types.js'
+import {
+  attachmentsDir,
+  projectPermissionsFile,
+  checkpointsRootOf,
+  sparkDir,
+  sparkFile,
+} from './storage/paths.js'
 
 export class Engine {
   private readonly root: string
@@ -334,8 +341,8 @@ export class Engine {
     // 工单 12.4：归档标记扫描填充内存登记（标记文件 = 事实源）；
     // 工单 19.41 置顶标记同一路径共用一个 ready 闸门（列表排序两态都要等）
     this.archivedReady = Promise.all([
-      scanArchivedMarkers(join(this.root, 'sessions')),
-      scanPinnedMarkers(join(this.root, 'sessions')),
+      scanArchivedMarkers(sparkDir(this.root, 'sessions')),
+      scanPinnedMarkers(sparkDir(this.root, 'sessions')),
     ]).then(([archived, pinned]) => {
       for (const id of archived.ids) {
         this.archivedIds.add(id)
@@ -379,7 +386,7 @@ export class Engine {
 
     // skills/插件（工单 5.5 / ADR D18）：声明式清单 → 事件词表扩展 + hooks 订阅；
     // 逐 skill 失败 warn 跳过（loader 内闭合），ready() 前完成注册
-    this.skillsReady = loadSkills(join(this.root, 'skills'), this.logger).then(
+    this.skillsReady = loadSkills(sparkDir(this.root, 'skills'), this.logger).then(
       (skills) => {
         for (const s of skills) {
           this.logger.info('skills.loaded', { name: s.name, events: s.events })
@@ -422,7 +429,7 @@ export class Engine {
     })
 
     // 工单 7.4 / H04：自定义命令（坏文件 warn 跳过——同 skills 纪律，不阻塞启动）
-    this.commandsReady = loadCommands(join(this.root, 'commands'), this.logger).then(
+    this.commandsReady = loadCommands(sparkDir(this.root, 'commands'), this.logger).then(
       (cmds) => {
         this.customCommands = cmds
         for (const c of cmds) {
@@ -443,9 +450,9 @@ export class Engine {
     // 工单 7.5 / H05 / ADR D25：长期记忆仓（打开失败 null 降级，引擎照常启动）
     let memoryStore: MemoryStore | null = null
     try {
-      memoryStore = new MemoryStore(join(this.root, 'memory.db'))
+      memoryStore = new MemoryStore(sparkFile(this.root, 'memoryDb'))
       if (!memoryStore.fts) {
-        this.logger.warn('memory.fts.unavailable', { path: join(this.root, 'memory.db') })
+        this.logger.warn('memory.fts.unavailable', { path: sparkFile(this.root, 'memoryDb') })
       }
     } catch (err) {
       this.logger.warn('memory.store.error', { err })
@@ -457,7 +464,7 @@ export class Engine {
 
     // 工单 7.10 / H09 / ADR D27：browser 工具族——引擎级单例单页；
     // 驱动（playwright-core）首次 browser.open 才启动，构造期零依赖
-    this.shotsDir = join(this.root, 'browser-shots')
+    this.shotsDir = sparkDir(this.root, 'browserShots')
     // 浏览器设置（阶段十九 19.12 / ADR D49）：spark.json browser 段——重启档
     //（BrowserManager 构造期装配）；缺省 headless/30s/不覆盖 UA
     const b = this.config.spark.browser
@@ -551,7 +558,7 @@ export class Engine {
     // LSP 连接管理（工单 16.9）：构造期零开销——lsp.json 缺失时工具执行期
     // E_LSP_UNCONFIGURED fail-closed（browser 工具族同判例）；连接在首次查询才 spawn
     this.lsp = new LspManager({
-      dataRoot: this.root,
+      root: this.root,
       bus: this.bus,
       logger: this.logger,
     })
@@ -563,19 +570,19 @@ export class Engine {
       })
     this.outputs = new ToolOutputStore(
       this.config.spark.engine.toolOutputLimitKB * 1024,
-      join(this.root, 'tool-outputs'),
+      sparkDir(this.root, 'toolOutputs'),
     )
     this.ruleStore = new UserRuleStore(
-      join(this.root, 'permissions.json'),
+      sparkFile(this.root, 'permissions'),
       this.config.permissions.rules,
     )
     // 项目级规则仓（19.9 / ADR D48）：装载与评估同源数组（projectRules 就地追加即全会话可见）
     const projectRules = loadProjectRules(this.defaultCwd)
     this.projectRuleStore = new UserRuleStore(
-      join(this.defaultCwd, '.spark', 'permissions.json'),
+      projectPermissionsFile(this.defaultCwd),
       projectRules,
     )
-    this.secrets = new SecretStore(join(this.root, 'secrets.json'))
+    this.secrets = new SecretStore(sparkFile(this.root, 'secrets'))
 
     // 阶段十九 19.8 / ADR D51：语义检索——models.json 有 provider 声明 embeddings 才建。
     // 总开关 spark.json embedding.enabled 缺省 true（关 = 不嵌不检索，FTS 照常）。
@@ -601,7 +608,7 @@ export class Engine {
         this.logger.warn('embedding.provider.no_base_url', { provider: embProvider.providerId })
       } else {
         try {
-          vectors = new VectorStore(join(this.root, 'vectors.db'))
+          vectors = new VectorStore(sparkFile(this.root, 'vectorsDb'))
           semantic = new SemanticIndexer({
             client: new HttpEmbeddingClient({
               baseUrl,
@@ -636,7 +643,7 @@ export class Engine {
 
     // 反馈仓（阶段十九 19.19 / V2-25）：派生缓存——打不开不阻塞引擎，端点拒执
     try {
-      this.feedbackStore = new FeedbackStore(join(this.root, 'feedback.db'))
+      this.feedbackStore = new FeedbackStore(sparkFile(this.root, 'feedbackDb'))
     } catch (err) {
       this.logger.warn('feedback.store.error', { err })
       this.feedbackStore = null
@@ -649,7 +656,7 @@ export class Engine {
     // 工单 7.12：审计日志明细流——脱敏同纪律（密钥仓值动态注入）
     this.audit = new AuditLog(this.root, () => this.secrets.values())
     // 工单 7.7：成本熔断计量（usage.json 跨进程延续）+ 路由状态（ResolvedModel 化）
-    this.costTracker = new CostTracker(join(this.root, 'usage.json'), this.now)
+    this.costTracker = new CostTracker(sparkFile(this.root, 'usage'), this.now)
     this.settings = new SettingsStore(this.root, this.logger, this.costTracker, {
       resolveModelRef: (model) => this.resolveModelRef(model),
       resolveModel: (ref) => this.resolveModel(ref),
@@ -787,7 +794,7 @@ export class Engine {
     // 工单 10.6：推理档位缺省取默认档（V2-37 后经 routing 状态热改，回退 models.json 装载值）
     const defaultEffort = this.routing.defaultEffort ?? this.config.models.defaultEffort
 
-    const dir = join(this.root, 'sessions', mungeDir(cwd))
+    const dir = join(sparkDir(this.root, 'sessions'), mungeDir(cwd))
     const path = join(dir, sessionFileName(createdAt, sessionId))
     const store = await SessionStore.create(
       path,
@@ -986,7 +993,7 @@ export class Engine {
       this.sessions.delete(id)
       this.bus.forgetSession(id)
     }
-    const trashDir = join(this.root, 'trash')
+    const trashDir = sparkDir(this.root, 'trash')
     mkdirSync(trashDir, { recursive: true })
     const dest = join(trashDir, `${basename(path)}.${Date.now()}.jsonl`)
     try {
@@ -1072,7 +1079,7 @@ export class Engine {
 
   /** 同 locateSessionFile 但未找到返回 null（fork 的 ALREADY_EXISTS 碰撞检测用） */
   private findSessionFile(id: SessionId): Promise<string | null> {
-    return findSessionFileOnDisk(join(this.root, 'sessions'), id)
+    return findSessionFileOnDisk(sparkDir(this.root, 'sessions'), id)
   }
 
   /**
@@ -1114,7 +1121,7 @@ export class Engine {
     }
 
     const createdAt = this.now()
-    const dir = join(this.root, 'sessions', mungeDir(source.meta.cwd))
+    const dir = join(sparkDir(this.root, 'sessions'), mungeDir(source.meta.cwd))
     const forkPath = join(dir, sessionFileName(createdAt, newId))
     const store = await SessionStore.create(
       forkPath,
@@ -2130,7 +2137,7 @@ export class Engine {
   private scanForkChildren(
     id: SessionId,
   ): Promise<{ fromEventId: EventId; child: ForkChildInfo }[]> {
-    return scanForkChildrenOnDisk(join(this.root, 'sessions'), id, (childId) =>
+    return scanForkChildrenOnDisk(sparkDir(this.root, 'sessions'), id, (childId) =>
       this.statusOf(childId),
     )
   }
@@ -2183,7 +2190,7 @@ export class Engine {
    * 单用户本地量级全量读即可；文件名即 id（列表排序免读 header，pi 做法）。
    */
   private scanDiskSessions(): Promise<SessionMeta[]> {
-    return scanDiskSessionsOnDisk(join(this.root, 'sessions'))
+    return scanDiskSessionsOnDisk(sparkDir(this.root, 'sessions'))
   }
 
   getSession(id: SessionId): SessionHandle | undefined {
@@ -2345,7 +2352,7 @@ export class Engine {
         const mime = ({ png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' })[ext]
         if (mime === undefined) return undefined
         try {
-          return { mime, bytes: readFileSync(join(this.dataRoot, 'attachments', file)) }
+          return { mime, bytes: readFileSync(join(attachmentsDir(this.root), file)) }
         } catch {
           return undefined
         }
@@ -2394,7 +2401,7 @@ export class Engine {
           sessionId: meta.id,
           cwd: meta.cwd,
           sessionPath: store.path,
-          checkpointRoot: join(dirname(store.path), 'checkpoints'),
+          checkpointRoot: checkpointsRootOf(store.path),
           bus: this.bus,
           logger: this.logger,
           now: this.now,

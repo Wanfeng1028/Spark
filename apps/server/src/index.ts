@@ -8,12 +8,10 @@
  *   3) engine.shutdown()（interrupt 收尾 + flush 全部会话 fsync）4) 进程退出。
  */
 import { existsSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Fastify from 'fastify'
 import type { FastifyRequest } from 'fastify'
-import { Engine, ConfigError, loadConfig } from '@spark/engine'
+import { Engine, ConfigError, loadConfig, sparkFile, sparkHome } from '@spark/engine'
 import { registerAuth, redactTokenQuery } from './auth.js'
 import { registerErrorHandling } from './errors.js'
 import { DeviceStore, PairService, isLoopbackHost, resolveBindTarget } from './pairing.js'
@@ -22,7 +20,7 @@ import { registerRoutes } from './routes.js'
 import { registerSse } from './sse.js'
 import { registerStatic } from './static.js'
 
-const ROOT = join(homedir(), '.spark')
+const ROOT = sparkHome()
 const CONFIG = loadConfig(ROOT)
 
 // 配对鉴权（工单 9.1）：设备仓 + 配对码服务；鉴权启用态 = devices.json 存在。
@@ -30,7 +28,7 @@ const CONFIG = loadConfig(ROOT)
 let deviceStore: DeviceStore
 let HOST: string
 try {
-  deviceStore = new DeviceStore(join(ROOT, 'devices.json'))
+  deviceStore = new DeviceStore(sparkFile(ROOT, 'devices'))
   // SPARK_HOST 仅环回覆盖；非环回须 spark.json server.host 显式配置且鉴权已启用（ADR D24）
   HOST = resolveBindTarget(process.env.SPARK_HOST, CONFIG.spark.server.host, deviceStore.enabled)
 } catch (err) {

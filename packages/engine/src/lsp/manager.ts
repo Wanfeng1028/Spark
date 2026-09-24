@@ -76,8 +76,10 @@ export interface LspExecutor {
 }
 
 export interface LspManagerDeps {
-  /** 数据根（~/.spark）——lsp.json 读取锚点 */
-  dataRoot: string
+  /** 数据根（= sparkHome，与 Engine.root 同一个）——lsp.json 读取锚点。
+   * 原名 dataRoot 会让人以为存在"数据根 ≠ 引擎根"的形态（Engine 上确有同名的只读别名，
+   * 但它是 this.root 的别名）；同处构造的 LspInstaller 一直叫 root，两边统一。 */
+  root: string
   bus: EventBus
   /** 缺省不记日志（引擎传入 Logger；单测可省） */
   logger?: SparkLogger
@@ -220,7 +222,7 @@ export class LspManager implements LspExecutor {
 
   /** /lsp 面板状态快照：逐语言列出连接状态 + 诊断缓存摘要（未配置 → 空数组）；同步读（重读配置是同步 fs） */
   status(): LspServerStatusDto[] {
-    const config = loadLspConfig(this.deps.dataRoot)
+    const config = loadLspConfig(this.deps.root)
     if (config === null) return []
     const rows: LspServerStatusDto[] = []
     for (const [language, entryCfg] of Object.entries(config.languages)) {
@@ -274,7 +276,7 @@ export class LspManager implements LspExecutor {
 
   private async ensure(language: string, ctx: LspQueryContext): Promise<ConnectionEntry> {
     // 每次重读配置（config hash 语义的前提——改文件即时生效，无重启）
-    const config = loadLspConfig(this.deps.dataRoot)
+    const config = loadLspConfig(this.deps.root)
     if (config === null) {
       throw new Error('E_LSP_UNCONFIGURED: 未配置语言服务器（~/.spark/lsp.json）')
     }

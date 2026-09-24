@@ -10,8 +10,8 @@
  *    把"读不懂"伪装成"没有内容"正是诊断页最不该有的行为。
  */
 import { closeSync, fstatSync, openSync, readSync } from 'node:fs'
-import { join } from 'node:path'
 import type { LogEntryDto, LogsDto } from '@spark/protocol'
+import { engineLogFile } from './storage/paths.js'
 
 /** 尾部读取窗口（字节）；约当 500–1500 行 pino 记录 */
 const DEFAULT_TAIL_BYTES = 512 * 1024
@@ -44,10 +44,6 @@ export interface ReadLogsQuery {
   limit?: number | undefined
   /** 尾部窗口字节数（测试与"看更多"用；上限 4 MB） */
   tailBytes?: number | undefined
-}
-
-function logPath(root: string): string {
-  return join(root, 'logs', 'engine.log')
 }
 
 /** 读文件尾部至多 maxBytes（不整体载入内存） */
@@ -120,7 +116,7 @@ function toEntry(line: string, lineNo: number): LogEntryDto {
  * `match` 是大小写不敏感子串。文件不存在 = 空结果（首次运行前确实没有日志，不是错误）。
  */
 export function readLogs(root: string, query: ReadLogsQuery = {}): LogsDto {
-  const path = logPath(root)
+  const path = engineLogFile(root)
   const cap = Math.min(query.tailBytes ?? DEFAULT_TAIL_BYTES, 4 * 1024 * 1024)
   const { text, truncated: byBytes } = readTail(path, cap)
   const all = text.split('\n')

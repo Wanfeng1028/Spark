@@ -17,6 +17,7 @@ import { join, sep } from 'node:path'
 import { SparkExtensionManifestSchema } from '@spark/protocol'
 import type { ExtensionDto, SparkExtensionManifest } from '@spark/protocol'
 import { errText } from '../errs.js'
+import { sparkDir } from '../storage/paths.js'
 
 /** 扩展 id 纪律（同 agents/commands：小写字母数字连字符——防路径与注入花样） */
 const EXTENSION_ID_RE = /^[a-z0-9][a-z0-9-]*$/
@@ -53,7 +54,7 @@ export async function discoverExtensions(
   root: string,
   logger?: ExtensionLoaderLogger,
 ): Promise<ExtensionDto[]> {
-  const extRoot = join(root, 'extensions')
+  const extRoot = sparkDir(root, 'extensions')
   if (!existsSync(extRoot)) return []
   let entries: string[]
   try {

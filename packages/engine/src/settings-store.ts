@@ -7,7 +7,6 @@
  *   校验/写盘失败 → 内存与磁盘都不动（调用方捕获，EngineConfig 不换）。
  */
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import type { ReasoningEffort, RoutingDto, RoutingUpdate, SettingsUpdate } from '@spark/protocol'
 import { loadConfig, validateSparkWrite, type EngineConfig, type ModelRef } from './config.js'
 import type { ResolvedModel } from './llm-gateway.js'
@@ -15,6 +14,7 @@ import { atomicWriteJson } from './fsutil.js'
 import { errText } from './errs.js'
 import type { CostTracker } from './cost-tracker.js'
 import type { SparkLogger } from './logger.js'
+import { sparkFile } from './storage/paths.js'
 
 /** 模型路由状态（ResolvedModel 化；updateRouting 就地改属性不换对象） */
 export interface RoutingState {
@@ -123,7 +123,7 @@ export class SettingsStore {
 
   /** 路由字段写回 models.json（原子写；其余字段原样保留） */
   private persistRouting(): void {
-    const path = join(this.root, 'models.json')
+    const path = sparkFile(this.root, 'models')
     let raw: unknown
     try {
       raw = JSON.parse(readFileSync(path, 'utf8')) as unknown
@@ -158,7 +158,7 @@ export class SettingsStore {
  * 成功返回重载后的 config（热档字段下一 turn 生效；重启档构造期注入不受影响）。
  */
 export function persistSparkPatch(root: string, patch: SettingsUpdate): EngineConfig {
-  const sparkPath = join(root, 'spark.json')
+  const sparkPath = sparkFile(root, 'settings')
   let raw: Record<string, unknown> = {}
   if (existsSync(sparkPath)) {
     try {

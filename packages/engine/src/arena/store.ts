@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync 
 import { join } from 'node:path'
 import { atomicWriteJson } from '../fsutil.js'
 import type { ArenaRun } from './manager.js'
+import { sparkDir } from '../storage/paths.js'
 
 /** 单场竞答的落盘记录：快照全量 + 起止时间（startedAt 供历史排序展示；completedAt = 终态时间） */
 export interface ArenaRunRecord {
@@ -43,7 +44,7 @@ export class ArenaStore {
   constructor(private readonly root: string) {}
 
   private get dir(): string {
-    return join(this.root, 'arena')
+    return sparkDir(this.root, 'arena')
   }
 
   private fileOf(arenaId: string): string {

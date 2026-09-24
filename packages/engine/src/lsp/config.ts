@@ -6,10 +6,10 @@
  * sha256）——hash 不变且进程存活即复用连接，**不重启进程**（必抄安全细节之二）。
  */
 import { createHash } from 'node:crypto'
-import { join } from 'node:path'
 import { z } from 'zod'
 import { parseOrThrow, readJsonFile } from '../config.js'
 import { atomicWriteJson } from '../fsutil.js'
+import { SPARK_FILE, sparkFile } from '../storage/paths.js'
 
 export interface LspServerEntry {
   command: string
@@ -33,7 +33,7 @@ const lspSchema = z.object({
 
 /** lsp.json 不存在 → null（未配置）；存在但坏 → ConfigError（同 mcp.json 纪律） */
 export function loadLspConfig(dir: string): LspConfig | null {
-  const raw = readJsonFile(dir, 'lsp.json')
+  const raw = readJsonFile(dir, SPARK_FILE.lsp)
   if (raw === undefined) return null
   const parsed = parseOrThrow(lspSchema, raw, 'lsp.json')
   return { languages: parsed.languages }
@@ -43,7 +43,7 @@ export function loadLspConfig(dir: string): LspConfig | null {
  * 写入后新 server 在下次使用该语言工具时惰性连接（per-server config hash 变更自动重连，16.9 语义）。 */
 export function writeLspConfig(dir: string, config: LspConfig): void {
   parseOrThrow(lspSchema, { version: 1, languages: config.languages }, 'lsp.json')
-  atomicWriteJson(join(dir, 'lsp.json'), { version: 1, languages: config.languages })
+  atomicWriteJson(sparkFile(dir, 'lsp'), { version: 1, languages: config.languages })
 }
 
 /** 排序 JSON → 稳定序列化（qwen sortJsonValue 同款；Object.create(null) 防 __proto__ 污染） */

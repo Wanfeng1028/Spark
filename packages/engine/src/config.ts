@@ -11,6 +11,7 @@ import { ArchiveSettingsSchema, BrowserSettingsSchema, KeymapSettingsSchema, Net
   EngineSettingsShape, SandboxNetworkSettingsSchema, SettingsHooksSchema, SettingsPromptsSchema } from '@spark/protocol'
 import type { EngineSettings, KeymapSettings, ReasoningEffort, SandboxNetworkSettings, SettingsHooks, SettingsPrompts } from '@spark/protocol'
 import { errText } from './errs.js'
+import { projectSparkDir, SPARK_FILE } from './storage/paths.js'
 
 /** E_CONFIG（§5.10）：进程退出 + stderr 的载体由启动方（server）负责 */
 export class ConfigError extends Error {
@@ -320,7 +321,7 @@ export function parseOrThrow<T>(schema: z.ZodType<T>, raw: unknown, name: string
  */
 export function loadConfig(dir: string = sparkHome()): EngineConfig {
   // spark.json：合并默认值（字段级覆盖）
-  const sparkRaw = readJsonFile(dir, 'spark.json')
+  const sparkRaw = readJsonFile(dir, SPARK_FILE.settings)
   const spark: SparkConfig =
     sparkRaw === undefined
       ? SPARK_DEFAULTS
@@ -360,7 +361,7 @@ export function loadConfig(dir: string = sparkHome()): EngineConfig {
         })()
 
   // models.json：defaultModel 必填；compactionModel 缺省 fallback
-  const modelsRaw = readJsonFile(dir, 'models.json')
+  const modelsRaw = readJsonFile(dir, SPARK_FILE.models)
   if (modelsRaw === undefined) {
     throw new ConfigError('models.json 缺失：defaultModel 必填（E_CONFIG）')
   }
@@ -414,7 +415,7 @@ export function loadConfig(dir: string = sparkHome()): EngineConfig {
   }
 
   // permissions.json：缺省 = 空规则表
-  const permRaw = readJsonFile(dir, 'permissions.json')
+  const permRaw = readJsonFile(dir, SPARK_FILE.permissions)
   const permissions: PermissionsConfig =
     permRaw === undefined
       ? { version: 1, rules: [] }
@@ -425,7 +426,7 @@ export function loadConfig(dir: string = sparkHome()): EngineConfig {
 
 /** 项目级规则文件 <cwd>/.spark/permissions.json（§5.7.1）：不存在 → 空表 */
 export function loadProjectRules(cwd: string): PermissionRule[] {
-  const raw = readJsonFile(join(cwd, '.spark'), 'permissions.json')
+  const raw = readJsonFile(projectSparkDir(cwd), SPARK_FILE.permissions)
   if (raw === undefined) return []
   return parseOrThrow(permissionsSchema, raw, 'permissions.json').rules
 }

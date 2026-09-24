@@ -19,6 +19,7 @@ import type { PermissionRule } from '../config.js'
 import { errText } from '../errs.js'
 import { patternMatches } from '../permission/rules.js'
 import type { ToolRegistry } from '../tools/registry.js'
+import { projectSparkDir, sparkDir } from '../storage/paths.js'
 
 /** 预设档名纪律（同 commands/skills：小写字母数字连字符——防路径与注入花样） */
 const AGENT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/
@@ -33,7 +34,7 @@ async function scanAgentsDir(
   source: 'project' | 'user',
   logger?: AgentPresetLogger,
 ): Promise<Map<string, AgentPresetDto>> {
-  const agentsDir = join(dir, 'agents')
+  const agentsDir = sparkDir(dir, 'agents')
   let files: string[]
   try {
     files = await readdir(agentsDir)
@@ -73,7 +74,7 @@ export async function loadAgentPresets(
 ): Promise<AgentPresetDto[]> {
   const merged = await scanAgentsDir(root, 'user', logger)
   if (projectCwd !== undefined) {
-    const project = await scanAgentsDir(join(projectCwd, '.spark'), 'project', logger)
+    const project = await scanAgentsDir(projectSparkDir(projectCwd), 'project', logger)
     for (const [name, dto] of project) merged.set(name, dto)
   }
   return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name))

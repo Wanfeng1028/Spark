@@ -3,14 +3,15 @@
  * 全文溢写 ~/.spark/tool-outputs/<callId>（异步写；会话关闭前 flush 由 store 负责）。
  */
 import { mkdir, writeFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { CallId } from '@spark/protocol'
+import { sparkHome } from '../home.js'
+import { sparkDir } from '../storage/paths.js'
 
 export class ToolOutputStore {
   constructor(
     private readonly limitBytes: number = 32 * 1024,
-    private readonly dir: string = join(homedir(), '.spark', 'tool-outputs'),
+    private readonly dir: string = sparkDir(sparkHome(), 'toolOutputs'),
   ) {}
 
   async bound(output: unknown, callId: CallId): Promise<unknown> {
