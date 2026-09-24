@@ -21,6 +21,12 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: 'retain-on-failure',
+    // 用例断言的是中文界面，故必须钉住浏览器语言：spark.json 的 ui.language 是
+    // optional 且无缺省值（engine/config.ts:84），全新配置下 I18nProvider 会落到
+    // detectLanguage(navigator.languages)（i18n/context.tsx:35），而 chromium 的缺省
+    // locale 是 en-US ⇒ 走字典的串（连接态、错误人话）会渲染成英文。19.17 接线后
+    // disconnect-error.spec 两条即因此红在 CI（断言「已连接」/「会话不存在或已被清理」）。
+    locale: 'zh-CN',
     ...(executablePath !== undefined
       ? { launchOptions: { executablePath, args: ['--no-sandbox'] } }
       : {}),
