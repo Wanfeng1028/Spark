@@ -10,7 +10,9 @@
  *     （doc/02 §1.2：desktop 复用同一 HttpTransport）；
  *  4. 壳层行为（工单 19.30）：托盘 + 关窗隐藏 / 保持运行（powerSaveBlocker）/ 开机自启
  *     / 系统通知（12.7，含断线重连）——判据全在纯模块（window-behavior.ts / notify.ts /
- *     notify-stream.ts / tray-icon.ts），本文件只做 Electron 调用与装配。
+ *     notify-stream.ts / tray-icon.ts），本文件只做 Electron 调用与装配；
+ *  5. 多窗口多会话（工单 19.33）：BrowserWindow 多实例 + 窗口↔会话绑定（从窗口 URL 派生，
+ *     不另存状态）+ 应用菜单的「窗口」子菜单与托盘逐窗列项——判据在 multi-window.ts。
  *
  * 退出：SIGTERM sidecar（Windows 上为强制终止，崩溃一致性由 durable 日志 +
  * resume 补闭合兜底——阶段三 kill -9 验收已覆盖该路径）。关窗隐藏（desktop.json
@@ -43,7 +45,15 @@ import { loadDesktopConfig, type DesktopConfig } from './notify.js'
 import { renderFatalHtml, renderFirstRunHtml } from './fatal.js'
 import { buildSidecarEnv } from './sidecar-env.js'
 import { buildTrayBitmap, TRAY_ICON_PX } from './tray-icon.js'
+import {
+  isShellPage,
+  pickRevealTarget,
+  sessionIdOfUrl,
+  windowLabelOf,
+  windowUrlOf,
+} from './multi-window.js'
 import { decideCloseAction, resolveAutoLaunch, SleepBlocker } from './window-behavior.js'
+import type { MenuItemConstructorOptions } from 'electron'
 
 const START_TIMEOUT_MS = 20_000
 const PROBE_INTERVAL_MS = 250
@@ -60,8 +70,12 @@ let fatalWin: BrowserWindow | null = null
 let firstRunWin: BrowserWindow | null = null
 /** sidecar stderr 尾部环形缓冲（AUD-12） */
 const stderrTail: string[] = []
-/** 主窗口（19.30：托盘/关窗隐藏/通知唤窗都要它）；null = 未创建或已销毁 */
-let mainWindow: BrowserWindow | null = null
+/** 最近聚焦的壳内窗口（19.33）：多窗口下"唤回主窗口"是有歧义的，托盘/通知/activate 一律唤它 */
+let lastFocused: BrowserWindow | null = null
+/** sidecar 基址（19.33：判定壳内页面与拼新窗口 URL 都要它；就绪后才有值） */
+let shellBase = ''
+/** 桌面设置（19.33：菜单里「新建窗口」在 main() 之外触发，关窗判据要能读到 hideOnClose） */
+let shellCfg: DesktopConfig | null = null
 /** 托盘（创建失败即为 null——hideOnClose 随之退化为退出，见 decideCloseAction） */
 let tray: Tray | null = null
 /** 通知订阅句柄（退出前 stop：不让重连循环在收尾阶段继续打 sidecar） */
@@ -237,18 +251,153 @@ async function waitReady(port: number): Promise<void> {
 }
 
 /**
- * 唤回主窗口（19.30）：托盘点击/菜单/通知点击/macOS activate 共用。
- * 隐藏态下 isMinimized() 为 false，必须先 show() 再 focus()——只 focus 唤不出来。
+ * 壳内窗口清单（19.33）：以 Electron 的活窗口为事实源再按基址过滤，不另存一份注册表——
+ * 另存的表要与窗口生死同步，漏一处就是菜单里点一个已销毁的窗口。
+ * 引导窗（fatal / 首启）是 data: 页，被 isShellPage 挡在外面。
  */
-function revealMainWindow(): void {
-  if (mainWindow === null) return
-  if (mainWindow.isMinimized()) mainWindow.restore()
-  mainWindow.show()
-  mainWindow.focus()
+function shellWindows(): BrowserWindow[] {
+  return BrowserWindow.getAllWindows().filter(
+    (w) => !w.isDestroyed() && isShellPage(w.webContents.getURL(), shellBase),
+  )
+}
+
+/** 唤回一个窗口：隐藏态下 isMinimized() 为 false，必须先 show() 再 focus()——只 focus 唤不出来 */
+function revealWindow(win: BrowserWindow | null): void {
+  if (win === null || win.isDestroyed()) return
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
 }
 
 /**
- * 托盘（19.30）：菜单两项——唤窗与退出（退出走 app.quit()，与窗口关闭按钮同一路径）。
+ * 唤回目标窗口（19.30 的「唤回主窗口」在多窗口下的口径）：最近聚焦的那个。
+ * 托盘点击 / 托盘菜单 / 通知点击 / macOS activate 共用——用户心里的"主窗口"是他刚才在用的那个。
+ */
+function revealTargetWindow(): void {
+  revealWindow(pickRevealTarget(shellWindows(), lastFocused))
+}
+
+/**
+ * 开一个新壳窗口（19.33）：sessionId 给了就直达该会话（同一个会话开两个窗口是合法用法——
+ * 一边跑长任务一边翻旧记录），没给就落 web 根。窗口与会话的绑定不另存状态，从 URL 派生
+ * （见 multi-window.ts 头注）。安全缺省与导航白名单沿用 WO-025 口径。
+ */
+async function openWindow(sessionId: string | null): Promise<void> {
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    minWidth: 960,
+    minHeight: 640,
+    title: 'Spark',
+    // WO-025：显式声明安全缺省（同 fatalWin）
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+  })
+  // 关窗行为（19.30）：hideOnClose 且托盘可用 → 隐藏（sidecar 与通知继续跑）；否则维持
+  // 既有语义销毁窗口。多窗口下每个窗口一律同一口径——不给"次窗口另有一套"的例外，
+  // 例外会让"关了却还在托盘里"变成只有某些窗口才有的行为。
+  win.on('close', (event) => {
+    const action = decideCloseAction({
+      hideOnClose: shellCfg?.hideOnClose ?? false,
+      trayReady: tray !== null,
+      quitting,
+    })
+    if (action === 'quit') return
+    event.preventDefault()
+    win.hide()
+  })
+  win.on('closed', () => {
+    if (lastFocused === win) lastFocused = null
+    refreshMenus()
+  })
+  // WO-025：只允许本机 sidecar 页面——外部导航一律交给系统浏览器（§7.4），禁 window.open 弹窗
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  win.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith('http://127.0.0.1:')) e.preventDefault()
+  })
+  // 窗口菜单的标签来自 webContents.getTitle()（web 把 document.title 设成会话标题，19.33 同批）；
+  // SPA 内切会话是 in-page 导航，两个事件都要听，否则菜单里的绑定与标题会停在开窗那一刻
+  win.webContents.on('page-title-updated', () => refreshMenus())
+  win.webContents.on('did-navigate-in-page', () => refreshMenus())
+  win.webContents.on('did-navigate', () => refreshMenus())
+  await win.loadURL(windowUrlOf(shellBase, sessionId))
+  refreshMenus()
+}
+
+/**
+ * 菜单重建（19.33「窗口菜单」+ 19.30 托盘）：应用菜单与托盘菜单一起刷。
+ * 应用菜单：文件/编辑/视图三项走 Electron role（编辑的角色项在 macOS 上是复制粘贴撤销的
+ * 必经之路，不用 role 就得自己重实现一遍系统行为），窗口项列出各壳窗口并可点击唤回，
+ * radio + checked 标出最近聚焦的那个。
+ * 每次窗口生死/标题/焦点变化都重建——菜单模板是快照，不重建就会列出已经关掉的窗口。
+ * 「新建窗口」刻意不带加速键：键位单一来源是 protocol KEYMAP（19.39），壳层自造一个
+ * Ctrl+Shift+N 会变成表外的第五个快捷键面，登记为 19.33 尾巴待与 KEYMAP 的 surface 口径一并定。
+ *
+ * 托盘菜单为什么要逐窗列项：hideOnClose 下窗口是隐藏不是销毁，全部隐藏后 Windows/Linux
+ * 的菜单栏随窗口一起不可见，托盘是唯一回路——只有「显示最近聚焦窗口」一项就等于把其余
+ * 隐藏窗口藏成找不回来。单窗口时不列（与「显示窗口」重复）。
+ */
+function refreshMenus(): void {
+  if (shellBase === '') return
+  const wins = shellWindows()
+  const winItems: MenuItemConstructorOptions[] = wins.map((w, i) => ({
+    label: windowLabelOf(w.webContents.getTitle(), i + 1),
+    type: 'radio',
+    checked: w === lastFocused,
+    click: () => revealWindow(w),
+  }))
+  // 平台差异项先落成带注解的常量再展开：`as` 断言会把 role 字面量放宽成 string，
+  // 注解写法让 TS 直接按 role 联合校验（也更平——不用读者去确认那个断言是否安全）
+  const darwinOnly: MenuItemConstructorOptions[] =
+    process.platform === 'darwin' ? [{ role: 'appMenu' }] : []
+  const darwinZoom: MenuItemConstructorOptions[] =
+    process.platform === 'darwin' ? [{ role: 'zoom' }] : []
+  const windowList: MenuItemConstructorOptions[] =
+    winItems.length > 0 ? [{ type: 'separator' }, ...winItems] : []
+  const template: MenuItemConstructorOptions[] = [
+    ...darwinOnly,
+    {
+      label: '文件',
+      submenu: [
+        { label: '新建窗口', click: () => void openWindow(null) },
+        {
+          label: '在新窗口打开当前会话',
+          click: () => {
+            const target = pickRevealTarget(wins, lastFocused)
+            void openWindow(target === null ? null : sessionIdOfUrl(target.webContents.getURL()))
+          },
+        },
+        { type: 'separator' },
+        { role: 'close' },
+      ],
+    },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    {
+      label: '窗口',
+      submenu: [{ role: 'minimize' }, ...darwinZoom, ...windowList],
+    },
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+  if (tray !== null) {
+    // 单窗口不逐窗列项：与「显示窗口」重复
+    const trayWindowList: MenuItemConstructorOptions[] =
+      wins.length > 1 ? [{ type: 'separator' }, ...winItems] : []
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        { label: '显示窗口', click: () => revealTargetWindow() },
+        { label: '新建窗口', click: () => void openWindow(null) },
+        ...trayWindowList,
+        { type: 'separator' },
+        { label: '退出 Spark', click: () => app.quit() },
+      ]),
+    )
+  }
+}
+
+/**
+ * 托盘（19.30）：唤窗 / 新建窗口 / 退出（退出走 app.quit()，与窗口关闭按钮同一路径）。
+ * 菜单内容随后由 refreshMenus() 统一重建（多窗口时逐窗列项）——这里先给一份同形的初始菜单，
+ * 不让托盘在首窗加载完成前处于"右键没反应"的状态。
  * Linux 缺 app-indicator 时 new Tray 会抛：调用方 catch 后置 null，hideOnClose 自动退化
  * 为退出（不会把应用藏成一个找不回来的进程）。
  */
@@ -264,10 +413,11 @@ function createTray(): Tray {
   const t = new Tray(image)
   t.setToolTip('Spark')
   // 左键直接唤窗（Windows 托盘的习惯动作），右键出菜单；macOS 单击也是唤窗
-  t.on('click', () => revealMainWindow())
+  t.on('click', () => revealTargetWindow())
   t.setContextMenu(
     Menu.buildFromTemplate([
-      { label: '显示主窗口', click: () => revealMainWindow() },
+      { label: '显示窗口', click: () => revealTargetWindow() },
+      { label: '新建窗口', click: () => void openWindow(null) },
       { type: 'separator' },
       { label: '退出 Spark', click: () => app.quit() },
     ]),
@@ -292,6 +442,8 @@ async function main(): Promise<void> {
   // 装载晚于 spawn 就等于这一版配置整个启动周期不生效（坏配置回缺省并 warn，不静默）
   const desktopConfigPath = join(sparkDir, 'desktop.json')
   const desktopCfg = loadDesktopConfig(desktopConfigPath, (m) => console.warn(m))
+  // 19.33：菜单里「新建窗口」在 main() 之外触发，关窗判据要能读到这份配置
+  shellCfg = desktopCfg
   // AUD-12：启动序列（取端口/拉 sidecar/探活）失败 → 引导窗，不再静默 app.exit(1)。
   // 首启失败的典型根因（models.json 缺失抛 ConfigError）只有 stderr 可见，随窗展示
   let port: number
@@ -315,6 +467,8 @@ async function main(): Promise<void> {
     return
   }
   ready = true
+  // 19.33：壳内页面判定与新窗口 URL 都以基址为准（此前散在各处的字面量收敛到这一处）
+  shellBase = `http://127.0.0.1:${port}`
 
   // 托盘（19.30）：先于主窗口创建——hideOnClose 的判据要看托盘是否真的可用
   try {
@@ -326,38 +480,9 @@ async function main(): Promise<void> {
     tray = null
   }
 
-  const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 960,
-    minHeight: 640,
-    title: 'Spark',
-    // WO-025：显式声明安全缺省（同 fatalWin）
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
-  })
-  mainWindow = win
-  win.on('closed', () => {
-    mainWindow = null
-  })
-  // 关窗行为（19.30）：hideOnClose 且托盘可用 → 隐藏（sidecar 与通知继续跑）；否则维持
-  // 既有语义销毁窗口（销毁后 window-all-closed → app.quit）
-  win.on('close', (event) => {
-    const action = decideCloseAction({
-      hideOnClose: desktopCfg.hideOnClose,
-      trayReady: tray !== null,
-      quitting,
-    })
-    if (action === 'quit') return
-    event.preventDefault()
-    win.hide()
-  })
-  // WO-025：只允许本机 sidecar 页面——外部导航一律交给系统浏览器（§7.4），
-  // 禁 window.open 弹窗
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  win.webContents.on('will-navigate', (e, url) => {
-    if (!url.startsWith('http://127.0.0.1:')) e.preventDefault()
-  })
-  await win.loadURL(`http://127.0.0.1:${port}`)
+  // 首窗（19.33 起与「新建窗口」共用同一条 openWindow 路径：安全缺省、导航白名单、
+  // 关窗判据、标题/导航 → 菜单重建全部一处维护，不给首窗留一份手写副本）
+  await openWindow(null)
 
   // 保持运行与开机自启（19.30）：都在窗口就绪后落地——自启注册是进程级副作用，
   // 首启失败/引导窗阶段不该写用户的登录项
@@ -369,7 +494,7 @@ async function main(): Promise<void> {
     port,
     cfg: desktopCfg,
     NotificationCtor: Notification,
-    reveal: revealMainWindow,
+    reveal: revealTargetWindow,
   })
 }
 
@@ -377,9 +502,22 @@ app.on('window-all-closed', () => {
   app.quit()
 })
 
-// macOS 惯例（19.30）：Dock 图标点击时把隐藏态的主窗口唤回来（关窗隐藏形态的第二个入口）
+// macOS 惯例（19.30）：Dock 图标点击时把隐藏态的窗口唤回来（关窗隐藏形态的第二个入口）。
+// 19.33：一个壳窗口都不剩时按 macOS 惯例补开一个（sidecar 未就绪则什么都不做——
+// 那时 openWindow 会拼出一个空基址的 URL，加载必然失败）
 app.on('activate', () => {
-  revealMainWindow()
+  if (shellWindows().length === 0) {
+    if (shellBase !== '') void openWindow(null)
+    return
+  }
+  revealTargetWindow()
+})
+
+// 焦点跟踪（19.33）：唤窗目标与菜单里的 checked 都以「最近聚焦」为准——多窗口下
+// 「主窗口」是有歧义的，用户心里的主窗是他刚才在用的那个。焦点变了菜单要重建（挪勾选）。
+app.on('browser-window-focus', (_e, win) => {
+  lastFocused = win
+  refreshMenus()
 })
 
 // 退出意图先行置位：app.quit() 会先关窗口，close 处理器要据此放行（否则 hideOnClose

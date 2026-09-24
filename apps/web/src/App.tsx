@@ -4,6 +4,7 @@ import { AppShell } from '@/components/layout/AppShell'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { TransportProvider, useTransport } from '@/transports/context'
 import { I18nProvider } from '@/i18n/context'
+import { DocumentTitle } from '@/components/DocumentTitle'
 import { WelcomePage } from '@/routes/WelcomePage'
 import { SessionPage } from '@/routes/SessionPage'
 import { SettingsPage } from '@/routes/SettingsPage'
@@ -19,6 +20,7 @@ export function App() {
   return (
     <TransportProvider>
       <I18nProvider>
+      <DocumentTitle />
       <FirstRunRedirect />
       <ErrorBoundary label="应用">
         <AppShell>
