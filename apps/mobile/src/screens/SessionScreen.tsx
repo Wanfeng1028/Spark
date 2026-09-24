@@ -33,7 +33,7 @@ import type { RouteProp } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { Delivery, FeedbackVote, PermissionPreset, RequestId } from '@spark/protocol'
 import {
-  CONNECTION_TEXT,
+  connectionText,
   createSessionPageController,
   emptySessionSlice,
   formatTimestamp,
@@ -90,8 +90,8 @@ const PAGE_SIZE = 50
 /**
  * closed 态文案留本地，与 miniapp session 页逐字同（工单 R-B.5c）——两个靠配对 token
  * 连 server 的远端，closed 唯一持久可见的触发源就是鉴权终态（配置变更 invalidate 是瞬态，
- * 随即被新实例的 connecting 覆盖）。三态已下沉 protocol CONNECTION_TEXT（工单 R-B）；
- * closed 不入共享表的理由见 ui-copy.ts 头注释边界说明 1。
+ * 随即被新实例的 connecting 覆盖）。三态已下沉 protocol `connectionText(status, lang)`（工单 R-B 建、
+ * 19.17 起随界面语言取词）；closed 不入共享表的理由见 ui-copy.ts 头注释边界说明 1。
  */
 const CLOSED_TEXT = '连接已停止：鉴权失败，请到设置页重新配对'
 
@@ -163,6 +163,8 @@ export function SessionScreen() {
   const serverUrl = useConfigStore((s) => s.serverUrl)
   const token = useConfigStore((s) => s.token)
   const sessions = useAppStore((s) => s.sessions)
+  // 订阅而非直读 store：语言改档后横幅文案要跟着重渲染（工单 19.17）
+  const lang = useAppStore((s) => s.language)
   const [atBottom, setAtBottom] = useState(true)
 
   // R-H：装载/翻页/发送/审批/notice 逻辑收敛 protocol session-page controller——
@@ -462,11 +464,11 @@ export function SessionScreen() {
     }
   }
 
-  const connectionText =
+  const bannerText =
     status === 'closed'
       ? CLOSED_TEXT
       : status === 'connecting' || status === 'reconnecting'
-        ? CONNECTION_TEXT[status]
+        ? connectionText(status, lang)
         : null
 
   const subtitle = slice.meta.cwd === '' ? '' : projectNameOf(slice.meta.cwd)
@@ -484,7 +486,7 @@ export function SessionScreen() {
         onRightPress={() => setMenuOpen((v) => !v)}
       />
       {/* 断线重连细条（onStatus 订阅；恢复后自动消失） */}
-      {connectionText !== null && <BannerRow text={connectionText} color={t.sparkWarn} />}
+      {bannerText !== null && <BannerRow text={bannerText} color={t.sparkWarn} />}
       {/* 人话错误细条（ERROR_COPY/errorMessageOf 单一来源） */}
       {notice !== null && <BannerRow text={notice} color={t.sparkErr} />}
       {actionSnap.notice !== null && <BannerRow text={actionSnap.notice} color={t.sparkErr} />}

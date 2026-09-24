@@ -19,14 +19,15 @@ import {
 import { Feather } from '@expo/vector-icons'
 import * as Clipboard from 'expo-clipboard'
 import {
-  COPY_TEXT,
   approvalResolvedText,
+  copyButtonText,
   severityOf,
   toolStatusText,
   turnDurationText,
   type FeedbackVote,
   type UiItem,
 } from '@spark/protocol'
+import { useAppStore } from '../store/app-store'
 import { useTheme } from '../theme/use-theme'
 import { Card, Hairline } from './ui'
 import { mobileMetrics } from '../theme/tokens'
@@ -108,6 +109,8 @@ export function AssistantBlock({
   onSaveNote: (vote: FeedbackVote, note: string) => void
 }) {
   const t = useTheme()
+  // 订阅而非直读 store：语言改档后复制钮两态文案要跟着重渲染（工单 19.17）
+  const lang = useAppStore((s) => s.language)
   const [copied, setCopied] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
@@ -161,7 +164,7 @@ export function AssistantBlock({
           >
             <Feather name={copied ? 'check' : 'copy'} size={14} color={t.mutedForeground} />
             <Text style={[styles.meta, { color: t.mutedForeground }]}>
-              {copied ? COPY_TEXT.copied : COPY_TEXT.copy}
+              {copied ? copyButtonText('copied', lang) : copyButtonText('copy', lang)}
             </Text>
           </TouchableOpacity>
           {(['up', 'down'] as const).map((v) => {

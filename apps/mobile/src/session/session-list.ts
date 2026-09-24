@@ -9,7 +9,9 @@
  * （"无后端支撑"）已由工单 12.4 推翻，本控制器是把它接真的那一半。
  */
 import type { SessionDto, Transport } from '@spark/protocol'
-import { errorMessageOf, isToday } from '@spark/protocol'
+import { isToday } from '@spark/protocol'
+// 错误文案经本端语言收口（工单 19.17）：读 store 当前语言，store 是同步全局态、单测可直接 setLanguage
+import { mobileErrorMessageOf } from '../i18n'
 
 /** 筛选档（DESIGN §13.J.2.2：全部 / 按项目 / 已归档——三档皆真数据源，无占位档） */
 export type SessionFilter = 'all' | 'project' | 'archived'
@@ -146,7 +148,7 @@ export function createSessionListController(opts: {
         // 失败闭合：保留旧快照，只把错误如实挂到细条
         state = { ...state, refreshing: false, loaded: true }
         emit()
-        setNotice(errorMessageOf(err))
+        setNotice(mobileErrorMessageOf(err))
       }
     },
 

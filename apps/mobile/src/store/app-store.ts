@@ -6,6 +6,7 @@
  */
 import { create } from 'zustand'
 import type {
+  Language,
   ProjectionState,
   SessionDto,
   SessionId,
@@ -23,12 +24,15 @@ export interface AppState extends ProjectionState {
   activeSessionId: SessionId | null
   /** 最近一条人话提示（REST 失败/引擎 error 事件；顶部细条数据源，J.4） */
   notice: string | null
+  /** 界面语言（工单 19.17：服务端 ui.language 单源，缺省 zh-CN；见 src/i18n.ts） */
+  language: Language
 
   apply: (e: SparkEventEnvelope) => void
   setStatus: (s: MobileConnectionStatus) => void
   setSessions: (list: SessionDto[]) => void
   setActiveSession: (sid: SessionId | null) => void
   setNotice: (msg: string | null) => void
+  setLanguage: (l: Language) => void
 }
 
 export const useAppStore = create<AppState>()((set) => ({
@@ -38,6 +42,7 @@ export const useAppStore = create<AppState>()((set) => ({
   sessions: [],
   activeSessionId: null,
   notice: null,
+  language: 'zh-CN',
 
   // ProjectionState 部分交共享 reducer（与 cli 同口径——byId/activeId 即全部所需）
   apply: (e) => set((s) => applyEvent(s, e)),
@@ -45,6 +50,7 @@ export const useAppStore = create<AppState>()((set) => ({
   setSessions: (sessions) => set({ sessions }),
   setActiveSession: (activeSessionId) => set({ activeSessionId }),
   setNotice: (notice) => set({ notice }),
+  setLanguage: (language) => set({ language }),
 }))
 
 

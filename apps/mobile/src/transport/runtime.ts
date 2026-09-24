@@ -5,7 +5,7 @@
  * SSE：RnSessionEventSource（rn-event-source.ts）。
  * 配置变更（设置页保存/断开）→ rebuild 释放旧实例（失败闭合：旧连接不残留）。
  */
-import type { SessionId, SparkEventEnvelope, Transport } from '@spark/protocol'
+import type { Language, SessionId, SparkEventEnvelope, Transport } from '@spark/protocol'
 import { HttpTransport } from '@spark/protocol'
 import { useAppStore } from '../store/app-store'
 import { RnSessionEventSource } from './rn-event-source'
@@ -48,6 +48,28 @@ export function invalidateTransport(): void {
   current.transport.dispose()
   current = null
   useAppStore.getState().setStatus('closed')
+}
+
+/**
+ * 从服务端拉当前界面语言（工单 19.17：boot 与配对/改址后各调一次）。
+ * 放在本模块而不是 src/i18n.ts：拉语言要用传输实例，而 i18n.ts 被 session/*.ts 那批
+ * 依赖注入形态的控制器引用，从那里牵进本模块会把 react-native-sse 拖进它们的单测模块图。
+ *
+ * @returns 取到的语言；null = 未配对或读取失败——**调用方无需处置**：语言保持现值即正确
+ *   行为，且不写任何猜测值。读取失败不在此弹 notice：启动期连不上会由各屏自己的取数路径
+ *   （会话列表/设置页）如实报出，这里再报一遍是同一条故障的两处重复。
+ */
+export async function syncUiLanguage(serverUrl: string, token: string): Promise<Language | null> {
+  const transport = getHttpTransport(serverUrl, token)
+  if (transport === null) return null
+  try {
+    const settings = await transport.getSettings()
+    const lang = settings.ui?.language ?? null
+    if (lang !== null) useAppStore.getState().setLanguage(lang)
+    return lang
+  } catch {
+    return null
+  }
 }
 
 export interface SessionStreamOptions {

@@ -7,7 +7,8 @@
  * 撤销后必重取列表：服务端撤销是终态（已连 SSE 立即断开），本地乐观摘除会与之分叉。
  */
 import type { PairCodeDto, PairStatusDto, Transport } from '@spark/protocol'
-import { errorMessageOf } from '@spark/protocol'
+// 错误文案经本端语言收口（工单 19.17）：读 store 当前语言，store 是同步全局态、单测可直接 setLanguage
+import { mobileErrorMessageOf } from '../i18n'
 
 export type PairDevicesRest = Pick<
   Transport,
@@ -62,7 +63,7 @@ export function createPairDevicesController(opts: {
     try {
       return await fn(transport)
     } catch (err: unknown) {
-      state = { ...state, notice: errorMessageOf(err) }
+      state = { ...state, notice: mobileErrorMessageOf(err) }
       return null
     } finally {
       state = { ...state, busy: false }

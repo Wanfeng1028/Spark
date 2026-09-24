@@ -18,7 +18,9 @@ import {
 import { Feather } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
 import type { DrawerNavigationProp } from '@react-navigation/drawer'
-import { HttpTransport, baseUrlOf, errorMessageOf } from '@spark/protocol'
+import { HttpTransport, baseUrlOf } from '@spark/protocol'
+// 错误文案经本端语言收口（工单 19.17）：读 store 当前语言，store 是同步全局态、单测可直接 setLanguage
+import { mobileErrorMessageOf } from '../i18n'
 import { useConfigStore } from '../store/config-store'
 import { getHttpTransport, invalidateTransport } from '../transport/runtime'
 import { useTheme } from '../theme/use-theme'
@@ -110,7 +112,7 @@ export function SettingsScreen() {
         invalidateTransport()
         setLocalNotice(null)
       })
-      .catch((err: unknown) => setLocalNotice(errorMessageOf(err)))
+      .catch((err: unknown) => setLocalNotice(mobileErrorMessageOf(err)))
       .finally(() => setBusy(false))
   }, [urlDraft, tokenDraft, saveConnection])
 
@@ -128,7 +130,7 @@ export function SettingsScreen() {
         setPendingPair(null)
         setLocalNotice(null)
       })
-      .catch((err: unknown) => setLocalNotice(errorMessageOf(err)))
+      .catch((err: unknown) => setLocalNotice(mobileErrorMessageOf(err)))
       .finally(() => {
         transport.dispose()
         setBusy(false)
@@ -284,7 +286,7 @@ export function SettingsScreen() {
                   setUrlDraft('')
                   setTokenDraft('')
                 })
-                .catch((err: unknown) => setLocalNotice(errorMessageOf(err)))
+                .catch((err: unknown) => setLocalNotice(mobileErrorMessageOf(err)))
             }}
             style={[styles.card, { backgroundColor: t.card }]}
             activeOpacity={0.7}

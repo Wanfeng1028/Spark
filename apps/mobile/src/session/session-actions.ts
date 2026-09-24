@@ -11,7 +11,8 @@
  * 不放置灰的置顶项（置灰项本身就是承诺缺口），见 doc/02 §8 阶段十九 19.27 报告。
  */
 import type { EventId, FeedbackEntryDto, FeedbackVote, PermissionPreset, SessionDto, SessionId, Transport } from '@spark/protocol'
-import { errorMessageOf } from '@spark/protocol'
+// 错误文案经本端语言收口（工单 19.17）：读 store 当前语言，store 是同步全局态、单测可直接 setLanguage
+import { mobileErrorMessageOf } from '../i18n'
 
 export type SessionActionsRest = Pick<
   Transport,
@@ -150,7 +151,7 @@ export function createSessionActionsController(opts: {
     try {
       return await fn(transport)
     } catch (err: unknown) {
-      setNotice(errorMessageOf(err))
+      setNotice(mobileErrorMessageOf(err))
       return null
     } finally {
       state = { ...state, running: null }

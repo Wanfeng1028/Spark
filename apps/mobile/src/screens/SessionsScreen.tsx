@@ -23,7 +23,9 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { DrawerNavigationProp } from '@react-navigation/drawer'
 import type { SessionDto } from '@spark/protocol'
-import { dotColor, errorMessageOf, fmtDate } from '@spark/protocol'
+import { dotColor, fmtDate } from '@spark/protocol'
+// 错误文案经本端语言收口（工单 19.17）：读 store 当前语言，store 是同步全局态、单测可直接 setLanguage
+import { mobileErrorMessageOf } from '../i18n'
 import { useAppStore } from '../store/app-store'
 import { useConfigStore } from '../store/config-store'
 import { getHttpTransport } from '../transport/runtime'
@@ -130,7 +132,7 @@ export function SessionsScreen() {
           params: { sessionId: dto.id, title: dto.title },
         })
       })
-      .catch((err: unknown) => setNotice(errorMessageOf(err)))
+      .catch((err: unknown) => setNotice(mobileErrorMessageOf(err)))
   }, [serverUrl, token, navigation, setActiveSession, setNotice])
 
   const openSession = useCallback(
