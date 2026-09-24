@@ -16,7 +16,7 @@ import type { SessionDto } from '@spark/protocol'
 import { ids } from '@spark/protocol'
 import { MockTransport } from '@/transports/mock'
 import { TestTransportContext } from '@/transports/context'
-import { Sidebar, sidebarModeOf } from '@/components/layout/Sidebar'
+import { openSessionInNewWindow, Sidebar, sidebarModeOf } from '@/components/layout/Sidebar'
 import type { SidebarMode } from '@/components/layout/Sidebar'
 import { useUiStore } from '@/stores/ui'
 
@@ -169,7 +169,7 @@ describe('右键菜单置顶项（工单 19.41「web 右键菜单同项」）', 
     pinned: true,
   }
 
-  it('未置顶：菜单三项 = 置顶/归档/删除（置顶在首位，与悬停动作同项同序），点击即 pinSession(id, true)', async () => {
+  it('未置顶：菜单四项 = 置顶/在新窗口打开/归档/删除（置顶在首位，与悬停动作同项同序），点击即 pinSession(id, true)', async () => {
     const pin = vi.spyOn(MockTransport.prototype, 'pinSession').mockResolvedValue(PINNED_ALPHA)
     renderSidebar('inline')
     // 事件冒泡到带 onContextMenu 的行容器（不必先定位那层 div）
@@ -177,6 +177,7 @@ describe('右键菜单置顶项（工单 19.41「web 右键菜单同项」）', 
     await waitFor(() =>
       expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual([
         '置顶',
+        '在新窗口打开',
         '归档',
         '删除',
       ]),
@@ -203,5 +204,22 @@ describe('右键菜单置顶项（工单 19.41「web 右键菜单同项」）', 
     fireEvent.contextMenu(await screen.findByText('浮层里的会话'))
     fireEvent.click(await screen.findByRole('menuitem', { name: '置顶' }))
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+  })
+})
+
+describe('右键菜单「在新窗口打开」（工单 19.33 尾巴③）', () => {
+  it('以会话 id 开新窗并收菜单——浏览器是新标签页，桌面壳由 setWindowOpenHandler 接管后自开壳窗', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    renderSidebar('inline')
+    fireEvent.contextMenu(await screen.findByText('浮层里的会话'))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '在新窗口打开' }))
+    expect(open).toHaveBeenCalledWith(`/session/${ALPHA}`, '_blank', 'noopener,noreferrer')
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+  })
+
+  it('会话 id 进 URL 前转义（id 是 ULID 不含特殊字符，但拼 URL 不赌上游口径）', () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    openSessionInNewWindow('a/b')
+    expect(open).toHaveBeenCalledWith('/session/a%2Fb', '_blank', 'noopener,noreferrer')
   })
 })

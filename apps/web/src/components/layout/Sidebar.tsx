@@ -24,7 +24,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { useLocation, useNavigate } from 'react-router'
-import { Archive, CalendarClock, ChevronRight, FolderGit2, PanelLeftClose, PanelLeftOpen, Pin, Plus, Search, Settings, Trash2, Undo2, User } from 'lucide-react'
+import { Archive, CalendarClock, ChevronRight, ExternalLink, FolderGit2, PanelLeftClose, PanelLeftOpen, Pin, Plus, Search, Settings, Trash2, Undo2, User } from 'lucide-react'
 import { dotTokenOf, type DotTokenKey, type SessionDto, type SessionStatus } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useActiveSlice } from '@/stores/session'
@@ -34,6 +34,17 @@ import { errorMessageOf } from '@/lib/error-copy'
 import { formatRelative } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { groupSessionsForSidebar } from './session-groups'
+
+/**
+ * 在新窗口打开会话（工单 19.33 尾巴③）。浏览器里就是新标签页；桌面壳里 `window.open`
+ * 被 main.ts 的 `setWindowOpenHandler` 接管、由壳自己开一个新壳窗口（壳刻意不返
+ * `action: 'allow'`——那会让 Electron 用它自己的一套缺省 webPreferences 建窗，绕过
+ * main.ts 里显式声明的安全缺省）。两种形态都是"新窗口里就是这个会话"，故端侧一份实现。
+ * `noopener`：新窗口不该拿到 opener 句柄（它会指向侧栏所在的这个窗口）。
+ */
+export function openSessionInNewWindow(sessionId: string): void {
+  window.open(`/session/${encodeURIComponent(sessionId)}`, '_blank', 'noopener,noreferrer')
+}
 
 /**
  * 会话状态点（DESIGN §13.J.2.2；animate-pulse 属状态点白名单）。
@@ -804,9 +815,11 @@ function SidebarGroup({
                     <Trash2 className="size-3.5" />
                   </button>
                 </span>
-                {/* 右键上下文菜单（DESIGN §5：会话列表项——置顶/归档/删除，与悬停动作同项同序）。
+                {/* 右键上下文菜单（DESIGN §5：会话列表项）——置顶/在新窗口打开/归档/删除。
+                    前三项里「在新窗口打开」刻意没有悬停孪生钮：悬停行已有三个钮，再挤一个
+                    就变成图标条（19.33 尾巴③）；置顶与归档/删除仍与悬停动作同项同序。
                     重命名不在此菜单：端点自 19.20 已有，入口是命令面板的内联改名（本菜单加同项
-                    要先定"菜单里怎么编辑"的形态，属 19.21 会话流小件批的口径，不在此半做） */}
+                    要先定「菜单里怎么编辑」的形态，属 19.21 会话流小件批的口径，不在此半做） */}
                 {menuFor === s.id && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setMenuFor(null)} onContextMenu={(e) => { e.preventDefault(); setMenuFor(null) }} />
@@ -828,6 +841,20 @@ function SidebarGroup({
                         >
                           <Pin className="size-3.5 text-muted-foreground" />
                           {s.pinned === true ? '取消置顶' : '置顶'}
+                        </button>
+                      </li>
+                      <li role="none">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMenuFor(null)
+                            openSessionInNewWindow(s.id)
+                          }}
+                          className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] hover:bg-accent"
+                        >
+                          <ExternalLink className="size-3.5 text-muted-foreground" />
+                          在新窗口打开
                         </button>
                       </li>
                       <li role="none">

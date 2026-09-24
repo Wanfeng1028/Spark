@@ -309,8 +309,14 @@ async function openWindow(sessionId: string | null): Promise<void> {
     if (lastFocused === win) lastFocused = null
     refreshMenus()
   })
-  // WO-025：只允许本机 sidecar 页面——外部导航一律交给系统浏览器（§7.4），禁 window.open 弹窗
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  // WO-025：只允许本机 sidecar 页面——外部导航一律交给系统浏览器（§7.4）。
+  // 19.33 尾巴③：web 的「在新窗口打开此会话」走 window.open，本机页面由壳自己开一个
+  // 新壳窗口——**不用 `action: 'allow'`**：那会让 Electron 按它自己的一套缺省
+  // webPreferences 建窗，绕过本文件里显式声明的安全缺省（WO-025 的整个意义就在此）。
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isShellPage(url, shellBase)) void openWindow(sessionIdOfUrl(url))
+    return { action: 'deny' }
+  })
   win.webContents.on('will-navigate', (e, url) => {
     if (!url.startsWith('http://127.0.0.1:')) e.preventDefault()
   })
