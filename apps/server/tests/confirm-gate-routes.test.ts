@@ -68,7 +68,7 @@ describe('PUT /api/mcp 确认门（LA-05）', () => {
     const res = await server.app.inject({
       method: 'PUT',
       url: '/api/mcp',
-      payload: { version: 1, servers: { demo: { command: 'echo', args: ['hi'] } } },
+      payload: { version: 1, confirm: true, servers: { demo: { command: 'echo', args: ['hi'] } } },
       ...REMOTE,
     })
     expect(res.statusCode).toBe(200)
