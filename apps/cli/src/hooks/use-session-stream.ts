@@ -4,11 +4,11 @@
  * （/rollback 后 seq 倒退）→ since=0 重订阅重放（工单 10.18）。
  */
 import { useEffect } from 'react'
-import type { SparkEventEnvelope } from '@spark/protocol'
+import type { SparkEventEnvelope, Transport } from '@spark/protocol'
 import { SessionEventSource } from '@spark/protocol'
 import { useCliStore } from '../store.js'
 
-export function useSessionStream(baseUrl: string, transport: { listSessions: () => Promise<unknown> }): void {
+export function useSessionStream(baseUrl: string, transport: Pick<Transport, 'listSessions'>): void {
   const activeSessionId = useCliStore((s) => s.activeSessionId)
   const replayNonce = useCliStore((s) => s.replayNonce)
 
