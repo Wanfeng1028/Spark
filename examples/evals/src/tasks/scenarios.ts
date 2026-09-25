@@ -13,11 +13,12 @@
  *    审批维度由 task/approval-reject-* 两场景单独覆盖（manualApproval: true 走空规则表）；
  * ④ checkpoints 关（fixture 非 git 仓，与 harness.makeConfig 同口径）。
  */
-import { mkdtempSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { SparkEventEnvelope } from '@spark/protocol'
 import { Engine, loadConfig } from '@spark/engine'
+import { trustKey } from '@spark/engine/internal'
 import type { EngineConfig, SessionHandle } from '@spark/engine'
 import { fail, findEvent, pass, skip, waitFor, type EvalOutcome, type EvalScenario } from '../harness.js'
 import { makeFixtureRepo, seedSampleRepo, type FixtureRepo } from './fixtures.js'
@@ -53,6 +54,11 @@ async function withTaskEngine(
     if (opts.manualApproval !== true) {
       config.permissions = { version: 1, rules: fixtureRules() }
     }
+    // LA-02 后规则层 allow 在未信任 cwd 降为 ask——评估工作区显式信任（同 smoke）
+    writeFileSync(
+      join(dataRoot, 'trusted.json'),
+      JSON.stringify({ version: 1, folders: { [trustKey(repo.root)]: 'trusted' } }),
+    )
     engine = new Engine({ root: dataRoot, config })
     const events: SparkEventEnvelope[] = []
     engine.subscribe((e) => {

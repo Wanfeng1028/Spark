@@ -5,12 +5,13 @@
  * ② 预录终态工具调用走完整引擎链路（run-loop → 工具管线 → 权限规则 → 事件流）后 judge 必须 pass。
  * 两向都成立才说明"场景装配 + 判分"本身是确定的；真实模型下的通过率另由 --suite tasks 度量。
  */
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { SparkEventEnvelope } from '@spark/protocol'
 import { Engine } from '@spark/engine'
 import { ScriptedLlm } from '@spark/engine/internal'
+import { trustKey } from '@spark/engine/internal'
 import { fail, findEvent, makeConfig, pass, waitFor, type EvalOutcome, type EvalScenario } from '../harness.js'
 import { makeFixtureRepo } from './fixtures.js'
 import { collectAnswerText, fixtureRules, taskDefs, type TaskDef } from './defs.js'
@@ -31,6 +32,12 @@ async function runSmoke(def: TaskDef): Promise<EvalOutcome> {
     for (const step of def.scripted()) gateway.scriptStep(step)
     const config = makeConfig()
     config.permissions = { version: 1, rules: fixtureRules() }
+    // LA-02 后 fs.write/shell.exec 的规则层 allow 在未信任 cwd 降为 ask——评估工作区
+    // 显式信任（真实用户信任项目目录后的同形态），规则直通前提不变
+    writeFileSync(
+      join(dataRoot, 'trusted.json'),
+      JSON.stringify({ version: 1, folders: { [trustKey(repo.root)]: 'trusted' } }),
+    )
     engine = new Engine({ root: dataRoot, gateway, config })
     const events: SparkEventEnvelope[] = []
     engine.subscribe((e) => {
