@@ -114,7 +114,7 @@ function makeService(opts?: {
     timeoutMs: 300_000,
     ...(opts?.trust !== undefined ? { trust: opts.trust } : {}),
   })
-  return { sink, service, layers: sessionLayers ?? new Map(), userStore }
+  return { sink, service, layers: sessionLayers ?? new Map<string, ProjectLayer>(), userStore }
 }
 
 function makeCheck(over?: Partial<PermissionCheck>): PermissionCheck {
@@ -390,9 +390,9 @@ describe('listPermissionRules / removePermissionRule 双层合成（LA-04）', (
     expect(engine.listPermissionRules()).toEqual([
       { action: 'fs.read', resource: '**', effect: 'allow', source: 'user' },
     ])
-    const onDisk: { rules: PermissionRule[] } = JSON.parse(
+    const onDisk = JSON.parse(
       readFileSync(join(cwd, '.spark', 'permissions.json'), 'utf8'),
-    )
+    ) as { rules: PermissionRule[] }
     expect(onDisk.rules).toEqual([])
   })
 
