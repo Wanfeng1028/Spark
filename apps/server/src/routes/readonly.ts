@@ -81,7 +81,7 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
       Object.entries(servers)
         .map(([k, v]) => `${k} = ${v.command ?? '?'} ${(v.args ?? []).join(' ')}`.trimEnd())
         .join('; ') || '(空清单)'
-    if (!confirmGate(req, reply, 'mcp 配置写入', willRun)) return reply
+    if (body.confirm !== true && !confirmGate(req, reply, 'mcp 配置写入', willRun)) return reply
     try {
       // 字面量内联在参数位：McpConfigInput.version 是字面量类型，经变量中转会拓宽成 number（CI 修红）
       writeMcpConfig(

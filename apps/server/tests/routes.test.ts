@@ -827,7 +827,8 @@ describe('GET/POST/DELETE /api/permissions/rules（工单 4.7 规则管理）', 
     })
     const one = await f.app.inject({ method: 'GET', url: '/api/permissions/rules' })
     expect((one.json<Json>())['rules']).toEqual([
-      { action: 'shell.exec', resource: 'cmd:git *', effect: 'deny' },
+      // LA-04：列表响应由引擎合成 source（用户级）
+      { action: 'shell.exec', resource: 'cmd:git *', effect: 'deny', source: 'user' },
     ])
 
     // 精确匹配删除；再删同键 → 404
