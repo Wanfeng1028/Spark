@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
+import { trustKey } from '../src/trust.js'
 import { ids } from '@spark/protocol'
 import type { EngineConfig } from '../src/config.js'
 import type { ArenaRun } from '../src/arena/manager.js'
@@ -91,6 +92,12 @@ function makeEngine(
   if (rules !== undefined) cfg.permissions = { version: 1, rules }
   const root = mkdtempSync(join(tmpdir(), 'spark-arena-root-'))
   roots.push(root)
+  // LA-02 后 fs.write 等收紧面动作在未信任 cwd 的规则层 allow 降为 ask——本夹具显式信任
+  // 工作区（真实用户信任项目目录后的同形态），使「胜者应用 allow 直通」等既有前提成立
+  writeFileSync(
+    join(root, 'trusted.json'),
+    JSON.stringify({ version: 1, folders: { [trustKey(cwd)]: 'trusted' } }),
+  )
   const gateway = new ScriptedLlm()
   const engine = new Engine({ root, gateway, config: cfg, cwd })
   return { engine, gateway, root }

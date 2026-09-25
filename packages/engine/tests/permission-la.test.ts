@@ -234,10 +234,12 @@ describe('project 固化按会话 cwd 落盘（LA-03①）', () => {
   function threeSessionLayers(): { layers: Map<string, ProjectLayer>; storeA: MemRuleStore; storeB: MemRuleStore } {
     const storeA = new MemRuleStore([])
     const storeB = new MemRuleStore([])
+    // 同 key = 同一层对象（引擎按 cwdKey 缓存共享）：SID_A 与 SID_C 同 cwd 故共用 layerA
+    const layerA: ProjectLayer = { rules: [], store: storeA, key: 'cwd-A' }
     const layers = new Map<string, ProjectLayer>([
-      [SID_A, { rules: [], store: storeA, key: 'cwd-A' }],
+      [SID_A, layerA],
       [SID_B, { rules: [], store: storeB, key: 'cwd-B' }],
-      [SID_C, { rules: [], store: new MemRuleStore([]), key: 'cwd-A' }],
+      [SID_C, layerA],
     ])
     return { layers, storeA, storeB }
   }

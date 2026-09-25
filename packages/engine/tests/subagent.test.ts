@@ -5,6 +5,7 @@
  * 审批拒绝 E_PERMISSION；另含 steer expectedTurnId 的 engine 层接线断言。
  */
 import { mkdtemp } from 'node:fs/promises'
+import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -16,6 +17,7 @@ import { Engine } from '../src/engine.js'
 import type { SessionHandle } from '../src/engine.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
 import { makeTaskTool } from '../src/tools/builtin/task.js'
+import { trustKey } from '../src/trust.js'
 
 function makeConfig(rules: EngineConfig['permissions']['rules']): EngineConfig {
   return {
@@ -66,6 +68,12 @@ async function makeEngine(
   ],
 ): Promise<Fixture> {
   const root = await mkdtemp(join(tmpdir(), 'spark-subagent-'))
+  // LA-02 后 agent.task 在未信任 cwd 的规则层 allow 降为 ask——本夹具显式信任
+  // defaultCwd（进程 cwd；真实用户信任项目目录后的同形态），既有 allow 直通前提不变
+  writeFileSync(
+    join(root, 'trusted.json'),
+    JSON.stringify({ version: 1, folders: { [trustKey(process.cwd())]: 'trusted' } }),
+  )
   const gateway = new ScriptedLlm()
   const engine = new Engine({ root, gateway, config: makeConfig(rules) })
   const events: SparkEventEnvelope[] = []

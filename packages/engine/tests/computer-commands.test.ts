@@ -15,14 +15,15 @@ const DIR = join(dirname(fileURLToPath(import.meta.url)), '../src/computer')
 const ALLOWED: Record<string, readonly string[]> = {
   'windows.ts': ['powershell.exe'],
   'macos.ts': ['osascript', 'screencapture', 'open', 'pbcopy', 'pbpaste'],
-  'linux.ts': ['scrot', 'import', 'xdotool', 'wmctrl', 'xclip'],
+  'linux.ts': ['scrot', 'import', 'xdotool', 'wmctrl', 'xclip', 'ps'],
 }
 
 /** 提取源码里 run('cmd' / spawn('cmd' 的首参字面量 */
 function extractedCommands(file: string): string[] {
   const src = readFileSync(join(DIR, file), 'utf8')
   const out: string[] = []
-  for (const m of src.matchAll(/\b(?:run|spawn)\('([^']+)'/g)) {
+  // \s* 吸收 windows.ts 的多行 spawn（spawn(\n 'powershell.exe', ...)
+  for (const m of src.matchAll(/\b(?:run|spawn)\(\s*'([^']+)'/g)) {
     const cmd = m[1]
     if (cmd !== undefined) out.push(cmd)
   }
