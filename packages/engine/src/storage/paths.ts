@@ -102,7 +102,7 @@ export const SPARK_DIR = {
 export type SparkDirKey = keyof typeof SPARK_DIR
 
 /** 日志目录内的引擎日志文件名（`logs.ts` 读、`logger.ts` 写，两边同一个名字） */
-export const ENGINE_LOG_FILE = 'engine.log'
+const ENGINE_LOG_FILE = 'engine.log'
 
 /** sparkHome 根级文件的全路径 */
 export function sparkFile(root: string, key: SparkFileKey): string {
