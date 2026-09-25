@@ -1311,16 +1311,14 @@ export class MockTransport implements Transport {
       JSON.stringify({ sparkBundle: 1, file: '2026-09-25T00-00-00-000Z_ses_demo.jsonl' }),
       JSON.stringify({ sparkVersion: 'mock', cwd: 'E:/code/demo', createdAt: 1_700_000_000_000, model: 'mock/mock-chat' }),
       '',
-    ].join('
-')
+    ].join('\n')
     return Promise.resolve({ bundle, files: 1 })
   }
 
   /** 回导（19.37 第三批）：按 marker 分段计数（演示：段数即 imported） */
   storageImport(bundle: string): Promise<StorageImportDto> {
     this.assertNotDisposed()
-    const segments = bundle.split('
-').filter((l) => l.includes('"sparkBundle"')).length
+    const segments = bundle.split('\n').filter((l) => l.includes('"sparkBundle"')).length
     return Promise.resolve({ imported: segments, skipped: 0, failed: 0 })
   }
 
