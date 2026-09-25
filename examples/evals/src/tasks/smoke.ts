@@ -34,9 +34,16 @@ async function runSmoke(def: TaskDef): Promise<EvalOutcome> {
     config.permissions = { version: 1, rules: fixtureRules() }
     // LA-02 后 fs.write/shell.exec 的规则层 allow 在未信任 cwd 降为 ask——评估工作区
     // 显式信任（真实用户信任项目目录后的同形态），规则直通前提不变
+    // 收紧判定按引擎 defaultCwd（=进程 cwd，D37 v1 边界）——两处都信任
     writeFileSync(
       join(dataRoot, 'trusted.json'),
-      JSON.stringify({ version: 1, folders: { [trustKey(repo.root)]: 'trusted' } }),
+      JSON.stringify({
+        version: 1,
+        folders: {
+          [trustKey(process.cwd())]: 'trusted',
+          [trustKey(repo.root)]: 'trusted',
+        },
+      }),
     )
     engine = new Engine({ root: dataRoot, gateway, config })
     const events: SparkEventEnvelope[] = []

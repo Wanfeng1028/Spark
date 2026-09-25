@@ -57,7 +57,13 @@ async function withTaskEngine(
     // LA-02 后规则层 allow 在未信任 cwd 降为 ask——评估工作区显式信任（同 smoke）
     writeFileSync(
       join(dataRoot, 'trusted.json'),
-      JSON.stringify({ version: 1, folders: { [trustKey(repo.root)]: 'trusted' } }),
+      JSON.stringify({
+        version: 1,
+        folders: {
+          [trustKey(process.cwd())]: 'trusted',
+          [trustKey(repo.root)]: 'trusted',
+        },
+      }),
     )
     engine = new Engine({ root: dataRoot, config })
     const events: SparkEventEnvelope[] = []
