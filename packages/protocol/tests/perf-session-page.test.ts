@@ -74,7 +74,9 @@ function buildEvents(turns: number): SparkEventEnvelope[] {
     const turnId = ids.turn(`trn_perfpage${String(i).padStart(13, '0')}`)
     const callId = ids.call(`cal_perfpage${String(i).padStart(13, '0')}`)
     push('user.message', { text: `问题 ${i}` })
-    const userEventId = out[out.length - 1].id
+    // 刚 push 完必非空；noUncheckedIndexedAccess 下索引访问带 undefined，收窄一次
+    const userEventId = out.at(-1)?.id
+    if (userEventId === undefined) throw new Error('unreachable：上一行刚追加过一条')
     push('turn.started', { turnId, delivery: 'now', userEventId })
     push('assistant.message', {
       turnId,
@@ -102,7 +104,7 @@ function dto(events: SparkEventEnvelope[]): SessionDto {
     cwd: '/tmp/perf',
     createdAt: 1700000000000,
     updatedAt: 1700000000000,
-    lastSeq: events.length > 0 ? (events[events.length - 1].seq ?? 0) : 0,
+    lastSeq: (events.at(-1)?.seq ?? 0),
     status: 'idle',
     events,
   }
