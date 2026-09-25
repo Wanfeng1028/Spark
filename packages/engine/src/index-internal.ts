@@ -46,6 +46,7 @@ export { SessionRuntime, type RuntimeStatus } from './session/runtime.js'
 // ---- 测试替身（评测与单测用；不是生产网关） ----
 export { ScriptedLlm, type ScriptedStep, type ScriptedDelta } from './scripted-llm.js'
 export { LspInstaller, type LspInstallOutcome } from './lsp/installer.js'
+export { trustKey } from './trust.js'
 
 // ---- run loop 与端口 ----
 export {
