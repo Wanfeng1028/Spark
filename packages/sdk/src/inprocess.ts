@@ -405,9 +405,9 @@ export class InProcessTransport implements Transport {
     return this.sync(() => this.engine.indexStats())
   }
 
-  /** 数据目录占用统计（19.37 第二批）：引擎公共面直透（InProcess 对等） */
+  /** 数据目录占用统计（19.37 第二批）：引擎公共面直透（InProcess 对等；async 方法直接 await） */
   storageReport(): Promise<StorageReportDto> {
-    return this.sync(() => this.engine.storageReport())
+    return this.engine.storageReport()
   }
 
   /** 会话改名（阶段十九 19.20）：引擎异步方法（bus.emit 落盘）——不走 sync 门 */
