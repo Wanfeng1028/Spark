@@ -93,6 +93,7 @@ import { PermissionServiceImpl } from './permission/service.js'
 import type { ProjectLayer } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
 import { SessionIndexMaintainer } from './session/index-maintainer.js'
+import { storageReport as storageReportOf, type StorageReport } from './storage/report.js'
 import { findSessionFile as findSessionFileOnDisk, scanArchivedMarkers, scanPinnedMarkers, scanDiskSessions as scanDiskSessionsOnDisk, scanForkChildren as scanForkChildrenOnDisk, titleOf } from './session/scan.js'
 import { readLogs, type ReadLogsQuery } from './logs.js'
 import { Metrics } from './observability/metrics.js'
@@ -1480,6 +1481,15 @@ export class Engine {
   indexStats(): SearchIndexStats {
     const base = this.search.stats()
     return { ...base, semantic: this.semanticStats() }
+  }
+
+  /**
+   * 数据目录占用统计（阶段十九 19.37 第二批）：GET /api/storage/report 的引擎数据源。
+   * 按**目录发现**分桶（Qwen 初稿头注口径：自备清单会在引擎新增子路径时安静漏项）；
+   * 只读——不建目录、不清理、不写文件。符号链接与读不动的条目进 skipped 带原因。
+   */
+  async storageReport(): Promise<StorageReport> {
+    return storageReportOf(this.root)
   }
 
   /** 语义索引状态（设置页/索引库页数据源）：available = 提供方 + 向量库 + 总开关三条件齐备 */

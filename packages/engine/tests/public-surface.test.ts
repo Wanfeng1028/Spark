@@ -50,6 +50,9 @@ const PUBLIC_VALUES = [
   // 函数——server 的 devices.json 与 CLI 后续都是真实消费者
   'sparkDir',
   'sparkFile',
+  // 数据目录占用统计（工单 19.37 第二批）：server GET /api/storage/report 经 Engine 门面消费；
+  // 纯函数直出供 CLI/脚本复用，类型 StorageReport/StorageBucket/StorageSkipped 为编译期导出
+  'storageReport',
   'sparkHome',
   'ulid',
   'writeMcpConfig',

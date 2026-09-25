@@ -147,6 +147,9 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   // 打开失败降级时 stats 如实 available:false（禁假数据），重建/回收回 0 值（旁路纪律）。
   app.get('/api/index/stats', () => engine.indexStats())
 
+  // 数据目录占用统计（阶段十九 19.37 第二批）：~/.spark 按目录发现分桶（引擎只读，勿建勿清）
+  app.get('/api/storage/report', async () => engine.storageReport())
+
   app.post('/api/index/rebuild', async () => {
     return engine.rebuildIndex()
   })

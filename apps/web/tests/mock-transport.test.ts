@@ -297,6 +297,16 @@ describe('MockTransport 回放状态机', () => {
     expect(await t.listPermissionRules()).toHaveLength(1)
   })
 
+  it('数据目录占用统计（19.37 第二批对等）：mock 演示桶形状完整、总量守恒', async () => {
+    const t = new MockTransport('normal')
+    const r = await t.storageReport()
+    expect(r.exists).toBe(true)
+    expect(r.buckets.length).toBeGreaterThan(0)
+    expect(r.totalBytes).toBe(r.buckets.reduce((sum, b) => sum + b.bytes, 0))
+    expect(r.totalFiles).toBe(r.buckets.reduce((sum, b) => sum + b.files, 0))
+    expect(typeof r.generatedAt).toBe('number')
+  })
+
   it('listSessions：四场景各一条 SessionDto', async () => {
     const t = new MockTransport('normal')
     const list = await t.listSessions()

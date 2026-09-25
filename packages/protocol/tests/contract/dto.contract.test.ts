@@ -4645,6 +4645,185 @@ describe('契约：api.SparkExtensionManifestSchema', () => {
   })
 })
 
+describe('契约：api.StorageBucketDtoSchema', () => {
+  const sample = {
+    "name": "contract-sample",
+    "bytes": 1,
+    "files": 1,
+    "newestAt": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.StorageBucketDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.StorageBucketDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.StorageBucketDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 name → 解析失败', () => {
+    expect(() => api.StorageBucketDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["name"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 bytes → 解析失败', () => {
+    expect(() => api.StorageBucketDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["bytes"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 files → 解析失败', () => {
+    expect(() => api.StorageBucketDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["files"]; return m })())).toThrow()
+  })
+
+  it('字段 name 类型错 → 解析失败', () => {
+    expect(() => api.StorageBucketDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["name"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 bytes 类型错 → 解析失败', () => {
+    expect(() => api.StorageBucketDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["bytes"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 files 类型错 → 解析失败', () => {
+    expect(() => api.StorageBucketDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["files"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 newestAt 类型错 → 解析失败', () => {
+    expect(() => api.StorageBucketDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["newestAt"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.StorageBucketDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.StorageReportDtoSchema', () => {
+  const sample = {
+    "home": "contract-sample",
+    "exists": false,
+    "totalBytes": 1,
+    "totalFiles": 1,
+    "buckets": [
+      {
+        "name": "contract-sample",
+        "bytes": 1,
+        "files": 1,
+        "newestAt": 1
+      }
+    ],
+    "skipped": [
+      {
+        "name": "contract-sample",
+        "reason": "contract-sample"
+      }
+    ],
+    "generatedAt": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.StorageReportDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.StorageReportDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.StorageReportDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 home → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["home"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 exists → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["exists"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 totalBytes → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["totalBytes"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 totalFiles → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["totalFiles"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 buckets → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["buckets"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 skipped → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["skipped"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 generatedAt → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["generatedAt"]; return m })())).toThrow()
+  })
+
+  it('字段 home 类型错 → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["home"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 exists 类型错 → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["exists"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('字段 totalBytes 类型错 → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["totalBytes"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 totalFiles 类型错 → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["totalFiles"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 buckets 类型错 → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["buckets"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 skipped 类型错 → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["skipped"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 generatedAt 类型错 → 解析失败', () => {
+    expect(() => api.StorageReportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["generatedAt"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.StorageReportDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.StorageSkippedDtoSchema', () => {
+  const sample = {
+    "name": "contract-sample",
+    "reason": "contract-sample"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.StorageSkippedDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.StorageSkippedDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.StorageSkippedDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 name → 解析失败', () => {
+    expect(() => api.StorageSkippedDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["name"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 reason → 解析失败', () => {
+    expect(() => api.StorageSkippedDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["reason"]; return m })())).toThrow()
+  })
+
+  it('字段 name 类型错 → 解析失败', () => {
+    expect(() => api.StorageSkippedDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["name"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 reason 类型错 → 解析失败', () => {
+    expect(() => api.StorageSkippedDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["reason"] = 12345; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.StorageSkippedDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.TraceDtoSchema', () => {
   const sample = {
     "sessionId": "ses_01ARZ3NDEKTSV4RRFFQ69G5FAV",

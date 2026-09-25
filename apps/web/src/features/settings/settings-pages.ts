@@ -153,6 +153,12 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
     label: '数据与统计',
     pages: [
       {
+        id: 'data',
+        title: '数据管理',
+        description: '~/.spark 占用统计（按目录发现分桶；工单 19.37）',
+        status: 'ready',
+      },
+      {
         id: 'index',
         title: '索引库',
         description: '会话索引统计/重建/回收（工单 19.11）',

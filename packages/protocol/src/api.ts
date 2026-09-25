@@ -1244,6 +1244,38 @@ export const IndexStatsDtoSchema = z.strictObject({
   semantic: SemanticIndexStatsSchema.optional(),
 })
 
+/** 数据目录占用统计（阶段十九 19.37 第二批 / V2-13）：GET /api/storage/report——
+ * 引擎按目录发现分桶（不按声明清单：新子路径自动冒出，不静默漏项），本 DTO 是 wire 形状 */
+export const StorageBucketDtoSchema = z.strictObject({
+  /** 相对数据根的 POSIX 路径（稳定键；标签在渲染层） */
+  name: z.string().min(1),
+  bytes: z.number(),
+  /** 计入的文件数（目录为其内递归之和） */
+  files: z.number(),
+  /** 桶内最近修改时间（毫秒）；空桶缺省（不塞 0 假装 1970） */
+  newestAt: z.number().optional(),
+})
+export type StorageBucketDto = z.infer<typeof StorageBucketDtoSchema>
+
+export const StorageSkippedDtoSchema = z.strictObject({
+  /** 相对数据根的 POSIX 路径（根级事故可为空串） */
+  name: z.string(),
+  reason: z.string(),
+})
+export type StorageSkippedDto = z.infer<typeof StorageSkippedDtoSchema>
+
+export const StorageReportDtoSchema = z.strictObject({
+  home: z.string(),
+  /** false = 数据根不存在（全新安装/SPARK_HOME 指错）——此时 buckets 必空，不回零值表装作无占用 */
+  exists: z.boolean(),
+  totalBytes: z.number(),
+  totalFiles: z.number(),
+  buckets: z.array(StorageBucketDtoSchema),
+  skipped: z.array(StorageSkippedDtoSchema),
+  generatedAt: z.number(),
+})
+export type StorageReportDto = z.infer<typeof StorageReportDtoSchema>
+
 /** 索引重建结果（POST /api/index/rebuild，工单 19.11）：清表重扫 sessions JSONL 后的条目数 */
 export interface RebuildResultDto {
   entries: number
