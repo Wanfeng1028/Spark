@@ -1,3 +1,6 @@
+---
+trigger: always_on
+---
 # Spark — Qoder 项目规则
 
 > Qoder 原生读取根目录 `AGENTS.md`（权威规范）；本文件是其 `.qoder/rules/` 项目规则目录内的**摘要版**（可经 `@rule` 引用），冲突时以 AGENTS.md 为准。
