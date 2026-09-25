@@ -1,7 +1,7 @@
 /**
  * macOS 执行体（阶段十九工单 19.2 / ADR D44 平台分层）：全部走系统内置命令——
  * osascript（System Events：点击/键入/按键/窗口与进程管理，需辅助功能授权）、
- * screapture（截图，-x 静音）、pbpaste/pbcopy（剪贴板）。零 npm 依赖零构建链。
+ * screencapture（截图，-x 静音）、pbpaste/pbcopy（剪贴板）。零 npm 依赖零构建链。
  * 参数一律走 spawn argv（无 shell 解析），注入面与 Windows 桥同级为零。
  * 首次使用需在 系统设置 → 隐私与安全性 → 辅助功能 中放行宿主终端——未授权时
  * System Events 报错，如实以 E_COMPUTER_EXEC 透出（不静默降级）。
@@ -68,6 +68,17 @@ function run(
       stderr += c.toString()
     })
     child.on('error', (err) => {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        // macOS 四命令全系统内置，ENOENT = 环境异常（PATH 被裁剪等）——与 linux 同归类，不落 E_COMPUTER_EXEC
+        finish(() =>
+          reject(
+            new Error(
+              `E_COMPUTER_UNAVAILABLE: macOS 执行体缺少 ${cmd}（系统内置命令，检查 PATH 环境变量）`,
+            ),
+          ),
+        )
+        return
+      }
       finish(() => reject(new Error(`E_COMPUTER_EXEC: ${cmd} 启动失败——${err.message}`)))
     })
     child.on('close', (code) => {
@@ -102,7 +113,7 @@ export class MacComputerExecutor implements ComputerExecutor {
     mkdirSync(this.shotsDir, { recursive: true })
     const file = `shot-${Date.now()}-${(shotSeq += 1)}.png`
     const path = join(this.shotsDir, file)
-    await run('screapture', ['-x', path], SCREENSHOT_TIMEOUT_MS, signal)
+    await run('screencapture', ['-x', path], SCREENSHOT_TIMEOUT_MS, signal)
     return { file, bytes: statSync(path).size }
   }
 

@@ -92,8 +92,10 @@ export class AutomationManager {
       for (const t of this.registry.list()) {
         if (!t.enabled) continue
         if (t.cron !== undefined && this.cronSpecs.has(t.id)) {
+          const spec = this.cronSpecs.get(t.id)
+          if (spec === undefined) continue
           const last = this.lastCronMinute.get(t.id)
-          if (last !== minuteKey && cronMatches(this.cronSpecs.get(t.id) as never, now)) {
+          if (last !== minuteKey && cronMatches(spec, now)) {
             this.lastCronMinute.set(t.id, minuteKey)
             await this.fire(t, 'cron')
           }

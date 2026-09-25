@@ -7,7 +7,7 @@
  * transcribe 三条护栏分支、testModelProvider 文案对齐引擎（第三批）。
  */
 import { describe, expect, test } from 'vitest'
-import { MCP_ENV_MASK } from '@spark/protocol'
+import { ids, MCP_ENV_MASK } from '@spark/protocol'
 import { MockTransport } from '@/transports/mock'
 
 function fresh(): MockTransport {
@@ -55,15 +55,19 @@ describe('MockTransport 对等修复（阶段十九 19.22 / §1.1）', () => {
 
   test('sendMessage：未知会话 → E_NOT_FOUND；已知会话照常受理', async () => {
     const t = fresh()
-    await expect(t.sendMessage('ses_nope0000000000000001' as never, 'hi')).rejects.toThrow(/E_NOT_FOUND/)
+    await expect(t.sendMessage(ids.session('ses_nope0000000000000001'), 'hi')).rejects.toThrow(/E_NOT_FOUND/)
     // 已知会话（脚本 sid）不抛
     const known = await t.listSessions()
-    await expect(t.sendMessage(known[0]?.id as never, 'hi')).resolves.toBeTruthy()
+    const firstSid = known[0]?.id
+    if (firstSid === undefined) throw new Error('mock 会话缺失（前提不成立）')
+    await expect(t.sendMessage(firstSid, 'hi')).resolves.toBeTruthy()
   })
 
   test('sendMessage：delivery 与 expectedTurnId 校验对等（19.22 第二批）', async () => {
     const t = fresh()
-    const sid = (await t.listSessions())[0]?.id as never
+    const listed = (await t.listSessions())[0]?.id
+    if (listed === undefined) throw new Error('mock 会话缺失（前提不成立）')
+    const sid = listed
     const first = await t.sendMessage(sid, '第一条', { delivery: 'now' })
     expect(first.result).toBe('started')
     // 不变量断言（不依赖脚本此刻停在哪个锚点）：本 turn 未结束前不再起第二个 turn，
@@ -75,13 +79,13 @@ describe('MockTransport 对等修复（阶段十九 19.22 / §1.1）', () => {
     expect(steered.result).not.toBe('started')
     // steer 目标 turn 校验：与当前活动 turn 不符 → E_TURN_MISMATCH（§5.4 真实通道同码）
     await expect(
-      t.sendMessage(sid, '错目标', { delivery: 'steer', expectedTurnId: 'trn_stale000000000000000000' as never }),
+      t.sendMessage(sid, '错目标', { delivery: 'steer', expectedTurnId: ids.turn('trn_stale000000000000000000') }),
     ).rejects.toThrow(/E_TURN_MISMATCH/)
   })
 
   test('arena：按会话归属，非发起会话不得看到竞答（19.22 对等）', async () => {
     const t = fresh()
-    const other = 'ses_other0000000000000001' as never
+    const other = ids.session('ses_other0000000000000001')
     // 原实现忽略 sessionId：任意会话都返回同一场演示竞答（幽灵竞答）、cancel 也无归属校验。
     // 只断确定性的反面——不依赖 listSessions()[0] 是否恰为脚本会话（fork 子会话也在表里）
     expect(await t.getArena(other)).toBeNull()
@@ -174,7 +178,7 @@ describe('MockTransport 对等修复（阶段十九 19.22 / §1.1）', () => {
 
   test('fs 两端：未知会话拒执；dispose 后拒执（listFsTree 此前连 assertNotDisposed 都没有）', async () => {
     const t = fresh()
-    const nope = 'ses_0000000000000000000000000000ff' as never
+    const nope = ids.session('ses_0000000000000000000000000000ff')
     await expect(t.listFs(nope, '')).rejects.toThrow(/E_NOT_FOUND/)
     await expect(t.listFsTree(nope, '')).rejects.toThrow(/E_NOT_FOUND/)
     const t2 = fresh()

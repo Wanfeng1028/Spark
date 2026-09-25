@@ -1,9 +1,12 @@
 /**
  * LSP 安装器单测（阶段十九 19.5 / ADR D47）：
  * 未知 id / 已装探测幂等跳过 / 安装成功写配置 / npm 失败不落盘 / 装后校验失败 /
- * 同形状幂等 written:false。runNpm/probe 全注入（免真实网络——真实下载走查留用户，
- * CI 真跑需 SPARK_TEST_REAL_LSP=1，见文末 skipIf 用例）。
+ * 同形状幂等 written:false。runNpm/probe 全注入（免真实网络）。**真实环境快路径**
+ * 见文末 skipIf 用例（LA-07 兑现：曾有头注声称 SPARK_TEST_REAL_LSP 通道而用例不存在
+ * ——幽灵通道已删，改为运行时探测：CI 装有 typescript-language-server 即真跑，
+ * 本地无则 skip 绿，AGENTS §2.3a 零下载总则）。
  */
+import { execFileSync } from 'node:child_process'
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -116,5 +119,33 @@ describe('LspInstaller（阶段十九 19.5 / ADR D47）', () => {
       }
       expect(s.command).not.toBe('')
     }
+  })
+})
+
+describe('真实安装器快路径冒烟（CI 装工具后自动启用；本地无则 skip——AGENTS §2.3a）', () => {
+  const hasTsls = (() => {
+    try {
+      execFileSync('typescript-language-server', ['--version'], { stdio: 'pipe' })
+      return true
+    } catch {
+      return false
+    }
+  })()
+
+  test.skipIf(!hasTsls)('真实已装环境：探测命中 → 跳过 npm → lsp.json 形状', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'spark-lspreal-'))
+    // 不注入 probe/runNpm——真实探测真实命令、真实写盘（lsp.test.ts 真跑判例同法）
+    const installer = new LspInstaller({ root })
+    const r = await installer.install('typescript')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.written).toBe(true)
+      expect(r.command).toBe('typescript-language-server')
+      expect(r.args).toEqual(['--stdio'])
+    }
+    expect(loadLspConfig(root)?.languages['typescript']).toEqual({
+      command: 'typescript-language-server',
+      args: ['--stdio'],
+    })
   })
 })

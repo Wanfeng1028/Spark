@@ -25,7 +25,7 @@ export function useSessionStream(baseUrl: string, transport: { listSessions: () 
         if (s === 'open') {
           transport
             .listSessions()
-            .then((list) => useCliStore.getState().setSessions(list as never))
+            .then((list) => useCliStore.getState().setSessions(list))
             .catch(() => undefined)
         }
       },

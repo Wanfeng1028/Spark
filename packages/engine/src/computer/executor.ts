@@ -89,7 +89,7 @@ export interface ComputerExecutor {
  * 平台工厂（engine 装配期调用一次；构造零副作用——spawn 只发生在操作执行期）。
  * shotsDir 与 browser 截图共用（~/.spark/browser-shots）：GET /api/artifacts 的
  * 文件名白名单（shot-<ts>-<seq>.png）单通道供图，不另开面。
- * Windows = PowerShell 脚本桥（D44）；macOS = osascript/screapture/pbpaste（19.2）；
+ * Windows = PowerShell 脚本桥（D44）；macOS = osascript/screencapture/pbpaste（19.2）；
  * Linux = xdotool/wmctrl/scrot/xclip X11（19.2，Wayland 不支持如实拒绝）；其余平台 Unsupported。
  */
 export function createComputerExecutor(shotsDir: string): ComputerExecutor {

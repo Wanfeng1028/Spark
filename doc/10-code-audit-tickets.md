@@ -394,8 +394,8 @@ AUD-01（§3）为本轮独立发现，与豆包报告零重叠（其报告未�
 | WO-094 | 工具栏 + 与文件树两钮竖排堆叠 | 左组容器 `relative shrink-0` 无 flex——两个块级按钮裸放天生竖排（非折行问题） | 容器补 `flex items-center gap-1` |
 | WO-095 | Composer 整体与 DSH 截图"抄不来样子"（晚风二批指认：卡面几乎无边界、发送钮无 DSH 质感、工具条间距散、Enter 提示行多余） | 上批实现未照抄 §1.1 精确值——卡阴影误用 `0 2px 10px /0.05` 单层（DSH=0.5px 环+双层柔影）、暗色误用 inset 环、卡内距多加 pr/pl/pb、选择器残留 mono/rounded-full/12px、组距 6px、静态 Enter 提示行 DSH 本无 | 逐值照抄 dialog-redesign-spec §1.1/§2.x：卡阴影三段式精确值（暗环 white/0.12 非 inset）、卡内距仅 pt-2、placeholder 色值 #ADB2B8/#81858C 与文案、+ 钮 text-foreground + hover #F1F3F5/#353638、权限/模型/推理三选择器统一 `h-7 rounded-lg px-2 pr-5 13px/500` 非 mono、组距 12px justify-between（max-[479px] wrap 兜底 WO-079）、**移除常驻 Enter 提示行**（瞬态反馈 §5 保留）；EffortPicker 下拉补去框（漏网第六弹层）；e2e 三 spec 占位符定位器同步新文案 |
 | WO-096 | 滚动条细窄化后仍常显（晚风："进度条为啥还在"） | thin 滑块恒可见——DSH 是 overlay 观感（平时隐形） | theme.css：scrollbar-color 默认全透明，悬停滚动区/其内聚焦才显淡滑块（浅 black/0.18 暗 white/0.22，轨道恒透明）；滚轮滚动时指针本在悬停态，滑块随显随隐 |
-| WO-097 | Composer 缺 DSH 卡上上下文行（晚风三批四图指认："文件夹和模式放到对话框的上边框上面"；DSH hero=WorkspaceChip+模式钮浮于卡上） | 卡内工具条承载过多元素——提交模式 Segmented 占卡内右组、无任何文件夹入口（cwd 只在会话顶栏 chip） | 新增 §13.L L.8：卡上左对齐两枚 chip（16px 圆角/13px/500 全对比度文本/chevron caption/transparent 底 hover bg-accent，组距 12px）——**文件夹 chip**（欢迎页=最近会话 cwd 去重 ≤8+「默认工作区」下拉、未选「选择文件夹」占位、createSession({cwd}) 落地；会话页=只读 title=完整 cwd；无数据不渲染）+ **模式 chip**（提交三态上移下拉，禁用矩阵与 §13.E 不变，busy Enter wire 取显示档 segmentDisplay——修 UI 显插话实发 now 的报文错位） |
-| WO-098 | 语音错误红字常驻工具条挤压换行（欢迎页 560px 宽下 justify-between 折行、发送钮掉第二行——截图实证 bug） | `voice.error` 以内联 pill 渲染在工具条中列（max-w-56），DSH 错误走 Toast hold-then-fade 不占布局 | 错误并入卡下瞬态提示行分色调（info=accent 2.5s/error=destructive 4s 自动消退）；工具条重排——左组=＋/权限/语音、右组=模型/推理/发送；文件树独立钮撤除并入 + 菜单「浏览文件树」项（弹层互斥与 Esc/面板收口逻辑不变）；Composer 测试 radio→菜单流同步 + 上下文行两用例新增 |
+| WO-097（DSH）（**编号消歧（LA-68，2026-09-25）**：§13 round5 收编表另有 WO-097（审计日志过滤）/WO-098（设置页窄视口）与 §14 DSH 批的 WO-097/098 重号——照两张 D28 判例永久维持双编号、以「（DSH）」「（round5）」主题区分，历史行不改） | Composer 缺 DSH 卡上上下文行（晚风三批四图指认："文件夹和模式放到对话框的上边框上面"；DSH hero=WorkspaceChip+模式钮浮于卡上） | 卡内工具条承载过多元素——提交模式 Segmented 占卡内右组、无任何文件夹入口（cwd 只在会话顶栏 chip） | 新增 §13.L L.8：卡上左对齐两枚 chip（16px 圆角/13px/500 全对比度文本/chevron caption/transparent 底 hover bg-accent，组距 12px）——**文件夹 chip**（欢迎页=最近会话 cwd 去重 ≤8+「默认工作区」下拉、未选「选择文件夹」占位、createSession({cwd}) 落地；会话页=只读 title=完整 cwd；无数据不渲染）+ **模式 chip**（提交三态上移下拉，禁用矩阵与 §13.E 不变，busy Enter wire 取显示档 segmentDisplay——修 UI 显插话实发 now 的报文错位） |
+| WO-098（DSH） | 语音错误红字常驻工具条挤压换行（欢迎页 560px 宽下 justify-between 折行、发送钮掉第二行——截图实证 bug） | `voice.error` 以内联 pill 渲染在工具条中列（max-w-56），DSH 错误走 Toast hold-then-fade 不占布局 | 错误并入卡下瞬态提示行分色调（info=accent 2.5s/error=destructive 4s 自动消退）；工具条重排——左组=＋/权限/语音、右组=模型/推理/发送；文件树独立钮撤除并入 + 菜单「浏览文件树」项（弹层互斥与 Esc/面板收口逻辑不变）；Composer 测试 radio→菜单流同步 + 上下文行两用例新增 |
 
 **验收口径**：五弹层无框线只剩柔影；Composer 区无顶部分隔线；分段控件无框；空块不留白；回复完成即见操作行；全应用细滚动条；+/文件树并排且两浮层互斥。现场走查留豆包下一轮。**L.8 补充（DSH 三批）**：卡上文件夹/模式两 chip 与 DSH hero 同构；工具条恒单行（右组=模型/推理/发送）；语音错误不再出现于工具条。
 ## 15. 第五轮全功能深度测试（round-5，豆包）
@@ -405,8 +405,8 @@ AUD-01（§3）为本轮独立发现，与豆包报告零重叠（其报告未�
 | 编号 | 优先级 | 问题 | 状态 |
 | --- | --- | --- | --- |
 | P1-1 | P1 | ComputerSettingsPage 单测确定性失败——测试-实现契约漂移：effect 内联进 description 文本节点（`${a.desc} · ${effect}`），`getAllByText('缺省逐次询问')` 按独立节点精确匹配必失配；页面渲染本身正常 | **已修**（并行会话 4968fb0：档位断言改正则子串匹配，语义 8 行不变） |
-| WO-097 | P2 | 审计日志工具过滤大小写敏感——占位符示例即小写 `bash`，过滤必落空（engine audit/log.ts `e.tool !== query.tool` 精确比较） | **已修**（本批）：过滤 toLowerCase 两边归一（round5 P2-2） |
-| WO-098 | P2 | 375px 设置页双栏挤压——`/settings/*` 恒 264px 侧栏，内容列 ~175px、描述逐字竖排 | **已修**（本批）：AppShell 窄视口一次性判定（<640，同 WO-087 一次性缺省口径）+ SettingsSidebar `compact` 变体——设置导航转顶部横滚 chip 条（返回+页面平铺、active bg-secondary、status 点保留），内容列独占全宽；桌面/iPad 双栏不变（round5 P2-3） |
+| WO-097（round5） | P2 | 审计日志工具过滤大小写敏感——占位符示例即小写 `bash`，过滤必落空（engine audit/log.ts `e.tool !== query.tool` 精确比较） | **已修**（本批）：过滤 toLowerCase 两边归一（round5 P2-2） |
+| WO-098（round5） | P2 | 375px 设置页双栏挤压——`/settings/*` 恒 264px 侧栏，内容列 ~175px、描述逐字竖排 | **已修**（本批）：AppShell 窄视口一次性判定（<640，同 WO-087 一次性缺省口径）+ SettingsSidebar `compact` 变体——设置导航转顶部横滚 chip 条（返回+页面平铺、active bg-secondary、status 点保留），内容列独占全宽；桌面/iPad 双栏不变（round5 P2-3） |
 
 **观察项登记（均非缺陷）**：OBS-1 engine 并行套件偶发 `write EPIPE`（vscode-jsonrpc LSP 子进程 teardown，单跑干净 725 断言全过）；OBS-2 `spark -p` 未导 `STEP_PLAN_API_KEY` 返回空（密钥注入前置）；OBS-3 TUI 偶现「目标不存在」（临时 root + 会话引用同步，复现稳定再查）。**复测归 round6**。
 
