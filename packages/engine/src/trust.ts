@@ -25,8 +25,14 @@ export interface TrustDoc {
   folders: Record<string, FolderTrust>
 }
 
-/** 收紧面（工单产出②）：bash 与外部 MCP——未信任目录下这两类动作的 allow 降级为 ask */
-const TIGHTENED_ACTIONS = new Set(['shell.exec', 'mcp.call'])
+/**
+ * 收紧面（16.4 产出② + LA-02 扩容）：bash、外部 MCP、写盘、子代理、电脑控制——
+ * 未信任目录下这五类动作的规则层 allow 降级为 ask（deny/ask 不变）。
+ * fs.write / agent.task / computer.use 纳入的因由：项目级 permissions.json 可随仓库
+ * 传播（19.9 / D48），这三类在不可信仓库里的危害与 shell.exec 同级
+ * （写任意文件 / 派子代理跑任意提示 / 控制本机键鼠截屏）。
+ */
+const TIGHTENED_ACTIONS = new Set(['shell.exec', 'mcp.call', 'fs.write', 'agent.task', 'computer.use'])
 
 /** 路径归一化键（判定与存储共用——Windows 大小写不敏感，其余平台敏感） */
 export function trustKey(p: string): string {

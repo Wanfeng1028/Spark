@@ -65,6 +65,7 @@
 | v1.63 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D52 全局出网代理 + 自动归档 + 端侧通知（阶段十九 19.13，翻案 12.9"仅 LLM 面"登记；doc/02 v4.80 同批）**：spark.json network 段全局代理（优先级 全局>per-provider>env>fetch；MCP stdio env 注入，用户 env 同键优先）+ archive 段自动归档（idle 且超期，6 小时巡检，进行中会话永不自动归档）+ web 通知偏好（localStorage + Notification API 降级 + WebAudio 提示音，前台不发）；自定义证书只读回显（启动前注入，禁假控件）。本机零验证，CI 裁决 |
 | v1.64 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D53 默认模型/档位单写者 = models.json 经 PUT /api/routing（阶段十九 19.14，消解 V2-37；doc/02 v4.81 同批）**：RoutingUpdate/RoutingDto 增 defaultModel/defaultEffort，经既有 persistRouting 原子写 models.json（消双写者）；createSession 读 routing 状态（显式>预设档>子代理档>默认，热改生效）；同批 server.port/host 与 engine 四控件补批 + RestartBadge 读 restartRequired 数组。本机零验证，CI 裁决 |
 | v1.65 | 2026-09-21 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D54 数据目录 = SPARK_HOME 单源 + 搬迁不删源（阶段十九 19.16；doc/02 v4.83 同批）**：home.ts 单源解析（引擎 root/loadConfig/CLI 共用）+ migrate 模块（只读规划+复制校验+源改名备份，失败闭合）+ CLI spark migrate + SettingsDto.home 只读回显。本机零验证，CI 裁决 |
+| v1.66 | 2026-09-25 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"已经完成的工单有问题的要修复"指令）；依据：doc/11 §4.1 P0 | **D48 补安全前提 + D40 收紧面扩容注记（doc/11 LA-01/02/03 收口；doc/02 v4.122 同批）**：项目层按会话 cwd 惰性建层 + 未信任整层停用 + 家目录撞路径不设层 + 固化/级联按会话项目层走；evaluate 层间 deny 优先；trust 收紧面 2→5 类。详见 D48 补记。本机零验证，CI 裁决 |
 
 ---
 
@@ -424,6 +425,8 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 1. **存储**：~/.spark/trusted.json `{ version:1, folders: Record<path,'trusted'|'untrusted'> }`；引擎唯一写者（server 路由 PUT /api/trust 转发），原子写——不引 proper-lockfile（无跨进程并发写者，ADR D38 同口径裁决）。
 2. **判定**：trustLevelOf 纯函数——路径归一化（resolve + Windows 大小写不敏感）后沿 cwd 祖先链**深→浅**找命中，最深者胜，无命中 = none；结果与 folders 插入顺序无关（单测断言）。
 3. **收紧面**：只 shell.exec 与 mcp.call（bash 与外部 MCP——恶意项目的两个主要出口）；fs.read 等只读面不收紧（未信任目录的可读性不构成注入放大面）。
+
+> **2026-09-25 LA-02 扩容**：收紧面 2→5 类（+fs.write/agent.task/computer.use）——项目级 permissions.json 可随仓库传播（D48 安全前提补记）后，这三类在不可信仓库的危害与 shell.exec 同级（写任意文件/派子代理/控制本机键鼠截屏）；fs.read 仍不收紧。
 4. **v1 边界**：信任档按引擎 defaultCwd 全局判定（单工作区直觉——"打开陌生仓库"即 spark up 的 cwd；会话级 cwd 差异登记限制，需要时按会话 cwd 重算 tightens 闭包即可）。
 后果：PermissionServiceDeps 增可选 trust 端口（缺省不收紧，既有测试零改动）；server GET/PUT /api/trust + Transport getTrust/setTrust 三通道；web 设置中心"安全与信任"页 + CLI /trust 面板（命令基线 22）；测试 9 例（深匹配/收紧面/存取/引擎端到端 ask 收紧与放行不误伤）。
 
@@ -489,6 +492,8 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 背景：原判决"always 恒写用户级规则"（CLI §13.K 四选项不虚设的注记）；晚风拍板翻案立项。
 决策：PermissionReply 增 scope 参数（'user' 缺省原行为零变化 / 'project' 写 <cwd>/.spark/permissions.json）——project 作用域复用 UserRuleStore（同文件形状），评估列表与落盘同引用（就地追加即全会话可见）；审计 source 区分 reply:always:project。
 约束与失败语义：无项目规则仓注入时 project 作用域如实 E_PERMISSION_SCOPE 拒固化，审批保持挂起可改答 once（fail-closed 不假状态）；规则先于 settle 固化的 AUD-01 顺序在两作用域一致；四端入口——web ApprovalCard 第四按钮、CLI 数字键 4、keymap 表同步（原 v2 候选"作用域扩展"清偿）。
+
+**安全前提补记（2026-09-25，doc/11 LA-01/02/03 收口）**：上文的"评估列表与落盘同引用"形态被审计证明有 P0 级安全缺口——项目文件可随仓库传播，等于第三方写审批规则且能压过用户 deny。收口四件事：① `projectLayerFor` 按**会话 cwd** 惰性建层，**未信任目录整层不进评估**（warn + 审计「读到 N 条项目规则」每 cwd 一次），defaultCwd 规则不再无条件下进所有会话；② 家目录作工作区时项目级与用户级文件同路径，**不设项目层**（双数组重写同一文件互相丢规则），project 固化如实报 E_PERMISSION_SCOPE；③ 固化与级联放行按会话自己的项目层走（项目 A 的 allow 不放行项目 B 的挂起）；④ `evaluate` 层序重做——层内 findLast 保留、**层间 deny 优先**，用户 deny 不可被任何更临时层翻案（doc/02 §5.7.1 规格行同批改写）。
 
 ### D49 浏览器设置 = spark.json browser 独立段重启档（2026-09-19，阶段十九工单 19.12）
 

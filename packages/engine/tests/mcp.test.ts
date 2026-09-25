@@ -266,7 +266,7 @@ async function makePipelineFixture(rules: PermissionRule[]): Promise<PipelineFix
   const perm = new PermissionServiceImpl({
     bus,
     ruleStore,
-    projectRules: [],
+    defaultProject: { rules: [], key: 'project-default' },
     timeoutMs: 5_000,
   })
   const outputs = new ToolOutputStore(32 * 1024, join(tempDir(), 'tool-outputs'))

@@ -35,6 +35,8 @@ export interface AuditEntry {
   op?: 'add' | 'remove'
   /** 决策/变更来源（命中规则层 / 答复类型 / 超时 / 管理页…） */
   source?: string
+  /** 人话补充（项目规则装载/停用行等；不参与查询过滤，仅供明细流阅读） */
+  note?: string
   checkpointId?: string
 }
 

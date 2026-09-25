@@ -89,6 +89,7 @@ import type { FolderTrust, TrustDoc } from './trust.js'
 import { transcribeAudio } from './voice/transcriber.js'
 import type { RunLoopDeps } from './run-loop.js'
 import { PermissionServiceImpl } from './permission/service.js'
+import type { ProjectLayer } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
 import { SessionIndexMaintainer } from './session/index-maintainer.js'
 import { findSessionFile as findSessionFileOnDisk, scanArchivedMarkers, scanPinnedMarkers, scanDiskSessions as scanDiskSessionsOnDisk, scanForkChildren as scanForkChildrenOnDisk, titleOf } from './session/scan.js'
@@ -191,8 +192,10 @@ export class Engine {
   private readonly permission: PermissionServiceImpl
   /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
   private readonly ruleStore: UserRuleStore
-  /** 项目级权限规则仓（<cwd>/.spark/permissions.json；19.9 / ADR D48「本项目总是允许」落点） */
-  private readonly projectRuleStore: UserRuleStore
+  /** 项目级规则层缓存（LA-01/LA-03）：trustKey(cwd) → 层；信任门与家目录守卫在 projectLayerFor */
+  private readonly projectLayers = new Map<string, ProjectLayer>()
+  /** 未信任目录"有规则被停用"的告警去重（每个 cwd 只记一次） */
+  private readonly projectLayerWarned = new Set<string>()
   /** 密钥仓（阶段七工单 7.1 / H01）：~/.spark/secrets.json，取用优先级 store > env */
   private readonly secrets: SecretStore
   /** I/O 护栏（阶段七工单 7.2 / H02）：工具输出注入检测 + 敏感过滤 */
@@ -576,12 +579,9 @@ export class Engine {
       sparkFile(this.root, 'permissions'),
       this.config.permissions.rules,
     )
-    // 项目级规则仓（19.9 / ADR D48）：装载与评估同源数组（projectRules 就地追加即全会话可见）
-    const projectRules = loadProjectRules(this.defaultCwd)
-    this.projectRuleStore = new UserRuleStore(
-      projectPermissionsFile(this.defaultCwd),
-      projectRules,
-    )
+    // 项目级规则层（19.9 / ADR D48；LA-01/LA-03 收口）：按会话 cwd 惰性建层，
+    // 信任门 + 家目录撞路径守卫 + 坏形状降级都收在 projectLayerFor 单点；
+    // 不再预建 UserRuleStore 常驻字段（旧实现把 defaultCwd 的规则无条件下进所有会话）。
     this.secrets = new SecretStore(sparkFile(this.root, 'secrets'))
 
     // 阶段十九 19.8 / ADR D51：语义检索——models.json 有 provider 声明 embeddings 才建。
@@ -664,8 +664,11 @@ export class Engine {
     this.permission = new PermissionServiceImpl({
       bus: this.bus,
       ruleStore: this.ruleStore,
-      projectRuleStore: this.projectRuleStore,
-      projectRules,
+      // 项目层（LA-01/LA-03）：defaultCwd 层作 isDenied 广告面与未提供 sessionProject
+      // 时的回落；会话评估走 sessionProject——按会话自己的 cwd 取层，未信任 = 整层不进评估
+      defaultProject: this.projectLayerFor(this.defaultCwd),
+      sessionProject: (sid) =>
+        this.projectLayerFor(this.sessions.get(sid)?.meta.cwd ?? this.defaultCwd),
       timeoutMs: this.config.spark.engine.permissionTimeoutMs,
       metrics: this.metrics,
       audit: this.audit, // 工单 7.12：决策与 always 固化规则变更入审计明细流
@@ -1236,11 +1239,77 @@ export class Engine {
     return removed
   }
 
+  /**
+   * 会话 cwd 的项目层（LA-01/LA-03 收口）：信任门 + 家目录撞路径守卫 + 惰性建层
+   * （按 trustKey(cwd) 缓存；层内的 rules 数组与评估列表同源，project 固化就地追加）。
+   * - **未信任 = 整层不进评估**（LA-01）：项目 permissions.json 可随仓库传播，
+   *   用户首次打开未信任仓库即被第三方写好审批规则，不能成立；文件里确有规则时
+   *   warn + 审计各一条（每个 cwd 只记一次）。
+   * - **家目录撞路径不设层**（LA-03②）：defaultCwd = 家目录时 <cwd>/.spark/
+   *   permissions.json 与用户级文件同路径——两个内存数组重写同一文件互相丢规则，
+   *   且"本项目"此刻就是全局；project 作用域固化将如实报 E_PERMISSION_SCOPE。
+   * - 坏形状文件降级为空层跳过（warn），不阻塞审批主链路（用户级与会话层照常生效）。
+   */
+  private projectLayerFor(cwd: string): ProjectLayer | undefined {
+    const key = trustKey(cwd)
+    if (trustLevelOf(cwd, this.trustDoc.folders) !== 'trusted') {
+      if (!this.projectLayerWarned.has(key)) {
+        this.projectLayerWarned.add(key)
+        const count = this.readProjectRulesLenient(cwd).length
+        if (count > 0) {
+          this.logger.warn('permission.projectRules.untrusted', { cwd, count })
+          this.audit.record({
+            time: Date.now(),
+            kind: 'permission.rule',
+            actor: 'system',
+            result: 'ok',
+            source: 'project-untrusted-skipped',
+            resource: cwd,
+            note: `未信任目录：${count} 条项目规则整层停用`,
+          })
+        }
+      }
+      return undefined
+    }
+    const cached = this.projectLayers.get(key)
+    if (cached !== undefined) return cached
+    const projectFile = projectPermissionsFile(cwd)
+    if (resolve(projectFile) === resolve(sparkFile(this.root, 'permissions'))) {
+      this.logger.warn('permission.projectRules.homeCollision', { cwd })
+      return undefined
+    }
+    const rules = this.readProjectRulesLenient(cwd)
+    const layer: ProjectLayer = { rules, store: new UserRuleStore(projectFile, rules), key }
+    this.projectLayers.set(key, layer)
+    if (rules.length > 0) {
+      this.audit.record({
+        time: Date.now(),
+        kind: 'permission.rule',
+        actor: 'system',
+        result: 'ok',
+        source: 'project-loaded',
+        resource: cwd,
+        note: `读到 ${rules.length} 条项目规则`,
+      })
+    }
+    return layer
+  }
+
+  /** loadProjectRules 的降级读：坏形状如实 warn 后按空表处理（不阻塞会话审批链路） */
+  private readProjectRulesLenient(cwd: string): PermissionRule[] {
+    try {
+      return loadProjectRules(cwd)
+    } catch (err) {
+      this.logger.warn('permission.projectRules.invalid', { cwd, err: errText(err) })
+      return []
+    }
+  }
+
   // ---- 文件夹信任（工单 16.4 / ADR D37：trusted.json 的线上入口） ----
 
   /**
    * GET /api/trust 数据源：两层合成——trusted.json 全量条目 + defaultCwd 的有效档
-   * （未列出 = none）。收紧语义（shell.exec/mcp.call allow→ask）见 PermissionServiceImpl.deps.trust。
+   * （未列出 = none）。收紧语义（TIGHTENED_ACTIONS 五类 allow→ask）见 PermissionServiceImpl.deps.trust。
    */
   getTrust(): { folders: { path: string; trust: FolderTrust }[]; current: FolderTrust | 'none' } {
     return {

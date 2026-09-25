@@ -34,8 +34,13 @@ export function patternMatches(pattern: string, value: string): boolean {
 }
 
 /**
- * 评估：rulesets 依序扁平化后 findLast 胜出（doc/02 §5.7 补强 4）。
- * 规则的 action 与 resource 都是 pattern，同一匹配器。
+ * 评估：**层内 findLast、层间 deny 优先**（工单 LA-02 收口，推翻旧的"全部扁平化
+ * 后 findLast"——那使项目级 allow 可覆盖用户级 deny，而项目级 permissions.json
+ * 可随仓库传播，等于第三方文件压过用户明写的拒绝）。
+ * 层序由调用方决定（低→高：用户级 → 项目级 → 会话临时 → 档位预设）；
+ * 层内后匹配者胜（opencode 语义保留）；**任一层判 deny 则终判 deny**——
+ * deny 是权威否决，优先于层序（档位预设的 plan 兜底 deny 行为不受影响：
+ * 其 allow 行在层内 findLast 仍可胜过同层更早的 deny）。无命中默认 'ask'。
  */
 export function evaluate(
   action: string,
@@ -44,11 +49,14 @@ export function evaluate(
 ): Effect {
   let verdict: Effect | undefined
   for (const rules of rulesets) {
+    let layerEffect: Effect | undefined
     for (const rule of rules) {
       if (matches(rule.action, action) && matches(rule.resource, resource)) {
-        verdict = rule.effect
+        layerEffect = rule.effect
       }
     }
+    if (layerEffect === 'deny') return 'deny'
+    if (layerEffect !== undefined) verdict = layerEffect
   }
   return verdict ?? 'ask'
 }

@@ -119,7 +119,7 @@ function makeService(
   const service = new PermissionServiceImpl({
     bus,
     ruleStore: new MemRuleStore(opts?.userRules ?? []),
-    projectRules: [],
+    defaultProject: { rules: [], key: 'project-default' },
     timeoutMs: opts?.timeoutMs ?? 300_000,
     audit: log,
   })

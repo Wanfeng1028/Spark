@@ -71,9 +71,14 @@ function makeService(opts?: {
   const service = new PermissionServiceImpl({
     bus,
     ruleStore: store,
-    projectRules: opts?.projectRules ?? [],
+    // LA-01/03 收口后的项目层形状：本夹具未提供 sessionProject → 全部会话回落
+    // defaultProject（等价旧的"单一项目层进所有会话"）；key 固定，级联按同层过滤。
+    defaultProject: {
+      rules: opts?.projectRules ?? [],
+      ...(opts?.projectRuleStore !== undefined ? { store: opts.projectRuleStore } : {}),
+      key: 'project-default',
+    },
     timeoutMs: opts?.timeoutMs ?? 300_000,
-    ...(opts?.projectRuleStore !== undefined ? { projectRuleStore: opts.projectRuleStore } : {}),
   })
   return { sink, service, store }
 }
@@ -686,16 +691,18 @@ describe('权限档位预设层（DESIGN §13.E 四档 / D7 补记，工单 6.3�
     await expectAsk(service, sink, writeCheck(SID2).check)
   })
 
-  test('档位是最新意图：用户级 deny 行被档位 allow 覆盖（findLast 后层胜出）', async () => {
+  test('用户级 deny 是权威否决：档位 full-access 也不可覆盖（LA-02：deny 优先于层序）', async () => {
     const { service, sink } = makeService({
       userRules: [{ action: 'fs.write', resource: '**', effect: 'deny' }],
     })
     // 未设档：deny 短路拒绝
     expect(await service.assert(writeCheck().check)).toBe(false)
     expect(sink.events).toHaveLength(0)
-    // 设 full-access：档位行更靠后，明示放行胜出（UI warn 警示由前端负责）
+    // 设 full-access：旧语义"档位行更靠后，明示放行胜出"已被 LA-02 推翻——
+    // 用户明写的 deny 不可被任何更临时层（项目 allow / 会话 always / 档位）翻案
     service.setPreset(SID, 'full-access')
-    expect(await service.assert(writeCheck().check)).toBe(true)
+    expect(await service.assert(writeCheck().check)).toBe(false)
+    expect(sink.events).toHaveLength(0)
   })
 })
 
@@ -761,7 +768,7 @@ function makeServiceWithSink(sink: EventSink): { service: PermissionServiceImpl;
   const service = new PermissionServiceImpl({
     bus,
     ruleStore: store,
-    projectRules: [],
+    defaultProject: { rules: [], key: 'project-default' },
     timeoutMs: 300_000,
   })
   return { service, store }

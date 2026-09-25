@@ -129,6 +129,7 @@ export type UiDictionary = {
     E_VALIDATION: string
     E_NOT_FOUND: string
     E_ALREADY_RESOLVED: string
+    E_PERMISSION_SCOPE: string
     E_TURN_ACTIVE: string
     E_TURN_MISMATCH: string
     E_INVALID_BOUNDARY: string
@@ -237,6 +238,7 @@ const ZH: UiDictionary = {
     E_VALIDATION: '请求参数不合法，请检查输入后重试',
     E_NOT_FOUND: '目标不存在（会话/请求/快照可能已被清理）',
     E_ALREADY_RESOLVED: '该审批已答复过，无需重复操作',
+    E_PERMISSION_SCOPE: '无法固化「本项目总是允许」：项目级规则仓不可用（目录未信任，或家目录作工作区与用户级规则是同一文件）',
     E_TURN_ACTIVE: '本轮对话仍在进行中，请等待结束后再操作',
     E_TURN_MISMATCH: '要插话的目标轮已变化，请重新发送',
     E_INVALID_BOUNDARY: '所选分叉位置不存在，请刷新会话树后重试',
@@ -344,6 +346,7 @@ const EN: UiDictionary = {
     E_VALIDATION: 'Invalid request parameters — check the input and retry',
     E_NOT_FOUND: 'Target not found (the session, request or snapshot may have been cleaned up)',
     E_ALREADY_RESOLVED: 'This approval was already answered — no need to reply again',
+    E_PERMISSION_SCOPE: 'Cannot save "always allow for this project": the project rule store is unavailable (folder not trusted, or home directory as workspace shares the user-level rules file)',
     E_TURN_ACTIVE: 'The current turn is still running — wait for it to finish',
     E_TURN_MISMATCH: 'The target turn changed before your message landed — send again',
     E_INVALID_BOUNDARY: 'The selected fork point no longer exists — refresh the session tree and retry',

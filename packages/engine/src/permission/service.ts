@@ -42,11 +42,15 @@ export interface PermissionServiceDeps {
   bus: EventBus
   /** 用户级规则仓（~/.spark/permissions.json 内存持有；always 持久化落点——工单 4.7） */
   ruleStore: RuleStore
-  /** 项目级 <cwd>/.spark/permissions.json 规则（loadProjectRules） */
-  projectRules: readonly PermissionRule[]
-  /** 项目级规则仓（阶段十九 19.9 / ADR D48：<cwd>/.spark/permissions.json 落盘；
-   * 缺省未注入时 project 作用域如实报 E_PERMISSION_SCOPE 拒固化——禁假状态） */
-  projectRuleStore?: RuleStore
+  /**
+   * 项目级规则层（19.9 / D48；LA-01/LA-03 收口后的形状）。
+   * `sessionProject` 按**会话自己的 cwd** 供给层（undefined = 该 cwd 无项目层：
+   * 未信任目录整层不进评估、或 <cwd>/.spark/permissions.json 与用户级文件是同一路径）；
+   * 未提供时回落 `defaultProject`（引擎级缺省层，测试与旧接线形态）。
+   * 层的 rules 数组与评估列表同源：always 固化由 service 就地追加即全会话可见。
+   */
+  defaultProject?: ProjectLayer
+  sessionProject?: (sessionId: SessionId) => ProjectLayer | undefined
   /** 审批超时（spark.json permissionTimeoutMs，缺省 5min） */
   timeoutMs: number
   /** 进程内指标（§5.10 清单；缺省不计数——测试可省，工单 4.8） */
@@ -67,11 +71,21 @@ export interface PermissionServiceDeps {
    */
   audit?: AuditSink
   /**
-   * 文件夹信任（工单 16.4 / ADR D37）：未信任 cwd 下，shell.exec/mcp.call 的
-   * 规则层自动放行（allow）收紧为 ask——deny/ask 不变（收紧审批而非扩权）。
-   * 缺省不收紧（测试与未接线场景）。
+   * 文件夹信任（工单 16.4 / ADR D37）：未信任 cwd 下，收紧面动作（trust.ts
+   * TIGHTENED_ACTIONS）的规则层自动放行（allow）收紧为 ask——deny/ask 不变
+   * （收紧审批而非扩权）。缺省不收紧（测试与未接线场景）。
    */
   trust?: { tightens(action: string): boolean }
+}
+
+/** 项目级规则层（LA-01/LA-03）：一个 cwd 一层；key = trustKey(cwd)，级联放行按同层过滤 */
+export interface ProjectLayer {
+  /** 评估用规则数组（与评估列表同源——project 固化就地追加） */
+  rules: readonly PermissionRule[]
+  /** 落盘仓；缺省 = 只读层（project 作用域 reply 将如实报 E_PERMISSION_SCOPE） */
+  store?: RuleStore
+  /** trustKey(cwd)：判定"两个会话是否归同一个项目文件管"的稳定键 */
+  key: string
 }
 
 export class PermissionServiceImpl implements PermissionService {
@@ -81,6 +95,11 @@ export class PermissionServiceImpl implements PermissionService {
   private readonly presets = new Map<SessionId, PermissionPreset>()
 
   constructor(private readonly deps: PermissionServiceDeps) {}
+
+  /** 该会话的项目层（LA-01/LA-03）：会话自己的 cwd 优先，回落引擎缺省层；都没有 = 无层 */
+  private projectLayerOf(sessionId: SessionId): ProjectLayer | undefined {
+    return this.deps.sessionProject?.(sessionId) ?? this.deps.defaultProject
+  }
 
   async assert(check: PermissionCheck): Promise<boolean> {
     // fail-closed：请求已达时 turn 已中断
@@ -92,7 +111,7 @@ export class PermissionServiceImpl implements PermissionService {
       check.action,
       check.patterns ?? [check.resource],
       this.deps.ruleStore.list(),
-      this.deps.projectRules,
+      this.projectLayerOf(check.sessionId)?.rules ?? [],
       this.sessionRulesOf(check.sessionId),
       this.presetRulesOf(check.sessionId),
     )
@@ -155,7 +174,7 @@ export class PermissionServiceImpl implements PermissionService {
 
   /** 全域 deny 的 action 不进广告清单（§5.7 补强 5；会话临时层只有 allow 写入，不参与） */
   isDenied(action: string): boolean {
-    return evaluateAll(action, ['**'], this.deps.ruleStore.list(), this.deps.projectRules) === 'deny'
+    return evaluateAll(action, ['**'], this.deps.ruleStore.list(), this.deps.defaultProject?.rules ?? []) === 'deny'
   }
 
   /** 会话是否有挂起审批（SessionMetaDto.status 的 'waiting-approval' 数据源） */
@@ -190,13 +209,20 @@ export class PermissionServiceImpl implements PermissionService {
       // （用户固化意图是持久事实）而**当前调用按 deny 结清**——fail-closed 不回滚规则。
       const targets =
         entry.check.alwaysPatterns ?? entry.check.patterns ?? [entry.check.resource]
-      // 作用域分流（19.9 / ADR D48）：project = <cwd>/.spark/permissions.json（随仓库走，
-      // 仅当前工作区生效）；user = ~/.spark/permissions.json（全局，原行为缺省）。
-      const store = scope === 'project' ? this.deps.projectRuleStore : this.deps.ruleStore
-      if (store === undefined) {
-        throw new Error('E_PERMISSION_SCOPE: 项目级规则仓不可用——无法固化「本项目总是允许」')
+      // 作用域分流（19.9 / ADR D48；LA-03① 收口）：project = **该会话 cwd** 的
+      // <cwd>/.spark/permissions.json（随仓库走，仅该工作区生效）——不再绑引擎
+      // defaultCwd，"仅当前工作区生效"的按钮语义与实际写盘点一致；user =
+      // ~/.spark/permissions.json（全局，原行为缺省）。
+      const layer = scope === 'project' ? this.projectLayerOf(entry.sessionId) : undefined
+      const store = scope === 'project' ? layer?.store : this.deps.ruleStore
+      if (store === undefined || (scope === 'project' && layer === undefined)) {
+        throw new Error(
+          'E_PERMISSION_SCOPE: 项目级规则仓不可用（目录未信任，或家目录作工作区与用户级规则文件同路径）——无法固化「本项目总是允许」',
+        )
       }
       const source = scope === 'project' ? 'reply:always:project' : 'reply:always'
+      // 级联范围键（TS 收窄辅助：上方守卫已保证 project 时 layer 存在）
+      const cascadeKey = scope === 'project' ? layer?.key : undefined
       for (const resource of targets) {
         const rule: PermissionRule = {
           action: entry.check.action,
@@ -204,9 +230,9 @@ export class PermissionServiceImpl implements PermissionService {
           effect: 'allow',
         }
         store.add(rule)
-        if (scope === 'project') {
+        if (scope === 'project' && layer !== undefined) {
           // 评估列表同一引用就地追加——其他会话 evaluateAll 立即可见（与 store.list 同源）
-          ;(this.deps.projectRules as PermissionRule[]).push(rule)
+          ;(layer.rules as PermissionRule[]).push(rule)
         }
         this.sessionRulesOf(entry.sessionId).push(rule)
         // 审计（7.12）：always 答复附带规则固化——决策行之外另记规则变更行
@@ -223,14 +249,18 @@ export class PermissionServiceImpl implements PermissionService {
         })
       }
       await this.settle(entry, true, 'always', 'reply')
-      // 级联放行：各自会话规则下现在 evaluate=allow 的其他挂起项一并 resolve
+      // 级联放行：各自会话规则下现在 evaluate=allow 的其他挂起项一并 resolve。
+      // 范围（LA-03①）：project 固化只自动放行**同一项目层**（同 cwd）的挂起——
+      // 项目 A 的 allow 不该当场放行项目 B 会话的写请求；user 固化是全局规则，全会话参与。
       for (const other of [...this.pending.values()]) {
+        const otherLayer = this.projectLayerOf(other.sessionId)
+        if (scope === 'project' && otherLayer?.key !== cascadeKey) continue
         if (
           evaluateAll(
             other.check.action,
             other.check.patterns ?? [other.check.resource],
             store.list(),
-            this.deps.projectRules,
+            otherLayer?.rules ?? [],
             this.sessionRulesOf(other.sessionId),
             this.presetRulesOf(other.sessionId),
           ) === 'allow'
@@ -374,7 +404,7 @@ export class PermissionServiceImpl implements PermissionService {
     const layers: ReadonlyArray<readonly [string, readonly PermissionRule[]]> = [
       ['preset', this.presetRulesOf(check.sessionId)],
       ['session', this.sessionRulesOf(check.sessionId)],
-      ['project', this.deps.projectRules],
+      ['project', this.projectLayerOf(check.sessionId)?.rules ?? []],
       ['user', this.deps.ruleStore.list()],
     ]
     for (const [name, rules] of layers) {
