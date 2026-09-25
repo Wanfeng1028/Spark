@@ -278,7 +278,7 @@ describe('MockTransport 回放状态机', () => {
     // 场景 asked 声明 alwaysPatterns=[单文件]：固化一条 allow
     await t.replyPermission(ids.request('req_01HXMOCKNRMLPERM00000000000'), 'always')
     expect(await t.listPermissionRules()).toEqual([
-      { action: 'edit', resource: 'file:E:/code/demo/src/index.ts', effect: 'allow' },
+      { action: 'edit', resource: 'file:E:/code/demo/src/index.ts', effect: 'allow', source: 'user' },
     ])
 
     // 手动添加：同键覆盖、新键追加；未知规则删除 → E_NOT_FOUND
@@ -287,10 +287,13 @@ describe('MockTransport 回放状态机', () => {
     await t.addPermissionRule({ action: 'shell.exec', resource: 'cmd:git *', effect: 'deny' })
     const rules = await t.listPermissionRules()
     expect(rules.filter((r) => r.resource === 'cmd:git *')).toEqual([
-      { action: 'shell.exec', resource: 'cmd:git *', effect: 'deny' },
+      { action: 'shell.exec', resource: 'cmd:git *', effect: 'deny', source: 'user' },
     ])
     await expect(t.removePermissionRule('fs.read', 'file:**')).rejects.toThrow('E_NOT_FOUND')
     await t.removePermissionRule('shell.exec', 'cmd:git *')
+    expect(await t.listPermissionRules()).toHaveLength(1)
+    // LA-04 对等：project 作用域只删项目级规则——mock 无 project 规则，如实 E_NOT_FOUND
+    await expect(t.removePermissionRule('edit', 'file:E:/code/demo/src/index.ts', 'project')).rejects.toThrow('E_NOT_FOUND')
     expect(await t.listPermissionRules()).toHaveLength(1)
   })
 

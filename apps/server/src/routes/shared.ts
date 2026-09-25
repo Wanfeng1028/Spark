@@ -104,7 +104,12 @@ export const RollbackParams = z.strictObject({ id: SessionIdSchema, cid: Checkpo
 
 export const ForkBody = z.strictObject({ fromEventId: EventIdSchema })
 
-export const RemoveRuleBody = z.strictObject({ action: z.string().min(1), resource: z.string().min(1) })
+export const RemoveRuleBody = z.strictObject({
+  action: z.string().min(1),
+  resource: z.string().min(1),
+  /** LA-04：缺省 user（全局仓）；project = 引擎 defaultCwd 的项目级仓 */
+  scope: z.enum(['user', 'project']).optional(),
+})
 
 /** 密钥仓（阶段七工单 7.1 / H01） */
 export const SecretProviderParams = z.strictObject({ provider: z.string().min(1) })

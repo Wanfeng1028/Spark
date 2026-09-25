@@ -87,7 +87,7 @@ export interface Transport {
   /** PUT /api/trust：设置一条目录信任档（原子写；收紧语义 = 未信任下 bash/MCP 自动放行降级为问） */
   setTrust(path: string, trust: 'trusted' | 'untrusted'): Promise<void>
   /** DELETE /api/permissions/rules：精确匹配删除（无此规则拒绝） */
-  removePermissionRule(action: string, resource: string): Promise<void>
+  removePermissionRule(action: string, resource: string, scope?: 'user' | 'project'): Promise<void>
   /** GET /api/secrets：provider 密钥状态（store/env/none；值永不回传，阶段七工单 7.1） */
   listSecrets(): Promise<SecretStatusDto[]>
   /** PUT /api/secrets/:provider：新增/覆盖一条密钥（写入 ~/.spark/secrets.json） */

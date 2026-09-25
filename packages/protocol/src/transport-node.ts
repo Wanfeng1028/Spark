@@ -398,10 +398,10 @@ export class HttpTransport implements Transport {
     }).then(() => undefined)
   }
 
-  removePermissionRule(action: string, resource: string): Promise<void> {
+  removePermissionRule(action: string, resource: string, scope?: 'user' | 'project'): Promise<void> {
     return this.req<{ ok: boolean }>('/api/permissions/rules', {
       method: 'DELETE',
-      body: JSON.stringify({ action, resource }),
+      body: JSON.stringify({ action, resource, ...(scope !== undefined ? { scope } : {}) }),
     }).then(() => undefined)
   }
 

@@ -3151,7 +3151,8 @@ describe('契约：api.PermissionRuleDtoSchema', () => {
   const sample = {
     "action": "contract-sample",
     "resource": "contract-sample",
-    "effect": "allow"
+    "effect": "allow",
+    "source": "user"
   }
 
   it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
@@ -3185,6 +3186,10 @@ describe('契约：api.PermissionRuleDtoSchema', () => {
 
   it('字段 effect 类型错 → 解析失败', () => {
     expect(() => api.PermissionRuleDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["effect"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 source 类型错 → 解析失败', () => {
+    expect(() => api.PermissionRuleDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["source"] = "__contract_bogus_enum__"; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {

@@ -29,6 +29,7 @@ import type {
   ModelsDto,
   PermissionPreset,
   PermissionReply,
+  PermissionRuleDto,
   PermissionScope,
   ReasoningEffort,
   RequestId,
@@ -661,12 +662,14 @@ export class Engine {
       resolveModelRef: (model) => this.resolveModelRef(model),
       resolveModel: (ref) => this.resolveModel(ref),
     }, this.config)
+    const defaultProjectLayer = this.projectLayerFor(this.defaultCwd)
     this.permission = new PermissionServiceImpl({
       bus: this.bus,
       ruleStore: this.ruleStore,
       // 项目层（LA-01/LA-03）：defaultCwd 层作 isDenied 广告面与未提供 sessionProject
       // 时的回落；会话评估走 sessionProject——按会话自己的 cwd 取层，未信任 = 整层不进评估
-      defaultProject: this.projectLayerFor(this.defaultCwd),
+      // （条件展开：exactOptionalPropertyTypes 下可选字段不收显式 undefined）
+      ...(defaultProjectLayer !== undefined ? { defaultProject: defaultProjectLayer } : {}),
       sessionProject: (sid) =>
         this.projectLayerFor(this.sessions.get(sid)?.meta.cwd ?? this.defaultCwd),
       timeoutMs: this.config.spark.engine.permissionTimeoutMs,
@@ -1203,8 +1206,18 @@ export class Engine {
 
   // ---- 权限规则管理（§5.7 规则表 / 工单 4.7：用户级 permissions.json 的线上入口） ----
 
-  listPermissionRules(): PermissionRule[] {
-    return [...this.ruleStore.list()]
+  /**
+   * 规则列表（LA-04）：用户级 + 项目级（defaultCwd 层；未信任或家目录撞路径时项目层
+   * 缺席，如实少一段——那是"未生效"的如实呈现，不是漏报）合成，source 标注来源。
+   * 多 cwd 的项目层不在全局列表枚举（管理页是全局语境；逐 cwd 管理登记为限制）。
+   */
+  listPermissionRules(): PermissionRuleDto[] {
+    const out: PermissionRuleDto[] = this.ruleStore.list().map((r) => ({ ...r, source: 'user' as const }))
+    const layer = this.projectLayerFor(this.defaultCwd)
+    if (layer !== undefined) {
+      for (const r of layer.rules) out.push({ ...r, source: 'project' as const })
+    }
+    return out
   }
 
   addPermissionRule(rule: PermissionRule): void {
@@ -1222,7 +1235,28 @@ export class Engine {
     })
   }
 
-  removePermissionRule(action: string, resource: string): boolean {
+  removePermissionRule(action: string, resource: string, scope: PermissionScope = 'user'): boolean {
+    if (scope === 'project') {
+      // LA-04：项目级规则可撤销——defaultCwd 层内存数组与项目文件同步删（即存即生效）
+      const layer = this.projectLayerFor(this.defaultCwd)
+      const idx = layer?.rules.findIndex((r) => r.action === action && r.resource === resource) ?? -1
+      if (layer === undefined || idx < 0 || layer.store === undefined) return false
+      ;(layer.rules as PermissionRule[]).splice(idx, 1)
+      const removed = layer.store.remove(action, resource)
+      if (removed) {
+        this.audit.record({
+          time: Date.now(),
+          kind: 'permission.rule',
+          actor: 'user',
+          result: 'applied',
+          op: 'remove',
+          action,
+          resource,
+          source: 'settings-ui:project',
+        })
+      }
+      return removed
+    }
     const removed = this.ruleStore.remove(action, resource)
     if (removed) {
       this.audit.record({

@@ -624,7 +624,8 @@ export class MockTransport implements Transport {
 
   listPermissionRules(): Promise<PermissionRuleDto[]> {
     this.assertNotDisposed()
-    return Promise.resolve([...this.rules])
+    // 与引擎 listPermissionRules 同形：source 恒合成（LA-04）——存储缺省按 user
+    return Promise.resolve(this.rules.map((r) => ({ ...r, source: r.source ?? ('user' as const) })))
   }
 
   addPermissionRule(rule: PermissionRuleDto): Promise<void> {
@@ -633,8 +634,16 @@ export class MockTransport implements Transport {
     return Promise.resolve()
   }
 
-  removePermissionRule(action: string, resource: string): Promise<void> {
-    return this.removeBy(this.rules, (r) => r.action === action && r.resource === resource, `规则 ${action} ${resource}`)
+  removePermissionRule(action: string, resource: string, scope?: 'user' | 'project'): Promise<void> {
+    // project 作用域只删项目级规则（mock 不产 project 规则 → 如实 E_NOT_FOUND，不假删）
+    return this.removeBy(
+      this.rules,
+      (r) =>
+        r.action === action &&
+        r.resource === resource &&
+        (scope === 'project' ? r.source === 'project' : r.source !== 'project'),
+      `规则 ${action} ${resource}`,
+    )
   }
 
   /** 精确匹配 action+resource 覆盖，否则追加（与引擎 UserRuleStore.add 同语义） */

@@ -42,7 +42,8 @@ export function PermissionRulesPage() {
 
   async function removeRule(rule: PermissionRuleDto) {
     await run(async () => {
-    await transport.removePermissionRule(rule.action, rule.resource)
+    // LA-04：列表带来源，删除按来源定作用域——项目规则不再"看得到删不掉"
+    await transport.removePermissionRule(rule.action, rule.resource, rule.source ?? 'user')
     await refresh()
     })
   }
@@ -64,8 +65,11 @@ export function PermissionRulesPage() {
         {error === null &&
           rules !== null &&
           rules.map((r) => (
-            <div key={`${r.action}:${r.resource}`} className="flex min-h-12 items-center gap-2 px-4 py-2">
+            <div key={`${r.source ?? 'user'}:${r.action}:${r.resource}`} className="flex min-h-12 items-center gap-2 px-4 py-2">
               <span className="w-10 shrink-0 font-mono text-[11px] text-muted-foreground">{r.effect}</span>
+              <span className="w-12 shrink-0 font-mono text-[11px] text-muted-foreground" title={r.source === 'project' ? '项目级规则（随仓库走，仅该工作区生效）' : '用户级规则（全局生效）'}>
+                {r.source === 'project' ? '项目' : '全局'}
+              </span>
               <span
                 className="min-w-0 flex-1 truncate font-mono text-[11px]"
                 title={`${r.action} ${r.resource}`}

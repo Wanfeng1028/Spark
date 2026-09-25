@@ -129,6 +129,9 @@ export const PermissionRuleDtoSchema = z.strictObject({
   action: z.string().min(1),
   resource: z.string().min(1),
   effect: z.enum(['allow', 'deny', 'ask']),
+  /** 规则来源（LA-04）：列表响应由引擎合成——user=用户级文件 / project=项目级文件；
+   * 写入请求不携带（POST /api/permissions/rules 恒落用户级） */
+  source: z.enum(['user', 'project']).optional(),
 })
 export type PermissionRuleDto = z.infer<typeof PermissionRuleDtoSchema>
 

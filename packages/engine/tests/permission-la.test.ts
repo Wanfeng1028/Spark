@@ -9,17 +9,26 @@
  * - LA-03① 固化与级联按**会话 cwd 的项目层**走：跨项目不串门；
  * - LA-03② 无项目层（家目录撞用户文件 / 未信任）时 project 作用域如实抛
  *   E_PERMISSION_SCOPE，审批仍挂起可改答 once（fail-closed）。
+ * - LA-04 规则可查看/可撤销：listPermissionRules 合成 source 的双层列表；
+ *   removePermissionRule 按 scope 删对应层（项目规则同步删盘上文件）。
  */
-import { describe, expect, test } from 'vitest'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtemp } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, describe, expect, test } from 'vitest'
 import { ids, type RequestId, type SparkEventEnvelope, type SparkEventType } from '@spark/protocol'
 import { EventBus, type EventSink } from '../src/bus.js'
-import type { PermissionRule } from '../src/config.js'
+import type { EngineConfig, PermissionRule } from '../src/config.js'
+import { Engine } from '../src/engine.js'
 import { evaluate } from '../src/permission/rules.js'
 import { PermissionServiceImpl, type ProjectLayer } from '../src/permission/service.js'
 import type { RuleStore } from '../src/permission/store.js'
 import { tightens } from '../src/trust.js'
+import { ScriptedLlm } from '../src/scripted-llm.js'
 import type { PermissionCheck } from '../src/tools/permission-port.js'
 import { newIds } from '../src/ulid.js'
+import { trustKey } from '../src/trust.js'
 
 function isEvent<K extends SparkEventType>(
   e: SparkEventEnvelope,
@@ -187,7 +196,7 @@ describe('trust 收紧面扩容（LA-02②）', () => {
       userRules: [{ action: 'fs.write', resource: '**', effect: 'allow' }],
       trust: { tightens: (action) => tightens(action, 'untrusted') },
     })
-    const { requestId, promise } = await pendAsk(service, sink, makeCheck().check)
+    const { requestId, promise } = await pendAsk(service, sink, makeCheck())
     // 收紧 = 问一次；once 答复照常放行（收紧审批而非扩权）
     expect(await service.reply(requestId, 'once')).toBe(true)
     expect(await promise).toBe(true)
@@ -204,7 +213,7 @@ describe('项目层信任门（LA-01）', () => {
       userRules: [],
     })
     // 无任何规则 → 默认 ask（而非被 defaultProject / 项目 allow 放行）
-    const { requestId, promise } = await pendAsk(service, sink, makeCheck().check)
+    const { requestId, promise } = await pendAsk(service, sink, makeCheck())
     expect(await service.reply(requestId, 'once')).toBe(true)
     expect(await promise).toBe(true)
   })
@@ -214,7 +223,7 @@ describe('项目层信任门（LA-01）', () => {
       { action: 'fs.write', resource: '**', effect: 'allow' },
     ])]])
     const { sink, service } = makeService({ sessionLayers: layers })
-    expect(await service.assert(makeCheck().check)).toBe(true)
+    expect(await service.assert(makeCheck())).toBe(true)
     expect(sink.events).toHaveLength(0)
   })
 })
@@ -239,7 +248,7 @@ describe('project 固化按会话 cwd 落盘（LA-03①）', () => {
     const { requestId, promise } = await pendAsk(
       service,
       sink,
-      makeCheck({ sessionId: SID_B }).check,
+      makeCheck({ sessionId: SID_B }),
     )
     expect(await service.reply(requestId, 'always', undefined, 'project')).toBe(true)
     expect(await promise).toBe(true)
@@ -252,18 +261,18 @@ describe('project 固化按会话 cwd 落盘（LA-03①）', () => {
     const { layers, storeB } = threeSessionLayers()
     const { sink, service } = makeService({ sessionLayers: layers })
     // 在 A（cwd-A）挂一条写请求，并在 B（cwd-B）挂同资源写请求
-    const pendA = await pendAsk(service, sink, makeCheck({ sessionId: SID_A }).check)
+    const pendA = await pendAsk(service, sink, makeCheck({ sessionId: SID_A }))
     const pendB = await pendAsk(
       service,
       sink,
-      makeCheck({ sessionId: SID_B }).check,
+      makeCheck({ sessionId: SID_B }),
     )
     // 用户在 A 的挂起上答 always+project
     expect(await service.reply(pendA.requestId, 'always', undefined, 'project')).toBe(true)
     expect(await pendA.promise).toBe(true)
     // 同层（SID_C，cwd-A）的同资源请求现在直接放行——SID_A 固化的规则进了同层
     // 评估列表（store.add + 就地 push 双写）；全程只有 A/B 两条挂起事件
-    expect(await service.assert(makeCheck({ sessionId: SID_C }).check)).toBe(true)
+    expect(await service.assert(makeCheck({ sessionId: SID_C }))).toBe(true)
     expect(sink.events.filter((e) => isEvent(e, 'permission.asked'))).toHaveLength(2)
     // 异层（SID_B，cwd-B）的挂起不受影响——仍挂起，once 可答
     expect(await service.reply(pendB.requestId, 'once')).toBe(true)
@@ -277,7 +286,7 @@ describe('project 固化按会话 cwd 落盘（LA-03①）', () => {
 describe('无项目层：E_PERMISSION_SCOPE（LA-03②③）', () => {
   test('未信任（无层）+ project 固化 → 抛 E_PERMISSION_SCOPE，审批仍可 once', async () => {
     const { sink, service } = makeService({ sessionLayers: new Map() })
-    const { requestId, promise } = await pendAsk(service, sink, makeCheck().check)
+    const { requestId, promise } = await pendAsk(service, sink, makeCheck())
     await expect(service.reply(requestId, 'always', undefined, 'project')).rejects.toThrow(
       'E_PERMISSION_SCOPE',
     )
@@ -288,7 +297,7 @@ describe('无项目层：E_PERMISSION_SCOPE（LA-03②③）', () => {
   test('层存在但只读（家目录撞用户文件形态：store 缺省）→ 同样拒绝', async () => {
     const layers = new Map([[SID_A, layerOf('home-cwd', [], false)]])
     const { sink, service } = makeService({ sessionLayers: layers })
-    const { requestId, promise } = await pendAsk(service, sink, makeCheck().check)
+    const { requestId, promise } = await pendAsk(service, sink, makeCheck())
     await expect(service.reply(requestId, 'always', undefined, 'project')).rejects.toThrow(
       'E_PERMISSION_SCOPE',
     )
@@ -302,11 +311,103 @@ describe('无项目层：E_PERMISSION_SCOPE（LA-03②③）', () => {
       [SID_B, layerOf('cwd-B')],
     ])
     const { sink, service, userStore } = makeService({ sessionLayers: layers })
-    const { requestId, promise } = await pendAsk(service, sink, makeCheck().check)
+    const { requestId, promise } = await pendAsk(service, sink, makeCheck())
     expect(await service.reply(requestId, 'always', undefined, 'user')).toBe(true)
     expect(await promise).toBe(true)
     expect(userStore.list()).toHaveLength(1)
     // user 规则全局：B 会话同资源新请求直接 allow（零事件）
-    expect(await service.assert(makeCheck({ sessionId: SID_B }).check)).toBe(true)
+    expect(await service.assert(makeCheck({ sessionId: SID_B }))).toBe(true)
+  })
+})
+
+// ---- LA-04：规则可查看/可撤销（Engine 门面级） ----
+
+const engines: Engine[] = []
+
+afterEach(async () => {
+  for (const e of engines) await e.shutdown()
+  engines.length = 0
+})
+
+function makeConfig(): EngineConfig {
+  return {
+    spark: {
+      server: { port: 4318, host: '127.0.0.1' },
+      engine: {
+        maxStepsPerTurn: 40,
+        maxToolParallel: 8,
+        toolTimeoutMs: 120_000,
+        permissionTimeoutMs: 300_000,
+        progressThrottleMs: 200,
+        toolOutputLimitKB: 32,
+        compactionThreshold: 0.8,
+        checkpoints: false,
+        bashSandbox: 'off',
+        computerUseEnabled: false,
+        bashPersistent: false,
+      },
+    },
+    models: {
+      providers: { fake: { apiKeyEnv: null } },
+      defaultModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+      compactionModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+      fallbacks: [],
+      titleModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+      subagentModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+      costLimitUsd: undefined,
+      defaultEffort: undefined,
+      models: [{ provider: 'fake', model: 'fake-chat', contextWindow: 100_000 }],
+    },
+    permissions: { version: 1, rules: [{ action: 'fs.read', resource: '**', effect: 'allow' }] },
+  }
+}
+
+describe('listPermissionRules / removePermissionRule 双层合成（LA-04）', () => {
+  test('列表 = 用户级 + 项目级（defaultCwd 层）合成且 source 标注；project 删除同步删项目文件', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'spark-la04-root-'))
+    const cwd = await mkdtemp(join(tmpdir(), 'spark-la04-cwd-'))
+    // 项目级规则文件 + 信任档（层存在的两个前提：文件有内容 + cwd 受信任）
+    const projectRules: PermissionRule[] = [
+      { action: 'shell.exec', resource: 'cmd:git *', effect: 'allow' },
+    ]
+    mkdirSync(join(cwd, '.spark'), { recursive: true })
+    writeFileSync(join(cwd, '.spark', 'permissions.json'), JSON.stringify({ version: 1, rules: projectRules }))
+    writeFileSync(join(root, 'trusted.json'), JSON.stringify({ version: 1, folders: { [trustKey(cwd)]: 'trusted' } }))
+
+    const engine = new Engine({ root, gateway: new ScriptedLlm(), config: makeConfig(), cwd })
+    engines.push(engine)
+
+    const rules = engine.listPermissionRules()
+    expect(rules).toEqual([
+      { action: 'fs.read', resource: '**', effect: 'allow', source: 'user' },
+      { action: 'shell.exec', resource: 'cmd:git *', effect: 'allow', source: 'project' },
+    ])
+
+    // 用 user 作用域删项目规则 → 删不到（false，规则保留）
+    expect(engine.removePermissionRule('shell.exec', 'cmd:git *', 'user')).toBe(false)
+    // project 作用域 → 内存与项目文件同步删
+    expect(engine.removePermissionRule('shell.exec', 'cmd:git *', 'project')).toBe(true)
+    expect(engine.listPermissionRules()).toEqual([
+      { action: 'fs.read', resource: '**', effect: 'allow', source: 'user' },
+    ])
+    const onDisk: { rules: PermissionRule[] } = JSON.parse(
+      readFileSync(join(cwd, '.spark', 'permissions.json'), 'utf8'),
+    )
+    expect(onDisk.rules).toEqual([])
+  })
+
+  test('未信任 cwd：项目层缺席，列表如实只有用户级', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'spark-la04-root2-'))
+    const cwd = await mkdtemp(join(tmpdir(), 'spark-la04-cwd2-'))
+    mkdirSync(join(cwd, '.spark'), { recursive: true })
+    writeFileSync(
+      join(cwd, '.spark', 'permissions.json'),
+      JSON.stringify({ version: 1, rules: [{ action: 'fs.write', resource: '**', effect: 'allow' }] }),
+    )
+    const engine = new Engine({ root, gateway: new ScriptedLlm(), config: makeConfig(), cwd })
+    engines.push(engine)
+    expect(engine.listPermissionRules()).toEqual([
+      { action: 'fs.read', resource: '**', effect: 'allow', source: 'user' },
+    ])
   })
 })

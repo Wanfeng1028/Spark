@@ -43,8 +43,8 @@ export const registerPermissionRoutes: FastifyPluginCallback<RoutesOptions> = (a
   })
 
   app.delete('/api/permissions/rules', async (req, reply) => {
-    const { action, resource } = parseOr400(RemoveRuleBody, req.body)
-    if (!engine.removePermissionRule(action, resource)) {
+    const { action, resource, scope } = parseOr400(RemoveRuleBody, req.body)
+    if (!engine.removePermissionRule(action, resource, scope)) {
       return reply.code(404).send({ code: 'E_NOT_FOUND', message: '规则不存在' })
     }
     return reply.send({ ok: true })
