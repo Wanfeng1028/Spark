@@ -123,7 +123,11 @@ async function accumulate(
         childRel,
         divertToCheckpoint ? opts.checkpoint : bucket,
         skipped,
-        { inSessions: opts.inSessions && ent.name !== 'checkpoints', checkpoint: opts.checkpoint },
+        {
+          inSessions: opts.inSessions && ent.name !== 'checkpoints',
+          // 条件展开：exactOptionalPropertyTypes 下可选字段不收显式 undefined
+          ...(opts.checkpoint !== undefined ? { checkpoint: opts.checkpoint } : {}),
+        },
       )
       continue
     }
