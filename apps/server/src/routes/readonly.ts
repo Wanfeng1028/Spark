@@ -1,12 +1,39 @@
 /**
  * 只读与配置域（settings/commands/mcp/skills/agents/usage/memories/audit/search/artifacts/metrics）（工单 R-F③ 域拆分：自 routes.ts 机械搬移，路由与行为零变化）。
  */
-import type { FastifyPluginCallback } from 'fastify'
+import type { FastifyPluginCallback, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { ExecuteCommandBodySchema } from '@spark/protocol'
+import { ExecuteCommandBodySchema, findKnownLspServer } from '@spark/protocol'
 import { FeedbackInputSchema, FeedbackQuerySchema, LogsQuerySchema, PromptsUpdateSchema, SettingsUpdateSchema, UsageSummaryQuerySchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
+
+/**
+ * 非环回来源判定（doc/11 LA-05）：装/换可执行代码的入口（POST /api/lsp/install、
+ * PUT /api/mcp 的 stdio command）在非环回来源时要求显式确认——装可执行代码与
+ * 改审批规则同级的敏感面，不能因拿到 API 端口就静默执行。
+ * 环回（127.0.0.1/::1，含 IPv4-mapped）缺省行为**不变**（本仓红线）；只有显式
+ * SPARK_HOST 开非环回监听时远端客户端才会命中此门。
+ */
+function isLoopbackRequest(req: FastifyRequest): boolean {
+  const ip = req.ip
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+}
+
+/** npm 全局安装命令的回显形（与 installer 的 spawn 参数逐字对应：npm install -g <pkgs>） */
+function npmInstallEcho(packages: readonly string[]): string {
+  return `npm install -g ${[...packages].join(' ')}`
+}
+
+/** LA-05：非环回且未带 confirm → 403，message 回显将执行的完整命令 */
+function confirmGate(req: FastifyRequest, reply: FastifyReply, what: string, willRun: string): boolean {
+  if (isLoopbackRequest(req)) return true
+  void reply.code(403).send({
+    code: 'E_CONFIRM_REQUIRED',
+    message: `非环回来源的${what}请求需显式确认。将执行：${willRun}——确认无误后重发请求并附 confirm:true`,
+  })
+  return false
+}
 import { loadMcpConfig, maskMcpConfigForClient, mergeMaskedMcpConfig, writeMcpConfig } from '@spark/engine'
 import { CommandNameParams, MemoryIdParams, AuditQuery, SearchQuery, ArtifactParams } from './shared.js'
 
@@ -42,10 +69,19 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   /** PUT /api/mcp：整文件校验后原子写 mcp.json（工单 12.6；重启后生效——响应如实标注）。
    * RT3-07：env 掩码占位经 mergeMaskedMcpConfig 合并盘上真值（掩码不是值，无真值 400） */
   app.put('/api/mcp', async (req, reply) => {
-    const body = req.body as { version?: number; servers?: Record<string, unknown> } | undefined
+    const body = req.body as
+      | { version?: number; confirm?: boolean; servers?: Record<string, { command?: string; args?: string[] }> }
+      | undefined
     if (body === undefined || typeof body !== 'object' || body.version !== 1) {
       throw validationError('mcp 配置须为 {version: 1, servers: {...}}', undefined)
     }
+    // LA-05：非环回来源改写 mcp.json（可换任意 stdio 可执行程序）需 confirm；回显将写入的命令
+    const servers = body.servers ?? {}
+    const willRun =
+      Object.entries(servers)
+        .map(([k, v]) => `${k} = ${v.command ?? '?'} ${(v.args ?? []).join(' ')}`.trimEnd())
+        .join('; ') || '(空清单)'
+    if (!confirmGate(req, reply, 'mcp 配置写入', willRun)) return reply
     try {
       // 字面量内联在参数位：McpConfigInput.version 是字面量类型，经变量中转会拓宽成 number（CI 修红）
       writeMcpConfig(
@@ -80,9 +116,17 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   app.post('/api/browser/cleanup', () => engine.cleanupBrowserArtifacts())
 
   // LSP server 安装（阶段十九 19.5 / ADR D47）：内置清单 id → npm 全局装（已装幂等跳过）+ 写 lsp.json
-  const LspInstallBody = z.strictObject({ id: z.string().min(1) })
+  const LspInstallBody = z.strictObject({ id: z.string().min(1), confirm: z.boolean().optional() })
   app.post('/api/lsp/install', async (req, reply) => {
-    const { id } = parseOr400(LspInstallBody, req.body)
+    const { id, confirm } = parseOr400(LspInstallBody, req.body)
+    // LA-05：非环回来源装可执行代码需 confirm；清单在 protocol 单源——回显完整 npm 命令
+    const known = findKnownLspServer(id)
+    if (confirm !== true) {
+      const willRun = known
+        ? `${npmInstallEcho(known.npmPackages)}（写入 lsp.json：${known.command} ${known.args.join(' ')}）`
+        : `安装 id=${id}（不在内置清单中，将由安装器报 E_LSP_UNKNOWN_SERVER）`
+      if (!confirmGate(req, reply, '语言服务器安装', willRun)) return reply
+    }
     const result = await engine.installLspServer(id)
     if (!result.ok) {
       if (result.code === 'E_LSP_UNKNOWN_SERVER') {
