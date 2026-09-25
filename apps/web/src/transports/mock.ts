@@ -10,7 +10,7 @@
  */
 import { MCP_ENV_MASK, SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED, TRANSCRIBE_ALLOWED_MIME, TRANSCRIBE_MAX_AUDIO_BYTES, base64ByteLength, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, Delivery, SendMessageOptions, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, StorageReportDto, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, Delivery, SendMessageOptions, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
 import rawReject from '../../../../examples/mock-sessions/reject.jsonl?raw'
@@ -1291,6 +1291,37 @@ export class MockTransport implements Transport {
         embedded: 0,
       },
     })
+  }
+
+  /** 桶清理（19.37 第三批）：mock 无真实 fs——白名单与引擎对齐（镜像，web 不依赖 engine），
+   *  白名单外如实拒；桶内条目为演示形态，回执计数为演示值 */
+  storageCleanup(bucket: string): Promise<StorageCleanupDto> {
+    this.assertNotDisposed()
+    const cleanable = ['sessions/checkpoints', 'toolOutputs', 'browser-shots', 'trash']
+    if (!cleanable.includes(bucket)) {
+      return Promise.reject(new Error(`E_STORAGE_UNCLEANABLE: 桶 ${bucket} 不可清理`))
+    }
+    return Promise.resolve({ bucket, moved: 3, failed: 0, permanent: bucket === 'trash' })
+  }
+
+  /** 打包导出（19.37 第三批）：演示 bundle（marker 行 + 一个最小会话段） */
+  storageExport(): Promise<StorageExportDto> {
+    this.assertNotDisposed()
+    const bundle = [
+      JSON.stringify({ sparkBundle: 1, file: '2026-09-25T00-00-00-000Z_ses_demo.jsonl' }),
+      JSON.stringify({ sparkVersion: 'mock', cwd: 'E:/code/demo', createdAt: 1_700_000_000_000, model: 'mock/mock-chat' }),
+      '',
+    ].join('
+')
+    return Promise.resolve({ bundle, files: 1 })
+  }
+
+  /** 回导（19.37 第三批）：按 marker 分段计数（演示：段数即 imported） */
+  storageImport(bundle: string): Promise<StorageImportDto> {
+    this.assertNotDisposed()
+    const segments = bundle.split('
+').filter((l) => l.includes('"sparkBundle"')).length
+    return Promise.resolve({ imported: segments, skipped: 0, failed: 0 })
   }
 
   /** 数据目录占用统计（19.37 第二批）：mock 无真实数据根——固定演示桶（indexStats 同形态），

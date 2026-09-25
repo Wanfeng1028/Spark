@@ -150,6 +150,23 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   // 数据目录占用统计（阶段十九 19.37 第二批）：~/.spark 按目录发现分桶（引擎只读，勿建勿清）
   app.get('/api/storage/report', async () => engine.storageReport())
 
+  // 桶清理（阶段十九 19.37 第三批）：白名单桶移入 trash（§2.10 只移不删）；
+  // 两段式确认在 UI 层，服务端只认桶名白名单（外桶 E_STORAGE_UNCLEANABLE）
+  const StorageCleanupBody = z.strictObject({ bucket: z.string().min(1) })
+  app.post('/api/storage/cleanup', async (req) => {
+    const { bucket } = parseOr400(StorageCleanupBody, req.body)
+    return engine.storageCleanup(bucket)
+  })
+
+  // 打包导出/回导（阶段十九 19.37 第三批）：JSONL 原生格式整库打包（体量与全库成正比）
+  app.get('/api/storage/export', async () => engine.storageExport())
+
+  const StorageImportBody = z.strictObject({ bundle: z.string().min(1) })
+  app.post('/api/storage/import', async (req) => {
+    const { bundle } = parseOr400(StorageImportBody, req.body)
+    return engine.storageImport(bundle)
+  })
+
   app.post('/api/index/rebuild', async () => {
     return engine.rebuildIndex()
   })

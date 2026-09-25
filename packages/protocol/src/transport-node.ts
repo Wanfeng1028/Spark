@@ -18,7 +18,7 @@ import { parseEnvelope } from './schema.js'
 import { SessionStreamCore } from './session-stream-core.js'
 import type { StreamConnectionStatus, StreamCoreContext } from './session-stream-core.js'
 import type { SparkEventEnvelope } from './events.js'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, SkillDto, StorageReportDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, SkillDto, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
 import type { PermissionReply, PermissionScope, ReasoningEffort } from './primitives.js'
 import type { SendMessageOptions, SubmitOutcome, Transport } from './transport.js'
@@ -537,6 +537,27 @@ export class HttpTransport implements Transport {
   /** 数据目录占用统计（阶段十九 19.37 第二批）：GET /api/storage/report */
   storageReport(): Promise<StorageReportDto> {
     return this.req<StorageReportDto>('/api/storage/report')
+  }
+
+  /** 桶清理（19.37 第三批）：POST /api/storage/cleanup */
+  storageCleanup(bucket: string): Promise<StorageCleanupDto> {
+    return this.req<StorageCleanupDto>('/api/storage/cleanup', {
+      method: 'POST',
+      body: JSON.stringify({ bucket }),
+    })
+  }
+
+  /** 打包导出（19.37 第三批）：GET /api/storage/export */
+  storageExport(): Promise<StorageExportDto> {
+    return this.req<StorageExportDto>('/api/storage/export')
+  }
+
+  /** 回导（19.37 第三批）：POST /api/storage/import */
+  storageImport(bundle: string): Promise<StorageImportDto> {
+    return this.req<StorageImportDto>('/api/storage/import', {
+      method: 'POST',
+      body: JSON.stringify({ bundle }),
+    })
   }
 
   /** PUT /api/sessions/:id/title（阶段十九 19.20） */

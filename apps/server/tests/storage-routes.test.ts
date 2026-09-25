@@ -33,4 +33,45 @@ describe('GET /api/storage/report（19.37 第二批）', () => {
     expect(r.totalFiles).toBe(r.buckets.reduce((sum, b) => sum + b.files, 0))
     expect(r.skipped).toEqual([])
   })
+
+  test('清理（19.37 第三批）：白名单外桶 400 E_STORAGE_UNCLEANABLE；trash 桶永久清空', async () => {
+    const server = await makeServer()
+    writeFileSync(join(server.root, 'trash', 'junk.jsonl'), '{}
+')
+
+    const bad = await server.app.inject({
+      method: 'POST',
+      url: '/api/storage/cleanup',
+      payload: { bucket: 'sessions' },
+    })
+    expect(bad.statusCode).toBe(400)
+    expect(bad.json<{ code: string }>().code).toBe('E_STORAGE_UNCLEANABLE')
+
+    const empty = await server.app.inject({
+      method: 'POST',
+      url: '/api/storage/cleanup',
+      payload: { bucket: 'trash' },
+    })
+    expect(empty.statusCode).toBe(200)
+    expect(empty.json<{ permanent: boolean }>().permanent).toBe(true)
+  })
+
+  test('导出/回导 round-trip（19.37 第三批）：导出 bundle 回导空库 → imported 计数', async () => {
+    const source = await makeServer()
+    const exp = await source.app.inject({ method: 'GET', url: '/api/storage/export' })
+    expect(exp.statusCode).toBe(200)
+    const { bundle, files } = exp.json<{ bundle: string; files: number }>()
+    expect(files).toBeGreaterThanOrEqual(0)
+
+    const target = await makeServer()
+    const imp = await target.app.inject({
+      method: 'POST',
+      url: '/api/storage/import',
+      payload: { bundle },
+    })
+    expect(imp.statusCode).toBe(200)
+    const r = imp.json<{ imported: number; skipped: number; failed: number }>()
+    expect(r.imported).toBe(files)
+    expect(r.failed).toBe(0)
+  })
 })

@@ -1276,6 +1276,30 @@ export const StorageReportDtoSchema = z.strictObject({
 })
 export type StorageReportDto = z.infer<typeof StorageReportDtoSchema>
 
+/** 桶清理回执（19.37 第三批）：permanent=true 仅 trash 桶（永久删除）；其余移入 trash 可找回 */
+export const StorageCleanupDtoSchema = z.strictObject({
+  bucket: z.string().min(1),
+  moved: z.number(),
+  failed: z.number(),
+  permanent: z.boolean(),
+})
+export type StorageCleanupDto = z.infer<typeof StorageCleanupDtoSchema>
+
+/** 打包导出（19.37 第三批）：bundle = 原生 JSONL（marker 行 + 会话文件原始行逐字保留） */
+export const StorageExportDtoSchema = z.strictObject({
+  bundle: z.string(),
+  files: z.number(),
+})
+export type StorageExportDto = z.infer<typeof StorageExportDtoSchema>
+
+/** 回导回执（19.37 第三批）：imported/skipped/failed 三计数如实上报 */
+export const StorageImportDtoSchema = z.strictObject({
+  imported: z.number(),
+  skipped: z.number(),
+  failed: z.number(),
+})
+export type StorageImportDto = z.infer<typeof StorageImportDtoSchema>
+
 /** 索引重建结果（POST /api/index/rebuild，工单 19.11）：清表重扫 sessions JSONL 后的条目数 */
 export interface RebuildResultDto {
   entries: number

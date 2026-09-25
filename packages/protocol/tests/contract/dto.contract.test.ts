@@ -4695,6 +4695,141 @@ describe('契约：api.StorageBucketDtoSchema', () => {
   })
 })
 
+describe('契约：api.StorageCleanupDtoSchema', () => {
+  const sample = {
+    "bucket": "contract-sample",
+    "moved": 1,
+    "failed": 1,
+    "permanent": false
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.StorageCleanupDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.StorageCleanupDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.StorageCleanupDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 bucket → 解析失败', () => {
+    expect(() => api.StorageCleanupDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["bucket"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 moved → 解析失败', () => {
+    expect(() => api.StorageCleanupDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["moved"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 failed → 解析失败', () => {
+    expect(() => api.StorageCleanupDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["failed"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 permanent → 解析失败', () => {
+    expect(() => api.StorageCleanupDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["permanent"]; return m })())).toThrow()
+  })
+
+  it('字段 bucket 类型错 → 解析失败', () => {
+    expect(() => api.StorageCleanupDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["bucket"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 moved 类型错 → 解析失败', () => {
+    expect(() => api.StorageCleanupDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["moved"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 failed 类型错 → 解析失败', () => {
+    expect(() => api.StorageCleanupDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["failed"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 permanent 类型错 → 解析失败', () => {
+    expect(() => api.StorageCleanupDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["permanent"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.StorageCleanupDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.StorageExportDtoSchema', () => {
+  const sample = {
+    "bundle": "contract-sample",
+    "files": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.StorageExportDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.StorageExportDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.StorageExportDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 bundle → 解析失败', () => {
+    expect(() => api.StorageExportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["bundle"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 files → 解析失败', () => {
+    expect(() => api.StorageExportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["files"]; return m })())).toThrow()
+  })
+
+  it('字段 bundle 类型错 → 解析失败', () => {
+    expect(() => api.StorageExportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["bundle"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 files 类型错 → 解析失败', () => {
+    expect(() => api.StorageExportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["files"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.StorageExportDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：api.StorageImportDtoSchema', () => {
+  const sample = {
+    "imported": 1,
+    "skipped": 1,
+    "failed": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.StorageImportDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.StorageImportDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.StorageImportDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 imported → 解析失败', () => {
+    expect(() => api.StorageImportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["imported"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 skipped → 解析失败', () => {
+    expect(() => api.StorageImportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["skipped"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 failed → 解析失败', () => {
+    expect(() => api.StorageImportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["failed"]; return m })())).toThrow()
+  })
+
+  it('字段 imported 类型错 → 解析失败', () => {
+    expect(() => api.StorageImportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["imported"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 skipped 类型错 → 解析失败', () => {
+    expect(() => api.StorageImportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["skipped"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 failed 类型错 → 解析失败', () => {
+    expect(() => api.StorageImportDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["failed"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.StorageImportDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.StorageReportDtoSchema', () => {
   const sample = {
     "home": "contract-sample",

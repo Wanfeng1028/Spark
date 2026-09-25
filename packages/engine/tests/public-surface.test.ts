@@ -53,6 +53,11 @@ const PUBLIC_VALUES = [
   // 数据目录占用统计（工单 19.37 第二批）：server GET /api/storage/report 经 Engine 门面消费；
   // 纯函数直出供 CLI/脚本复用，类型 StorageReport/StorageBucket/StorageSkipped 为编译期导出
   'storageReport',
+  // 数据维护（工单 19.37 第三批）：web 数据管理页清理/导出/导入经 Engine 门面消费
+  'CLEANABLE_BUCKETS',
+  'cleanupBucket',
+  'exportSessionsBundle',
+  'importSessionsBundle',
   'sparkHome',
   'ulid',
   'writeMcpConfig',

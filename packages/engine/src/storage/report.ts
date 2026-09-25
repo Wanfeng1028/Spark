@@ -34,6 +34,8 @@ export interface StorageBucket {
   files: number
   /** 桶内最近修改时间；空桶缺省该键（不塞 0 假装 1970） */
   newestAt?: number
+  /** 是否可清理（19.37 第三批：封闭白名单 CLEANABLE_BUCKETS） */
+  cleanable: boolean
 }
 
 /** 未计入统计的条目与原因 */
@@ -56,6 +58,18 @@ export interface StorageReport {
 
 /** sessions 下检查点子树的聚合桶名（与 `sessions` 正文桶配对；两者相加 = sessions 总量） */
 export const CHECKPOINT_BUCKET = 'sessions/checkpoints'
+
+/**
+ * 可清理桶封闭白名单（19.37 第三批；与报告的目录发现名一致，单一来源在本文件——
+ * 清理面 maintenance.ts 与渲染层的清理按钮都以此为准）：会话正文与数据库不在列，
+ * 它们各有专属流程（deleteSession / memory·search 维护入口）。
+ */
+export const CLEANABLE_BUCKETS: readonly string[] = [
+  CHECKPOINT_BUCKET,
+  'toolOutputs',
+  'browser-shots',
+  'trash',
+]
 
 interface Accumulator {
   bytes: number
@@ -143,6 +157,7 @@ function bucketOf(name: string, acc: Accumulator): StorageBucket {
     name,
     bytes: acc.bytes,
     files: acc.files,
+    cleanable: CLEANABLE_BUCKETS.includes(name),
     ...(acc.newestAt !== undefined ? { newestAt: acc.newestAt } : {}),
   }
 }

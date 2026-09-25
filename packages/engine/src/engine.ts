@@ -94,6 +94,14 @@ import type { ProjectLayer } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
 import { SessionIndexMaintainer } from './session/index-maintainer.js'
 import { storageReport as storageReportOf, type StorageReport } from './storage/report.js'
+import {
+  cleanupBucket,
+  exportSessionsBundle,
+  importSessionsBundle,
+  type StorageCleanupResult,
+  type StorageExportResult,
+  type StorageImportResult,
+} from './storage/maintenance.js'
 import { findSessionFile as findSessionFileOnDisk, scanArchivedMarkers, scanPinnedMarkers, scanDiskSessions as scanDiskSessionsOnDisk, scanForkChildren as scanForkChildrenOnDisk, titleOf } from './session/scan.js'
 import { readLogs, type ReadLogsQuery } from './logs.js'
 import { Metrics } from './observability/metrics.js'
@@ -1490,6 +1498,29 @@ export class Engine {
    */
   async storageReport(): Promise<StorageReport> {
     return storageReportOf(this.root)
+  }
+
+  /**
+   * 桶清理（19.37 第三批）：白名单桶移入 trash（§2.10 只移不删）；trash 桶 = 永久清空；
+   * 白名单外如实拒（E_STORAGE_UNCLEANABLE）。确认在 UI 层（内联两段式）。
+   */
+  async storageCleanup(bucket: string): Promise<StorageCleanupResult> {
+    this.assertNotShutdown()
+    return cleanupBucket(this.root, bucket)
+  }
+
+  /** 打包导出（19.37 第三批）：全部会话 JSONL 逐字打包（marker 行 + 原始行） */
+  async storageExport(): Promise<StorageExportResult> {
+    this.assertNotShutdown()
+    return exportSessionsBundle(this.root)
+  }
+
+  /** 回导（19.37 第三批）：未知会话按原文件落盘、同名跳过、坏段计数；落盘后重建会话索引 */
+  async storageImport(bundle: string): Promise<StorageImportResult> {
+    this.assertNotShutdown()
+    const r = await importSessionsBundle(this.root, bundle)
+    if (r.imported > 0) await this.index.rebuild(() => this.scanDiskSessions())
+    return r
   }
 
   /** 语义索引状态（设置页/索引库页数据源）：available = 提供方 + 向量库 + 总开关三条件齐备 */

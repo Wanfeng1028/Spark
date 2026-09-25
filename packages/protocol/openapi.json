@@ -2073,6 +2073,118 @@
         }
       }
     },
+    "/api/storage/report": {
+      "get": {
+        "tags": [
+          "config"
+        ],
+        "summary": "数据目录占用统计（阶段十九 19.37 第二批：~/.spark 按目录发现分桶；根不存在如实 exists:false）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageReportDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/storage/cleanup": {
+      "post": {
+        "tags": [
+          "config"
+        ],
+        "summary": "桶清理（阶段十九 19.37 第三批：白名单桶移入 trash，§2.10 只移不删；trash 桶为永久清空；白名单外 E_STORAGE_UNCLEANABLE）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageCleanupDto"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bucket": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/storage/export": {
+      "get": {
+        "tags": [
+          "config"
+        ],
+        "summary": "打包导出（阶段十九 19.37 第三批：全部会话 JSONL 逐字打包，marker 行 + 原始行）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageExportDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/storage/import": {
+      "post": {
+        "tags": [
+          "config"
+        ],
+        "summary": "回导（阶段十九 19.37 第三批：未知会话按原文件落盘、同名跳过、坏段计数；落盘后重建会话索引）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageImportDto"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bundle": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/index/rebuild": {
       "post": {
         "tags": [
@@ -5867,6 +5979,147 @@
           "name",
           "events",
           "hooks"
+        ],
+        "additionalProperties": false
+      },
+      "StorageCleanupDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "minLength": 1
+          },
+          "moved": {
+            "type": "number"
+          },
+          "failed": {
+            "type": "number"
+          },
+          "permanent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "bucket",
+          "moved",
+          "failed",
+          "permanent"
+        ],
+        "additionalProperties": false
+      },
+      "StorageExportDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "bundle": {
+            "type": "string"
+          },
+          "files": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "bundle",
+          "files"
+        ],
+        "additionalProperties": false
+      },
+      "StorageImportDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "imported": {
+            "type": "number"
+          },
+          "skipped": {
+            "type": "number"
+          },
+          "failed": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "imported",
+          "skipped",
+          "failed"
+        ],
+        "additionalProperties": false
+      },
+      "StorageReportDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "home": {
+            "type": "string"
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "totalBytes": {
+            "type": "number"
+          },
+          "totalFiles": {
+            "type": "number"
+          },
+          "buckets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "bytes": {
+                  "type": "number"
+                },
+                "files": {
+                  "type": "number"
+                },
+                "newestAt": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name",
+                "bytes",
+                "files"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "generatedAt": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "home",
+          "exists",
+          "totalBytes",
+          "totalFiles",
+          "buckets",
+          "skipped",
+          "generatedAt"
         ],
         "additionalProperties": false
       },

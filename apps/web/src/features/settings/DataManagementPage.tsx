@@ -1,13 +1,22 @@
 /**
- * 数据管理页（阶段十九工单 19.37 / V2-13 第二批）：GET /api/storage/report 只读占用统计——
+ * 数据管理页（阶段十九工单 19.37 / V2-13 第二、三批）：GET /api/storage/report 只读占用统计
+ * + 第三批的清理与导出导入。
  * 引擎按**目录发现**分桶（新子路径自动冒出，报表不会安静漏项），本页只做渲染：
  * 桶名映射成人话标签是渲染层的事，引擎不产 UI 文案（19.17 语言单源在 protocol）。
  * 未识别的桶名按原样展示（POSIX 相对路径）——最坏是"没标签"，不是"数据不见了"。
- * 清理与导出导入归下一批（清理走 §2.10 确认纪律，另立交互），本页不设假开关。
+ * **清理**（第三批）：仅 cleanable 桶出按钮（白名单单一来源在引擎，随 report 下发）；
+ * 内联两段式确认（DESIGN §5 禁原生 confirm）；服务端纪律 = 移入 trash（§2.10 只移不删），
+ * trash 桶清理 = 永久清空（回收站语义）。
+ * **导出/导入**（第三批）：JSONL 原生格式整库打包；导出 = 拉取 bundle 下载为文件；
+ * 导入 = 选择文件后两段式确认上送，回执 imported/skipped/failed 如实展示。
  */
-import { useTransportQuery } from '@/hooks/useTransportQuery'
+import { useEffect, useRef, useState } from 'react'
 import type { StorageBucketDto } from '@spark/protocol'
+import { useTransport } from '@/transports/context'
+import { useTransportQuery } from '@/hooks/useTransportQuery'
+import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { formatBytes } from '@/lib/format'
+import { Button } from '@/components/ui/button'
 import { SettingGroupCard } from './SettingRow'
 
 /** 常见桶的中文标签（识别不出 = 原样展示相对路径，不造假标签） */
@@ -39,18 +48,87 @@ function bucketLabel(name: string): string {
   return BUCKET_LABELS[name] ?? name
 }
 
-function bucketTitle(name: string): string {
-  return BUCKET_LABELS[name] !== undefined ? name : ''
-}
-
 /** 桶占比条宽度（最大桶为满宽基准——占比一眼可读；零字节桶不给条） */
 function barWidth(bytes: number, maxBytes: number): string {
   if (maxBytes <= 0 || bytes <= 0) return '0%'
   return `${Math.max(2, Math.round((bytes / maxBytes) * 100))}%`
 }
 
+type ConfirmAction = { kind: 'cleanup'; bucket: string } | { kind: 'import' }
+
 export function DataManagementPage() {
-  const { data: report, error } = useTransportQuery((t) => t.storageReport())
+  const { transport } = useTransport()
+  const { data: report, error, refresh } = useTransportQuery((t) => t.storageReport())
+  const { busy, opError, run } = useAsyncOp()
+  /** 内联两段式确认态（DESIGN §5）：首击进入确认态，3s 超时还原；期间再击才执行 */
+  const [confirming, setConfirming] = useState<ConfirmAction | null>(null)
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** 上次维护动作的结果行回显 */
+  const [lastResult, setLastResult] = useState<string | null>(null)
+  /** 导入文件（选定后待确认上送） */
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const fileInput = useRef<HTMLInputElement | null>(null)
+
+  // 卸载清定时器（确认态不跨页悬挂）
+  useEffect(
+    () => () => {
+      if (confirmTimer.current !== null) clearTimeout(confirmTimer.current)
+    },
+    [],
+  )
+
+  function askConfirm(action: ConfirmAction): void {
+    const same =
+      confirming !== null &&
+      confirming.kind === action.kind &&
+      (action.kind !== 'cleanup' ||
+        confirming.kind !== 'cleanup' ||
+        confirming.bucket === action.bucket)
+    if (!same) {
+      setConfirming(action)
+      if (confirmTimer.current !== null) clearTimeout(confirmTimer.current)
+      confirmTimer.current = setTimeout(() => setConfirming(null), 3000)
+      return
+    }
+    if (confirmTimer.current !== null) clearTimeout(confirmTimer.current)
+    setConfirming(null)
+    void execute(action)
+  }
+
+  async function execute(action: ConfirmAction): Promise<void> {
+    await run(async () => {
+      if (action.kind === 'cleanup') {
+        const r = await transport.storageCleanup(action.bucket)
+        setLastResult(
+          r.permanent
+            ? `已永久清空 ${r.bucket}：${r.moved} 项${r.failed > 0 ? `，失败 ${r.failed} 项` : ''}`
+            : `已移入回收站 ${r.bucket}：${r.moved} 项${r.failed > 0 ? `，失败 ${r.failed} 项` : ''}（可人工找回）`,
+        )
+        await refresh()
+        return
+      }
+      if (importFile === null) return
+      const r = await transport.storageImport(await importFile.text())
+      setLastResult(`导入完成：新增 ${r.imported}、已存在跳过 ${r.skipped}、失败 ${r.failed}`)
+      setImportFile(null)
+      if (fileInput.current !== null) fileInput.current.value = ''
+      await refresh()
+    })
+  }
+
+  async function exportBundle(): Promise<void> {
+    await run(async () => {
+      const r = await transport.storageExport()
+      const blob = new Blob([r.bundle], { type: 'application/x-ndjson' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `spark-export-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`
+      a.click()
+      URL.revokeObjectURL(url)
+      setLastResult(`已导出 ${r.files} 个会话文件`)
+    })
+  }
 
   if (error !== null) return <p className="text-xs text-destructive">{error}</p>
   if (report === null) return <p className="text-xs text-muted-foreground">统计中…</p>
@@ -91,7 +169,7 @@ export function DataManagementPage() {
         {report.buckets.map((b: StorageBucketDto) => (
           <div key={b.name} className="flex min-h-12 flex-col justify-center gap-1 px-4 py-2">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="truncate text-xs text-foreground" title={bucketTitle(b.name) || b.name}>
+              <span className="truncate text-xs text-foreground" title={b.name}>
                 {bucketLabel(b.name)}
               </span>
               <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
@@ -99,24 +177,83 @@ export function DataManagementPage() {
                 {b.newestAt !== undefined ? ` · 最近 ${new Date(b.newestAt).toLocaleDateString()}` : ''}
               </span>
             </div>
-            <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-foreground/60" style={{ width: barWidth(b.bytes, maxBytes) }} />
+            <div className="flex items-center gap-2">
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-foreground/60" style={{ width: barWidth(b.bytes, maxBytes) }} />
+              </div>
+              {b.cleanable && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => askConfirm({ kind: 'cleanup', bucket: b.name })}
+                  className={
+                    confirming?.kind === 'cleanup' && confirming.bucket === b.name
+                      ? 'h-6 border-destructive px-2 text-[11px] text-destructive'
+                      : 'h-6 px-2 text-[11px]'
+                  }
+                >
+                  {confirming?.kind === 'cleanup' && confirming.bucket === b.name ? '确认清理？' : '清理'}
+                </Button>
+              )}
             </div>
           </div>
         ))}
+        <p className="px-4 pb-3 text-[11px] text-muted-foreground">
+          清理 = 移入回收站（可人工找回）；回收站自身清理为永久清空。
+        </p>
       </SettingGroupCard>
 
-      {report.skipped.length > 0 && (
+      <SettingGroupCard>
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex flex-col">
+            <span className="text-sm text-foreground">导出 / 导入</span>
+            <span className="text-[11px] text-muted-foreground">
+              JSONL 原生格式整库打包；回导时同名会话跳过、未知会话按原文件恢复
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 px-4 pb-4">
+          <Button variant="outline" size="sm" disabled={busy} onClick={() => void exportBundle()}>
+            导出全部会话
+          </Button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".jsonl,application/x-ndjson,application/json"
+            aria-label="选择导出包文件"
+            className="hidden"
+            onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => fileInput.current?.click()}
+          >
+            选择导入文件
+          </Button>
+          {importFile !== null && (
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={busy}
+              onClick={() => askConfirm({ kind: 'import' })}
+            >
+              {confirming?.kind === 'import' ? '确认导入？' : `导入 ${importFile.name}`}
+            </Button>
+          )}
+        </div>
+      </SettingGroupCard>
+
+      {lastResult !== null && (
         <SettingGroupCard>
-          <p className="px-4 pt-3 text-[11px] text-muted-foreground">
-            以下条目未计入统计（如实列原因——少算和"没算"是两件事）：
-          </p>
-          {report.skipped.map((s) => (
-            <div key={`${s.name}:${s.reason}`} className="flex min-h-9 items-center justify-between gap-3 px-4 py-1.5">
-              <span className="truncate font-mono text-[11px] text-foreground">{s.name}</span>
-              <span className="shrink-0 text-[11px] text-muted-foreground">{s.reason}</span>
-            </div>
-          ))}
+          <p className="px-4 py-3 text-xs text-muted-foreground">{lastResult}</p>
+        </SettingGroupCard>
+      )}
+      {opError !== null && (
+        <SettingGroupCard>
+          <p className="px-4 py-3 font-mono text-xs text-[var(--spark-err)]">{opError}</p>
         </SettingGroupCard>
       )}
     </div>

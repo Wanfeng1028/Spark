@@ -51,10 +51,20 @@ export { attachmentsDir, sparkDir, sparkFile } from './storage/paths.js'
 // （D31：引擎数据 → DTO 装配放 engine 公共面，不放 protocol——protocol 零依赖 engine）
 export {
   storageReport,
+  CLEANABLE_BUCKETS,
   type StorageReport,
   type StorageBucket,
   type StorageSkipped,
 } from './storage/report.js'
+// 数据维护（19.37 第三批）：清理（trash 纪律）与 JSONL 打包导出/导入
+export {
+  cleanupBucket,
+  exportSessionsBundle,
+  importSessionsBundle,
+  type StorageCleanupResult,
+  type StorageExportResult,
+  type StorageImportResult,
+} from './storage/maintenance.js'
 // SPARK_HOME_DIR / hasExplicitSparkHome / isCurrentHome 刻意不进公共入口：
 // 只被本包单测（经 ../src/*.js）消费，公共面按 14.1 口径只放有真实消费者的嵌入 API
 export { planMigration, runMigration, MigrationError } from './migrate.js'

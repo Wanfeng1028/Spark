@@ -29,7 +29,7 @@ import {
 } from '@spark/engine'
 import type { Engine, SessionHandle } from '@spark/engine'
 import { ids } from '@spark/protocol'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, CommandDto, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PermissionScope, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SendMessageOptions, SessionDto, SessionEventsQuery, SessionId, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, StorageReportDto, SubmitOutcome, TraceDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, CommandDto, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PermissionScope, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SendMessageOptions, SessionDto, SessionEventsQuery, SessionId, SettingsDto, SettingsUpdate, SkillDto, SparkEventEnvelope, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, SubmitOutcome, TraceDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
 import { assembleClient } from './client.js'
 import type { SparkClient } from './client.js'
 
@@ -408,6 +408,21 @@ export class InProcessTransport implements Transport {
   /** 数据目录占用统计（19.37 第二批）：引擎公共面直透（InProcess 对等；async 方法直接 await） */
   storageReport(): Promise<StorageReportDto> {
     return this.engine.storageReport()
+  }
+
+  /** 桶清理（19.37 第三批）：引擎公共面直透（InProcess 对等） */
+  storageCleanup(bucket: string): Promise<StorageCleanupDto> {
+    return this.engine.storageCleanup(bucket)
+  }
+
+  /** 打包导出（19.37 第三批）：引擎公共面直透（InProcess 对等） */
+  storageExport(): Promise<StorageExportDto> {
+    return this.engine.storageExport()
+  }
+
+  /** 回导（19.37 第三批）：引擎公共面直透（InProcess 对等） */
+  storageImport(bundle: string): Promise<StorageImportDto> {
+    return this.engine.storageImport(bundle)
   }
 
   /** 会话改名（阶段十九 19.20）：引擎异步方法（bus.emit 落盘）——不走 sync 门 */
