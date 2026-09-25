@@ -131,7 +131,7 @@ function makeCheck(over?: Partial<PermissionCheck>): PermissionCheck {
   }
 }
 
-/** 走真实 ask 挂起路径，回传 requestId 与 assert 的最终 Promise */
+/** 走真实 ask 挂起路径，回传 requestId 与 assert 的最终 Promise（按 check 的会话取最新挂起） */
 async function pendAsk(
   service: PermissionServiceImpl,
   sink: MemSink,
@@ -139,7 +139,9 @@ async function pendAsk(
 ): Promise<{ requestId: RequestId; promise: Promise<boolean> }> {
   const promise = service.assert(check)
   await new Promise<void>((r) => setTimeout(r, 0))
-  const asked = sink.events.find((e) => isEvent(e, 'permission.asked'))
+  const asked = sink.events
+    .filter((e) => isEvent(e, 'permission.asked') && e.sessionId === check.sessionId)
+    .at(-1)
   if (asked === undefined || !isEvent(asked, 'permission.asked')) {
     throw new Error('未产生挂起审批（测试前提不成立——规则层已放行/拒绝？）')
   }
