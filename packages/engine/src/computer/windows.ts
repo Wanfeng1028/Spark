@@ -202,6 +202,7 @@ export function parseKv(stdout: string, key: string): string | undefined {
 
 /** Process 清单 JSON → 条目数组（单元素时 ConvertTo-Json 出对象，归一成数组） */
 export function parseProcessList<T extends { pid: number; name: string }>(stdout: string): T[] {
+  if (stdout.trim() === '') return [] // PowerShell ç©ºè¾åºï¼æ å¹éè¿ç¨ï¼ââ JSON.parse ä¼ç¸ï¼å¦å®ç©ºè¡¨
   const parsed: unknown = JSON.parse(stdout.trim())
   if (parsed === null || parsed === undefined) return []
   const arr = Array.isArray(parsed) ? parsed : [parsed]
