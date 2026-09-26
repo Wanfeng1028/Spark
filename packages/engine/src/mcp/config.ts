@@ -89,7 +89,7 @@ const RESERVED_SERVER_NAMES = new Set(['__proto__', 'constructor', 'prototype'])
 
 function assertNoReservedServerNames(servers: unknown): void {
   if (typeof servers !== 'object' || servers === null) return
-  for (const name of Object.keys(servers as Record<string, unknown>)) {
+  for (const name of Object.keys(servers)) {
     if (RESERVED_SERVER_NAMES.has(name)) {
       throw new ConfigError(`mcp.json：server 名 "${name}" 是保留键（拒载，防原型污染）`)
     }
