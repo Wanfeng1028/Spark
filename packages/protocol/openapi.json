@@ -3148,7 +3148,8 @@
                   "enum": [
                     "running",
                     "done",
-                    "cancelled"
+                    "cancelled",
+                    "interrupted"
                   ]
                 },
                 "winnerModel": {
@@ -3225,7 +3226,8 @@
             "enum": [
               "running",
               "done",
-              "cancelled"
+              "cancelled",
+              "interrupted"
             ]
           },
           "winnerModel": {
