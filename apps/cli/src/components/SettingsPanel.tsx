@@ -212,13 +212,13 @@ function groupsOf(transport: Transport): readonly Group[] {
         },
         {
           id: 'engine.bashSandbox',
-          label: 'bash 沙箱 wrapper',
+          label: 'bash 沙箱级别',
           kind: 'enum',
-          values: ['off', 'on'],
+          values: ['off', 'approval', 'light', 'heavy'],
           read: (c) => c.settings.engine.bashSandbox,
           write: (c, v) =>
             transport.updateSettings({
-              engine: { ...c.settings.engine, bashSandbox: v === 'on' ? 'on' : 'off' },
+              engine: { ...c.settings.engine, bashSandbox: v as 'off' | 'approval' | 'light' | 'heavy' },
             }),
         },
       ],
