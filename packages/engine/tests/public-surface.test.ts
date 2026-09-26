@@ -56,6 +56,8 @@ const PUBLIC_VALUES = [
   // 数据维护（工单 19.37 第三批）：web 数据管理页清理/导出/导入经 Engine 门面消费
   'CLEANABLE_BUCKETS',
   'cleanupBucket',
+  'fetchLinkPreview',
+  'isPrivateAddress',
   'exportSessionsBundle',
   'importSessionsBundle',
   'sparkHome',

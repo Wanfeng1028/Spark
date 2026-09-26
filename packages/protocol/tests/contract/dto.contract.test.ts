@@ -2231,6 +2231,52 @@ describe('契约：api.IndexStatsDtoSchema', () => {
   })
 })
 
+describe('契约：api.LinkPreviewDtoSchema', () => {
+  const sample = {
+    "url": "contract-sample",
+    "domain": "contract-sample",
+    "title": "contract-sample",
+    "iconUrl": "contract-sample"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.LinkPreviewDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.LinkPreviewDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.LinkPreviewDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 url → 解析失败', () => {
+    expect(() => api.LinkPreviewDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["url"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 domain → 解析失败', () => {
+    expect(() => api.LinkPreviewDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["domain"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 title → 解析失败', () => {
+    expect(() => api.LinkPreviewDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["title"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 iconUrl → 解析失败', () => {
+    expect(() => api.LinkPreviewDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["iconUrl"]; return m })())).toThrow()
+  })
+
+  it('字段 url 类型错 → 解析失败', () => {
+    expect(() => api.LinkPreviewDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["url"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 domain 类型错 → 解析失败', () => {
+    expect(() => api.LinkPreviewDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["domain"] = 12345; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.LinkPreviewDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.LogEntryDtoSchema', () => {
   const sample = {
     "time": 1,

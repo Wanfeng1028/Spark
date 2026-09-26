@@ -161,6 +161,10 @@ function toApiError(err: unknown): ApiError {
   if (msg.startsWith('E_ALREADY_RESOLVED')) {
     return new ApiError(409, 'E_ALREADY_RESOLVED', '审批请求已答复过')
   }
+  if (msg.startsWith('E_LINK_PREVIEW_UNSAFE')) {
+    // 19.21：SSRF 防护拒绝（非 http/https、解析到私网等）→ 400
+    return new ApiError(400, 'E_LINK_PREVIEW_UNSAFE', msg)
+  }
   if (msg.startsWith('E_STORAGE_UNCLEANABLE')) {
     // LA/19.37 第三批：白名单外桶的清理请求 → 400（可修正的入参）
     return new ApiError(400, 'E_STORAGE_UNCLEANABLE', msg)

@@ -78,6 +78,7 @@ const COMPONENTS: Record<string, z.ZodType> = {
   StorageCleanupDto: api.StorageCleanupDtoSchema,
   StorageExportDto: api.StorageExportDtoSchema,
   StorageImportDto: api.StorageImportDtoSchema,
+  LinkPreviewDto: api.LinkPreviewDtoSchema,
   RebuildResultDto: api.RebuildResultDtoSchema,
   VacuumResultDto: api.VacuumResultDtoSchema,
   RebuildVectorsResultDto: api.RebuildVectorsResultDtoSchema,

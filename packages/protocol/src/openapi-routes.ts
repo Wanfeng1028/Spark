@@ -583,6 +583,14 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
   },
   {
     method: 'post',
+    path: '/api/link-preview',
+    summary: '链接预览（阶段十九 19.21：SSRF 防护抓取 title/favicon；不安全 URL 400）',
+    tag: 'config',
+    body: obj({ url: { type: 'string', minLength: 1 } }),
+    response: ref('LinkPreviewDto'),
+  },
+  {
+    method: 'post',
     path: '/api/index/rebuild',
     summary: '索引库全量重建（阶段十九 19.11：清表重扫 sessions JSONL，等待完成回条目数）',
     tag: 'config',

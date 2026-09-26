@@ -1302,6 +1302,16 @@ export const StorageImportDtoSchema = z.strictObject({
 })
 export type StorageImportDto = z.infer<typeof StorageImportDtoSchema>
 
+/** 链接预览（阶段十九 19.21 / V2-24）：POST /api/link-preview——引擎侧带 SSRF 防护抓取
+ * <title>/favicon；title/icon 为 null = 抓取失败的最小卡形态（域名始终有） */
+export const LinkPreviewDtoSchema = z.strictObject({
+  url: z.string().min(1),
+  domain: z.string().min(1),
+  title: z.string().nullable(),
+  iconUrl: z.string().nullable(),
+})
+export type LinkPreviewDto = z.infer<typeof LinkPreviewDtoSchema>
+
 /** 索引重建结果（POST /api/index/rebuild，工单 19.11）：清表重扫 sessions JSONL 后的条目数 */
 export interface RebuildResultDto {
   entries: number

@@ -65,6 +65,12 @@ export {
   type StorageExportResult,
   type StorageImportResult,
 } from './storage/maintenance.js'
+// 链接预览（19.21）：SSRF 防护抓取 + 私网地址判定（单测/服务端共用）
+export {
+  fetchLinkPreview,
+  isPrivateAddress,
+  type LinkPreviewResult,
+} from './link-preview.js'
 // SPARK_HOME_DIR / hasExplicitSparkHome / isCurrentHome 刻意不进公共入口：
 // 只被本包单测（经 ../src/*.js）消费，公共面按 14.1 口径只放有真实消费者的嵌入 API
 export { planMigration, runMigration, MigrationError } from './migrate.js'

@@ -167,6 +167,13 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
     return engine.storageImport(bundle)
   })
 
+  // 链接预览（阶段十九 19.21 / V2-24）：引擎侧 SSRF 防护抓取；不安全 URL → 400
+  const LinkPreviewBody = z.strictObject({ url: z.string().min(1) })
+  app.post('/api/link-preview', async (req) => {
+    const { url } = parseOr400(LinkPreviewBody, req.body)
+    return engine.fetchLinkPreview(url)
+  })
+
   app.post('/api/index/rebuild', async () => {
     return engine.rebuildIndex()
   })

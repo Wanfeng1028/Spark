@@ -2185,6 +2185,42 @@
         }
       }
     },
+    "/api/link-preview": {
+      "post": {
+        "tags": [
+          "config"
+        ],
+        "summary": "链接预览（阶段十九 19.21：SSRF 防护抓取 title/favicon；不安全 URL 400）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkPreviewDto"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/index/rebuild": {
       "post": {
         "tags": [
@@ -3923,6 +3959,47 @@
           "entries",
           "sizeBytes",
           "path"
+        ],
+        "additionalProperties": false
+      },
+      "LinkPreviewDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "iconUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "url",
+          "domain",
+          "title",
+          "iconUrl"
         ],
         "additionalProperties": false
       },

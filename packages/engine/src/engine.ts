@@ -102,6 +102,7 @@ import {
   type StorageExportResult,
   type StorageImportResult,
 } from './storage/maintenance.js'
+import { fetchLinkPreview as fetchLinkPreviewOf, type LinkPreviewResult } from './link-preview.js'
 import { findSessionFile as findSessionFileOnDisk, scanArchivedMarkers, scanPinnedMarkers, scanDiskSessions as scanDiskSessionsOnDisk, scanForkChildren as scanForkChildrenOnDisk, titleOf } from './session/scan.js'
 import { readLogs, type ReadLogsQuery } from './logs.js'
 import { Metrics } from './observability/metrics.js'
@@ -1521,6 +1522,12 @@ export class Engine {
     const r = await importSessionsBundle(this.root, bundle)
     if (r.imported > 0) await this.index.rebuild(() => this.scanDiskSessions())
     return r
+  }
+
+  /** 链接预览（19.21 / V2-24）：SSRF 防护抓取（scheme 白名单 + DNS 逐地址校验 + 重定向逐跳复检） */
+  async fetchLinkPreview(url: string): Promise<LinkPreviewResult> {
+    this.assertNotShutdown()
+    return fetchLinkPreviewOf(url)
   }
 
   /** 语义索引状态（设置页/索引库页数据源）：available = 提供方 + 向量库 + 总开关三条件齐备 */
