@@ -70,7 +70,7 @@ export function resolveSandboxWrapper(
 }
 
 /** heavy 模式的 Seatbelt profile：默认全拒 + 只读 + 禁网络 */
-export function seatbeltStrictProfile(cwd: string, tmpdir: string): string {
+function seatbeltStrictProfile(cwd: string, tmpdir: string): string {
   return (
     '(version 1)(deny default)(allow file-read*)' +
     `(allow file-write* (subpath "${cwd}")(subpath "${tmpdir}"))` +
