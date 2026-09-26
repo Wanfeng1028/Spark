@@ -49,7 +49,7 @@ export function mcpToolName(server: string, tool: string): string {
  * 配置文件即达服务端）；其余（缺省 'stdio'）→ StdioClientTransport 原语义。
  * schema（config.ts superRefine）已按 transport 分支校验必填；此处判空兜底抛错，
  * 由 connect() 的失败闭合（warn 跳过）承接，不带病运行。 */
-function defaultTransport(name: string, cfg: McpServerConfig, proxyEnv?: () => Record<string, string> | undefined): Transport {
+export function defaultTransport(name: string, cfg: McpServerConfig, proxyEnv?: () => Record<string, string> | undefined): Transport {
   if (cfg.transport === 'streamable-http') {
     if (cfg.url === undefined) {
       throw new Error(`MCP server ${name} 配置缺 url（streamable-http transport 必填）`)
