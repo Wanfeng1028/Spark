@@ -75,7 +75,7 @@ describe('GET|PUT /api/settings（工单 10.20 B / D28）', () => {
     })
     expect(res.statusCode).toBe(200)
     const dto: SettingsDto = res.json()
-    expect(dto.engine.bashSandbox).toBe('on')
+    expect(dto.engine.bashSandbox).toBe('light')
   })
 
   test('PUT hooks：整体替换生效；null 清空（工单 10.21 并入路径）', async () => {
