@@ -64,7 +64,12 @@ function schemeError(url: URL): string | null {
 }
 
 /** DNS 解析 + 逐地址私网校验（防 DNS rebinding：解析后才连） */
-async function assertPublicHost(hostname: string): Promise<void> {
+async function assertPublicHost(hostnameRaw: string): Promise<void> {
+  // 字面量 IP（含 [::1] 方括号形态）不经 DNS——先按字面量直判
+  const hostname = hostnameRaw.replace(/^\\[|\\]$/g, '')
+  if (isPrivateAddress(hostname)) {
+    throw new Error(`E_LINK_PREVIEW_UNSAFE: ${hostnameRaw} 是非公网地址`)
+  }
   let addresses: { address: string }[]
   try {
     addresses = await lookup(hostname, { all: true })
@@ -159,7 +164,14 @@ export async function fetchLinkPreview(rawUrl: string): Promise<LinkPreviewResul
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     if (msg.startsWith('E_LINK_PREVIEW_UNSAFE')) throw err
+    // 网络层失败的最小卡形态同样入缓存——防对死 URL 反复发起 DNS/请求
     const u = new URL(rawUrl)
-    return { url: u.toString(), domain: u.hostname, title: null, iconUrl: null }
+    const minimal: LinkPreviewResult = { url: u.toString(), domain: u.hostname, title: null, iconUrl: null }
+    if (cache.size >= CACHE_MAX) {
+      const oldest = cache.keys().next().value
+      if (oldest !== undefined) cache.delete(oldest)
+    }
+    cache.set(rawUrl, minimal)
+    return minimal
   }
 }
