@@ -52,6 +52,7 @@
 | v2.41 | 2026-09-24 | AI 编写：Qoder · Qwen3.8-Max（Qwen3.8-Max-0902）；发起：晚风（Wanfeng1028，"这两个任务如果没有并行代理做，你就做"指令） | **§12.8 口号行标注"已接硬检查"**：该行由 `scripts/check_doc_links.py` **检查 5** 执行（CI 第一关，命中即 error），扫描面与豁免口径同该行文字；§12.8 其余各行仍是人工 grep 自查、未接强制层，故本节标题"阶段一接入 CI 脚本"仅对检查 5 成立。补记缘由：AGENTS §8 第四条纪律"软指令与硬检查分开"——写在 md 里的禁令挡不住第四次复发（本单即判例）。同批收口 19.44 另一尾巴：`official/public/og-image.png` 重导出（视觉呈现不变，仅标语文字随 §12.7 改判）。与 AGENTS v1.63、README v1.47、doc/02 v4.118、doc/08 v1.91 同批。本批本机零验证，CI 裁决 |
 | v2.42 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，对比 x.ai/grok 后拍板"按照你说的来吧，可以修改设计规则。英文优先，官网做好中英文的切换和适配，以及官网的多端适配"指令） | **新增 §14 官网排印系统 + §12.3 两条修订（19.47 批 1；工单卡 doc/08 §5D.13）**：① 字体栈翻案——v2.28 的"Noto Sans SC 打头单栈"让全站拉丁字符落在中文字体内置西文字形上（实测对照 xAI 设计系统后的定性：这是"和人家的差距"第一成因），改**西文优先**（`Inter Variable` 管拉丁 → 系统栈 → 中文回退，Noto webfont 降兜底）；② §12.3 Inter 条目精确化——"禁的是不作排印设计的默认引用"，官网按 §14 显式引用并配排印规格不属此列，产品四端禁令不变；③ **§14 display 阶梯**：全档字重 700/600→500 + 渐进负字距（Hero 72px 档 -0.02em/行高 1.05，30–44px 档 -0.015em），display 数字改 `tabular-nums` 不借 mono；纯中文眉题放弃假 mono（IBM Plex Mono 无中文字形）改小灰字 + 0.08em 正字距。落地 12 处 className（grep 断言：display 档 font-bold/semibold 清零；not-found mono 404 与冻结的 FactBar 两处合理保留）。同批登记：doc/08 v2.03（§5D.13）、doc/02 v4.144、AGENTS v1.67、README v1.49。本批本机零验证，CI 裁决 |
 | v2.43 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，对"英文字体和大小全部参考 xAI 了吗"的追问拍板"要的"） | **§14.2 补 en 页 display 规格（英文页纯 xAI 字重）**：`.lang-en` 祖先下 display 档字重 400 + 全档 -0.025em（xAI 的 96/-2.4px、72/-1.8px、48/-1.2px 实为同一比例 -0.025em）——Inter 400 英文大字即 xAI 原味；中文页维持 500（黑体 400 显瘦），两语言规格由 Tailwind 自定义变体 `en:` 并行切换、无 JS。落地 12 处 display className + 4 个挂载点（HomeSections 与三子页内容根 div）。grep 断言：en:font-normal 12 处、lang-en 挂载 4 处。同批 doc/02 v4.149、doc/08 v2.07。本批本机零验证，CI 裁决 |
+| v2.44 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，"中文站参考 deepseek harness 的中文官网和字体和大小之类的"指令） | **§14.2 表重写为 zh/en 双列规格：中文页 display 对齐 DeepSeek 中文官网**（IAB 实测 www.deepseek.com：46px/400/+0.4em/系统黑体）——Hero 中文档 46px + font-normal + 正字距（+0.2em 桌面 / +0.1em 移动，10 字句按比例收自其 6 字句的 0.4em）+ 行高 1.6；区块各档 400 + +0.06em；数字 dd 400 恒紧。en 页 xAI 规格（v2.43）不动，`en:` 变体覆盖。**全 display 档字重 400 清零 font-medium**——xAI 与 DeepSeek 双重印证。拉丁保持 Inter 不换 DM Sans（登记理由：en 页已对齐 xAI）。同批 doc/02 v4.152、doc/08 v2.08。本批本机零验证，CI 裁决 |
 
 > 本文件是**视觉决策文档**：回答"页面应该保持什么风格，遇到新场景怎么选"，让不同页面看起来仍属于同一个产品。
 > 架构与设计决策见 `ARCHITECTURE.md`；实现规格（做什么）见 `doc/02-development-plan.md` §6——本文件管"做成什么感觉、什么不许做"。所有前端 PR 以本文为验收依据之一。
@@ -776,20 +777,23 @@
 - 中英混排同元素自动分工，无需 JS 按 locale 切字体。
 - `--font-mono` 维持 IBM Plex Mono（Geist 系在 §12.3 黑名单；IBM Plex Mono 是 xAI 体系的公开替代品之一）。
 
-### 14.2 display 阶梯（字重降级 + 渐进负字距）
+### 14.2 display 阶梯（v2.44 重写：zh 对齐 DeepSeek 中文官网 / en 对齐 xAI）
 
-| 档位 | 字号（移动/桌面） | 字重 | 字距 | 行高 | 落点 |
+> 2026-09-27 晚风指令"中文站参考 deepseek harness 的中文官网和字体和大小之类的"后，IAB 浏览器实测 www.deepseek.com 一手计算样式：Hero h1「探索未至之境」= **46px / 字重 400 / 字距 +0.4em（18.4px）/ 行高 1.55 / 中文走系统黑体栈（不载中文 webfont）**，拉丁正文 DM Sans，按钮 15px/400。两大一线流派字重同为 400（xAI 与 DeepSeek 双重印证），字距方向相反——en 收（负字距）、zh 疏（正字距）。本表按语言双列规格，`en:` 变体切换、无 JS。
+
+| 档位 | 字号（移动/桌面） | 字重 zh/en | 字距 zh/en | 行高 zh | 落点 |
 | --- | --- | --- | --- | --- | --- |
-| Hero | 44 / 60 / 72px | 500（medium） | -0.02em | 1.05 | Hero h1 |
-| 开发者区 display | 40 / 56px | 500 | -0.02em | 1.05 | ProtocolSection h2 |
-| 起跑区标题 | 36 / 52px | 500 | -0.02em | — | QuickStartCTA h2 |
-| 页面大标题 | 36 / 44px | 500 | -0.015em | — | 三子页 h1 |
-| 区块标题 | 30 / 38px | 500 | -0.015em | — | 各 section h2 |
-| display 数字 | 36 / 48px（4xl/5xl） | 500 | -0.02em | — | 统计 dd（tabular-nums） |
+| Hero | 30 / 46px | 400 / 400 | +0.1em→+0.2em / -0.025em | 1.6 | Hero h1 |
+| 开发者区 display | 40 / 56px | 400 / 400 | +0.06em / -0.025em | 1.15 | ProtocolSection h2 |
+| 起跑区标题 | 36 / 52px | 400 / 400 | +0.06em / -0.025em | 1.15 | QuickStartCTA h2 |
+| 页面大标题 | 36 / 44px | 400 / 400 | +0.06em / -0.025em | — | 三子页 h1 |
+| 区块标题 | 30 / 38px | 400 / 400 | +0.06em / -0.025em | — | 各 section h2 |
+| display 数字 | 36 / 48px（4xl/5xl） | 400 / 400 | -0.02em（数字恒紧）/ -0.025em | — | 统计 dd（tabular-nums） |
 
-- **display 档禁 font-bold（700）**：中文黑体大字加粗即糊，"高端感"来自字号 + 负字距 + 留白，不来自加粗。20–24px 小标题（h3/卡片标题）维持 600——那是正文层级，不在本表。
+- **zh display 的 DeepSeek 对齐与适配**：字号 Hero 对齐其 46px；正字距其 0.4em 配 6 字短句，本站站魂句 10 字按比例收至 +0.2em（桌面）、+0.1em（移动），区块档 +0.06em；中文标题字体即系统黑体（PingFang/雅黑，§14.1 栈序本就如此，Noto webfont 仅兜底）——与 DeepSeek 不载中文 webfont 的思路一致。
+- **拉丁字体保持 Inter、不换 DM Sans**（DeepSeek 拉丁用 DM Sans）：Inter 已按 xAI 对齐 en 页（v2.43），一仓两参考——en 页对齐 xAI、zh 页对齐 DeepSeek，各自对齐一线规格，不互相牵连。
+- **display 档全线 400，禁 font-bold（700）**：xAI 与 DeepSeek 双重印证。20–24px 小标题（h3/卡片标题）维持 600——正文层级，不在本表。
 - 数字统计用 `tabular-nums`（Inter 自带等宽数字集），不再借用 mono。
-- **en 页 display 走 xAI 原值（v2.43，晚风拍板"要的"）**：`.lang-en` 祖先下（Tailwind 自定义变体 `en:`，挂载点 = HomeSections 与三子页内容根 div）display 档字重 **400**、字距**全档 -0.025em**——xAI 的 96/-2.4px、72/-1.8px、48/-1.2px 是同一比例 -0.025em，Inter 400 的英文大字即 xAI 的"精密感"；中文页维持 500 不变（黑体 400 显瘦），两语言规格并行由变体切换，无 JS 参与。
 
 ### 14.3 眉题与 mono 分工
 

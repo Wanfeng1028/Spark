@@ -56,7 +56,7 @@ export function ArchitectureDiagram({ lang = "zh" }: { lang?: Lang }): React.JSX
         <header className="mb-16 max-w-2xl">
           <h2
             id="architecture-heading"
-            className="text-[30px] font-medium tracking-[-0.015em] text-foreground en:font-normal en:tracking-[-0.025em] sm:text-[38px]"
+            className="text-[30px] font-normal tracking-[0.06em] text-foreground en:tracking-[-0.025em] sm:text-[38px]"
           >
             {copy.heading}
           </h2>

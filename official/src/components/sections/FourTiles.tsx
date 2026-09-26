@@ -62,7 +62,7 @@ export function FourTiles({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
               <p className="text-xs tracking-[0.08em] text-muted-foreground">{copy.eyebrow}</p>
               <h2
                 id="surfaces-heading"
-                className="mt-2 text-[30px] font-medium tracking-[-0.015em] text-foreground en:font-normal en:tracking-[-0.025em] sm:text-[38px]"
+                className="mt-2 text-[30px] font-normal tracking-[0.06em] text-foreground en:tracking-[-0.025em] sm:text-[38px]"
               >
                 {copy.heading}
               </h2>
