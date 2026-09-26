@@ -191,7 +191,8 @@ function ofType<T extends SparkEventEnvelope['type']>(
   return e.type === t
 }
 
-function addUsage(a: Usage, b: Usage | undefined): Usage {
+/** Usage 相加（19.42 A：prefix-merge 的 usageTotal 合并同源复用——引擎侧另有一份同名实现，两仓纪律如此） */
+export function addUsage(a: Usage, b: Usage | undefined): Usage {
   if (b === undefined) return a
   return {
     inputTokens: a.inputTokens + b.inputTokens,

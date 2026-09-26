@@ -21,6 +21,7 @@ import type { StreamConnectionStatus } from './session-stream-core.js'
 import type { Transport } from './transport.js'
 import type { SessionDto } from './api.js'
 import {
+  addUsage,
   applyEvent,
   emptySessionSlice,
   type ProjectionState,
@@ -121,6 +122,82 @@ export function mergeEventPage(
   return [...olderPage.filter((e) => !seen.has(e.id)), ...existing]
 }
 
+// ---------- 19.42 A：守卫式 prefix-merge（W12-FOLLOW） ----------
+
+/** 事件载荷中的关联 id（turnId/callId/requestId）——守卫①「两段不相交」的判定数据源 */
+export function payloadIdsOf(e: SparkEventEnvelope, out: Set<string>): Set<string> {
+  const d: unknown = e.data
+  if (typeof d === 'object' && d !== null) {
+    const rec = d as { turnId?: unknown; callId?: unknown; requestId?: unknown }
+    if (typeof rec.turnId === 'string') out.add(rec.turnId)
+    if (typeof rec.callId === 'string') out.add(rec.callId)
+    if (typeof rec.requestId === 'string') out.add(rec.requestId)
+  }
+  return out
+}
+
+/**
+ * 守卫②③：P（前缀自空折叠）可合并的充分条件——activeTurn 为 null（前缀落在回合边界）
+ * 且全部歧义字段都在缺省值。歧义字段缺省 ⇒ 「该字段取 P 还是取 E」问题消失：
+ * P 侧是缺省值，写过取 E、没写 E 也是缺省值，两边同值，故 M.f = E.f 恒成立。
+ * （不选「哪类事件写哪个字段」的表：那张表必然与 reducer 漂移，且写不写依赖数据。）
+ */
+export function prefixMergeable(P: SessionSlice): boolean {
+  return (
+    P.activeTurn === null && // 守卫②
+    P.mode === 'default' && // 守卫③：以下九项歧义字段全缺省
+    P.topBanner === null &&
+    P.compacting === false &&
+    P.goal === null &&
+    P.lastError === null &&
+    P.lastCheckpoint === null &&
+    P.memoryInjected === null &&
+    P.contextUsage === null
+  )
+}
+
+/**
+ * 守卫式 prefix-merge：fold(P_events ++ E_events) ≈ merge(P, E)。
+ * 前提：prefixMergeable(P)（守卫②③）且两段载荷 id 集**不相交**（守卫①，调用方判定）——
+ * 相交意味着新段的 tool.result 命中旧段的 tool.call，items 拼接不再等价。
+ * 合并规则：items 前后拼接、usageTotal 相加（reducer 仅 addUsage 累加无整体赋值，
+ * 可加性已核）、lastSeq 取 max、meta 逐字段非缺省者胜 + createdAt 取 min + updatedAt 取 max。
+ * 守卫不成立时调用方**必须**回落全量重放——最坏等于不优化，不改变结果。
+ */
+export function mergePrefixSlice(P: SessionSlice, E: SessionSlice): SessionSlice {
+  const nonEmpty = (v: string, fallback: string): string => (v !== '' ? v : fallback)
+  const branch = E.meta.branch ?? P.meta.branch
+  const effort = E.meta.effort ?? P.meta.effort
+  return {
+    meta: {
+      id: E.meta.id,
+      title: nonEmpty(E.meta.title, P.meta.title),
+      model: nonEmpty(E.meta.model, P.meta.model),
+      cwd: nonEmpty(E.meta.cwd, P.meta.cwd),
+      createdAt:
+        E.meta.createdAt > 0 && P.meta.createdAt > 0
+          ? Math.min(E.meta.createdAt, P.meta.createdAt)
+          : Math.max(E.meta.createdAt, P.meta.createdAt),
+      updatedAt: Math.max(E.meta.updatedAt, P.meta.updatedAt),
+      ...(branch !== undefined ? { branch } : {}),
+      ...(effort !== undefined ? { effort } : {}),
+    },
+    items: [...P.items, ...E.items],
+    activeTurn: E.activeTurn, // 守卫②保证 P.activeTurn === null
+    lastSeq: Math.max(P.lastSeq, E.lastSeq),
+    usageTotal: addUsage(P.usageTotal, E.usageTotal),
+    // 守卫③保证 P 的歧义字段全缺省 → 全部取 E
+    contextUsage: E.contextUsage,
+    topBanner: E.topBanner,
+    compacting: E.compacting,
+    lastCheckpoint: E.lastCheckpoint,
+    lastError: E.lastError,
+    memoryInjected: E.memoryInjected,
+    mode: E.mode,
+    goal: E.goal,
+  }
+}
+
 export function createSessionPageController(opts: {
   sessionId: SessionId
   pageSize?: number
@@ -141,6 +218,8 @@ export function createSessionPageController(opts: {
   /** W12：增量维护已见事件 ID，避免 loadOlder 每次 O(n) 重建 Set（mergeEventPage 内部行为） */
   const seenIds = new Set<EventId>()
   const times = new Map<EventId, number>()
+  /** 19.42 A 守卫①的 E 侧数据源：窗口事件的载荷 id 集（applyLocal 增量维护，O(1)/事件） */
+  const windowIds = new Set<string>()
   let watermark = 0
   let slice: SessionSlice = emptySessionSlice(sid)
 
@@ -190,6 +269,7 @@ export function createSessionPageController(opts: {
     events.push(e)
     seenIds.add(e.id) // W12：同步维护，loadOlder 过滤 O(1) 查询
     times.set(e.id, e.time)
+    payloadIdsOf(e, windowIds) // 19.42 A：守卫① E 侧增量维护
     if (e.seq !== undefined && e.seq > watermark) watermark = e.seq
     slice = applyEvent({ byId: { [sid]: slice }, activeId: sid }, e).byId[sid] ?? slice
     emit()
@@ -267,17 +347,35 @@ export function createSessionPageController(opts: {
           seenIds.add(e.id)
           times.set(e.id, e.time) // W12：O(m) 增量写入，避免 O(n) 全量重建 nextTimes
         }
-        // 全量重放（升序红线）：较旧事件不得增量叠加在较新投影之后。
-        // 已知 O(n²) 瓶颈：翻 k 页累计 reduce ≈ pageSize·k²/2。
-        // 根因：applyEvent 存在跨事件状态依赖（findLastTurn / findOpenAssistant /
-        // closeStreamingOfTurn / activeTurn 携带），旧页产生的 items 与 activeTurn 影响
-        // 现有页的 reduce 结果，prefix-merge 不等价。安全优化需要 applyEvent 支持
-        // prefix-merge 语义（或引入 items 索引结构），登记为 v2 候选（工单 W12-FOLLOW）。
+        // 19.42 A（守卫式 prefix-merge）：P = 新前缀页自空折叠（O(m²)，m=pageSize 常数）；
+        // 守卫①两段载荷 id 不相交 + 守卫②③（prefixMergeable）成立时 O(n) 拼接合并，
+        // 否则回落原全量重放（O(n²)/页）——最坏等于不优化，结果两种路径恒等。
         let state: ProjectionState = { byId: {}, activeId: sid }
-        for (const e of events) {
+        for (const e of newOlder) {
           state = applyEvent(state, e)
         }
-        slice = state.byId[sid] ?? emptySessionSlice(sid)
+        const prefix = state.byId[sid] ?? emptySessionSlice(sid)
+        const prefixIds = new Set<string>()
+        for (const e of newOlder) payloadIdsOf(e, prefixIds)
+        let disjoint = true
+        for (const id of prefixIds) {
+          if (windowIds.has(id)) {
+            disjoint = false
+            break
+          }
+        }
+        if (prefixMergeable(prefix) && disjoint) {
+          slice = mergePrefixSlice(prefix, slice)
+          for (const id of prefixIds) windowIds.add(id)
+        } else {
+          // 回落：全量重放（升序红线——较旧事件不得增量叠加在较新投影之后）
+          let full: ProjectionState = { byId: {}, activeId: sid }
+          for (const e of events) {
+            full = applyEvent(full, e)
+          }
+          slice = full.byId[sid] ?? emptySessionSlice(sid)
+          for (const e of newOlder) payloadIdsOf(e, windowIds)
+        }
         emit()
       } catch (err: unknown) {
         setNotice(err instanceof Error ? err.message : String(err))
