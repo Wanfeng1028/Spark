@@ -6079,12 +6079,16 @@
                 },
                 "newestAt": {
                   "type": "number"
+                },
+                "cleanable": {
+                  "type": "boolean"
                 }
               },
               "required": [
                 "name",
                 "bytes",
-                "files"
+                "files",
+                "cleanable"
               ],
               "additionalProperties": false
             }

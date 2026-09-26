@@ -4650,7 +4650,8 @@ describe('契约：api.StorageBucketDtoSchema', () => {
     "name": "contract-sample",
     "bytes": 1,
     "files": 1,
-    "newestAt": 1
+    "newestAt": 1,
+    "cleanable": false
   }
 
   it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
@@ -4674,6 +4675,10 @@ describe('契约：api.StorageBucketDtoSchema', () => {
     expect(() => api.StorageBucketDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["files"]; return m })())).toThrow()
   })
 
+  it('缺必填字段 cleanable → 解析失败', () => {
+    expect(() => api.StorageBucketDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["cleanable"]; return m })())).toThrow()
+  })
+
   it('字段 name 类型错 → 解析失败', () => {
     expect(() => api.StorageBucketDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["name"] = 12345; return m })())).toThrow()
   })
@@ -4688,6 +4693,10 @@ describe('契约：api.StorageBucketDtoSchema', () => {
 
   it('字段 newestAt 类型错 → 解析失败', () => {
     expect(() => api.StorageBucketDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["newestAt"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 cleanable 类型错 → 解析失败', () => {
+    expect(() => api.StorageBucketDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["cleanable"] = "not-a-boolean"; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
@@ -4841,7 +4850,8 @@ describe('契约：api.StorageReportDtoSchema', () => {
         "name": "contract-sample",
         "bytes": 1,
         "files": 1,
-        "newestAt": 1
+        "newestAt": 1,
+        "cleanable": false
       }
     ],
     "skipped": [

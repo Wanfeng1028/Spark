@@ -5,6 +5,7 @@
 | 版本 | 日期 | 作者 | 变更内容 |
 | ---- | ---------- | -------- | ------------------------------------------------ |
 | v1.0 | 2026-09-19 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，阶段十九 19.6 指令） | 初稿：AppContainer/受限令牌/Job Object/重量级隔离四路线证据评估，结论 = 无低成本可行路径，推荐替代案待拍板 |
+| v1.1 | 2026-09-26 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"沙箱这块你去看一下我们的参考的几个项目……参考项目加上 ZCode zai 刚开源的，你去翻阅一下他的整体源代码"指令） | **§10 参考项目实证补充（两路在线源码调研，全程 gh api/raw 直读未克隆）**：① **zai-org/ZCode**（Apache-2.0，2026-09-20 建仓）——三平台**均无 OS 级命令沙箱**，纯审批模型（五档模式 + 只读命令分类器降审批疲劳），Windows 仅用 **Job Object（koffi FFI 零原生依赖，KILL_ON_JOB_CLOSE）做 MCP server 进程清理**而非设防，强隔离走 Docker/SSH/WSL 远程工作区；② **openai/codex**——Windows **有真沙箱**：AppContainer + WFP 网络过滤 + 一次性提权 provisioning（windows-sandbox-rs 整 crate 群），档位 ReadOnly/WorkspaceWrite/DangerFullAccess + 新 PermissionProfile（FS kind + 逐路径 read/write/deny + 网络独立一维）；Linux 用 bubblewrap+seccomp（Landlock 降级 legacy）；③ **MiniMax/anthropic sandbox-runtime**——`srt-win.exe`：专用低权本地用户 + WFP 按 SID 过滤 + 显式 ACL，TS 编排 + 单原生 exe，一次性提权 provisioning；④ gemini-cli 沙箱 opt-in（Seatbelt 六档案/bwrap/Docker）；⑤ opencode 纯审批无沙箱（OS 隔离仍是 open issue）。**修订结论**：v1.0 的"无**低成本**可行路径"成立，但"不可行"需限定——Codex/anthropic 证明 Windows 真沙箱可做，代价是一个独立大工作流（原生 helper + ACL/WFP + provisioning）。替代案从 A/B/C 扩为 **A 维持不做（=ZCode/opencode 同款形态）/ C Job Object 进程管家（半日，ZCode 同款可抄）/ D srt-win 式轻量沙箱（独立大单，1-2 周量级）/ E Codex AppContainer 全家桶（不推荐）**。证据全文见 §10 |
 
 ## 0. Spike 任务与边界（工单 19.6 原文口径）
 
@@ -82,3 +83,49 @@ D15 当时给出四条否决证据，本次 spike 逐条复核仍成立：
 | 1 | Windows OS 级沙箱判决 | A. 维持不做并升格为 spike 证据判决（推荐）/ B. 追加预算做 AppContainer re-ACL 真机 PoC |
 | 2 | Job Object 收口增强 | 随 19.3 后续立项 / 挂池 |
 | 3 | 本报告处置 | spike 结论并入 D15 补记（推荐）/ 保留独立文档 |
+
+
+## 10. 参考项目实证补充（2026-09-26，晚风指令：翻参考项目与 ZCode 开源源码）
+
+> 方法：两路并行在线源码调研（gh api + raw 直读，全程未克隆未下载，§2.12 合规）。证据均为 file:line 级 [读码]。
+
+### 10.1 zai-org/ZCode（Z.ai 开源，Apache-2.0，2026-09-20 建仓）
+
+**结论：三平台均无 OS 级命令沙箱——纯审批模型 + 进程生命周期管理，强隔离走"换环境"（Docker/SSH/WSL 远程工作区）。** [读码]
+
+- **Windows 命令执行 = 朴素 spawn**（`apps/zcode-cli/packages/adapters/src/exec/node-execution-adapter-process.ts:127` Windows 不 detached；`.cmd/.bat` 经 cmd.exe `/d /s /c`）。
+- **Job Object 只用于 MCP server 清理**：`adapters/src/mcp/windows-job-object.ts` —— koffi FFI 直调 kernel32（`:109` CreateJobObjectW / `:126` AssignProcessToJobObject / `:130` TerminateJobObject），`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`（`:4`）：父进程任何死法（含崩溃）内核都收割整棵子树；原生不可用回退 taskkill（`:49`）。**这是"进程管家"的现成参考实现，且零原生模块依赖**。
+- **审批模型**：五档模式（yolo/auto/plan/edit/build）+ allow/ask/deny 三态（`core/src/permission/service.ts`）；bash 默认高风险必问，但**只读命令分类器**（`bash-readonly-policy-*` 家族 + 复合命令全段解析 + 安全 flag 白名单 + 危险回调）把 cat/ls/git status 等降为免审批——降审批疲劳的主要手段。
+- **工作区边界是软的**：`core/src/tool/path-policy.ts:36-38` 注释明说当前版本不硬阻断 workspace 外路径。
+- **网络 = env 层代理钉死 + WebFetch SSRF 护栏**（阻断 localhost/私网字面量含 NAT64 还原），bash 命令本身无域名白名单的 OS 手段。
+- **POSIX 进程清理**：detached 建进程组 → SIGTERM → 750ms SIGKILL → `ps` 表 PPID 后代补杀。
+
+### 10.2 openai/codex（Rust）——Windows 真沙箱存在，但是一个 crate 群的工程量
+
+- **Windows 三后端**：`windows-sandbox-rs`（主力：AppContainer 包 + 能力、deny-read ACL 预展开、令牌构造、**WFP 网络过滤**、一次性管理员 provisioning 建 offline sandbox identity 仅许 loopback 代理）、`mxc-sandbox`（Microsoft MXC PSEC，默认关）、选择器（`sandboxing/src/windows.rs`）。档位 `WindowsSandboxLevel { Disabled(默认), RestrictedToken, Elevated }`（`protocol/src/config_types.rs:297-301`）。
+- **档位与审批组合**：旧 `SandboxMode{ReadOnly,WorkspaceWrite,DangerFullAccess}`；新 `PermissionProfile`（FS kind: Restricted/ExternalSandbox/Unrestricted + 逐路径 read/write/deny，deny>write>read；网络独立一维 Restricted/Enabled）——"策略即数据"的数据模型值得照抄（`protocol/src/permissions.rs:86-135`）。
+- **审批×沙箱组合 fail-closed**："需要审批但审批被设为 Never → 直接拒绝而非放行"（`core/src/exec_policy.rs` PROMPT_CONFLICT_REASON）——与本仓审批铁律同构。
+- **execpolicy 规则引擎**：`bash -c`/`node -e`/`powershell -Command` 等包装前缀黑名单，防前缀白名单被包装绕过。
+- **Linux 教训**：Landlock 降级 legacy（隔离不了 Unix socket），主力 = bubblewrap + seccomp 网络过滤。
+
+### 10.3 MiniMax/anthropic sandbox-runtime（Apache-2.0，vendor 进 minimax-code）
+
+- **Windows 机制 = `srt-win.exe`（Rust helper）**：创建专用低权本地用户 `srt-sandbox` → 机器级 WFP 过滤按该用户 SID → 两跳启动（broker → CreateProcessWithLogonW → 受限 token 子进程）→ 文件系统显式 ACE（denyRead/denyWrite/allowRead/allowWrite）→ 专用用户 SID 结构性封死 surrogate-spawn 逃逸（`windows-sandbox-utils.ts:22-45` 头注）。
+- **网络 = 代理中介型**：deny-first、放行流量全部过本地代理（域名模式过滤 + MITM CA + 凭据掩码）。
+- **交付形态与 Spark 最兼容**：TS 编排 + 单个原生 exe helper + 一次性提权 provisioning。
+
+### 10.4 其余
+
+- **gemini-cli**：沙箱 opt-in（macOS Seatbelt 六档案 permissive/strict × open/proxied、Linux bwrap、Docker/Podman），已出现 Windows 沙箱编译脚本；不开沙箱即审批确认。
+- **sst/opencode**：纯审批模型，宿主直接 spawn（`tool/shell.ts:484`）；OS 级 FS 沙箱仍是 open issue。
+
+### 10.5 修订后的替代案（供 19.6 拍板）
+
+| 案 | 内容 | 代价 | 参照 |
+| --- | --- | --- | --- |
+| **A** | 维持不做 OS 沙箱，升格为证据判决（现有防线：审批 fail-closed + 路径围栏 + 19.7 出网代理） | 0 | ZCode/opencode 同款形态 |
+| **C** | A + Job Object 进程管家：会话结束时整树收割 AI 启动的子进程 | 半日 | ZCode windows-job-object.ts 可直接抄（koffi FFI 零依赖） |
+| **D**（新增） | A + C + srt-win 式轻量沙箱：专用低权用户 + WFP SID 过滤 + 显式 ACL + 代理中介网络 | 独立大单，1-2 周量级，需一次性管理员 provisioning | MiniMax/anthropic sandbox-runtime |
+| E（新增，不推荐） | Codex AppContainer 全家桶 | 整 crate 群工程量 | openai/codex |
+
+**对 v1.0 结论的修订**："无低成本可行路径"成立；"Windows 真沙箱不可行"不成立——Codex 与 anthropic/MiniMax 都做出来了，代价是独立大工作流。A+C 是性价比拐点；D 是认真要沙箱时的最优形态。

@@ -1254,6 +1254,8 @@ export const StorageBucketDtoSchema = z.strictObject({
   files: z.number(),
   /** 桶内最近修改时间（毫秒）；空桶缺省（不塞 0 假装 1970） */
   newestAt: z.number().optional(),
+  /** 是否可清理（19.37 第三批：引擎侧封闭白名单 CLEANABLE_BUCKETS 随报告下发） */
+  cleanable: z.boolean(),
 })
 export type StorageBucketDto = z.infer<typeof StorageBucketDtoSchema>
 
