@@ -717,6 +717,9 @@ export function UsagePanel({ transport }: { transport: Transport }) {
   const catalog = useLoad<ModelsDto>(() => transport.listModels(), revision)
   const { busy, msg, setMsg, run } = usePanelWrite()
   const editor = useEditor()
+  // 行内编辑目标：'usd' = 成本上限，'tokens' = token 兜底上限（LA-29——模型未声明
+  // 计价时美元维度恒 0 失效，token 上限仍可熔断）
+  const [editing, setEditing] = useState<'usd' | 'tokens'>('usd')
   const r = state.status === 'ready' ? state.data : null
   const configured =
     catalog.status === 'ready'
@@ -751,23 +754,40 @@ export function UsagePanel({ transport }: { transport: Transport }) {
             slot: null,
             cost: true,
           },
+          {
+            key: 'costTokens',
+            label: 'token 上限',
+            detail: r.costLimitTokens === null ? '不限' : `${r.costLimitTokens}`,
+            slot: null,
+            cost: true,
+          },
         ]
   const commitCost = (buf: string): void => {
     if (r === null) return
+    const isTokens = editing === 'tokens'
+    const label = isTokens ? 'token 上限' : '成本上限'
     const trimmed = buf.trim()
     if (trimmed === '') {
-      void run(() => transport.updateRouting({ costLimitUsd: null }), '已清除成本上限', () =>
-        setRevision((x) => x + 1),
+      void run(
+        () =>
+          transport.updateRouting(isTokens ? { costLimitTokens: null } : { costLimitUsd: null }),
+        `已清除${label}`,
+        () => setRevision((x) => x + 1),
       )
       return
     }
     const n = Number(trimmed)
-    if (!Number.isFinite(n) || n <= 0) {
-      setMsg('成本上限需为正数（留空 = 不限）')
+    if (!Number.isFinite(n) || n <= 0 || (isTokens && !Number.isInteger(n))) {
+      setMsg(isTokens ? 'token 上限需为正整数（留空 = 不限）' : '成本上限需为正数（留空 = 不限）')
       return
     }
-    void run(() => transport.updateRouting({ costLimitUsd: n }), `成本上限已设为 $${n}`, () =>
-      setRevision((x) => x + 1),
+    void run(
+      () =>
+        transport.updateRouting(
+          isTokens ? { costLimitTokens: n } : { costLimitUsd: n },
+        ),
+      isTokens ? `token 上限已设为 ${n}` : `成本上限已设为 $${n}`,
+      () => setRevision((x) => x + 1),
     )
   }
   useInput((input, key) => {
@@ -777,7 +797,13 @@ export function UsagePanel({ transport }: { transport: Transport }) {
     if (busy || editor.active || r === null) return
     if (row.cost) {
       setMsg(null)
-      editor.begin(r.costLimitUsd === null ? '' : String(r.costLimitUsd))
+      if (row.key === 'costTokens') {
+        setEditing('tokens')
+        editor.begin(r.costLimitTokens === null ? '' : String(r.costLimitTokens))
+      } else {
+        setEditing('usd')
+        editor.begin(r.costLimitUsd === null ? '' : String(r.costLimitUsd))
+      }
       return
     }
     const slot = row.slot

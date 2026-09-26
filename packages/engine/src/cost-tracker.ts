@@ -11,8 +11,8 @@
  * - 坏 JSON / 形状不符 → ConfigError（E_CONFIG，与 loadConfig 同纪律，不带病运行）；
  * - 归因口径：桶的 provider/model = 会话当前档（fallback 切换的那一步仍记在会话档名下——
  *   StreamResult 不回传实际服务方，如实标注局限）；day = **本地日历日**（时钟可注入，测试确定）；
- * - exceeded(limit)：limit undefined = 不限；总账 costUsd ≥ limit 即熔断（≥ 而非 >——
- *   阈值语义"花到这个数就停"）；
+ * - exceeded(limit, limitTokens)：两维任一超限即熔断（≥ 而非 >——阈值语义"花到这个数就停"）；
+ *   limitTokens 为 LA-29 token 维度兜底（模型未声明计价时美元维度恒 0 失效）；
  * - reset()：总账与明细一并归零（DELETE /api/routing/usage 是解除熔断的唯一入口）。
  */
 import { existsSync, readFileSync } from 'node:fs'
@@ -232,10 +232,15 @@ export class CostTracker {
     }
   }
 
-  /** 熔断判定（limit undefined = 未配置上限，永不熔断） */
-  exceeded(limitUsd: number | undefined): boolean {
-    if (limitUsd === undefined) return false
-    return this.total.costUsd >= limitUsd
+  /** 熔断判定（两维任一超限即熔断；undefined = 该维未配置）。LA-29：token 维度兜底——
+   *  模型未声明计价时 costUsd 恒 0，美元维度永不触发；全 token 累计（含 cache 两分量）
+   *  ≥ costLimitTokens 仍可熔断。阈值语义同美元维：≥ 而非 >。 */
+  exceeded(limitUsd: number | undefined, limitTokens?: number): boolean {
+    if (limitUsd !== undefined && this.total.costUsd >= limitUsd) return true
+    if (limitTokens === undefined) return false
+    const totalTokens =
+      this.total.inputTokens + this.total.outputTokens + this.total.cacheRead + this.total.cacheWrite
+    return totalTokens >= limitTokens
   }
 
   /** 清零（DELETE /api/routing/usage）：总账与明细一并归零，持久化同步 */

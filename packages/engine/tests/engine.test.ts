@@ -47,6 +47,7 @@ function makeConfig(): EngineConfig {
       titleModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       subagentModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       costLimitUsd: undefined,
+      costLimitTokens: undefined,
       defaultEffort: undefined,
       models: [{ provider: 'fake', model: 'fake-chat', contextWindow: 100_000 }],
     },
@@ -716,6 +717,19 @@ describe('forkSession 与树视图（§5.8.6 / 工单 4.5）', () => {
     await expect(h3.fork(h3.events()[1]?.id ?? ids.event('evt_x'))).rejects.toThrow(
       'E_ALREADY_EXISTS',
     )
+  })
+
+  test('LA-31 边界=turn.completed 合法（旧序误拒）；边界=turn.started 拒绝（旧序漏判）', async () => {
+    const { handle } = await makeTurnFixture()
+    const completed = handle.events().find((e) => e.type === 'turn.completed')
+    const started = handle.events().find((e) => e.type === 'turn.started')
+    expect(completed).toBeDefined()
+    expect(started).toBeDefined()
+    // 在闭合事件处分叉：turn 已在该事件闭合 → 合法
+    const forked = await handle.fork((completed as SparkEventEnvelope).id)
+    expect(forked.id).not.toBe(handle.id)
+    // 在开启事件处分叉：turn 自边界起未闭合 → 拒绝（旧实现漏判）
+    await expect(handle.fork((started as SparkEventEnvelope).id)).rejects.toThrow('E_OPEN_TURN')
   })
 
   test('treeOf：线性链节点 + forks 磁盘扫描（新引擎实例亦可见）', async () => {

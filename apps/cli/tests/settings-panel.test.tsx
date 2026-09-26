@@ -37,6 +37,7 @@ const BASE_ROUTING = {
   titleModel: 'deepseek/deepseek-chat',
   subagentModel: 'deepseek/deepseek-chat',
   costLimitUsd: null,
+  costLimitTokens: null,
   defaultModel: 'deepseek/deepseek-chat',
   defaultEffort: null,
   usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0 },

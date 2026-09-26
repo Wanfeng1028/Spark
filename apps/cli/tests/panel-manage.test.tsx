@@ -490,6 +490,7 @@ const ROUTING = {
   titleModel: 'deepseek/deepseek-chat',
   subagentModel: 'deepseek/deepseek-chat',
   costLimitUsd: null,
+  costLimitTokens: null,
   defaultModel: 'deepseek/deepseek-chat',
   defaultEffort: null,
   usage: {

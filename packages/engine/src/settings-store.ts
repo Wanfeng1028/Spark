@@ -23,6 +23,8 @@ export interface RoutingState {
   titleModel: ResolvedModel
   subagentModel: ResolvedModel
   costLimitUsd: number | undefined
+  /** LA-29：token 维度兜底上限（undefined = 不限） */
+  costLimitTokens: number | undefined
   /** 新建会话默认模型（阶段十九 19.14 / V2-37，ADR D53：models.json 单写者经本类持久化） */
   defaultModel: ResolvedModel
   /** 新建会话默认推理档（undefined = 不设置） */
@@ -51,6 +53,7 @@ export class SettingsStore {
       titleModel: resolvers.resolveModel(config.models.titleModel),
       subagentModel: resolvers.resolveModel(config.models.subagentModel),
       costLimitUsd: config.models.costLimitUsd,
+      costLimitTokens: config.models.costLimitTokens,
       defaultModel: resolvers.resolveModel(config.models.defaultModel),
       defaultEffort: config.models.defaultEffort,
     }
@@ -66,6 +69,7 @@ export class SettingsStore {
       titleModel: id(this.routing.titleModel),
       subagentModel: id(this.routing.subagentModel),
       costLimitUsd: this.routing.costLimitUsd ?? null,
+      costLimitTokens: this.routing.costLimitTokens ?? null,
       // 新建会话默认模型/档位（阶段十九 19.14 / V2-37）
       defaultModel: id(this.routing.defaultModel),
       defaultEffort: this.routing.defaultEffort ?? null,
@@ -73,7 +77,7 @@ export class SettingsStore {
         costUsd: spend.costUsd,
         inputTokens: spend.inputTokens,
         outputTokens: spend.outputTokens,
-        exceeded: this.costTracker.exceeded(this.routing.costLimitUsd),
+        exceeded: this.costTracker.exceeded(this.routing.costLimitUsd, this.routing.costLimitTokens),
       },
     }
   }
@@ -98,6 +102,9 @@ export class SettingsStore {
     if (patch.costLimitUsd !== undefined) {
       this.routing.costLimitUsd = patch.costLimitUsd ?? undefined
     }
+    if (patch.costLimitTokens !== undefined) {
+      this.routing.costLimitTokens = patch.costLimitTokens ?? undefined
+    }
     // 新建会话默认模型/档位（阶段十九 19.14 / V2-37）：经本端点写 models.json——
     // 设置页不再另起写路径（消双写者）。显式 null 的 defaultEffort = 清除
     if (patch.defaultModel !== undefined) {
@@ -110,6 +117,7 @@ export class SettingsStore {
     this.logger.info('routing.update', {
       fallbacks: this.routing.fallbacks.length,
       costLimitUsd: this.routing.costLimitUsd ?? null,
+      costLimitTokens: this.routing.costLimitTokens ?? null,
     })
     return this.getRouting()
   }
@@ -134,10 +142,32 @@ export class SettingsStore {
       )
     }
     const doc = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
-    const toRef = (m: ResolvedModel): { provider: string; model: string; contextWindow: number } => ({
+    const toRef = (m: ResolvedModel): {
+      provider: string
+      model: string
+      contextWindow: number
+      inputCostPerMtok?: number
+      outputCostPerMtok?: number
+      cacheReadCostPerMtok?: number
+      cacheWriteCostPerMtok?: number
+      maxTokens?: number
+      imageInput?: boolean
+    } => ({
       provider: m.provider,
       model: m.model,
       contextWindow: m.contextWindow,
+      // LA-29：计价/上限/模态随路由档写回——否则 PUT 任何路由字段都会把 models.json
+      // 里已声明的定价剥掉（写回即数据丢失）
+      ...(m.cost !== undefined
+        ? {
+            inputCostPerMtok: m.cost.input,
+            outputCostPerMtok: m.cost.output,
+            cacheReadCostPerMtok: m.cost.cacheRead,
+            cacheWriteCostPerMtok: m.cost.cacheWrite,
+          }
+        : {}),
+      ...(m.maxTokens !== undefined ? { maxTokens: m.maxTokens } : {}),
+      ...(m.imageInput !== undefined ? { imageInput: m.imageInput } : {}),
     })
     doc.defaultModel = toRef(this.routing.defaultModel)
     if (this.routing.defaultEffort === undefined) delete doc.defaultEffort
@@ -148,6 +178,8 @@ export class SettingsStore {
     doc.subagentModel = toRef(this.routing.subagentModel)
     if (this.routing.costLimitUsd === undefined) delete doc.costLimitUsd
     else doc.costLimitUsd = this.routing.costLimitUsd
+    if (this.routing.costLimitTokens === undefined) delete doc.costLimitTokens
+    else doc.costLimitTokens = this.routing.costLimitTokens
     atomicWriteJson(path, doc)
   }
 }

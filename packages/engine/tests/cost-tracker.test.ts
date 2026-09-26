@@ -73,6 +73,29 @@ describe('总账五分量与 reset（工单 7.7 基础语义在 tests/routing.te
   })
 })
 
+describe('LA-29 token 维度兜底', () => {
+  test('零成本累计（模型未声明计价）：token 达阈值即熔断，cache 分量计入', () => {
+    const root = makeRoot()
+    const t = new CostTracker(pathOf(root), () => FIXED_TS)
+    t.add(usage(600, 300, 0, 50, 50), { provider: 'fake', model: 'm' })
+    // 全 token = 600+300+50+50 = 1000
+    expect(t.exceeded(undefined, 1000)).toBe(true)
+    expect(t.exceeded(undefined, 1001)).toBe(false)
+    expect(t.exceeded(undefined)).toBe(false) // 未配置 = 不限
+    expect(t.exceeded(undefined, undefined)).toBe(false)
+  })
+
+  test('两维并存：任一超限即熔断（美元先到也触发）', () => {
+    const root = makeRoot()
+    const t = new CostTracker(pathOf(root), () => FIXED_TS)
+    t.add(usage(10, 5, 0.5, 0, 0), { provider: 'fake', model: 'm' })
+    expect(t.exceeded(0.4, 1_000_000)).toBe(true) // 美元维度超限
+    t.add(usage(900, 900, 0.5, 0, 0), { provider: 'fake', model: 'm' })
+    expect(t.exceeded(100, 1815)).toBe(true) // token 维度超限（10+5+900+900=1815）
+    expect(t.exceeded(100, 1816)).toBe(false)
+  })
+})
+
 describe('明细桶聚合（工单 13.6）', () => {
   test('同日同档合并；跨日与跨档各自成桶', () => {
     const root = makeRoot()

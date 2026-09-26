@@ -180,11 +180,19 @@ export const ModelProviderDtoSchema = z.strictObject({
 })
 export type ModelProviderDto = z.infer<typeof ModelProviderDtoSchema>
 
-/** 可选模型条目（models.json models[] + defaultModel/compactionModel 合并去重） */
+/** 可选模型条目（models.json models[] + defaultModel/compactionModel 合并去重）。
+ * LA-29：计价/输出上限/图像输入为可选声明——缺省 = 不计价（成本熔断美元维度对该档失效，
+ * token 兜底仍在）与纯文本输入。四率单位 = USD / 百万 token（pi-ai 口径）。 */
 export const ModelEntryDtoSchema = z.strictObject({
   provider: z.string().min(1),
   model: z.string().min(1),
   contextWindow: z.number().int().positive(),
+  inputCostPerMtok: z.number().nonnegative().optional(),
+  outputCostPerMtok: z.number().nonnegative().optional(),
+  cacheReadCostPerMtok: z.number().nonnegative().optional(),
+  cacheWriteCostPerMtok: z.number().nonnegative().optional(),
+  maxTokens: z.number().int().positive().optional(),
+  imageInput: z.boolean().optional(),
 })
 export type ModelEntryDto = z.infer<typeof ModelEntryDtoSchema>
 
@@ -226,6 +234,9 @@ export const RoutingDtoSchema = z.strictObject({
   subagentModel: z.string(),
   /** 成本上限美元值（null = 未配置，永不熔断） */
   costLimitUsd: z.number().positive().nullable(),
+  /** LA-29 token 维度兜底：全 token 累计（含 cache）≥ 阈值即熔断——模型未声明计价时
+   *  美元维度恒 0 失效，此兜底保证熔断仍可触发（null = 未配置） */
+  costLimitTokens: z.number().int().positive().nullable(),
   /** 新建会话默认模型（阶段十九 19.14 / V2-37；models.json defaultModel，热生效） */
   defaultModel: z.string(),
   /** 新建会话默认推理档（null = 不设置，按 provider 默认） */
@@ -242,6 +253,8 @@ export const RoutingUpdateSchema = z.strictObject({
   subagentModel: z.string().min(1).optional(),
   /** null = 清除上限（不限） */
   costLimitUsd: z.number().positive().nullable().optional(),
+  /** LA-29 token 维度兜底上限；null = 清除（不限） */
+  costLimitTokens: z.number().int().positive().nullable().optional(),
   /** 新建会话默认模型（阶段十九 19.14 / V2-37，ADR D53）：models.json 单写者——
    *  经本端点写入，消"设置页另起写路径"的双写者；缺省 = 不改 */
   defaultModel: z.string().min(1).optional(),
@@ -281,8 +294,10 @@ export const UsageSummaryDtoSchema = z.strictObject({
   total: UsageAmountsSchema,
   buckets: z.array(UsageBucketDtoSchema),
   unbucketed: UsageAmountsSchema,
-  /** 熔断上限（null = 未配置）与当前是否已熔断（工单 7.7 数据，看板同屏呈现） */
+  /** 熔断上限（null = 未配置）与当前是否已熔断（工单 7.7 数据，看板同屏呈现）；
+   *  LA-29：costLimitTokens 为 token 维度兜底上限（null = 未配置） */
   costLimitUsd: z.number().positive().nullable(),
+  costLimitTokens: z.number().int().positive().nullable(),
   exceeded: z.boolean(),
 })
 export type UsageSummaryDto = z.infer<typeof UsageSummaryDtoSchema>

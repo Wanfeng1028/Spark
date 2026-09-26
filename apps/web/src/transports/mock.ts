@@ -849,6 +849,7 @@ export class MockTransport implements Transport {
     titleModel: 'deepseek/deepseek-chat',
     subagentModel: 'deepseek/deepseek-chat',
     costLimitUsd: null,
+    costLimitTokens: null,
     // 新建会话默认模型/档位（阶段十九 19.14 / V2-37）
     defaultModel: 'deepseek/deepseek-chat',
     defaultEffort: null,
@@ -881,6 +882,7 @@ export class MockTransport implements Transport {
       ...(patch.titleModel !== undefined ? { titleModel: providerOf(patch.titleModel) } : {}),
       ...(patch.subagentModel !== undefined ? { subagentModel: providerOf(patch.subagentModel) } : {}),
       ...(patch.costLimitUsd !== undefined ? { costLimitUsd: patch.costLimitUsd } : {}),
+      ...(patch.costLimitTokens !== undefined ? { costLimitTokens: patch.costLimitTokens } : {}),
       ...(patch.defaultModel !== undefined ? { defaultModel: providerOf(patch.defaultModel) } : {}),
       ...(patch.defaultEffort !== undefined ? { defaultEffort: patch.defaultEffort } : {}),
     }
@@ -1530,6 +1532,7 @@ export class MockTransport implements Transport {
       buckets: since !== undefined ? buckets.filter((b) => b.day >= since) : buckets,
       unbucketed,
       costLimitUsd: 5,
+      costLimitTokens: null,
       exceeded: false,
     })
   }

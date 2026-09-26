@@ -98,6 +98,7 @@ describe('引擎接线（settings.extensions 名单合成与启停写盘）', ()
         titleModel: ref,
         subagentModel: ref,
         costLimitUsd: undefined,
+        costLimitTokens: undefined,
         defaultEffort: undefined,
         models: [ref],
       },

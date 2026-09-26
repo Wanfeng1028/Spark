@@ -154,6 +154,7 @@ function makeConfig(rules: PermissionRule[]): EngineConfig {
       titleModel: ref('fake-chat'),
       subagentModel: ref('subagent-default'),
       costLimitUsd: undefined,
+      costLimitTokens: undefined,
       defaultEffort: undefined,
       models: [ref('fake-chat'), ref('subagent-default'), ref('preset-model')],
     },

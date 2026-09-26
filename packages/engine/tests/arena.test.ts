@@ -76,6 +76,7 @@ function makeConfig(): EngineConfig {
       titleModel: ref,
       subagentModel: ref,
       costLimitUsd: undefined,
+      costLimitTokens: undefined,
       defaultEffort: undefined,
       models: [ref],
     },

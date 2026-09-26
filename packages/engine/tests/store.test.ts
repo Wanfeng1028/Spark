@@ -403,4 +403,28 @@ describe('AUD-10：resume 对坏尾行的受控修复', () => {
     await SessionStore.resume(path)
     expect(await readdir(dirname(path))).toEqual([basename(path)])
   })
+
+  it('LA-35 末行完整 JSON 缺尾换行：resume 补换行而非截断（不粘连、事件零丢失）', async () => {
+    // appendFile 短写停在 } 与 \n 之间的形态：末行可完整解析，旧行为不设 tailTorn，
+    // 续写会把新事件拼进末行 → 下次读残缺 JSON 损坏
+    const path = await writeRaw(
+      [JSON.stringify(HEADER), diskLine(env(1), { parentId: null })].join('\n'),
+    )
+    const reasons: string[] = []
+    const file = await SessionStore.read(path, (r) => reasons.push(r))
+    expect(file.events.map((e) => e.seq)).toEqual([1])
+    expect(file.tailTorn?.fix).toBe('appendNewline')
+    expect(reasons.join('')).toContain('缺尾换行')
+
+    const s2 = await SessionStore.resume(path, { onTailTorn: (r) => reasons.push(r) })
+    await s2.append(env(2))
+    await s2.close()
+    expect(reasons.join('')).toContain('已修复续写')
+
+    // 关键回归：修复前 env(2) 会与缺换行的末行粘连，此处重读必失败
+    const after = await SessionStore.read(path)
+    expect(after.events.map((e) => e.seq)).toEqual([1, 2])
+    expect(after.tailTorn).toBeUndefined()
+    expect(await readFile(path + '.torn-bak', 'utf8')).toContain(diskLine(env(1)).slice(0, 40))
+  })
 })

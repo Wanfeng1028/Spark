@@ -39,6 +39,13 @@ export interface ResolvedModel {
   baseUrl?: string
   /** 出网代理 URL（工单 12.9 / ADR D28；缺省 = 直连零变化） */
   proxy?: string
+  /** LA-29：计价四率（USD/百万 token，pi-ai 口径；undefined = 未声明计价，toPiModel 落 0——
+   *  美元熔断对该档失效，token 兜底仍在） */
+  cost?: { input: number; output: number; cacheRead: number; cacheWrite: number }
+  /** 输出 token 上限（undefined = pi 侧 8192 兜底） */
+  maxTokens?: number
+  /** 图像输入能力（true → pi Model.input 含 image；缺省纯文本） */
+  imageInput?: boolean
 }
 
 /** 模型上下文消息（Projector 投影输出；system 走 StreamRequest.system） */

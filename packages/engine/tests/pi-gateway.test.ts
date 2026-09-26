@@ -291,6 +291,33 @@ describe('请求侧映射（model/context/options）', () => {
     expect(call?.options?.signal).toBe(signal)
   })
 
+  test('LA-29 计价/输出上限/模态从 ResolvedModel 进 pi Model（未声明 = 0/8192/纯文本）', async () => {
+    const fake = new FakePi([[doneEvent(partial({ stopReason: 'stop' }))]])
+    await makeGateway(fake).stream({
+      ...baseRequest({}),
+      model: {
+        provider: 'anthropic',
+        model: 'claude-pricing',
+        contextWindow: 200_000,
+        apiKey: 'k',
+        cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+        maxTokens: 64000,
+        imageInput: true,
+      },
+    })
+    const call = fake.calls[0]
+    expect(call?.model.cost).toEqual({ input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 })
+    expect(call?.model.maxTokens).toBe(64000)
+    expect(call?.model.input).toEqual(['text', 'image'])
+
+    const bare = new FakePi([[doneEvent(partial({ stopReason: 'stop' }))]])
+    await makeGateway(bare).stream(baseRequest({}))
+    const call2 = bare.calls[0]
+    expect(call2?.model.cost).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 })
+    expect(call2?.model.maxTokens).toBe(8192)
+    expect(call2?.model.input).toEqual(['text'])
+  })
+
   test('baseUrl 缺省取 provider 默认；system 空串不传 systemPrompt；无工具不传 tools', async () => {
     const fake = new FakePi([[doneEvent(partial({ stopReason: 'stop' }))]])
     await makeGateway(fake).stream({

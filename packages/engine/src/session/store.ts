@@ -41,8 +41,14 @@ export interface SessionHeader {
 export interface SessionFile {
   header: SessionHeader
   events: SparkEventEnvelope[]
-  /** AUD-10：尾行半写信息（最后有效内容的字节边界；read 仅检测，resume 据此受控修复） */
-  tailTorn?: { reason: string; validBytes: number }
+  /** AUD-10：尾行半写信息（最后有效内容的字节边界；read 仅检测，resume 据此受控修复）。
+   * LA-35：fix 'appendNewline' = 末行完整 JSON 仅缺尾换行——resume 补换行而非截断
+   *（缺省 'truncate' = 半写丢弃截断，AUD-10 原语义不变）。 */
+  tailTorn?: {
+    reason: string
+    validBytes: number
+    fix?: 'truncate' | 'appendNewline'
+  }
 }
 
 /**
@@ -158,11 +164,21 @@ export class SessionStore implements EventSink {
     if (file.tailTorn !== undefined) {
       const backup = `${path}.torn-bak`
       await copyFile(path, backup)
-      const fh = await open(path, 'r+')
-      try {
-        await fh.truncate(file.tailTorn.validBytes)
-      } finally {
-        await fh.close()
+      if (file.tailTorn.fix === 'appendNewline') {
+        // LA-35：缺尾换行——补写换行即修复（不截断，已解析事件零丢失）
+        const fh = await open(path, 'a')
+        try {
+          await fh.appendFile('\n', 'utf8')
+        } finally {
+          await fh.close()
+        }
+      } else {
+        const fh = await open(path, 'r+')
+        try {
+          await fh.truncate(file.tailTorn.validBytes)
+        } finally {
+          await fh.close()
+        }
       }
       opts.onTailTorn?.(`${file.tailTorn.reason}；已修复续写（原件备份于 ${backup}）`)
     }
@@ -240,6 +256,15 @@ export class SessionStore implements EventSink {
       }
       events.push(envelope)
       validBytes += Buffer.byteLength(line, 'utf8') + 1
+    }
+    // LA-35：末行完整 JSON 但缺尾换行（appendFile 短写停在 } 与 \n 之间）——原实现
+    // 解析成功不设 tailTorn，resume 追加会与之粘连成残缺 JSON（崩溃残留升级为持续
+    // 损坏）。标记 appendNewline 修复档：事件零丢失，resume 补一个换行即可续写。
+    if (tailTorn === undefined && !content.endsWith('\n')) {
+      const reason = '末行为完整 JSON 但缺尾换行'
+      tailTorn = { reason, validBytes: raw.byteLength, fix: 'appendNewline' }
+      onTailTorn?.(reason)
+      process.stderr.write(`E_SESSION_TAIL_TORN: ${reason}\n`)
     }
     return { header, events, ...(tailTorn !== undefined ? { tailTorn } : {}) }
   }

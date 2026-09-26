@@ -244,10 +244,15 @@ export function UsageSettingsPage() {
   } = useTransportQuery((t) => t.listArenaHistory())
   // 成本上限编辑态（工单 10.20 A①）：失焦/保存时解析；空串 = 清除上限（永不熔断）
   const [limitDraft, setLimitDraft] = useState('')
+  // LA-29：token 维度兜底上限——模型未声明计价时美元维度恒 0 失效，此上限仍可熔断
+  const [tokenLimitDraft, setTokenLimitDraft] = useState('')
   const { busy, opError, setOpError, run } = useAsyncOp()
 
   useEffect(() => {
-    if (routing !== null) setLimitDraft(routing.costLimitUsd === null ? '' : String(routing.costLimitUsd))
+    if (routing !== null) {
+      setLimitDraft(routing.costLimitUsd === null ? '' : String(routing.costLimitUsd))
+      setTokenLimitDraft(routing.costLimitTokens === null ? '' : String(routing.costLimitTokens))
+    }
   }, [routing])
 
   const days = useMemo(() => (summary === null ? [] : byDay(summary.buckets)), [summary])
@@ -273,6 +278,22 @@ export function UsageSettingsPage() {
       await refresh()
       await refreshSummary()
       setLimitDraft(next.costLimitUsd === null ? '' : String(next.costLimitUsd))
+    })
+  }
+
+  async function saveTokenLimit(): Promise<void> {
+    const text = tokenLimitDraft.trim()
+    if (text !== '' && (Number.isNaN(Number(text)) || Number(text) <= 0 || !Number.isInteger(Number(text)))) {
+      setOpError('token 上限须为正整数；留空 = 不设上限')
+      return
+    }
+    await run(async () => {
+      const next = await transport.updateRouting({
+        costLimitTokens: text === '' ? null : Number(text),
+      })
+      await refresh()
+      await refreshSummary()
+      setTokenLimitDraft(next.costLimitTokens === null ? '' : String(next.costLimitTokens))
     })
   }
 
@@ -351,6 +372,25 @@ export function UsageSettingsPage() {
               className="w-24 font-mono text-xs"
             />
             <Button type="button" variant="outline" disabled={busy} onClick={() => void saveLimit()}>
+              保存
+            </Button>
+          </div>
+        </SettingRow>
+        <SettingRow
+          title="token 上限"
+          description="全 token 累计（含 cache）达到即熔断——模型未声明价格时美元上限不生效，此上限兜底；留空 = 不设"
+        >
+          <div className="flex items-center gap-1.5">
+            <Input
+              value={tokenLimitDraft}
+              onChange={(e) => setTokenLimitDraft(e.target.value)}
+              onBlur={() => void saveTokenLimit()}
+              placeholder="未设置"
+              aria-label="token 上限"
+              disabled={busy}
+              className="w-28 font-mono text-xs"
+            />
+            <Button type="button" variant="outline" disabled={busy} onClick={() => void saveTokenLimit()}>
               保存
             </Button>
           </div>

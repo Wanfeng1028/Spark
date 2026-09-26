@@ -4319,6 +4319,30 @@
                   "type": "integer",
                   "exclusiveMinimum": 0,
                   "maximum": 9007199254740991
+                },
+                "inputCostPerMtok": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "outputCostPerMtok": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "cacheReadCostPerMtok": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "cacheWriteCostPerMtok": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "maxTokens": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "imageInput": {
+                  "type": "boolean"
                 }
               },
               "required": [
@@ -4344,6 +4368,30 @@
                 "type": "integer",
                 "exclusiveMinimum": 0,
                 "maximum": 9007199254740991
+              },
+              "inputCostPerMtok": {
+                "type": "number",
+                "minimum": 0
+              },
+              "outputCostPerMtok": {
+                "type": "number",
+                "minimum": 0
+              },
+              "cacheReadCostPerMtok": {
+                "type": "number",
+                "minimum": 0
+              },
+              "cacheWriteCostPerMtok": {
+                "type": "number",
+                "minimum": 0
+              },
+              "maxTokens": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "imageInput": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -4687,6 +4735,18 @@
               }
             ]
           },
+          "costLimitTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "defaultModel": {
             "type": "string"
           },
@@ -4741,6 +4801,7 @@
           "titleModel",
           "subagentModel",
           "costLimitUsd",
+          "costLimitTokens",
           "defaultModel",
           "defaultEffort",
           "usage"
@@ -4775,6 +4836,18 @@
               {
                 "type": "number",
                 "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "costLimitTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
               },
               {
                 "type": "null"
@@ -7000,6 +7073,18 @@
               }
             ]
           },
+          "costLimitTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "exceeded": {
             "type": "boolean"
           }
@@ -7009,6 +7094,7 @@
           "buckets",
           "unbucketed",
           "costLimitUsd",
+          "costLimitTokens",
           "exceeded"
         ],
         "additionalProperties": false

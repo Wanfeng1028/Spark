@@ -2656,7 +2656,13 @@ describe('契约：api.ModelEntryDtoSchema', () => {
   const sample = {
     "provider": "contract-sample",
     "model": "contract-sample",
-    "contextWindow": 1
+    "contextWindow": 1,
+    "inputCostPerMtok": 1,
+    "outputCostPerMtok": 1,
+    "cacheReadCostPerMtok": 1,
+    "cacheWriteCostPerMtok": 1,
+    "maxTokens": 1,
+    "imageInput": false
   }
 
   it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
@@ -2690,6 +2696,30 @@ describe('契约：api.ModelEntryDtoSchema', () => {
 
   it('字段 contextWindow 类型错 → 解析失败', () => {
     expect(() => api.ModelEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["contextWindow"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 inputCostPerMtok 类型错 → 解析失败', () => {
+    expect(() => api.ModelEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["inputCostPerMtok"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 outputCostPerMtok 类型错 → 解析失败', () => {
+    expect(() => api.ModelEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["outputCostPerMtok"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 cacheReadCostPerMtok 类型错 → 解析失败', () => {
+    expect(() => api.ModelEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["cacheReadCostPerMtok"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 cacheWriteCostPerMtok 类型错 → 解析失败', () => {
+    expect(() => api.ModelEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["cacheWriteCostPerMtok"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 maxTokens 类型错 → 解析失败', () => {
+    expect(() => api.ModelEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["maxTokens"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 imageInput 类型错 → 解析失败', () => {
+    expect(() => api.ModelEntryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["imageInput"] = "not-a-boolean"; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
@@ -2797,13 +2827,25 @@ describe('契约：api.ModelsDtoSchema', () => {
       {
         "provider": "contract-sample",
         "model": "contract-sample",
-        "contextWindow": 1
+        "contextWindow": 1,
+        "inputCostPerMtok": 1,
+        "outputCostPerMtok": 1,
+        "cacheReadCostPerMtok": 1,
+        "cacheWriteCostPerMtok": 1,
+        "maxTokens": 1,
+        "imageInput": false
       }
     ],
     "defaultModel": {
       "provider": "contract-sample",
       "model": "contract-sample",
-      "contextWindow": 1
+      "contextWindow": 1,
+      "inputCostPerMtok": 1,
+      "outputCostPerMtok": 1,
+      "cacheReadCostPerMtok": 1,
+      "cacheWriteCostPerMtok": 1,
+      "maxTokens": 1,
+      "imageInput": false
     }
   }
 
@@ -3507,6 +3549,7 @@ describe('契约：api.RoutingDtoSchema', () => {
     "titleModel": "contract-sample",
     "subagentModel": "contract-sample",
     "costLimitUsd": 0.5,
+    "costLimitTokens": 1,
     "defaultModel": "contract-sample",
     "defaultEffort": "low",
     "usage": {
@@ -3544,6 +3587,10 @@ describe('契约：api.RoutingDtoSchema', () => {
 
   it('缺必填字段 costLimitUsd → 解析失败', () => {
     expect(() => api.RoutingDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["costLimitUsd"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 costLimitTokens → 解析失败', () => {
+    expect(() => api.RoutingDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["costLimitTokens"]; return m })())).toThrow()
   })
 
   it('缺必填字段 defaultModel → 解析失败', () => {
@@ -3596,6 +3643,7 @@ describe('契约：api.RoutingUpdateSchema', () => {
     "titleModel": "contract-sample",
     "subagentModel": "contract-sample",
     "costLimitUsd": 0.5,
+    "costLimitTokens": 1,
     "defaultModel": "contract-sample",
     "defaultEffort": "low"
   }
@@ -6032,6 +6080,7 @@ describe('契约：api.UsageSummaryDtoSchema', () => {
       "cacheWrite": 1
     },
     "costLimitUsd": 0.5,
+    "costLimitTokens": 1,
     "exceeded": false
   }
 
@@ -6058,6 +6107,10 @@ describe('契约：api.UsageSummaryDtoSchema', () => {
 
   it('缺必填字段 costLimitUsd → 解析失败', () => {
     expect(() => api.UsageSummaryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["costLimitUsd"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 costLimitTokens → 解析失败', () => {
+    expect(() => api.UsageSummaryDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["costLimitTokens"]; return m })())).toThrow()
   })
 
   it('缺必填字段 exceeded → 解析失败', () => {

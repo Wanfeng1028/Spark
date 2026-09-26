@@ -43,6 +43,7 @@ function makeConfig(overrides?: { rules?: PermissionRule[]; permissionTimeoutMs?
       titleModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       subagentModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       costLimitUsd: undefined,
+      costLimitTokens: undefined,
       defaultEffort: undefined,
       models: [],
     },

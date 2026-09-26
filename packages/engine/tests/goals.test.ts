@@ -249,6 +249,7 @@ async function makeEngine(): Promise<{
       titleModel: { provider: 'scripted', model: 'scripted', contextWindow: 100_000 },
       subagentModel: { provider: 'scripted', model: 'scripted', contextWindow: 100_000 },
       costLimitUsd: undefined,
+      costLimitTokens: undefined,
       defaultEffort: undefined,
       models: [{ provider: 'scripted', model: 'scripted', contextWindow: 100_000 }],
     },

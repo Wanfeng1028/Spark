@@ -413,6 +413,34 @@ describe('runTurn（§5.5）', () => {
     expect(lastOf(f, 'turn.completed')?.data).toMatchObject({ finish: 'length' })
   })
 
+  test('LA-30 maxSteps 悬空闭合：calls 不执行但补 E_ABORTED 事件对 + toolResult 回喂', async () => {
+    const f = makeFixture({ maxStepsPerTurn: 1 })
+    const callId = ids.call('cal_ms2')
+    f.gateway.scriptStep({
+      content: [{ type: 'toolCall', callId, name: 'read', input: { path: 'x' } }],
+    })
+    await takeSubmitted(f.rt, 'x')
+    await runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'x',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    expect(f.tools.batches).toHaveLength(0)
+    // 悬空闭合对：模型已发出的 toolCall 不留无主状态
+    const started = f.sink.events.filter((e) => e.type === 'tool.started')
+    expect(started).toHaveLength(1)
+    const completed = f.sink.events.find((e) => e.type === 'tool.completed')
+    expect(completed?.data).toMatchObject({ callId, isError: true, output: { code: 'E_ABORTED' } })
+    // toolResult 回喂：下一轮 API 上下文不含无 result 的 tool_use（Anthropic 拒收形态）
+    const feedback = f.sink.events.filter((e) => e.type === 'assistant.message').at(-1)
+    expect(feedback?.data).toMatchObject({
+      content: [{ type: 'toolResult', callId, output: { code: 'E_ABORTED' }, isError: true }],
+    })
+    expect(lastOf(f, 'turn.completed')?.data).toMatchObject({ finish: 'length' })
+  })
+
   test('usage 累计：两 step 求和进 turn.completed', async () => {
     const f = makeFixture()
     f.gateway.scriptStep({
@@ -514,11 +542,14 @@ describe('runTurn（§5.5）', () => {
       delivery: 'now',
       admittedAt: Date.now(),
     })
-    // assistant.message 已 emit（产出保留）→ error 熔断 → 闭合
+    // assistant.message 已 emit（产出保留）→ LA-30 悬空闭合（E_ABORTED 对 + 回喂）→ error 熔断
     expect(sinkTypes(f)).toEqual([
       'user.message',
       'turn.started',
       'assistant.message',
+      'tool.started', // LA-30：未执行的 toolCall 补闭合对
+      'tool.completed',
+      'assistant.message', // toolResult 回喂
       'error',
       'turn.completed',
     ])

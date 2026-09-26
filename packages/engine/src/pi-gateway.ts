@@ -141,10 +141,12 @@ function toPiModel(m: ResolvedModel, spec: ProviderSpec): AnyPiModel {
     provider: m.provider,
     baseUrl: m.baseUrl ?? spec.defaultBaseUrl,
     reasoning: true,
-    input: ['text'],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    // LA-29：计价/输出上限/模态从 models.json 声明进（原硬编码 0/8192/['text']——
+    // 美元熔断因此永远不触发）。未声明 = 0 不计价 + 8192 兜底 + 纯文本，行为同前
+    input: m.imageInput === true ? ['text', 'image'] : ['text'],
+    cost: m.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: m.contextWindow,
-    maxTokens: 8192,
+    maxTokens: m.maxTokens ?? 8192,
   }
 }
 

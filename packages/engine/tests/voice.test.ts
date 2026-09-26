@@ -102,6 +102,7 @@ function modelsFixture(providers: ModelsConfig['providers']): ModelsConfig {
     titleModel: { provider: 'openai', model: 'gpt-x', contextWindow: 100_000 },
     subagentModel: { provider: 'openai', model: 'gpt-x', contextWindow: 100_000 },
     costLimitUsd: undefined,
+    costLimitTokens: undefined,
     defaultEffort: undefined,
     models: [],
   }

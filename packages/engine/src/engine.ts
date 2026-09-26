@@ -114,7 +114,7 @@ import { ToolOutputStore } from './tools/output-store.js'
 import { ToolPipelineImpl } from './tools/pipeline.js'
 import { IoGuard } from './tools/guard.js'
 import { ToolRegistry } from './tools/registry.js'
-import type { ToolContext, ToolOutput, SemanticRecallPort } from './tools/definition.js'
+import { resolveInRoot, type ToolContext, type ToolOutput, type SemanticRecallPort } from './tools/definition.js'
 import { registerBuiltinTools } from './tools/builtin/index.js'
 import { makeTaskTool } from './tools/builtin/task.js'
 import type { TaskInput } from './tools/builtin/task.js'
@@ -924,7 +924,8 @@ export class Engine {
       buckets: summary.buckets,
       unbucketed: summary.unbucketed,
       costLimitUsd: this.routing.costLimitUsd ?? null,
-      exceeded: this.costTracker.exceeded(this.routing.costLimitUsd),
+      costLimitTokens: this.routing.costLimitTokens ?? null,
+      exceeded: this.costTracker.exceeded(this.routing.costLimitUsd, this.routing.costLimitTokens),
     }
   }
 
@@ -1123,17 +1124,20 @@ export class Engine {
     if (source.runtime.state === 'running') {
       throw new Error('E_OPEN_TURN: turn 进行中，不可分叉——请等本轮结束')
     }
-    // OPEN_TURN ②：边界落在历史 turn 中间（turn.started 之后、turn.completed 之前）
+    // OPEN_TURN ②：边界落在历史 turn 中间（turn.started 之后、turn.completed 之前）。
+    // LA-31：边界事件自身 type 先计入再判空——旧序（先判空后计 type）把"在 turn.completed
+    // 处分叉"误拒（闭合事件被当作未闭合），且"在 turn.started 处分叉"漏判（自身开启的
+    // turn 计入后循环已结束，无人复查）。现序两种边界形态语义都成立。
     const path = source.store.tree.pathToRoot(fromEventId)
     const openTurns = new Set<TurnId>()
     for (const e of path) {
-      if (e.id === fromEventId && openTurns.size > 0) {
-        throw new Error('E_OPEN_TURN: 分叉边界落在未闭合 turn 中间')
-      }
       if (e.type === 'turn.started') {
         openTurns.add((e.data as SparkEventMap['turn.started']).turnId)
       } else if (e.type === 'turn.completed') {
         openTurns.delete((e.data as SparkEventMap['turn.completed']).turnId)
+      }
+      if (e.id === fromEventId && openTurns.size > 0) {
+        throw new Error('E_OPEN_TURN: 分叉边界落在未闭合 turn 中间')
       }
     }
     // ALREADY_EXISTS：目标 id 与已加载会话或磁盘文件碰撞（注入生成器可测）
@@ -1452,10 +1456,11 @@ export class Engine {
   async writeFileInCwd(sessionId: SessionId, relPath: string, bytes: Buffer): Promise<void> {
     const handle = this.getSession(sessionId)
     if (handle === undefined) throw new Error('E_NOT_FOUND: 会话未装载')
-    const abs = resolve(handle.meta.cwd, relPath)
-    if (!abs.startsWith(resolve(handle.meta.cwd))) {
-      throw new Error(`E_PATH_OUTSIDE: 应用路径越出会话工作目录：${relPath}`)
-    }
+    // LA-32：resolveInRoot 硬边界（realpath + relative 判定）——原 startsWith 词法
+    // 检查会被同级前缀目录绕过（cwd=/a/proj，rel=../proj-evil/x → /a/proj-evil/x
+    // 亦以 /a/proj 开头），且不看 symlink。Arena 胜者回写的 rel 来自 worktree
+    // numstat（模型可控），必须走与其他文件写同一道 cwd 硬边界（§1.1 数据落点）。
+    const abs = resolveInRoot(handle.meta.cwd, relPath)
     await mkdir(dirname(abs), { recursive: true })
     await writeFile(abs, bytes)
   }
@@ -2705,7 +2710,7 @@ export class Engine {
             provider: currentModel.provider,
             model: currentModel.model,
           }),
-        exceeded: () => this.costTracker.exceeded(this.routing.costLimitUsd),
+        exceeded: () => this.costTracker.exceeded(this.routing.costLimitUsd, this.routing.costLimitTokens),
         spendUsd: () => this.costTracker.spend().costUsd,
       },
       // 工单 16.7：goal 循环端口——turn 收尾后判定续跑（护栏/暂停/完成在 GoalRunner 内闭环）
@@ -2821,6 +2826,12 @@ export class Engine {
       throw new Error(`E_CONFIG: models.json 未配置 provider "${ref.provider}"`)
     }
     const { apiKey } = resolveApiKey(this.secrets, ref.provider, provider.apiKeyEnv)
+    // LA-29：计价四率任一声明即组 cost 对象（未声明 = undefined → toPiModel 落 0）
+    const hasCost =
+      ref.inputCostPerMtok !== undefined ||
+      ref.outputCostPerMtok !== undefined ||
+      ref.cacheReadCostPerMtok !== undefined ||
+      ref.cacheWriteCostPerMtok !== undefined
     return {
       provider: ref.provider,
       model: ref.model,
@@ -2828,6 +2839,18 @@ export class Engine {
       ...(apiKey !== undefined ? { apiKey } : {}),
       ...(provider.baseUrl !== undefined ? { baseUrl: provider.baseUrl } : {}),
       ...(provider.proxy !== undefined ? { proxy: provider.proxy } : {}),
+      ...(hasCost
+        ? {
+            cost: {
+              input: ref.inputCostPerMtok ?? 0,
+              output: ref.outputCostPerMtok ?? 0,
+              cacheRead: ref.cacheReadCostPerMtok ?? 0,
+              cacheWrite: ref.cacheWriteCostPerMtok ?? 0,
+            },
+          }
+        : {}),
+      ...(ref.maxTokens !== undefined ? { maxTokens: ref.maxTokens } : {}),
+      ...(ref.imageInput !== undefined ? { imageInput: ref.imageInput } : {}),
     }
   }
 

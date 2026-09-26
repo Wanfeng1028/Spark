@@ -154,6 +154,14 @@ const SPARK_DEFAULTS: SparkConfig = {
 const modelRefSchema = z.object({
   provider: z.string().min(1),
   model: z.string().min(1),
+  /** LA-29：计价四率（USD/百万 token，pi-ai 口径）/maxTokens/imageInput——全部可选；
+   *  缺省 = 不计价（toPiModel 落 0）+ pi 侧 8192 兜底 + 纯文本 */
+  inputCostPerMtok: z.number().nonnegative().optional(),
+  outputCostPerMtok: z.number().nonnegative().optional(),
+  cacheReadCostPerMtok: z.number().nonnegative().optional(),
+  cacheWriteCostPerMtok: z.number().nonnegative().optional(),
+  maxTokens: z.number().int().positive().optional(),
+  imageInput: z.boolean().optional(),
 })
 
 const defaultModelSchema = modelRefSchema.extend({
@@ -211,15 +219,26 @@ const modelsSchema = z.object({
   subagentModel: routingModelSchema.optional(),
   /** 工单 7.7：成本上限美元值（usage.costUsd 聚合到阈值即熔断；缺省不限） */
   costLimitUsd: z.number().positive().optional(),
+  /** LA-29：token 维度兜底上限（全 token 累计含 cache ≥ 阈值即熔断）——模型未声明
+   *  计价时美元维度恒 0 失效，此兜底保证熔断仍可触发；缺省不限 */
+  costLimitTokens: z.number().int().positive().optional(),
   /** 工单 10.6：推理档位缺省（会话未显式选档时生效；缺省 = 不设置，按 provider 默认） */
   defaultEffort: z.enum(['low', 'medium', 'high']).optional(),
-  /** 可选模型清单（工单 6.5）：选择器级联与设置页模型列表的数据源；defaultModel/compactionModel 自动并入 */
+  /** 可选模型清单（工单 6.5）：选择器级联与设置页模型列表的数据源；defaultModel/compactionModel 自动并入。
+   *  LA-29：计价四率（USD/百万 token，pi-ai 口径）/maxTokens/imageInput 可选声明——
+   *  缺省 = 不计价（toPiModel 落 0）+ 8192 + 纯文本 */
   models: z
     .array(
       z.object({
         provider: z.string().min(1),
         model: z.string().min(1),
         contextWindow: z.number().int().positive(),
+        inputCostPerMtok: z.number().nonnegative().optional(),
+        outputCostPerMtok: z.number().nonnegative().optional(),
+        cacheReadCostPerMtok: z.number().nonnegative().optional(),
+        cacheWriteCostPerMtok: z.number().nonnegative().optional(),
+        maxTokens: z.number().int().positive().optional(),
+        imageInput: z.boolean().optional(),
       }),
     )
     .optional(),
@@ -229,6 +248,15 @@ export interface ModelRef {
   provider: string
   model: string
   contextWindow: number
+  /** LA-29：计价四率（USD/百万 token）——undefined = 未声明，toPiModel 落 0 */
+  inputCostPerMtok?: number
+  outputCostPerMtok?: number
+  cacheReadCostPerMtok?: number
+  cacheWriteCostPerMtok?: number
+  /** 输出 token 上限（undefined = pi 侧 8192 兜底） */
+  maxTokens?: number
+  /** 图像输入能力（true → pi Model.input 含 image；缺省纯文本） */
+  imageInput?: boolean
 }
 
 export interface ModelsConfig {
@@ -254,6 +282,8 @@ export interface ModelsConfig {
   subagentModel: ModelRef
   /** 工单 7.7：成本上限美元值（undefined = 不限） */
   costLimitUsd: number | undefined
+  /** LA-29：token 维度兜底上限（undefined = 不限） */
+  costLimitTokens: number | undefined
   /** 工单 10.6：推理档位缺省（undefined = 不设置，按 provider 默认） */
   defaultEffort: ReasoningEffort | undefined
   /** 显式 models[] + defaultModel/compactionModel 合并去重（provider/model 键） */
@@ -373,8 +403,7 @@ export function loadConfig(dir: string = sparkHome()): EngineConfig {
   // 工单 7.7 路由规范化：titleModel 缺省 compactionModel；subagentModel 缺省 defaultModel；
   // fallback 链条目 contextWindow 缺省补 defaultModel 的值
   const withWindow = (m: { provider: string; model: string; contextWindow?: number | undefined }): ModelRef => ({
-    provider: m.provider,
-    model: m.model,
+    ...m,
     contextWindow: m.contextWindow ?? defaultModel.contextWindow,
   })
   const titleModel = modelsParsed.titleModel
@@ -410,6 +439,7 @@ export function loadConfig(dir: string = sparkHome()): EngineConfig {
     titleModel,
     subagentModel,
     costLimitUsd: modelsParsed.costLimitUsd,
+    costLimitTokens: modelsParsed.costLimitTokens,
     defaultEffort: modelsParsed.defaultEffort,
     models: merged,
   }

@@ -172,6 +172,46 @@ function toPending(c: Extract<ContentItem, { type: 'toolCall' }>): ToolCallPendi
 }
 
 /**
+ * LA-30：悬空 toolCall 闭合——turn 非正常收尾（aborted / 步数上限）时模型已发出的
+ * toolCall 永不执行，不补对则 UI 永远转圈，且下轮 API 请求带无 tool_result 的
+ * tool_use（Anthropic 侧直接拒收）。与 pipeline.emitAbortedPair 同用 E_ABORTED；
+ * 截断保护（stopReason length 的半截调用）仍走原 E_TRUNCATED 分支不动。
+ */
+async function closeDanglingCalls(
+  bus: EventBus,
+  sid: string,
+  turnId: string,
+  calls: ToolCallPending[],
+): Promise<void> {
+  for (const call of calls) {
+    await bus.emit(sid, 'tool.started', {
+      turnId,
+      callId: call.callId,
+      name: call.name,
+      input: call.input,
+    })
+    await bus.emit(sid, 'tool.completed', {
+      turnId,
+      callId: call.callId,
+      output: { code: 'E_ABORTED' },
+      isError: true,
+      durationMs: 0,
+    })
+  }
+  if (calls.length > 0) {
+    await bus.emit(sid, 'assistant.message', {
+      turnId,
+      content: calls.map((c) => ({
+        type: 'toolResult' as const,
+        callId: c.callId,
+        output: { code: 'E_ABORTED' },
+        isError: true,
+      })),
+    })
+  }
+}
+
+/**
  * 会话常驻循环：take 输入 → runTurn → 续跑。
  * 退出路径：输入队列关闭（引擎 shutdown，rt.shutdown()）——挂起的 take reject。
  * runTurn 已自身保证失败闭合；此处 catch 兜底 emit error（started 前失败的形态）。
@@ -332,6 +372,13 @@ export async function runTurn(
             content: result.content,
           })
         }
+        // LA-30：半截 content 若含 toolCall，闭合为 E_ABORTED 对 + toolResult 回喂
+        await closeDanglingCalls(
+          deps.bus,
+          sid,
+          turnId,
+          result.content.filter(isToolCall).map(toPending),
+        )
         finish = 'aborted'
         break
       }
@@ -345,6 +392,13 @@ export async function runTurn(
       })
       // 成本熔断（工单 7.7）：本步产出已定稿落盘，超限即中断（不再执行工具/续步）
       if (deps.budget !== undefined && deps.budget.exceeded()) {
+        // LA-30：本步 assistant.message 若含 toolCall，闭合防悬空（同 aborted 口径）
+        await closeDanglingCalls(
+          deps.bus,
+          sid,
+          turnId,
+          result.content.filter(isToolCall).map(toPending),
+        )
         await deps.bus.emit(sid, 'error', {
           scope: 'engine',
           message: budgetMessage(deps.budget.limitUsd() ?? 0, deps.budget.spendUsd()),
@@ -399,6 +453,8 @@ export async function runTurn(
         break
       }
       if (turn.step >= deps.maxStepsPerTurn) {
+        // LA-30：步数耗尽，本步 calls 不再执行——闭合防悬空（E_ABORTED 口径）
+        await closeDanglingCalls(deps.bus, sid, turnId, calls)
         finish = 'length' // 规格二选一取简单分支（opencode 强制最后一轮模式留 v2）
         break
       }
