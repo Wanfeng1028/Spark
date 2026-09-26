@@ -88,7 +88,7 @@ export function ArchitectureDiagram({ lang = "zh" }: { lang?: Lang }): React.JSX
               </div>
 
               {/* 连接线：最后一层之后不再画 */}
-              {index < LAYERS.length - 1 ? (
+              {index < LAYERS[lang].length - 1 ? (
                 <div
                   aria-hidden="true"
                   className="mx-auto h-8 w-px bg-border"

@@ -312,7 +312,7 @@ export function ProtocolSection({ lang = "zh" }: { lang?: Lang }): React.JSX.Ele
         </BlurFade>
 
         <BlurFade delay={0.08} yOffset={20}>
-          <CodeWindow />
+          <CodeWindow lang={lang} />
         </BlurFade>
       </div>
     </section>

@@ -112,6 +112,8 @@ const SDZ_COPY = {
   },
 } as const;
 
+type SDZCopy = (typeof SDZ_COPY)[Lang];
+
 const EDIT_LINES = [
   { n: 38, c: "export function createBashPool(config: EngineConfig) {" },
   { n: 39, c: "  const pool = new BashPool({" },
@@ -201,7 +203,7 @@ function ApprovalBox({
   copy,
 }: {
   stage: "pending" | "approved";
-  copy: (typeof SDZ_COPY)["zh"];
+  copy: SDZCopy;
 }): React.JSX.Element {
   return (
     <motion.div
@@ -233,7 +235,7 @@ function ApprovalBox({
 }
 
 /** 编辑块——对标 x.ai 演示的 Edit 面板：行号 + 代码（暗色嵌块） */
-function EditBlock({ copy }: { copy: (typeof SDZ_COPY)["zh"] }): React.JSX.Element {
+function EditBlock({ copy }: { copy: SDZCopy }): React.JSX.Element {
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -340,7 +342,7 @@ function CardFooter({ title, view }: { title: string; view: string }): React.JSX
   );
 }
 
-function TerminalCard({ state, copy }: { state: DemoState; copy: (typeof SDZ_COPY)["zh"] }): React.JSX.Element {
+function TerminalCard({ state, copy }: { state: DemoState; copy: SDZCopy }): React.JSX.Element {
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-2xl bg-zinc-950 text-left">
       {/* 标题栏：dots + 项目路径 + 水位进度（x.ai projects/main 14.75% 同构） */}
@@ -451,7 +453,7 @@ function TerminalCard({ state, copy }: { state: DemoState; copy: (typeof SDZ_COP
 }
 
 /** 左卡：会话投影（浅色静态 mock，顶部裁切——x.ai Chat 卡同构） */
-function ChatCard({ copy }: { copy: (typeof SDZ_COPY)["zh"] }): React.JSX.Element {
+function ChatCard({ copy }: { copy: SDZCopy }): React.JSX.Element {
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-2xl bg-zinc-100 text-left">
       <div className="flex flex-1 flex-col gap-3 px-5 pt-0 text-[13px]">
@@ -473,7 +475,7 @@ function ChatCard({ copy }: { copy: (typeof SDZ_COPY)["zh"] }): React.JSX.Elemen
 }
 
 /** 右卡：审批卡（浅色静态 mock，x.ai Bot 卡同位） */
-function ApprovalCard({ copy }: { copy: (typeof SDZ_COPY)["zh"] }): React.JSX.Element {
+function ApprovalCard({ copy }: { copy: SDZCopy }): React.JSX.Element {
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-2xl bg-zinc-100 text-left">
       <div className="flex flex-1 flex-col justify-center gap-3 px-5 pt-2 text-[13px]">
