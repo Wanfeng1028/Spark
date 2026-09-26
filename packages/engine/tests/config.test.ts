@@ -263,7 +263,7 @@ describe('spark.json engine/hooks 段单一来源（工单 R-B.4：复用 @spark
         toolOutputLimitKB: 8,
         compactionThreshold: 0.25,
         checkpoints: false,
-        bashSandbox: 'on',
+        bashSandbox: 'light',
         computerUseEnabled: true,
         bashPersistent: false,
       },
@@ -279,7 +279,7 @@ describe('spark.json engine/hooks 段单一来源（工单 R-B.4：复用 @spark
       toolOutputLimitKB: 8,
       compactionThreshold: 0.25,
       checkpoints: false,
-      bashSandbox: 'on',
+      bashSandbox: 'light',
       computerUseEnabled: true,
       bashPersistent: false,
     })
