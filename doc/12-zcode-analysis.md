@@ -11,6 +11,7 @@
 | --- | --- | --- | --- |
 | v1.0 | 2026-09-26 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"参考项目中加入 ZCode，质谱的开源版本，你去分析一下源码"指令） | 初稿：三路并行调研合并——架构/循环/工具/上下文/权限/协议/MCP/hooks/亮点。与 AGENTS v1.65、doc/01 v2.0（§10 #12 行）、doc/02 v4.136 同批 |
 | v1.1 | 2026-09-26 | 同上 | 第三路调研（UI/亮点/可借鉴）完成合并——新增 §10 UI 渲染（OpenTUI 非 Ink/streamProjected 标记/workflow 镜像三纪律）、§10.2 桌面五进程面（VS Code 同款 RPC）、§10.3 远程三后端（协议差异为零）、§11 亮点功能七项（Stream Recovery/Steer Queue CAS/Checkpoint git 隐藏提交/Microcompact/Memory/formal-proof/CUA 占位）、§12 TOP 10 终版（三路合并取代初版 5 条） |
+| v1.2 | 2026-09-26 | 同上 | 分析产出转工单：明确可做 ZC-1~4 直入 doc/02 §8 工单池（微压缩/alwaysAsk/输出续写/resolveInput 归一）；ZC-Q1~Q4 待晚风拍板（Stream Recovery/Checkpoint git 隐藏提交/多端 CAS/fig 注册表）；ZC-N1~N3 判决不做（JSONL→SQLite/Vercel AI SDK/OpenTUI）。与 doc/02 v4.137、doc/08 v2.01 同批 |
 
 ---
 
