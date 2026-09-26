@@ -2510,13 +2510,15 @@ export class Engine {
       onDanglingAnchor: (anchorId) => {
         this.logger.warn('projector.dangling_anchor', { sid: meta.id, anchorId })
       },
-      // 工单 12.2b：附件读盘 → image 内容块（读不到/非图片如实跳过）
+      // 工单 12.2b：附件读盘 → image 内容块（读不到/非图片如实跳过）。
+      // LA-32：resolveInRoot 硬边界——file 来自 durable 事件可含 ../，词法 join
+      // 拼接可越出附件目录读任意图片文件（扩展名白名单拦不住路径分量）
       attachmentReader: (file) => {
         const ext = file.split('.').pop() ?? ''
         const mime = ({ png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' })[ext]
         if (mime === undefined) return undefined
         try {
-          return { mime, bytes: readFileSync(join(attachmentsDir(this.root), file)) }
+          return { mime, bytes: readFileSync(resolveInRoot(attachmentsDir(this.root), file)) }
         } catch {
           return undefined
         }
