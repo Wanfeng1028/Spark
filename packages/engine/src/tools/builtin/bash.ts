@@ -28,7 +28,7 @@ import { resolveInRoot } from '../definition.js'
 import { resolveSandboxWrapper, wrapperAvailable } from '../sandbox.js'
 import type { BashSandboxMode } from '../sandbox.js'
 import { sandboxProxyEnv, sandboxProxyExportLine } from '../../sandbox/network-env.js'
-import { BashShellPool } from '../bash-pool.js'
+import { BashShellPool, COLLECT_TRUNCATION_MARK } from '../bash-pool.js'
 import type { ShellPoolOpts } from '../bash-pool.js'
 
 const PROGRESS_CHUNK_BYTES = 16 * 1024
@@ -122,6 +122,8 @@ export interface BashToolOptions {
   /** 常驻池（测试注入；缺省按 poolOpts 构造——maxEntries 8 / idleMs 10 分钟） */
   pool?: BashShellPool
   poolOpts?: Partial<ShellPoolOpts>
+  /** 池引用回调（LA-16：引擎 shutdown 排水）——构造期调用一次（persistent 未开时为 null） */
+  onPool?: (pool: BashShellPool | null) => void
   /** 测试注入：wrapper 可用性探测替换（缺省真实探测 command -v） */
   isWrapperAvailable?: (file: string) => boolean
 }
@@ -135,8 +137,16 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
   const pool =
     opts.pool ??
     (opts.persistent !== undefined
-      ? new BashShellPool({ maxEntries: opts.poolOpts?.maxEntries ?? 8, idleMs: opts.poolOpts?.idleMs ?? 600_000, now: Date.now })
+      ? new BashShellPool({
+          maxEntries: opts.poolOpts?.maxEntries ?? 8,
+          idleMs: opts.poolOpts?.idleMs ?? 600_000,
+          now: Date.now,
+          ...(opts.poolOpts?.collectCapChars !== undefined
+            ? { collectCapChars: opts.poolOpts.collectCapChars }
+            : {}),
+        })
       : null)
+  opts.onPool?.(pool)
   return {
     name: 'bash',
     description:
@@ -181,26 +191,29 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
 
       // 常驻路径（19.3 / ADR D45）：POSIX bash + 主开关开 + 沙箱关。
       // 沙箱 'on' 时沙箱路径优先（wrapper 包常驻 shell 属 19.6，v1 不混用）。
+      // LA-16：主开关关闭后的排水——关闭后该会话的下一条命令顺手回收常驻 shell
+      if (pool !== null && !persistentOn && pool.has(ctx.sessionId)) {
+        pool.drop(ctx.sessionId)
+      }
+      // 常驻路径（19.3 / ADR D45）：POSIX bash + 主开关开 + 沙箱关。
+      // 沙箱 'on' 时沙箱路径优先（wrapper 包常驻 shell 属 19.6，v1 不混用）。
       if (persistentOn && opts.sandbox === 'off') {
         // 隔离档逐命令前缀 export（不依赖 shell 创建时的环境——常驻 shell 跨调用
         // 保持环境，创建时注入会在模式热切换后 fail-open）
         const command = proxyPort !== null ? `${sandboxProxyExportLine(proxyPort)}\n${input.command}` : input.command
         // cwd 语义（D45）：显式 cwd 才切目录；无 cwd = 保持常驻 shell 当前位置
         //（命令内 cd 跨调用保持——常驻的核心价值），不强制拉回会话根
-        const result = await pool.run(
-          ctx.sessionId,
-          shell.file,
+        const result = await pool.run(ctx.sessionId, {
+          file: shell.file,
           command,
-          input.cwd !== undefined ? workDir : null,
+          spawnCwd: ctx.cwd,
+          changeTo: input.cwd !== undefined ? workDir : null,
           timeoutMs,
-          ctx.signal,
-          ctx.onProgress,
-        )
-        // 收集上限与独立 shell 同口径（超限截断 + 标记）
-        const capChars = (ctx.outputLimitBytes ?? 32 * 1024) * 4
-        let output = result.output
-        if (output.length > capChars) {
-          output = output.slice(0, capChars) + '\n[输出超过收集上限，已截断]\n'
+          signal: ctx.signal,
+          onOutput: ctx.onProgress,
+          maxOutputChars: (ctx.outputLimitBytes ?? 32 * 1024) * 4,
+        })
+        // LA-14：收集上限由池执行期生效（超限截断 + 同源标记），不再事后切片
         }
         if (result.aborted) {
           return { output: { code: 'E_ABORTED', output }, isError: true }

@@ -89,6 +89,7 @@ import { ArenaStore } from './arena/store.js'
 import type { FolderTrust, TrustDoc } from './trust.js'
 import { transcribeAudio } from './voice/transcriber.js'
 import type { RunLoopDeps } from './run-loop.js'
+import type { BashShellPool } from './tools/bash-pool.js'
 import { PermissionServiceImpl } from './permission/service.js'
 import type { ProjectLayer } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
@@ -200,6 +201,7 @@ export class Engine {
   private readonly newSessionId: () => SessionId
   private readonly bus: EventBus
   private readonly gateway: LlmGateway
+  private readonly bashPool: BashShellPool | null = null
   private readonly permission: PermissionServiceImpl
   /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
   private readonly ruleStore: UserRuleStore
@@ -527,6 +529,10 @@ export class Engine {
       bashSandbox: this.config.spark.engine.bashSandbox,
       // bash 常驻会话（阶段十九 19.3 / ADR D45）：getter 执行期读，主开关热档
       bashPersistent: () => this.config.spark.engine.bashPersistent,
+      // LA-16：池引用回调——shutdown 排水用
+      onPool: (pool) => {
+        this.bashPool = pool
+      },
       // 沙箱网络隔离（阶段十九 19.7 / ADR D50）：getter 执行期读（热档）
       networkIsolation: () => ({
         enabled: this.config.spark.sandbox?.network?.mode === 'allowlist',
@@ -2406,6 +2412,8 @@ export class Engine {
       await this.permission.dispose()
       // 4.5) MCP 子进程关闭（工具已随 run-loop 退出不再调用）
       await this.mcp.close()
+      // 4.6) bash 常驻池排水（LA-16：shutdown 不留孤儿 shell）
+      this.bashPool?.drain()
       // 5) 全量 flush + close（fsync）
       for (const entry of this.sessions.values()) {
         await entry.store.close()
