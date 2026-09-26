@@ -44,9 +44,11 @@ function writeSession(
     data: { title: '标题' },
     parentId: null,
   }
-  const body = opts.broken
-    ? [JSON.stringify(header), '{"broken":'].join('\n') + '\n'
-    : [JSON.stringify(header), JSON.stringify(event)].join('\n') + '\n'
+  // 坏行放中间（非尾行）——尾行坏会被 AUD-10 容错吞掉，不触发 fail-closed 拒载
+  const lines = opts.broken
+    ? [JSON.stringify(header), '{"broken":', JSON.stringify(event)]
+    : [JSON.stringify(header), JSON.stringify(event)]
+  const body = lines.join('\n') + '\n'
   writeFileSync(join(dirPath, file), body, 'utf8')
   return join(dirPath, file)
 }

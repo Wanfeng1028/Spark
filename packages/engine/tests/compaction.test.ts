@@ -268,7 +268,8 @@ describe('失败语义', () => {
     await f.bus.emit(SID, 'user.message', { text: '问题' })
     const before = f.projector.modelContext()
     // 不 scriptOnce → E_SCRIPTED_EXHAUSTED
-    await expect(f.compactor.compact()).resolves.toBeUndefined()
+    // LA-39：compact() 返 boolean——false = 失败（原 undefined 语义随返回值扩展更新）
+    await expect(f.compactor.compact()).resolves.toBe(false)
 
     expect(typesOf(f)).toContain('compaction.started')
     expect(typesOf(f)).not.toContain('compaction.completed')
