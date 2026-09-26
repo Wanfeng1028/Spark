@@ -179,8 +179,8 @@ function toPending(c: Extract<ContentItem, { type: 'toolCall' }>): ToolCallPendi
  */
 async function closeDanglingCalls(
   bus: EventBus,
-  sid: string,
-  turnId: string,
+  sid: SessionId,
+  turnId: TurnId,
   calls: ToolCallPending[],
 ): Promise<void> {
   for (const call of calls) {

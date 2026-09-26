@@ -249,14 +249,14 @@ export interface ModelRef {
   model: string
   contextWindow: number
   /** LA-29：计价四率（USD/百万 token）——undefined = 未声明，toPiModel 落 0 */
-  inputCostPerMtok?: number
-  outputCostPerMtok?: number
-  cacheReadCostPerMtok?: number
-  cacheWriteCostPerMtok?: number
+  inputCostPerMtok?: number | undefined
+  outputCostPerMtok?: number | undefined
+  cacheReadCostPerMtok?: number | undefined
+  cacheWriteCostPerMtok?: number | undefined
   /** 输出 token 上限（undefined = pi 侧 8192 兜底） */
-  maxTokens?: number
+  maxTokens?: number | undefined
   /** 图像输入能力（true → pi Model.input 含 image；缺省纯文本） */
-  imageInput?: boolean
+  imageInput?: boolean | undefined
 }
 
 export interface ModelsConfig {
