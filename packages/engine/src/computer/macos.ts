@@ -218,30 +218,30 @@ export class MacComputerExecutor implements ComputerExecutor {
   }
 }
 
-/** AppleScript 列表输出的宽容解析（未匹配到条目返回空） */
-function parseAppleList(stdout: string): ComputerWindowInfo[] {
-  const text = stdout.trim()
-  if (text === '' || text === '{}') return []
-  const windows: ComputerWindowInfo[] = []
-  const rows = text.split('}, {')
-  for (const rowRaw of rows) {
-    const row = rowRaw.replace(/^\{|\}$/g, '')
-    const cells = row.split(', ').map((c) => c.trim())
+/** AppleScript 行式输出的字段分隔符（0x1F 单元分隔符——标题/应用名里不会出现） */
+export const APPLE_FIELD_SEP = '\u001f'
+
+/** 逐进程行输出的宽容解析（行 = 名称<sep>pid<sep>标题；空行跳过；pid 非数字归 0） */
+export function parseAppleList(stdout: string): ComputerWindowInfo[] {
+  const out: ComputerWindowInfo[] = []
+  for (const rowRaw of stdout.split('\n')) {
+    const row = rowRaw.replace(/\r$/, '').trim()
+    if (row === '') continue
+    const cells = row.split(APPLE_FIELD_SEP)
     if (cells.length < 3) continue
     const pid = Number.parseInt(cells[1] ?? '', 10)
-    windows.push({ name: cells[0] ?? '', pid: Number.isNaN(pid) ? 0 : pid, title: cells[2] ?? '' })
+    out.push({ name: cells[0] ?? '', pid: Number.isNaN(pid) ? 0 : pid, title: cells[2] ?? '' })
   }
-  return windows
+  return out
 }
 
-function parsePairs(stdout: string): ComputerAppInfo[] {
-  const text = stdout.trim()
-  if (text === '' || text === '{}') return []
-  const rows = text.split('}, {')
+/** app 清单行解析（行 = 名称<sep>pid） */
+export function parsePairs(stdout: string): ComputerAppInfo[] {
   const apps: ComputerAppInfo[] = []
-  for (const rowRaw of rows) {
-    const row = rowRaw.replace(/^\{|\}$/g, '')
-    const cells = row.split(', ').map((c) => c.trim())
+  for (const rowRaw of stdout.split('\n')) {
+    const row = rowRaw.replace(/\r$/, '').trim()
+    if (row === '') continue
+    const cells = row.split(APPLE_FIELD_SEP)
     if (cells.length < 2) continue
     const pid = Number.parseInt(cells[1] ?? '', 10)
     apps.push({ pid: Number.isNaN(pid) ? 0 : pid, name: cells[0] ?? '' })
