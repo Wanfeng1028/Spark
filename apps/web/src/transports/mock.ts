@@ -1297,7 +1297,7 @@ export class MockTransport implements Transport {
    *  白名单外如实拒；桶内条目为演示形态，回执计数为演示值 */
   storageCleanup(bucket: string): Promise<StorageCleanupDto> {
     this.assertNotDisposed()
-    const cleanable = ['sessions/checkpoints', 'toolOutputs', 'browser-shots', 'trash']
+    const cleanable = ['sessions/checkpoints', 'tool-outputs', 'browser-shots', 'trash']
     if (!cleanable.includes(bucket)) {
       return Promise.reject(new Error(`E_STORAGE_UNCLEANABLE: 桶 ${bucket} 不可清理`))
     }

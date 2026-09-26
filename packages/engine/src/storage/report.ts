@@ -66,7 +66,7 @@ export const CHECKPOINT_BUCKET = 'sessions/checkpoints'
  */
 export const CLEANABLE_BUCKETS: readonly string[] = [
   CHECKPOINT_BUCKET,
-  'toolOutputs',
+  'tool-outputs', // 磁盘名（SPARK_DIR.toolOutputs）——白名单键 = 目录发现名
   'browser-shots',
   'trash',
 ]

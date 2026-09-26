@@ -46,12 +46,12 @@ describe('cleanupBucket（19.37 第三批：§2.10 trash 纪律）', () => {
 
   test('toolOutputs 清理 = 移入 trash/toolOutputs（可找回），原件消失', async () => {
     const root = makeRoot('spark-mnt-')
-    put(root, 'toolOutputs/abc.bin', 'x'.repeat(100))
-    const r = await cleanupBucket(root, 'toolOutputs')
-    expect(r).toMatchObject({ bucket: 'toolOutputs', moved: 1, failed: 0, permanent: false })
-    expect(existsSync(join(root, 'toolOutputs', 'abc.bin'))).toBe(false)
+    put(root, 'tool-outputs/abc.bin', 'x'.repeat(100))
+    const r = await cleanupBucket(root, 'tool-outputs')
+    expect(r).toMatchObject({ bucket: 'tool-outputs', moved: 1, failed: 0, permanent: false })
+    expect(existsSync(join(root, 'tool-outputs', 'abc.bin'))).toBe(false)
     const trashDir = sparkDir(root, 'trash')
-    expect(existsSync(join(trashDir, 'toolOutputs'))).toBe(true)
+    expect(existsSync(join(trashDir, 'tool-outputs'))).toBe(true)
     // 白名单一致性：四个可清理桶
     expect(CLEANABLE_BUCKETS).toContain('trash')
   })

@@ -97,7 +97,7 @@ export async function cleanupBucket(
   let entries: string[] = []
   if (bucket === 'sessions/checkpoints') {
     entries = await listCheckpointDirs(sparkDir(root, 'sessions'))
-  } else if (bucket === 'toolOutputs') {
+  } else if (bucket === 'tool-outputs') {
     entries = await listEntries(sparkDir(root, 'toolOutputs'))
   } else if (bucket === 'browser-shots') {
     entries = await listEntries(sparkDir(root, 'browserShots'))
