@@ -203,7 +203,7 @@ describe('mergePrefixSlice 合并规则逐字段（19.42 A 验收④）', () => 
     const m = mergePrefixSlice(P, E)
     expect(m.items.map((i) => (i as { text: string }).text)).toEqual(['p', 'e'])
     expect(m.lastSeq).toBe(20)
-    expect(m.usageTotal).toEqual({ inputTokens: 130, outputTokens: 120 })
+    expect(m.usageTotal).toEqual({ inputTokens: 130, outputTokens: 120, reasoningTokens: 0, cacheRead: 0, cacheWrite: 0, costUsd: 0 })
   })
 
   it('meta 非缺省者胜 + createdAt 取 min + updatedAt 取 max + branch/effort 缺省回退', () => {
