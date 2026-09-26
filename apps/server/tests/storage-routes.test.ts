@@ -36,8 +36,7 @@ describe('GET /api/storage/report（19.37 第二批）', () => {
 
   test('清理（19.37 第三批）：白名单外桶 400 E_STORAGE_UNCLEANABLE；trash 桶永久清空', async () => {
     const server = await makeServer()
-    writeFileSync(join(server.root, 'trash', 'junk.jsonl'), '{}
-')
+    writeFileSync(join(server.root, 'trash', 'junk.jsonl'), '{}\n')
 
     const bad = await server.app.inject({
       method: 'POST',
