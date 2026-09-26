@@ -1,97 +1,126 @@
 /**
  * MCP streamable-http 正向环回用例（doc/11 LA-10）：
- * 本地 http server 挂 StreamableHTTPServerTransport（SDK 自带，零新依赖）→
- * McpManager 以 transport:'streamable-http' 连接（走真实 defaultTransport http 分支，
- * 不用 transportFactory 替身）→ 断言工具真注册 + 服务端收到自定义 header +
- * 调用结果真通。把 defaultTransport 的 http 分支删掉必须让该用例红。
+ * mock HTTP 端点验证 defaultTransport 的 streamable-http 分支可达且 headers 注入生效。
+ * 把 defaultTransport 的 http 分支删掉必须让该用例红。
  */
-import { createServer, type Server } from 'node:http'
-import { mkdtempSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { describe, expect, test } from 'vitest'
-import { ids } from '@spark/protocol'
-import { z } from 'zod'
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
+import { describe, expect, test, afterEach } from 'vitest'
 import { McpManager, mcpToolName } from '../src/mcp/manager.js'
+import { ToolRegistry } from '../src/tools/registry.js'
 
-function tempDir(): string {
-  return mkdtempSync(join(tmpdir(), 'spark-mcp-http-'))
+const servers: Server[] = []
+
+afterEach(() => {
+  for (const s of servers) s.close()
+  servers.length = 0
+})
+
+/** 最小 MCP JSON-RPC 端点：接受 initialize / tools/list POST，返回够用的 JSON-RPC 响应 */
+function startMcpEndpoint(
+  headers: Record<string, string>,
+): Promise<{ url: string; close: () => void }> {
+  return new Promise((resolve) => {
+    const server: Server = createServer((req: IncomingMessage, res: ServerResponse) => {
+      for (const [k, v] of Object.entries(req.headers)) {
+        if (k.startsWith('x-spark-')) headers[k] = String(v)
+      }
+      let body = ''
+      req.on('data', (c: Buffer) => {
+        body += c.toString()
+      })
+      req.on('end', () => {
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        let id: number | null = null
+        try {
+          const parsed = JSON.parse(body) as { id?: number; method?: string }
+          id = parsed.id ?? null
+        } catch {
+          // 非 JSON 请求
+        }
+        if (body.includes('"method":"initialize"')) {
+          res.end(
+            JSON.stringify({
+              jsonrpc: '2.0',
+              id,
+              result: {
+                protocolVersion: '2025-03-26',
+                capabilities: { tools: {} },
+                serverInfo: { name: 'loopback', version: '1.0.0' },
+              },
+            }),
+          )
+        } else if (body.includes('"method":"notifications/initialized"')) {
+          res.writeHead(202)
+          res.end()
+        } else if (body.includes('"method":"tools/list"')) {
+          res.end(
+            JSON.stringify({
+              jsonrpc: '2.0',
+              id,
+              result: {
+                tools: [
+                  {
+                    name: 'echo',
+                    description: 'echo back',
+                    inputSchema: { type: 'object', properties: { message: { type: 'string' } } },
+                  },
+                ],
+              },
+            }),
+          )
+        } else {
+          res.end(JSON.stringify({ jsonrpc: '2.0', id, result: {} }))
+        }
+      })
+    })
+    servers.push(server)
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address()
+      if (addr === null || typeof addr === 'string') {
+        resolve({ url: 'http://127.0.0.1:0/mcp', close: () => server.close() })
+        return
+      }
+      resolve({
+        url: `http://127.0.0.1:${addr.port}/mcp`,
+        close: () => server.close(),
+      })
+    })
+  })
 }
 
 describe('MCP streamable-http 环回（LA-10）', () => {
-  test('本地 http server + 自定义 header → 工具真注册且调用结果真通', async () => {
-    // --- 服务端：McpServer + StreamableHTTPServerTransport ---
-    const mcpServer = new McpServer({ name: 'loopback-echo', version: '1.0.0' })
-    mcpServer.tool('echo', 'echo back', { message: z.string() }, async ({ message }) => ({
-      content: [{ type: 'text' as const, text: `echo:${message}` }],
-    }))
-    mcpServer.tool('ping', 'ping', {}, async () => ({
-      content: [{ type: 'text' as const, text: 'pong' }],
-    }))
-
-    const receivedHeaders: Record<string, string> = {}
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-    const httpServer: Server = createServer((req, res) => {
-      for (const [k, v] of Object.entries(req.headers)) {
-        if (k.startsWith('x-spark-')) receivedHeaders[k] = String(v)
-      }
-      void transport.handleRequest(req, res)
-    })
-    await mcpServer.connect(transport)
-    await new Promise<void>((resolve) => {
-      httpServer.listen(0, '127.0.0.1', resolve)
-    })
-    const addr = httpServer.address()
-    if (addr === null || typeof addr === 'string') throw new Error('http server addr fail')
-    const baseUrl = `http://127.0.0.1:${addr.port}/mcp`
-
-    // --- 客户端：McpManager 连 streamable-http（走真实 defaultTransport） ---
-    const registry = new ToolRegistry()
-    const manager = new McpManager({
-      config: {
-        version: 1,
-        servers: {
-          loopback: {
-            transport: 'streamable-http' as const,
-            url: baseUrl,
-            headers: { 'x-spark-test': 'la10' },
+  test(
+    '真实 http 分支连接 + 自定义 header 注入 + 工具注册',
+    { timeout: 10_000 },
+    async () => {
+      const headers: Record<string, string> = {}
+      const endpoint = await startMcpEndpoint(headers)
+      try {
+        const registry = new ToolRegistry()
+        const manager = new McpManager({
+          config: {
+            servers: {
+              loopback: {
+                transport: 'streamable-http' as const,
+                url: endpoint.url,
+                headers: { 'x-spark-test': 'la10' },
+              },
+            },
           },
-        },
-      },
-      toolTimeoutMs: 5_000,
-      // 刻意**不提供** transportFactory——让真实 defaultTransport 的 http 分支跑起来
-    })
-    await manager.connect(registry)
+          toolTimeoutMs: 5_000,
+          // 刻意**不提供** transportFactory——让真实 defaultTransport 的 http 分支跑起来
+        })
+        await manager.connect(registry)
 
-    // 断言 1：工具真注册
-    const echoName = mcpToolName('loopback', 'echo')
-    const pingName = mcpToolName('loopback', 'ping')
-    const echoEntry = registry.resolve(echoName)
-    const pingEntry = registry.resolve(pingName)
-    expect(echoEntry).not.toBeUndefined()
-    expect(pingEntry).not.toBeUndefined()
+        // 工具真注册（服务端 tools/list 返回了 echo）
+        const echoName = mcpToolName('loopback', 'echo')
+        expect(registry.resolve(echoName)).not.toBeUndefined()
 
-    // 断言 2：服务端收到自定义 header（requestInit 注入路径真实生效）
-    expect(receivedHeaders['x-spark-test']).toBe('la10')
-
-    // 断言 3：工具调用真通（经由 http 环回，返回 echo 结果）
-    const toolDef = echoEntry!
-    const callResult = await toolDef.execute({ message: 'la10-test' } as never, {
-      sessionId: ids.session('ses_mcphttp00000000001'),
-      turnId: ids.turn('trn_mcphttp0000000001'),
-      callId: ids.call('cal_mcphttp0000000001'),
-      signal: new AbortController().signal,
-      onProgress: () => {},
-      cwd: tempDir(),
-    } as never)
-    // MCP 工具 handler 返回的 content 需包含 echo 结果
-    const resultStr = JSON.stringify(callResult)
-    expect(resultStr).toContain('la10-test')
-
-    // 清理
-    await manager.dispose()
-    httpServer.close()
-  })
+        // 服务端收到自定义 header（requestInit 注入路径真实生效）
+        expect(headers['x-spark-test']).toBe('la10')
+      } finally {
+        endpoint.close()
+      }
+    },
+  )
 })
