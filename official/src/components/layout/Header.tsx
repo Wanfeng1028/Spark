@@ -4,10 +4,59 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, ChevronDown, Github, Menu, X } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Github, Languages, Menu, X } from "lucide-react";
 import { NAV_ITEMS, LINKS } from "@/lib/constants";
+import { localePath, type Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
+
+/** Header 界面文案对（19.47 批 2：显式键，漏译在类型上可见） */
+const HEADER_COPY = {
+  zh: {
+    products: "产品",
+    shapes: "形态",
+    viewAll: "查看全部能力",
+    quickstart: "快速上手",
+    gettingStarted: "开始",
+    docs: "开发者文档",
+    source: "源码",
+    repo: "GitHub 仓库",
+    mainNav: "主导航",
+    mobileNav: "移动端导航",
+    openMenu: "打开菜单",
+    closeMenu: "关闭菜单",
+    productGroup: "产品",
+    mobileItems: [
+      { label: "Web 工作台", desc: "React 19 SPA，只消费事件流" },
+      { label: "Desktop 壳", desc: "Electron 壳，sidecar 复用同一引擎" },
+      { label: "CLI TUI", desc: "Ink 7 终端，纯单栏转录流" },
+      { label: "移动端与小程序", desc: "Expo + RN 配对即连；Taro 同源" },
+    ],
+    langSwitch: "切换到英文",
+  },
+  en: {
+    products: "Product",
+    shapes: "Surfaces",
+    viewAll: "View all capabilities",
+    quickstart: "Get Started",
+    gettingStarted: "Start",
+    docs: "Developer docs",
+    source: "Source",
+    repo: "GitHub repository",
+    mainNav: "Main navigation",
+    mobileNav: "Mobile navigation",
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
+    productGroup: "Product",
+    mobileItems: [
+      { label: "Web Workbench", desc: "React 19 SPA, a pure consumer of the event stream" },
+      { label: "Desktop Shell", desc: "Electron shell reusing the same engine via sidecar" },
+      { label: "CLI TUI", desc: "Ink 7 terminal, single-column transcript" },
+      { label: "Mobile & Mini App", desc: "Expo + RN with pairing; Taro shares the core" },
+    ],
+    langSwitch: "切换到中文",
+  },
+} as const;
 
 /** 判断是否为外部链接 */
 function isExternal(href: string): boolean {
@@ -154,14 +203,17 @@ function NavDropdown({ label, groups, footer, align = "left", triggerClassName }
 }
 
 /** 移动端可展开分组（x.ai 实拍同构：条目带一句描述，chevron 翻转） */
-function MobileAccordion({ onClose }: { onClose: () => void }): React.JSX.Element {
+function MobileAccordion({
+  onClose,
+  lang,
+  featuresHref,
+}: {
+  onClose: () => void;
+  lang: Lang;
+  featuresHref: string;
+}): React.JSX.Element {
   const [open, setOpen] = React.useState(false);
-  const items = [
-    { label: "Web 工作台", desc: "React 19 SPA，只消费事件流" },
-    { label: "Desktop 壳", desc: "Electron 壳，sidecar 复用同一引擎" },
-    { label: "CLI TUI", desc: "Ink 7 终端，纯单栏转录流" },
-    { label: "移动端与小程序", desc: "Expo + RN 配对即连；Taro 同源" },
-  ] as const;
+  const copy = HEADER_COPY[lang];
 
   return (
     <div className="border-b border-zinc-100">
@@ -171,7 +223,7 @@ function MobileAccordion({ onClose }: { onClose: () => void }): React.JSX.Elemen
         onClick={() => setOpen((prev) => !prev)}
         className="flex w-full items-center justify-between py-4 text-left text-xl text-zinc-900"
       >
-        产品
+        {copy.productGroup}
         <ChevronDown
           aria-hidden="true"
           className={cn("h-4 w-4 text-zinc-400 transition-transform duration-200", open && "rotate-180")}
@@ -187,10 +239,10 @@ function MobileAccordion({ onClose }: { onClose: () => void }): React.JSX.Elemen
             className="overflow-hidden"
           >
             <div className="flex flex-col gap-4 pb-5 pl-4">
-              {items.map((item) => (
+              {copy.mobileItems.map((item) => (
                 <Link
                   key={item.label}
-                  href="/features"
+                  href={featuresHref}
                   onClick={onClose}
                   className="block"
                 >
@@ -210,6 +262,13 @@ const Header: React.FC = () => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const menuButtonRef = React.useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
+  /** 语言随路径自动判定（/en 前缀 = 英文页），root layout 里的 Header 无需逐页传 prop */
+  const lang: Lang = pathname.startsWith("/en") ? "en" : "zh";
+  const copy = HEADER_COPY[lang];
+  /** 内部链接加语言前缀（en 页 → /en/...；外链不包） */
+  const p = (path: string) => (isExternal(path) ? path : localePath(lang, path));
+  /** 语言切换目标：zh 页 → EN，en 页 → 中文 */
+  const otherLang: Lang = lang === "zh" ? "en" : "zh";
 
   /* Bug#6.1: 路由变化时关闭移动菜单 */
   React.useEffect(() => {
@@ -266,7 +325,7 @@ const Header: React.FC = () => {
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
         {/* Logo — 纯文字，不用图片；点击关闭移动菜单 */}
         <Link
-          href="/"
+          href={p("/")}
           className="text-base font-semibold tracking-tight text-foreground"
           onClick={() => setMobileOpen(false)}
         >
@@ -274,21 +333,16 @@ const Header: React.FC = () => {
         </Link>
 
         {/* 桌面端导航：普通链接 + 下拉菜单（产品） */}
-        <nav className="hidden items-center gap-6 md:flex" aria-label="主导航">
+        <nav className="hidden items-center gap-6 md:flex" aria-label={copy.mainNav}>
           <NavDropdown
-            label="产品"
+            label={copy.products}
             groups={[
               {
-                label: "形态",
-                items: [
-                  { label: "Web 工作台", href: "/features" },
-                  { label: "Desktop 壳", href: "/features" },
-                  { label: "CLI TUI", href: "/features" },
-                  { label: "移动端与小程序", href: "/features" },
-                ],
+                label: copy.shapes,
+                items: copy.mobileItems.map((item) => ({ label: item.label, href: p("/features") })),
               },
             ]}
-            footer={{ label: "查看全部能力", href: "/features" }}
+            footer={{ label: copy.viewAll, href: p("/features") }}
           />
           {NAV_ITEMS.filter((item) => item.label !== "Features").map((item) =>
             isExternal(item.href) ? (
@@ -304,7 +358,7 @@ const Header: React.FC = () => {
             ) : (
               <Link
                 key={item.href}
-                href={item.href}
+                href={p(item.href)}
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 {item.label}
@@ -316,21 +370,21 @@ const Header: React.FC = () => {
         {/* 右侧操作区：黑色胶囊 CTA 带 ▾ 下拉（x.ai "Try for free ⌄" 同构）+ GitHub 图标 */}
         <div className="flex items-center gap-1">
           <NavDropdown
-            label="快速上手"
+            label={copy.quickstart}
             align="right"
             triggerClassName="rounded-full bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-800 hover:text-white mr-1"
             groups={[
               {
-                label: "开始",
+                label: copy.gettingStarted,
                 items: [
-                  { label: "快速上手", href: "/quickstart" },
-                  { label: "开发者文档", href: LINKS.docs, external: true },
+                  { label: copy.quickstart, href: p("/quickstart") },
+                  { label: copy.docs, href: LINKS.docs, external: true },
                 ],
               },
               {
-                label: "源码",
+                label: copy.source,
                 items: [
-                  { label: "GitHub 仓库", href: LINKS.github, external: true },
+                  { label: copy.repo, href: LINKS.github, external: true },
                   {
                     label: "CHANGELOG",
                     href: `${LINKS.github}/blob/main/CHANGELOG.md`,
@@ -341,12 +395,23 @@ const Header: React.FC = () => {
             ]}
           />
 
+          {/* 语言切换（19.47 批 2）：显示目标语言，按当前路径对跳 */}
+          <Link
+            href={localePath(otherLang, pathname)}
+            aria-label={copy.langSwitch}
+            title={copy.langSwitch}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Languages className="h-4 w-4" aria-hidden="true" />
+            {otherLang === "en" ? "EN" : "中文"}
+          </Link>
+
           {/* GitHub 图标链接 */}
           <a
             href={LINKS.github}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="GitHub 仓库"
+            aria-label={copy.repo}
             className={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
           >
             <Github className="h-4 w-4" aria-hidden="true" />
@@ -358,7 +423,7 @@ const Header: React.FC = () => {
             variant="ghost"
             size="icon"
             className="rounded-full bg-zinc-100 md:hidden"
-            aria-label={mobileOpen ? "关闭菜单" : "打开菜单"}
+            aria-label={mobileOpen ? copy.closeMenu : copy.openMenu}
             aria-expanded={mobileOpen}
             aria-controls={MOBILE_MENU_ID}
             onClick={() => setMobileOpen((prev) => !prev)}
@@ -386,7 +451,7 @@ const Header: React.FC = () => {
           >
             <div className="flex h-14 items-center justify-between px-6">
               <Link
-                href="/"
+                href={p("/")}
                 onClick={handleClose}
                 className="text-base font-semibold tracking-tight text-foreground"
               >
@@ -396,15 +461,15 @@ const Header: React.FC = () => {
                 variant="ghost"
                 size="icon"
                 className="rounded-full bg-zinc-100"
-                aria-label="关闭菜单"
+                aria-label={copy.closeMenu}
                 onClick={handleClose}
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
 
-            <nav aria-label="移动端导航" className="flex-1 overflow-y-auto px-6 pt-2">
-              <MobileAccordion onClose={handleClose} />
+            <nav aria-label={copy.mobileNav} className="flex-1 overflow-y-auto px-6 pt-2">
+              <MobileAccordion onClose={handleClose} lang={lang} featuresHref={p("/features")} />
               {NAV_ITEMS.map((item) =>
                 isExternal(item.href) ? (
                   <a
@@ -420,7 +485,7 @@ const Header: React.FC = () => {
                 ) : (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={p(item.href)}
                     onClick={handleClose}
                     className="block border-b border-zinc-100 py-4 text-xl text-zinc-900"
                   >
@@ -432,11 +497,11 @@ const Header: React.FC = () => {
 
             <div className="px-6 pb-8 pt-4">
               <Link
-                href="/quickstart"
+                href={p("/quickstart")}
                 onClick={handleClose}
                 className={cn(buttonVariants({ size: "lg" }), "w-full rounded-full")}
               >
-                快速上手
+                {copy.quickstart}
               </Link>
               <p className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-400">
                 <a href={LINKS.github} target="_blank" rel="noopener noreferrer" className="hover:text-zinc-600">

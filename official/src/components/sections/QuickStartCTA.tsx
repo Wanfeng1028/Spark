@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { BlurFade } from "@/components/magicui/blur-fade";
 import { buttonVariants } from "@/components/ui/button";
 import { LINKS } from "@/lib/constants";
+import type { Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,38 +25,76 @@ interface StartPath {
   primary: boolean;
 }
 
-const PATHS: readonly StartPath[] = [
-  {
-    title: "在终端里跑",
-    desc: "npm 发布落地前先 clone 源码：装一次依赖、出一条 server bundle，一条命令进 TUI。",
-    bullets: [
-      "Node.js ≥ 24 · pnpm 9（源码跑）",
-      "node apps/cli/dist/main.js up → TUI，server 缺省 127.0.0.1:4318",
-      "首回合前配一次模型：~/.spark/models.json",
-      "退出连带回收 server，会话落盘 ~/.spark/sessions/",
-    ],
-    ctaLabel: "阅读快速上手",
-    ctaHref: "/quickstart",
-    ctaExternal: false,
-    primary: true,
-  },
-  {
-    title: "先读源码与文档",
-    desc: "从协议包读起：事件词表与 Transport 是四端共享的运行时核。",
-    bullets: [
-      "27 种事件 · applyEvent reducer 逐一单测",
-      "MockTransport 与 HttpTransport 同构，前端可脱离后端开发",
-      "契约用例与词表页生成物入库，CI 校同步",
-      "MIT · 复用代码保留版权声明",
-    ],
-    ctaLabel: "浏览源码",
-    ctaHref: LINKS.github,
-    ctaExternal: true,
-    primary: false,
-  },
-];
+const PATHS: Record<Lang, readonly StartPath[]> = {
+  zh: [
+    {
+      title: "在终端里跑",
+      desc: "npm 发布落地前先 clone 源码：装一次依赖、出一条 server bundle，一条命令进 TUI。",
+      bullets: [
+        "Node.js ≥ 24 · pnpm 9（源码跑）",
+        "node apps/cli/dist/main.js up → TUI，server 缺省 127.0.0.1:4318",
+        "首回合前配一次模型：~/.spark/models.json",
+        "退出连带回收 server，会话落盘 ~/.spark/sessions/",
+      ],
+      ctaLabel: "阅读快速上手",
+      ctaHref: "/quickstart",
+      ctaExternal: false,
+      primary: true,
+    },
+    {
+      title: "先读源码与文档",
+      desc: "从协议包读起：事件词表与 Transport 是四端共享的运行时核。",
+      bullets: [
+        "27 种事件 · applyEvent reducer 逐一单测",
+        "MockTransport 与 HttpTransport 同构，前端可脱离后端开发",
+        "契约用例与词表页生成物入库，CI 校同步",
+        "MIT · 复用代码保留版权声明",
+      ],
+      ctaLabel: "浏览源码",
+      ctaHref: LINKS.github,
+      ctaExternal: true,
+      primary: false,
+    },
+  ],
+  en: [
+    {
+      title: "Run it in a terminal",
+      desc: "Before the npm release lands, clone the source: install once, build one server bundle, one command into the TUI.",
+      bullets: [
+        "Node.js ≥ 24 · pnpm 9 (from source)",
+        "node apps/cli/dist/main.js up → TUI, server binds to 127.0.0.1:4318",
+        "Configure a model once before the first turn: ~/.spark/models.json",
+        "Exit tears down the server; sessions persist in ~/.spark/sessions/",
+      ],
+      ctaLabel: "Read the quickstart",
+      ctaHref: "/en/quickstart",
+      ctaExternal: false,
+      primary: true,
+    },
+    {
+      title: "Read the source and docs first",
+      desc: "Start from the protocol package: the event vocabulary and Transport are the shared runtime core of all four surfaces.",
+      bullets: [
+        "27 event types · applyEvent reducer unit-tested one by one",
+        "MockTransport mirrors HttpTransport; the frontend runs without a backend",
+        "Contract cases and vocabulary-page artifacts are committed, CI checks sync",
+        "MIT · keep copyright notices when reusing code",
+      ],
+      ctaLabel: "Browse the source",
+      ctaHref: LINKS.github,
+      ctaExternal: true,
+      primary: false,
+    },
+  ],
+};
 
-export function QuickStartCTA(): React.JSX.Element {
+const QSA_COPY = {
+  zh: { heading: "两条起步路径", footer: "MIT 许可 · 默认只监听 127.0.0.1 · 无账号体系" },
+  en: { heading: "Two ways to start", footer: "MIT license · binds to 127.0.0.1 only · no account system" },
+} as const;
+
+export function QuickStartCTA({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
+  const copy = QSA_COPY[lang];
   return (
     <section
       id="quickstart"
@@ -68,12 +107,12 @@ export function QuickStartCTA(): React.JSX.Element {
             id="quickstart-heading"
             className="text-center text-[36px] font-medium tracking-[-0.02em] text-zinc-900 sm:text-[52px]"
           >
-            两条起步路径
+            {copy.heading}
           </h2>
         </BlurFade>
 
         <div className="mt-16 grid grid-cols-1 gap-4 md:grid-cols-2">
-          {PATHS.map((path, index) => (
+          {PATHS[lang].map((path, index) => (
             <BlurFade key={path.title} delay={0.05 + index * 0.08} yOffset={16}>
               <div className="flex h-full flex-col rounded-2xl bg-zinc-100 p-8 sm:p-10">
                 <h3 className="text-2xl font-semibold tracking-tight text-zinc-900">
@@ -127,7 +166,7 @@ export function QuickStartCTA(): React.JSX.Element {
         </div>
 
         <p className="mt-14 text-center font-mono text-xs text-muted-foreground">
-          MIT 许可 · 默认只监听 127.0.0.1 · 无账号体系
+          {copy.footer}
         </p>
       </div>
     </section>

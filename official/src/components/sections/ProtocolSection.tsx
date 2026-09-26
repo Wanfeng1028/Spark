@@ -6,6 +6,7 @@ import { BlurFade } from "@/components/magicui/blur-fade";
 import { NumberTicker } from "@/components/magicui/number-ticker";
 import { buttonVariants } from "@/components/ui/button";
 import { LINKS, FACTS } from "@/lib/constants";
+import type { Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -20,53 +21,105 @@ import { cn } from "@/lib/utils";
  * 高亮色 span 为手写标注，不改 CodeBlock 组件。
  */
 
-const TS_LINES: readonly React.ReactNode[] = [
-  <React.Fragment key="l0">
-    <span className="text-sky-600">import</span>
-    <span className="text-zinc-800"> {"{ createClient } "} </span>
-    <span className="text-sky-600">from</span>
-    <span className="text-rose-600"> &quot;@spark/sdk&quot;</span>
-    <span className="text-zinc-800">;</span>
-  </React.Fragment>,
-  <span key="l1" className="text-zinc-400">
-    {"// HTTP 客户端：装配 HttpTransport + 便利分组（ADR D30）"}
-  </span>,
-  <React.Fragment key="l2">
-    <span className="text-sky-600">const</span>
-    <span className="text-zinc-800"> client = </span>
-    <span className="text-indigo-600">createClient</span>
-    <span className="text-zinc-800">(</span>
-    <span className="text-rose-600">&quot;http://127.0.0.1:4318&quot;</span>
-    <span className="text-zinc-800">);</span>
-  </React.Fragment>,
-  <span key="l3" className="text-zinc-400">
-    {"// 事件流是 UI 的唯一状态源：SSE 按 seq 续播"}
-  </span>,
-  <React.Fragment key="l4">
-    <span className="text-zinc-800">client.events.</span>
-    <span className="text-indigo-600">subscribe</span>
-    <span className="text-zinc-800">((envelope) =&gt; {"{"}</span>
-  </React.Fragment>,
-  <span key="l5" className="text-zinc-400">
-    {"  // 27 种事件经 applyEvent 折叠成 UI 状态"}
-  </span>,
-  <span key="l6" className="text-zinc-800">
-    {"});"}
-  </span>,
-];
+const PS_COPY = {
+  zh: {
+    tsComment1: "// HTTP 客户端：装配 HttpTransport + 便利分组（ADR D30）",
+    tsComment2: "// 事件流是 UI 的唯一状态源：SSE 按 seq 续播",
+    tsComment3: "  // 27 种事件经 applyEvent 折叠成 UI 状态",
+    shComment1:
+      "# @spark/cli 的 npm 发布未落地——当前从源码跑（Node ≥ 24 · pnpm 9）",
+    shTail: "node apps/cli/dist/main.js up   # → 127.0.0.1:4318 · TUI 就绪",
+    stats: [
+      { value: FACTS.eventTypes, label: "事件词表" },
+      { value: FACTS.builtinCommands, label: "内置命令" },
+      { value: FACTS.endpoints, label: "端形态" },
+    ],
+    eyebrow: "开发者",
+    heading: "一份协议，驱动四端界面。",
+    sub: "事件词表、zod schema、applyEvent reducer、Transport 全在",
+    subAfter: "——是运行时代码，不是类型包。断线按 seq 续播，回放重建完整界面。",
+    ctaSource: "查看源码",
+    ctaDocs: "阅读文档",
+    tablist: "代码示例语言",
+    installTab: "安装脚本",
+    copied: "已复制",
+    copy: "复制",
+    copyAria: "复制代码",
+  },
+  en: {
+    tsComment1: "// HTTP client: assembles HttpTransport + convenience groups (ADR D30)",
+    tsComment2: "// The event stream is the single source of UI state: SSE resumes by seq",
+    tsComment3: "  // 27 event types fold into UI state via applyEvent",
+    shComment1:
+      "# @spark/cli npm release not published yet - run from source (Node >= 24, pnpm 9)",
+    shTail: "node apps/cli/dist/main.js up   # → 127.0.0.1:4318 · TUI ready",
+    stats: [
+      { value: FACTS.eventTypes, label: "Event vocabulary" },
+      { value: FACTS.builtinCommands, label: "Built-in commands" },
+      { value: FACTS.endpoints, label: "Surfaces" },
+    ],
+    eyebrow: "For developers",
+    heading: "One protocol drives all four surfaces.",
+    sub: "The event vocabulary, zod schemas, applyEvent reducer and Transport all live in",
+    subAfter:
+      " — runtime code, not a types package. Reconnects resume by seq; a replay rebuilds the full UI.",
+    ctaSource: "View source",
+    ctaDocs: "Read the docs",
+    tablist: "Code sample language",
+    installTab: "Install script",
+    copied: "Copied",
+    copy: "Copy",
+    copyAria: "Copy code",
+  },
+} as const;
 
-const SH_LINES: readonly string[] = [
-  "# @spark/cli 的 npm 发布未落地——当前从源码跑（Node ≥ 24 · pnpm 9）",
-  "git clone https://github.com/Wanfeng1028/Spark && cd Spark",
-  "pnpm install && pnpm --filter @spark/cli build",
-  "node apps/cli/dist/main.js up   # → 127.0.0.1:4318 · TUI 就绪",
-];
+function tsLines(lang: Lang): readonly React.ReactNode[] {
+  const c = PS_COPY[lang];
+  return [
+    <React.Fragment key="l0">
+      <span className="text-sky-600">import</span>
+      <span className="text-zinc-800"> {"{ createClient } "} </span>
+      <span className="text-sky-600">from</span>
+      <span className="text-rose-600"> &quot;@spark/sdk&quot;</span>
+      <span className="text-zinc-800">;</span>
+    </React.Fragment>,
+    <span key="l1" className="text-zinc-400">
+      {c.tsComment1}
+    </span>,
+    <React.Fragment key="l2">
+      <span className="text-sky-600">const</span>
+      <span className="text-zinc-800"> client = </span>
+      <span className="text-indigo-600">createClient</span>
+      <span className="text-zinc-800">(</span>
+      <span className="text-rose-600">&quot;http://127.0.0.1:4318&quot;</span>
+      <span className="text-zinc-800">);</span>
+    </React.Fragment>,
+    <span key="l3" className="text-zinc-400">
+      {c.tsComment2}
+    </span>,
+    <React.Fragment key="l4">
+      <span className="text-zinc-800">client.events.</span>
+      <span className="text-indigo-600">subscribe</span>
+      <span className="text-zinc-800">((envelope) =&gt; {"{"}</span>
+    </React.Fragment>,
+    <span key="l5" className="text-zinc-400">
+      {c.tsComment3}
+    </span>,
+    <span key="l6" className="text-zinc-800">
+      {"});"}
+    </span>,
+  ];
+}
 
-const STATS = [
-  { value: FACTS.eventTypes, label: "事件词表" },
-  { value: FACTS.builtinCommands, label: "内置命令" },
-  { value: FACTS.endpoints, label: "端形态" },
-] as const;
+function shLines(lang: Lang): readonly string[] {
+  const c = PS_COPY[lang];
+  return [
+    c.shComment1,
+    "git clone https://github.com/Wanfeng1028/Spark && cd Spark",
+    "pnpm install && pnpm --filter @spark/cli build",
+    c.shTail,
+  ];
+}
 
 /**
  * Copy 用的纯文本：递归下钻取字符串。TS_LINES 的 l0/l2/l4 是 Fragment 包 span（文本在第三层），
@@ -84,10 +137,11 @@ function textOf(node: React.ReactNode): string {
     .join("");
 }
 
-function CodeWindow(): React.JSX.Element {
+function CodeWindow({ lang }: { lang: Lang }): React.JSX.Element {
   const [tab, setTab] = React.useState<"ts" | "sh">("ts");
   const [copied, setCopied] = React.useState(false);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copy = PS_COPY[lang];
 
   React.useEffect(
     () => () => {
@@ -96,8 +150,9 @@ function CodeWindow(): React.JSX.Element {
     [],
   );
 
-  const plainText =
-    tab === "ts" ? TS_LINES.map(textOf).join("\n") : SH_LINES.join("\n");
+  const ts = tsLines(lang);
+  const sh = shLines(lang);
+  const plainText = tab === "ts" ? ts.map(textOf).join("\n") : sh.join("\n");
 
   const handleCopy = React.useCallback(async () => {
     try {
@@ -142,7 +197,7 @@ function CodeWindow(): React.JSX.Element {
             <button
               type="button"
               onClick={handleCopy}
-              aria-label={copied ? "已复制" : "复制代码"}
+              aria-label={copied ? copy.copied : copy.copyAria}
               className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {copied ? (
@@ -150,18 +205,18 @@ function CodeWindow(): React.JSX.Element {
               ) : (
                 <Copy className="h-3.5 w-3.5" aria-hidden="true" />
               )}
-              {copied ? "已复制" : "复制"}
+              {copied ? copy.copied : copy.copy}
             </button>
           </div>
           <pre className="overflow-x-auto px-4 py-4 font-mono text-[13px] leading-6">
             <code>
               {tab === "ts"
-                ? TS_LINES.map((node, i) => (
+                ? ts.map((node, i) => (
                     <span key={i} className="block whitespace-pre">
                       {node}
                     </span>
                   ))
-                : SH_LINES.map((line, i) => (
+                : sh.map((line, i) => (
                     <span key={i} className="block whitespace-pre text-zinc-800">
                       {line}
                     </span>
@@ -172,11 +227,11 @@ function CodeWindow(): React.JSX.Element {
       </div>
 
       {/* 语言 tab（插画块下方，x.ai Python/TypeScript/cURL 同位） */}
-      <div className="mt-5 flex flex-wrap items-center gap-1" role="tablist" aria-label="代码示例语言">
+      <div className="mt-5 flex flex-wrap items-center gap-1" role="tablist" aria-label={copy.tablist}>
         {(
           [
             { key: "ts", label: "TypeScript" },
-            { key: "sh", label: "安装脚本" },
+            { key: "sh", label: copy.installTab },
           ] as const
         ).map((item) => (
           <button
@@ -200,23 +255,24 @@ function CodeWindow(): React.JSX.Element {
   );
 }
 
-export function ProtocolSection(): React.JSX.Element {
+export function ProtocolSection({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
+  const copy = PS_COPY[lang];
   return (
     <section id="protocol" className="scroll-mt-16 px-6 py-28" aria-labelledby="protocol-heading">
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-16 lg:grid-cols-2">
         <BlurFade delay={0}>
           <div>
-            <p className="text-sm text-zinc-500">开发者</p>
+            <p className="text-sm text-zinc-500">{copy.eyebrow}</p>
             <h2
               id="protocol-heading"
               className="mt-4 text-[40px] font-medium leading-[1.05] tracking-[-0.02em] text-zinc-900 sm:text-[56px]"
             >
-              一份协议，驱动四端界面。
+              {copy.heading}
             </h2>
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
-              事件词表、zod schema、applyEvent reducer、Transport 全在
+              {copy.sub}
               <span className="font-mono text-base text-zinc-800"> @spark/protocol</span>
-              ——是运行时代码，不是类型包。断线按 seq 续播，回放重建完整界面。
+              {copy.subAfter}
             </p>
 
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -226,7 +282,7 @@ export function ProtocolSection(): React.JSX.Element {
                 rel="noopener noreferrer"
                 className={cn(buttonVariants({ size: "lg" }), "rounded-full px-7")}
               >
-                查看源码
+                {copy.ctaSource}
               </a>
               <a
                 href={LINKS.docs}
@@ -237,13 +293,13 @@ export function ProtocolSection(): React.JSX.Element {
                   "border-transparent bg-zinc-100 hover:bg-zinc-200",
                 )}
               >
-                阅读文档
+                {copy.ctaDocs}
               </a>
             </div>
 
             {/* 统计行：display 数字 + 竖分隔（x.ai 400M+/200K/122 同构，非 mono） */}
             <dl className="mt-14 grid grid-cols-3 gap-y-8 divide-x divide-zinc-200">
-              {STATS.map((stat, index) => (
+              {copy.stats.map((stat, index) => (
                 <div key={stat.label} className={cn("flex flex-col gap-1", index > 0 && "pl-8")}>
                   <dd className="text-4xl font-medium tabular-nums tracking-[-0.02em] text-zinc-900 sm:text-5xl">
                     <NumberTicker value={stat.value} delay={index * 0.08} />

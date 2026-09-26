@@ -48,7 +48,8 @@ const SESSION_PATH_CODE = `# 会话数据落点（packages/engine/src/session/st
 # 只追加不改写，完整保留决策链
 # 回放 = 从头逐行 reduce → 重建完整 UI 状态`;
 
-export default function ArchitecturePage() {
+/** 页面内容本体：en 壳（app/en/architecture/page.tsx）复用本组件（19.47 批 2） */
+export function ArchitecturePageContent() {
   return (
     <>
       <div className="px-6 pb-16 pt-32">
@@ -161,3 +162,5 @@ export default function ArchitecturePage() {
     </>
   );
 }
+
+export default ArchitecturePageContent;

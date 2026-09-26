@@ -115,7 +115,8 @@ export interface Transport {
   },
 ];
 
-export default function FeaturesPage() {
+/** 页面内容本体：en 壳（app/en/features/page.tsx）复用本组件（19.47 批 2） */
+export function FeaturesPageContent() {
   return (
     <>
       <div className="px-6 pb-16 pt-32">
@@ -163,3 +164,5 @@ export default function FeaturesPage() {
     </>
   );
 }
+
+export default FeaturesPageContent;

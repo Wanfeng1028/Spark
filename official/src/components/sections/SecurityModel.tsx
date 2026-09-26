@@ -3,6 +3,7 @@
 import * as React from "react";
 import { motion, useReducedMotion, type Variants } from "motion/react";
 import { BlurFade } from "@/components/magicui/blur-fade";
+import type { Lang } from "@/lib/i18n";
 
 /**
  * SecurityModel — 四条安全承诺，纵向列表（不包裹卡片，DESIGN §12：禁止装饰性卡片阵列）。
@@ -25,32 +26,71 @@ interface SecurityPromise {
   evidence: string;
 }
 
-const PROMISES: readonly SecurityPromise[] = [
-  {
-    title: "缺省绑定回环",
-    description:
-      "server 缺省只监听回环地址，会话数据全部落在本机 ~/.spark/ 下。需要对外暴露时（非环回绑定）强制开启配对鉴权：6 位短码换长效 token。",
-    evidence: "server: { host: '127.0.0.1', port: 4318 }",
+const PROMISES: Record<Lang, readonly SecurityPromise[]> = {
+  zh: [
+    {
+      title: "缺省绑定回环",
+      description:
+        "server 缺省只监听回环地址，会话数据全部落在本机 ~/.spark/ 下。需要对外暴露时（非环回绑定）强制开启配对鉴权：6 位短码换长效 token。",
+      evidence: "server: { host: '127.0.0.1', port: 4318 }",
+    },
+    {
+      title: "Fail-closed 审批",
+      description:
+        "写类工具与 bash 必须人类确认，答复只有 once / always / reject 三种。超时、异常、中断、级联、模式切换一律结清为 reject，审计主体记 system；bash 工具缺省全审批。",
+      evidence: "timeout \u2192 permission.resolved { reply: 'reject' }",
+    },
+    {
+      title: "硬边界先行",
+      description:
+        "允许根 = cwd，路径 resolve 归一后越界直接抛 E_PATH_OUTSIDE，发生在审批之前而不是事后审计。可选的 bash 沙箱走平台 wrapper 前缀（Linux bwrap / macOS Seatbelt），wrapper 不可用即拒跑，不降级裸跑。",
+      evidence: "resolveInRoot \u2192 E_PATH_OUTSIDE",
+    },
+    {
+      title: "Durable 可审计",
+      description:
+        "append-only JSONL：第 0 行是 header，其后每行一个事件信封，seq 等于文件行号。只追加不改写，因此可回放、可分叉、可回滚（checkpoint）。",
+      evidence: "~/.spark/sessions/<mungeDir(cwd)>/<ts>_<id>.jsonl",
+    },
+  ],
+  en: [
+    {
+      title: "Loopback by default",
+      description:
+        "The server listens on the loopback address only; all session data stays in ~/.spark/. When external exposure is needed (non-loopback binding), pairing auth is mandatory: a 6-digit short code exchanges for a long-lived token.",
+      evidence: "server: { host: '127.0.0.1', port: 4318 }",
+    },
+    {
+      title: "Fail-closed approval",
+      description:
+        "Write-class tools and bash require human confirmation with exactly three replies: once / always / reject. Timeouts, errors, interrupts, cascades and mode switches all settle to reject, audited as system; bash is fully approved by default.",
+      evidence: "timeout \u2192 permission.resolved { reply: 'reject' }",
+    },
+    {
+      title: "Hard boundary first",
+      description:
+        "The allowed root is the cwd; a path that resolves outside throws E_PATH_OUTSIDE before approval, not after it in an audit log. The optional bash sandbox prefixes platform wrappers (Linux bwrap / macOS Seatbelt) — unavailable wrapper means refused, never a bare run.",
+      evidence: "resolveInRoot \u2192 E_PATH_OUTSIDE",
+    },
+    {
+      title: "Durable & auditable",
+      description:
+        "append-only JSONL: line 0 is the header, each following line is one event envelope, and seq equals the file line number. Append-only means replayable, forkable and rollback-safe (checkpoint).",
+      evidence: "~/.spark/sessions/<mungeDir(cwd)>/<ts>_<id>.jsonl",
+    },
+  ],
+};
+
+const SM_COPY = {
+  zh: {
+    heading: "安全模型",
+    sub: "缺省绑定回环；审批超时、异常、中断一律结清为拒绝；路径越界先于审批拦下；事件全程 append-only 落盘。",
   },
-  {
-    title: "Fail-closed 审批",
-    description:
-      "写类工具与 bash 必须人类确认，答复只有 once / always / reject 三种。超时、异常、中断、级联、模式切换一律结清为 reject，审计主体记 system；bash 工具缺省全审批。",
-    evidence: "timeout \u2192 permission.resolved { reply: 'reject' }",
+  en: {
+    heading: "Security model",
+    sub: "Loopback by default; approval timeouts, errors and interrupts all settle to reject; out-of-root paths are blocked before approval; events persist append-only end to end.",
   },
-  {
-    title: "硬边界先行",
-    description:
-      "允许根 = cwd，路径 resolve 归一后越界直接抛 E_PATH_OUTSIDE，发生在审批之前而不是事后审计。可选的 bash 沙箱走平台 wrapper 前缀（Linux bwrap / macOS Seatbelt），wrapper 不可用即拒跑，不降级裸跑。",
-    evidence: "resolveInRoot \u2192 E_PATH_OUTSIDE",
-  },
-  {
-    title: "Durable 可审计",
-    description:
-      "append-only JSONL：第 0 行是 header，其后每行一个事件信封，seq 等于文件行号。只追加不改写，因此可回放、可分叉、可回滚（checkpoint）。",
-    evidence: "~/.spark/sessions/<mungeDir(cwd)>/<ts>_<id>.jsonl",
-  },
-];
+} as const;
 
 const listVariants: Variants = {
   hidden: {},
@@ -67,7 +107,8 @@ const itemVariants: Variants = {
   },
 };
 
-export function SecurityModel(): React.JSX.Element {
+export function SecurityModel({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
+  const copy = SM_COPY[lang];
   // Bug 10 修复：prefers-reduced-motion 为真时跳过 whileInView 动画，直接呈现终态。
   const reducedMotion = useReducedMotion();
 
@@ -85,12 +126,9 @@ export function SecurityModel(): React.JSX.Element {
               id="security-heading"
               className="text-[30px] font-medium tracking-[-0.015em] text-foreground sm:text-[38px]"
             >
-              安全模型
+              {copy.heading}
             </h2>
-            <p className="mt-3 text-lg text-muted-foreground">
-              缺省绑定回环；审批超时、异常、中断一律结清为拒绝；路径越界先于
-              审批拦下；事件全程 append-only 落盘。
-            </p>
+            <p className="mt-3 text-lg text-muted-foreground">{copy.sub}</p>
           </header>
         </BlurFade>
 
@@ -105,7 +143,7 @@ export function SecurityModel(): React.JSX.Element {
               })}
           variants={listVariants}
         >
-          {PROMISES.map((item, index) => (
+          {PROMISES[lang].map((item, index) => (
             <motion.li
               key={item.title}
               variants={itemVariants}

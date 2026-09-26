@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
+import type { Lang } from "@/lib/i18n";
 
 /**
  * SessionDemoZone — 首屏三卡演示区（x.ai 实拍同构：Chat 浅色 / Build 黑终端 / Bot 浅色，
@@ -21,7 +22,95 @@ import { motion, useReducedMotion } from "motion/react";
 type ToolState = "hidden" | "running" | "done";
 type ApprovalState = "hidden" | "pending" | "approved" | "collapsed";
 
-const STREAM_TEXT = "改动集中在三处：worker 生命周期、池化调度、超时回收。";
+/** 三卡演示文案对（19.47 批 2）：转录行、审批键、气泡对话全部显式列键 */
+const SDZ_COPY = {
+  zh: {
+    streamText: "改动集中在三处：worker 生命周期、池化调度、超时回收。",
+    running: "运行中…",
+    approvalTag: "审批 · bash",
+    approvalCmd: 'git add -A && git commit -m "feat: bash 持久进程池"',
+    keys: {
+      y: "允许一次",
+      a: "总是允许",
+      p: "本项目总是",
+      n: "拒绝并给建议",
+    },
+    approvedOnce: "已批准（一次）",
+    failClosedNote: "超时未答复将自动拒绝（fail-closed）",
+    editPrefix: "编辑 ",
+    prompt: "把 bash 工具改成持久进程池，别每次冷启动",
+    think: "思考 4.1s — 读实现、列改动点",
+    subagentLabel: "子代理",
+    subagentArg: "检索 bash 沙箱与审批语义",
+    approvedLine: "已批准（一次）",
+    chat: {
+      q1: "会话文件为什么只追加不改写？",
+      a1: "append-only JSONL：第 0 行是 header，其后每行一个事件信封，seq 等于文件行号。只追加不改写，因此可回放、可分叉、可回滚。",
+      q2: "断线重连之后界面怎么恢复？",
+      a2: "回放：按 since=seq 拉取 durable 事件重算；live-only 的 delta 不落盘，由 assistant.message 重建终态。",
+      title: "会话",
+    },
+    approvalCard: {
+      lead: "引擎申请改写工作区文件，等待人工确认：",
+      title: "bash 执行命令请求",
+      cmd: 'git commit -m "feat: bash 池"',
+      once: "批准一次",
+      always: "总是允许",
+      reject: "拒绝",
+      approved: "已批准（一次）",
+      note: "超时未答复将自动拒绝（fail-closed）",
+      title2: "审批",
+    },
+    sectionAria: "Spark 产品演示：会话投影、终端转录与人工审批",
+    chatAria: "会话投影功能介绍",
+    buildAria: "终端 Build 演示",
+    approvalAria: "人工审批功能介绍",
+    view: "查看 →",
+  },
+  en: {
+    streamText: "Changes focus on three spots: worker lifecycle, pool scheduling, and idle reclamation.",
+    running: "running…",
+    approvalTag: "Approval · bash",
+    approvalCmd: 'git add -A && git commit -m "feat: bash persistent pool"',
+    keys: {
+      y: "Allow once",
+      a: "Always allow",
+      p: "Always for this project",
+      n: "Reject with advice",
+    },
+    approvedOnce: "Approved (once)",
+    failClosedNote: "An unanswered ask settles to reject (fail-closed)",
+    editPrefix: "Edit ",
+    prompt: "Make the bash tool a persistent process pool, no cold start per command",
+    think: "Thinking 4.1s — reading the implementation, listing change points",
+    subagentLabel: "subagent",
+    subagentArg: "bash sandbox and approval semantics",
+    approvedLine: "Approved (once)",
+    chat: {
+      q1: "Why is the session file append-only?",
+      a1: "append-only JSONL: line 0 is the header, each following line is one event envelope, and seq equals the file line number. Append-only means replayable, forkable and rollback-safe.",
+      q2: "How does the UI recover after a disconnect?",
+      a2: "Replay: durable events are refetched by since=seq and recomputed; live-only deltas are never persisted — assistant.message rebuilds the final state.",
+      title: "Chat",
+    },
+    approvalCard: {
+      lead: "The engine wants to modify workspace files and waits for human confirmation:",
+      title: "bash command request",
+      cmd: 'git commit -m "feat: bash pool"',
+      once: "Allow once",
+      always: "Always allow",
+      reject: "Reject",
+      approved: "Approved (once)",
+      note: "An unanswered ask settles to reject (fail-closed)",
+      title2: "Approvals",
+    },
+    sectionAria: "Spark product demo: session projection, terminal transcript and human approval",
+    chatAria: "Session projection feature intro",
+    buildAria: "Terminal Build demo",
+    approvalAria: "Human approval feature intro",
+    view: "View →",
+  },
+} as const;
 
 const EDIT_LINES = [
   { n: 38, c: "export function createBashPool(config: EngineConfig) {" },
@@ -53,16 +142,19 @@ const IDLE_STATE: DemoState = {
   streamChars: 0,
 };
 
-const FINAL_STATE: DemoState = {
-  prompt: true,
-  think: true,
-  toolRead: "done",
-  subagent: "done",
-  toolBash: "done",
-  approval: "collapsed",
-  edit: true,
-  streamChars: STREAM_TEXT.length,
-};
+/** 终态字符数随语言文本长度变化（打字循环以当前语言文本长度为准） */
+function finalState(streamText: string): DemoState {
+  return {
+    prompt: true,
+    think: true,
+    toolRead: "done",
+    subagent: "done",
+    toolBash: "done",
+    approval: "collapsed",
+    edit: true,
+    streamChars: streamText.length,
+  };
+}
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -76,11 +168,13 @@ function ToolRow({
   arg,
   state,
   duration,
+  runningText,
 }: {
   label: string;
   arg: string;
   state: ToolState;
   duration: string;
+  runningText: string;
 }): React.JSX.Element | null {
   if (state === "hidden") return null;
   return (
@@ -94,7 +188,7 @@ function ToolRow({
       <span className="shrink-0 font-semibold text-zinc-100">{label}</span>
       <span className="min-w-0 flex-1 truncate text-zinc-400">{arg}</span>
       {state === "running" ? (
-        <span className="shrink-0 text-zinc-500">运行中…</span>
+        <span className="shrink-0 text-zinc-500">{runningText}</span>
       ) : (
         <span className="shrink-0 text-emerald-400">✓ {duration}</span>
       )}
@@ -102,7 +196,13 @@ function ToolRow({
   );
 }
 
-function ApprovalBox({ stage }: { stage: "pending" | "approved" }): React.JSX.Element {
+function ApprovalBox({
+  stage,
+  copy,
+}: {
+  stage: "pending" | "approved";
+  copy: (typeof SDZ_COPY)["zh"];
+}): React.JSX.Element {
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -110,24 +210,22 @@ function ApprovalBox({ stage }: { stage: "pending" | "approved" }): React.JSX.El
       transition={{ duration: 0.3, ease: "easeOut" }}
       className="my-1 rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3"
     >
-      <p className="text-xs text-amber-400">审批 · bash</p>
-      <p className="mt-1 truncate text-zinc-400">
-        git add -A &amp;&amp; git commit -m &quot;feat: bash 持久进程池&quot;
-      </p>
+      <p className="text-xs text-amber-400">{copy.approvalTag}</p>
+      <p className="mt-1 truncate text-zinc-400">{copy.approvalCmd}</p>
       {stage === "pending" ? (
         <p className="mt-2 text-xs text-zinc-400">
-          <span className="text-zinc-100">[y]</span> 允许一次{"　"}
-          <span className="text-zinc-100">[a]</span> 总是允许{"　"}
-          <span className="text-zinc-100">[4]</span> 本项目总是{"　"}
-          <span className="text-zinc-100">[n]</span> 拒绝并给建议
+          <span className="text-zinc-100">[y]</span> {copy.keys.y}{"　"}
+          <span className="text-zinc-100">[a]</span> {copy.keys.a}{"　"}
+          <span className="text-zinc-100">[4]</span> {copy.keys.p}{"　"}
+          <span className="text-zinc-100">[n]</span> {copy.keys.n}
         </p>
       ) : (
         <p className="mt-2 text-xs">
           <span className="rounded border border-emerald-400/40 px-1 py-0.5 text-emerald-400">
             y
           </span>
-          <span className="ml-2 text-zinc-300">已批准（一次）</span>
-          <span className="ml-2 text-zinc-500">超时未答复将自动拒绝（fail-closed）</span>
+          <span className="ml-2 text-zinc-300">{copy.approvedOnce}</span>
+          <span className="ml-2 text-zinc-500">{copy.failClosedNote}</span>
         </p>
       )}
     </motion.div>
@@ -135,7 +233,7 @@ function ApprovalBox({ stage }: { stage: "pending" | "approved" }): React.JSX.El
 }
 
 /** 编辑块——对标 x.ai 演示的 Edit 面板：行号 + 代码（暗色嵌块） */
-function EditBlock(): React.JSX.Element {
+function EditBlock({ copy }: { copy: (typeof SDZ_COPY)["zh"] }): React.JSX.Element {
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -145,7 +243,7 @@ function EditBlock(): React.JSX.Element {
     >
       <div className="border-b border-zinc-800 px-4 py-2 text-xs text-zinc-400">
         <span className="mr-2 text-zinc-500">◆</span>
-        编辑 packages/engine/src/tools/bash-pool.ts
+        {copy.editPrefix}packages/engine/src/tools/bash-pool.ts
       </div>
       <div className="px-4 py-3 font-mono text-xs leading-6">
         {EDIT_LINES.map((line) => (
@@ -171,14 +269,14 @@ function Caret(): React.JSX.Element {
   );
 }
 
-function useDemoScript(reducedMotion: boolean | null): DemoState {
+function useDemoScript(reducedMotion: boolean | null, streamText: string): DemoState {
   const [state, setState] = React.useState<DemoState>(() =>
-    reducedMotion ? FINAL_STATE : IDLE_STATE,
+    reducedMotion ? finalState(streamText) : IDLE_STATE,
   );
 
   React.useEffect(() => {
     if (reducedMotion) {
-      setState(FINAL_STATE);
+      setState(finalState(streamText));
       return;
     }
     let alive = true;
@@ -214,7 +312,7 @@ function useDemoScript(reducedMotion: boolean | null): DemoState {
         await sleep(700);
         setState((s) => ({ ...s, edit: true }));
         await sleep(1000);
-        for (let i = 1; i <= STREAM_TEXT.length; i++) {
+        for (let i = 1; i <= streamText.length; i++) {
           if (!alive) return;
           setState((s) => ({ ...s, streamChars: i }));
           await sleep(55);
@@ -225,24 +323,24 @@ function useDemoScript(reducedMotion: boolean | null): DemoState {
     return () => {
       alive = false;
     };
-  }, [reducedMotion]);
+  }, [reducedMotion, streamText]);
 
   return state;
 }
 
 /** 卡底行：端名 + 查看链接（x.ai "Chat — Explore →" 同位） */
-function CardFooter({ title }: { title: string }): React.JSX.Element {
+function CardFooter({ title, view }: { title: string; view: string }): React.JSX.Element {
   return (
     <div className="flex items-center justify-between px-5 pb-4">
       <span className="text-lg font-semibold">{title}</span>
       <span className="font-mono text-sm text-zinc-400 transition-colors group-hover:text-zinc-200">
-        查看 →
+        {view}
       </span>
     </div>
   );
 }
 
-function TerminalCard({ state }: { state: DemoState }): React.JSX.Element {
+function TerminalCard({ state, copy }: { state: DemoState; copy: (typeof SDZ_COPY)["zh"] }): React.JSX.Element {
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-2xl bg-zinc-950 text-left">
       {/* 标题栏：dots + 项目路径 + 水位进度（x.ai projects/main 14.75% 同构） */}
@@ -268,7 +366,7 @@ function TerminalCard({ state }: { state: DemoState }): React.JSX.Element {
             className="whitespace-pre-wrap break-words"
           >
             <span className="text-indigo-400">{"> "}</span>
-            <span className="text-zinc-100">把 bash 工具改成持久进程池，别每次冷启动</span>
+            <span className="text-zinc-100">{copy.prompt}</span>
           </motion.p>
         ) : (
           <motion.p
@@ -289,7 +387,8 @@ function TerminalCard({ state }: { state: DemoState }): React.JSX.Element {
             animate="visible"
             className="text-zinc-500"
           >
-            <span className="mr-2">◆</span>思考 4.1s — 读实现、列改动点
+            <span className="mr-2">◆</span>
+            {copy.think}
           </motion.p>
         ) : null}
 
@@ -298,22 +397,25 @@ function TerminalCard({ state }: { state: DemoState }): React.JSX.Element {
           arg="packages/engine/src/tools/builtin/bash.ts"
           state={state.toolRead}
           duration="0.3s"
+          runningText={copy.running}
         />
         <ToolRow
-          label="子代理"
-          arg="检索 bash 沙箱与审批语义"
+          label={copy.subagentLabel}
+          arg={copy.subagentArg}
           state={state.subagent}
           duration="8.2s"
+          runningText={copy.running}
         />
         <ToolRow
           label="bash"
           arg="pnpm --filter @spark/engine test"
           state={state.toolBash}
           duration="12.4s"
+          runningText={copy.running}
         />
 
-        {state.approval === "pending" ? <ApprovalBox stage="pending" /> : null}
-        {state.approval === "approved" ? <ApprovalBox stage="approved" /> : null}
+        {state.approval === "pending" ? <ApprovalBox stage="pending" copy={copy} /> : null}
+        {state.approval === "approved" ? <ApprovalBox stage="approved" copy={copy} /> : null}
         {state.approval === "collapsed" ? (
           <motion.p
             variants={lineVariants}
@@ -321,11 +423,11 @@ function TerminalCard({ state }: { state: DemoState }): React.JSX.Element {
             animate="visible"
             className="text-zinc-500"
           >
-            <span className="text-emerald-400">✓ 已批准（一次）</span> · permission.resolved
+            <span className="text-emerald-400">✓ {copy.approvedLine}</span> · permission.resolved
           </motion.p>
         ) : null}
 
-        {state.edit ? <EditBlock /> : null}
+        {state.edit ? <EditBlock copy={copy} /> : null}
 
         {state.streamChars > 0 ? (
           <motion.p
@@ -335,116 +437,113 @@ function TerminalCard({ state }: { state: DemoState }): React.JSX.Element {
             className="whitespace-pre-wrap break-words text-zinc-300"
           >
             <span className="mr-2 text-zinc-500">◆</span>
-            {STREAM_TEXT.slice(0, state.streamChars)}
-            {state.streamChars < STREAM_TEXT.length ? <Caret /> : null}
+            {copy.streamText.slice(0, state.streamChars)}
+            {state.streamChars < copy.streamText.length ? <Caret /> : null}
           </motion.p>
         ) : null}
       </div>
 
       <div className="mt-auto border-t border-zinc-800/60 pt-2 text-zinc-50">
-        <CardFooter title="Build" />
+        <CardFooter title="Build" view={copy.view} />
       </div>
     </div>
   );
 }
 
 /** 左卡：会话投影（浅色静态 mock，顶部裁切——x.ai Chat 卡同构） */
-function ChatCard(): React.JSX.Element {
+function ChatCard({ copy }: { copy: (typeof SDZ_COPY)["zh"] }): React.JSX.Element {
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-2xl bg-zinc-100 text-left">
       <div className="flex flex-1 flex-col gap-3 px-5 pt-0 text-[13px]">
         {/* 首条气泡被卡顶裁切（-mt-6），营造"正在滚动"的现场感 */}
         <p className="-mt-6 ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-white px-3.5 py-2 text-zinc-700 shadow-sm">
-          会话文件为什么只追加不改写？
+          {copy.chat.q1}
         </p>
-        <p className="max-w-[90%] leading-relaxed text-zinc-600">
-          append-only JSONL：第 0 行是 header，其后每行一个事件信封，seq
-          等于文件行号。只追加不改写，因此可回放、可分叉、可回滚。
-        </p>
+        <p className="max-w-[90%] leading-relaxed text-zinc-600">{copy.chat.a1}</p>
         <p className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-zinc-900 px-3.5 py-2 text-white">
-          断线重连之后界面怎么恢复？
+          {copy.chat.q2}
         </p>
-        <p className="max-w-[90%] leading-relaxed text-zinc-600">
-          回放：按 since=seq 拉取 durable 事件重算；live-only 的 delta 不落盘，由
-          assistant.message 重建终态。
-        </p>
+        <p className="max-w-[90%] leading-relaxed text-zinc-600">{copy.chat.a2}</p>
       </div>
       <div className="mt-auto pt-4 text-zinc-900">
-        <CardFooter title="会话" />
+        <CardFooter title={copy.chat.title} view={copy.view} />
       </div>
     </div>
   );
 }
 
 /** 右卡：审批卡（浅色静态 mock，x.ai Bot 卡同位） */
-function ApprovalCard(): React.JSX.Element {
+function ApprovalCard({ copy }: { copy: (typeof SDZ_COPY)["zh"] }): React.JSX.Element {
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-2xl bg-zinc-100 text-left">
       <div className="flex flex-1 flex-col justify-center gap-3 px-5 pt-2 text-[13px]">
-        <p className="text-zinc-600">引擎申请改写工作区文件，等待人工确认：</p>
+        <p className="text-zinc-600">{copy.approvalCard.lead}</p>
         <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
           <div className="flex gap-2">
             <span aria-hidden="true" className="w-1 shrink-0 rounded-full bg-amber-600" />
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-zinc-900">bash 执行命令请求</p>
+              <p className="text-sm font-semibold text-zinc-900">{copy.approvalCard.title}</p>
               <p className="mt-1 truncate font-mono text-xs text-zinc-500">
-                git commit -m &quot;feat: bash 池&quot;
+                {copy.approvalCard.cmd}
               </p>
             </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-white">批准一次</span>
-            <span className="rounded-full border border-zinc-300 px-3 py-1 text-xs text-zinc-600">
-              总是允许
+            <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-white">
+              {copy.approvalCard.once}
             </span>
             <span className="rounded-full border border-zinc-300 px-3 py-1 text-xs text-zinc-600">
-              拒绝
+              {copy.approvalCard.always}
+            </span>
+            <span className="rounded-full border border-zinc-300 px-3 py-1 text-xs text-zinc-600">
+              {copy.approvalCard.reject}
             </span>
           </div>
         </div>
         <p className="text-xs text-zinc-500">
-          <span className="text-emerald-600">✓ 已批准（一次）</span> ·
-          超时未答复将自动拒绝（fail-closed）
+          <span className="text-emerald-600">✓ {copy.approvalCard.approved}</span> ·{" "}
+          {copy.approvalCard.note}
         </p>
       </div>
       <div className="mt-auto pt-4 text-zinc-900">
-        <CardFooter title="审批" />
+        <CardFooter title={copy.approvalCard.title2} view={copy.view} />
       </div>
     </div>
   );
 }
 
-export function SessionDemoZone(): React.JSX.Element {
+export function SessionDemoZone({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
   const reducedMotion = useReducedMotion();
-  const state = useDemoScript(reducedMotion);
+  const copy = SDZ_COPY[lang];
+  const state = useDemoScript(reducedMotion, copy.streamText);
 
   return (
     <section
       id="demo"
       className="scroll-mt-16 px-6 py-20"
-      aria-label="Spark 产品演示：会话投影、终端转录与人工审批"
+      aria-label={copy.sectionAria}
     >
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
         <Link
-          href="/features"
-          aria-label="会话投影功能介绍"
+          href={lang === "en" ? "/en/features" : "/features"}
+          aria-label={copy.chatAria}
           className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spark-accent"
         >
-          <ChatCard />
+          <ChatCard copy={copy} />
         </Link>
         <Link
-          href="/features"
-          aria-label="终端 Build 演示"
+          href={lang === "en" ? "/en/features" : "/features"}
+          aria-label={copy.buildAria}
           className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spark-accent"
         >
-          <TerminalCard state={state} />
+          <TerminalCard state={state} copy={copy} />
         </Link>
         <Link
-          href="/features"
-          aria-label="人工审批功能介绍"
+          href={lang === "en" ? "/en/features" : "/features"}
+          aria-label={copy.approvalAria}
           className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spark-accent"
         >
-          <ApprovalCard />
+          <ApprovalCard copy={copy} />
         </Link>
       </div>
     </section>

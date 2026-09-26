@@ -1,6 +1,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { BlurFade } from "@/components/magicui/blur-fade";
+import type { Lang } from "@/lib/i18n";
 import { asset } from "@/lib/utils";
 
 /**
@@ -18,62 +19,66 @@ interface Tile {
   alt: string;
 }
 
-const TILES: readonly Tile[] = [
-  {
-    name: "Web",
-    desc: "React 会话工作台，事件流的投影",
-    img: "/screenshots/web-session.svg",
-    alt: "Web 端界面：会话列表与流式对话面板",
-  },
-  {
-    name: "Desktop",
-    desc: "Electron 壳，sidecar 复用同一引擎",
-    img: "/screenshots/desktop-shell.svg",
-    alt: "桌面端界面：工具调用详情与深色输出块",
-  },
-  {
-    name: "CLI",
-    desc: "Ink 7 终端 TUI，纯单栏转录流",
-    img: "/screenshots/cli-tui.svg",
-    alt: "CLI 界面：终端会话流与审批快捷键",
-  },
-  {
-    name: "Mobile",
-    desc: "Expo + RN，配对即连；小程序 Taro 同源",
-    img: "/screenshots/mobile-chat.svg",
-    alt: "移动端界面：会话流与移动审批卡",
-  },
-];
+const TILES: Record<Lang, readonly Tile[]> = {
+  zh: [
+    { name: "Web", desc: "React 会话工作台，事件流的投影", img: "/screenshots/web-session.svg", alt: "Web 端界面：会话列表与流式对话面板" },
+    { name: "Desktop", desc: "Electron 壳，sidecar 复用同一引擎", img: "/screenshots/desktop-shell.svg", alt: "桌面端界面：工具调用详情与深色输出块" },
+    { name: "CLI", desc: "Ink 7 终端 TUI，纯单栏转录流", img: "/screenshots/cli-tui.svg", alt: "CLI 界面：终端会话流与审批快捷键" },
+    { name: "Mobile", desc: "Expo + RN，配对即连；小程序 Taro 同源", img: "/screenshots/mobile-chat.svg", alt: "移动端界面：会话流与移动审批卡" },
+  ],
+  en: [
+    { name: "Web", desc: "React session workbench, a projection of the event stream", img: "/screenshots/web-session.svg", alt: "Web surface: session list and streaming conversation panel" },
+    { name: "Desktop", desc: "Electron shell reusing the same engine via sidecar", img: "/screenshots/desktop-shell.svg", alt: "Desktop surface: tool call details and dark output block" },
+    { name: "CLI", desc: "Ink 7 terminal TUI, single-column transcript", img: "/screenshots/cli-tui.svg", alt: "CLI surface: terminal session flow and approval shortcuts" },
+    { name: "Mobile", desc: "Expo + RN with pairing; Taro mini app shares the core", img: "/screenshots/mobile-chat.svg", alt: "Mobile surface: session flow and approval card" },
+  ],
+};
 
-export function FourTiles(): React.JSX.Element {
+const TILES_COPY = {
+  zh: {
+    eyebrow: "产品形态",
+    heading: "四端，同一份事件流",
+    sub: "一份 applyEvent reducer 投影出四种界面——不是四个客户端各写一遍。",
+    compare: "功能对比 →",
+    view: "查看 →",
+  },
+  en: {
+    eyebrow: "SURFACES",
+    heading: "Four surfaces, one event stream",
+    sub: "One applyEvent reducer projects all four surfaces — not four separately written clients.",
+    compare: "Compare →",
+    view: "View →",
+  },
+} as const;
+
+export function FourTiles({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
+  const copy = TILES_COPY[lang];
   return (
     <section id="surfaces" className="scroll-mt-16 px-6 py-28" aria-labelledby="surfaces-heading">
       <div className="mx-auto max-w-7xl">
         <BlurFade delay={0}>
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
             <header className="max-w-2xl">
-              <p className="text-xs tracking-[0.08em] text-muted-foreground">产品形态</p>
+              <p className="text-xs tracking-[0.08em] text-muted-foreground">{copy.eyebrow}</p>
               <h2
                 id="surfaces-heading"
                 className="mt-2 text-[30px] font-medium tracking-[-0.015em] text-foreground sm:text-[38px]"
               >
-                四端，同一份事件流
+                {copy.heading}
               </h2>
-              <p className="mt-3 text-lg text-muted-foreground">
-                一份 applyEvent reducer 投影出四种界面——不是四个客户端各写一遍。
-              </p>
+              <p className="mt-3 text-lg text-muted-foreground">{copy.sub}</p>
             </header>
             <Link
-              href="/features"
+              href={lang === "en" ? "/en/features" : "/features"}
               className="shrink-0 font-mono text-sm text-muted-foreground transition-colors hover:text-spark-accent"
             >
-              功能对比 →
+              {copy.compare}
             </Link>
           </div>
         </BlurFade>
 
         <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {TILES.map((tile, index) => (
+          {TILES[lang].map((tile, index) => (
             <BlurFade key={tile.name} delay={0.05 + index * 0.05} yOffset={16}>
               <Link
                 href="/features"
@@ -97,7 +102,7 @@ export function FourTiles(): React.JSX.Element {
                     aria-hidden="true"
                     className="shrink-0 font-mono text-xs text-muted-foreground transition-colors group-hover:text-spark-accent"
                   >
-                    查看 →
+                    {copy.view}
                   </span>
                 </div>
               </Link>

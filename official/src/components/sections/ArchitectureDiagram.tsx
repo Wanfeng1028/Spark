@@ -1,4 +1,5 @@
 import * as React from "react";
+import type { Lang } from "@/lib/i18n";
 
 /**
  * ArchitectureDiagram — 五层架构分层图，纯 div + CSS 构建（无外部 SVG，方便 hover 交互）。
@@ -11,30 +12,38 @@ interface Layer {
   description: string;
 }
 
-const LAYERS: readonly Layer[] = [
-  {
-    name: "apps/*",
-    description: "四端 UI（Web · Desktop · CLI · Mobile）",
-  },
-  {
-    name: "@spark/protocol",
-    description: "27 种事件词表 · zod schema · Transport",
-  },
-  {
-    name: "apps/server",
-    description: "Fastify · SSE · 仅绑定 127.0.0.1",
-  },
-  {
-    name: "@spark/engine",
-    description: "InputQueue \u2192 RunLoop \u2192 ToolPipeline",
-  },
-  {
-    name: "sessions/*.jsonl",
-    description: "durable append-only · 完整可回放",
-  },
-];
+const LAYERS: Record<Lang, readonly Layer[]> = {
+  zh: [
+    { name: "apps/*", description: "四端 UI（Web · Desktop · CLI · Mobile）" },
+    { name: "@spark/protocol", description: "27 种事件词表 · zod schema · Transport" },
+    { name: "apps/server", description: "Fastify · SSE · 仅绑定 127.0.0.1" },
+    { name: "@spark/engine", description: "InputQueue \u2192 RunLoop \u2192 ToolPipeline" },
+    { name: "sessions/*.jsonl", description: "durable append-only · 完整可回放" },
+  ],
+  en: [
+    { name: "apps/*", description: "Four surface UIs (Web · Desktop · CLI · Mobile)" },
+    { name: "@spark/protocol", description: "27-event vocabulary · zod schemas · Transport" },
+    { name: "apps/server", description: "Fastify · SSE · binds to 127.0.0.1 only" },
+    { name: "@spark/engine", description: "InputQueue \u2192 RunLoop \u2192 ToolPipeline" },
+    { name: "sessions/*.jsonl", description: "durable append-only · fully replayable" },
+  ],
+};
 
-export function ArchitectureDiagram(): React.JSX.Element {
+const AD_COPY = {
+  zh: {
+    heading: "架构一览",
+    sub: "五层：四端 UI / 协议 / 服务端 / 引擎 / 会话文件。",
+    listLabel: "Spark 架构分层：从四端 UI 到持久化日志",
+  },
+  en: {
+    heading: "Architecture",
+    sub: "Five layers: surface UIs / protocol / server / engine / session files.",
+    listLabel: "Spark architecture layers: from surface UIs to the persisted log",
+  },
+} as const;
+
+export function ArchitectureDiagram({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
+  const copy = AD_COPY[lang];
   return (
     <section
       id="architecture"
@@ -49,11 +58,9 @@ export function ArchitectureDiagram(): React.JSX.Element {
             id="architecture-heading"
             className="text-[30px] font-medium tracking-[-0.015em] text-foreground sm:text-[38px]"
           >
-            架构一览
+            {copy.heading}
           </h2>
-          <p className="mt-3 text-lg text-muted-foreground">
-            五层：四端 UI / 协议 / 服务端 / 引擎 / 会话文件。
-          </p>
+          <p className="mt-3 text-lg text-muted-foreground">{copy.sub}</p>
         </header>
 
         {/* Bug 7 修复：ARIA role="list" 容器的直接子元素必须全部是 role="listitem"，
@@ -63,9 +70,9 @@ export function ArchitectureDiagram(): React.JSX.Element {
         <div
           className="mx-auto max-w-2xl"
           role="list"
-          aria-label="Spark 架构分层：从四端 UI 到持久化日志"
+          aria-label={copy.listLabel}
         >
-          {LAYERS.map((layer, index) => (
+          {LAYERS[lang].map((layer, index) => (
             <div
               key={layer.name}
               role="listitem"

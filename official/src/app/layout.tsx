@@ -2,14 +2,9 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { SITE_URL } from "@/lib/site";
 import { asset } from "@/lib/utils";
 import "./globals.css";
-
-// WO-001：metadataBase —— OG/canonical 绝对 URL 的基准（无它全部输出相对路径，
-// 社交平台爬虫无法拉取）。双站发布后（19.45）由构建环境注入：缺省 GitHub Pages
-// 项目站 wanfeng1028.github.io/Spark，Cloudflare Pages 构建时设
-// NEXT_PUBLIC_SITE_URL=https://spark.gemmae.dev 覆盖默认值。
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://wanfeng1028.github.io/Spark";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

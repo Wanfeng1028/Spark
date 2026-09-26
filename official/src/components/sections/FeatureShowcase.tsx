@@ -1,5 +1,6 @@
 import * as React from "react";
 import { BlurFade } from "@/components/magicui/blur-fade";
+import type { Lang } from "@/lib/i18n";
 import { asset, cn } from "@/lib/utils";
 
 /**
@@ -27,51 +28,108 @@ interface Feature {
   height: number;
 }
 
-const FEATURES: readonly Feature[] = [
-  {
-    title: "流式对话",
-    description:
-      "模型输出按 token 切成 assistant.delta 事件推送，四端各自用同一份 applyEvent reducer 把事件流折叠成 UI 状态。delta 类事件是 live-only：不落盘，断线重连后由 durable 的 assistant.message 重建终态。",
-    code: "assistant.delta · reasoning.delta · tool.progress = live-only",
-    screenshot: "/screenshots/web-session.svg",
-    alt: "Web 端会话截图：左侧会话列表，右侧流式对话面板",
-    width: 1200,
-    height: 800,
-  },
-  {
-    title: "工具调用可视化",
-    description:
-      "工具状态机 started → progress → completed 全程上屏：输入、输出、耗时（durationMs）、是否错误（isError）都是事件字段。失败时错误码（E_PATH_OUTSIDE / E_SANDBOX_UNAVAILABLE 等）同屏呈现。",
-    code: "tool.started { input } → tool.completed { output, isError, durationMs }",
-    screenshot: "/screenshots/desktop-shell.svg",
-    alt: "桌面端截图：Electron 壳内的工具调用详情面板",
-    width: 1200,
-    height: 800,
-  },
-  {
-    title: "人工审批",
-    description:
-      "permission.asked 弹卡，答复只有 once / always / reject；超时、异常、中断一律结清为 reject（fail-closed）。审批事件是 log-only：永不进模型历史，但 durable 落盘，事后可回放每一次决策。",
-    code: "permission.resolved { reply: 'once' | 'always' | 'reject' }",
-    screenshot: "/screenshots/mobile-chat.svg",
-    alt: "移动端截图：审批弹窗与对话流",
-    // 竖幅 1:2，是 Bug 2 的元凶：无高度约束时 lg 断点下会渲染到 1216px，纵向节奏被破坏。
-    width: 400,
-    height: 800,
-  },
-  {
-    title: "四端同一协议",
-    description:
-      "Web、Desktop、CLI、Mobile（含小程序）共享 @spark/protocol 的 27 种事件词表与 Transport 接口。词表扩展走 declaration merging，schema registry 是唯一来源，四端不会各自漂移出一套事件名。",
-    code: "@spark/protocol · 27 种事件 · Web / Desktop / CLI / Mobile",
-    screenshot: "/screenshots/cli-tui.svg",
-    alt: "CLI 端截图：Ink 7 终端 TUI 纯单栏会话流",
-    width: 800,
-    height: 600,
-  },
-];
+const FEATURES: Record<Lang, readonly Feature[]> = {
+  zh: [
+    {
+      title: "流式对话",
+      description:
+        "模型输出按 token 切成 assistant.delta 事件推送，四端各自用同一份 applyEvent reducer 把事件流折叠成 UI 状态。delta 类事件是 live-only：不落盘，断线重连后由 durable 的 assistant.message 重建终态。",
+      code: "assistant.delta · reasoning.delta · tool.progress = live-only",
+      screenshot: "/screenshots/web-session.svg",
+      alt: "Web 端会话截图：左侧会话列表，右侧流式对话面板",
+      width: 1200,
+      height: 800,
+    },
+    {
+      title: "工具调用可视化",
+      description:
+        "工具状态机 started → progress → completed 全程上屏：输入、输出、耗时（durationMs）、是否错误（isError）都是事件字段。失败时错误码（E_PATH_OUTSIDE / E_SANDBOX_UNAVAILABLE 等）同屏呈现。",
+      code: "tool.started { input } → tool.completed { output, isError, durationMs }",
+      screenshot: "/screenshots/desktop-shell.svg",
+      alt: "桌面端截图：Electron 壳内的工具调用详情面板",
+      width: 1200,
+      height: 800,
+    },
+    {
+      title: "人工审批",
+      description:
+        "permission.asked 弹卡，答复只有 once / always / reject；超时、异常、中断一律结清为 reject（fail-closed）。审批事件是 log-only：永不进模型历史，但 durable 落盘，事后可回放每一次决策。",
+      code: "permission.resolved { reply: 'once' | 'always' | 'reject' }",
+      screenshot: "/screenshots/mobile-chat.svg",
+      alt: "移动端截图：审批弹窗与对话流",
+      // 竖幅 1:2，是 Bug 2 的元凶：无高度约束时 lg 断点下会渲染到 1216px，纵向节奏被破坏。
+      width: 400,
+      height: 800,
+    },
+    {
+      title: "四端同一协议",
+      description:
+        "Web、Desktop、CLI、Mobile（含小程序）共享 @spark/protocol 的 27 种事件词表与 Transport 接口。词表扩展走 declaration merging，schema registry 是唯一来源，四端不会各自漂移出一套事件名。",
+      code: "@spark/protocol · 27 种事件 · Web / Desktop / CLI / Mobile",
+      screenshot: "/screenshots/cli-tui.svg",
+      alt: "CLI 端截图：Ink 7 终端 TUI 纯单栏会话流",
+      width: 800,
+      height: 600,
+    },
+  ],
+  en: [
+    {
+      title: "Streaming chat",
+      description:
+        "Model output is pushed as assistant.delta events, token by token; each surface folds the stream into UI state with the same applyEvent reducer. Delta events are live-only: never persisted, and the durable assistant.message rebuilds the final state after reconnect.",
+      code: "assistant.delta · reasoning.delta · tool.progress = live-only",
+      screenshot: "/screenshots/web-session.svg",
+      alt: "Web surface: session list on the left, streaming conversation panel on the right",
+      width: 1200,
+      height: 800,
+    },
+    {
+      title: "Tool call visualization",
+      description:
+        "The tool state machine started → progress → completed renders end to end: input, output, duration (durationMs) and error flag (isError) are all event fields. Failures surface error codes (E_PATH_OUTSIDE, E_SANDBOX_UNAVAILABLE and friends) on the same screen.",
+      code: "tool.started { input } → tool.completed { output, isError, durationMs }",
+      screenshot: "/screenshots/desktop-shell.svg",
+      alt: "Desktop surface: tool call details inside the Electron shell",
+      width: 1200,
+      height: 800,
+    },
+    {
+      title: "Human approval",
+      description:
+        "permission.asked raises a card; the only replies are once / always / reject. Timeouts, errors and interrupts always settle to reject (fail-closed). Approval events are log-only: never in model history, but durably persisted so every decision can be replayed.",
+      code: "permission.resolved { reply: 'once' | 'always' | 'reject' }",
+      screenshot: "/screenshots/mobile-chat.svg",
+      alt: "Mobile surface: approval dialog over the conversation flow",
+      // 竖幅 1:2，是 Bug 2 的元凶：无高度约束时 lg 断点下会渲染到 1216px，纵向节奏被破坏。
+      width: 400,
+      height: 800,
+    },
+    {
+      title: "One protocol, four surfaces",
+      description:
+        "Web, Desktop, CLI and Mobile (mini app included) share the 27-event vocabulary and the Transport interface of @spark/protocol. The vocabulary grows via declaration merging with the schema registry as the single source, so the four surfaces cannot drift apart.",
+      code: "@spark/protocol · 27 events · Web / Desktop / CLI / Mobile",
+      screenshot: "/screenshots/cli-tui.svg",
+      alt: "CLI surface: Ink 7 terminal TUI with a single-column session flow",
+      width: 800,
+      height: 600,
+    },
+  ],
+};
 
-export function FeatureShowcase(): React.JSX.Element {
+const FS_COPY = {
+  zh: {
+    heading: "核心能力",
+    sub: "四项能力共用一份事件词表：流式渲染、工具状态机、审批卡、四端同步都是同一套 reducer 的不同分支。",
+  },
+  en: {
+    heading: "Core capabilities",
+    sub: "Four capabilities share one event vocabulary: streaming render, the tool state machine, the approval card and four-surface sync are all branches of the same reducer.",
+  },
+} as const;
+
+export function FeatureShowcase({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
+  const copy = FS_COPY[lang];
   return (
     <section
       id="features"
@@ -86,17 +144,14 @@ export function FeatureShowcase(): React.JSX.Element {
               id="features-heading"
               className="text-[30px] font-medium tracking-[-0.015em] text-foreground sm:text-[38px]"
             >
-              核心能力
+              {copy.heading}
             </h2>
-            <p className="mt-3 text-lg text-muted-foreground">
-              四项能力共用一份事件词表：流式渲染、工具状态机、审批卡、四端同步
-              都是同一套 reducer 的不同分支。
-            </p>
+            <p className="mt-3 text-lg text-muted-foreground">{copy.sub}</p>
           </header>
         </BlurFade>
 
         <div className="flex flex-col gap-32">
-          {FEATURES.map((feature, index) => {
+          {FEATURES[lang].map((feature, index) => {
             const reversed = index % 2 === 1;
             return (
               <BlurFade key={feature.title} delay={0.05} yOffset={24}>

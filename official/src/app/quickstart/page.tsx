@@ -20,7 +20,8 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-static";
 
-export default function QuickStartPage() {
+/** 页面内容本体：en 壳（app/en/quickstart/page.tsx）复用本组件（19.47 批 2） */
+export function QuickStartPageContent() {
   return (
     <>
       <div className="px-6 pb-16 pt-32">
@@ -248,3 +249,5 @@ pnpm --filter @spark/cli build  # 出 server 的 esbuild 单文件 bundle`}
     </>
   );
 }
+
+export default QuickStartPageContent;

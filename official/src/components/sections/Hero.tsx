@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BlurText } from "@/components/animations/blur-text";
 import { buttonVariants } from "@/components/ui/button";
 import { LINKS } from "@/lib/constants";
+import type { Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -22,43 +23,67 @@ import { cn } from "@/lib/utils";
  * 工单 19.45：首行静态字换站魂句「一个引擎，四个界面。」，第二行轮换词保持四端名。
  */
 
-const ROTATE_WORDS = ["Web 工作台", "Electron 桌面壳", "CLI TUI", "移动端 App"] as const;
+/** Hero 文案对（19.47 批 2：显式键，en 缺一条即编译红） */
+const HERO_COPY = {
+  zh: {
+    eyebrowBadge: "开源",
+    eyebrow: "MIT · 四端同一协议 · 事件溯源",
+    headline: "一个引擎，四个界面。",
+    rotateWords: ["Web 工作台", "Electron 桌面壳", "CLI TUI", "移动端 App"],
+    sub: "流式对话、工具调用可视化、fail-closed 人工审批。27 种事件实时驱动四端界面，会话以 append-only JSONL 落盘，可回放、可分叉、可回滚。",
+    ctaPrimary: "快速上手",
+    ctaSecondary: "查看源码",
+    meta: "MIT License · Node.js ≥ 24 · 默认监听 127.0.0.1:4318 · 数据落盘 ~/.spark",
+  },
+  en: {
+    eyebrowBadge: "Open source",
+    eyebrow: "MIT · One protocol, four surfaces · Event-sourced",
+    headline: "One engine, four interfaces.",
+    rotateWords: ["Web Workbench", "Electron Shell", "CLI TUI", "Mobile App"],
+    sub: "Streaming chat, tool-call visualization, fail-closed human approval. 27 event types drive four surfaces in real time; sessions persist as append-only JSONL — replayable, forkable, rollback-safe.",
+    ctaPrimary: "Get Started",
+    ctaSecondary: "View Source",
+    meta: "MIT License · Node.js ≥ 24 · Binds to 127.0.0.1:4318 · Data in ~/.spark",
+  },
+} as const;
 
-function RotatingWord(): React.JSX.Element {
+function RotatingWord({ lang }: { lang: Lang }): React.JSX.Element {
   const reducedMotion = useReducedMotion();
+  const words = HERO_COPY[lang].rotateWords;
   const [index, setIndex] = React.useState(0);
 
   React.useEffect(() => {
     if (reducedMotion) return;
     const timer = setInterval(() => {
-      setIndex((i) => (i + 1) % ROTATE_WORDS.length);
+      setIndex((i) => (i + 1) % words.length);
     }, 3200);
     return () => clearInterval(timer);
-  }, [reducedMotion]);
+  }, [reducedMotion, words.length]);
 
   if (reducedMotion) {
-    return <span className="pb-1">{ROTATE_WORDS[0]}</span>;
+    return <span className="pb-1">{words[0]}</span>;
   }
 
   return (
     <span className="inline-block pb-1">
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
-          key={ROTATE_WORDS[index]}
+          key={words[index]}
           className="inline-block"
           initial={{ y: "55%", opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: "-55%", opacity: 0 }}
           transition={{ duration: 0.32, ease: "easeOut" }}
         >
-          {ROTATE_WORDS[index]}
+          {words[index]}
         </motion.span>
       </AnimatePresence>
     </span>
   );
 }
 
-export function Hero(): React.JSX.Element {
+export function Hero({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
+  const copy = HERO_COPY[lang];
   return (
     <section
       id="hero"
@@ -74,9 +99,9 @@ export function Hero(): React.JSX.Element {
       {/* eyebrow pill：内嵌 mini 标签（x.ai "New" 同位，橙色点睛 v2.33） */}
       <p className="relative flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1.5 pr-4 text-xs text-muted-foreground shadow-sm">
         <span className="rounded-full bg-orange-100 px-2.5 py-0.5 font-medium text-orange-700">
-          开源
+          {copy.eyebrowBadge}
         </span>
-        MIT · 四端同一协议 · 事件溯源
+        {copy.eyebrow}
       </p>
 
       <h1
@@ -84,13 +109,13 @@ export function Hero(): React.JSX.Element {
         className="relative mt-10 max-w-4xl text-[44px] font-medium leading-[1.05] tracking-[-0.02em] text-zinc-900 sm:text-[60px] lg:text-[72px]"
       >
         <BlurText
-          text="一个引擎，四个界面。"
+          text={copy.headline}
           staggerDelay={0.045}
           duration={0.55}
           className="block"
         />
         <span className="mt-1 inline-flex flex-col items-center">
-          <RotatingWord />
+          <RotatingWord lang={lang} />
           {/* 旋转词下划线渐变条（x.ai 移动端 "build." 同构：橙→粉→黄，v2.33） */}
           <span
             aria-hidden="true"
@@ -100,17 +125,15 @@ export function Hero(): React.JSX.Element {
       </h1>
 
       <p className="relative mt-8 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
-        流式对话、工具调用可视化、fail-closed 人工审批。27
-        种事件实时驱动四端界面，会话以
-        append-only JSONL 落盘，可回放、可分叉、可回滚。
+        {copy.sub}
       </p>
 
       <div className="relative mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
         <Link
-          href="/quickstart"
+          href={lang === "en" ? "/en/quickstart" : "/quickstart"}
           className={cn(buttonVariants({ size: "lg" }), "rounded-full px-8")}
         >
-          快速上手&nbsp;&nbsp;→
+          {copy.ctaPrimary}&nbsp;&nbsp;→
         </Link>
         <a
           href={LINKS.github}
@@ -121,13 +144,11 @@ export function Hero(): React.JSX.Element {
             "border-transparent bg-zinc-100 hover:bg-zinc-200",
           )}
         >
-          查看源码
+          {copy.ctaSecondary}
         </a>
       </div>
 
-      <p className="relative mt-10 font-mono text-sm text-muted-foreground">
-        MIT License · Node.js ≥ 24 · 默认监听 127.0.0.1:4318 · 数据落盘 ~/.spark
-      </p>
+      <p className="relative mt-10 font-mono text-sm text-muted-foreground">{copy.meta}</p>
     </section>
   );
 }
