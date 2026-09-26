@@ -29,7 +29,7 @@ async function makeCwd(): Promise<string> {
 function makeCtx(cwd: string, map?: ReadFileStateMap): ToolContext {
   return {
     sessionId: ids.session('ses_readstate'),
-    turnId: ids.turn('trn_readstate'),
+    turnId: ids.turn('trnreadstate'),
     callId: ids.call('calreadstate'),
     signal: new AbortController().signal,
     onProgress: () => {},
