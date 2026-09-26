@@ -81,13 +81,15 @@ const serverSchema = z
     }
   })
 
-/** LA-23：server 名保留键拒载——zod record 对 `__proto__` 键的赋值即原型污染
- *（JSON.parse 产自有own键，但 zod 重建对象时 `target[key]=value` 触发 setter）。
- * lsp/config.ts:52 的 Object.create(null) 是同问题正解，此处选显式拒载（fail-closed）。 */
+/** LA-23：server 名保留键拒载——JSON.parse 产生自有 `__proto__` 键，zod record
+ * 重建对象时 `target[key]=value` 触发 setter（原型被污染且键被吞——检查必须在进
+ * zod 前对 raw 做）。lsp/config.ts:52 的 Object.create(null) 是同问题正解，此处选
+ * 显式拒载（fail-closed）。 */
 const RESERVED_SERVER_NAMES = new Set(['__proto__', 'constructor', 'prototype'])
 
-function assertNoReservedServerNames(servers: Record<string, unknown>): void {
-  for (const name of Object.keys(servers)) {
+function assertNoReservedServerNames(servers: unknown): void {
+  if (typeof servers !== 'object' || servers === null) return
+  for (const name of Object.keys(servers as Record<string, unknown>)) {
     if (RESERVED_SERVER_NAMES.has(name)) {
       throw new ConfigError(`mcp.json：server 名 "${name}" 是保留键（拒载，防原型污染）`)
     }
@@ -103,8 +105,9 @@ const mcpSchema = z.object({
 export function loadMcpConfig(dir: string): McpConfig {
   const raw = readJsonFile(dir, SPARK_FILE.mcp)
   if (raw === undefined) return { servers: {} }
+  // LA-23：保留键检查先于 zod（见上注——record 重建会吞键）
+  assertNoReservedServerNames((raw as { servers?: unknown }).servers)
   const parsed = parseOrThrow(mcpSchema, raw, 'mcp.json')
-  assertNoReservedServerNames(parsed.servers as Record<string, unknown>)
   return { servers: parsed.servers }
 }
 
@@ -113,8 +116,9 @@ export function loadMcpConfig(dir: string): McpConfig {
  * mode 0o600（env/headers 是明文凭据，文件权限收紧，同 secrets.json 口径）。
  * 运行中改动需重启引擎重连生效（调用方如实提示，禁假状态）。 */
 export function writeMcpConfig(dir: string, config: McpConfig): void {
+  // LA-23：保留键检查先于 zod（同 loadMcpConfig）
+  assertNoReservedServerNames(config.servers)
   const parsed = parseOrThrow(mcpSchema, { version: 1, servers: config.servers }, 'mcp.json')
-  assertNoReservedServerNames(parsed.servers as Record<string, unknown>)
   atomicWriteJson(sparkFile(dir, 'mcp'), { version: 1, servers: parsed.servers }, { mode: 0o600 })
 }
 
@@ -172,7 +176,7 @@ function resolveMaskedMap(
 /** PUT 合并（RT3-07 / WO-088）：env/headers 掩码占位经 resolveMaskedMap 合并盘上真值；
  * 其余字段以 incoming 为准——整文件写语义不变。 */
 export function mergeMaskedMcpConfig(existing: McpConfig, incoming: McpConfigInput): McpConfig {
-  assertNoReservedServerNames(incoming.servers as unknown as Record<string, unknown>)
+  assertNoReservedServerNames(incoming.servers)
   const servers: Record<string, McpServerConfig> = {}
   for (const [name, s] of Object.entries(incoming.servers)) {
     const env = resolveMaskedMap(s.env, existing.servers[name]?.env, (k) =>

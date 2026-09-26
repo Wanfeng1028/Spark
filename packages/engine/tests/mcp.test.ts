@@ -529,7 +529,7 @@ describe('LA-23：mcp 配置数据完整性', () => {
 
   test('server 名 __proto__ 拒载（防原型污染，fail-closed）', () => {
     const dir = tempDir()
-    const raw = '{\"version\":1,\"servers\":{\"__proto__\":{\"command\":\"npx\"}}}'
+    const raw = JSON.stringify({ version: 1, servers: { ['__proto__']: { command: 'npx' } } })
     writeFileSync(join(dir, 'mcp.json'), raw, 'utf8')
     expect(() => loadMcpConfig(dir)).toThrow(ConfigError)
   })
