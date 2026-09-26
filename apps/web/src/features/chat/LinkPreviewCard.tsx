@@ -11,7 +11,7 @@ import type { LinkPreviewDto } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 
 /** 正文中抽 http(s) URL（去重、截 3 个——预览是增强面不是列表） */
-export function extractUrls(text: string, max = 3): string[] {
+function extractUrls(text: string, max = 3): string[] {
   const found = text.match(/https?:\/\/[^\s<>"'））\]]+/g) ?? []
   const trimmed = found.map((u) => u.replace(/[.,;:!?]+$/, ''))
   return [...new Set(trimmed)].slice(0, max)
