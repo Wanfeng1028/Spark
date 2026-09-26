@@ -295,9 +295,14 @@ export class ArenaManager {
       if (rel === undefined) continue
       const del = d !== undefined && d !== '-' ? Number.parseInt(d, 10) : 0
       if (del > 0 && (a === '0' || a === '-')) {
-        // 纯删除：AI 无权删文件（§2.10）——跳过并登记（用户可手删）
-        skippedDeletions.push(rel)
-        continue
+        // GT-3: check if file still exists (numstat can't distinguish deleted vs lines-only)
+        const fsMod = await import('node:fs')
+        if (!fsMod.existsSync(join(winner.worktree, rel))) {
+          // file truly deleted: AI has no right to delete (§2.10) — skip and register
+          skippedDeletions.push(rel)
+          continue
+        }
+        // file still exists: lines-only modification — apply normally
       }
       try {
         const bytes = await readFile(join(winner.worktree, rel))

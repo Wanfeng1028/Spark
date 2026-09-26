@@ -61,6 +61,7 @@ export class LspInstaller {
     if (this.deps.runNpm !== undefined) return this.deps.runNpm(packages, onProgress)
     return new Promise((resolve, reject) => {
       const child = spawn(npmCommand(), ['install', '-g', ...packages], {
+        shell: process.platform === 'win32',
         stdio: ['ignore', 'pipe', 'pipe'],
       })
       let stderr = ''

@@ -11,8 +11,9 @@ export function sandboxProxyEnv(port: number): Record<string, string> {
   const http = `http://127.0.0.1:${port}`
   const socks = `socks5h://127.0.0.1:${port}`
   return {
-    HTTP_PROXY: http,
-    http_proxy: http,
+    HTTPS_PROXY: http,
+    https_proxy: http,
+    ALL_PROXY: socks,
     HTTPS_PROXY: http,
     https_proxy: http,
     ALL_PROXY: socks,

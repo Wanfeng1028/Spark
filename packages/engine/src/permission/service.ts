@@ -256,14 +256,17 @@ export class PermissionServiceImpl implements PermissionService {
         const otherLayer = this.projectLayerOf(other.sessionId)
         if (scope === 'project' && otherLayer?.key !== cascadeKey) continue
         if (
-          evaluateAll(
-            other.check.action,
-            other.check.patterns ?? [other.check.resource],
-            store.list(),
-            otherLayer?.rules ?? [],
-            this.sessionRulesOf(other.sessionId),
-            this.presetRulesOf(other.sessionId),
-          ) === 'allow'
+          (function() {
+            const eff = evaluateAll(
+              other.check.action,
+              other.check.patterns ?? [other.check.resource],
+              store.list(),
+              otherLayer?.rules ?? [],
+              this.sessionRulesOf(other.sessionId),
+              this.presetRulesOf(other.sessionId),
+            )
+            return eff === 'allow' && (this.deps.trust?.tightens(other.check.action) ?? false) ? 'ask' : eff
+          }).call(this) === 'allow'
         ) {
           await this.settle(other, true, 'always', 'cascade')
         }

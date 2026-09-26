@@ -86,7 +86,7 @@ export function splitCommandPatterns(command: string): string[] | undefined {
     .split(/&&|\|\||;|\|/)
     .map((s) => s.trim())
     .filter((s) => s !== '')
-  return segments.length >= 2 ? segments.map((s) => `cmd:${s.slice(0, 80)}`) : undefined
+  return segments.length >= 2 ? segments.map((s) => `cmd:${s}`) : undefined
 }
 
 /** 树杀：Unix 杀进程组（detached 使 child 即组长）；Windows taskkill /T /F */
@@ -161,7 +161,7 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
     inputSchema: BashInput,
     permission: {
       action: 'shell.exec',
-      resourceOf: (input) => `cmd:${input.command.slice(0, 80)}`,
+      resourceOf: (input) => `cmd:${input.command}`,
       // 复合命令多 pattern：逐段评估与展示；always 固化同样按段（§5.7 补强 1/3）
       patternsOf: (input) => splitCommandPatterns(input.command),
       alwaysPatternsOf: (input) => splitCommandPatterns(input.command),
