@@ -66,7 +66,7 @@ function schemeError(url: URL): string | null {
 /** DNS 解析 + 逐地址私网校验（防 DNS rebinding：解析后才连） */
 async function assertPublicHost(hostnameRaw: string): Promise<void> {
   // 字面量 IP（含 [::1] 方括号形态）不经 DNS——先按字面量直判
-  const hostname = hostnameRaw.replace(/^\\[|\\]$/g, '')
+  const hostname = hostnameRaw.replace('[', '').replace(']', '')
   if (isPrivateAddress(hostname)) {
     throw new Error(`E_LINK_PREVIEW_UNSAFE: ${hostnameRaw} 是非公网地址`)
   }
