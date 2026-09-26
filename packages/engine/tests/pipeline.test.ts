@@ -463,3 +463,39 @@ describe('AUD-11：ProgressGate drain 自愈', () => {
     expect(f.events.filter((e) => e.type === 'tool.completed')).toHaveLength(2)
   })
 })
+
+// ---- LA-36：catch 路径 gate.close 抛错不再悬空 tool.started ----
+
+describe('LA-36：catch 路径 gate.close 抛错不悬空', () => {
+  test('progress emit 失败 + execute 抛错：close 首错被本地吞，completed 仍闭合', async () => {
+    const f = await makeFixture()
+    let failFirst = true
+    ;(f.bus as unknown as { emitLive: (...args: unknown[]) => void }).emitLive = () => {
+      if (failFirst) {
+        failFirst = false
+        throw new Error('E_LIVE_FAIL: 测试注入的直播失败')
+      }
+    }
+    const boomTool: ToolDefinition = {
+      name: 'read',
+      description: 'progress then throw',
+      inputSchema: z.strictObject({ v: z.string().optional() }),
+      permission: { action: 'fake.read', resourceOf: () => 'fake:read' },
+      parallelizable: true,
+      execute(ctx) {
+        ctx.onProgress('chunk-1') // emit 失败 → drainError 置位
+        throw new Error('E_TOOL_BOOM: 工具本体失败')
+      },
+    }
+    f.registry.register(boomTool)
+
+    const [r1] = await f.pipeline.runAll(makeTurn(), [pending('read', 1)])
+    if (r1 === undefined) throw new Error('runAll 结果缺失（测试前提不成立）')
+    // 旧实现：catch 内 gate.close() 再抛 → emitCompleted 被跳过 → 悬空 tool.started
+    expect(r1.isError).toBe(true)
+    expect(r1.output).toMatchObject({ code: 'E_TOOL_BOOM' })
+    const completed = f.events.filter((e) => e.type === 'tool.completed')
+    expect(completed).toHaveLength(1)
+    expect(completed[0]?.data).toMatchObject({ isError: true })
+  })
+})

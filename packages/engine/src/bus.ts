@@ -36,6 +36,12 @@ export interface SubscribeHandle {
   unsubscribe(): void
   /** 背压恢复：订阅者写出缓冲排空（如 SSE drain）后调用，续传暂停期间缓冲的事件 */
   resume(): void
+  /**
+   * LA-36：durable 溢出后的恢复确认——宿主完成重放（或回退水位重建）后调用。
+   * 溢出置位的 degraded 粘滞标志仅由此清除：drain 排空只是缓冲恢复，不代表
+   * 缺口已补齐；未确认前该订阅者按降级态对待（再次溢出仍会重新通知）。
+   */
+  recovered(): void
 }
 
 interface Subscriber {
@@ -45,8 +51,10 @@ interface Subscriber {
   buffer: SparkEventEnvelope[]
   /** per-subscriber 派发串行队列：handler 按事件序逐个调用，不并发 */
   queue: Promise<void>
-  /** AUD-11：缓冲溢出已通知过宿主（durable 无法保全）——resume 时复位 */
+  /** AUD-11：缓冲溢出已通知过宿主（durable 无法保全）——LA-36：仅 recovered() 时复位 */
   overflowed: boolean
+  /** LA-36：durable 溢出降级粘滞标志——drain 不复位，宿主 recovered() 显式清除 */
+  degraded: boolean
   /** AUD-11：durable 溢出回调（宿主应断开该订阅让客户端按水位重连补播）；缺省仅丢事件 */
   onDurableOverflow?: (e: SparkEventEnvelope) => void
 }
@@ -152,6 +160,7 @@ export class EventBus {
       buffer: [],
       queue: Promise.resolve(),
       overflowed: false,
+      degraded: false,
       ...(filter?.onDurableOverflow !== undefined
         ? { onDurableOverflow: filter.onDurableOverflow }
         : {}),
@@ -163,6 +172,10 @@ export class EventBus {
       },
       resume: () => {
         this.resumeSubscriber(sub)
+      },
+      recovered: () => {
+        sub.degraded = false
+        sub.overflowed = false // recovered 后重新武装一次性溢出通知
       },
     }
   }
@@ -316,7 +329,7 @@ export class EventBus {
   private resumeSubscriber(sub: Subscriber): void {
     if (!sub.paused) return
     sub.paused = false
-    sub.overflowed = false // AUD-11：缓冲已排空，溢出标记复位
+    // LA-36：drain 不再复位溢出标记——缺口是否补齐由宿主经 recovered() 确认
     const backlog = sub.buffer.splice(0)
     for (const e of backlog) {
       this.deliver(sub, e) // flush 中再背压则继续缓冲（递归安全：buffer 已 splice）
@@ -345,6 +358,9 @@ export class EventBus {
       sub.buffer.push(e)
       return
     }
+    // LA-36：降级粘滞——丢弃 durable 的同时置 degraded，宿主须显式 recovered()
+    // 确认重放完成后才解除；drain 排空不再伪装"恢复正常"。
+    sub.degraded = true
     if (!sub.overflowed) {
       sub.overflowed = true
       sub.onDurableOverflow?.(e)

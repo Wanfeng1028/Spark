@@ -353,7 +353,14 @@ export class ToolPipelineImpl implements ToolPipeline {
       })
       return { callId: call.callId, output: finalOutput, isError: result.isError }
     } catch (err) {
-      await gate.close()
+      // LA-36：catch 路径的 gate.close() 抛错不再上抛——close 的 drainError 已消费过
+      // 一次（341 行成功路径上抛进本 catch），此处再抛只会顶掉 emitCompleted，留下
+      // 悬空 tool.started。本地 try 保闭合链完整（close 首错已在成功路径如实上报）。
+      try {
+        await gate.close()
+      } catch {
+        // drainError 已在成功路径消费或本路径无首错——无可再报，闭合优先
+      }
       const mapped = mapError(err)
       await this.emitCompleted(turn, call.callId, call.name, mapped, true, startedAt())
       return { callId: call.callId, output: mapped, isError: true }

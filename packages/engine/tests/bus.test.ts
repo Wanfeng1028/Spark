@@ -177,6 +177,7 @@ describe('LA-34：error 事件单点脱敏', () => {
     })
     expect(received).toHaveLength(1)
     const e = received[0]
+    if (e === undefined) throw new Error('error 事件未到达')
     expect(e.type).toBe('error')
     const msg = (e.data as { message: string }).message
     expect(msg).not.toContain('sk-ant-api03')
@@ -188,7 +189,7 @@ describe('LA-34：error 事件单点脱敏', () => {
     const { sink, received } = makeSink()
     const bus = new EventBus({ sink })
     await bus.emit(SID, 'error', { scope: 'engine', message: 'raw message' })
-    expect((received[0].data as { message: string }).message).toBe('raw message')
+    expect((received[0]?.data as { message: string } | undefined)?.message).toBe('raw message')
   })
 })
 
@@ -371,6 +372,59 @@ describe('背压 pause/resume', () => {
     await sleep(5)
     // AUD-11：durable 绝不静默丢——已缓冲的 2、3 完整续传，4 经断链由客户端按水位重连补播
     expect(got.map((e) => (e.data as { title: string }).title)).toEqual(['1', '2', '3'])
+  })
+
+  it('LA-36：溢出降级粘滞——drain 不复位通知，recovered() 显式确认后才重新武装', async () => {
+    const { sink } = makeSink()
+    const overflows: string[] = []
+    const bus = new EventBus({ sink, bufferCapacity: 2 })
+    const got: SparkEventEnvelope[] = []
+    const pauseOn = (e: SparkEventEnvelope): boolean =>
+      (e.data as { title: string }).title === 'pause'
+    const handle = bus.subscribe(
+      (e) => {
+        got.push(e)
+        if (pauseOn(e)) return false
+      },
+      {
+        onDurableOverflow: (e) => overflows.push((e.data as { title: string }).title),
+      },
+    )
+    const emitTitle = (t: string): Promise<unknown> => bus.emit(SID, 'session.title', { title: t })
+
+    // 第一轮：pause 后 2/3 进缓冲，4 溢出 → 通知一次
+    await emitTitle('pause')
+    await sleep(5)
+    await emitTitle('2')
+    await emitTitle('3')
+    await emitTitle('4')
+    await sleep(5)
+    expect(overflows).toEqual(['4'])
+
+    handle.resume()
+    await sleep(5)
+    expect(got.map((e) => (e.data as { title: string }).title)).toEqual(['pause', '2', '3'])
+
+    // 第二轮（未 recovered）：再次溢出不再通知——drain 排空不等于缺口已补齐
+    await emitTitle('pause')
+    await sleep(5)
+    await emitTitle('a')
+    await emitTitle('b')
+    await emitTitle('c')
+    await sleep(5)
+    expect(overflows).toEqual(['4']) // 粘滞：旧实现 resume 已把溢出标记复位（缺口被遗忘）
+    handle.resume()
+    await sleep(5)
+
+    // recovered() 显式确认重放完成 → 重新武装一次性通知
+    handle.recovered()
+    await emitTitle('pause')
+    await sleep(5)
+    await emitTitle('x')
+    await emitTitle('y')
+    await emitTitle('z')
+    await sleep(5)
+    expect(overflows).toEqual(['4', 'z'])
   })
 
   it('live 事件溢出：新到 live 直接丢弃（缓冲内已收的保留——不再 shift 丢最老）', async () => {
