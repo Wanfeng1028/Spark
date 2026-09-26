@@ -74,4 +74,25 @@ describe('GET /api/storage/report（19.37 第二批）', () => {
     expect(r.imported).toBe(files)
     expect(r.failed).toBe(0)
   })
+
+  test('链接预览（19.21）：不安全 URL 400；解析失败回最小卡形态', async () => {
+    const server = await makeServer()
+    const unsafe = await server.app.inject({
+      method: 'POST',
+      url: '/api/link-preview',
+      payload: { url: 'file:///etc/passwd' },
+    })
+    expect(unsafe.statusCode).toBe(400)
+    expect(unsafe.json<{ code: string }>().code).toBe('E_LINK_PREVIEW_UNSAFE')
+
+    const offline = await server.app.inject({
+      method: 'POST',
+      url: '/api/link-preview',
+      payload: { url: 'http://spark-link-preview-nonexistent.invalid/x' },
+    })
+    expect(offline.statusCode).toBe(200)
+    const body = offline.json<{ domain: string; title: string | null }>()
+    expect(body.domain).toBe('spark-link-preview-nonexistent.invalid')
+    expect(body.title).toBeNull()
+  })
 })

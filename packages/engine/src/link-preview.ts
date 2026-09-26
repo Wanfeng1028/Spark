@@ -97,7 +97,7 @@ function fetchOnce(
         res.on('end', () => {
           resolve({
             status: res.statusCode ?? 0,
-            location: res.headers.location,
+            ...(res.headers.location !== undefined ? { location: res.headers.location } : {}),
             body: Buffer.concat(chunks).toString('utf8'),
           })
         })
