@@ -47,7 +47,7 @@ export function ArchitectureDiagram(): React.JSX.Element {
         <header className="mb-16 max-w-2xl">
           <h2
             id="architecture-heading"
-            className="text-[30px] font-semibold tracking-tight text-foreground sm:text-[38px]"
+            className="text-[30px] font-medium tracking-[-0.015em] text-foreground sm:text-[38px]"
           >
             架构一览
           </h2>

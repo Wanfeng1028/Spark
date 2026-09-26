@@ -66,7 +66,7 @@ export function QuickStartCTA(): React.JSX.Element {
         <BlurFade delay={0}>
           <h2
             id="quickstart-heading"
-            className="text-center text-[36px] font-semibold tracking-tight text-zinc-900 sm:text-[52px]"
+            className="text-center text-[36px] font-medium tracking-[-0.02em] text-zinc-900 sm:text-[52px]"
           >
             两条起步路径
           </h2>

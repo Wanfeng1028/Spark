@@ -50,6 +50,7 @@
 | v2.39 | 2026-09-24 | AI 编写：Qoder · Qwen3.8-Max（Qwen3.8-Max-0902）；发起与拍板：晚风（Wanfeng1028，"我不希望我的官网出现过多这种『本地优先』『跑在你自己』这种明显都是 ai 的语言，写一个工单查一下改一下，包括整个项目"指令） | **§12.7 补两条禁项 + §12.8 补一行 grep（工单 19.44 的根因修复）**：① **第二人称喊话式定位句**当主标题（"跑在你自己机器上的""属于你的"）与**无可核实指涉的同义词轮播**（"Agent 工作台 / AI 编码搭档 / 自动化队友"三词轮播）；② **把架构事实当口号标签**（`本地优先`/`数据不出本机`/`无云端依赖`/`Local-first`）——事实照说、标签不写。此前 §12.7 只禁空泛形容词/通用 CTA/箭头/filler/营销腔，**这两类无条可引**，故"本地优先"在 v1.3 三次拍板移除后于 2026-09-14 官网落地时第四次复发；本次把判据写进规则层，配套 §12.8 新增 grep 行（扫描范围 `official/src` + `apps/*/src` 用户可见串 + `README*.md` 正文，**文档版本表内引用该词的历史行不计**——那是拍板证据）。同批改写：官网 11 处、README/README.en/CHANGELOG/miniapp README 4 处、`OnboardingPage` 欢迎步 1 处（改法"标签换事实"，明细见 doc/02 §8 阶段十九 19.44 行）。**版式与既有豁免不变**：v2.31 hero 按钮箭头单处豁免、v2.33 下划线渐变、§12.9 主题层豁免均不动。与 doc/02 v4.112、doc/08 v1.86、AGENTS v1.61、README v1.46 同批。本批本机零验证，CI 裁决 |
 | v2.40 | 2026-09-24 | AI 编写：Qoder · Qwen3.8-Max（Qwen3.8-Max-0902）；发起与决策：晚风（Wanfeng1028，"轮播组件还是留着吧，其他改动确认"） | **§12.7 第一条禁项精确化**：原文只写"同义词轮换同属此类"，容易被读成"禁止轮播组件"。按晚风判词补一句——**禁的是"轮无可指"，不是轮换机制本身**；轮播位上放四个各有实体的端名（Web 工作台 / Electron 桌面壳 / CLI TUI / 移动端 App）即承担信息，合规。据此 Hero 的 `RotatingWord` 组件保留、只换 `ROTATE_WORDS` 词表（v2.31 登记的旋转词 + 粗下划线形态不变）。与 AGENTS v1.62、doc/02 v4.113、doc/08 v1.87 同批。本批本机零验证，CI 裁决 |
 | v2.41 | 2026-09-24 | AI 编写：Qoder · Qwen3.8-Max（Qwen3.8-Max-0902）；发起：晚风（Wanfeng1028，"这两个任务如果没有并行代理做，你就做"指令） | **§12.8 口号行标注"已接硬检查"**：该行由 `scripts/check_doc_links.py` **检查 5** 执行（CI 第一关，命中即 error），扫描面与豁免口径同该行文字；§12.8 其余各行仍是人工 grep 自查、未接强制层，故本节标题"阶段一接入 CI 脚本"仅对检查 5 成立。补记缘由：AGENTS §8 第四条纪律"软指令与硬检查分开"——写在 md 里的禁令挡不住第四次复发（本单即判例）。同批收口 19.44 另一尾巴：`official/public/og-image.png` 重导出（视觉呈现不变，仅标语文字随 §12.7 改判）。与 AGENTS v1.63、README v1.47、doc/02 v4.118、doc/08 v1.91 同批。本批本机零验证，CI 裁决 |
+| v2.42 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，对比 x.ai/grok 后拍板"按照你说的来吧，可以修改设计规则。英文优先，官网做好中英文的切换和适配，以及官网的多端适配"指令） | **新增 §14 官网排印系统 + §12.3 两条修订（19.47 批 1；工单卡 doc/08 §5D.13）**：① 字体栈翻案——v2.28 的"Noto Sans SC 打头单栈"让全站拉丁字符落在中文字体内置西文字形上（实测对照 xAI 设计系统后的定性：这是"和人家的差距"第一成因），改**西文优先**（`Inter Variable` 管拉丁 → 系统栈 → 中文回退，Noto webfont 降兜底）；② §12.3 Inter 条目精确化——"禁的是不作排印设计的默认引用"，官网按 §14 显式引用并配排印规格不属此列，产品四端禁令不变；③ **§14 display 阶梯**：全档字重 700/600→500 + 渐进负字距（Hero 72px 档 -0.02em/行高 1.05，30–44px 档 -0.015em），display 数字改 `tabular-nums` 不借 mono；纯中文眉题放弃假 mono（IBM Plex Mono 无中文字形）改小灰字 + 0.08em 正字距。落地 12 处 className（grep 断言：display 档 font-bold/semibold 清零；not-found mono 404 与冻结的 FactBar 两处合理保留）。同批登记：doc/08 v2.03（§5D.13）、doc/02 v4.144、AGENTS v1.67、README v1.49。本批本机零验证，CI 裁决 |
 
 > 本文件是**视觉决策文档**：回答"页面应该保持什么风格，遇到新场景怎么选"，让不同页面看起来仍属于同一个产品。
 > 架构与设计决策见 `ARCHITECTURE.md`；实现规格（做什么）见 `doc/02-development-plan.md` §6——本文件管"做成什么感觉、什么不许做"。所有前端 PR 以本文为验收依据之一。
@@ -227,8 +228,8 @@
 ### 12.3 字体与排版
 
 - **超大标题字体**（hero 式 text-4xl/5xl/6xl/7xl 粗体大标题）——§3 封顶：UI 13px、页面级标题 15px。【P0】**官网（official/）例外档位（v2.26 登记，v2.27 上调）**：营销站单列 display 档——Hero 标题 44/60/72px（移动/平板/桌面）、页面大标题 36/44px、区块标题 30/38px，正文 16-18px；产品四端禁令不变。
-- Inter / Poppins / Space Grotesk / Geist 等被当成"不用想"的默认主字体（Hallmark 称 Inter "在训练数据里被过度代表"）。【P1——我们用系统栈 + IBM Plex Mono】
-- **官网主字体（v2.28）**：official/ 中文 display 换 **Noto Sans SC variable**（`@fontsource-variable/noto-sans-sc` 自托管，无运行时 CDN；系统栈退居回退）——Windows 缺省雅黑在 display 大字档显廉价，是"官网字体很 low"的主因；IBM Plex Mono 不变；Inter 禁令不变（官网亦未用）。依赖安装由人类执行（§2.3a）。
+- Inter / Poppins / Space Grotesk / Geist 等被当成"不用想"的默认主字体（Hallmark 称 Inter "在训练数据里被过度代表"）。【P1——我们用系统栈 + IBM Plex Mono】**禁的是不作排印设计的默认引用**：official/ 按官网排印系统（§14，v2.42 晚风拍板"可以修改设计规则，英文优先"）显式引用 Inter Variable 管全部拉丁字符并配字重/字距规格，不属此列；产品四端禁令不变。
+- **官网主字体（v2.28）**：official/ 中文 display 换 **Noto Sans SC variable**（`@fontsource-variable/noto-sans-sc` 自托管，无运行时 CDN；系统栈退居回退）——Windows 缺省雅黑在 display 大字档显廉价，是"官网字体很 low"的主因；IBM Plex Mono 不变；Inter 禁令不变（官网亦未用）。依赖安装由人类执行（§2.3a）。**v2.42 翻案**：v2.28 的"Noto 打头单栈"让全站拉丁字符（Spark/MIT/Node.js/数字）落在中文字体的内置西文字形上——比系统栈还弱一档，是"与人家的差距"的第一成因；改为西文优先栈（Inter → 系统 → 中文回退，规格见 §14），Noto webfont 降为无中文系统字体环境的兜底。
 - 全大写 section 小标签滥用；正文中孤立的衬线斜体"强调词"。【P1】
 - 装饰性等宽字体（"hacker vibe"）——mono 只用于代码/路径/工具输出（§3）。【P1】
 - 全篇一档字号一字重的"扁平"层级；拉大 letter-spacing 当"设计感"。【P2】
@@ -756,6 +757,42 @@
 ④ **overlay 抽屉（模态）**：与 inline 同宽 264px、`inset-y-0 left-0`、z-40、同套弹层影；遮罩 `bg-black/60`（与 DialogOverlay 同 token）、z-30，**禁 backdrop-blur / 渐变 / 玻璃**（§12.2）；关闭三途径 = 遮罩点击 / Esc / 面板内收起钮，点选会话即收；遮罩为可聚焦按钮（Tab 首站即关闭）。
 ⑤ **非模态停靠面板（工单 19.36 辅助会话抽屉）**：无遮罩、不占 dialog 角色；宽 360px（§13.A 右栏档）`max-w-full`、`top-0 bottom-6` 让出 StatusBar；边界用 1px `--border` 左边框（停靠面板优先边框而非阴影，§3）；Esc 只收本面板。
 ⑥ **反 AI 味自查**：以上全部落在 §13.B 封闭圆角档与 13px 密度内，阴影至多一层；任何"浮层加毛玻璃"的写法一律拒收。
+
+---
+
+## 14. 官网排印系统（official/ 专用，v2.42 新增；19.47 批 1 落地）
+
+> 立项依据：晚风 2026-09-26 对比 x.ai/grok 后拍板"按照你说的来吧，可以修改设计规则。英文优先"。判据是排印纪律而非骨架——官网骨架（居中 hero/眉题 pill/黑色胶囊/黑白灰+橙点睛）批次 B–H 已对齐 x.ai，差距集中在字体系统：单栈中文字体管全站拉丁、display 加粗发糊、假 mono 眉题。本章规格对标 xAI 公开设计系统（universalSans + GeistMono 双字体分工、weight 400 全阶梯 + 渐进负字距），取其可开源等价物。
+
+### 14.1 字体栈（西文优先）
+
+```
+--font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto,
+             "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC Variable", sans-serif
+```
+
+- 拉丁字符（英文/数字/符号）一律由 Inter 渲染（`@fontsource-variable/inter` 自托管，无运行时 CDN）；中文按系统回退（PingFang/微软雅黑），Noto Sans SC webfont 只兜无中文系统字体的环境（Linux 裸机等）。
+- 中英混排同元素自动分工，无需 JS 按 locale 切字体。
+- `--font-mono` 维持 IBM Plex Mono（Geist 系在 §12.3 黑名单；IBM Plex Mono 是 xAI 体系的公开替代品之一）。
+
+### 14.2 display 阶梯（字重降级 + 渐进负字距）
+
+| 档位 | 字号（移动/桌面） | 字重 | 字距 | 行高 | 落点 |
+| --- | --- | --- | --- | --- | --- |
+| Hero | 44 / 60 / 72px | 500（medium） | -0.02em | 1.05 | Hero h1 |
+| 开发者区 display | 40 / 56px | 500 | -0.02em | 1.05 | ProtocolSection h2 |
+| 起跑区标题 | 36 / 52px | 500 | -0.02em | — | QuickStartCTA h2 |
+| 页面大标题 | 36 / 44px | 500 | -0.015em | — | 三子页 h1 |
+| 区块标题 | 30 / 38px | 500 | -0.015em | — | 各 section h2 |
+| display 数字 | 36 / 48px（4xl/5xl） | 500 | -0.02em | — | 统计 dd（tabular-nums） |
+
+- **display 档禁 font-bold（700）**：中文黑体大字加粗即糊，"高端感"来自字号 + 负字距 + 留白，不来自加粗。20–24px 小标题（h3/卡片标题）维持 600——那是正文层级，不在本表。
+- 数字统计用 `tabular-nums`（Inter 自带等宽数字集），不再借用 mono。
+
+### 14.3 眉题与 mono 分工
+
+- **纯中文眉题放弃 mono**（IBM Plex Mono 无中文字形，"mono 眉题"此前只有拉丁部分是真的）：`text-xs tracking-[0.08em] text-muted-foreground`——正字距属本表规格（配合小字号），不触 §12.3"拉大字距当设计感"（那条禁的是全篇扁平层级下的滥用）。
+- mono 保留域不变：代码块、终端转录、路径/命令行、mono 数字（404 大字、序号）、拉丁链接箭头（v2.29 豁免）。中英混排的元信息行（Hero mono 行）保留 mono——中文 fallback 渲染属已知形态。
 
 ---
 

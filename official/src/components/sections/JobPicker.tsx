@@ -79,7 +79,7 @@ export function JobPicker(): React.JSX.Element {
         <BlurFade delay={0}>
           <h2
             id="jobs-heading"
-            className="text-[30px] font-semibold tracking-tight text-zinc-900 sm:text-[38px]"
+            className="text-[30px] font-medium tracking-[-0.015em] text-zinc-900 sm:text-[38px]"
           >
             给 Agent 派个活
           </h2>

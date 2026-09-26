@@ -84,7 +84,7 @@ export function FeatureShowcase(): React.JSX.Element {
           <header className="mb-24 max-w-2xl">
             <h2
               id="features-heading"
-              className="text-[30px] font-semibold tracking-tight text-foreground sm:text-[38px]"
+              className="text-[30px] font-medium tracking-[-0.015em] text-foreground sm:text-[38px]"
             >
               核心能力
             </h2>

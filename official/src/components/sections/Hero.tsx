@@ -81,7 +81,7 @@ export function Hero(): React.JSX.Element {
 
       <h1
         id="hero-title"
-        className="relative mt-10 max-w-4xl text-[44px] font-bold leading-[1.12] tracking-tight text-zinc-900 sm:text-[60px] lg:text-[72px]"
+        className="relative mt-10 max-w-4xl text-[44px] font-medium leading-[1.05] tracking-[-0.02em] text-zinc-900 sm:text-[60px] lg:text-[72px]"
       >
         <BlurText
           text="一个引擎，四个界面。"

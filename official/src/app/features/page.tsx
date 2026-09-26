@@ -120,7 +120,7 @@ export default function FeaturesPage() {
     <>
       <div className="px-6 pb-16 pt-32">
         <div className="mx-auto max-w-4xl">
-          <h1 className="text-[36px] font-semibold tracking-tight text-foreground sm:text-[44px]">
+          <h1 className="text-[36px] font-medium tracking-[-0.015em] text-foreground sm:text-[44px]">
             核心能力
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">

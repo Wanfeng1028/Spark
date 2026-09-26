@@ -52,10 +52,10 @@ export function FourTiles(): React.JSX.Element {
         <BlurFade delay={0}>
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
             <header className="max-w-2xl">
-              <p className="font-mono text-xs text-muted-foreground">产品形态</p>
+              <p className="text-xs tracking-[0.08em] text-muted-foreground">产品形态</p>
               <h2
                 id="surfaces-heading"
-                className="mt-2 text-[30px] font-semibold tracking-tight text-foreground sm:text-[38px]"
+                className="mt-2 text-[30px] font-medium tracking-[-0.015em] text-foreground sm:text-[38px]"
               >
                 四端，同一份事件流
               </h2>
