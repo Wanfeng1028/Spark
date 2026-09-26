@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { ids } from '@spark/protocol'
 import type { SparkEventEnvelope } from '@spark/protocol'
 import { EventBus } from '../src/bus.js'
+import { redactSecretText } from '../src/observability/redaction.js'
 import type { EventSink } from '../src/bus.js'
 
 const SID = ids.session('ses_test0000000000000000000000')
@@ -163,6 +164,31 @@ describe('durable 事件', () => {
     expect(received[0]?.seq).toBe(6)
 
     expect(() => bus.restoreSeq(SID, 99)).toThrow(/E_BUS_SESSION_ACTIVE/)
+  })
+})
+
+describe('LA-34：error 事件单点脱敏', () => {
+  it('redactError 注入后：落盘与广播同一份脱敏文案（sk-ant- 形状与 Bearer 均覆盖）', async () => {
+    const { sink, received } = makeSink()
+    const bus = new EventBus({ sink, redactError: (m) => redactSecretText(m) })
+    await bus.emit(SID, 'error', {
+      scope: 'engine',
+      message: 'invalid key sk-ant-api03-abcdefghij0123456789 and Bearer plain-secret-xyz',
+    })
+    expect(received).toHaveLength(1)
+    const e = received[0]
+    expect(e.type).toBe('error')
+    const msg = (e.data as { message: string }).message
+    expect(msg).not.toContain('sk-ant-api03')
+    expect(msg).not.toContain('plain-secret-xyz')
+    expect(msg).toContain('***')
+  })
+
+  it('未注入 redactError：error 文案原样（行为不变）', async () => {
+    const { sink, received } = makeSink()
+    const bus = new EventBus({ sink })
+    await bus.emit(SID, 'error', { scope: 'engine', message: 'raw message' })
+    expect((received[0].data as { message: string }).message).toBe('raw message')
   })
 })
 

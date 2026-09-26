@@ -55,6 +55,13 @@ export interface EventBusOptions {
   sink: EventSink
   /** 订阅者异常回调（pino 工单接入）；缺省 console.warn——不吞异常 */
   onSubscriberError?: (err: unknown, e: SparkEventEnvelope) => void
+  /**
+   * LA-34：error 事件文案脱敏（单点）——emit('error') 落盘与广播前对 data.message
+   * 过完整模式集（env 活取 + 密钥仓值活取 + sk-/Bearer 静态形状）。宿主注入引擎级
+   * 闭包（redactErrorMessage + secrets.values()），compaction/checkpoint/run-loop 等
+   * 全部 error 发射点无需各自脱敏。
+   */
+  redactError?: (message: string) => string
   /** 暂停订阅者环形缓冲容量（默认 256） */
   bufferCapacity?: number
   /** AUD-11：durable 溢出兜底回调（subscribe 未逐订阅者给 onDurableOverflow 时） */
@@ -101,7 +108,13 @@ export class EventBus {
     type: T,
     data: SparkEventMap[T],
   ): Promise<SparkEventEnvelope<T>> {
-    const parsed = this.validate(type, data)
+    // LA-34：error 文案单点脱敏——落盘前过宿主注入的完整模式集
+    const finalData = (
+      type === 'error' && this.opts.redactError !== undefined
+        ? { ...data, message: this.opts.redactError((data as SparkEventMap['error']).message) }
+        : data
+    ) as SparkEventMap[T]
+    const parsed = this.validate(type, finalData)
     const st = this.stateOf(sid)
     const task = st.tail.then(() =>
       this.emitDurable(sid, type, parsed as SparkEventMap[T]),
@@ -189,7 +202,14 @@ export class EventBus {
     if (schema === undefined) {
       throw new Error(`E_BUS_UNKNOWN_TYPE: 未知事件类型 ${type}`)
     }
-    const parsed = schema.safeParse(data)
+    // LA-34：扩展事件同样过 error 脱敏单点（engine.error 等动态注册类型）
+    const finalData =
+      type === 'error' && this.opts.redactError !== undefined &&
+      typeof data === 'object' && data !== null && 'message' in data &&
+      typeof (data as { message: unknown }).message === 'string'
+        ? { ...(data as Record<string, unknown>), message: this.opts.redactError((data as { message: string }).message) }
+        : data
+    const parsed = schema.safeParse(finalData)
     if (!parsed.success) {
       throw new Error(`E_BUS_INVALID_DATA: ${type} 事件 data 校验失败：${parsed.error.message}`)
     }

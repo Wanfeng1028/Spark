@@ -3,7 +3,7 @@
  * logger（日志面）与 tools/guard（模型输入面）共用同一组模式，
  * 防"日志脱敏了、工具输出进上下文却没脱"的双标漂移。
  */
-export const SECRET_RE = /sk-[A-Za-z0-9]{20,}/g
+export const SECRET_RE = /sk-[A-Za-z0-9_-]{20,}/g
 export const BEARER_RE = /Bearer\s+\S+/g
 export const REPLACEMENT = '***'
 
@@ -40,4 +40,25 @@ export function redactSecretText(text: string, extra?: readonly RegExp[]): strin
     out = out.replace(re, REPLACEMENT)
   }
   return out
+}
+
+/**
+ * LA-34（AUD-06 残留收口）：error 事件单点脱敏的完整模式集——env 活取 + 密钥仓值
+ * 活取 + 静态形状。secretValues 每次调用现取（store 可经 API 运行时变更，不能构造期
+ * 快照）；resolveApiKey 优先级 store > env，store 值此前不在 run-loop 的兜底覆盖内。
+ */
+export function redactErrorMessage(
+  message: string,
+  secretValues: Iterable<string | undefined> = [],
+): string {
+  const extra: RegExp[] = [...buildEnvPatterns()]
+  for (const v of secretValues) {
+    if (!v || v.length < 6) continue
+    try {
+      extra.push(new RegExp(escapeRegex(v), 'g'))
+    } catch {
+      // 非法模式跳过（与 buildEnvPatterns 同判）
+    }
+  }
+  return redactSecretText(message, extra)
 }

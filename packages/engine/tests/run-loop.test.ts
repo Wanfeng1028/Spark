@@ -16,6 +16,7 @@ import {
 import { EventBus, type EventSink } from '../src/bus.js'
 import { ScriptedLlm } from '../src/scripted-llm.js'
 import { runSessionLoop, runTurn, type RunLoopDeps } from '../src/run-loop.js'
+import { redactSecretText } from '../src/observability/redaction.js'
 import { SessionRuntime } from '../src/session/runtime.js'
 import { newIds } from '../src/ulid.js'
 
@@ -129,7 +130,8 @@ const SID = ids.session('ses_runloop_test')
 
 function makeFixture(opts?: { maxStepsPerTurn?: number }): Fixture {
   const sink = new MemSink()
-  const bus = new EventBus({ sink })
+  // LA-34：脱敏移至 bus 单点后，fixture 与 engine 同形注入（静态形状足够覆盖 sk-/Bearer）
+  const bus = new EventBus({ sink, redactError: (m) => redactSecretText(m) })
   const gateway = new ScriptedLlm()
   const projector = new StubProjector(sink)
   const compactor = new StubCompactor()

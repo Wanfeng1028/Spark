@@ -59,6 +59,7 @@ import type { ArenaHistoryEntryDto } from '@spark/protocol'
 import { EventBus } from './bus.js'
 import type { EventSink, SubscribeHandle } from './bus.js'
 import { CompactorImpl, COMPACTION_PROMPT } from './compaction.js'
+import { redactErrorMessage } from './observability/redaction.js'
 import { GitCheckpointer } from './checkpoint.js'
 import type { CheckpointRecord } from './checkpoint.js'
 import { gitBranchOf } from './git.js'
@@ -382,6 +383,9 @@ export class Engine {
     }
     this.bus = new EventBus({
       sink,
+      // LA-34：error 事件单点脱敏——env 活取 + 密钥仓值活取（store > env 优先级下
+      // store 来源的密钥此前不在 run-loop 兜底覆盖内）+ sk-/Bearer 静态形状
+      redactError: (message) => redactErrorMessage(message, this.secrets.values()),
       onSubscriberError: (err, e) => {
         this.logger.warn('bus.subscriber.error', {
           sid: e.sessionId,

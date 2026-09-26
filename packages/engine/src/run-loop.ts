@@ -25,7 +25,6 @@ import type {
 } from '@spark/protocol'
 import type { EventBus } from './bus.js'
 import { errText } from './errs.js'
-import { buildEnvPatterns, redactSecretText } from './observability/redaction.js'
 import type { UserHookRunner } from './hooks/runner.js'
 import type { LlmGateway, LlmMessage, ResolvedModel, ToolSpec } from './llm-gateway.js'
 import { ZERO_USAGE, addUsage } from './llm-gateway.js'
@@ -154,15 +153,6 @@ export interface RunLoopDeps {
   }
 }
 
-/**
- * AUD-06：error 事件文案脱敏兜底——provider 错误体可能回显 Authorization 头/sk-
- * 密钥原文，事件发射路径不在 logger/audit/guard 的脱敏覆盖内；落盘（durable）前
- * 统一过同一模式集。错误发射是罕见路径，现场编译 env 模式的成本可接受。
- */
-function redactedMessage(message: string): string {
-  return redactSecretText(message, buildEnvPatterns())
-}
-
 function isToolCall(c: ContentItem): c is Extract<ContentItem, { type: 'toolCall' }> {
   return c.type === 'toolCall'
 }
@@ -234,7 +224,7 @@ export async function runSessionLoop(rt: SessionRuntime, deps: RunLoopDeps): Pro
       // 兜底的兜底：runTurn 只在 turn.started 之前抛（其后内部已闭合）
       await deps.bus.emit(deps.sessionId, 'error', {
         scope: 'engine',
-        message: redactedMessage(errText(err)),
+        message: errText(err),
       })
     }
     if (deps.goal !== undefined) {
@@ -250,7 +240,7 @@ export async function runSessionLoop(rt: SessionRuntime, deps: RunLoopDeps): Pro
         // goal 循环自身的失败闭合：emit error，不杀会话常驻循环
         await deps.bus.emit(deps.sessionId, 'error', {
           scope: 'engine',
-          message: redactedMessage(errText(err)),
+          message: errText(err),
         })
       }
     }
@@ -359,7 +349,7 @@ export async function runTurn(
       if (result.stopReason === 'error') {
         await deps.bus.emit(sid, 'error', {
           scope: 'llm',
-          message: redactedMessage(result.error ?? 'E_LLM_PROVIDER: 未提供错误详情'),
+          message: result.error ?? 'E_LLM_PROVIDER: 未提供错误详情',
         })
         finish = 'error'
         break
@@ -471,7 +461,7 @@ export async function runTurn(
     }
   } catch (err) {
     finish = 'error'
-    await deps.bus.emit(sid, 'error', { scope: 'engine', message: redactedMessage(errText(err)) })
+    await deps.bus.emit(sid, 'error', { scope: 'engine', message: errText(err) })
   } finally {
     // 失败闭合：started 已发则必有 completed；endTurn 转移 steer 残留并处理 idle。
     // AUD-07②：运行态释放（endTurn）放在收尾链外层的无条件 finally——completed
