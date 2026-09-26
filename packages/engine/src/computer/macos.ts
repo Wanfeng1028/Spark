@@ -180,8 +180,7 @@ export class MacComputerExecutor implements ComputerExecutor {
         '  end repeat',
         '  return out',
         'end tell',
-      ].join('
-')
+      ].join('\n')
       const stdout = await run('osascript', ['-e', script], OP_TIMEOUT_MS, signal)
       return { windows: parseAppleList(stdout) }
     }
@@ -204,8 +203,7 @@ export class MacComputerExecutor implements ComputerExecutor {
       '  end repeat',
       '  return out',
       'end tell',
-    ].join('
-')
+    ].join('\n')
     const stdout = await run('osascript', ['-e', script], OP_TIMEOUT_MS, signal)
     return { apps: parsePairs(stdout) }
   }
