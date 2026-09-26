@@ -3089,10 +3089,10 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | ZC-2 | ⬜ alwaysAsk 双分支 | 审批策略引擎加结构化 alwaysAsk 标记（"压过放行、压不过阻断"）——alwaysAsk 的工具即使 yolo/plan 只读也必须问一次；会话级 allow 可压制、项目级 deny 不可压制 | 单测：alwaysAsk × yolo/plan/session-allow/project-deny 矩阵 | 无 |
 | ZC-3 | ⬜ 输出截断自动续写 | finishReason=length 且无工具调用时，追加续写指令（"继续从截断处输出"）再跑一轮；超过恢复次数（3 次）才报 model_output_limit_exceeded | 单测：截断→续写成功/续写次数耗尽→报错 | 无 |
 | ZC-4 | ⬜ resolveInput 审批一致性 | 权限判 ask 时把归一化后的输入（而非模型原始入参）发给审批——"确认与执行同字节，不存在批准 A 跑 B" | 单测：resolveInput 后的输入与 handler 收到的逐字节一致 | 无 |
-| ZC-Q1 | ⚖️ Stream Recovery | 流中断后按工具账本精确结算半途副作用再重试（协议新增 anchor/ledger 两类事件 + reducer 区分半截 delta 与墓碑）——比 resetSlice+全量重放细一个量级但复杂度高 | — | 待拍板 |
-| ZC-Q2 | ⚖️ Checkpoint git 隐藏提交 | 把 checkpoint 从快照目录改为 git 临时 GIT_INDEX_FILE + write-tree + hidden ref——更省更安全但改稳定功能 | — | 待拍板 |
-| ZC-Q3 | ⚖️ 多端命令 CAS + hook 信任门 | 输入排队/插队全事件化 + epoch/revision CAS + 项目 hook digest 信任门——多端一致性协议，单用户场景收益待评估 | — | 待拍板 |
-| ZC-Q4 | ⚖️ fig 注册表生成 bash 规则建议 | 从 @withfig/autocomplete 生成 1.8MB 注册表自动产出 bash 命令审批规则建议（高危命令黑名单防绕过）——自动化程度高但引入大生成物 | — | 待拍板 |
+| ZC-Q1 | 📋 Stream Recovery | 流中断后按工具账本精确结算半途副作用再重试（协议新增 anchor/ledger 两类事件 + reducer 区分半截 delta 与墓碑）——比 resetSlice+全量重放细一个量级但复杂度高 | — | 候选池 |
+| ZC-Q2 | ❌ Checkpoint git 隐藏提交 | 把 checkpoint 从快照目录改为 git 临时 GIT_INDEX_FILE + write-tree + hidden ref——更省更安全但改稳定功能 | — | 判决：保持现状 |
+| ZC-Q3 | 📋 多端命令 CAS + hook 信任门 | 输入排队/插队全事件化 + epoch/revision CAS + 项目 hook digest 信任门——多端一致性协议，单用户场景收益待评估 | — | 候选池（只做黑名单） |
+| ZC-Q4 | 🟡 fig 注册表生成 bash 规则建议（只做高危黑名单 16 命令） | 从 @withfig/autocomplete 生成 1.8MB 注册表自动产出 bash 命令审批规则建议（高危命令黑名单防绕过）——自动化程度高但引入大生成物 | — | 待拍板 |
 | ZC-N1 | ❌ JSONL → SQLite | 不做——Spark 的 fork/rollback 深度耦合 JSONL 线性 append-only 语义，SQLite 关系化改动面不可控 | — | 判决：不做 |
 | ZC-N2 | ❌ Vercel AI SDK 替代自写 gateway | 不做——Spark 的 pi-gateway 有 provider fallback/sandbox proxy/成本熔断等独特功能，SDK 归一化会丧失细粒度控制 | — | 判决：不做 |
 | ZC-N3 | ❌ OpenTUI 替代 Ink | 不做——Ink 7 已深度集成（四端共享协议、键位表、单源纪律），框架替换改动面不可控 | — | 判决：不做 |
