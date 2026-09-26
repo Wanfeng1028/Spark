@@ -10,6 +10,7 @@
 | 版本 | 日期 | 作者 | 变更内容 |
 | --- | --- | --- | --- |
 | v1.0 | 2026-09-26 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"参考项目中加入 ZCode，质谱的开源版本，你去分析一下源码"指令） | 初稿：三路并行调研合并——架构/循环/工具/上下文/权限/协议/MCP/hooks/亮点。与 AGENTS v1.65、doc/01 v2.0（§10 #12 行）、doc/02 v4.136 同批 |
+| v1.1 | 2026-09-26 | 同上 | 第三路调研（UI/亮点/可借鉴）完成合并——新增 §10 UI 渲染（OpenTUI 非 Ink/streamProjected 标记/workflow 镜像三纪律）、§10.2 桌面五进程面（VS Code 同款 RPC）、§10.3 远程三后端（协议差异为零）、§11 亮点功能七项（Stream Recovery/Steer Queue CAS/Checkpoint git 隐藏提交/Microcompact/Memory/formal-proof/CUA 占位）、§12 TOP 10 终版（三路合并取代初版 5 条） |
 
 ---
 
@@ -261,9 +262,82 @@ registry 查找 → abort 检查 → 输入归一化 + JSON Schema 校验 → va
 
 ---
 
-## 10. 静态无法判定项
+## 10. UI 渲染（第三路调研补充）
+
+### 10.1 Terminal UI：OpenTUI（非 Ink）
+
+[读码] `@mbears/opentui-core` + `opentui-react` 0.2.15——Yoga 布局 + React 19 reconciler 的终端渲染器（flexbox 语义的 `box`/`text` 元素），配 shiki 4 + web-tree-sitter 做语法高亮。渲染循环 `createCliRenderer({ targetFps: 30 })`；首帧后挂载真实 App（"没有运行时工作能阻塞第一帧"）；退出信号表显式剔除 SIGPIPE（MCP 管道关闭会误杀 TUI）。
+
+[读码] 流式输出：**不可变消息数组 + delta 追加 + streamProjected 标记**。delta 到来时 map 全量消息、只改目标消息的 parts 尾部；找不到就乐观创建 `streamProjected: true` 的消息；完成时收口，`finalizeStreamProjectedMessages` 把投影态与 durable 事实对账。与 Spark 的 live-only delta + seq 对账同思路，但多一个**显式 projected 标记位**。
+
+[读码] 最漂亮的设计——**workflow 运行卡镜像三纪律**：运行态只由共享 reducer 逐事件归约（无轮询无 setInterval）；冷启动从 journal 回放；无变化时返回传入的同一个引用让 React 免重渲染。
+
+### 10.2 桌面应用（Electron 五进程面）
+
+[读码] main / preload / renderer / host / scheduler 五进程面。每窗口一个 **host utilityProcess**：所有业务服务跑在 host 里，main 只做窗口/托盘/更新/遥测。渲染进程和手机端都通过 MessagePort attachment 到同一个 host。RPC 是 **VS Code 同款分层**（VSBuffer/SocketProtocol/ChannelServer/ChannelClient/proxy-channel/persistent-protocol）。安全：`contextIsolation: true, nodeIntegration: false`；内嵌浏览器走独立 session partition。
+
+### 10.3 远程工作区
+
+[读码] 远程三后端统一接口 `IRemoteBackend`（detect/upload/exec/exists/readFile/onDidDisconnect），SSH/WSL/Docker 三实现。**协议差异为零**：远端跑同一个 server bundle，差异压进传输层。自部署设计：连远程时把 node 运行时、server bundle 按 CDN manifest 装到远端 `~/.zcode`，带 deploy lock + live-identity 校验 + CDN 多候选回退。
+
+[读码] v4 实时协议：topic 订阅制——`deliveryKind: initial | online | recovery`（等价 Spark 的 `since=seq` 三态）；超大帧 UTF-8 字节层分片 + CRC32 + base64 重组成原子 logical frame；命令面走 **CommandInbox**（CAS 校验 epoch→revision 双层，晚到者静默收口不报错）。
+
+---
+
+## 11. 亮点功能（Spark 没有或更弱的）
+
+### 11.1 Stream Recovery + 流式工具账本
+
+[读码] 流中断后不盲目重放，先按 **StreamingToolLedger**（8 态：input_streaming→closed→queued→started→committed/cancelled/abandoned/blocked）判定哪些副作用已落地，从最近 durable anchor 重试，半截 assistant 输出用专门墓碑标记隔离。比 Spark 的"resetSlice+全量重放"细一个量级：**重放前先精确结算半途副作用**。
+
+### 11.2 Steer/Queue 全事件化 + CommandInbox 对账
+
+[读码] 输入的排队/插队/提升/丢弃全是协议事件（~10 种 steer/queue 事件），命令提交带 **epoch+revision CAS**，晚到命令 noop 收口——"可回放的协议事实，不是 UI 本地状态"。
+
+### 11.3 Checkpoint 的 git 隐藏提交
+
+[读码] `gitCheckpointRepo.ts:245-317`：临时 `GIT_INDEX_FILE` 收集 live worktree → `write-tree`/`commit-tree` 生成内部隐藏 commit → hidden ref 挂住防 GC；空 index 优化避开全量 add；恢复校验用 **blob hash** 而非时间戳。比 Spark 当前 checkpoint（快照目录抄 Grok）更省、更安全（不动用户 index）。
+
+### 11.4 Microcompact
+
+[读码] 独立于整段 compact 的**工具结果级清理**：上下文到 0.9×阈值时触发，清旧工具结果只留最近 5 条、最小节省 256 token；事件 `microcompact_boundary` 进流可回放。
+
+### 11.5 Memory 系统
+
+[读码] 三件套：① memory agent loop（独立小循环，权限收窄到 Read/Grep/Glob）；② manifest 召回（扫目录+YAML frontmatter+mtime 排序+200 文件×30 行预览封顶）；③ 回合边界后的**后台抽取调度器**。
+
+### 11.6 formal-proof（行为状态空间枚举器）
+
+[读码] `packages/formal-proof/src/model.ts`：把 runPhase×queue×compactMemory×goal×selectedTurn×forked 的组合枚举成决策树（guard/decision/assertion/e2e 引用），可视化验证交互不漏分支。业界罕见。
+
+### 11.7 CUA 开源姿态
+
+[读码] `packages/zcode-cua/`：开源包是 **API 兼容的 fail-closed 占位**——"每个 runtime 面报告 unavailable 并失败闭合"。全部调用点可编译、行为可测，但闭源实现零泄露。
+
+---
+
+## 12. 值得 Spark 借鉴的 TOP 10（三路合并终版）
+
+| # | 设计 | ZCode 做法 | Spark 怎么用 |
+| --- | --- | --- | --- |
+| 1 | **Stream Recovery + 流式工具账本** | 流中断后按账本结算半途副作用再重试 | protocol 新增 anchor/ledger 两类事件，reducer 区分半截 delta 与墓碑 |
+| 2 | **alwaysAsk 双分支** | "压过放行、压不过阻断"结构化标记 | 审批策略引擎吸收——不可抹掉的确认 |
+| 3 | **hook 与 broker 竞速** | 并发竞速防死锁，败者 abort | permission service 挂起/级联参考幂等 claim |
+| 4 | **三层递进压缩** | microcompact → auto → reactive + rapid-refill 熔断 | compaction 加 microcompact 层（成本最低收益最高） |
+| 5 | **Checkpoint git 隐藏提交** | 临时 GIT_INDEX_FILE + write-tree + hidden ref + blob hash 校验 | engine session/ 旁新增 checkpoint 模块 |
+| 6 | **工具声明式安全六维** | readOnly/destructive/concurrentSafe/sideEffectScope/riskLevel/alwaysAsk | ToolDefinition 对齐——一处声明处处消费 |
+| 7 | **fig 注册表生成规则建议** | 1.8MB 生成物 + 高危黑名单 | bash 审批规则建议可自动化生成 |
+| 8 | **Steer/Queue 全事件化 + CAS** | 输入排队/插队全是协议事件 + epoch/revision CAS | protocol api.ts 增 command envelope |
+| 9 | **Microcompact** | 清旧工具结果只留最近 5 条，边界落事件 | 与既有上下文水位线挂钩 |
+| 10 | **项目 hook digest 信任门** | 声明变更即 stale 需重审 + 派发前二次 admission | 16.5 式声明式扩展的信任模型 |
+
+---
+
+## 13. 静态无法判定项
 
 1. 术语 table 驱动的只读分类器在实际 bash 命令覆盖率
 2. v4 协议在弱网下的 gap buffer 重排正确性
 3. Electron 桌面端与 CLI 端的 IPC 延迟
 4. 大规模 MCP 连接池的内存水位
+5. OpenTUI 在低性能终端的渲染帧率
+6. formal-proof 枚举器对新增事件的扩展成本
