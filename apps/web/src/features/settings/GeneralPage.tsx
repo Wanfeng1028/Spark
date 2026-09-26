@@ -35,10 +35,11 @@ const DELIVERY_OPTIONS: { value: Delivery; label: string }[] = [
   { value: 'queue', label: '排队' },
 ]
 
-const SANDBOX_OPTIONS: { value: 'off' | 'on'; label: string }[] = [
+const SANDBOX_OPTIONS: { value: 'off' | 'approval' | 'light' | 'heavy'; label: string }[] = [
   { value: 'off', label: '关闭' },
-  // WO-082：选项文案收短防下拉截断——隔离细节由行 description 承载（ADR D15）
-  { value: 'on', label: '开启（隔离）' },
+  { value: 'approval', label: '审批' },
+  { value: 'light', label: '轻量沙箱' },
+  { value: 'heavy', label: '重型沙箱' },
 ]
 
 /**
@@ -297,7 +298,7 @@ function EngineBehaviorSection() {
   const [threshold, setThreshold] = useState('')
   const [toolTimeout, setToolTimeout] = useState('')
   const [outputLimit, setOutputLimit] = useState('')
-  const [sandbox, setSandbox] = useState<'off' | 'on'>('off')
+  const [sandbox, setSandbox] = useState<'off' | 'approval' | 'light' | 'heavy'>('approval')
   const [bashPersistent, setBashPersistent] = useState(false)
   // 阶段十九 19.14：四个"后端可读写、前端无控件"的反向占位字段
   const [maxToolParallel, setMaxToolParallel] = useState('')
