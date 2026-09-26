@@ -59,6 +59,7 @@ describe('UsageSettingsPage 空态（工单 13.6 / 13.6a）', () => {
         buckets: [],
         unbucketed: zero,
         costLimitUsd: null,
+        costLimitTokens: null,
         exceeded: false,
       })
     renderPage(transport)
