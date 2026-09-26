@@ -265,7 +265,7 @@ export function ProtocolSection({ lang = "zh" }: { lang?: Lang }): React.JSX.Ele
             <p className="text-sm text-zinc-500">{copy.eyebrow}</p>
             <h2
               id="protocol-heading"
-              className="mt-4 text-[40px] font-medium leading-[1.05] tracking-[-0.02em] text-zinc-900 sm:text-[56px]"
+              className="mt-4 text-[40px] font-medium leading-[1.05] tracking-[-0.02em] text-zinc-900 en:font-normal en:tracking-[-0.025em] sm:text-[56px]"
             >
               {copy.heading}
             </h2>
@@ -301,7 +301,7 @@ export function ProtocolSection({ lang = "zh" }: { lang?: Lang }): React.JSX.Ele
             <dl className="mt-14 grid grid-cols-3 gap-y-8 divide-x divide-zinc-200">
               {copy.stats.map((stat, index) => (
                 <div key={stat.label} className={cn("flex flex-col gap-1", index > 0 && "pl-8")}>
-                  <dd className="text-4xl font-medium tabular-nums tracking-[-0.02em] text-zinc-900 sm:text-5xl">
+                  <dd className="text-4xl font-medium tabular-nums tracking-[-0.02em] text-zinc-900 en:font-normal en:tracking-[-0.025em] sm:text-5xl">
                     <NumberTicker value={stat.value} delay={index * 0.08} />
                   </dd>
                   <dt className="order-2 text-sm text-muted-foreground">{stat.label}</dt>

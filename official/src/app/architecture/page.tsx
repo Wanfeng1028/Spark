@@ -88,10 +88,10 @@ const ARCH_COPY = {
 export function ArchitecturePageContent({ lang = "zh" }: { lang?: Lang }) {
   const copy = ARCH_COPY[lang];
   return (
-    <>
+    <div className={lang === "en" ? "lang-en" : undefined}>
       <div className="px-6 pb-16 pt-32">
         <div className="mx-auto max-w-4xl">
-          <h1 className="text-[36px] font-medium tracking-[-0.015em] text-foreground sm:text-[44px]">
+          <h1 className="text-[36px] font-medium tracking-[-0.015em] text-foreground en:font-normal en:tracking-[-0.025em] sm:text-[44px]">
             {copy.heading}
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">{copy.sub}</p>
@@ -184,7 +184,7 @@ export function ArchitecturePageContent({ lang = "zh" }: { lang?: Lang }) {
       </div>
 
       <div className="pb-32" />
-    </>
+    </div>
   );
 }
 

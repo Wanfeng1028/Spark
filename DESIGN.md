@@ -51,6 +51,7 @@
 | v2.40 | 2026-09-24 | AI 编写：Qoder · Qwen3.8-Max（Qwen3.8-Max-0902）；发起与决策：晚风（Wanfeng1028，"轮播组件还是留着吧，其他改动确认"） | **§12.7 第一条禁项精确化**：原文只写"同义词轮换同属此类"，容易被读成"禁止轮播组件"。按晚风判词补一句——**禁的是"轮无可指"，不是轮换机制本身**；轮播位上放四个各有实体的端名（Web 工作台 / Electron 桌面壳 / CLI TUI / 移动端 App）即承担信息，合规。据此 Hero 的 `RotatingWord` 组件保留、只换 `ROTATE_WORDS` 词表（v2.31 登记的旋转词 + 粗下划线形态不变）。与 AGENTS v1.62、doc/02 v4.113、doc/08 v1.87 同批。本批本机零验证，CI 裁决 |
 | v2.41 | 2026-09-24 | AI 编写：Qoder · Qwen3.8-Max（Qwen3.8-Max-0902）；发起：晚风（Wanfeng1028，"这两个任务如果没有并行代理做，你就做"指令） | **§12.8 口号行标注"已接硬检查"**：该行由 `scripts/check_doc_links.py` **检查 5** 执行（CI 第一关，命中即 error），扫描面与豁免口径同该行文字；§12.8 其余各行仍是人工 grep 自查、未接强制层，故本节标题"阶段一接入 CI 脚本"仅对检查 5 成立。补记缘由：AGENTS §8 第四条纪律"软指令与硬检查分开"——写在 md 里的禁令挡不住第四次复发（本单即判例）。同批收口 19.44 另一尾巴：`official/public/og-image.png` 重导出（视觉呈现不变，仅标语文字随 §12.7 改判）。与 AGENTS v1.63、README v1.47、doc/02 v4.118、doc/08 v1.91 同批。本批本机零验证，CI 裁决 |
 | v2.42 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，对比 x.ai/grok 后拍板"按照你说的来吧，可以修改设计规则。英文优先，官网做好中英文的切换和适配，以及官网的多端适配"指令） | **新增 §14 官网排印系统 + §12.3 两条修订（19.47 批 1；工单卡 doc/08 §5D.13）**：① 字体栈翻案——v2.28 的"Noto Sans SC 打头单栈"让全站拉丁字符落在中文字体内置西文字形上（实测对照 xAI 设计系统后的定性：这是"和人家的差距"第一成因），改**西文优先**（`Inter Variable` 管拉丁 → 系统栈 → 中文回退，Noto webfont 降兜底）；② §12.3 Inter 条目精确化——"禁的是不作排印设计的默认引用"，官网按 §14 显式引用并配排印规格不属此列，产品四端禁令不变；③ **§14 display 阶梯**：全档字重 700/600→500 + 渐进负字距（Hero 72px 档 -0.02em/行高 1.05，30–44px 档 -0.015em），display 数字改 `tabular-nums` 不借 mono；纯中文眉题放弃假 mono（IBM Plex Mono 无中文字形）改小灰字 + 0.08em 正字距。落地 12 处 className（grep 断言：display 档 font-bold/semibold 清零；not-found mono 404 与冻结的 FactBar 两处合理保留）。同批登记：doc/08 v2.03（§5D.13）、doc/02 v4.144、AGENTS v1.67、README v1.49。本批本机零验证，CI 裁决 |
+| v2.43 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，对"英文字体和大小全部参考 xAI 了吗"的追问拍板"要的"） | **§14.2 补 en 页 display 规格（英文页纯 xAI 字重）**：`.lang-en` 祖先下 display 档字重 400 + 全档 -0.025em（xAI 的 96/-2.4px、72/-1.8px、48/-1.2px 实为同一比例 -0.025em）——Inter 400 英文大字即 xAI 原味；中文页维持 500（黑体 400 显瘦），两语言规格由 Tailwind 自定义变体 `en:` 并行切换、无 JS。落地 12 处 display className + 4 个挂载点（HomeSections 与三子页内容根 div）。grep 断言：en:font-normal 12 处、lang-en 挂载 4 处。同批 doc/02 v4.149、doc/08 v2.07。本批本机零验证，CI 裁决 |
 
 > 本文件是**视觉决策文档**：回答"页面应该保持什么风格，遇到新场景怎么选"，让不同页面看起来仍属于同一个产品。
 > 架构与设计决策见 `ARCHITECTURE.md`；实现规格（做什么）见 `doc/02-development-plan.md` §6——本文件管"做成什么感觉、什么不许做"。所有前端 PR 以本文为验收依据之一。
@@ -788,6 +789,7 @@
 
 - **display 档禁 font-bold（700）**：中文黑体大字加粗即糊，"高端感"来自字号 + 负字距 + 留白，不来自加粗。20–24px 小标题（h3/卡片标题）维持 600——那是正文层级，不在本表。
 - 数字统计用 `tabular-nums`（Inter 自带等宽数字集），不再借用 mono。
+- **en 页 display 走 xAI 原值（v2.43，晚风拍板"要的"）**：`.lang-en` 祖先下（Tailwind 自定义变体 `en:`，挂载点 = HomeSections 与三子页内容根 div）display 档字重 **400**、字距**全档 -0.025em**——xAI 的 96/-2.4px、72/-1.8px、48/-1.2px 是同一比例 -0.025em，Inter 400 的英文大字即 xAI 的"精密感"；中文页维持 500 不变（黑体 400 显瘦），两语言规格并行由变体切换，无 JS 参与。
 
 ### 14.3 眉题与 mono 分工
 

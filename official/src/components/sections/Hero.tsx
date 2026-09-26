@@ -106,7 +106,7 @@ export function Hero({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
 
       <h1
         id="hero-title"
-        className="relative mt-10 max-w-4xl text-[44px] font-medium leading-[1.05] tracking-[-0.02em] text-zinc-900 sm:text-[60px] lg:text-[72px]"
+        className="relative mt-10 max-w-4xl text-[44px] font-medium leading-[1.05] tracking-[-0.02em] text-zinc-900 en:font-normal en:tracking-[-0.025em] sm:text-[60px] lg:text-[72px]"
       >
         <BlurText
           text={copy.headline}

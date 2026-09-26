@@ -105,7 +105,7 @@ export function QuickStartCTA({ lang = "zh" }: { lang?: Lang }): React.JSX.Eleme
         <BlurFade delay={0}>
           <h2
             id="quickstart-heading"
-            className="text-center text-[36px] font-medium tracking-[-0.02em] text-zinc-900 sm:text-[52px]"
+            className="text-center text-[36px] font-medium tracking-[-0.02em] text-zinc-900 en:font-normal en:tracking-[-0.025em] sm:text-[52px]"
           >
             {copy.heading}
           </h2>

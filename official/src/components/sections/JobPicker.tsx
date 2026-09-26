@@ -126,7 +126,7 @@ export function JobPicker({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
         <BlurFade delay={0}>
           <h2
             id="jobs-heading"
-            className="text-[30px] font-medium tracking-[-0.015em] text-zinc-900 sm:text-[38px]"
+            className="text-[30px] font-medium tracking-[-0.015em] text-zinc-900 en:font-normal en:tracking-[-0.025em] sm:text-[38px]"
           >
             {JP_COPY[lang].heading}
           </h2>

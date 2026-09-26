@@ -8,6 +8,12 @@
 /* class 策略二态主题 */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* en 页变体（19.47 批 2b 追加，晚风拍板"英文页纯 xAI 字重"）：
+   display 档在 .lang-en 祖先下走 xAI 原值（weight 400 + 全档 -0.025em——
+   96px/-2.4px、72px/-1.8px 与 48px/-1.2px 的同比例）；中文页缺省 500 不变，
+   因中文黑体大字在 400 下显瘦。挂载点 = HomeSections 与三子页内容根 div。 */
+@custom-variant en (&:where(.lang-en, .lang-en *));
+
 /* === Tailwind v4 @theme 映射 === */
 @theme inline {
   --color-background: var(--background);

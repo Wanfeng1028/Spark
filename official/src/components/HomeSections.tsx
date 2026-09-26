@@ -18,7 +18,7 @@ import type { Lang } from "@/lib/i18n";
  */
 export function HomeSections({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
   return (
-    <>
+    <div className={lang === "en" ? "lang-en" : undefined}>
       <Hero lang={lang} />
       <SessionDemoZone lang={lang} />
       <FourTiles lang={lang} />
@@ -28,6 +28,6 @@ export function HomeSections({ lang = "zh" }: { lang?: Lang }): React.JSX.Elemen
       <ArchitectureDiagram lang={lang} />
       <SecurityModel lang={lang} />
       <QuickStartCTA lang={lang} />
-    </>
+    </div>
   );
 }
