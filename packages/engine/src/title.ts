@@ -6,7 +6,7 @@
  * 路径，失败不 emit error（空标题不悬空任何 UI 状态），下一 turn.completed
  * 可重触发（引擎层 titleTask 在途去重）。
  */
-import type { SessionId } from '@spark/protocol'
+import type { SessionId, Usage } from '@spark/protocol'
 import type { EventBus } from './bus.js'
 import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
 import type { Projector } from './run-loop.js'
@@ -34,6 +34,8 @@ export interface TitleGeneratorDeps {
   projector: Projector
   /** 辅助模型（复用 compactionModel——§5.11 辅助提示词同一廉价通道） */
   model: ResolvedModel
+  /** LA-39：辅助通道 usage 计入成本预算（缺省不计——测试 stub 可省） */
+  budget?: { add(usage: Usage, dims: { provider: string; model: string }): void }
 }
 
 export class TitleGenerator {
@@ -46,6 +48,10 @@ export class TitleGenerator {
       model: this.deps.model,
       prompt: `${this.deps.prompt?.() ?? TITLE_PROMPT}\n\n${serializeTranscript(ctx.messages)}`,
       maxTokens: TITLE_MAX_TOKENS,
+      // LA-39：标题用量同计入预算
+      onUsage: (u) => {
+        this.deps.budget?.add(u, { provider: this.deps.model.provider, model: this.deps.model.model })
+      },
     })
     const title = raw.trim().slice(0, TITLE_MAX_CHARS)
     if (title.length === 0) return

@@ -117,11 +117,10 @@ export class EventBus {
     data: SparkEventMap[T],
   ): Promise<SparkEventEnvelope<T>> {
     // LA-34：error 文案单点脱敏——落盘前过宿主注入的完整模式集
-    const finalData = (
+    const finalData =
       type === 'error' && this.opts.redactError !== undefined
         ? { ...data, message: this.opts.redactError((data as SparkEventMap['error']).message) }
         : data
-    ) as SparkEventMap[T]
     const parsed = this.validate(type, finalData)
     const st = this.stateOf(sid)
     const task = st.tail.then(() =>
@@ -216,12 +215,13 @@ export class EventBus {
       throw new Error(`E_BUS_UNKNOWN_TYPE: 未知事件类型 ${type}`)
     }
     // LA-34：扩展事件同样过 error 脱敏单点（engine.error 等动态注册类型）
-    const finalData =
-      type === 'error' && this.opts.redactError !== undefined &&
-      typeof data === 'object' && data !== null && 'message' in data &&
-      typeof (data as { message: unknown }).message === 'string'
-        ? { ...(data as Record<string, unknown>), message: this.opts.redactError((data as { message: string }).message) }
-        : data
+    const finalData = ((): unknown => {
+      if (type !== 'error' || this.opts.redactError === undefined) return data
+      if (typeof data !== 'object' || data === null) return data
+      const message = (data as { message?: unknown }).message
+      if (typeof message !== 'string') return data
+      return { ...(data as Record<string, unknown>), message: this.opts.redactError(message) }
+    })()
     const parsed = schema.safeParse(finalData)
     if (!parsed.success) {
       throw new Error(`E_BUS_INVALID_DATA: ${type} 事件 data 校验失败：${parsed.error.message}`)

@@ -39,9 +39,11 @@ export interface Projector {
   modelContext(): { messages: LlmMessage[]; tokens: number }
 }
 
-/** §5.8.5 压缩：emit compaction.* 并重投影（阈值判断在 run-loop） */
+/** §5.8.5 压缩：emit compaction.* 并重投影（阈值判断在 run-loop）。
+ * LA-39：返回 true = 本轮产生 compaction.completed（压缩成功）；false = 失败或被跳过
+ *（run-loop 据此做本 turn 冷却，不逐步重试 hammer 摘要通道）。 */
 export interface Compactor {
-  compact(): Promise<void>
+  compact(): Promise<boolean>
 }
 
 /** 工单 4.6：turn 边界快照端口（实现自闭合——失败 emit error{io}，不向 run-loop 抛） */
@@ -271,6 +273,9 @@ export async function runTurn(
   }
 
   try {
+    // LA-39：压缩失败的本 turn 冷却——compact() 返回 false（未产生 compaction.completed）
+    // 时本 turn 内不再重试（限流注入下摘要调用次数有上界，不逐步 hammer 辅助通道）
+    let compactionCooled = false
     // 用户侧 hooks（工单 7.3）：turn.before——输入受理后、事件流开路前触发
     // （先于 user.message/turn.started；fire-and-forget 不阻断）
     deps.hooks?.fire('turn.before', {
@@ -313,8 +318,12 @@ export async function runTurn(
       }
       // ② 上下文组装（StepContext 快照语义，Codex）
       let ctx = deps.projector.modelContext()
-      if (ctx.tokens > deps.compactionThreshold * deps.model.contextWindow) {
-        await deps.compactor.compact()
+      if (
+        !compactionCooled &&
+        ctx.tokens > deps.compactionThreshold * deps.model.contextWindow
+      ) {
+        const ok = await deps.compactor.compact()
+        if (!ok) compactionCooled = true // LA-39：本 turn 冷却（失败不再重试）
         ctx = deps.projector.modelContext() // 压缩后重投影
       }
       const tools = deps.tools.materialize()

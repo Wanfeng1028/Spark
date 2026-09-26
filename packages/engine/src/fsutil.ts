@@ -3,16 +3,26 @@
  * - 原子写：先写同名 .tmp 再 rename——进程崩溃只可能留下多余 tmp 文件，主文件恒完整；
  * - JSONL：追加一行 / 读取全部（坏行跳过——历史文件只追加不改写，单行损坏不阻塞列表）。
  */
-import { appendFileSync, chmodSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { appendFileSync, chmodSync, closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, writeSync } from 'node:fs'
 
-/** 原子写原始文本或字节（调用方自管序列化形状，如 permission store 无尾换行的历史格式） */
+/** 原子写原始文本或字节（调用方自管序列化形状，如 permission store 无尾换行的历史格式）。
+ * LA-40：openSync+writeSync+fsyncSync 替代 writeFileSync——rename 前 data 落盘，
+ * 掉电不再可能得到空/半截主文件。tmp 仍用同目录（跨盘 rename 会 EXDEV 破坏原子性，
+ * "tmp 移出用户工作区防 checkpoint git add -A 吸入"登记为已知限制：写入窗口为
+ * 同一同步 tick 内的微秒级，且 rename 与 write 原子衔接）。 */
 export function atomicWriteFile(
   filePath: string,
   data: string | Uint8Array,
   opts?: { mode?: number },
 ): void {
   const tmp = `${filePath}.tmp`
-  writeFileSync(tmp, data, opts?.mode !== undefined ? { mode: opts.mode } : undefined)
+  const fh = openSync(tmp, 'w', opts?.mode)
+  try {
+    writeSync(fh, data)
+    fsyncSync(fh)
+  } finally {
+    closeSync(fh)
+  }
   if (opts?.mode !== undefined) {
     try {
       chmodSync(tmp, opts.mode)

@@ -7,10 +7,10 @@
  * 失败语义：generateOnce 抛错 → emit error{scope:'llm'} 后正常返回——压缩是
  * 优化路径，失败不杀 turn，旧上下文继续可用；started 无 completed 配对属
  * 预期形态（投影只认 completed 锚点；UI 由 started + error 还原"压缩中失败"）。
- * 压缩调用本身的 usage 不计入会话 usage（§5.8.5 v1 口径——compactor 不触碰
- * turn.usage 即达成）。
+ * 压缩调用本身的 usage 不计入会话 usage（compactor 不触碰 turn.usage）；但 LA-39
+ * 起**计入成本预算**（deps.budget 端口——成本熔断口径：全部辅助通道调用都记账）。
  */
-import type { EventId, SessionId, SparkEventEnvelope, SparkEventType } from '@spark/protocol'
+import type { EventId, SessionId, SparkEventEnvelope, SparkEventType, Usage } from '@spark/protocol'
 import { errText } from './errs.js'
 import type { EventBus } from './bus.js'
 import type { LlmGateway, LlmMessage, ResolvedModel } from './llm-gateway.js'
@@ -110,6 +110,9 @@ export interface CompactorDeps {
   model: ResolvedModel
   /** 保留尾部的 token 预算（§5.8.5 "N 由 token 预算反推"；装配层建议 threshold×contextWindow/2） */
   keepTokens: number
+  /** LA-39：辅助通道用量计入预算（压缩摘要与逐条蒸馏的 generateOnce usage）——
+   *  缺省不计（测试 stub 可省）。dims 固定为压缩档模型。 */
+  budget?: { add(usage: Usage, dims: { provider: string; model: string }): void }
 }
 
 /** 投影消息 → 纯文本转录（generateOnce 单 prompt；结构项 JSON 序列化；标题生成复用） */
@@ -136,7 +139,8 @@ function isSurface(e: SparkEventEnvelope): boolean {
 export class CompactorImpl implements Compactor {
   constructor(private readonly deps: CompactorDeps) {}
 
-  async compact(): Promise<void> {
+  /** LA-39：true = 已 emit compaction.completed；false = 失败（error 已 emit）。 */
+  async compact(): Promise<boolean> {
     const sid = this.deps.sessionId
     await this.deps.bus.emit(sid, 'compaction.started', {})
     const ctx = this.deps.projector.modelContext()
@@ -145,6 +149,10 @@ export class CompactorImpl implements Compactor {
         model: this.deps.model,
         prompt: `${this.deps.prompt?.() ?? COMPACTION_PROMPT}\n\n${serializeTranscript(ctx.messages)}`,
         maxTokens: 2000,
+        // LA-39：摘要用量计入预算（成本熔断口径：全部辅助通道调用都记账）
+        onUsage: (u) => {
+          this.deps.budget?.add(u, { provider: this.deps.model.provider, model: this.deps.model.model })
+        },
       })
       // 第一层（工单 13.4 / D29）：摘要尾部 kept-files 标记 → 结构化清单（标记从摘要剥离）
       const parsed = parseKeptFiles(raw)
@@ -161,12 +169,14 @@ export class CompactorImpl implements Compactor {
         ...(parsed.keptFiles !== undefined ? { keptFiles: parsed.keptFiles } : {}),
         ...(distilled !== undefined ? { distilled } : {}),
       })
+      return true
     } catch (err) {
       const message = errText(err)
       await this.deps.bus.emit(sid, 'error', {
         scope: 'llm',
         message: `E_LLM_COMPACTION: ${message}`,
       })
+      return false
     }
   }
 
@@ -207,6 +217,10 @@ export class CompactorImpl implements Compactor {
             model: this.deps.model,
             prompt: `${DISTILL_PROMPT}\n\n${t.text}`,
             maxTokens: DISTILL_MAX_TOKENS,
+            // LA-39：蒸馏用量同计入预算（每条一次 generateOnce）
+            onUsage: (u) => {
+              this.deps.budget?.add(u, { provider: this.deps.model.provider, model: this.deps.model.model })
+            },
           })
         ).trim()
         if (notes !== '') out[t.callId] = notes

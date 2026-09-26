@@ -95,6 +95,9 @@ export interface OnceRequest {
   /** 输出上限（§5.8.5 压缩 maxTokens=2000；缺省用 provider 默认） */
   maxTokens?: number
   signal?: AbortSignal
+  /** LA-39：用量回传——generateOnce 的 usage 经此计入成本预算（原 §5.8.5 v1
+   *  口径"辅助通道 usage 不计"已改判：全部调用都记账，否则预算被低估） */
+  onUsage?: (usage: Usage) => void
 }
 
 export interface LlmGateway {

@@ -415,6 +415,8 @@ export class PiGateway implements LlmGateway {
     })
     if (result.stopReason === 'error') throw new Error(result.error ?? 'E_LLM_PROVIDER')
     if (result.stopReason === 'aborted') throw new Error('E_ABORTED: generateOnce 被中断')
+    // LA-39：用量回传（预算记账用；Usage 含 costUsd）
+    req.onUsage?.(result.usage)
     return result.content
       .filter((c): c is Extract<ContentItem, { type: 'text' }> => c.type === 'text')
       .map((c) => c.text)

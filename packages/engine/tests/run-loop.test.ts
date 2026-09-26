@@ -65,10 +65,16 @@ class StubProjector {
 
 class StubCompactor {
   calls = 0
+  /** LA-39：可注入失败（false = 压缩失败，run-loop 本 turn 冷却） */
+  failNext = 0
 
-  compact(): Promise<void> {
+  compact(): Promise<boolean> {
     this.calls += 1
-    return Promise.resolve()
+    if (this.failNext > 0) {
+      this.failNext -= 1
+      return Promise.resolve(false)
+    }
+    return Promise.resolve(true)
   }
 }
 
@@ -477,6 +483,37 @@ describe('runTurn（§5.5）', () => {
       admittedAt: Date.now(),
     })
     expect(f.compactor.calls).toBe(1)
+  })
+
+  test('LA-39：压缩失败本 turn 冷却——后续步不重试，下一 turn 恢复尝试', async () => {
+    const f = makeFixture()
+    f.projector.tokens = 900 // > 0.8 * 1000（每步都超阈）
+    f.compactor.failNext = 99 // 恒失败
+    // turn1 两步：若无冷却，第二步会再次 compact（calls=2）；冷却后恰 1
+    f.gateway.scriptStep({
+      content: [{ type: 'toolCall', callId: ids.call('cal_cd1'), name: 'read', input: {} }],
+    })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: 'done' }] })
+    await takeSubmitted(f.rt, 'x')
+    await runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'x',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    expect(f.compactor.calls).toBe(1)
+    // turn2：冷却仅本 turn——新 turn 恢复尝试（仍失败，但不再被旧 turn 抑制）
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: 'ok' }] })
+    await takeSubmitted(f.rt, 'y')
+    await runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'y',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    expect(f.compactor.calls).toBe(2)
   })
 
   test('失败闭合：gateway 抛错 → error 事件 + turn.completed{error}，不留悬挂', async () => {

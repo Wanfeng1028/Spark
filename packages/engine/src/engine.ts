@@ -191,6 +191,9 @@ import {
   sparkFile,
 } from './storage/paths.js'
 
+/** LA-40：settledRequests 容量上界（超出淘汰最老——requestId 重放判定只需近期窗口） */
+const LA40_SETTLED_CAP = 2048
+
 export class Engine {
   private readonly root: string
   private readonly defaultCwd: string
@@ -298,6 +301,7 @@ export class Engine {
   private readonly sessions = new Map<SessionId, SessionEntry>()
   private readonly inflight = new Map<SessionId, Promise<SessionEntry>>()
   /** 已答复过的 requestId（区分 409 与 404；进程生命周期内有效） */
+  /** LA-40：settledRequests 上界（防长驻内存泄漏；淘汰最老条目） */
   private readonly settledRequests = new Set<RequestId>()
   /** 子代理派生出的会话（深度限制：子会话不可再派生，工单 5.4；进程生命周期内有效） */
   private readonly subagentChildren = new Set<SessionId>()
@@ -2383,6 +2387,13 @@ export class Engine {
   ): Promise<ReplyOutcome> {
     const ok = await this.permission.reply(requestId, reply, feedback, scope)
     if (ok) {
+      // LA-40：上界防泄漏——引擎长驻时 Set 只增不减（每审批 +1）。Set 保持插入序，
+      // 淘汰最老条目；超老 requestId 的重复回复本就该落 'unknown'（404）。
+      while (this.settledRequests.size >= LA40_SETTLED_CAP) {
+        const oldest = this.settledRequests.values().next().value
+        if (oldest === undefined) break
+        this.settledRequests.delete(oldest)
+      }
       this.settledRequests.add(requestId)
       return 'ok'
     }
@@ -2542,6 +2553,10 @@ export class Engine {
       keepTokens: Math.round(
         (this.config.spark.engine.compactionThreshold * currentModel.contextWindow) / 2,
       ),
+      // LA-39：辅助通道 usage 计入成本预算（dims = 压缩时点的路由档）
+      budget: {
+        add: (usage, dims) => this.costTracker.add(usage, dims),
+      },
       // 工单 13.3：可配压缩提示词——thunk 现渲染，{{model}} 跟随路由档热变不落假状态
       prompt: () =>
         renderPromptTemplate(this.promptTemplates.compaction, {
@@ -2558,6 +2573,10 @@ export class Engine {
       projector,
       get model(): ResolvedModel {
         return routing.titleModel
+      },
+      // LA-39：标题用量同计入成本预算
+      budget: {
+        add: (usage, dims) => this.costTracker.add(usage, dims),
       },
       // 工单 13.3：可配标题提示词（理由同压缩）
       prompt: () =>

@@ -71,10 +71,10 @@ describe('LA-38：坏文件不截断扫描列表', () => {
 
     const stderr: string[] = []
     const orig = process.stderr.write.bind(process.stderr)
-    process.stderr.write = ((chunk: string | Uint8Array) => {
+    process.stderr.write = (chunk: string | Uint8Array): boolean => {
       stderr.push(String(chunk))
       return true
-    }) as typeof process.stderr.write
+    }
     try {
       const metas = await scanDiskSessions(root)
       expect(metas.map((m) => m.id)).toEqual(['ses_good0000000000000000a'])
@@ -98,10 +98,10 @@ describe('LA-38：坏文件不截断扫描列表', () => {
 
     const stderr: string[] = []
     const orig = process.stderr.write.bind(process.stderr)
-    process.stderr.write = ((chunk: string | Uint8Array) => {
+    process.stderr.write = (chunk: string | Uint8Array): boolean => {
       stderr.push(String(chunk))
       return true
-    }) as typeof process.stderr.write
+    }
     try {
       const children = await scanForkChildren(root, parent, () => 'idle')
       expect(children.map((c) => c.child.sessionId)).toEqual(['ses_forkgood00000000000c'])
