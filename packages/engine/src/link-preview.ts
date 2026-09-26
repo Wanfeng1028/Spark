@@ -34,6 +34,15 @@ export interface LinkPreviewResult {
 
 /** 私网/保留段判定（IPv4 + IPv6；解析出的每个地址都必须是公网才放行） */
 export function isPrivateAddress(ip: string): boolean {
+  // 含冒号先走 IPv6（含 IPv4-mapped —— ::ffff:127.0.0.1 形态带点，必须先判）
+  if (ip.includes(':')) {
+    const v6 = ip.toLowerCase()
+    if (v6 === '::' || v6 === '::1') return true
+    if (v6.startsWith('fe80:') || v6.startsWith('fc') || v6.startsWith('fd')) return true
+    if (v6.startsWith('ff')) return true
+    if (v6.startsWith('::ffff:')) return isPrivateAddress(v6.slice(7))
+    return false
+  }
   if (ip.includes('.')) {
     const parts = ip.split('.').map((v) => Number(v))
     // 非数字点分串 = 主机名（如 example.com）——不是 IP 字面量，交给 DNS
@@ -47,11 +56,6 @@ export function isPrivateAddress(ip: string): boolean {
     if (a >= 224) return true // multicast + reserved
     return false
   }
-  const v6 = ip.toLowerCase()
-  if (v6 === '::' || v6 === '::1') return true
-  if (v6.startsWith('fe80:') || v6.startsWith('fc') || v6.startsWith('fd')) return true // link-local / ULA
-  if (v6.startsWith('ff')) return true // multicast
-  if (v6.startsWith('::ffff:')) return isPrivateAddress(v6.slice(7)) // IPv4-mapped
   return false
 }
 
