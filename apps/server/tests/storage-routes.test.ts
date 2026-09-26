@@ -36,6 +36,7 @@ describe('GET /api/storage/report（19.37 第二批）', () => {
 
   test('清理（19.37 第三批）：白名单外桶 400 E_STORAGE_UNCLEANABLE；trash 桶永久清空', async () => {
     const server = await makeServer()
+    mkdirSync(join(server.root, 'trash'), { recursive: true })
     writeFileSync(join(server.root, 'trash', 'junk.jsonl'), '{}\n')
 
     const bad = await server.app.inject({
@@ -57,6 +58,7 @@ describe('GET /api/storage/report（19.37 第二批）', () => {
 
   test('导出/回导 round-trip（19.37 第三批）：导出 bundle 回导空库 → imported 计数', async () => {
     const source = await makeServer()
+    await source.engine.createSession({ cwd: source.root })
     const exp = await source.app.inject({ method: 'GET', url: '/api/storage/export' })
     expect(exp.statusCode).toBe(200)
     const { bundle, files } = exp.json<{ bundle: string; files: number }>()
