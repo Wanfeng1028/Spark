@@ -71,7 +71,7 @@ describe('GET|PUT /api/settings（工单 10.20 B / D28）', () => {
     const res = await f.app.inject({
       method: 'PUT',
       url: '/api/settings',
-      payload: { engine: { bashSandbox: 'on' } },
+      payload: { engine: { bashSandbox: 'light' } },
     })
     expect(res.statusCode).toBe(200)
     const dto: SettingsDto = res.json()

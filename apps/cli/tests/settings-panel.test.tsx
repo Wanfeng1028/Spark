@@ -20,7 +20,7 @@ const BASE_SETTINGS = {
     toolOutputLimitKB: 64,
     compactionThreshold: 0.8,
     checkpoints: true,
-    bashSandbox: 'on',
+    bashSandbox: 'light',
     computerUseEnabled: false,
     bashPersistent: false,
   },

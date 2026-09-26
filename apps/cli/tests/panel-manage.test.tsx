@@ -120,7 +120,7 @@ const SETTINGS = {
     toolOutputLimitKB: 8,
     compactionThreshold: 0.8,
     checkpoints: true,
-    bashSandbox: 'on',
+    bashSandbox: 'light',
     computerUseEnabled: false,
     bashPersistent: false,
   },
