@@ -416,3 +416,30 @@ describe('listPermissionRules / removePermissionRule 双层合成（LA-04）', (
     ])
   })
 })
+
+
+// ---- LA-37：trust 收紧只压规则层，不改写 preset 档终判 ----
+
+describe('trust 收紧归因（LA-37）', () => {
+  test('未信任 cwd + full-access 档：preset 显式 allow 不被收紧（直接放行、零审批事件）', async () => {
+    const { sink, service } = makeService({
+      trust: { tightens: (action) => tightens(action, 'untrusted') },
+    })
+    service.setPreset(SID_A, 'full-access')
+    expect(await service.assert(makeCheck())).toBe(true)
+    expect(sink.events).toHaveLength(0) // 无 asked/resolved——归因不再与终判错位
+  })
+
+  test('对照：用户层 allow 在未信任 cwd 仍收紧为 ask，asked reason 带收紧标记', async () => {
+    const { sink, service } = makeService({
+      userRules: [{ action: 'fs.write', resource: '**', effect: 'allow' }],
+      trust: { tightens: (action) => tightens(action, 'untrusted') },
+    })
+    const { requestId, promise } = await pendAsk(service, sink, makeCheck())
+    const asked = sink.events.find((e) => e.type === 'permission.asked')
+    const reason = (asked?.data as { reason?: string }).reason ?? ''
+    expect(reason).toContain('未信任')
+    expect(await service.reply(requestId, 'once')).toBe(true)
+    expect(await promise).toBe(true)
+  })
+})

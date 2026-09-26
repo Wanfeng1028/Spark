@@ -7,6 +7,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { EventId, SessionId, SessionStatus, SparkEventEnvelope } from '@spark/protocol'
 import { SessionStore } from './store.js'
+import { errText } from '../errs.js'
 import type { ForkChildInfo, SessionMeta } from '../engine-types.js'
 
 /** `<ts>_<id>.jsonl` → id；非会话文件（无时间戳前缀 / 双分隔）→ null */
@@ -84,7 +85,16 @@ export async function scanDiskSessions(sessionsRoot: string): Promise<SessionMet
         const path = join(sessionsRoot, dir.name, file)
         const id = idOfFileName(file)
         if (id === null) continue
-        const file_ = await SessionStore.read(path)
+        // LA-38：坏文件不静默截断列表——per-file 容错（否则单文件损坏被外层 catch
+        // 放大成"全部会话消失"）。装载路径 fail-closed 语义不变：resume 仍拒载，
+        // 这里只是让列表对好文件保持可见。
+        let file_: Awaited<ReturnType<typeof SessionStore.read>>
+        try {
+          file_ = await SessionStore.read(path)
+        } catch (err) {
+          process.stderr.write(`E_SESSION_SCAN_SKIP: ${path} 读取失败，已跳过：${errText(err)}\n`)
+          continue
+        }
         const events = file_.events
         const last = events[events.length - 1]
         out.push({
@@ -173,7 +183,16 @@ export async function scanForkChildren(
         if (!file.endsWith('.jsonl')) continue
         const childId = idOfFileName(file)
         if (childId === null) continue
-        const file_ = await SessionStore.read(join(sessionsRoot, dir.name, file))
+        // LA-38：同 scanDiskSessions——坏子会话文件跳过并告警，不截断其余子会话
+        let file_: Awaited<ReturnType<typeof SessionStore.read>>
+        try {
+          file_ = await SessionStore.read(join(sessionsRoot, dir.name, file))
+        } catch (err) {
+          process.stderr.write(
+            `E_SESSION_SCAN_SKIP: ${join(sessionsRoot, dir.name, file)} 读取失败，已跳过：${errText(err)}\n`,
+          )
+          continue
+        }
         const h = file_.header
         if (h.parentSession !== id || h.parentEventId === undefined) continue
         out.push({

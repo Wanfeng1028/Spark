@@ -116,9 +116,15 @@ export class PermissionServiceImpl implements PermissionService {
       this.presetRulesOf(check.sessionId),
     )
     // 文件夹信任收紧（工单 16.4 / ADR D37）：未信任 cwd 下自动放行降级为问一次——
-    // 只压 allow（deny 仍 deny、ask 仍 ask，"收紧审批而非扩权"）
-    const finalEffect =
-      effect === 'allow' && (this.deps.trust?.tightens(check.action) ?? false) ? ('ask' as const) : effect
+    // 只压 allow（deny 仍 deny、ask 仍 ask，"收紧审批而非扩权"）。
+    // LA-37：收紧只压规则层与缺省放行——preset 档（auto-edit / full-access）是用户
+    // 显式选择（UI 琥珀警示），其 allow 不被静默改写；否则审计行记 rule:preset 而
+    // 终判是 ask，归因对不上。
+    const tightened =
+      effect === 'allow' &&
+      this.ruleSourceOf(check, 'allow') !== 'preset' &&
+      (this.deps.trust?.tightens(check.action) ?? false)
+    const finalEffect = tightened ? ('ask' as const) : effect
     if (finalEffect === 'allow' || finalEffect === 'deny') {
       // 规则层快路径：归因 = 命中且与终判同效的最高优先层（findLast 语义倒查）
       this.recordDecision(check, finalEffect === 'allow', 'system', `rule:${this.ruleSourceOf(check, finalEffect)}`)
@@ -135,7 +141,9 @@ export class PermissionServiceImpl implements PermissionService {
       ...(check.alwaysPatterns !== undefined
         ? { alwaysPatterns: [...check.alwaysPatterns] }
         : {}),
-      reason: `工具 ${check.name} 请求 ${check.action}：${check.resource}`,
+      reason: tightened
+        ? `工具 ${check.name} 请求 ${check.action}：${check.resource}（未信任目录：原放行已被收紧为逐次确认）`
+        : `工具 ${check.name} 请求 ${check.action}：${check.resource}`,
       detail: check.input,
     })
     // emit 期间 turn 中断：asked 已入流，补 resolved{reject} 保持闭合
@@ -265,7 +273,14 @@ export class PermissionServiceImpl implements PermissionService {
               this.sessionRulesOf(other.sessionId),
               this.presetRulesOf(other.sessionId),
             )
-            return eff === 'allow' && (this.deps.trust?.tightens(other.check.action) ?? false) ? 'ask' as const : eff
+            return (
+              eff === 'allow' &&
+              // LA-37：preset 档的显式 allow 不被信任收紧改写（与 assert 同口径）
+              this.ruleSourceOf(other.check, 'allow') !== 'preset' &&
+              (this.deps.trust?.tightens(other.check.action) ?? false)
+            )
+              ? ('ask' as const)
+              : eff
           })() === 'allow'
         ) {
           await this.settle(other, true, 'always', 'cascade')
@@ -411,6 +426,9 @@ export class PermissionServiceImpl implements PermissionService {
       ['user', this.deps.ruleStore.list()],
     ]
     for (const [name, rules] of layers) {
+      // LA-37：空层不产生规则归因（confirm-each 档 preset 无规则——旧行为把缺省
+      // allow 记成 rule:preset，审计与 UI 归因错位）
+      if (rules.length === 0) continue
       if (evaluateAll(check.action, resources, rules) === effect) return name
     }
     return 'none'
