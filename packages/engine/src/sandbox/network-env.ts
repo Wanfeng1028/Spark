@@ -11,9 +11,8 @@ export function sandboxProxyEnv(port: number): Record<string, string> {
   const http = `http://127.0.0.1:${port}`
   const socks = `socks5h://127.0.0.1:${port}`
   return {
-    HTTPS_PROXY: http,
-    https_proxy: http,
-    ALL_PROXY: socks,
+    // GT-5：去掉 HTTP_PROXY/http_proxy——代理只处理 SOCKS5 与 HTTP CONNECT，
+    // 不处理普通 HTTP 代理 GET/POST。HTTPS_PROXY 走 CONNECT（兼容），ALL_PROXY=socks5h（完整）
     HTTPS_PROXY: http,
     https_proxy: http,
     ALL_PROXY: socks,

@@ -256,7 +256,7 @@ export class PermissionServiceImpl implements PermissionService {
         const otherLayer = this.projectLayerOf(other.sessionId)
         if (scope === 'project' && otherLayer?.key !== cascadeKey) continue
         if (
-          (function() {
+          (() => {
             const eff = evaluateAll(
               other.check.action,
               other.check.patterns ?? [other.check.resource],
@@ -265,8 +265,8 @@ export class PermissionServiceImpl implements PermissionService {
               this.sessionRulesOf(other.sessionId),
               this.presetRulesOf(other.sessionId),
             )
-            return eff === 'allow' && (this.deps.trust?.tightens(other.check.action) ?? false) ? 'ask' : eff
-          }).call(this) === 'allow'
+            return eff === 'allow' && (this.deps.trust?.tightens(other.check.action) ?? false) ? 'ask' as const : eff
+          })() === 'allow'
         ) {
           await this.settle(other, true, 'always', 'cascade')
         }
