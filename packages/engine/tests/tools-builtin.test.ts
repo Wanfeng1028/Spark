@@ -268,7 +268,7 @@ describe('bash 沙箱（工单 5.2，ADR D15）', () => {
 
   test("sandbox on + wrapper 不可用：E_SANDBOX_UNAVAILABLE（fail-closed 不降级裸跑）", async () => {
     const cwd = await makeCwd()
-    const tool = makeBashTool({ sandbox: 'on', isWrapperAvailable: () => false })
+    const tool = makeBashTool({ sandbox: 'light', isWrapperAvailable: () => false })
     const r = await tool.execute(makeCtx(cwd), { command: 'echo hello' })
     expect(r.isError).toBe(true)
     expect(r.output).toMatchObject({ code: 'E_SANDBOX_UNAVAILABLE' })
