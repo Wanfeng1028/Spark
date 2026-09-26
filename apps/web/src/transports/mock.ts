@@ -1342,11 +1342,11 @@ export class MockTransport implements Transport {
   storageReport(): Promise<StorageReportDto> {
     this.assertNotDisposed()
     const buckets = [
-      { name: 'sessions', bytes: 12_582_912, files: 214, newestAt: 1_700_000_000_000 },
-      { name: 'sessions/checkpoints', bytes: 8_388_608, files: 36, newestAt: 1_700_000_000_000 },
-      { name: 'logs', bytes: 1_048_576, files: 7, newestAt: 1_700_000_000_000 },
-      { name: 'search.db', bytes: 264_192, files: 1, newestAt: 1_700_000_000_000 },
-      { name: 'memory.db', bytes: 131_072, files: 1, newestAt: 1_700_000_000_000 },
+      { name: 'sessions', bytes: 12_582_912, files: 214, newestAt: 1_700_000_000_000, cleanable: false },
+      { name: 'sessions/checkpoints', bytes: 8_388_608, files: 36, newestAt: 1_700_000_000_000, cleanable: true },
+      { name: 'logs', bytes: 1_048_576, files: 7, newestAt: 1_700_000_000_000, cleanable: false },
+      { name: 'search.db', bytes: 264_192, files: 1, newestAt: 1_700_000_000_000, cleanable: false },
+      { name: 'memory.db', bytes: 131_072, files: 1, newestAt: 1_700_000_000_000, cleanable: false },
     ]
     return Promise.resolve({
       home: '~/.spark（mock 演示路径）',
