@@ -1,17 +1,11 @@
 import type { Metadata } from "next";
 import { QuickStartPageContent } from "@/app/quickstart/page";
-import { TranslationNotice } from "@/components/TranslationNotice";
 import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-static";
 
 export default function EnQuickStartPage() {
-  return (
-    <>
-      <TranslationNotice />
-      <QuickStartPageContent />
-    </>
-  );
+  return <QuickStartPageContent lang="en" />;
 }
 
 export const metadata: Metadata = {

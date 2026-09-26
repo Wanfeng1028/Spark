@@ -1,17 +1,11 @@
 import type { Metadata } from "next";
 import { ArchitecturePageContent } from "@/app/architecture/page";
-import { TranslationNotice } from "@/components/TranslationNotice";
 import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-static";
 
 export default function EnArchitecturePage() {
-  return (
-    <>
-      <TranslationNotice />
-      <ArchitecturePageContent />
-    </>
-  );
+  return <ArchitecturePageContent lang="en" />;
 }
 
 export const metadata: Metadata = {

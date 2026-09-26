@@ -1,17 +1,11 @@
 import type { Metadata } from "next";
 import { FeaturesPageContent } from "@/app/features/page";
-import { TranslationNotice } from "@/components/TranslationNotice";
 import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-static";
 
 export default function EnFeaturesPage() {
-  return (
-    <>
-      <TranslationNotice />
-      <FeaturesPageContent />
-    </>
-  );
+  return <FeaturesPageContent lang="en" />;
 }
 
 export const metadata: Metadata = {
