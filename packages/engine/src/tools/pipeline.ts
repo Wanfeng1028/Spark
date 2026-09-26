@@ -27,6 +27,7 @@ import type { PermissionService } from './permission-port.js'
 import type { ToolOutputStore } from './output-store.js'
 import type { ToolRegistry } from './registry.js'
 import type { IoGuard } from './guard.js'
+import type { ReadFileStateMap } from './read-state.js'
 
 export interface PipelineDeps {
   sessionId: SessionId
@@ -147,6 +148,12 @@ class ProgressGate {
 }
 
 export class ToolPipelineImpl implements ToolPipeline {
+  /**
+   * read-state 文件新鲜度基线（工单 ZC-5 / ADR D55）：本管线每会话接线一份
+   * （engine.ts per-session 组件），会话间天然隔离，经 ToolContext.readFileState 注入。
+   */
+  private readonly readFileState: ReadFileStateMap = new Map()
+
   constructor(private readonly deps: PipelineDeps) {}
 
   /** 广告清单：全域 deny 的工具不进模型可见面（§5.7 补强 5）；预设档收窄的工具同不广告（工单 13.5） */
@@ -316,6 +323,7 @@ export class ToolPipelineImpl implements ToolPipeline {
           ...(this.deps.exitPlanMode !== undefined ? { exitPlanMode: this.deps.exitPlanMode } : {}),
           ...(this.deps.lsp !== undefined ? { lsp: this.deps.lsp } : {}),
           ...(this.deps.now !== undefined ? { now: this.deps.now } : {}),
+          readFileState: this.readFileState,
         },
         input,
       )

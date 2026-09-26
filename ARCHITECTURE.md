@@ -65,6 +65,7 @@
 | v1.63 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D52 全局出网代理 + 自动归档 + 端侧通知（阶段十九 19.13，翻案 12.9"仅 LLM 面"登记；doc/02 v4.80 同批）**：spark.json network 段全局代理（优先级 全局>per-provider>env>fetch；MCP stdio env 注入，用户 env 同键优先）+ archive 段自动归档（idle 且超期，6 小时巡检，进行中会话永不自动归档）+ web 通知偏好（localStorage + Notification API 降级 + WebAudio 提示音，前台不发）；自定义证书只读回显（启动前注入，禁假控件）。本机零验证，CI 裁决 |
 | v1.64 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D53 默认模型/档位单写者 = models.json 经 PUT /api/routing（阶段十九 19.14，消解 V2-37；doc/02 v4.81 同批）**：RoutingUpdate/RoutingDto 增 defaultModel/defaultEffort，经既有 persistRouting 原子写 models.json（消双写者）；createSession 读 routing 状态（显式>预设档>子代理档>默认，热改生效）；同批 server.port/host 与 engine 四控件补批 + RestartBadge 读 restartRequired 数组。本机零验证，CI 裁决 |
 | v1.65 | 2026-09-21 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D54 数据目录 = SPARK_HOME 单源 + 搬迁不删源（阶段十九 19.16；doc/02 v4.83 同批）**：home.ts 单源解析（引擎 root/loadConfig/CLI 共用）+ migrate 模块（只读规划+复制校验+源改名备份，失败闭合）+ CLI spark migrate + SettingsDto.home 只读回显。本机零验证，CI 裁决 |
+| v1.67 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"集成到我们的项目里面吧"指令） | **新增 D55 文件工具 read-state 新鲜度守卫（ZC 参考工单批次 ZC-5；doc/02 v4.147 同批）**：read-before-write + 内容/stat 双通道 stale 判定 + 每会话基线 Map 挂 ToolPipelineImpl 经 ToolContext.readFileState 注入；E_NOT_READ/E_STALE 两错误码；不做写盘端口级 CAS（微秒级竞态登记为已知限制）。本机零验证，CI 裁决 |
 | v1.66 | 2026-09-25 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"已经完成的工单有问题的要修复"指令）；依据：doc/11 §4.1 P0 | **D48 补安全前提 + D40 收紧面扩容注记（doc/11 LA-01/02/03 收口；doc/02 v4.122 同批）**：项目层按会话 cwd 惰性建层 + 未信任整层停用 + 家目录撞路径不设层 + 固化/级联按会话项目层走；evaluate 层间 deny 优先；trust 收紧面 2→5 类。详见 D48 补记。本机零验证，CI 裁决 |
 
 ---
@@ -528,6 +529,12 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 背景：数据目录写死 ~/.spark（三处各自 join(homedir(), '.spark')——改一处漏两处的漂移模板），用户无搬迁路径。
 决策：① **单源解析**：`home.ts sparkHome()`（SPARK_HOME 优先，空串回退缺省，相对路径按 cwd 明确化）——引擎 root / loadConfig 缺省 / CLI / server 全部经它。② **搬迁 = CLI 而非网页控件**：引擎在跑时搬自己的目录会坏在途 SQLite 句柄与水位——网页只读回显当前目录并指引 `spark migrate <dir>`。③ **不删源**：复制 → 字节校验 → 源改名 `<src>.bak-<ts>`（§2.10 禁删的兑现：备份可人工找回）；校验任何一步不过 → 目标侧清场、源原样保留（fail-closed）。
 约束与失败语义：目标非空拒迁（不覆盖用户数据）；目标=当前目录拒迁；SettingsDto.home 只读（启动期定，运行期改路径不被承认——不假状态）。
+
+### D55 文件工具 read-state 新鲜度守卫 = read-before-write + 内容/stat 双通道 stale 判定（2026-09-27，ZC 参考工单批次 ZC-5）
+
+背景：read/edit/write 三工具没有任何"读后新鲜度"校验——模型 read 之后用户/linter/bash 改了文件，edit/write 仍按过期快照覆盖（丢失更新）；write 描述里"覆盖已有文件前请先 read"只是软纪律不强制。
+决策：设计取参考项目 ZCode（zai-org/ZCode，Apache-2.0）edit/write 的 read-state 守卫——① 每会话一份基线 Map 挂 ToolPipelineImpl（每会话接线天然隔离），经 `ToolContext.readFileState` 注入（与 `memory?`/`lsp?` 同手法；未注入 = 守卫不启用，直接驱动工具的测试与旧路径不变）；② read 登记基线（整读存内容、窗口读只存 stat；Windows 大小写键归一）；③ edit/write 执行前判定：无基线 E_NOT_READ（write 新建文件不需要），基线过期 E_STALE 拒改要求重读；④ 两条通道：整读记录比对当前内容（formatter 只 touch 不误伤、同毫秒改写不漏报），窗口读退化 mtime（整数毫秒归一）+ size；⑤ 编辑成功后基线刷新（连续编辑不需重读）。
+约束与失败语义：不做 ZCode 的写盘端口级 expectedRevision CAS——fsutil 原子写（AUD-03）已保崩溃完整性，「校验通过到 rename 落盘」的微秒级竞态登记为已知限制；checkpoint 回滚 / bash 改文件后下一次 edit 如实 E_STALE（重读即解，失败闭合方向正确）；错误码 E_NOT_READ/E_STALE 入 doc/02 §5.6.3 注册表。
 
 ## 6. 模块速览（职责边界）
 

@@ -1,14 +1,17 @@
 /**
  * edit 工具（doc/02 §5.6.3）：字符串替换 + 唯一性校验，返回 unified diff。
  * 0 命中 → E_NOT_FOUND；多命中未 replaceAll → E_AMBIGUOUS。
+ * read-state 守卫（ZC-5 / ADR D55）：未 read → E_NOT_READ；read 后被外部改动
+ * （用户/linter/bash）→ E_STALE——重新 read 即解，防按过期快照覆盖（丢失更新）。
  * diff 用公共前后缀法生成单 hunk（多处 replaceAll 时合成一个大 hunk——
  * 正确性优先，紧凑度次之；单处替换场景即标准小 diff）。
  */
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { resolveInRoot } from '../definition.js'
 import { atomicWriteFile } from '../../fsutil.js'
+import { isFresh, latestRead, recordWritten } from '../read-state.js'
 
 const EditInput = z.strictObject({
   path: z.string().min(1),
@@ -66,7 +69,8 @@ export const editTool: ToolDefinition<EditInput> = {
   name: 'edit',
   description:
     '精确字符串替换（非正则）。oldString 必须在文件中唯一，多处命中需显式 replaceAll。' +
-    '返回 unified diff。oldString 与 newString 相同时报错。',
+    '返回 unified diff。oldString 与 newString 相同时报错。' +
+    '必须先 read 同一文件：未 read 报 E_NOT_READ；read 后文件被外部修改（用户或 linter）报 E_STALE——重新 read 后再编辑。',
   inputSchema: EditInput,
   permission: {
     action: 'fs.write',
@@ -79,6 +83,19 @@ export const editTool: ToolDefinition<EditInput> = {
     const before = await readFile(abs, 'utf8').catch(() => {
       throw new Error(`E_NOT_FOUND: 文件不存在 ${input.path}`)
     })
+    // ZC-5 read-state 守卫：注入了基线才启用（未注入 = 直接驱动/旧行为不变）
+    if (ctx.readFileState !== undefined) {
+      const entry = latestRead(ctx.readFileState, abs)
+      if (entry === undefined) {
+        throw new Error(`E_NOT_READ: 文件尚未 read，先 read 再 edit（${input.path}）`)
+      }
+      const info = await stat(abs)
+      if (!isFresh(entry, { mtimeMs: info.mtimeMs, size: info.size }, before)) {
+        throw new Error(
+          `E_STALE: 文件在 read 之后被外部修改（用户或 linter）——重新 read 后再改（${input.path}）`,
+        )
+      }
+    }
     const count = countMatches(before, input.oldString)
     if (count === 0) {
       throw new Error(`E_NOT_FOUND: oldString 在 ${input.path} 中 0 命中`)
@@ -92,6 +109,15 @@ export const editTool: ToolDefinition<EditInput> = {
         : before.replace(input.oldString, () => input.newString)
     // AUD-03：原子写（tmp+rename，fsutil 单源）——进程崩溃半写不再损坏用户文件
     atomicWriteFile(abs, after)
+    // ZC-5：编辑结果即新的全量基线（连续编辑不需重读）
+    const written = await stat(abs)
+    recordWritten(
+      ctx.readFileState,
+      abs,
+      { mtimeMs: written.mtimeMs, size: written.size },
+      after,
+      'edit',
+    )
     return { output: unifiedDiff(before, after, input.path), isError: false }
   },
 }

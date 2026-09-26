@@ -7,6 +7,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { resolveInRoot } from '../definition.js'
+import { recordRead } from '../read-state.js'
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024
 const BINARY_SAMPLE_BYTES = 8 * 1024
@@ -60,6 +61,9 @@ export const readTool: ToolDefinition<ReadInput> = {
       header = `(文件共 ${allLines.length} 行，仅显示末尾 ${limit} 行；用 offset 从头读)\n`
     }
     const lines = allLines.slice(start, start + limit)
+    // ZC-5 read-state：整读（含显式窗口恰好覆盖全文件）登记内容基线；窗口读只登记 stat 基线
+    const full = start === 0 && start + lines.length >= allLines.length
+    recordRead(ctx.readFileState, abs, { mtimeMs: info.mtimeMs, size: info.size }, raw, full)
     const width = String(start + lines.length).length
     const numbered = lines
       .map((line, i) => `${String(start + i + 1).padStart(width)}→${line}`)
