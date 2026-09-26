@@ -2817,7 +2817,7 @@ mock-transport 是回归网）、packages/protocol format.ts（若 R-B 已落地
 ## 5D.6 F 批：移动端 + 小程序
 
 - **19.27 移动端会话体验补齐批**。产出：已归档筛选接通（listSessions(archived) 已在，UI 置灰解除）；附件接入（uploadAttachment 替代置灰"+"）；topBanner（回合级错误横幅）与 user.attachments 渲染；会话菜单（置顶/改名[依赖 19.20]/归档/删除/反馈[依赖 19.19]）+ 页头副标题（DESIGN §13.J.2.3 规格兑现）；SubmitOutcome 排队语义呈现（started/steered/queued + 运行中占位文案切换）；计划模式档位菜单（解释横幅升真控件）；配对设备管理页（getPairStatus/revokePairDevice 接线——现文案承诺"设置页管理"而实际只有断开，属承诺未兑现缺口）。验收：controller 路径单测；置灰/承诺缺口 grep 清零。依赖 19.19/19.20（部分）。
-- **19.28 移动端管理面批（含移动端语音 V2-28）**。产出：fork/checkpoint/回滚/会话树/arena/trust/extensions/lsp/agents 面板接入（Transport 67 方法现只接 7 个的补齐，分两批交付）；移动端语音听写（Expo 录音 + transcribe 接线，V2-28 移动端半边）；i18n 消费（19.17）。**大件**。验收：每面板一条接入冒烟；真机走查留用户。依赖 19.17/19.19（部分）。
+- **19.28 移动端管理面批（含移动端语音 V2-28）**。产出：fork/checkpoint/回滚/会话树/arena/trust/extensions/lsp/agents 面板接入（Transport 89 方法现只接 7 个的补齐，分两批交付；计数锚定见 check_doc_links.py 检查 5.5——LA-24）；移动端语音听写（Expo 录音 + transcribe 接线，V2-28 移动端半边）；i18n 消费（19.17）。**大件**。验收：每面板一条接入冒烟；真机走查留用户。依赖 19.17/19.19（部分）。
 - **19.29 小程序补齐批（含分发中继翻案 D21）**。产出：筛选菜单（全部/按项目/已归档）；附件入口落地；topBanner/attachments 渲染；语音评估（Taro 录音 API 可行性先出结论）；**正式分发中继（翻案 D21 记账项：WSS/轮询网关 + request 合法域名方案 + ADR）**；token 加密存储重估（平台上限内尽力 + 明示残余风险）；i18n 消费（19.17）。验收：中继联调走查留用户；mini README"记 v2"清单 grep 清零。依赖 19.17（i18n 部分）。
 
 ## 5D.7 G 批：桌面壳

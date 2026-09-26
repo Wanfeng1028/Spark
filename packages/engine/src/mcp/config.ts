@@ -42,6 +42,21 @@ const serverSchema = z
     connectTimeoutMs: z.number().int().positive().max(600_000).optional(),
   })
   .superRefine((s, ctx) => {
+    // LA-23：url 限 http/https 协议且拒 userinfo（ftp:/ssh: 等非目标协议拒载；
+    // user:pass@host 形式的凭据不该进配置——掩码面盖不住 URL 里的凭据）
+    if (s.url !== undefined) {
+      try {
+        const parsed = new URL(s.url)
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          ctx.addIssue({ code: 'custom', message: `url 协议须为 http/https（现 ${parsed.protocol}）` })
+        }
+        if (parsed.username !== '' || parsed.password !== '') {
+          ctx.addIssue({ code: 'custom', message: 'url 不得携带 userinfo（user:pass@host）——凭据请走 headers' })
+        }
+      } catch {
+        // new URL 失败时 z.string().url() 已报错，此处不重复
+      }
+    }
     if (s.transport === 'streamable-http') {
       if (s.url === undefined) {
         ctx.addIssue({ code: 'custom', message: 'streamable-http transport 须提供 url（远程 server 地址）' })
@@ -54,10 +69,30 @@ const serverSchema = z
       }
       return
     }
+    // LA-23：stdio 分支对称拒 http 专用字段（原实现只拒反向，混写不对称）
+    if (s.url !== undefined || s.headers !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'stdio transport（缺省）不接受 url/headers（streamable-http 专用字段，混写 = 配置错误）',
+      })
+    }
     if (s.command === undefined) {
       ctx.addIssue({ code: 'custom', message: 'stdio transport（缺省）须提供 command（启动命令）' })
     }
   })
+
+/** LA-23：server 名保留键拒载——zod record 对 `__proto__` 键的赋值即原型污染
+ *（JSON.parse 产自有own键，但 zod 重建对象时 `target[key]=value` 触发 setter）。
+ * lsp/config.ts:52 的 Object.create(null) 是同问题正解，此处选显式拒载（fail-closed）。 */
+const RESERVED_SERVER_NAMES = new Set(['__proto__', 'constructor', 'prototype'])
+
+function assertNoReservedServerNames(servers: Record<string, unknown>): void {
+  for (const name of Object.keys(servers)) {
+    if (RESERVED_SERVER_NAMES.has(name)) {
+      throw new ConfigError(`mcp.json：server 名 "${name}" 是保留键（拒载，防原型污染）`)
+    }
+  }
+}
 
 const mcpSchema = z.object({
   version: z.literal(1),
@@ -69,14 +104,18 @@ export function loadMcpConfig(dir: string): McpConfig {
   const raw = readJsonFile(dir, SPARK_FILE.mcp)
   if (raw === undefined) return { servers: {} }
   const parsed = parseOrThrow(mcpSchema, raw, 'mcp.json')
+  assertNoReservedServerNames(parsed.servers as Record<string, unknown>)
   return { servers: parsed.servers }
 }
 
 /** 写回 mcp.json（工单 12.6）：zod 校验后原子写——校验失败抛 ConfigError 不落盘。
+ * LA-23：写 parseOrThrow 的**返回值**（校验即规范化——剥离未声明字段的幻觉形状）；
+ * mode 0o600（env/headers 是明文凭据，文件权限收紧，同 secrets.json 口径）。
  * 运行中改动需重启引擎重连生效（调用方如实提示，禁假状态）。 */
 export function writeMcpConfig(dir: string, config: McpConfig): void {
-  parseOrThrow(mcpSchema, { version: 1, servers: config.servers }, 'mcp.json')
-  atomicWriteJson(sparkFile(dir, 'mcp'), { version: 1, servers: config.servers })
+  const parsed = parseOrThrow(mcpSchema, { version: 1, servers: config.servers }, 'mcp.json')
+  assertNoReservedServerNames(parsed.servers as Record<string, unknown>)
+  atomicWriteJson(sparkFile(dir, 'mcp'), { version: 1, servers: parsed.servers }, { mode: 0o600 })
 }
 
 /** 读回掩码（RT3-07 / WO-088）：mcp.json → 客户端形状，env/headers 值一律替换为
@@ -133,6 +172,7 @@ function resolveMaskedMap(
 /** PUT 合并（RT3-07 / WO-088）：env/headers 掩码占位经 resolveMaskedMap 合并盘上真值；
  * 其余字段以 incoming 为准——整文件写语义不变。 */
 export function mergeMaskedMcpConfig(existing: McpConfig, incoming: McpConfigInput): McpConfig {
+  assertNoReservedServerNames(incoming.servers as unknown as Record<string, unknown>)
   const servers: Record<string, McpServerConfig> = {}
   for (const [name, s] of Object.entries(incoming.servers)) {
     const env = resolveMaskedMap(s.env, existing.servers[name]?.env, (k) =>

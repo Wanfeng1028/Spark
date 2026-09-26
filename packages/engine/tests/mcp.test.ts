@@ -6,7 +6,7 @@
  * - stdio e2e + 审批管线三态：allow / deny / ask（reject 与 once-allow 各一次）——
  *   外部 MCP 工具与内置工具同一管线（事件对闭合 + E_PERMISSION fail-closed）。
  */
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -23,7 +23,9 @@ import {
   loadMcpConfig,
   maskMcpConfigForClient,
   mergeMaskedMcpConfig,
+  writeMcpConfig,
   type McpConfig,
+  type McpServerConfig,
 } from '../src/mcp/config.js'
 import { McpManager, mcpToolName } from '../src/mcp/manager.js'
 import { PermissionServiceImpl } from '../src/permission/service.js'
@@ -480,5 +482,67 @@ describe('MCP streamable-http（阶段十九 19.4 / ADR D46）', () => {
     const status = manager.status()[0]!
     expect(status.connected).toBe(false)
     expect(status.command).toBe('http://127.0.0.1:9/mcp')
+  })
+})
+
+// ---- LA-23：mcp 配置数据完整性 ----
+
+describe('LA-23：mcp 配置数据完整性', () => {
+  test('stdio 分支对称拒 url/headers（http 专用字段混写 = 配置错误）', () => {
+    const dir = tempDir()
+    writeFileSync(
+      join(dir, 'mcp.json'),
+      JSON.stringify({
+        version: 1,
+        servers: { mixed: { command: 'npx', url: 'https://x.dev' } },
+      }),
+      'utf8',
+    )
+    expect(() => loadMcpConfig(dir)).toThrow(ConfigError)
+  })
+
+  test('url 限 http/https 协议（ftp: 拒载）', () => {
+    const dir = tempDir()
+    writeFileSync(
+      join(dir, 'mcp.json'),
+      JSON.stringify({
+        version: 1,
+        servers: { remote: { transport: 'streamable-http', url: 'ftp://x.dev/mcp' } },
+      }),
+      'utf8',
+    )
+    expect(() => loadMcpConfig(dir)).toThrow(ConfigError)
+  })
+
+  test('url 携带 userinfo（user:pass@host）拒载——凭据走 headers 不进 URL', () => {
+    const dir = tempDir()
+    writeFileSync(
+      join(dir, 'mcp.json'),
+      JSON.stringify({
+        version: 1,
+        servers: { remote: { transport: 'streamable-http', url: 'https://user:pass@x.dev/mcp' } },
+      }),
+      'utf8',
+    )
+    expect(() => loadMcpConfig(dir)).toThrow(ConfigError)
+  })
+
+  test('server 名 __proto__ 拒载（防原型污染，fail-closed）', () => {
+    const dir = tempDir()
+    const raw = '{\"version\":1,\"servers\":{\"__proto__\":{\"command\":\"npx\"}}}'
+    writeFileSync(join(dir, 'mcp.json'), raw, 'utf8')
+    expect(() => loadMcpConfig(dir)).toThrow(ConfigError)
+  })
+
+  test('writeMcpConfig 写规范化输出（未知字段剥离）+ 0o600 权限', () => {
+    const dir = tempDir()
+    const path = join(dir, 'mcp.json')
+    writeMcpConfig(dir, {
+      servers: { a: { command: 'npx', extra: 1 } as unknown as McpServerConfig },
+    })
+    const stat = statSync(path)
+    expect(stat.mode & 0o777).toBe(0o600)
+    const cfg = loadMcpConfig(dir)
+    expect(cfg.servers['a']).toEqual({ command: 'npx' }) // extra 被规范化剥离
   })
 })

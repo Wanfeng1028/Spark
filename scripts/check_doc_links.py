@@ -16,6 +16,9 @@
    仅检查已知根前缀（packages/apps/doc/scripts/examples/.github/.agents 等），
    自动跳过外部参考项目的同名前缀路径（如 pi 的 packages/agent/**）与含占位符的路径。
 4. 【error】doc/02 版本记录表重复版本号检测（防止 v4.50 重号类漂移复发）
+5.5. 【error】Transport 方法计数锚定（LA-24）：从 packages/protocol/src/transport.ts
+   的 Transport 接口解析方法实数，凡 doc/08 与 doc/02 中写「Transport NN 方法/方法 NN」
+   的行必须与实数一致——接口加方法忘改文档计数即 CI 红（防 67→89 类陈旧数字漂移）。
 5. 【error】对外文案口号扫描（DESIGN §12.7/§12.8，工单 19.44）：扫 official/src、
    apps/*/src 与门面 README 正文，命中"本地优先/数据不出本机/无云端依赖/跑在你自己/
    local-first"即报错。文档（DESIGN/AGENTS/doc/*）不扫——那里这些词是"被禁项的判据
@@ -308,6 +311,39 @@ def check_copy_slop(root: Path, report: Report) -> None:
                 )
 
 
+# ---------------------------------------------------------------- 检查 5.5：Transport 方法计数锚定（LA-24）
+
+def count_transport_methods(root: Path) -> int | None:
+    """从 protocol 的 Transport 接口块解析方法数（单一事实源）。解析失败返回 None。"""
+    src = root / "packages" / "protocol" / "src" / "transport.ts"
+    if not src.is_file():
+        return None
+    text = src.read_text(encoding="utf-8")
+    m = re.search(r"export interface Transport\b.*?\n\}", text, re.S)
+    if m is None:
+        return None
+    return len(re.findall(r"^  [a-zA-Z][a-zA-Z0-9]*[<(]", m.group(0), re.M))
+
+
+def check_transport_count(root: Path, report: Report) -> None:
+    actual = count_transport_methods(root)
+    if actual is None:
+        report.errors.append("Transport 接口解析失败——检查 packages/protocol/src/transport.ts 是否被重命名")
+        return
+    # 命中「Transport 两位数 方法」类表述的行；数字 ≠ 实数即 error。
+    pattern = re.compile(r"Transport\s*(\d+)\s*方法|Transport\s*接口的?\s*(\d+)\s*个?方法")
+    for md in sorted((root / "doc").glob("*.md")):
+        for lineno, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1):
+            for hit in pattern.finditer(line):
+                claimed = int(hit.group(1) or hit.group(2))
+                if claimed != actual:
+                    rel = md.relative_to(root)
+                    report.errors.append(
+                        f"{rel}:{lineno} Transport 方法计数 {claimed} ≠ 实数 {actual}"
+                        f"（事实源 packages/protocol/src/transport.ts；LA-24 锚定）"
+                    )
+
+
 # ---------------------------------------------------------------- 主流程
 
 def main() -> int:
@@ -333,6 +369,7 @@ def main() -> int:
     check_backtick_paths(files, root, report)
     check_version_duplicates(root, report)
     check_copy_slop(root, report)
+    check_transport_count(root, report)
 
     for w in report.warnings:
         print(f"[WARN] {w}")

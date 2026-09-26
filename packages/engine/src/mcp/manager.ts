@@ -147,7 +147,20 @@ export class McpManager {
   private readonly serverStatuses: { name: string; connected: boolean; tools: number; command: string }[] = []
   private closed = false
 
-  constructor(private readonly deps: McpManagerDeps) {}
+  constructor(private readonly deps: McpManagerDeps) {
+    // LA-23：server env/headers 的明文值纳入日志脱敏（与 secrets 仓同口径——
+    // 这些值会经 spawn env / HTTP headers 出引擎，出错回显不能落日志明文）
+    const secretValues: string[] = []
+    for (const cfg of Object.values(this.deps.config.servers)) {
+      for (const v of Object.values(cfg.env ?? {})) {
+        if (v.length >= 6) secretValues.push(v)
+      }
+      for (const v of Object.values(cfg.headers ?? {})) {
+        if (v.length >= 6) secretValues.push(v)
+      }
+    }
+    if (secretValues.length > 0) this.deps.logger?.registerSecrets?.(secretValues)
+  }
 
   /** 逐 server 连接并把工具注册进 registry；单 server 失败 warn 跳过（失败闭合） */
   async connect(registry: ToolRegistry): Promise<void> {

@@ -4,6 +4,7 @@
 import type { FastifyPluginCallback, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { ExecuteCommandBodySchema, findKnownLspServer } from '@spark/protocol'
+import type { McpConfigInput } from '@spark/protocol'
 import { FeedbackInputSchema, FeedbackQuerySchema, LogsQuerySchema, PromptsUpdateSchema, SettingsUpdateSchema, UsageSummaryQuerySchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
@@ -88,10 +89,7 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
         engine.dataRoot,
         mergeMaskedMcpConfig(loadMcpConfig(engine.dataRoot), {
           version: 1,
-          servers: body.servers as Record<
-            string,
-            { command: string; args?: string[]; env?: Record<string, string>; connectTimeoutMs?: number }
-          >,
+          servers: body.servers as McpConfigInput['servers'],
         }),
       )
     } catch (err) {
