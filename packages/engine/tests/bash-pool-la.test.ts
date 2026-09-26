@@ -114,9 +114,10 @@ describe('LA-09：超时 kill → 除名 → 重建', () => {
 describe('LA-14：执行期收集上限（池内生效）', () => {
   test('超限截断 + 同源标记；上限内输出完整', async () => {
     const root = await mkdtemp(join(tmpdir(), 'spark-bpl14-'))
-    const pool = new BashShellPool({ maxEntries: 8, idleMs: 60_000, now: Date.now, collectCapChars: 4096 })
+    const pool = new BashShellPool({ maxEntries: 8, idleMs: 60_000, now: Date.now })
     const tool = makeBashTool({ sandbox: 'off', persistent: () => true, pool })
-    const ctx = makeCtx(root)
+    // outputLimitBytes 1024 → maxOutputChars 4096（池执行期截断）
+    const ctx: ToolContext = { ...makeCtx(root), outputLimitBytes: 1024 }
     const r = await runCommand(tool, ctx, { command: "head -c 20000 /dev/zero | tr '\\0' 'a'" })
     expect(r.isError).toBe(false)
     expect(r.text.length).toBe(4096 + COLLECT_TRUNCATION_MARK.length)
