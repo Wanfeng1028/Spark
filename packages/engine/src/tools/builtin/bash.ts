@@ -116,7 +116,7 @@ export interface BashToolOptions {
    * 沙箱网络隔离（spark.json sandbox.network，19.7 / ADR D50）：getter 执行期读（热档）。
    * enabled = allowlist 档——命令出口注入本地代理环境变量；ready = 代理已监听
    * （未就绪即拒跑 E_SANDBOX_NETWORK_UNAVAILABLE，不降级直连）。与 OS wrapper
-   * 正交：Windows 无 OS 沙箱路线时网络隔离单独生效（出口过滤，非内核隔离）。
+   * 正交：Windows 无 OS 沙箱路线时网络隔离单独生效（出口引导，非内核隔离）。
    */
   networkIsolation?: () => { enabled: boolean; port: number; ready: boolean }
   /** 常驻池（测试注入；缺省按 poolOpts 构造——maxEntries 8 / idleMs 10 分钟） */
@@ -189,12 +189,11 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
       }
       const proxyPort = isolated && isolation.ready ? isolation.port : null
 
-      // 常驻路径（19.3 / ADR D45）：POSIX bash + 主开关开 + 沙箱关。
-      // 沙箱 'on' 时沙箱路径优先（wrapper 包常驻 shell 属 19.6，v1 不混用）。
       // LA-16：主开关关闭后的排水——关闭后该会话的下一条命令顺手回收常驻 shell
       if (pool !== null && !persistentOn && pool.has(ctx.sessionId)) {
         pool.drop(ctx.sessionId)
       }
+
       // 常驻路径（19.3 / ADR D45）：POSIX bash + 主开关开 + 沙箱关。
       // 沙箱 'on' 时沙箱路径优先（wrapper 包常驻 shell 属 19.6，v1 不混用）。
       if (persistentOn && opts.sandbox === 'off') {
@@ -202,7 +201,9 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
         // 保持环境，创建时注入会在模式热切换后 fail-open）
         const command = proxyPort !== null ? `${sandboxProxyExportLine(proxyPort)}\n${input.command}` : input.command
         // cwd 语义（D45）：显式 cwd 才切目录；无 cwd = 保持常驻 shell 当前位置
-        //（命令内 cd 跨调用保持——常驻的核心价值），不强制拉回会话根
+        //（命令内 cd 跨调用保持——常驻的核心价值），不强制拉回会话根。
+        // LA-12：新 shell 的起始目录显式落会话根（spawnCwd），绝不继承引擎进程 cwd。
+        // LA-14：收集上限由池执行期生效（超限截断 + 同源标记），不再事后切片。
         const result = await pool.run(ctx.sessionId, {
           file: shell.file,
           command,
@@ -213,8 +214,7 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
           onOutput: ctx.onProgress,
           maxOutputChars: (ctx.outputLimitBytes ?? 32 * 1024) * 4,
         })
-        // LA-14：收集上限由池执行期生效（超限截断 + 同源标记），不再事后切片
-        }
+        const output = result.output
         if (result.aborted) {
           return { output: { code: 'E_ABORTED', output }, isError: true }
         }
@@ -277,7 +277,6 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
         // （直播流廉价）。UTF-8 用 StringDecoder 跨块增量解码——旧逐 buf.toString 会把
         // 被 chunk 切断的多字节字符变成 U+FFFD。
         const collectCapChars = (ctx.outputLimitBytes ?? 32 * 1024) * 4
-        const COLLECT_TRUNCATION_MARK = '\n[输出超过收集上限，已截断]\n'
         const stdoutDecoder = new StringDecoder('utf8')
         const stderrDecoder = new StringDecoder('utf8')
         const chunks: string[] = []
