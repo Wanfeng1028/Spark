@@ -195,13 +195,13 @@ function runPowerShell(
 }
 
 /** 解析单条 k=v 输出行（app launch / window focus） */
-function parseKv(stdout: string, key: string): string | undefined {
+export function parseKv(stdout: string, key: string): string | undefined {
   const line = stdout.trim().split('\n').find((l) => l.startsWith(`${key}=`))
   return line === undefined ? undefined : line.slice(key.length + 1)
 }
 
 /** Process 清单 JSON → 条目数组（单元素时 ConvertTo-Json 出对象，归一成数组） */
-function parseProcessList<T extends { pid: number; name: string }>(stdout: string): T[] {
+export function parseProcessList<T extends { pid: number; name: string }>(stdout: string): T[] {
   const parsed: unknown = JSON.parse(stdout.trim())
   if (parsed === null || parsed === undefined) return []
   const arr = Array.isArray(parsed) ? parsed : [parsed]

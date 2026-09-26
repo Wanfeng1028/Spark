@@ -165,8 +165,23 @@ export class MacComputerExecutor implements ComputerExecutor {
     signal: AbortSignal,
   ): Promise<{ windows: ComputerWindowInfo[] } | { focused: string }> {
     if (input.action === 'list') {
-      const script =
-        'tell application "System Events" to get {name, unix id, name of front window} of (every process whose background only is false)'
+      // 逐进程行格式（单元分隔符 0x1F 分列）——AppleScript 列表输出的 ", " 分列
+      // 会被标题/应用名里的逗号污染（LA-08 测试实证），行式输出无歧义
+      const script = [
+        'tell application "System Events"',
+        '  set out to ""',
+        '  repeat with p in (every process whose background only is false)',
+        '    try',
+        '      set w to name of front window of p',
+        '    on error',
+        '      set w to ""',
+        '    end try',
+        `    set out to out & (name of p) & "${APPLE_FIELD_SEP}" & ((unix id of p) as text) & "${APPLE_FIELD_SEP}" & w & linefeed`,
+        '  end repeat',
+        '  return out',
+        'end tell',
+      ].join('
+')
       const stdout = await run('osascript', ['-e', script], OP_TIMEOUT_MS, signal)
       return { windows: parseAppleList(stdout) }
     }
@@ -181,7 +196,16 @@ export class MacComputerExecutor implements ComputerExecutor {
       await run('open', [input.command ?? ''], OP_TIMEOUT_MS, signal)
       return { apps: [] }
     }
-    const script = 'tell application "System Events" to get {name, unix id} of (every process whose background only is false)'
+    const script = [
+      'tell application "System Events"',
+      '  set out to ""',
+      '  repeat with p in (every process whose background only is false)',
+      `    set out to out & (name of p) & "${APPLE_FIELD_SEP}" & ((unix id of p) as text) & linefeed`,
+      '  end repeat',
+      '  return out',
+      'end tell',
+    ].join('
+')
     const stdout = await run('osascript', ['-e', script], OP_TIMEOUT_MS, signal)
     return { apps: parsePairs(stdout) }
   }

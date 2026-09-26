@@ -92,14 +92,14 @@ function unavailable(tool: string): Error {
 }
 
 /** xdotool click 的按键参数 */
-function clickButton(button: 'left' | 'right' | 'middle' | undefined): string {
+export function clickButton(button: 'left' | 'right' | 'middle' | undefined): string {
   if (button === 'right') return '3'
   if (button === 'middle') return '2'
   return '1'
 }
 
 /** xdotool key 的修饰键前缀 */
-function keyArgs(mods: string[] | undefined, key: string): string[] {
+export function keyArgs(mods: string[] | undefined, key: string): string[] {
   const prefixes = (mods ?? []).map((m) => (m === 'ctrl' ? 'ctrl' : m === 'meta' ? 'super' : m))
   const combined = prefixes.length === 0 ? [key] : [`${prefixes.join('+')}+${key}`]
   return combined
