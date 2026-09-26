@@ -261,7 +261,7 @@ export class ArenaManager {
         completedAt: rec.completedAt,
         prompt: run.prompt.length > 100 ? `${run.prompt.slice(0, 100)}…` : run.prompt,
         models: run.contenders.map((c) => c.model),
-        status: run.status,
+        status: run.status === 'running' ? ('interrupted' as const) : run.status, // LA-26: boot 时 running = 进程中断
         winnerModel: winner === null ? null : winner.model,
       }
     })

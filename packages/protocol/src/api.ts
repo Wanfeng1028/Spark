@@ -846,7 +846,7 @@ export const ArenaHistoryEntryDtoSchema = z.strictObject({
   prompt: z.string(),
   /** contender 模型名（发起序） */
   models: z.array(z.string().min(1)),
-  status: z.enum(['running', 'done', 'cancelled']),
+  status: z.enum(['running', 'done', 'cancelled', 'interrupted']),
   /** 被应用胜者的模型名；未应用为 null */
   winnerModel: z.string().nullable(),
 })
