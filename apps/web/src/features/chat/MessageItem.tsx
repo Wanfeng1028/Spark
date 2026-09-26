@@ -10,6 +10,7 @@ import { ids } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import type { UiItem } from '@/stores/session'
 import { cn } from '@/lib/utils'
+import { LinkPreviewRow } from './LinkPreviewCard'
 import { AssistantBlock } from './AssistantBlock'
 import { AssistantActions } from './AssistantActions'
 import { ReasoningCollapsible } from './ReasoningCollapsible'
@@ -90,6 +91,8 @@ export const MessageItem = memo(function MessageItem({
           <div>
             <AssistantBlock content={item.content} streaming={item.streaming} />
           </div>
+          {/* 19.21：正文 URL 链接预览卡（引擎侧 SSRF 防护抓取；流式中不渲染） */}
+          {item.streaming === undefined && <LinkPreviewRow text={assistantTextOf(item.content)} />}
           {/* §13.L L.6：空正文 assistant（纯工具调用/中断空稿）不挂操作行——
               隐形行占位是会话流"假空白"的另一半根因，常显后更是孤儿行（禁假状态） */}
           {item.streaming === undefined &&
