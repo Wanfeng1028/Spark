@@ -14,7 +14,7 @@
  * 坏段（文件名无合法 id / 首行非合法 header）→ failed——imported/skipped/failed
  * 三计数如实上报，不静默混过。
  */
-import { existsSync, mkdirSync, renameSync, rmSync } from 'node:fs'
+import { existsSync, renameSync, rmSync } from 'node:fs'
 import { appendFile, mkdir, readFile, readdir } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { findSessionFile, idOfFileName } from '../session/scan.js'
