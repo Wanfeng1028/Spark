@@ -174,6 +174,11 @@ export class BashShellPool {
       // stdin 写错误（EPIPE：shell 已死）——close/error 路径收口，这里只防未处理异常
       proc.stdin?.on('error', () => {})
       this.evictIfNeeded(key)
+      // LA-12: new shell spawns at spawnCwd; explicit cwd needs cd (first call too)
+      if (opts.changeTo !== null) {
+        cdLine = `cd ${shellQuote(opts.changeTo)}\n`
+        entry.cwd = opts.changeTo
+      }
     } else if (opts.changeTo !== null && opts.changeTo !== entry.cwd) {
       cdLine = `cd ${shellQuote(opts.changeTo)}\n`
       entry.cwd = opts.changeTo
