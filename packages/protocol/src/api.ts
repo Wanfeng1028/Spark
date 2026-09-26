@@ -411,7 +411,7 @@ export const EngineSettingsShape = z.object({
   /** turn 边界 checkpoint（阶段四工单 4.6）：git 快照开关（测试夹具关掉提速） */
   checkpoints: z.boolean(),
   /** bash 沙箱（阶段五工单 5.2，ADR D15）：on = 平台 wrapper 前缀 + 不可用即拒跑 */
-  bashSandbox: z.enum(['off', 'on']),
+  bashSandbox: z.enum(['off', 'approval', 'light', 'heavy']),
   /** 电脑控制主开关（阶段十九 19.1 / ADR D44）：false = computer.* 全操作 E_COMPUTER_DISABLED */
   computerUseEnabled: z.boolean(),
   /** bash 常驻会话（阶段十九 19.3 / ADR D45）：true = bash 工具走每会话长驻 shell（cwd/env 保持） */

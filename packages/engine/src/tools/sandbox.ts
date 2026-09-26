@@ -8,7 +8,7 @@
  */
 import { spawnSync } from 'node:child_process'
 
-export type BashSandboxMode = 'off' | 'on'
+export type BashSandboxMode = 'off' | 'approval' | 'light' | 'heavy'
 
 export interface SandboxWrapper {
   file: string
@@ -52,12 +52,28 @@ export function wrapperAvailable(platform: NodeJS.Platform, cmd: string): boolea
 export function resolveSandboxWrapper(
   platform: NodeJS.Platform,
   opts: { cwd: string; tmpdir: string },
+  mode: BashSandboxMode = 'light',
 ): SandboxWrapper | null {
   if (platform === 'linux') {
+    if (mode === 'heavy') {
+      return { file: 'bwrap', args: [...bwrapArgs(opts.cwd), '--unshare-net'] }
+    }
     return { file: 'bwrap', args: bwrapArgs(opts.cwd) }
   }
   if (platform === 'darwin') {
+    if (mode === 'heavy') {
+      return { file: 'sandbox-exec', args: ['-p', seatbeltStrictProfile(opts.cwd, opts.tmpdir)] }
+    }
     return { file: 'sandbox-exec', args: ['-p', seatbeltProfile(opts.cwd, opts.tmpdir)] }
   }
   return null
+}
+
+/** heavy 模式的 Seatbelt profile：默认全拒 + 只读 + 禁网络 */
+export function seatbeltStrictProfile(cwd: string, tmpdir: string): string {
+  return (
+    '(version 1)(deny default)(allow file-read*)' +
+    `(allow file-write* (subpath "${cwd}")(subpath "${tmpdir}"))` +
+    '(deny network*)'
+  )
 }

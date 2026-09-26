@@ -196,7 +196,7 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
 
       // 常驻路径（19.3 / ADR D45）：POSIX bash + 主开关开 + 沙箱关。
       // 沙箱 'on' 时沙箱路径优先（wrapper 包常驻 shell 属 19.6，v1 不混用）。
-      if (persistentOn && opts.sandbox === 'off') {
+      if (persistentOn && (opts.sandbox === 'off' || opts.sandbox === 'approval')) {
         // 隔离档逐命令前缀 export（不依赖 shell 创建时的环境——常驻 shell 跨调用
         // 保持环境，创建时注入会在模式热切换后 fail-open）
         const command = proxyPort !== null ? `${sandboxProxyExportLine(proxyPort)}\n${input.command}` : input.command
@@ -234,11 +234,11 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
       // 沙箱前缀（ADR D15）：win32 无 wrapper 路线 → 拒跑；wrapper 缺失 → 拒跑（fail-closed）
       let file = shell.file
       let args = [...shell.args, input.command]
-      if (opts.sandbox === 'on') {
+      if (opts.sandbox === 'light' || opts.sandbox === 'heavy') {
         const wrapper = resolveSandboxWrapper(process.platform, {
           cwd: workDir,
           tmpdir: realpathSync(tmpdir()),
-        })
+        }, opts.sandbox)
         if (wrapper === null) {
           return {
             output: {

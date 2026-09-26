@@ -141,7 +141,7 @@ const SPARK_DEFAULTS: SparkConfig = {
     toolOutputLimitKB: 32,
     compactionThreshold: 0.8,
     checkpoints: true,
-    bashSandbox: 'off',
+    bashSandbox: 'approval',
     /** 电脑控制主开关（阶段十九 19.1 / ADR D44）：缺省关——fail-closed */
     computerUseEnabled: false,
     /** bash 常驻会话（阶段十九 19.3 / ADR D45）：缺省关——独立 shell 旧行为不变 */
