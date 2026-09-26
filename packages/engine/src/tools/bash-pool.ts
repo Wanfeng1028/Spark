@@ -165,10 +165,11 @@ export class BashShellPool {
         busy: false,
       }
       this.entries.set(key, entry)
+      const created = entry
       // spawn 失败（cwd 不存在等）异步浮出：出池如实报错——下一调用重建（构造期注册一次，
       // 不随 run 叠加监听器，LA-15）
       proc.on('error', () => {
-        this.dropEntry(key, entry)
+        this.dropEntry(key, created)
       })
       // stdin 写错误（EPIPE：shell 已死）——close/error 路径收口，这里只防未处理异常
       proc.stdin?.on('error', () => {})

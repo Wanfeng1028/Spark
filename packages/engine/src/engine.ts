@@ -201,7 +201,7 @@ export class Engine {
   private readonly newSessionId: () => SessionId
   private readonly bus: EventBus
   private readonly gateway: LlmGateway
-  private readonly bashPool: BashShellPool | null = null
+  private bashPool: BashShellPool | null = null
   private readonly permission: PermissionServiceImpl
   /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
   private readonly ruleStore: UserRuleStore
