@@ -5,6 +5,7 @@
  */
 import type { ToolRegistry } from '../registry.js'
 import type { BashSandboxMode } from '../sandbox.js'
+import type { BashShellPool } from '../bash-pool.js'
 import { readTool } from './read.js'
 import { grepTool } from './grep.js'
 import { writeTool } from './write.js'
@@ -27,7 +28,7 @@ export interface BuiltinToolsOptions {
   /** 沙箱网络隔离状态（spark.json sandbox.network，19.7 / ADR D50；getter 执行期读，mode/allowlist 热档） */
   networkIsolation?: () => { enabled: boolean; port: number; ready: boolean }
   /** bash 常驻池引用回调（LA-16：引擎 shutdown 排水用；persistent 未开时回 null） */
-  onPool?: (pool: import('../bash-pool.js').BashShellPool | null) => void
+  onPool?: (pool: BashShellPool | null) => void
 }
 
 export function registerBuiltinTools(registry: ToolRegistry, opts: BuiltinToolsOptions = {}): void {
