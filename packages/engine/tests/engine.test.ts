@@ -385,7 +385,7 @@ describe('resumeSession', () => {
     // 新引擎实例读同一 root（进程重启语义）
     const gateway2 = new ScriptedLlm()
     const engine2 = new Engine({ root: f.root, gateway: gateway2, config: makeConfig() })
-    fixtures.push({ root: f.root, engine: engine2, gateway: gateway2, events: [], sub: { unsubscribe: () => {}, resume: () => {} } })
+    fixtures.push({ root: f.root, engine: engine2, gateway: gateway2, events: [], sub: { unsubscribe: () => {}, resume: () => {}, recovered: () => {} } })
     const seen: SparkEventEnvelope[] = []
     engine2.subscribe((e) => {
       seen.push(e)
@@ -428,7 +428,7 @@ describe('resumeSession', () => {
 
     const gateway2 = new ScriptedLlm()
     const engine2 = new Engine({ root: f.root, gateway: gateway2, config: makeConfig() })
-    fixtures.push({ root: f.root, engine: engine2, gateway: gateway2, events: [], sub: { unsubscribe: () => {}, resume: () => {} } })
+    fixtures.push({ root: f.root, engine: engine2, gateway: gateway2, events: [], sub: { unsubscribe: () => {}, resume: () => {}, recovered: () => {} } })
     const seen: SparkEventEnvelope[] = []
     engine2.subscribe((e) => {
       seen.push(e)
