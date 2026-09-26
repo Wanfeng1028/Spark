@@ -1,7 +1,7 @@
 /**
  * bash 沙箱网络隔离联动单测（阶段十九 19.7 / ADR D50）：
  * ① allowlist 档且代理未就绪 → E_SANDBOX_NETWORK_UNAVAILABLE fail-closed 拒跑（不降级直连）；
- * ② 就绪 → 独立 shell 走 spawn env（HTTP_PROXY/HTTPS_PROXY/ALL_PROXY socks5h/NO_PROXY）；
+ * ② 就绪 → 独立 shell 走 spawn env（HTTPS_PROXY/ALL_PROXY socks5h/NO_PROXY）；
  *    常驻 shell 走逐命令 export 前缀（不依赖 shell 创建时环境——模式热切换后仍 fail-closed 语义）；
  * ③ off 档 → 零注入（缺省行为不变，旧用例不回归）。
  * POSIX 断言（printenv）——Windows powershell 回落为平台边界，skipIf 条件化。
@@ -47,19 +47,18 @@ async function run(
 describe('sandboxProxyEnv / sandboxProxyExportLine（出口引导纯函数）', () => {
   test('env 四件套 + socks5h + NO_PROXY 回环放行', () => {
     const env = sandboxProxyEnv(1080)
-    expect(env.HTTP_PROXY).toBe('http://127.0.0.1:1080')
     expect(env.HTTPS_PROXY).toBe('http://127.0.0.1:1080')
     // socks5h（带 h）= 主机名交代理解析——域名清单才能按域名判定
     expect(env.ALL_PROXY).toBe('socks5h://127.0.0.1:1080')
     expect(env.NO_PROXY).toContain('127.0.0.1')
-    expect(env.http_proxy).toBe(env.HTTP_PROXY)
+    expect(env.https_proxy).toBe(env.HTTPS_PROXY)
     expect(env.all_proxy).toBe(env.ALL_PROXY)
   })
 
   test('export 行可被 shell 求值（单引号安全编码）', () => {
     const line = sandboxProxyExportLine(1080)
     expect(line.startsWith('export ')).toBe(true)
-    expect(line).toContain('HTTP_PROXY=')
+    expect(line).toContain('HTTPS_PROXY=')
     expect(line).not.toContain('"')
   })
 })
@@ -80,7 +79,7 @@ describe('bash 网络隔离联动（阶段十九 19.7 / ADR D50）', () => {
   test.skipIf(!posix)('off 档：零注入（缺省行为不变）', async () => {
     const root = await mkdtemp(join(tmpdir(), 'spark-sbxnet-'))
     const tool = makeBashTool({ sandbox: 'off' })
-    const r = await run(tool, makeCtx(root), 'printenv HTTP_PROXY; printenv ALL_PROXY; echo done')
+    const r = await run(tool, makeCtx(root), 'printenv HTTPS_PROXY; printenv ALL_PROXY; echo done')
     expect(r.isError).toBe(false)
     expect(r.text).toContain('done')
     expect(r.text).not.toContain('socks5h')
@@ -95,7 +94,7 @@ describe('bash 网络隔离联动（阶段十九 19.7 / ADR D50）', () => {
     const r = await run(
       tool,
       makeCtx(root),
-      'printenv HTTP_PROXY; printenv ALL_PROXY; printenv NO_PROXY; echo end',
+      'printenv HTTPS_PROXY; printenv ALL_PROXY; printenv NO_PROXY; echo end',
     )
     expect(r.isError).toBe(false)
     expect(r.text).toContain('http://127.0.0.1:11080')
