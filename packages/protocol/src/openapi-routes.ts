@@ -484,6 +484,12 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     response: arr(ref('McpServerDto')),
   },
   {
+    method: 'get',
+    path: '/api/mcp/config',
+    summary: 'mcp.json 读回（RT3-07）——env 值一律掩码占位，不明文出引擎',
+    tag: 'config',
+  },
+  {
     method: 'put',
     path: '/api/mcp',
     summary: '整文件写 mcp.json（工单 12.6：坏配置不落盘 → 400；重启后重连）',

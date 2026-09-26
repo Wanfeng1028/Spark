@@ -1926,6 +1926,19 @@
         }
       }
     },
+    "/api/mcp/config": {
+      "get": {
+        "tags": [
+          "config"
+        ],
+        "summary": "mcp.json 读回（RT3-07）——env 值一律掩码占位，不明文出引擎",
+        "responses": {
+          "204": {
+            "description": "成功（无响应体）"
+          }
+        }
+      }
+    },
     "/api/skills": {
       "get": {
         "tags": [
