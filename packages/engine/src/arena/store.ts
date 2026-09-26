@@ -22,7 +22,7 @@ export interface ArenaRunRecord {
 /** 解析后最小形状校验（不引 zod——落盘形状由 manager 唯一写入者保证，此处只防半截/异质文件） */
 function isRecord(value: unknown): value is ArenaRunRecord {
   if (typeof value !== 'object' || value === null) return false
-  const rec = value as { run?: { arenaId?: unknown; sessionId?: unknown; status?: unknown } }
+  const rec = value as { run?: { arenaId?: unknown; sessionId?: unknown; status?: unknown; prompt?: unknown; contenders?: unknown } }
   return (
     typeof rec.run === 'object' &&
     rec.run !== null &&
