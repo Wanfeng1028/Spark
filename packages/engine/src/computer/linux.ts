@@ -105,10 +105,26 @@ export function keyArgs(mods: string[] | undefined, key: string): string[] {
   return combined
 }
 
+
+/** LA-21：app launch 的 detached 启动（루不等候、不超时杀） */
+function spawnDetached(command: string): void {
+  try {
+    const child = spawn(command, [], { detached: true, stdio: 'ignore' })
+    child.unref()
+  } catch {
+    // 启动失败忍略（app list 不会列出，如实）
+  }
+}
 export class LinuxComputerExecutor implements ComputerExecutor {
+  /** LA-17：已 abort 的 signal 不再启动操作（照 browser.ts 惯例） */
+  private static assertNotAborted(signal: AbortSignal): void {
+    if (signal.aborted) throw new Error('E_ABORTED: 电脑控制操作被中断')
+  }
+
   constructor(private readonly shotsDir: string) {}
 
   async screenshot(signal: AbortSignal): Promise<ComputerScreenshotResult> {
+    LinuxComputerExecutor.assertNotAborted(signal)
     mkdirSync(this.shotsDir, { recursive: true })
     const file = `shot-${Date.now()}-${(shotSeq += 1)}.png`
     const path = join(this.shotsDir, file)
@@ -174,7 +190,9 @@ export class LinuxComputerExecutor implements ComputerExecutor {
   async app(input: ComputerAppInput, signal: AbortSignal): Promise<{ pid?: number; apps: ComputerAppInfo[] }> {
     if (input.action === 'launch') {
       // 直接 exec 目标程序（spawn argv 无 shell，零注入面）；ENOENT 归 E_COMPUTER_NOTFOUND 语义由 run 层映射
-      await run(input.command ?? '', [], OP_TIMEOUT_MS, signal)
+      // LA-21: app launch = 启动后立即返回（detached+unref），
+      // 不等候也不超时杀掉刚启动的程序
+      spawnDetached(input.command ?? '')
       return { apps: [] }
     }
     const stdout = await run('ps', ['-eo', 'pid=,comm='], OP_TIMEOUT_MS, signal)

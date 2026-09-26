@@ -107,6 +107,11 @@ function normalizeModifierScript(mods: string[] | undefined): string {
 }
 
 export class MacComputerExecutor implements ComputerExecutor {
+  /** LA-17：已 abort 的 signal 不再启动操作（照 browser.ts 惯例） */
+  private static assertNotAborted(signal: AbortSignal): void {
+    if (signal.aborted) throw new Error('E_ABORTED: 电脑控制操作被中断')
+  }
+
   constructor(private readonly shotsDir: string) {}
 
   async screenshot(signal: AbortSignal): Promise<ComputerScreenshotResult> {
