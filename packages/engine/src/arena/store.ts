@@ -28,6 +28,8 @@ function isRecord(value: unknown): value is ArenaRunRecord {
     rec.run !== null &&
     typeof rec.run.arenaId === 'string' &&
     typeof rec.run.sessionId === 'string' &&
+    typeof rec.run.prompt === 'string' &&
+    Array.isArray(rec.run.contenders) &&
     (rec.run.status === 'running' || rec.run.status === 'done' || rec.run.status === 'cancelled')
   )
 }

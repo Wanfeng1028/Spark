@@ -161,10 +161,10 @@ export class PermissionServiceImpl implements PermissionService {
         settled: false,
         resolve,
         onAbort: () => {
-          void this.settle(entry, false, 'reject', 'abort')
+          this.settle(entry, false, 'reject', 'abort').catch(() => {})
         },
         timer: setTimeout(() => {
-          void this.settle(entry, false, 'reject', 'timeout')
+          this.settle(entry, false, 'reject', 'timeout').catch(() => {})
         }, this.deps.timeoutMs),
       }
       check.signal.addEventListener('abort', entry.onAbort, { once: true })
