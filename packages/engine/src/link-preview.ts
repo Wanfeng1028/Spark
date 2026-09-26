@@ -36,7 +36,8 @@ export interface LinkPreviewResult {
 export function isPrivateAddress(ip: string): boolean {
   if (ip.includes('.')) {
     const parts = ip.split('.').map((v) => Number(v))
-    if (parts.length !== 4 || parts.some((v) => Number.isNaN(v))) return true
+    // 非数字点分串 = 主机名（如 example.com）——不是 IP 字面量，交给 DNS
+    if (parts.length !== 4 || parts.some((v) => Number.isNaN(v))) return false
     const [a, b] = parts as [number, number, number, number]
     if (a === 0 || a === 10 || a === 127) return true
     if (a === 169 && b === 254) return true // link-local
