@@ -19,7 +19,7 @@ const Footer: React.FC = () => (
   <footer className="border-t border-border">
     <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-6 py-6 text-sm text-muted-foreground sm:flex-row">
       <p>© 2026 Spark · MIT License</p>
-      <nav className="flex flex-wrap items-center justify-center gap-4" aria-label="Footer">
+      <nav className="flex flex-wrap items-center justify-center gap-4" aria-label="页脚">
         {FOOTER_LINKS.map((link) => (
           <a
             key={link.label}

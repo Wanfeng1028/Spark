@@ -30,7 +30,7 @@ const JOBS: readonly Job[] = [
   {
     label: "改代码",
     lead: "先读后改，改动走审批。",
-    body: "写类工具与 bash 需要你确认——once / always / reject 三种答复，超时未答复自动拒绝（fail-closed）。",
+    body: "写类工具与 bash 需人工确认——once / always / reject 三种答复，超时未答复自动拒绝（fail-closed）。",
     fact: "permission.resolved { reply } · fail-closed",
   },
   {
@@ -41,7 +41,7 @@ const JOBS: readonly Job[] = [
   },
   {
     label: "长任务挂机",
-    lead: "挂着跑，边界写死在代码里。",
+    lead: "长跑护栏写死在代码里，到线即停。",
     body: "/goal 持续目标：迭代上限 50、token 预算 200k、judge 超时 25s，到线即停不悬空。",
     fact: "goal.set · ADR D33",
   },
@@ -53,7 +53,7 @@ const JOBS: readonly Job[] = [
   },
   {
     label: "子代理并行",
-    lead: "主会话不堵车。",
+    lead: "并行执行，不阻塞主会话回合。",
     body: "task 工具派子代理并行干活，事件流同屏折叠；/agents 可按档停用，停用档解析即拒绝。",
     fact: "task · subagent · /agents",
   },

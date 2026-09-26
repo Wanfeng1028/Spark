@@ -274,7 +274,7 @@ const Header: React.FC = () => {
         </Link>
 
         {/* 桌面端导航：普通链接 + 下拉菜单（产品） */}
-        <nav className="hidden items-center gap-6 md:flex" aria-label="Main">
+        <nav className="hidden items-center gap-6 md:flex" aria-label="主导航">
           <NavDropdown
             label="产品"
             groups={[
@@ -346,7 +346,7 @@ const Header: React.FC = () => {
             href={LINKS.github}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="GitHub repository"
+            aria-label="GitHub 仓库"
             className={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
           >
             <Github className="h-4 w-4" aria-hidden="true" />
@@ -358,7 +358,7 @@ const Header: React.FC = () => {
             variant="ghost"
             size="icon"
             className="rounded-full bg-zinc-100 md:hidden"
-            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-label={mobileOpen ? "关闭菜单" : "打开菜单"}
             aria-expanded={mobileOpen}
             aria-controls={MOBILE_MENU_ID}
             onClick={() => setMobileOpen((prev) => !prev)}
@@ -396,14 +396,14 @@ const Header: React.FC = () => {
                 variant="ghost"
                 size="icon"
                 className="rounded-full bg-zinc-100"
-                aria-label="Close menu"
+                aria-label="关闭菜单"
                 onClick={handleClose}
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
 
-            <nav aria-label="Mobile" className="flex-1 overflow-y-auto px-6 pt-2">
+            <nav aria-label="移动端导航" className="flex-1 overflow-y-auto px-6 pt-2">
               <MobileAccordion onClose={handleClose} />
               {NAV_ITEMS.map((item) =>
                 isExternal(item.href) ? (

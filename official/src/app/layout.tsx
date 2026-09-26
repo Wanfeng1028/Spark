@@ -6,34 +6,36 @@ import { asset } from "@/lib/utils";
 import "./globals.css";
 
 // WO-001：metadataBase —— OG/canonical 绝对 URL 的基准（无它全部输出相对路径，
-// 社交平台爬虫无法拉取）。当前按 GitHub Pages 推导；正式域名确定后改此一处。
-const SITE_URL = "https://wanfeng1028.github.io/Spark";
+// 社交平台爬虫无法拉取）。双站发布后（19.45）由构建环境注入：缺省 GitHub Pages
+// 项目站 wanfeng1028.github.io/Spark，Cloudflare Pages 构建时设
+// NEXT_PUBLIC_SITE_URL=https://spark.gemmae.dev 覆盖默认值。
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://wanfeng1028.github.io/Spark";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Spark — Agent 工作台",
+    default: "Spark — 一个引擎，四个界面",
     template: "%s — Spark",
   },
   description:
-    "引擎 headless，UI 是事件流的投影。流式对话、工具调用可视化、人工审批、四端同一协议。",
+    "一个引擎，四个界面。27 种事件驱动 Web / 桌面 / CLI / 移动端，写类工具先经人工审批，会话 append-only 落盘。",
   icons: {
     icon: asset("/favicon.svg"),
   },
   // WO-002：1200×630 PNG（社交平台不解析 SVG——public/og-image.svg 仅作源稿留档）
   openGraph: {
-    title: "Spark — Agent 工作台",
-    description: "引擎 headless，UI 是事件流的投影。27 种事件类型驱动四端界面。",
+    title: "Spark — 一个引擎，四个界面",
+    description: "一个引擎，四个界面。27 种事件驱动 Web / 桌面 / CLI / 移动端。",
     type: "website",
     locale: "zh_CN",
     url: SITE_URL,
     siteName: "Spark",
-    images: [{ url: asset("/og-image.png"), width: 1200, height: 630, alt: "Spark — Agent 工作台" }],
+    images: [{ url: asset("/og-image.png"), width: 1200, height: 630, alt: "Spark — 一个引擎，四个界面" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Spark — Agent 工作台",
-    description: "引擎 headless，UI 是事件流的投影。",
+    title: "Spark — 一个引擎，四个界面",
+    description: "一个引擎，四个界面。27 种事件驱动 Web / 桌面 / CLI / 移动端。",
     images: [asset("/og-image.png")],
   },
   robots: { index: true, follow: true },

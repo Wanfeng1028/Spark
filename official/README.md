@@ -36,7 +36,7 @@
 
 **流式对话** — token 级 delta 增量渲染，27 种事件类型经 SSE 单端点实时推送到客户端。
 
-**工具调用可视化** — 每次工具执行在会话流中呈现为可折叠块，内含 diff 预览与终端输出；23 条内置命令覆盖文件读写、bash 执行、搜索、浏览器操作。
+**工具调用可视化** — 每次工具执行在会话流中呈现为可折叠块，内含 diff 预览与终端输出；28 条内置命令覆盖文件读写、bash 执行、搜索、浏览器操作。
 
 **人工审批（fail-closed）** — 写类工具触发审批卡，内联在调用位置；超时、异常、中断一律拒绝而非放行。四档权限：允许一次 / 本项目总是 / 该用户总是 / 拒绝。
 
@@ -61,11 +61,13 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 ## 快速上手
 
 ```bash
-# 1. 安装 CLI
-npm i -g @spark/cli
+# 1. 安装 CLI（npm 发布待 CI 凭证——v1.0.0 已打 tag，当前从源码跑）
+git clone https://github.com/Wanfeng1028/Spark && cd Spark
+pnpm install                    # Node ≥ 24 · pnpm 9
+pnpm --filter @spark/cli build  # 出 esbuild 单文件 bundle；发布落地后这一步回到 npm i -g @spark/cli
 
-# 2. 拉起 server + 进入 TUI（退出连带回收 server）
-spark up
+# 2. 拉起 server + 进入 TUI（退出连带回收 server；发布落地后即 spark up）
+node apps/cli/dist/main.js up
 
 # 3. 配模型（首回合前一次性）
 #    编辑 ~/.spark/models.json 声明 OpenAI 兼容供应商
@@ -74,6 +76,26 @@ export DEEPSEEK_API_KEY=sk-xxx
 ```
 
 发第一条消息后，写类工具会弹审批卡：`1` 允许一次 / `2` 本项目总是 / `3` 该用户总是 / `4` 拒绝。
+
+## 部署
+
+本站双平台发布，每次 commit 到 main 触发两边同步构建，内容同源同一份代码：
+
+| 平台 | 地址 | 机制 |
+| ---- | ---- | ---- |
+| GitHub Pages | https://wanfeng1028.github.io/Spark/ | `.github/workflows/official.yml`（push main 自动构建部署） |
+| Cloudflare Pages | https://spark.gemmae.dev | Pages Git 集成（CF 侧连接同一仓库自行构建，零 CI 改动、零 secrets） |
+
+两站仅 URL 结构不同（GitHub Pages 为子路径 `/Spark/`，Cloudflare 为根路径），代码、文案、构建命令完全一致；代码侧通过 `NEXT_PUBLIC_BASE_PATH` 与 `NEXT_PUBLIC_SITE_URL` 两个构建环境变量区分（两站均已在代码中支持）。
+
+Cloudflare 侧一次性配置（在 CF 控制台完成，仓库内无改动）：
+
+1. **Workers & Pages → 创建 → Pages → 连接 GitHub**，仓库选 `Wanfeng1028/Spark`，framework preset 选 Next.js（或直接自定义）。
+2. **构建配置**：Root directory `official`；安装命令 `npm i -g pnpm && pnpm install --ignore-workspace --no-frozen-lockfile`；构建命令 `pnpm build`；输出目录 `out`；生产分支 `main`。
+3. **环境变量**：`NEXT_PUBLIC_BASE_PATH=""`（覆盖缺省 `/Spark`）、`NEXT_PUBLIC_SITE_URL="https://spark.gemmae.dev"`。
+4. **自定义域名**：项目 → Custom domains → 添加 `spark.gemmae.dev`。若 gemmae.dev 的 DNS 托管在 Cloudflare，会自动创建 CNAME；若托管在外部（如阿里云），需去注册商处添加 CNAME 记录 `spark` → `<项目名>.pages.dev`。
+
+此后每次 push main：两端自动同步更新，无需任何手工操作。
 
 ## 技术栈
 

@@ -88,7 +88,7 @@ pnpm --filter @spark/cli build  # 出 server 的 esbuild 单文件 bundle`}
             <section className="border-t border-border pt-12">
               <h2 className="text-xl font-semibold text-foreground">启动</h2>
               <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                进入你的项目目录，运行
+                进入目标项目目录，运行
                 <code className="mx-1.5 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs">spark up</code>
                 启动本地 Agent 工作台：
               </p>

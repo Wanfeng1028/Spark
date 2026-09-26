@@ -57,7 +57,7 @@ export default function ArchitecturePage() {
             架构
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            四端 UI、协议、服务端、引擎、会话文件——自上而下五层。
+            四端 UI、协议、服务端、引擎、会话文件，自上而下五层。
           </p>
         </div>
       </div>

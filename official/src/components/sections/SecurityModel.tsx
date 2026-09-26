@@ -88,8 +88,8 @@ export function SecurityModel(): React.JSX.Element {
               安全模型
             </h2>
             <p className="mt-3 text-lg text-muted-foreground">
-              缺省即安全：绑定回环、审批超时即拒、路径越界先于审批拦下、全程
-              append-only 落盘。
+              缺省绑定回环；审批超时、异常、中断一律结清为拒绝；路径越界先于
+              审批拦下；事件全程 append-only 落盘。
             </p>
           </header>
         </BlurFade>

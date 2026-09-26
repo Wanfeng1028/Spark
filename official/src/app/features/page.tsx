@@ -124,7 +124,7 @@ export default function FeaturesPage() {
             核心能力
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            四件事做到位：流式对话、工具调用可视化、人工审批、四端同一协议。
+            能力包含四项：流式对话、工具调用可视化、人工审批、四端同一协议。
           </p>
         </div>
       </div>

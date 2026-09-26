@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
  * 工单 19.44 文案整改：主标题原为第二人称喊话式定位句，改陈述式；轮播机制保留（晚风指示），
  * 但词表由三句同义口号（工作台 / 编码搭档 / 自动化队友——指同一件事，轮无可指）换成四个
  * 各有实体的端名，轮换从此承担信息而非声势。判据见 DESIGN §12.7。
+ * 工单 19.45：首行静态字换站魂句「一个引擎，四个界面。」，第二行轮换词保持四端名。
  */
 
 const ROTATE_WORDS = ["Web 工作台", "Electron 桌面壳", "CLI TUI", "移动端 App"] as const;
@@ -83,7 +84,7 @@ export function Hero(): React.JSX.Element {
         className="relative mt-10 max-w-4xl text-[44px] font-bold leading-[1.12] tracking-tight text-zinc-900 sm:text-[60px] lg:text-[72px]"
       >
         <BlurText
-          text="引擎 headless 的"
+          text="一个引擎，四个界面。"
           staggerDelay={0.045}
           duration={0.55}
           className="block"
@@ -99,8 +100,8 @@ export function Hero(): React.JSX.Element {
       </h1>
 
       <p className="relative mt-8 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
-        流式对话、工具调用可视化、fail-closed 人工审批——27
-        种事件实时驱动四端界面。会话以
+        流式对话、工具调用可视化、fail-closed 人工审批。27
+        种事件实时驱动四端界面，会话以
         append-only JSONL 落盘，可回放、可分叉、可回滚。
       </p>
 

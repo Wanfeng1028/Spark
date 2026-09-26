@@ -381,12 +381,12 @@ function ApprovalCard(): React.JSX.Element {
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-2xl bg-zinc-100 text-left">
       <div className="flex flex-1 flex-col justify-center gap-3 px-5 pt-2 text-[13px]">
-        <p className="text-zinc-600">引擎想改写工作区文件，先问你：</p>
+        <p className="text-zinc-600">引擎申请改写工作区文件，等待人工确认：</p>
         <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
           <div className="flex gap-2">
             <span aria-hidden="true" className="w-1 shrink-0 rounded-full bg-amber-600" />
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-zinc-900">bash 想要执行命令</p>
+              <p className="text-sm font-semibold text-zinc-900">bash 执行命令请求</p>
               <p className="mt-1 truncate font-mono text-xs text-zinc-500">
                 git commit -m &quot;feat: bash 池&quot;
               </p>

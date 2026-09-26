@@ -150,7 +150,7 @@ function CodeWindow(): React.JSX.Element {
               ) : (
                 <Copy className="h-3.5 w-3.5" aria-hidden="true" />
               )}
-              {copied ? "已复制" : "Copy"}
+              {copied ? "已复制" : "复制"}
             </button>
           </div>
           <pre className="overflow-x-auto px-4 py-4 font-mono text-[13px] leading-6">
@@ -211,9 +211,7 @@ export function ProtocolSection(): React.JSX.Element {
               id="protocol-heading"
               className="mt-4 text-[40px] font-semibold leading-[1.1] tracking-tight text-zinc-900 sm:text-[56px]"
             >
-              一份协议。
-              <br />
-              四端界面。
+              一份协议，驱动四端界面。
             </h2>
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
               事件词表、zod schema、applyEvent reducer、Transport 全在
