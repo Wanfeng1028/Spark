@@ -4,6 +4,7 @@
  * - JSONL：追加一行 / 读取全部（坏行跳过——历史文件只追加不改写，单行损坏不阻塞列表）。
  */
 import { appendFileSync, chmodSync, closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, writeSync } from 'node:fs'
+import { Buffer } from 'node:buffer'
 
 /** 原子写原始文本或字节（调用方自管序列化形状，如 permission store 无尾换行的历史格式）。
  * LA-40：openSync+writeSync+fsyncSync 替代 writeFileSync——rename 前 data 落盘，
@@ -18,7 +19,9 @@ export function atomicWriteFile(
   const tmp = `${filePath}.tmp`
   const fh = openSync(tmp, 'w', opts?.mode)
   try {
-    writeSync(fh, data)
+    // Buffer 化解 writeSync 联合类型重载歧义（string | Uint8Array）
+    const buffer = typeof data === 'string' ? Buffer.from(data, 'utf8') : data
+    writeSync(fh, buffer)
     fsyncSync(fh)
   } finally {
     closeSync(fh)

@@ -2807,7 +2807,9 @@ export class Engine {
             new Error('E_TURN_ACTIVE: turn 进行中，暂不能手动压缩——请等本轮结束'),
           )
         }
-        return entry.compactor.compact()
+        // LA-39：返回值 boolean 供调用方判成败；SessionHandle.compact 面不承载
+        await entry.compactor.compact()
+        return Promise.resolve()
       },
       fork: (fromEventId) => {
         if (this.shuttingDown) {
