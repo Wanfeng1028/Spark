@@ -4,12 +4,13 @@
  * 依赖显式传参（transport/clearScreen/resume 焦点态）；状态读写一律走 useCliStore.getState()
  * （与 app 组件解耦，键位层与命令分派共用同一组动作）。
  */
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import type { ClientAction, CommandDto, RequestId, SessionId } from '@spark/protocol'
 import { ids } from '@spark/protocol'
 import { createCliActionHandlers } from '../client-actions.js'
 import { cliErrorMessageOf } from '../i18n.js'
 import { parseEffort } from './effort.js'
+import { resumeFilteredOf } from './use-resume-panel.js'
 import { useCliStore } from '../store.js'
 import type { HttpTransport } from '@spark/protocol'
 
@@ -30,9 +31,6 @@ export interface UseCliActionsOptions {
   transport: HttpTransport
   /** /new、/resume 的整屏重印（app 层 staticEpoch 机制） */
   clearScreen: () => void
-  /** /resume 面板的过滤结果与选中项（confirmResume 目标） */
-  resumeFiltered: Array<{ id: SessionId }>
-  resumeSelected: number
   /** /voice（工单 16.6）：语音状态机入口（hooks/use-voice-cli.ts；需 inputRef 与 transport） */
   voice: (args: string | undefined) => void
   /** /agents（工单 16.2）：子代理面板 */
@@ -46,15 +44,21 @@ export interface UseCliActionsOptions {
 export function useCliActions({
   transport,
   clearScreen,
-  resumeFiltered,
-  resumeSelected,
   voice,
   agents,
   trust,
   extensions,
 }: UseCliActionsOptions) {
+  // LA-45：boot 幂等双守卫——bootedRef 记成功（错误屏重试不受阻），inFlight 防并发重入
+  //（memo 依赖收缩前 actions 每键重建 → useEffect([actions]) 每键重跑 boot，请求数随键数涨）
+  const bootedRef = useRef(false)
+  const bootInFlightRef = useRef(false)
+  /** LA-45：模型重试链单链守卫——重跑 boot 不叠加并行 2s 重试链 */
+  const modelsRetryChainRef = useRef(false)
   /** 启动（工单 10.17①④）：快照装载，失败显式错误屏+重试 */
   const boot = useCallback((): (() => void) => {
+    if (bootedRef.current || bootInFlightRef.current) return () => {}
+    bootInFlightRef.current = true
     let disposed = false
     const st = useCliStore.getState()
     st.setBootError(null)
@@ -62,35 +66,52 @@ export function useCliActions({
       .listSessions()
       .then((list) => {
         if (disposed) return
+        bootInFlightRef.current = false
         useCliStore.getState().setSessions(list)
         const first = [...list].sort((a, b) => b.updatedAt - a.updatedAt)[0]
         if (first !== undefined) {
-          useCliStore.getState().setActiveSession(first.id)
+          // LA-45：只在无激活会话时落位——重跑/重连不得抢走用户已切换的会话
+          if (useCliStore.getState().activeSessionId === null) {
+            useCliStore.getState().setActiveSession(first.id)
+          }
+          bootedRef.current = true
         } else {
+          // bootedRef 只在完整成功（含空清单的建会话兜底）后置位——
+          // createSession 失败要留给错误屏重试
           return transport.createSession().then((dto) => {
             if (disposed) return
             useCliStore.getState().setSessions([dto])
             useCliStore.getState().setActiveSession(dto.id)
+            bootedRef.current = true
           })
         }
       })
       .catch((err: unknown) => {
-        // 工单 10.17④：显式错误屏+重试键位，不再只挂 notice
-        if (!disposed) useCliStore.getState().setBootError(cliErrorMessageOf(err))
+        // 工单 10.17④：显式错误屏+重试键位，不再只挂 notice（失败不清 booted——重试可达）
+        if (!disposed) {
+          bootInFlightRef.current = false
+          useCliStore.getState().setBootError(cliErrorMessageOf(err))
+        }
       })
     // 模型目录：水位 + 信息盒真值数据源（工单 10.38 门控下 models===null 会阻塞面板
-    // 渲染）——失败每 2s 重试直至成功（10.42 实测：启动期瞬时失败曾致界面永久"连接中"）
-    const loadModels = (): void => {
-      transport
-        .listModels()
-        .then((m) => {
-          if (!disposed) useCliStore.getState().setModels(m)
-        })
-        .catch(() => {
-          if (!disposed) setTimeout(loadModels, 2000)
-        })
+    // 渲染）——失败每 2s 重试直至成功（10.42 实测：启动期瞬时失败曾致界面永久"连接中"）。
+    // LA-45：重试链全局单链（hook 级 ref）——重跑 boot 不再叠加并行重试链。
+    if (!modelsRetryChainRef.current) {
+      modelsRetryChainRef.current = true
+      const loadModels = (): void => {
+        transport
+          .listModels()
+          .then((m) => {
+            modelsRetryChainRef.current = false // 链终态：成功（重跑可再起链）
+            if (!disposed) useCliStore.getState().setModels(m)
+          })
+          .catch(() => {
+            if (!disposed) setTimeout(loadModels, 2000)
+            else modelsRetryChainRef.current = false // 链终态：随 boot dispose 消亡
+          })
+      }
+      loadModels()
     }
-    loadModels()
     // 命令注册表（工单 10.10/10.18）：帮助面板与 slash 菜单数据源；失败如实空清单
     transport
       .listCommands()
@@ -151,11 +172,15 @@ export function useCliActions({
     if (next !== undefined) setActiveSession(next.id)
   }
 
-  /** 恢复会话（工单 10.11）：切激活触发 since=0 全量重放；10.38 起清屏重印（header+历史） */
+  /** 恢复会话（工单 10.11）：切激活触发 since=0 全量重放；10.38 起清屏重印（header+历史）。
+   * LA-45：目标在调用时经 getState() 现算（resumeFilteredOf 纯函数 + store 的
+   * resumeSelected/draftPreview/sessions 单源）——本 hook 不再依赖组件 memo 的
+   * resume 态，actions 对象不随键入重建。 */
   function confirmResume(): void {
-    const target = resumeFiltered[resumeSelected]
-    if (target === undefined) return
     const st = useCliStore.getState()
+    const filtered = resumeFilteredOf(st.sessions, st.panel === 'resume' ? st.draftPreview : '')
+    const target = filtered[st.resumeSelected]
+    if (target === undefined) return
     st.setActiveSession(target.id)
     st.setPanel('none')
     st.setDraftPreview('')
@@ -350,6 +375,7 @@ export function useCliActions({
       runClientAction,
       submit,
     }),
-    [boot, transport, clearScreen, resumeFiltered, resumeSelected],
+    // LA-45：resume 态不再进依赖——那是"每键重建 actions → boot 每键重跑"的根因
+    [boot, transport, clearScreen],
   )
 }

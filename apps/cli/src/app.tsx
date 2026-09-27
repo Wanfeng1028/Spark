@@ -152,11 +152,11 @@ export function App({ baseUrl }: { baseUrl: string }) {
   // ---------- 动作 / 事件流 / 全局键位（10.43 抽取的 hooks） ----------
 
   const voice = useVoiceCli({ transport, inputRef })
+  // LA-45：resume 态不再传给 useCliActions——confirmResume 调用时经 getState() 现算，
+  // actions 对象不再随键入重建（boot 也不会每键重跑）
   const actions = useCliActions({
     transport,
     clearScreen,
-    resumeFiltered,
-    resumeSelected,
     voice: voice.handleCommand,
     agents: () => {
       const st = useCliStore.getState()

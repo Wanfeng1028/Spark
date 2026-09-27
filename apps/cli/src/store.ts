@@ -74,6 +74,8 @@ export interface CliState extends ProjectionState {
   helpTab: number
   /** 输入预览（InputBox 逐键上报；slash 菜单可见性与过滤数据源） */
   draftPreview: string
+  /** /resume 选中位（LA-45 迁入单源：键位导航写这里，confirmResume 调用时读这里） */
+  resumeSelected: number
   /** 启动失败态（工单 10.17④：显式错误屏+重试，不再只挂 notice） */
   bootError: string | null
   /** 语音听写模式（工单 16.6）：tap=点击开始停止 / off=关闭（CLI 无按住语义） */
@@ -102,6 +104,7 @@ export interface CliState extends ProjectionState {
   setPanelEditing: (v: boolean) => void
   cycleHelpTab: (dir: 1 | -1) => void
   setDraftPreview: (v: string) => void
+  setResumeSelected: (n: number) => void
   setBootError: (msg: string | null) => void
   setVoiceMode: (m: CliVoiceMode) => void
   setLanguage: (l: Language) => void
@@ -141,6 +144,7 @@ export const useCliStore = create<CliState>()((set) => ({
   panelEditing: false,
   helpTab: 0,
   draftPreview: '',
+  resumeSelected: 0,
   bootError: null,
   voiceMode: 'tap',
   language: 'zh-CN',
@@ -170,6 +174,7 @@ export const useCliStore = create<CliState>()((set) => ({
   setPanelEditing: (panelEditing) => set({ panelEditing }),
   cycleHelpTab: (dir) => set((s) => ({ helpTab: (s.helpTab + dir + 3) % 3 })),
   setDraftPreview: (draftPreview) => set({ draftPreview }),
+  setResumeSelected: (resumeSelected) => set({ resumeSelected }),
   setBootError: (bootError) => set({ bootError }),
   setVoiceMode: (voiceMode) => set({ voiceMode }),
   setLanguage: (language) => set({ language }),
@@ -189,6 +194,7 @@ export const useCliStore = create<CliState>()((set) => ({
       panelEditing: false,
       helpTab: 0,
       draftPreview: '',
+  resumeSelected: 0,
       bootError: null,
     }),
 }))
