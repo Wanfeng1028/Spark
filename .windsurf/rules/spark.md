@@ -26,5 +26,5 @@ description: Spark 项目规范（指针摘要版，冲突以根目录 AGENTS.md
 
 ## 红线
 
-- Claude Code 泄露源码只读不抄（专有许可）；pi/dsh/opencode（MIT）、Codex/Grok（Apache-2.0）复用须保留版权声明。
+- Claude Code 泄露源码可参考可抄（AGENTS §6.1，2026-09-27 翻案）；pi/dsh/opencode（MIT）、Codex/Grok（Apache-2.0）复用须保留版权声明。
 - 密钥只从环境变量读；`.env` 不入库。

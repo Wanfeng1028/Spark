@@ -29,7 +29,7 @@
 
 - `models.json` 的 apiKey 只从环境变量读，日志固定脱敏，`.env` 不入库。
 - 引擎铁律（durable/live 二分、surface 纪律、失败闭合、审批 fail-closed、单写者 JSONL）见 AGENTS.md §2.7——违反即返工。
-- 参考项目**禁止克隆到本地**，一律在线访问（AGENTS §2.12）；Claude Code 泄露源码只读不抄。
+- 参考项目**禁止克隆到本地**，一律在线访问（AGENTS §2.12）；Claude Code 泄露源码可参考可抄（AGENTS §6.1，2026-09-27 翻案）。
 
 ## 发版
 
