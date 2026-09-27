@@ -124,9 +124,11 @@ export default function DarkVeil({
 }: DarkVeilProps): React.JSX.Element {
   const ref = React.useRef<HTMLCanvasElement>(null);
   const reducedMotion = useReducedMotion();
-  useEffect(() => {
+  React.useEffect(() => {
     const canvas = ref.current;
+    if (canvas === null) return;
     const parent = canvas.parentElement;
+    if (parent === null) return;
 
     const renderer = new Renderer({
       dpr: Math.min(window.devicePixelRatio, 2),

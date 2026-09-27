@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BlurText } from "@/components/animations/blur-text";
-import { DarkVeil } from "@/components/backgrounds/DarkVeil";
+import DarkVeil from "@/components/backgrounds/DarkVeil";
 import { buttonVariants } from "@/components/ui/button";
 import { LINKS } from "@/lib/constants";
 import type { Lang } from "@/lib/i18n";
