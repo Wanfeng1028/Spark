@@ -199,7 +199,8 @@ export class HttpTransport implements Transport {
         : callerSignal
     const res = await fetch(`${this.base}${path}`, {
       ...init,
-      signal,
+      // RequestInit.signal 期望 AbortSignal | null——undefined 同视 null
+      signal: signal ?? null,
       headers: {
         // 仅带 body 时才声明 content-type：Fastify 5 对 application/json + 空 body
         // 在路由前即拒（FST_ERR_CTP_EMPTY_JSON_BODY），无 body 的 11 处调用点
