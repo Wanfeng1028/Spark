@@ -5,7 +5,7 @@
  * （与 app 组件解耦，键位层与命令分派共用同一组动作）。
  */
 import { useCallback, useMemo, useRef } from 'react'
-import type { ClientAction, CommandDto, RequestId, SessionId } from '@spark/protocol'
+import type { ClientAction, CommandDto, RequestId } from '@spark/protocol'
 import { ids } from '@spark/protocol'
 import { createCliActionHandlers } from '../client-actions.js'
 import { cliErrorMessageOf } from '../i18n.js'
