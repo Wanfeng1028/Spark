@@ -250,8 +250,6 @@ export default function Galaxy({
       gl.clearColor(0, 0, 0, 1);
     }
 
-    let program;
-
     function resize() {
       const scale = 1;
       renderer.setSize(ctn.offsetWidth * scale, ctn.offsetHeight * scale);
@@ -263,11 +261,8 @@ export default function Galaxy({
         );
       }
     }
-    window.addEventListener('resize', resize, false);
-    resize();
-
     const geometry = new Triangle(gl);
-    program = new Program(gl, {
+    const program = new Program(gl, {
       vertex: vertexShader,
       fragment: fragmentShader,
       uniforms: {
@@ -298,6 +293,9 @@ export default function Galaxy({
     });
 
     const mesh = new Mesh(gl, { geometry, program });
+
+    window.addEventListener('resize', resize, false);
+    resize();
     let animateId;
 
     function update(t) {
