@@ -29,7 +29,7 @@ async function makeCwd(): Promise<string> {
 function makeCtx(cwd: string, map?: ReadFileStateMap): ToolContext {
   return {
     sessionId: ids.session('ses_readstate'),
-    turnId: ids.turn('trnreadstate'),
+    turnId: ids.turn('trn_readstate'),
     callId: ids.call('calreadstate'),
     signal: new AbortController().signal,
     onProgress: () => {},
@@ -266,7 +266,7 @@ class StubPerm implements PermissionService {
 
 function makeTurn(): TurnCtx {
   return {
-    turnId: ids.turn('trnreadstate'),
+    turnId: ids.turn('trn_readstate'),
     delivery: 'now',
     abort: new AbortController(),
     step: 1,
