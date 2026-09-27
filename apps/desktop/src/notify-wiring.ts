@@ -78,6 +78,21 @@ export function startNotifications(opts: {
       console.warn('[desktop] 通知事件流断开，退避重连中（sidecar 恢复即自动接上）')
     },
     onEvent: (payload) => {
+      // LA-49：session.title 直播刷新标题缓存——缓存不再滞留旧值（此前只有
+      // /api/sessions 冷启动拉取，改名后通知仍显示旧标题）。session.title 不在
+      // notifyTargetOf 通知面（NOTIFY_COPY 无此键），提前 return 与过滤等价。
+      if (
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: unknown }).type === 'session.title'
+      ) {
+        const sid = (payload as { sessionId?: unknown }).sessionId
+        const title = (payload as { data?: { title?: unknown } }).data?.title
+        if (typeof sid === 'string' && typeof title === 'string' && title !== '') {
+          titles.set(sid, title)
+        }
+        return
+      }
       const env = toNotifyEnvelope(payload)
       if (env === null) return
       handleNotifyEnvelope(env, { cfg, gate, titleOf, emit }).catch((err: unknown) => {

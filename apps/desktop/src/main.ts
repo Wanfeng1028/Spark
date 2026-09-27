@@ -62,6 +62,12 @@ const STDERR_TAIL_LINES = 20
 
 let sidecar: ChildProcess | null = null
 let quitting = false
+/**
+ * LA-43 首启续启窗口期：引导窗 destroy() 会触发 window-all-closed → app.quit()，
+ * 与"文件出现 → 关引导窗 → 拉 sidecar → 建主窗"的续启序列直接竞态（quit 中途
+ * 掐掉续启）。置位窗口 = destroy() 起、主窗建成（或转 fatal 窗）止。
+ */
+let resuming = false
 /** 服务端是否就绪（AUD-12：就绪前早退走引导窗；就绪后崩溃保留既有跟随退出语义） */
 let ready = false
 /** 首启失败引导窗（AUD-12）；null = 未显示 */
@@ -155,6 +161,8 @@ function startSidecar(port: number, cfg: DesktopConfig): ChildProcess {
  */
 function showFatalWindow(reason: string): void {
   console.error('[desktop] 启动失败：', reason)
+  // LA-43：转 fatal 窗 = 续启序列终止，关窗即退出的语义要恢复（resuming 窗口期解除）
+  resuming = false
   if (fatalWin !== null) {
     fatalWin.focus() // 已有引导窗（如探活超时后 sidecar 又早退）——只聚焦不重复弹
     return
@@ -176,6 +184,7 @@ function showFatalWindow(reason: string): void {
     // 引导窗都加载失败（理论不该发生）：退回报错退出，不留悬空进程
     console.error('[desktop] 引导窗加载失败', err)
     fatalWin = null
+    killSidecar() // LA-44：app.exit 不走 will-quit，sidecar 在手就先收
     app.exit(1)
   })
 }
@@ -201,6 +210,7 @@ function showFirstRunWindow(sparkDir: string, modelsPath: string): void {
   void firstRunWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`).catch((err: unknown) => {
     console.error('[desktop] 首启引导窗加载失败', err)
     firstRunWin = null
+    killSidecar() // LA-44：同上
     app.exit(1)
   })
 }
@@ -223,6 +233,8 @@ async function waitForFirstRunConfig(sparkDir: string, modelsPath: string): Prom
     await new Promise((r) => setTimeout(r, 1500))
     if (firstRunWin === null) return false // 用户关窗退出
     if (existsSync(modelsPath)) {
+      // LA-43：续启窗口期置位——destroy 触发的 window-all-closed 不再误判为用户退出
+      resuming = true
       firstRunWin.destroy() // 触发 closed → 引用置 null；配置无效时走既有 fatal 窗路径
       return true
     }
@@ -489,6 +501,8 @@ async function main(): Promise<void> {
   // 首窗（19.33 起与「新建窗口」共用同一条 openWindow 路径：安全缺省、导航白名单、
   // 关窗判据、标题/导航 → 菜单重建全部一处维护，不给首窗留一份手写副本）
   await openWindow(null)
+  // LA-43：主窗已建——续启窗口期结束，window-all-closed 恢复正常退出语义
+  resuming = false
 
   // 保持运行与开机自启（19.30）：都在窗口就绪后落地——自启注册是进程级副作用，
   // 首启失败/引导窗阶段不该写用户的登录项
@@ -505,6 +519,9 @@ async function main(): Promise<void> {
 }
 
 app.on('window-all-closed', () => {
+  // LA-43：续启窗口期（引导窗 destroy → 主窗建成）window-all-closed 是序列的中间
+  // 事件而非退出意图——直接 quit 会掐掉续启（LA-43 的首启竞态本体）
+  if (resuming) return
   app.quit()
 })
 
@@ -536,6 +553,7 @@ app.on('before-quit', () => {
 app.on('will-quit', (event) => {
   // 19.30 收口：持锁、通知订阅、托盘都不该活过退出（powerSaveBlocker 泄漏 = 笔记本永不停止发热）
   sleepBlocker.release()
+  quitting = true // LA-43：早退分支同样置退出意图（sidecar exit 回调读它分辩退出与崩溃）
   if (notify !== null) notify.stop()
   notify = null
   if (tray !== null) {
@@ -543,6 +561,12 @@ app.on('will-quit', (event) => {
     tray = null
   }
   if (sidecar === null || sidecar.exitCode !== null) return
+  // LA-44：win32 树杀直退——Node 在 Windows 无 SIGTERM 语义（kill 即 TerminateProcess），
+  // 原有的"5s 优雅窗"在 Windows 从未真实存在过；taskkill /T /F 顺带收掉子进程组
+  if (process.platform === 'win32') {
+    killSidecar()
+    return
+  }
   event.preventDefault()
   quitting = true
   const child = sidecar
@@ -554,6 +578,34 @@ app.on('will-quit', (event) => {
   child.kill()
 })
 
+// LA-44：单实例锁——第二个实例直接退出，并把已运行实例的窗口唤到前台
+//（多开 = 第二个 sidecar 抢 4318 端口失败 + 两个壳写同一份 ~/.spark，全是坏事）
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+}
+app.on('second-instance', () => {
+  if (shellWindows().length === 0) {
+    if (shellBase !== '') void openWindow(null)
+    return
+  }
+  revealTargetWindow()
+})
+
+/** LA-44：杀 sidecar——win32 走 taskkill /T /F 树杀（sidecar 会派生 MCP/LSP 子进程，
+ * 只杀直接进程留孤儿进程组；且 Node 在 Windows 的 child.kill() 本就是 TerminateProcess，
+ * 不存在被丢掉的"优雅退"），其余平台 SIGTERM（由 will-quit 的 5s→SIGKILL 兜底）。
+ * will-quit 与各 app.exit 故障出口共用——app.exit 不触发 will-quit，必须先显式收 sidecar。 */
+function killSidecar(): void {
+  const child = sidecar
+  if (child === null || child.exitCode !== null) return
+  if (process.platform === 'win32' && child.pid !== undefined) {
+    spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
+  } else {
+    child.kill()
+  }
+}
+
 void app
   .whenReady()
   .then(main)
@@ -561,5 +613,6 @@ void app
     // ready 之后的故障（main 窗口创建/加载、通知装配）：stderr 报错退出，不进残废 UI。
     // AUD-12：首启序列失败已改走 showFatalWindow 引导窗，不再经此路径
     console.error(err)
+    killSidecar() // LA-44：app.exit 不走 will-quit——sidecar 在手就先收，不留孤儿
     app.exit(1)
   })
