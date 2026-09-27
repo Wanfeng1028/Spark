@@ -81,7 +81,7 @@ test.describe('mock 场景 reject：审批拒绝→feedback 回喂', () => {
     await approval.getByRole('button', { name: '拒绝' }).click()
     await approval.getByPlaceholder(/拒绝原因/).fill('不要改配置')
     await approval.getByRole('button', { name: '确认拒绝' }).click()
-    await expect(approval.getByText('已拒绝（reject）')).toBeVisible({ timeout: 10_000 })
+    await expect(approval.getByText('已拒绝', { exact: true })).toBeVisible({ timeout: 10_000 })
   })
 })
 
