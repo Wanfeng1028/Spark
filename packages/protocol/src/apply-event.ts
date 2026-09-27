@@ -39,6 +39,8 @@ export type UiItem =
       time?: number
       /** 所属 turn——定稿配对按 turnId 查找（工单 10.13） */
       turnId?: TurnId
+      /** LA-62：定稿步用量（assistant.message 携带）——正文尾 in/out 展示数据源 */
+      usage?: Usage
     } & UiItemBase)
   | ({
       kind: 'reasoning'
@@ -648,7 +650,12 @@ function reduceEvent(s: ProjectionState, e: SparkEventEnvelope, idxBox: IndexBox
         // 定稿即清除 streaming（解构剥离，勿留 undefined 键——exactOptionalPropertyTypes）
         const { streaming: finalized, ...rest } = cur
         void finalized
-        items[oi] = { ...rest, content: e.data.content }
+        items[oi] = {
+          ...rest,
+          content: e.data.content,
+          // LA-62：定稿步 usage 吸附进条目（原只存 state 水位，正文尾死分支由此接活）
+          ...(e.data.usage !== undefined ? { usage: e.data.usage } : {}),
+        }
       }
       // 定稿闭合（W13）：清 open；seen 保留（迟到 delta 拦截仍需判定"曾有过"）
       idxBox.idx = withTurn(idxBox.idx, e.data.turnId, {
@@ -662,6 +669,7 @@ function reduceEvent(s: ProjectionState, e: SparkEventEnvelope, idxBox: IndexBox
         content: e.data.content,
         time: e.time,
         turnId: e.data.turnId,
+        ...(e.data.usage !== undefined ? { usage: e.data.usage } : {}),
       })
       idxBox.idx = withTurn(idxBox.idx, e.data.turnId, {
         ...turnEntryOf(idxBox.idx, e.data.turnId),

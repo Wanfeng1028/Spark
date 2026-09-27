@@ -2,7 +2,8 @@
  * ArenaCard（工单 16.8 / ADR D42）：会话页竞答卡片——轮询 getArena 快照，
  * running 显示各 contender 状态（模型/用量/时长），done 显示 diff 统计与
  * 胜者选择（应用走整体一次审批；取消中断并清理 worktree）。
- * 无竞答回 null 不渲染（禁假状态）；记录仅内存——重启后自然消失。
+ * 无竞答回 null 不渲染（禁假状态）；竞答记录落盘 ~/.spark/arena/（19.10 翻案
+ * 「仅内存」，重启后经 GET /api/sessions/:id/arena/history 可查）。
  */
 import { useEffect, useState } from 'react'
 import type { ArenaStatusDto } from '@spark/protocol'

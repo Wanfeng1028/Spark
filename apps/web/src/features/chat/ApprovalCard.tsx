@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
+import { approvalResolvedText } from '@spark/protocol'
 import type { PermissionReply } from '@spark/protocol'
 import {
   Confirmation,
@@ -151,10 +152,10 @@ export function ApprovalCard({
       </ConfirmationRequest>
 
       <ConfirmationAccepted>
-        <p className="font-mono text-xs text-[var(--spark-ok)]">已允许（{reply ?? ''}）</p>
+        <p className="font-mono text-xs text-[var(--spark-ok)]">{approvalResolvedText(reply)}</p>
       </ConfirmationAccepted>
       <ConfirmationRejected>
-        <p className="font-mono text-xs text-[var(--spark-err)]">已拒绝（reject）</p>
+        <p className="font-mono text-xs text-[var(--spark-err)]">{approvalResolvedText('reject')}</p>
       </ConfirmationRejected>
     </Confirmation>
   )

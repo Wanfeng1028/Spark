@@ -10,7 +10,7 @@ import type { Components, VirtuosoHandle } from 'react-virtuoso'
 import { flowRowsOf, ids } from '@spark/protocol'
 import type { FlowRow, SessionId } from '@spark/protocol'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { useSessionItems, useSessionMeta } from '@/stores/session'
+import { useSessionItems } from '@/stores/session'
 import { PROMPT_CHIPS } from '@/lib/prompts'
 import { useSettingsStore } from '@/stores/settings'
 import { useTransport } from '@/transports/context'
@@ -30,8 +30,6 @@ const PROMPTS = PROMPT_CHIPS
 export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
   const sid = ids.session(sessionId)
   const items = useSessionItems(sid)
-  const meta = useSessionMeta(sid)
-  const model = meta.model === '' ? 'assistant' : meta.model
   // 会话域显示开关（工单 10.20 A③）：思考过程/工具分组，常规页即存即生效
   const showReasoning = useSettingsStore((s) => s.showReasoning)
   const showToolGroups = useSettingsStore((s) => s.showToolGroups)
@@ -90,7 +88,6 @@ export function ChatView({ sessionId, focusEventId }: ChatViewProps) {
             {row.kind === 'item' ? (
               <MessageItem
                 item={row.item}
-                model={model}
                 sid={sid}
                 highlight={row.item.eventId === highlightId}
               />

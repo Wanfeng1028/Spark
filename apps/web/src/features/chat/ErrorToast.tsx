@@ -1,8 +1,10 @@
 /**
- * ErrorToast（doc/02 §6.4 处理表「error → toast；fatal → 全屏错误态」）：
- * 消费当前会话 slice.lastError——非 fatal 右下角 toast（4s 自动消失，可手动关）；
- * fatal 全屏错误态（事件流不可用，无路可走——失败闭合的 UI 终态）。
+ * ErrorToast（doc/02 §6.4 处理表「error → toast」）：
+ * 消费当前会话 slice.lastError——右下角 toast（4s 自动消失，可手动关）。
  * 工单 6.7：message 带 E_ 码走文案表（人话 title + 原码折叠详情，单一来源 error-copy.ts）。
+ * LA-62：原「fatal → 全屏错误态」删除——引擎侧不存在 fatal:true 发射点（error 事件
+ * 无一携带 fatal），全屏态是永不可达的死 UI；reducer 的 fatal 位保留（协议面零变化），
+ * 将来真有不可恢复场景再连发射点一起恢复。
  */
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
@@ -21,7 +23,6 @@ export function ErrorToast({ sid }: ErrorToastProps) {
 
   useEffect(() => {
     if (lastError === null) return
-    if (lastError.fatal) return // fatal 不自动消失——全屏态必须人工处置
     setDismissed(null)
     if (timer.current !== null) clearTimeout(timer.current)
     timer.current = setTimeout(() => setDismissed(lastError.message), 4000)
@@ -34,32 +35,6 @@ export function ErrorToast({ sid }: ErrorToastProps) {
   if (dismissed === lastError.message) return null
 
   const copy = humanizeError(lastError.message)
-
-  if (lastError.fatal) {
-    return (
-      <div
-        role="alert"
-        className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/95 px-6 text-center"
-      >
-        <p className="font-mono text-xs uppercase tracking-wide text-[var(--spark-err)]">
-          fatal · {lastError.scope}
-        </p>
-        <p className="max-w-md text-[13px] leading-relaxed text-foreground">{copy.title}</p>
-        {copy.detail !== null && (
-          <p className="max-w-md break-all font-mono text-[11px] text-muted-foreground">
-            {copy.detail}
-          </p>
-        )}
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="h-8 rounded-full bg-primary px-3 text-[13px] font-medium text-primary-foreground"
-        >
-          重新加载
-        </button>
-      </div>
-    )
-  }
 
   return (
     <div

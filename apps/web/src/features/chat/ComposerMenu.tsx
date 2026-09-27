@@ -82,14 +82,14 @@ export function ComposerMenu({
                 </>
               ) : (
                 <li className="px-2.5 py-2 text-xs text-muted-foreground">
-                  无匹配文件——输入以筛选，或用工具条「文件树」浏览
+                  无匹配文件——输入以筛选，或用 + 菜单「浏览文件树」
                 </li>
               )}
       </ul>
       <p className="border-t border-border px-2.5 py-1.5 text-[11px] text-muted-foreground">
         {menu.kind === 'at'
-          ? '输入内容以搜索文件或技能'
-          : '输入内容以搜索命令、技能或子智能体'}
+          ? '输入内容以搜索文件'
+          : '输入内容以搜索命令'}
       </p>
     </div>
   )

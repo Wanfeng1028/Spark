@@ -90,7 +90,7 @@ export const SETTINGS_GROUPS: readonly SettingsGroupDef[] = [
       {
         id: 'subagents',
         title: '子智能体',
-        description: '子代理预设档清单（只读；增改走 ~/.spark/agents，管理面板归工单 16.2）',
+        description: '子代理预设档清单（增改走 ~/.spark/agents/*.json；停用名单在设置页直接改，ADR D36）',
         status: 'ready',
       },
       {

@@ -6,7 +6,7 @@
  */
 import { memo } from 'react'
 import type { ContentItem, PermissionReply, SessionId } from '@spark/protocol'
-import { ids } from '@spark/protocol'
+import { ids, severityOf } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import type { UiItem } from '@/stores/session'
 import { cn } from '@/lib/utils'
@@ -24,7 +24,6 @@ const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp)$/i
 
 export interface MessageItemProps {
   item: UiItem
-  model: string
   /** 所属会话（工单 10.4① 尾操作行 fork/导航需要） */
   sid: SessionId
   /** 搜索跳转定位闪烁（工单 7.13）：命中行短暂底色，由 ChatView 定时清除 */
@@ -36,7 +35,6 @@ export const MessageItem = memo(function MessageItem({
   sid,
   highlight,
 }: MessageItemProps) {
-  // model prop 保留在接口（ChatView 调用点不破坏；§13.L WO-059 去模型名标签后本组件不再消费）
   const hl = highlight === true ? 'rounded-lg bg-secondary ring-1 ring-border' : undefined
   switch (item.kind) {
     case 'user':
@@ -89,7 +87,7 @@ export const MessageItem = memo(function MessageItem({
         <article className={cn('group/msg w-full', hl)}>
           {/* §13.L L.3（WO-059）：去模型名 RoleLabel——模型名由 TurnHeader/状态栏承载 */}
           <div>
-            <AssistantBlock content={item.content} streaming={item.streaming} />
+            <AssistantBlock content={item.content} streaming={item.streaming} usage={item.usage} />
           </div>
           {/* 19.21：正文 URL 链接预览卡（引擎侧 SSRF 防护抓取；流式中不渲染） */}
           {item.streaming === undefined && <LinkPreviewRow text={assistantTextOf(item.content)} />}
@@ -176,11 +174,20 @@ function ApprovalRow({ item }: { item: Extract<UiItem, { kind: 'approval' }> }) 
   )
 }
 
-/** 严重度角标配色：error 琥珀警示、warning 前景、info/hint 弱化（中性基调，warn 仅点睛） */
+/** 严重度取色（LA-53）：protocol severityOf 单源——字母与颜色同一映射，web 不再自维护 */
 function severityText(severity: number): { label: string; cls: string } {
-  if (severity === 1) return { label: 'E', cls: 'text-[var(--spark-warn)]' }
-  if (severity === 2) return { label: 'W', cls: 'text-foreground' }
-  return { label: 'I', cls: 'text-muted-foreground' }
+  const sev = severityOf(severity, {
+    sparkWarn: 'var(--spark-warn)',
+    foreground: 'var(--foreground)',
+    mutedForeground: 'var(--muted-foreground)',
+  })
+  const cls =
+    sev.color === 'var(--spark-warn)'
+      ? 'text-[var(--spark-warn)]'
+      : sev.color === 'var(--foreground)'
+        ? 'text-foreground'
+        : 'text-muted-foreground'
+  return { label: sev.label, cls }
 }
 
 /** LSP 诊断行（工单 16.9）：语言 + 文件 + 逐条（严重度/位置/消息），诊断清零如实显示 */

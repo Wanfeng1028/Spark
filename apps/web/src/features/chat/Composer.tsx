@@ -17,7 +17,6 @@ import {
   ArrowUp,
   AtSign,
   ChevronDown,
-  DollarSign,
   FolderTree,
   Paperclip,
   Plus,
@@ -232,7 +231,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 
   /** / 菜单命令全集（工单 7.4：静态基线 + 引擎动态清单合并） */
   const allCommands = mergeSlashCommands(commands ?? [])
-  /** / 菜单当前命令行（过滤后；技能组阶段七接入，空组壳） */
+  /** / 菜单当前命令行（过滤后；技能组按 LA-54 短期方案摘除） */
   const slashItems = menu?.kind === 'slash' ? filterCommands(menu.query, allCommands) : []
 
   /** @ 补全远程数据源（工单 12.5）：query 变化防抖 150ms 拉 listFs；路径 token 插入用 path */
@@ -779,7 +778,6 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                     { icon: Paperclip, label: '添加图片附件', run: () => { setPlusMenuOpen(false); imageInputRef.current?.click() } },
                     { icon: AtSign, label: '使用 @ 添加上下文', run: () => insertTrigger('@') },
                     { icon: Slash, label: '使用 / 选择命令或能力', run: () => insertTrigger('/') },
-                    { icon: DollarSign, label: '使用 $ 选择技能', run: () => insertTrigger('$') },
                     ...(sessionId !== undefined
                       ? [{
                           icon: FolderTree,

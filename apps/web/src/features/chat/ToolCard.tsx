@@ -19,7 +19,7 @@ import {
   Terminal,
   Wrench,
 } from 'lucide-react'
-import { toolCategoryOf } from '@spark/protocol'
+import { toolCategoryOf, toolStatusText } from '@spark/protocol'
 import { useCopy } from '@/hooks/useCopy'
 import { cn } from '@/lib/utils'
 
@@ -105,14 +105,15 @@ export function ToolCard({
         )}
         <span className="ml-auto shrink-0 font-mono text-xs">
           {status === 'running' ? (
-            <span className="text-muted-foreground">运行中…</span>
+            <span className="text-muted-foreground">{toolStatusText('running')}…</span>
           ) : denied ? (
             <span className="text-[var(--spark-err)]">已拒绝</span>
           ) : status === 'error' || isError ? (
-            <span className="text-[var(--spark-err)]">失败</span>
+            <span className="text-[var(--spark-err)]">{toolStatusText('error')}</span>
           ) : (
             <span className="text-muted-foreground/70">
-              完成{durationMs !== undefined ? ` · ${fmtDuration(durationMs)}` : ''}
+              {toolStatusText('completed')}
+              {durationMs !== undefined ? ` · ${fmtDuration(durationMs)}` : ''}
             </span>
           )}
         </span>

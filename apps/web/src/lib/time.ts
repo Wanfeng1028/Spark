@@ -13,8 +13,6 @@ export function formatRelative(ts: number, now: number = Date.now()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** 回合工作时长（中文口语形态：N 秒 / N 分 N 秒——TurnHeader 用；ToolCard 秒表形态单独保留） */
-export function formatTurnDuration(ms: number): string {
-  const s = Math.floor(ms / 1000)
-  return s < 60 ? `${s} 秒` : `${Math.floor(s / 60)} 分 ${s % 60} 秒`
-}
+// LA-53：回合时长文案收敛 protocol `turnDurationText` 单源——本文件不再自持实现；
+// TurnHeader 改引单源（ToolCard 的秒表形态「完成 · fmtDuration」按 ui-copy 头注单独保留）。
+export { turnDurationText as formatTurnDuration } from '@spark/protocol'
