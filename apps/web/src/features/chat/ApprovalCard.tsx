@@ -114,7 +114,7 @@ export function ApprovalCard({
               size="sm"
               disabled={pending === true}
               onClick={() => {
-                onReply('reject', feedback || undefined)
+                void onReply('reject', feedback || undefined)
                 setFeedback('')
                 setRejecting(false)
               }}
@@ -127,7 +127,7 @@ export function ApprovalCard({
           </div>
         ) : (
           <ConfirmationActions>
-            <ConfirmationAction size="sm" disabled={pending === true} onClick={() => onReply('once')}>
+            <ConfirmationAction size="sm" disabled={pending === true} onClick={() => void onReply('once')}>
               允许一次
             </ConfirmationAction>
             <ConfirmationAction
@@ -135,7 +135,7 @@ export function ApprovalCard({
               size="sm"
               disabled={pending === true}
               title="固化为用户级规则（~/.spark/permissions.json，全局跨会话生效）"
-              onClick={() => onReply('always')}
+              onClick={() => void onReply('always')}
             >
               总是允许
             </ConfirmationAction>
@@ -144,7 +144,7 @@ export function ApprovalCard({
               size="sm"
               disabled={pending === true}
               title="固化为项目级规则（.spark/permissions.json，仅当前工作区生效）"
-              onClick={() => onReply('always', undefined, 'project')}
+              onClick={() => void onReply('always', undefined, 'project')}
             >
               本项目总是允许
             </ConfirmationAction>
