@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BlurText } from "@/components/animations/blur-text";
-import DarkVeil from "@/components/backgrounds/DarkVeil";
+import { HeroBackground } from "@/components/backgrounds/HeroBackground";
 import { buttonVariants } from "@/components/ui/button";
 import { LINKS } from "@/lib/constants";
 import type { Lang } from "@/lib/i18n";
@@ -91,9 +91,9 @@ export function Hero({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
       className="relative flex min-h-[82vh] scroll-mt-16 flex-col items-center justify-center overflow-hidden bg-[#0a0a0a] px-6 pb-20 pt-32 text-center"
       aria-labelledby="hero-title"
     >
-      {/* DarkVeil 雾幕背景（React Bits copy-in，DESIGN v2.46 豁免；替代 v2.28 点阵底纹） */}
-      <div className="bg-darkveil pointer-events-none absolute inset-0" aria-hidden="true">
-        <DarkVeil desaturation={1} speed={0.35} warpAmount={0.35} resolutionScale={0.75} />
+      {/* 背景轮换：Soft Aurora → Line Waves → Galaxy（React Bits copy-in，DESIGN v2.47 豁免） */}
+      <div className="bg-hero-canvas pointer-events-none absolute inset-0" aria-hidden="true">
+        <HeroBackground />
       </div>
 
       {/* eyebrow pill：内嵌 mini 标签（x.ai "New" 同位，橙色点睛 v2.33） */}

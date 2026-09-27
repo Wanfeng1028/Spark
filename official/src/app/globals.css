@@ -106,11 +106,12 @@
   /* Hero 点阵底纹（v2.28 豁免）已由 DarkVeil 雾幕替代移除（DESIGN v2.46） */
 
   /*
-   * DarkVeil 雾幕（DESIGN v2.46）：OGL renderer.setSize 会把 resolutionScale 缩放写进
-   * canvas 内联宽高（px），小于容器时右侧露底——用 !important 强制拉伸铺满；
-   * 绘图缓冲仍按 scale 缩小（省电），CSS 放大轻微柔化反而贴合雾幕质感。
+   * Hero 背景画布（DESIGN v2.46/v2.47）：OGL renderer.setSize 会把尺寸写进
+   * canvas 内联宽高（px），小于容器时露底——用 !important 强制拉伸铺满；
+   * 绘图缓冲按组件参数缩放（省电），CSS 放大轻微柔化反而贴合雾幕/星光质感。
    */
-  .bg-darkveil canvas {
+  .bg-darkveil canvas,
+  .bg-hero-canvas canvas {
     width: 100% !important;
     height: 100% !important;
   }
