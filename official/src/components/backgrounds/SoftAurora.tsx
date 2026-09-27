@@ -49,6 +49,7 @@ uniform float uBandSpread;
 uniform float uOctaveDecay;
 uniform float uLayerOffset;
 uniform float uColorSpeed;
+uniform float uMono;
 uniform vec2 uMouse;
 uniform float uMouseInfluence;
 uniform bool uEnableMouse;
@@ -172,6 +173,7 @@ void main() {
     float ink = clamp((weight1 + weight2) * uBrightness * 1.55, 0.0, 0.82);
     gl_FragColor = vec4(mix(vec3(1.0), chroma, ink), 1.0);
   } else {
+    col.rgb = mix(col.rgb, vec3(dot(col.rgb, vec3(0.299, 0.587, 0.114))), uMono);
     gl_FragColor = vec4(col, alpha);
   }
 }
@@ -193,6 +195,8 @@ export interface SoftAuroraProps {
   enableMouseInteraction?: boolean;
   mouseInfluence?: number;
   lightMode?: boolean;
+  /** 消色强度 0-1：按亮度去饱和（默认 1 = 纯白光带，黑白合规） */
+  mono?: number;
 }
 
 export default function SoftAurora({
@@ -211,6 +215,7 @@ export default function SoftAurora({
   enableMouseInteraction = true,
   mouseInfluence = 0.25,
   lightMode = false,
+  mono = 1,
 }: SoftAuroraProps): React.JSX.Element {
   const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -252,6 +257,7 @@ export default function SoftAurora({
         uSpeed: { value: speed },
         uScale: { value: scale },
         uBrightness: { value: brightness },
+        uMono: { value: mono },
         uColor1: { value: hexToVec3(color1) },
         uColor2: { value: hexToVec3(color2) },
         uNoiseFreq: { value: noiseFrequency },
@@ -309,7 +315,7 @@ export default function SoftAurora({
       container.removeChild(gl.canvas);
       gl.getExtension('WEBGL_lose_context')?.loseContext();
     };
-  }, [speed, scale, brightness, color1, color2, noiseFrequency, noiseAmplitude, bandHeight, bandSpread, octaveDecay, layerOffset, colorSpeed, enableMouseInteraction, mouseInfluence, lightMode]);
+  }, [speed, scale, brightness, color1, color2, noiseFrequency, noiseAmplitude, bandHeight, bandSpread, octaveDecay, layerOffset, colorSpeed, enableMouseInteraction, mouseInfluence, lightMode, mono]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }
