@@ -124,7 +124,7 @@ export function SecurityModel({ lang = "zh" }: { lang?: Lang }): React.JSX.Eleme
           <header className="mb-16">
             <h2
               id="security-heading"
-              className="text-[30px] font-normal tracking-[0.06em] text-foreground en:tracking-[-0.025em] sm:text-[38px]"
+              className="text-[30px] font-medium leading-[1.2] text-foreground en:font-normal en:tracking-[-0.025em] sm:text-[38px]"
             >
               {copy.heading}
             </h2>
