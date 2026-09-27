@@ -72,7 +72,11 @@ export function TransportProvider({ children }: { children: ReactNode }) {
         onResync: (sids) => {
           const t = transportRef.current
           if (t === null) return
-          for (const sid of sids) {
+          // LA-57：只重放当前激活会话——断线期间翻过的 N 个会话不再扇出 N 个
+          // REST 全量请求；非激活会话下次打开时经 getSession 全量对齐（打开即重放）
+          const activeId = useSessionStore.getState().activeId
+          const targets = activeId !== null ? sids.filter((sid) => sid === activeId) : []
+          for (const sid of targets) {
             replaySessionEvents(t, sid).catch((err: unknown) => {
               // 失败闭合：resync 失败如实记录并保留旧快照（直播可能续上；下次重连再试）
               console.error('[http] 重连重放失败', sid, err)

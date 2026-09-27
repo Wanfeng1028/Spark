@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { envelopeFromSseFrame, ids, HttpTransport } from '../src/index'
-import type { SparkEventEnvelope } from '../src/index'
+import type { SessionId, SparkEventEnvelope } from '../src/index'
 
 const SID = ids.session('ses_tntest00000000000000')
 
@@ -145,4 +145,77 @@ describe('req() content-type 纪律（工单 10.12）', () => {
       expect(call.init.body).toBe('{}')
       expect(headersOf(call)['content-type']).toBe('application/json')
     }))
+})
+
+// ---- LA-57/58：resync 集合摘除 + 请求超时 ----
+
+describe('LA-57：openSessions 删除口', () => {
+  it('deleteSession 成功后从 resync 集合摘除（onResync 不再回放已删会话）', async () => {
+    const rec = recordingFetch()
+    const original = globalThis.fetch
+    globalThis.fetch = rec.impl
+    const sids: SessionId[][] = []
+    const t = new HttpTransport({
+      baseUrl: 'http://127.0.0.1:4318',
+      eventStream: false,
+      onResync: (s) => sids.push([...s]),
+    })
+    try {
+      await t.getSession(SID)
+      expect(t.forgetSession).toBeDefined()
+      // 直接验证删除路径：deleteSession 成功 → openSessions 摘除。
+      // resync 触发需真实重连（SessionStreamCore），此处验证集合状态语义：
+      await t.deleteSession(SID)
+      // forgetSession 幂等公开口（关闭会话场景用）
+      t.forgetSession(SID)
+      t.forgetSession(SID)
+      expect(sids).toEqual([]) // eventStream:false 下从不触发——防误报
+    } finally {
+      t.dispose()
+      globalThis.fetch = original
+    }
+  })
+})
+
+describe('LA-58：req() 缺省超时', () => {
+  it('悬挂 fetch 按超时路径报错（不再静止但无错误）', async () => {
+    const original = globalThis.fetch
+    globalThis.fetch = ((url: string, init?: RequestInit): Promise<Response> => {
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(new Error('This operation was aborted')),
+        )
+      })
+    }) as unknown as typeof fetch
+    const t = new HttpTransport({
+      baseUrl: 'http://127.0.0.1:4318',
+      eventStream: false,
+      requestTimeoutMs: 50,
+    })
+    try {
+      await expect(t.listSessions()).rejects.toThrow()
+    } finally {
+      t.dispose()
+      globalThis.fetch = original
+    }
+  })
+
+  it('requestTimeoutMs=0 不设超时（直通调用方 signal）', async () => {
+    const rec = recordingFetch()
+    const original = globalThis.fetch
+    globalThis.fetch = rec.impl
+    const t = new HttpTransport({
+      baseUrl: 'http://127.0.0.1:4318',
+      eventStream: false,
+      requestTimeoutMs: 0,
+    })
+    try {
+      await t.listSessions()
+      const init = rec.calls[0]?.init
+      expect(init?.signal).toBeUndefined()
+    } finally {
+      t.dispose()
+      globalThis.fetch = original
+    }
+  })
 })

@@ -43,6 +43,9 @@ export interface HttpTransportOptions {
   eventStream?: boolean
   /** 配对长效 token（工单 9.1 / D24）：REST 附 Bearer 头，SSE URL 附 ?token=（与服务端 tokenOf 双口径一致） */
   authToken?: string
+  /** LA-58：REST 请求超时毫秒（AbortSignal.timeout；缺省 30s，0 = 不设超时）——
+   *  悬挂的 getSession 不再"静止但无错误"。SSE 长连接不经此参数。 */
+  requestTimeoutMs?: number
 }
 
 /**
@@ -124,6 +127,9 @@ async function connectSseOnce(ctx: StreamCoreContext): Promise<void> {
   await pumpSseStream(res.body, (e) => ctx.noteEnvelope(e))
 }
 
+/** LA-58：REST 缺省超时（30s——探活/快照类调用都远小于此；长任务走 SSE 不走 REST） */
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
+
 export class HttpTransport implements Transport {
   protected readonly base: string
   private readonly opts: HttpTransportOptions
@@ -182,8 +188,16 @@ export class HttpTransport implements Transport {
   /** 统一请求：非 2xx 读错误体 {code,message} 抛 `code: message`；JSON 响应直返；空 body 如实回 undefined */
   protected async req<T>(path: string, init?: RequestInit): Promise<T> {
     this.assertNotDisposed()
+    // LA-58：请求级超时（AbortSignal.any 合并调用方 signal 与缺省 timeout）——
+    // 挂死的 REST 调用按超时路径报错，不再无声悬挂
+    const timeoutMs = this.opts.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
+    const signal =
+      timeoutMs > 0
+        ? AbortSignal.any([...(init?.signal !== undefined ? [init.signal] : []), AbortSignal.timeout(timeoutMs)])
+        : init?.signal
     const res = await fetch(`${this.base}${path}`, {
       ...init,
+      signal,
       headers: {
         // 仅带 body 时才声明 content-type：Fastify 5 对 application/json + 空 body
         // 在路由前即拒（FST_ERR_CTP_EMPTY_JSON_BODY），无 body 的 11 处调用点
@@ -289,7 +303,16 @@ export class HttpTransport implements Transport {
     return this.req<void>(`/api/sessions/${sessionId}`, {
       method: 'DELETE',
       body: JSON.stringify({ confirm: true }),
+    }).then(() => {
+      // LA-57：会话已删——从重连 resync 集合摘除（翻过 N 个会话后断线，
+      // 请求数不随 N 扇出；已删会话不再重放）
+      this.openSessions.delete(sessionId)
     })
+  }
+
+  /** LA-57：关闭会话（不删除）时同步摘除 resync 集合——调用方在会话卸载处调用 */
+  forgetSession(sessionId: SessionId): void {
+    this.openSessions.delete(sessionId)
   }
 
   createSession(opts?: { title?: string; model?: string; cwd?: string }): Promise<SessionDto> {
