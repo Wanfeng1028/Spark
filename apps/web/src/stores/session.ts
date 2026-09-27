@@ -8,16 +8,15 @@
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import type { SessionId, SparkEventEnvelope } from '@spark/protocol'
-import { applyEvent, emptySessionSlice, ids } from '@spark/protocol'
+import { applyEvent, emptySessionSlice } from '@spark/protocol'
 import type {
   ActiveTurn,
   ProjectionState,
-  SessionMeta,
   SessionSlice,
   UiItem,
 } from '@spark/protocol'
 
-export type { ActiveTurn, SessionMeta, SessionSlice, UiItem } from '@spark/protocol'
+export type { ActiveTurn, SessionSlice, UiItem } from '@spark/protocol'
 
 // ---------- state ----------
 
@@ -29,15 +28,6 @@ export interface SessionStoreState extends ProjectionState {
 }
 
 const EMPTY_ARRAY: UiItem[] = []
-const EMPTY_META: SessionMeta = {
-  id: ids.session(''),
-  title: '',
-  model: '',
-  cwd: '',
-  createdAt: 0,
-  updatedAt: 0,
-}
-
 // ---------- store（create 只做绑定；§6.4 骨架） ----------
 
 export const useSessionStore = create<SessionStoreState>()((set) => ({
@@ -55,9 +45,6 @@ export const useSessionItems = (sid: SessionId): UiItem[] =>
 
 export const useActiveTurn = (sid: SessionId): ActiveTurn | null =>
   useSessionStore((s) => s.byId[sid]?.activeTurn ?? null)
-
-export const useSessionMeta = (sid: SessionId): SessionMeta =>
-  useSessionStore((s) => s.byId[sid]?.meta ?? EMPTY_META)
 
 /**
  * 缓存会话判定（工单 10.16，纯函数可单测）：lastSeq>0 = store 已有该会话的持久投影。
