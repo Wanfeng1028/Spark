@@ -1826,7 +1826,7 @@ export class MockTransport implements Transport {
   }
 
   uploadAttachment(
-    _sessionId: SessionId,
+    sessionId: SessionId,
     file: { name: string; mime: string; bytes: Uint8Array },
   ): Promise<AttachmentDto> {
     // 上传（mock 对等）：内存存储，返回 dto（缩略渲染走 objectURL 由调用方处理）
