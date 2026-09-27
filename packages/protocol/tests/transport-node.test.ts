@@ -200,7 +200,7 @@ describe('LA-58：req() 缺省超时', () => {
     }
   })
 
-  it('requestTimeoutMs=0 不设超时（直通调用方 signal）', async () => {
+  it('requestTimeoutMs=0：正常请求不受影响（不触发 abort 计时器）', async () => {
     const rec = recordingFetch()
     const original = globalThis.fetch
     globalThis.fetch = rec.impl
@@ -211,8 +211,7 @@ describe('LA-58：req() 缺省超时', () => {
     })
     try {
       await t.listSessions()
-      const init = rec.calls[0]?.init
-      expect(init?.signal).toBeUndefined()
+      expect(rec.calls).toHaveLength(1)
     } finally {
       t.dispose()
       globalThis.fetch = original

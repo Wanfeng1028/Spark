@@ -188,28 +188,40 @@ export class HttpTransport implements Transport {
   /** 统一请求：非 2xx 读错误体 {code,message} 抛 `code: message`；JSON 响应直返；空 body 如实回 undefined */
   protected async req<T>(path: string, init?: RequestInit): Promise<T> {
     this.assertNotDisposed()
-    // LA-58：请求级超时（AbortSignal.any 合并调用方 signal 与缺省 timeout）——
-    // 挂死的 REST 调用按超时路径报错，不再无声悬挂。
-    // RequestInit.signal 是 AbortSignal | null——null 与 undefined 同视（无调用方 signal）
+    // LA-58：请求级超时——AbortController + setTimeout 手工组合（AbortSignal.any/
+    // timeout 在 RN 旧 lib DOM 类型面不存在，protocol 须全端类型兼容）。调用方
+    // signal 的 abort 级联到控制器；成功/失败后清理计时器与监听（body 读回阶段
+    // 不再可取消——req 消费方都立即读 body，语义无损）。
     const timeoutMs = this.opts.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
-    const callerSignal: AbortSignal | undefined = init?.signal ?? undefined
-    const signal: AbortSignal | undefined =
-      timeoutMs > 0
-        ? AbortSignal.any([...(callerSignal !== undefined ? [callerSignal] : []), AbortSignal.timeout(timeoutMs)])
-        : callerSignal
-    const res = await fetch(`${this.base}${path}`, {
-      ...init,
-      // RequestInit.signal 期望 AbortSignal | null——undefined 同视 null
-      signal: signal ?? null,
-      headers: {
-        // 仅带 body 时才声明 content-type：Fastify 5 对 application/json + 空 body
-        // 在路由前即拒（FST_ERR_CTP_EMPTY_JSON_BODY），无 body 的 11 处调用点
-        // （interrupt/compact/rollback/删密钥/测连接/签发配对码…）因此不得带头
-        ...(init?.body !== undefined ? { 'content-type': 'application/json' } : {}),
-        ...init?.headers,
-        ...(this.authToken !== undefined ? { authorization: `Bearer ${this.authToken}` } : {}),
-      },
-    })
+    const callerSignal: AbortSignal | null | undefined = init?.signal
+    const controller = new AbortController()
+    const onCallerAbort = (): void => controller.abort()
+    if (callerSignal !== undefined && callerSignal !== null) {
+      if (callerSignal.aborted) controller.abort()
+      else callerSignal.addEventListener('abort', onCallerAbort, { once: true })
+    }
+    const timer: ReturnType<typeof setTimeout> | null =
+      timeoutMs > 0 ? setTimeout((): void => controller.abort(), timeoutMs) : null
+    let res: Response
+    try {
+      res = await fetch(`${this.base}${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          // 仅带 body 时才声明 content-type：Fastify 5 对 application/json + 空 body
+          // 在路由前即拒（FST_ERR_CTP_EMPTY_JSON_BODY），无 body 的 11 处调用点
+          // （interrupt/compact/rollback/删密钥/测连接/签发配对码…）因此不得带头
+          ...(init?.body !== undefined ? { 'content-type': 'application/json' } : {}),
+          ...init?.headers,
+          ...(this.authToken !== undefined ? { authorization: `Bearer ${this.authToken}` } : {}),
+        },
+      })
+    } finally {
+      if (timer !== null) clearTimeout(timer)
+      if (callerSignal !== undefined && callerSignal !== null) {
+        callerSignal.removeEventListener('abort', onCallerAbort)
+      }
+    }
     if (!res.ok) {
       let body: unknown = null
       try {
