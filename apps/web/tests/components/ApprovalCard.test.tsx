@@ -114,8 +114,8 @@ describe('ApprovalCard resolved 态', () => {
 describe('LA-52：回复失败不再静默', () => {
   it('opError 注入 → 卡内红字可见（不原地停在 pending 零反馈）', () => {
     renderCard({ opError: 'E_NETWORK: 回复请求失败' })
-    const alert = screen.getByRole('alert')
-    expect(alert.textContent).toContain('E_NETWORK')
+    // Confirmation 本体也是 role=alert——按文本断言 opError 红字
+    expect(screen.getByText('E_NETWORK: 回复请求失败')).toBeTruthy()
   })
 
   it('pending=true → 三键 disabled（请求窗口内防重复提交）', () => {
