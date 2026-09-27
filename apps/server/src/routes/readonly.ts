@@ -93,12 +93,22 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
         .join('; ') || '(空清单)'
     if (body.confirm !== true && !confirmGate(req, reply, 'mcp 配置写入', willRun)) return reply
     try {
-      // 字面量内联在参数位：McpConfigInput.version 是字面量类型，经变量中转会拓宽成 number（CI 修红）
+      // 字面量内联在参数位：McpConfigInput.version 是字面量类型，经变量中转会拓宽成 number（CI 修红）。
+      // servers 条目逐字段条件展开——zod .optional() 推断带 | undefined，exactOptionalPropertyTypes
+      // 下直接传不可赋给 McpConfigInput 的可选属性（无 | undefined）
       writeMcpConfig(
         engine.dataRoot,
         mergeMaskedMcpConfig(loadMcpConfig(engine.dataRoot), {
           version: 1,
-          servers: body.servers ?? {},
+          servers: Object.fromEntries(
+            Object.entries(body.servers ?? {}).map(([k, v]) => [
+              k,
+              {
+                ...(v.command !== undefined ? { command: v.command } : {}),
+                ...(v.args !== undefined ? { args: v.args } : {}),
+              },
+            ]),
+          ),
         }),
       )
     } catch (err) {
