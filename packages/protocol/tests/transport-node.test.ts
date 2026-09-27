@@ -162,7 +162,7 @@ describe('LA-57：openSessions 删除口', () => {
     })
     try {
       await t.getSession(SID)
-      expect(t.forgetSession).toBeDefined()
+      expect(typeof t.forgetSession).toBe('function')
       // 直接验证删除路径：deleteSession 成功 → openSessions 摘除。
       // resync 触发需真实重连（SessionStreamCore），此处验证集合状态语义：
       await t.deleteSession(SID)
