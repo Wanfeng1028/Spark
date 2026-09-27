@@ -9,30 +9,28 @@ import { describe, expect, it } from 'vitest'
 import { render } from 'ink-testing-library'
 import { useEffect, type ReactElement } from 'react'
 import { Text } from 'ink'
-import { ids } from '@spark/protocol'
 import type { HttpTransport, ModelsDto } from '@spark/protocol'
 import { useCliActions } from '../src/hooks/use-cli-actions.js'
-import { useCliStore } from '../src/store.js'
 
 function countingTransport() {
   const counts = { listSessions: 0, listModels: 0, listCommands: 0, getSettings: 0 }
   const dto: never = {} as never
   const t = {
-    listSessions: async () => {
+    listSessions: () => {
       counts.listSessions += 1
-      return []
+      return Promise.resolve([])
     },
-    listModels: async () => {
+    listModels: () => {
       counts.listModels += 1
-      return { providers: [], models: [], defaultModel: dto } as unknown as ModelsDto
+      return Promise.resolve({ providers: [], models: [], defaultModel: dto } as unknown as ModelsDto)
     },
-    listCommands: async () => {
+    listCommands: () => {
       counts.listCommands += 1
-      return []
+      return Promise.resolve([])
     },
-    getSettings: async () => {
+    getSettings: () => {
       counts.getSettings += 1
-      return {} as never
+      return Promise.resolve({} as never)
     },
   } as unknown as HttpTransport
   return { t, counts }
