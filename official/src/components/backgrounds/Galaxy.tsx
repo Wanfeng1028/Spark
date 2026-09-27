@@ -225,7 +225,7 @@ export default function Galaxy({
   transparent = true,
   lightMode = false,
 }: GalaxyProps): React.JSX.Element {
-  const ctnDom = React.useRef(null);
+  const ctnDom = React.useRef<HTMLDivElement>(null);
   const targetMousePos = React.useRef({ x: 0.5, y: 0.5 });
   const smoothMousePos = React.useRef({ x: 0.5, y: 0.5 });
   const targetMouseActive = React.useRef(0.0);
@@ -296,9 +296,9 @@ export default function Galaxy({
 
     window.addEventListener('resize', resize, false);
     resize();
-    let animateId;
+    let animateId = 0;
 
-    function update(t) {
+    function update(t: number) {
       animateId = requestAnimationFrame(update);
       if (!disableAnimation) {
         program.uniforms.uTime.value = t * 0.001;
@@ -320,7 +320,7 @@ export default function Galaxy({
     animateId = requestAnimationFrame(update);
     ctn.appendChild(gl.canvas);
 
-    function handleMouseMove(e) {
+    function handleMouseMove(e: MouseEvent) {
       const rect = ctn.getBoundingClientRect();
       const x = (e.clientX - rect.left) / rect.width;
       const y = 1.0 - (e.clientY - rect.top) / rect.height;

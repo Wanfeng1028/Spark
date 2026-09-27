@@ -13,7 +13,7 @@ import { Renderer, Program, Mesh, Triangle } from "ogl";
 import * as React from "react";
 
 
-function hexToVec3(hex) {
+function hexToVec3(hex: string) {
   const h = hex.replace('#', '');
   return [
     parseInt(h.slice(0, 2), 16) / 255,
@@ -187,7 +187,7 @@ export default function LineWaves({
   mouseInfluence = 2.0,
   lightMode = false,
 }: LineWavesProps): React.JSX.Element {
-  const containerRef = React.useRef(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (!containerRef.current) return;
@@ -199,7 +199,7 @@ export default function LineWaves({
     const currentMouse = [0.5, 0.5];
     let targetMouse = [0.5, 0.5];
 
-    function handleMouseMove(e) {
+    function handleMouseMove(e: MouseEvent) {
       const rect = gl.canvas.getBoundingClientRect();
       targetMouse = [
         (e.clientX - rect.left) / rect.width,
@@ -254,9 +254,9 @@ export default function LineWaves({
       gl.canvas.addEventListener('mouseleave', handleMouseLeave);
     }
 
-    let animationFrameId;
+    let animationFrameId = 0;
 
-    function update(time) {
+    function update(time: number) {
       animationFrameId = requestAnimationFrame(update);
       program.uniforms.uTime.value = time * 0.001;
 
