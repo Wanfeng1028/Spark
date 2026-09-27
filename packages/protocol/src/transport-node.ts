@@ -189,12 +189,14 @@ export class HttpTransport implements Transport {
   protected async req<T>(path: string, init?: RequestInit): Promise<T> {
     this.assertNotDisposed()
     // LA-58：请求级超时（AbortSignal.any 合并调用方 signal 与缺省 timeout）——
-    // 挂死的 REST 调用按超时路径报错，不再无声悬挂
+    // 挂死的 REST 调用按超时路径报错，不再无声悬挂。
+    // RequestInit.signal 是 AbortSignal | null——null 与 undefined 同视（无调用方 signal）
     const timeoutMs = this.opts.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
-    const signal =
+    const callerSignal: AbortSignal | undefined = init?.signal ?? undefined
+    const signal: AbortSignal | undefined =
       timeoutMs > 0
-        ? AbortSignal.any([...(init?.signal !== undefined ? [init.signal] : []), AbortSignal.timeout(timeoutMs)])
-        : init?.signal
+        ? AbortSignal.any([...(callerSignal !== undefined ? [callerSignal] : []), AbortSignal.timeout(timeoutMs)])
+        : callerSignal
     const res = await fetch(`${this.base}${path}`, {
       ...init,
       signal,
