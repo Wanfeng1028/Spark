@@ -728,7 +728,7 @@
         "tags": [
           "sessions"
         ],
-        "summary": "取附件图片（32hex 文件名 + 扩展名白名单；非法名/缺文件 → 404）",
+        "summary": "取附件图片（LA-47：file = ses_<id>/<32hex>.<ext> 或历史平铺 <32hex>.<ext>，扩展名白名单；非法名/缺文件 → 404）",
         "responses": {
           "200": {
             "description": "图片字节",

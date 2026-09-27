@@ -3,7 +3,7 @@
  * archive → 默认列表消失 / archived=true 可见 / 恢复幂等；
  * delete → trash 目录存在原 JSONL（两段式可找回）→ 列表与索引不可见 / 运行中拒绝。
  */
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
@@ -175,5 +175,30 @@ describe('两段式删除（工单 12.4）', () => {
     await expect(engine.deleteSession(ids.session('ses_no_such_session_x'))).rejects.toThrow(
       'E_NOT_FOUND',
     )
+  })
+})
+
+describe('LA-47：附件随会话移 trash', () => {
+  test('deleteSession 把 attachments/<sid>/ 整体移入 trash（只移不删），无附件会话跳过', async () => {
+    const { engine, root } = await makeEngine()
+    const h = await engine.createSession({ title: '带附件' })
+    // 手工造附件目录（真实写入经 server 上传路由，引擎层测目录生命周期）
+    const attDir = join(root, 'attachments', h.id)
+    mkdirSync(attDir, { recursive: true })
+    writeFileSync(join(attDir, 'abc.png'), Buffer.from('png'))
+
+    await engine.deleteSession(h.id)
+
+    // 附件目录已不在原地
+    expect(existsSync(join(root, 'attachments', h.id))).toBe(false)
+    // trash 里有 attachments-<sid>.* 目录且文件还在（只移不删）
+    const trashDir = join(root, 'trash')
+    const moved = readdirSync(trashDir).find((n) => n.startsWith(`attachments-${h.id}`))
+    expect(moved).toBeDefined()
+    expect(existsSync(join(trashDir, moved ?? '', 'abc.png'))).toBe(true)
+
+    // 无附件会话：deleteSession 正常（无目录可移，不报错）
+    const h2 = await engine.createSession({ title: '无附件' })
+    await expect(engine.deleteSession(h2.id)).resolves.toBeUndefined()
   })
 })

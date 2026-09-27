@@ -3,7 +3,7 @@
  * POST /api/sessions/:id/attachments——合法 png 201 落盘 / 类型拒绝 415 / 空体 400 / 超限 413；
  * GET /api/attachments/:file——取回字节与 content-type；白名单内不存在 404。
  */
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { makeServer } from './helpers.js'
@@ -99,5 +99,46 @@ describe('GET /api/attachments/:file（工单 12.2a）', () => {
     })
     // 白名单格式内但文件不存在 → 404（格式非法则 zod 400——另一条路径）
     expect(bad.statusCode).toBe(404)
+  })
+})
+
+describe('LA-47：附件按会话分目录', () => {
+  it('上传落 attachments/<sid>/，file 带 sid 前缀；GET 通配段两形态并存', async () => {
+    const f = await makeServer()
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const sid = sidOf(created)
+
+    const res = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${sid}/attachments`,
+      headers: { 'content-type': 'image/png', 'x-file-name': 'a.png' },
+      payload: PNG_1PX,
+    })
+    expect(res.statusCode).toBe(201)
+    const dto: AttachmentView = res.json()
+    // file 带会话前缀 + 落在会话子目录
+    expect(dto.file).toBe(`${sid}/${dto.file.split('/')[1] ?? ''}`)
+    expect(existsSync(join(f.root, 'attachments', sid, dto.file.split('/')[1] ?? ''))).toBe(true)
+
+    // 新形态 GET
+    const got = await f.app.inject({ method: 'GET', url: `/api/attachments/${dto.file}` })
+    expect(got.statusCode).toBe(200)
+    expect(got.headers['content-type']).toContain('image/png')
+  })
+
+  it('历史平铺形态（无 sid 前缀）GET 兼容；路径分量（..）→ 404', async () => {
+    const f = await makeServer()
+    // 手工放一份历史平铺文件（升级前落盘形态）
+    const legacy = `${'a'.repeat(32)}.png`
+    mkdirSync(join(f.root, 'attachments'), { recursive: true })
+    writeFileSync(join(f.root, 'attachments', legacy), PNG_1PX)
+
+    const got = await f.app.inject({ method: 'GET', url: `/api/attachments/${legacy}` })
+    expect(got.statusCode).toBe(200)
+    expect(got.rawPayload?.length).toBe(PNG_1PX.length)
+
+    // 正则把守路径分量：.. 形态匹配不上白名单 → 404（非 500/穿越）
+    const evil = await f.app.inject({ method: 'GET', url: '/api/attachments/ses_x%2F..%2F..%2Fmcp.json' })
+    expect(evil.statusCode).toBe(404)
   })
 })

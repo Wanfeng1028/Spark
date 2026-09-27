@@ -11,7 +11,7 @@
  * shutdown 序列（§5.2）：拒新 → 逐会话 interrupt + 关输入队列 → 等待 run-loop
  * 退出 → 审批 pending 全部 fail-closed → 全量 flush + close。
  */
-import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import type {
@@ -1036,6 +1036,17 @@ export class Engine {
     rmSync(`${path}.archived`, { force: true })
     // 置顶标记随会话一并清理（工单 19.41；标记是目录内文件，不清会成孤儿并被 boot 误认）
     rmSync(`${path}.pinned`, { force: true })
+    // LA-47：附件目录随会话一并移入 trash（attachments/<sid>/，§2.10 只移不删）——
+    // 会话删了附件留在原地 = 永久孤儿。目录不存在 = 该会话无附件；移动失败不阻断
+    // 会话删除（附件成孤儿，storage maintenance 兜底），如实 warn。
+    const attDir = join(attachmentsDir(this.root), id)
+    if (existsSync(attDir)) {
+      try {
+        renameSync(attDir, join(trashDir, `attachments-${id}.${Date.now()}`))
+      } catch (err) {
+        this.logger.warn('session.attachments.trash.failed', { sid: id, err })
+      }
+    }
     this.pinnedIds.delete(id)
     this.index.remove(id)
     this.archivedIds.delete(id)

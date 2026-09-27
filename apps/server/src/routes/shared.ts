@@ -57,9 +57,12 @@ export const PinBody = z.strictObject({ pinned: z.boolean() })
 /** 工单 12.4：DELETE 需显式 confirm: true（防误删——两层护栏的第一层） */
 export const DeleteSessionBody = z.strictObject({ confirm: z.literal(true) })
 
-/** 工单 12.2a：取图文件名白名单参数（32 位 hex id + 扩展名） */
+/** 工单 12.2a：取图文件名白名单参数。LA-47 起两形态并存——
+ *  新 = `ses_<id>/<32hex>.<ext>`（按会话分目录，deleteSession 随会话移 trash），
+ *  旧 = `<32hex>.<ext>`（历史平铺文件只读兼容）。正则即路径硬边界：
+ *  除可选 sid 前缀外不容任何路径分量（.. / 反斜杠 / 第二个斜杠都匹配不上）。 */
 export const AttachmentFileParams = z.strictObject({
-  file: z.string().regex(/^[a-f0-9]{32}\.(png|jpg|gif|webp)$/),
+  file: z.string().regex(/^(?:ses_[0-9A-Za-z]+\/)?[a-f0-9]{32}\.(png|jpg|gif|webp)$/),
 })
 
 export const ListSessionsQuery = z.object({

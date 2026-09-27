@@ -1831,7 +1831,8 @@ export class MockTransport implements Transport {
   ): Promise<AttachmentDto> {
     // 上传（mock 对等）：内存存储，返回 dto（缩略渲染走 objectURL 由调用方处理）
     const id = globalThis.crypto.randomUUID().replaceAll('-', '')
-    const fileKey = id + '.' + (file.mime.split('/')[1] ?? 'png')
+    // LA-47：file 值带会话前缀（与 server 的 attachments/<sid>/ 布局同形）
+    const fileKey = `${sessionId}/${id}.${file.mime.split('/')[1] ?? 'png'}`
     this.attachmentStore.set(fileKey, { mime: file.mime, bytes: Buffer.from(file.bytes) })
     return Promise.resolve({ id, file: fileKey, mime: file.mime, size: file.bytes.length, name: file.name })
   }

@@ -125,7 +125,7 @@ export function BrowserSettingsPage() {
       <SettingGroupCard>
         <SettingRow
           title="清理截图产物"
-          description={`删除全部历史截图（shot-*.png，~/.spark/browser-shots/）。${cleanupNote ?? '当前会话已展示的截图不受影响——产物按需重取。'}`}
+          description={`将删除浏览器与电脑控制的全部历史截图（shot-*.png，~/.spark/browser-shots/），会话中已展示的图将不可查看。${cleanupNote ?? ''}`}
         >
           {confirmCleanup ? (
             <div className="flex items-center gap-1.5">

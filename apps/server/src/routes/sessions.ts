@@ -272,16 +272,22 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
       }
     }
     const attachmentId = randomUUID().replaceAll('-', '')
-    const dir = attachmentsDir(engine.dataRoot)
+    // LA-47：按会话分目录 attachments/<sid>/——deleteSession 随会话移 trash，
+    // 不再留跨会话孤儿（file 值随之带 sid 前缀，durable 事件里照存）
+    const dir = join(attachmentsDir(engine.dataRoot), id)
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, attachmentId + '.' + ext), body)
-    const file = attachmentId + '.' + ext
+    const file = `${id}/${attachmentId}.${ext}`
     return reply.code(201).send({ id: attachmentId, file, mime, size: body.length, name })
   })
 
-  /** GET /api/attachments/:file：白名单文件名取图（缩略渲染数据源） */
-  app.get('/api/attachments/:file', async (req, reply) => {
-    const { file } = parseOr400(AttachmentFileParams, req.params)
+  /** GET /api/attachments/*：白名单文件名取图（缩略渲染数据源）。
+   *  LA-47：通配段承接 `ses_<id>/<32hex>.<ext>` 新形态与历史平铺 `<32hex>.<ext>`
+   *  （旧 durable 事件的 file 无 sid 前缀，读路径必须两形态并存）；路径白名单由
+   *  AttachmentFileParams 正则把守（不容路径分量）。 */
+  app.get('/api/attachments/*', async (req, reply) => {
+    const file = (req.params as Record<string, string | undefined>)['*'] ?? ''
+    if (!AttachmentFileParams.safeParse({ file }).success) return notFound(reply)
     const ext = file.split('.').pop() ?? ''
     const mime = EXT_MIME[ext]
     if (mime === undefined) return notFound(reply)

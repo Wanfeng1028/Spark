@@ -209,7 +209,7 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
   {
     method: 'get',
     path: '/api/attachments/{file}',
-    summary: '取附件图片（32hex 文件名 + 扩展名白名单；非法名/缺文件 → 404）',
+    summary: '取附件图片（LA-47：file = ses_<id>/<32hex>.<ext> 或历史平铺 <32hex>.<ext>，扩展名白名单；非法名/缺文件 → 404）',
     tag: 'sessions',
     rawResponse: { description: '图片字节', contentType: 'image/png, image/jpeg, image/gif, image/webp' },
   },
