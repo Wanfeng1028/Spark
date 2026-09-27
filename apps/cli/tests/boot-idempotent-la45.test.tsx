@@ -9,7 +9,8 @@ import { describe, expect, it } from 'vitest'
 import { render } from 'ink-testing-library'
 import { useEffect, type ReactElement } from 'react'
 import { Text } from 'ink'
-import type { HttpTransport, ModelsDto } from '@spark/protocol'
+import { ids } from '@spark/protocol'
+import type { HttpTransport, ModelsDto, SessionDto } from '@spark/protocol'
 import { useCliActions } from '../src/hooks/use-cli-actions.js'
 
 function countingTransport() {
@@ -19,6 +20,19 @@ function countingTransport() {
     listSessions: () => {
       counts.listSessions += 1
       return Promise.resolve([])
+    },
+    createSession: () => {
+      const dto: SessionDto = {
+        id: ids.session('ses_bootidempotent000000'),
+        title: '',
+        model: 'deepseek/chat',
+        cwd: '/tmp/proj',
+        createdAt: 1,
+        updatedAt: 1,
+        lastSeq: 0,
+        status: 'idle',
+      }
+      return Promise.resolve(dto)
     },
     listModels: () => {
       counts.listModels += 1
