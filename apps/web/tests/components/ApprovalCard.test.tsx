@@ -83,28 +83,28 @@ describe('ApprovalCard 拒绝路径（feedback 回喂）', () => {
 })
 
 describe('ApprovalCard resolved 态', () => {
-  it('reply=once → 「已允许（once）」徽标，三键不可见', () => {
+  it('reply=once → 「已允许本次」徽标，三键不可见', () => {
     renderCard({ status: 'resolved', reply: 'once' })
-    expect(screen.getByText('已允许（once）')).toBeTruthy()
+    expect(screen.getByText('已允许本次')).toBeTruthy()
     expect(screen.queryByRole('button', { name: '允许一次' })).toBeNull()
   })
 
-  it('reply=reject → 「已拒绝（reject）」徽标', () => {
+  it('reply=reject → 「已拒绝」徽标', () => {
     renderCard({ status: 'resolved', reply: 'reject' })
-    expect(screen.getByText('已拒绝（reject）')).toBeTruthy()
+    expect(screen.getByText('已拒绝')).toBeTruthy()
   })
 
   it('resolved 2s 后收起为摘要行（DESIGN §6）', () => {
     vi.useFakeTimers()
     try {
       renderCard({ status: 'resolved', reply: 'always' })
-      expect(screen.getByText('已允许（always）')).toBeTruthy()
+      expect(screen.getByText('已始终允许')).toBeTruthy()
       act(() => {
         vi.advanceTimersByTime(2100)
       })
       // 摘要行模板跨文本节点——按 textContent 断言
       const summary = screen.getByText(/审批已/)
-      expect(summary.textContent).toBe('审批已允许（always）')
+      expect(summary.textContent).toBe('审批已始终允许')
     } finally {
       vi.useRealTimers()
     }

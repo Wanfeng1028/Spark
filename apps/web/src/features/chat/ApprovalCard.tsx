@@ -59,7 +59,7 @@ export function ApprovalCard({
   if (status === 'resolved' && collapsed) {
     return (
       <p className="font-mono text-xs text-muted-foreground/70">
-        审批已{reply === 'reject' ? '拒绝' : '允许'}（{reply ?? ''}）
+        审批{approvalResolvedText(reply)}
       </p>
     )
   }

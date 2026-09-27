@@ -9,8 +9,8 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const CHAT_DIR = join(__dirname, '../../src/features/chat')
-const LIB_TIME = join(__dirname, '../../src/lib/time.ts')
+const CHAT_DIR = join(__dirname, '../src/features/chat')
+const LIB_TIME = join(__dirname, '../src/lib/time.ts')
 
 function chatSources(): Array<{ file: string; text: string }> {
   const out: Array<{ file: string; text: string }> = []
