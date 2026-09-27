@@ -92,7 +92,7 @@ export function Hero({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
       aria-labelledby="hero-title"
     >
       {/* DarkVeil 雾幕背景（React Bits copy-in，DESIGN v2.46 豁免；替代 v2.28 点阵底纹） */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+      <div className="bg-darkveil pointer-events-none absolute inset-0" aria-hidden="true">
         <DarkVeil desaturation={1} speed={0.35} warpAmount={0.35} resolutionScale={0.75} />
       </div>
 
