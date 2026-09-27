@@ -120,7 +120,7 @@ describe('LA-52：回复失败不再静默', () => {
 
   it('pending=true → 三键 disabled（请求窗口内防重复提交）', () => {
     renderCard({ pending: true })
-    expect((screen.getByText('允许一次') as HTMLButtonElement).disabled).toBe(true)
-    expect((screen.getByText('总是允许') as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText('允许一次').closest('button')?.disabled).toBe(true)
+    expect(screen.getByText('总是允许').closest('button')?.disabled).toBe(true)
   })
 })

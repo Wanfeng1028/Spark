@@ -35,7 +35,7 @@ export interface ApprovalCardProps {
   pending?: boolean | undefined
   /** LA-52：回复请求失败（卡内红字，不再静默） */
   opError?: string | null | undefined
-  onReply: (reply: PermissionReply, feedback?: string, scope?: 'user' | 'project') => void
+  onReply: (reply: PermissionReply, feedback?: string, scope?: 'user' | 'project') => void | Promise<void>
 }
 
 export function ApprovalCard({
