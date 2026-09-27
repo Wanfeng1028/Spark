@@ -68,7 +68,8 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   })
 
   /** PUT /api/mcp 的 body schema（LA-50）：替掉手写形状的两处 `as`——
-   *  与 mergeMaskedMcpConfig 消费的 McpConfigInput['servers'] 同形 */
+   *  条目形状与 mergeMaskedMcpConfig 消费的 McpConfigInput['servers'] 全字段同形
+   *  （env/headers 必须放行：RT3-07 掩码占位经 body 进合并层） */
   const McpPutBodySchema = z.object({
     version: z.literal(1),
     confirm: z.boolean().optional(),
@@ -76,7 +77,12 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
       z.string().min(1),
       z.object({
         command: z.string().min(1).optional(),
+        transport: z.enum(['stdio', 'streamable-http']).optional(),
+        url: z.string().optional(),
+        headers: z.record(z.string().min(1), z.string()).optional(),
         args: z.array(z.string()).optional(),
+        env: z.record(z.string().min(1), z.string()).optional(),
+        connectTimeoutMs: z.number().int().positive().max(600_000).optional(),
       }),
     ).optional(),
   })
@@ -105,7 +111,12 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
               k,
               {
                 ...(v.command !== undefined ? { command: v.command } : {}),
+                ...(v.transport !== undefined ? { transport: v.transport } : {}),
+                ...(v.url !== undefined ? { url: v.url } : {}),
+                ...(v.headers !== undefined ? { headers: v.headers } : {}),
                 ...(v.args !== undefined ? { args: v.args } : {}),
+                ...(v.env !== undefined ? { env: v.env } : {}),
+                ...(v.connectTimeoutMs !== undefined ? { connectTimeoutMs: v.connectTimeoutMs } : {}),
               },
             ]),
           ),
