@@ -4,12 +4,13 @@
  * 最大宽 82%、`--user-bubble` 底、无 YOU 标签（WO-058）；assistant 左锚全宽无
  * YOU 侧模型名标签（WO-059）由 AssistantBlock 排内容块；tool→ToolCard、approval→ApprovalCard。
  */
-import { memo } from 'react'
+import { memo, useEffect, useState } from 'react'
 import type { ContentItem, PermissionReply, SessionId } from '@spark/protocol'
 import { ids, severityOf } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import type { UiItem } from '@/stores/session'
 import { cn } from '@/lib/utils'
+import { errorMessageOf } from '@/lib/error-copy'
 import { LinkPreviewRow } from './LinkPreviewCard'
 import { AssistantBlock } from './AssistantBlock'
 import { AssistantActions } from './AssistantActions'
@@ -153,11 +154,27 @@ function assistantTextOf(content: ContentItem[]): string {
     .join('\n\n')
 }
 
-/** 审批行：ApprovalCard + transport 回复派发 */
+/** 审批行：ApprovalCard + transport 回复派发。
+ *  LA-52：回复改 async——失败入卡内红字（不再静默吞掉 Promise）；pending 从点击起、
+ *  到事件流 permission.resolved 把 item.status 翻为 resolved 止（真源是事件流，
+ *  本地 pending 只覆盖请求窗口，不做乐观更新）。 */
 function ApprovalRow({ item }: { item: Extract<UiItem, { kind: 'approval' }> }) {
   const { transport } = useTransport()
-  function onReply(reply: PermissionReply, feedback?: string, scope?: 'user' | 'project') {
-    void transport.replyPermission(ids.request(item.requestId), reply, feedback, scope)
+  const [pending, setPending] = useState(false)
+  const [opError, setOpError] = useState<string | null>(null)
+  const resolved = item.status !== 'pending'
+  useEffect(() => {
+    if (resolved) setPending(false) // 回执到达（或已决）→ 请求窗口结束
+  }, [resolved])
+  async function onReply(reply: PermissionReply, feedback?: string, scope?: 'user' | 'project') {
+    setPending(true)
+    setOpError(null)
+    try {
+      await transport.replyPermission(ids.request(item.requestId), reply, feedback, scope)
+    } catch (err) {
+      setPending(false)
+      setOpError(errorMessageOf(err))
+    }
   }
   return (
     <ApprovalCard
@@ -169,6 +186,8 @@ function ApprovalRow({ item }: { item: Extract<UiItem, { kind: 'approval' }> }) 
       detail={item.detail}
       status={item.status}
       reply={item.reply}
+      pending={pending}
+      opError={opError}
       onReply={onReply}
     />
   )

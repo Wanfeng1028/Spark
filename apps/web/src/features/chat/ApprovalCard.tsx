@@ -31,6 +31,10 @@ export interface ApprovalCardProps {
   status: 'pending' | 'resolved'
   /** resolved 时的实际回复（结果徽标与收起摘要的数据源，来自 permission.resolved 事件） */
   reply?: PermissionReply | undefined
+  /** LA-52：回复请求在途（点击 → permission.resolved 回执到达；真源仍是事件流） */
+  pending?: boolean | undefined
+  /** LA-52：回复请求失败（卡内红字，不再静默） */
+  opError?: string | null | undefined
   onReply: (reply: PermissionReply, feedback?: string, scope?: 'user' | 'project') => void
 }
 
@@ -43,6 +47,8 @@ export function ApprovalCard({
   detail,
   status,
   reply,
+  pending,
+  opError,
   onReply,
 }: ApprovalCardProps) {
   const [feedback, setFeedback] = useState('')
@@ -106,6 +112,7 @@ export function ApprovalCard({
             <Button
               variant="outline"
               size="sm"
+              disabled={pending === true}
               onClick={() => {
                 onReply('reject', feedback || undefined)
                 setFeedback('')
@@ -120,12 +127,13 @@ export function ApprovalCard({
           </div>
         ) : (
           <ConfirmationActions>
-            <ConfirmationAction size="sm" onClick={() => onReply('once')}>
+            <ConfirmationAction size="sm" disabled={pending === true} onClick={() => onReply('once')}>
               允许一次
             </ConfirmationAction>
             <ConfirmationAction
               variant="outline"
               size="sm"
+              disabled={pending === true}
               title="固化为用户级规则（~/.spark/permissions.json，全局跨会话生效）"
               onClick={() => onReply('always')}
             >
@@ -134,6 +142,7 @@ export function ApprovalCard({
             <ConfirmationAction
               variant="outline"
               size="sm"
+              disabled={pending === true}
               title="固化为项目级规则（.spark/permissions.json，仅当前工作区生效）"
               onClick={() => onReply('always', undefined, 'project')}
             >
@@ -157,6 +166,11 @@ export function ApprovalCard({
       <ConfirmationRejected>
         <p className="font-mono text-xs text-[var(--spark-err)]">{approvalResolvedText('reject')}</p>
       </ConfirmationRejected>
+      {opError !== null && opError !== undefined && (
+        <p role="alert" className="font-mono text-xs text-[var(--spark-err)]">
+          {opError}
+        </p>
+      )}
     </Confirmation>
   )
 }

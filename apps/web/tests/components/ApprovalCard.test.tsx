@@ -110,3 +110,17 @@ describe('ApprovalCard resolved 态', () => {
     }
   })
 })
+
+describe('LA-52：回复失败不再静默', () => {
+  it('opError 注入 → 卡内红字可见（不原地停在 pending 零反馈）', () => {
+    renderCard({ opError: 'E_NETWORK: 回复请求失败' })
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('E_NETWORK')
+  })
+
+  it('pending=true → 三键 disabled（请求窗口内防重复提交）', () => {
+    renderCard({ pending: true })
+    expect((screen.getByText('允许一次') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByText('总是允许') as HTMLButtonElement).disabled).toBe(true)
+  })
+})
