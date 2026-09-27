@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BlurText } from "@/components/animations/blur-text";
+import { DarkVeil } from "@/components/backgrounds/DarkVeil";
 import { buttonVariants } from "@/components/ui/button";
 import { LINKS } from "@/lib/constants";
 import type { Lang } from "@/lib/i18n";
@@ -87,18 +88,17 @@ export function Hero({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
   return (
     <section
       id="hero"
-      className="relative flex min-h-[82vh] scroll-mt-16 flex-col items-center justify-center overflow-hidden px-6 pb-20 pt-32 text-center"
+      className="relative flex min-h-[82vh] scroll-mt-16 flex-col items-center justify-center overflow-hidden bg-[#0a0a0a] px-6 pb-20 pt-32 text-center"
       aria-labelledby="hero-title"
     >
-      {/* 点阵底纹（纯装饰，对辅助技术隐藏） */}
-      <div
-        aria-hidden="true"
-        className="hero-dot-grid pointer-events-none absolute inset-x-0 top-0 h-[520px]"
-      />
+      {/* DarkVeil 雾幕背景（React Bits copy-in，DESIGN v2.46 豁免；替代 v2.28 点阵底纹） */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <DarkVeil desaturation={1} speed={0.35} warpAmount={0.35} resolutionScale={0.75} />
+      </div>
 
       {/* eyebrow pill：内嵌 mini 标签（x.ai "New" 同位，橙色点睛 v2.33） */}
-      <p className="relative flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1.5 pr-4 text-xs text-muted-foreground shadow-sm">
-        <span className="rounded-full bg-orange-100 px-2.5 py-0.5 font-medium text-orange-700">
+      <p className="relative flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1.5 pr-4 text-xs text-zinc-400">
+        <span className="rounded-full bg-orange-500/15 px-2.5 py-0.5 font-medium text-orange-300">
           {copy.eyebrowBadge}
         </span>
         {copy.eyebrow}
@@ -106,7 +106,7 @@ export function Hero({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
 
       <h1
         id="hero-title"
-        className="relative mt-10 max-w-4xl text-[30px] font-medium leading-[1.2] text-zinc-900 en:font-normal en:tracking-[-0.025em] sm:text-[44px] lg:text-[46px]"
+        className="relative mt-10 max-w-4xl text-[30px] font-medium leading-[1.2] text-zinc-50 en:font-normal en:tracking-[-0.025em] sm:text-[44px] lg:text-[46px]"
       >
         <BlurText
           text={copy.headline}
@@ -124,14 +124,14 @@ export function Hero({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
         </span>
       </h1>
 
-      <p className="relative mt-8 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+      <p className="relative mt-8 max-w-2xl text-lg leading-relaxed text-zinc-400 sm:text-xl">
         {copy.sub}
       </p>
 
       <div className="relative mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
         <Link
           href={lang === "en" ? "/en/quickstart" : "/quickstart"}
-          className={cn(buttonVariants({ size: "lg" }), "rounded-full px-8")}
+          className={cn(buttonVariants({ size: "lg" }), "rounded-full bg-white px-8 text-zinc-900 hover:bg-zinc-200")}
         >
           {copy.ctaPrimary}&nbsp;&nbsp;→
         </Link>
@@ -141,14 +141,14 @@ export function Hero({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
           rel="noopener noreferrer"
           className={cn(
             buttonVariants({ variant: "outline", size: "lg" }),
-            "border-transparent bg-zinc-100 hover:bg-zinc-200",
+            "border-transparent bg-white/10 text-zinc-100 hover:bg-white/20",
           )}
         >
           {copy.ctaSecondary}
         </a>
       </div>
 
-      <p className="relative mt-10 font-mono text-sm text-muted-foreground">{copy.meta}</p>
+      <p className="relative mt-10 font-mono text-sm text-zinc-500">{copy.meta}</p>
     </section>
   );
 }

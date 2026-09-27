@@ -103,16 +103,7 @@
     animation: shimmer-sweep 0.9s ease-out 1;
   }
 
-  /*
-   * Hero 点阵底纹（DESIGN v2.28 官网豁免）：radial-gradient 画点阵 + 椭圆渐隐收边，
-   * 冷灰色不引入色相、不构成光晕/毛玻璃；zinc-300 点在白底上隐约可见。
-   */
-  .hero-dot-grid {
-    background-image: radial-gradient(circle, #d4d4d8 1px, transparent 1.4px);
-    background-size: 22px 22px;
-    mask-image: radial-gradient(ellipse 72% 58% at 50% 0%, black 28%, transparent 76%);
-    -webkit-mask-image: radial-gradient(ellipse 72% 58% at 50% 0%, black 28%, transparent 76%);
-  }
+  /* Hero 点阵底纹（v2.28 豁免）已由 DarkVeil 雾幕替代移除（DESIGN v2.46） */
 }
 
 /* === @keyframes 保持在 layer 外（keyframes 不受级联层影响） === */
