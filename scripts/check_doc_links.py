@@ -16,6 +16,10 @@
    仅检查已知根前缀（packages/apps/doc/scripts/examples/.github/.agents 等），
    自动跳过外部参考项目的同名前缀路径（如 pi 的 packages/agent/**）与含占位符的路径。
 4. 【error】doc/02 版本记录表重复版本号检测（防止 v4.50 重号类漂移复发）
+7. 【error】官网事实数字闸（LA-50/51）：official/src/lib/constants.ts 的
+   eventTypes/builtinCommands 与源码实数对照（EventSchemas 顶层键数 /
+   BUILTIN_COMMANDS 条目数）；official/src 全部 ts/tsx 里「NN 个方法」表述
+   与 Transport 接口实数对照——官网"真实 API 面"自律从此有硬门。
 5.5. 【error】Transport 方法计数锚定（LA-24）：从 packages/protocol/src/transport.ts
    的 Transport 接口解析方法实数，凡 doc/08 与 doc/02 中写「Transport NN 方法/方法 NN」
    的行必须与实数一致——接口加方法忘改文档计数即 CI 红（防 67→89 类陈旧数字漂移）。
@@ -344,6 +348,96 @@ def check_transport_count(root: Path, report: Report) -> None:
                     )
 
 
+# ---------------------------------------------------------------- 检查 7：官网事实数字闸（LA-51）
+
+def _ts_block(text: str, decl: str, open_ch: str, close_ch: str) -> str | None:
+    """定位 `decl` 声明后第一个平衡括号块（含）——解析失败返回 None。"""
+    i = text.find(decl)
+    if i < 0:
+        return None
+    eq = text.find("=", i)
+    j = text.find(open_ch, eq if eq > 0 else i)
+    if j < 0:
+        return None
+    depth = 0
+    k = j
+    while k < len(text):
+        c = text[k]
+        if c == open_ch:
+            depth += 1
+        elif c == close_ch:
+            depth -= 1
+            if depth == 0:
+                return text[j : k + 1]
+        k += 1
+    return None
+
+
+def real_event_type_count(root: Path) -> int | None:
+    """事实源 1：EventSchemas 顶层键数（顶层键 = 两空格缩进的引号/裸名 + 冒号）。"""
+    src = root / "packages" / "protocol" / "src" / "events.ts"
+    if not src.is_file():
+        return None
+    block = _ts_block(src.read_text(encoding="utf-8"), "export const EventSchemas", "{", "}")
+    if block is None:
+        return None
+    return len(re.findall(r"^  '?[A-Za-z][A-Za-z.]*'?:", block, re.M))
+
+
+def real_command_count(root: Path) -> int | None:
+    """事实源 2：BUILTIN_COMMANDS 条目数（name: '...' 出现次数）。"""
+    src = root / "packages" / "protocol" / "src" / "commands.ts"
+    if not src.is_file():
+        return None
+    block = _ts_block(src.read_text(encoding="utf-8"), "export const BUILTIN_COMMANDS", "[", "]")
+    if block is None:
+        return None
+    return len(re.findall(r"name: '([a-z0-9-]+)'", block))
+
+
+def check_official_facts(root: Path, report: Report) -> None:
+    """官网 FactBar/代码示例的事实数字 vs 源码实数（LA-50/51）：
+    official/src/lib/constants.ts 的 eventTypes/builtinCommands 与 official/src
+    全部 ts/tsx 里「NN 个方法」表述，均须与 protocol 源码派生实数一致。
+    official 不入 md 扫描面（SKIP_DIRS 保持），此处按数字事实定点校。"""
+    real_events = real_event_type_count(root)
+    real_cmds = real_command_count(root)
+    real_transport = count_transport_methods(root)
+    if real_events is None or real_cmds is None or real_transport is None:
+        report.errors.append("官网事实闸的事实源解析失败（events.ts/commands.ts/transport.ts）")
+        return
+
+    facts = root / "official" / "src" / "lib" / "constants.ts"
+    if facts.is_file():
+        text = facts.read_text(encoding="utf-8")
+        m = re.search(r"eventTypes:\s*(\d+)", text)
+        if m and int(m.group(1)) != real_events:
+            report.errors.append(
+                f"official/src/lib/constants.ts eventTypes={m.group(1)} ≠ 实数 {real_events}"
+                f"（事实源 packages/protocol/src/events.ts EventSchemas；LA-51）"
+            )
+        m = re.search(r"builtinCommands:\s*(\d+)", text)
+        if m and int(m.group(1)) != real_cmds:
+            report.errors.append(
+                f"official/src/lib/constants.ts builtinCommands={m.group(1)} ≠ 实数 {real_cmds}"
+                f"（事实源 packages/protocol/src/commands.ts BUILTIN_COMMANDS；LA-51）"
+            )
+
+    pattern = re.compile(r"(\d+)\s*个方法")
+    for tsx in sorted((root / "official" / "src").rglob("*")):
+        if tsx.suffix not in (".ts", ".tsx"):
+            continue
+        for lineno, line in enumerate(tsx.read_text(encoding="utf-8").splitlines(), 1):
+            for hit in pattern.finditer(line):
+                claimed = int(hit.group(1))
+                if claimed != real_transport:
+                    rel = tsx.relative_to(root)
+                    report.errors.append(
+                        f"{rel}:{lineno} Transport 方法计数 {claimed} ≠ 实数 {real_transport}"
+                        f"（事实源 packages/protocol/src/transport.ts；LA-50/51）"
+                    )
+
+
 # ---------------------------------------------------------------- 主流程
 
 def main() -> int:
@@ -370,6 +464,7 @@ def main() -> int:
     check_version_duplicates(root, report)
     check_copy_slop(root, report)
     check_transport_count(root, report)
+    check_official_facts(root, report)
 
     for w in report.warnings:
         print(f"[WARN] {w}")

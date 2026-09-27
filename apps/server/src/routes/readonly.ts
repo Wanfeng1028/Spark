@@ -4,7 +4,7 @@
 import type { FastifyPluginCallback, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { ExecuteCommandBodySchema, findKnownLspServer } from '@spark/protocol'
-import type { McpConfigInput } from '@spark/protocol'
+import { ConfigError } from '@spark/engine'
 import { FeedbackInputSchema, FeedbackQuerySchema, LogsQuerySchema, PromptsUpdateSchema, SettingsUpdateSchema, UsageSummaryQuerySchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
@@ -67,15 +67,24 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
     return reply.send({ ok: true })
   })
 
+  /** PUT /api/mcp 的 body schema（LA-50）：替掉手写形状的两处 `as`——
+   *  与 mergeMaskedMcpConfig 消费的 McpConfigInput['servers'] 同形 */
+  const McpPutBodySchema = z.object({
+    version: z.literal(1),
+    confirm: z.boolean().optional(),
+    servers: z.record(
+      z.string().min(1),
+      z.object({
+        command: z.string().min(1).optional(),
+        args: z.array(z.string()).optional(),
+      }),
+    ).optional(),
+  })
+
   /** PUT /api/mcp：整文件校验后原子写 mcp.json（工单 12.6；重启后生效——响应如实标注）。
    * RT3-07：env 掩码占位经 mergeMaskedMcpConfig 合并盘上真值（掩码不是值，无真值 400） */
   app.put('/api/mcp', async (req, reply) => {
-    const body = req.body as
-      | { version?: number; confirm?: boolean; servers?: Record<string, { command?: string; args?: string[] }> }
-      | undefined
-    if (body === undefined || typeof body !== 'object' || body.version !== 1) {
-      throw validationError('mcp 配置须为 {version: 1, servers: {...}}', undefined)
-    }
+    const body = parseOr400(McpPutBodySchema, req.body)
     // LA-05：非环回来源改写 mcp.json（可换任意 stdio 可执行程序）需 confirm；回显将写入的命令
     const servers = body.servers ?? {}
     const willRun =
@@ -89,12 +98,17 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
         engine.dataRoot,
         mergeMaskedMcpConfig(loadMcpConfig(engine.dataRoot), {
           version: 1,
-          servers: body.servers as McpConfigInput['servers'],
+          servers: body.servers ?? {},
         }),
       )
     } catch (err) {
-      // zod 校验失败 / 掩码无既有真值（ConfigError）→ 400 人话（坏配置不落盘——12.6 验收）
-      throw validationError(err instanceof Error ? err.message : String(err), undefined)
+      // LA-50：只有配置语义失败（ConfigError——zod 校验失败 / 掩码无既有真值）改写 400
+      // 人话（坏配置不落盘——12.6 验收）；写盘 I/O 错（ENOSPC/EACCES 等）原样上抛交全局
+      // handler——"写盘失败"与"校验失败"须可区分，一刀切 400 掩盖磁盘故障
+      if (err instanceof ConfigError) {
+        throw validationError(err.message, undefined)
+      }
+      throw err
     }
     return reply.send({ ok: true, restartRequired: true })
   })

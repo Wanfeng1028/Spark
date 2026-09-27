@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
-  "description": "Spark CLI TUI（Ink v6，ADR D19）——spark up 一条命令本地可用",
+  "description": "Spark CLI TUI（Ink v7，ADR D19）——spark up 一条命令本地可用",
   "bin": {
     "spark": "bin/spark.js"
   },

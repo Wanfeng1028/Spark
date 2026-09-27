@@ -17,7 +17,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { Text, View } from '@tarojs/components'
-import Taro, { usePullDownRefresh } from '@tarojs/taro'
+import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import type { SessionDto } from '@spark/protocol'
 import { dotColor, fmtDate } from '@spark/protocol'
 import { useAppStore } from '../../store/app-store'
@@ -73,6 +73,12 @@ export default function SessionsPage() {
   usePullDownRefresh(() => {
     setRefreshing(true)
     void refresh().finally(() => Taro.stopPullDownRefresh())
+  })
+
+  // LA-48：聚焦时刻重取快照——头注声明的"刷新/聚焦时刻 REST 快照"此前只有下拉半边，
+  // 从其它页面返回时列表滞留旧态。Taro 对应 mobile 的 useFocusEffect。
+  useDidShow(() => {
+    void refresh()
   })
 
   // 人话提示条 5s 自清（不留陈旧错误冒充现状）

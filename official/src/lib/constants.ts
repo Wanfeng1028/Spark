@@ -1,8 +1,8 @@
 /**
  * 事实数字（FactBar 数据源，禁 mock 数字——DESIGN §12.5 假仪表盘）。
- * **手工抄自源码实数，改过 protocol 要回来同步这一份**：CI 的 gen:events / gen:contract
- * 只校 apps/docs 与 packages/protocol/tests/contract 两处生成物，check_doc_links.py
- * 不扫 official/，所以这里没有任何自动门——原注记写的"CI 校同步"是假的（WO-113 指误）。
+ * **手工抄自源码实数**：check_doc_links.py 检查 7（LA-51）把 eventTypes/builtinCommands
+ * 与源码实数（EventSchemas 顶层键数 / BUILTIN_COMMANDS 条目数）对照，不符即 CI 红；
+ * 「NN 个方法」类表述同闸（LA-50/51）——原"没有任何自动门"的注记作废。
  * eventTypes：`packages/protocol/src/events.ts` EventSchemas 键数（权威断言
  *   packages/protocol/tests/events.test.ts:133 = 27）。
  * builtinCommands：`packages/protocol/src/commands.ts` BUILTIN_COMMANDS 条目数（权威断言
