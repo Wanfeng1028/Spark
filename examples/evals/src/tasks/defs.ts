@@ -84,9 +84,21 @@ function scriptReadAnswer(path: string, answer: string, callBase: string): Scrip
   ]
 }
 
-/** 预录「写终态文件 → 收尾」两步（修改类场景；write 串行执行，多文件一步给全） */
+/** 预录「写终态文件 → 收尾」三步（修改类场景；write 串行执行，多文件一步给全）。
+ * ZC-5 起 write 覆盖已存在文件须先 read（E_NOT_READ 守卫）——预录流同步补 read 步
+ * （与真实模型在新守卫下的行为同形）。新建文件的 read 会报 isError 的 toolResult，
+ * scripted 重放不消费结果，write 步照常执行。read 与 write 分两步：read 基线须
+ * 完整落账后再 write（同步并行会让 write 先于 read 登记，stat 通道误判）。 */
 function scriptWrites(files: ReadonlyArray<readonly [string, string]>, callBase: string): ScriptedStep[] {
   return [
+    {
+      content: files.map(([path], i) => ({
+        type: 'toolCall' as const,
+        callId: ids.call(`${callBase}-r${i}`),
+        name: 'read',
+        input: { path },
+      })),
+    },
     {
       content: files.map(([path, content], i) => ({
         type: 'toolCall' as const,
