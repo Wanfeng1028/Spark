@@ -200,7 +200,7 @@ export default function LineWaves({
   React.useEffect(() => {
     if (degraded || !containerRef.current) return;
     const container = containerRef.current;
-    // ogl 缺省按 devicePixelRatio 建缓冲；这里改用分辨率系数接管，与设备像素比脱钩
+    // dpr 当分辨率系数用：ogl 缺省 dpr=1（缓冲即 CSS 尺寸），此处压到 CSS 尺寸的该系数
     const renderer = new Renderer({
       alpha: true,
       premultipliedAlpha: false,
