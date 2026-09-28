@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "motion/react";
+import { motion, useInView, useReducedMotion } from "motion/react";
 import type { Lang } from "@/lib/i18n";
 
 /**
@@ -17,6 +17,7 @@ import type { Lang } from "@/lib/i18n";
  * - 编辑块目标 bash-pool.ts=19.3 真实改造对象；代码行/耗时/流式文本为演示常量（头注声明）
  *
  * reduced-motion：不跑循环动画，静态呈现完整终态。
+ * 离屏暂停（DESIGN v2.48）：打字循环每 55ms 一次 setState，用户滚到页面下方时不该继续跑主线程。
  */
 
 type ToolState = "hidden" | "running" | "done";
@@ -271,7 +272,11 @@ function Caret(): React.JSX.Element {
   );
 }
 
-function useDemoScript(reducedMotion: boolean | null, streamText: string): DemoState {
+function useDemoScript(
+  reducedMotion: boolean | null,
+  streamText: string,
+  onScreen: boolean,
+): DemoState {
   const [state, setState] = React.useState<DemoState>(() =>
     reducedMotion ? finalState(streamText) : IDLE_STATE,
   );
@@ -281,6 +286,8 @@ function useDemoScript(reducedMotion: boolean | null, streamText: string): DemoS
       setState(finalState(streamText));
       return;
     }
+    // 离屏即停：重新进入视口时从 IDLE 重跑一遍（演示区回到开场，不留半截转录）
+    if (!onScreen) return;
     let alive = true;
     (async () => {
       while (alive) {
@@ -325,7 +332,7 @@ function useDemoScript(reducedMotion: boolean | null, streamText: string): DemoS
     return () => {
       alive = false;
     };
-  }, [reducedMotion, streamText]);
+  }, [reducedMotion, streamText, onScreen]);
 
   return state;
 }
@@ -517,10 +524,13 @@ function ApprovalCard({ copy }: { copy: SDZCopy }): React.JSX.Element {
 export function SessionDemoZone({ lang = "zh" }: { lang?: Lang }): React.JSX.Element {
   const reducedMotion = useReducedMotion();
   const copy = SDZ_COPY[lang];
-  const state = useDemoScript(reducedMotion, copy.streamText);
+  const sectionRef = React.useRef<HTMLElement>(null);
+  const onScreen = useInView(sectionRef);
+  const state = useDemoScript(reducedMotion, copy.streamText, onScreen);
 
   return (
     <section
+      ref={sectionRef}
       id="demo"
       className="scroll-mt-16 px-6 py-20"
       aria-label={copy.sectionAria}

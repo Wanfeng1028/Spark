@@ -6,11 +6,19 @@
  * 使用、禁止单独转售组件本体；本文件随 Spark 官网产品使用合规，保留本声明（AGENTS §6.2）。
  * 本仓适配（19.47 排印追加，晚风拍板 hero 背景三选轮换，DESIGN v2.47）：① JSX 改 TS
  * + props 接口；② 容器类改 h-full w-full（原 CSS 不随迁，画布尺寸由 .bg-hero-canvas 统一接管）；
- * ③ saturation 置 0 即纯白星光（hueShift 随之无效），调用方以此保 §12.1 合规。
+ * ③ saturation 置 0 即纯白星光（hueShift 随之无效），调用方以此保 §12.1 合规；
+ * ④ 性能闸（DESIGN v2.48）：绘图缓冲按 resolutionScale 缩放（星光细节比光带吃分辨率，取 0.6），
+ * 绘制走 startAmbientLoop（30fps 上限 + 离屏/后台暂停 + 掉帧降级），reduced-motion 只画一帧。
  */
 
 import { Renderer, Program, Mesh, Color, Triangle } from "ogl";
 import * as React from "react";
+import { useReducedMotion } from "motion/react";
+import { startAmbientLoop } from "@/components/backgrounds/ambient-loop";
+
+/** 数组型缺省值提到模块级：effect 依赖按引用比较，写在内联缺省参数里会让上下文反复重建 */
+const DEFAULT_FOCAL: [number, number] = [0.5, 0.5];
+const DEFAULT_ROTATION: [number, number] = [1.0, 0.0];
 
 const vertexShader = `
 attribute vec2 uv;
@@ -204,11 +212,13 @@ export interface GalaxyProps {
   autoCenterRepulsion?: number;
   transparent?: boolean;
   lightMode?: boolean;
+  /** 绘图缓冲相对 CSS 尺寸的系数（满幅着色器的每帧成本正比于此） */
+  resolutionScale?: number;
 }
 
 export default function Galaxy({
-  focal = [0.5, 0.5],
-  rotation = [1.0, 0.0],
+  focal = DEFAULT_FOCAL,
+  rotation = DEFAULT_ROTATION,
   starSpeed = 0.5,
   density = 1,
   hueShift = 140,
@@ -224,19 +234,24 @@ export default function Galaxy({
   autoCenterRepulsion = 0,
   transparent = true,
   lightMode = false,
+  resolutionScale = 0.6,
 }: GalaxyProps): React.JSX.Element {
   const ctnDom = React.useRef<HTMLDivElement>(null);
   const targetMousePos = React.useRef({ x: 0.5, y: 0.5 });
   const smoothMousePos = React.useRef({ x: 0.5, y: 0.5 });
   const targetMouseActive = React.useRef(0.0);
   const smoothMouseActive = React.useRef(0.0);
+  const reducedMotion = useReducedMotion();
+  const [degraded, setDegraded] = React.useState(false);
 
   React.useEffect(() => {
-    if (!ctnDom.current) return;
+    if (degraded || !ctnDom.current) return;
     const ctn = ctnDom.current;
+    // ogl 缺省按 devicePixelRatio 建缓冲；这里改用分辨率系数接管，与设备像素比脱钩
     const renderer = new Renderer({
       alpha: transparent,
-      premultipliedAlpha: false
+      premultipliedAlpha: false,
+      dpr: resolutionScale
     });
     const gl = renderer.gl;
 
@@ -251,8 +266,7 @@ export default function Galaxy({
     }
 
     function resize() {
-      const scale = 1;
-      renderer.setSize(ctn.offsetWidth * scale, ctn.offsetHeight * scale);
+      renderer.setSize(ctn.offsetWidth, ctn.offsetHeight);
       if (program) {
         program.uniforms.uResolution.value = new Color(
           gl.canvas.width,
@@ -296,10 +310,9 @@ export default function Galaxy({
 
     window.addEventListener('resize', resize, false);
     resize();
-    let animateId = 0;
+    ctn.appendChild(gl.canvas);
 
-    function update(t: number) {
-      animateId = requestAnimationFrame(update);
+    function draw(t: number) {
       if (!disableAnimation) {
         program.uniforms.uTime.value = t * 0.001;
         program.uniforms.uStarSpeed.value = (t * 0.001 * starSpeed) / 10.0;
@@ -317,8 +330,6 @@ export default function Galaxy({
 
       renderer.render({ scene: mesh });
     }
-    animateId = requestAnimationFrame(update);
-    ctn.appendChild(gl.canvas);
 
     function handleMouseMove(e: MouseEvent) {
       const rect = ctn.getBoundingClientRect();
@@ -337,8 +348,16 @@ export default function Galaxy({
       ctn.addEventListener('mouseleave', handleMouseLeave);
     }
 
+    // reduced-motion 与 disableAnimation：静态一帧不建循环；掉帧到位后 startAmbientLoop 会停摆
+    let stop: (() => void) | undefined;
+    if (reducedMotion || disableAnimation) {
+      draw(0);
+    } else {
+      stop = startAmbientLoop({ container: ctn, draw, onDegrade: () => setDegraded(true) });
+    }
+
     return () => {
-      cancelAnimationFrame(animateId);
+      stop?.();
       window.removeEventListener('resize', resize);
       if (mouseInteraction) {
         ctn.removeEventListener('mousemove', handleMouseMove);
@@ -364,7 +383,10 @@ export default function Galaxy({
     repulsionStrength,
     autoCenterRepulsion,
     transparent,
-    lightMode
+    lightMode,
+    resolutionScale,
+    reducedMotion,
+    degraded
   ]);
 
   return <div ref={ctnDom} className="h-full w-full" />;

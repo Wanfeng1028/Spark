@@ -6,11 +6,15 @@
  * 使用、禁止单独转售组件本体；本文件随 Spark 官网产品使用合规，保留本声明（AGENTS §6.2）。
  * 本仓适配（19.47 排印追加，晚风拍板 hero 背景三选轮换，DESIGN v2.47）：① JSX 改 TS
  * + props 接口；② 容器类改 h-full w-full（原 CSS 不随迁，画布尺寸由 .bg-hero-canvas 统一接管）；
- * ③ 调用方以 color1/color2 双灰白传参（默认 color2 品红撞 §12.1 黑名单，不得沿用）。
+ * ③ 调用方以 color1/color2 双灰白传参（默认 color2 品红撞 §12.1 黑名单，不得沿用）；
+ * ④ 性能闸（DESIGN v2.48）：绘图缓冲按 resolutionScale 缩放（缺省 0.5，CSS 侧已强制拉伸铺满），
+ * 绘制走 startAmbientLoop（30fps 上限 + 离屏/后台暂停 + 掉帧降级），reduced-motion 只画一帧。
  */
 
 import { Renderer, Program, Mesh, Triangle } from "ogl";
 import * as React from "react";
+import { useReducedMotion } from "motion/react";
+import { startAmbientLoop } from "@/components/backgrounds/ambient-loop";
 
 
 function hexToVec3(hex: string) {
@@ -197,6 +201,8 @@ export interface SoftAuroraProps {
   lightMode?: boolean;
   /** 消色强度 0-1：按亮度去饱和（默认 1 = 纯白光带，黑白合规） */
   mono?: number;
+  /** 绘图缓冲相对 CSS 尺寸的系数（满幅着色器的每帧成本正比于此） */
+  resolutionScale?: number;
 }
 
 export default function SoftAurora({
@@ -216,13 +222,21 @@ export default function SoftAurora({
   mouseInfluence = 0.25,
   lightMode = false,
   mono = 1,
+  resolutionScale = 0.5,
 }: SoftAuroraProps): React.JSX.Element {
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const reducedMotion = useReducedMotion();
+  const [degraded, setDegraded] = React.useState(false);
 
   React.useEffect(() => {
-    if (!containerRef.current) return;
+    if (degraded || !containerRef.current) return;
     const container = containerRef.current;
-    const renderer = new Renderer({ alpha: true, premultipliedAlpha: false });
+    // ogl 缺省按 devicePixelRatio 建缓冲；这里改用分辨率系数接管，与设备像素比脱钩
+    const renderer = new Renderer({
+      alpha: true,
+      premultipliedAlpha: false,
+      dpr: resolutionScale,
+    });
     const gl = renderer.gl;
     gl.clearColor(0, 0, 0, 0);
 
@@ -285,10 +299,7 @@ export default function SoftAurora({
       gl.canvas.addEventListener('mouseleave', handleMouseLeave);
     }
 
-    let animationFrameId = 0;
-
-    function update(time: number) {
-      animationFrameId = requestAnimationFrame(update);
+    function draw(time: number) {
       program.uniforms.uTime.value = time * 0.001;
 
       if (enableMouseInteraction) {
@@ -303,10 +314,17 @@ export default function SoftAurora({
 
       renderer.render({ scene: mesh });
     }
-    animationFrameId = requestAnimationFrame(update);
+
+    // reduced-motion：静态一帧不建循环；掉帧到位后 startAmbientLoop 会停摆并置 degraded
+    let stop: (() => void) | undefined;
+    if (reducedMotion) {
+      draw(0);
+    } else {
+      stop = startAmbientLoop({ container, draw, onDegrade: () => setDegraded(true) });
+    }
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      stop?.();
       window.removeEventListener('resize', resize);
       if (enableMouseInteraction) {
         gl.canvas.removeEventListener('mousemove', handleMouseMove);
@@ -315,7 +333,7 @@ export default function SoftAurora({
       container.removeChild(gl.canvas);
       gl.getExtension('WEBGL_lose_context')?.loseContext();
     };
-  }, [speed, scale, brightness, color1, color2, noiseFrequency, noiseAmplitude, bandHeight, bandSpread, octaveDecay, layerOffset, colorSpeed, enableMouseInteraction, mouseInfluence, lightMode, mono]);
+  }, [speed, scale, brightness, color1, color2, noiseFrequency, noiseAmplitude, bandHeight, bandSpread, octaveDecay, layerOffset, colorSpeed, enableMouseInteraction, mouseInfluence, lightMode, mono, resolutionScale, reducedMotion, degraded]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }
