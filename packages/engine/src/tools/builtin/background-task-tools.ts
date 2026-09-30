@@ -32,10 +32,13 @@ const TaskStopInput = z.strictObject({
   taskId: TaskIdSchema,
 })
 
+type TaskOutputInput = z.infer<typeof TaskOutputInput>
+type TaskStopInput = z.infer<typeof TaskStopInput>
+
 export function makeTaskTools(
   manager: BackgroundTaskManager,
-): [ToolDefinition<typeof TaskOutputInput>, ToolDefinition<typeof TaskStopInput>] {
-  const taskOutput: ToolDefinition<typeof TaskOutputInput> = {
+): [ToolDefinition<TaskOutputInput>, ToolDefinition<TaskStopInput>] {
+  const taskOutput: ToolDefinition<TaskOutputInput> = {
     name: 'task_output',
     description:
       '读取后台任务（bash runInBackground / 自动转后台）的输出与状态。' +
@@ -107,7 +110,7 @@ export function makeTaskTools(
     },
   }
 
-  const taskStop: ToolDefinition<typeof TaskStopInput> = {
+  const taskStop: ToolDefinition<TaskStopInput> = {
     name: 'task_stop',
     description:
       '终止一个在跑的后台任务（树杀：进程组 SIGTERM → 宽限 → SIGKILL）。' +

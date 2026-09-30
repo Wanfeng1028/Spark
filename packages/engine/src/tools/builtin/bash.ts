@@ -493,7 +493,7 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
         }
 
         child.on('error', (err) => {
-          if (converted && bgManager !== null && bgTaskId !== null) {
+          if (converted && bgManager !== undefined && bgTaskId !== null) {
             void bgManager.complete(bgTaskId, {
               exitCode: null,
               aborted: bgStopped,
@@ -516,7 +516,7 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
               const tail = stdoutDecoder.end() + stderrDecoder.end()
               if (tail !== '') bgPush(bg, tail)
             }
-            if (bgManager !== null && bgTaskId !== null) {
+            if (bgManager !== undefined && bgTaskId !== null) {
               void bgManager.complete(bgTaskId, {
                 exitCode: code,
                 ...(signal !== undefined && signal !== null ? { signal } : {}),
