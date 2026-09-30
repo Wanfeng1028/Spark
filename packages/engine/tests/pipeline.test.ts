@@ -512,8 +512,11 @@ describe('ZC-4：resolveInput 审批一致性', () => {
       inputSchema: z.strictObject({ path: z.string(), old: z.string() }),
       permission: { action: 'fs.write', resourceOf: (input) => `file:${(input as { path: string }).path}` },
       // 归一化：相对 → 绝对（管线在 started/审批/execute 之前调用）
-      resolveInput: (input) => ({ ...input, path: `/abs${(input as { path: string }).path}` }),
-      async execute(ctx, input) {
+      resolveInput: (input: { path: string; old: string }) => ({
+        ...input,
+        path: `/abs${input.path}`,
+      }),
+      async execute(_ctx, input: { path: string }) {
         executedPath = input.path
         return { output: 'ok', isError: false } as const
       },
@@ -543,7 +546,7 @@ describe('ZC-4：resolveInput 审批一致性', () => {
       description: 'passthrough probe',
       inputSchema: z.strictObject({ path: z.string() }),
       permission: { action: 'fs.write', resourceOf: (input) => `file:${(input as { path: string }).path}` },
-      async execute(ctx, input) {
+      async execute(_ctx, input: { path: string }) {
         executedPath = input.path
         return { output: 'ok', isError: false } as const
       },

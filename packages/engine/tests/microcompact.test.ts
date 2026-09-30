@@ -112,6 +112,7 @@ describe('ZC-1：projector 边界重建清理', () => {
     expect(toolResults).toHaveLength(8)
     for (let i = 0; i < 8; i++) {
       const tr = toolResults[i]
+      if (tr === undefined) throw new Error(`toolResult #${i} 缺失`)
       if (i < 3) {
         expect(String(tr.output)).toContain('Old tool result cleared')
       } else {
