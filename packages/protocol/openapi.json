@@ -681,6 +681,99 @@
         ]
       }
     },
+    "/api/sessions/{id}/review": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "审查聚合（19.35）：工作区相对基准快照的多文件 diff（缺省最近一次快照；无快照 = 仅未跟踪新增；checkpoint 未启用 → 404 E_NOT_FOUND）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDto"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "description": "基准 checkpointId（缺省 = 最近一次快照）"
+            }
+          }
+        ]
+      }
+    },
+    "/api/sessions/{id}/permissions/reply-all": {
+      "post": {
+        "tags": [
+          "permissions"
+        ],
+        "summary": "批量结清该会话全部挂起审批（19.35）：once 逐条放行（不固化规则）/ reject 逐条拒绝（feedback 只回喂一条 user.message）；resolved = 实际结清条数",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplyAllResultDto"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reply": {
+                    "type": "string",
+                    "enum": [
+                      "once",
+                      "reject"
+                    ]
+                  },
+                  "feedback": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "reply"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sessions/{id}/attachments": {
       "post": {
         "tags": [
@@ -4959,6 +5052,129 @@
         "required": [
           "embedded",
           "remaining"
+        ],
+        "additionalProperties": false
+      },
+      "ReplyAllResultDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "resolved": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "ok",
+          "resolved"
+        ],
+        "additionalProperties": false
+      },
+      "ReviewDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "pattern": "^ses_[0-9A-Za-z]+$"
+          },
+          "baseCheckpointId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^ckp_[0-9A-Za-z]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "baseTurnId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^trn_[0-9A-Za-z]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "added",
+                    "modified",
+                    "deleted"
+                  ]
+                },
+                "additions": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "deletions": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "binary": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "path",
+                "status",
+                "additions",
+                "deletions",
+                "binary"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "patches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "patch": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "patch"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sessionId",
+          "baseCheckpointId",
+          "baseTurnId",
+          "files",
+          "patches",
+          "truncated"
         ],
         "additionalProperties": false
       },

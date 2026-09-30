@@ -32,7 +32,9 @@ import type {
   PermissionRuleDto,
   PermissionScope,
   ReasoningEffort,
+  ReplyAllResultDto,
   RequestId,
+  ReviewDto,
   RoutingDto,
   RoutingUpdate,
   SessionId,
@@ -2411,6 +2413,34 @@ export class Engine {
       return 'ok'
     }
     return this.settledRequests.has(requestId) ? 'already-resolved' : 'unknown'
+  }
+
+  /**
+   * 审查聚合（19.35）：工作区当前状态相对基准快照的多文件 diff（checkpoint shadow
+   * git 仓只读聚合）。checkpoint 未启用 → E_NOT_FOUND；无快照 = 只聚合未跟踪新增。
+   */
+  async reviewOf(id: SessionId, fromCheckpointId?: CheckpointId): Promise<ReviewDto> {
+    const entry = await this.requireEntry(id)
+    if (entry.checkpointer === null) {
+      throw new Error(
+        'E_NOT_FOUND: checkpoint 未启用（spark.json engine.checkpoints=false）——审查聚合不可用',
+      )
+    }
+    const agg = await entry.checkpointer.review(fromCheckpointId)
+    return { sessionId: id, ...agg }
+  }
+
+  /**
+   * 批量结清该会话全部挂起审批（19.35）：once 逐条放行 / reject 逐条拒绝
+   * （feedback 只回喂一条 user.message）。resolved = 实际结清条数（0 = 无挂起）。
+   */
+  async replyAllPermissions(
+    id: SessionId,
+    reply: 'once' | 'reject',
+    feedback?: string,
+  ): Promise<ReplyAllResultDto> {
+    const resolved = await this.permission.replyAll(id, reply, feedback)
+    return { ok: true, resolved }
   }
 
   private runSubagent(input: TaskInput, ctx: ToolContext): Promise<ToolOutput> {

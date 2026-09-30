@@ -6,7 +6,7 @@
  */
 import type { SparkEventEnvelope } from './events.js'
 import type { Delivery, PermissionReply, PermissionScope, ReasoningEffort } from './primitives.js'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, LinkPreviewDto, SkillDto, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, ReplyAllResultDto, ReviewDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, LinkPreviewDto, SkillDto, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
 export interface SendMessageOptions {
@@ -66,6 +66,22 @@ export interface Transport {
   listCheckpoints(sessionId: SessionId): Promise<CheckpointDto[]>
   /** POST /api/sessions/:id/checkpoints/:cid/rollback：工作区+会话文件复位到快照（回滚后 seq 回退，调用方须全量重放） */
   rollbackCheckpoint(sessionId: SessionId, checkpointId: CheckpointId): Promise<SessionDto>
+  /**
+   * GET /api/sessions/:id/review?from=：审查聚合（19.35）——工作区当前状态相对基准
+   * 快照（缺省 = 最近一次快照；无快照 = 只聚合未跟踪新增）的多文件 diff。
+   * checkpoint 未启用 → E_NOT_FOUND（404）。
+   */
+  getSessionReview(sessionId: SessionId, fromCheckpointId?: CheckpointId): Promise<ReviewDto>
+  /**
+   * POST /api/sessions/:id/permissions/reply-all：批量结清该会话全部挂起审批（19.35）。
+   * once = 逐条放行一次（不固化规则）；reject = 逐条拒绝（feedback 只回喂一条
+   * user.message）。返回实际结清条数（0 = 无挂起，不是错误）。
+   */
+  replyAllPermissions(
+    sessionId: SessionId,
+    reply: 'once' | 'reject',
+    feedback?: string,
+  ): Promise<ReplyAllResultDto>
   /** GET /api/permissions/rules：用户级权限规则列表（工单 4.7 规则管理数据源） */
   listPermissionRules(): Promise<PermissionRuleDto[]>
   /** POST /api/permissions/rules：新增/覆盖一条规则（action+resource 精确匹配去重） */

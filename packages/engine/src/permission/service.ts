@@ -314,6 +314,34 @@ export class PermissionServiceImpl implements PermissionService {
     return true
   }
 
+  /**
+   * 批量结清该会话全部挂起审批（19.35 审查模式）。
+   * once = 逐条放行一次（**不固化任何规则**——批量语义下各请求 targets 不同，
+   * "总是允许"没有可辩护的批量含义，UI 也不出这个按钮）；reject = 逐条拒绝，
+   * feedback 只回喂**一条** user.message（对照单条 reject 的逐请求回喂——批量
+   * 语境下 N 条重复 feedback 是噪声）。
+   * 返回实际结清条数（并发超时/中断抢先结清的条目不计入——settle 幂等返回 false）。
+   */
+  async replyAll(
+    sessionId: SessionId,
+    reply: 'once' | 'reject',
+    feedback?: string,
+  ): Promise<number> {
+    const targets = [...this.pending.values()].filter((e) => e.sessionId === sessionId)
+    let resolved = 0
+    for (const entry of targets) {
+      if (reply === 'once') {
+        if (await this.settle(entry, true, 'once', 'reply-all')) resolved += 1
+      } else {
+        if (await this.settle(entry, false, 'reject', 'reply-all', feedback)) resolved += 1
+      }
+    }
+    if (reply === 'reject' && feedback !== undefined && feedback !== '' && resolved > 0) {
+      await this.deps.bus.emit(sessionId, 'user.message', { text: feedback })
+    }
+    return resolved
+  }
+
   /** 引擎 shutdown 收尾：pending 非空 → 全部 resolve(deny)（§5.7 补强 7） */
   async dispose(): Promise<void> {
     for (const entry of [...this.pending.values()]) {
@@ -350,10 +378,10 @@ export class PermissionServiceImpl implements PermissionService {
     entry: PendingEntry,
     allowed: boolean,
     reply: PermissionReply,
-    origin: 'reply' | 'timeout' | 'abort' | 'shutdown' | 'cascade' | 'mode-change',
+    origin: 'reply' | 'reply-all' | 'timeout' | 'abort' | 'shutdown' | 'cascade' | 'mode-change',
     feedback?: string,
-  ): Promise<void> {
-    if (entry.settled) return
+  ): Promise<boolean> {
+    if (entry.settled) return false
     entry.settled = true
     clearTimeout(entry.timer)
     entry.check.signal.removeEventListener('abort', entry.onAbort)
@@ -367,12 +395,14 @@ export class PermissionServiceImpl implements PermissionService {
       })
       effective = allowed
       this.deps.metrics?.inc('spark_permission_decisions', { reply }) // 工单 4.8：once/always/reject 计数
-      // 审计（7.12）：用户答复 = 主体 user；超时/中断/级联/收尾 = system 自动
+      // 审计（7.12）：用户答复（单条 reply / 批量 reply-all）= 主体 user；
+      // 超时/中断/级联/收尾 = system 自动
+      const byUser = origin === 'reply' || origin === 'reply-all'
       this.recordDecision(
         entry.check,
         allowed,
-        origin === 'reply' ? 'user' : 'system',
-        origin === 'reply' ? `reply:${reply}` : origin,
+        byUser ? 'user' : 'system',
+        byUser ? `${origin}:${reply}` : origin,
       )
       this.deps.onResolved?.({
         sessionId: entry.sessionId,
@@ -383,6 +413,7 @@ export class PermissionServiceImpl implements PermissionService {
     } finally {
       entry.resolve(effective)
     }
+    return true
   }
 
   /**

@@ -33,6 +33,8 @@ const COMPONENTS: Record<string, z.ZodType> = {
   SessionMetaDto: api.SessionMetaDtoSchema,
   TreeNodeDto: api.TreeNodeDtoSchema,
   CheckpointDto: api.CheckpointDtoSchema,
+  ReviewDto: api.ReviewDtoSchema,
+  ReplyAllResultDto: api.ReplyAllResultDtoSchema,
   PermissionRuleDto: api.PermissionRuleDtoSchema,
   SecretStatusDto: api.SecretStatusDtoSchema,
   PermissionPreset: api.PermissionPresetSchema,

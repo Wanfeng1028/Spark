@@ -122,6 +122,49 @@ export const CheckpointDtoSchema = z.strictObject({
 })
 export type CheckpointDto = z.infer<typeof CheckpointDtoSchema>
 
+// ---------- review（审查模式 / 阶段十九工单 19.35：多文件 diff 聚合 + 批量放行） ----------
+
+/** 审查文件条目：相对 cwd 路径 + 变更类型与行数统计（binary 文件不产出 patch 条目） */
+export const ReviewFileDtoSchema = z.strictObject({
+  path: z.string(),
+  status: z.enum(['added', 'modified', 'deleted']),
+  additions: z.number().int().nonnegative(),
+  deletions: z.number().int().nonnegative(),
+  binary: z.boolean(),
+})
+export type ReviewFileDto = z.infer<typeof ReviewFileDtoSchema>
+
+/** 单文件 unified diff 文本（已 trim 尾部换行；binary 不产出条目） */
+export const ReviewPatchDtoSchema = z.strictObject({
+  path: z.string(),
+  patch: z.string(),
+})
+export type ReviewPatchDto = z.infer<typeof ReviewPatchDtoSchema>
+
+/**
+ * GET /api/sessions/:id/review 响应：工作区当前状态相对基准快照的多文件 diff 聚合
+ * （checkpoint shadow git 仓只读聚合；未跟踪新增经 ls-files --others 尊重 .gitignore；
+ * 会话文件别名不属工作区内容，聚合时过滤）。
+ */
+export const ReviewDtoSchema = z.strictObject({
+  sessionId: SessionIdSchema,
+  /** diff 基准快照（null = 无快照可依——只聚合未跟踪新增；checkpoint 关闭时端点 404，不出此形） */
+  baseCheckpointId: CheckpointIdSchema.nullable(),
+  baseTurnId: TurnIdSchema.nullable(),
+  files: z.array(ReviewFileDtoSchema),
+  patches: z.array(ReviewPatchDtoSchema),
+  /** 聚合 patch 超总预算被截断（如实标注；文件清单与行数统计始终完整） */
+  truncated: z.boolean(),
+})
+export type ReviewDto = z.infer<typeof ReviewDtoSchema>
+
+/** POST /api/sessions/:id/permissions/reply-all 响应：批量结清回执（resolved = 实际结清条数） */
+export const ReplyAllResultDtoSchema = z.strictObject({
+  ok: z.literal(true),
+  resolved: z.number().int().nonnegative(),
+})
+export type ReplyAllResultDto = z.infer<typeof ReplyAllResultDtoSchema>
+
 // ---------- permission rules（doc/02 §5.7 规则表 / 阶段四工单 4.7） ----------
 
 /** 权限规则（用户级 permissions.json 行；规则管理 UI 的线上形状） */

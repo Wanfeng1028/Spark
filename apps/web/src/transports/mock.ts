@@ -10,7 +10,7 @@
  */
 import { MCP_ENV_MASK, SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED, TRANSCRIBE_ALLOWED_MIME, TRANSCRIBE_MAX_AUDIO_BYTES, base64ByteLength, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, Delivery, SendMessageOptions, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, RequestId, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, LinkPreviewDto, SparkEventEnvelope, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, Delivery, SendMessageOptions, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, ReplyAllResultDto, RequestId, ReviewDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, LinkPreviewDto, SparkEventEnvelope, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
 import rawReject from '../../../../examples/mock-sessions/reject.jsonl?raw'
@@ -2172,21 +2172,83 @@ export class MockTransport implements Transport {
     if (sessionId !== this.script.sessionId) {
       return Promise.resolve([]) // fork 子会话为内存态（未走 run-loop），无快照
     }
+    return Promise.resolve(this.derivedCheckpoints())
+  }
+
+  /**
+   * 审查聚合（19.35）：mock 无真实工作区，如实返回空聚合（不造假 diff）；
+   * 真实文件变更走 HttpTransport。from 参数按派生快照表校验（与 listCheckpoints 同源）。
+   */
+  getSessionReview(sessionId: SessionId, fromCheckpointId?: CheckpointId): Promise<ReviewDto> {
+    this.assertNotDisposed()
+    if (
+      fromCheckpointId !== undefined &&
+      !this.derivedCheckpoints().some((c) => c.checkpointId === fromCheckpointId)
+    ) {
+      return Promise.reject(new Error(`E_NOT_FOUND: checkpoint ${fromCheckpointId} 不存在`))
+    }
+    return Promise.resolve({
+      sessionId,
+      baseCheckpointId: null,
+      baseTurnId: null,
+      files: [],
+      patches: [],
+      truncated: false,
+    })
+  }
+
+  /**
+   * 批量结清（19.35）：与 replyPermission 同一脚本覆写机制——把挂起中脚本预置的
+   * permission.resolved 改写为本次选择后放行。mock 单场景至多一个挂起审批，
+   * resolved ∈ {0, 1}；无挂起时告警并如实回 0（不造假结清）。
+   */
+  replyAllPermissions(
+    sessionId: SessionId,
+    reply: 'once' | 'reject',
+    feedback?: string,
+  ): Promise<ReplyAllResultDto> {
+    this.assertNotDisposed()
+    if (sessionId !== this.script.sessionId) {
+      return Promise.resolve({ ok: true, resolved: 0 }) // fork 子会话内存态，无审批挂起
+    }
+    if (this.suspended !== 'approval' || this.lastAsked === null) {
+      console.warn('[mock] replyAllPermissions 在无审批挂起时被调用——resolved=0')
+      return Promise.resolve({ ok: true, resolved: 0 })
+    }
+    const requestId = this.lastAsked.data.requestId
+    const next = this.script.lines
+      .slice(this.cursor)
+      .find(
+        (l): l is { kind: 'event'; envelope: SparkEventEnvelope<'permission.resolved'> } =>
+          l.kind === 'event' && l.envelope.type === 'permission.resolved',
+      )
+    if (next) {
+      next.envelope.data = {
+        requestId,
+        reply,
+        ...(reply === 'reject' && feedback !== undefined ? { feedback } : {}),
+      }
+    }
+    this.suspended = null
+    this.advance()
+    return Promise.resolve({ ok: true, resolved: 1 })
+  }
+
+  /** 已回放 turn.completed 边界派生的快照表（listCheckpoints / 审查 from 校验同源） */
+  private derivedCheckpoints(): CheckpointDto[] {
     let n = 0
-    return Promise.resolve(
-      this.emitted.flatMap((e) => {
-        if (e.type !== 'turn.completed') return []
-        n += 1
-        return [
-          {
-            checkpointId: ids.checkpoint(`ckp_mock_${n}`),
-            turnId: (e.data as { turnId: TurnId }).turnId,
-            createdAt: e.time,
-            files: ['.spark-checkpoint/session.jsonl'], // 引擎 SESSION_ALIAS（会话文件域）
-          },
-        ]
-      }),
-    )
+    return this.emitted.flatMap((e) => {
+      if (e.type !== 'turn.completed') return []
+      n += 1
+      return [
+        {
+          checkpointId: ids.checkpoint(`ckp_mock_${n}`),
+          turnId: (e.data as { turnId: TurnId }).turnId,
+          createdAt: e.time,
+          files: ['.spark-checkpoint/session.jsonl'], // 引擎 SESSION_ALIAS（会话文件域）
+        },
+      ]
+    })
   }
 
   /** 工单 4.6 回滚：截断已回放事件到快照边界（内存态；引擎为 reset --hard + 覆写两域） */

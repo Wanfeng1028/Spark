@@ -198,6 +198,32 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     response: ref('SessionMetaDto'),
   },
   {
+    method: 'get',
+    path: '/api/sessions/{id}/review',
+    summary:
+      '审查聚合（19.35）：工作区相对基准快照的多文件 diff（缺省最近一次快照；无快照 = 仅未跟踪新增；checkpoint 未启用 → 404 E_NOT_FOUND）',
+    tag: 'sessions',
+    query: {
+      from: { type: 'string', description: '基准 checkpointId（缺省 = 最近一次快照）' },
+    },
+    response: ref('ReviewDto'),
+  },
+  {
+    method: 'post',
+    path: '/api/sessions/{id}/permissions/reply-all',
+    summary:
+      '批量结清该会话全部挂起审批（19.35）：once 逐条放行（不固化规则）/ reject 逐条拒绝（feedback 只回喂一条 user.message）；resolved = 实际结清条数',
+    tag: 'permissions',
+    body: obj(
+      {
+        reply: { type: 'string', enum: ['once', 'reject'] },
+        feedback: { type: 'string' },
+      },
+      ['reply'],
+    ),
+    response: ref('ReplyAllResultDto'),
+  },
+  {
     method: 'post',
     path: '/api/sessions/{id}/attachments',
     summary: '上传图片附件（≤10MB，png/jpeg/gif/webp 白名单；落 ~/.spark/attachments）',

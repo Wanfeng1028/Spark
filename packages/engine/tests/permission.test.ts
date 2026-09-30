@@ -815,3 +815,56 @@ describe('AUD-01：resolved 落盘失败时 fail-closed（不向工具侧放行�
     await expect(promise).resolves.toBe(true)
   })
 })
+
+// ---- replyAll 批量结清（19.35 审查模式） ----
+
+describe('replyAll 批量结清（19.35）', () => {
+  test('once：同会话两条挂起逐条放行（不固化规则），返回实数 2', async () => {
+    const { sink, service, store } = makeService()
+    const a = await pendAsk(service, sink, makeCheck().check)
+    const b = await pendAsk(service, sink, makeCheck().check)
+    const resolved = await service.replyAll(SID, 'once')
+    expect(resolved).toBe(2)
+    await expect(a.promise).resolves.toBe(true)
+    await expect(b.promise).resolves.toBe(true)
+    const replies = sink.events
+      .filter((e): e is SparkEventEnvelope<'permission.resolved'> => isEvent(e, 'permission.resolved'))
+      .map((e) => e.data.reply)
+    expect(replies).toEqual(['once', 'once'])
+    // once 不落任何规则（对照单条 always 的固化语义；规则不进事件流，查内存仓）
+    expect(store.list()).toHaveLength(0)
+  })
+
+  test('reject：逐条拒绝 + feedback 只回喂一条 user.message', async () => {
+    const { sink, service } = makeService()
+    const a = await pendAsk(service, sink, makeCheck().check)
+    const b = await pendAsk(service, sink, makeCheck().check)
+    const resolved = await service.replyAll(SID, 'reject', '这个方案不要')
+    expect(resolved).toBe(2)
+    await expect(a.promise).resolves.toBe(false)
+    await expect(b.promise).resolves.toBe(false)
+    const userMsgs = sink.events.filter((e): e is SparkEventEnvelope<'user.message'> => isEvent(e, 'user.message'))
+    expect(userMsgs).toHaveLength(1)
+    expect(userMsgs[0]?.data.text).toBe('这个方案不要')
+  })
+
+  test('无挂起 → resolved 0；他会话挂起不受影响', async () => {
+    const { sink, service } = makeService()
+    expect(await service.replyAll(SID, 'once')).toBe(0)
+    const other = await pendAsk(service, sink, makeCheck({ sessionId: SID2 }).check)
+    const mine = await pendAsk(service, sink, makeCheck().check)
+    expect(await service.replyAll(SID, 'reject')).toBe(1)
+    await expect(mine.promise).resolves.toBe(false)
+    // SID2 的挂起原样保留（promise 未决），随后可被单独 reply
+    await service.reply(other.requestId, 'once')
+    await expect(other.promise).resolves.toBe(true)
+  })
+
+  test('重复调用幂等：首调用结清后再次 replyAll → resolved 0', async () => {
+    const { sink, service } = makeService()
+    const a = await pendAsk(service, sink, makeCheck().check)
+    expect(await service.replyAll(SID, 'once')).toBe(1)
+    await expect(a.promise).resolves.toBe(true)
+    expect(await service.replyAll(SID, 'once')).toBe(0)
+  })
+})

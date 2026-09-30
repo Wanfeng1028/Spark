@@ -16,7 +16,7 @@ import { execFile } from 'node:child_process'
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import type { CheckpointId, SessionId, TurnId } from '@spark/protocol'
+import type { CheckpointId, ReviewDto, ReviewFileDto, ReviewPatchDto, SessionId, TurnId } from '@spark/protocol'
 import type { EventBus } from './bus.js'
 import type { SparkLogger } from './logger.js'
 import { errText } from './errs.js'
@@ -170,6 +170,130 @@ export class GitCheckpointer {
     }
   }
 
+  /**
+   * 审查聚合（19.35）：工作区当前状态相对基准快照的多文件 diff。只读——不写索引
+   * （与 snapshot 的 add/commit 序列并发安全：各 git 命令本就经 index.lock 串行，
+   * review 全程无写语义，至多 diff 顺带刷新 stat 缓存）。
+   * 基准：fromCheckpointId 指定（不存在 → E_NOT_FOUND）或最近一次快照；无任何快照
+   * 时 tracked 集必为空（snapshot 总是即席 commit），只聚合未跟踪新增。
+   * 未跟踪新增走 ls-files --others --exclude-standard（尊重 .gitignore），patch 手工
+   * 合成——`git diff --no-index` 的空设备名跨平台不可靠；二进制判据沿 git（前 8KB 含 NUL）。
+   * 会话文件别名（SESSION_ALIAS）是快照记账不是工作区内容，tracked/untracked 两侧都过滤
+   * （回滚后别名残留于索引时，diff 会把它显示为删除——不是用户可见的变更）。
+   * 限制（登记）：numstat 文本解析不支持路径含 \t 或 \n 的文件（git -z 流可解，本单不引入）。
+   */
+  async review(fromCheckpointId?: CheckpointId): Promise<Omit<ReviewDto, 'sessionId'>> {
+    await this.ensure() // 从未快照过的会话还没有仓（ensure 幂等）；ls-files/diff 均需要
+    const records = await this.list()
+    let base: CheckpointRecord | undefined
+    if (fromCheckpointId !== undefined) {
+      base = records.find((r) => r.checkpointId === fromCheckpointId)
+      if (base === undefined) {
+        throw new Error(`E_NOT_FOUND: checkpoint ${fromCheckpointId} 不存在`)
+      }
+    } else {
+      base = records.at(-1)
+    }
+    const files: ReviewFileDto[] = []
+    const patches: ReviewPatchDto[] = []
+    let truncated = false
+    let budget = REVIEW_PATCH_BUDGET
+    if (base !== undefined) {
+      // quotePath 关掉：非 ASCII 路径以原样字节输出，免 C 风格转义解析
+      const statusOf = new Map<string, 'added' | 'modified' | 'deleted'>()
+      for (const line of splitLines(
+        await this.git(['-c', 'core.quotePath=false', 'diff', '--name-status', '--no-renames', base.commit]),
+      )) {
+        const tab = line.indexOf('\t')
+        if (tab <= 0) continue
+        const letter = line.slice(0, tab)
+        const path = line.slice(tab + 1)
+        if (path === SESSION_ALIAS) continue
+        const status = letter === 'A' ? 'added' : letter === 'D' ? 'deleted' : 'modified'
+        statusOf.set(path, status)
+      }
+      const numstat = new Map<string, { additions: number; deletions: number; binary: boolean }>()
+      for (const line of splitLines(
+        await this.git(['-c', 'core.quotePath=false', 'diff', '--numstat', '--no-renames', base.commit]),
+      )) {
+        // 形如 "12\t3\tpath"（二进制为 "-\t-\tpath"；路径不含 \t 时成立，见头注限制）
+        const parts = line.split('\t')
+        if (parts.length < 3) continue
+        const path = parts.slice(2).join('\t')
+        if (path === SESSION_ALIAS) continue
+        const [add, del] = parts
+        numstat.set(path, {
+          additions: add === '-' ? 0 : Number.parseInt(add ?? '0', 10),
+          deletions: del === '-' ? 0 : Number.parseInt(del ?? '0', 10),
+          binary: add === '-' || del === '-',
+        })
+      }
+      for (const [path, status] of statusOf) {
+        const num = numstat.get(path) ?? { additions: 0, deletions: 0, binary: false }
+        files.push({ path, status, additions: num.additions, deletions: num.deletions, binary: num.binary })
+      }
+      // tracked 文件 patch：单文件 diff（维持 worktree 当前态，与上方统计同源）
+      for (const file of files) {
+        if (file.binary) continue
+        const raw = await this.git([
+          '-c',
+          'core.quotePath=false',
+          'diff',
+          '--no-renames',
+          base.commit,
+          '--',
+          file.path,
+        ])
+        const patch = raw.replace(/\n$/, '')
+        if (patch === '') continue
+        if (patch.length > budget) {
+          truncated = true
+          continue
+        }
+        patches.push({ path: file.path, patch })
+        budget -= patch.length
+      }
+    }
+    // 未跟踪新增（快照之间 agent 新建的文件；add -A 只发生在 snapshot 内）
+    for (const rel of splitLines(
+      await this.git(['-c', 'core.quotePath=false', 'ls-files', '--others', '--exclude-standard']),
+    )) {
+      if (rel === SESSION_ALIAS) continue
+      let bytes: Buffer
+      try {
+        bytes = await readFile(join(this.deps.cwd, rel))
+      } catch (err) {
+        // ls-files 与读取之间文件被删（turn 进行中的工作区搅动是常态）：该文件按
+        // 当前实况不存在，跳过——下次审查自然不再列出；非 ENOENT 的失败照常上抛
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue
+        throw err
+      }
+      const binary = bytes.subarray(0, 8000).includes(0)
+      const text = bytes.toString('utf8')
+      const lines = countLines(text)
+      files.push({ path: rel, status: 'added', additions: lines, deletions: 0, binary })
+      if (binary || budget <= 0) {
+        if (!binary) truncated = true
+        continue
+      }
+      const patch = synthAddedPatch(rel, text)
+      if (patch.length > budget) {
+        truncated = true
+        continue
+      }
+      patches.push({ path: rel, patch })
+      budget -= patch.length
+    }
+    files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+    return {
+      baseCheckpointId: base?.checkpointId ?? null,
+      baseTurnId: base?.turnId ?? null,
+      files,
+      patches,
+      truncated,
+    }
+  }
+
   // ---- 内部 ----
 
   /** 建仓（幂等：git init 对已存在仓库是 reinit）+ exclude 工作区 .git 目录 */
@@ -230,4 +354,40 @@ export class GitCheckpointer {
     // AUD-03：快照索引原子写（序列化形状与旧直写逐字节一致）
     atomicWriteFile(this.indexPath, JSON.stringify(records, null, 2))
   }
+}
+
+/** 审查聚合 patch 总预算（字节；超出即 truncated=true，剩余文件只给统计不给 patch） */
+export const REVIEW_PATCH_BUDGET = 256 * 1024
+
+/** git 文本输出按行切分（过滤空尾行） */
+function splitLines(out: string): string[] {
+  return out.split('\n').filter((l) => l !== '')
+}
+
+/** 行数统计（与 git numstat 同口径：末行无换行符也计一行；空文件 0 行） */
+function countLines(text: string): number {
+  if (text === '') return 0
+  const withoutTrailing = text.endsWith('\n') ? text.slice(0, -1) : text
+  if (withoutTrailing === '') return 0
+  return withoutTrailing.split('\n').length
+}
+
+/**
+ * 未跟踪新增文件的 patch 合成（unified diff 形状与 git diff --no-index 对齐：
+ * 单 hunk 全 `+` 行；末行无换行符带 No newline 标记；空文件只有头没有 hunk）。
+ */
+function synthAddedPatch(path: string, text: string): string {
+  const n = countLines(text)
+  const head = [
+    `diff --git a/${path} b/${path}`,
+    'new file mode 100644',
+    'index 0000000..0000000',
+    '--- /dev/null',
+    `+++ b/${path}`,
+  ]
+  if (n === 0) return head.join('\n')
+  const withoutTrailing = text.endsWith('\n') ? text.slice(0, -1) : text
+  const body = withoutTrailing.split('\n').map((l) => `+${l}`)
+  if (!text.endsWith('\n')) body.push('\\ No newline at end of file')
+  return [...head, `@@ -0,0 +1,${n} @@`, ...body].join('\n')
 }

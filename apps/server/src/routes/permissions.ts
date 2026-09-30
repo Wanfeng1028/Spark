@@ -9,6 +9,7 @@ import {
   requireHandle,
   IdParams,
   ReplyBody,
+  ReplyAllBody,
   RequestIdParams,
   RemoveRuleBody,
   PresetBody,
@@ -29,6 +30,14 @@ export const registerPermissionRoutes: FastifyPluginCallback<RoutesOptions> = (a
       return sendError(req, reply, replyOutcomeError(outcome))
     }
     return reply.send({ ok: true })
+  })
+
+  // 批量结清（19.35 审查模式）：该会话全部挂起审批逐条放行/拒绝（feedback 只回喂一条）
+  app.post('/api/sessions/:id/permissions/reply-all', async (req, reply) => {
+    const { id } = parseOr400(IdParams, req.params)
+    const body = parseOr400(ReplyAllBody, req.body)
+    await requireHandle(engine, id) // 未知会话 404 而非 resolved:0（存在性与其他 :id 端点同纪律）
+    return reply.send(await engine.replyAllPermissions(id, body.reply, body.feedback))
   })
 
   // 权限规则管理（§5.7 规则表 / 工单 4.7）：用户级 permissions.json 的线上 CRUD

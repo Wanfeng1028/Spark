@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { useNavigate } from 'react-router'
-import { Activity, FolderGit2, GitBranch, History, MessagesSquare, X } from 'lucide-react'
+import { Activity, FileDiff, FolderGit2, GitBranch, History, MessagesSquare, X } from 'lucide-react'
 import { ids } from '@spark/protocol'
 import type { PermissionPreset, ReasoningEffort, SessionId } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
@@ -31,8 +31,10 @@ import { ErrorBanner } from '@/features/chat/ErrorBanner'
 import { SessionTreeDialog } from '@/features/chat/SessionTreeDialog'
 import { TraceDialog } from '@/features/chat/TraceDialog'
 import { CheckpointDialog } from '@/features/chat/CheckpointDialog'
+import { ReviewDialog } from '@/features/chat/ReviewDialog'
 import { projectOf } from '@/components/layout/Sidebar'
 import { hasCachedProjection, useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
+import type { UiItem } from '@/stores/session'
 import { useConnectionStore } from '@/stores/connection'
 import { useModelsStore } from '@/stores/models-store'
 import { useCommands } from '@/hooks/useCommands'
@@ -100,6 +102,18 @@ export function SessionSurface({
   const [traceOpen, setTraceOpen] = useState(false)
   // 检查点浮层（工单 4.6）：快照列表 + 回滚入口；turn 进行中回滚按钮禁用
   const [ckptOpen, setCkptOpen] = useState(false)
+  // 审查浮层（工单 19.35）：多文件 diff 聚合 + 批量放行
+  const [reviewOpen, setReviewOpen] = useState(false)
+  // 挂起审批清单（19.35）：审查浮层批量动作的计数源；真源是事件流——批量结清后
+  // 各 ApprovalCard 经 permission.resolved 自行翻牌，此处不做乐观更新
+  const pendingApprovals = useMemo(
+    () =>
+      items.filter(
+        (i): i is Extract<UiItem, { kind: 'approval' }> =>
+          i.kind === 'approval' && i.status === 'pending',
+      ),
+    [items],
+  )
 
   // 一次性信号消费（19.21）：dialogRequest 非空 → 开对应对话框并清信号；
   // effortCycleSeq 变化 → 按 low→medium→high→null(provider 缺省) 循环
@@ -304,6 +318,16 @@ export function SessionSurface({
           >
             <History className="size-4" />
           </button>
+          {/* 审查入口（工单 19.35）：diff 聚合 + 批量放行（浮层内） */}
+          <button
+            type="button"
+            aria-label="审查"
+            title="审查（多文件差异 + 批量放行）"
+            onClick={() => setReviewOpen(true)}
+            className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            <FileDiff className="size-4" />
+          </button>
           {!isPage && onSwitchSession !== undefined && (
             <button
               type="button"
@@ -418,6 +442,12 @@ export function SessionSurface({
             <SessionTreeDialog open={treeOpen} onOpenChange={setTreeOpen} sid={sid} busy={busy} />
             <TraceDialog open={traceOpen} onOpenChange={setTraceOpen} sid={sid} />
             <CheckpointDialog open={ckptOpen} onOpenChange={setCkptOpen} sid={sid} busy={busy} />
+            <ReviewDialog
+              open={reviewOpen}
+              onOpenChange={setReviewOpen}
+              sid={sid}
+              pending={pendingApprovals}
+            />
             <ErrorToast sid={sid} replaying={replaying} />
           </div>
         </div>

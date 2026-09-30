@@ -18,7 +18,7 @@ import { parseEnvelope } from './schema.js'
 import { SessionStreamCore } from './session-stream-core.js'
 import type { StreamConnectionStatus, StreamCoreContext } from './session-stream-core.js'
 import type { SparkEventEnvelope } from './events.js'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, LinkPreviewDto, SkillDto, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, ReplyAllResultDto, ReviewDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, LinkPreviewDto, SkillDto, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
 import type { PermissionReply, PermissionScope, ReasoningEffort } from './primitives.js'
 import type { SendMessageOptions, SubmitOutcome, Transport } from './transport.js'
@@ -364,6 +364,28 @@ export class HttpTransport implements Transport {
   rollbackCheckpoint(sessionId: SessionId, checkpointId: CheckpointId): Promise<SessionDto> {
     return this.req<SessionDto>(`/api/sessions/${sessionId}/checkpoints/${checkpointId}/rollback`, {
       method: 'POST',
+    })
+  }
+
+  /** GET /api/sessions/:id/review?from=：审查聚合（19.35） */
+  getSessionReview(sessionId: SessionId, fromCheckpointId?: CheckpointId): Promise<ReviewDto> {
+    const qs =
+      fromCheckpointId === undefined ? '' : `?from=${encodeURIComponent(fromCheckpointId)}`
+    return this.req<ReviewDto>(`/api/sessions/${sessionId}/review${qs}`)
+  }
+
+  /** POST /api/sessions/:id/permissions/reply-all：批量结清挂起审批（19.35） */
+  replyAllPermissions(
+    sessionId: SessionId,
+    reply: 'once' | 'reject',
+    feedback?: string,
+  ): Promise<ReplyAllResultDto> {
+    return this.req<ReplyAllResultDto>(`/api/sessions/${sessionId}/permissions/reply-all`, {
+      method: 'POST',
+      body: JSON.stringify({
+        reply,
+        ...(feedback !== undefined ? { feedback } : {}),
+      }),
     })
   }
 

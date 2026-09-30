@@ -12,7 +12,7 @@ import type { CheckpointDto } from '@spark/protocol'
 import { RenameSessionSchema } from '@spark/protocol'
 import type { RoutesOptions } from './shared.js'
 import { notFound, parseOr400, validationError } from '../errors.js'
-import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, FsQuerySchema, FsTreeQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, PinBody, DeleteSessionBody, AttachmentFileParams, ArenaWinnerBody, ArenaHistoryQuery } from './shared.js'
+import { toDto, requireHandle, IdParams, CreateSessionBody, ListSessionsQuery, SessionDetailQuery, SendMessageBody, ForkBody, RollbackParams, ReviewQuery, FsQuerySchema, FsTreeQuerySchema, FS_LIST_LIMIT, treeToDto, ArchiveBody, PinBody, DeleteSessionBody, AttachmentFileParams, ArenaWinnerBody, ArenaHistoryQuery } from './shared.js'
 
 export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app, opts) => {
   const { engine } = opts
@@ -228,6 +228,13 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
     // 回滚后 seq 回退：响应只回 meta，前端走 GET /:id 全量重放（§4.5 表注）
     const handle = await engine.rollbackToCheckpoint(id, cid)
     return reply.send(toDto(engine, handle.meta))
+  })
+
+  // 审查聚合（19.35）：工作区相对基准快照的多文件 diff（只读；checkpoint 未启用 → 404 E_NOT_FOUND）
+  app.get('/api/sessions/:id/review', async (req, reply) => {
+    const { id } = parseOr400(IdParams, req.params)
+    const { from } = parseOr400(ReviewQuery, req.query)
+    return reply.send(await engine.reviewOf(id, from))
   })
 
   // ---- 图片附件（工单 12.2a：上传 → attachments/ 平铺存储 → GET 取图） ----

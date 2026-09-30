@@ -66,6 +66,7 @@
 | v1.64 | 2026-09-20 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D53 默认模型/档位单写者 = models.json 经 PUT /api/routing（阶段十九 19.14，消解 V2-37；doc/02 v4.81 同批）**：RoutingUpdate/RoutingDto 增 defaultModel/defaultEffort，经既有 persistRouting 原子写 models.json（消双写者）；createSession 读 routing 状态（显式>预设档>子代理档>默认，热改生效）；同批 server.port/host 与 engine 四控件补批 + RestartBadge 读 restartRequired 数组。本机零验证，CI 裁决 |
 | v1.65 | 2026-09-21 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D54 数据目录 = SPARK_HOME 单源 + 搬迁不删源（阶段十九 19.16；doc/02 v4.83 同批）**：home.ts 单源解析（引擎 root/loadConfig/CLI 共用）+ migrate 模块（只读规划+复制校验+源改名备份，失败闭合）+ CLI spark migrate + SettingsDto.home 只读回显。本机零验证，CI 裁决 |
 | v1.67 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"集成到我们的项目里面吧"指令） | **新增 D55 文件工具 read-state 新鲜度守卫（ZC 参考工单批次 ZC-5；doc/02 v4.150 同批）**：read-before-write + 内容/stat 双通道 stale 判定 + 每会话基线 Map 挂 ToolPipelineImpl 经 ToolContext.readFileState 注入；E_NOT_READ/E_STALE 两错误码；不做写盘端口级 CAS（微秒级竞态登记为已知限制）。本机零验证，CI 裁决 |
+| v1.68 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续做工单"指令） | **新增 D56 审查模式语义（19.35 / V2-08；doc/02 v4.170 同批）**：diff 聚合 = checkpoint shadow git 只读复用（基准/别名过滤/truncated 如实）+ 批量放行 = 会话域逐条结清（once 不固化、'always' 不可批量）+ review 端点 checkpoint 关闭 404 同 rollback 判；web ReviewDialog 双栏落地，其余端批 2。与 doc/02 v4.170、doc/08 v2.13 同批 |
 | v1.66 | 2026-09-25 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"已经完成的工单有问题的要修复"指令）；依据：doc/11 §4.1 P0 | **D48 补安全前提 + D40 收紧面扩容注记（doc/11 LA-01/02/03 收口；doc/02 v4.122 同批）**：项目层按会话 cwd 惰性建层 + 未信任整层停用 + 家目录撞路径不设层 + 固化/级联按会话项目层走；evaluate 层间 deny 优先；trust 收紧面 2→5 类。详见 D48 补记。本机零验证，CI 裁决 |
 
 ---
@@ -535,6 +536,13 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 背景：read/edit/write 三工具没有任何"读后新鲜度"校验——模型 read 之后用户/linter/bash 改了文件，edit/write 仍按过期快照覆盖（丢失更新）；write 描述里"覆盖已有文件前请先 read"只是软纪律不强制。
 决策：设计取参考项目 ZCode（zai-org/ZCode，Apache-2.0）edit/write 的 read-state 守卫——① 每会话一份基线 Map 挂 ToolPipelineImpl（每会话接线天然隔离），经 `ToolContext.readFileState` 注入（与 `memory?`/`lsp?` 同手法；未注入 = 守卫不启用，直接驱动工具的测试与旧路径不变）；② read 登记基线（整读存内容、窗口读只存 stat；Windows 大小写键归一）；③ edit/write 执行前判定：无基线 E_NOT_READ（write 新建文件不需要），基线过期 E_STALE 拒改要求重读；④ 两条通道：整读记录比对当前内容（formatter 只 touch 不误伤、同毫秒改写不漏报），窗口读退化 mtime（整数毫秒归一）+ size；⑤ 编辑成功后基线刷新（连续编辑不需重读）。
 约束与失败语义：不做 ZCode 的写盘端口级 expectedRevision CAS——fsutil 原子写（AUD-03）已保崩溃完整性，「校验通过到 rename 落盘」的微秒级竞态登记为已知限制；checkpoint 回滚 / bash 改文件后下一次 edit 如实 E_STALE（重读即解，失败闭合方向正确）；错误码 E_NOT_READ/E_STALE 入 doc/02 §5.6.3 注册表。
+
+### D56 审查模式 = checkpoint 仓只读 diff 聚合 + 会话域批量结清（2026-09-30，阶段十九工单 19.35 / V2-08）
+
+背景：审批只有逐条 replyPermission——并行工具多请求挂起时逐卡点按；工作区改了哪些文件没有聚合视图（checkpoint 只有快照列表与回滚）。V2-08 池项经阶段十九翻案立项。
+决策：① diff 聚合**踩 checkpoint shadow git 仓**（`GitCheckpointer.review(from?)` 只读——不写索引，与 snapshot 的 add/commit 经 index.lock 串行共存；基准 = 指定/最近快照，无快照 = tracked 集必空只聚合未跟踪新增，`ls-files --others --exclude-standard` 尊重 .gitignore、patch 手工合成——`git diff --no-index` 空设备名跨平台不可靠；会话文件别名两侧过滤——回滚后别名残留索引时 diff 会显示"删除"，是记账不是用户变更；patch 总预算 256KB 超出 truncated 如实标注、清单与统计始终完整；二进制沿 git 判据前 8KB 含 NUL）。② 批量放行 = `PermissionServiceImpl.replyAll(sessionId, 'once'|'reject', feedback?)`——**once 逐条放行不固化任何规则**（批量语境下各请求固化目标不同，'always' 无可辩护语义，路由 400 拒绝）；reject 逐条拒绝且 feedback 只回喂一条 user.message（对照单条 reject 本就级联同会话）；settle 幂等返 boolean，超时/中断抢先结清不计入 resolved。③ checkpoint 关闭 → review 端点 404（与 rollback 同判，不假装可聚合）。
+约束与失败语义：review 全程只读（GET）；numstat 文本解析不支持路径含 	/
+ 的文件（登记限制，git -z 流本单不引入）；web ReviewDialog 双栏（文件清单/patch + 批量动作条），CLI/mobile/miniapp 面板为批 2——Transport 方法四端共享已就绪，未建承诺 UI 不算占位缺口。
 
 ## 6. 模块速览（职责边界）
 

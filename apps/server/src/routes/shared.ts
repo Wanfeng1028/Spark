@@ -94,6 +94,15 @@ export const ReplyBody = z.strictObject({
   scope: PermissionScopeSchema.optional(),
 })
 
+/** 批量结清请求体（19.35）：批量语义无 "always"（各请求 targets 不同，不可批量固化） */
+export const ReplyAllBody = z.strictObject({
+  reply: z.enum(['once', 'reject']),
+  feedback: z.string().optional(),
+})
+
+/** GET /api/sessions/:id/review 查询（19.35）：from = 基准快照（缺省最近一次） */
+export const ReviewQuery = z.strictObject({ from: CheckpointIdSchema.optional() })
+
 export const IdParams = z.strictObject({ id: SessionIdSchema })
 /** @ 文件路径补全目录列举上限（工单 10.53）：防大目录（node_modules 根）巨响应；目录优先字典序后截断 */
 // 协议同形（原 routes.ts 直接 import @spark/protocol 的 FsQuerySchema——域拆分后改为
