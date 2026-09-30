@@ -17,10 +17,10 @@ import type { EventId, SessionId, SparkEventEnvelope } from '@spark/protocol'
 export const MICROCOMPACT_TRIGGER_RATIO = 0.9
 
 /** 触发门槛：估算节省低于此值不落边界（不值得打断连续性） */
-export const MICROCOMPACT_MIN_SAVINGS = 256
+const MICROCOMPACT_MIN_SAVINGS = 256
 
 /** 保留最近 N 组 toolResult 组（一组 = 一条 assistant.message 的全部 toolResult 项） */
-export const MICROCOMPACT_KEEP_GROUPS = 5
+const MICROCOMPACT_KEEP_GROUPS = 5
 
 export interface MicroCompactorDeps {
   sessionId: SessionId
