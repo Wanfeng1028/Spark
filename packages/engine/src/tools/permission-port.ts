@@ -19,6 +19,9 @@ export interface PermissionCheck {
   alwaysPatterns?: readonly string[]
   input: unknown
   /** turn 的中断信号：挂起期间 abort → 级联拒绝（fail-closed） */
+  /** ZC-2：工具声明的 alwaysAsk 标记（管线从 ToolDefinition.permission.alwaysAsk 求值传入）——
+   *  策略层判 allow 时压制为 ask 一次；用户/会话层显式 allow 可压制，项目级 deny 不可压制。 */
+  alwaysAsk?: boolean
   signal: AbortSignal
 }
 

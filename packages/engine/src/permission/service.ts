@@ -120,11 +120,17 @@ export class PermissionServiceImpl implements PermissionService {
     // LA-37：收紧只压规则层与缺省放行——preset 档（auto-edit / full-access）是用户
     // 显式选择（UI 琥珀警示），其 allow 不被静默改写；否则审计行记 rule:preset 而
     // 终判是 ask，归因对不上。
-    const tightened =
+    // ZC-2：alwaysAsk 双分支——工具声明的 alwaysAsk 在策略层判 allow 时压制为 ask
+    // 一次（「压过放行、压不过阻断」）。用户/会话层显式 allow 规则可压制（人已拍板）；
+    // 项目层 allow 不压制（项目文件不能解除敏感工具问询）；preset 档/缺省放行不压制
+    // （alwaysAsk 语义恰是「连档位也要问」）。deny/ask 本就不受影响。
+    const winningLayer = this.ruleSourceOf(check, 'allow')
+    const alwaysAskForcesAsk =
+      check.alwaysAsk === true &&
       effect === 'allow' &&
-      this.ruleSourceOf(check, 'allow') !== 'preset' &&
-      (this.deps.trust?.tightens(check.action) ?? false)
-    const finalEffect = tightened ? ('ask' as const) : effect
+      !(winningLayer === 'user' || winningLayer === 'session')
+    const finalEffect =
+      effect === 'allow' && (tightened || alwaysAskForcesAsk) ? ('ask' as const) : effect
     if (finalEffect === 'allow' || finalEffect === 'deny') {
       // 规则层快路径：归因 = 命中且与终判同效的最高优先层（findLast 语义倒查）
       this.recordDecision(check, finalEffect === 'allow', 'system', `rule:${this.ruleSourceOf(check, finalEffect)}`)

@@ -82,6 +82,12 @@ export interface ToolDefinition<I = unknown> {
     /** 方法签名（双变）：ToolDefinition<具体输入> 可注册进 ToolDefinition<unknown> 表 */
     resourceOf(input: I, ctx: { cwd: string }): string
     /**
+     * ZC-2：alwaysAsk 标记（返回 true 的调用，策略层 allow 压制为 ask 一次——
+     * 「压过放行、压不过阻断」；用户/会话层显式 allow 规则可压制）。
+     * 按 input 求值（如 computer.app 仅 launch 敏感）。
+     */
+    alwaysAsk?(input: I, ctx: { cwd: string }): boolean
+    /**
      * ZC-4（ADR D55 同族参考 ZCode resolveInput）：模型原始入参 → 归一化执行事实。
      * 管线在 tool.started/权限门/execute 之前调用一次——审批卡展示的输入与
      * execute 收到的输入逐字节同源，「确认与执行同字节，不存在批准 A 跑 B」。

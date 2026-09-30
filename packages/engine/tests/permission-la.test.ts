@@ -443,3 +443,42 @@ describe('trust 收紧归因（LA-37）', () => {
     expect(await promise).toBe(true)
   })
 })
+
+// ---- ZC-2：alwaysAsk 双分支矩阵 ----
+
+describe('ZC-2：alwaysAsk 压制矩阵', () => {
+  // 矩阵：alwaysAsk × {preset allow / 用户层 allow / 项目层 allow / 缺省 deny}
+  test('preset 层 allow（full-access 档）→ 不压制：强制 ask 一次', async () => {
+    const { sink, service } = makeService()
+    service.setPreset(SID_A, 'full-access')
+    const { requestId, promise } = await pendAsk(service, sink, makeCheck({ alwaysAsk: true }))
+    await service.reply(requestId, 'once')
+    await promise
+  })
+
+  test('用户层显式 allow 规则 → 压制 alwaysAsk：直接放行', async () => {
+    const { sink, service } = makeService({
+      userRules: [{ action: 'fs.write', resource: '**', effect: 'allow' }],
+    })
+    expect(await service.assert(makeCheck({ alwaysAsk: true }))).toBe(true)
+    expect(sink.events).toHaveLength(0)
+  })
+
+  test('项目层 allow → 不压制：仍 ask（项目文件不能解除敏感问询）', async () => {
+    const layers = new Map([[SID_A, layerOf('cwdA', [
+      { action: 'fs.write', resource: '**', effect: 'allow' },
+    ])]])
+    const { sink, service } = makeService({ sessionLayers: layers })
+    const { requestId, promise } = await pendAsk(service, sink, makeCheck({ alwaysAsk: true }))
+    await service.reply(requestId, 'once')
+    await promise
+  })
+
+  test('无 alwaysAsk 标记 → 行为不变（allow 直通）', async () => {
+    const { sink, service } = makeService({
+      userRules: [{ action: 'fs.write', resource: '**', effect: 'allow' }],
+    })
+    expect(await service.assert(makeCheck())).toBe(true)
+    expect(sink.events).toHaveLength(0)
+  })
+})

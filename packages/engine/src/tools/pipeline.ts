@@ -291,6 +291,8 @@ export class ToolPipelineImpl implements ToolPipeline {
         ...(patterns !== undefined ? { patterns } : {}),
         ...(alwaysPatterns !== undefined ? { alwaysPatterns } : {}),
         input: effectiveInput,
+        // ZC-2：工具声明的 alwaysAsk 随请求进权限服务（服务侧决定压制矩阵）
+        alwaysAsk: def.permission.alwaysAsk?.(effectiveInput, { cwd: this.deps.cwd }) === true,
         signal: turn.abort.signal,
       })
       if (!allowed) {
