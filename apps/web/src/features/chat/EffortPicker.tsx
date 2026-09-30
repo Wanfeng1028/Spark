@@ -68,7 +68,7 @@ export function EffortPicker({ current, onChange, disabled }: EffortPickerProps)
         <ul
           role="menu"
           aria-label="推理档位"
-          className="absolute bottom-full left-0 z-20 mb-1.5 w-44 overflow-hidden rounded-xl bg-popover py-1 shadow-[0_0_0_0.5px_rgba(0,0,0,0.12),0_3px_8px_rgba(0,0,0,0.03),0_0_16px_rgba(0,0,0,0.02)] dark:shadow-[0_0_0_0.5px_rgb(255_255_255/0.16),0_3px_8px_rgb(0_0_0/0.25)]"
+          className="absolute bottom-full left-0 z-20 mb-1.5 w-44 overflow-hidden rounded-xl bg-popover py-1 popover-surface"
         >
           {EFFORT_OPTIONS.map((o) => (
             <li key={o.value} role="none">

@@ -110,7 +110,7 @@ export function sidebarModeOf(collapsed: boolean, narrow: boolean): SidebarMode 
 
 /** 浮层/抽屉面板的边界阴影（DESIGN §13.L.6 同源 token：0.5px 描边环 + 一层柔影，不画矩形框线） */
 const OVERLAY_SHADOW =
-  'shadow-[0_0_0_0.5px_rgba(0,0,0,0.12),0_3px_8px_rgba(0,0,0,0.03),0_0_16px_rgba(0,0,0,0.02)] dark:shadow-[0_0_0_0.5px_rgb(255_255_255/0.16),0_3px_8px_rgb(0_0_0/0.25)]'
+  'popover-surface'
 
 export interface SidebarProps {
   mode?: SidebarMode

@@ -122,3 +122,16 @@
     'Microsoft YaHei', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
+
+/* LA-55：弹层环影单点维护——环宽/透明度改这里一处；组件以 popover-surface 类引用 */
+.popover-surface {
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.12),
+    0 3px 8px rgba(0, 0, 0, 0.03),
+    0 0 16px rgba(0, 0, 0, 0.02);
+}
+.dark .popover-surface {
+  box-shadow:
+    0 0 0 0.5px rgb(255 255 255 / 0.16),
+    0 3px 8px rgb(0 0 0 / 0.25);
+}
