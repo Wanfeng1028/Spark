@@ -30,6 +30,8 @@ export const writeTool: ToolDefinition<WriteInput> = {
     action: 'fs.write',
     resourceOf: (input, ctx) => `file:${resolveInRoot(ctx.cwd, input.path)}`,
   },
+  // ZC-4：同 edit——审批与执行同路径字节
+  resolveInput: (input, ctx) => ({ ...input, path: resolveInRoot(ctx.cwd, input.path) }),
   parallelizable: false,
 
   async execute(ctx: ToolContext, input: WriteInput): Promise<ToolOutput> {

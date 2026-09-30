@@ -499,3 +499,60 @@ describe('LA-36：catch 路径 gate.close 抛错不悬空', () => {
     expect(completed[0]?.data).toMatchObject({ isError: true })
   })
 })
+
+// ---- ZC-4：resolveInput 审批一致性（确认与执行同字节）----
+
+describe('ZC-4：resolveInput 审批一致性', () => {
+  test('归一化后的输入四处同源：started 载荷/permission.assert.input/execute 收到的 input', async () => {
+    const f = await makeFixture()
+    let executedPath: string | undefined
+    f.registry.register({
+      name: 'edit',
+      description: 'normalize probe',
+      inputSchema: z.strictObject({ path: z.string(), old: z.string() }),
+      permission: { action: 'fs.write', resourceOf: (input) => `file:${(input as { path: string }).path}` },
+      // 归一化：相对 → 绝对（管线在 started/审批/execute 之前调用）
+      resolveInput: (input) => ({ ...input, path: `/abs${(input as { path: string }).path}` }),
+      async execute(ctx, input) {
+        executedPath = input.path
+        return { output: 'ok', isError: false } as const
+      },
+    })
+
+    const [r] = await f.pipeline.runAll(makeTurn(), [
+      { callId: ids.call('cal_zc4a'), name: 'edit', input: { path: '/src/a.ts', old: 'x' } },
+    ])
+    if (r === undefined) throw new Error('runAll 结果缺失')
+    expect(r.isError).toBe(false)
+    // ① execute 收到归一化路径
+    expect(executedPath).toBe('/abs/src/a.ts')
+    // ② tool.started 载荷是归一化输入
+    const started = f.events.find((e) => e.type === 'tool.started')
+    expect((started?.data as { input: { path: string } }).input.path).toBe('/abs/src/a.ts')
+    // ③ permission.assert 收到的 input 与 execute 同字节
+    const check = f.perm.checks[0]
+    expect((check?.input as { path: string }).path).toBe('/abs/src/a.ts')
+    expect(check?.resource).toBe('file:/abs/src/a.ts')
+  })
+
+  test('未声明 resolveInput：原样透传（缺省行为不变）', async () => {
+    const f = await makeFixture()
+    let executedPath: string | undefined
+    f.registry.register({
+      name: 'edit',
+      description: 'passthrough probe',
+      inputSchema: z.strictObject({ path: z.string() }),
+      permission: { action: 'fs.write', resourceOf: (input) => `file:${(input as { path: string }).path}` },
+      async execute(ctx, input) {
+        executedPath = input.path
+        return { output: 'ok', isError: false } as const
+      },
+    })
+    await f.pipeline.runAll(makeTurn(), [
+      { callId: ids.call('cal_zc4b'), name: 'edit', input: { path: 'rel/b.ts' } },
+    ])
+    expect(executedPath).toBe('rel/b.ts')
+    const started = f.events.find((e) => e.type === 'tool.started')
+    expect((started?.data as { input: { path: string } }).input.path).toBe('rel/b.ts')
+  })
+})

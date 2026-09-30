@@ -30,6 +30,8 @@ export const readTool: ToolDefinition<ReadInput> = {
     action: 'fs.read',
     resourceOf: (input, ctx) => `file:${resolveInRoot(ctx.cwd, input.path)}`,
   },
+  // ZC-4：同 edit/write——审批与执行同路径字节
+  resolveInput: (input, ctx) => ({ ...input, path: resolveInRoot(ctx.cwd, input.path) }),
   parallelizable: true,
 
   async execute(ctx: ToolContext, input: ReadInput): Promise<ToolOutput> {

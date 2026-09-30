@@ -262,11 +262,14 @@ export class ToolPipelineImpl implements ToolPipeline {
       return { callId: call.callId, output: { code: 'E_NOT_FOUND' }, isError: true }
     }
 
+    // ZC-4：归一点——resolveInput 在 tool.started/权限门/execute 之前跑一次，
+    // 四处（started 载荷/resourceOf/patterns/assert.input）与 execute 全部同源
+    const effectiveInput = def.resolveInput?.(call.input, { cwd: this.deps.cwd }) ?? call.input
     const startedEnv = await bus.emit(sid, 'tool.started', {
       turnId: turn.turnId,
       callId: call.callId,
       name: call.name,
-      input: call.input,
+      input: effectiveInput,
     })
 
     const gate = new ProgressGate((chunk) => {
@@ -276,18 +279,18 @@ export class ToolPipelineImpl implements ToolPipeline {
     try {
       // ② 权限门（ask → 挂起等待；超时/中断一律 deny——fail-closed 在 service 内）。
       // 复合操作的多 pattern 清单由工具声明（§5.7 补强 1；单段命令 patternsOf 返回 undefined）
-      const patterns = def.permission.patternsOf?.(call.input, { cwd: this.deps.cwd })
-      const alwaysPatterns = def.permission.alwaysPatternsOf?.(call.input, { cwd: this.deps.cwd })
+      const patterns = def.permission.patternsOf?.(effectiveInput, { cwd: this.deps.cwd })
+      const alwaysPatterns = def.permission.alwaysPatternsOf?.(effectiveInput, { cwd: this.deps.cwd })
       const allowed = await this.deps.permission.assert({
         sessionId: sid,
         callId: call.callId,
         turnId: turn.turnId,
         name: call.name,
         action: def.permission.action,
-        resource: def.permission.resourceOf(call.input, { cwd: this.deps.cwd }),
+        resource: def.permission.resourceOf(effectiveInput, { cwd: this.deps.cwd }),
         ...(patterns !== undefined ? { patterns } : {}),
         ...(alwaysPatterns !== undefined ? { alwaysPatterns } : {}),
-        input: call.input,
+        input: effectiveInput,
         signal: turn.abort.signal,
       })
       if (!allowed) {
@@ -305,7 +308,7 @@ export class ToolPipelineImpl implements ToolPipeline {
       }
 
       // ③ execute（inputSchema 先校验；ctx.signal 级联 turn.abort）
-      const input = def.inputSchema.parse(call.input)
+      const input = def.inputSchema.parse(effectiveInput)
       const result = await def.execute(
         {
           sessionId: sid,

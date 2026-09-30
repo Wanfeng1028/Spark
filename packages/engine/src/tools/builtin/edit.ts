@@ -76,6 +76,8 @@ export const editTool: ToolDefinition<EditInput> = {
     action: 'fs.write',
     resourceOf: (input, ctx) => `file:${resolveInRoot(ctx.cwd, input.path)}`,
   },
+  // ZC-4：审批看到的就是执行用的——路径归一化为绝对路径后四处分发
+  resolveInput: (input, ctx) => ({ ...input, path: resolveInRoot(ctx.cwd, input.path) }),
   parallelizable: false,
 
   async execute(ctx: ToolContext, input: EditInput): Promise<ToolOutput> {
