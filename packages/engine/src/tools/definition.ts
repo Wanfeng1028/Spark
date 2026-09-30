@@ -77,6 +77,13 @@ export interface ToolDefinition<I = unknown> {
   /** 给模型的说明（含使用纪律，§5.11） */
   description: string
   inputSchema: z.ZodType<I>
+  /**
+   * ZC-4（ADR D55 同族参考 ZCode resolveInput）：模型原始入参 → 归一化执行事实。
+   * 管线在 tool.started/权限门/execute 之前调用一次——审批卡展示的输入与
+   * execute 收到的输入逐字节同源，「确认与执行同字节，不存在批准 A 跑 B」。
+   * 缺省 = 原样透传（无归一化需求的工具不用声明）。
+   */
+  resolveInput?(input: I, ctx: { cwd: string }): I
   permission: {
     action: string
     /** 方法签名（双变）：ToolDefinition<具体输入> 可注册进 ToolDefinition<unknown> 表 */
@@ -87,13 +94,6 @@ export interface ToolDefinition<I = unknown> {
      * 按 input 求值（如 computer.app 仅 launch 敏感）。
      */
     alwaysAsk?(input: I, ctx: { cwd: string }): boolean
-    /**
-     * ZC-4（ADR D55 同族参考 ZCode resolveInput）：模型原始入参 → 归一化执行事实。
-     * 管线在 tool.started/权限门/execute 之前调用一次——审批卡展示的输入与
-     * execute 收到的输入逐字节同源，「确认与执行同字节，不存在批准 A 跑 B」。
-     * 缺省 = 原样透传（无归一化需求的工具不用声明）。
-     */
-    resolveInput?(input: I, ctx: { cwd: string }): I
     /** 复合操作的多 pattern 清单（§5.7 补强 1，工单 4.7）：≥2 段才返回（单段走 resource） */
     patternsOf?(input: I, ctx: { cwd: string }): string[] | undefined
     /** always 固化范围（补强 3）：缺省由服务端回落 patterns ?? [resource] */
