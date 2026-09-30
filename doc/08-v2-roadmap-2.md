@@ -6,6 +6,7 @@
 
 | 版本 | 日期 | 作者 | 变更内容 |
 | --- | --- | --- | --- |
+| v1.1 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，"融入到我们的项目里面来吧！开始写工单"指令） | **新增 §3 阶段十九追加批 M：19.48 中文长文去 AI 味规则层与硬检查扩展**（判据来源外部 MIT 项目 lieflat-less-ai-tone，两轮在线调研 + LICENSE 署名独立核验，§2.12 合规）。批 1 规则层随立单交付 = DESIGN v2.50 §12.7.1 长文正文小节（句式级禁项 + 标点排版 + 反例硬表八项 + 信息守恒白名单，UI 界面串不适用、全节人工判据不进 grep）；批 2 待做 = 检查器词级 warn 档（检查 6，rg 命中数先行收敛词表）+ 对外长文句式级复查；上游 skill 不装、测量脚本不移植、统计数字不引。与 DESIGN v2.50、doc/08 主篇 v2.12（§5D 计数 47→48、A–L→A–M 指针）、doc/02 v4.164、AGENTS v1.71、README v1.50 同批。本批本机零验证，CI 裁决 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -178,6 +179,25 @@
 **Spark 缺口**：ToolDefinition 只有 parallelizable 布尔 + permission.action；风险分级/破坏性/并发安全靠约定俗成，无结构化消费方。
 
 **内容**：ToolDefinition 增六维声明位；① 调度：并行分组按 concurrentSafe/destructive 判定（替代现布尔，迁移兼容）；② 权限：riskLevel 进审批 reason 与审计；③ 超时：defaultMs/maxMs/allowCallOverride 统一进 timeout 档。**验收**：声明位编译期封闭断言 + 调度/权限消费单测 + 既有工具逐个补声明的迁移清单。**依赖**：无；是后续任何工具面工单的地基。**成本**：M。
+
+## 3. 阶段十九追加批 M：19.48 中文长文去 AI 味规则层与硬检查扩展（2026-09-30 立项）
+
+**立项**：晚风"融入到我们的项目里面来吧！开始写工单"指令（当日两轮在线调研与评估后拍板）。判据来源 = 外部 MIT 项目 larashero3-dotcom/lieflat-less-ai-tone（约 2.1k★，LICENSE 署名 Copyright (c) 2026 shiujan，已独立核验）——约 283 万字 AI/人类对照语料（629 篇：AI 侧 300 篇为五个 2026 世代模型各 60 篇，人类侧 329 篇公开文章）统计出的中文去 AI 味规则集：改写规则、反例硬表、信息守恒白名单、三个测量脚本。调研全程 gh api/raw 直读与 WebFetch 双通路，§2.12 禁克隆合规。**与既有线的关系**：19.44（词级禁项 + 检查 5）与 19.46（全站文案重写）清的是词；本单补句式层与"不许改"层——反例硬表与信息守恒是本仓规则体系此前没有的面，直接压在 19.44 类批量清查最容易的失败模式（过度改写）上。
+
+**批 1（规则层，已随本批交付）**：DESIGN v2.50 新增 §12.7.1 长文正文小节——① 句式级禁项四条（空转翻案腔/概括词盖掉已有数据/翻译腔堆叠/人格化吹捧，全部带技术文档豁免："不是类型包，是运行时共享核"式实体对比句合法）；② 标点与排版四条（揭晓式破折号/空转冒号/顿号连排/序数词小标题，技术枚举与小标题冒号豁免）；③ 反例硬表八项（对照语料实测人类侧频率不低于 AI 侧，不能据此改文字）；④ 信息守恒白名单四条（只改命中处/不增事实/结构默认不动但工单与拍板优先/版本表历史行不清查）。适用边界 = 官网正文、README、CHANGELOG、apps/docs，**UI 界面串不适用**（无句式结构）。全节人工判据不进 grep——句式级规则不做语义判断必误伤技术写作。
+
+**批 2（检查器与复查，待做）**：
+
+1. 词级候选命中数验证：用 rg 统计候选词在检查 5 同款扫描面（`check_copy_slop` 的 `_iter_copy_code_files` + `COPY_SLOP_READMES` 三 README 正文、版本表行跳过）的命中数并逐处判定；只收"零命中或近零命中且 AI 腔专属性强"的词。候选与预判：「说到底」「说白了」（口语翻案腔，技术文档罕见，最可能入选）；「先说结论」（公告与 changelog 里人类也用，存疑）；「值得注意的是」（人类正式写作常用，预判不收）。命中不为零且不能逐处判定合法性的词一律不收——宁可少收，不误伤。
+2. `scripts/check_doc_links.py` 新增检查 6（号位空缺：5 之后现有 5.5 与 7）——词级 **warn 档**：走 `report.warn`（现机制 `--strict` 才计失败，日常不挡 CI），与检查 5 的 error 档分离；扫描面复用 `check_copy_slop` 目标集，词表独立常量，不复用 `COPY_SLOP_PATTERNS`（两者失败语义不同）。DESIGN §12.8 加注记行（warn 档、扫描面、`--strict` 语义、与 §12.7.1 的判据关系）。
+3. 对外长文按 §12.7.1 做句式级复查：官网 zh/en 正文、README/README.en、CHANGELOG、apps/docs。19.44/19.46 已两轮词级清查，预期增量小——有则改（信息守恒白名单生效），无则在本卡登记零增量结论。
+4. 边界：不安装上游 skill（`npx skills add` 触 §2.3a）；上游 scripts/ 三个测量脚本（compare-human-ai / check-structure / check-translationese）不移植——本仓无对照语料，其"低歧义词进检查器"思路已由本批第 1-2 步吸收；上游统计数字不进本仓任何文档（计数以源码实数为准的 §4.1 纪律同样适用于外部引用）。
+
+**验收**：批 2 = 检查 6 进 CI 且绿（warn 词表在本仓扫描面零命中或逐处豁免登记）；复查结论登记进本卡（改动文件清单或零增量）；§12.7.1 与检查 6 豁免口径互洽（版本表行、代码块、引用均不计）。
+
+**开工提示词**：
+
+> 按 doc/08-v2-roadmap-2 §3 工单 19.48 批 2 执行：先用 rg 对候选词（「说到底」「说白了」「先说结论」「值得注意的是」）在检查 5 扫描面统计命中数并逐处判定，收敛词表；再在 scripts/check_doc_links.py 新增检查 6（warn 级，扫描面与豁免复用 check_copy_slop 口径、词表独立常量），DESIGN §12.8 加注记行；然后按 DESIGN §12.7.1 对官网 zh/en、README/README.en、CHANGELOG、apps/docs 做句式级复查（信息守恒白名单生效，结构默认不动）。全程遵守 DESIGN §12.7.1 反例硬表、AGENTS §2.13（批量编辑逐处断言）与 §2.3a（零下载）；本机零验证，CI 裁决。
 
 ## 附录：评估后不入池（判决记录，防重提）
 
