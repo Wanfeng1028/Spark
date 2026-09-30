@@ -31,6 +31,8 @@ export interface ToolCardProps {
   output?: unknown
   isError: boolean
   durationMs?: number
+  /** LA-62尾：流式起点（tool.started 信封时间）——running 秒表数据源 */
+  startedAt?: number | undefined
 }
 
 export function ToolCard({
@@ -41,6 +43,7 @@ export function ToolCard({
   output,
   isError,
   durationMs,
+  startedAt,
 }: ToolCardProps) {
   const [open, setOpen] = useState(false)
   const manual = useRef(false)
