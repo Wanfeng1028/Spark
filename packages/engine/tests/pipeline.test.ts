@@ -511,6 +511,7 @@ describe('ZC-4：resolveInput 审批一致性', () => {
       description: 'normalize probe',
       inputSchema: z.strictObject({ path: z.string(), old: z.string() }),
       permission: { action: 'fs.write', resourceOf: (input) => `file:${(input as { path: string }).path}` },
+      parallelizable: true,
       // 归一化：相对 → 绝对（管线在 started/审批/execute 之前调用）
       resolveInput: (raw) => {
         const input = raw as { path: string; old: string }
@@ -546,6 +547,7 @@ describe('ZC-4：resolveInput 审批一致性', () => {
       description: 'passthrough probe',
       inputSchema: z.strictObject({ path: z.string() }),
       permission: { action: 'fs.write', resourceOf: (input) => `file:${(input as { path: string }).path}` },
+      parallelizable: true,
       execute(_ctx, raw) {
         executedPath = (raw as { path: string }).path
         return Promise.resolve({ output: 'ok', isError: false } as const)
