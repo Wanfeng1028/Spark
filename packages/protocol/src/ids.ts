@@ -16,6 +16,7 @@ export type EventId = Brand<string, 'EventId'> // evt_<ulid>
 export type CallId = Brand<string, 'CallId'>
 export type RequestId = Brand<string, 'RequestId'> // req_<ulid>
 export type CheckpointId = Brand<string, 'CheckpointId'> // ckp_<ulid>
+export type TaskId = Brand<string, 'TaskId'> // tsk_<ulid>（CK-1 后台任务平面）
 
 const idOf = (prefix: string) => z.string().regex(new RegExp(`^${prefix}_[0-9A-Za-z]+$`))
 const branded = <B>(schema: z.ZodType<string>): z.ZodType<B> => schema as unknown as z.ZodType<B>
@@ -27,6 +28,7 @@ export const EventIdSchema = branded<EventId>(idOf('evt'))
 export const CallIdSchema = branded<CallId>(z.string().regex(/^[A-Za-z0-9_-]{1,128}$/))
 export const RequestIdSchema = branded<RequestId>(idOf('req'))
 export const CheckpointIdSchema = branded<CheckpointId>(idOf('ckp'))
+export const TaskIdSchema = branded<TaskId>(idOf('tsk'))
 
 /** 构造器：引擎与测试内部使用；业务代码不得用裸字符串拼 ID */
 export const ids = {
@@ -36,4 +38,5 @@ export const ids = {
   call: (v: string): CallId => v as CallId,
   request: (v: string): RequestId => v as RequestId,
   checkpoint: (v: string): CheckpointId => v as CheckpointId,
+  task: (v: string): TaskId => v as TaskId,
 }

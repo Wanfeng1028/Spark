@@ -66,6 +66,7 @@ import { redactErrorMessage } from './observability/redaction.js'
 import { estimateTokens } from './projector.js'
 import { GitCheckpointer } from './checkpoint.js'
 import type { CheckpointRecord } from './checkpoint.js'
+import { BackgroundTaskManager } from './background-task.js'
 import { gitBranchOf } from './git.js'
 import { loadConfig, loadProjectRules } from './config.js'
 import type { PermissionRule } from './config.js'
@@ -210,6 +211,8 @@ export class Engine {
   private readonly bus: EventBus
   private readonly gateway: LlmGateway
   private bashPool: BashShellPool | null = null
+  /** 后台任务平面（CK-1 批 1）：bash runInBackground / 前台预算转后台的注册表与回注 */
+  private readonly backgroundTasks: BackgroundTaskManager
   private readonly permission: PermissionServiceImpl
   /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
   private readonly ruleStore: UserRuleStore
@@ -537,6 +540,22 @@ export class Engine {
       })
     }, 6 * 60 * 60 * 1000)
     archiveTimer.unref()
+    // 后台任务平面（CK-1 批 1）：完成回注走会话输入队列（goal 合成续跑同通道 delivery='queue'）；
+    // 会话不在册/提交被拒 → notified=false 如实记录。构造先于 registerBuiltinTools（工具要引用）。
+    this.backgroundTasks = new BackgroundTaskManager({
+      bus: this.bus,
+      logger: this.logger,
+      notify: (sessionId, text) => {
+        const entry = this.sessions.get(sessionId)
+        if (entry === undefined) return false
+        try {
+          entry.runtime.submit(text, 'queue')
+          return true
+        } catch {
+          return false
+        }
+      },
+    })
     registerBuiltinTools(this.registry, {
       bashSandbox: this.config.spark.engine.bashSandbox,
       // bash 常驻会话（阶段十九 19.3 / ADR D45）：getter 执行期读，主开关热档
@@ -551,6 +570,8 @@ export class Engine {
         port: this.config.spark.sandbox?.network?.port ?? SANDBOX_NETWORK_DEFAULTS.port,
         ready: this.sandboxProxy?.status.ready === true,
       }),
+      // CK-1：后台任务平面（bash runInBackground/预算转后台 + task_output/task_stop 观察面）
+      background: this.backgroundTasks,
     })
     // 记忆工具族（工单 7.5）：仓不可用不注册（模型无从调用，fail 路径不存在）
     if (this.memory !== null) {
@@ -2453,6 +2474,9 @@ export class Engine {
     this.shuttingDown = true
     // 竞答收口（工单 16.8）：运行中 contenders 中断 + worktree 清理（尽力而为）
     void this.arenaManager.shutdownAll()
+    // 后台任务平面（CK-1）：在跑任务树杀——close 处理器落的 complete 会因 bus 关闭序
+    // 尽力而为（结清语义与快照失败同判：不吞、不重试）
+    this.backgroundTasks.shutdownAll()
     this.shutdownPromise = this.doShutdown()
     return this.shutdownPromise
   }

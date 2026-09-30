@@ -1069,6 +1069,138 @@ describe('契约：event \'session.title\'', () => {
   })
 })
 
+describe('契约：event \'task.completed\'', () => {
+  const sample = {
+    "taskId": "tsk_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "exitCode": -9007199254740991,
+    "signal": "contract-sample",
+    "aborted": false,
+    "timedOut": false,
+    "durationMs": 1,
+    "outputChars": 1,
+    "notified": false
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['task.completed'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['task.completed'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['task.completed'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 taskId → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["taskId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 exitCode → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["exitCode"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 aborted → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["aborted"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 timedOut → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["timedOut"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 durationMs → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["durationMs"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 outputChars → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["outputChars"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 notified → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["notified"]; return m })())).toThrow()
+  })
+
+  it('字段 taskId 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["taskId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 signal 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["signal"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 aborted 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["aborted"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('字段 timedOut 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["timedOut"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('字段 durationMs 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["durationMs"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 outputChars 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["outputChars"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 notified 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.completed'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["notified"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['task.completed'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：event \'task.started\'', () => {
+  const sample = {
+    "taskId": "tsk_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "kind": "bash",
+    "command": "contract-sample",
+    "pid": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['task.started'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['task.started'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['task.started'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 taskId → 解析失败', () => {
+    expect(() => EventSchemas['task.started'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["taskId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 kind → 解析失败', () => {
+    expect(() => EventSchemas['task.started'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["kind"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 command → 解析失败', () => {
+    expect(() => EventSchemas['task.started'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["command"]; return m })())).toThrow()
+  })
+
+  it('字段 taskId 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.started'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["taskId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 kind 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.started'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["kind"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 command 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.started'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["command"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 pid 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.started'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["pid"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['task.started'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：event \'tool.completed\'', () => {
   const sample = {
     "turnId": "trn_01ARZ3NDEKTSV4RRFFQ69G5FAV",

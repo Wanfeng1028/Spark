@@ -58,7 +58,7 @@ spark up
 apps/web            React 19 SPA —— 只消费事件流（applyEvent reducer）
    │  HttpTransport：REST 命令 + GET /api/event（SSE 单端点，since=seq 断线续播）
    ▼
-packages/protocol   前后端唯一合同：28 种事件词表 · zod schema · Transport 接口
+packages/protocol   前后端唯一合同：30 种事件词表 · zod schema · Transport 接口
    ▼
 apps/server         Fastify 薄壳：REST + SSE + 静态托管（127.0.0.1，无鉴权）
    ▼
@@ -124,7 +124,7 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 - **v2 已开工**：阶段十一（可发布）~十五（生态面：spark mcp / OpenAPI 导出 / skill-kit / skills 边界拍板）已完成；阶段十三（可证明）与阶段十四（SDK 化）全量落地；阶段十七（代码冗余整改）与阶段十八（web 观感对齐）已收官；阶段十六 16.1–16.9 **全部落地**（/init /agents /plan /trust /extensions /voice /goal /arena /lsp）。
 - **阶段十九已立项（2026-09-19）：全端占位清零与判决翻案**——48 工单 19.1–19.48 十三批次（computer-use 完整能力族 / i18n 全量 / 索引库与浏览器设置页 / CLI 设置面与管理态 / 移动端小程序补齐 / 桌面壳托盘终端多窗口自更新 / 全部候选池余项与登记限制判决翻案落地 / 个性化主题层 / 对外文案 AI 味整改 / 沙箱四级可切换 / 官网文案重写与 Cloudflare 双部署 / 官网排印对齐与中英双语 / 中文长文去 AI 味规则层），四项拍板与工单卡见 [doc/08 §5D](./doc/08-v2-roadmap.md)，执行表见 doc/02 §8 阶段十九。
 - 用户可见变更与里程碑：[CHANGELOG.md](./CHANGELOG.md)。
-- 下一程：阶段十九按批 A→M 推进（19.26 阻塞在真机录制、19.34 分发步阻塞在证书采购、19.43 第二批静帧素材待下载；19.44 已两批收口、19.46 已交付——官网双站发布：GitHub Pages 与 Cloudflare Pages 同 commit 更新，CF 建项目与 spark.gemmae.dev 域名绑定待用户在控制台执行，步骤见 [official/README](./official/README.md) 部署小节；19.47 三批全交付收官；19.48 批 1 规则层（DESIGN §12.7.1 长文正文小节）已交付、批 2 检查器词级 warn 档与长文句式级复查待做；19.35 审查模式已交付——web「审查」浮层（多文件差异双栏 + 审批批量放行/拒绝））→ 用户现场走查登记项（15.1 spark mcp 真实外配走查等），工单库见 [doc/08](./doc/08-v2-roadmap.md)。
+- 下一程：阶段十九按批 A→M 推进（19.26 阻塞在真机录制、19.34 分发步阻塞在证书采购、19.43 第二批静帧素材待下载；19.44 已两批收口、19.46 已交付——官网双站发布：GitHub Pages 与 Cloudflare Pages 同 commit 更新，CF 建项目与 spark.gemmae.dev 域名绑定待用户在控制台执行，步骤见 [official/README](./official/README.md) 部署小节；19.47 三批全交付收官；19.48 批 1 规则层（DESIGN §12.7.1 长文正文小节）已交付、批 2 检查器词级 warn 档与长文句式级复查待做；19.35 审查模式已交付——web「审查」浮层（多文件差异双栏 + 审批批量放行/拒绝）；可抄挖掘批 CK-1 批 1 已交付——bash 后台任务平面（runInBackground / 60s 预算自动转后台 / task_output·task_stop / 完成回注））→ 用户现场走查登记项（15.1 spark mcp 真实外配走查等），工单库见 [doc/08](./doc/08-v2-roadmap.md)。
 
 ## 版本记录
 
@@ -184,6 +184,7 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.48 | 2026-09-26 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，"cf 和 git page 的版本要每次都一样的""我的域名是 gemmae.dev，前面加一个 spark"指令） | 当前状态行同步（工单 19.46）：阶段十九 44→46 工单、批次 A→J 改 A→K（K 批 = 官网文案重写 + Cloudflare Pages 双部署，19.45 沙箱四级见 doc/02 v4.140）；下一程行登记双站发布——GitHub Pages（wanfeng1028.github.io/Spark/）与 Cloudflare Pages（spark.gemmae.dev，待用户建项目绑定）每次 push main 同 commit 更新，操作步骤见 official/README 部署小节。与 AGENTS v1.66、doc/02 v4.142、doc/08 v2.02 同批。本批本机零验证，CI 裁决 |
 | v1.50 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，"融入到我们的项目里面来吧！开始写工单"指令） | 当前状态行同步（工单 19.48 批 1）：阶段十九 47→48 工单、批次 A→L 改 A→M（M 批 = 中文长文去 AI 味规则层，判据取外部 MIT 项目 lieflat-less-ai-tone）；下一程行登记 19.47 三批全交付收官（原句"批 2/3 待做"已过时，据 doc/08 v2.07 校正）与 19.48 批 1 已交付（DESIGN §12.7.1 长文正文小节）、批 2 检查器词级 warn 档与长文句式级复查待做。与 AGENTS v1.71、doc/02 v4.164、doc/08 v2.12、doc/08-v2-roadmap-2 v1.1、DESIGN v2.50 同批。本批本机零验证，CI 裁决 |
 | v1.51 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续做工单"指令） | 当前状态行同步（工单 19.35 审查模式交付）：下一程行登记 19.35 已交付（web「审查」浮层——多文件差异双栏 + 审批批量放行/拒绝；checkpoint shadow git 只读聚合）。与 doc/02 v4.170、doc/08 v2.13、ARCHITECTURE v1.68（D56）、DESIGN v2.51（§13.L.9）同批 |
+| v1.52 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你去做新的工单"指令） | 架构图事件词表 28→30 种（CK-1 批 1：task.started/completed 后台任务平面）；CHANGELOG [Unreleased] 补后台任务第一批条目。与 doc/02 v4.171、AGENTS v1.72、ARCHITECTURE v1.69 同批 |
 | v1.49 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，对比 x.ai/grok 后拍板"可以修改设计规则。英文优先，官网做好中英文的切换和适配，以及官网的多端适配"指令） | 当前状态行同步（工单 19.47 批 1）：阶段十九 46→47 工单、批次 A→K 改 A→L（L 批 = 官网排印对齐与中英双语）；官网排印体系对齐 xAI——字体栈西文优先（Inter Variable 管拉丁）、display 字重降级 + 负字距阶梯、假 mono 眉题修真，规则侧 DESIGN v2.42 新增 §14 官网排印系统；批 2 中英双语与批 3 多端走查登记待做。与 AGENTS v1.67、doc/02 v4.144、doc/08 v2.03 同批。本批本机零验证，CI 裁决 |
 
 </details>

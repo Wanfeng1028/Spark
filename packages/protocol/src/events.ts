@@ -10,6 +10,7 @@ import {
   CheckpointIdSchema,
   EventIdSchema,
   RequestIdSchema,
+  TaskIdSchema,
   TurnIdSchema,
 } from './ids.js'
 import {
@@ -122,6 +123,28 @@ export const EventSchemas = {
   // ZC-1 微压缩边界（水位 0.9×压缩阈值触发）：durable 非 surface——模型可见面
   // 经投影清理生效（keptFromEventId 之前的 toolResult 清占位），本事件只记录
   // 边界事实供回放重建同一清理；append-only，JSONL 原文不动。
+  // 后台任务平面（CK-1）：bash 后台化的生命周期记录。durable 非 surface——模型可见面
+  // 是完成回注的合成 user.message（surface 纪律由那条消息承担），本两枚是审计/回放事实。
+  'task.started': z.strictObject({
+    taskId: TaskIdSchema,
+    kind: z.literal('bash'),
+    command: z.string(),
+    pid: z.number().int().positive().optional(),
+  }),
+  'task.completed': z.strictObject({
+    taskId: TaskIdSchema,
+    /** null = 进程被信号杀死/中途消亡（非正常退出） */
+    exitCode: z.number().int().nullable(),
+    signal: z.string().optional(),
+    /** TaskStop 或 turn 中断树杀 */
+    aborted: z.boolean(),
+    timedOut: z.boolean(),
+    durationMs: z.number().int().nonnegative(),
+    /** 收集缓冲总字符数（内容本体走 task_output 工具拉取，不入事件） */
+    outputChars: z.number().int().nonnegative(),
+    /** 完成回注是否入队（false = 会话不在册/已卸载，如实记录不假装已通知） */
+    notified: z.boolean(),
+  }),
   'microcompact_boundary': z.strictObject({
     /** 保留边界：路径上该事件 id（含）之后的 toolResult 组保留原样 */
     keptFromEventId: EventIdSchema,

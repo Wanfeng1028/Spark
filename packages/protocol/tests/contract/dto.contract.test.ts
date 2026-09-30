@@ -150,6 +150,35 @@ describe('契约：ids.SessionIdSchema', () => {
   })
 })
 
+describe('契约：ids.TaskIdSchema', () => {
+  const sample = "tsk_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(ids.TaskIdSchema.parse(sample)).toEqual(sample)
+    expect(ids.TaskIdSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(ids.TaskIdSchema)).toBeTypeOf('object')
+  })
+
+  it('类型错（数字）→ 解析失败', () => {
+    expect(() => ids.TaskIdSchema.parse(12345)).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => ids.TaskIdSchema.parse("__contract_bogus__")).toThrow()
+  })
+
+  it('不合正则 → 解析失败', () => {
+    expect(() => ids.TaskIdSchema.parse("契约 探针/不合规")).toThrow()
+  })
+
+  it('空串 → 解析失败', () => {
+    expect(() => ids.TaskIdSchema.parse("")).toThrow()
+  })
+})
+
 describe('契约：ids.TurnIdSchema', () => {
   const sample = "trn_01ARZ3NDEKTSV4RRFFQ69G5FAV"
 

@@ -67,6 +67,7 @@
 | v1.65 | 2026-09-21 | AI 编写：ZCode CLI · step-5-preview（a6c5ff1d-d214-403d-aa90-3817d8cc9db2/step-5-preview）；发起与决策：晚风（Wanfeng1028，"完成全部没完成的工单"指令全程） | **新增 D54 数据目录 = SPARK_HOME 单源 + 搬迁不删源（阶段十九 19.16；doc/02 v4.83 同批）**：home.ts 单源解析（引擎 root/loadConfig/CLI 共用）+ migrate 模块（只读规划+复制校验+源改名备份，失败闭合）+ CLI spark migrate + SettingsDto.home 只读回显。本机零验证，CI 裁决 |
 | v1.67 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"集成到我们的项目里面吧"指令） | **新增 D55 文件工具 read-state 新鲜度守卫（ZC 参考工单批次 ZC-5；doc/02 v4.150 同批）**：read-before-write + 内容/stat 双通道 stale 判定 + 每会话基线 Map 挂 ToolPipelineImpl 经 ToolContext.readFileState 注入；E_NOT_READ/E_STALE 两错误码；不做写盘端口级 CAS（微秒级竞态登记为已知限制）。本机零验证，CI 裁决 |
 | v1.68 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续做工单"指令） | **新增 D56 审查模式语义（19.35 / V2-08；doc/02 v4.170 同批）**：diff 聚合 = checkpoint shadow git 只读复用（基准/别名过滤/truncated 如实）+ 批量放行 = 会话域逐条结清（once 不固化、'always' 不可批量）+ review 端点 checkpoint 关闭 404 同 rollback 判；web ReviewDialog 双栏落地，其余端批 2。与 doc/02 v4.170、doc/08 v2.13 同批 |
+| v1.69 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你去做新的工单"指令） | **新增 D57 后台任务平面（CK-1 批 1；doc/02 v4.171 同批）**：bash runInBackground + 60s 前台预算自动转后台 + task_output/task_stop 观察面 + 完成回注走输入队列 delivery=queue（goal 续跑同通道）；两事件 task.started/completed durable 非 surface（词表 30 种）。进程 spawn/收集留 bash 侧（复用树杀/解码器），manager 只持注册项——不合并两层抽象。事件模型行 28→30 同批 |
 | v1.66 | 2026-09-25 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"已经完成的工单有问题的要修复"指令）；依据：doc/11 §4.1 P0 | **D48 补安全前提 + D40 收紧面扩容注记（doc/11 LA-01/02/03 收口；doc/02 v4.122 同批）**：项目层按会话 cwd 惰性建层 + 未信任整层停用 + 家目录撞路径不设层 + 固化/级联按会话项目层走；evaluate 层间 deny 优先；trust 收紧面 2→5 类。详见 D48 补记。本机零验证，CI 裁决 |
 
 ---
@@ -108,7 +109,7 @@
 
 | 抽象           | 设计                                                                                                                                                                           | 来源                                                           |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| **事件模型**   | 28 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分    | opencode durable/live + dsh surface                            |
+| **事件模型**   | 30 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分    | opencode durable/live + dsh surface                            |
 | **会话**       | append-only JSONL 树（条目 `id/parentId`）；分叉=只移 leaf 指针；compaction 是树上的普通 entry（summary+keptFromEventId 锚点）；模型上下文=Projector 从 surface 事件投影           | pi session-manager + dsh projector                             |
 | **输入三通道** | `now`（空闲即开 turn）/ `steer`（进行中，下一 step 前注入）/ `queue`（turn 间依序）；提交三态 `started/steered/queued`；唤醒合并防空转                                         | Codex TurnInputMode + opencode pendingWake                     |
 | **工具管线**   | zod schema-first；before→permission→execute→after；serial 工具 barrier / parallel 工具并发（read 并行，bash/edit/write 独占）；输出 >32KB 溢写文件；中断补合成事件对           | Codex RwLock 门控 + dsh 三段 waterfall + opencode output-store |
@@ -543,6 +544,13 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 决策：① diff 聚合**踩 checkpoint shadow git 仓**（`GitCheckpointer.review(from?)` 只读——不写索引，与 snapshot 的 add/commit 经 index.lock 串行共存；基准 = 指定/最近快照，无快照 = tracked 集必空只聚合未跟踪新增，`ls-files --others --exclude-standard` 尊重 .gitignore、patch 手工合成——`git diff --no-index` 空设备名跨平台不可靠；会话文件别名两侧过滤——回滚后别名残留索引时 diff 会显示"删除"，是记账不是用户变更；patch 总预算 256KB 超出 truncated 如实标注、清单与统计始终完整；二进制沿 git 判据前 8KB 含 NUL）。② 批量放行 = `PermissionServiceImpl.replyAll(sessionId, 'once'|'reject', feedback?)`——**once 逐条放行不固化任何规则**（批量语境下各请求固化目标不同，'always' 无可辩护语义，路由 400 拒绝）；reject 逐条拒绝且 feedback 只回喂一条 user.message（对照单条 reject 本就级联同会话）；settle 幂等返 boolean，超时/中断抢先结清不计入 resolved。③ checkpoint 关闭 → review 端点 404（与 rollback 同判，不假装可聚合）。
 约束与失败语义：review 全程只读（GET）；numstat 文本解析不支持路径含 	/
  的文件（登记限制，git -z 流本单不引入）；web ReviewDialog 双栏（文件清单/patch + 批量动作条），CLI/mobile/miniapp 面板为批 2——Transport 方法四端共享已就绪，未建承诺 UI 不算占位缺口。
+
+
+### D57 后台任务平面批 1 = bash 后台化 + 拉取式观察面 + 队列回注（2026-10-01，可抄挖掘批 CK-1）
+
+背景：bash 常驻池是交互式池化（无模型侧后台语义），长命令（构建/测试/服务进程）只能同步阻塞回合等到 E_TIMEOUT。判据取 Claude Code（run_in_background + 前台阻塞预算自动后台化）、MiniMax（60s 预算 / 24KiB 头尾首响应）、OpenClaw（完成定向唤醒）。
+决策：① 后台化两入口——bash `runInBackground:true` 显式转后台（立即回 taskId）；前台阻塞超 60s 预算自动转后台（`autoBackgrounded` 回执 + 部分输出随行）。后台任务**无超时**（跑到自然结束/TaskStop/引擎 shutdown 树杀），转后台即脱离 timeoutMs 与 turn abort 语境（任务生存期越过回合）。② 观察面 = `task_output`（字符偏移续读；首响应 24KiB 头尾预算 + nextOffset；running 可轮询；会话隔离——他会话任务不可见）与 `task_stop`（树杀，aborted 结清）两独立工具（task.read/task.stop 开放 action，confirm-each 缺省 ask）。③ 完成回注 = 合成通知文本经会话输入队列 `delivery='queue'` 提交（goal 合成续跑同通道）驱动主会话汇报一轮；会话不在册 → 事件 `notified:false` 如实记录。④ 事件面 `task.started`/`task.completed`（durable 非 surface——模型可见面是回注的合成 user.message，surface 纪律由那条消息承担）。
+约束与失败语义：**进程 spawn 与输出收集留在 bash 工具侧**（复用树杀/StringDecoder/收集上限——后台与前台唯一差别是"不等待"），manager 只持注册项（stop 钩子 + 缓冲读访问器）——两层抽象不合并，否则超时/中断/沙箱三条前台路径全被搅进来；后台收集缓冲 256KB 上限截断如实标注（不是流式无限缓冲）；批 2（agent 后台化/TaskList/task.progress 流式/四端任务卡）留卡。
 
 ## 6. 模块速览（职责边界）
 

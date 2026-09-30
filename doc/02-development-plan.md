@@ -373,9 +373,9 @@ export type TurnFinish = 'stop' | 'length' | 'aborted' | 'permission-rejected' |
 export type PermissionReply = 'once' | 'always' | 'reject'
 ```
 
-## 4.3 事件词表（28 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
+## 4.3 事件词表（30 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
 
-> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 28 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
+> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 30 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
 
 ```ts
 export interface SparkEventMap {
@@ -479,7 +479,7 @@ export const EventSchemas = {
     text: z.string().min(1),
     attachments: z.array(z.string()).optional(),
   }),
-  // …28 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
+  // …30 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
 } satisfies { [T in SparkEventType]: z.ZodType<SparkEventMap[T]> }
 
 // schema.ts —— 信封 schema + jsonSchema 导出（工具参数与 DTO 用）
@@ -530,6 +530,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | memory.injected                                   | ✅           | ✅（工单 7.5 / ADR D25：Projector 投影为模型上下文首条前缀消息——模型可见必被记录，surface 纪律双面成立） |
 | goal.set / updated / completed / paused           | ✅           | ❌（工单 16.7 / ADR D33：状态日志；目标内容经合成续跑 user.message 进模型历史） |
 | lsp.diagnostics                                   | ✅           | ❌（工单 16.9：诊断流日志；进模型历史的是 lsp 工具的 tool.completed 结果——模型可见必被记录双面成立） |
+| task.started / completed                          | ✅           | ❌（CK-1：后台任务生命周期审计；模型可见面是完成回注的合成 user.message——surface 纪律由那条消息承担） |
 
 **磁盘行与 wire 同构**：落盘 JSONL 行 = 信封原样（含 parentId）——单一格式，序列化零转换，前端 UiItem 的 parentId 即来源于此。
 
@@ -1214,7 +1215,7 @@ runOne(call):
 | read  | `{path, offset?≥0, limit?≤2000 默认2000}`         | action='fs.read'，resource='file:<abs>'          | 相对路径基于 cwd 解析；二进制检测（NUL 采样）→ 拒读；行号前缀输出；超大返回尾部+头部提示；**读取登记 read-state 基线**（整读=内容通道、窗口读=stat 通道；ZC-5/ADR D55）                                                           | E_PATH_OUTSIDE（越出允许根）、E_NOT_FOUND、E_BINARY、E_TOO_LARGE |
 | write | `{path, content}`                                 | action='fs.write'，resource='file:<abs>'         | 自动建父目录；返回写入字节数；**read-state 守卫**（覆盖已存在文件必须先 read，新建不需要；ZC-5/ADR D55）                                                                                                                       | E_PATH_OUTSIDE、E_WRITE_DENIED（只读挂载/权限）、E_NOT_READ（覆盖未读文件）、E_STALE（读后被外部改动）                  |
 | edit  | `{path, oldString, newString, replaceAll?=false}` | action='fs.write'，resource='file:<abs>'         | **oldString 唯一性校验**（0 命中→E_NOT_FOUND；>1 且未 replaceAll→E_AMBIGUOUS）；返回 unified diff（供前端 DiffViewer）；**read-state 守卫**（必须先 read；ZC-5/ADR D55）                             | E_NOT_FOUND、E_AMBIGUOUS、E_PATH_OUTSIDE、E_NOT_READ（未读先改）、E_STALE（读后被外部改动）                         |
-| bash  | `{command, timeoutMs?≤120000, cwd?}`              | action='shell.exec'，resource='cmd:<前 80 字符>' | 缺省独立 shell；`engine.bashPersistent` 开启走每会话常驻 shell（阶段十九 19.3 / ADR D45：cwd/env 保持，空闲 10 分钟回收，池容量 8 LRU，超时/中断杀整 shell 下一调用重建；POSIX bash 才有常驻路径，Windows 无 bash 回落独立 shell；沙箱 on 时沙箱优先）；stdout+stderr 合流 progress 流式（16KB/帧截断，Grok）；退出码非 0 → isError 但 output 保留；超时 SIGTERM→5s→SIGKILL | E_TIMEOUT、E_EXIT_CODE（附 code）、E_SPAWN、E_SHELL_DIED（常驻 shell 中途死亡，自动重建） |
+| bash  | `{command, timeoutMs?≤120000, cwd?, runInBackground?}`              | action='shell.exec'，resource='cmd:<前 80 字符>' | 缺省独立 shell；`engine.bashPersistent` 开启走每会话常驻 shell（阶段十九 19.3 / ADR D45：cwd/env 保持，空闲 10 分钟回收，池容量 8 LRU，超时/中断杀整 shell 下一调用重建；POSIX bash 才有常驻路径，Windows 无 bash 回落独立 shell；沙箱 on 时沙箱优先）；stdout+stderr 合流 progress 流式（16KB/帧截断，Grok）；退出码非 0 → isError 但 output 保留；超时 SIGTERM→5s→SIGKILL；CK-1：runInBackground:true 转后台立即回 taskId（后台无超时，输出经 task_output 拉取），前台阻塞超 60s 预算自动转后台（autoBackgrounded 回执 + 部分输出） | E_TIMEOUT、E_EXIT_CODE（附 code）、E_SPAWN、E_SHELL_DIED（常驻 shell 中途死亡，自动重建）、E_TASK_UNAVAILABLE（后台平面未接线） |
 | task  | `{prompt, title?, preset?}`                        | action='agent.task'，resource='task'             | 阶段五工单 5.4 / ADR D17：派生独立子会话（header.parentSession）跑一轮，返回最终 assistant 文本；执行体 = Engine.runSubagent（工具层不感知会话管理）；单层限制；父中断级联 interrupt 子会话。**工单 13.5：`preset` = `~/.spark/agents/<name>.json` 预设档名**（模型覆盖 / 工具面收窄 / systemAppend / 缺省标题）——解析与收窄全在 Engine.createSession，task 层与 subagent 层只透传；预设不存在 → E_CONFIG 人话并列出可用档名（不静默回退）；工具收窄 = 广告面隐藏 + 会话级 deny 规则（调用即 E_PERMISSION，审计归因 rule:session），**action 粒度**：write/edit 同为 fs.write 会一并收窄，工具级精确收窄另立工单；优先级：显式 model 入参 > 预设档 model > subagentModel 路由档；标题：入参 > 预设档 title > '子代理'；**未传 preset 行为逐字节不变** | E_SUBAGENT_DEPTH（子会话再派生）、E_ABORTED（父中断级联）、E_CONFIG（预设档不存在/形状非法）        |
 | grep | `{pattern, path?, glob?, maxResults?≤200 默认50}` | action='fs.read'，resource='file:<abs>' | 阶段十二工单 12.1：结构化检索一等公民——纯 Node 递归逐行正则（不用 rg 二进制零新依赖）；相对路径基于 cwd（可为单文件）；glob 片段按文件名后缀/子串过滤；自动跳过 node_modules/.git/dist/build、二进制（NUL 采样）与超 2MB 文件；输出 `{matches:[{file,line,text≤500}], truncated}`（行命中按 maxResults 截断置位）；parallelizable=true | E_PATH_OUTSIDE、E_NOT_FOUND、E_BAD_PATTERN、E_ABORTED |
 | exit_plan_mode | `{plan}`（非空计划文本，Markdown） | action='plan.exit'，resource='plan'（plan 档预置 **ask**：模式转换必走审批） | 工单 16.3：计划模式下提交计划请用户批准——批准则切回 default 并恢复进入前档位（prePlanPreset），不批准则留在计划模式（模型可改计划重试）；**非计划模式不进广告面**（engine 侧 `hiddenTools` getter 逐 step 现读，与 system getter 同手法），模型若仍调用则执行期如实报错；钩子由引擎注入（工具不持有 Engine，同 `memory?` 手法）；parallelizable=false（有副作用）；**`executionBoundary=true`（第三批）**：成功退出后同批剩余调用跳过并回 E_MODE_BOUNDARY（§5.6.2 边界规则） | E_NOT_IN_PLAN（不在计划模式）、E_UNSUPPORTED（宿主未注入钩子）、E_MODE_BOUNDARY（同批边界后跳过，本工具自身不报） |
@@ -1230,6 +1231,8 @@ runOne(call):
 | computer.window | `{action: list\|focus, title?, pid?}` | action='computer.use'，resource='computer://window' | list = 有主窗口进程清单（前 50）；focus = pid 或标题子串置前（缺二者 → E_COMPUTER_ARGS） | E_COMPUTER_NOTFOUND、E_COMPUTER_ARGS |
 | computer.app | `{action: launch\|list, command?}`      | action='computer.use'，resource='computer://app' | launch = 启动可执行本体（**无参数**——带参数走 bash，高敏感缺省逐次审批）；list = 运行中进程按内存降序前 50 | E_COMPUTER_ARGS |
 | computer.clipboard | `{action: read\|write, text?}`   | action='computer.use'，resource='computer://clipboard' | 纯文本读写（write 缺 text → E_COMPUTER_ARGS）；与 type 配合长文本粘贴 | E_COMPUTER_ARGS |
+| task_output | `{taskId, offset?≥0}` | action='task.read'，resource='task:<id>' | CK-1 批 1：后台任务输出拉取——首响应 24KiB 头尾预算（nextOffset 续读），running 中可轮询，done 后出终态（exitCode/aborted/timedOut/durationMs）；会话隔离（他会话任务不可见）；parallelizable=true | E_TASK_NOT_FOUND、E_TASK_OFFSET |
+| task_stop | `{taskId}` | action='task.stop'，resource='task:<id>' | CK-1 批 1：树杀在跑后台任务（SIGTERM→宽限→SIGKILL 同前台超时法）；结清走 bash 侧 close 处理器（aborted=true 落 task.completed 并回注） | E_TASK_NOT_FOUND、E_TASK_ALREADY_DONE |
 
 **read-state 文件新鲜度守卫**（2026-09-27，ZC 参考工单批次 ZC-5 / ADR D55；设计取参考项目 ZCode 的 edit/write read-state 设计）：read/edit/write 成功后把「会话对该文件的最近认知」登记进每会话一份的基线 Map（ToolPipelineImpl 每会话实例持有，经 ToolContext.readFileState 注入；Windows 大小写不敏感键归一）。edit/write 执行前校验：无基线 → E_NOT_READ（edit 一律要求先 read；write 仅覆盖已存在文件要求，新建不需要）；有基线但文件已被外部改动（用户 / linter / bash / checkpoint 回滚）→ E_STALE 拒改并要求重读——防模型按过期快照发起覆盖（丢失更新）。两条判定通道：整读记录比对当前内容（formatter 只 touch 不误伤、同毫秒改写不漏报）；窗口读记录退化比对 mtime（整数毫秒归一，避开亚毫秒精度抖动）+ size。edit/write 成功后基线刷新为编辑结果（连续编辑不需重读）。**诚实边界**：不做 ZCode 的写盘端口级 expectedRevision CAS——fsutil 原子写（AUD-03）已保崩溃完整性，「校验通过到 rename 落盘之间」的微秒级竞态窗口如实登记为已知限制；ctx 未注入基线（直接驱动工具的测试路径）= 守卫不启用，旧行为不变。
 
@@ -1555,6 +1558,10 @@ export interface ResolvedModel {
 | E_TURN_MISMATCH                                  | steer expectedTurnId 与活动 turn 不符（工单 5.4，§5.4） | HTTP 409                           |
 | E_SUBAGENT_DEPTH                                 | 子会话内再派生子代理（单层限制；工单 5.4，ADR D17） | tool output                        |
 | E_BROWSER_LAUNCH                                 | chromium 启动失败或 playwright-core 不可用（懒启动 fail-closed；工单 7.10，ADR D27） | tool output                        |
+| E_TASK_NOT_FOUND                                 | 后台任务不存在或属其他会话（会话隔离；task_output/task_stop，CK-1） | tool output                        |
+| E_TASK_ALREADY_DONE                              | 任务已结束不可再停（task_stop，CK-1） | tool output                        |
+| E_TASK_OFFSET                                    | 读取偏移超出缓冲长度（task_output 续读，CK-1） | tool output                        |
+| E_TASK_UNAVAILABLE                               | 后台任务平面未接线（bash runInBackground 直驱测试路径，CK-1） | tool output                        |
 | E_BROWSER_NAVIGATION                             | 非法/非 http(s) URL 或页面加载失败（工单 7.10）   | tool output                        |
 | E_BROWSER_NO_PAGE                                | 未先 browser.open 即 click/read/screenshot（不触发启动；工单 7.10） | tool output                        |
 | E_BROWSER_SELECTOR                               | 选择器超时未命中（工单 7.10）                     | tool output                        |
@@ -1888,7 +1895,7 @@ interface SessionSlice {
 
 **去重规则（回放×直播重叠）**：apply 入口先判 `e.seq !== undefined && e.seq <= slice.lastSeq` → 跳过（全局直播先到、REST 回放后到时不重复应用；重放期间乱序到达的直播同理被吸附）；live 事件无 seq，无条件应用。resetSlice 将 lastSeq 归 0 后重放从空重建。
 
-**applyEvent 处理表（28 种全覆盖）**：
+**applyEvent 处理表（30 种全覆盖）**：
 
 | 事件                         | 状态变更                                                                            |
 | ---------------------------- | ----------------------------------------------------------------------------------- |
@@ -1914,6 +1921,7 @@ interface SessionSlice {
 | memory.injected              | slice.memoryInjected 记录命中数与查询词（工单 7.5；不进 items——模型可见面已在引擎事件流记录） |
 | goal.set / updated / completed / paused | slice.goal 投影（工单 16.7 / ADR D33：null = 无目标；text/iterations/usedTokens/status 随事件重建——durable 故冷启动回放即可恢复，web StatusBar 徽标为 /goal status 的可见面） |
 | lsp.diagnostics               | 会话流追加 `diagnostics` 项（工单 16.9：language/uri/diagnostics 随行；每次 publish 一行卡——诊断清零也是一次真实发布照常入流，转录式回放即重建时间线） |
+| task.started / completed     | no-op（CK-1：任务状态卡属批 2 四端展示；模型可见面是回注的合成 user.message，转录已随那条消息入流） |
 
 ```ts
 // connection-store：{ status:'connecting'|'open'|'reconnecting'|'closed', lastSeq, retryCount }
@@ -2943,6 +2951,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.168 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；依据：doc/11 §6.6 | **LA-18/19 收口 + LA-20 判词落地**（CI 绿验收）：windows.ts 三处 [void] 改返回值判定（E_COMPUTER_FOCUS/E_COMPUTER_MOVE）；修饰键白名单查表（未知值 throw，注入面归零）；computer.app/clipboard resourceOf 按 action 分叉；感知闭环按原规格登记为待立项（四端改动不夹带） |
 | v4.169 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；依据：doc/12 ZCode 分析 + doc/08 v2.01 工单卡 | **ZC-1~4 四张全落地**（CI 绿验收）：① ZC-1 微压缩——microcompact_boundary 新事件（词表 28 种，durable 非 surface）+ MicroCompactorImpl（0.9×压缩阈值触发；组数≤5 或节省<256 token 回滚；最近 5 组保留）+ projector 边界重建清理（keptFromEventId 前清占位，callId/isError 不变）+ run-loop 触发与冷却 + reducer no-op + 生成物重跑（contract/events 28 种/openapi 77 路径）；② ZC-2 alwaysAsk——ToolPermission.alwaysAsk 按 input 求值，策略层 allow 压制为 ask（用户/会话层显式 allow 可压制，项目层/preset 不压制），矩阵测试四例；③ ZC-3 纯文本截断自动续写（ZC3_MAX_CONTINUATIONS=3，耗尽如实 finish=length；toolCall 截断仍走 E_TRUNCATED）；④ ZC-4 resolveInput 审批一致性——ToolDefinition 顶层 hook，管线归一点在 tool.started 之前，started/审批/execute 五处同源（edit/write/read 路径归一为绝对）|
 | v4.170 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续做工单"指令；接 ZC 批后按剩余清单无依赖序取 19.35） | **19.35 审查模式（V2-08）落地**（H 批池项翻案首张）：① protocol——`ReviewDto`（files 状态/行数/binary + 逐文件 patch + truncated + 基准快照）与 `ReplyAllResultDto` 两 DTO、Transport 增 `getSessionReview`/`replyAllPermissions` 两方法（计数 89→91，LA-24 锚定同步）；② engine——`GitCheckpointer.review()` 复用 shadow git 仓只读聚合（基准=指定/最近快照，无快照只聚合未跟踪新增；ls-files exclude-standard 尊重 .gitignore；别名过滤；patch 预算 256KB truncated 如实；二进制 8KB NUL 判据）+ `PermissionServiceImpl.replyAll`（once 逐条放行不固化 / reject 逐条拒绝 feedback 只回喂一条 user.message；settle 幂等返 boolean 防超时竞态虚计）+ 门面 `reviewOf`/`replyAllPermissions`；③ server——GET /:id/review（checkpoint 关闭 404 与 rollback 同判）与 POST /:id/permissions/reply-all（'always' 400——批量无固化语义；未知会话 404 不回 resolved:0）+ openapi 两路由登记（79 路径/64 组件）；④ web——ReviewDialog（左文件清单右 patch 双栏 + 批量放行/拒绝条 + base/truncated 如实行）+ SessionSurface 审查入口（FileDiff 图标）；mock 对等（空聚合如实 + 脚本覆写式批量结清 + derivedCheckpoints 同源校验）；⑤ 单测 19 例（review 8 / replyAll 4 / 路由 7）+ 契约与 openapi 生成物重跑。与 doc/08 v2.13（卡勾选 + Transport 计数）、ARCHITECTURE v1.68（D56）、DESIGN v2.51（§13.J 审查弹窗行）、README v1.51、CHANGELOG 同批 |
+| v4.171 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你去做新的工单"指令） | **CK-1 批 1 后台任务平面（bash 半边）落地**：① protocol——`task.started`/`task.completed` 两事件（词表 28→30，durable 非 surface；模型可见面是完成回注的合成 user.message）+ `tsk_` 品牌 TaskId（ids 工厂 + 合成器 PATTERN_SAMPLES 登记）；② engine——`BackgroundTaskManager`（注册表/生命周期事件/完成回注经输入队列 delivery=queue，goal 续跑同通道；会话隔离；shutdownAll 树杀）+ bash 工具 `runInBackground`（立即回 taskId，后台无超时）与 60s 前台阻塞预算自动转后台（Claude Code assistantAutoBackgrounded 同思路，转后台即脱离 timeoutMs/turn abort 语境）+ `task_output`（24KiB 头尾预算/nextOffset 偏移续读/会话隔离/running 可轮询）与 `task_stop`（树杀，结清走 bash close 落 aborted=true）两工具（task.read/task.stop 开放 action）；③ 单测——engine 6 例 + reducer no-op（web applyEvent）+ events.test 夹具 30 种 round-trip；④ 生成物重跑（contract 148 describe/1457 断言、openapi 79 路径、events.md 30 种）；⑤ 文档——§4.3/§4.4/§6.4/§5.6.3/§5.10 五表 + 计数锚点六处 28→30 + official FACTS eventTypes 27→30（ZC-1 批漏更 28 一并校正）。批 2（agent 后台化/TaskList/task.progress 流式/四端任务卡）留卡。同批修复 19.35 review.test 夹具两缺陷（写入目录错位于 work-tree 外 + 会话文件缺失致 hash-object 永败——七例挂测根因，子代理 CI 取证定位）。与 AGENTS v1.72、doc/08-v2-roadmap-2 v1.2、ARCHITECTURE v1.69（D57）、README v1.52、CHANGELOG 同批 |
 | v4.165 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；依据：doc/11 §6.6 | **LA-55 收口**（CI 绿验收）：弹层环影 token 化——tokens.css `.popover-surface` 单点定义 + 八容器类引用（环宽/透明度改一处全局生效）；Composer 卡身另套参数不入弹层族 |
 | v4.161 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；依据：doc/11 §6.6 | **LA-52 收口**（6611e85 CI 绿验收）：审批回复改 async + 局部 pending/opError——失败卡内红字不再静默；pending 到 permission.resolved 回执止（真源事件流）；ApprovalCard 三键 pending 期禁用；测试两例 |
 | v4.162 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；依据：doc/11 §6.6 | **LA-57/58 收口**（CI 绿验收）：① openSessions 删除口——deleteSession 摘除 + forgetSession 公开口 + web onResync 只重放激活会话（断线 REST 请求数与翻会话数解耦）；② req() 缺省 30s 超时（AbortController 手工组合全端兼容，requestTimeoutMs 可配 0 关闭）——悬挂请求如实报错 |
@@ -3158,7 +3167,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 
 | 模块               | 用例要点                                                                                                                                                         |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| protocol           | 28 种事件样例逐一过 zod schema（round-trip）；信封 surface 标记的编译期断言；DTO/配置 schema                                                                     |
+| protocol           | 30 种事件样例逐一过 zod schema（round-trip）；信封 surface 标记的编译期断言；DTO/配置 schema                                                                     |
 | engine/config      | 三配置文件 zod：合法 / 缺字段 / 越界值 → 启动失败（E_CONFIG）                                                                                                    |
 | engine/bus         | durable seq 单调且**落盘后**才广播；live 不计数；订阅者异常隔离；背压 pause/resume                                                                               |
 | engine/input-queue | now/steer/queue × idle/running 全矩阵的三态返回；唤醒合并不空转                                                                                                  |
@@ -3167,7 +3176,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | engine/permission  | evaluate 优先级（临时>项目>用户>默认 ask）；always 写入 + 同批放行；超时/中断 fail-closed；reject feedback 注入 user.message                                     |
 | engine/session     | 单写者 append/flush；坏行（尾行丢弃/非尾拒绝加载）；resume 补 turn.completed{aborted}；Projector 投影（无/有 compaction 分支 × reasoning 配置）；mungeDir 确定性 |
 | server             | 路由 zod 400/404/409/503 映射；SSE 回放+直播边界、心跳、全局订阅；SPA fallback 排除 /api                                                                         |
-| web                | **applyEvent 28 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
+| web                | **applyEvent 30 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
 | 集成               | MockTransport 四场景全跑（§4.7 表）；阶段三：ScriptedLlm 全闭环 + 崩溃恢复（kill -9 后 resume 无悬挂事件）                                                       |
 
 ## 8.7 v2 候选池（未排期，部分已随阶段十二~十八落地；**2026-09-19 晚风拍板：余项凡属占位或判决登记限制的全部推翻立项进阶段十九**——落点映射见阶段十九表与 doc/08 §5D，行内"已立项/后置"状态不再逐行改写，以阶段表勾选为准；缺口编号对应 doc/07 §2.7）

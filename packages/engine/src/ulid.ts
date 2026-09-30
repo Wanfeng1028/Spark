@@ -11,6 +11,7 @@ import type {
   EventId,
   RequestId,
   SessionId,
+  TaskId,
   TurnId,
 } from '@spark/protocol'
 
@@ -74,4 +75,5 @@ export const newIds = {
   call: (): CallId => ids.call(`cal_${ulid()}`),
   request: (): RequestId => ids.request(`req_${ulid()}`),
   checkpoint: (): CheckpointId => ids.checkpoint(`ckp_${ulid()}`),
+  task: (): TaskId => ids.task(`tsk_${ulid()}`),
 }

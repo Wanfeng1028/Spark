@@ -16,6 +16,8 @@ import { makeTaskTool } from './task.js'
 import type { TaskInput, TaskRunner } from './task.js'
 import { exitPlanModeTool } from './exit-plan-mode.js'
 import { lspTool } from './lsp.js'
+import { makeTaskTools } from './background-task-tools.js'
+import type { BackgroundTaskManager } from '../../background-task.js'
 
 export { readTool, grepTool, writeTool, editTool, makeBashTool, bashTool, makeTaskTool, exitPlanModeTool }
 export type { BashToolOptions, TaskInput, TaskRunner }
@@ -29,6 +31,8 @@ export interface BuiltinToolsOptions {
   networkIsolation?: () => { enabled: boolean; port: number; ready: boolean }
   /** bash 常驻池引用回调（LA-16：引擎 shutdown 排水用；persistent 未开时回 null） */
   onPool?: (pool: BashShellPool | null) => void
+  /** 后台任务平面（CK-1 批 1）：接线后 bash 具备 runInBackground/预算转后台，task_output/task_stop 注册进广告面 */
+  background?: BackgroundTaskManager
 }
 
 export function registerBuiltinTools(registry: ToolRegistry, opts: BuiltinToolsOptions = {}): void {
@@ -42,8 +46,15 @@ export function registerBuiltinTools(registry: ToolRegistry, opts: BuiltinToolsO
       ...(opts.bashPersistent !== undefined ? { persistent: opts.bashPersistent } : {}),
       ...(opts.networkIsolation !== undefined ? { networkIsolation: opts.networkIsolation } : {}),
       ...(opts.onPool !== undefined ? { onPool: opts.onPool } : {}),
+      ...(opts.background !== undefined ? { background: opts.background } : {}),
     }),
   )
+  // CK-1：后台任务观察面（browser 家族同判例——未接线时工具缺席，接线后恒广告）
+  if (opts.background !== undefined) {
+    for (const tool of makeTaskTools(opts.background)) {
+      registry.register(tool)
+    }
+  }
   // 工单 16.3：计划模式退出工具（非计划模式不进广告面——engine 侧 hiddenTools getter 控）
   registry.register(exitPlanModeTool)
   // 工单 16.9：lsp 工具恒广告（browser 工具族同判例——未配置时执行期 E_LSP_UNCONFIGURED

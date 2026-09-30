@@ -19,6 +19,7 @@ const evt = (n: number) => ids.event(`evt_01HXSPARK${String(n).padStart(7, '0')}
 const cal = ids.call('cal_01HXSPARK0000000000000000')
 const req = ids.request('req_01HXSPARK0000000000000000')
 const ckp = ids.checkpoint('ckp_01HXSPARK0000000000000000')
+const tsk = ids.task('tsk_01HXSPARK0000000000000000')
 
 /** 每种事件一个合法样例（exhaustive map——新增词表条目漏样例即编译错） */
 const samples: { [K in SparkEventType]: SparkEventMap[K] } = {
@@ -91,6 +92,17 @@ const samples: { [K in SparkEventType]: SparkEventMap[K] } = {
   },
   'goal.completed': { iterations: 3, usedTokens: 41200 },
   'goal.paused': { reason: 'maxIterations', iterations: 50, usedTokens: 198600 },
+  // CK-1 后台任务平面：durable 非 surface；模型可见面是完成回注的合成 user.message
+  'task.started': { taskId: tsk, kind: 'bash', command: 'pnpm -r build', pid: 4242 },
+  'task.completed': {
+    taskId: tsk,
+    exitCode: 0,
+    aborted: false,
+    timedOut: false,
+    durationMs: 65_536,
+    outputChars: 4096,
+    notified: true,
+  },
   // ZC-1 微压缩边界：durable 非 surface；keptFromEventId 由引擎在触发时落
   'microcompact_boundary': {
     keptFromEventId: evt(40),
@@ -135,8 +147,8 @@ function envelopeOf<K extends SparkEventType>(
 }
 
 describe('事件词表', () => {
-  it('词表共 28 种（durable 25 + live 3）', () => {
-    expect(Object.keys(EventSchemas)).toHaveLength(28)
+  it('词表共 30 种（durable 27 + live 3）', () => {
+    expect(Object.keys(EventSchemas)).toHaveLength(30)
   })
 
   it('CallId 透传上游 id（工单 10.39：OpenAI call_xxx / Anthropic toolu_xxx 过闸，不重写）', () => {
@@ -157,7 +169,7 @@ describe('事件词表', () => {
   })
 })
 
-describe('round-trip：28 种事件逐一', () => {
+describe('round-trip：30 种事件逐一', () => {
   for (const key of Object.keys(samples) as SparkEventType[]) {
     it(`${key}：构造 → parseEnvelope → JSON 往返 → 再 parse`, () => {
       const envelope = envelopeOf(key, samples[key], 3)

@@ -1156,3 +1156,35 @@ describe('ZC-1：microcompact_boundary', () => {
     expect(slice.items).toBe(s0.byId[SID]?.items)
   })
 })
+
+// ---- CK-1：task.started / task.completed reducer no-op（任务状态卡属批 2 四端展示）----
+
+describe('CK-1：task.started / task.completed', () => {
+  it('落 slice 但不产生 items（模型可见面是回注的合成 user.message）', () => {
+    const s0 = applyEvent(fresh(), ev('session.created', { cwd: '/w', model: 'm' }, { seq: 1 }))
+    const taskId = ids.task('tsk_test0001')
+    const started = applyEvent(
+      s0,
+      ev('task.started', { taskId, kind: 'bash', command: 'pnpm -r build', pid: 4242 }),
+    )
+    const sliceStarted = started.byId[SID]
+    if (sliceStarted === undefined) throw new Error('slice 缺失')
+    expect(sliceStarted.items).toBe(s0.byId[SID]?.items)
+
+    const completed = applyEvent(
+      started,
+      ev('task.completed', {
+        taskId,
+        exitCode: 0,
+        aborted: false,
+        timedOut: false,
+        durationMs: 1200,
+        outputChars: 64,
+        notified: true,
+      }),
+    )
+    const sliceCompleted = completed.byId[SID]
+    if (sliceCompleted === undefined) throw new Error('slice 缺失')
+    expect(sliceCompleted.items).toBe(s0.byId[SID]?.items)
+  })
+})

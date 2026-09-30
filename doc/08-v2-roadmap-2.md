@@ -48,7 +48,7 @@
 
 **内容**：① bash 工具增 runInBackground 入参 + 前台阻塞预算（超时自动转后台返回 task id）；② TaskOutput（字节偏移续读 + 首响应头尾预算 + 溢写引用）/ TaskStop 工具族；③ 后台任务完成 → 经输入队列以 delivery=queue 回注系统通知，驱动主会话主动汇报一轮（复用 19.22 交付语义）；④ task 子代理后台化（返回 task id，完成后回注 + SendMessage 续聊）；⑤ task.started/progress/completed 事件面（durable/live 归类按词表纪律评估，走 new-event-type 全流程）。
 
-**验收**：单测（后台化/预算转后台/偏移续读/完成回注入队/TaskStop 中断事件对）+ 四端任务卡展示；真实长命令走查留用户。**依赖**：无；与 ZC-Q1 正交。**分批**：批 1 = bash 半边（M）；批 2 = agent 半边（L）。
+**验收**：单测（后台化/预算转后台/偏移续读/完成回注入队/TaskStop 中断事件对）+ 四端任务卡展示；真实长命令走查留用户。**依赖**：无；与 ZC-Q1 正交。**分批**：批 1 = bash 半边（M）；批 2 = agent 半边（L）。**✅ 批 1 已交付（2026-10-01，doc/02 v4.171）**——bash `runInBackground` + 60s 前台预算自动转后台 + `task_output`（24KiB 头尾预算/偏移续读/会话隔离）/`task_stop` 两工具 + `BackgroundTaskManager`（task.started/completed 两事件 durable 非 surface；完成经输入队列 delivery=queue 回注，goal 续跑同通道）+ engine 6 例单测。**批 1 范围收窄登记**：⑤ 事件面只落 started/completed，`task.progress`（live 流式尾随）随批 2 四端任务卡一起（拉取模型已覆盖功能需要）；④ agent 后台化与 TaskList 为批 2。
 
 ### CK-2 Hooks 全生命周期事件面：12 挂点 × command 形态 + hook-broker 竞速（P0）
 

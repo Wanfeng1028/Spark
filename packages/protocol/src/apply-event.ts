@@ -922,6 +922,13 @@ function reduceEvent(s: ProjectionState, e: SparkEventEnvelope, idxBox: IndexBox
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
+  if (ofType(e, 'task.started') || ofType(e, 'task.completed')) {
+    // CK-1：后台任务生命周期（durable 非 surface）——模型可见面是完成回注的合成
+    // user.message（那条消息自带入流转录），任务状态卡是批 2 四端展示的范围；
+    // 显式 no-op 保持 reducer 全覆盖纪律
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
   if (ofType(e, 'checkpoint.created')) {
     next.lastCheckpoint = { checkpointId: e.data.checkpointId, turnId: e.data.turnId }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }

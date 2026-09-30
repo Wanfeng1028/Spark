@@ -83,6 +83,7 @@ const PATTERN_SAMPLES: Record<string, string> = {
   '^evt_[0-9A-Za-z]+$': 'evt_01ARZ3NDEKTSV4RRFFQ69G5FAV',
   '^req_[0-9A-Za-z]+$': 'req_01ARZ3NDEKTSV4RRFFQ69G5FAV',
   '^ckp_[0-9A-Za-z]+$': 'ckp_01ARZ3NDEKTSV4RRFFQ69G5FAV',
+  '^tsk_[0-9A-Za-z]+$': 'tsk_01ARZ3NDEKTSV4RRFFQ69G5FAV',
   '^[A-Za-z0-9_-]{1,128}$': 'call_contract_sample_1',
   '^\\d{4}-\\d{2}-\\d{2}$': '2026-09-09',
   '^\\d{6}$': '123456',

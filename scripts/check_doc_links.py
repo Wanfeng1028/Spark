@@ -381,7 +381,9 @@ def real_event_type_count(root: Path) -> int | None:
     block = _ts_block(src.read_text(encoding="utf-8"), "export const EventSchemas", "{", "}")
     if block is None:
         return None
-    return len(re.findall(r"^  '?[A-Za-z][A-Za-z.]*'?:", block, re.M))
+    # 键名含下划线（microcompact_boundary 判例：[A-Za-z.] 漏匹配使该键对计数隐形——
+    # 可见 27 vs 文档 28 恰好抵消两批未察觉；正则补下划线与数字段后实数才对齐 events.test）
+    return len(re.findall(r"^  '?[A-Za-z_][A-Za-z0-9._]*'?:", block, re.M))
 
 
 def real_command_count(root: Path) -> int | None:
