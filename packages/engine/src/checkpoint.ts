@@ -357,7 +357,7 @@ export class GitCheckpointer {
 }
 
 /** 审查聚合 patch 总预算（字节；超出即 truncated=true，剩余文件只给统计不给 patch） */
-export const REVIEW_PATCH_BUDGET = 256 * 1024
+const REVIEW_PATCH_BUDGET = 256 * 1024
 
 /** git 文本输出按行切分（过滤空尾行） */
 function splitLines(out: string): string[] {

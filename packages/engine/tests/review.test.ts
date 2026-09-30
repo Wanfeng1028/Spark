@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { ids, type SparkEventEnvelope } from '@spark/protocol'
-import { GitCheckpointer, REVIEW_PATCH_BUDGET } from '../src/checkpoint.js'
+import { GitCheckpointer } from '../src/checkpoint.js'
 import { EventBus, type EventSink } from '../src/bus.js'
 import type { SparkLogger } from '../src/logger.js'
 
@@ -150,8 +150,8 @@ describe('GitCheckpointer.review（19.35 审查聚合）', () => {
 
   test('patch 预算截断：超预算文件有统计无 patch，truncated=true', async () => {
     const { root, cp } = await makeFixture()
-    // 行数取到 patch 体积稳超预算（每行 ≥3 字节 + 合成头行）
-    const big = Array.from({ length: Math.ceil(REVIEW_PATCH_BUDGET / 3) }, (_, i) => `l${i}`).join('\n')
+    // 预算 256KB（checkpoint.ts REVIEW_PATCH_BUDGET，未导出——数值对齐即过）；行数取到 patch 体积稳超
+    const big = Array.from({ length: Math.ceil((256 * 1024) / 3) }, (_, i) => `l${i}`).join('\n')
     await write(root, 'big.txt', big)
     const review = await cp.review()
     expect(review.truncated).toBe(true)
