@@ -123,6 +123,8 @@ export interface RunLoopDeps {
   gateway: LlmGateway
   projector: Projector
   compactor: Compactor
+  /** ZC-1：微压缩端口（可省——测试 stub 与 cli 纯 REST 形态不启用） */
+  microcompact?: { run(): Promise<boolean> }
   tools: ToolPipeline
   model: ResolvedModel
   /** §5.11 组装的 system prompt */

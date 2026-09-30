@@ -120,6 +120,12 @@ export class PermissionServiceImpl implements PermissionService {
     // LA-37：收紧只压规则层与缺省放行——preset 档（auto-edit / full-access）是用户
     // 显式选择（UI 琥珀警示），其 allow 不被静默改写；否则审计行记 rule:preset 而
     // 终判是 ask，归因对不上。
+    // 文件夹信任收紧（工单 16.4 / ADR D37 / LA-37）：未信任 cwd 下规则层与缺省放行
+    // 降级为问一次；preset 档是显式选择不被静默改写。
+    const tightened =
+      effect === 'allow' &&
+      this.ruleSourceOf(check, 'allow') !== 'preset' &&
+      (this.deps.trust?.tightens(check.action) ?? false)
     // ZC-2：alwaysAsk 双分支——工具声明的 alwaysAsk 在策略层判 allow 时压制为 ask
     // 一次（「压过放行、压不过阻断」）。用户/会话层显式 allow 规则可压制（人已拍板）；
     // 项目层 allow 不压制（项目文件不能解除敏感工具问询）；preset 档/缺省放行不压制

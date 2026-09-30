@@ -11,7 +11,7 @@
 import type { EventBus } from './bus.js'
 import type { EventTree } from './session/tree.js'
 import type { Projector } from './run-loop.js'
-import type { EventId } from '@spark/protocol'
+import type { EventId, SparkEventEnvelope } from '@spark/protocol'
 
 /** 触发比例：水位 = 0.9 × 压缩阈值 × 上下文窗口 */
 export const MICROCOMPACT_TRIGGER_RATIO = 0.9
@@ -36,6 +36,13 @@ interface MicroCompactPlan {
   keptFromEventId: EventId
   clearedCount: number
   savedTokens: number
+}
+
+/** SparkEventEnvelope 的 type 判别不自动收窄 data——本文件本地守卫 */
+function isAssistantMessage(
+  e: SparkEventEnvelope,
+): e is SparkEventEnvelope<'assistant.message'> {
+  return e.type === 'assistant.message'
 }
 
 export class MicroCompactorImpl {
@@ -66,7 +73,7 @@ export class MicroCompactorImpl {
     const groups: Array<{ eventId: EventId; pos: number; callIds: string[] }> = []
     for (let i = 0; i < path.length; i++) {
       const e = path[i]
-      if (e === undefined || e.type !== 'assistant.message') continue
+      if (e === undefined || !isAssistantMessage(e)) continue
       const callIds = e.data.content
         .filter((c): c is Extract<typeof c, { type: 'toolResult' }> => c.type === 'toolResult')
         .map((c) => c.callId)
@@ -83,7 +90,7 @@ export class MicroCompactorImpl {
     // 估算节省：被清条目的 output JSON 长度 − 占位文本长度（字符近似口径 /4）
     const outputsById = new Map<string, unknown>()
     for (const e of path) {
-      if (e === undefined || e.type !== 'assistant.message') continue
+      if (e === undefined || !isAssistantMessage(e)) continue
       for (const c of e.data.content) {
         if (c.type === 'toolResult') outputsById.set(c.callId, c.output)
       }
