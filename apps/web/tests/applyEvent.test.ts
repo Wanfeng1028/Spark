@@ -1144,13 +1144,15 @@ describe('工单 W13：items 查找索引化（O(1) 化回归）', () => {
 describe('ZC-1：microcompact_boundary', () => {
   it('落 slice 但不产生 items（投影层事件，UI 转录 toolResult 原文不动）', () => {
     const s0 = applyEvent(fresh(), ev('session.created', { cwd: '/w', model: 'm' }, { seq: 1 }))
+    const keptFrom = ids.event(`evt_test${String(evtSeq + 1).padStart(4, '0')}`)
     const e = ev('microcompact_boundary', {
-      keptFromEventId: 'evt_01HXBOUNDARY0000000000000',
+      keptFromEventId: keptFrom,
       clearedCount: 3,
       savedTokens: 512,
     })
     const next = applyEvent(s0, e)
-    expect(next.byId[SID]).toBeDefined()
-    expect(next.byId[SID].items).toBe(s0.byId[SID]?.items)
+    const slice = next.byId[SID]
+    if (slice === undefined) throw new Error('slice 缺失')
+    expect(slice.items).toBe(s0.byId[SID]?.items)
   })
 })
