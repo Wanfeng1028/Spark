@@ -9,10 +9,11 @@ export function useDismissOnOutsideClick(
   active: boolean,
   onDismiss: () => void,
   isInside: (target: Node) => boolean,
+  opts?: { escape?: boolean },
 ): void {
   // 回调经 ref 透传：effect 依赖仅 active，重订阅节奏与原实现一致
-  const state = useRef({ onDismiss, isInside })
-  state.current = { onDismiss, isInside }
+  const state = useRef({ onDismiss, isInside, escape: opts?.escape ?? true })
+  state.current = { onDismiss, isInside, escape: opts?.escape ?? true }
   useEffect(() => {
     if (!active) return
     function onDocMouseDown(e: MouseEvent): void {
@@ -20,7 +21,17 @@ export function useDismissOnOutsideClick(
         state.current.onDismiss()
       }
     }
+    // LA-61：Esc 关闭兜底（默认开）——键盘可达性（L.6 开一关一对全部浮层成立）
+    function onDocKeyDown(e: KeyboardEvent): void {
+      if (e.key === 'Escape' && state.current.escape) {
+        state.current.onDismiss()
+      }
+    }
     document.addEventListener('mousedown', onDocMouseDown)
-    return () => document.removeEventListener('mousedown', onDocMouseDown)
+    document.addEventListener('keydown', onDocKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown)
+      document.removeEventListener('keydown', onDocKeyDown)
+    }
   }, [active])
 }

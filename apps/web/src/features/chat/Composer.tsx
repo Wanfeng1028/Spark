@@ -143,8 +143,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   const dismissedSig = useRef<string | null>(null)
   const [segment, setSegment] = useState<SegmentValue>(defaultDelivery)
   const [presetMenuOpen, setPresetMenuOpen] = useState(false)
-  const [treeOpen, setTreeOpen] = useState(false)
-  const [plusMenuOpen, setPlusMenuOpen] = useState(false)
+  // LA-61：浮层开合收成一个互斥联合——类型保证「开一关一」（此前两 bool 可同时为真）
+  const [popover, setPopover] = useState<'plusMenu' | 'fileTree' | null>(null)
+  const plusMenuOpen = popover === 'plusMenu'
+  const treeOpen = popover === 'fileTree'
   const taRef = useRef<HTMLTextAreaElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -188,7 +190,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 
   /** + 菜单四项（工单 10.5⑤）：附件开关 + 三个触发词插入（@// /$） */
   function insertTrigger(ch: string): void {
-    setPlusMenuOpen(false)
+    setPopover(null)
     const el = taRef.current
     const pos = el !== null ? (el.selectionStart ?? draft.length) : draft.length
     setDraft(draft.slice(0, pos) + ch + draft.slice(pos))
@@ -406,7 +408,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
     if (e.key === 'Escape' && plusMenuOpen) {
       e.preventDefault()
-      setPlusMenuOpen(false)
+      setPopover(null)
       return
     }
     if (onMenuKeyDown(e)) return // 菜单开放时 ↑↓/Enter/Esc 归菜单
@@ -501,8 +503,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     if (!plusMenuOpen && !treeOpen) return
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
-        setPlusMenuOpen(false)
-        setTreeOpen(false)
+        setPopover(null)
+        setPopover(null)
       }
     }
     document.addEventListener('keydown', onKey)
@@ -511,8 +513,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   // WO-081：命令面板（Ctrl/Cmd+K）打开时收起全部底部弹层，杜绝浮层叠加残留
   useEffect(() => {
     if (paletteOpen) {
-      setPlusMenuOpen(false)
-      setTreeOpen(false)
+      setPopover(null)
+      setPopover(null)
     }
   }, [paletteOpen])
 
@@ -684,8 +686,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               aria-expanded={plusMenuOpen}
               disabled={waiting}
               onClick={() => {
-                setTreeOpen(false) // L.6 弹层互斥：开一关一，禁止同屏叠放
-                setPlusMenuOpen((v) => !v)
+                setPopover(null) // L.6 弹层互斥：开一关一，禁止同屏叠放
+                setPopover((v) => (v === 'plusMenu' ? null : 'plusMenu'))
               }}
               className="flex size-7 items-center justify-center rounded-full bg-secondary text-foreground hover:bg-composer-hover disabled:pointer-events-none disabled:opacity-40"
             >
@@ -762,7 +764,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                 sessionId={sessionId}
                 transport={transport}
                 onPick={(path) => {
-                  setTreeOpen(false)
+                  setPopover(null)
                   insertTrigger('@' + path + ' ')
                 }}
               />
@@ -775,7 +777,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
               >
                 {(
                   [
-                    { icon: Paperclip, label: '添加图片附件', run: () => { setPlusMenuOpen(false); imageInputRef.current?.click() } },
+                    { icon: Paperclip, label: '添加图片附件', run: () => { setPopover(null); imageInputRef.current?.click() } },
                     { icon: AtSign, label: '使用 @ 添加上下文', run: () => insertTrigger('@') },
                     { icon: Slash, label: '使用 / 选择命令或能力', run: () => insertTrigger('/') },
                     ...(sessionId !== undefined
@@ -783,8 +785,8 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                           icon: FolderTree,
                           label: '浏览文件树',
                           run: () => {
-                            setPlusMenuOpen(false) // 弹层互斥（L.6 开一关一）
-                            setTreeOpen(true)
+                            setPopover(null) // 弹层互斥（L.6 开一关一）
+                            setPopover('fileTree')
                           },
                         }]
                       : []),
