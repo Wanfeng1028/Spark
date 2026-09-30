@@ -11,7 +11,7 @@ import { makeServer, type ServerFixture } from './helpers.js'
 async function createSession(server: ServerFixture): Promise<string> {
   const res = await server.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
   expect(res.statusCode).toBe(201)
-  return (res.json<{ id: string }>() as { id: string }).id
+  return res.json<{ id: string }>().id
 }
 
 describe('GET /api/sessions/:id/review（19.35）', () => {
