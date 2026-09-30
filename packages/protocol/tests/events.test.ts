@@ -93,7 +93,7 @@ const samples: { [K in SparkEventType]: SparkEventMap[K] } = {
   'goal.paused': { reason: 'maxIterations', iterations: 50, usedTokens: 198600 },
   // ZC-1 微压缩边界：durable 非 surface；keptFromEventId 由引擎在触发时落
   'microcompact_boundary': {
-    keptFromEventId: 'evt_01HXBOUNDARY0000000000000',
+    keptFromEventId: evt(40),
     clearedCount: 3,
     savedTokens: 512,
   },
