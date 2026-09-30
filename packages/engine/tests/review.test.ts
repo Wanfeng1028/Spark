@@ -30,7 +30,7 @@ const SILENT_LOGGER = {
   warn() {},
   error() {},
   debug() {},
-} as SparkLogger
+} as unknown as SparkLogger
 
 async function makeFixture(): Promise<{
   root: string
