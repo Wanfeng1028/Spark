@@ -50,26 +50,26 @@ export function makeTaskTools(
       resourceOf: (input) => `task:${input.taskId}`,
     },
     parallelizable: true,
-    async execute(ctx: ToolContext, input): Promise<ToolOutput> {
+    execute(ctx: ToolContext, input: TaskOutputInput): Promise<ToolOutput> {
       const task = manager.get(ctx.sessionId, input.taskId)
       if (task === undefined) {
-        return {
+        return Promise.resolve({
           output: {
             code: 'E_TASK_NOT_FOUND',
             message: `后台任务 ${input.taskId} 不存在（或属其他会话）`,
           },
           isError: true,
-        }
+        })
       }
       const offset = input.offset ?? 0
       if (offset > task.totalChars) {
-        return {
+        return Promise.resolve({
           output: {
             code: 'E_TASK_OFFSET',
             message: `偏移 ${offset} 超出缓冲长度 ${task.totalChars}（任务输出可能仍在增长，请用更小偏移重试）`,
           },
           isError: true,
-        }
+        })
       }
       const slice = task.buffer.slice(offset)
       let output: string
@@ -87,7 +87,7 @@ export function makeTaskTools(
       } else {
         output = slice
       }
-      return {
+      return Promise.resolve({
         output: {
           taskId: input.taskId,
           done: task.done,
@@ -106,7 +106,7 @@ export function makeTaskTools(
           totalChars: task.totalChars,
         },
         isError: false,
-      }
+      })
     },
   }
 
@@ -121,33 +121,33 @@ export function makeTaskTools(
       resourceOf: (input) => `task:${input.taskId}`,
     },
     parallelizable: false,
-    async execute(ctx: ToolContext, input): Promise<ToolOutput> {
+    execute(ctx: ToolContext, input: TaskStopInput): Promise<ToolOutput> {
       const task = manager.get(ctx.sessionId, input.taskId)
       if (task === undefined) {
-        return {
+        return Promise.resolve({
           output: {
             code: 'E_TASK_NOT_FOUND',
             message: `后台任务 ${input.taskId} 不存在（或属其他会话）`,
           },
           isError: true,
-        }
+        })
       }
       if (task.done) {
-        return {
+        return Promise.resolve({
           output: {
             code: 'E_TASK_ALREADY_DONE',
             message: `后台任务 ${input.taskId} 已结束（exitCode=${task.settle?.exitCode ?? 'null'}），无需终止`,
           },
           isError: true,
-        }
+        })
       }
       // 杀进程；close 事件落回 bash 侧处理器后由其调 manager.complete（aborted=true）——
       // task.completed 事件与回注都在那条路径上，本工具只负责发起停止
       manager.stop(input.taskId)
-      return {
+      return Promise.resolve({
         output: { taskId: input.taskId, stopped: true },
         isError: false,
-      }
+      })
     },
   }
 

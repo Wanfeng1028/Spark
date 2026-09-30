@@ -30,7 +30,8 @@ import type { BashSandboxMode } from '../sandbox.js'
 import { sandboxProxyEnv, sandboxProxyExportLine } from '../../sandbox/network-env.js'
 import { BashShellPool, COLLECT_TRUNCATION_MARK } from '../bash-pool.js'
 import type { ShellPoolOpts } from '../bash-pool.js'
-import { BackgroundTaskManager, FOREGROUND_BUDGET_MS, TASK_BUFFER_CAP_CHARS } from '../../background-task.js'
+import { FOREGROUND_BUDGET_MS, TASK_BUFFER_CAP_CHARS } from '../../background-task.js'
+import type { BackgroundTaskManager } from '../../background-task.js'
 import type { TaskId } from '@spark/protocol'
 
 const PROGRESS_CHUNK_BYTES = 16 * 1024
