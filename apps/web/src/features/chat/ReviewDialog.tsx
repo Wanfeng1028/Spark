@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { errorMessageOf } from '@/lib/error-copy'
 
-export type PendingApproval = Extract<UiItem, { kind: 'approval' }>
+type PendingApproval = Extract<UiItem, { kind: 'approval' }>
 
 export interface ReviewDialogProps {
   open: boolean
