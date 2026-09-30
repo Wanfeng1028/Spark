@@ -845,3 +845,76 @@ describe('AUD-06：error 事件文案脱敏兜底', () => {
     expect((err?.data as { message: string }).message).toContain('E_SCRIPTED_EXHAUSTED')
   })
 })
+
+// ---- ZC-3：纯文本截断自动续写 ----
+
+describe('ZC-3：输出截断自动续写', () => {
+  test('纯文本 length → 续写指令 user.message 注入 → 下一步从截断处继续', async () => {
+    const f = makeFixture()
+    f.gateway.scriptStep({ content: [{ type: 'text', text: '被截断的回答' }], stopReason: 'length' })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '续写完成' }] })
+    await takeSubmitted(f.rt, 'x')
+    await runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'x',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    // 续写指令以 user.message 进投影（模型可见）
+    const cont = f.sink.events.find(
+      (e) => e.type === 'user.message' && (e.data as { text: string }).text.includes('长度上限被截断'),
+    )
+    expect(cont).toBeDefined()
+    // 两次 LLM 调用（原步 + 续写步），finish=stop
+    expect(f.gateway.calls).toHaveLength(2)
+    expect(lastOf(f, 'turn.completed')?.data).toMatchObject({ finish: 'stop' })
+  })
+
+  test('续写超过 3 次：如实 finish=length（不无限烧预算）', async () => {
+    const f = makeFixture()
+    for (let i = 0; i < 6; i++) {
+      f.gateway.scriptStep({ content: [{ type: 'text', text: `截断${i}` }], stopReason: 'length' })
+    }
+    await takeSubmitted(f.rt, 'x')
+    await runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'x',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    // 首步 + 3 次续写 = 4 次调用，第 4 次续写超出上限即收口
+    expect(f.gateway.calls).toHaveLength(4)
+    expect(lastOf(f, 'turn.completed')?.data).toMatchObject({ finish: 'length' })
+    // 续写指令恰好 3 条
+    const conts = f.sink.events.filter(
+      (e) => e.type === 'user.message' && (e.data as { text: string }).text.includes('长度上限被截断'),
+    )
+    expect(conts).toHaveLength(3)
+  })
+
+  test('带 toolCall 的截断仍走 E_TRUNCATED 重发路径（不注入续写指令）', async () => {
+    const f = makeFixture()
+    const callId = ids.call('cal_zc3tool')
+    f.gateway.scriptStep({
+      content: [{ type: 'toolCall', callId, name: 'read', input: { path: 'x' } }],
+      stopReason: 'length',
+    })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: 'ok' }] })
+    await takeSubmitted(f.rt, 'x')
+    await runTurn(f.rt, f.deps, {
+      id: newIds.event(),
+      turnId: newIds.turn(),
+      text: 'x',
+      delivery: 'now',
+      admittedAt: Date.now(),
+    })
+    const conts = f.sink.events.filter(
+      (e) => e.type === 'user.message' && (e.data as { text: string }).text.includes('长度上限被截断'),
+    )
+    expect(conts).toHaveLength(0)
+    const completed = f.sink.events.find((e) => e.type === 'tool.completed')
+    expect(completed?.data).toMatchObject({ output: { code: 'E_TRUNCATED' } })
+  })
+})

@@ -99,11 +99,16 @@ function budgetMessage(limitUsd: number, spendUsd: number): string {
 
 // ---- TurnCtx（§5.5）----
 
+/** ZC-3：纯文本截断的自动续写上限（耗尽后如实 finish=length，不无限烧预算） */
+const ZC3_MAX_CONTINUATIONS = 3
+
 export interface TurnCtx {
   turnId: TurnId
   delivery: Delivery
   /** interrupt 入口；级联到 LLM 流与工具 signal（§5.6 管线接线） */
   abort: AbortController
+  /** ZC-3：纯文本截断已自动续写的次数（≤ZC3_MAX_CONTINUATIONS） */
+  continuations?: number
   step: number
   /** 本 turn 累计用量 */
   usage: Usage
@@ -441,6 +446,19 @@ export async function runTurn(
         if (turn.step >= deps.maxStepsPerTurn) {
           finish = 'length'
           break
+        }
+        // ZC-3：纯文本（无 toolCall）截断 → 追加续写指令再跑一轮，最多 ZC3_MAX_CONTINUATIONS
+        // 次（耗尽如实 finish=length 报错——不无限烧预算）；带 toolCall 的截断仍走
+        // E_TRUNCATED 回喂重发（上方路径）。指令作为 user.message 进投影，模型从截断处继续。
+        if (truncated.length === 0) {
+          turn.continuations = (turn.continuations ?? 0) + 1
+          if (turn.continuations > ZC3_MAX_CONTINUATIONS) {
+            finish = 'length'
+            break
+          }
+          await deps.bus.emit(sid, 'user.message', {
+            text: '[系统] 输出因长度上限被截断——请从中断处继续，不要重复已输出内容。',
+          })
         }
         continue // terminate=false：错误结果回喂，不终止
       }
