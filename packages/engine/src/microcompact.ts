@@ -11,7 +11,7 @@
 import type { EventBus } from './bus.js'
 import type { EventTree } from './session/tree.js'
 import type { Projector } from './run-loop.js'
-import type { EventId, SparkEventEnvelope } from '@spark/protocol'
+import type { EventId, SessionId, SparkEventEnvelope } from '@spark/protocol'
 
 /** 触发比例：水位 = 0.9 × 压缩阈值 × 上下文窗口 */
 export const MICROCOMPACT_TRIGGER_RATIO = 0.9
@@ -23,7 +23,7 @@ export const MICROCOMPACT_MIN_SAVINGS = 256
 export const MICROCOMPACT_KEEP_GROUPS = 5
 
 export interface MicroCompactorDeps {
-  sessionId: import('@spark/protocol').SessionId
+  sessionId: SessionId
   bus: EventBus
   tree: EventTree
   projector: Projector
