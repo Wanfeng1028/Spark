@@ -19,6 +19,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: python scripts/check_doc_links.py
+      # LA-63：横向不变量第二关（shadow-lg 禁令/圆角封闭集/engine 导出闸/行数对账/端点同步）
+      - run: python scripts/check_invariants.py
       - run: pnpm typecheck
       - run: pnpm lint
       # 工单 14.1 第二批（ARCHITECTURE §9.6 "未引用导出/依赖"硬检查项）：knip 扫描。

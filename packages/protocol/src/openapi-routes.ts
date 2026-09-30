@@ -254,6 +254,27 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     query: { limit: { type: 'integer', minimum: 1, maximum: 100, description: '缺省 20' } },
     response: ref('ArenaHistoryDto'),
   },
+  {
+    method: 'get',
+    path: '/api/sessions/{id}/arena',
+    summary: '竞答快照（GET；无竞答回 200 null——ArenaCard 不渲染判据）',
+    tag: 'sessions',
+    response: ref('ArenaStatusDto'),
+  },
+  {
+    method: 'post',
+    path: '/api/sessions/{id}/arena/winner',
+    summary: '应用竞答胜者改动到主工作区（整体一次审批；删除类跳过——§2.10）',
+    tag: 'sessions',
+    response: ref('ArenaStatusDto'),
+  },
+  {
+    method: 'post',
+    path: '/api/sessions/{id}/arena/cancel',
+    summary: '取消进行中的竞答（中断 contenders + 清 worktree）',
+    tag: 'sessions',
+    response: ref('ArenaStatusDto'),
+  },
 
   // ---- 权限域（routes/permissions.ts） ----
   {

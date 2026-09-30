@@ -48,6 +48,7 @@ const COMPONENTS: Record<string, z.ZodType> = {
   ExtensionDto: api.ExtensionDtoSchema,
   ArenaHistoryEntryDto: api.ArenaHistoryEntryDtoSchema,
   ArenaHistoryDto: api.ArenaHistoryDtoSchema,
+  ArenaStatusDto: api.ArenaStatusDtoSchema,
   AgentPresetDto: api.AgentPresetDtoSchema,
   CommandDto: api.CommandDtoSchema,
   ExecuteCommandBody: api.ExecuteCommandBodySchema,
