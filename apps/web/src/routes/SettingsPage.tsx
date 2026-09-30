@@ -4,7 +4,8 @@
  * ready 页映射真组件，其余渲染占位页；未知 :page 段重定向到外观页。
  */
 import { Navigate, useParams } from 'react-router'
-import { findSettingsPage } from '@/features/settings/settings-pages'
+import { findSettingsPage, type SettingsPageId } from '@/features/settings/settings-pages'
+import type { ComponentType } from 'react'
 import { GeneralSettingsPage } from '@/features/settings/GeneralPage'
 import { AppearancePage } from '@/features/settings/AppearancePage'
 import { ModelSettingsPage } from '@/features/settings/ModelSettingsPage'
@@ -60,7 +61,7 @@ const READY_COMPONENTS = {
   sandbox: SandboxSettingsPage,
   onboarding: OnboardingSettingsPage,
   prompts: PromptsSettingsPage,
-} as const
+} satisfies Partial<Record<SettingsPageId, ComponentType>>
 
 export function SettingsPage() {
   const { page } = useParams()
@@ -68,8 +69,8 @@ export function SettingsPage() {
 
   if (def === undefined) return <Navigate to="/settings/appearance" replace />
 
-  const readyKey = def.id as keyof typeof READY_COMPONENTS
-  const Ready = READY_COMPONENTS[readyKey]
+  // LA-59：Partial<Record<SettingsPageId,…>> 下按联合类型直取——不再 as keyof 强转
+  const Ready = READY_COMPONENTS[def.id]
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto flex w-full max-w-[768px] flex-col gap-5 px-6 py-6">

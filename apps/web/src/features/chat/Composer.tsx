@@ -554,10 +554,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         className={cn(
           // §13.L L.1 精确值（dialog-redesign-spec §1.1 IB.css L59-63）：22px 全圆角白卡、
           // 无 border、卡内距仅 pt-2（内层元素自带 14/8px 内距）、0.5px 环+双层柔影
-          // （聚焦不加 ring——caret 变色即可）；深色 #2c2c2e + 0.5px 淡白环
+          // （聚焦不加 ring——caret 变色即可）；深色底 = --user-bubble token（LA-60 归 token）
           'relative flex flex-col gap-3 rounded-[22px] bg-card pt-2',
           'shadow-[0_0_0_0.5px_rgba(0,0,0,0.10),0_4px_16px_rgba(0,0,0,0.03),0_0_24px_rgba(0,0,0,0.03)]',
-          'dark:bg-[#2c2c2e] dark:shadow-[0_0_0_0.5px_rgba(255,255,255,0.12),0_4px_16px_rgba(0,0,0,0.03),0_0_24px_rgba(0,0,0,0.03)]',
+          'dark:bg-user-bubble dark:shadow-[0_0_0_0.5px_rgba(255,255,255,0.12),0_4px_16px_rgba(0,0,0,0.03),0_0_24px_rgba(0,0,0,0.03)]',
         )}
         onDragEnter={(e) => {
           if (!dropsFiles(e)) return
@@ -667,7 +667,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                   ? '继续输入以排队后续修改'
                   : '描述你想要构建的内容，/ 调用指令，@ 文件或对话'
           }
-          className="max-h-[336px] min-h-9 w-full resize-none overflow-y-auto bg-transparent pt-1 pr-2 pb-0 pl-3.5 text-sm leading-6 text-foreground caret-send-accent outline-none placeholder:text-[#ADB2B8] dark:placeholder:text-[#81858C] disabled:cursor-not-allowed disabled:opacity-60"
+          className="max-h-[336px] min-h-9 w-full resize-none overflow-y-auto bg-transparent pt-1 pr-2 pb-0 pl-3.5 text-sm leading-6 text-foreground caret-send-accent outline-none placeholder:text-composer-placeholder disabled:cursor-not-allowed disabled:opacity-60"
         />
 
         {/* 底部工具条（§13.L L.2 精确值 IB.css L254-389）：左=[＋/权限/语音]、右=[模型/推理/发送]，
@@ -687,7 +687,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
                 setTreeOpen(false) // L.6 弹层互斥：开一关一，禁止同屏叠放
                 setPlusMenuOpen((v) => !v)
               }}
-              className="flex size-7 items-center justify-center rounded-full bg-secondary text-foreground hover:bg-[#F1F3F5] dark:hover:bg-[#353638] disabled:pointer-events-none disabled:opacity-40"
+              className="flex size-7 items-center justify-center rounded-full bg-secondary text-foreground hover:bg-composer-hover disabled:pointer-events-none disabled:opacity-40"
             >
               <Plus className="size-3.5" />
             </button>

@@ -44,6 +44,9 @@
   --send-accent: #4176e6;
   --send-accent-hover: #679efe;
   --user-bubble: #edf3fe;
+  /* Composer 输入区中性灰（LA-60：组件内零硬编码 hex） */
+  --composer-placeholder: #adb2b8;
+  --composer-hover: #f1f3f5;
 }
 
 .dark {
@@ -75,6 +78,8 @@
   --send-accent: #679efe;
   --send-accent-hover: #4176e6;
   --user-bubble: #2c2c2e;
+  --composer-placeholder: #81858c;
+  --composer-hover: #353638;
 }
 
 @theme inline {
@@ -105,6 +110,8 @@
   --color-send-accent: var(--send-accent);
   --color-send-accent-hover: var(--send-accent-hover);
   --color-user-bubble: var(--user-bubble);
+  --color-composer-placeholder: var(--composer-placeholder);
+  --color-composer-hover: var(--composer-hover);
 
   /* 密度（DESIGN.md §3）：UI 基础字号 13px（外观区可调，settings-store 驱动）；12px 辅助走 text-xs */
   --text-base: var(--spark-ui-font-size, 13px);

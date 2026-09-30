@@ -9,9 +9,38 @@
 
 type SettingsPageStatus = 'ready' | 'placeholder'
 
+/** 设置页路由段联合（LA-59）：映射表 Partial<Record<SettingsPageId, ComponentType>>
+ *  据此做编译期键检查——组件映射写错 id 直接编译失败，不再运行时占位页兜底。 */
+export type SettingsPageId =
+  | 'general'
+  | 'appearance'
+  | 'keymap'
+  | 'models'
+  | 'devices'
+  | 'browser'
+  | 'computer'
+  | 'permission-rules'
+  | 'memory'
+  | 'subagents'
+  | 'plugins'
+  | 'security'
+  | 'sandbox'
+  | 'mcp'
+  | 'skills'
+  | 'lsp'
+  | 'commands'
+  | 'hooks'
+  | 'prompts'
+  | 'data'
+  | 'index'
+  | 'usage'
+  | 'audit'
+  | 'diagnostics'
+  | 'onboarding'
+
 export interface SettingsPageDef {
   /** 路由段（/settings/:page） */
-  id: string
+  id: SettingsPageId
   title: string
   description: string
   status: SettingsPageStatus
