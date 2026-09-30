@@ -100,8 +100,27 @@ const MAC_KEY_CODES: Record<string, number> = {
   f6: 97, f7: 98, f8: 100, f9: 101, f10: 109, f11: 103, f12: 111,
 }
 
-function normalizeModifierScript(mods: string[] | undefined): string {
-  const list = (mods ?? []).map((m) => (m === 'ctrl' ? 'control' : m === 'alt' ? 'option' : m === 'meta' ? 'command' : m))
+/** LA-19：修饰键白名单查表——未知值 throw（不再原样拼进脚本文本，杜绝注入面）。
+ *  键集 = AppleScript System Events 合法修饰键名。 */
+const MODIFIER_WHITELIST: Record<string, string> = {
+  ctrl: 'control',
+  control: 'control',
+  alt: 'option',
+  option: 'option',
+  meta: 'command',
+  command: 'command',
+  cmd: 'command',
+  shift: 'shift',
+}
+
+export function normalizeModifierScript(mods: string[] | undefined): string {
+  const list = (mods ?? []).map((m) => {
+    const mapped = MODIFIER_WHITELIST[m]
+    if (mapped === undefined) {
+      throw new Error(`E_COMPUTER_ARGS: 未知修饰键 "${m}"（合法：ctrl/control/alt/option/meta/command/cmd/shift）`)
+    }
+    return mapped
+  })
   if (list.length === 0) return ''
   return ` using {${list.join(', ')}}`
 }

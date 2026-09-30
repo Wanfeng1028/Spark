@@ -6,7 +6,7 @@
  */
 import { describe, expect, test, vi } from 'vitest'
 import { parseKv, parseProcessList } from '../src/computer/windows.js'
-import { APPLE_FIELD_SEP, parseAppleList, parsePairs } from '../src/computer/macos.js'
+import { APPLE_FIELD_SEP, normalizeModifierScript, parseAppleList, parsePairs } from '../src/computer/macos.js'
 import { clickButton, keyArgs } from '../src/computer/linux.js'
 import { createComputerExecutor } from '../src/computer/executor.js'
 
@@ -118,5 +118,19 @@ describe('工厂三平台路由（LA-08：mock platform 零 GUI）', () => {
     } finally {
       spy.mockRestore()
     }
+  })
+})
+
+// ---- LA-19：修饰键白名单（未知值 throw；合法值查表归一）----
+
+describe('LA-19：修饰键白名单查表', () => {
+  test('未知修饰键 throw E_COMPUTER_ARGS（不进脚本文本）', () => {
+    expect(() => normalizeModifierScript(['fancy'])).toThrow(/E_COMPUTER_ARGS/)
+  })
+
+  test('合法键查表归一（ctrl→control、meta→command）', () => {
+    expect(normalizeModifierScript(['ctrl', 'shift'])).toContain('control')
+    expect(normalizeModifierScript(['meta'])).toContain('command')
+    expect(normalizeModifierScript([])).toBe('')
   })
 })

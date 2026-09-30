@@ -205,7 +205,11 @@ export function makeComputerTools(opts: ComputerToolsOptions): ToolDefinition[] 
     inputSchema: AppInput,
     permission: {
       action: 'computer.use',
-      resourceOf: () => 'computer://app',
+      // LA-19：launch（启动任意程序=高敏感）与 list 分叉——档位差异化可对 launch 单独 deny
+      resourceOf: (input) =>
+        (input as { action?: string }).action === 'launch'
+          ? 'computer://app/launch'
+          : 'computer://app/list',
     },
     parallelizable: false,
 
@@ -227,7 +231,11 @@ export function makeComputerTools(opts: ComputerToolsOptions): ToolDefinition[] 
     inputSchema: ClipboardInput,
     permission: {
       action: 'computer.use',
-      resourceOf: () => 'computer://clipboard',
+      // LA-19：write（可投放敏感内容）与 read 分叉
+      resourceOf: (input) =>
+        (input as { action?: string }).action === 'write'
+          ? 'computer://clipboard/write'
+          : 'computer://clipboard/read',
     },
     parallelizable: false,
 

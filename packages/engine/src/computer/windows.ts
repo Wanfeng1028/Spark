@@ -86,7 +86,8 @@ $bmp.Dispose()`
 const PS_CLICK = String.raw`$ErrorActionPreference='Stop'
 Add-Type -Namespace Cu -Name Native -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetCursorPos(int x,int y);[DllImport("user32.dll")] public static extern void mouse_event(uint f,int x,int y,uint d,UIntPtr e);'
 [int]$x=$env:CU_X; [int]$y=$env:CU_Y
-[void][Cu.Native]::SetCursorPos($x,$y)
+$moved=[Cu.Native]::SetCursorPos($x,$y)
+if(-not $moved){ throw 'E_COMPUTER_MOVE: SetCursorPos 返回 false（坐标越界或桌面拒访）' }
 Start-Sleep -Milliseconds 30
 $d=6; if($env:CU_BUTTON -eq 'right'){$d=24}elseif($env:CU_BUTTON -eq 'middle'){$d=96}
 [Cu.Native]::mouse_event($d,0,0,0,[UIntPtr]::Zero)
@@ -94,7 +95,7 @@ if($env:CU_DOUBLE -eq '1'){ Start-Sleep -Milliseconds 40; [Cu.Native]::mouse_eve
 
 const PS_SCROLL = String.raw`$ErrorActionPreference='Stop'
 Add-Type -Namespace Cu -Name Native -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetCursorPos(int x,int y);[DllImport("user32.dll")] public static extern void mouse_event(uint f,int x,int y,uint d,UIntPtr e);'
-if($env:CU_X -ne '' -and $env:CU_Y -ne ''){ [void][Cu.Native]::SetCursorPos([int]$env:CU_X,[int]$env:CU_Y) }
+if($env:CU_X -ne '' -and $env:CU_Y -ne ''){ $moved=[Cu.Native]::SetCursorPos([int]$env:CU_X,[int]$env:CU_Y); if(-not $moved){ throw 'E_COMPUTER_MOVE: SetCursorPos 返回 false' } }
 [Cu.Native]::mouse_event(0x0800,0,0,[uint32]$env:CU_DELTA,[UIntPtr]::Zero)`
 
 const PS_TYPE = PS_SEND_CLASS + String.raw`
@@ -122,7 +123,8 @@ foreach($p in Get-Process){
   if($env:CU_TITLE -ne '' -and $p.MainWindowTitle -like "*$env:CU_TITLE*"){ $t=$p; break }
 }
 if(-not $t){ throw 'E_COMPUTER_NOTFOUND: 未找到匹配的窗口' }
-[void][Cu.W]::SetForegroundWindow($t.MainWindowHandle)
+$ok=[Cu.W]::SetForegroundWindow($t.MainWindowHandle)
+if(-not $ok){ throw 'E_COMPUTER_FOCUS: SetForegroundWindow 返回 false（窗口可能已最小化或被系统拒绝）' }
 "focused=$($t.MainWindowTitle)"`
 
 const PS_APP_LAUNCH = String.raw`$ErrorActionPreference='Stop'
