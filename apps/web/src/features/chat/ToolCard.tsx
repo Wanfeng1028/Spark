@@ -66,6 +66,18 @@ export function ToolCard({
   const category = toolCategoryOf(name)
   const resource = resourceOf(name, input)
   const progressTail = status === 'running' ? lastLine(progressBuf ?? '') : ''
+  // LA-62尾：running 秒表（与 ReasoningCollapsible 同一 interval 写法）——web 工具卡
+  // 运行时长与 CLI 对齐；durationMs 定稿后仍走既有定格
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    if (status !== 'running' || startedAt === undefined) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [status, startedAt])
+  const liveSec =
+    status === 'running' && startedAt !== undefined
+      ? Math.max(0, Math.floor((now - startedAt) / 1000))
+      : null
 
   return (
     <div className="overflow-hidden rounded-xl border border-border">
