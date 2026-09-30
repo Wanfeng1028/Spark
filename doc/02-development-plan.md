@@ -2978,7 +2978,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 
 | # | 工单 | 产出（目标 + 涉及文件） | 验收标准 | 依赖 |
 | --- | --- | --- | --- | --- |
-| 13.1 | ✅ 任务级 eval 场景集 | `examples/evals/src/tasks/`：17 场景×六维覆盖，确定性判分 + ScriptedLlm 冒烟入主 CI | 冒烟 17/17 约 10s 全绿；单场景 <60s | 11.5 |
+| 13.1 | ✅ 任务级 eval 场景集 | `examples/evals/src/tasks/`：17 场景×六维覆盖，确定性判分 + ScriptedLlm 冒烟入主 CI（验收数字与实测一致——冒烟随主 CI 恒跑即对账；LA-65 lift 纪律：数字照搬须过实测核对） | 冒烟 17/17 约 10s 全绿；单场景 <60s | 11.5 |
 | 13.2 | ✅ 外部基准可行性评估 | `doc/09-benchmark-feasibility.md`：三候选×四维度，判决不接 + 重评触发条件 | 报告给出可拍板建议；接线草图不改代码 | 13.1 |
 | 13.3 | ✅ 提示词模板层 | `engine/prompts.ts` 改造：spark.json prompts 段（路径单形）+ 白名单占位符 + E_CONFIG fail-closed | 不配置时逐字节一致；自定义模板生效；坏占位符拒启动 | — |
 | 13.4 | ✅ 压缩双层化 | ADR D29 + keptFiles 结构化段 + 超 4KB 工具输出蒸馏（只影响投影不动 JSONL） | 蒸馏后上下文含要点不含原文；keptFiles 出现在下一 turn；回归全绿 | 13.3 |
@@ -3020,7 +3020,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | # | 工单 | 产出（目标 + 涉及文件） | 验收标准 | 依赖 |
 | --- | --- | --- | --- | --- |
 | 16.1 | ✅ /init 项目上下文生成 | 命令描述符 kind=prompt + 提示词模板（四类约束框架引导）+ 覆盖确认 | 空目录生成三段式 AGENTS.md；已有文件弹确认；经审批落盘 | 10.18 |
-| 16.2 | ✅ /agents 子代理管理 | 两层定义（项目 .spark/agents + 用户 ~/.spark/agents）JSON；启停 disabledAgents；四端面板，ADR D36 | 放置后可见；启停生效；spawn 读定义成功 | 10.18/10.20 |
+| 16.2 | ✅ /agents 子代理管理 | 两层定义（项目 .spark/agents + 用户 ~/.spark/agents）JSON；启停 disabledAgents，ADR D36。验收实测：web 设置面板全量；cli/mobile/miniapp 面板未接（/agents 命令四端可见）——立项口径「四端面板」按实况收窄为 web 面板 + 四端命令 | 放置后可见；启停生效；spawn 读定义成功 | 10.18/10.20 |
 | 16.3 | ✅ /plan 计划模式 | 新事件 session.mode.changed + PRESET_RULES.plan 激活 + exit_plan_mode 工具 + 四端 mode 指示 | plan 下写类全拒；exit 须批准；审批期间切档作废 | 10.18 |
 | 16.4 | ✅ /trust 文件夹信任 | ~/.spark/trusted.json 两档 + 祖先链深匹配（顺序无关）+ 收紧后处理，ADR D40 | 未信任目录 bash 默认 ask；深匹配单测；原子写 | 10.18 |
 | 16.5 | ✅ /extensions 扩展管理 | spark-extension.json 声明式内容包 + 现扫发现 + symlink 逃逸拒载 + 启停名单，ADR D41 | 扩展目录→清单可见→启停生效；symlink 攻击拒绝 | 10.18/16.2 |
@@ -3040,7 +3040,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | R-A | ✅ 死导出与死状态清理 | 全仓 grep 零使用导出/类型/状态逐项删除（七包） | 每删前 grep 确认零使用；typecheck/lint/test 全绿 | — |
 | R-B | ✅ protocol 共享资产下沉 | format/flow-rows/SessionStreamCore/errorFromResponse/ui-copy→protocol 单源；四端替换 | 四端 typecheck 全绿；SSE 行为零回归；127.0.0.1 不变红线 | R-A |
 | R-C | ✅ engine util 收敛 | errText/atomicWriteJson/readJsonConfig/jsonl/sleep 五类 + FTS memory LIKE 转义 bug 修复 | engine 全绿 + 新单测；grep 旧样板零残留 | — |
-| R-D | ✅ engine.ts 拆分 | 2028→约 600 行门面：五刀拆出 types/SearchIndexer/session-lifecycle/settings-store/subagent | 每刀后全绿；导出面与 API 签名不变；shutdown 时序零变化 | R-C |
+| R-D | ✅ engine.ts 模块化拆分（管理面门面保留） | 立项目标「拆到约 600 行门面」未达成亦已翻案：五刀拆出 types/SearchIndexer/session-lifecycle/settings-store/subagent 后，engine.ts 实测 2931 行（LA-41 实测口径；管理面透传属对外 API，二轮判决不再拆——ARCHITECTURE R-D 注） | 每刀后全绿；导出面与 API 签名不变；shutdown 时序零变化 | R-C |
 | R-E | ✅ web 前端收敛 | useTransportQuery + ModelSettingsPage 三分 + Composer 拆分 + mock 夹具外置 + PageHeader | web 全绿；mock 走查零回归；视觉零变化 | R-B |
 | R-F | ✅ server 路由去样板 | 删 40 条冗余 try/catch + parseOr400/notFound/requireHandle 收敛 + 域拆 6 子插件 | server 92 例全绿；46 条路由零变化 | — |
 | R-G | ✅ cli 收敛 | items.tsx 纯函数搬 flow-rows + app.tsx 二次拆分 + 测试助手提取 | cli 全绿；§13.K 纯单栏视觉零回归 | R-B |

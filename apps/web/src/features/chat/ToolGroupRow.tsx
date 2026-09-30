@@ -63,6 +63,7 @@ export function ToolGroupRow({ category, tools, highlight }: ToolGroupRowProps) 
               output={t.output}
               isError={t.status === 'error'}
               {...(t.durationMs !== undefined ? { durationMs: t.durationMs } : {})}
+              {...(t.startedAt !== undefined ? { startedAt: t.startedAt } : {})}
             />
           ))}
         </div>

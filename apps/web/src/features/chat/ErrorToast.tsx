@@ -14,9 +14,12 @@ import { humanizeError } from '@/lib/error-copy'
 
 export interface ErrorToastProps {
   sid: SessionId
+  /** LA-62尾：回放中（冷启动/重连全量回放）——历史 error 是既成事实的旧闻，
+   *  逐条弹 toast 是噪声；静默消费（slice 里保留，UI 不提示） */
+  replaying?: boolean | undefined
 }
 
-export function ErrorToast({ sid }: ErrorToastProps) {
+export function ErrorToast({ sid, replaying }: ErrorToastProps) {
   const lastError = useSessionStore((s) => s.byId[sid]?.lastError ?? null)
   const [dismissed, setDismissed] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -32,6 +35,7 @@ export function ErrorToast({ sid }: ErrorToastProps) {
   }, [lastError])
 
   if (lastError === null) return null
+  if (replaying === true) return null // 回放期抑制（LA-62尾）
   if (dismissed === lastError.message) return null
 
   const copy = humanizeError(lastError.message)

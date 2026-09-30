@@ -105,7 +105,9 @@ export function ToolCard({
         )}
         <span className="ml-auto shrink-0 font-mono text-xs">
           {status === 'running' ? (
-            <span className="text-muted-foreground">{toolStatusText('running')}…</span>
+            <span className="text-muted-foreground">
+              {toolStatusText('running')}…{liveSec !== null ? ` ${liveSec}s` : ''}
+            </span>
           ) : denied ? (
             <span className="text-[var(--spark-err)]">已拒绝</span>
           ) : status === 'error' || isError ? (

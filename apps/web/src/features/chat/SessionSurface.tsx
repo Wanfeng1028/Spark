@@ -84,6 +84,8 @@ export function SessionSurface({
   const setConnStatus = useConnectionStore((s) => s.setStatus)
   // http 打开态（加载/错误呈现；mock 即挂即用）。函数式初值防 sid 切换时沿用旧态；
   // 工单 10.16：缓存会话（投影已在 store）初值即 ready，不进加载白屏
+  // LA-62尾：回放期信号——历史 error 在回放窗口内不弹 toast
+  const [replaying, setReplaying] = useState(true)
   const [load, setLoad] = useState<LoadState>(() =>
     mock || hasCachedProjection(useSessionStore.getState().byId[sid]) ? 'ready' : 'loading',
   )
@@ -176,9 +178,13 @@ export function SessionSurface({
     // 不先 resetSlice、不闪空；仅 lastSeq===0 的真冷会话进加载态。错误态切换也经此复位
     if (hasCachedProjection(useSessionStore.getState().byId[sid])) setLoad('ready')
     else setLoad('loading')
+    setReplaying(true)
     replaySessionEvents(transport, sid)
       .then(() => {
-        if (!cancelled) setLoad('ready')
+        if (!cancelled) {
+          setLoad('ready')
+          setReplaying(false)
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) setLoad({ error: err instanceof Error ? err.message : String(err) })
@@ -412,7 +418,7 @@ export function SessionSurface({
             <SessionTreeDialog open={treeOpen} onOpenChange={setTreeOpen} sid={sid} busy={busy} />
             <TraceDialog open={traceOpen} onOpenChange={setTraceOpen} sid={sid} />
             <CheckpointDialog open={ckptOpen} onOpenChange={setCkptOpen} sid={sid} busy={busy} />
-            <ErrorToast sid={sid} />
+            <ErrorToast sid={sid} replaying={replaying} />
           </div>
         </div>
       </div>

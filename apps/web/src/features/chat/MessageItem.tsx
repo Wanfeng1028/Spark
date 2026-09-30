@@ -114,6 +114,7 @@ export const MessageItem = memo(function MessageItem({
             streaming={item.streaming}
             {...(item.startedAt !== undefined ? { startedAt: item.startedAt } : {})}
             {...(item.durationMs !== undefined ? { durationMs: item.durationMs } : {})}
+            {...(item.startedAt !== undefined ? { startedAt: item.startedAt } : {})}
           />
         </div>
       )
