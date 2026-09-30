@@ -302,17 +302,19 @@ export class InProcessTransport implements Transport {
   }
 
   /** 审查聚合（19.35）：引擎原生支持，进程内直映射（checkpoint 关闭 E_NOT_FOUND 同引擎） */
-  getSessionReview(sessionId: SessionId, fromCheckpointId?: CheckpointId): Promise<ReviewDto> {
-    return this.sync(() => this.engine.reviewOf(sessionId, fromCheckpointId))
+  async getSessionReview(sessionId: SessionId, fromCheckpointId?: CheckpointId): Promise<ReviewDto> {
+    this.assertNotDisposed()
+    return this.engine.reviewOf(sessionId, fromCheckpointId)
   }
 
   /** 批量结清（19.35）：引擎原生支持，进程内直映射 */
-  replyAllPermissions(
+  async replyAllPermissions(
     sessionId: SessionId,
     reply: 'once' | 'reject',
     feedback?: string,
   ): Promise<ReplyAllResultDto> {
-    return this.sync(() => this.engine.replyAllPermissions(sessionId, reply, feedback))
+    this.assertNotDisposed()
+    return this.engine.replyAllPermissions(sessionId, reply, feedback)
   }
 
   // ---------- 模型与路由 ----------
