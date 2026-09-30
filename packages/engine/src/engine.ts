@@ -59,7 +59,9 @@ import type { ArenaHistoryEntryDto } from '@spark/protocol'
 import { EventBus } from './bus.js'
 import type { EventSink, SubscribeHandle } from './bus.js'
 import { CompactorImpl, COMPACTION_PROMPT } from './compaction.js'
+import { MicroCompactorImpl } from './microcompact.js'
 import { redactErrorMessage } from './observability/redaction.js'
+import { estimateTokens } from './projector.js'
 import { GitCheckpointer } from './checkpoint.js'
 import type { CheckpointRecord } from './checkpoint.js'
 import { gitBranchOf } from './git.js'
@@ -2552,6 +2554,15 @@ export class Engine {
     })
     // 工单 7.7：路由档 getter 现读 routing（就地可变对象）——PUT /api/routing 热生效
     const routing = this.routing
+    // ZC-1：微压缩（投影层清旧 toolResult，0.9×压缩阈值触发；run-loop 消费）
+    const microcompactor = new MicroCompactorImpl({
+      sessionId: meta.id,
+      bus: this.bus,
+      tree: store.tree,
+      projector,
+      estimateTokens: (messages) => estimateTokens(messages as Parameters<typeof estimateTokens>[0]),
+    })
+
     const compactor = new CompactorImpl({
       sessionId: meta.id,
       bus: this.bus,
@@ -2749,6 +2760,8 @@ export class Engine {
         exceeded: () => this.costTracker.exceeded(this.routing.costLimitUsd, this.routing.costLimitTokens),
         spendUsd: () => this.costTracker.spend().costUsd,
       },
+      // ZC-1：微压缩端口（可省形态——run-loop 侧 optional）
+      microcompact: { run: () => microcompactor.run() },
       // 工单 16.7：goal 循环端口——turn 收尾后判定续跑（护栏/暂停/完成在 GoalRunner 内闭环）
       goal: {
         afterTurn: (i) => goal.afterTurn(i),

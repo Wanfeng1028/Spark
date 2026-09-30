@@ -119,6 +119,17 @@ export const EventSchemas = {
      * **只影响投影，JSONL 原文不动**（append-only）；蒸馏失败的条目不入表 = 降级为原文 */
     distilled: z.record(z.string().min(1), z.string().min(1)).optional(),
   }),
+  // ZC-1 微压缩边界（水位 0.9×压缩阈值触发）：durable 非 surface——模型可见面
+  // 经投影清理生效（keptFromEventId 之前的 toolResult 清占位），本事件只记录
+  // 边界事实供回放重建同一清理；append-only，JSONL 原文不动。
+  'microcompact_boundary': z.strictObject({
+    /** 保留边界：路径上该事件 id（含）之后的 toolResult 组保留原样 */
+    keptFromEventId: EventIdSchema,
+    /** 被清占位的 toolResult 条数 */
+    clearedCount: z.number().int().nonnegative(),
+    /** 估算节省 token 数（触发门槛：≥256 才值得） */
+    savedTokens: z.number().int().nonnegative(),
+  }),
   'checkpoint.created': z.strictObject({
     checkpointId: CheckpointIdSchema,
     files: z.array(z.string()),

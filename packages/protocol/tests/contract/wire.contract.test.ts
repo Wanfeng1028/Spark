@@ -692,6 +692,51 @@ describe('契约：event \'memory.injected\'', () => {
   })
 })
 
+describe('契约：event \'microcompact_boundary\'', () => {
+  const sample = {
+    "keptFromEventId": "evt_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "clearedCount": 1,
+    "savedTokens": 1
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['microcompact_boundary'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['microcompact_boundary'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['microcompact_boundary'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 keptFromEventId → 解析失败', () => {
+    expect(() => EventSchemas['microcompact_boundary'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["keptFromEventId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 clearedCount → 解析失败', () => {
+    expect(() => EventSchemas['microcompact_boundary'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["clearedCount"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 savedTokens → 解析失败', () => {
+    expect(() => EventSchemas['microcompact_boundary'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["savedTokens"]; return m })())).toThrow()
+  })
+
+  it('字段 keptFromEventId 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['microcompact_boundary'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["keptFromEventId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 clearedCount 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['microcompact_boundary'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["clearedCount"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('字段 savedTokens 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['microcompact_boundary'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["savedTokens"] = "not-a-number"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['microcompact_boundary'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：event \'permission.asked\'', () => {
   const sample = {
     "requestId": "req_01ARZ3NDEKTSV4RRFFQ69G5FAV",

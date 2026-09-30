@@ -916,6 +916,12 @@ function reduceEvent(s: ProjectionState, e: SparkEventEnvelope, idxBox: IndexBox
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
+  if (ofType(e, 'microcompact_boundary')) {
+    // ZC-1：模型上下文侧的投影清理（projector 处理）——UI 转录不变（toolResult
+    // 原文对用户始终可见），slice 不增字段，显式 no-op 保持 reducer 全覆盖纪律
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
   if (ofType(e, 'checkpoint.created')) {
     next.lastCheckpoint = { checkpointId: e.data.checkpointId, turnId: e.data.turnId }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }

@@ -58,7 +58,7 @@ spark up
 apps/web            React 19 SPA —— 只消费事件流（applyEvent reducer）
    │  HttpTransport：REST 命令 + GET /api/event（SSE 单端点，since=seq 断线续播）
    ▼
-packages/protocol   前后端唯一合同：27 种事件词表 · zod schema · Transport 接口
+packages/protocol   前后端唯一合同：28 种事件词表 · zod schema · Transport 接口
    ▼
 apps/server         Fastify 薄壳：REST + SSE + 静态托管（127.0.0.1，无鉴权）
    ▼

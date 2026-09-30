@@ -29,6 +29,7 @@ import type { UserHookRunner } from './hooks/runner.js'
 import type { LlmGateway, LlmMessage, ResolvedModel, ToolSpec } from './llm-gateway.js'
 import { ZERO_USAGE, addUsage } from './llm-gateway.js'
 import type { Metrics } from './observability/metrics.js'
+import { MICROCOMPACT_TRIGGER_RATIO } from './microcompact.js'
 import type { SessionRuntime } from './session/runtime.js'
 import type { InputItem } from './session/input-queue.js'
 
@@ -281,6 +282,8 @@ export async function runTurn(
     // LA-39：压缩失败的本 turn 冷却——compact() 返回 false（未产生 compaction.completed）
     // 时本 turn 内不再重试（限流注入下摘要调用次数有上界，不逐步 hammer 辅助通道）
     let compactionCooled = false
+    // ZC-1：微压缩不值得的本 turn 冷却（同上——不逐步重试）
+    let microcompactCooled = false
     // 用户侧 hooks（工单 7.3）：turn.before——输入受理后、事件流开路前触发
     // （先于 user.message/turn.started；fire-and-forget 不阻断）
     deps.hooks?.fire('turn.before', {
@@ -323,6 +326,16 @@ export async function runTurn(
       }
       // ② 上下文组装（StepContext 快照语义，Codex）
       let ctx = deps.projector.modelContext()
+      // ZC-1：微压缩前置——水位到 0.9×压缩阈值即清旧 toolResult（投影层），
+      // 把全量压缩的触发点往后推；不值得（<256 token）则本 turn 冷却
+      if (
+        !microcompactCooled &&
+        ctx.tokens > deps.compactionThreshold * deps.model.contextWindow * MICROCOMPACT_TRIGGER_RATIO
+      ) {
+        const mcOk = (await deps.microcompact?.run()) ?? false
+        if (!mcOk) microcompactCooled = true
+        ctx = deps.projector.modelContext()
+      }
       if (
         !compactionCooled &&
         ctx.tokens > deps.compactionThreshold * deps.model.contextWindow

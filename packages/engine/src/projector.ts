@@ -105,6 +105,20 @@ function applyDistillation(
   })
 }
 
+/**
+ * ZC-1 微压缩清理：toolResult 输出换占位（callId/isError 保留——工具语义不重写）；
+ * 非 toolResult 项直通。占位文本如实告知模型可凭 callId/上下文判断是否重取。
+ */
+const MICROCOMPACT_PLACEHOLDER = '[Old tool result cleared——微压缩清理；需要时按原工具重跑]'
+
+function applyMicrocompactClear(content: readonly ContentItem[]): ContentItem[] {
+  return content.map((item) =>
+    item.type === 'toolResult' && item.output !== undefined
+      ? { ...item, output: MICROCOMPACT_PLACEHOLDER }
+      : item,
+  )
+}
+
 /** 单条消息字符近似 token：text/reasoning 取文本长度，结构项取 JSON 长度 */
 function messageTokens(m: LlmMessage): number {
   let chars = 0
@@ -143,6 +157,19 @@ export function projectSurface(
     // warning）；超限上下文会被 run-loop 触发判据再次压缩，自愈而非丢数据
     start = pos >= 0 ? pos : 0
   }
+  // ZC-1：微压缩边界——路径上最早的边界生效（其 keptFromEventId 之前的 toolResult
+  // 清占位；后续边界被其覆盖）。边界后的 toolResult 组（触发时最近 5 组）原样保留。
+  let microcompactCut: { pos: number } | undefined
+  for (let i = start; i < path.length; i++) {
+    const e = path[i]
+    if (e !== undefined && isOfType(e, 'microcompact_boundary')) {
+      const pos = path.findIndex((x) => x?.id === e.data.keptFromEventId)
+      if (pos >= 0 && (microcompactCut === undefined || pos < microcompactCut.pos)) {
+        microcompactCut = { pos }
+      }
+    }
+  }
+
   const entries: SurfaceEntry[] = []
   for (let i = start; i < path.length; i++) {
     const e = path[i]
@@ -160,7 +187,16 @@ export function projectSurface(
       content.push({ type: 'text', text: e.data.text })
       entries.push({ eventId: e.id, message: { role: 'user', content } })
     } else if (isOfType(e, 'assistant.message')) {
-      const content = applyDistillation(e.data.content, anchor?.data.distilled, includeReasoning)
+      // ZC-1：边界之前的 toolResult 清占位（模型上下文瘦身；UI 转录不受此影响）
+      const cleared =
+        microcompactCut !== undefined && i < microcompactCut.pos
+          ? applyMicrocompactClear(e.data.content)
+          : undefined
+      const content = applyDistillation(
+        cleared ?? e.data.content,
+        anchor?.data.distilled,
+        includeReasoning,
+      )
       if (content.length === 0) continue // 空内容/全滤空不进转录（dsh 规则）
       entries.push({ eventId: e.id, message: { role: 'assistant', content } })
     } else if (isOfType(e, 'memory.injected')) {

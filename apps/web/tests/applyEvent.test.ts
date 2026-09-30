@@ -1138,3 +1138,19 @@ describe('工单 W13：items 查找索引化（O(1) 化回归）', () => {
     })
   })
 })
+
+// ---- ZC-1：microcompact_boundary reducer no-op（UI 转录不变）----
+
+describe('ZC-1：microcompact_boundary', () => {
+  it('落 slice 但不产生 items（投影层事件，UI 转录 toolResult 原文不动）', () => {
+    const s0 = applyEvent(fresh(), ev('session.created', { cwd: '/w', model: 'm' }, { seq: 1 }))
+    const e = ev('microcompact_boundary', {
+      keptFromEventId: 'evt_01HXBOUNDARY0000000000000',
+      clearedCount: 3,
+      savedTokens: 512,
+    })
+    const next = applyEvent(s0, e)
+    expect(next.byId[SID]).toBeDefined()
+    expect(next.byId[SID].items).toBe(s0.byId[SID]?.items)
+  })
+})
