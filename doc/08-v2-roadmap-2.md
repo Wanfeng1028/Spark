@@ -7,6 +7,8 @@
 | 版本 | 日期 | 作者 | 变更内容 |
 | --- | --- | --- | --- |
 | v1.1 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，"融入到我们的项目里面来吧！开始写工单"指令） | **新增 §3 阶段十九追加批 M：19.48 中文长文去 AI 味规则层与硬检查扩展**（判据来源外部 MIT 项目 lieflat-less-ai-tone，两轮在线调研 + LICENSE 署名独立核验，§2.12 合规）。批 1 规则层随立单交付 = DESIGN v2.50 §12.7.1 长文正文小节（句式级禁项 + 标点排版 + 反例硬表八项 + 信息守恒白名单，UI 界面串不适用、全节人工判据不进 grep）；批 2 待做 = 检查器词级 warn 档（检查 6，rg 命中数先行收敛词表）+ 对外长文句式级复查；上游 skill 不装、测量脚本不移植、统计数字不引。与 DESIGN v2.50、doc/08 主篇 v2.12（§5D 计数 47→48、A–L→A–M 指针）、doc/02 v4.164、AGENTS v1.71、README v1.50 同批。本批本机零验证，CI 裁决 |
+| v1.2 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你去做新的工单"指令） | **CK-1 批 1 后台任务平面（bash 半边）交付**（doc/02 v4.171）——卡内勾选与范围注记见 §2 CK-1；同批附带 CK-1 typecheck 修复（c98d7a0）。行序补记：本行此前漏加（CK-1 交付提交的 doc/02 v4.171 行已引用 v1.2，实际版本表未落——本行补账） |
+| v1.3 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **CK-3 循环护栏交付**（run-loop 内存态观察器；六信号 + steer 纠偏 + 连环升级 E_RUNAWAY_LOOP；单测 11 例）——卡内勾选与范围注记见 §2 CK-3。同批 CK-1 typecheck 修复（c98d7a0）。与 doc/02 v4.172 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -66,7 +68,7 @@
 
 **Spark 缺口**：run-loop 只有 step 上限/预算/失败闭合的粗粒度事后熔断；无任何重复指纹/环检测。
 
-**内容**：① run-loop step 边界挂观察器（引擎内存态，不出协议事件）；② 六信号检测 + bash 命令归一化指纹（复用 bash-command-parser）；③ 命中 → steer 通道注入纠偏提醒（每 turn 一次）；连续命中 → 按严重度升级为询问用户（审批面）；④ 轮询类工具/命令豁免档（防误报长跑任务）。**验收**：六信号注入式单测 + 提醒限频断言 + 豁免档。**依赖**：无（提醒通道现成）。**成本**：M。
+**内容**：① run-loop step 边界挂观察器（引擎内存态，不出协议事件）；② 六信号检测 + bash 命令归一化指纹（复用 bash-command-parser）；③ 命中 → steer 通道注入纠偏提醒（每 turn 一次）；连续命中 → 按严重度升级为询问用户（审批面）；④ 轮询类工具/命令豁免档（防误报长跑任务）。**验收**：六信号注入式单测 + 提醒限频断言 + 豁免档。**依赖**：无（提醒通道现成）。**成本**：M。**✅ 已交付（2026-10-01，doc/02 v4.172）**——`runaway-guard.ts` 六信号 + steer 纠偏（每信号每 turn 一次，防持久化子句）+ 连续 ≥2 轮命中升级 E_RUNAWAY_LOOP 终止；task_output 豁免、polling 不升级；单测 11 例。**范围注记**：③ 的「询问用户（审批面）」以 error 终止兜底——真提问面随 CK-6 结构化提问工具落地后翻升；豁免档现为静态集合（task_output），per-tool 三档策略声明（detect/polling/exempt）登记为后续小件。**✅ 已交付（2026-10-01，doc/02 v4.172）**——`runaway-guard.ts` 六信号 + steer 纠偏（每信号每 turn 一次，防持久化子句）+ 连续 ≥2 轮命中升级 E_RUNAWAY_LOOP 终止；task_output 豁免、polling 不升级；单测 11 例。**范围注记**：③ 的「询问用户（审批面）」以 error 终止兜底——真提问面随 CK-6 结构化提问工具落地后翻升；豁免档现为静态集合（task_output），per-tool 三档策略声明（detect/polling/exempt）登记为后续小件。
 
 ### CK-4 TodoWrite/TodoRead 会话任务清单 + 验证 nudge（P1）
 

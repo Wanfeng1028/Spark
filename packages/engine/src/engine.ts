@@ -86,6 +86,7 @@ import {
 import { ProjectorImpl } from './projector.js'
 import { reasoningIncluded } from './projector.js'
 import { runSessionLoop } from './run-loop.js'
+import { RunawayGuard } from './runaway-guard.js'
 import { GoalRunner } from './goals.js'
 import { loadTrustDoc, saveTrustDoc, trustKey, trustLevelOf, tightens } from './trust.js'
 import { discoverExtensions } from './extensions/loader.js'
@@ -2755,6 +2756,8 @@ export class Engine {
       projector,
       compactor,
       tools,
+      // CK-3：循环护栏（每会话独立实例——连续命中计数是会话域状态）
+      runaway: new RunawayGuard(),
       // 工单 6.5：model 同 system 走 getter——会话级换模型（内存态）下一 turn 生效
       get model(): ResolvedModel {
         return currentModel

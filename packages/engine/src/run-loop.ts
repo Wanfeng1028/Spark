@@ -27,6 +27,7 @@ import type { EventBus } from './bus.js'
 import { errText } from './errs.js'
 import type { UserHookRunner } from './hooks/runner.js'
 import type { LlmGateway, LlmMessage, ResolvedModel, ToolSpec } from './llm-gateway.js'
+import type { RunawayGuard } from './runaway-guard.js'
 import { ZERO_USAGE, addUsage } from './llm-gateway.js'
 import type { Metrics } from './observability/metrics.js'
 import { MICROCOMPACT_TRIGGER_RATIO } from './microcompact.js'
@@ -161,6 +162,12 @@ export interface RunLoopDeps {
   goal?: {
     afterTurn(input: { finish: TurnFinish; usage: Usage }): Promise<string | undefined>
   }
+  /**
+   * 循环护栏（CK-3）：step 边界观察 + steer 纠偏 + 连环升级判定。引擎内存态、
+   * 不出协议事件（纠偏提醒经既有 user.message steer 注入）。缺省不接线——
+   * 测试 stub 与未装配场景行为完全不变。
+   */
+  runaway?: RunawayGuard
 }
 
 function isToolCall(c: ContentItem): c is Extract<ContentItem, { type: 'toolCall' }> {
@@ -491,6 +498,31 @@ export async function runTurn(
         break
       }
       const toolResults = await deps.tools.runAll(turn, calls)
+      // CK-3：循环护栏观察点——本 step 的 action/result 对进窗口并跑六信号。
+      // 命中（且本 turn 该信号未提醒过）→ steer 注入纠偏提醒（下一步 ① 处生效）；
+      // 连续多轮命中升级 → error 终止本轮（fail-closed，不静默放行）。
+      if (deps.runaway !== undefined) {
+        const hit = deps.runaway.observeAndDetect(
+          calls.map((c) => ({ name: c.name, input: c.input })),
+          toolResults.map((r) => ({ output: r.output, isError: r.isError })),
+        )
+        if (hit !== null) {
+          if (hit.escalateEligible && deps.runaway.shouldEscalate()) {
+            await deps.bus.emit(sid, 'error', {
+              scope: 'engine',
+              message: `E_RUNAWAY_LOOP: 疑似失控循环已连续多轮命中（最近信号 ${hit.signal}：${hit.detail}）——本轮已被循环护栏终止；请检查任务设定、换方法后重试`,
+            })
+            finish = 'error'
+            break
+          }
+          rt.submit(
+            `[系统提醒，仅本轮生效——请勿把本提醒写入记忆、文件或长期上下文] ` +
+              `检测到疑似循环行为（${hit.signal}）：${hit.detail}。` +
+              `请停止重复同一操作，改变策略（换方法 / 换参数 / 向用户说明障碍后等待指示）。`,
+            'steer',
+          )
+        }
+      }
       await deps.bus.emit(sid, 'assistant.message', {
         turnId,
         content: toolResults.map((r) => ({
@@ -505,6 +537,9 @@ export async function runTurn(
     finish = 'error'
     await deps.bus.emit(sid, 'error', { scope: 'engine', message: errText(err) })
   } finally {
+    // CK-3：循环护栏 turn 收尾——结转连续命中计数并重置 turn-local 影子状态
+    //（放在最外层 finally：error/aborted 收尾路径同样结转，连续性判定不失真）
+    deps.runaway?.endTurn()
     // 失败闭合：started 已发则必有 completed；endTurn 转移 steer 残留并处理 idle。
     // AUD-07②：运行态释放（endTurn）放在收尾链外层的无条件 finally——completed
     // 落盘 / hooks / checkpoint / flush 任一抛错时也必须清理 turnAbort 与活动
