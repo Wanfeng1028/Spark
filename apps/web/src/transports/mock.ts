@@ -452,7 +452,7 @@ export class MockTransport implements Transport {
     requestId: RequestId,
     reply: PermissionReply,
     feedback?: string,
-    _scope?: 'user' | 'project',
+    scope?: 'user' | 'project',
   ): Promise<void> {
     this.assertNotDisposed()
     if (this.suspended !== 'approval') {
@@ -460,11 +460,15 @@ export class MockTransport implements Transport {
       return Promise.resolve()
     }
     if (reply === 'always' && this.lastAsked !== null) {
-      // 工单 4.7 对等演示：按 alwaysPatterns（缺省 patterns ?? [resource]）固化到内存规则表
+      // 工单 4.7 对等演示：按 alwaysPatterns（缺省 patterns ?? [resource]）固化到规则表。
+      // LA-56：scope 语义对齐——project 固化进 projectRules（.spark/permissions.json
+      // 引擎语义），不再与 user 级混表（此前 _scope 静默丢弃，19.9 的 project 按钮
+      // 在 mock 下与 user 级行为无差别——对等缺口）。
       const asked = this.lastAsked
       const targets = asked.data.alwaysPatterns ?? asked.data.patterns ?? [asked.data.resource]
+      const ruleStore = scope === 'project' ? this.projectRules : this.rules
       for (const resource of targets) {
-        MockTransport.putRule(this.rules, { action: asked.data.action, resource, effect: 'allow' })
+        MockTransport.putRule(ruleStore, { action: asked.data.action, resource, effect: 'allow' })
       }
     }
     // 覆写脚本中紧随的 permission.resolved，使 UI 呈现与用户实际选择一致
@@ -485,6 +489,8 @@ export class MockTransport implements Transport {
   // ---- 权限规则管理（工单 4.7 对等演示：内存表，进程生命周期内有效） ----
 
   private readonly rules: PermissionRuleDto[] = []
+  /** LA-56：project 作用域固化表（引擎 .spark/permissions.json 语义的 mock 对等） */
+  private readonly projectRules: PermissionRuleDto[] = []
 
   /** 文件夹信任对等演示（工单 16.4 / ADR D36）：内存表 + cwd=项目根固定值 */
   private readonly trustFolders = new Map<string, 'trusted' | 'untrusted'>()
@@ -624,8 +630,11 @@ export class MockTransport implements Transport {
 
   listPermissionRules(): Promise<PermissionRuleDto[]> {
     this.assertNotDisposed()
-    // 与引擎 listPermissionRules 同形：source 恒合成（LA-04）——存储缺省按 user
-    return Promise.resolve(this.rules.map((r) => ({ ...r, source: r.source ?? ('user' as const) })))
+    // 与引擎 listPermissionRules 同形：source 恒合成（LA-04）——user 表缺省按 user；
+    // LA-56：project 表并入（source 恒 'project'），设置页规则列表可见可删
+    const user = this.rules.map((r) => ({ ...r, source: r.source ?? ('user' as const) }))
+    const project = this.projectRules.map((r) => ({ ...r, source: ('project' as const) }))
+    return Promise.resolve([...user, ...project])
   }
 
   addPermissionRule(rule: PermissionRuleDto): Promise<void> {
@@ -635,13 +644,12 @@ export class MockTransport implements Transport {
   }
 
   removePermissionRule(action: string, resource: string, scope?: 'user' | 'project'): Promise<void> {
-    // project 作用域只删项目级规则（mock 不产 project 规则 → 如实 E_NOT_FOUND，不假删）
+    // LA-56：scope 对应表——project 删 projectRules（project 固化真实可删），
+    // user 删 user 表；各自如实 E_NOT_FOUND，不假删
+    const store = scope === 'project' ? this.projectRules : this.rules
     return this.removeBy(
-      this.rules,
-      (r) =>
-        r.action === action &&
-        r.resource === resource &&
-        (scope === 'project' ? r.source === 'project' : r.source !== 'project'),
+      store,
+      (r) => r.action === action && r.resource === resource,
       `规则 ${action} ${resource}`,
     )
   }
