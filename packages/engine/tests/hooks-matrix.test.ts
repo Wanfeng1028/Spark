@@ -11,7 +11,7 @@
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test } from 'vitest'
 import { ids, type SparkEventEnvelope, type SparkEventType } from '@spark/protocol'
 import { Engine } from '../src/engine.js'
 import { EventBus, type EventSink } from '../src/bus.js'

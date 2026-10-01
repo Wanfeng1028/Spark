@@ -7,6 +7,7 @@
  * toolResult 回填同源——事件流与模型上下文一次过滤两面覆盖）。
  */
 import { BEARER_RE, REPLACEMENT, SECRET_RE, buildEnvPatterns, escapeRegex } from '../observability/redaction.js'
+import { sanitizeUnicode } from './unicode-sanitize.js'
 
 /** 注入可疑模式集（保守小集——规则名进事件流，原文不进） */
 const INJECTION_RULES: readonly { id: string; re: RegExp }[] = [
@@ -111,6 +112,10 @@ export class IoGuard {
     secretLayers: Set<SecretLayer>,
     onRedact: () => void,
   ): string {
+    // CK-9：Unicode 隐写消毒先行（NFKC + 剥不可见字符——ASCII smuggling 防御，
+    // HackerOne #3086545）。静默：被剥字符按定义不可见，不发 warning；注入/密钥
+    // 扫描在消毒后的文本上跑——零宽字符拼接的提示词注入因此也能被规则命中
+    s = sanitizeUnicode(s).text
     for (const rule of INJECTION_RULES) {
       if (hits(rule.re, s)) injectionRules.add(rule.id)
     }

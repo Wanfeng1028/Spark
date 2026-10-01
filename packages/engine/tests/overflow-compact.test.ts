@@ -70,22 +70,22 @@ function makeFixture(streamResults: StreamResult[], compactResult: boolean): Fix
   const bus = new EventBus({ sink })
   let call = 0
   const gateway = {
-    stream: async (): Promise<StreamResult> => {
+    stream: (): Promise<StreamResult> => {
       const r = streamResults[call]
       call += 1
-      if (r === undefined) return { content: [], stopReason: 'aborted', usage: ZERO_USAGE }
-      return r
+      if (r === undefined) return Promise.resolve({ content: [], stopReason: 'aborted', usage: ZERO_USAGE })
+      return Promise.resolve(r)
     },
-    generateOnce: async () => '',
+    generateOnce: () => Promise.resolve(''),
   }
-  const compact = vi.fn(async () => compactResult)
+  const compact = vi.fn((): Promise<boolean> => Promise.resolve(compactResult))
   const deps = {
     sessionId: SID,
     bus,
     gateway,
     projector: { modelContext: () => ({ messages: [], tokens: 10 }) },
     compactor: { compact },
-    tools: { materialize: () => [], runAll: async () => [] },
+    tools: { materialize: () => [], runAll: () => Promise.resolve([]) },
     model: MODEL,
     system: '',
     maxStepsPerTurn: 40,

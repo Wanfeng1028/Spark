@@ -16,6 +16,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { z } from 'zod'
 import { asError, errText } from '../errs.js'
+import { sanitizeUnicodeDeep } from '../tools/unicode-sanitize.js'
 import type { SparkLogger } from '../logger.js'
 import type { ToolDefinition } from '../tools/definition.js'
 import type { ToolRegistry } from '../tools/registry.js'
@@ -114,7 +115,8 @@ export function makeMcpToolDef(
     async execute(ctx, input) {
       try {
         const result = (await client.callTool(
-          { name: tool.name, arguments: input },
+          // CK-9：入参消毒（模型 → 外部 server 方向；出参方向由管线 IoGuard 覆盖）
+          { name: tool.name, arguments: sanitizeUnicodeDeep(input) },
           undefined,
           { signal: ctx.signal, timeout: toolTimeoutMs },
         )) as McpCallResult

@@ -11,6 +11,7 @@
 | v1.3 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **CK-3 循环护栏交付**（run-loop 内存态观察器；六信号 + steer 纠偏 + 连环升级 E_RUNAWAY_LOOP；单测 11 例）——卡内勾选与范围注记见 §2 CK-3。同批 CK-1 typecheck 修复（c98d7a0）。与 doc/02 v4.172 同批 |
 | v1.4 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **CK-2 批 1 Hooks 挂点矩阵交付**（4→13 点 + pre_tool_use 阻塞拦截 E_HOOK_BLOCKED；单测 7 例）——卡内勾选与批 2 留卡见 §2 CK-2。与 doc/02 v4.173 同批 |
 | v1.5 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **CK-7 溢出即压缩交付**（E_LLM_OVERFLOW 分类桶 + run-loop 反应式压缩重试一次；直调 runTurn 闭环单测 8 例）——卡内勾选见 §2 CK-7。与 doc/02 v4.174 同批 |
+| v1.6 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-9 Unicode 隐写防御交付**（unicode-sanitize 纯函数 + IoGuard/MCP 入参两点接入；单测 12 例）——卡内勾选见 §2 CK-9。同批附带 0e69478 lint 红 5 条修复（hooks-matrix 未用 import + overflow-compact 四个无 await async stub）。与 doc/02 v4.175、CHANGELOG 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -118,7 +119,7 @@
 
 **Spark 缺口**：mcp client、browser.read、memory 检索、bash 输出多个外部内容进模型上下文的通道，零防御。
 
-**内容**：纯函数脱敏模块（照设计重写）+ 接入面：MCP 工具输入/输出、browser.read 正文、memory 检索结果、bash 输出（guard.ts 管线点一次覆盖）。**验收**：纯函数单测（各类不可见字符/嵌套对象/迭代上限）+ 接入面抽查。**依赖**：无。**成本**：S。
+**内容**：纯函数脱敏模块（照设计重写）+ 接入面：MCP 工具输入/输出、browser.read 正文、memory 检索结果、bash 输出（guard.ts 管线点一次覆盖）。**验收**：纯函数单测（各类不可见字符/嵌套对象/迭代上限）+ 接入面抽查。**依赖**：无。**成本**：S。**✅ 已交付（2026-10-01，doc/02 v4.175）**——`unicode-sanitize.ts` 纯函数（NFKC + Cf/Co/Cn/零宽/方向控制 + 迭代上限 10）+ 接入面收敛为两点：IoGuard.sanitizeString 头部（**全部工具输出一次覆盖**——bash/MCP/browser.read/memory 检索都是工具输出，注入/密钥扫描改在消毒后文本上跑）+ MCP callTool 入参（模型→server 方向）。静默消毒（不发 warning——被剥字符按定义不可见；emoji ZWJ 序列连接符随 Cf 剥除降级为分离码点，登记语义）。单测 12 例。
 
 ### CK-10 edit 容错匹配：fuzzy 归一 + CRLF 保持 + is_exact 上报（P2，S-M）
 
