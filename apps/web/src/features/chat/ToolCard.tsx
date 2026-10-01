@@ -361,6 +361,8 @@ function DiffViewer({ output }: { output: unknown }) {
   const diff = typeof r.diff === 'string' ? r.diff : ''
   const path = typeof r.path === 'string' ? r.path : ''
   const replaced = typeof r.replaced === 'number' ? r.replaced : null
+  // CK-10：非精确命中（容错匹配承接）如实提示——模型给的 old_string 与原文有不可见差异
+  const exact = typeof r.isExact === 'boolean' ? r.isExact : null
   if (diff === '') {
     return (
       <p className="px-3 py-2 font-mono text-xs text-muted-foreground/70">
@@ -374,6 +376,7 @@ function DiffViewer({ output }: { output: unknown }) {
       <p className="border-b border-border px-3 py-1.5 font-mono text-xs text-muted-foreground">
         {path}
         {replaced !== null && ` · 替换 ${replaced} 处`}
+        {exact === false && ' · 容错匹配（old_string 与原文存在空白/字符差异）'}
       </p>
       <pre className="overflow-x-auto px-3 py-2 font-mono text-xs leading-relaxed">
         {diff.split('\n').map((line, i) => (

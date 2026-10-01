@@ -243,7 +243,7 @@ export class McpManager {
     const idx = this.serverStatuses.findIndex((s) => s.name === name)
     if (idx >= 0 && idx < this.clients.length) {
       const oldClient = this.clients[idx]
-      void oldClient.close().catch(() => {})
+      if (oldClient !== undefined) void oldClient.close().catch(() => {})
       this.clients.splice(idx, 1)
     }
     return this.connectOne(name, cfg, registry, 'replace')

@@ -313,6 +313,7 @@ export class PiGateway implements LlmGateway {
   private readonly streamFn: PiStreamFn
   private readonly sleep: (ms: number, signal: AbortSignal) => Promise<void>
   private readonly maxRetries: number
+  private readonly cacheEnabled: (() => boolean) | undefined
   private readonly baseDelayMs: number
 
   constructor(deps: PiGatewayDeps = {}) {

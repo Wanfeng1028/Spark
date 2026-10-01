@@ -16,6 +16,7 @@
 | v1.8 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-15 @-mention 上下文注入交付**（mention.ts 引擎侧单源 + user.message 通道取舍；单测 8 例）——卡内勾选见 §2 CK-15。与 doc/02 v4.177、CHANGELOG 同批 |
 | v1.9 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-8 prompt cache 落地**（sessionId 透传 + promptCache 开关 + settings 字段；单测 2 例）——卡内勾选见 §2 CK-8（含"断点策略 pi-ai 已内置、engine 只欠透传"的事实登记）。与 doc/02 v4.178、CHANGELOG 同批 |
 | v1.10 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-5 批 1 MCP 韧性三小件交付**（描述截断 / needs-auth 15min 缓存短路 / 会话过期重连；单测 5 例）——卡内勾选见 §2 CK-5。与 doc/02 v4.179、CHANGELOG 同批 |
+| v1.11 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-10 edit 容错匹配交付**（三级渐进 + CRLF 保持 + is_exact 上报 + DiffViewer 形状补齐；单测 8 例）——卡内勾选见 §2 CK-10。同批附带 CI 修复批：跨 4 提交的 9 处 typecheck 错一次清零（子代理取证：mentionExpand 返回形状 / gateway cacheEnabled 字段声明漏 / manager oldClient 收窄 / mcp.test import 三处 / unicode 断言重叠）。与 doc/02 v4.180、CHANGELOG 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -131,7 +132,9 @@
 
 **Spark 缺口**：edit.ts 裸 indexOf 精确匹配——模型给的 old_string 常带智能引号/NBSP/行尾空白差异，E_NOT_FOUND 失败率高。
 
-**内容**：纯函数匹配层（精确 → 逐行 trimEnd → 全归一渐进）；CRLF 检测与回写保持；匹配结果带 is_exact 标记进 tool.completed output（非精确命中前端可提示）。**不碰 ZC-5 read-state 守卫**（守卫在匹配前已过）。**验收**：匹配策略单测 + CRLF 文件回写不翻行尾断言。**依赖**：无。**成本**：S-M。
+**内容**：纯函数匹配层（精确 → 逐行 trimEnd → 全归一渐进）；CRLF 检测与回写保持；匹配结果带 is_exact 标记进 tool.completed output（非精确命中前端可提示）。**不碰 ZC-5 read-state 守卫**（守卫在匹配前已过）。**验收**：匹配策略单测 + CRLF 文件回写不翻行尾断言。**依赖**：无。**成本**：S-M。**✅ 已交付（2026-10-01，doc/02 v4.180）**——匹配层（exact indexOf → 逐行 trimEnd 行对齐 → normalized 全归一行对齐，区间切片替换从后往前）；CRLF 保持（detectCrlf + newString 裸 
+ 回写前转 
+；LF oldString 经行对齐命中）；output 规整为 `{diff, path, replaced, isExact, strategy}`（顺带补齐 DiffViewer 既有形状缺口——此前 edit 返回裸字符串，diff 从未在前端显示过）；web DiffViewer 非精确命中提示行。单测 8 例（既有 2 处断言形状同步）。
 
 ### CK-11 ToolSearch 延迟工具加载（P2）
 

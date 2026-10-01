@@ -52,7 +52,7 @@ describe('sanitizeUnicodeDeep（CK-9）', () => {
       num: 42,
     }
     const r = sanitizeUnicodeDeep(input)
-    const out = r.value as { name: string; list: unknown[]; num: number }
+    const out = r.value as unknown as { name: string; list: unknown[]; num: number }
     expect(Object.keys(out)).toEqual(['name', 'list', 'num'])
     expect(out.name).toBe('value')
     expect(out.list[0]).toBe('ok')

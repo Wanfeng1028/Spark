@@ -749,10 +749,8 @@ describe('toPiMessages image 块（工单 12.2b）', () => {
 
 describe('CK-8：prompt cache 装配', () => {
   function makeFake(): FakePi {
-    const fake = new FakePi()
-    // options 在 streamFn 首行即被捕获——空脚本即可断言装配面（流结果不关心）
-    fake.script.push([])
-    return fake
+    // options 在 streamFn 首行即被捕获——空事件序列即可断言装配面（流结果不关心）
+    return new FakePi([[]])
   }
 
   test('缺省（未注入 cacheEnabled）：sessionId 透传、cacheRetention 不传（pi-ai 缺省 short=开）', async () => {

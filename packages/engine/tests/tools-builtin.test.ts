@@ -126,8 +126,11 @@ describe('edit（§5.6.3）', () => {
       newString: 'RETRY_LIMIT',
     })
     expect(r.isError).toBe(false)
-    expect(r.output).toContain('-const MAX_RETRY = 3')
-    expect(r.output).toContain('+const RETRY_LIMIT = 3')
+    const out = r.output as { diff: string; isExact: boolean; replaced: number }
+    expect(out.diff).toContain('-const MAX_RETRY = 3')
+    expect(out.diff).toContain('+const RETRY_LIMIT = 3')
+    expect(out.isExact).toBe(true)
+    expect(out.replaced).toBe(1)
     expect(await readFile(join(cwd, 'c.ts'), 'utf8')).toContain('RETRY_LIMIT')
   })
 
@@ -157,6 +160,7 @@ describe('edit（§5.6.3）', () => {
       replaceAll: true,
     })
     expect(r.isError).toBe(false)
+    expect((r.output as { replaced: number }).replaced).toBe(2)
     expect(await readFile(join(cwd, 'c.ts'), 'utf8')).toBe('y\ny\n')
   })
 
@@ -390,5 +394,59 @@ describe('AUD-04：resolveInRoot symlink 硬化', () => {
     const cwd = await makeCwd()
     await writeFile(join(cwd, 'a.txt'), 'ok', 'utf8')
     expect(resolveInRoot(cwd, 'a.txt')).toBe(join(cwd, 'a.txt'))
+  })
+})
+
+// ---- CK-10：edit 容错匹配（三级渐进 / CRLF 保持 / is_exact 上报） ----
+
+describe('edit 容错匹配（CK-10）', () => {
+  test('逐行 trimEnd：行尾尾随空格差异命中（strategy=line-trim）', async () => {
+    const cwd = await makeCwd()
+    await writeFile(join(cwd, 'c.ts'), 'const a = 1   \nconst b = 2\n', 'utf8')
+    const r = await editTool.execute(makeCtx(cwd), {
+      path: 'c.ts',
+      oldString: 'const a = 1\nconst b = 2',
+      newString: 'const a = 2\nconst b = 2',
+    })
+    expect(r.isError).toBe(false)
+    const out = r.output as { isExact: boolean; strategy: string }
+    expect(out.strategy).toBe('line-trim')
+    expect(out.isExact).toBe(false)
+    expect(await readFile(join(cwd, 'c.ts'), 'utf8')).toContain('const a = 2')
+  })
+
+  test('全归一：智能引号与 NBSP 差异命中（strategy=normalized）', async () => {
+    const cwd = await makeCwd()
+    await writeFile(join(cwd, 'c.ts'), 'const s = \u201chello\u201d;\u00A0\n', 'utf8')
+    const r = await editTool.execute(makeCtx(cwd), {
+      path: 'c.ts',
+      oldString: 'const s = "hello"; ',
+      newString: 'const s = "hi"; ',
+    })
+    expect(r.isError).toBe(false)
+    const out = r.output as { strategy: string }
+    expect(out.strategy).toBe('normalized')
+    expect(await readFile(join(cwd, 'c.ts'), 'utf8')).toContain('\u201chi\u201d')
+  })
+
+  test('CRLF 保持：LF oldString 命中 CRLF 文件，newString 回写为 CRLF', async () => {
+    const cwd = await makeCwd()
+    await writeFile(join(cwd, 'crlf.txt'), 'line one\r\nline two\r\n', 'utf8')
+    const r = await editTool.execute(makeCtx(cwd), {
+      path: 'crlf.txt',
+      oldString: 'line one\nline two',
+      newString: 'line ONE\nline two',
+    })
+    expect(r.isError).toBe(false)
+    const after = await readFile(join(cwd, 'crlf.txt'), 'utf8')
+    expect(after).toBe('line ONE\r\nline two\r\n')
+  })
+
+  test('三级全失：E_NOT_FOUND 文案带尝试说明', async () => {
+    const cwd = await makeCwd()
+    await writeFile(join(cwd, 'c.ts'), 'abc\n', 'utf8')
+    await expect(
+      editTool.execute(makeCtx(cwd), { path: 'c.ts', oldString: 'xyz', newString: 'y' }),
+    ).rejects.toThrow('三级匹配')
   })
 })

@@ -31,10 +31,11 @@ import {
   MCP_AUTH_CACHE_MS,
   MAX_MCP_DESCRIPTION_LENGTH,
   makeMcpToolDef,
-  McpAuthGate,
   McpManager,
   mcpToolName,
 } from '../src/mcp/manager.js'
+import type { McpAuthGate } from '../src/mcp/manager.js'
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { PermissionServiceImpl } from '../src/permission/service.js'
 import { UserRuleStore } from '../src/permission/store.js'
 import type { PermissionRule } from '../src/config.js'

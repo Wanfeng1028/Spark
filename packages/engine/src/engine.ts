@@ -2792,7 +2792,8 @@ export class Engine {
       // CK-3：循环护栏（每会话独立实例——连续命中计数是会话域状态）
       runaway: new RunawayGuard(),
       // CK-15：@-mention 展开（cwd 硬边界 + 限额在 mention.ts 内闭环）
-      mentionExpand: (text) => expandMentions(text, meta.cwd, defaultMentionIo()),
+      mentionExpand: async (text) =>
+        (await expandMentions(text, meta.cwd, defaultMentionIo())).text,
       // 工单 6.5：model 同 system 走 getter——会话级换模型（内存态）下一 turn 生效
       get model(): ResolvedModel {
         return currentModel
