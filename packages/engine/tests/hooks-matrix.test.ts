@@ -12,7 +12,7 @@ import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { ids, type SparkEventEnvelope } from '@spark/protocol'
+import { ids, type SparkEventEnvelope, type SparkEventType } from '@spark/protocol'
 import { Engine } from '../src/engine.js'
 import { EventBus, type EventSink } from '../src/bus.js'
 import { UserHookRunner } from '../src/hooks/runner.js'
@@ -42,6 +42,15 @@ function makeRunner(defs: UserHooksConfig): UserHookRunner {
 }
 
 const SID = ids.session('ses_hookmatrix0000000000000')
+
+/** 信封谓词（permission.test 同款）：SparkEventEnvelope 缺省实例化 data 为全集，
+ * 唯有经 K 泛型谓词才能把 data 收窄到具体事件载荷 */
+function isEvent<K extends SparkEventType>(
+  e: SparkEventEnvelope,
+  type: K,
+): e is SparkEventEnvelope<K> {
+  return e.type === type
+}
 
 function payload() {
   return { sessionId: SID, cwd: process.cwd(), sourceEventId: null, data: {} }
@@ -157,10 +166,10 @@ function hookLog(): string {
   return path !== undefined && existsSync(path) ? readFileSync(path, 'utf8') : ''
 }
 
-async function waitFor(pred: () => boolean, what: string): Promise<void> {
+async function waitFor(pred: () => boolean | Promise<boolean>, what: string): Promise<void> {
   const deadline = Date.now() + 8000
   for (;;) {
-    if (pred()) return
+    if (await pred()) return
     if (Date.now() > deadline) throw new Error(`等待 ${what} 超时（hook log=${hookLog()}）`)
     await new Promise((r) => setTimeout(r, 20))
   }
@@ -172,7 +181,7 @@ describe('Engine 端到端（CK-2 批 1 新挂点）', () => {
     const root = tempDir()
     const gateway = new ScriptedLlm()
     gateway.scriptStep({
-      content: [{ type: 'toolCall', callId: 'cal_denytest0000000000000001', name: 'bash', input: { command: 'echo hi' } }],
+      content: [{ type: 'toolCall', callId: ids.call('cal_denytest0000000000000001'), name: 'bash', input: { command: 'echo hi' } }],
     })
     gateway.scriptStep({
       content: [{ type: 'text', text: 'hook 拒了就收手' }],
@@ -197,8 +206,10 @@ describe('Engine 端到端（CK-2 批 1 新挂点）', () => {
       'turn.completed',
     )
     const events = engine.getSession(handle.id)?.events() ?? []
-    const completed = events.find((e) => e.type === 'tool.completed')
-    if (completed === undefined || completed.type !== 'tool.completed') {
+    const completed = events.find((e): e is SparkEventEnvelope<'tool.completed'> =>
+      isEvent(e, 'tool.completed'),
+    )
+    if (completed === undefined) {
       throw new Error('tool.completed 缺失')
     }
     expect((completed.data.output as { code?: string }).code).toBe('E_HOOK_BLOCKED')
@@ -210,8 +221,8 @@ describe('Engine 端到端（CK-2 批 1 新挂点）', () => {
     process.env.HOOK_OUT = join(tempDir(), 'markers.log')
     const root = tempDir()
     const gateway = new ScriptedLlm()
-    const cal1 = 'cal_hookok0000000000000000001'
-    const cal2 = 'cal_hookok0000000000000000002'
+    const cal1 = ids.call('cal_hookok0000000000000000001')
+    const cal2 = ids.call('cal_hookok0000000000000000002')
     // turn1：bash 成功（post_tool_use）；turn2：bash 失败（post_tool_use_failure）；
     // turn3：纯文本收尾（stop）
     gateway.scriptStep({
@@ -240,11 +251,10 @@ describe('Engine 端到端（CK-2 批 1 新挂点）', () => {
     hookEngines.push({ engine })
     const handle = await engine.createSession({})
     const replyPendingAsk = async (): Promise<void> => {
-      const asked = engine
-        .getSession(handle.id)
-        ?.events()
-        .findLast((e) => e.type === 'permission.asked')
-      if (asked === undefined || asked.type !== 'permission.asked') return
+      const asked = [...(engine.getSession(handle.id)?.events() ?? [])]
+        .reverse()
+        .find((e): e is SparkEventEnvelope<'permission.asked'> => isEvent(e, 'permission.asked'))
+      if (asked === undefined) return
       const resolved = engine
         .getSession(handle.id)
         ?.events()

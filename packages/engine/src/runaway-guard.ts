@@ -77,7 +77,7 @@ function fnv1a(s: string): string {
 export function normalizeActionInput(toolName: string, input: unknown): string {
   const raw =
     toolName === 'bash' && input !== null && typeof input === 'object' && 'command' in input
-      ? String((input as { command: unknown }).command)
+      ? String(input.command)
       : stableStringify(input)
   return raw.trim().replace(/\s+/g, ' ')
 }
@@ -157,7 +157,7 @@ export class RunawayGuard {
   private detect(): RunawayHit | null {
     const r = this.records
     if (r.length >= REPEAT_K) {
-      const last3 = r.slice(-REPEAT_K) as ActionRecord[]
+      const last3 = r.slice(-REPEAT_K)
       if (lastSame(r, REPEAT_K, (x) => x.errorFamily) && last3.every((x) => x.isError)) {
         return {
           signal: 'same_error_family',
@@ -213,7 +213,7 @@ export class RunawayGuard {
           escalateEligible: true,
         }
       }
-      const p = r.slice(-POLLING_K) as ActionRecord[]
+      const p = r.slice(-POLLING_K)
       if (
         lastSame(r, POLLING_K, (x) => x.actionHash) &&
         p.every((x) => READ_FAMILY_TOOLS.has(x.toolName))
