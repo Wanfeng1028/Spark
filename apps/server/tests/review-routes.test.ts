@@ -5,6 +5,9 @@
  * 批量结清 body 校验（'always' 不可批量 → 400）与无挂起 → resolved 0。
  * 聚合/结清的引擎侧行为单测见 engine review.test.ts / permission.test.ts。
  */
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { makeServer, type ServerFixture } from './helpers.js'
 
@@ -14,10 +17,15 @@ async function createSession(server: ServerFixture, payload?: Record<string, unk
   return res.json<{ id: string }>().id
 }
 
+/** 干净工作区（work-tree 聚合域——引擎数据目录/进程 cwd 会引入噪音文件） */
+function cleanCwd(): string {
+  return mkdtempSync(join(tmpdir(), 'spark-review-cwd-'))
+}
+
 describe('GET /api/sessions/:id/review（19.35）', () => {
   test('checkpoint 启用 + 无快照无变更 → 空聚合（baseCheckpointId null）', async () => {
     const server = await makeServer({ checkpoints: true })
-    const sid = await createSession(server, { cwd: server.root }) // 干净 work-tree（进程 cwd 会扫 node_modules）
+    const sid = await createSession(server, { cwd: cleanCwd() })
     const res = await server.app.inject({ method: 'GET', url: `/api/sessions/${sid}/review` })
     expect(res.statusCode).toBe(200)
     const body = res.json<{
@@ -45,7 +53,7 @@ describe('GET /api/sessions/:id/review（19.35）', () => {
 
   test('from 指定不存在的快照 → 404 E_NOT_FOUND', async () => {
     const server = await makeServer({ checkpoints: true })
-    const sid = await createSession(server, { cwd: server.root })
+    const sid = await createSession(server, { cwd: cleanCwd() })
     const res = await server.app.inject({
       method: 'GET',
       url: `/api/sessions/${sid}/review?from=ckp_bogus000000`,
