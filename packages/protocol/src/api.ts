@@ -474,6 +474,8 @@ export const EngineSettingsShape = z.object({
   computerUseEnabled: z.boolean(),
   /** bash 常驻会话（阶段十九 19.3 / ADR D45）：true = bash 工具走每会话长驻 shell（cwd/env 保持） */
   bashPersistent: z.boolean(),
+  /** CK-8：prompt cache 断点策略开关（缺省 true=pi-ai 缺省 short；false=显式 none）——热档 */
+  promptCache: z.boolean().optional(),
 })
 
 /** 引擎行为设置十一项（strict：API 边界拒未知键；热/重启分档见 SETTINGS_RESTART_REQUIRED，D28） */

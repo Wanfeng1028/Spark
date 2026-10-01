@@ -401,6 +401,7 @@ export async function runTurn(
         system: deps.system,
         messages: ctx.messages,
         tools,
+        sessionId: sid, // CK-8：prompt cache 路由（Anthropic cacheSessionId / OpenAI prompt_cache_key）
         signal: abort.signal,
         ...(effort !== undefined ? { effort } : {}),
         onDelta: (text) => deps.bus.emitLive(sid, 'assistant.delta', { turnId, text }),

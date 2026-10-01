@@ -74,6 +74,8 @@ export interface StreamRequest {
   maxTokens?: number
   /** 推理档位（工单 10.6；缺省 = 不设置，按 provider 默认） */
   effort?: ReasoningEffort
+  /** 会话 id（CK-8：prompt cache 路由——Anthropic cacheSessionId / OpenAI prompt_cache_key；缺省不传） */
+  sessionId?: string
 }
 
 export type StopReason = 'stop' | 'length' | 'error' | 'aborted'

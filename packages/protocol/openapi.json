@@ -5662,6 +5662,9 @@
               },
               "bashPersistent": {
                 "type": "boolean"
+              },
+              "promptCache": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -6584,6 +6587,9 @@
                 "type": "boolean"
               },
               "bashPersistent": {
+                "type": "boolean"
+              },
+              "promptCache": {
                 "type": "boolean"
               }
             },

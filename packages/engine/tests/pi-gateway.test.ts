@@ -744,3 +744,39 @@ describe('toPiMessages image 块（工单 12.2b）', () => {
     ])
   })
 })
+
+// ---------- CK-8：prompt cache 透传（sessionId / cacheRetention 开关） ----------
+
+describe('CK-8：prompt cache 装配', () => {
+  function makeFake(): FakePi {
+    const fake = new FakePi()
+    // options 在 streamFn 首行即被捕获——空脚本即可断言装配面（流结果不关心）
+    fake.script.push([])
+    return fake
+  }
+
+  test('缺省（未注入 cacheEnabled）：sessionId 透传、cacheRetention 不传（pi-ai 缺省 short=开）', async () => {
+    const fake = makeFake()
+    const gw = makeGateway(fake)
+    const req = { ...baseRequest({}), sessionId: ids.session('ses_cachetest000000000000') }
+    await gw.stream(req)
+    const options = fake.calls[0]?.options as { sessionId?: string; cacheRetention?: string }
+    expect(options.sessionId).toBe('ses_cachetest000000000000')
+    expect(options.cacheRetention).toBeUndefined()
+  })
+
+  test('cacheEnabled=false：显式 cacheRetention none（关闭标记注入），sessionId 仍透传', async () => {
+    const fake = makeFake()
+    const gw = new PiGateway({
+      streamFn: fake.streamFn,
+      sleep: fake.sleep,
+      baseDelayMs: 1000,
+      cacheEnabled: () => false,
+    })
+    const req = { ...baseRequest({}), sessionId: ids.session('ses_cachetest000000000000') }
+    await gw.stream(req)
+    const options = fake.calls[0]?.options as { sessionId?: string; cacheRetention?: string }
+    expect(options.cacheRetention).toBe('none')
+    expect(options.sessionId).toBe('ses_cachetest000000000000')
+  })
+})

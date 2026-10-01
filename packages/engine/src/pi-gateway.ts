@@ -79,6 +79,12 @@ export interface PiGatewayDeps {
   maxRetries?: number
   /** 退避基数毫秒（§5.9：1s → 1s/2s/4s） */
   baseDelayMs?: number
+  /**
+   * prompt cache 开关（CK-8；getter 执行期读——spark.json engine.promptCache 热档）。
+   * 缺省/true = 不传 cacheRetention（pi-ai 缺省 'short'：Anthropic cache_control 断点
+   * + OpenAI prompt_cache_key 自动启用）；false = 显式 'none' 关闭全部缓存标记注入。
+   */
+  cacheEnabled?: () => boolean
 }
 
 // ---- 错误分类（§5.10 错误码 + §5.9 可重试判定）----
@@ -321,6 +327,7 @@ export class PiGateway implements LlmGateway {
       })
     this.sleep = deps.sleep ?? defaultSleep
     this.maxRetries = deps.maxRetries ?? 3
+    this.cacheEnabled = deps.cacheEnabled
     this.baseDelayMs = deps.baseDelayMs ?? 1000
   }
 
@@ -348,6 +355,12 @@ export class PiGateway implements LlmGateway {
       ...(req.maxTokens !== undefined ? { maxTokens: req.maxTokens } : {}),
       // 工单 10.6：推理档位透传（ThinkingLevel 子集；不支持的 provider 由 pi-ai 忽略）
       ...(req.effort !== undefined ? { reasoning: req.effort } : {}),
+      // CK-8：prompt cache——sessionId（Anthropic cacheSessionId / OpenAI prompt_cache_key
+      // 路由）+ 开关（false = 显式 'none' 关闭标记注入；缺省/true = pi-ai 缺省 'short'）
+      ...(req.sessionId !== undefined ? { sessionId: req.sessionId } : {}),
+      ...(this.cacheEnabled !== undefined && this.cacheEnabled() === false
+        ? { cacheRetention: 'none' as const }
+        : {}),
       // 工单 12.9 / ADR D28 方案 A：per-provider 代理 fetch（undefined = 缺省直连零变化）
       ...(proxiedFetch !== undefined ? { fetch: proxiedFetch } : {}),
     }

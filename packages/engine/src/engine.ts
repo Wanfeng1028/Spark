@@ -342,7 +342,12 @@ export class Engine {
     // 空链零开销短路，deps.gateway 注入（ScriptedLlm）行为不变。
     // logger 闭包延迟解析（构造器内 gateway 先于 logger 赋值，调用时必已就绪）
     this.gateway = new FallbackGateway({
-      inner: deps.gateway ?? new PiGateway(),
+      inner:
+        deps.gateway ??
+        new PiGateway({
+          // CK-8：prompt cache 开关（getter 执行期读——spark.json engine.promptCache 热档）
+          cacheEnabled: () => this.config.spark.engine.promptCache !== false,
+        }),
       chain: () => this.routing.fallbacks,
       logger: {
         warn: (msg, data) => {

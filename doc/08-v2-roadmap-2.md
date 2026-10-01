@@ -14,6 +14,7 @@
 | v1.6 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-9 Unicode 隐写防御交付**（unicode-sanitize 纯函数 + IoGuard/MCP 入参两点接入；单测 12 例）——卡内勾选见 §2 CK-9。同批附带 0e69478 lint 红 5 条修复（hooks-matrix 未用 import + overflow-compact 四个无 await async stub）。与 doc/02 v4.175、CHANGELOG 同批 |
 | v1.7 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-14 无头模式结构化输出交付**（--output-schema 校验面 + --resume-last 免记 id 续跑；单测 8 例）——卡内勾选见 §2 CK-14。与 doc/02 v4.176、CHANGELOG 同批 |
 | v1.8 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-15 @-mention 上下文注入交付**（mention.ts 引擎侧单源 + user.message 通道取舍；单测 8 例）——卡内勾选见 §2 CK-15。与 doc/02 v4.177、CHANGELOG 同批 |
+| v1.9 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-8 prompt cache 落地**（sessionId 透传 + promptCache 开关 + settings 字段；单测 2 例）——卡内勾选见 §2 CK-8（含"断点策略 pi-ai 已内置、engine 只欠透传"的事实登记）。与 doc/02 v4.178、CHANGELOG 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -113,7 +114,7 @@
 
 **Spark 缺口**：engine 全仓无 cache_control 注入；cost-tracker 已有 cacheRead/cacheWrite 记账但请求侧从不打缓存标记——长会话输入费用大头，Anthropic 缓存读 0.1x 定价。
 
-**内容**：LlmGateway 出站装配加 auto 断点策略（三断点；OpenAI 走 prompt_cache_key；不支持的 provider 跳过）+ spark.json 开关（缺省开）。**验收**：装配单测（断点位置/provider 跳过/开关）+ 用 cost-tracker 缓存分量验证命中。**依赖**：无。**成本**：S-M。
+**内容**：LlmGateway 出站装配加 auto 断点策略（三断点；OpenAI 走 prompt_cache_key；不支持的 provider 跳过）+ spark.json 开关（缺省开）。**验收**：装配单测（断点位置/provider 跳过/开关）+ 用 cost-tracker 缓存分量验证命中。**依赖**：无。**成本**：S-M。**✅ 已交付（2026-10-01，doc/02 v4.178）**——落地比卡面预想窄：**断点策略 pi-ai 0.84 已内置**（Anthropic cache_control system+messages 自动断点、OpenAI prompt_cache_key 官方端点自动路由，缺省 retention=short）；engine 缺口实为**从未透传 sessionId 与开关**。落地：StreamRequest.sessionId（run-loop 传 sid——Anthropic cacheSessionId / OpenAI prompt_cache_key 路由）+ PiGatewayDeps.cacheEnabled getter（config.spark.engine.promptCache 热档，false=显式 none）+ protocol settings 字段。单测 2 例（透传/关闭）。usage.cacheRead/cacheWrite 映射与 cost-tracker 记账早已贯通（280 行映射 + D28 成本看板），命中验证随真实 provider 走查。
 
 ### CK-9 Unicode 隐写防御：递归脱敏（P1，S）
 

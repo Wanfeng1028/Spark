@@ -1548,7 +1548,8 @@ describe('契约：api.EngineSettingsSchema', () => {
     "checkpoints": false,
     "bashSandbox": "off",
     "computerUseEnabled": false,
-    "bashPersistent": false
+    "bashPersistent": false,
+    "promptCache": false
   }
 
   it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
@@ -1646,6 +1647,10 @@ describe('契约：api.EngineSettingsSchema', () => {
 
   it('字段 bashPersistent 类型错 → 解析失败', () => {
     expect(() => api.EngineSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["bashPersistent"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('字段 promptCache 类型错 → 解析失败', () => {
+    expect(() => api.EngineSettingsSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["promptCache"] = "not-a-boolean"; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
@@ -4407,7 +4412,8 @@ describe('契约：api.SettingsDtoSchema', () => {
       "checkpoints": false,
       "bashSandbox": "off",
       "computerUseEnabled": false,
-      "bashPersistent": false
+      "bashPersistent": false,
+      "promptCache": false
     },
     "hooks": {
       "turn.before": [
@@ -4860,7 +4866,8 @@ describe('契约：api.SettingsUpdateSchema', () => {
       "checkpoints": false,
       "bashSandbox": "off",
       "computerUseEnabled": false,
-      "bashPersistent": false
+      "bashPersistent": false,
+      "promptCache": false
     },
     "hooks": {
       "turn.before": [
