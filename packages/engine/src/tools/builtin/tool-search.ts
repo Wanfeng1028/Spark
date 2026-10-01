@@ -53,7 +53,7 @@ export class DeferredToolIndex {
   }
 }
 
-const ToolSearchInput = z.strictObject({
+const ToolSearchInputSchema = z.strictObject({
   /**
    * 检索词（匹配工具名/描述子串）；`select:<工具名>` = 精确显现该工具
    * （下一轮广告面含其完整 schema）。留空 = 列出全部延迟工具名。
@@ -61,8 +61,9 @@ const ToolSearchInput = z.strictObject({
   query: z.string().max(200).optional(),
 })
 
-export function makeToolSearchTool(index: DeferredToolIndex, catalog: () => ReadonlyMap<string, string>): ToolDefinition<typeof ToolSearchInput> {
-  type ToolSearchInput = z.infer<typeof ToolSearchInput>
+type ToolSearchInput = z.infer<typeof ToolSearchInputSchema>
+
+export function makeToolSearchTool(index: DeferredToolIndex, catalog: () => ReadonlyMap<string, string>): ToolDefinition<ToolSearchInput> {
   return {
     name: 'tool_search',
     description:
@@ -70,7 +71,7 @@ export function makeToolSearchTool(index: DeferredToolIndex, catalog: () => Read
       'query 留空列出全部延迟工具名；填检索词按名称/描述子串匹配；' +
       '`select:<工具名>` 精确显现（下一轮即可直接调用该工具）。' +
       '当需要的工具不在可见清单且可能是 MCP 延迟工具时使用。',
-    inputSchema: ToolSearchInput,
+    inputSchema: ToolSearchInputSchema,
     permission: {
       action: 'tool.search',
       resourceOf: () => 'deferred-tools',
