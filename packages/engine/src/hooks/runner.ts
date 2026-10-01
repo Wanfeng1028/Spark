@@ -164,14 +164,13 @@ export class UserHookRunner {
         return
       }
       this.inflight.add(child)
-      let stderrHead = ''
       let settled = false
-      const done = (blocked: boolean): void => {
+      const done = (blocked: boolean, reason?: string): void => {
         if (settled) return
         settled = true
         clearTimeout(timer)
         this.inflight.delete(child)
-        resolve({ blocked, reason: blocked ? stderrHead : undefined })
+        resolve({ blocked, ...(blocked && reason !== undefined ? { reason } : {}) })
       }
       const timer = setTimeout(() => {
         child.kill()
