@@ -34,7 +34,7 @@ export interface RunawayHit {
 }
 
 /** 观察窗口（最近 N 条；MiniMax 流式历史 5000 是 token 级，本仓按 action 条数取小窗） */
-export const RUNAWAY_WINDOW = 12
+const RUNAWAY_WINDOW = 12
 /** 连读判定的公共阈值 */
 const REPEAT_K = 3
 const POLLING_K = 4

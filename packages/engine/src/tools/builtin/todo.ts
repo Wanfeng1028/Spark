@@ -18,7 +18,7 @@ export interface TodoItem {
 }
 
 /** nudge 触发阈值（单次写入新完成 ≥3 项） */
-export const TODO_NUDGE_THRESHOLD = 3
+const TODO_NUDGE_THRESHOLD = 3
 
 const TodoItemSchema = z.strictObject({
   id: z.string().min(1).max(40),

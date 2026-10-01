@@ -18,7 +18,7 @@ import { resolveInRoot } from './tools/definition.js'
 /** 单文件注入上限（字节；超出截断 + 标注） */
 export const MENTION_FILE_LIMIT = 32 * 1024
 /** 单条消息注入总量上限（字节；超出后剩余 @token 不再展开） */
-export const MENTION_TOTAL_LIMIT = 96 * 1024
+const MENTION_TOTAL_LIMIT = 96 * 1024
 /** 目录摘要的深度与条目上限 */
 const TREE_DEPTH = 2
 const TREE_ENTRIES = 50
