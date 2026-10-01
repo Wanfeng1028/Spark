@@ -9,6 +9,7 @@
 | v1.1 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，"融入到我们的项目里面来吧！开始写工单"指令） | **新增 §3 阶段十九追加批 M：19.48 中文长文去 AI 味规则层与硬检查扩展**（判据来源外部 MIT 项目 lieflat-less-ai-tone，两轮在线调研 + LICENSE 署名独立核验，§2.12 合规）。批 1 规则层随立单交付 = DESIGN v2.50 §12.7.1 长文正文小节（句式级禁项 + 标点排版 + 反例硬表八项 + 信息守恒白名单，UI 界面串不适用、全节人工判据不进 grep）；批 2 待做 = 检查器词级 warn 档（检查 6，rg 命中数先行收敛词表）+ 对外长文句式级复查；上游 skill 不装、测量脚本不移植、统计数字不引。与 DESIGN v2.50、doc/08 主篇 v2.12（§5D 计数 47→48、A–L→A–M 指针）、doc/02 v4.164、AGENTS v1.71、README v1.50 同批。本批本机零验证，CI 裁决 |
 | v1.2 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你去做新的工单"指令） | **CK-1 批 1 后台任务平面（bash 半边）交付**（doc/02 v4.171）——卡内勾选与范围注记见 §2 CK-1；同批附带 CK-1 typecheck 修复（c98d7a0）。行序补记：本行此前漏加（CK-1 交付提交的 doc/02 v4.171 行已引用 v1.2，实际版本表未落——本行补账） |
 | v1.3 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **CK-3 循环护栏交付**（run-loop 内存态观察器；六信号 + steer 纠偏 + 连环升级 E_RUNAWAY_LOOP；单测 11 例）——卡内勾选与范围注记见 §2 CK-3。同批 CK-1 typecheck 修复（c98d7a0）。与 doc/02 v4.172 同批 |
+| v1.4 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **CK-2 批 1 Hooks 挂点矩阵交付**（4→13 点 + pre_tool_use 阻塞拦截 E_HOOK_BLOCKED；单测 7 例）——卡内勾选与批 2 留卡见 §2 CK-2。与 doc/02 v4.173 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -60,7 +61,7 @@
 
 **内容**：① 挂点矩阵铺设（12 挂点，engine 现有 runner.ts 扩展）；② command hook 形态（stdin/stdout JSON 协议 + matcher + condition 谓词 + timeoutMs，超时/异常 fail-closed）；③ PreToolUse 可 deny / 改写输入（改写后强制重过 zod 校验与权限判定）；④ PermissionRequest hook 与审批 broker **并发竞速**（防同步 hook 闷死确认窗）；⑤ 声明落 .spark/hooks/（项目层声明变更信任门接 ZC-Q3，未拍板前先按 settings 重启档登记）。
 
-**验收**：挂点矩阵单测（每挂点触发/拒绝/改写重校验/竞速超时 fail-closed）+ 用户 hook 真实脚本走查留用户。**依赖**：无；ZC-Q3 拍板后补信任门。**成本**：M。
+**验收**：挂点矩阵单测（每挂点触发/拒绝/改写重校验/竞速超时 fail-closed）+ 用户 hook 真实脚本走查留用户。**依赖**：无；ZC-Q3 拍板后补信任门。**成本**：M。**⚙️ 批 1 已交付（2026-10-01，doc/02 v4.173）**——挂点矩阵 4→13（+session.start/end、user_prompt_submit、stop、pre_tool_use、post_tool_use(_failure)、pre/post_compact）+ `fireBlocking` 阻塞形态（exit 2 拦截/E_HOOK_BLOCKED 闭合；超时不判 deny 防 DoS）+ 单测 7 例。**批 2 留卡**：③ 改写输入重过 zod+权限、④ PermissionRequest 竞速（doc/12 #3）、⑤ .spark/hooks/ 项目层声明 + ZC-Q3 信任门、子代理双挂点、超时=deny 可配置档。
 
 ### CK-3 循环/空转指纹检测与 steer 纠偏（P0）
 

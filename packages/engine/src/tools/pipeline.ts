@@ -265,12 +265,41 @@ export class ToolPipelineImpl implements ToolPipeline {
     // ZC-4：归一点——resolveInput 在 tool.started/权限门/execute 之前跑一次，
     // 四处（started 载荷/resourceOf/patterns/assert.input）与 execute 全部同源
     const effectiveInput = def.resolveInput?.(call.input, { cwd: this.deps.cwd }) ?? call.input
+
     const startedEnv = await bus.emit(sid, 'tool.started', {
       turnId: turn.turnId,
       callId: call.callId,
       name: call.name,
       input: effectiveInput,
     })
+
+    // CK-2 批 1：pre_tool_use 阻塞挂点——exit 2 = 拦截（stderr 首行 reason；超时/异常
+    // 不拦截，见 runner.fireBlocking）。置于 started 之后：拒绝补 completed 对闭合
+    // （E_HOOK_BLOCKED，与 E_NOT_FOUND 同形——started→completed 状态机不悬空）；
+    // 审批门（assert）在其后照走——hook 拒绝不固化任何规则、不进权限审计流
+    // （audit 的主体是权限裁决，hook 是旁路闸）。
+    const hookVerdict = await this.deps.hooks?.fireBlocking('pre_tool_use', {
+      sessionId: sid,
+      cwd: this.deps.cwd,
+      sourceEventId: startedEnv.id,
+      data: { turnId: turn.turnId, callId: call.callId, name: call.name, input: effectiveInput },
+    })
+    if (hookVerdict?.blocked === true) {
+      await this.emitCompleted(
+        turn,
+        call.callId,
+        call.name,
+        { code: 'E_HOOK_BLOCKED', message: hookVerdict.reason ?? '被 pre_tool_use hook 拦截' },
+        true,
+        startedAt(),
+      )
+      this.deps.metrics?.inc('spark_tool_calls_total', { name: call.name, is_error: 'true' })
+      return {
+        callId: call.callId,
+        output: { code: 'E_HOOK_BLOCKED', message: hookVerdict.reason },
+        isError: true,
+      }
+    }
 
     const gate = new ProgressGate((chunk) => {
       bus.emitLive(sid, 'tool.progress', { turnId: turn.turnId, callId: call.callId, chunk })
@@ -401,6 +430,14 @@ export class ToolPipelineImpl implements ToolPipeline {
       durationMs,
     })
     this.deps.hooks?.fire('tool.completed', {
+      sessionId: this.deps.sessionId,
+      cwd: this.deps.cwd,
+      sourceEventId: env.id,
+      data: { turnId: turn.turnId, callId, name, isError, durationMs },
+    })
+    // CK-2 批 1：post_tool_use / post_tool_use_failure（按 isError 分流；E_NOT_FOUND/
+    // E_TRUNCATED/E_ABORTED 等闭合形态同样算 failure——它们也是"调用没有成功"的事实）
+    this.deps.hooks?.fire(isError ? 'post_tool_use_failure' : 'post_tool_use', {
       sessionId: this.deps.sessionId,
       cwd: this.deps.cwd,
       sourceEventId: env.id,

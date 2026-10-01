@@ -16,8 +16,24 @@ import type { EventId, SessionId } from '@spark/protocol'
 import type { EventBus } from '../bus.js'
 import type { LoadedSkill } from '../skills/loader.js'
 
-/** 四挂点（doc/02 §8.6 工单 7.3 定稿；新增挂点须同步文档） */
-export type HookPoint = 'turn.before' | 'turn.after' | 'permission.resolved' | 'tool.completed'
+/** 十三挂点（CK-2 批 1：4→13；判据 Claude Code HOOK_EVENTS 清单——本仓既有 4 点与
+ * Claude 命名不 1:1 映射（permission.resolved≈PermissionRequest、tool.completed≈PostToolUse），
+ * 加新 9 点后总数 13；子代理双挂点（SubagentStart/Stop）留批 2。新增挂点须同步
+ * protocol SettingsHooksSchema 与 doc/02 §8.6） */
+export type HookPoint =
+  | 'turn.before'
+  | 'turn.after'
+  | 'permission.resolved'
+  | 'tool.completed'
+  | 'session.start'
+  | 'session.end'
+  | 'user_prompt_submit'
+  | 'stop'
+  | 'pre_tool_use'
+  | 'post_tool_use'
+  | 'post_tool_use_failure'
+  | 'pre_compact'
+  | 'post_compact'
 
 /** 外部命令触发（timeoutMs 缺省 DEFAULT_HOOK_TIMEOUT_MS） */
 export interface UserHookCommandDef {
@@ -98,6 +114,99 @@ export class UserHookRunner {
       if ('command' in def) this.runCommand(point, def, payload)
       else this.runSkill(point, def, payload)
     }
+  }
+
+  /**
+   * 阻塞入口（CK-2 批 1：pre_tool_use 专用）——await 全部 command 触发器后给裁决。
+   * 语义（Claude Code exit-code 约定）：exit 0 = 不拦截；**exit 2 = 拦截**（stderr
+   * 首行为 reason，截 500 字符）；其余退出码 / spawn 失败 / 超时 = warn + 不拦截
+   * **（登记：超时不判 deny 是刻意的——hung hook 不得变相 DoS 拒绝所有工具调用；
+   * 「超时=deny 可配置档」留批 2）**。skill 触发器在阻塞点无裁决语义——跳过并 warn。
+   * 顺序执行（先到先裁）；无触发器定义 = 不拦截。
+   */
+  async fireBlocking(
+    point: HookPoint,
+    payload: HookFirePayload,
+  ): Promise<{ blocked: boolean; reason: string | undefined }> {
+    if (this.disposed) return { blocked: false, reason: undefined }
+    const defs = this.defs[point]
+    if (defs === undefined) return { blocked: false, reason: undefined }
+    for (const def of defs) {
+      if (!('command' in def)) {
+        this.warn('userhook.blocking.skill_skipped', { point, skill: def.skill })
+        continue
+      }
+      const verdict = await this.runBlockingCommand(point, def, payload)
+      if (verdict.blocked) return verdict
+    }
+    return { blocked: false, reason: undefined }
+  }
+
+  private runBlockingCommand(
+    point: HookPoint,
+    def: UserHookCommandDef,
+    payload: HookFirePayload,
+  ): Promise<{ blocked: boolean; reason: string | undefined }> {
+    const timeoutMs = def.timeoutMs ?? this.deps.defaultTimeoutMs
+    const fields = { point, command: def.command, sid: payload.sessionId }
+    return new Promise((resolve) => {
+      let child
+      try {
+        child = spawn(def.command, {
+          shell: true,
+          cwd: payload.cwd,
+          stdio: ['pipe', 'ignore', 'pipe'],
+          windowsHide: true,
+        })
+      } catch (err) {
+        this.warn('userhook.error', { ...fields, err })
+        resolve({ blocked: false, reason: undefined })
+        return
+      }
+      this.inflight.add(child)
+      let stderrHead = ''
+      let settled = false
+      const done = (blocked: boolean): void => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        this.inflight.delete(child)
+        resolve({ blocked, reason: blocked ? stderrHead : undefined })
+      }
+      const timer = setTimeout(() => {
+        child.kill()
+        this.warn('userhook.timeout', { ...fields, timeoutMs })
+        done(false)
+      }, timeoutMs)
+      child.on('error', (err) => {
+        this.warn('userhook.error', { ...fields, err: err.message })
+        done(false)
+      })
+      child.stderr?.on('data', (chunk: Buffer) => {
+        if (stderrHead.length < 500) stderrHead += chunk.toString('utf8')
+      })
+      child.on('close', (code) => {
+        if (code === 2) {
+          // stderr 首行作 reason（Claude Code 语义）；空 stderr 给兜底文案
+          const reason = stderrHead.split('\n')[0]?.trim() || `hook ${def.command} 以 exit 2 拦截`
+          this.warn('userhook.deny', { ...fields, reason })
+          done(true)
+          return
+        }
+        // code=null = 超时 kill（timeout warn 已发）；其余非零 = warn 不拦截
+        if (code !== 0 && code !== null) {
+          this.warn('userhook.exit', { ...fields, code: String(code) })
+        }
+        done(false)
+      })
+      if (child.stdin === null) {
+        this.warn('userhook.error', { ...fields, err: 'stdin 不可用' })
+        done(false)
+        return
+      }
+      child.stdin.on('error', () => {})
+      child.stdin.end(JSON.stringify({ point, ...payload }))
+    })
   }
 
   private runCommand(

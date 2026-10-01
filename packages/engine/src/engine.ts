@@ -898,6 +898,16 @@ export class Engine {
       ...(branch !== null ? { branch } : {}),
       ...(meta.effort !== undefined ? { effort: meta.effort } : {}),
     })
+    // CK-2 批 1：session.start（source=create；子代理会话不 fire——它们经 task 工具
+    // 派生，生命周期归 agent 半边批 2 的 subagent 挂点）
+    if (opts.parentEventId === undefined) {
+      this.hooks.fire('session.start', {
+        sessionId,
+        cwd,
+        sourceEventId: null,
+        data: { source: 'create', cwd, model: modelStr },
+      })
+    }
     return this.handleOf(entry)
   }
 
@@ -1135,6 +1145,13 @@ export class Engine {
       await this.bus.emit(id, 'turn.completed', { turnId, finish: 'aborted' })
     }
     await this.bus.emit(id, 'session.resumed', { fromSeq: meta.lastSeq })
+    // CK-2 批 1：session.start（source=resume——冷启动与断线重连同路径，都算一次会话开始）
+    this.hooks.fire('session.start', {
+      sessionId: id,
+      cwd: meta.cwd,
+      sourceEventId: null,
+      data: { source: 'resume', cwd: meta.cwd },
+    })
     return entry
   }
 
@@ -2502,6 +2519,16 @@ export class Engine {
       await this.mcp.close()
       // 4.6) bash 常驻池排水（LA-16：shutdown 不留孤儿 shell）
       this.bashPool?.drain()
+      // 4.7) CK-2 批 1：session.end——flush/close 之前逐会话 fire（子进程 fire-and-forget，
+      // 不等回执；shutdown 收口时序不受影响）
+      for (const entry of this.sessions.values()) {
+        this.hooks.fire('session.end', {
+          sessionId: entry.meta.id,
+          cwd: entry.meta.cwd,
+          sourceEventId: null,
+          data: {},
+        })
+      }
       // 5) 全量 flush + close（fsync）
       for (const entry of this.sessions.values()) {
         await entry.store.close()

@@ -305,6 +305,14 @@ export async function runTurn(
     // 上下文的首条前缀消息）；命中即 emit memory.injected（durable 落盘 = surface
     // 纪律）；端口内部自判注入条件（非首条/已注入/命中空集 no-op）
     await deps.memory?.maybeInject(turnId, input.text)
+    // CK-2 批 1：user_prompt_submit——先于 user.message 落盘（与 turn.before 的差别：
+    // 本点携带最终输入文本且已在记忆注入之后）
+    deps.hooks?.fire('user_prompt_submit', {
+      sessionId: sid,
+      cwd: deps.cwd ?? '',
+      sourceEventId: null,
+      data: { turnId, text: input.text },
+    })
     const userEvent = await deps.bus.emit(sid, 'user.message', {
       text: input.text,
       ...(input.attachments !== undefined ? { attachments: input.attachments } : {}),
@@ -349,7 +357,24 @@ export async function runTurn(
         !compactionCooled &&
         ctx.tokens > deps.compactionThreshold * deps.model.contextWindow
       ) {
+        // CK-2 批 1：pre_compact——压缩调用前（载荷带当时水位）
+        deps.hooks?.fire('pre_compact', {
+          sessionId: sid,
+          cwd: deps.cwd ?? '',
+          sourceEventId: null,
+          data: { turnId, tokens: ctx.tokens, contextWindow: deps.model.contextWindow },
+        })
         const ok = await deps.compactor.compact()
+        if (ok) {
+          // CK-2 批 1：post_compact——compaction.completed 已落盘后（compactor 内部
+          // 发事件，本点只报"压缩完成"事实；失败（ok=false）只走既有 error 上报不 fire）
+          deps.hooks?.fire('post_compact', {
+            sessionId: sid,
+            cwd: deps.cwd ?? '',
+            sourceEventId: null,
+            data: { turnId, tokensBefore: ctx.tokens },
+          })
+        }
         if (!ok) compactionCooled = true // LA-39：本 turn 冷却（失败不再重试）
         ctx = deps.projector.modelContext() // 压缩后重投影
       }
@@ -540,6 +565,16 @@ export async function runTurn(
     // CK-3：循环护栏 turn 收尾——结转连续命中计数并重置 turn-local 影子状态
     //（放在最外层 finally：error/aborted 收尾路径同样结转，连续性判定不失真）
     deps.runaway?.endTurn()
+    // CK-2 批 1：stop 挂点——自然收尾（finish='stop'）专用（error/aborted/length
+    // 走既有 error 事件与 turn.completed{finish} 表达，不复读机）
+    if (started && finish === 'stop') {
+      deps.hooks?.fire('stop', {
+        sessionId: sid,
+        cwd: deps.cwd ?? '',
+        sourceEventId: null,
+        data: { turnId },
+      })
+    }
     // 失败闭合：started 已发则必有 completed；endTurn 转移 steer 残留并处理 idle。
     // AUD-07②：运行态释放（endTurn）放在收尾链外层的无条件 finally——completed
     // 落盘 / hooks / checkpoint / flush 任一抛错时也必须清理 turnAbort 与活动

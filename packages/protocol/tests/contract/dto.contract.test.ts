@@ -4433,6 +4433,60 @@ describe('契约：api.SettingsDtoSchema', () => {
           "command": "contract-sample",
           "timeoutMs": 1
         }
+      ],
+      "session.start": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "session.end": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "user_prompt_submit": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "stop": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "pre_tool_use": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "post_tool_use": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "post_tool_use_failure": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "pre_compact": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "post_compact": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
       ]
     },
     "agents": {
@@ -4633,6 +4687,60 @@ describe('契约：api.SettingsHooksSchema', () => {
         "command": "contract-sample",
         "timeoutMs": 1
       }
+    ],
+    "session.start": [
+      {
+        "command": "contract-sample",
+        "timeoutMs": 1
+      }
+    ],
+    "session.end": [
+      {
+        "command": "contract-sample",
+        "timeoutMs": 1
+      }
+    ],
+    "user_prompt_submit": [
+      {
+        "command": "contract-sample",
+        "timeoutMs": 1
+      }
+    ],
+    "stop": [
+      {
+        "command": "contract-sample",
+        "timeoutMs": 1
+      }
+    ],
+    "pre_tool_use": [
+      {
+        "command": "contract-sample",
+        "timeoutMs": 1
+      }
+    ],
+    "post_tool_use": [
+      {
+        "command": "contract-sample",
+        "timeoutMs": 1
+      }
+    ],
+    "post_tool_use_failure": [
+      {
+        "command": "contract-sample",
+        "timeoutMs": 1
+      }
+    ],
+    "pre_compact": [
+      {
+        "command": "contract-sample",
+        "timeoutMs": 1
+      }
+    ],
+    "post_compact": [
+      {
+        "command": "contract-sample",
+        "timeoutMs": 1
+      }
     ]
   }
 
@@ -4659,6 +4767,42 @@ describe('契约：api.SettingsHooksSchema', () => {
 
   it('字段 tool.completed 类型错 → 解析失败', () => {
     expect(() => api.SettingsHooksSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["tool.completed"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 session.start 类型错 → 解析失败', () => {
+    expect(() => api.SettingsHooksSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["session.start"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 session.end 类型错 → 解析失败', () => {
+    expect(() => api.SettingsHooksSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["session.end"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 user_prompt_submit 类型错 → 解析失败', () => {
+    expect(() => api.SettingsHooksSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["user_prompt_submit"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 stop 类型错 → 解析失败', () => {
+    expect(() => api.SettingsHooksSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["stop"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 pre_tool_use 类型错 → 解析失败', () => {
+    expect(() => api.SettingsHooksSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["pre_tool_use"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 post_tool_use 类型错 → 解析失败', () => {
+    expect(() => api.SettingsHooksSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["post_tool_use"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 post_tool_use_failure 类型错 → 解析失败', () => {
+    expect(() => api.SettingsHooksSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["post_tool_use_failure"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 pre_compact 类型错 → 解析失败', () => {
+    expect(() => api.SettingsHooksSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["pre_compact"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 post_compact 类型错 → 解析失败', () => {
+    expect(() => api.SettingsHooksSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["post_compact"] = "not-an-array"; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
@@ -4738,6 +4882,60 @@ describe('契约：api.SettingsUpdateSchema', () => {
         }
       ],
       "tool.completed": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "session.start": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "session.end": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "user_prompt_submit": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "stop": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "pre_tool_use": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "post_tool_use": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "post_tool_use_failure": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "pre_compact": [
+        {
+          "command": "contract-sample",
+          "timeoutMs": 1
+        }
+      ],
+      "post_compact": [
         {
           "command": "contract-sample",
           "timeoutMs": 1

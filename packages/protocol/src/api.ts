@@ -504,6 +504,16 @@ export const SettingsHooksSchema = z.strictObject({
   'turn.after': z.array(SettingsHookDefSchema).readonly().optional(),
   'permission.resolved': z.array(SettingsHookDefSchema).readonly().optional(),
   'tool.completed': z.array(SettingsHookDefSchema).readonly().optional(),
+  // CK-2 批 1：挂点矩阵 4→13（Claude Code HOOK_EVENTS 取舍；runner.ts HookPoint 单源注释）
+  'session.start': z.array(SettingsHookDefSchema).readonly().optional(),
+  'session.end': z.array(SettingsHookDefSchema).readonly().optional(),
+  'user_prompt_submit': z.array(SettingsHookDefSchema).readonly().optional(),
+  'stop': z.array(SettingsHookDefSchema).readonly().optional(),
+  'pre_tool_use': z.array(SettingsHookDefSchema).readonly().optional(),
+  'post_tool_use': z.array(SettingsHookDefSchema).readonly().optional(),
+  'post_tool_use_failure': z.array(SettingsHookDefSchema).readonly().optional(),
+  'pre_compact': z.array(SettingsHookDefSchema).readonly().optional(),
+  'post_compact': z.array(SettingsHookDefSchema).readonly().optional(),
 })
 export type SettingsHooks = z.infer<typeof SettingsHooksSchema>
 
