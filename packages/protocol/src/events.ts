@@ -123,6 +123,17 @@ export const EventSchemas = {
   // ZC-1 微压缩边界（水位 0.9×压缩阈值触发）：durable 非 surface——模型可见面
   // 经投影清理生效（keptFromEventId 之前的 toolResult 清占位），本事件只记录
   // 边界事实供回放重建同一清理；append-only，JSONL 原文不动。
+  // 会话任务清单（CK-4）：整表快照（dsh/opencode 同思路——不增量，回放即重建）。
+  // durable 非 surface——模型可见面是 todo_write 的 toolResult（清单内容随工具结果记录）。
+  'todo.updated': z.strictObject({
+    todos: z.array(
+      z.strictObject({
+        id: z.string().min(1).max(40),
+        content: z.string().min(1).max(500),
+        status: z.enum(['pending', 'in_progress', 'completed']),
+      }),
+    ),
+  }),
   // 结构化提问（CK-6）：模型需要用户决策时的封闭选项问询。durable 非 surface——
   // 模型可见面是 toolResult（答案结构化回填，模型可见必被记录由 tool.completed 承担）。
   'question.asked': z.strictObject({

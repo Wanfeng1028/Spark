@@ -4,7 +4,7 @@
  * 与源码实数（EventSchemas 顶层键数 / BUILTIN_COMMANDS 条目数）对照，不符即 CI 红；
  * 「NN 个方法」类表述同闸（LA-50/51）——原"没有任何自动门"的注记作废。
  * eventTypes：`packages/protocol/src/events.ts` EventSchemas 键数（权威断言
- *   packages/protocol/tests/events.test.ts = 32；随词表演进逐批同步（CK-6 提问事件 30→32）——check_doc_links.py 检查 7 同步放行）。
+ *   packages/protocol/tests/events.test.ts = 33；随词表演进逐批同步（CK-6 提问 30→32 / CK-4 清单 32→33）——check_doc_links.py 检查 7 同步放行）。
  * builtinCommands：`packages/protocol/src/commands.ts` BUILTIN_COMMANDS 条目数（权威断言
  *   packages/protocol/tests/commands.test.ts:49 = 28；19.2 /computer 与 19.23 /settings 等
  *   逐单加进来之后从 23 涨到现在）。
@@ -12,7 +12,7 @@
  * license：根 LICENSE（MIT）。
  */
 export const FACTS = {
-  eventTypes: 32,
+  eventTypes: 33,
   builtinCommands: 28,
   endpoints: 4,
   license: "MIT",

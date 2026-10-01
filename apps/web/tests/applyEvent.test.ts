@@ -1230,3 +1230,34 @@ describe('CK-6：question.asked / resolved', () => {
     expect(done.answers?.[0]?.selected).toEqual(['A'])
   })
 })
+
+
+// ---- CK-4：todo.updated 整表快照投影 ----
+
+describe('CK-4：todo.updated', () => {
+  it('slice.todos 整表替换（null → 表 → 新表覆盖）', () => {
+    const s0 = applyEvent(fresh(), ev('session.created', { cwd: '/w', model: 'm' }, { seq: 1 }))
+    const slice0 = s0.byId[SID]
+    if (slice0 === undefined) throw new Error('slice 缺失')
+    expect(slice0.todos).toBeNull()
+
+    const s1 = applyEvent(
+      s0,
+      ev('todo.updated', {
+        todos: [
+          { id: 't1', content: '修 A', status: 'completed' },
+          { id: 't2', content: '修 B', status: 'pending' },
+        ],
+      }),
+    )
+    const slice1 = s1.byId[SID]
+    if (slice1 === undefined) throw new Error('slice 缺失')
+    expect(slice1.todos).toHaveLength(2)
+    expect(slice1.todos?.[1]?.status).toBe('pending')
+
+    const s2 = applyEvent(s1, ev('todo.updated', { todos: [] }))
+    const slice2 = s2.byId[SID]
+    if (slice2 === undefined) throw new Error('slice 缺失')
+    expect(slice2.todos).toEqual([])
+  })
+})

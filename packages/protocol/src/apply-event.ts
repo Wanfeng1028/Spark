@@ -143,6 +143,8 @@ export interface SessionSlice {
   lastError: { scope: 'engine' | 'llm' | 'tool' | 'io'; message: string; fatal: boolean } | null
   /** 最近一次记忆注入（工单 7.5：会话首条消息的 top-k 命中） */
   memoryInjected: { count: number; query: string } | null
+  /** 会话任务清单（CK-4）：todo.updated 整表快照投影（null = 本会话尚未用过清单） */
+  todos: Array<{ id: string; content: string; status: 'pending' | 'in_progress' | 'completed' }> | null
   /**
    * 会话模式（工单 16.3）：plan = 只读规划态（四端指示与 composer 提示的数据源）。
    * 由 `session.mode.changed` 驱动——durable，所以冷启动回放就能重建，不依赖内存态。
@@ -192,6 +194,7 @@ export function emptySessionSlice(sid: SessionId): SessionSlice {
     lastCheckpoint: null,
     lastError: null,
     memoryInjected: null,
+    todos: null,
     mode: 'default',
     goal: null,
   }
@@ -940,6 +943,12 @@ function reduceEvent(s: ProjectionState, e: SparkEventEnvelope, idxBox: IndexBox
     // CK-1：后台任务生命周期（durable 非 surface）——模型可见面是完成回注的合成
     // user.message（那条消息自带入流转录），任务状态卡是批 2 四端展示的范围；
     // 显式 no-op 保持 reducer 全覆盖纪律
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'todo.updated')) {
+    // CK-4：整表快照投影（web TodoPanel/CLI 区块/移动端只读行的数据源；批 2 四端面板）
+    next.todos = e.data.todos
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 

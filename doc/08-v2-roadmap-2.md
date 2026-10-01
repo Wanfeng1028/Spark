@@ -18,6 +18,7 @@
 | v1.10 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-5 批 1 MCP 韧性三小件交付**（描述截断 / needs-auth 15min 缓存短路 / 会话过期重连；单测 5 例）——卡内勾选见 §2 CK-5。与 doc/02 v4.179、CHANGELOG 同批 |
 | v1.11 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-10 edit 容错匹配交付**（三级渐进 + CRLF 保持 + is_exact 上报 + DiffViewer 形状补齐；单测 8 例）——卡内勾选见 §2 CK-10。同批附带 CI 修复批：跨 4 提交的 9 处 typecheck 错一次清零（子代理取证：mentionExpand 返回形状 / gateway cacheEnabled 字段声明漏 / manager oldClient 收窄 / mcp.test import 三处 / unicode 断言重叠）。与 doc/02 v4.180、CHANGELOG 同批 |
 | v1.12 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-6 批 1 结构化提问交付**（ask_user 工具 + QuestionBoard + 两事件词表 32 种 + web QuestionCard + Transport/server 全链；CLI 只读）——卡内勾选见 §2 CK-6。与 doc/02 v4.181、CHANGELOG 同批 |
+| v1.13 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-4 批 1 会话任务清单交付**（todo.updated 事件 + todo_write/todo_read + nudge 收窄版；词表 33 种；单测 5 例 + reducer 3 态）——卡内勾选见 §2 CK-4。与 doc/02 v4.182、CHANGELOG 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -85,7 +86,7 @@
 
 **Spark 缺口**：无清单类工具（task 是子代理非清单）；无验证强制机制。
 
-**内容**：① protocol 新事件 todo.updated（durable；surface 归类按词表纪律评估，走 new-event-type 全流程）；② 工具 todo_write（整表替换）+ todo_read；③ 验证 nudge（关 3+ 项且本 turn 无验证类工具调用 → tool_result 注入提醒文案）；④ 四端面板（web TodoPanel / CLI 区块 / mobile+miniapp 只读行）。**验收**：reducer 单测 + nudge 触发条件单测 + 四端投影。**依赖**：无。**成本**：M。
+**内容**：① protocol 新事件 todo.updated（durable；surface 归类按词表纪律评估，走 new-event-type 全流程）；② 工具 todo_write（整表替换）+ todo_read；③ 验证 nudge（关 3+ 项且本 turn 无验证类工具调用 → tool_result 注入提醒文案）；④ 四端面板（web TodoPanel / CLI 区块 / mobile+miniapp 只读行）。**验收**：reducer 单测 + nudge 触发条件单测 + 四端投影。**依赖**：无。**成本**：M。**✅ 批 1 已交付（2026-10-01，doc/02 v4.182）**——① todo.updated 整表快照事件（durable 非 surface；词表 33 种；reducer 落 slice.todos 回放即重建）；② todo_write（整表替换 ≤50 项）/ todo_read 两工具（TodoBoard 内存表 + emit 事件持久化；失败闭合不落内存）；③ nudge 收窄版——单次写入新完成 ≥3 即注入提醒（**登记差异**：判据不做"本 turn 无验证调用"检查——本仓工具间无 turn 历史访问面，保守方向不漏报）；④ 四端面板批 2（本批 slice.todos 投影已就绪）。单测 5 例 + reducer 3 态。
 
 ### CK-5 MCP 韧性四小件（P1，批 1 三小件 S / 批 2 OAuth M）
 

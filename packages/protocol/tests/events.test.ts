@@ -92,6 +92,13 @@ const samples: { [K in SparkEventType]: SparkEventMap[K] } = {
   },
   'goal.completed': { iterations: 3, usedTokens: 41200 },
   'goal.paused': { reason: 'maxIterations', iterations: 50, usedTokens: 198600 },
+  // CK-4 会话任务清单：整表快照 durable 非 surface；回放即重建
+  'todo.updated': {
+    todos: [
+      { id: 't1', content: '修 reducer', status: 'completed' },
+      { id: 't2', content: '补单测', status: 'in_progress' },
+    ],
+  },
   // CK-6 结构化提问：durable 非 surface；模型可见面是 toolResult 的结构化答案
   'question.asked': {
     requestId: req,
@@ -165,8 +172,8 @@ function envelopeOf<K extends SparkEventType>(
 }
 
 describe('事件词表', () => {
-  it('词表共 32 种（durable 29 + live 3）', () => {
-    expect(Object.keys(EventSchemas)).toHaveLength(32)
+  it('词表共 33 种（durable 30 + live 3）', () => {
+    expect(Object.keys(EventSchemas)).toHaveLength(33)
   })
 
   it('CallId 透传上游 id（工单 10.39：OpenAI call_xxx / Anthropic toolu_xxx 过闸，不重写）', () => {
@@ -187,7 +194,7 @@ describe('事件词表', () => {
   })
 })
 
-describe('round-trip：32 种事件逐一', () => {
+describe('round-trip：33 种事件逐一', () => {
   for (const key of Object.keys(samples) as SparkEventType[]) {
     it(`${key}：构造 → parseEnvelope → JSON 往返 → 再 parse`, () => {
       const envelope = envelopeOf(key, samples[key], 3)

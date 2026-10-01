@@ -89,6 +89,7 @@ import { reasoningIncluded } from './projector.js'
 import { runSessionLoop } from './run-loop.js'
 import { RunawayGuard } from './runaway-guard.js'
 import { makeAskUserTool } from './tools/builtin/ask-user.js'
+import { makeTodoTools, TodoBoard } from './tools/builtin/todo.js'
 import { defaultMentionIo, expandMentions } from './mention.js'
 import { GoalRunner } from './goals.js'
 import { loadTrustDoc, saveTrustDoc, trustKey, trustLevelOf, tightens } from './trust.js'
@@ -219,6 +220,8 @@ export class Engine {
   private readonly backgroundTasks: BackgroundTaskManager
   /** 结构化提问挂起表（CK-6 批 1）：ask_user 工具 + replyQuestion facade 的宿主 */
   private readonly questionBoard: QuestionBoard
+  /** 会话任务清单（CK-4 批 1）：todo_write/todo_read 的宿主；持久化靠 todo.updated 事件回放 */
+  private readonly todoBoard: TodoBoard
   private readonly permission: PermissionServiceImpl
   /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
   private readonly ruleStore: UserRuleStore
@@ -573,6 +576,13 @@ export class Engine {
       timeoutMs: this.config.spark.engine.permissionTimeoutMs,
     })
     this.registry.register(makeAskUserTool(this.questionBoard))
+    // 会话任务清单（CK-4 批 1）：emit 经总线落 todo.updated（durable 持久化事实源）
+    this.todoBoard = new TodoBoard({
+      emit: (sessionId, todos) => this.bus.emit(sessionId, 'todo.updated', { todos }).then(() => undefined),
+    })
+    for (const tool of makeTodoTools(this.todoBoard)) {
+      this.registry.register(tool)
+    }
     registerBuiltinTools(this.registry, {
       bashSandbox: this.config.spark.engine.bashSandbox,
       // bash 常驻会话（阶段十九 19.3 / ADR D45）：getter 执行期读，主开关热档

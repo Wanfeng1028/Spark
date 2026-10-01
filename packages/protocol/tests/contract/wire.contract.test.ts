@@ -1300,6 +1300,39 @@ describe('契约：event \'task.started\'', () => {
   })
 })
 
+describe('契约：event \'todo.updated\'', () => {
+  const sample = {
+    "todos": [
+      {
+        "id": "contract-sample",
+        "content": "contract-sample",
+        "status": "pending"
+      }
+    ]
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['todo.updated'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['todo.updated'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['todo.updated'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 todos → 解析失败', () => {
+    expect(() => EventSchemas['todo.updated'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["todos"]; return m })())).toThrow()
+  })
+
+  it('字段 todos 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['todo.updated'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["todos"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['todo.updated'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：event \'tool.completed\'', () => {
   const sample = {
     "turnId": "trn_01ARZ3NDEKTSV4RRFFQ69G5FAV",
