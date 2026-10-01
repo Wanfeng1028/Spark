@@ -63,8 +63,7 @@ function matchExact(text: string, old: string): Array<{ start: number; end: numb
 /**
  * 行对齐匹配（level：'line-trim' 只剥行尾空白；'normalized' 再过全归一）。
  * 语义：old 首行在 text 某行内命中（行内 indexOf），后续行与 text 后续行**整行**
- * 归一相等（跨行边界只有行对齐可校验）；末行匹配止于行内段末（不含行尾换行/
-）。
+ * 归一相等（跨行边界只有行对齐可校验）；末行匹配止于行内段末（不含行尾换行）。
  * 返回升序不相交区间；任何一行归一后为空串则要求双侧行均空（空行对齐）。
  */
 function matchLineAligned(
@@ -76,10 +75,8 @@ function matchLineAligned(
     const t = line.trimEnd()
     return level === 'normalized' ? normalizeFuzzy(t) : t
   }
-  const oldLines = old.split('
-')
-  const textLines = text.split('
-')
+  const oldLines = old.split('\n')
+  const textLines = text.split('\n')
   // 行起始偏移表（textLines[i] 起点在 text 中的下标）
   const starts: number[] = []
   let acc = 0
@@ -143,14 +140,10 @@ function matchOccurrences(text: string, old: string): MatchSet {
   return { ranges: [], exact: false, strategy: 'normalized' }
 }
 
-/** 文件行尾探测（CK-10：CRLF 保持——pi detectLineEnding 同思路，首现 
- 即 CRLF） */
+/** 文件行尾探测（CK-10：CRLF 保持——pi detectLineEnding 同思路，首现 CRLF 行尾即判 CRLF） */
 function detectCrlf(text: string): boolean {
-  const at = text.search(/
-?
-/)
-  return at !== -1 && text[at] === '
-'
+  const at = text.search(/\r?\n/)
+  return at !== -1 && text[at] === '\r'
 }
 
 function unifiedDiff(before: string, after: string, path: string): string {
