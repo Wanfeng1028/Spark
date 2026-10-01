@@ -149,7 +149,7 @@ export class UserHookRunner {
   ): Promise<{ blocked: boolean; reason: string | undefined }> {
     const timeoutMs = def.timeoutMs ?? this.deps.defaultTimeoutMs
     const fields = { point, command: def.command, sid: payload.sessionId }
-    return new Promise((resolve) => {
+    return new Promise<{ blocked: boolean; reason: string | undefined }>((resolve) => {
       let child
       try {
         child = spawn(def.command, {
