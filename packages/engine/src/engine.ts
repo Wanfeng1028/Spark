@@ -2740,7 +2740,10 @@ export class Engine {
     const permission = this.permission
     const sid = meta.id
     const tools = new ToolPipelineImpl({
-permission,
+      sessionId: meta.id,
+      bus: this.bus,
+      registry: this.registry,
+      permission,
       questionBoard: this.questionBoard,
       outputs: this.outputs,
       cwd: meta.cwd,

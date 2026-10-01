@@ -71,8 +71,8 @@ const NUDGE_TEXT =
   '在向用户报告完成前，请先用 bash 跑验证（或说明每项的验证方式）——列举完成不等于验证完成。'
 
 export function makeTodoTools(board: TodoBoard): [
-  ToolDefinition<typeof TodoWriteInput>,
-  ToolDefinition<typeof TodoReadInput>,
+  ToolDefinition<TodoWriteInput>,
+  ToolDefinition<TodoReadInput>,
 ] {
   const todoWrite: ToolDefinition<TodoWriteInput> = {
     name: 'todo_write',
