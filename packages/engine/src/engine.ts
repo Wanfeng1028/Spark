@@ -87,6 +87,7 @@ import { ProjectorImpl } from './projector.js'
 import { reasoningIncluded } from './projector.js'
 import { runSessionLoop } from './run-loop.js'
 import { RunawayGuard } from './runaway-guard.js'
+import { defaultMentionIo, expandMentions } from './mention.js'
 import { GoalRunner } from './goals.js'
 import { loadTrustDoc, saveTrustDoc, trustKey, trustLevelOf, tightens } from './trust.js'
 import { discoverExtensions } from './extensions/loader.js'
@@ -2785,6 +2786,8 @@ export class Engine {
       tools,
       // CK-3：循环护栏（每会话独立实例——连续命中计数是会话域状态）
       runaway: new RunawayGuard(),
+      // CK-15：@-mention 展开（cwd 硬边界 + 限额在 mention.ts 内闭环）
+      mentionExpand: (text) => expandMentions(text, meta.cwd, defaultMentionIo()),
       // 工单 6.5：model 同 system 走 getter——会话级换模型（内存态）下一 turn 生效
       get model(): ResolvedModel {
         return currentModel

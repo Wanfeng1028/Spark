@@ -169,6 +169,12 @@ export interface RunLoopDeps {
    * 测试 stub 与未装配场景行为完全不变。
    */
   runaway?: RunawayGuard
+  /**
+   * @-mention 展开端口（CK-15）：user.message 落盘前把 `@path` 记号展开为文件/目录
+   * 内容注入（实现见 mention.ts；路径硬边界与限额在其内闭环）。缺省不接线 =
+   * 不展开（原样透传）。
+   */
+  mentionExpand?: (text: string) => Promise<string>
 }
 
 function isToolCall(c: ContentItem): c is Extract<ContentItem, { type: 'toolCall' }> {
@@ -308,16 +314,21 @@ export async function runTurn(
     // 上下文的首条前缀消息）；命中即 emit memory.injected（durable 落盘 = surface
     // 纪律）；端口内部自判注入条件（非首条/已注入/命中空集 no-op）
     await deps.memory?.maybeInject(turnId, input.text)
+    // CK-15：@-mention 展开——先于 user.message 落盘；展开文本随 user.message 进
+    // durable 流（surface 纪律成立：模型可见的注入就在 surface 消息里）。记忆查询
+    // 仍用原始输入（文件正文不是好的检索词）。
+    const userText =
+      deps.mentionExpand !== undefined ? await deps.mentionExpand(input.text) : input.text
     // CK-2 批 1：user_prompt_submit——先于 user.message 落盘（与 turn.before 的差别：
     // 本点携带最终输入文本且已在记忆注入之后）
     deps.hooks?.fire('user_prompt_submit', {
       sessionId: sid,
       cwd: deps.cwd ?? '',
       sourceEventId: null,
-      data: { turnId, text: input.text },
+      data: { turnId, text: userText },
     })
     const userEvent = await deps.bus.emit(sid, 'user.message', {
-      text: input.text,
+      text: userText,
       ...(input.attachments !== undefined ? { attachments: input.attachments } : {}),
     })
     await deps.bus.emit(sid, 'turn.started', {

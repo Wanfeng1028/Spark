@@ -13,6 +13,7 @@
 | v1.5 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **CK-7 溢出即压缩交付**（E_LLM_OVERFLOW 分类桶 + run-loop 反应式压缩重试一次；直调 runTurn 闭环单测 8 例）——卡内勾选见 §2 CK-7。与 doc/02 v4.174 同批 |
 | v1.6 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-9 Unicode 隐写防御交付**（unicode-sanitize 纯函数 + IoGuard/MCP 入参两点接入；单测 12 例）——卡内勾选见 §2 CK-9。同批附带 0e69478 lint 红 5 条修复（hooks-matrix 未用 import + overflow-compact 四个无 await async stub）。与 doc/02 v4.175、CHANGELOG 同批 |
 | v1.7 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-14 无头模式结构化输出交付**（--output-schema 校验面 + --resume-last 免记 id 续跑；单测 8 例）——卡内勾选见 §2 CK-14。与 doc/02 v4.176、CHANGELOG 同批 |
+| v1.8 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-15 @-mention 上下文注入交付**（mention.ts 引擎侧单源 + user.message 通道取舍；单测 8 例）——卡内勾选见 §2 CK-15。与 doc/02 v4.177、CHANGELOG 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -168,7 +169,7 @@
 
 **Spark 缺口**：composer 文件树弹窗（12.5）只插入路径文本，无引擎侧内容注入。
 
-**内容**：composer @路径补全 → 提交时展开为附件式内容注入（文件全文 / 目录树摘要；大小限额与截断；注入通道走附件/user.message 扩展，取舍工单内定）。**验收**：解析/限额/截断单测 + web/CLI 走查。**依赖**：12.5 文件树。**成本**：S。
+**内容**：composer @路径补全 → 提交时展开为附件式内容注入（文件全文 / 目录树摘要；大小限额与截断；注入通道走附件/user.message 扩展，取舍工单内定）。**验收**：解析/限额/截断单测 + web/CLI 走查。**依赖**：12.5 文件树。**成本**：S。**✅ 已交付（2026-10-01，doc/02 v4.177）**——通道取舍 = **user.message 扩展**（surface 纪律天然成立：模型可见的注入就在 durable 的 surface 消息里，零新事件面）：引擎侧 `mention.ts` 单源展开，run-loop 在 user.message 落盘前调用（记忆查询仍用原始文本）；文件全文（32KB/个 + 96KB/条总量、截断标注）/ 目录浅树（深度 2、50 条）；cwd 外与不存在 token 原样保留（硬边界/禁假状态）；二进制跳过；邮箱不误吞（@ 前须行首/空白）。端侧 composer @补全（10.53）已插路径文本，零改动。单测 8 例。
 
 ### CK-16 ACP 服务端：编辑器标准协议接入（P3）
 
