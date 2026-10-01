@@ -127,8 +127,11 @@ describe('runTurn 溢出即压缩闭环（CK-7）', () => {
     expect(result?.finish).toBe('stop')
     expect(f.compact).toHaveBeenCalledTimes(1)
     expect(f.sink.events.some((e) => e.type === 'error')).toBe(false)
-    const final = f.sink.events.findLast((e) => e.type === 'assistant.message')
-    if (final === undefined || final.type !== 'assistant.message') throw new Error('缺失')
+    // findLast 需 es2023 lib（未开）——逆序 find；data 收窄走谓词（信封缺省实例化 data 为全集）
+    const final = [...f.sink.events]
+      .reverse()
+      .find((e): e is SparkEventEnvelope<'assistant.message'> => e.type === 'assistant.message')
+    if (final === undefined) throw new Error('缺失')
     expect(final.data.content).toEqual([{ type: 'text', text: '压缩后成功' }])
   })
 
