@@ -190,7 +190,7 @@ describe('后台任务平面（CK-1 批 1）', () => {
     expect(f.notified).toHaveLength(1)
     const read = await f.taskOutput.execute(f.ctx(), { taskId: payload.taskId })
     expect((read.output as { output: string }).output).toContain('tail-marker')
-  }, 10_000)
+  })
 
   test('会话隔离：他会话 task_output/task_stop 一律 E_TASK_NOT_FOUND', async () => {
     const f = await makeFixture()

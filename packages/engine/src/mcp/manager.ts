@@ -18,7 +18,7 @@ import { z } from 'zod'
 import { asError, errText } from '../errs.js'
 import { sanitizeUnicodeDeep } from '../tools/unicode-sanitize.js'
 import type { SparkLogger } from '../logger.js'
-import type { ToolDefinition } from '../tools/definition.js'
+import type { ToolDefinition, ToolOutput } from '../tools/definition.js'
 import type { ToolRegistry } from '../tools/registry.js'
 import type { McpConfig, McpServerConfig } from './config.js'
 
