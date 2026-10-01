@@ -198,7 +198,7 @@ export class UserHookRunner {
             // stderr 首行作 reason（Claude Code 语义）；空 stderr 给兜底文案
             const reason = stderrText.split('\n')[0]?.trim() || `hook ${def.command} 以 exit 2 拦截`
             this.warn('userhook.deny', { ...fields, reason })
-            done(true)
+            done(true, reason)
             return
           }
           // code=null = 超时 kill（timeout warn 已发）；其余非零 = warn 不拦截
