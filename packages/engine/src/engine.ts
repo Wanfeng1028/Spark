@@ -2511,7 +2511,7 @@ export class Engine {
   /** 结构化提问作答（CK-6 批 1）：未知/已结清 requestId → false（server 层 404） */
   async replyQuestion(
     requestId: RequestId,
-    answers: Array<{ selected: string[]; note?: string }>,
+    answers: SparkEventMap['question.resolved']['answers'],
   ): Promise<boolean> {
     return this.questionBoard.reply(requestId, answers)
   }

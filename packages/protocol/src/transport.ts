@@ -4,7 +4,7 @@
  * 阶段三（doc/02 §6.6）：sendMessage/interrupt 显式携带 sessionId（HttpTransport 多会话路由；
  * MockTransport 单场景忽略）；getSession 为打开会话的全量 durable 回放入口（冷启动与断线重连同一路径）。
  */
-import type { SparkEventEnvelope } from './events.js'
+import type { SparkEventEnvelope, SparkEventMap } from './events.js'
 import type { Delivery, PermissionReply, PermissionScope, ReasoningEffort } from './primitives.js'
 import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, ReplyAllResultDto, ReviewDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, LinkPreviewDto, SkillDto, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
@@ -78,7 +78,7 @@ export interface Transport {
    */
   replyQuestion(
     requestId: RequestId,
-    answers: Array<{ selected: string[]; note?: string }>,
+    answers: SparkEventMap['question.resolved']['answers'],
   ): Promise<void>
   /**
    * POST /api/sessions/:id/permissions/reply-all：批量结清该会话全部挂起审批（19.35）。

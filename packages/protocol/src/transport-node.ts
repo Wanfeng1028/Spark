@@ -17,7 +17,7 @@ import { errorFromResponse } from './error-copy.js'
 import { parseEnvelope } from './schema.js'
 import { SessionStreamCore } from './session-stream-core.js'
 import type { StreamConnectionStatus, StreamCoreContext } from './session-stream-core.js'
-import type { SparkEventEnvelope } from './events.js'
+import type { SparkEventEnvelope, SparkEventMap } from './events.js'
 import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, ReplyAllResultDto, ReviewDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, LinkPreviewDto, SkillDto, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId } from './ids.js'
 import type { PermissionReply, PermissionScope, ReasoningEffort } from './primitives.js'
@@ -377,7 +377,7 @@ export class HttpTransport implements Transport {
   /** POST /api/questions/:requestId：结构化提问作答（CK-6） */
   replyQuestion(
     requestId: RequestId,
-    answers: Array<{ selected: string[]; note?: string }>,
+    answers: SparkEventMap['question.resolved']['answers'],
   ): Promise<void> {
     return this.req<void>(`/api/questions/${requestId}`, {
       method: 'POST',
