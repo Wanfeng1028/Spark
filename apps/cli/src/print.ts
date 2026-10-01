@@ -15,7 +15,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
-import type { SparkEventEnvelope } from '@spark/protocol'
+import type { SessionId, SparkEventEnvelope } from '@spark/protocol'
 import { Engine, Logger, loadConfig, sparkHome, type EngineConfig, type LlmGateway } from '@spark/engine'
 import { createInProcessClient } from '@spark/sdk/inprocess'
 
@@ -88,7 +88,7 @@ export async function runPrint(opts: PrintOptions): Promise<PrintOutcome> {
     await engine.ready()
 
     // CK-14：resume-last = 最近一个未归档会话（createdAt 降序取首）；无会话如实报错
-    let sessionId: string
+    let sessionId: SessionId
     if (opts.resumeLast === true) {
       const sessions = await client.sessions.list()
       const last = [...sessions].sort((a, b) => b.createdAt - a.createdAt)[0]
