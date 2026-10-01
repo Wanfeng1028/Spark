@@ -10,6 +10,7 @@
 | v1.2 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你去做新的工单"指令） | **CK-1 批 1 后台任务平面（bash 半边）交付**（doc/02 v4.171）——卡内勾选与范围注记见 §2 CK-1；同批附带 CK-1 typecheck 修复（c98d7a0）。行序补记：本行此前漏加（CK-1 交付提交的 doc/02 v4.171 行已引用 v1.2，实际版本表未落——本行补账） |
 | v1.3 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **CK-3 循环护栏交付**（run-loop 内存态观察器；六信号 + steer 纠偏 + 连环升级 E_RUNAWAY_LOOP；单测 11 例）——卡内勾选与范围注记见 §2 CK-3。同批 CK-1 typecheck 修复（c98d7a0）。与 doc/02 v4.172 同批 |
 | v1.4 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **CK-2 批 1 Hooks 挂点矩阵交付**（4→13 点 + pre_tool_use 阻塞拦截 E_HOOK_BLOCKED；单测 7 例）——卡内勾选与批 2 留卡见 §2 CK-2。与 doc/02 v4.173 同批 |
+| v1.5 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **CK-7 溢出即压缩交付**（E_LLM_OVERFLOW 分类桶 + run-loop 反应式压缩重试一次；直调 runTurn 闭环单测 8 例）——卡内勾选见 §2 CK-7。与 doc/02 v4.174 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -101,7 +102,7 @@
 
 **Spark 缺口**：pi-gateway.ts 的 FATAL_PATTERN 把 invalid_request_error 一律判 fatal；上下文超窗是确定性错误，不该让整 turn 失败闭合。
 
-**内容**：① 错误分类加 context-overflow 桶（正则表照抄重写）；② run-loop 捕获后同 turn 触发既有 compaction → 重注入重试**一次**（每 turn 限一次，再溢出仍 fatal——失败闭合不变）；③ 与水位前瞻压缩、已立项微压缩、ZC-Q1 Stream Recovery 三者正交（错误驱动 vs 阈值驱动 vs 粒度 vs 流断恢复）。**验收**：分类单测 + 溢出→压缩→重试一次→二次溢出 fatal 的闭环单测。**依赖**：无。**成本**：S。
+**内容**：① 错误分类加 context-overflow 桶（正则表照抄重写）；② run-loop 捕获后同 turn 触发既有 compaction → 重注入重试**一次**（每 turn 限一次，再溢出仍 fatal——失败闭合不变）；③ 与水位前瞻压缩、已立项微压缩、ZC-Q1 Stream Recovery 三者正交（错误驱动 vs 阈值驱动 vs 粒度 vs 流断恢复）。**验收**：分类单测 + 溢出→压缩→重试一次→二次溢出 fatal 的闭环单测。**依赖**：无。**成本**：S。**✅ 已交付（2026-10-01，doc/02 v4.174）**——E_LLM_OVERFLOW 分类桶 + run-loop 反应式压缩重试一次（二次溢出 fatal 失败闭合不变）；单测 8 例。
 
 ### CK-8 prompt cache_control 自动断点策略（P1，S-M）
 

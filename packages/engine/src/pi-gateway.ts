@@ -83,7 +83,11 @@ export interface PiGatewayDeps {
 
 // ---- 错误分类（§5.10 错误码 + §5.9 可重试判定）----
 
-export type LlmErrorKind = 'E_LLM_RATELIMIT' | 'E_LLM_PROVIDER' | 'E_LLM_NETWORK'
+export type LlmErrorKind =
+  | 'E_LLM_RATELIMIT'
+  | 'E_LLM_PROVIDER'
+  | 'E_LLM_NETWORK'
+  | 'E_LLM_OVERFLOW'
 
 interface ErrorClass {
   kind: LlmErrorKind
@@ -98,8 +102,17 @@ const NETWORK_PATTERN =
   /(network|fetch failed|getaddrinfo|enotfound|eai_again|econnrefused|econnreset|econnaborted|etimedout|timed? ?out|socket hang up|connection (error|refused|lost|closed|reset)|other side closed|upstream connect|reset before headers|terminated|epipe)/i
 const SERVER_PATTERN =
   /(\b5\d\d\b|overloaded|service.?unavailable|server.?error|internal.?error|bad gateway|provider.?returned.?error)/i
+/**
+ * 上下文超窗（CK-7，opencode provider-error 归一化正则表照抄重写）：确定性错误、
+ * 同 payload 重试无意义（retryable=false），但**不该 fatal**——run-loop 捕获后
+ * 同 turn 反应式压缩重试一次。判定置于 FATAL 之前：provider 常把超窗包在
+ * invalid_request_error（400）里，先判 FATAL 会误吞。
+ */
+const OVERFLOW_PATTERN =
+  /(prompt is too long|context[_ ]?(length|window)|exceeds? (the )?context|maximum context length|context_length_exceeded|too many tokens|input length and `?max_tokens`?|the message you submitted was too long|please reduce the length|request_too_large|exceeds the maximum .*tokens|too large .*context)/i
 
 export function classifyLlmError(message: string): ErrorClass {
+  if (OVERFLOW_PATTERN.test(message)) return { kind: 'E_LLM_OVERFLOW', retryable: false }
   if (FATAL_PATTERN.test(message)) return { kind: 'E_LLM_PROVIDER', retryable: false }
   if (RATELIMIT_PATTERN.test(message)) return { kind: 'E_LLM_RATELIMIT', retryable: true }
   if (NETWORK_PATTERN.test(message)) return { kind: 'E_LLM_NETWORK', retryable: true }

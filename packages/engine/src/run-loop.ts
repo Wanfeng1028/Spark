@@ -27,6 +27,7 @@ import type { EventBus } from './bus.js'
 import { errText } from './errs.js'
 import type { UserHookRunner } from './hooks/runner.js'
 import type { LlmGateway, LlmMessage, ResolvedModel, ToolSpec } from './llm-gateway.js'
+import { classifyLlmError } from './pi-gateway.js'
 import type { RunawayGuard } from './runaway-guard.js'
 import { ZERO_USAGE, addUsage } from './llm-gateway.js'
 import type { Metrics } from './observability/metrics.js'
@@ -293,6 +294,8 @@ export async function runTurn(
     let compactionCooled = false
     // ZC-1：微压缩不值得的本 turn 冷却（同上——不逐步重试）
     let microcompactCooled = false
+    // CK-7：溢出重试的本 turn 冷却——同 turn 至多一次反应式压缩重试
+    let overflowCooled = false
     // 用户侧 hooks（工单 7.3）：turn.before——输入受理后、事件流开路前触发
     // （先于 user.message/turn.started；fire-and-forget 不阻断）
     deps.hooks?.fire('turn.before', {
@@ -408,6 +411,19 @@ export async function runTurn(
       deps.budget?.add(result.usage)
 
       if (result.stopReason === 'error') {
+        // CK-7：溢出即压缩——上下文超窗是确定性错误，不该让整 turn 失败闭合。
+        // 同 turn 反应式压缩后重采样**一次**（overflowCooled 限一次；压缩失败或
+        // 二次溢出仍走 fatal——失败闭合不变，与水位前瞻压缩/微压缩正交：错误驱动
+        // vs 阈值驱动 vs 投影层粒度）。error 分支先于 assistant.message emit，
+        // continue 重采样无悬空副作用；usage 已计入（调用量本身是事实）。
+        const overflow = result.error !== undefined && classifyLlmError(result.error).kind === 'E_LLM_OVERFLOW'
+        if (overflow && !overflowCooled) {
+          overflowCooled = true
+          const ok = await deps.compactor.compact()
+          if (ok) {
+            continue
+          }
+        }
         await deps.bus.emit(sid, 'error', {
           scope: 'llm',
           message: result.error ?? 'E_LLM_PROVIDER: 未提供错误详情',
