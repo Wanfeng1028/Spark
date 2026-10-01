@@ -252,7 +252,12 @@ export class LspManager implements LspExecutor {
     return rows
   }
 
-  /** 引擎 shutdown：shutdown 请求（500ms 内不答不等）→ exit 通知 → 杀进程——关闭路径不悬空 */
+  /**
+   * 引擎 shutdown：shutdown 请求（500ms 内不答不等）→ dispose + kill——关闭路径不悬空。
+   * 不发 exit 通知：它的 write 异步在途，kill 杀进程后字节进已关闭管道 → vscode-jsonrpc
+   * 抛 EPIPE unhandled rejection 拖红整个测试 run（CI run 36889192252 实测；run 6aa2941
+   * 同款 flake 二次复发）——LSP 规范允许直接 terminate，与收到 exit 等效。
+   */
   async shutdown(): Promise<void> {
     for (const [language, entry] of this.connections) {
       try {
@@ -261,12 +266,7 @@ export class LspManager implements LspExecutor {
           new Promise((resolve) => setTimeout(resolve, 500)),
         ])
       } catch {
-        // 语言服务器已死/不答——下面的 exit + kill 兜底，不阻塞引擎关闭
-      }
-      try {
-        entry.conn.sendNotification('exit')
-      } catch {
-        // 同上——kill 兜底
+        // 语言服务器已死/不答——dispose + kill 兜底，不阻塞引擎关闭
       }
       this.kill(language, entry)
     }
