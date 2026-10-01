@@ -193,6 +193,7 @@ export function mergePrefixSlice(P: SessionSlice, E: SessionSlice): SessionSlice
     lastCheckpoint: E.lastCheckpoint,
     lastError: E.lastError,
     memoryInjected: E.memoryInjected,
+    todos: E.todos ?? P.todos,
     mode: E.mode,
     goal: E.goal,
   }

@@ -83,16 +83,12 @@ export type UiItem =
       status: 'pending' | 'resolved'
     } & UiItemBase)
   | ({
-      /** 结构化提问卡（CK-6）：question.asked 落卡、resolved 翻牌 */
+      /** 结构化提问卡（CK-6）：question.asked 落卡、resolved 翻牌（形状从事件 map 推导——exactOptionalPropertyTypes 下手写副本会漂移） */
       kind: 'question'
       requestId: RequestId
-      questions: Array<{
-        question: string
-        options: Array<{ label: string; description?: string }>
-        multiSelect?: boolean
-      }>
+      questions: SparkEventMap['question.asked']['questions']
       status: 'pending' | 'resolved'
-      answers?: Array<{ selected: string[]; note?: string }>
+      answers?: SparkEventMap['question.resolved']['answers']
       /** 超时/中断 fail-closed 时如实标注（不假装已答） */
       aborted?: boolean
     } & UiItemBase)
