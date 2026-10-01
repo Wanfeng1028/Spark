@@ -16,7 +16,7 @@ import {
   SettingsPromptsSchema,
 } from '../src/api'
 
-/** 十一项（doc/02 §5.1 / D28 + 阶段十九 19.1 D44 / 19.3 D45；新增字段须同步 engine SPARK_DEFAULTS 与 doc） */
+/** 十二项（doc/02 §5.1 / D28 + 阶段十九 19.1 D44 / 19.3 D45 / CK-8 promptCache；新增字段须同步 engine SPARK_DEFAULTS 与 doc） */
 const ELEVEN = [
   'maxStepsPerTurn',
   'maxToolParallel',
@@ -29,6 +29,7 @@ const ELEVEN = [
   'bashSandbox',
   'computerUseEnabled',
   'bashPersistent',
+  'promptCache',
 ]
 
 const VALID = {
@@ -43,10 +44,11 @@ const VALID = {
   bashSandbox: 'light',
   computerUseEnabled: false,
   bashPersistent: false,
+  promptCache: true,
 }
 
 describe('EngineSettingsShape / EngineSettingsSchema 分档', () => {
-  it('十一项键集一致：两档共用同一份字段定义（防分家）', () => {
+  it('十二项键集一致：两档共用同一份字段定义（防分家）', () => {
     expect(Object.keys(EngineSettingsShape.shape).sort()).toEqual([...ELEVEN].sort())
     expect(Object.keys(EngineSettingsSchema.shape).sort()).toEqual([...ELEVEN].sort())
   })
