@@ -66,3 +66,19 @@
 .sp-composer-wrap {
   padding: 16rpx 32rpx;
 }
+
+/* CK-6：结构化提问只读卡（作答面批 2） */
+.sp-question {
+  border-left: 4rpx solid #d4a017;
+  padding: 12rpx 16rpx;
+  margin: 8rpx 0;
+}
+.sp-question-text {
+  font-size: 26rpx;
+  line-height: 36rpx;
+}
+.sp-question-hint {
+  font-size: 22rpx;
+  color: #8a8f98;
+  margin-top: 8rpx;
+}

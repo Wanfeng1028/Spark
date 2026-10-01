@@ -461,6 +461,29 @@ export function SessionScreen() {
       case 'diagnostics':
         // LSP 诊断折叠卡（W18）：折叠单行入口，点按展开逐条摘要
         return <DiagnosticsCard item={it} />
+      case 'question':
+        // CK-6 批 1：只读呈现（点选作答随批 2 移动端交互批）
+        return (
+          <View style={styles.questionWrap}>
+            {it.questions.map((q, qi) => {
+              const a = it.status === 'resolved' ? it.answers?.[qi] : undefined
+              const picked = a !== undefined && a.selected.length > 0 ? ` → ${a.selected.join('、')}` : ''
+              return (
+                <Text key={qi} style={styles.questionText}>
+                  {qi + 1}. {q.question}
+                  {picked}
+                </Text>
+              )
+            })}
+            <Text style={styles.questionHint}>
+              {it.status === 'pending'
+                ? '请在 Web 工作台作答（超时未答将 fail-closed）'
+                : it.aborted === true
+                  ? '提问超时/中断——未获回答'
+                  : '提问已回答'}
+            </Text>
+          </View>
+        )
     }
   }
 
@@ -658,6 +681,22 @@ export function SessionScreen() {
 }
 
 const styles = StyleSheet.create({
+  questionWrap: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderLeftWidth: 2,
+    borderColor: '#d4a017',
+    marginVertical: 4,
+  },
+  questionText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  questionHint: {
+    fontSize: 11,
+    color: '#8a8f98',
+    marginTop: 4,
+  },
   screen: {
     flex: 1,
   },

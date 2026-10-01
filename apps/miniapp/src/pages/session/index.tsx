@@ -396,6 +396,32 @@ export default function SessionPage() {
                       <DiagnosticsCard item={it} />
                     </View>
                   )
+                case 'question':
+                  // CK-6 批 1：只读呈现（点选作答随批 2 小程序交互批）
+                  return (
+                    <View key={row.key} className="sp-row-gap sp-question">
+                      {it.questions.map((q, qi) => {
+                        const a = it.status === 'resolved' ? it.answers?.[qi] : undefined
+                        const picked =
+                          a !== undefined && a.selected.length > 0
+                            ? ` → ${a.selected.join('、')}`
+                            : ''
+                        return (
+                          <Text key={qi} className="sp-question-text">
+                            {qi + 1}. {q.question}
+                            {picked}
+                          </Text>
+                        )
+                      })}
+                      <Text className="sp-question-hint">
+                        {it.status === 'pending'
+                          ? '请在 Web 工作台作答（超时未答将 fail-closed）'
+                          : it.aborted === true
+                            ? '提问超时/中断——未获回答'
+                            : '提问已回答'}
+                      </Text>
+                    </View>
+                  )
               }
             })
           )}
