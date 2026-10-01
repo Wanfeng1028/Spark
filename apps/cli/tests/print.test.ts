@@ -174,7 +174,7 @@ describe('CK-14：--output-schema（最终文本按 JSON Schema 校验）', () =
     const gateway = new ScriptedLlm()
     gateway.scriptStep({ deltas: [{ kind: 'text', text: '{"name":"spark","steps":3}' }] })
     const schemaPath = join(tmpdir(), 'spark-schema-ok.json')
-    writeFileSync(schemaPath, JSON.stringify({ type: 'object', required: ['name', 'steps'] }))
+    writeFileSync(schemaPath, JSON.stringify({ type: 'object', properties: { name: { type: 'string' }, steps: { type: 'number' } }, required: ['name', 'steps'] }))
     const cap = captureStdout()
     try {
       const r = await runPrint({
@@ -196,7 +196,7 @@ describe('CK-14：--output-schema（最终文本按 JSON Schema 校验）', () =
     const gateway = new ScriptedLlm()
     gateway.scriptStep({ deltas: [{ kind: 'text', text: '{"wrong":true}' }] })
     const schemaPath = join(tmpdir(), 'spark-schema-bad.json')
-    writeFileSync(schemaPath, JSON.stringify({ type: 'object', required: ['name', 'steps'] }))
+    writeFileSync(schemaPath, JSON.stringify({ type: 'object', properties: { name: { type: 'string' }, steps: { type: 'number' } }, required: ['name', 'steps'] }))
     const cap = captureStdout()
     const errBuf: string[] = []
     const origErr = process.stderr.write.bind(process.stderr)
@@ -225,7 +225,7 @@ describe('CK-14：--output-schema（最终文本按 JSON Schema 校验）', () =
     const gateway = new ScriptedLlm()
     gateway.scriptStep({ deltas: [{ kind: 'text', text: '这是说明文字不是 JSON' }] })
     const schemaPath = join(tmpdir(), 'spark-schema-any.json')
-    writeFileSync(schemaPath, JSON.stringify({ type: 'object' }))
+    writeFileSync(schemaPath, JSON.stringify({ type: 'object', properties: { name: { type: 'string' } }, required: ['name'] }))
     const cap = captureStdout()
     const errBuf: string[] = []
     const origErr = process.stderr.write.bind(process.stderr)
