@@ -160,7 +160,7 @@
 
 **Spark 缺口**：无 turn 级"改了什么/交付了什么"汇总面（checkpoint.created 是快照通知非变更摘要；用户只能翻 tool.completed）。
 
-**内容**：① workspace-changes 记录器（借 checkpoint 快照原料做 git diff 摘要）；② present 工具（显式交付声明）；③ durable 事件（new-event-type 全流程）→ 四端 turn 尾变更卡片。**验收**：记录器单测（变更归集/空 turn 零事件）+ present 单测 + 卡片投影。**依赖**：无。**成本**：M。
+**内容**：① workspace-changes 记录器（借 checkpoint 快照原料做 git diff 摘要）；② present 工具（显式交付声明）；③ durable 事件（new-event-type 全流程）→ 四端 turn 尾变更卡片。**验收**：记录器单测（变更归集/空 turn 零事件）+ present 单测 + 卡片投影。**依赖**：无。**成本**：M。**⚖️ 2026-10-01 重叠判决（登记）**：19.35 审查模式落地后（GET /:id/review——checkpoint shadow git 只读 diff 聚合 + web 双栏），① 的"变更文件与行数汇总"只读面已由其承担，不再重复建设；本单差异化收窄为 **② present 显式交付声明工具**（模型主动声明交付物 ≠ 只读聚合）与 **③ turn 尾自动汇总事件**。拆批：批 1 = present 工具 + deliverables 事件面；批 2 = turn 尾自动卡片（借 review 聚合）。待 CI 稳定后实施。
 
 ### CK-14 无头模式结构化输出与免记 id 续跑（P2，S）
 
