@@ -13,6 +13,7 @@
  * 永不晚于 completed 乱序到达。
  */
 import type { CallId, SessionId } from '@spark/protocol'
+import type { QuestionBoardPort } from './definition.js'
 import { errText } from '../errs.js'
 import type { EventBus } from '../bus.js'
 import type { UserHookRunner } from '../hooks/runner.js'
@@ -43,13 +44,7 @@ export interface PipelineDeps {
   /** I/O 护栏（工单 7.2；缺省不启用——测试 stub 可省） */
   guard?: IoGuard
   /** CK-6：结构化提问挂起表（ask_user 工具宿主端口；缺省未注入 = 工具如实报错） */
-  questionBoard?: {
-    ask(
-      sessionId: import('@spark/protocol').SessionId,
-      questions: import('@spark/protocol').SparkEventMap['question.asked']['questions'],
-      signal: AbortSignal,
-    ): Promise<import('@spark/protocol').SparkEventMap['question.resolved']['answers'] | null>
-  }
+  questionBoard?: QuestionBoardPort
   /** 用户侧 hooks（工单 7.3；缺省不触发——测试 stub 可省） */
   hooks?: UserHookRunner
   /** 长期记忆仓（工单 7.5 / ADR D25；缺省 memory 工具族不予执行——测试 stub 可省） */

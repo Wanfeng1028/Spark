@@ -46,7 +46,7 @@ function normalizeFuzzy(s: string): string {
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
     .replace(/[‐-―−﹘﹣]/g, '-')
-    .replace(/[   　]/g, ' ')
+    .replace(/[\u00A0\u2007\u202F\u3000]/g, ' ')
 }
 
 /** 精确匹配（原 indexOf 语义） */

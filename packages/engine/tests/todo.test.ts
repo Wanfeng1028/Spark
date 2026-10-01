@@ -4,7 +4,7 @@
  * nudge 触发（单次新完成 ≥3）与不触发（<3 / 已完成重复置位）；
  * write 失败闭合（emit 抛错 → 不落内存，工具 isError）。
  */
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { ids } from '@spark/protocol'
 import { makeTodoTools, TodoBoard, type TodoItem } from '../src/tools/builtin/todo.js'
 import type { ToolContext } from '../src/tools/definition.js'
@@ -36,9 +36,10 @@ interface Harness {
 function makeHarness(emitFail = false): Harness {
   const emitted: TodoItem[][] = []
   const board = new TodoBoard({
-    emit: async (_sid, todos) => {
-      if (emitFail) throw new Error('E_IO_FAIL')
+    emit: (_sid, todos): Promise<void> => {
+      if (emitFail) return Promise.reject(new Error('E_IO_FAIL'))
       emitted.push(todos)
+      return Promise.resolve()
     },
   })
   const [todoWrite, todoRead] = makeTodoTools(board)

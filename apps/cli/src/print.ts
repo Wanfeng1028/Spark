@@ -124,7 +124,8 @@ export async function runPrint(opts: PrintOptions): Promise<PrintOutcome> {
       const text = finalTextOf(events, sessionId)
       let schema: z.ZodType
       try {
-        schema = z.fromJSONSchema(JSON.parse(readFileSync(opts.outputSchemaPath, 'utf8')))
+        const doc: unknown = JSON.parse(readFileSync(opts.outputSchemaPath, 'utf8'))
+        schema = z.fromJSONSchema(doc as Parameters<typeof z.fromJSONSchema>[0])
       } catch (err) {
         throw new Error(
           `E_OUTPUT_SCHEMA: schema 文件不可读或非法 JSON Schema（${opts.outputSchemaPath}）：${err instanceof Error ? err.message : String(err)}`,

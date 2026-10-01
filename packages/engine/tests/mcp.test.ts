@@ -561,8 +561,8 @@ describe('CK-5 批 1：MCP 韧性三小件', () => {
   test('① 描述 2048 截断（含标注）', async () => {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
     const server = new McpServer({ name: 't', version: '1.0.0' })
-    server.tool('longdesc', 'x'.repeat(3000), {}, async () => ({
-      content: [{ type: 'text', text: 'ok' }],
+    server.tool('longdesc', 'x'.repeat(3000), {}, () => ({
+      content: [{ type: 'text', text: 'ok' }] as const,
     }))
     await server.connect(serverTransport)
     const registry = new ToolRegistry()
@@ -581,11 +581,11 @@ describe('CK-5 批 1：MCP 韧性三小件', () => {
   test('② needs-auth：特征错误进 15min 缓存 → 同 server 其他工具短路（不发请求）', async () => {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
     const server = new McpServer({ name: 't', version: '1.0.0' })
-    server.tool('needsauth', '需要认证', {}, async () => {
+    server.tool('needsauth', '需要认证', {}, () => {
       throw new Error('HTTP 401 Unauthorized: token expired')
     })
-    server.tool('other', '同 server 另一工具', {}, async () => ({
-      content: [{ type: 'text', text: 'fine' }],
+    server.tool('other', '同 server 另一工具', {}, () => ({
+      content: [{ type: 'text', text: 'fine' }] as const,
     }))
     await server.connect(serverTransport)
     const registry = new ToolRegistry()
@@ -617,7 +617,7 @@ describe('CK-5 批 1：MCP 韧性三小件', () => {
   test('② 非认证错误不进缓存（同 server 后续调用照常）', async () => {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
     const server = new McpServer({ name: 't', version: '1.0.0' })
-    server.tool('plain', '普通失败', {}, async () => {
+    server.tool('plain', '普通失败', {}, () => {
       throw new Error('ECONNRESET broken pipe')
     })
     await server.connect(serverTransport)
@@ -643,7 +643,7 @@ describe('CK-5 批 1：MCP 韧性三小件', () => {
     let reconnectCalls = 0
     let callCount = 0
     const fakeClient = {
-      callTool: async () => {
+      callTool: () => {
         callCount += 1
         throw new Error('MCP error -32001: Session expired')
       },
@@ -651,9 +651,9 @@ describe('CK-5 批 1：MCP 韧性三小件', () => {
     const gate: McpAuthGate = {
       isAuthCached: () => false,
       markNeedsAuth: () => {},
-      reconnect: async () => {
+      reconnect: (): Promise<boolean> => {
         reconnectCalls += 1
-        return true
+        return Promise.resolve(true)
       },
     }
     const def = makeMcpToolDef(
@@ -673,9 +673,9 @@ describe('CK-5 批 1：MCP 韧性三小件', () => {
     const failingGate: McpAuthGate = {
       isAuthCached: () => false,
       markNeedsAuth: () => {},
-      reconnect: async () => {
+      reconnect: (): Promise<boolean> => {
         failCalls += 1
-        return false
+        return Promise.resolve(false)
       },
     }
     const def2 = makeMcpToolDef(

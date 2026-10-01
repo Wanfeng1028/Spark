@@ -48,7 +48,7 @@ export class QuestionBoard {
     } catch {
       return null
     }
-    const placeholder = questions.map((q) => ({ selected: [] as string[] }))
+    const placeholder = questions.map(() => ({ selected: [] as string[] }))
     return new Promise<QuestionAnswer[] | null>((resolve) => {
       const entry: PendingEntry = {
         requestId,

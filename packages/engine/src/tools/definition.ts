@@ -5,7 +5,7 @@
 import { isAbsolute, relative, resolve, dirname, basename } from 'node:path'
 import { realpathSync } from 'node:fs'
 import type { z } from 'zod'
-import type { CallId, EventId, MemoryDto, SessionId, TurnId } from '@spark/protocol'
+import type { CallId, EventId, MemoryDto, SessionId, SparkEventMap, TurnId } from '@spark/protocol'
 import type { MemoryStore } from '../memory/store.js'
 import type { LspExecutor } from '../lsp/manager.js'
 import type { ReadFileStateMap } from './read-state.js'
@@ -55,19 +55,22 @@ export interface ToolContext {
    * 管线时注入（与 memory?/lsp? 同手法——工具不持有 Engine）；缺省未注入 = 工具
    * 如实报 E_UNSUPPORTED（不假装已问）。
    */
-  questionBoard?: {
-    ask(
-      sessionId: import('@spark/protocol').SessionId,
-      questions: import('@spark/protocol').SparkEventMap['question.asked']['questions'],
-      signal: AbortSignal,
-    ): Promise<import('@spark/protocol').SparkEventMap['question.resolved']['answers'] | null>
-  }
+  questionBoard?: QuestionBoardPort
   /**
    * read-state 文件新鲜度基线（工单 ZC-5 / ADR D55）：read/edit/write 工具使用，
    * 其余工具忽略。由 ToolPipelineImpl 每会话实例持有并注入（与 memory?/lsp? 同手法，
    * 工具不持有 Engine）；缺省未注入 = 守卫不启用（直接驱动工具的测试与旧路径不变）。
    */
   readFileState?: ReadFileStateMap
+}
+
+/** 结构化提问端口（CK-6；形状 = 事件载荷单一来源，QuestionBoard 类实现之） */
+export interface QuestionBoardPort {
+  ask(
+    sessionId: SessionId,
+    questions: SparkEventMap['question.asked']['questions'],
+    signal: AbortSignal,
+  ): Promise<SparkEventMap['question.resolved']['answers'] | null>
 }
 
 /** 语义检索端口（ToolContext.semantic 形状；实现在 vector/semantic.ts + 引擎装配） */

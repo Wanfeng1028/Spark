@@ -64,7 +64,7 @@ describe('sanitizeUnicodeDeep（CK-9）', () => {
   test('非普通对象（Date/Map 等）原样保留不递归', () => {
     const d = new Date(0)
     const r = sanitizeUnicodeDeep({ d })
-    expect((r.value as { d: Date }).d).toBe(d)
+    expect((r.value as { d: unknown }).d).toBe(d)
   })
 })
 

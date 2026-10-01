@@ -110,8 +110,8 @@ export function makeTodoTools(board: TodoBoard): [
       resourceOf: () => 'session-todo',
     },
     parallelizable: true,
-    async execute(ctx: ToolContext): Promise<ToolOutput> {
-      return { output: { todos: board.get(ctx.sessionId) }, isError: false }
+    execute(ctx: ToolContext): Promise<ToolOutput> {
+      return Promise.resolve({ output: { todos: board.get(ctx.sessionId) }, isError: false })
     },
   }
 
