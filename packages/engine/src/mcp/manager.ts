@@ -17,6 +17,7 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { z } from 'zod'
 import { asError, errText } from '../errs.js'
 import { sanitizeUnicodeDeep } from '../tools/unicode-sanitize.js'
+import { TOOLSEARCH_AUTO_THRESHOLD } from '../tools/builtin/tool-search.js'
 import type { SparkLogger } from '../logger.js'
 import type { ToolDefinition, ToolOutput } from '../tools/definition.js'
 import type { ToolRegistry } from '../tools/registry.js'
@@ -210,6 +211,10 @@ export function makeMcpToolDef(
 
 export interface McpManagerDeps {
   config: McpConfig
+  /** CK-11：deferred 索引（缺省不接线 = 无延迟加载语义）；connect 时按判定 defer */
+  deferredIndex?: { defer(name: string): void }
+  /** CK-11：已注册 MCP 工具描述累计字节（阈值判定用；调用方闭包维护） */
+  onDescriptionBytes?: (bytes: number) => void
   /** CK-5：时钟（测试注入；缺省 Date.now） */
   now?: () => number
   /** 缺省不记日志（引擎传入 Logger；单测可省） */
@@ -229,6 +234,8 @@ export class McpManager {
   /** CK-5 ②：needs-auth 短路表（server → 截至 ms；15min 窗口） */
   private readonly authCachedUntil = new Map<string, number>()
   private closed = false
+  /** CK-11：已注册 MCP 工具描述累计字节（自动 deferred 阈值判定） */
+  private descriptionBytesTotal = 0
 
   constructor(private readonly deps: McpManagerDeps) {
     // LA-23：server env/headers 的明文值纳入日志脱敏（与 secrets 仓同口径——
@@ -297,6 +304,14 @@ export class McpManager {
       const listed = await client.listTools()
       for (const tool of listed.tools as McpToolInfo[]) {
         const def = makeMcpToolDef(name, tool, client, this.deps.toolTimeoutMs, gate)
+        // CK-11：deferred 判定——per-server 显式声明，或描述累计字节超阈值自动延迟
+        const descBytes = Buffer.byteLength(`[mcp:${name}] ${tool.description ?? tool.name}`, 'utf8')
+        this.descriptionBytesTotal += descBytes
+        this.deps.onDescriptionBytes?.(this.descriptionBytesTotal)
+        const defer =
+          cfg.deferTools === true ||
+          (cfg.deferTools === undefined && this.descriptionBytesTotal > TOOLSEARCH_AUTO_THRESHOLD)
+        if (defer) this.deps.deferredIndex?.defer(mcpToolName(name, tool.name))
         if (mode === 'push') registry.register(def)
         else registry.replace(mcpToolName(name, tool.name), def)
       }

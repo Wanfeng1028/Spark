@@ -23,6 +23,9 @@ export interface McpServerConfig {
   env?: Record<string, string> | undefined
   /** 单 server 连接超时毫秒（RT3-04）：npx 冷启动可超缺省 30s，按 server 覆盖 */
   connectTimeoutMs?: number | undefined
+  /** CK-11：该 server 工具延迟加载（不进初始广告面，模型经 tool_search 显现）；
+   * 缺省 undefined = 按广告面字节阈值自动判定 */
+  deferTools?: boolean | undefined
 }
 
 export interface McpConfig {

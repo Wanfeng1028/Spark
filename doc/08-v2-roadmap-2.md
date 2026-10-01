@@ -19,6 +19,7 @@
 | v1.11 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-10 edit 容错匹配交付**（三级渐进 + CRLF 保持 + is_exact 上报 + DiffViewer 形状补齐；单测 8 例）——卡内勾选见 §2 CK-10。同批附带 CI 修复批：跨 4 提交的 9 处 typecheck 错一次清零（子代理取证：mentionExpand 返回形状 / gateway cacheEnabled 字段声明漏 / manager oldClient 收窄 / mcp.test import 三处 / unicode 断言重叠）。与 doc/02 v4.180、CHANGELOG 同批 |
 | v1.12 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-6 批 1 结构化提问交付**（ask_user 工具 + QuestionBoard + 两事件词表 32 种 + web QuestionCard + Transport/server 全链；CLI 只读）——卡内勾选见 §2 CK-6。与 doc/02 v4.181、CHANGELOG 同批 |
 | v1.13 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-4 批 1 会话任务清单交付**（todo.updated 事件 + todo_write/todo_read + nudge 收窄版；词表 33 种；单测 5 例 + reducer 3 态）——卡内勾选见 §2 CK-4。与 doc/02 v4.182、CHANGELOG 同批 |
+| v1.14 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-11 ToolSearch 延迟加载交付**（deferred 双入口判定 + tool_search 检索/显现 + 广告面过滤；单测 8 例）——卡内勾选见 §2 CK-11。与 doc/02 v4.183、CHANGELOG 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -144,7 +145,7 @@
 
 **Spark 缺口**：mcp client 全量加载工具 schema 进上下文——OpenAPI 型 server 动辄 15-60KB 描述。
 
-**内容**：① ToolDefinition 增 deferred 位（MCP server per-server 配置或按广告面总字节阈值自动 deferred 化）；② tool_search 工具（query/select）；③ 显现的动态 schema 注入下一轮广告面。**验收**：deferred 化/检索/显现回收单测 + 广告面字节断言。**依赖**：无；与 CK-5 截断互补。**成本**：M。
+**内容**：① ToolDefinition 增 deferred 位（MCP server per-server 配置或按广告面总字节阈值自动 deferred 化）；② tool_search 工具（query/select）；③ 显现的动态 schema 注入下一轮广告面。**验收**：deferred 化/检索/显现回收单测 + 广告面字节断言。**依赖**：无；与 CK-5 截断互补。**成本**：M。**✅ 已交付（2026-10-01，doc/02 v4.183）**——① deferred 判定双入口：mcp.json per-server `deferTools: true` + 广告面字节阈值自动（TOOLSEARCH_AUTO_THRESHOLD 32KB，描述累计超出即自动延迟后续 server 工具）；② `tool_search` 工具（action tool.search 预置 allow——检索/显现无副作用；query 子串匹配 + `select:<名>` 显现 + 留空列全量）；③ **注册/执行面不变**（deferred 工具照常注册进 registry、权限门照走——只过滤 materialize 广告清单，显现后下一轮出现，与 hiddenTools getter 同过滤位）。单测 8 例。
 
 ### CK-12 压缩后状态复灌 + 滚动会话摘要（P2）
 

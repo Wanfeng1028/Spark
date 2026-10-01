@@ -14,6 +14,7 @@
  */
 import type { CallId, SessionId } from '@spark/protocol'
 import type { QuestionBoardPort } from './definition.js'
+import type { DeferredToolIndex } from './builtin/tool-search.js'
 import { errText } from '../errs.js'
 import type { EventBus } from '../bus.js'
 import type { UserHookRunner } from '../hooks/runner.js'
@@ -45,6 +46,8 @@ export interface PipelineDeps {
   guard?: IoGuard
   /** CK-6：结构化提问挂起表（ask_user 工具宿主端口；缺省未注入 = 工具如实报错） */
   questionBoard?: QuestionBoardPort
+  /** CK-11：deferred 工具索引（tool_search 宿主；缺省 = 无延迟加载语义，广告面全量） */
+  deferredIndex?: DeferredToolIndex
   /** 用户侧 hooks（工单 7.3；缺省不触发——测试 stub 可省） */
   hooks?: UserHookRunner
   /** 长期记忆仓（工单 7.5 / ADR D25；缺省 memory 工具族不予执行——测试 stub 可省） */
@@ -163,6 +166,8 @@ export class ToolPipelineImpl implements ToolPipeline {
   materialize(): ToolSpec[] {
     return this.deps.registry.materialize().filter((spec) => {
       if (this.deps.hiddenTools?.has(spec.name) === true) return false
+      // CK-11：deferred 未显现的工具不进广告面（tool_search select 显现后下一轮出现）
+      if (this.deps.deferredIndex?.isDeferred(spec.name) === true) return false
       const def = this.deps.registry.resolve(spec.name)
       return def === undefined || !this.deps.permission.isDenied(def.permission.action)
     })
@@ -362,6 +367,7 @@ export class ToolPipelineImpl implements ToolPipeline {
           ...(this.deps.now !== undefined ? { now: this.deps.now } : {}),
           readFileState: this.readFileState,
           ...(this.deps.questionBoard !== undefined ? { questionBoard: this.deps.questionBoard } : {}),
+          ...(this.deps.deferredIndex !== undefined ? { deferredIndex: this.deps.deferredIndex } : {}),
         },
         input,
       )

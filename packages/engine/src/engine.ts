@@ -90,6 +90,7 @@ import { runSessionLoop } from './run-loop.js'
 import { RunawayGuard } from './runaway-guard.js'
 import { makeAskUserTool } from './tools/builtin/ask-user.js'
 import { makeTodoTools, TodoBoard } from './tools/builtin/todo.js'
+import { DeferredToolIndex, makeToolSearchTool, TOOLSEARCH_AUTO_THRESHOLD } from './tools/builtin/tool-search.js'
 import { defaultMentionIo, expandMentions } from './mention.js'
 import { GoalRunner } from './goals.js'
 import { loadTrustDoc, saveTrustDoc, trustKey, trustLevelOf, tightens } from './trust.js'
@@ -222,6 +223,8 @@ export class Engine {
   private readonly questionBoard: QuestionBoard
   /** 会话任务清单（CK-4 批 1）：todo_write/todo_read 的宿主；持久化靠 todo.updated 事件回放 */
   private readonly todoBoard: TodoBoard
+  /** 延迟工具索引（CK-11）：MCP deferred 工具的检索/显现宿主 */
+  private readonly deferredIndex = new DeferredToolIndex()
   private readonly permission: PermissionServiceImpl
   /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
   private readonly ruleStore: UserRuleStore
@@ -576,6 +579,14 @@ export class Engine {
       timeoutMs: this.config.spark.engine.permissionTimeoutMs,
     })
     this.registry.register(makeAskUserTool(this.questionBoard))
+    // CK-11：tool_search（延迟工具的检索/显现入口；索引引用同管线注入）
+    this.registry.register(
+      makeToolSearchTool(this.deferredIndex, () => {
+        const catalog = new Map<string, string>()
+        for (const spec of this.registry.materialize()) catalog.set(spec.name, spec.description)
+        return catalog
+      }),
+    )
     // 会话任务清单（CK-4 批 1）：emit 经总线落 todo.updated（durable 持久化事实源）
     this.todoBoard = new TodoBoard({
       emit: (sessionId, todos) => this.bus.emit(sessionId, 'todo.updated', { todos }).then(() => undefined),
@@ -626,6 +637,8 @@ export class Engine {
     // 由 manager 内部 warn 闭合（工具不注册，引擎照常启动）
     this.mcp = new McpManager({
       config: loadMcpConfig(this.root),
+      // CK-11：deferred 索引接线（MCP 工具按配置/阈值延迟加载，tool_search 检索显现）
+      deferredIndex: this.deferredIndex,
       logger: this.logger,
       toolTimeoutMs: this.config.spark.engine.toolTimeoutMs,
       // 全局出网代理 env（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：getter 现读，
@@ -2745,6 +2758,7 @@ export class Engine {
       registry: this.registry,
       permission,
       questionBoard: this.questionBoard,
+      deferredIndex: this.deferredIndex,
       outputs: this.outputs,
       cwd: meta.cwd,
       maxToolParallel: this.config.spark.engine.maxToolParallel,
