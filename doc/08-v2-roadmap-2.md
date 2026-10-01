@@ -12,6 +12,7 @@
 | v1.4 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **CK-2 批 1 Hooks 挂点矩阵交付**（4→13 点 + pre_tool_use 阻塞拦截 E_HOOK_BLOCKED；单测 7 例）——卡内勾选与批 2 留卡见 §2 CK-2。与 doc/02 v4.173 同批 |
 | v1.5 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令） | **CK-7 溢出即压缩交付**（E_LLM_OVERFLOW 分类桶 + run-loop 反应式压缩重试一次；直调 runTurn 闭环单测 8 例）——卡内勾选见 §2 CK-7。与 doc/02 v4.174 同批 |
 | v1.6 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-9 Unicode 隐写防御交付**（unicode-sanitize 纯函数 + IoGuard/MCP 入参两点接入；单测 12 例）——卡内勾选见 §2 CK-9。同批附带 0e69478 lint 红 5 条修复（hooks-matrix 未用 import + overflow-compact 四个无 await async stub）。与 doc/02 v4.175、CHANGELOG 同批 |
+| v1.7 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-14 无头模式结构化输出交付**（--output-schema 校验面 + --resume-last 免记 id 续跑；单测 8 例）——卡内勾选见 §2 CK-14。与 doc/02 v4.176、CHANGELOG 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -159,7 +160,7 @@
 
 **Spark 缺口**：spark -p 已有 text/json 输出与退出码纪律，但无 schema 校验、续跑必须记 session id。
 
-**内容**：print.ts 增 --output-schema（校验不过 exit 非零 + stderr 说明）与 resume --last；SDK/Transport 对等暴露。**验收**：schema 合格/不合格两路单测 + resume --last 单测。**依赖**：无。**成本**：S。
+**内容**：print.ts 增 --output-schema（校验不过 exit 非零 + stderr 说明）与 resume --last；SDK/Transport 对等暴露。**验收**：schema 合格/不合格两路单测 + resume --last 单测。**依赖**：无。**成本**：S。**✅ 已交付（2026-10-01，doc/02 v4.176）**——print.ts：`--output-schema <file>`（z.fromJSONSchema 校验最终文本；合格输出格式化 JSON、不合法 JSON / 未过校验 / schema 文件非法三路各自 stderr 说明，exit 2 独立于 turn error 的 1）+ `--resume-last`（免记 session id——createdAt 降序取最近未归档会话续跑；root 随之用 sparkHome 而非临时目录，空 root 如实 E_PRINT_RESUME_EMPTY）；PrintOptions.root 测试缝；单测 8 例（schema 三路 + resume 两路 + 解析三态）。
 
 ### CK-15 @-mention 文件/目录上下文注入（P2，S）
 

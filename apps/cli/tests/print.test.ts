@@ -4,6 +4,9 @@
  * JSON.parse（jq 等价）；finish=error 路径退出码 1。参数解析三态另测。
  */
 import { describe, expect, test } from 'vitest'
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { EngineConfig } from '@spark/engine'
 import { ScriptedLlm } from '@spark/engine/internal'
 import { parsePrintArgs, runPrint } from '../src/print.js'
@@ -148,4 +151,191 @@ describe('runPrint（ScriptedLlm 确定性）', () => {
       process.stdout.write = captured
     }
   })
+
+// ---------- CK-14：--output-schema 与 --resume-last ----------
+
+function captureStdout(): { out: () => string; restore: () => void } {
+  let buf = ''
+  const orig = process.stdout.write.bind(process.stdout)
+  process.stdout.write = (chunk: unknown): boolean => {
+    buf += String(chunk)
+    return true
+  }
+  return {
+    out: () => buf,
+    restore: () => {
+      process.stdout.write = orig
+    },
+  }
+}
+
+describe('CK-14：--output-schema（最终文本按 JSON Schema 校验）', () => {
+  test('合格：输出格式化 JSON，exit 0', async () => {
+    const gateway = new ScriptedLlm()
+    gateway.scriptStep({ deltas: [{ kind: 'text', text: '{"name":"spark","steps":3}' }] })
+    const schemaPath = join(tmpdir(), 'spark-schema-ok.json')
+    writeFileSync(schemaPath, JSON.stringify({ type: 'object', required: ['name', 'steps'] }))
+    const cap = captureStdout()
+    try {
+      const r = await runPrint({
+        prompt: 'p',
+        outputFormat: 'text',
+        cwd: process.cwd(),
+        outputSchemaPath: schemaPath,
+        config: makeConfig(),
+        gateway,
+      })
+      expect(r.exitCode).toBe(0)
+      expect(JSON.parse(cap.out())).toEqual({ name: 'spark', steps: 3 })
+    } finally {
+      cap.restore()
+    }
+  })
+
+  test('不合格（合法 JSON 但缺字段）→ exit 2 + stderr 说明', async () => {
+    const gateway = new ScriptedLlm()
+    gateway.scriptStep({ deltas: [{ kind: 'text', text: '{"wrong":true}' }] })
+    const schemaPath = join(tmpdir(), 'spark-schema-bad.json')
+    writeFileSync(schemaPath, JSON.stringify({ type: 'object', required: ['name', 'steps'] }))
+    const cap = captureStdout()
+    const errBuf: string[] = []
+    const origErr = process.stderr.write.bind(process.stderr)
+    process.stderr.write = (chunk: unknown): boolean => {
+      errBuf.push(String(chunk))
+      return true
+    }
+    try {
+      const r = await runPrint({
+        prompt: 'p',
+        outputFormat: 'text',
+        cwd: process.cwd(),
+        outputSchemaPath: schemaPath,
+        config: makeConfig(),
+        gateway,
+      })
+      expect(r.exitCode).toBe(2)
+      expect(errBuf.join('')).toContain('E_OUTPUT_SCHEMA')
+    } finally {
+      cap.restore()
+      process.stderr.write = origErr
+    }
+  })
+
+  test('最终文本不是 JSON → exit 2', async () => {
+    const gateway = new ScriptedLlm()
+    gateway.scriptStep({ deltas: [{ kind: 'text', text: '这是说明文字不是 JSON' }] })
+    const schemaPath = join(tmpdir(), 'spark-schema-any.json')
+    writeFileSync(schemaPath, JSON.stringify({ type: 'object' }))
+    const cap = captureStdout()
+    const errBuf: string[] = []
+    const origErr = process.stderr.write.bind(process.stderr)
+    process.stderr.write = (chunk: unknown): boolean => {
+      errBuf.push(String(chunk))
+      return true
+    }
+    try {
+      const r = await runPrint({
+        prompt: 'p',
+        outputFormat: 'text',
+        cwd: process.cwd(),
+        outputSchemaPath: schemaPath,
+        config: makeConfig(),
+        gateway,
+      })
+      expect(r.exitCode).toBe(2)
+      expect(errBuf.join('')).toContain('不是合法 JSON')
+    } finally {
+      cap.restore()
+      process.stderr.write = origErr
+    }
+  })
+})
+
+describe('CK-14：--resume-last（免记 session id 续跑）', () => {
+  test('首轮落盘后 resume-last 续进同一会话（两轮文本先后出现于 root 会话流）', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'spark-resume-'))
+    try {
+      const gw1 = new ScriptedLlm()
+      gw1.scriptStep({ deltas: [{ kind: 'text', text: '第一轮回答' }] })
+      const r1 = await runPrint({
+        prompt: '第一问',
+        outputFormat: 'text',
+        cwd: process.cwd(),
+        root,
+        config: makeConfig(),
+        gateway: gw1,
+      })
+      expect(r1.exitCode).toBe(0)
+
+      const gw2 = new ScriptedLlm()
+      gw2.scriptStep({ deltas: [{ kind: 'text', text: '第二轮回答' }] })
+      const cap = captureStdout()
+      try {
+        const r2 = await runPrint({
+          prompt: '第二问',
+          outputFormat: 'text',
+          cwd: process.cwd(),
+          root,
+          resumeLast: true,
+          config: makeConfig(),
+          gateway: gw2,
+        })
+        expect(r2.exitCode).toBe(0)
+        expect(cap.out()).toContain('第二轮回答')
+      } finally {
+        cap.restore()
+      }
+      // root 里只有一个会话（resume 复用而非新建）
+      const dirs = readdirSync(root, { recursive: true }).filter((f) =>
+        String(f).endsWith('.jsonl'),
+      )
+      expect(dirs.length).toBe(1)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('空 root resume-last → E_PRINT_RESUME_EMPTY（exit 1）', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'spark-resume-empty-'))
+    try {
+      const errBuf: string[] = []
+      const origErr = process.stderr.write.bind(process.stderr)
+      process.stderr.write = (chunk: unknown): boolean => {
+        errBuf.push(String(chunk))
+        return true
+      }
+      try {
+        const r = await runPrint({
+          prompt: 'p',
+          outputFormat: 'text',
+          cwd: process.cwd(),
+          root,
+          resumeLast: true,
+          config: makeConfig(),
+          gateway: new ScriptedLlm(),
+        })
+        expect(r.exitCode).toBe(1)
+        expect(errBuf.join('')).toContain('E_PRINT_RESUME_EMPTY')
+      } finally {
+        process.stderr.write = origErr
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('CK-14：parsePrintArgs 扩展', () => {
+  test('--output-schema / --resume-last 解析', () => {
+    expect(parsePrintArgs(['-p', 'hi', '--output-schema', 's.json', '--resume-last'])).toEqual({
+      prompt: 'hi',
+      outputFormat: 'text',
+      cwd: process.cwd(),
+      outputSchemaPath: 's.json',
+      resumeLast: true,
+    })
+    expect(() => parsePrintArgs(['-p', 'hi', '--output-schema'])).toThrow('E_USAGE')
+    expect(() => parsePrintArgs(['-p', 'hi', '--bogus'])).toThrow('E_USAGE')
+  })
+})
 })

@@ -11,6 +11,7 @@
 ### Added — 阶段十九（进行中）
 
 - **审查模式**（2026-09-30，web 工作台）：会话工具条新增「审查」入口——工作区相对最近快照的多文件差异聚合（双栏：文件清单 / 逐文件差异，尊重 .gitignore，超预算如实标注截断）+ 挂起审批**批量放行 / 批量拒绝**（放行不固化规则；拒绝原因回喂模型）。checkpoint 未开启时差异区如实提示不可用。
+- **spark -p 结构化输出与会话续跑**（2026-10-01）：`--output-schema <file>` 让最终输出按 JSON Schema 校验（不合格 exit 2 + stderr 说明），`--resume-last` 免记 session id 直接续跑最近一个会话。
 - **Unicode 隐写防御**（2026-10-01）：全部工具输出与 MCP 调用入参在进入模型上下文/外部服务前做 Unicode 消毒（NFKC 归一化 + 剥除零宽、方向控制、私用区等不可见字符）——阻断经不可见字符夹带隐藏指令的 ASCII smuggling 注入路径；正常中英文与显示内容不受影响。
 - **上下文溢出自动压缩重试**（2026-10-01）：模型上下文超出窗口（"prompt is too long" 一类确定性错误）不再让整轮对话失败——引擎捕获后立即压缩上下文并在同一轮内重试一次；再次溢出才如实报错。
 - **Hooks 全生命周期挂点（第一批）**（2026-10-01）：spark.json hooks 挂点从 4 个扩到 13 个——新增 session.start / session.end / user_prompt_submit / stop / pre_tool_use / post_tool_use / post_tool_use_failure / pre_compact / post_compact；其中 `pre_tool_use` 为阻塞式：命令以 exit 2 退出即拦截该次工具调用（stderr 首行作为拒绝原因），超时或异常不拦截。
