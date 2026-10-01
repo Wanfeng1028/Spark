@@ -254,11 +254,19 @@ export class GitCheckpointer {
         budget -= patch.length
       }
     }
-    // 未跟踪新增（快照之间 agent 新建的文件；add -A 只发生在 snapshot 内）
+    // 未跟踪新增（快照之间 agent 新建的文件；add -A 只发生在 snapshot 内）。
+    // 条目上限（MAX_REVIEW_UNTRACKED，字典序前 N）：防巨型未跟踪集（node_modules
+    // 密集的 work-tree 数万条）逐文件读取爆内存——超出部分 truncated 如实标注。
+    let untrackedCount = 0
     for (const rel of splitLines(
       await this.git(['-c', 'core.quotePath=false', 'ls-files', '--others', '--exclude-standard']),
     )) {
       if (rel === SESSION_ALIAS) continue
+      if (untrackedCount >= MAX_REVIEW_UNTRACKED) {
+        truncated = true
+        break
+      }
+      untrackedCount += 1
       let bytes: Buffer
       try {
         bytes = await readFile(join(this.deps.cwd, rel))
@@ -358,6 +366,8 @@ export class GitCheckpointer {
 
 /** 审查聚合 patch 总预算（字节；超出即 truncated=true，剩余文件只给统计不给 patch） */
 const REVIEW_PATCH_BUDGET = 256 * 1024
+/** 未跟踪文件聚合条目上限（防 node_modules 型巨型未跟踪集逐文件读取爆内存） */
+const MAX_REVIEW_UNTRACKED = 500
 
 /** git 文本输出按行切分（过滤空尾行） */
 function splitLines(out: string): string[] {

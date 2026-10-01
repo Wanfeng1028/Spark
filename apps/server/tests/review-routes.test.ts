@@ -8,8 +8,8 @@
 import { describe, expect, test } from 'vitest'
 import { makeServer, type ServerFixture } from './helpers.js'
 
-async function createSession(server: ServerFixture): Promise<string> {
-  const res = await server.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+async function createSession(server: ServerFixture, payload?: Record<string, unknown>): Promise<string> {
+  const res = await server.app.inject({ method: 'POST', url: '/api/sessions', payload: payload ?? {} })
   expect(res.statusCode).toBe(201)
   return res.json<{ id: string }>().id
 }
@@ -17,7 +17,7 @@ async function createSession(server: ServerFixture): Promise<string> {
 describe('GET /api/sessions/:id/review（19.35）', () => {
   test('checkpoint 启用 + 无快照无变更 → 空聚合（baseCheckpointId null）', async () => {
     const server = await makeServer({ checkpoints: true })
-    const sid = await createSession(server)
+    const sid = await createSession(server, { cwd: server.root }) // 干净 work-tree（进程 cwd 会扫 node_modules）
     const res = await server.app.inject({ method: 'GET', url: `/api/sessions/${sid}/review` })
     expect(res.statusCode).toBe(200)
     const body = res.json<{
@@ -45,7 +45,7 @@ describe('GET /api/sessions/:id/review（19.35）', () => {
 
   test('from 指定不存在的快照 → 404 E_NOT_FOUND', async () => {
     const server = await makeServer({ checkpoints: true })
-    const sid = await createSession(server)
+    const sid = await createSession(server, { cwd: server.root })
     const res = await server.app.inject({
       method: 'GET',
       url: `/api/sessions/${sid}/review?from=ckp_bogus000000`,
