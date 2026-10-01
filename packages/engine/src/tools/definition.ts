@@ -58,9 +58,9 @@ export interface ToolContext {
   questionBoard?: {
     ask(
       sessionId: import('@spark/protocol').SessionId,
-      questions: Array<{ question: string; options: Array<{ label: string; description?: string }>; multiSelect?: boolean }>,
+      questions: import('@spark/protocol').SparkEventMap['question.asked']['questions'],
       signal: AbortSignal,
-    ): Promise<Array<{ selected: string[]; note?: string }> | null>
+    ): Promise<import('@spark/protocol').SparkEventMap['question.resolved']['answers'] | null>
   }
   /**
    * read-state 文件新鲜度基线（工单 ZC-5 / ADR D55）：read/edit/write 工具使用，

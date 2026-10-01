@@ -46,9 +46,9 @@ export interface PipelineDeps {
   questionBoard?: {
     ask(
       sessionId: import('@spark/protocol').SessionId,
-      questions: Array<{ question: string; options: Array<{ label: string; description?: string }>; multiSelect?: boolean }>,
+      questions: import('@spark/protocol').SparkEventMap['question.asked']['questions'],
       signal: AbortSignal,
-    ): Promise<Array<{ selected: string[]; note?: string }> | null>
+    ): Promise<import('@spark/protocol').SparkEventMap['question.resolved']['answers'] | null>
   }
   /** 用户侧 hooks（工单 7.3；缺省不触发——测试 stub 可省） */
   hooks?: UserHookRunner

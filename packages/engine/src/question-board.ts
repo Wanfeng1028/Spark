@@ -5,22 +5,15 @@
  * 答案不落权限审计流（这不是权限裁决）；fail-closed 时 resolved 带 aborted=true
  * + 每问空选占位——事件流永不悬空（引擎铁律）。
  */
-import type { RequestId, SessionId } from '@spark/protocol'
+import type { RequestId, SessionId, SparkEventMap } from '@spark/protocol'
 import type { EventBus } from './bus.js'
 import { newIds } from './ulid.js'
 
-/** 单问答案（wire 形状与 question.resolved 事件对齐） */
-export interface QuestionAnswer {
-  selected: string[]
-  note?: string | undefined
-}
+/** 单问答案（wire 形状 = question.resolved 事件载荷单问——单一来源，禁手写副本） */
+export type QuestionAnswer = SparkEventMap['question.resolved']['answers'][number]
 
-/** ask 输入的单问形状（与事件 schema 同构；zod 校验在工具 inputSchema 层） */
-export interface QuestionSpec {
-  question: string
-  options: Array<{ label: string; description?: string }>
-  multiSelect?: boolean
-}
+/** ask 输入单问形状（= question.asked 事件载荷单问；zod 校验在工具 inputSchema 层） */
+export type QuestionSpec = SparkEventMap['question.asked']['questions'][number]
 
 interface PendingEntry {
   requestId: RequestId

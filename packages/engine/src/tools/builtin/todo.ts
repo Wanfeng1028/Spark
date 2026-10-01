@@ -33,6 +33,9 @@ const TodoWriteInput = z.strictObject({
 
 const TodoReadInput = z.strictObject({})
 
+type TodoWriteInput = z.infer<typeof TodoWriteInput>
+type TodoReadInput = z.infer<typeof TodoReadInput>
+
 export interface TodoBoardDeps {
   /** 写入时 emit todo.updated（durable 持久化事件；失败 = 写入失败闭合） */
   emit: (sessionId: SessionId, todos: TodoItem[]) => Promise<void>
@@ -71,7 +74,7 @@ export function makeTodoTools(board: TodoBoard): [
   ToolDefinition<typeof TodoWriteInput>,
   ToolDefinition<typeof TodoReadInput>,
 ] {
-  const todoWrite: ToolDefinition<typeof TodoWriteInput> = {
+  const todoWrite: ToolDefinition<TodoWriteInput> = {
     name: 'todo_write',
     description:
       '维护本会话的任务清单（整表替换——提交完整列表，不在表中的条目即删除）。' +
@@ -84,7 +87,7 @@ export function makeTodoTools(board: TodoBoard): [
       resourceOf: () => 'session-todo',
     },
     parallelizable: false,
-    async execute(ctx: ToolContext, input: typeof TodoWriteInput.output): Promise<ToolOutput> {
+    async execute(ctx: ToolContext, input: TodoWriteInput): Promise<ToolOutput> {
       const oldTable = board.get(ctx.sessionId)
       await board.write(ctx.sessionId, input.todos)
       const nudge = TodoBoard.needsVerificationNudge(oldTable, input.todos)
@@ -98,7 +101,7 @@ export function makeTodoTools(board: TodoBoard): [
     },
   }
 
-  const todoRead: ToolDefinition<typeof TodoReadInput> = {
+  const todoRead: ToolDefinition<TodoReadInput> = {
     name: 'todo_read',
     description: '读取本会话当前任务清单（跨 turn 记忆面——上一轮写到一半的计划在这里）。',
     inputSchema: TodoReadInput,
