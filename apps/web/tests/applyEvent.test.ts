@@ -1188,3 +1188,45 @@ describe('CK-1：task.started / task.completed', () => {
     expect(sliceCompleted.items).toBe(s0.byId[SID]?.items)
   })
 })
+
+
+// ---- CK-6：question.asked / question.resolved reducer ----
+
+describe('CK-6：question.asked / resolved', () => {
+  it('asked 落 question 卡（pending）；resolved 翻牌带 answers；aborted 如实标注', () => {
+    const s0 = applyEvent(fresh(), ev('session.created', { cwd: '/w', model: 'm' }, { seq: 1 }))
+    const asked = applyEvent(
+      s0,
+      ev('question.asked', {
+        requestId: ids.request('req_q0001'),
+        questions: [
+          {
+            question: '用哪个方案？',
+            options: [{ label: 'A' }, { label: 'B' }],
+            multiSelect: false,
+          },
+        ],
+      }),
+    )
+    const sliceA = asked.byId[SID]
+    if (sliceA === undefined) throw new Error('slice 缺失')
+    const last = sliceA.items.at(-1)
+    if (last === undefined || last.kind !== 'question') throw new Error('question 卡缺失')
+    expect(last.status).toBe('pending')
+    expect(last.questions[0]?.options).toHaveLength(2)
+
+    const resolved = applyEvent(
+      asked,
+      ev('question.resolved', {
+        requestId: ids.request('req_q0001'),
+        answers: [{ selected: ['A'], note: '按 A 走' }],
+      }),
+    )
+    const sliceR = resolved.byId[SID]
+    if (sliceR === undefined) throw new Error('slice 缺失')
+    const done = sliceR.items.at(-1)
+    if (done === undefined || done.kind !== 'question') throw new Error('question 卡缺失')
+    expect(done.status).toBe('resolved')
+    expect(done.answers?.[0]?.selected).toEqual(['A'])
+  })
+})

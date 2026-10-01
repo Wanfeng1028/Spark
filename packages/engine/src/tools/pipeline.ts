@@ -42,6 +42,14 @@ export interface PipelineDeps {
   metrics?: Metrics
   /** I/O 护栏（工单 7.2；缺省不启用——测试 stub 可省） */
   guard?: IoGuard
+  /** CK-6：结构化提问挂起表（ask_user 工具宿主端口；缺省未注入 = 工具如实报错） */
+  questionBoard?: {
+    ask(
+      sessionId: import('@spark/protocol').SessionId,
+      questions: Array<{ question: string; options: Array<{ label: string; description?: string }>; multiSelect?: boolean }>,
+      signal: AbortSignal,
+    ): Promise<Array<{ selected: string[]; note?: string }> | null>
+  }
   /** 用户侧 hooks（工单 7.3；缺省不触发——测试 stub 可省） */
   hooks?: UserHookRunner
   /** 长期记忆仓（工单 7.5 / ADR D25；缺省 memory 工具族不予执行——测试 stub 可省） */
@@ -358,6 +366,7 @@ export class ToolPipelineImpl implements ToolPipeline {
           ...(this.deps.lsp !== undefined ? { lsp: this.deps.lsp } : {}),
           ...(this.deps.now !== undefined ? { now: this.deps.now } : {}),
           readFileState: this.readFileState,
+          ...(this.deps.questionBoard !== undefined ? { questionBoard: this.deps.questionBoard } : {}),
         },
         input,
       )

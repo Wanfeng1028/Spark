@@ -103,6 +103,18 @@ export const ReplyAllBody = z.strictObject({
 /** GET /api/sessions/:id/review 查询（19.35）：from = 基准快照（缺省最近一次） */
 export const ReviewQuery = z.strictObject({ from: CheckpointIdSchema.optional() })
 
+/** 结构化提问作答（CK-6）：selected = 选中 label 集合（多选 ≥1），note 每问可选 */
+export const ReplyQuestionBody = z.strictObject({
+  answers: z
+    .array(
+      z.strictObject({
+        selected: z.array(z.string().min(1)).min(1),
+        note: z.string().optional(),
+      }),
+    )
+    .min(1),
+})
+
 export const IdParams = z.strictObject({ id: SessionIdSchema })
 /** @ 文件路径补全目录列举上限（工单 10.53）：防大目录（node_modules 根）巨响应；目录优先字典序后截断 */
 // 协议同形（原 routes.ts 直接 import @spark/protocol 的 FsQuerySchema——域拆分后改为

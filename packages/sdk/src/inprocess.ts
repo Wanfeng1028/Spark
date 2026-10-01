@@ -307,6 +307,16 @@ export class InProcessTransport implements Transport {
     return this.engine.reviewOf(sessionId, fromCheckpointId)
   }
 
+  /** 结构化提问作答（CK-6）：引擎原生支持，进程内直映射；未知/已结清 → 404 同 server */
+  async replyQuestion(
+    requestId: RequestId,
+    answers: Array<{ selected: string[]; note?: string }>,
+  ): Promise<void> {
+    this.assertNotDisposed()
+    const ok = await this.engine.replyQuestion(requestId, answers)
+    if (!ok) throw new Error(`E_NOT_FOUND: 提问 ${requestId} 不存在或已结清`)
+  }
+
   /** 批量结清（19.35）：引擎原生支持，进程内直映射 */
   async replyAllPermissions(
     sessionId: SessionId,

@@ -123,6 +123,41 @@ export const EventSchemas = {
   // ZC-1 微压缩边界（水位 0.9×压缩阈值触发）：durable 非 surface——模型可见面
   // 经投影清理生效（keptFromEventId 之前的 toolResult 清占位），本事件只记录
   // 边界事实供回放重建同一清理；append-only，JSONL 原文不动。
+  // 结构化提问（CK-6）：模型需要用户决策时的封闭选项问询。durable 非 surface——
+  // 模型可见面是 toolResult（答案结构化回填，模型可见必被记录由 tool.completed 承担）。
+  'question.asked': z.strictObject({
+    requestId: RequestIdSchema,
+    questions: z
+      .array(
+        z.strictObject({
+          question: z.string().min(1),
+          options: z
+            .array(
+              z.strictObject({
+                label: z.string().min(1),
+                description: z.string().optional(),
+              }),
+            )
+            .min(2)
+            .max(4),
+          multiSelect: z.boolean().optional(),
+        }),
+      )
+      .min(1)
+      .max(4),
+  }),
+  'question.resolved': z.strictObject({
+    requestId: RequestIdSchema,
+    /** 每问答案（与 asked.questions 等长对齐）；selected = 选中 label 集合 */
+    answers: z.array(
+      z.strictObject({
+        selected: z.array(z.string()).min(1),
+        note: z.string().optional(),
+      }),
+    ),
+    /** 超时/中断 fail-closed 时 resolved 以 aborted=true 落盘（answers 为每问空选占位） */
+    aborted: z.boolean().optional(),
+  }),
   // 后台任务平面（CK-1）：bash 后台化的生命周期记录。durable 非 surface——模型可见面
   // 是完成回注的合成 user.message（surface 纪律由那条消息承担），本两枚是审计/回放事实。
   'task.started': z.strictObject({

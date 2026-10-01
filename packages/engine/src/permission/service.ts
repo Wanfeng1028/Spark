@@ -506,10 +506,14 @@ export class PermissionServiceImpl implements PermissionService {
   }
 }
 
-/** 各档位的预设行（const 派生表；confirm-each 无行） */
+/** 各档位的预设行（const 派生表；confirm-each 仅 question.ask 免审——提问无副作用，
+ * 再走审批门是"问问题还要批问题"的递归死锁；会话/用户层显式 deny 仍可拦） */
 const PRESET_RULES: Record<PermissionPreset, readonly PermissionRule[]> = {
-  'confirm-each': [],
-  'auto-edit': [{ action: 'fs.write', resource: '**', effect: 'allow' }],
+  'confirm-each': [{ action: 'question.ask', resource: '**', effect: 'allow' }],
+  'auto-edit': [
+    { action: 'fs.write', resource: '**', effect: 'allow' },
+    { action: 'question.ask', resource: '**', effect: 'allow' },
+  ],
   /**
    * plan 档（工单 16.3 激活；此前是空行——档位存在但不生效，选它等于没选）。
    * gemini-cli `policy/policies/plan.toml` 的**优先级规则直接翻译**成本仓的 findLast 语义
@@ -522,10 +526,11 @@ const PRESET_RULES: Record<PermissionPreset, readonly PermissionRule[]> = {
    */
   plan: [
     { action: '*', resource: '**', effect: 'deny' },
+    { action: 'question.ask', resource: '**', effect: 'allow' },
     { action: 'fs.read', resource: '**', effect: 'allow' },
     { action: 'plan.exit', resource: '**', effect: 'ask' },
   ],
-  'full-access': ['fs.read', 'fs.write', 'shell.exec', 'agent.task', 'mcp.call'].map(
+  'full-access': ['fs.read', 'fs.write', 'shell.exec', 'agent.task', 'mcp.call', 'question.ask'].map(
     (action) => ({ action, resource: '**', effect: 'allow' as const }),
   ),
 }

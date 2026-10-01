@@ -10,6 +10,7 @@ import {
   IdParams,
   ReplyBody,
   ReplyAllBody,
+  ReplyQuestionBody,
   RequestIdParams,
   RemoveRuleBody,
   PresetBody,
@@ -28,6 +29,17 @@ export const registerPermissionRoutes: FastifyPluginCallback<RoutesOptions> = (a
     if (outcome !== 'ok') {
       // 409/404 三态映射收敛到 errors.ts replyOutcomeError（R-A：消除路由内联与前缀版重复）
       return sendError(req, reply, replyOutcomeError(outcome))
+    }
+    return reply.send({ ok: true })
+  })
+
+  // 结构化提问作答（CK-6）：board 挂起表裁决入口；未知/已结清 → 404（与审批回复同判）
+  app.post('/api/questions/:requestId', async (req, reply) => {
+    const { requestId } = parseOr400(RequestIdParams, req.params)
+    const body = parseOr400(ReplyQuestionBody, req.body)
+    const ok = await engine.replyQuestion(requestId, body.answers)
+    if (!ok) {
+      return reply.code(404).send({ code: 'E_NOT_FOUND', message: '提问不存在或已结清' })
     }
     return reply.send({ ok: true })
   })

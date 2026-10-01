@@ -72,6 +72,21 @@ export function ItemView({
   }
 
   // LSP 诊断行（工单 16.9）：语言 + 文件 + 摘要（E/W 计数），逐条消息进展开态不计（只读快照）
+  if (item.kind === 'question') {
+    // CK-6 批 1：CLI 只读呈现（作答面在 web；CLI 交互作答留批 2）
+    const head =
+      item.status === 'pending'
+        ? '提问（请在 Web 工作台作答；超时未答将 fail-closed）'
+        : item.aborted === true
+          ? '提问已超时/中断——未获回答'
+          : '提问已回答'
+    const lines = item.questions.map((q, qi) => {
+      const a = item.answers?.[qi]
+      const picked = a !== undefined && a.selected.length > 0 ? ` → ${a.selected.join('、')}` : ''
+      return `${qi + 1}. ${q.question}${picked}`
+    })
+    return <Box flexDirection="column">{lines.map((l) => <Text key={l} dimColor>{l}</Text>)}<Text dimColor>{head}</Text></Box>
+  }
   if (item.kind === 'diagnostics') {
     const file = item.uri.startsWith('file:') ? item.uri.slice('file:'.length) : item.uri
     const errors = item.diagnostics.filter((d) => d.severity === 1).length

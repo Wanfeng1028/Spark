@@ -18,6 +18,7 @@ import { ReasoningCollapsible } from './ReasoningCollapsible'
 import { ToolCard } from './ToolCard'
 import { FileText } from 'lucide-react'
 import { ApprovalCard } from './ApprovalCard'
+import { QuestionCard } from './QuestionCard'
 import { TurnHeader } from './TurnHeader'
 
 /** 图片扩展名判定（WO-077）：非图片附件渲染文件卡 */
@@ -142,6 +143,12 @@ export const MessageItem = memo(function MessageItem({
       return (
         <div className={hl}>
           <DiagnosticsRow item={item} />
+        </div>
+      )
+    case 'question':
+      return (
+        <div className={hl}>
+          <QuestionCard item={item} />
         </div>
       )
   }

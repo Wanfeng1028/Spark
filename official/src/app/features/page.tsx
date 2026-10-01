@@ -70,7 +70,7 @@ timer: setTimeout(() => {
     language: "typescript",
   },
   {
-    code: `// packages/protocol/src/transport.ts — 接口面节选（全量 91 个方法；以源码为准，check_doc_links.py 检查 7 闸校——LA-50/51）
+    code: `// packages/protocol/src/transport.ts — 接口面节选（全量 92 个方法；以源码为准，check_doc_links.py 检查 7 闸校——LA-50/51）
 export interface Transport {
   /** 订阅事件流；返回退订函数 */
   onEvent(handler: (e: SparkEventEnvelope) => void): () => void

@@ -374,6 +374,17 @@ export class HttpTransport implements Transport {
     return this.req<ReviewDto>(`/api/sessions/${sessionId}/review${qs}`)
   }
 
+  /** POST /api/questions/:requestId：结构化提问作答（CK-6） */
+  replyQuestion(
+    requestId: RequestId,
+    answers: Array<{ selected: string[]; note?: string }>,
+  ): Promise<void> {
+    return this.req<void>(`/api/questions/${requestId}`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    })
+  }
+
   /** POST /api/sessions/:id/permissions/reply-all：批量结清挂起审批（19.35） */
   replyAllPermissions(
     sessionId: SessionId,

@@ -51,6 +51,18 @@ export interface ToolContext {
   /** 时间源（memory.save 记 created_at；缺省 Date.now） */
   now?: () => number
   /**
+   * 结构化提问挂起表（CK-6 批 1）：ask_user 工具专用，其余工具忽略。由引擎装配
+   * 管线时注入（与 memory?/lsp? 同手法——工具不持有 Engine）；缺省未注入 = 工具
+   * 如实报 E_UNSUPPORTED（不假装已问）。
+   */
+  questionBoard?: {
+    ask(
+      sessionId: import('@spark/protocol').SessionId,
+      questions: Array<{ question: string; options: Array<{ label: string; description?: string }>; multiSelect?: boolean }>,
+      signal: AbortSignal,
+    ): Promise<Array<{ selected: string[]; note?: string }> | null>
+  }
+  /**
    * read-state 文件新鲜度基线（工单 ZC-5 / ADR D55）：read/edit/write 工具使用，
    * 其余工具忽略。由 ToolPipelineImpl 每会话实例持有并注入（与 memory?/lsp? 同手法，
    * 工具不持有 Engine）；缺省未注入 = 守卫不启用（直接驱动工具的测试与旧路径不变）。

@@ -83,6 +83,20 @@ export type UiItem =
       status: 'pending' | 'resolved'
     } & UiItemBase)
   | ({
+      /** 结构化提问卡（CK-6）：question.asked 落卡、resolved 翻牌 */
+      kind: 'question'
+      requestId: RequestId
+      questions: Array<{
+        question: string
+        options: Array<{ label: string; description?: string }>
+        multiSelect?: boolean
+      }>
+      status: 'pending' | 'resolved'
+      answers?: Array<{ selected: string[]; note?: string }>
+      /** 超时/中断 fail-closed 时如实标注（不假装已答） */
+      aborted?: boolean
+    } & UiItemBase)
+  | ({
       /** LSP 诊断流（工单 16.9）：每次 publish 一行卡（多次 publish 逐条入流——回放即重建） */
       kind: 'diagnostics'
       language: string
@@ -926,6 +940,44 @@ function reduceEvent(s: ProjectionState, e: SparkEventEnvelope, idxBox: IndexBox
     // CK-1：后台任务生命周期（durable 非 surface）——模型可见面是完成回注的合成
     // user.message（那条消息自带入流转录），任务状态卡是批 2 四端展示的范围；
     // 显式 no-op 保持 reducer 全覆盖纪律
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'question.asked')) {
+    // CK-6：提问落卡（pending；UI 作答后经 replyQuestion→引擎 emit resolved 翻牌）
+    items = [
+      ...items,
+      {
+        kind: 'question',
+        eventId: e.id,
+        requestId: e.data.requestId,
+        questions: e.data.questions,
+        status: 'pending' as const,
+      },
+    ]
+    next.items = items
+    if (next.activeTurn !== null) next.activeTurn = { ...next.activeTurn, waiting: true }
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'question.resolved')) {
+    const idx = items.findIndex(
+      (it) => it.kind === 'question' && it.requestId === e.data.requestId,
+    )
+    if (idx >= 0) {
+      const cur = items[idx]
+      if (cur !== undefined && cur.kind === 'question') {
+        items = [...items]
+        items[idx] = {
+          ...cur,
+          status: 'resolved' as const,
+          answers: e.data.answers,
+          ...(e.data.aborted === true ? { aborted: true } : {}),
+        }
+      }
+    }
+    next.items = items
+    if (next.activeTurn !== null) next.activeTurn = { ...next.activeTurn, waiting: false }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 

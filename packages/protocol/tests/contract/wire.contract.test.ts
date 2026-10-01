@@ -856,6 +856,105 @@ describe('契约：event \'permission.resolved\'', () => {
   })
 })
 
+describe('契约：event \'question.asked\'', () => {
+  const sample = {
+    "requestId": "req_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "questions": [
+      {
+        "question": "contract-sample",
+        "options": [
+          {
+            "label": "contract-sample",
+            "description": "contract-sample"
+          },
+          {
+            "label": "contract-sample",
+            "description": "contract-sample"
+          }
+        ],
+        "multiSelect": false
+      }
+    ]
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['question.asked'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['question.asked'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['question.asked'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 requestId → 解析失败', () => {
+    expect(() => EventSchemas['question.asked'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["requestId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 questions → 解析失败', () => {
+    expect(() => EventSchemas['question.asked'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["questions"]; return m })())).toThrow()
+  })
+
+  it('字段 requestId 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['question.asked'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["requestId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 questions 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['question.asked'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["questions"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['question.asked'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
+describe('契约：event \'question.resolved\'', () => {
+  const sample = {
+    "requestId": "req_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "answers": [
+      {
+        "selected": [
+          "contract-sample"
+        ],
+        "note": "contract-sample"
+      }
+    ],
+    "aborted": false
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['question.resolved'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['question.resolved'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['question.resolved'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 requestId → 解析失败', () => {
+    expect(() => EventSchemas['question.resolved'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["requestId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 answers → 解析失败', () => {
+    expect(() => EventSchemas['question.resolved'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["answers"]; return m })())).toThrow()
+  })
+
+  it('字段 requestId 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['question.resolved'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["requestId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 answers 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['question.resolved'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["answers"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 aborted 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['question.resolved'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["aborted"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['question.resolved'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：event \'reasoning.delta\'', () => {
   const sample = {
     "turnId": "trn_01ARZ3NDEKTSV4RRFFQ69G5FAV",

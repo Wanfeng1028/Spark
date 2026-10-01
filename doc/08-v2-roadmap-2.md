@@ -17,6 +17,7 @@
 | v1.9 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-8 prompt cache 落地**（sessionId 透传 + promptCache 开关 + settings 字段；单测 2 例）——卡内勾选见 §2 CK-8（含"断点策略 pi-ai 已内置、engine 只欠透传"的事实登记）。与 doc/02 v4.178、CHANGELOG 同批 |
 | v1.10 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-5 批 1 MCP 韧性三小件交付**（描述截断 / needs-auth 15min 缓存短路 / 会话过期重连；单测 5 例）——卡内勾选见 §2 CK-5。与 doc/02 v4.179、CHANGELOG 同批 |
 | v1.11 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-10 edit 容错匹配交付**（三级渐进 + CRLF 保持 + is_exact 上报 + DiffViewer 形状补齐；单测 8 例）——卡内勾选见 §2 CK-10。同批附带 CI 修复批：跨 4 提交的 9 处 typecheck 错一次清零（子代理取证：mentionExpand 返回形状 / gateway cacheEnabled 字段声明漏 / manager oldClient 收窄 / mcp.test import 三处 / unicode 断言重叠）。与 doc/02 v4.180、CHANGELOG 同批 |
+| v1.12 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-6 批 1 结构化提问交付**（ask_user 工具 + QuestionBoard + 两事件词表 32 种 + web QuestionCard + Transport/server 全链；CLI 只读）——卡内勾选见 §2 CK-6。与 doc/02 v4.181、CHANGELOG 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -100,7 +101,7 @@
 
 **Spark 缺口**：无此工具；exit_plan_mode 只覆盖计划审批一种交互，模型需要决策时只能自由文本追问。
 
-**内容**：① 新工具 ask_user（zod input：questions 数组封闭形状）；② 复用审批挂起通道渲染（选项按钮 + 预览 + 多选 + 备注，超时 fail-closed 同审批纪律；未连接任何端时如实报错不假装已问）；③ 答案结构化进 tool result 回模型；④ 四端渲染 web/CLI 先行，mobile/miniapp 跟随。**验收**：工具单测（形状/超时 fail-closed/答案回环）+ web/CLI 渲染走查。**依赖**：无。**成本**：M。
+**内容**：① 新工具 ask_user（zod input：questions 数组封闭形状）；② 复用审批挂起通道渲染（选项按钮 + 预览 + 多选 + 备注，超时 fail-closed 同审批纪律；未连接任何端时如实报错不假装已问）；③ 答案结构化进 tool result 回模型；④ 四端渲染 web/CLI 先行，mobile/miniapp 跟随。**验收**：工具单测（形状/超时 fail-closed/答案回环）+ web/CLI 渲染走查。**依赖**：无。**成本**：M。**✅ 批 1 已交付（2026-10-01，doc/02 v4.181）**——① ask_user 工具（1-4 问 × 2-4 封闭选项 + 多选/备注；action question.ask 四档预置 allow——提问无副作用，再走审批门是递归死锁；会话/用户层显式 deny 仍可拦）；② **独立 QuestionBoard 挂起表**（卡面"复用审批挂起通道"落地为同纪律不复用实现：超时复用 permissionTimeoutMs / abort 级联 / disposeAll fail-closed——裁决主体是用户选择而非权限策略，不进权限审计流）；③ 答案结构化 toolResult 回模型；④ 两枚新事件 question.asked/resolved（词表 32 种）+ Transport.replyQuestion + POST /api/questions/:requestId（80 路径）+ web QuestionCard（选项点选/多选/备注/提交）+ CLI 只读呈现；mock 脚本覆写对等 + sdk inprocess 直映射。单测：事件 round-trip 32 种 + reducer 两态。**批 2 留卡**：CLI 交互作答（选项键选）+ mobile/miniapp 渲染 + preview 聚焦预览。
 
 ### CK-7 溢出即压缩：context-overflow 分类 → 同 turn 反应式压缩重试（P1，S）
 

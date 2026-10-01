@@ -73,6 +73,14 @@ export interface Transport {
    */
   getSessionReview(sessionId: SessionId, fromCheckpointId?: CheckpointId): Promise<ReviewDto>
   /**
+   * POST /api/questions/:requestId：结构化提问作答（CK-6）——answers 与 asked.questions
+   * 等长对齐（selected = 选中 label 集合，note 每问可选）。未知/已结清 → 404。
+   */
+  replyQuestion(
+    requestId: RequestId,
+    answers: Array<{ selected: string[]; note?: string }>,
+  ): Promise<void>
+  /**
    * POST /api/sessions/:id/permissions/reply-all：批量结清该会话全部挂起审批（19.35）。
    * once = 逐条放行一次（不固化规则）；reject = 逐条拒绝（feedback 只回喂一条
    * user.message）。返回实际结清条数（0 = 无挂起，不是错误）。

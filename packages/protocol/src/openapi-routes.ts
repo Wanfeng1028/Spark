@@ -210,6 +210,27 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
   },
   {
     method: 'post',
+    path: '/api/questions/{requestId}',
+    summary:
+      '结构化提问作答（CK-6）：answers 与 question.asked 的 questions 等长对齐（selected = 选中 label 集合）；未知/已结清 → 404',
+    tag: 'permissions',
+    body: obj(
+      {
+        answers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { selected: { type: 'array', items: { type: 'string' } }, note: { type: 'string' } },
+            required: ['selected'],
+          },
+        },
+      },
+      ['answers'],
+    ),
+    response: OK,
+  },
+  {
+    method: 'post',
     path: '/api/sessions/{id}/permissions/reply-all',
     summary:
       '批量结清该会话全部挂起审批（19.35）：once 逐条放行（不固化规则）/ reject 逐条拒绝（feedback 只回喂一条 user.message）；resolved = 实际结清条数',

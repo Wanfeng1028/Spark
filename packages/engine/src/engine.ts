@@ -67,6 +67,7 @@ import { estimateTokens } from './projector.js'
 import { GitCheckpointer } from './checkpoint.js'
 import type { CheckpointRecord } from './checkpoint.js'
 import { BackgroundTaskManager } from './background-task.js'
+import { QuestionBoard } from './question-board.js'
 import { gitBranchOf } from './git.js'
 import { loadConfig, loadProjectRules } from './config.js'
 import type { PermissionRule } from './config.js'
@@ -87,6 +88,7 @@ import { ProjectorImpl } from './projector.js'
 import { reasoningIncluded } from './projector.js'
 import { runSessionLoop } from './run-loop.js'
 import { RunawayGuard } from './runaway-guard.js'
+import { makeAskUserTool } from './tools/builtin/ask-user.js'
 import { defaultMentionIo, expandMentions } from './mention.js'
 import { GoalRunner } from './goals.js'
 import { loadTrustDoc, saveTrustDoc, trustKey, trustLevelOf, tightens } from './trust.js'
@@ -215,6 +217,8 @@ export class Engine {
   private bashPool: BashShellPool | null = null
   /** 后台任务平面（CK-1 批 1）：bash runInBackground / 前台预算转后台的注册表与回注 */
   private readonly backgroundTasks: BackgroundTaskManager
+  /** 结构化提问挂起表（CK-6 批 1）：ask_user 工具 + replyQuestion facade 的宿主 */
+  private readonly questionBoard: QuestionBoard
   private readonly permission: PermissionServiceImpl
   /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
   private readonly ruleStore: UserRuleStore
@@ -563,6 +567,12 @@ export class Engine {
         }
       },
     })
+    // 结构化提问挂起表（CK-6 批 1）：超时复用 permissionTimeoutMs 同纪律（无人应答 fail-closed）
+    this.questionBoard = new QuestionBoard({
+      bus: this.bus,
+      timeoutMs: this.config.spark.engine.permissionTimeoutMs,
+    })
+    this.registry.register(makeAskUserTool(this.questionBoard))
     registerBuiltinTools(this.registry, {
       bashSandbox: this.config.spark.engine.bashSandbox,
       // bash 常驻会话（阶段十九 19.3 / ADR D45）：getter 执行期读，主开关热档
@@ -2488,6 +2498,14 @@ export class Engine {
     return { ok: true, resolved }
   }
 
+  /** 结构化提问作答（CK-6 批 1）：未知/已结清 requestId → false（server 层 404） */
+  async replyQuestion(
+    requestId: RequestId,
+    answers: Array<{ selected: string[]; note?: string }>,
+  ): Promise<boolean> {
+    return this.questionBoard.reply(requestId, answers)
+  }
+
   private runSubagent(input: TaskInput, ctx: ToolContext): Promise<ToolOutput> {
     return this.runSubagentFn(input, ctx)
   }
@@ -2501,6 +2519,8 @@ export class Engine {
     // 后台任务平面（CK-1）：在跑任务树杀——close 处理器落的 complete 会因 bus 关闭序
     // 尽力而为（结清语义与快照失败同判：不吞、不重试）
     this.backgroundTasks.shutdownAll()
+    // CK-6：挂起提问 fail-closed 结清（resolved aborted 落盘——事件流不悬空）
+    this.questionBoard.disposeAll()
     this.shutdownPromise = this.doShutdown()
     return this.shutdownPromise
   }
@@ -2710,10 +2730,8 @@ export class Engine {
     const permission = this.permission
     const sid = meta.id
     const tools = new ToolPipelineImpl({
-      sessionId: meta.id,
-      bus: this.bus,
-      registry: this.registry,
-      permission: this.permission,
+permission,
+      questionBoard: this.questionBoard,
       outputs: this.outputs,
       cwd: meta.cwd,
       maxToolParallel: this.config.spark.engine.maxToolParallel,

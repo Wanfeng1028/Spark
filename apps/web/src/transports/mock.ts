@@ -2198,6 +2198,32 @@ export class MockTransport implements Transport {
   }
 
   /**
+   * 结构化提问作答（CK-6）：与 replyPermission 同一脚本覆写机制——mock 演示场景
+   * 的 question.resolved 由脚本预置，作答即覆写 answers 后放行。无挂起时告警并
+   * 如实静默（不造假答案）。
+   */
+  replyQuestion(
+    requestId: RequestId,
+    answers: Array<{ selected: string[]; note?: string }>,
+  ): Promise<void> {
+    this.assertNotDisposed()
+    const next = this.script.lines
+      .slice(this.cursor)
+      .find(
+        (l): l is { kind: 'event'; envelope: SparkEventEnvelope<'question.resolved'> } =>
+          l.kind === 'event' && l.envelope.type === 'question.resolved' &&
+          (l.envelope.data as { requestId: string }).requestId === requestId,
+      )
+    if (next === undefined) {
+      console.warn(`[mock] replyQuestion 无匹配挂起提问（requestId=${requestId}）——已忽略`)
+      return Promise.resolve()
+    }
+    next.envelope.data = { requestId, answers }
+    this.advance()
+    return Promise.resolve()
+  }
+
+  /**
    * 批量结清（19.35）：与 replyPermission 同一脚本覆写机制——把挂起中脚本预置的
    * permission.resolved 改写为本次选择后放行。mock 单场景至多一个挂起审批，
    * resolved ∈ {0, 1}；无挂起时告警并如实回 0（不造假结清）。

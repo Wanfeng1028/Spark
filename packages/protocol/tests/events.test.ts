@@ -92,6 +92,24 @@ const samples: { [K in SparkEventType]: SparkEventMap[K] } = {
   },
   'goal.completed': { iterations: 3, usedTokens: 41200 },
   'goal.paused': { reason: 'maxIterations', iterations: 50, usedTokens: 198600 },
+  // CK-6 结构化提问：durable 非 surface；模型可见面是 toolResult 的结构化答案
+  'question.asked': {
+    requestId: req,
+    questions: [
+      {
+        question: '用哪个方案修？',
+        options: [
+          { label: '方案 A：改状态机', description: '改动大但治本' },
+          { label: '方案 B：打补丁', description: '快但留债' },
+        ],
+        multiSelect: false,
+      },
+    ],
+  },
+  'question.resolved': {
+    requestId: req,
+    answers: [{ selected: ['方案 A：改状态机'], note: '顺便补测试' }],
+  },
   // CK-1 后台任务平面：durable 非 surface；模型可见面是完成回注的合成 user.message
   'task.started': { taskId: tsk, kind: 'bash', command: 'pnpm -r build', pid: 4242 },
   'task.completed': {
@@ -147,8 +165,8 @@ function envelopeOf<K extends SparkEventType>(
 }
 
 describe('事件词表', () => {
-  it('词表共 30 种（durable 27 + live 3）', () => {
-    expect(Object.keys(EventSchemas)).toHaveLength(30)
+  it('词表共 32 种（durable 29 + live 3）', () => {
+    expect(Object.keys(EventSchemas)).toHaveLength(32)
   })
 
   it('CallId 透传上游 id（工单 10.39：OpenAI call_xxx / Anthropic toolu_xxx 过闸，不重写）', () => {
@@ -169,7 +187,7 @@ describe('事件词表', () => {
   })
 })
 
-describe('round-trip：30 种事件逐一', () => {
+describe('round-trip：32 种事件逐一', () => {
   for (const key of Object.keys(samples) as SparkEventType[]) {
     it(`${key}：构造 → parseEnvelope → JSON 往返 → 再 parse`, () => {
       const envelope = envelopeOf(key, samples[key], 3)
