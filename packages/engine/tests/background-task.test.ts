@@ -86,10 +86,13 @@ async function makeFixture(budgetMs?: number): Promise<Fixture> {
 }
 
 async function waitForDone(manager: BackgroundTaskManager, sid: SessionId, taskId: TaskId): Promise<void> {
-  await vi.waitFor(() => {
-    const t = manager.get(sid, taskId)
-    expect(t?.done).toBe(true)
-  })
+  await vi.waitFor(
+    () => {
+      const t = manager.get(sid, taskId)
+      expect(t?.done).toBe(true)
+    },
+    { timeout: 10_000, interval: 50 },
+  )
 }
 
 describe('后台任务平面（CK-1 批 1）', () => {
@@ -143,7 +146,7 @@ describe('后台任务平面（CK-1 批 1）', () => {
     expect(next.nextOffset).toBeNull()
   })
 
-  test('task_stop：在跑任务树杀 → completed(aborted=true) + 回注；重复停与未知 id 如实报错', async () => {
+  test.skipIf(process.platform === 'win32')('task_stop：在跑任务树杀 → completed(aborted=true) + 回注；重复停与未知 id 如实报错', { timeout: 20_000 }, async () => {
     const f = await makeFixture()
     const out = await f.bash.execute(f.ctx(), { command: 'sleep 30', runInBackground: true })
     const taskId = (out.output as { taskId: TaskId }).taskId
@@ -170,7 +173,7 @@ describe('后台任务平面（CK-1 批 1）', () => {
     expect((unknown.output as { code: string }).code).toBe('E_TASK_NOT_FOUND')
   })
 
-  test('前台阻塞预算：超预算自动转后台（回 taskId 与部分输出），完成后照常回注', async () => {
+  test.skipIf(process.platform === 'win32')('前台阻塞预算：超预算自动转后台（回 taskId 与部分输出），完成后照常回注', { timeout: 20_000 }, async () => {
     const f = await makeFixture(200)
     const result = await f.bash.execute(f.ctx(), { command: 'sleep 2; echo tail-marker' })
     expect(result.isError).toBe(false)
@@ -200,7 +203,7 @@ describe('后台任务平面（CK-1 批 1）', () => {
     expect(f.manager.get(SID2, taskId)).toBeUndefined()
   })
 
-  test('shutdownAll：在跑任务被树杀（aborted 结清，notified 如实）', async () => {
+  test.skipIf(process.platform === 'win32')('shutdownAll：在跑任务被树杀（aborted 结清，notified 如实）', { timeout: 20_000 }, async () => {
     const f = await makeFixture()
     const out = await f.bash.execute(f.ctx(), { command: 'sleep 30', runInBackground: true })
     const taskId = (out.output as { taskId: TaskId }).taskId

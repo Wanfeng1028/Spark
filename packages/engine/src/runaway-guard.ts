@@ -175,6 +175,8 @@ export class RunawayGuard {
       if (
         lastSame(r, REPEAT_K, (x) => x.actionHash) &&
         last3.every((x) => !x.isError) &&
+        // 内容有变化（全同归 exact_result）但规模没动（±10% 带内）——空转形态
+        (last3[0]?.resultHash !== last3[1]?.resultHash || last3[1]?.resultHash !== last3[2]?.resultHash) &&
         (() => {
           const lens = last3.map((x) => x.outputChars)
           const min = Math.min(...lens)
@@ -188,7 +190,11 @@ export class RunawayGuard {
           escalateEligible: true,
         }
       }
-      if (lastSame(r, REPEAT_K, (x) => x.actionHash)) {
+      if (
+        lastSame(r, REPEAT_K, (x) => x.actionHash) &&
+        // 读族同参连读归 polling_repeat 管辖（K=4；读 3 次是正常检索不算重发）
+        last3.every((x) => !READ_FAMILY_TOOLS.has(x.toolName))
+      ) {
         return {
           signal: 'exact_action_repeat',
           detail: `同一操作连续 ${REPEAT_K} 次原样重发`,

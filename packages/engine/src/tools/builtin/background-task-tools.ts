@@ -101,7 +101,7 @@ export function makeTaskTools(
               }
             : {}),
           output,
-          ...(nextOffset !== null ? { nextOffset } : {}),
+          nextOffset,
           truncatedBuffer: task.truncated,
           totalChars: task.totalChars,
         },

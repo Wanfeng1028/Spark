@@ -88,7 +88,10 @@ function matchLineAligned(
   const out: Array<{ start: number; end: number }> = []
   for (let i = 0; i + n <= textLines.length; i++) {
     const first = textLines[i] ?? ''
-    const at = first.indexOf(oldLines[0] ?? '')
+    // normalized 级：首行匹配在归一串上进行（本层映射均为 1:1 字符替换——index 对齐原文）
+    const firstNorm = level === 'normalized' ? normalizeFuzzy(first) : first
+    const oldFirst = oldLines[0] ?? ''
+    const at = firstNorm.indexOf(level === 'normalized' ? normalizeFuzzy(oldFirst) : oldFirst)
     if (at === -1) continue
     if (norm(first.slice(at)) !== norm(oldLines[0] ?? '')) continue
     let ok = true

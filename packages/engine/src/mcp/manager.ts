@@ -104,7 +104,6 @@ export const MCP_AUTH_CACHE_MS = 15 * 60 * 1000
 const NEEDS_AUTH_RE = /(\b401\b|\b403\b|unauthorized|forbidden|needs?[ _-]?auth|not[ _-]authenticated|authentication required)/i
 /** 会话过期特征（可重连形态；Claude Code isMcpSessionExpiredError 同集：HTTP 404 / JSON-RPC -32001） */
 const SESSION_EXPIRED_RE = /(\b404\b|session.{0,20}expired|expired.{0,20}session|-32001)/i
-/** 会话过期特征（可重连形态；Claude Code isMcpSessionExpiredError 同集：HTTP 404 / JSON-RPC -32001） */
 
 /** 认证/重连闸（manager 闭包注入；工具定义无状态） */
 export interface McpAuthGate {
@@ -128,6 +127,29 @@ export function makeMcpToolDef(
     rawDescription.length > MAX_MCP_DESCRIPTION_LENGTH
       ? `${rawDescription.slice(0, MAX_MCP_DESCRIPTION_LENGTH)}…[截断]`
       : rawDescription
+  const handleFailure = async (kind: 'auth' | 'expired', msg: string): Promise<ToolOutput> => {
+    if (kind === 'auth') {
+      gate?.markNeedsAuth(server)
+      return {
+        output: { code: 'E_MCP_NEEDS_AUTH', message: `server ${server} 需要认证：${msg}` },
+        isError: true,
+      }
+    }
+    // ③ 会话过期 → 重建连接（本次调用如实报已重连；模型下一步经新绑定自然重试——
+    // 当前闭包仍持旧 client，就地重试必然再次失败，不做假成功）
+    const reconnected = (await gate?.reconnect(server)) ?? false
+    if (reconnected) {
+      return {
+        output: {
+          code: 'E_MCP_RECONNECTED',
+          message: `server ${server} 会话已过期，连接已重建——请重试本工具`,
+        },
+        isError: true,
+      }
+    }
+    return { output: { code: 'E_MCP_CALL', message: msg }, isError: true }
+  }
+
   return {
     name: mcpToolName(server, tool.name),
     description,
@@ -150,42 +172,37 @@ export function makeMcpToolDef(
           isError: true,
         }
       }
+      // ②③ 失败分类双通道：传输层异常走 catch，协议层 isError result（server 工具
+      // handler 异常被 SDK 包装、文本含错误、不进 catch）同走 classify/handleFailure
+      const classify = (text: string): 'auth' | 'expired' | undefined => {
+        if (NEEDS_AUTH_RE.test(text)) return 'auth'
+        if (SESSION_EXPIRED_RE.test(text)) return 'expired'
+        return undefined
+      }
       try {
         const result = (await client.callTool(
           // CK-9：入参消毒（模型 → 外部 server 方向；出参方向由管线 IoGuard 覆盖）
-          { name: tool.name, arguments: sanitizeUnicodeDeep(input) },
+          { name: tool.name, arguments: sanitizeUnicodeDeep(input).value },
           undefined,
           { signal: ctx.signal, timeout: toolTimeoutMs },
         )) as McpCallResult
-        return { output: serializeMcpContent(result), isError: result.isError === true }
+        const text = serializeMcpContent(result)
+        if (result.isError === true) {
+          const text2 = typeof text === 'string' ? text : JSON.stringify(text)
+          const kind = classify(text2)
+          if (kind !== undefined) return await handleFailure(kind, text2)
+          return { output: text, isError: true }
+        }
+        return { output: text, isError: false }
       } catch (err) {
         if (ctx.signal.aborted) {
           return { output: { code: 'E_ABORTED' }, isError: true }
         }
         const msg = errText(err)
-        // ② 认证失败 → 进缓存短路表
-        if (NEEDS_AUTH_RE.test(msg)) {
-          gate?.markNeedsAuth(server)
-          return {
-            output: { code: 'E_MCP_NEEDS_AUTH', message: `server ${server} 需要认证：${msg}` },
-            isError: true,
-          }
-        }
-        // ③ 会话过期 → 重建连接（本次调用如实报已重连；模型下一步经新绑定自然重试——
-        // 当前闭包仍持旧 client，就地重试必然再次失败，不做假成功）
-        if (SESSION_EXPIRED_RE.test(msg)) {
-          const reconnected = (await gate?.reconnect(server)) ?? false
-          if (reconnected) {
-            return {
-              output: {
-                code: 'E_MCP_RECONNECTED',
-                message: `server ${server} 会话已过期，连接已重建——请重试本工具`,
-              },
-              isError: true,
-            }
-          }
-        }
-        throw new Error(`E_MCP_CALL: ${msg}`)
+        const kind = classify(msg)
+        if (kind !== undefined) return await handleFailure(kind, msg)
+        // 未分类失败：如实闭合（不穿透 execute）
+        return { output: { code: 'E_MCP_CALL', message: msg }, isError: true }
       }
     },
   }

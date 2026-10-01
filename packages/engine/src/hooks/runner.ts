@@ -182,22 +182,37 @@ export class UserHookRunner {
         this.warn('userhook.error', { ...fields, err: err.message })
         done(false)
       })
-      child.stderr?.on('data', (chunk: Buffer) => {
-        if (stderrHead.length < 500) stderrHead += chunk.toString('utf8')
+      let stderrText = ''
+      let stderrEnded = false
+      child.stderr?.setEncoding('utf8')
+      child.stderr?.on('data', (chunk: string) => {
+        if (stderrText.length < 500) stderrText += chunk
+      })
+      child.stderr?.on('end', () => {
+        stderrEnded = true
       })
       child.on('close', (code) => {
-        if (code === 2) {
-          // stderr 首行作 reason（Claude Code 语义）；空 stderr 给兜底文案
-          const reason = stderrHead.split('\n')[0]?.trim() || `hook ${def.command} 以 exit 2 拦截`
-          this.warn('userhook.deny', { ...fields, reason })
-          done(true)
+        // Windows 负载下 stderr data/end 可能晚于 close 派发——等 end（50ms 兜底防管道异常悬挂）
+        const settle = (): void => {
+          if (code === 2) {
+            // stderr 首行作 reason（Claude Code 语义）；空 stderr 给兜底文案
+            const reason = stderrText.split('\n')[0]?.trim() || `hook ${def.command} 以 exit 2 拦截`
+            this.warn('userhook.deny', { ...fields, reason })
+            done(true)
+            return
+          }
+          // code=null = 超时 kill（timeout warn 已发）；其余非零 = warn 不拦截
+          if (code !== 0 && code !== null) {
+            this.warn('userhook.exit', { ...fields, code: String(code) })
+          }
+          done(false)
+        }
+        if (stderrEnded) {
+          settle()
           return
         }
-        // code=null = 超时 kill（timeout warn 已发）；其余非零 = warn 不拦截
-        if (code !== 0 && code !== null) {
-          this.warn('userhook.exit', { ...fields, code: String(code) })
-        }
-        done(false)
+        child.stderr?.once('end', settle)
+        setTimeout(settle, 50)
       })
       if (child.stdin === null) {
         this.warn('userhook.error', { ...fields, err: 'stdin 不可用' })

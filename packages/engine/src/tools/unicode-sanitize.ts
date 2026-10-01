@@ -21,12 +21,23 @@ export interface SanitizeUnicodeResult {
   removed: number
 }
 
-/** 单字符串消毒：NFKC → 剥不可见 → 收敛判定（结果不再变化即停；上限兜底） */
+/**
+ * 全角 ASCII 形式（FF01-FF5E）中**仅字母与数字**映射回 ASCII——藏匿面（全角字母
+ * 数字拼指令绕过注入检测）照旧归一；**全角标点不动**（NFKC 会把中文全角冒号/
+ * 逗号半角化，破坏正常中文文本——CI 实测判例）。
+ */
+function normalizeFullwidthAscii(text: string): string {
+  return text.replace(/[\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0xfee0),
+  )
+}
+
+/** 单字符串消毒：全角字母数字归一 → 剥不可见 → 收敛判定（结果不再变化即停；上限兜底） */
 export function sanitizeUnicode(text: string): SanitizeUnicodeResult {
   let current = text
   let removed = 0
   for (let pass = 0; pass < UNICODE_SANITIZE_MAX_PASSES; pass++) {
-    const normalized = current.normalize('NFKC')
+    const normalized = normalizeFullwidthAscii(current)
     let passRemoved = 0
     const cleaned = normalized.replace(INVISIBLE_RE, () => {
       passRemoved += 1

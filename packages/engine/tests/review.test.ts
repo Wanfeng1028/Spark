@@ -132,7 +132,11 @@ describe('GitCheckpointer.review（19.35 审查聚合）', () => {
     await write(cwd, 'v2.txt', 'v2\n')
     const fromFirst = await cp.review(first.checkpointId)
     expect(fromFirst.baseCheckpointId).toBe(first.checkpointId)
-    expect(pathsOf(fromFirst)).toEqual(['v1.txt', 'v2.txt'])
+    // v1.txt 已在基准快照内且未变更——变更聚合不列未变文件
+    expect(pathsOf(fromFirst)).toEqual(['v2.txt'])
+    await write(cwd, 'v1.txt', 'v1-changed\n')
+    const changed = await cp.review(first.checkpointId)
+    expect(pathsOf(changed).sort()).toEqual(['v1.txt', 'v2.txt'])
   })
 
   test('.gitignore 生效：exclude-standard 不列忽略文件', async () => {

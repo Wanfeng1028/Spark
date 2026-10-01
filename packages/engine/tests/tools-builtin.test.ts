@@ -426,7 +426,8 @@ describe('edit 容错匹配（CK-10）', () => {
     expect(r.isError).toBe(false)
     const out = r.output as { strategy: string }
     expect(out.strategy).toBe('normalized')
-    expect(await readFile(join(cwd, 'c.ts'), 'utf8')).toContain('\u201chi\u201d')
+    // newString 原样写入（容错只作用于 oldString 匹配侧，不改写用户文件风格）
+    expect(await readFile(join(cwd, 'c.ts'), 'utf8')).toContain('"hi"')
   })
 
   test('CRLF 保持：LF oldString 命中 CRLF 文件，newString 回写为 CRLF', async () => {

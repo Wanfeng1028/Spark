@@ -271,7 +271,7 @@ export class GitCheckpointer {
       const binary = bytes.subarray(0, 8000).includes(0)
       const text = bytes.toString('utf8')
       const lines = countLines(text)
-      files.push({ path: rel, status: 'added', additions: lines, deletions: 0, binary })
+      files.push({ path: rel, status: 'added', additions: binary ? 0 : lines, deletions: 0, binary })
       if (binary || budget <= 0) {
         if (!binary) truncated = true
         continue

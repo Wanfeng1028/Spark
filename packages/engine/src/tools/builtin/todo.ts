@@ -89,7 +89,14 @@ export function makeTodoTools(board: TodoBoard): [
     parallelizable: false,
     async execute(ctx: ToolContext, input: TodoWriteInput): Promise<ToolOutput> {
       const oldTable = board.get(ctx.sessionId)
-      await board.write(ctx.sessionId, input.todos)
+      try {
+        await board.write(ctx.sessionId, input.todos)
+      } catch (err) {
+        return {
+          output: { code: 'E_TODO_WRITE', message: err instanceof Error ? err.message : String(err) },
+          isError: true,
+        }
+      }
       const nudge = TodoBoard.needsVerificationNudge(oldTable, input.todos)
       return {
         output: {

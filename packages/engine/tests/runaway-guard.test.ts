@@ -35,7 +35,7 @@ describe('RunawayGuard 六信号（CK-3）', () => {
     const g = new RunawayGuard()
     const hits = feed(g, [
       { actions: [bash('ls -la')], results: [ok('a')] },
-      { actions: [bash('ls  -la')], results: [ok('b')] }, // 归一化后同指纹
+      { actions: [bash('ls  -la')], results: [ok('b'.repeat(40))] }, // 归一化后同指纹；长度带外
       { actions: [bash('ls -la')], results: [ok('c')] },
     ])
     expect(hits[2]).toBe('exact_action_repeat')
@@ -55,7 +55,7 @@ describe('RunawayGuard 六信号（CK-3）', () => {
     const g = new RunawayGuard()
     const hits = feed(g, [
       { actions: [read('a.ts')], results: [err('E_PATH_OUTSIDE')] },
-      { actions: [read('b.ts')], results: [err('E_PATH_OUTSIDE_XX')] },
+      { actions: [read('b.ts')], results: [err('E_PATH_OUTSIDE')] },
       { actions: [bash('rm x')], results: [err('E_PATH_OUTSIDE')] },
     ])
     expect(hits[2]).toBe('same_error_family')
@@ -74,11 +74,12 @@ describe('RunawayGuard 六信号（CK-3）', () => {
 
   test('polling_repeat：读族工具同参数连读 4 次（escalateEligible=false）', () => {
     const g = new RunawayGuard()
+    // 结果长度带外（±10% 带判定不命中，unchanged 不抢先）——内容持续变化模拟日志追加
     const hits = feed(g, [
-      { actions: [read('log.txt')], results: [ok('v1')] },
-      { actions: [read('log.txt')], results: [ok('v2')] },
-      { actions: [read('log.txt')], results: [ok('v3')] },
-      { actions: [read('log.txt')], results: [ok('v4')] },
+      { actions: [read('log.txt')], results: [ok('v')] },
+      { actions: [read('log.txt')], results: [ok('v'.repeat(20))] },
+      { actions: [read('log.txt')], results: [ok('v'.repeat(60))] },
+      { actions: [read('log.txt')], results: [ok('v'.repeat(150))] },
     ])
     expect(hits[3]).toBe('polling_repeat')
   })
@@ -151,18 +152,19 @@ describe('RunawayGuard 限频与升级（CK-3）', () => {
 
   test('轮询信号不计入升级：上轮 polling + 本轮 polling → shouldEscalate false', () => {
     const g = new RunawayGuard()
+    // 结果长度带外（unchanged 不抢先，确保命中的是 polling）
     feed(g, [
       { actions: [read('log')], results: [ok('1')] },
-      { actions: [read('log')], results: [ok('2')] },
-      { actions: [read('log')], results: [ok('3')] },
-      { actions: [read('log')], results: [ok('4')] },
+      { actions: [read('log')], results: [ok('2'.repeat(20))] },
+      { actions: [read('log')], results: [ok('3'.repeat(60))] },
+      { actions: [read('log')], results: [ok('4'.repeat(150))] },
     ])
     g.endTurn()
     feed(g, [
       { actions: [read('log')], results: [ok('5')] },
-      { actions: [read('log')], results: [ok('6')] },
-      { actions: [read('log')], results: [ok('7')] },
-      { actions: [read('log')], results: [ok('8')] },
+      { actions: [read('log')], results: [ok('6'.repeat(20))] },
+      { actions: [read('log')], results: [ok('7'.repeat(60))] },
+      { actions: [read('log')], results: [ok('8'.repeat(150))] },
     ])
     expect(g.shouldEscalate()).toBe(false)
   })

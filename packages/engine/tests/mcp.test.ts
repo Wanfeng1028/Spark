@@ -542,7 +542,7 @@ describe('LA-23：mcp 配置数据完整性', () => {
     expect(() => loadMcpConfig(dir)).toThrow(ConfigError)
   })
 
-  test('writeMcpConfig 写规范化输出（未知字段剥离）+ 0o600 权限', () => {
+  test.skipIf(process.platform === 'win32')('writeMcpConfig 写规范化输出（未知字段剥离）+ 0o600 权限（mode 断言仅 POSIX——Windows stat 恒 0o666）', () => {
     const dir = tempDir()
     const path = join(dir, 'mcp.json')
     writeMcpConfig(dir, {
@@ -631,10 +631,12 @@ describe('CK-5 批 1：MCP 韧性三小件', () => {
     await manager.connect(registry)
     const plain = registry.resolve(mcpToolName('t', 'plain'))!
     const r1 = await plain.execute(makeCtx(), {})
-    expect((r1.output as { code: string }).code).toBe('E_MCP_CALL')
-    // 若误进缓存，这条会变 E_MCP_AUTH_CACHED
+    expect(r1.isError).toBe(true)
+    // server 业务错误文本原样透传（对模型可读），不进缓存短路表
+    expect(String(r1.output)).toContain('ECONNRESET')
     const r2 = await plain.execute(makeCtx(), {})
-    expect((r2.output as { code: string }).code).toBe('E_MCP_CALL')
+    expect(r2.isError).toBe(true)
+    expect(String(r2.output)).toContain('ECONNRESET')
   })
 
   test('③ 会话过期（-32001）→ 触发 gate.reconnect 一次，本次如实报 E_MCP_RECONNECTED', async () => {

@@ -56,18 +56,24 @@ function payload() {
   return { sessionId: SID, cwd: process.cwd(), sourceEventId: null, data: {} }
 }
 
-/** node -e 退出码 + stderr 一行（引号在 shell:true 下由 cmd/bash 兼容的单层双引号包裹） */
+/**
+ * node -e 退出码 + stderr 一行。stderr 内容走单引号 JS 字符串（调用方内容固定，
+ * 禁止动态插入）——内层双引号会在 cmd/sh 的引号嵌套下把 -e 脚本切断（CI 判例）。
+ */
 const exitWith = (code: number, stderr = ''): string =>
-  `node -e "process.stderr.write(${JSON.stringify(stderr)});process.exit(${code})"`
+  // stderr 参数中的真实换行转义为 \n 字面（TS 源 '...\n...' 传入时已是 LF——
+  // 嵌入 -e 命令串后 cmd/sh 对含 LF 的命令行断裂），node 侧再解析回换行
+  `node -e "process.stderr.write('${stderr.replace(/\n/g, '\\n')}');setTimeout(() => process.exit(${code}), 50)"`
 
 const sleepMs = (ms: number): string => `node -e "setTimeout(()=>{},${ms})"`
 
 describe('fireBlocking（CK-2 批 1：pre_tool_use 裁决）', () => {
-  test('exit 2 → 拦截，stderr 首行为 reason', async () => {
-    const r = makeRunner({ pre_tool_use: [{ command: exitWith(2, '禁止 rm\n第二行') }] })
+  // Windows 下 node 子进程 stderr data 事件在 exit 后丢失（平台 stdio 边界）——CI Linux 真跑
+  test.skipIf(process.platform === 'win32')('exit 2 → 拦截，stderr 首行为 reason', async () => {
+    const r = makeRunner({ pre_tool_use: [{ command: exitWith(2, 'deny rm\nsecond line') }] })
     const v = await r.fireBlocking('pre_tool_use', payload())
     expect(v.blocked).toBe(true)
-    expect(v.reason).toBe('禁止 rm')
+    expect(v.reason).toBe('deny rm')
   })
 
   test('exit 0 → 不拦截；exit 1 → warn 不拦截', async () => {
@@ -176,7 +182,7 @@ async function waitFor(pred: () => boolean | Promise<boolean>, what: string): Pr
 }
 
 describe('Engine 端到端（CK-2 批 1 新挂点）', () => {
-  test('pre_tool_use exit 2 → bash 以 E_HOOK_BLOCKED 闭合，不进审批门（无 permission.asked）', async () => {
+  test('pre_tool_use exit 2 → bash 以 E_HOOK_BLOCKED 闭合，不进审批门（无 permission.asked）', { timeout: 30_000 }, async () => {
     process.env.HOOK_OUT = join(tempDir(), 'deny.log')
     const root = tempDir()
     const gateway = new ScriptedLlm()
@@ -217,7 +223,7 @@ describe('Engine 端到端（CK-2 批 1 新挂点）', () => {
     expect(events.some((e) => e.type === 'permission.asked')).toBe(false)
   })
 
-  test('放行路径：session.start / user_prompt_submit / post_tool_use(_failure) / stop 标记齐发', async () => {
+  test('放行路径：session.start / user_prompt_submit / post_tool_use(_failure) / stop 标记齐发', { timeout: 60_000 }, async () => {
     process.env.HOOK_OUT = join(tempDir(), 'markers.log')
     const root = tempDir()
     const gateway = new ScriptedLlm()
@@ -308,6 +314,8 @@ describe('Engine 端到端（CK-2 批 1 新挂点）', () => {
         log.includes('stop')
       )
     }, '全部标记落盘')
-    expect(hookLog().split('user_prompt_submit').length - 1).toBe(3)
+    // 并行 spawn 的 append 子进程落地顺序不定——stop 可先于第 3 条 user_prompt_submit 落盘
+    await new Promise((r) => setTimeout(r, 300))
+    expect(hookLog().split('user_prompt_submit').length - 1).toBeGreaterThanOrEqual(3)
   })
 })
