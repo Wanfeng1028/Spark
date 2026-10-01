@@ -15,6 +15,7 @@
 | v1.7 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-14 无头模式结构化输出交付**（--output-schema 校验面 + --resume-last 免记 id 续跑；单测 8 例）——卡内勾选见 §2 CK-14。与 doc/02 v4.176、CHANGELOG 同批 |
 | v1.8 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-15 @-mention 上下文注入交付**（mention.ts 引擎侧单源 + user.message 通道取舍；单测 8 例）——卡内勾选见 §2 CK-15。与 doc/02 v4.177、CHANGELOG 同批 |
 | v1.9 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-8 prompt cache 落地**（sessionId 透传 + promptCache 开关 + settings 字段；单测 2 例）——卡内勾选见 §2 CK-8（含"断点策略 pi-ai 已内置、engine 只欠透传"的事实登记）。与 doc/02 v4.178、CHANGELOG 同批 |
+| v1.10 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-5 批 1 MCP 韧性三小件交付**（描述截断 / needs-auth 15min 缓存短路 / 会话过期重连；单测 5 例）——卡内勾选见 §2 CK-5。与 doc/02 v4.179、CHANGELOG 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -90,7 +91,7 @@
 
 **Spark 缺口**：mcp client 只有 stdio+streamable-http + 静态 headers；无截断、无失败缓存、无过期重连、无 OAuth。
 
-**内容**：批 1：① 工具描述装配时 2048 截断（防 OpenAPI 型 server 挤爆上下文）；② needs-auth 缓存短路（15min）；③ 会话过期自动重连。批 2：④ OAuth（PKCE + 动态注册 + refresh + token 存储 0o600 走 secrets 纪律 + /mcp auth 命令面）。**验收**：三小件注入式单测 + OAuth 全流程走查留用户（真实 OAuth server）。**依赖**：无。**成本**：S + M。
+**内容**：批 1：① 工具描述装配时 2048 截断（防 OpenAPI 型 server 挤爆上下文）；② needs-auth 缓存短路（15min）；③ 会话过期自动重连。批 2：④ OAuth（PKCE + 动态注册 + refresh + token 存储 0o600 走 secrets 纪律 + /mcp auth 命令面）。**验收**：三小件注入式单测 + OAuth 全流程走查留用户（真实 OAuth server）。**依赖**：无。**成本**：S + M。**✅ 批 1 已交付（2026-10-01，doc/02 v4.179）**——① MAX_MCP_DESCRIPTION_LENGTH=2048 截断 + [截断] 标注；② needs-auth 特征（401/403/unauthorized 等）→ 15min 缓存短路（E_MCP_AUTH_CACHED，McpManagerDeps.now 注入可测）；③ 会话过期特征（404/-32001）→ reconnectServer（registry.replace 换绑工具闭包到新 client；本次调用如实报 E_MCP_RECONNECTED——当前闭包持旧 client，就地重试必然再败，不做假成功）。单测 5 例。批 2 OAuth 留卡。
 
 ### CK-6 AskUserQuestion 结构化提问工具（P1）
 

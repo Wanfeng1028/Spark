@@ -27,7 +27,14 @@ import {
   type McpConfig,
   type McpServerConfig,
 } from '../src/mcp/config.js'
-import { McpManager, mcpToolName } from '../src/mcp/manager.js'
+import {
+  MCP_AUTH_CACHE_MS,
+  MAX_MCP_DESCRIPTION_LENGTH,
+  makeMcpToolDef,
+  McpAuthGate,
+  McpManager,
+  mcpToolName,
+} from '../src/mcp/manager.js'
 import { PermissionServiceImpl } from '../src/permission/service.js'
 import { UserRuleStore } from '../src/permission/store.js'
 import type { PermissionRule } from '../src/config.js'
@@ -544,5 +551,141 @@ describe('LA-23：mcp 配置数据完整性', () => {
     expect(stat.mode & 0o777).toBe(0o600)
     const cfg = loadMcpConfig(dir)
     expect(cfg.servers['a']).toEqual({ command: 'npx' }) // extra 被规范化剥离
+  })
+})
+
+// ---- CK-5 批 1：描述截断 / needs-auth 缓存短路 / 会话过期重连 ----
+
+describe('CK-5 批 1：MCP 韧性三小件', () => {
+  test('① 描述 2048 截断（含标注）', async () => {
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+    const server = new McpServer({ name: 't', version: '1.0.0' })
+    server.tool('longdesc', 'x'.repeat(3000), {}, async () => ({
+      content: [{ type: 'text', text: 'ok' }],
+    }))
+    await server.connect(serverTransport)
+    const registry = new ToolRegistry()
+    const manager = new McpManager({
+      config: { servers: { t: { command: 'unused' } } },
+      toolTimeoutMs: 5_000,
+      transportFactory: () => clientTransport,
+    })
+    await manager.connect(registry)
+    const def = registry.resolve(mcpToolName('t', 'longdesc'))
+    expect(def).toBeDefined()
+    expect((def?.description ?? '').length).toBeLessThanOrEqual(MAX_MCP_DESCRIPTION_LENGTH + 10)
+    expect(def?.description).toContain('[截断]')
+  })
+
+  test('② needs-auth：特征错误进 15min 缓存 → 同 server 其他工具短路（不发请求）', async () => {
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+    const server = new McpServer({ name: 't', version: '1.0.0' })
+    server.tool('needsauth', '需要认证', {}, async () => {
+      throw new Error('HTTP 401 Unauthorized: token expired')
+    })
+    server.tool('other', '同 server 另一工具', {}, async () => ({
+      content: [{ type: 'text', text: 'fine' }],
+    }))
+    await server.connect(serverTransport)
+    const registry = new ToolRegistry()
+    let clock = 1_000_000
+    const manager = new McpManager({
+      config: { servers: { t: { command: 'unused' } } },
+      toolTimeoutMs: 5_000,
+      transportFactory: () => clientTransport,
+      now: () => clock,
+    })
+    await manager.connect(registry)
+    const needsauth = registry.resolve(mcpToolName('t', 'needsauth'))!
+    const other = registry.resolve(mcpToolName('t', 'other'))!
+
+    const r1 = await needsauth.execute(makeCtx(), {})
+    expect(r1.isError).toBe(true)
+    expect((r1.output as { code: string }).code).toBe('E_MCP_NEEDS_AUTH')
+
+    // 同 server 另一工具：缓存期内直接短路（server 端 even fail 也不会被调用到）
+    const r2 = await other.execute(makeCtx(), {})
+    expect((r2.output as { code: string }).code).toBe('E_MCP_AUTH_CACHED')
+
+    // 窗口外（>15min）：恢复调用
+    clock += MCP_AUTH_CACHE_MS + 1
+    const r3 = await other.execute(makeCtx(), {})
+    expect(r3.output).toBe('fine')
+  })
+
+  test('② 非认证错误不进缓存（同 server 后续调用照常）', async () => {
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+    const server = new McpServer({ name: 't', version: '1.0.0' })
+    server.tool('plain', '普通失败', {}, async () => {
+      throw new Error('ECONNRESET broken pipe')
+    })
+    await server.connect(serverTransport)
+    const registry = new ToolRegistry()
+    const manager = new McpManager({
+      config: { servers: { t: { command: 'unused' } } },
+      toolTimeoutMs: 5_000,
+      transportFactory: () => clientTransport,
+      now: () => 1_000_000,
+    })
+    await manager.connect(registry)
+    const plain = registry.resolve(mcpToolName('t', 'plain'))!
+    const r1 = await plain.execute(makeCtx(), {})
+    expect((r1.output as { code: string }).code).toBe('E_MCP_CALL')
+    // 若误进缓存，这条会变 E_MCP_AUTH_CACHED
+    const r2 = await plain.execute(makeCtx(), {})
+    expect((r2.output as { code: string }).code).toBe('E_MCP_CALL')
+  })
+
+  test('③ 会话过期（-32001）→ 触发 gate.reconnect 一次，本次如实报 E_MCP_RECONNECTED', async () => {
+    // gate 契约直测（reconnectServer→registry.replace 的全链路属 manager 私有线，
+    // InMemory 配对不可二次建连——重连成功后的新绑定由 replace 分支保证，走查留真实 server）
+    let reconnectCalls = 0
+    let callCount = 0
+    const fakeClient = {
+      callTool: async () => {
+        callCount += 1
+        throw new Error('MCP error -32001: Session expired')
+      },
+    } as unknown as Client
+    const gate: McpAuthGate = {
+      isAuthCached: () => false,
+      markNeedsAuth: () => {},
+      reconnect: async () => {
+        reconnectCalls += 1
+        return true
+      },
+    }
+    const def = makeMcpToolDef(
+      't',
+      { name: 'exp', description: 'd', inputSchema: { type: 'object' } },
+      fakeClient,
+      5_000,
+      gate,
+    )
+    const r = await def.execute(makeCtx(), {})
+    expect((r.output as { code: string }).code).toBe('E_MCP_RECONNECTED')
+    expect(reconnectCalls).toBe(1)
+    expect(callCount).toBe(1)
+
+    // reconnect 失败（false）→ 不报"已重连"假状态，按普通 E_MCP_CALL 闭合
+    let failCalls = 0
+    const failingGate: McpAuthGate = {
+      isAuthCached: () => false,
+      markNeedsAuth: () => {},
+      reconnect: async () => {
+        failCalls += 1
+        return false
+      },
+    }
+    const def2 = makeMcpToolDef(
+      't',
+      { name: 'exp2', description: 'd', inputSchema: { type: 'object' } },
+      fakeClient,
+      5_000,
+      failingGate,
+    )
+    const r2 = await def2.execute(makeCtx(), {})
+    expect(failCalls).toBe(1)
+    expect((r2.output as { code: string }).code).toBe('E_MCP_CALL')
   })
 })

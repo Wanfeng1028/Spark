@@ -95,15 +95,42 @@ export function serializeMcpContent(result: McpCallResult): string {
 }
 
 /** 单个 MCP 工具 → ToolDefinition（六要素与内置工具同构） */
+/** 工具描述截断上限（CK-5 批 1 ①；Claude Code MAX_MCP_DESCRIPTION_LENGTH 同值——防 OpenAPI 型 server 挤爆上下文） */
+export const MAX_MCP_DESCRIPTION_LENGTH = 2048
+/** needs-auth 缓存窗口（CK-5 批 1 ②；Claude Code mcp-needs-auth-cache 同值 15min——防并发刷认证雪崩） */
+export const MCP_AUTH_CACHE_MS = 15 * 60 * 1000
+
+/** needs-auth 特征（进缓存短路表的错误形态） */
+const NEEDS_AUTH_RE = /(\b401\b|\b403\b|unauthorized|forbidden|needs?[ _-]?auth|not[ _-]authenticated|authentication required)/i
+/** 会话过期特征（可重连形态；Claude Code isMcpSessionExpiredError 同集：HTTP 404 / JSON-RPC -32001） */
+const SESSION_EXPIRED_RE = /(\b404\b|session.{0,20}expired|expired.{0,20}session|-32001)/i
+/** 会话过期特征（可重连形态；Claude Code isMcpSessionExpiredError 同集：HTTP 404 / JSON-RPC -32001） */
+
+/** 认证/重连闸（manager 闭包注入；工具定义无状态） */
+export interface McpAuthGate {
+  /** ② 短路期内 → true（调用直接拒，不发请求） */
+  isAuthCached(server: string): boolean
+  /** ② 标记进入 15min 短路 */
+  markNeedsAuth(server: string): void
+  /** ③ 会话过期重连（true = 连接已重建——本次调用如实报 E_MCP_RECONNECTED，模型下一步用新绑定） */
+  reconnect(server: string): Promise<boolean>
+}
+
 export function makeMcpToolDef(
   server: string,
   tool: McpToolInfo,
   client: Client,
   toolTimeoutMs: number,
+  gate?: McpAuthGate,
 ): ToolDefinition<Record<string, unknown>> {
+  const rawDescription = `[mcp:${server}] ${tool.description ?? tool.name}`
+  const description =
+    rawDescription.length > MAX_MCP_DESCRIPTION_LENGTH
+      ? `${rawDescription.slice(0, MAX_MCP_DESCRIPTION_LENGTH)}…[截断]`
+      : rawDescription
   return {
     name: mcpToolName(server, tool.name),
-    description: `[mcp:${server}] ${tool.description ?? tool.name}`,
+    description,
     inputSchema: z.fromJSONSchema(tool.inputSchema) as unknown as z.ZodType<
       Record<string, unknown>
     >,
@@ -113,6 +140,16 @@ export function makeMcpToolDef(
     },
     parallelizable: false,
     async execute(ctx, input) {
+      // ② needs-auth 缓存短路：15min 内同 server 全部工具直接拒（防百级并发同时刷认证雪崩）
+      if (gate?.isAuthCached(server) === true) {
+        return {
+          output: {
+            code: 'E_MCP_AUTH_CACHED',
+            message: `server ${server} 认证失败被缓存（15 分钟内跳过调用）——请修复认证配置后重试或联系用户`,
+          },
+          isError: true,
+        }
+      }
       try {
         const result = (await client.callTool(
           // CK-9：入参消毒（模型 → 外部 server 方向；出参方向由管线 IoGuard 覆盖）
@@ -125,7 +162,30 @@ export function makeMcpToolDef(
         if (ctx.signal.aborted) {
           return { output: { code: 'E_ABORTED' }, isError: true }
         }
-        throw new Error(`E_MCP_CALL: ${errText(err)}`)
+        const msg = errText(err)
+        // ② 认证失败 → 进缓存短路表
+        if (NEEDS_AUTH_RE.test(msg)) {
+          gate?.markNeedsAuth(server)
+          return {
+            output: { code: 'E_MCP_NEEDS_AUTH', message: `server ${server} 需要认证：${msg}` },
+            isError: true,
+          }
+        }
+        // ③ 会话过期 → 重建连接（本次调用如实报已重连；模型下一步经新绑定自然重试——
+        // 当前闭包仍持旧 client，就地重试必然再次失败，不做假成功）
+        if (SESSION_EXPIRED_RE.test(msg)) {
+          const reconnected = (await gate?.reconnect(server)) ?? false
+          if (reconnected) {
+            return {
+              output: {
+                code: 'E_MCP_RECONNECTED',
+                message: `server ${server} 会话已过期，连接已重建——请重试本工具`,
+              },
+              isError: true,
+            }
+          }
+        }
+        throw new Error(`E_MCP_CALL: ${msg}`)
       }
     },
   }
@@ -133,6 +193,8 @@ export function makeMcpToolDef(
 
 export interface McpManagerDeps {
   config: McpConfig
+  /** CK-5：时钟（测试注入；缺省 Date.now） */
+  now?: () => number
   /** 缺省不记日志（引擎传入 Logger；单测可省） */
   logger?: SparkLogger
   /** spark.json toolTimeoutMs：callTool 请求级超时 */
@@ -147,6 +209,8 @@ export class McpManager {
   private readonly clients: Client[] = []
   /** 各 server 连接结果快照（工单 7.4：GET /api/mcp 只读数据源；失败也列出） */
   private readonly serverStatuses: { name: string; connected: boolean; tools: number; command: string }[] = []
+  /** CK-5 ②：needs-auth 短路表（server → 截至 ms；15min 窗口） */
+  private readonly authCachedUntil = new Map<string, number>()
   private closed = false
 
   constructor(private readonly deps: McpManagerDeps) {
@@ -167,34 +231,87 @@ export class McpManager {
   /** 逐 server 连接并把工具注册进 registry；单 server 失败 warn 跳过（失败闭合） */
   async connect(registry: ToolRegistry): Promise<void> {
     for (const [name, cfg] of Object.entries(this.deps.config.servers)) {
-      const client = new Client({ name: 'spark', version: '0.1.0' })
-      try {
-        const transport =
-          this.deps.transportFactory !== undefined
-            ? this.deps.transportFactory(cfg)
-            : defaultTransport(name, cfg, this.deps.proxyEnv)
-        await withTimeout(client.connect(transport), cfg.connectTimeoutMs ?? CONNECT_TIMEOUT_MS, name)
-        const listed = await client.listTools()
-        for (const tool of listed.tools as McpToolInfo[]) {
-          registry.register(makeMcpToolDef(name, tool, client, this.deps.toolTimeoutMs))
-        }
-        this.clients.push(client)
-        this.serverStatuses.push({
-          name,
-          connected: true,
-          tools: listed.tools.length,
-          command: cfg.command ?? cfg.url ?? '',
-        })
-        this.deps.logger?.info('mcp.server.connected', {
-          server: name,
-          tools: listed.tools.length,
-        })
-      } catch (err) {
-        // 超时/启动失败：关闭半连接（杀掉子进程），该 server 工具不注册
-        void client.close().catch(() => {})
-        this.serverStatuses.push({ name, connected: false, tools: 0, command: cfg.command ?? cfg.url ?? '' })
-        this.deps.logger?.warn('mcp.server.connect.error', { server: name, err })
+      await this.connectOne(name, cfg, registry, 'push')
+    }
+  }
+
+  /** CK-5 ③：单 server 会话过期重连（registry.replace 换绑工具到新 client） */
+  private async reconnectServer(name: string, registry: ToolRegistry): Promise<boolean> {
+    const cfg = this.deps.config.servers[name]
+    if (cfg === undefined) return false
+    // 旧 client 先关（clients 与 statuses 同序 push——按名定位）
+    const idx = this.serverStatuses.findIndex((s) => s.name === name)
+    if (idx >= 0 && idx < this.clients.length) {
+      const oldClient = this.clients[idx]
+      void oldClient.close().catch(() => {})
+      this.clients.splice(idx, 1)
+    }
+    return this.connectOne(name, cfg, registry, 'replace')
+  }
+
+  /**
+   * 连接单 server：push 模式 = 首次 connect（append 状态/clients）；
+   * replace 模式 = 会话过期重连（关旧 client、状态与 client 按名替换、工具
+   * registry.replace 换绑——工具定义闭包从旧 client 换到新 client）。
+   */
+  private async connectOne(
+    name: string,
+    cfg: McpServerConfig,
+    registry: ToolRegistry,
+    mode: 'push' | 'replace',
+  ): Promise<boolean> {
+    const client = new Client({ name: 'spark', version: '0.1.0' })
+    const gate: McpAuthGate = {
+      isAuthCached: (server) => {
+        const until = this.authCachedUntil.get(server)
+        return until !== undefined && until > (this.deps.now ?? Date.now)()
+      },
+      markNeedsAuth: (server) => {
+        this.authCachedUntil.set(server, (this.deps.now ?? Date.now)() + MCP_AUTH_CACHE_MS)
+      },
+      reconnect: (server) => this.reconnectServer(server, registry),
+    }
+    try {
+      const transport =
+        this.deps.transportFactory !== undefined
+          ? this.deps.transportFactory(cfg)
+          : defaultTransport(name, cfg, this.deps.proxyEnv)
+      await withTimeout(client.connect(transport), cfg.connectTimeoutMs ?? CONNECT_TIMEOUT_MS, name)
+      const listed = await client.listTools()
+      for (const tool of listed.tools as McpToolInfo[]) {
+        const def = makeMcpToolDef(name, tool, client, this.deps.toolTimeoutMs, gate)
+        if (mode === 'push') registry.register(def)
+        else registry.replace(mcpToolName(name, tool.name), def)
       }
+      const status = {
+        name,
+        connected: true,
+        tools: listed.tools.length,
+        command: cfg.command ?? cfg.url ?? '',
+      }
+      if (mode === 'push') {
+        this.clients.push(client)
+        this.serverStatuses.push(status)
+      } else {
+        // replace：statuses 按名替换；clients 由 reconnectServer 已 splice 旧条目，push 新句柄
+        const idx = this.serverStatuses.findIndex((s) => s.name === name)
+        if (idx >= 0) this.serverStatuses[idx] = status
+        this.clients.push(client)
+      }
+      this.deps.logger?.info('mcp.server.connected', {
+        server: name,
+        tools: listed.tools.length,
+        ...(mode === 'replace' ? { reconnected: true } : {}),
+      })
+      return true
+    } catch (err) {
+      // 超时/启动失败：关闭半连接（杀掉子进程），push 模式不注册；replace 模式保留旧绑定失效现状
+      void client.close().catch(() => {})
+      if (mode === 'push') {
+        this.serverStatuses.push({ name, connected: false, tools: 0, command: cfg.command ?? cfg.url ?? '' })
+      }
+      this.deps.logger?.warn('mcp.server.connect.error', { server: name, err })
+      return false
     }
   }
 
