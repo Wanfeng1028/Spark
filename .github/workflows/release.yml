@@ -54,6 +54,29 @@ jobs:
         with:
           generate_release_notes: true
 
+  # 桌面安装包（19.34）：同一 tag 触发、独立 Windows job——NSIS 产物 + latest.yml +
+  # .exe.blockmap 进 GitHub Release（electron-updater 的 feed 三件套，缺件差分退化全量）。
+  # GH_TOKEN 是 electron-builder 的约定名；代码签名挂起待证书采购（signAndEditExecutable
+  # 仍 false，无签名不分发——安装包只经本 Release 供桌面端自更拉取）
+  desktop:
+    runs-on: windows-latest
+    permissions:
+      contents: write # GitHub Release 产物
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 构建桌面壳（sidecar bundle + web dist + main）
+        run: pnpm --filter @spark/desktop build
+      - name: electron-builder 发布（NSIS + latest.yml + blockmap → GitHub Release）
+        run: pnpm --filter @spark/desktop exec electron-builder --win nsis --x64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # 开发者文档站（工单 14.6）：与 npm 发布同一个 tag 触发，但**单独一个 job**。
   # 理由：`environment: github-pages` 是 job 级配置（actions/deploy-pages 要求），
   # 若并进 publish job，一旦仓库给 Pages environment 配了审批/限制，npm 发布也会被卡住。

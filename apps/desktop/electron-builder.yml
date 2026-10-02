@@ -23,3 +23,9 @@ win:
 nsis:
   oneClick: true
   deleteAppDataOnUninstall: false
+# 自更新 feed（19.34）：GitHub Releases——latest.yml 与 .exe.blockmap 随产物同发，
+# electron-updater 据此走差分下载；owner/repo 与 src/updater.ts 的 UPDATE_FEED 对账
+publish:
+  provider: github
+  owner: Wanfeng1028
+  repo: Spark

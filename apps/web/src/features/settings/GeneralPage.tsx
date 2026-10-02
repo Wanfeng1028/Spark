@@ -657,7 +657,12 @@ export function GeneralSettingsPage() {
           title="保持电脑运行"
           description="仅桌面应用可改：写 ~/.spark/desktop.json 的 keepAwake 后重启桌面应用；开启期间阻止系统空闲休眠（隐藏到托盘时仍生效）"
         />
-        <SettingRow title="自动下载并安装更新" description="任务运行时重启前确认" placeholderBadge="desktop 特化" />
+        {/* 19.34 摘徽标：自动更新已落地（electron-updater + GitHub Releases feed），
+            开关是 desktop.json 的 autoUpdate（缺省开）——配置面在壳层，与 hideOnClose 同口径 */}
+        <SettingRow
+          title="自动下载并安装更新"
+          description="仅桌面应用可改：写 ~/.spark/desktop.json 的 autoUpdate 后重启桌面应用；发现新版本后台下载，重启桌面应用时安装（不打断运行中的任务）"
+        />
       </SettingGroupCard>
     </div>
   )

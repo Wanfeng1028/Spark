@@ -42,6 +42,7 @@ import {
 } from 'electron'
 import { startNotifications, type NotifyWiring } from './notify-wiring.js'
 import { loadDesktopConfig, type DesktopConfig } from './notify.js'
+import { shouldAutoUpdate, wireUpdaterEvents } from './updater.js'
 import { renderFatalHtml, renderFirstRunHtml } from './fatal.js'
 import { buildSidecarEnv } from './sidecar-env.js'
 import { buildTrayBitmap, TRAY_ICON_PX } from './tray-icon.js'
@@ -507,6 +508,21 @@ async function main(): Promise<void> {
   // 保持运行与开机自启（19.30）：都在窗口就绪后落地——自启注册是进程级副作用，
   // 首启失败/引导窗阶段不该写用户的登录项
   applyDesktopBehavior(desktopCfg)
+
+  // 自更新（19.34）：打包态 + desktop.json autoUpdate（缺省开）才跑；判据在 updater.ts。
+  // 下载就绪不自动重启——设置行口径"任务运行时重启前确认"（退出即装，不打断运行中 turn）
+  if (shouldAutoUpdate({ isPackaged: app.isPackaged, autoUpdate: desktopCfg.autoUpdate, env: process.env })) {
+    try {
+      const { autoUpdater } = await import('electron-updater')
+      // logger 缺省打文件日志；我们只要人话行进主进程日志（与 sidecar stderr 同出口）
+      autoUpdater.logger = null
+      wireUpdaterEvents(autoUpdater, (line) => console.log(`[desktop] ${line}`))
+      void autoUpdater.checkForUpdatesAndNotify()
+    } catch (err) {
+      // feed 不可达/网络隔离不应影响应用可用性——如实记一条，继续跑
+      console.warn('[desktop] 自更新初始化失败（不影响本次使用）', err)
+    }
+  }
 
   // 工单 12.7：回合完成/审批等待系统通知（壳层第四件事——D14 补记）；
   // 19.30 起断线退避重连 + 提示音/事件面/去抖窗走 desktop.json，点击唤窗

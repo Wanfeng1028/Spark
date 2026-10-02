@@ -51,6 +51,8 @@ const DesktopConfigSchema = z.strictObject({
   keepAwake: z.boolean().default(false),
   /** 开机自启（仅打包态 Windows/macOS 生效——resolveAutoLaunch 的平台判据在壳层） */
   autoLaunch: z.boolean().default(false),
+  /** 自动检查并下载更新（19.34；仅打包态生效——开发态永不自更；关掉后只随手动重装升级） */
+  autoUpdate: z.boolean().default(true),
 })
 
 export type DesktopConfig = z.infer<typeof DesktopConfigSchema>
