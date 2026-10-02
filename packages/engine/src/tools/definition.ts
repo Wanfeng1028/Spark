@@ -92,7 +92,7 @@ export interface ToolOutput {
  * bash 的 timeoutMs 入参承担，按工具覆盖留后续工单）。strictObject 封闭：
  * 未声明维度不得混写（编译期 + zod 运行期双重封闭）。
  */
-export interface ToolSafety {
+interface ToolSafety {
   /** 纯只读（无任何状态变更——read/grep/listFs 类） */
   readOnly?: boolean
   /** 破坏性（删数据/覆盖外部状态——bash rm 类语义不可断言，computer.app 覆盖写等显式声明） */
