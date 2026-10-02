@@ -52,7 +52,7 @@ export class MiniRestClient {
   /** 统一请求：非 2xx 抛 `code: message`（与 HttpTransport.req 同一 errorFromResponse 单源） */
   private async req<T>(
     path: string,
-    init?: { method?: 'GET' | 'POST'; body?: string; raw?: RawBody },
+    init?: { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: string; raw?: RawBody },
   ): Promise<T> {
     // content-type 仅随 body 携带（工单 10.27 口径对齐 transport-node）：带 json 头的空 body
     // 会被 Fastify 5 拒 400 FST_ERR_CTP_EMPTY_JSON_BODY，不依赖 server 宽容解析器兜底
@@ -114,19 +114,54 @@ export class MiniRestClient {
     return this.req<SessionDto>('/api/sessions', { method: 'POST', body: '{}' })
   }
 
-  sendMessage(sessionId: SessionId, text: string): Promise<SubmitOutcome> {
-    // 与 HttpTransport 同口径不带 attachments：server SendMessageBody 是 strictObject，
-    // 多塞字段只换 400（引擎 SessionHandle.send 尚无该形参）。端侧待发附件的如实呈现
-    // 见 session/attachments.ts 头注释与 README「附件通道现状」段。
+  sendMessage(sessionId: SessionId, text: string, attachments?: string[]): Promise<SubmitOutcome> {
+    // attachments 随消息进发送体（19.29 收口：19.27 已修通 wire——server SendMessageBody
+    // 增 attachments 数组、引擎 SessionHandle.send 第三参；与 HttpTransport.sendMessage 同口径）
     return this.req<SubmitOutcome>(`/api/sessions/${sessionId}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ text, delivery: 'now' }),
+      body: JSON.stringify({
+        text,
+        delivery: 'now',
+        ...(attachments !== undefined && attachments.length > 0 ? { attachments } : {}),
+      }),
     })
   }
 
   interrupt(sessionId: SessionId): Promise<void> {
     return this.req<{ ok: boolean }>(`/api/sessions/${sessionId}/interrupt`, {
       method: 'POST',
+    }).then(() => undefined)
+  }
+
+  /** 改名（19.20）：PUT /api/sessions/:id/title；返回新 DTO 供标题就地校正 */
+  renameSession(sessionId: SessionId, title: string): Promise<SessionDto> {
+    return this.req<SessionDto>(`/api/sessions/${sessionId}/title`, {
+      method: 'PUT',
+      body: JSON.stringify({ title }),
+    })
+  }
+
+  /** 归档/恢复（12.4）：PUT /api/sessions/:id/archive；返回新 DTO 供列表就地校正 */
+  archiveSession(sessionId: SessionId, archived: boolean): Promise<SessionDto> {
+    return this.req<SessionDto>(`/api/sessions/${sessionId}/archive`, {
+      method: 'PUT',
+      body: JSON.stringify({ archived }),
+    })
+  }
+
+  /** 置顶/取消置顶（19.41）：PUT /api/sessions/:id/pin；返回新 DTO 供列表就地校正 */
+  pinSession(sessionId: SessionId, pinned: boolean): Promise<SessionDto> {
+    return this.req<SessionDto>(`/api/sessions/${sessionId}/pin`, {
+      method: 'PUT',
+      body: JSON.stringify({ pinned }),
+    })
+  }
+
+  /** 两段式删除（12.4）：DELETE 需显式 confirm: true（防误删）；JSONL 进服务端 trash */
+  deleteSession(sessionId: SessionId): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/sessions/${sessionId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ confirm: true }),
     }).then(() => undefined)
   }
 

@@ -5,10 +5,8 @@
  * 发送=右圆钮 ↑，turn 运行中变停止 ■（中断走 REST.interrupt）。
  *
  * 附件入口（19.29）：选图即上传（`Transport.uploadAttachment`，工单 12.2a 既有方法），
- * 成功后落在胶囊上方的待发条里，可逐张撤下。**待发条带一行状态说明**——
- * 服务端发送体（`SendMessageBody` strictObject）与引擎 `SessionHandle.send` 目前都
- * 不承载 attachments，端上塞进去只换 400，故本端与 HttpTransport 同口径不发；
- * 待发附件不清空、不冒充已发送（详见 src/session/attachments.ts 头注释）。
+ * 成功后落在胶囊上方的待发条里，可逐张撤下；随消息进发送体（收口批：19.27 已修通
+ * attachments wire，send 受理成功后由页面清空待发条）。
  */
 import { useState } from 'react'
 import { Text, Textarea, View } from '@tarojs/components'
@@ -74,9 +72,6 @@ export function Composer({
               />
             ))}
           </View>
-          <Text className="composer-attach-note" style={{ color: t.mutedForeground }}>
-            附件已存服务器，暂不能随消息发出（发送通道待接 attachments）
-          </Text>
         </View>
       )}
       <View className="composer-capsule" style={{ backgroundColor: t.card }}>

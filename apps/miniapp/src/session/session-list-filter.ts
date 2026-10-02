@@ -68,23 +68,31 @@ function timeSections(sorted: readonly SessionDto[]): SessionSection[] {
 /**
  * UiSnapshot → 渲染分组。排序键 updatedAt 倒序在档位分叉前统一做（三档同一口径，
  * 不在各分支重复排序）。项目档按首现顺序出组（组内仍 updatedAt 倒序）。
+ * 置顶（19.41 接入，19.29 收口）：置顶会话从各档提出合成首个「置顶」段——
+ * 置顶语义 = 不受分组与时间流逝影响（web session-groups / mobile session-list 同口径）。
  */
 export function buildSections(
   sessions: readonly SessionDto[],
   filter: SessionFilter,
 ): SessionSection[] {
   const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)
-  if (filter !== 'project') return timeSections(sorted)
+  const pinned = sorted.filter((s) => s.pinned === true)
+  const rest = sorted.filter((s) => s.pinned !== true)
+  const out: SessionSection[] = []
+  if (pinned.length > 0) out.push({ key: 'pinned', title: '置顶', items: pinned })
+  if (filter !== 'project') {
+    out.push(...timeSections(rest))
+    return out
+  }
   const groups = new Map<string, SessionDto[]>()
-  for (const dto of sorted) {
+  for (const dto of rest) {
     const key = projectOf(dto)
     const list = groups.get(key)
     if (list === undefined) groups.set(key, [dto])
     else list.push(dto)
   }
-  return [...groups.entries()].map(([name, items]) => ({
-    key: `project:${name}`,
-    title: name,
-    items,
-  }))
+  for (const [name, items] of groups.entries()) {
+    out.push({ key: `project:${name}`, title: name, items })
+  }
+  return out
 }

@@ -93,13 +93,59 @@ describe('uploadAttachment（raw 图片字节；形状同 HttpTransport）', () 
   })
 })
 
-describe('sendMessage（与 HttpTransport 同口径：不带 attachments）', () => {
-  it('body 只有 text/delivery——server SendMessageBody 是 strictObject，多塞字段换 400', async () => {
+describe('sendMessage（attachments 随消息进发送体——19.29 收口批）', () => {
+  it('不带附件：body 只有 text/delivery（不多塞字段）', async () => {
     harness.state.statusCode = 200
     harness.state.responseBody = { result: 'started' }
     await client().sendMessage(SID, '你好')
     const body = harness.state.calls[0]?.data as string
     expect(JSON.parse(body)).toEqual({ text: '你好', delivery: 'now' })
+  })
+
+  it('带附件：attachments 数组进 body（wire 已由 19.27 修通）', async () => {
+    harness.state.statusCode = 200
+    harness.state.responseBody = { result: 'started' }
+    await client().sendMessage(SID, '看图', ['a1.png'])
+    const body = harness.state.calls[0]?.data as string
+    expect(JSON.parse(body)).toEqual({ text: '看图', delivery: 'now', attachments: ['a1.png'] })
+  })
+})
+
+describe('会话菜单四动作（19.29 收口批：pin/rename/archive/delete 形状）', () => {
+  it('pinSession 走 PUT /pin body {pinned}', async () => {
+    harness.state.statusCode = 200
+    harness.state.responseBody = { id: SID, pinned: true }
+    await client().pinSession(SID, true)
+    expect(harness.state.calls[0]?.url).toBe(`http://127.0.0.1:4318/api/sessions/${SID}/pin`)
+    expect(harness.state.calls[0]?.method).toBe('PUT')
+    expect(JSON.parse(harness.state.calls[0]?.data as string)).toEqual({ pinned: true })
+  })
+
+  it('renameSession 走 PUT /title body {title}', async () => {
+    harness.state.statusCode = 200
+    harness.state.responseBody = { id: SID, title: '新名' }
+    await client().renameSession(SID, '新名')
+    expect(harness.state.calls[0]?.url).toBe(`http://127.0.0.1:4318/api/sessions/${SID}/title`)
+    expect(harness.state.calls[0]?.method).toBe('PUT')
+    expect(JSON.parse(harness.state.calls[0]?.data as string)).toEqual({ title: '新名' })
+  })
+
+  it('archiveSession 走 PUT /archive body {archived}', async () => {
+    harness.state.statusCode = 200
+    harness.state.responseBody = { id: SID }
+    await client().archiveSession(SID, true)
+    expect(harness.state.calls[0]?.url).toBe(`http://127.0.0.1:4318/api/sessions/${SID}/archive`)
+    expect(harness.state.calls[0]?.method).toBe('PUT')
+    expect(JSON.parse(harness.state.calls[0]?.data as string)).toEqual({ archived: true })
+  })
+
+  it('deleteSession 走 DELETE 带 body {confirm: true}（两段式护栏）', async () => {
+    harness.state.statusCode = 200
+    harness.state.responseBody = { ok: true }
+    await client().deleteSession(SID)
+    expect(harness.state.calls[0]?.url).toBe(`http://127.0.0.1:4318/api/sessions/${SID}`)
+    expect(harness.state.calls[0]?.method).toBe('DELETE')
+    expect(JSON.parse(harness.state.calls[0]?.data as string)).toEqual({ confirm: true })
   })
 })
 

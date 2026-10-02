@@ -69,6 +69,7 @@
 | v1.68 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续做工单"指令） | **新增 D56 审查模式语义（19.35 / V2-08；doc/02 v4.170 同批）**：diff 聚合 = checkpoint shadow git 只读复用（基准/别名过滤/truncated 如实）+ 批量放行 = 会话域逐条结清（once 不固化、'always' 不可批量）+ review 端点 checkpoint 关闭 404 同 rollback 判；web ReviewDialog 双栏落地，其余端批 2。与 doc/02 v4.170、doc/08 v2.13 同批 |
 | v1.69 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你去做新的工单"指令） | **新增 D57 后台任务平面（CK-1 批 1；doc/02 v4.171 同批）**：bash runInBackground + 60s 前台预算自动转后台 + task_output/task_stop 观察面 + 完成回注走输入队列 delivery=queue（goal 续跑同通道）；两事件 task.started/completed durable 非 surface（词表 34 种）。进程 spawn/收集留 bash 侧（复用树杀/解码器），manager 只持注册项——不合并两层抽象。事件模型行 28→30 同批 |
 | v1.70 | 2026-10-02 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，阶段十九未开工工单批开工指令） | **新增 D58 个性化主题层（19.43 批 1；doc/02 v4.190 同批）**：web localStorage 偏好层 `wallpaper`（缺省 none，零协议面零新事件不动引擎）；豁免范围 = canvas 像素 + 局部不透明底板（AppShell 根 data-wallpaper 让位）；渲染两处有意偏离上游（插值保留 / reduced-motion 瞬时 + visibilitychange 暂停 RAF）；WebGL2 失败不渲染（禁假状态）；四端降级 web+desktop 同 bundle、CLI 不适用、mobile/miniapp 候选。事件词表不变 |
+| v1.71 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，阶段十九未开工工单批开工指令） | **D21 修订注记（19.29 收口批；doc/02 v4.192 同批）**：小程序分发中继三档评估判决"短期不接、接时 C→B"（判决表在 apps/miniapp/README.md），中继落地定跨包工单；语音听写同判为中继附带项。事件词表不变 |
 | v1.66 | 2026-09-25 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"已经完成的工单有问题的要修复"指令）；依据：doc/11 §4.1 P0 | **D48 补安全前提 + D40 收紧面扩容注记（doc/11 LA-01/02/03 收口；doc/02 v4.122 同批）**：项目层按会话 cwd 惰性建层 + 未信任整层停用 + 家目录撞路径不设层 + 固化/级联按会话项目层走；evaluate 层间 deny 优先；trust 收紧面 2→5 类。详见 D48 补记。本机零验证，CI 裁决 |
 
 ---
@@ -245,6 +246,7 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 结论：**Taro 4**。逻辑层（protocol/applyEvent/文案表）直接复用，UI 层 Taro 组件重写。
 **合法域名约束（如实）**：wx.request 生产环境要求 HTTPS+备案域名——v1 仅开发者工具与体验版可走局域网 IP（勾选"不校验合法域名"），**正式分发需中继服务**（WSS 转发 SSE 或轮询网关），记 v2 项（届时补 ADR）；本条不构成对"引擎零 fork、一律 REST+SSE"（D22）的修改——中继是传输桥接不是协议分叉。
 后果：小程序包体积受微信上限约束（主包 <2MB），protocol 按需引入；miniprogram-simulate 测试（doc/06 L5.5）。
+**修订（2026-10-03，19.29 收口批）**："记 v2 中继"判决落地为三档评估（A 反代直连 / B WSS 中继 / C 轮询网关，判决表在 apps/miniapp/README.md）——**短期不接**（当前无正式分发需求，接时走 C→B），中继落地定为一次跨包工单（protocol pair-link 扩 scheme + server 公网基址 + 反代文档 + 届时补 ADR）；硬阻塞点登记在 `packages/protocol/src/pair-link.ts` 的 baseUrlOf 写死 http。语音听写（V2-28 miniapp 半边）同判：技术可行（getRecorderManager mp3 → /api/transcribe 约 60 行），卡点在隐私审核与合法域名前置，作为中继工单的附带项。
 
 ### D22 四端复用边界：四件共享资产 + 各端原生 UI，引擎零 fork（2026-08-26，阶段六~九总纲）
 

@@ -188,6 +188,13 @@ export default function SessionsPage() {
                           backgroundColor: dotColor(dto.status, t, dto.archivedAt !== undefined),
                         }}
                       />
+                      {/* 置顶角标（19.41 接入）：排版记号 ★（CLI/mobile 同款记号非 emoji）；
+                          DTO 仅已置顶携带 pinned（禁假状态），未置顶不渲染 */}
+                      {dto.pinned === true && (
+                        <Text className="sl-row-pin" style={{ color: t.mutedForeground }}>
+                          ★
+                        </Text>
+                      )}
                       <Text className="sl-row-title sl-ellipsis" style={{ color: t.foreground }}>
                         {dto.title !== '' ? dto.title : '新会话'}
                       </Text>

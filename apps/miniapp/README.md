@@ -1,7 +1,8 @@
 # @spark/miniapp —— Spark 微信小程序壳（Taro 4）
 
 阶段九工单 9.4 产物（ADR D21），阶段十九工单 19.29 补齐批（筛选菜单 / 附件入口 /
-topBanner+attachments 渲染 / i18n 消费 / token 存储重估 / 语音与中继结论）。
+topBanner+attachments 渲染 / i18n 消费 / token 存储重估 / 语音与中继结论）及收口批
+（附件随消息发出、会话菜单四动作与列表置顶——19.41/19.27 协议面落地后接入）。
 逻辑层复用 `@spark/protocol`（applyEvent 投影、session-page controller、
 splitSseFrames/envelopeFromSseFrame 帧解析、ERROR_COPY 错误文案、i18n 字典），
 与 web/cli/RN 四端同口径。
@@ -44,7 +45,7 @@ settings 增公网基址 + 反代配置文档 + ADR）**，不在补齐批内偷
 - 平台能力齐：`Taro.getRecorderManager()`（微信 `wx.getRecorderManager`，基础库 2.1.0 起，
   本端 2.20.2 门槛已覆盖）→ `start({format:'mp3'})` → `onStop` 给 `tempFilePath` →
   FileSystemManager 读 → base64 → `POST /api/transcribe`。mp3 对应 `audio/mpeg`，
-  **恰在引擎转写白名单内**（`packages/engine/src/voice/transcriber.ts` 的 `ALLOWED_MIME`），
+  **恰在引擎转写白名单内**（`packages/engine/src/voice/transcriber.ts` 的 `TRANSCRIBE_ALLOWED_MIME`），
   10MB 上限与附件同量级；协议面 `Transport.transcribe` 已存在（工单 16.6），本端只需给
   `MiniRestClient` 加一个方法 + 输入条一个录音钮，约 60 行。
 - 三条真卡点：① 录音要 `app.config.ts` 声明 `permission.scope.record` 并在公众平台
@@ -57,23 +58,22 @@ settings 增公网基址 + 反代配置文档 + ADR）**，不在补齐批内偷
 ## 本端已接 / 未接的协议面（防"以为端上漏了"式误判）
 
 - 已接：`listSessions(archived?)`（筛选菜单三档）、`uploadAttachment`（附件入口）、
-  `getSettings`（电脑控制指示 + 界面语言）、`getSession` 分页回放、`sendMessage`、
-  `interrupt`、`replyPermission`、`redeemPair`。
+  `getSettings`（电脑控制指示 + 界面语言）、`getSession` 分页回放、`sendMessage`
+  （attachments 随消息进发送体——19.29 收口批，见下节）、`interrupt`、`replyPermission`、
+  `redeemPair`，及会话菜单四动作 `pinSession`/`renameSession`/`archiveSession`/`deleteSession`
+  （19.29 收口批：页头"⋯"浮钮 → ActionSheet；列表置顶组与 ★ 记号同步接入）。
 - **未接（后端已有方法，缺的是端上 UI）**：反馈投票 `submitFeedback/listFeedback/withdrawFeedback`
-  —— 👍👎 需要 assistant 行的 eventId 定位与投票态回读，本批范围外，实现形状与 web 同形；
-  归档写入 `archiveSession`（本端只读筛选，归档动作在 web 侧栏）；Transport 其余方法按
-  D21 体积纪律不进小程序包（本端 REST 子集只列用到的）。
-- **未接（后端本身没通）**：附件随消息发出——见下条整改清单。
+  —— 👍👎 需要 assistant 行的 eventId 定位与投票态回读，登记后续，实现形状与 web 同形；
+  Transport 其余方法按 D21 体积纪律不进小程序包（本端 REST 子集只列用到的）。
 
 ## 附件通道现状（工单 19.29 抓到的跨包缺口）
 
 选图 → 读字节 → 上传（`POST /api/sessions/:id/attachments`）→ 缩略图渲染已通；
-但 `user.message.attachments` 在真实链路上**永远不会出现**，因为发送通道三处都不承载该字段：
-`server SendMessageBody`（strictObject，多塞只换 400）→ `SessionHandle.send` 形参
-（`runtime.submit` 已支持 attachments、`projector` 已会读图转 base64）→
-`SessionPageController.send`（四端共享的会话页控制器，无附件入参）。
-所以本端与 `HttpTransport` 同口径**不发 attachments**，待发条不清空并带一行状态说明
-（不冒充已发送）。整改清单见 doc/08 与本目录 `src/session/attachments.ts` 头注释。
+**发送通道已接通（19.29 收口批；缺口由 19.27 跨包修复）**——此前发送通道三处都不承载
+attachments 字段（`server SendMessageBody` strictObject / `SessionHandle.send` 形参 /
+`SessionPageController.send` 无附件入参），19.27 已逐处补齐并透传两通道；本批把端侧接上：
+`MiniRestClient.sendMessage` 携带附件 id 数组、`handleSend` 经控制器 send 传附件，
+**受理成功才清待发条**（失败清单保留，不无声丢失）。
 
 ## 依赖与许可证（ADR D23：MIT 白名单）
 

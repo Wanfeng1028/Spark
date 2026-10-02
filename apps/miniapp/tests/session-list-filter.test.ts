@@ -52,7 +52,29 @@ describe('projectOf（分组键 = cwd 末段目录名）', () => {
   })
 })
 
-describe('buildSections（分组与排序）', () => {
+describe('buildSections（分组与排序）'
+
+describe('buildSections——置顶段（19.29 收口批，19.41 接入）', () => {
+  const pinnedOld = { ...ses('pinned-old', '/work/app', 100), pinned: true } as SessionDto
+  const today1 = ses('today-1', '/work/app', 900)
+  const today2 = ses('today-2', '/work/app', 800)
+
+  it('置顶会话从各段提出合成首个「置顶」组；其余段不再含置顶项', () => {
+    const sections = buildSections([today1, pinnedOld, today2], 'all')
+    expect(sections[0]?.key).toBe('pinned')
+    expect(sections[0]?.items.map((s) => s.title)).toEqual(['pinned-old'])
+    expect(sections).toHaveLength(2)
+    const today = sections.find((s) => s.key === 'today')
+    expect(today?.items.map((s) => s.title)).toEqual(['today-1', 'today-2'])
+  })
+
+  it('无置顶会话不出现「置顶」段（禁假状态）；项目档同样先出置顶组', () => {
+    expect(buildSections([today1], 'all').map((s) => s.key)).toEqual(['today'])
+    const sections = buildSections([pinnedOld, today1], 'project')
+    expect(sections[0]?.key).toBe('pinned')
+    expect(sections).toHaveLength(2)
+  })
+}), () => {
   const now = Date.now()
   const earlier = now - 3 * DAY
 

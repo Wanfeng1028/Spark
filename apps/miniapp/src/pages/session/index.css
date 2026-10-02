@@ -63,6 +63,24 @@
   bottom: 24rpx;
 }
 
+/* 会话菜单入口钮（19.29 收口）：右上浮钮"⋯"，白底圆形（与 back-bottom 同形态） */
+.sp-menu-fab {
+  position: absolute;
+  right: 32rpx;
+  top: 16rpx;
+  z-index: 20;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sp-menu-fab-glyph {
+  font-size: 28rpx;
+  line-height: 1;
+}
+
 .sp-composer-wrap {
   padding: 16rpx 32rpx;
 }

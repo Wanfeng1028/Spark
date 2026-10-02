@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import type { BaseEventOrig, ScrollViewProps } from '@tarojs/components'
-import type { AttachmentDto, RequestId } from '@spark/protocol'
+import type { AttachmentDto, RequestId, SessionDto } from '@spark/protocol'
 import {
   connectionText,
   createSessionPageController,
@@ -37,6 +37,7 @@ import { useTheme } from '../../store/theme-store'
 import { BATCH_WINDOW_MS, useAppStore } from '../../store/app-store'
 import { miniErrorMessageOf, miniT } from '../../i18n'
 import { getRestClient, openSessionStream } from '../../transport/runtime'
+import type { MiniRestClient } from '../../transport/rest'
 import { pickImages, readFileBytes } from '../../transport/media'
 import {
   mergeUploaded,
@@ -152,20 +153,6 @@ export default function SessionPage() {
     }
   }, [sid, serverUrl, token, setNotice])
 
-  // 发消息 / 中断 / 审批决策（防抖闸门 H3 在 controller 内）
-  const handleSend = useCallback((text: string, _pendingFiles: string[]): void => {
-    // _pendingFiles 暂不进发送体：服务端 SendMessageBody 与引擎 SessionHandle.send 都不
-    // 承载 attachments（整改清单见 README）——待发条不清空、不冒充已发送，
-    // 清空会让已上传的附件在界面上无声消失
-    void controllerRef.current?.send(text)
-  }, [])
-  const handleStop = useCallback((): void => {
-    void controllerRef.current?.stop()
-  }, [])
-  const handleReply = useCallback((requestId: RequestId, reply: PermissionReply): void => {
-    void controllerRef.current?.reply(requestId, reply)
-  }, [])
-
   // 附件入口（工单 19.29）：选图即上传，成功进待发条；提示走页面局部条（5s 自清，
   // 与 controller notice 同律）——上传是 REST 动作，不进事件流也不借 store notice
   const [attachments, setAttachments] = useState<AttachmentDto[]>([])
@@ -178,6 +165,23 @@ export default function SessionPage() {
     const timer = setTimeout(() => setAttachNotice(null), 5000)
     return () => clearTimeout(timer)
   }, [attachNotice])
+
+  // 发消息 / 中断 / 审批决策（防抖闸门 H3 在 controller 内）
+  // 附件随消息进发送体（19.29 收口：wire 已由 19.27 修通）——send 受理成功才清
+  // 待发条，失败时清单保留（不无声丢失已上传的附件）
+  const handleSend = useCallback((text: string, files: string[]): void => {
+    void controllerRef.current
+      ?.send(text, files.length > 0 ? { attachments: files } : undefined)
+      .then((ok) => {
+        if (ok === true && files.length > 0) setAttachments([])
+      })
+  }, [])
+  const handleStop = useCallback((): void => {
+    void controllerRef.current?.stop()
+  }, [])
+  const handleReply = useCallback((requestId: RequestId, reply: PermissionReply): void => {
+    void controllerRef.current?.reply(requestId, reply)
+  }, [])
 
   const handlePickAttachment = useCallback((): void => {
     const rest = getRestClient(serverUrl, token)
@@ -211,6 +215,102 @@ export default function SessionPage() {
   const handleRemoveAttachment = useCallback((file: string): void => {
     setAttachments((cur) => removePending(cur, file))
   }, [])
+
+  // ---- 会话菜单（19.29 收口，对齐 mobile SessionScreen 菜单四项）----
+  // pinned/archived 态：SessionMeta 无这两位（列表索引字段不进事件流），进页一次
+  // getSession 拉取、动作成功用返回 DTO 回写（服务端真值，不做乐观更新）
+  const [flags, setFlags] = useState<{ pinned: boolean; archived: boolean } | null>(null)
+  const [menuBusy, setMenuBusy] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    const rest = getRestClient(serverUrl, token)
+    if (rest === null) return () => undefined
+    void rest
+      .getSession(sid)
+      .then((dto) => {
+        if (!cancelled) {
+          setFlags({ pinned: dto.pinned === true, archived: dto.archivedAt !== undefined })
+        }
+      })
+      .catch(() => undefined) // 态拉取失败不挡会话使用：菜单动作时再如实报错
+    return () => {
+      cancelled = true
+    }
+  }, [sid, serverUrl, token])
+
+  const runMenuAction = useCallback(
+    async (fn: (rest: MiniRestClient) => Promise<SessionDto | void>): Promise<void> => {
+      const rest = getRestClient(serverUrl, token)
+      if (rest === null) {
+        setAttachNotice('未配置服务器：请先在设置页完成配对')
+        return
+      }
+      setMenuBusy(true)
+      try {
+        const dto = await fn(rest)
+        if (dto !== undefined) {
+          setFlags({ pinned: dto.pinned === true, archived: dto.archivedAt !== undefined })
+        }
+      } catch (err: unknown) {
+        setAttachNotice(miniErrorMessageOf(err))
+      } finally {
+        setMenuBusy(false)
+      }
+    },
+    [serverUrl, token],
+  )
+
+  const openSessionMenu = useCallback((): void => {
+    if (menuBusy) return
+    const pinnedNow = flags?.pinned === true
+    const archivedNow = flags?.archived === true
+    const items = [
+      pinnedNow ? '取消置顶' : '置顶',
+      '重命名',
+      archivedNow ? '恢复' : '归档',
+      '删除',
+    ]
+    void Taro.showActionSheet({ itemList: items })
+      .then(({ tapIndex }) => {
+        switch (tapIndex) {
+          case 0:
+            void runMenuAction((rest) => rest.pinSession(sid, !pinnedNow))
+            break
+          case 1:
+            void Taro.showModal({
+              title: '重命名会话',
+              editable: true,
+              placeholderText: '输入新标题',
+            }).then(({ confirm, content }) => {
+              const title = (content ?? '').trim()
+              if (confirm !== true || title === '') return
+              void runMenuAction(async (rest) => {
+                const dto = await rest.renameSession(sid, title)
+                void Taro.setNavigationBarTitle({ title: dto.title !== '' ? dto.title : '新会话' })
+                return dto
+              })
+            })
+            break
+          case 2:
+            void runMenuAction((rest) => rest.archiveSession(sid, !archivedNow))
+            break
+          case 3:
+            void Taro.showModal({
+              title: '删除会话',
+              content: '会话文件将移入服务端回收站（两段式删除，可在存储页恢复）',
+              confirmColor: '#dc2626',
+            }).then(({ confirm }) => {
+              if (confirm !== true) return
+              void runMenuAction(async (rest) => {
+                await rest.deleteSession(sid)
+                Taro.navigateBack()
+              })
+            })
+            break
+        }
+      })
+      .catch(() => undefined) // 用户取消（errMsg 含 cancel）——非错误
+  }, [flags, menuBusy, runMenuAction, sid])
 
 
   const rows = useMemo(
@@ -309,7 +409,18 @@ export default function SessionPage() {
           </Text>
         </View>
       )}
-      <View className="sp-list-wrap">
+        <View className="sp-list-wrap">
+          {/* 会话菜单入口（19.29 收口）：右上浮钮"⋯"——置顶/改名/归档/删除四项 */}
+          <View
+            className="sp-menu-fab"
+            style={{ backgroundColor: t.card }}
+            onClick={openSessionMenu}
+            aria-label="会话菜单"
+          >
+            <Text className="sp-menu-fab-glyph" style={{ color: t.mutedForeground }}>
+              ⋯
+            </Text>
+          </View>
         <ScrollView
           className="sp-list"
           scrollY

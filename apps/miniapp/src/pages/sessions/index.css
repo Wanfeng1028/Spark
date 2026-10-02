@@ -92,6 +92,11 @@
   margin-right: 24rpx;
 }
 
+.sl-row-pin {
+  font-size: 13px;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
 .sl-row-title {
   flex: 1;
   font-size: 32rpx;

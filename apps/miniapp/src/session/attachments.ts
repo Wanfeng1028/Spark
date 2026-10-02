@@ -6,12 +6,11 @@
  * 临时文件路径 + FileSystemManager——故读字节被抽成注入点，本模块可整条链单测。
  * 上传走 `Transport.uploadAttachment`（工单 12.2a 既有方法，零新增协议面）。
  *
- * **发送通道的如实状态**：上传成功即落 `~/.spark/attachments/`，但
- * `POST /api/sessions/:id/messages` 的 body（server `SendMessageBody` strictObject）
- * 目前不收 attachments 字段，引擎 `SessionHandle.send` 亦无该形参（runtime.submit
- * 已支持、projector 已会读图转 base64）——端上把附件名塞进 body 只会换 400。
- * 因此本端与 HttpTransport 同口径：**不把 attachments 写进发送体**，待发附件
- * 保留在输入条上方并如实提示未随消息发出（整改清单见 apps/miniapp/README.md）。
+ * **发送通道已接通（19.29 收口批；缺口由 19.27 跨包修复）**：发送体三处
+ * （`SendMessageBody` / `SessionHandle.send` / `SessionPageController.send`）此前
+ * 都不承载 attachments 字段，19.27 已逐处补齐并透传两通道——本端 `MiniRestClient.
+ * sendMessage` 携带附件 id 数组，`handleSend` 经控制器 send 传附件，受理成功才清
+ * 待发列表（失败清单保留，不无声丢失）。
  */
 import type { AttachmentDto, SessionId } from '@spark/protocol'
 // 错误文案经本端语言收口（19.17 第三批）：i18n → app-store 链无 Taro 依赖，本模块仍零平台依赖可整条单测
