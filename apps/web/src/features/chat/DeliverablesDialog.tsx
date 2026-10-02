@@ -34,8 +34,7 @@ export function DeliverablesDialog({ open, onOpenChange, files, summary }: Deliv
             variant="outline"
             size="sm"
             onClick={() => {
-              void navigator.clipboard.writeText(files.join('
-')).then(() => setCopied(true))
+              void navigator.clipboard.writeText(files.join('\n')).then(() => setCopied(true))
             }}
           >
             {copied ? '已复制' : '复制清单'}
