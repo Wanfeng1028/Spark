@@ -272,6 +272,15 @@ export default function SessionPage() {
           </Text>
         </View>
       )}
+      {/* CK-13 批 2：交付声明只读条（present 工具 durable 投影；无声明不渲染——禁假状态） */}
+      {slice.deliverables !== null && (
+        <View className="sp-bar" style={{ backgroundColor: t.card }}>
+          <Text className="sp-meta" style={{ color: t.mutedForeground }}>
+            交付文件 {slice.deliverables.files.length} 个
+            {slice.deliverables.summary !== undefined ? `：${slice.deliverables.summary}` : ''}
+          </Text>
+        </View>
+      )}
       {/* 本轮以 error 结束（工单 19.29 补 topBanner 渲染）：数据源 = turn.completed
           finish='error' 投影出的 slice.topBanner（durable，回放即可重建）。
           重试 = 重发最后一条 user 文本（与 web SessionSurface.retryLastMessage 同语义：
