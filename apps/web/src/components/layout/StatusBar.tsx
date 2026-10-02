@@ -81,7 +81,7 @@ export function StatusBar() {
   const warn = ratio !== null && ratio > CONTEXT_WARN_RATIO
 
   return (
-    <footer className="flex h-6 items-center justify-between border-t border-border px-3 text-xs text-muted-foreground">
+    <footer className="flex h-6 items-center justify-between border-t border-border bg-background px-3 text-xs text-muted-foreground">
       <div className="flex min-w-0 items-center gap-3">
         <span className="flex shrink-0 items-center gap-1.5">
           <ConnectionDot status={status} />

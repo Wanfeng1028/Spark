@@ -42,7 +42,8 @@ export function AssistantBlock({ content, streaming, usage }: AssistantBlockProp
   const shikiTheme: [BundledTheme, BundledTheme] = [codeThemeLight, codeThemeDark]
 
   return (
-    <div className="flex flex-col gap-2">
+    // spark-assistant-plate：19.43 壁纸开启时的局部不透明底板（theme.css，关闭态不命中）
+    <div className="spark-assistant-plate flex flex-col gap-2">
       {streaming !== undefined && (
         <div className="text-sm leading-6">
           <Streamdown

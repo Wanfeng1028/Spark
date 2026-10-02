@@ -51,7 +51,8 @@ export function ReasoningCollapsible({
       : null
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border">
+    // spark-plate-bg：19.43 壁纸开启时垫不透明卡底（theme.css，关闭态不命中）
+    <div className="spark-plate-bg overflow-hidden rounded-xl border border-border">
       <button
         type="button"
         onClick={toggle}

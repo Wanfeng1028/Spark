@@ -10,6 +10,8 @@ import { CommandPalette } from '@/features/palette/CommandPalette'
 import { AuxSessionDrawer } from '@/features/chat/AuxSessionDrawer'
 import { useConnectionStore } from '@/stores/connection'
 import { useUiStore } from '@/stores/ui'
+import { useSettingsStore } from '@/stores/settings'
+import { WallpaperLayer } from '@/features/appearance/WallpaperLayer'
 import { useNarrowViewport } from '@/hooks/useNarrowViewport'
 import { useEffectiveKeymap, strokeOf } from '@/hooks/useEffectiveKeymap'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
@@ -38,6 +40,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const setSidebarCollapsed = useUiStore((s) => s.setSidebarCollapsed)
   const paletteOpen = useUiStore((s) => s.paletteOpen)
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen)
+  /** 主题壁纸（19.43）：'none' 时层不渲染、属性为 none，theme.css 让位规则全部不命中 */
+  const wallpaper = useSettingsStore((s) => s.wallpaper)
   const narrow = useNarrowViewport()
   const location = useLocation()
   const navigate = useNavigate()
@@ -131,7 +135,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const stackedSettings = narrowViewport && inSettings
 
   return (
-    <div className="grid h-full grid-rows-[auto_1fr_24px] bg-background text-foreground">
+    <div data-wallpaper={wallpaper} className="grid h-full grid-rows-[auto_1fr_24px] bg-background text-foreground">
+      {/* 壁纸背景层（19.43）：fixed -z-10 垫底，'none' 时为 null——放在根 div 首位 */}
+      <WallpaperLayer />
       {status !== 'open' && <ReconnectBanner status={status} />}
       <div
         className={cn(

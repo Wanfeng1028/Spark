@@ -145,4 +145,25 @@ describe('settings-store 外观字段', () => {
     const store = await freshStore()
     expect(store.getState().uiFontSize).toBe(13)
   })
+
+  it('主题壁纸（19.43 批 1）：默认 none、非法 id 收窄、setter 持久化', async () => {
+    const store = await freshStore()
+    expect(store.getState().wallpaper).toBe('none')
+    store.getState().setWallpaper('fluid-deep-ocean')
+    expect(store.getState().wallpaper).toBe('fluid-deep-ocean')
+    let saved = JSON.parse(dom.kv.get('spark.settings') ?? '{}') as Record<string, unknown>
+    expect(saved).toMatchObject({ wallpaper: 'fluid-deep-ocean' })
+
+    // 非法值（不存在的主题 id / 非字符串）一律回缺省——坏数据收窄走白名单
+    dom.kv.set('spark.settings', JSON.stringify({ wallpaper: 'fluid-vapor' }))
+    expect((await freshStore()).getState().wallpaper).toBe('none')
+    dom.kv.set('spark.settings', JSON.stringify({ wallpaper: 7 }))
+    expect((await freshStore()).getState().wallpaper).toBe('none')
+
+    // 回落 'none'：关闭态字段归位
+    store.getState().setWallpaper('none')
+    expect(store.getState().wallpaper).toBe('none')
+    saved = JSON.parse(dom.kv.get('spark.settings') ?? '{}') as Record<string, unknown>
+    expect(saved).toMatchObject({ wallpaper: 'none' })
+  })
 })

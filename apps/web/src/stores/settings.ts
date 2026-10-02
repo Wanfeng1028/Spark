@@ -11,6 +11,8 @@
  */
 import { create } from 'zustand'
 import type { Delivery } from '@spark/protocol'
+import { WALLPAPER_IDS } from '@/features/appearance/wallpapers'
+import type { WallpaperId } from '@/features/appearance/wallpapers'
 
 export type Theme = 'light' | 'dark' | 'system'
 
@@ -64,6 +66,8 @@ export interface SettingsState {
   showReasoning: boolean
   /** 连续同类工具聚合为分组卡（默认开——工单 10.20 A③） */
   showToolGroups: boolean
+  /** 主题壁纸（19.43 批 1；缺省 'none' 关闭，关闭态与未装逐像素一致——DESIGN §12.9） */
+  wallpaper: WallpaperId
   setTheme: (t: Theme) => void
   toggleTheme: () => void
   setDefaultDelivery: (d: Delivery) => void
@@ -76,6 +80,7 @@ export interface SettingsState {
   setCodeFontSize: (n: (typeof CODE_FONT_SIZES)[number]) => void
   setShowReasoning: (b: boolean) => void
   setShowToolGroups: (b: boolean) => void
+  setWallpaper: (w: WallpaperId) => void
 }
 
 const STORAGE_KEY = 'spark.settings'
@@ -92,6 +97,7 @@ interface PersistedSettings {
   codeFontSize: (typeof CODE_FONT_SIZES)[number]
   showReasoning: boolean
   showToolGroups: boolean
+  wallpaper: WallpaperId
 }
 
 const DEFAULTS: PersistedSettings = {
@@ -106,6 +112,7 @@ const DEFAULTS: PersistedSettings = {
   codeFontSize: 12,
   showReasoning: true,
   showToolGroups: true,
+  wallpaper: 'none',
 }
 
 function load(): PersistedSettings {
@@ -145,6 +152,11 @@ function load(): PersistedSettings {
         typeof parsed.showReasoning === 'boolean' ? parsed.showReasoning : DEFAULTS.showReasoning,
       showToolGroups:
         typeof parsed.showToolGroups === 'boolean' ? parsed.showToolGroups : DEFAULTS.showToolGroups,
+      wallpaper:
+        typeof parsed.wallpaper === 'string' &&
+        (parsed.wallpaper === 'none' || WALLPAPER_IDS.has(parsed.wallpaper))
+          ? (parsed.wallpaper as WallpaperId)
+          : DEFAULTS.wallpaper,
     }
   } catch {
     // 坏数据按默认处理（本地偏好，不值得 fail loudly）
@@ -225,5 +237,6 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
     },
     setShowReasoning: (showReasoning) => save({ showReasoning }),
     setShowToolGroups: (showToolGroups) => save({ showToolGroups }),
+    setWallpaper: (wallpaper) => save({ wallpaper }),
   }
 })

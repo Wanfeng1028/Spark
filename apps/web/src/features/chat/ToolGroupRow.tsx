@@ -34,7 +34,8 @@ export function ToolGroupRow({ category, tools, highlight }: ToolGroupRowProps) 
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex h-7 w-full items-center gap-1.5 rounded-xl border border-border px-2 text-left"
+        // spark-plate-bg：19.43 壁纸开启时垫不透明卡底（theme.css，关闭态不命中）
+        className="spark-plate-bg flex h-7 w-full items-center gap-1.5 rounded-xl border border-border px-2 text-left"
       >
         <ChevronRight
           className={cn(

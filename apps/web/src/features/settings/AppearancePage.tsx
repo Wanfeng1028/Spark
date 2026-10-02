@@ -3,14 +3,22 @@
  * 浅色代码主题（GitHub Light）/深色代码主题（Minimal Dark）/显示行号（开）/
  * 长行自动换行（开）/代码字号（12）；底部浅深双栏代码预览+当前生效 badge。
  * 全部字段即存即生效（settings-store 副作用 + AssistantBlock 消费）。
+ * 19.43 批 1：新增「主题壁纸」组——选择器 UI 黑白中性（§12.9 边界②），
+ * 缩略图用 snapshot 渲染器把主题渲进 canvas 像素（彩色不出画布）；
+ * 主题名走 protocol i18n 单源。五套静帧主题随批 2 素材追加进注册表。
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSettingsStore, CODE_THEMES, UI_FONT_SIZES, CODE_FONT_SIZES } from '@/stores/settings'
 import type { CodeTheme, Theme } from '@/stores/settings'
+import { WALLPAPERS } from '@/features/appearance/wallpapers'
+import type { FluidWallpaper } from '@/features/appearance/wallpapers'
+import { createFluid } from '@/features/appearance/fluid-renderer'
 import { Select } from '@/components/ui/select'
 import type { SelectOption } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { SettingRow, SettingGroupCard } from './SettingRow'
+import { useI18n } from '@/i18n/context'
+import { cn } from '@/lib/utils'
 
 /** shiki 单主题渲染预览（createHighlighter 单例；主题变更时重建——设置页低频操作可接受） */
 async function renderPreview(code: string, lang: string, themes: [CodeTheme, CodeTheme]) {
@@ -28,6 +36,7 @@ const PREVIEW_CODE = `function greet(name: string): string {
 }`
 
 export function AppearancePage() {
+  const { t } = useI18n()
   const theme = useSettingsStore((s) => s.theme)
   const setTheme = useSettingsStore((s) => s.setTheme)
   const uiFontSize = useSettingsStore((s) => s.uiFontSize)
@@ -42,6 +51,8 @@ export function AppearancePage() {
   const setWrapLongLines = useSettingsStore((s) => s.setWrapLongLines)
   const codeFontSize = useSettingsStore((s) => s.codeFontSize)
   const setCodeFontSize = useSettingsStore((s) => s.setCodeFontSize)
+  const wallpaper = useSettingsStore((s) => s.wallpaper)
+  const setWallpaper = useSettingsStore((s) => s.setWallpaper)
 
   const [preview, setPreview] = useState<{ light: string; dark: string } | null>(null)
 
@@ -104,6 +115,28 @@ export function AppearancePage() {
             onChange={setUiFontSize}
             className="w-24"
           />
+        </SettingRow>
+      </SettingGroupCard>
+
+      <SettingGroupCard>
+        <SettingRow title={t('wallpaper.title')} description={t('wallpaper.desc')}>
+          <div className="flex max-w-[420px] flex-wrap gap-2" role="radiogroup" aria-label={t('wallpaper.title')}>
+            <WallpaperTile
+              label={t('wallpaper.off')}
+              active={wallpaper === 'none'}
+              onSelect={() => setWallpaper('none')}
+            />
+            {WALLPAPERS.map((wp) => (
+              <WallpaperTile
+                key={wp.id}
+                wallpaper={wp}
+                label={t(`wallpaper.${wp.i18nKey}`)}
+                kind={t('wallpaper.kindFluid')}
+                active={wallpaper === wp.id}
+                onSelect={() => setWallpaper(wp.id)}
+              />
+            ))}
+          </div>
         </SettingRow>
       </SettingGroupCard>
 
@@ -171,8 +204,7 @@ function PreviewPane({
   label: string
   active: boolean
   html: string | null
-}) {
-  return (
+}) {  return (
     <div className="overflow-hidden rounded-lg border border-border">
       <div className="flex h-7 items-center justify-between border-b border-border bg-muted/50 px-2.5">
         <span className="text-[11px] leading-none text-muted-foreground">{label}</span>
@@ -194,5 +226,68 @@ function PreviewPane({
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * 壁纸缩略格（19.43 批 1）：snapshot 渲染器把主题渲进 canvas 像素——彩色只存在于
+ * canvas（§12.9 边界②），格框/文字/选中环全部走中性 token。WebGL2 不可用时如实
+ * 显示降级说明（禁假状态；真静帧兜底随批 2 素材落地）。
+ */
+function WallpaperTile({
+  wallpaper,
+  label,
+  kind,
+  active,
+  onSelect,
+}: {
+  /** 无 wallpaper = 「关闭」格：无缩略图，纯中性文本格 */
+  wallpaper?: FluidWallpaper
+  label: string
+  kind?: string
+  active: boolean
+  onSelect: () => void
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [failed, setFailed] = useState(false)
+  const { t } = useI18n()
+
+  useEffect(() => {
+    if (wallpaper === undefined) return
+    const canvas = canvasRef.current
+    if (canvas === null) return
+    const renderer = createFluid(canvas, { snapshot: true })
+    if (renderer === null) {
+      setFailed(true)
+      return
+    }
+    renderer.setPalette(wallpaper)
+    return () => renderer.stop()
+  }, [wallpaper])
+
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      title={kind}
+      onClick={onSelect}
+      className={cn(
+        'flex w-28 shrink-0 flex-col gap-1 rounded-lg border p-1 text-left',
+        active ? 'border-foreground' : 'border-border hover:border-muted-foreground/60',
+      )}
+    >
+      {wallpaper === undefined || failed ? (
+        <span
+          aria-hidden
+          className="flex h-14 w-full items-center justify-center rounded-md bg-muted px-1 text-center text-[10px] leading-4 text-muted-foreground"
+        >
+          {wallpaper === undefined ? '' : t('wallpaper.staticFallback')}
+        </span>
+      ) : (
+        <canvas ref={canvasRef} width={104} height={56} className="h-14 w-full rounded-md" aria-hidden />
+      )}
+      <span className="px-0.5 text-[11px] leading-4 text-foreground">{label}</span>
+    </button>
   )
 }

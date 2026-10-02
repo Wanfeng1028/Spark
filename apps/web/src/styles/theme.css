@@ -148,3 +148,22 @@ html.spark-code-wrap [data-streamdown='code-block-body'] pre {
   scrollbar-color: rgb(255 255 255 / 0.22) transparent;
 }
 
+
+/* ── 19.43 主题壁纸层（DESIGN §12.9 限定豁免）──────────────────────────────
+   开启时 AppShell 根底色让位：WallpaperLayer 以 fixed -z-10 垫在全部内容之下。
+   侧栏（bg-sidebar）/会话顶栏与状态条（bg-background）/输入卡（bg-card）/
+   用户气泡（bg-user-bubble）自带不透明底，不透色（边界④）。
+   关闭态 data-wallpaper='none'：本组规则全部不命中，与未装该功能逐像素一致。 */
+[data-wallpaper]:not([data-wallpaper='none']) {
+  background: transparent;
+}
+
+/* 拍板③局部底板：直接压在壁纸上的文字块垫不透明卡底（亮暗随 token，逐处实测留走查） */
+[data-wallpaper]:not([data-wallpaper='none']) .spark-assistant-plate {
+  background: var(--card);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+[data-wallpaper]:not([data-wallpaper='none']) .spark-plate-bg {
+  background: var(--card);
+}

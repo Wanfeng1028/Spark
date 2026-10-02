@@ -121,6 +121,28 @@ export type UiDictionary = {
     durationMinutes: string
   }
   /**
+   * 主题壁纸文案（19.43；DESIGN §12.9 豁免层——主题名是产品 locale 真值，
+   * 录自上游 wallpapers locale；kindStatic 为本仓拍板①"静帧"口径的事实描述，
+   * 不沿用上游"在线视频"文案——本仓素材本地打包，"需要联网"会是假状态）
+   */
+  wallpaper: {
+    title: string
+    desc: string
+    off: string
+    kindFluid: string
+    kindStatic: string
+    staticFallback: string
+    fluidDeepOcean: string
+    fluidAurora: string
+    fluidAmethyst: string
+    fluidEmber: string
+    natureMistyForest: string
+    natureOceanDrift: string
+    natureSnowPeaks: string
+    natureCinematicSnow: string
+    natureSkiView: string
+  }
+  /**
    * 错误码 → 人话文案（error-copy.ts 的 ERROR_COPY 由此派生，不再是并列的第二份表）。
    * **显式列键而非 Record<string,string>**：漏一条 en 就编译不过——24 个码靠人记必漏，
    * 而"某码在某语言下没文案"在运行时是静默回落中文，测试也抓不到。
@@ -234,6 +256,23 @@ const ZH: UiDictionary = {
     durationSeconds: '{n} 秒',
     durationMinutes: '{m} 分 {s} 秒',
   },
+  wallpaper: {
+    title: '主题壁纸',
+    desc: '背景个性化主题；仅背景层换装，界面保持黑白中性，缺省关闭',
+    off: '关闭',
+    kindFluid: '程序化流体 · 本地 WebGL 渲染',
+    kindStatic: '静态风光 · 本地静帧',
+    staticFallback: 'WebGL 不可用——当前为静态降级',
+    fluidDeepOcean: '深海流光',
+    fluidAurora: '极光翡翠',
+    fluidAmethyst: '紫晶云海',
+    fluidEmber: '熔金暮色',
+    natureMistyForest: '雾隐森林',
+    natureOceanDrift: '潮汐漫游',
+    natureSnowPeaks: '雪峰天际',
+    natureCinematicSnow: '雪岭电影感',
+    natureSkiView: '雪野滑踪',
+  },
   // 值逐字取自 error-copy.ts 的 ERROR_COPY（原表改由本命名空间派生，不再并列两份）
   err: {
     E_VALIDATION: '请求参数不合法，请检查输入后重试',
@@ -343,6 +382,23 @@ const EN: UiDictionary = {
     copyCode: 'Copy code',
     durationSeconds: '{n}s',
     durationMinutes: '{m}m {s}s',
+  },
+  wallpaper: {
+    title: 'Wallpaper',
+    desc: 'Background theme layer; the chrome stays monochrome, off by default',
+    off: 'Off',
+    kindFluid: 'procedural fluid · WebGL, drawn locally',
+    kindStatic: 'static scenery · local stills',
+    staticFallback: 'WebGL unavailable — showing the still fallback',
+    fluidDeepOcean: 'Deep Ocean',
+    fluidAurora: 'Emerald Aurora',
+    fluidAmethyst: 'Amethyst Cloud',
+    fluidEmber: 'Ember Dusk',
+    natureMistyForest: 'Misty Forest',
+    natureOceanDrift: 'Ocean Drift',
+    natureSnowPeaks: 'Snow Peaks',
+    natureCinematicSnow: 'Cinematic Snow',
+    natureSkiView: 'Ski View',
   },
   err: {
     E_VALIDATION: 'Invalid request parameters — check the input and retry',

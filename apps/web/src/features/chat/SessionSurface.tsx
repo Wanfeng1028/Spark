@@ -261,7 +261,8 @@ export function SessionSurface({
           drawer 形态追加：换一条 / 关闭（工单 19.36） */}
       <header
         className={cn(
-          'flex h-11 shrink-0 items-center gap-2 border-b border-border',
+          // bg-background：19.43 壁纸开启时标题栏保持不透明（§12.9 边界④，关闭态同色）
+          'flex h-11 shrink-0 items-center gap-2 border-b border-border bg-background',
           isPage ? 'px-4' : 'px-3',
         )}
       >
