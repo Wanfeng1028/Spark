@@ -29,7 +29,7 @@ interface DefOpts {
   parallelizable: boolean
   safety?: ToolDefinition['safety']
   delayMs?: number
-  rec?: { order: string[]; active: number; maxActive: number }
+  rec: { order: string[]; active: number; maxActive: number }
 }
 
 function fakeTool(name: string, opts: DefOpts): ToolDefinition {
