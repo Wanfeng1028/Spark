@@ -28,8 +28,9 @@ describe('present 工具（CK-13 批 1）', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'spark-present-'))
     await writeFile(join(cwd, 'out.md'), '# 交付\n', 'utf8')
     const emitted: Array<{ files: string[]; summary?: string }> = []
-    const tool = makePresentTool(async (sid, files, summary) => {
+    const tool = makePresentTool((sid, files, summary) => {
       emitted.push({ files, ...(summary !== undefined ? { summary } : {}) })
+      return Promise.resolve()
     })
     const r = await tool.execute(makeCtx(cwd), { files: ['out.md'], summary: '最终文档' })
     expect(r.isError).toBe(false)
@@ -40,7 +41,7 @@ describe('present 工具（CK-13 批 1）', () => {
 
   test('不存在的文件 → E_DELIVERABLE_MISSING（不假装已交付）', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'spark-present-'))
-    const tool = makePresentTool(async () => {})
+    const tool = makePresentTool(() => Promise.resolve())
     const r = await tool.execute(makeCtx(cwd), { files: ['nope.md'] })
     expect(r.isError).toBe(true)
     expect((r.output as { code: string }).code).toBe('E_DELIVERABLE_MISSING')
@@ -48,7 +49,7 @@ describe('present 工具（CK-13 批 1）', () => {
 
   test('cwd 外路径 → E_PATH_OUTSIDE（硬边界优先）', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'spark-present-'))
-    const tool = makePresentTool(async () => {})
+    const tool = makePresentTool(() => Promise.resolve())
     await expect(tool.execute(makeCtx(cwd), { files: ['../out.md'] })).rejects.toThrow('E_PATH_OUTSIDE')
   })
 

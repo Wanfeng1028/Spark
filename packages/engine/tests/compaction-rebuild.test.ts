@@ -2,14 +2,13 @@
  * CK-12 批 1 单测：压缩后状态复灌——rebuildState 端口注入后 summary 尾部含状态块；
  * 未注入时 summary 逐字节不变；todo/deferred 均空时端口返回 undefined（不加块）。
  */
-import { describe, expect, test, vi } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { ids, type SparkEventEnvelope } from '@spark/protocol'
 import { EventBus, type EventSink } from '../src/bus.js'
 import { CompactorImpl } from '../src/compaction.js'
 import { TodoBoard, type TodoItem } from '../src/tools/builtin/todo.js'
 import { DeferredToolIndex } from '../src/tools/builtin/tool-search.js'
 import { ZERO_USAGE } from '../src/llm-gateway.js'
-import type { SessionId } from '@spark/protocol'
 
 const SID = ids.session('ses_rebuildtest000000000000')
 
