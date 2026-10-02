@@ -65,6 +65,7 @@ export const grepTool: ToolDefinition<GrepInput> = {
     resourceOf: (input, ctx) => `file:${resolveInRoot(ctx.cwd, input.path ?? '.')}`,
   },
   parallelizable: true,
+  safety: { readOnly: true, concurrentSafe: true, sideEffectScope: 'none', riskLevel: 'low' },
 
   async execute(ctx: ToolContext, input: GrepInput): Promise<ToolOutput> {
     let regex: RegExp

@@ -86,6 +86,25 @@ export interface ToolOutput {
   isError: boolean
 }
 
+/**
+ * 声明式安全六维（CK-17 / doc/12 §12 #6 ZCode ToolContractDeclaration 六正交声明
+ * 的本仓取舍：timeout 三元组不落声明位——超时已由 spark.json toolTimeoutMs 与
+ * bash 的 timeoutMs 入参承担，按工具覆盖留后续工单）。strictObject 封闭：
+ * 未声明维度不得混写（编译期 + zod 运行期双重封闭）。
+ */
+export interface ToolSafety {
+  /** 纯只读（无任何状态变更——read/grep/listFs 类） */
+  readOnly?: boolean
+  /** 破坏性（删数据/覆盖外部状态——bash rm 类语义不可断言，computer.app 覆盖写等显式声明） */
+  destructive?: boolean
+  /** 并发安全（与任意工具同批执行不互扰；false = 即使 parallelizable: true 也降级串行） */
+  concurrentSafe?: boolean
+  /** 副作用域：none=纯读 / session=会话内 / workspace=工作区 / external=外部世界 */
+  sideEffectScope?: 'none' | 'session' | 'workspace' | 'external'
+  /** 风险档（审批 reason/审计/遥测消费面批 2） */
+  riskLevel?: 'low' | 'medium' | 'high'
+}
+
 export interface ToolDefinition<I = unknown> {
   /** 'read' | 'write' | 'edit' | 'bash' */
   name: string
@@ -116,6 +135,14 @@ export interface ToolDefinition<I = unknown> {
   }
   /** read=true；bash/edit/write=false（串行 barrier） */
   parallelizable: boolean
+  /**
+   * 声明式安全六维（CK-17 批 1 / doc/12 §12 #6 ZCode ToolContractDeclaration 取舍）：
+   * 一处声明多处消费——批 1 消费点 = 调度（concurrentSafe === false 时即使
+   * parallelizable: true 也降级为串行 barrier：破坏性/非并发安全工具不并行）；
+   * riskLevel/sideEffectScope 批 1 仅声明（消费面 = 后续审批 reason/审计/遥测）。
+   * 缺省 undefined = 行为与引入前逐字节一致（迁移兼容：既有工具不必一次性补齐）。
+   */
+  safety?: ToolSafety
   /**
    * 执行边界（工单 16.3 第三批；qwen-code 把 enter/exit_plan_mode 当边界的同款语义）：
    * 本工具**成功**执行后，同一 step 剩下的调用一律跳过并如实回 E_MODE_BOUNDARY——

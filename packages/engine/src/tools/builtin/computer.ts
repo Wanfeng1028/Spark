@@ -89,6 +89,7 @@ export function makeComputerTools(opts: ComputerToolsOptions): ToolDefinition[] 
       resourceOf: () => 'computer://screenshot',
     },
     parallelizable: false,
+    safety: { destructive: true, concurrentSafe: false, sideEffectScope: 'external', riskLevel: 'high' },
 
     async execute(ctx: ToolContext, _input: ScreenshotInput): Promise<ToolOutput> {
       if (!isEnabled()) throw disabledError()
@@ -108,6 +109,7 @@ export function makeComputerTools(opts: ComputerToolsOptions): ToolDefinition[] 
       resourceOf: () => 'computer://click',
     },
     parallelizable: false,
+    safety: { destructive: true, concurrentSafe: false, sideEffectScope: 'external', riskLevel: 'high' },
 
     async execute(ctx: ToolContext, input: ClickInput): Promise<ToolOutput> {
       if (!isEnabled()) throw disabledError()
@@ -127,6 +129,7 @@ export function makeComputerTools(opts: ComputerToolsOptions): ToolDefinition[] 
       resourceOf: () => 'computer://type',
     },
     parallelizable: false,
+    safety: { destructive: true, concurrentSafe: false, sideEffectScope: 'external', riskLevel: 'high' },
 
     async execute(ctx: ToolContext, input: TypeInput): Promise<ToolOutput> {
       if (!isEnabled()) throw disabledError()
@@ -147,6 +150,7 @@ export function makeComputerTools(opts: ComputerToolsOptions): ToolDefinition[] 
       resourceOf: () => 'computer://key',
     },
     parallelizable: false,
+    safety: { destructive: true, concurrentSafe: false, sideEffectScope: 'external', riskLevel: 'high' },
 
     async execute(ctx: ToolContext, input: KeyInput): Promise<ToolOutput> {
       if (!isEnabled()) throw disabledError()
@@ -166,6 +170,7 @@ export function makeComputerTools(opts: ComputerToolsOptions): ToolDefinition[] 
       resourceOf: () => 'computer://scroll',
     },
     parallelizable: false,
+    safety: { destructive: true, concurrentSafe: false, sideEffectScope: 'external', riskLevel: 'high' },
 
     async execute(ctx: ToolContext, input: ScrollInput): Promise<ToolOutput> {
       if (!isEnabled()) throw disabledError()
@@ -185,6 +190,7 @@ export function makeComputerTools(opts: ComputerToolsOptions): ToolDefinition[] 
       resourceOf: () => 'computer://window',
     },
     parallelizable: false,
+    safety: { destructive: true, concurrentSafe: false, sideEffectScope: 'external', riskLevel: 'high' },
 
     async execute(ctx: ToolContext, input: WindowInput): Promise<ToolOutput> {
       if (!isEnabled()) throw disabledError()
@@ -212,6 +218,7 @@ export function makeComputerTools(opts: ComputerToolsOptions): ToolDefinition[] 
           : 'computer://app/list',
     },
     parallelizable: false,
+    safety: { destructive: true, concurrentSafe: false, sideEffectScope: 'external', riskLevel: 'high' },
 
     async execute(ctx: ToolContext, input: AppInput): Promise<ToolOutput> {
       if (!isEnabled()) throw disabledError()
@@ -238,6 +245,7 @@ export function makeComputerTools(opts: ComputerToolsOptions): ToolDefinition[] 
           : 'computer://clipboard/read',
     },
     parallelizable: false,
+    safety: { destructive: true, concurrentSafe: false, sideEffectScope: 'external', riskLevel: 'high' },
 
     async execute(ctx: ToolContext, input: ClipboardInput): Promise<ToolOutput> {
       if (!isEnabled()) throw disabledError()

@@ -33,6 +33,7 @@ export const readTool: ToolDefinition<ReadInput> = {
   // ZC-4：同 edit/write——审批与执行同路径字节
   resolveInput: (input, ctx) => ({ ...input, path: resolveInRoot(ctx.cwd, input.path) }),
   parallelizable: true,
+  safety: { readOnly: true, concurrentSafe: true, sideEffectScope: 'none', riskLevel: 'low' },
 
   async execute(ctx: ToolContext, input: ReadInput): Promise<ToolOutput> {
     const abs = resolveInRoot(ctx.cwd, input.path)

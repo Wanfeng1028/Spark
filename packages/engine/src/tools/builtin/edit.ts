@@ -196,6 +196,7 @@ export const editTool: ToolDefinition<EditInput> = {
   // ZC-4：审批看到的就是执行用的——路径归一化为绝对路径后四处分发
   resolveInput: (input, ctx) => ({ ...input, path: resolveInRoot(ctx.cwd, input.path) }),
   parallelizable: false,
+  safety: { sideEffectScope: 'workspace', riskLevel: 'medium' },
 
   async execute(ctx: ToolContext, input: EditInput): Promise<ToolOutput> {
     const abs = resolveInRoot(ctx.cwd, input.path)

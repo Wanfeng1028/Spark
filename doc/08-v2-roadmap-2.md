@@ -22,6 +22,7 @@
 | v1.14 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-11 ToolSearch 延迟加载交付**（deferred 双入口判定 + tool_search 检索/显现 + 广告面过滤；单测 8 例）——卡内勾选见 §2 CK-11。与 doc/02 v4.183、CHANGELOG 同批 |
 | v1.15 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-12 批 1 压缩后状态复灌交付**（rebuildState 端口 + todo/deferred 清单复灌；单测 3 例）——卡内勾选见 §2 CK-12。与 doc/02 v4.184、CHANGELOG 同批 |
 | v1.16 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-13 批 1 present 交付声明交付**（present 工具 + deliverables.presented 事件词表 34 种；单测 4 例）——卡内勾选见 §2 CK-13。与 doc/02 v4.185、CHANGELOG 同批 |
+| v1.17 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-17 批 1 声明式安全六维交付**（ToolSafety 五维 + concurrentSafe 调度消费 + 迁移补声明；单测 3 例）——卡内勾选见 §2 CK-17。与 doc/02 v4.186、CHANGELOG 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -195,7 +196,7 @@
 
 **Spark 缺口**：ToolDefinition 只有 parallelizable 布尔 + permission.action；风险分级/破坏性/并发安全靠约定俗成，无结构化消费方。
 
-**内容**：ToolDefinition 增六维声明位；① 调度：并行分组按 concurrentSafe/destructive 判定（替代现布尔，迁移兼容）；② 权限：riskLevel 进审批 reason 与审计；③ 超时：defaultMs/maxMs/allowCallOverride 统一进 timeout 档。**验收**：声明位编译期封闭断言 + 调度/权限消费单测 + 既有工具逐个补声明的迁移清单。**依赖**：无；是后续任何工具面工单的地基。**成本**：M。
+**内容**：ToolDefinition 增六维声明位；① 调度：并行分组按 concurrentSafe/destructive 判定（替代现布尔，迁移兼容）；② 权限：riskLevel 进审批 reason 与审计；③ 超时：defaultMs/maxMs/allowCallOverride 统一进 timeout 档。**验收**：声明位编译期封闭断言 + 调度/权限消费单测 + 既有工具逐个补声明的迁移清单。**依赖**：无；是后续任何工具面工单的地基。**成本**：M。**✅ 批 1 已交付（2026-10-01，doc/02 v4.186）**——① `ToolSafety` 接口（readOnly/destructive/concurrentSafe/sideEffectScope/riskLevel 五维；**timeout 三元组不落声明位**——spark.json toolTimeoutMs 与 bash timeoutMs 已承担，留后续）；② 调度消费：group() 里 concurrentSafe === false 降级串行（**迁移兼容**：未声明 safety 的工具按 parallelizable 原语义逐字节不变）；③ 迁移补声明——read/grep（readOnly/concurrentSafe/none/low）、bash（external/high，destructive 不可断言不声明）、edit（workspace/medium）、computer.×8（destructive/concurrentSafe false/external/high）、todo_read/task_output（readOnly 并发安全）等；④ riskLevel/sideEffectScope 批 1 仅声明（消费面批 2）。单测 3 例（同 def 双调用实测并发数）。
 
 ## 3. 阶段十九追加批 M：19.48 中文长文去 AI 味规则层与硬检查扩展（2026-09-30 立项）
 

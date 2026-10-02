@@ -182,6 +182,7 @@ export function makeBashTool(opts: BashToolOptions): ToolDefinition<BashInput> {
       alwaysPatternsOf: (input) => splitCommandPatterns(input.command),
     },
     parallelizable: false,
+    safety: { sideEffectScope: 'external', riskLevel: 'high' },
 
     async execute(ctx: ToolContext, input: BashInput): Promise<ToolOutput> {
       const workDir = input.cwd !== undefined ? resolveInRoot(ctx.cwd, input.cwd) : ctx.cwd

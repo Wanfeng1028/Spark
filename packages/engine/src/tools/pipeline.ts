@@ -495,7 +495,9 @@ export class ToolPipelineImpl implements ToolPipeline {
     let current: CallGroup | null = null
     for (const call of calls) {
       const def = this.deps.registry.resolve(call.name)
-      const parallelizable = def?.parallelizable === true
+      // CK-17 批 1：调度消费——concurrentSafe === false 降级串行（破坏性/非并发
+      // 安全工具不并行），迁移兼容：未声明 safety 的工具按 parallelizable 原语义
+      const parallelizable = def?.parallelizable === true && def?.safety?.concurrentSafe !== false
       if (parallelizable && current?.parallel) {
         current.calls.push(call)
       } else {
