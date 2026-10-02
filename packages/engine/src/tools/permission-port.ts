@@ -22,6 +22,9 @@ export interface PermissionCheck {
   /** ZC-2：工具声明的 alwaysAsk 标记（管线从 ToolDefinition.permission.alwaysAsk 求值传入）——
    *  策略层判 allow 时压制为 ask 一次；用户/会话层显式 allow 可压制，项目级 deny 不可压制。 */
   alwaysAsk?: boolean
+  /** CK-17 批 2：工具声明的风险档（管线从 def.safety.riskLevel 透传）——
+   *  high 时审批 reason 附加风险提示；未声明/低中档不加（防噪声）。 */
+  riskLevel?: 'low' | 'medium' | 'high'
   signal: AbortSignal
 }
 

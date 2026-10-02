@@ -868,3 +868,31 @@ describe('replyAll 批量结清（19.35）', () => {
     expect(await service.replyAll(SID, 'once')).toBe(0)
   })
 })
+
+
+
+// ---- CK-17 批 2：riskLevel 进审批 reason ----
+
+describe('riskLevel 审批 reason 附加（CK-17 批 2）', () => {
+  test('高风险工具：asked reason 尾部附加〔风险档：高〕', async () => {
+    const { sink, service } = makeService()
+    const pending = await pendAsk(service, sink, makeCheck({ riskLevel: 'high' }).check)
+    const asked = sink.events.find(
+      (e): e is SparkEventEnvelope<'permission.asked'> => isEvent(e, 'permission.asked'),
+    )
+    if (asked === undefined) throw new Error('asked 缺失')
+    expect(asked.data.reason).toContain('〔风险档：高〕')
+    await service.reply(pending.requestId, 'reject')
+  })
+
+  test('medium/low 风险：reason 不附加（防噪声）', async () => {
+    const { sink, service } = makeService()
+    const pending = await pendAsk(service, sink, makeCheck({ riskLevel: 'medium' }).check)
+    const asked = sink.events.find(
+      (e): e is SparkEventEnvelope<'permission.asked'> => isEvent(e, 'permission.asked'),
+    )
+    if (asked === undefined) throw new Error('asked 缺失')
+    expect(asked.data.reason).not.toContain('风险档')
+    await service.reply(pending.requestId, 'reject')
+  })
+})

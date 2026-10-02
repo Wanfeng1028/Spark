@@ -330,6 +330,8 @@ export class ToolPipelineImpl implements ToolPipeline {
         input: effectiveInput,
         // ZC-2：工具声明的 alwaysAsk 随请求进权限服务（服务侧决定压制矩阵）
         alwaysAsk: def.permission.alwaysAsk?.(effectiveInput, { cwd: this.deps.cwd }) === true,
+        // CK-17 批 2：风险档透传（审批 reason 附加提示用）
+        ...(def.safety?.riskLevel !== undefined ? { riskLevel: def.safety.riskLevel } : {}),
         signal: turn.abort.signal,
       })
       if (!allowed) {

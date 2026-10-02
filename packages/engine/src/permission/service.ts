@@ -153,9 +153,12 @@ export class PermissionServiceImpl implements PermissionService {
       ...(check.alwaysPatterns !== undefined
         ? { alwaysPatterns: [...check.alwaysPatterns] }
         : {}),
-      reason: tightened
-        ? `工具 ${check.name} 请求 ${check.action}：${check.resource}（未信任目录：原放行已被收紧为逐次确认）`
-        : `工具 ${check.name} 请求 ${check.action}：${check.resource}`,
+      // CK-17 批 2：高风险工具附加风险提示（medium/low 不加——防噪声）
+      reason:
+        (tightened
+          ? `工具 ${check.name} 请求 ${check.action}：${check.resource}（未信任目录：原放行已被收紧为逐次确认）`
+          : `工具 ${check.name} 请求 ${check.action}：${check.resource}`) +
+        (check.riskLevel === 'high' ? '〔风险档：高〕' : ''),
       detail: check.input,
     })
     // emit 期间 turn 中断：asked 已入流，补 resolved{reject} 保持闭合
