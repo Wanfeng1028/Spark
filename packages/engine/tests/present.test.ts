@@ -57,8 +57,9 @@ describe('present 工具（CK-13 批 1）', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'spark-present-'))
     await writeFile(join(cwd, 'a.md'), 'a', 'utf8')
     const emitted: unknown[] = []
-    const tool = makePresentTool(async (_sid, files) => {
+    const tool = makePresentTool((_sid, files) => {
       emitted.push(files)
+      return Promise.resolve()
     })
     const r = await tool.execute(makeCtx(cwd), { files: ['a.md', 'missing.md'] })
     expect(r.isError).toBe(true)
