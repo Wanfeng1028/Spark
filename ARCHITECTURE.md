@@ -70,6 +70,7 @@
 | v1.69 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你去做新的工单"指令） | **新增 D57 后台任务平面（CK-1 批 1；doc/02 v4.171 同批）**：bash runInBackground + 60s 前台预算自动转后台 + task_output/task_stop 观察面 + 完成回注走输入队列 delivery=queue（goal 续跑同通道）；两事件 task.started/completed durable 非 surface（词表 34 种）。进程 spawn/收集留 bash 侧（复用树杀/解码器），manager 只持注册项——不合并两层抽象。事件模型行 28→30 同批 |
 | v1.70 | 2026-10-02 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，阶段十九未开工工单批开工指令） | **新增 D58 个性化主题层（19.43 批 1；doc/02 v4.190 同批）**：web localStorage 偏好层 `wallpaper`（缺省 none，零协议面零新事件不动引擎）；豁免范围 = canvas 像素 + 局部不透明底板（AppShell 根 data-wallpaper 让位）；渲染两处有意偏离上游（插值保留 / reduced-motion 瞬时 + visibilitychange 暂停 RAF）；WebGL2 失败不渲染（禁假状态）；四端降级 web+desktop 同 bundle、CLI 不适用、mobile/miniapp 候选。事件词表不变 |
 | v1.71 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，阶段十九未开工工单批开工指令） | **D21 修订注记（19.29 收口批；doc/02 v4.192 同批）**：小程序分发中继三档评估判决"短期不接、接时 C→B"（判决表在 apps/miniapp/README.md），中继落地定跨包工单；语音听写同判为中继附带项。事件词表不变 |
+| v1.72 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，同 v4.190 圈定批） | **新增 D59 内置终端（19.32 批 1；doc/02 v4.195 同批）**：spawn 参数 main 进程单源（shellProfileOf Git Bash→cmd.exe）+ preload/IPC 白名单五通道设计 + pty 树杀随窗 + xterm 渲染 desktop 复用 + 安全清单六条（S1–S6，实现批交评审）；批 1 = 判据 + 测试 6 例 + 本 ADR，批 2 = 依赖与实现一体落地。事件词表不变 |
 | v1.66 | 2026-09-25 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"已经完成的工单有问题的要修复"指令）；依据：doc/11 §4.1 P0 | **D48 补安全前提 + D40 收紧面扩容注记（doc/11 LA-01/02/03 收口；doc/02 v4.122 同批）**：项目层按会话 cwd 惰性建层 + 未信任整层停用 + 家目录撞路径不设层 + 固化/级联按会话项目层走；evaluate 层间 deny 优先；trust 收紧面 2→5 类。详见 D48 补记。本机零验证，CI 裁决 |
 
 ---
@@ -554,6 +555,12 @@ Windows 现状：防线维持"bash 默认全审批 + 路径硬边界"（§1.4/§
 背景：bash 常驻池是交互式池化（无模型侧后台语义），长命令（构建/测试/服务进程）只能同步阻塞回合等到 E_TIMEOUT。判据取 Claude Code（run_in_background + 前台阻塞预算自动后台化）、MiniMax（60s 预算 / 24KiB 头尾首响应）、OpenClaw（完成定向唤醒）。
 决策：① 后台化两入口——bash `runInBackground:true` 显式转后台（立即回 taskId）；前台阻塞超 60s 预算自动转后台（`autoBackgrounded` 回执 + 部分输出随行）。后台任务**无超时**（跑到自然结束/TaskStop/引擎 shutdown 树杀），转后台即脱离 timeoutMs 与 turn abort 语境（任务生存期越过回合）。② 观察面 = `task_output`（字符偏移续读；首响应 24KiB 头尾预算 + nextOffset；running 可轮询；会话隔离——他会话任务不可见）与 `task_stop`（树杀，aborted 结清）两独立工具（task.read/task.stop 开放 action，confirm-each 缺省 ask）。③ 完成回注 = 合成通知文本经会话输入队列 `delivery='queue'` 提交（goal 合成续跑同通道）驱动主会话汇报一轮；会话不在册 → 事件 `notified:false` 如实记录。④ 事件面 `task.started`/`task.completed`（durable 非 surface——模型可见面是回注的合成 user.message，surface 纪律由那条消息承担）。
 约束与失败语义：**进程 spawn 与输出收集留在 bash 工具侧**（复用树杀/StringDecoder/收集上限——后台与前台唯一差别是"不等待"），manager 只持注册项（stop 钩子 + 缓冲读访问器）——两层抽象不合并，否则超时/中断/沙箱三条前台路径全被搅进来；后台收集缓冲 256KB 上限截断如实标注（不是流式无限缓冲）；批 2（agent 后台化/TaskList/task.progress 流式/四端任务卡）留卡。
+
+### D59 内置终端 = node-pty + preload/IPC 白名单五通道 + xterm 渲染（2026-10-03 立项批 1，阶段十九工单 19.32）
+
+背景：web/desktop 均无终端面（desktop 的 IPC 面当前为零——renderer 与壳只靠 HTTP）。判据取 Claude Code/MiniMax 的 pty 管理与 VS Code terminal 的安全面。
+决策：① **spawn 参数由 main 进程产生**——shellProfileOf 判据（apps/desktop/src/terminal-shell.ts，Git Bash 优先回退 cmd.exe）是唯一事实源，preload/IPC 面**没有 shell 路径字段**（renderer 只给数据/尺寸/键入，不给命令；防 renderer 被注入后借 IPC 起 shell）；② **IPC 白名单五通道**（批 2 实现）：terminal.create/terminal.input/terminal.resize/terminal.exit 四个 ipcMain.handle/on 通道 + onData 单向推送，通道名封闭枚举、入参 zod 校验、session 槽位号绑定（不收 renderer 自报 pid）；③ 生命周期：窗口关闭/应用退出统一树杀（复用 killSidecar 的 taskkill /T /F 口径），pty 泄漏=僵尸 bash；④ 渲染：@xterm/xterm + fit addon 进 web（desktop 复用 bundle），浏览器独立跑 web 时 window.sparkTerminal 桥不存在 → 面板不渲染（如实无此功能，不显假开关）；⑤ 安全清单（实现批落地后交晚风评审）：S1 spawn 参数不出 main；S2 通道封闭枚举 + zod；S3 槽位号绑定防串台；S4 pty 树杀随窗随应用；S5 终端输出不进引擎上下文/日志（终端是用户直接 shell，不触 surface 纪律）；S6 contextIsolation 不放松（sandbox:true 保持）。
+批 1（本批）交付 = 探测判据 + 测试 6 例 + 本 ADR；批 2 = node-pty/@xterm 依赖声明（§2.3a 流程）+ preload/pty 管理器/终端面板一体实现 + 安全清单评审（晚风）。GeneralPage 两占位行（Shell/字体）随批 2 接真消费。
 
 ### D58 个性化主题层 = 端侧偏好 + canvas 像素豁免 + 局部底板（2026-10-02，阶段十九工单 19.43 批 1）
 
