@@ -1261,3 +1261,27 @@ describe('CK-4：todo.updated', () => {
     expect(slice2.todos).toEqual([])
   })
 })
+
+
+// ---- CK-13 批 2：deliverables.presented 投影 ----
+
+describe('CK-13：deliverables.presented', () => {
+  it('slice.deliverables 以最后一次声明为准（重复声明覆盖）', () => {
+    const s0 = applyEvent(fresh(), ev('session.created', { cwd: '/w', model: 'm' }, { seq: 1 }))
+    const first = applyEvent(
+      s0,
+      ev('deliverables.presented', { files: ['a.md'], summary: '第一版' }),
+    )
+    const slice1 = first.byId[SID]
+    if (slice1 === undefined) throw new Error('slice 缺失')
+    expect(slice1.deliverables).toEqual({ files: ['a.md'], summary: '第一版' })
+
+    const second = applyEvent(
+      first,
+      ev('deliverables.presented', { files: ['a.md', 'b.md'] }),
+    )
+    const slice2 = second.byId[SID]
+    if (slice2 === undefined) throw new Error('slice 缺失')
+    expect(slice2.deliverables).toEqual({ files: ['a.md', 'b.md'] })
+  })
+})

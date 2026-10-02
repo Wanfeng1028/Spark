@@ -141,6 +141,8 @@ export interface SessionSlice {
   memoryInjected: { count: number; query: string } | null
   /** 会话任务清单（CK-4）：todo.updated 整表快照投影（null = 本会话尚未用过清单） */
   todos: Array<{ id: string; content: string; status: 'pending' | 'in_progress' | 'completed' }> | null
+  /** 交付声明（CK-13）：deliverables.presented 投影（null = 未声明；重复声明以最后一次为准） */
+  deliverables: { files: string[]; summary?: string } | null
   /**
    * 会话模式（工单 16.3）：plan = 只读规划态（四端指示与 composer 提示的数据源）。
    * 由 `session.mode.changed` 驱动——durable，所以冷启动回放就能重建，不依赖内存态。
@@ -191,6 +193,7 @@ export function emptySessionSlice(sid: SessionId): SessionSlice {
     lastError: null,
     memoryInjected: null,
     todos: null,
+    deliverables: null,
     mode: 'default',
     goal: null,
   }
@@ -939,6 +942,12 @@ function reduceEvent(s: ProjectionState, e: SparkEventEnvelope, idxBox: IndexBox
     // CK-1：后台任务生命周期（durable 非 surface）——模型可见面是完成回注的合成
     // user.message（那条消息自带入流转录），任务状态卡是批 2 四端展示的范围；
     // 显式 no-op 保持 reducer 全覆盖纪律
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'deliverables.presented')) {
+    // CK-13 批 2：交付声明投影（以最后一次声明为准；四端交付卡片数据源）
+    next.deliverables = { files: e.data.files, ...(e.data.summary !== undefined ? { summary: e.data.summary } : {}) }
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 

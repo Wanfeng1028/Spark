@@ -194,6 +194,7 @@ export function mergePrefixSlice(P: SessionSlice, E: SessionSlice): SessionSlice
     lastError: E.lastError,
     memoryInjected: E.memoryInjected,
     todos: E.todos ?? P.todos,
+    deliverables: E.deliverables ?? P.deliverables,
     mode: E.mode,
     goal: E.goal,
   }
