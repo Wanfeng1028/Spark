@@ -66,13 +66,14 @@ import {
   UserBubble,
 } from '../components/session-items'
 import { Composer } from '../components/composer'
+import { ArenaSheet, CheckpointsSheet, SessionTreeSheet } from '../components/manage-sheets'
 import { useConfigStore } from '../store/config-store'
 import { useAppStore } from '../store/app-store'
 import { getHttpTransport, openSessionStream } from '../transport/runtime'
 import { buildSessionRows } from '../session/session-rows'
 import type { SessionRow } from '../session/session-rows'
 import { projectNameOf } from '../session/session-list'
-import { mobileErrorMessageOf } from '../i18n'
+import { mobileErrorMessageOf, miniT } from '../i18n'
 import {
   createSessionActionsController,
   type SessionActions,
@@ -260,6 +261,12 @@ export function SessionScreen() {
   const deliveryRef = useRef<Delivery>(delivery)
   deliveryRef.current = delivery
 
+  // 管理面板开关（19.28 批 1）+ 回滚后重建会话控制器（seq 回退，只能全量重放）
+  const [treeOpen, setTreeOpen] = useState(false)
+  const [checkpointsOpen, setCheckpointsOpen] = useState(false)
+  const [arenaOpen, setArenaOpen] = useState(false)
+  const [reloadEpoch, setReloadEpoch] = useState(0)
+
   // R-H：装载回放+开流/翻页/发送/审批/notice 全在 controller——本 effect 只做装配与收口
   useEffect(() => {
     const restSlice = (): SessionPageRestSlice | null =>
@@ -289,7 +296,8 @@ export function SessionScreen() {
       c.dispose()
       controllerRef.current = null
     }
-  }, [sid, serverUrl, token, showHint])
+    // reloadEpoch（19.28）：检查点回滚后 seq 回退，dispose 重建 + 全量重放是唯一正解
+  }, [sid, serverUrl, token, showHint, reloadEpoch])
 
   // 发消息 / 中断 / 审批决策（防抖闸门 H3 在 controller 内）
   // 附件（19.27 接真）：send 受理成功才清待发清单——失败时清单保留，用户改后重发
@@ -445,9 +453,35 @@ export function SessionScreen() {
           setMenuOpen(false)
         },
       },
+      // 管理面板三入口（19.28 批 1）：会话树 / 检查点 / 多模型竞答——各开 Sheet
+      {
+        icon: 'git-branch',
+        label: miniT('manage.sessionTree'),
+        onPress: () => {
+          setMenuOpen(false)
+          setTreeOpen(true)
+        },
+      },
+      {
+        icon: 'archive',
+        label: miniT('manage.checkpoints'),
+        onPress: () => {
+          setMenuOpen(false)
+          setCheckpointsOpen(true)
+        },
+      },
+      {
+        icon: 'zap',
+        label: miniT('manage.arena'),
+        onPress: () => {
+          setMenuOpen(false)
+          setArenaOpen(true)
+        },
+      },
     ]
     return out
   }, [archived, headerTitle, pinned])
+
 
   const tierRows = useMemo<readonly MenuRowSpec[]>(
     () =>
@@ -762,6 +796,36 @@ export function SessionScreen() {
             </TouchableOpacity>
           </View>
         </SheetScreen>
+      )}
+
+      {/* 管理面板三 Sheet（19.28 批 1）：树+分叉 / 检查点+回滚 / arena 只读+应用+取消 */}
+      {treeOpen && (
+        <SessionTreeSheet
+          sid={sid}
+          rest={() => getHttpTransport(serverUrl, token)}
+          onClose={() => setTreeOpen(false)}
+          onOpenSession={(nsid, ntitle) =>
+            navigation.replace('Session', { sessionId: nsid, title: ntitle })
+          }
+        />
+      )}
+      {checkpointsOpen && (
+        <CheckpointsSheet
+          sid={sid}
+          rest={() => getHttpTransport(serverUrl, token)}
+          onClose={() => setCheckpointsOpen(false)}
+          onRolledBack={() => {
+            setCheckpointsOpen(false)
+            setReloadEpoch((v) => v + 1)
+          }}
+        />
+      )}
+      {arenaOpen && (
+        <ArenaSheet
+          sid={sid}
+          rest={() => getHttpTransport(serverUrl, token)}
+          onClose={() => setArenaOpen(false)}
+        />
       )}
     </View>
   )

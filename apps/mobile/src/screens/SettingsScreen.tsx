@@ -6,7 +6,7 @@
  * 配对设备（J.2.8；工单 19.27 接真 getPairStatus/revokePairDevice/createPairCode）、
  * 断开连接（红字独立白卡）。
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ScrollView,
   StyleSheet,
@@ -20,7 +20,8 @@ import { useNavigation } from '@react-navigation/native'
 import type { DrawerNavigationProp } from '@react-navigation/drawer'
 import { HttpTransport, baseUrlOf } from '@spark/protocol'
 // 错误文案经本端语言收口（工单 19.17）：读 store 当前语言，store 是同步全局态、单测可直接 setLanguage
-import { mobileErrorMessageOf } from '../i18n'
+import { mobileErrorMessageOf, miniT } from '../i18n'
+import { useAppStore } from '../store/app-store'
 import { useConfigStore } from '../store/config-store'
 import { getHttpTransport, invalidateTransport } from '../transport/runtime'
 import { useTheme } from '../theme/use-theme'
@@ -28,6 +29,8 @@ import type { AppearancePreference } from '../theme/tokens'
 import { mobileMetrics } from '../theme/tokens'
 import { Card, Hairline, ScreenHeader } from '../components/ui'
 import { PairDevicesSheet } from '../components/pair-devices-sheet'
+import { AgentsSheet, ExtensionsSheet, LspSheet, TrustSheet } from '../components/manage-sheets'
+import type { FeatherIconName } from '../components/ui'
 import type { DrawerParamList } from '../navigation/params'
 
 const APPEARANCE_OPTIONS: ReadonlyArray<{ value: AppearancePreference; label: string }> = [
@@ -51,7 +54,24 @@ export function SettingsScreen() {
   const [tokenDraft, setTokenDraft] = useState(token)
   const [busy, setBusy] = useState(false)
   const [localNotice, setLocalNotice] = useState<string | null>(null)
+  const lang = useAppStore((s) => s.language)
   const [devicesOpen, setDevicesOpen] = useState(false)
+  // 服务管理四行（19.28 批 1）：文案单源 = protocol i18n manage.*；组件内求值随语言走
+  const manageRows = useMemo<ReadonlyArray<{ icon: FeatherIconName; label: string }>>(
+    () => [
+      { icon: 'shield', label: miniT('manage.trustDirs') },
+      { icon: 'package', label: miniT('manage.extensions') },
+      { icon: 'code', label: miniT('manage.lspServers') },
+      { icon: 'users', label: miniT('manage.agentPresets') },
+    ],
+    // language 变化时重算（miniT 读 store 当下值）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lang],
+  )
+  const [trustOpen, setTrustOpen] = useState(false)
+  const [extensionsOpen, setExtensionsOpen] = useState(false)
+  const [lspOpen, setLspOpen] = useState(false)
+  const [agentsOpen, setAgentsOpen] = useState(false)
   const [deviceCount, setDeviceCount] = useState<number | null>(null)
 
   const configured = serverUrl !== ''
@@ -274,6 +294,38 @@ export function SettingsScreen() {
           </Card>
         ) : null}
 
+        {/* 服务管理（19.28 批 1）：信任/扩展/语言服务器/子代理四行，各开 Sheet。
+            依赖 19.17 语言源已就绪，文案走 protocol i18n manage.* */}
+        {configured ? (
+          <Card style={styles.card}>
+            <Text style={[styles.cardTitle, { color: t.foreground }]}>服务管理</Text>
+            {(
+              [
+                ['shield', () => setTrustOpen(true)],
+                ['package', () => setExtensionsOpen(true)],
+                ['code', () => setLspOpen(true)],
+                ['users', () => setAgentsOpen(true)],
+              ] as const
+            ).map(([icon, onPress], i) => (
+              <View key={icon}>
+                {i > 0 ? <Hairline inset={0} /> : null}
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.7}
+                  style={styles.deviceRow}
+                  onPress={onPress}
+                >
+                  <Feather name={icon} size={16} color={t.mutedForeground} />
+                  <Text style={[styles.rowTitle, { color: t.foreground }]}>
+                    {manageRows[i]?.label ?? ''}
+                  </Text>
+                  <Feather name="chevron-right" size={16} color={t.mutedForeground} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </Card>
+        ) : null}
+
         {/* 断开连接（J.2.4⑤：红字、独立白卡） */}
         {configured ? (
           <TouchableOpacity
@@ -296,6 +348,10 @@ export function SettingsScreen() {
         ) : null}
       </ScrollView>
       {devicesOpen ? <PairDevicesSheet onClose={() => setDevicesOpen(false)} /> : null}
+      {trustOpen ? <TrustSheet rest={() => getHttpTransport(serverUrl, token)} onClose={() => setTrustOpen(false)} /> : null}
+      {extensionsOpen ? <ExtensionsSheet rest={() => getHttpTransport(serverUrl, token)} onClose={() => setExtensionsOpen(false)} /> : null}
+      {lspOpen ? <LspSheet rest={() => getHttpTransport(serverUrl, token)} onClose={() => setLspOpen(false)} /> : null}
+      {agentsOpen ? <AgentsSheet rest={() => getHttpTransport(serverUrl, token)} onClose={() => setAgentsOpen(false)} /> : null}
     </View>
   )
 }

@@ -121,6 +121,30 @@ export type UiDictionary = {
     durationMinutes: string
   }
   /**
+   * 管理面板文案（19.28 批 1）：mobile 会话页三 Sheet（会话树/检查点/arena）与
+   * 设置页管理区四行（信任目录/扩展/语言服务器/子代理）共用；web 端同名面板
+   * 后续接线时可共享（现文案硬编码，不强求同批换）。动作成功反馈四键供端侧 hint。
+   */
+  manage: {
+    sessionTree: string
+    checkpoints: string
+    arena: string
+    trustDirs: string
+    extensions: string
+    lspServers: string
+    agentPresets: string
+    fork: string
+    rollback: string
+    applyWinner: string
+    cancelArena: string
+    install: string
+    empty: string
+    forked: string
+    rolledBack: string
+    applied: string
+    installed: string
+  }
+  /**
    * 主题壁纸文案（19.43；DESIGN §12.9 豁免层——主题名是产品 locale 真值，
    * 录自上游 wallpapers locale；kindStatic 为本仓拍板①"静帧"口径的事实描述，
    * 不沿用上游"在线视频"文案——本仓素材本地打包，"需要联网"会是假状态）
@@ -256,6 +280,25 @@ const ZH: UiDictionary = {
     durationSeconds: '{n} 秒',
     durationMinutes: '{m} 分 {s} 秒',
   },
+  manage: {
+    sessionTree: '会话树',
+    checkpoints: '检查点',
+    arena: '多模型竞答',
+    trustDirs: '信任目录',
+    extensions: '扩展插件',
+    lspServers: '语言服务器',
+    agentPresets: '子代理预设',
+    fork: '在此分叉',
+    rollback: '回滚到此',
+    applyWinner: '应用胜者',
+    cancelArena: '取消竞答',
+    install: '安装',
+    empty: '暂无内容',
+    forked: '已分叉，可在会话树打开新会话',
+    rolledBack: '已回滚，正在重建会话视图',
+    applied: '胜者变更已应用',
+    installed: '已发起安装',
+  },
   wallpaper: {
     title: '主题壁纸',
     desc: '背景个性化主题；仅背景层换装，界面保持黑白中性，缺省关闭',
@@ -382,6 +425,25 @@ const EN: UiDictionary = {
     copyCode: 'Copy code',
     durationSeconds: '{n}s',
     durationMinutes: '{m}m {s}s',
+  },
+  manage: {
+    sessionTree: 'Session tree',
+    checkpoints: 'Checkpoints',
+    arena: 'Model arena',
+    trustDirs: 'Trusted folders',
+    extensions: 'Extensions',
+    lspServers: 'Language servers',
+    agentPresets: 'Agent presets',
+    fork: 'Fork here',
+    rollback: 'Roll back here',
+    applyWinner: 'Apply winner',
+    cancelArena: 'Cancel arena',
+    install: 'Install',
+    empty: 'Nothing here yet',
+    forked: 'Forked — open the new session from the tree',
+    rolledBack: 'Rolled back — rebuilding the view',
+    applied: 'Winner applied',
+    installed: 'Install started',
   },
   wallpaper: {
     title: 'Wallpaper',
