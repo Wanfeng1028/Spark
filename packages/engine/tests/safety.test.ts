@@ -124,6 +124,7 @@ describe('CK-17：safety 声明与调度消费', () => {
         sideEffectScope: 'external',
         riskLevel: 'high',
       },
+      rec: { order: [], active: 0, maxActive: 0 },
     })
     expect(def.safety?.readOnly).toBe(false)
     expect(def.safety?.destructive).toBe(true)
