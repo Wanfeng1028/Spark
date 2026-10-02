@@ -46,6 +46,10 @@ export const useSessionItems = (sid: SessionId): UiItem[] =>
 export const useActiveTurn = (sid: SessionId): ActiveTurn | null =>
   useSessionStore((s) => s.byId[sid]?.activeTurn ?? null)
 
+/** 交付声明（CK-13 批 2）：present 工具的 durable 投影（null = 未声明） */
+export const useSessionDeliverables = (sid: SessionId) =>
+  useSessionStore((s) => s.byId[sid]?.deliverables ?? null)
+
 /**
  * 缓存会话判定（工单 10.16，纯函数可单测）：lastSeq>0 = store 已有该会话的持久投影。
  * 命中即立即渲染缓存、后台照常全量回放（replaySessionEvents 取回后同步覆写对齐

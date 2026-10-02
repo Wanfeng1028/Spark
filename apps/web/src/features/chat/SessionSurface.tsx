@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { useNavigate } from 'react-router'
-import { Activity, FileDiff, FolderGit2, GitBranch, History, MessagesSquare, X } from 'lucide-react'
+import { Activity, FileDiff, FolderGit2, GitBranch, History, MessagesSquare, PackageCheck, X } from 'lucide-react'
 import { ids } from '@spark/protocol'
 import type { PermissionPreset, ReasoningEffort, SessionId } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
@@ -32,6 +32,8 @@ import { SessionTreeDialog } from '@/features/chat/SessionTreeDialog'
 import { TraceDialog } from '@/features/chat/TraceDialog'
 import { CheckpointDialog } from '@/features/chat/CheckpointDialog'
 import { ReviewDialog } from '@/features/chat/ReviewDialog'
+import { DeliverablesDialog } from '@/features/chat/DeliverablesDialog'
+import { useSessionDeliverables } from '@/stores/session'
 import { projectOf } from '@/components/layout/Sidebar'
 import { hasCachedProjection, useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
 import type { UiItem } from '@/stores/session'
@@ -106,6 +108,9 @@ export function SessionSurface({
   const [reviewOpen, setReviewOpen] = useState(false)
   // 挂起审批清单（19.35）：审查浮层批量动作的计数源；真源是事件流——批量结清后
   // 各 ApprovalCard 经 permission.resolved 自行翻牌，此处不做乐观更新
+  // 交付声明（CK-13 批 2）：present 工具的 durable 投影；无声明不渲染入口（禁假状态）
+  const deliverables = useSessionDeliverables(sid)
+  const [deliverablesOpen, setDeliverablesOpen] = useState(false)
   const pendingApprovals = useMemo(
     () =>
       items.filter(
@@ -318,6 +323,18 @@ export function SessionSurface({
           >
             <History className="size-4" />
           </button>
+          {/* 交付声明入口（CK-13 批 2）：present 声明后才显示（禁假状态） */}
+          {deliverables !== null && (
+            <button
+              type="button"
+              aria-label="交付文件"
+              title={deliverables.summary ?? '交付文件清单'}
+              onClick={() => setDeliverablesOpen(true)}
+              className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              <PackageCheck className="size-4" />
+            </button>
+          )}
           {/* 审查入口（工单 19.35）：diff 聚合 + 批量放行（浮层内） */}
           <button
             type="button"
@@ -448,6 +465,14 @@ export function SessionSurface({
               sid={sid}
               pending={pendingApprovals}
             />
+            {deliverables !== null && (
+              <DeliverablesDialog
+                open={deliverablesOpen}
+                onOpenChange={setDeliverablesOpen}
+                files={deliverables.files}
+                {...(deliverables.summary !== undefined ? { summary: deliverables.summary } : {})}
+              />
+            )}
             <ErrorToast sid={sid} replaying={replaying} />
           </div>
         </div>
