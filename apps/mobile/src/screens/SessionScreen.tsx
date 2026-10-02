@@ -525,6 +525,10 @@ export function SessionScreen() {
           onPress={lastUserText !== null ? () => handleSend(lastUserText) : undefined}
         />
       )}
+      {/* CK-13 批 2：交付声明只读卡（present 工具 durable 投影；无声明不渲染——禁假状态） */}
+      {slice.deliverables !== null && (
+        <BannerRow text={`交付文件 ${slice.deliverables.files.length} 个${slice.deliverables.summary !== undefined ? `：${slice.deliverables.summary}` : ''}`} color={t.sparkWarn} />
+      )}
       {/* 计划模式细条（工单 16.3 → 19.27 升真控件）：数据源 = durable 事件投影的 slice.mode；
           点按开权限档位菜单（§13.E 四档 + /plan exit），不再是只有解释没有出口的横幅。
           中性色不用 sparkWarn——plan 是常态模式不是告警，与 web 徽标/CLI footer 同口径 */}

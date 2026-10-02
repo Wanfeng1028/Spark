@@ -29,7 +29,7 @@ import type { PermissionService } from './permission-port.js'
 import type { ToolOutputStore } from './output-store.js'
 import type { ToolRegistry } from './registry.js'
 import type { IoGuard } from './guard.js'
-import type { ReadFileStateMap } from './read-state.js'
+import type { ReadFileStateEntry, ReadFileStateMap } from './read-state.js'
 
 export interface PipelineDeps {
   sessionId: SessionId
@@ -164,7 +164,7 @@ export class ToolPipelineImpl implements ToolPipeline {
 
   constructor(private readonly deps: PipelineDeps) {
     // CK-12 批 2：readFileState 可注入——engine 需与压缩 rebuildState 闭包共享同一实例
-    this.readFileState = deps.readFileState ?? new Map<string, import('./read-state.js').ReadFileStateEntry>()
+    this.readFileState = deps.readFileState ?? new Map<string, ReadFileStateEntry>()
   }
 
   /** 广告清单：全域 deny 的工具不进模型可见面（§5.7 补强 5）；预设档收窄的工具同不广告（工单 13.5） */
