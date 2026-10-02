@@ -67,7 +67,9 @@ export interface SessionPageController {
   dispose(): void
   /** 向上翻页：较旧一页升序合并 + 全量重放 */
   loadOlder(): Promise<void>
-  send(text: string): Promise<void>
+  /** attachments（19.27 附件接入）：端侧 picker/uploadAttachment 产物，经提交链进 wire。
+   *  返回是否已受理（transport 缺席/请求失败 false）——端侧据此刻清待发清单，不丢附件 */
+  send(text: string, opts?: { attachments?: string[] }): Promise<boolean>
   stop(): Promise<void>
   reply(requestId: RequestId, reply: PermissionReply): Promise<void>
   /** 行时间戳（会话行时间分隔渲染用） */
@@ -387,15 +389,21 @@ export function createSessionPageController(opts: {
       }
     },
 
-    async send(text: string) {
+    async send(text: string, sendOpts?: { attachments?: string[] }) {
       const transport = opts.rest()
-      if (transport === null) return
+      if (transport === null) return false
       sending = true
       emit()
       try {
-        await transport.sendMessage(sid, text)
+        await transport.sendMessage(
+          sid,
+          text,
+          sendOpts?.attachments !== undefined ? { attachments: sendOpts.attachments } : undefined,
+        )
+        return true
       } catch (err: unknown) {
         setNotice(err instanceof Error ? err.message : String(err))
+        return false
       } finally {
         sending = false
         emit()

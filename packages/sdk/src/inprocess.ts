@@ -116,8 +116,12 @@ export class InProcessTransport implements Transport {
 
   async sendMessage(sessionId: SessionId, text: string, opts?: SendMessageOptions): Promise<SubmitOutcome> {
     const handle = await this.handleOf(sessionId)
-    // attachments 不透传：引擎的 send 不收附件（HTTP 通道同样"暂不发送"，两通道一致）
-    const result = await handle.send(text, opts?.delivery, opts?.expectedTurnId)
+    const result = await handle.send(
+      text,
+      opts?.delivery,
+      opts?.attachments,
+      opts?.expectedTurnId,
+    )
     return {
       result: result.result,
       ...(result.turnId !== undefined ? { turnId: result.turnId } : {}),

@@ -222,6 +222,24 @@ describe('groupSessions——三档分段', () => {
     expect(sections.map((s) => s.key)).toEqual(['today', 'earlier'])
   })
 
+  it('置顶会话从各段提出合成首个「置顶」组（19.41 接入；不受分组与时间流逝影响）', () => {
+    const pinnedOld: SessionDto = { ...dto('pinned-old', 100), pinned: true }
+    const today1 = dto('today-1', 900)
+    const today2 = dto('today-2', 800)
+    const sections = groupSessions([today1, pinnedOld, today2], 'all', () => true)
+    expect(sections[0]?.key).toBe('pinned')
+    expect(sections[0]?.items.map((s) => s.title)).toEqual(['pinned-old'])
+    expect(sections).toHaveLength(2)
+    // 其余段不再含置顶项
+    const today = sections.find((s) => s.key === 'today')
+    expect(today?.items.map((s) => s.title)).toEqual(['today-1', 'today-2'])
+  })
+
+  it('无置顶会话不出现「置顶」段（禁假状态）', () => {
+    const sections = groupSessions([dto('a', 900)], 'all', () => true)
+    expect(sections.map((s) => s.key)).toEqual(['today'])
+  })
+
   it('projectNameOf：正斜杠/反斜杠/带尾斜杠/空串', () => {
     expect(projectNameOf('/a/b/c')).toBe('c')
     expect(projectNameOf('C:\\work\\spark')).toBe('spark')

@@ -84,6 +84,8 @@ export const SessionDetailQuery = z.strictObject({
 export const SendMessageBody = z.strictObject({
   text: z.string().min(1),
   delivery: DeliverySchema.default('now'),
+  // 附件 id 数组（12.2a uploadAttachment 的产物；19.27 接通 wire——此前 strictObject 拒收）
+  attachments: z.array(z.string().min(1)).optional(),
   expectedTurnId: TurnIdSchema.optional(),
 })
 

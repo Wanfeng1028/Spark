@@ -15,6 +15,6 @@
       "edgeToEdgeEnabled": true,
       "package": "com.sparkapp.mobile"
     },
-    "plugins": ["expo-secure-store", "expo-status-bar"]
+    "plugins": ["expo-secure-store", "expo-status-bar", ["expo-image-picker", { "photosPermission": "允许 Spark 读取图片以附加到消息" }]]
   }
 }

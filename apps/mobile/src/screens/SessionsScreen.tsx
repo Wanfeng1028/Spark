@@ -273,6 +273,11 @@ function SessionRow({
             { backgroundColor: dotColor(dto.status, t, dto.archivedAt !== undefined) },
           ]}
         />
+        {/* 置顶角标（19.41 接入）：排版记号 ★（CLI /resume 同款记号，非 emoji 装饰）；
+            DTO 仅已置顶携带 pinned（禁假状态），未置顶不渲染 */}
+        {dto.pinned === true && (
+          <Text style={[styles.rowPin, { color: t.mutedForeground }]}>★</Text>
+        )}
         <Text
           numberOfLines={1}
           style={[styles.rowTitle, { color: t.foreground }]}
@@ -352,6 +357,10 @@ const styles = StyleSheet.create({
   rowTitle: {
     flex: 1,
     fontSize: mobileMetrics.rowTitle,
+  },
+  rowPin: {
+    fontSize: mobileMetrics.rowTitle,
+    marginRight: 4,
   },
   rowDate: {
     fontSize: mobileMetrics.caption,

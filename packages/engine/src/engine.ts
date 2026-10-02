@@ -2988,13 +2988,13 @@ export class Engine {
       get meta(): SessionMeta {
         return entry.meta
       },
-      send: (text, delivery, expectedTurnId) => {
+      send: (text, delivery, attachments, expectedTurnId) => {
         if (this.shuttingDown) {
           return Promise.reject(shutdownError())
         }
         // submit 同步抛（E_INPUT_EMPTY/E_TURN_MISMATCH）也走 rejected promise——接口语义一致
         try {
-          return Promise.resolve(entry.runtime.submit(text, delivery, undefined, expectedTurnId))
+          return Promise.resolve(entry.runtime.submit(text, delivery, attachments, expectedTurnId))
         } catch (err) {
           // reject 理由必须是 Error（prefer-promise-reject-errors）；submit 抛的均为 Error
           return Promise.reject(asError(err))

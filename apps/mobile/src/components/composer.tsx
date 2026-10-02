@@ -7,11 +7,10 @@
  * 提交档（19.27）：运行中在胶囊上方浮一枚档钮（立即/插话/排队），点按切档——
  * 空闲恒 now（§13.E 禁用矩阵：无活动轮可插话/排队，故空闲不显示档钮，不摆设）。
  *
- * 左"+"附件钮已撤除（工单 19.27 判定，非遗漏）：uploadAttachment 要图片字节，
- * RN 侧取字节需 expo-image-picker（新依赖，AGENTS §2.3a 禁止本机安装），且
- * sendMessage 的 wire 目前不带 attachments 字段（protocol HttpTransport 显式丢弃 +
- * server SendMessageBody 为 strictObject）。两头都没通之前挂一个"+"就是置灰承诺，
- * 而本单验收正是"置灰/承诺缺口 grep 清零"。补齐路径见 doc/02 §8 19.27 报告。
+ * 附件（19.27 接真，撤"已撤除"判定）：wire 已通（SendMessageBody.attachments +
+ * HttpTransport/inprocess 透传）+ expo-image-picker 取图（新依赖走 §2.3a 流程，
+ * 锁文件由人类重算）。本组件保持哑件：待发清单与上传态由父级持有——
+ * 左"+"钮（上传中禁点）、待发 chips（名字截断 + × 移除）。
  */
 import { useState } from 'react'
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
@@ -29,6 +28,12 @@ const DELIVERY_LABEL: Record<Delivery, string> = {
   queue: '排队发送',
 }
 
+/** 待发附件（uploadAttachment 产物；id 进 sendMessage wire，name 仅供 chips 展示） */
+export interface PendingAttachment {
+  id: string
+  name: string
+}
+
 export interface ComposerProps {
   /** turn 运行中：右钮呈停止 ■（按 = 中断） */
   running: boolean
@@ -40,6 +45,11 @@ export interface ComposerProps {
   delivery: Delivery
   /** 切档（仅运行中可达——档钮只在 running 时渲染） */
   onDeliveryChange: (d: Delivery) => void
+  /** 待发附件清单与上传态（父级持有，本组件哑件） */
+  pending: readonly PendingAttachment[]
+  uploading: boolean
+  onPickAttachment: () => void
+  onRemoveAttachment: (id: string) => void
   onSend: (text: string) => void
   onStop: () => void
 }
@@ -50,6 +60,10 @@ export function Composer({
   placeholder,
   delivery,
   onDeliveryChange,
+  pending,
+  uploading,
+  onPickAttachment,
+  onRemoveAttachment,
   onSend,
   onStop,
 }: ComposerProps) {
@@ -72,8 +86,33 @@ export function Composer({
   }
 
   const sendDisabled = text.trim() === '' || busy
+  const attachDisabled = busy || uploading
   return (
     <View style={styles.wrap}>
+      {(pending.length > 0 || uploading) && (
+        <View style={styles.attachRow}>
+          {uploading && (
+            <View style={[styles.attachChip, { borderColor: t.border }]}>
+              <Text style={[styles.attachName, { color: t.mutedForeground }]}>上传中…</Text>
+            </View>
+          )}
+          {pending.map((a) => (
+            <View key={a.id} style={[styles.attachChip, { borderColor: t.border }]}>
+              <Text numberOfLines={1} style={[styles.attachName, { color: t.foreground }]}>
+                {a.name}
+              </Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`移除附件 ${a.name}`}
+                onPress={() => onRemoveAttachment(a.id)}
+                hitSlop={8}
+              >
+                <Feather name="x" size={12} color={t.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
       {running && (
         <View style={styles.deliveryRow}>
           <TouchableOpacity
@@ -91,6 +130,16 @@ export function Composer({
         </View>
       )}
       <View style={[styles.capsule, { backgroundColor: t.card }]}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="附加图片"
+          disabled={attachDisabled}
+          onPress={onPickAttachment}
+          activeOpacity={0.7}
+          style={[styles.attachButton, { opacity: attachDisabled ? 0.35 : 1 }]}
+        >
+          <Feather name="plus" size={20} color={t.mutedForeground} />
+        </TouchableOpacity>
         <TextInput
           accessibilityLabel="消息输入框"
           style={[styles.input, { color: t.foreground, height: composerHeight(lines) - 20 }]}
@@ -141,6 +190,31 @@ const styles = StyleSheet.create({
   },
   deliveryRow: {
     flexDirection: 'row',
+  },
+  attachRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  attachChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: 160,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+  },
+  attachName: {
+    fontSize: mobileMetrics.caption,
+    flexShrink: 1,
+  },
+  attachButton: {
+    width: 32,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deliveryChip: {
     flexDirection: 'row',

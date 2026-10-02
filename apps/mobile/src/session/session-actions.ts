@@ -1,5 +1,5 @@
 /**
- * 会话菜单动作控制器（工单 19.27）：改名 / 归档 / 删除 / 反馈 / 权限档位 / 退出计划模式。
+ * 会话菜单动作控制器（工单 19.27）：改名 / 置顶 / 归档 / 删除 / 反馈 / 权限档位 / 退出计划模式。
  *
  * 铁律落点：
  * - 不做乐观更新——动作成功只回调 `onChanged`，界面状态仍来自 REST 返回值与事件流；
@@ -7,8 +7,8 @@
  *   连点第二次直接丢弃（服务端会 409/重复行，前端要的是不误导的错误条）；
  * - 失败闭合：`errorMessageOf` 人话文案单源，不吞异常、不假报成功。
  *
- * 置顶不做：置顶的协议面与引擎索引列还没落地（工单 19.41 未开工）——菜单里
- * 不放置灰的置顶项（置灰项本身就是承诺缺口），见 doc/02 §8 阶段十九 19.27 报告。
+ * 置顶（19.41 协议面 pinSession + SessionDto.pinned 已落地；mobile 接入原登记依赖 19.27，
+ * 随本单收口）：菜单里放真项，不放置灰占位。
  */
 import type { EventId, FeedbackEntryDto, FeedbackVote, PermissionPreset, SessionDto, SessionId, Transport } from '@spark/protocol'
 // 错误文案经本端语言收口（工单 19.17）：读 store 当前语言，store 是同步全局态、单测可直接 setLanguage
@@ -17,6 +17,7 @@ import { mobileErrorMessageOf } from '../i18n'
 export type SessionActionsRest = Pick<
   Transport,
   | 'renameSession'
+  | 'pinSession'
   | 'archiveSession'
   | 'deleteSession'
   | 'submitFeedback'
@@ -30,6 +31,7 @@ export type SessionActionsRest = Pick<
 /** 在途动作名（null = 空闲）；按钮禁用态的数据源 */
 export type SessionActionKind =
   | 'rename'
+  | 'pin'
   | 'archive'
   | 'delete'
   | 'feedback'
@@ -54,6 +56,8 @@ export interface SessionActionsSnapshot {
 export interface SessionActions {
   /** 改名（19.20 的 Transport.renameSession；空白标题拒绝，不发请求） */
   rename(title: string): Promise<SessionDto | null>
+  /** 置顶/取消置顶（19.41 的 Transport.pinSession；返回新 DTO 供列表就地校正） */
+  setPinned(pinned: boolean): Promise<SessionDto | null>
   /** 归档/恢复（12.4 的 archiveSession；返回新 DTO 供列表就地校正） */
   setArchived(archived: boolean): Promise<SessionDto | null>
   /** 两段式删除（JSONL 进 trash；运行中会话服务端 409，文案照实呈现） */
@@ -168,6 +172,12 @@ export function createSessionActionsController(opts: {
       }
       const dto = await run('rename', (t) => t.renameSession(opts.sessionId, title))
       if (dto !== null) opts.onChanged?.('rename', dto)
+      return dto
+    },
+
+    async setPinned(pinned) {
+      const dto = await run('pin', (t) => t.pinSession(opts.sessionId, pinned))
+      if (dto !== null) opts.onChanged?.('pin', dto)
       return dto
     },
 

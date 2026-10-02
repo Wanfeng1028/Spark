@@ -43,8 +43,8 @@ export interface SessionMeta {
 export interface SessionHandle {
   readonly id: SessionId
   readonly meta: SessionMeta
-  /** 三态直通受理结果（HTTP 只表达"已受理"） */
-  send(text: string, delivery?: Delivery, expectedTurnId?: TurnId): Promise<SubmitResult>
+  /** 三态直通受理结果（HTTP 只表达"已受理"）；attachments 与 runtime.submit 同序（19.27 附件接入） */
+  send(text: string, delivery?: Delivery, attachments?: string[], expectedTurnId?: TurnId): Promise<SubmitResult>
   interrupt(): Promise<void>
   /** 手动压缩（§5.8.5）：turn 进行中拒绝（E_TURN_ACTIVE——压缩读全路径，避开运行竞态） */
   compact(): Promise<void>

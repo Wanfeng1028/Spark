@@ -142,6 +142,31 @@ describe('session-page controller（R-H 内核契约）', () => {
     h.controller.dispose()
   })
 
+  it('send 带 attachments 透传进 sendMessage opts；不带时 opts 为 undefined（19.27 附件 wire）', async () => {
+    const seen: Array<unknown> = []
+    const rest = (): Pick<Transport, 'getSession' | 'sendMessage' | 'interrupt' | 'replyPermission'> | null => ({
+      getSession: () => Promise.resolve(sessionDto([]) as never),
+      sendMessage: (_sid, _text, opts) => {
+        seen.push(opts)
+        return Promise.resolve({ result: 'started' })
+      },
+      interrupt: () => Promise.resolve(),
+      replyPermission: () => Promise.resolve(),
+    })
+    const controller = createSessionPageController({
+      sessionId: sid,
+      rest,
+      schedule: (fn) => void fn(),
+      openStream: () => ({ dispose: () => undefined }),
+      onUpdate: () => undefined,
+    })
+    await controller.send('看图', { attachments: ['a1.png'] })
+    await controller.send('纯文本')
+    controller.dispose()
+    expect(seen[0]).toEqual({ attachments: ['a1.png'] })
+    expect(seen[1]).toBeUndefined()
+  })
+
   it('H3：审批复读闸门——忙碌期第二次 reply 不出网', async () => {
     const gate = { resolve: () => {} }
     let replyCalls = 0

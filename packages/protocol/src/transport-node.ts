@@ -239,12 +239,12 @@ export class HttpTransport implements Transport {
   }
 
   sendMessage(sessionId: SessionId, text: string, opts?: SendMessageOptions): Promise<SubmitOutcome> {
-    // attachments 暂不发送：server SendMessageBody 为 strictObject（§7.2 v1 无此字段，协议演进未用项）
     return this.req<SubmitOutcome>(`/api/sessions/${sessionId}/messages`, {
       method: 'POST',
       body: JSON.stringify({
         text,
         delivery: opts?.delivery ?? 'now',
+        ...(opts?.attachments !== undefined ? { attachments: opts.attachments } : {}),
         ...(opts?.expectedTurnId !== undefined ? { expectedTurnId: opts.expectedTurnId } : {}),
       }),
     })

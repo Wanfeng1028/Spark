@@ -38,10 +38,12 @@ import {
   emptySessionSlice,
   formatTimestamp,
   ids,
+  type AttachmentDto,
   type PermissionReply,
   type SessionPageController,
   type SessionPageSnapshot,
 } from '@spark/protocol'
+import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from '../theme/use-theme'
 import { mobileMetrics } from '../theme/tokens'
 import {
@@ -70,6 +72,7 @@ import { getHttpTransport, openSessionStream } from '../transport/runtime'
 import { buildSessionRows } from '../session/session-rows'
 import type { SessionRow } from '../session/session-rows'
 import { projectNameOf } from '../session/session-list'
+import { mobileErrorMessageOf } from '../i18n'
 import {
   createSessionActionsController,
   type SessionActions,
@@ -81,7 +84,7 @@ import {
   createSubmitRest,
   type SessionPageRestSlice,
 } from '../session/submit-channel'
-import { attachmentUrlOf } from '../session/attachments'
+import { attachmentUrlOf, ATTACHMENT_MAX_BYTES, base64ToBytes } from '../session/attachments'
 import type { SessionsStackParamList } from '../navigation/params'
 
 /** 上拉翻页页长（服务端上限 200；50 条兼顾首屏速度与翻页次数） */
@@ -196,6 +199,12 @@ export function SessionScreen() {
   useEffect(() => {
     setArchived(archivedFromList)
   }, [archivedFromList])
+  // 置顶态同口径：SessionDto.pinned 仅已置顶携带（19.41 DTO；禁假状态）
+  const pinnedFromList = sessions.find((s) => s.id === sid)?.pinned === true
+  const [pinned, setPinned] = useState(pinnedFromList)
+  useEffect(() => {
+    setPinned(pinnedFromList)
+  }, [pinnedFromList])
 
   const [actionSnap, setActionSnap] = useState<SessionActionsSnapshot>({
     running: null,
@@ -210,9 +219,10 @@ export function SessionScreen() {
       sessionId: sid,
       rest: () => getHttpTransport(serverUrl, token),
       onUpdate: setActionSnap,
-      // 归档/恢复：DTO 是服务端返回的新值（不是乐观改写）
+      // 置顶：pinSession 返回的 DTO 是服务端新值（不是乐观改写）
       onChanged: (kind, dto) => {
         if (kind === 'archive' && dto !== null) setArchived(dto.archivedAt !== undefined)
+        if (kind === 'pin' && dto !== null) setPinned(dto.pinned === true)
       },
     })
     actionsRef.current = c
@@ -282,17 +292,78 @@ export function SessionScreen() {
   }, [sid, serverUrl, token, showHint])
 
   // 发消息 / 中断 / 审批决策（防抖闸门 H3 在 controller 内）
+  // 附件（19.27 接真）：send 受理成功才清待发清单——失败时清单保留，用户改后重发
   const handleSend = useCallback(
     (text: string): void => {
-      void controllerRef.current?.send(text)
+      const attachments = pendingAttachments.map((a) => a.id)
+      void controllerRef.current
+        ?.send(text, attachments.length > 0 ? { attachments } : undefined)
+        .then((ok) => {
+          if (ok === true) setPendingAttachments([])
+        })
     },
-    [],
+    [pendingAttachments],
   )
   const handleStop = useCallback((): void => {
     void controllerRef.current?.stop()
   }, [])
   const handleReply = useCallback((requestId: RequestId, reply: PermissionReply): void => {
     void controllerRef.current?.reply(requestId, reply)
+  }, [])
+
+  // ---- 附件上传（19.27 接真）：picker 选图 → base64 取字节 → uploadAttachment → 待发清单 ----
+  const [pendingAttachments, setPendingAttachments] = useState<AttachmentDto[]>([])
+  const [uploadingAttachment, setUploadingAttachment] = useState(false)
+  const pickAttachment = useCallback(async (): Promise<void> => {
+    if (uploadingAttachment) return
+    const transport = getHttpTransport(serverUrl, token)
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (perm.granted !== true) {
+      showHint('未获得相册权限，无法附加图片')
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 1,
+      base64: true,
+      allowsMultipleSelection: false,
+    })
+    if (result.canceled) return
+    const asset = result.assets[0]
+    if (asset === undefined) return
+    const mime = asset.mimeType ?? 'image/jpeg'
+    if (!mime.startsWith('image/')) {
+      showHint('仅支持图片附件')
+      return
+    }
+    if (asset.fileSize !== undefined && asset.fileSize !== null && asset.fileSize > ATTACHMENT_MAX_BYTES) {
+      showHint('图片超过 10MB 上限')
+      return
+    }
+    const b64 = asset.base64
+    if (b64 === undefined || b64 === null || b64 === '') {
+      showHint('读取图片失败，请重试')
+      return
+    }
+    const bytes = base64ToBytes(b64)
+    if (bytes === null || bytes.length === 0) {
+      showHint('读取图片失败，请重试')
+      return
+    }
+    const name = asset.fileName ?? `image.${mime.split('/')[1] ?? 'png'}`
+    setUploadingAttachment(true)
+    try {
+      const dto = await transport.uploadAttachment(sid, { name, mime, bytes })
+      setPendingAttachments((prev) => [...prev, dto])
+    } catch (err: unknown) {
+      showHint(mobileErrorMessageOf(err))
+    } finally {
+      setUploadingAttachment(false)
+    }
+  }, [serverUrl, token, sid, uploadingAttachment, showHint])
+  const removeAttachment = useCallback((id: string): void => {
+    // 只从待发清单摘除（服务端文件由引擎 attachments 清理面统一回收，无需逐个删）
+    setPendingAttachments((prev) => prev.filter((a) => a.id !== id))
   }, [])
 
   const rows = useMemo(
@@ -331,6 +402,15 @@ export function SessionScreen() {
   const menuRows = useMemo<readonly MenuRowSpec[]>(() => {
     const out: MenuRowSpec[] = [
       {
+        // 置顶首项（19.41 协议面已落地；web 同款首项同序）
+        icon: 'star',
+        label: pinned ? '取消置顶' : '置顶',
+        onPress: () => {
+          setMenuOpen(false)
+          void actionsRef.current?.setPinned(!pinned)
+        },
+      },
+      {
         icon: 'edit-2',
         label: '重命名',
         onPress: () => {
@@ -366,9 +446,8 @@ export function SessionScreen() {
         },
       },
     ]
-    // 置顶不做：协议面与引擎索引列待工单 19.41——菜单里不放置灰占位项（本单验收）
     return out
-  }, [archived, headerTitle])
+  }, [archived, headerTitle, pinned])
 
   const tierRows = useMemo<readonly MenuRowSpec[]>(
     () =>
@@ -589,6 +668,10 @@ export function SessionScreen() {
             placeholder={composerPlaceholder(running, delivery)}
             delivery={running ? delivery : 'now'}
             onDeliveryChange={setDelivery}
+            pending={pendingAttachments.map((a) => ({ id: a.id, name: a.name }))}
+            uploading={uploadingAttachment}
+            onPickAttachment={() => void pickAttachment()}
+            onRemoveAttachment={removeAttachment}
             onSend={(text) => void handleSend(text)}
             onStop={() => void handleStop()}
           />

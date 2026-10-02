@@ -313,6 +313,27 @@ describe('POST /api/sessions/:id/messages', () => {
     expect(typeof body['turnId']).toBe('string')
   })
 
+  test('attachments 字段受理（19.27 wire 接通；strictObject 此前拒收）', async () => {
+    const f = await setup()
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '看图' }] })
+    const created = await f.app.inject({ method: 'POST', url: '/api/sessions', payload: {} })
+    const id = (created.json() as Json)['id'] as string
+    const res = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: '这张图里有什么', attachments: ['a1b2c3d4.png'] },
+    })
+    expect(res.statusCode).toBe(200)
+    expect((res.json() as Json)['result']).toBe('started')
+    // 未知字段仍被 strictObject 拒（attachments 接通不放宽整体校验）
+    const junk = await f.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${id}/messages`,
+      payload: { text: 'x', deliveryOverride: 'now' },
+    })
+    expect(junk.statusCode).toBe(400)
+  })
+
   test('turn 中 steer → steered', async () => {
     const f = await setup()
     const events = collectEvents(f)

@@ -55,6 +55,10 @@ function baseMocks() {
       (_sid: unknown, archived: boolean): Promise<SessionDto> =>
         Promise.resolve(sessionDto(archived ? { archivedAt: '2026-09-22T00:00:00.000Z' } : {})),
     ),
+    pinSession: jest.fn(
+      (_sid: unknown, pinned: boolean): Promise<SessionDto> =>
+        Promise.resolve(sessionDto(pinned ? { pinned: true } : {})),
+    ),
     deleteSession: jest.fn((): Promise<void> => Promise.resolve(undefined)),
     submitFeedback: jest.fn(
       (input: { vote: 'up' | 'down' }): Promise<FeedbackEntryDto> =>
@@ -128,6 +132,18 @@ describe('会话菜单动作——调用序列', () => {
     await un.actions.setArchived(false)
     expect(un.mocks.archiveSession).toHaveBeenCalledWith(SID, false)
     expect(un.changed[0]?.[1]?.archivedAt).toBeUndefined()
+  })
+
+  it('置顶走 pinSession(sid, true)，取消走 false，并用服务端 DTO 回报 pinned（19.41 接入）', async () => {
+    const pin = harness()
+    await pin.actions.setPinned(true)
+    expect(pin.mocks.pinSession).toHaveBeenCalledWith(SID, true)
+    expect(pin.changed[0]?.[1]?.pinned).toBe(true)
+
+    const un = harness()
+    await un.actions.setPinned(false)
+    expect(un.mocks.pinSession).toHaveBeenCalledWith(SID, false)
+    expect(un.changed[0]?.[1]?.pinned).toBeUndefined()
   })
 
   it('删除走 deleteSession，成功后 onChanged("delete", null)', async () => {

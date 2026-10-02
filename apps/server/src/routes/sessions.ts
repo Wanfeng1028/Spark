@@ -144,7 +144,7 @@ export const registerSessionRoutes: FastifyPluginCallback<RoutesOptions> = (app,
     const handle = await requireHandle(engine, id)
     // 三态直通：HTTP 只表达"已受理"，不等 turn 结果（§7.2）
     return reply.send(
-      await handle.send(body.text, body.delivery, body.expectedTurnId),
+      await handle.send(body.text, body.delivery, body.attachments, body.expectedTurnId),
     )
   })
 

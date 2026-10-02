@@ -55,7 +55,9 @@ function projectOf(dto: SessionDto): string {
 }
 
 /**
- * 列表分段：全部/已归档按时间（今天/更早），按项目按 cwd 目录名。
+ * 列表分段：置顶组（19.41 接入——置顶会话从各档提出合成首个「置顶」段，
+ * 置顶语义 = 不受分组与时间流逝影响，web session-groups 同口径）+ 全部/已归档按时间
+ * （今天/更早）或按项目按 cwd 目录名。
  * 排序键 updatedAt 倒序在分组前统一做——组内顺序即列表顺序。
  * `todayOf` 注入仅为单测可造"今天/更早"两组数据，缺省走 protocol 单源 isToday。
  */
@@ -65,23 +67,25 @@ export function groupSessions(
   todayOf: (ts: number) => boolean = (ts) => isToday(ts),
 ): SessionSection[] {
   const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)
+  const pinned = sorted.filter((s) => s.pinned === true)
+  const rest = sorted.filter((s) => s.pinned !== true)
+  const out: SessionSection[] = []
+  if (pinned.length > 0) out.push({ key: 'pinned', title: '置顶', items: pinned })
   if (filter === 'project') {
     const groups = new Map<string, SessionDto[]>()
-    for (const dto of sorted) {
+    for (const dto of rest) {
       const key = projectOf(dto)
       const list = groups.get(key)
       if (list === undefined) groups.set(key, [dto])
       else list.push(dto)
     }
-    return [...groups.entries()].map(([name, items]) => ({
-      key: `project:${name}`,
-      title: name,
-      items,
-    }))
+    for (const [name, items] of groups.entries()) {
+      out.push({ key: `project:${name}`, title: name, items })
+    }
+    return out
   }
-  const today = sorted.filter((s) => todayOf(s.updatedAt))
-  const earlier = sorted.filter((s) => !todayOf(s.updatedAt))
-  const out: SessionSection[] = []
+  const today = rest.filter((s) => todayOf(s.updatedAt))
+  const earlier = rest.filter((s) => !todayOf(s.updatedAt))
   if (today.length > 0) out.push({ key: 'today', title: '今天', items: today })
   if (earlier.length > 0) out.push({ key: 'earlier', title: '更早', items: earlier })
   return out
