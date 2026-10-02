@@ -48,6 +48,8 @@ export interface PipelineDeps {
   questionBoard?: QuestionBoardPort
   /** CK-11：deferred 工具索引（tool_search 宿主；缺省 = 无延迟加载语义，广告面全量） */
   deferredIndex?: DeferredToolIndex
+  /** CK-12 批 2：read-state 基线注入（engine 需与压缩 rebuildState 闭包共享同一实例；缺省自建） */
+  readFileState?: ReadFileStateMap
   /** 用户侧 hooks（工单 7.3；缺省不触发——测试 stub 可省） */
   hooks?: UserHookRunner
   /** 长期记忆仓（工单 7.5 / ADR D25；缺省 memory 工具族不予执行——测试 stub 可省） */
