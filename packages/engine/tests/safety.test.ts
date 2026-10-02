@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
-import { ids } from '@spark/protocol'
+import { ids, type SparkEventEnvelope } from '@spark/protocol'
 import { ToolRegistry } from '../src/tools/registry.js'
 import { ToolPipelineImpl } from '../src/tools/pipeline.js'
 import { ToolOutputStore } from '../src/tools/output-store.js'
@@ -18,8 +18,8 @@ import type { ToolDefinition, ToolContext, ToolOutput } from '../src/tools/defin
 const SID = ids.session('ses_safetytest000000000000')
 
 class MemSink implements EventSink {
-  readonly events: import('@spark/protocol').SparkEventEnvelope[] = []
-  append(e: import('@spark/protocol').SparkEventEnvelope): Promise<import('@spark/protocol').SparkEventEnvelope> {
+  readonly events: SparkEventEnvelope[] = []
+  append(e: SparkEventEnvelope): Promise<SparkEventEnvelope> {
     this.events.push(e)
     return Promise.resolve(e)
   }
@@ -40,9 +40,8 @@ function fakeTool(name: string, opts: DefOpts): ToolDefinition {
     permission: { action: `fake.${name}`, resourceOf: () => `fake:${name}` },
     parallelizable: opts.parallelizable,
     ...(opts.safety !== undefined ? { safety: opts.safety } : {}),
-    async execute(ctx: ToolContext, _input): Promise<ToolOutput> {
+    async execute(_ctx: ToolContext, _input): Promise<ToolOutput> {
       const rec = opts.rec
-      console.log('EXEC', name)
       rec.order.push(`start:${name}`)
       rec.active += 1
       rec.maxActive = Math.max(rec.maxActive, rec.active)
