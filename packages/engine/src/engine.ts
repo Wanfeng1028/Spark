@@ -2698,6 +2698,29 @@ export class Engine {
       sessionId: meta.id,
       bus: this.bus,
       gateway: this.gateway,
+      // CK-12 批 1：压缩后状态复灌——进行中任务 + 延迟工具清单（正在读文件的
+      // 内文复灌留批 2，read-state 基线在管线实例内）
+      rebuildState: () => {
+        const openTodos = this.todoBoard
+          .get(meta.id)
+          .filter((t) => t.status !== 'completed')
+        const deferred = this.deferredIndex.list()
+        if (openTodos.length === 0 && deferred.length === 0) return undefined
+        const parts: string[] = []
+        if (openTodos.length > 0) {
+          parts.push(
+            '## 进行中任务（压缩前的工作台状态）\n' +
+              openTodos.map((t) => `- [${t.status === 'in_progress' ? '×' : ' '}] ${t.content}`).join('\n'),
+          )
+        }
+        if (deferred.length > 0) {
+          parts.push(
+            '## 延迟工具（未加载 schema，需要时先用 tool_search 显现）\n' +
+              deferred.map((d) => `- ${d}`).join('\n'),
+          )
+        }
+        return parts.join('\n\n')
+      },
       projector,
       tree: store.tree,
       get model(): ResolvedModel {

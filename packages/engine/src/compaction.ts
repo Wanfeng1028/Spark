@@ -113,6 +113,12 @@ export interface CompactorDeps {
   /** LA-39：辅助通道用量计入预算（压缩摘要与逐条蒸馏的 generateOnce usage）——
    *  缺省不计（测试 stub 可省）。dims 固定为压缩档模型。 */
   budget?: { add(usage: Usage, dims: { provider: string; model: string }): void }
+  /**
+   * 压缩后状态复灌（CK-12 批 1）：返回拼接到摘要尾部的状态块（进行中任务/延迟
+   * 工具清单等"工作台状态"——压缩后这些全丢，模型等于失忆重开）。undefined =
+   * 无状态可灌（摘要逐字节不变）。装配层合成（engine 持有 todoBoard/deferredIndex）。
+   */
+  rebuildState?: () => string | undefined
 }
 
 /** 投影消息 → 纯文本转录（generateOnce 单 prompt；结构项 JSON 序列化；标题生成复用） */
@@ -162,8 +168,12 @@ export class CompactorImpl implements Compactor {
       const keptFromEventId = this.computeKeptFromEventId()
       // 第二层：锚点后超限工具输出蒸馏（逐条失败降级为原文，不推翻压缩）
       const distilled = await this.distillKeptOutputs(keptFromEventId)
+      // CK-12 批 1：状态复灌——状态块拼进摘要尾部（summary 即模型可见面，
+      // 投影层透传；零协议面，四端渲染批 2）
+      const stateBlock = this.deps.rebuildState?.()
+      const summary = stateBlock !== undefined ? `${parsed.summary}\n\n${stateBlock}` : parsed.summary
       await this.deps.bus.emit(sid, 'compaction.completed', {
-        summary: parsed.summary,
+        summary,
         keptFromEventId,
         tokensBefore: ctx.tokens,
         ...(parsed.keptFiles !== undefined ? { keptFiles: parsed.keptFiles } : {}),
