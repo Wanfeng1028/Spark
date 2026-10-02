@@ -25,7 +25,7 @@ async function makeFixture(opts?: {
   todos?: TodoItem[]
   deferred?: string[]
   rebuildState?: () => string | undefined
-}): { sink: MemSink; compact: () => Promise<boolean> } {
+}): Promise<{ sink: MemSink; compact: () => Promise<boolean> }> {
   const sink = new MemSink()
   const bus = new EventBus({ sink })
   const board = new TodoBoard({ emit: async () => undefined })
@@ -66,9 +66,10 @@ async function makeFixture(opts?: {
 }
 
 function completedSummary(sink: MemSink): string {
-  const done = sink.events.findLast(
-    (e): e is SparkEventEnvelope<'compaction.completed'> => e.type === 'compaction.completed',
-  )
+  // findLast 需 es2023 lib（未开）——逆序 find + 谓词收窄
+  const done = [...sink.events]
+    .reverse()
+    .find((e): e is SparkEventEnvelope<'compaction.completed'> => e.type === 'compaction.completed')
   if (done === undefined) {
     const err = sink.events.find((e) => e.type === 'error')
     throw new Error(`compaction.completed 缺失${err !== undefined ? `（error: ${JSON.stringify(err.data)}）` : ''}`)
