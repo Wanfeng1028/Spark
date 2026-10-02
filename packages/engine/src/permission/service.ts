@@ -513,12 +513,14 @@ const PRESET_RULES: Record<PermissionPreset, readonly PermissionRule[]> = {
     { action: 'question.ask', resource: '**', effect: 'allow' },
     { action: 'todo.write', resource: '**', effect: 'allow' },
     { action: 'todo.read', resource: '**', effect: 'allow' },
+    { action: 'deliverable.present', resource: '**', effect: 'allow' },
   ],
   'auto-edit': [
     { action: 'fs.write', resource: '**', effect: 'allow' },
     { action: 'question.ask', resource: '**', effect: 'allow' },
     { action: 'todo.write', resource: '**', effect: 'allow' },
     { action: 'todo.read', resource: '**', effect: 'allow' },
+    { action: 'deliverable.present', resource: '**', effect: 'allow' },
   ],
   /**
    * plan 档（工单 16.3 激活；此前是空行——档位存在但不生效，选它等于没选）。
@@ -534,10 +536,11 @@ const PRESET_RULES: Record<PermissionPreset, readonly PermissionRule[]> = {
     { action: '*', resource: '**', effect: 'deny' },
     { action: 'question.ask', resource: '**', effect: 'allow' },
     { action: 'todo.read', resource: '**', effect: 'allow' },
+    { action: 'deliverable.present', resource: '**', effect: 'deny' },
     { action: 'fs.read', resource: '**', effect: 'allow' },
     { action: 'plan.exit', resource: '**', effect: 'ask' },
   ],
-  'full-access': ['fs.read', 'fs.write', 'shell.exec', 'agent.task', 'mcp.call', 'question.ask', 'todo.write', 'todo.read'].map(
+  'full-access': ['fs.read', 'fs.write', 'shell.exec', 'agent.task', 'mcp.call', 'question.ask', 'todo.write', 'todo.read', 'deliverable.present'].map(
     (action) => ({ action, resource: '**', effect: 'allow' as const }),
   ),
 }

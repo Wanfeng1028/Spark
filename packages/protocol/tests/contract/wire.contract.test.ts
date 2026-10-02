@@ -306,6 +306,40 @@ describe('契约：event \'compaction.started\'', () => {
   })
 })
 
+describe('契约：event \'deliverables.presented\'', () => {
+  const sample = {
+    "files": [
+      "contract-sample"
+    ],
+    "summary": "contract-sample"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['deliverables.presented'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['deliverables.presented'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['deliverables.presented'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 files → 解析失败', () => {
+    expect(() => EventSchemas['deliverables.presented'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["files"]; return m })())).toThrow()
+  })
+
+  it('字段 files 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['deliverables.presented'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["files"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 summary 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['deliverables.presented'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["summary"] = 12345; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['deliverables.presented'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：event \'error\'', () => {
   const sample = {
     "scope": "engine",

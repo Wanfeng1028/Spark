@@ -28,7 +28,7 @@ async function makeFixture(opts?: {
 }): Promise<{ sink: MemSink; compact: () => Promise<boolean> }> {
   const sink = new MemSink()
   const bus = new EventBus({ sink })
-  const board = new TodoBoard({ emit: async () => undefined })
+  const board = new TodoBoard({ emit: (): Promise<void> => Promise.resolve() })
   if (opts?.todos !== undefined) {
     await board.write(SID, opts.todos)
   }
@@ -96,7 +96,7 @@ describe('压缩后状态复灌（CK-12 批 1）', () => {
   })
 
   test('todo/deferred 均空：装配层端口返回 undefined，summary 不加块', async () => {
-    const board = new TodoBoard({ emit: async () => undefined })
+    const board = new TodoBoard({ emit: (): Promise<void> => Promise.resolve() })
     const idx = new DeferredToolIndex()
     const { sink, compact } = await makeFixture({
       todos: [],

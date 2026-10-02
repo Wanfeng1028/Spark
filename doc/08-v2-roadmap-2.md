@@ -21,6 +21,7 @@
 | v1.13 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-4 批 1 会话任务清单交付**（todo.updated 事件 + todo_write/todo_read + nudge 收窄版；词表 33 种；单测 5 例 + reducer 3 态）——卡内勾选见 §2 CK-4。与 doc/02 v4.182、CHANGELOG 同批 |
 | v1.14 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-11 ToolSearch 延迟加载交付**（deferred 双入口判定 + tool_search 检索/显现 + 广告面过滤；单测 8 例）——卡内勾选见 §2 CK-11。与 doc/02 v4.183、CHANGELOG 同批 |
 | v1.15 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-12 批 1 压缩后状态复灌交付**（rebuildState 端口 + todo/deferred 清单复灌；单测 3 例）——卡内勾选见 §2 CK-12。与 doc/02 v4.184、CHANGELOG 同批 |
+| v1.16 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-13 批 1 present 交付声明交付**（present 工具 + deliverables.presented 事件词表 34 种；单测 4 例）——卡内勾选见 §2 CK-13。与 doc/02 v4.185、CHANGELOG 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -162,7 +163,7 @@
 
 **Spark 缺口**：无 turn 级"改了什么/交付了什么"汇总面（checkpoint.created 是快照通知非变更摘要；用户只能翻 tool.completed）。
 
-**内容**：① workspace-changes 记录器（借 checkpoint 快照原料做 git diff 摘要）；② present 工具（显式交付声明）；③ durable 事件（new-event-type 全流程）→ 四端 turn 尾变更卡片。**验收**：记录器单测（变更归集/空 turn 零事件）+ present 单测 + 卡片投影。**依赖**：无。**成本**：M。**⚖️ 2026-10-01 重叠判决（登记）**：19.35 审查模式落地后（GET /:id/review——checkpoint shadow git 只读 diff 聚合 + web 双栏），① 的"变更文件与行数汇总"只读面已由其承担，不再重复建设；本单差异化收窄为 **② present 显式交付声明工具**（模型主动声明交付物 ≠ 只读聚合）与 **③ turn 尾自动汇总事件**。拆批：批 1 = present 工具 + deliverables 事件面；批 2 = turn 尾自动卡片（借 review 聚合）。待 CI 稳定后实施。
+**内容**：① workspace-changes 记录器（借 checkpoint 快照原料做 git diff 摘要）；② present 工具（显式交付声明）；③ durable 事件（new-event-type 全流程）→ 四端 turn 尾变更卡片。**验收**：记录器单测（变更归集/空 turn 零事件）+ present 单测 + 卡片投影。**依赖**：无。**成本**：M。**⚖️ 2026-10-01 重叠判决（登记）**：19.35 审查模式落地后（GET /:id/review——checkpoint shadow git 只读 diff 聚合 + web 双栏），① 的"变更文件与行数汇总"只读面已由其承担，不再重复建设；本单差异化收窄为 **② present 显式交付声明工具**（模型主动声明交付物 ≠ 只读聚合）与 **③ turn 尾自动汇总事件**。拆批：批 1 = present 工具 + deliverables 事件面；批 2 = turn 尾自动卡片（借 review 聚合）。待 CI 稳定后实施。**✅ 批 1 已交付（2026-10-01，doc/02 v4.185）**——present 工具（1-20 文件声明；resolveInRoot 硬边界 + 文件必须真实存在 E_DELIVERABLE_MISSING——不存在的交付物是假状态；部分缺失整单拒绝）+ `deliverables.presented` 事件（词表 34 种，durable 非 surface；模型可见面是 present 的 toolResult 回执）+ action deliverable.present 四档预置行（声明无副作用——文件已产出；**plan 档 deny**——计划模式不产出交付物）。单测 4 例。批 2 = turn 尾交付卡片（四端投影）。
 
 ### CK-14 无头模式结构化输出与免记 id 续跑（P2，S）
 

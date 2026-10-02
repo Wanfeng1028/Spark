@@ -91,6 +91,7 @@ import { RunawayGuard } from './runaway-guard.js'
 import { makeAskUserTool } from './tools/builtin/ask-user.js'
 import { makeTodoTools, TodoBoard } from './tools/builtin/todo.js'
 import { DeferredToolIndex, makeToolSearchTool } from './tools/builtin/tool-search.js'
+import { makePresentTool } from './tools/builtin/present.js'
 import { defaultMentionIo, expandMentions } from './mention.js'
 import { GoalRunner } from './goals.js'
 import { loadTrustDoc, saveTrustDoc, trustKey, trustLevelOf, tightens } from './trust.js'
@@ -594,6 +595,15 @@ export class Engine {
     for (const tool of makeTodoTools(this.todoBoard)) {
       this.registry.register(tool)
     }
+    // 交付声明（CK-13 批 1）：emit deliverables.presented（durable；四端交付面数据源）
+    this.registry.register(
+      makePresentTool(async (sessionId, files, summary) => {
+        await this.bus.emit(sessionId, 'deliverables.presented', {
+          files,
+          ...(summary !== undefined ? { summary } : {}),
+        })
+      }),
+    )
     registerBuiltinTools(this.registry, {
       bashSandbox: this.config.spark.engine.bashSandbox,
       // bash 常驻会话（阶段十九 19.3 / ADR D45）：getter 执行期读，主开关热档

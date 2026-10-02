@@ -169,6 +169,14 @@ export const EventSchemas = {
     /** 超时/中断 fail-closed 时 resolved 以 aborted=true 落盘（answers 为每问空选占位） */
     aborted: z.boolean().optional(),
   }),
+  // 交付声明（CK-13 批 1）：模型显式声明"这些文件是本任务的交付物"（dsh present
+  // 同语义）。durable 非 surface——模型可见面是 present 的 toolResult（声明回执）。
+  'deliverables.presented': z.strictObject({
+    /** 相对会话 cwd 的交付文件路径（resolveInRoot 校验过存在，绝对形态入事件） */
+    files: z.array(z.string().min(1)).min(1).max(20),
+    /** 模型给的一句话交付说明 */
+    summary: z.string().max(500).optional(),
+  }),
   // 后台任务平面（CK-1）：bash 后台化的生命周期记录。durable 非 surface——模型可见面
   // 是完成回注的合成 user.message（surface 纪律由那条消息承担），本两枚是审计/回放事实。
   'task.started': z.strictObject({
