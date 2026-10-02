@@ -24,6 +24,7 @@
 | v1.16 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-13 批 1 present 交付声明交付**（present 工具 + deliverables.presented 事件词表 34 种；单测 4 例）——卡内勾选见 §2 CK-13。与 doc/02 v4.185、CHANGELOG 同批 |
 | v1.17 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-17 批 1 声明式安全六维交付**（ToolSafety 五维 + concurrentSafe 调度消费 + 迁移补声明；单测 3 例）——卡内勾选见 §2 CK-17。与 doc/02 v4.186、CHANGELOG 同批 |
 | v1.18 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-17 批 2 riskLevel 消费交付**（PermissionCheck 透传 + high 档 reason 附加；单测 2 例）——卡内勾选见 §2 CK-17。与 doc/02 v4.187、CHANGELOG 同批 |
+| v1.19 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-12 批 2 部分交付：最近读取文件清单复灌**（readFileState 上提共享 + rebuildState 第三段；单测 4 例）——卡内勾选见 §2 CK-12。与 doc/02 v4.188、CHANGELOG 同批 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -157,7 +158,7 @@
 
 **Spark 缺口**：有水位 + 冷却的压缩，但压缩后"工作台状态"断裂（手里正读的文件、正做的计划、可用工具清单全部丢失）。
 
-**内容**：① 压缩完成后重建状态注入摘要后缀；② 滚动会话摘要（后台子代理，压缩时复用）；③ 剥洋葱重试档。**与已立项 microcompact 正交**（microcompact 缩中间态，本单管压缩后重建）。**验收**：复灌内容单测 + 摘要复用路径单测。**依赖**：无。**成本**：M。**✅ 批 1 已交付（2026-10-01，doc/02 v4.184）**——① CompactorDeps 增可选 `rebuildState` 端口（装配层合成）：compact 完成时状态块拼进 summary 尾部（summary 即模型可见面，投影透传，零协议面）。批 1 复灌两类：**进行中任务**（todoBoard 非完成项）+ **延迟工具清单**（deferredIndex.list——压缩后 deferred 全丢，模型失忆 tool_search 可用性）。正在读文件的**内文**复灌留批 2（read-state 基线在管线实例内，需端口上提）。②③ 滚动摘要/剥洋葱留卡。单测 3 例（注入/零回归/空状态不加块）。
+**内容**：① 压缩完成后重建状态注入摘要后缀；② 滚动会话摘要（后台子代理，压缩时复用）；③ 剥洋葱重试档。**与已立项 microcompact 正交**（microcompact 缩中间态，本单管压缩后重建）。**验收**：复灌内容单测 + 摘要复用路径单测。**依赖**：无。**成本**：M。**✅ 批 1 已交付（2026-10-01，doc/02 v4.184）**——① CompactorDeps 增可选 `rebuildState` 端口（装配层合成）：compact 完成时状态块拼进 summary 尾部（summary 即模型可见面，投影透传，零协议面）。批 1 复灌两类：**进行中任务**（todoBoard 非完成项）+ **延迟工具清单**（deferredIndex.list——压缩后 deferred 全丢，模型失忆 tool_search 可用性）。正在读文件的**内文**复灌留批 2（read-state 基线在管线实例内，需端口上提）。②③ 部分交付（2026-10-01，doc/02 v4.188）：**最近读取文件清单复灌落地**——readFileState Map 上提到 engine 构造区（管线构造注入同一实例），rebuildState 第三段列插入序最后 10 条路径（不含内文——路径在场模型可重读拿内文，省 token）；均空判定补 readPaths。**滚动摘要/剥洋葱/内文截取留卡**（滚动摘要需后台子代理调度面）。单测 4 例。
 
 ### CK-13 turn 级变更交付面：workspace-changes + present 工具（P2）
 

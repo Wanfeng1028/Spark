@@ -113,3 +113,29 @@ describe('压缩后状态复灌（CK-12 批 1）', () => {
     expect(completedSummary(sink)).toBe('压缩摘要正文')
   })
 })
+
+
+// ---- CK-12 批 2：最近读取文件清单复灌 ----
+
+describe('CK-12 批 2：最近读取文件', () => {
+  test('readPaths 非空：summary 含最近读取路径段', async () => {
+    const readFileState = new Map<string, { path: string; sourceTool: string; full: boolean }>([
+      ['/w/src/a.ts', { path: '/w/src/a.ts', sourceTool: 'read', full: true }],
+      ['/w/src/b.ts', { path: '/w/src/b.ts', sourceTool: 'read', full: false }],
+    ])
+    const { sink, compact } = await makeFixture({
+      rebuildState: () => {
+        const readPaths = [...readFileState.values()].slice(-10).map((e) => e.path)
+        if (readPaths.length === 0) return undefined
+        return '## 最近读取的文件（压缩前上下文）\n' + readPaths.map((p) => `- ${p}`).join('\n')
+      },
+    })
+    await compact()
+    const summary = completedSummary(sink)
+    expect(summary).toContain('## 最近读取的文件（压缩前上下文）')
+    expect(summary).toContain('/w/src/a.ts')
+    expect(summary).toContain('/w/src/b.ts')
+  })
+})
+
+void 0

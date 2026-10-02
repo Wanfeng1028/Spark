@@ -158,9 +158,12 @@ export class ToolPipelineImpl implements ToolPipeline {
    * read-state 文件新鲜度基线（工单 ZC-5 / ADR D55）：本管线每会话接线一份
    * （engine.ts per-session 组件），会话间天然隔离，经 ToolContext.readFileState 注入。
    */
-  private readonly readFileState: ReadFileStateMap = new Map()
+  private readonly readFileState: ReadFileStateMap
 
-  constructor(private readonly deps: PipelineDeps) {}
+  constructor(private readonly deps: PipelineDeps) {
+    // CK-12 批 2：readFileState 可注入——engine 需与压缩 rebuildState 闭包共享同一实例
+    this.readFileState = deps.readFileState ?? new Map()
+  }
 
   /** 广告清单：全域 deny 的工具不进模型可见面（§5.7 补强 5）；预设档收窄的工具同不广告（工单 13.5） */
   materialize(): ToolSpec[] {
