@@ -10,7 +10,7 @@ import { z } from 'zod'
 import { ConfigError, parseOrThrow, readJsonFile } from '../config.js'
 import { atomicWriteJson } from '../fsutil.js'
 
-export const storedTokenSetSchema = z.strictObject({
+const storedTokenSetSchema = z.strictObject({
   /** 静态 client_id（mcp.json 配置）或动态注册所得 */
   clientId: z.string().min(1),
   clientSecret: z.string().min(1).optional(),

@@ -24,7 +24,7 @@ import {
 } from './oauth.js'
 import type { StoredTokenSet } from './token-store.js'
 
-export const DEFAULT_AUTH_TIMEOUT_MS = 5 * 60 * 1000
+const DEFAULT_AUTH_TIMEOUT_MS = 5 * 60 * 1000
 
 export interface AuthFlowConfig {
   /** mcp.json 里的 server 名（动态注册的 client_name 与错误信息用） */
@@ -56,7 +56,7 @@ export interface AuthFlowDeps {
 }
 
 /** 平台默认浏览器唤起（win32 start / darwin open / 其余 xdg-open；spawn 失败如实抛） */
-export function defaultOpenBrowser(url: string): Promise<void> {
+function defaultOpenBrowser(url: string): Promise<void> {
   return new Promise((resolve, reject) => {
     if (process.platform === 'win32') {
       const child = spawn('cmd', ['/c', 'start', '', url], { stdio: 'ignore', detached: true })
@@ -74,7 +74,7 @@ export function defaultOpenBrowser(url: string): Promise<void> {
 }
 
 /** 默认 loopback 回调：127.0.0.1 随机口；首个匹配路径的请求取码后关站并回一句提示 */
-export function defaultStartLoopback(callbackPath: string): LoopbackHandle {
+function defaultStartLoopback(callbackPath: string): LoopbackHandle {
   let settle: (v: { code: string; state: string }) => void = () => {}
   const waitForCode = new Promise<{ code: string; state: string }>((resolve) => {
     settle = resolve
