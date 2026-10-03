@@ -298,7 +298,7 @@ export function ArenaSheet({ sid, rest, onClose }: { sid: SessionId; rest: Rest;
                     <RowAction
                       label={mobileT('manage.applyWinner')}
                       onPress={() =>
-                        act((tr) => tr.applyArenaWinner(ids.session(c.sessionId), mobileT('manage.applied')))
+                        act((tr) => tr.applyArenaWinner(ids.session(c.sessionId)), mobileT('manage.applied'))
                       }
                     />
                   )}
