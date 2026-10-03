@@ -301,7 +301,7 @@ live-only 3 种（不落盘，重连后不重现）；其中 surface 2 种
 | 字段 | 类型 | 必填 |
 | ---- | ---- | ---- |
 | `taskId` | string | 是 |
-| `kind` | string | 是 |
+| `kind` | `"bash"` \| `"agent"` | 是 |
 | `command` | string | 是 |
 | `pid` | integer | 否 |
 
