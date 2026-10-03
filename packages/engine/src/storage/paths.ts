@@ -51,6 +51,8 @@ export const SPARK_FILE = {
   /** 模型与路由目录 */
   models: 'models.json',
   mcp: 'mcp.json',
+  /** MCP OAuth 令牌仓（CK-5 批 2）：server → token set，0o600 同 secrets 口径 */
+  mcpTokens: 'mcp-tokens.json',
   lsp: 'lsp.json',
   permissions: 'permissions.json',
   secrets: 'secrets.json',
