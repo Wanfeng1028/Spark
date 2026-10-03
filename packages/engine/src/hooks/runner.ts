@@ -34,11 +34,16 @@ export type HookPoint =
   | 'post_tool_use_failure'
   | 'pre_compact'
   | 'post_compact'
+  | 'subagent_start'
+  | 'subagent_stop'
 
 /** 外部命令触发（timeoutMs 缺省 DEFAULT_HOOK_TIMEOUT_MS） */
 export interface UserHookCommandDef {
   command: string
   timeoutMs?: number | undefined
+  /** CK-2 批 2：超时=deny 档——true 时阻塞挂点超时视为拦截（缺省 false：hung hook
+   *  不得变相 DoS 拒绝所有工具调用，登记见 fireBlocking 注） */
+  timeoutDeny?: boolean | undefined
 }
 
 /** skill 触发（emit 须在该 skill 清单的 events 表中声明） */
@@ -121,13 +126,15 @@ export class UserHookRunner {
    * 语义（Claude Code exit-code 约定）：exit 0 = 不拦截；**exit 2 = 拦截**（stderr
    * 首行为 reason，截 500 字符）；其余退出码 / spawn 失败 / 超时 = warn + 不拦截
    * **（登记：超时不判 deny 是刻意的——hung hook 不得变相 DoS 拒绝所有工具调用；
-   * 「超时=deny 可配置档」留批 2）**。skill 触发器在阻塞点无裁决语义——跳过并 warn。
-   * 顺序执行（先到先裁）；无触发器定义 = 不拦截。
+   * 批 2 起可按 hook 以 `timeoutDeny: true` 逐条改判超时=拦截）**。skill 触发器在
+   * 阻塞点无裁决语义——跳过并 warn。顺序执行（先到先裁）；无触发器定义 = 不拦截。
+   * CK-2 批 2 ③：exit 0 且 stdout 为含 `input` 对象键的 JSON = **改写输入**——
+   * 调用方（pipeline）以改写值替换 effectiveInput，强制重过 zod 校验与权限判定。
    */
   async fireBlocking(
     point: HookPoint,
     payload: HookFirePayload,
-  ): Promise<{ blocked: boolean; reason: string | undefined }> {
+  ): Promise<{ blocked: boolean; reason: string | undefined; rewrittenInput?: unknown }> {
     if (this.disposed) return { blocked: false, reason: undefined }
     const defs = this.defs[point]
     if (defs === undefined) return { blocked: false, reason: undefined }
@@ -138,6 +145,7 @@ export class UserHookRunner {
       }
       const verdict = await this.runBlockingCommand(point, def, payload)
       if (verdict.blocked) return verdict
+      if (verdict.rewrittenInput !== undefined) return verdict
     }
     return { blocked: false, reason: undefined }
   }
@@ -146,16 +154,17 @@ export class UserHookRunner {
     point: HookPoint,
     def: UserHookCommandDef,
     payload: HookFirePayload,
-  ): Promise<{ blocked: boolean; reason: string | undefined }> {
+  ): Promise<{ blocked: boolean; reason: string | undefined; rewrittenInput?: unknown }> {
     const timeoutMs = def.timeoutMs ?? this.deps.defaultTimeoutMs
     const fields = { point, command: def.command, sid: payload.sessionId }
-    return new Promise<{ blocked: boolean; reason: string | undefined }>((resolve) => {
+    return new Promise<{ blocked: boolean; reason: string | undefined; rewrittenInput?: unknown }>((resolve) => {
       let child
       try {
         child = spawn(def.command, {
           shell: true,
           cwd: payload.cwd,
-          stdio: ['pipe', 'ignore', 'pipe'],
+          // stdout pipe（CK-2 批 2 ③）：改写输入经 stdout JSON 回传
+          stdio: ['pipe', 'pipe', 'pipe'],
           windowsHide: true,
         })
       } catch (err) {
@@ -165,16 +174,29 @@ export class UserHookRunner {
       }
       this.inflight.add(child)
       let settled = false
-      const done = (blocked: boolean, reason?: string): void => {
+      const done = (
+        blocked: boolean,
+        reason?: string,
+        rewrittenInput?: unknown,
+      ): void => {
         if (settled) return
         settled = true
         clearTimeout(timer)
         this.inflight.delete(child)
-        resolve({ blocked, reason: blocked === true && reason !== undefined ? reason : undefined })
+        resolve({
+          blocked,
+          reason: blocked === true && reason !== undefined ? reason : undefined,
+          ...(rewrittenInput !== undefined ? { rewrittenInput } : {}),
+        })
       }
       const timer = setTimeout(() => {
         child.kill()
         this.warn('userhook.timeout', { ...fields, timeoutMs })
+        // timeoutDeny 档（CK-2 批 2）：显式声明的 hook 超时改判拦截
+        if (def.timeoutDeny === true) {
+          done(true, `hook ${def.command} 超时（${timeoutMs}ms，timeoutDeny 档拦截）`)
+          return
+        }
         done(false)
       }, timeoutMs)
       child.on('error', (err) => {
@@ -182,6 +204,7 @@ export class UserHookRunner {
         done(false)
       })
       let stderrText = ''
+      let stdoutText = ''
       let stderrEnded = false
       child.stderr?.setEncoding('utf8')
       child.stderr?.on('data', (chunk: string) => {
@@ -189,6 +212,10 @@ export class UserHookRunner {
       })
       child.stderr?.on('end', () => {
         stderrEnded = true
+      })
+      child.stdout?.setEncoding('utf8')
+      child.stdout?.on('data', (chunk: string) => {
+        if (stdoutText.length < 65_536) stdoutText += chunk
       })
       child.on('close', (code) => {
         // Windows 负载下 stderr data/end 可能晚于 close 派发——等 end（50ms 兜底防管道异常悬挂）
@@ -203,6 +230,16 @@ export class UserHookRunner {
           // code=null = 超时 kill（timeout warn 已发）；其余非零 = warn 不拦截
           if (code !== 0 && code !== null) {
             this.warn('userhook.exit', { ...fields, code: String(code) })
+            done(false)
+            return
+          }
+          // CK-2 批 2 ③：exit 0 且 stdout 是含 `input` 对象键的 JSON = 改写输入。
+          // 只采信该最小形状——其余 stdout（日志等）一律忽略，解析失败静默不拦截
+          const rewritten = parseRewrittenInput(stdoutText)
+          if (rewritten !== undefined) {
+            this.warn('userhook.rewrite', { ...fields })
+            done(false, undefined, rewritten)
+            return
           }
           done(false)
         }
@@ -290,5 +327,28 @@ export class UserHookRunner {
       .catch((err: unknown) => {
         this.warn('userhook.skill.error', { ...fields, err })
       })
+  }
+}
+
+/** CK-2 批 2 ③：阻塞 hook 的 stdout 改写协议——首段非空文本解析为 JSON 对象且含
+ * `input` 对象键才采信（最小协议：只认 input 一个键，其余字段忽略）；日志噪声、
+ * 非 JSON、坏形状一律返回 undefined（不拦截不改写，hook 副作用不是契约） */
+function parseRewrittenInput(stdout: string): unknown | undefined {
+  const firstLine = stdout.split('\n').find((l) => l.trim() !== '')
+  if (firstLine === undefined) return undefined
+  try {
+    const parsed: unknown = JSON.parse(firstLine)
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'input' in parsed &&
+      typeof (parsed as { input: unknown }).input === 'object' &&
+      (parsed as { input: unknown }).input !== null
+    ) {
+      return (parsed as { input: unknown }).input
+    }
+    return undefined
+  } catch {
+    return undefined
   }
 }

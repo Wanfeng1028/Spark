@@ -435,6 +435,11 @@ export class Engine {
       sessions: this.sessions,
       bus: this.bus,
       children: this.subagentChildren,
+      // CK-2 批 2：subagent_start/stop 双挂点接线（fire-and-forget，hook 不阻塞派生）。
+      // 懒解引用——本处构造先于 this.hooks 赋值，直接传字段会快照成 undefined
+      hooks: {
+        fire: (point, payload) => this.hooks.fire(point, payload),
+      },
     })
 
     // skills/插件（工单 5.5 / ADR D18）：声明式清单 → 事件词表扩展 + hooks 订阅；

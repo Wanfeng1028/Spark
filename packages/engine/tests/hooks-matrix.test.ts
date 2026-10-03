@@ -110,6 +110,45 @@ describe('fireBlocking（CK-2 批 1：pre_tool_use 裁决）', () => {
   })
 })
 
+describe('fireBlocking（CK-2 批 2 ③：改写输入 + 超时=deny 档）', () => {
+  // stdout JSON 改写协议：exit 0 且 stdout 首段为含 input 对象键的 JSON
+  const emitRewrite = (inputJson: string): string =>
+    `node -e "process.stdout.write('${inputJson.replace(/"/g, '\\"')}')"`
+
+  test.skipIf(process.platform === 'win32')('exit 0 + stdout {input:{...}} → rewrittenInput 生效', async () => {
+    const r = makeRunner({
+      pre_tool_use: [{ command: emitRewrite('{"input":{"command":"echo rewritten"}}') }],
+    })
+    const v = await r.fireBlocking('pre_tool_use', payload())
+    expect(v.blocked).toBe(false)
+    expect(v.rewrittenInput).toEqual({ command: 'echo rewritten' })
+  })
+
+  test('stdout 非 JSON / JSON 无 input 键 → 忽略不拦截不改写', async () => {
+    const noisy = makeRunner({ pre_tool_use: [{ command: emitRewrite('hook 日志输出非 JSON') }] })
+    const v1 = await noisy.fireBlocking('pre_tool_use', payload())
+    expect(v1.blocked).toBe(false)
+    expect(v1.rewrittenInput).toBeUndefined()
+    const noInput = makeRunner({
+      pre_tool_use: [{ command: emitRewrite('{"decision":"approve","note":"无 input 键"}') }],
+    })
+    const v2 = await noInput.fireBlocking('pre_tool_use', payload())
+    expect(v2.blocked).toBe(false)
+    expect(v2.rewrittenInput).toBeUndefined()
+  })
+
+  test('timeoutDeny 档：超时改判拦截并带 reason；缺省档超时仍不拦截', async () => {
+    const deny = makeRunner({
+      pre_tool_use: [{ command: sleepMs(5000), timeoutMs: 80, timeoutDeny: true }],
+    })
+    const v = await deny.fireBlocking('pre_tool_use', payload())
+    expect(v.blocked).toBe(true)
+    expect(v.reason).toContain('timeoutDeny')
+    const pass = makeRunner({ pre_tool_use: [{ command: sleepMs(5000), timeoutMs: 80 }] })
+    expect((await pass.fireBlocking('pre_tool_use', payload())).blocked).toBe(false)
+  }, 10_000)
+})
+
 // ---------- B. Engine 端到端 ----------
 
 const dirs: string[] = []

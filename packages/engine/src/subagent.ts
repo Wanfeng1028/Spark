@@ -30,6 +30,19 @@ export interface SubagentDeps {
   bus: EventBus
   /** 在途子代理登记（单层限制判定；shutdown 收尾清点） */
   children: Set<SessionId>
+  /** CK-2 批 2：用户 hooks（subagent_start/subagent_stop 双挂点；缺省不接线 = 不触发）。
+   *  载荷 sessionId = 父会话（挂点属于派生它的会话流），childSessionId 在 data 里 */
+  hooks?: {
+    fire(
+      point: 'subagent_start' | 'subagent_stop',
+      payload: {
+        sessionId: SessionId
+        cwd: string
+        sourceEventId: EventId | null
+        data: Record<string, unknown>
+      },
+    ): void
+  }
 }
 
 export function makeSubagentRunner(deps: SubagentDeps): (input: TaskInput, ctx: ToolContext) => Promise<ToolOutput> {
@@ -51,6 +64,17 @@ export function makeSubagentRunner(deps: SubagentDeps): (input: TaskInput, ctx: 
       ...(ctx.sourceEventId !== undefined ? { parentEventId: ctx.sourceEventId } : {}),
     })
     deps.children.add(child.id)
+    // CK-2 批 2：subagent_start 挂点（fire-and-forget——hook 不阻塞派生主路径）
+    deps.hooks?.fire('subagent_start', {
+      sessionId: ctx.sessionId,
+      cwd: parent.meta.cwd,
+      sourceEventId: ctx.sourceEventId ?? null,
+      data: {
+        childSessionId: child.id,
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.preset !== undefined ? { preset: input.preset } : {}),
+      },
+    })
     try {
       // 父 turn 中断 → 级联 interrupt 子会话（子 turn 收尾后本工具返回 E_ABORTED）
       const onAbort = (): void => {
@@ -101,6 +125,14 @@ export function makeSubagentRunner(deps: SubagentDeps): (input: TaskInput, ctx: 
       const childHandle = deps.sessions.get(child.id)
       childHandle?.runtime.interrupt()
       throw err
+    } finally {
+      // CK-2 批 2：subagent_stop 挂点——正常/中断/异常三路全收（fire-and-forget）
+      deps.hooks?.fire('subagent_stop', {
+        sessionId: ctx.sessionId,
+        cwd: parent.meta.cwd,
+        sourceEventId: ctx.sourceEventId ?? null,
+        data: { childSessionId: child.id },
+      })
     }
   }
 }

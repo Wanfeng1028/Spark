@@ -276,14 +276,15 @@ export class ToolPipelineImpl implements ToolPipeline {
     }
 
     // ZC-4：归一点——resolveInput 在 tool.started/权限门/execute 之前跑一次，
-    // 四处（started 载荷/resourceOf/patterns/assert.input）与 execute 全部同源
-    const effectiveInput = def.resolveInput?.(call.input, { cwd: this.deps.cwd }) ?? call.input
+    // 四处（started 载荷/resourceOf/patterns/assert.input）与 execute 全部同源。
+    // 命名 hookInput：改写生效后的 effectiveInput 在 hook 裁决之后定义（见下）
+    const hookInput = def.resolveInput?.(call.input, { cwd: this.deps.cwd }) ?? call.input
 
     const startedEnv = await bus.emit(sid, 'tool.started', {
       turnId: turn.turnId,
       callId: call.callId,
       name: call.name,
-      input: effectiveInput,
+      input: hookInput,
     })
 
     // CK-2 批 1：pre_tool_use 阻塞挂点——exit 2 = 拦截（stderr 首行 reason；超时/异常
@@ -295,7 +296,7 @@ export class ToolPipelineImpl implements ToolPipeline {
       sessionId: sid,
       cwd: this.deps.cwd,
       sourceEventId: startedEnv.id,
-      data: { turnId: turn.turnId, callId: call.callId, name: call.name, input: effectiveInput },
+      data: { turnId: turn.turnId, callId: call.callId, name: call.name, input: hookInput },
     })
     if (hookVerdict?.blocked === true) {
       await this.emitCompleted(
@@ -313,6 +314,13 @@ export class ToolPipelineImpl implements ToolPipeline {
         isError: true,
       }
     }
+
+    // CK-2 批 2 ③：hook 改写输入生效——后续权限判定（②）与 zod 校验（③ execute 前
+    // parse）全部以改写值重走（改写不可越权提权：permission.assert 以改写值算资源；
+    // 坏形状在 inputSchema.parse fail-closed）。tool.started 载荷保持原始形态——改写
+    // 是 hook 内部裁决，completed 输出反映真实执行
+    const effectiveInput =
+      hookVerdict?.rewrittenInput !== undefined ? hookVerdict.rewrittenInput : hookInput
 
     const gate = new ProgressGate((chunk) => {
       bus.emitLive(sid, 'tool.progress', { turnId: turn.turnId, callId: call.callId, chunk })
