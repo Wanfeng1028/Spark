@@ -25,6 +25,7 @@ import {
   toolStatusText,
   turnDurationText,
   type FeedbackVote,
+  type RequestId,
   type UiItem,
 } from '@spark/protocol'
 import { useAppStore } from '../store/app-store'
@@ -505,7 +506,7 @@ export function QuestionCard({
 }: {
   item: Extract<UiItem, { kind: 'question' }>
   /** 提交（请求失败 reject——卡片保留已选与错误行；成功即由事件流收口） */
-  onReply: (answers: Array<{ selected: string[] }>) => Promise<void>
+  onReply: (requestId: RequestId, answers: Array<{ selected: string[] }>) => Promise<void>
 }) {
   const t = useTheme()
   // 每问已选 label 集合（与 questions 等长对齐）；单选=置换、多选=toggle
@@ -531,7 +532,7 @@ export function QuestionCard({
     if (!pending || submitting || !complete) return
     setSubmitting(true)
     setOpError(null)
-    onReply(picked.map((arr) => ({ selected: arr }))).catch((err: unknown) => {
+    onReply(item.requestId, picked.map((arr) => ({ selected: arr }))).catch((err: unknown) => {
       // 受理失败：保留已选（用户改后重试），错误行如实呈现（禁假状态）
       setSubmitting(false)
       setOpError(mobileErrorMessageOf(err))
