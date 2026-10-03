@@ -26,8 +26,9 @@ export function hexToRgb(hex: string): Rgb | null {
   ]
 }
 
-/** 主题 → 可插值调色板；任一色不合法返回 null（调用方保持原调色板不动） */
+/** 主题 → 可插值调色板；任一色不合法或形状不符（上游口径固定 5+3）返回 null（调用方保持原调色板不动） */
 export function paletteOf(wp: FluidWallpaper): { colors: Rgb[]; glow: Rgb[] } | null {
+  if (wp.colors.length !== 5 || wp.glowColors.length !== 3) return null
   const colors = wp.colors.map((h) => hexToRgb(h))
   const glow = wp.glowColors.map((h) => hexToRgb(h))
   if (colors.some((c) => c === null) || glow.some((c) => c === null)) return null
@@ -38,6 +39,7 @@ export function paletteOf(wp: FluidWallpaper): { colors: Rgb[]; glow: Rgb[] } | 
  * PARAMS → POST 段静态 uniform 映射表（防漏传的单测锚点）。
  * 消费 25 项中的 19 项标量/数组（colors/glowColors/offset 拆 vec2/u_c1..5/u_glowColor1..3）；
  * u_time/u_resolution/u_flowmap/u_lightPos 是运行时值不在此表。
+ * 色表形状 5+3 由注册表单测锚定（appearance-wallpaper.test.ts），索引取值不越界。
  * coarse pointer 时 u_brushStrength 强制 0（上游：触屏没有指针轨迹，显式归零不留残值）。
  */
 export function uniformValuesOf(
@@ -54,17 +56,17 @@ export function uniformValuesOf(
     u_distortBoost: p.distortBoost,
     u_swirlBoost: p.swirlBoost,
     u_glowIntensity: p.glowIntensity,
-    u_glowColor1: glow[0],
-    u_glowColor2: glow[1],
-    u_glowColor3: glow[2],
+    u_glowColor1: glow[0]!,
+    u_glowColor2: glow[1]!,
+    u_glowColor3: glow[2]!,
     u_scale: p.scale,
     u_offset: [p.offsetX / 100, p.offsetY / 100],
     u_grain: p.grain,
-    u_c1: colors[0],
-    u_c2: colors[1],
-    u_c3: colors[2],
-    u_c4: colors[3],
-    u_c5: colors[4],
+    u_c1: colors[0]!,
+    u_c2: colors[1]!,
+    u_c3: colors[2]!,
+    u_c4: colors[3]!,
+    u_c5: colors[4]!,
     u_lightCore: p.lightCore,
     u_lightHalo: p.lightHalo,
     u_vignette: p.vignette,
@@ -78,6 +80,7 @@ export function uniformValuesOf(
 export function stepPalette(cur: readonly Rgb[], target: readonly Rgb[], k: number): Rgb[] {
   return cur.map((c, i) => {
     const t = target[i]
+    if (t === undefined) return c // 目标缺色保持当前色（同形调色板下不可达）
     return [c[0] + (t[0] - c[0]) * k, c[1] + (t[1] - c[1]) * k, c[2] + (t[2] - c[2]) * k] as Rgb
   })
 }
@@ -141,16 +144,17 @@ export function createFluid(
   // 纹理存储在 rebuildFlowTargets 里按 size 重指定（复用同一 tex/fbo 对象，不重建不泄漏）
   let flowWidth = 0
   let flowHeight = 0
-  const pong = [makeTarget(), makeTarget()]
-  let write = 0
-
-  function makeTarget(): { fbo: WebGLFramebuffer; tex: WebGLTexture } {
+  type FlowTarget = { fbo: WebGLFramebuffer; tex: WebGLTexture }
+  const makeTarget = (): FlowTarget => {
     const tex = gl.createTexture()
     const fbo = gl.createFramebuffer()
     return { fbo: fbo as WebGLFramebuffer, tex: tex as WebGLTexture }
   }
+  const pong: [FlowTarget, FlowTarget] = [makeTarget(), makeTarget()]
+  let write: 0 | 1 = 0
+  const flip = (w: 0 | 1): 0 | 1 => (w === 0 ? 1 : 0)
 
-  function rebuildFlowTargets(width: number, height: number): void {
+  const rebuildFlowTargets = (width: number, height: number): void => {
     flowWidth = Math.max(1, Math.round(width / 4))
     flowHeight = Math.max(1, Math.round(height / 4))
     for (const t of pong) {
@@ -235,7 +239,7 @@ export function createFluid(
     mouse.svy += ((mouse.y - mouse.sy) * 0.5 - mouse.svy) * p.mouseVelocity
   }
 
-  function render(now: number): void {
+  const render = (now: number): void => {
     if (palette === null || target === null) return
     if (!reduced) {
       palette = { colors: stepPalette(palette.colors, target.colors, 0.06), glow: stepPalette(palette.glow, target.glow, 0.06) }
@@ -253,7 +257,7 @@ export function createFluid(
     gl.enableVertexAttribArray(flowAttrib)
     gl.vertexAttribPointer(flowAttrib, 2, gl.FLOAT, false, 0, 0)
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, pong[1 - write].tex)
+    gl.bindTexture(gl.TEXTURE_2D, pong[flip(write)].tex)
     if (flowU.prev !== null) gl.uniform1i(flowU.prev, 0)
     if (flowU.mouse !== null) gl.uniform2f(flowU.mouse, mouse.sx, mouse.sy)
     if (flowU.velocity !== null) gl.uniform2f(flowU.velocity, mouse.svx, mouse.svy)
@@ -280,14 +284,15 @@ export function createFluid(
     if (postU.distortBoost !== null) gl.uniform1f(postU.distortBoost, p.distortBoost)
     if (postU.swirlBoost !== null) gl.uniform1f(postU.swirlBoost, p.swirlBoost)
     if (postU.glowIntensity !== null) gl.uniform1f(postU.glowIntensity, p.glowIntensity)
-    if (postU.glowColor1 !== null) gl.uniform3fv(postU.glowColor1, palette.glow[0])
-    if (postU.glowColor2 !== null) gl.uniform3fv(postU.glowColor2, palette.glow[1])
-    if (postU.glowColor3 !== null) gl.uniform3fv(postU.glowColor3, palette.glow[2])
-    if (postU.c1 !== null) gl.uniform3fv(postU.c1, palette.colors[0])
-    if (postU.c2 !== null) gl.uniform3fv(postU.c2, palette.colors[1])
-    if (postU.c3 !== null) gl.uniform3fv(postU.c3, palette.colors[2])
-    if (postU.c4 !== null) gl.uniform3fv(postU.c4, palette.colors[3])
-    if (postU.c5 !== null) gl.uniform3fv(postU.c5, palette.colors[4])
+    // 调色板形状 5+3 已由 paletteOf 校验（坏形不入），索引取值不越界
+    if (postU.glowColor1 !== null) gl.uniform3fv(postU.glowColor1, palette.glow[0]!)
+    if (postU.glowColor2 !== null) gl.uniform3fv(postU.glowColor2, palette.glow[1]!)
+    if (postU.glowColor3 !== null) gl.uniform3fv(postU.glowColor3, palette.glow[2]!)
+    if (postU.c1 !== null) gl.uniform3fv(postU.c1, palette.colors[0]!)
+    if (postU.c2 !== null) gl.uniform3fv(postU.c2, palette.colors[1]!)
+    if (postU.c3 !== null) gl.uniform3fv(postU.c3, palette.colors[2]!)
+    if (postU.c4 !== null) gl.uniform3fv(postU.c4, palette.colors[3]!)
+    if (postU.c5 !== null) gl.uniform3fv(postU.c5, palette.colors[4]!)
     // 光源 x 跟随指针（lightFollow 比例）、y 恒定——上游同款
     const lightX = p.lightX + (mouse.sx - p.lightX) * p.lightFollow
     if (postU.lightPos !== null) gl.uniform2f(postU.lightPos, lightX, p.lightY)
@@ -299,7 +304,7 @@ export function createFluid(
     if (postU.bloomStrength !== null) gl.uniform1f(postU.bloomStrength, p.bloomStrength)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
-    write = 1 - write
+    write = flip(write)
   }
 
   const loop = (now: number): void => {

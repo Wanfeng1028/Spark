@@ -95,9 +95,10 @@ describe('插值与帧闸', () => {
     const snapshot = from.map((c) => [...c] as [number, number, number])
     let cur = from
     for (let i = 0; i < 200; i++) cur = stepPalette(cur, to, 0.06)
-    expect(cur[0][0]).toBeCloseTo(1, 3)
-    expect(cur[0][1]).toBeCloseTo(0.5, 3)
-    expect(cur[0][2]).toBeCloseTo(0.25, 3)
+    const last = cur[0]!
+    expect(last[0]).toBeCloseTo(1, 3)
+    expect(last[1]).toBeCloseTo(0.5, 3)
+    expect(last[2]).toBeCloseTo(0.25, 3)
     expect(from).toEqual(snapshot)
   })
 
