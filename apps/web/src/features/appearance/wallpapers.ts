@@ -18,7 +18,7 @@ export interface FluidWallpaper {
   accent: string
 }
 
-export type FluidWallpaperId = 'fluid-deep-ocean' | 'fluid-aurora' | 'fluid-amethyst' | 'fluid-ember'
+type FluidWallpaperId = 'fluid-deep-ocean' | 'fluid-aurora' | 'fluid-amethyst' | 'fluid-ember'
 
 export const WALLPAPERS = [
   {

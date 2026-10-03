@@ -29,7 +29,7 @@ const DELIVERY_LABEL: Record<Delivery, string> = {
 }
 
 /** 待发附件（uploadAttachment 产物；id 进 sendMessage wire，name 仅供 chips 展示） */
-export interface PendingAttachment {
+interface PendingAttachment {
   id: string
   name: string
 }
