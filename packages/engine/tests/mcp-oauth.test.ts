@@ -98,13 +98,13 @@ function stubFetch(status: number, body: unknown): {
   const calls: Array<{ url: string; init: RequestInit }> = []
   return {
     calls,
-    fetch: async (url, init) => {
+    fetch: (url, init) => {
       calls.push({ url, init })
-      return {
+      return Promise.resolve({
         ok: status >= 200 && status < 300,
         status,
-        json: async () => body,
-      } as unknown as Response
+        json: () => Promise.resolve(body),
+      } as unknown as Response)
     },
   }
 }

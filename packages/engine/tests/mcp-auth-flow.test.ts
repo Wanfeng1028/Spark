@@ -5,7 +5,6 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
-  defaultStartLoopback,
   runAuthFlow,
   wellKnownUrlOf,
   type LoopbackHandle,
@@ -19,6 +18,15 @@ const METADATA = {
   registration_endpoint: 'https://idp.example/register',
 }
 
+/** mock Response：json 非 async 直回 Promise（require-await 纪律——桩里没有真实等待） */
+function mockResponse(status: number, ok: boolean, body: unknown): Response {
+  return {
+    ok,
+    status,
+    json: () => Promise.resolve(body),
+  } as unknown as Response
+}
+
 /** fetch 桩：well-known 回元数据，注册回 client_id，token 端点回 access_token 并记录请求 */
 function stubFetch(opts?: { register?: boolean; tokenStatus?: number }): {
   fetch: (url: string, init: RequestInit) => Promise<Response>
@@ -30,30 +38,26 @@ function stubFetch(opts?: { register?: boolean; tokenStatus?: number }): {
   return {
     tokenBodies,
     registered,
-    fetch: async (url, init) => {
+    fetch: (url, init) => {
+      // 调用方约定 body 为字符串（form/json 序列化后的产物），显式收窄断言
+      const bodyText = init.body as string
       if (url.includes('/.well-known/')) {
-        return { ok: true, status: 200, json: async () => METADATA } as unknown as Response
+        return Promise.resolve(mockResponse(200, true, METADATA))
       }
       if (url.includes('/register')) {
-        registered.push(JSON.parse(String(init.body)) as Record<string, unknown>)
-        return {
-          ok: true,
-          status: 201,
-          json: async () => ({ client_id: 'dyn-1' }),
-        } as unknown as Response
+        registered.push(JSON.parse(bodyText) as Record<string, unknown>)
+        return Promise.resolve(mockResponse(201, true, { client_id: 'dyn-1' }))
       }
       if (url.includes('/token')) {
-        tokenBodies.push(new URLSearchParams(String(init.body)))
+        tokenBodies.push(new URLSearchParams(bodyText))
         if (opts?.tokenStatus !== undefined && opts.tokenStatus !== 200) {
-          return { ok: false, status: opts.tokenStatus, json: async () => ({}) } as unknown as Response
+          return Promise.resolve(mockResponse(opts.tokenStatus, false, {}))
         }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ access_token: 'at-1', refresh_token: 'rt-1', expires_in: 3600 }),
-        } as unknown as Response
+        return Promise.resolve(
+          mockResponse(200, true, { access_token: 'at-1', refresh_token: 'rt-1', expires_in: 3600 }),
+        )
       }
-      throw new Error(`unexpected fetch ${url}`)
+      return Promise.reject(new Error(`unexpected fetch ${url}`))
     },
   }
 }
@@ -91,8 +95,9 @@ function stubLoopback(): {
 }
 
 function captureBrowser(urls: string[]): (url: string) => Promise<void> {
-  return async (url) => {
+  return (url) => {
     urls.push(url)
+    return Promise.resolve()
   }
 }
 
@@ -185,7 +190,8 @@ describe('runAuthFlow', () => {
             ? Promise.resolve({
                 ok: true,
                 status: 200,
-                json: async () => ({ ...METADATA, registration_endpoint: undefined }),
+                json: () =>
+                  Promise.resolve({ ...METADATA, registration_endpoint: undefined }),
               } as unknown as Response)
             : stub.fetch(url, init),
         openBrowser: captureBrowser([]),
