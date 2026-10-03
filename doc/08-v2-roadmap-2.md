@@ -27,6 +27,7 @@
 | v1.19 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-12 批 2 部分交付：最近读取文件清单复灌**（readFileState 上提共享 + rebuildState 第三段；单测 4 例）——卡内勾选见 §2 CK-12。与 doc/02 v4.188、CHANGELOG 同批 |
 | v1.20 | 2026-10-02 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"那你先把你能做的做完"） | **CK-13 批 2 web 交付卡片交付**（slice.deliverables reducer/merge + DeliverablesDialog + 顶栏入口；reducer 测试）——卡内勾选见 §2 CK-13。与 doc/02 v4.189 同批 |
 | v1.21 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"继续把你该做的做完"指令） | **CK-13 批 2 CLI 交付卡交付，批 2 四端收口**——MessagePane live 区尾部 gray 只读行（`✓ 交付文件 N 个[：summary]`；slice 级「最后一次声明生效」投影，有声明才渲染禁假状态；mobile BannerRow 同款语义）+ render 测试 1 例（无声明不渲染/计数+summary/无 summary 不造默认句）。卡内勾选见 §2 CK-13。同批顺手：knip 首裁两条未使用导出类型去 export（PendingAttachment/FluidWallpaperId，同 ea8d188 判例；b0343e6）。与 doc/02 v4.196 同批。本批本机零验证，CI 裁决 |
+| v1.22 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"继续把你该做的做完"指令） | **19.48 批 2 交付收口**（检查 6 词级 warn 档 + 句式级复查零增量 + 词表收敛结论）——卡内勾选见 §3。同批：terminal-shell.ts 平台路径根修（`node:path/win32`，19.32 批 1 的 CI Linux 三红，run 37116141358 取证）。与 DESIGN v2.52、doc/02 v4.197、AGENTS v1.74 同批。本批本机零验证，CI 裁决 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -215,7 +216,7 @@
 3. 对外长文按 §12.7.1 做句式级复查：官网 zh/en 正文、README/README.en、CHANGELOG、apps/docs。19.44/19.46 已两轮词级清查，预期增量小——有则改（信息守恒白名单生效），无则在本卡登记零增量结论。
 4. 边界：不安装上游 skill（`npx skills add` 触 §2.3a）；上游 scripts/ 三个测量脚本（compare-human-ai / check-structure / check-translationese）不移植——本仓无对照语料，其"低歧义词进检查器"思路已由本批第 1-2 步吸收；上游统计数字不进本仓任何文档（计数以源码实数为准的 §4.1 纪律同样适用于外部引用）。
 
-**验收**：批 2 = 检查 6 进 CI 且绿（warn 词表在本仓扫描面零命中或逐处豁免登记）；复查结论登记进本卡（改动文件清单或零增量）；§12.7.1 与检查 6 豁免口径互洽（版本表行、代码块、引用均不计）。
+**验收**：批 2 = 检查 6 进 CI 且绿（warn 词表在本仓扫描面零命中或逐处豁免登记）；复查结论登记进本卡（改动文件清单或零增量）；§12.7.1 与检查 6 豁免口径互洽（版本表行、代码块、引用均不计）。**✅ 批 2 已交付（2026-10-03，doc/02 v4.197）**——① 词表收敛：四候选词在检查 5 扫描面（317 代码文件 + 三 README，版本表行跳过）**全部零命中**；「说到底」「说白了」收（口语翻案腔专属性强），「先说结论」「值得注意的是」按卡内预判不收（人类也用，宁可少收）。② 检查 6 落地：`check_doc_links.py` 增 `check_copy_slop_warn`（`report.warn` 档——日常不挡 CI，`--strict` 才计失败；扫描面复用检查 5 目标集、词表独立常量 `COPY_WARN_PATTERNS`）+ DESIGN §12.8 注记行（v2.52）。③ 句式级复查**零增量**：61 文件六族特征初筛全零命中；放宽兜底仅三处线索——apps/docs layers.md「不是功能多少，而是…」为实体对比句（§12.7.1 明文豁免，A/B 均有实体指涉且表格随即枚举）、另两处为官网组件代码注释（不在对外正文适用面），按信息守恒白名单全部不动。④ 边界遵守：未装上游 skill、未移植测量脚本、上游统计数字未入任何文档。
 
 **开工提示词**：
 

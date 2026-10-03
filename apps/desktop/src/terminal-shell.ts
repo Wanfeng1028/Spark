@@ -11,7 +11,10 @@
  * 19.1/19.2 的 computer-use 就是 Windows 先行，终端同理不猜 mac/linux）。
  */
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+// win32 path 空间：本模块是 Windows 专属探测（shellProfileOf 非 win32 直接 null），
+// 根目录注入值恒为 Windows 形态——join 必须在 win32 语义下拼，否则 Linux/macOS 宿主
+// （CI runner、单测）产出 `C:\PF/Git` 混合分隔符，spawn 与断言双双失真
+import { join } from 'node:path/win32'
 
 export interface ShellProfile {
   /** 可执行文件绝对路径（spawn file；不进 IPC 面） */

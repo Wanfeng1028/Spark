@@ -315,6 +315,38 @@ def check_copy_slop(root: Path, report: Report) -> None:
                 )
 
 
+# ---------------------------------------------------------------- 检查 6：长文口语翻案腔（warn 档，工单 19.48 批 2）
+
+# 词级 warn 词表——DESIGN §12.8 表注记行的执行面，两处须同改。判据是 §12.7.1 的词级子集：
+# 只收「扫描面零命中且 AI 腔专属性强」的词；命中不为零且不能逐处判定合法性的词一律不收
+# （宁可少收，不误伤）。「先说结论」（公告/changelog 里人类也用）与「值得注意的是」（人类
+# 正式写作常用）预判不收。句式级规则仍是人工判据，不进 grep（§12.7.1）。
+COPY_WARN_PATTERNS: tuple[str, ...] = ("说到底", "说白了")
+COPY_WARN_RE = re.compile("|".join(re.escape(p) for p in COPY_WARN_PATTERNS))
+
+
+def check_copy_slop_warn(root: Path, report: Report) -> None:
+    """检查 6：扫描面复用检查 5 目标集（_iter_copy_code_files + 三 README、版本表行跳过），
+    但失败语义分离——走 report.warn（--strict 才计失败，日常不挡 CI），词表独立常量。"""
+    targets = [(p, False) for p in _iter_copy_code_files(root)]
+    targets += [(root / r, True) for r in COPY_SLOP_READMES if (root / r).exists()]
+    for path, skip_version_rows in targets:
+        rel = path.relative_to(root).as_posix()
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for lineno, line in enumerate(text.splitlines(), 1):
+            if skip_version_rows and COPY_SLOP_VERSION_ROW_RE.match(line):
+                continue
+            match = COPY_WARN_RE.search(line)
+            if match is not None:
+                report.warn(
+                    f"[长文翻案腔] {rel}:{lineno} 命中「{match.group(0)}」——DESIGN §12.7.1 "
+                    f"口语翻案腔（warn 档：--strict 才计失败；工单 19.48）"
+                )
+
+
 # ---------------------------------------------------------------- 检查 5.5：Transport 方法计数锚定（LA-24）
 
 def count_transport_methods(root: Path) -> int | None:
@@ -465,6 +497,7 @@ def main() -> int:
     check_backtick_paths(files, root, report)
     check_version_duplicates(root, report)
     check_copy_slop(root, report)
+    check_copy_slop_warn(root, report)
     check_transport_count(root, report)
     check_official_facts(root, report)
 
