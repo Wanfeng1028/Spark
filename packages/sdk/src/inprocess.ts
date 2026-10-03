@@ -332,7 +332,7 @@ export class InProcessTransport implements Transport {
   }
 
   /** 发起 MCP server OAuth 授权（CK-5 批 2）：进程内直映射（后台流程，立即返回） */
-  async startMcpAuth(server: string): Promise<boolean> {
+  startMcpAuth(server: string): Promise<boolean> {
     this.assertNotDisposed()
     return this.engine.startMcpAuth(server)
   }

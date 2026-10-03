@@ -333,21 +333,15 @@ export class UserHookRunner {
 /** CK-2 批 2 ③：阻塞 hook 的 stdout 改写协议——首段非空文本解析为 JSON 对象且含
  * `input` 对象键才采信（最小协议：只认 input 一个键，其余字段忽略）；日志噪声、
  * 非 JSON、坏形状一律返回 undefined（不拦截不改写，hook 副作用不是契约） */
-function parseRewrittenInput(stdout: string): unknown | undefined {
+function parseRewrittenInput(stdout: string): unknown {
   const firstLine = stdout.split('\n').find((l) => l.trim() !== '')
   if (firstLine === undefined) return undefined
   try {
     const parsed: unknown = JSON.parse(firstLine)
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'input' in parsed &&
-      typeof (parsed as { input: unknown }).input === 'object' &&
-      (parsed as { input: unknown }).input !== null
-    ) {
-      return (parsed as { input: unknown }).input
-    }
-    return undefined
+    if (typeof parsed !== 'object' || parsed === null || !('input' in parsed)) return undefined
+    const input: unknown = parsed.input
+    if (typeof input !== 'object' || input === null) return undefined
+    return input
   } catch {
     return undefined
   }
