@@ -653,6 +653,9 @@ export class Engine {
     this.registry.register(
       makeTaskTool((input, ctx) => this.runSubagent(input, ctx)),
     )
+    // MCP OAuth 令牌仓（CK-5 批 2）：~/.spark/mcp-tokens.json，0o600 同 secrets 口径——
+    // 须在 McpManager 构造前就位（构造读 this.mcpTokens；TS2565 先读后赋判例）
+    this.mcpTokens = new McpTokenStore(sparkFile(this.root, 'mcpTokens'))
     // MCP 外部工具（工单 5.3）：配置缺失 = 零外部工具立即就绪；单 server 失败
     // 由 manager 内部 warn 闭合（工具不注册，引擎照常启动）
     this.mcp = new McpManager({
@@ -695,8 +698,6 @@ export class Engine {
     // 信任门 + 家目录撞路径守卫 + 坏形状降级都收在 projectLayerFor 单点；
     // 不再预建 UserRuleStore 常驻字段（旧实现把 defaultCwd 的规则无条件下进所有会话）。
     this.secrets = new SecretStore(sparkFile(this.root, 'secrets'))
-    // CK-5 批 2：MCP OAuth 令牌仓（同 secrets 的 sparkFile 根级纪律；0o600 由仓内 atomicWrite 承担）
-    this.mcpTokens = new McpTokenStore(sparkFile(this.root, 'mcpTokens'))
 
     // 阶段十九 19.8 / ADR D51：语义检索——models.json 有 provider 声明 embeddings 才建。
     // 总开关 spark.json embedding.enabled 缺省 true（关 = 不嵌不检索，FTS 照常）。
