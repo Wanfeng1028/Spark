@@ -34,6 +34,8 @@ describe('磁盘契约：文件名与目录名不得随意改', () => {
       settings: 'spark.json',
       models: 'models.json',
       mcp: 'mcp.json',
+      // CK-5 批 2：MCP OAuth 令牌仓（0o600 同 secrets 口径）
+      mcpTokens: 'mcp-tokens.json',
       lsp: 'lsp.json',
       permissions: 'permissions.json',
       secrets: 'secrets.json',

@@ -136,6 +136,7 @@ import { newIds } from './ulid.js'
 import { Logger } from './logger.js'
 import type { SparkLogger } from './logger.js'
 import { loadMcpConfig } from './mcp/config.js'
+import { McpTokenStore } from './mcp/token-store.js'
 import { McpManager } from './mcp/manager.js'
 import { LspManager } from './lsp/manager.js'
 import { LspInstaller } from './lsp/installer.js'
@@ -287,6 +288,8 @@ export class Engine {
   private readonly registry: ToolRegistry
   /** MCP 外部工具管理（阶段五工单 5.3 / ADR D16）：与内置工具同一注册表同一管线 */
   private readonly mcp: McpManager
+  /** MCP OAuth 令牌仓（CK-5 批 2）：~/.spark/mcp-tokens.json，0o600 同 secrets 口径 */
+  private readonly mcpTokens = new McpTokenStore(sparkFile(this.root, 'mcpTokens'))
   /** MCP 连接任务（connect 内部逐 server 失败闭合；ready() 供 server 入口等待） */
   private readonly mcpReady: Promise<void>
   /** LSP 连接管理（工单 16.9）：惰性连接（首次查询才 spawn），经 ToolContext 注入 lsp 工具 */
@@ -655,6 +658,8 @@ export class Engine {
       // 全局出网代理 env（阶段十九 19.13，翻案 12.9"仅 LLM 面"）：getter 现读，
       // MCP server 自身发起的请求经环境变量走代理（尊重代理设置的客户端才生效）
       proxyEnv: () => this.globalProxyEnv(),
+      // CK-5 批 2：OAuth 令牌仓（~/.spark/mcp-tokens.json，0o600 同 secrets 口径）
+      tokens: this.mcpTokens,
     })
     this.mcpReady = this.mcp.connect(this.registry).catch((err: unknown) => {
       this.logger.warn('mcp.connect.error', { err })
@@ -2257,6 +2262,16 @@ export class Engine {
   /** GET /api/mcp：MCP 服务器只读状态（连接失败也列出 connected:false） */
   listMcpServers(): McpServerDto[] {
     return this.mcp.status().map((s) => ({ ...s }))
+  }
+
+  /**
+   * POST /api/mcp/:server/auth（CK-5 批 2 第三步触发面）：发起 OAuth 授权——后台流程
+   * （浏览器唤起 + loopback 回调，成功落令牌仓并重连），本调用立即返回 started；
+   * 结果经 /api/mcp 状态轮询观察（connected 翻转）。false = 未知 server / 未配置
+   * oauth / 流程已在跑（路由层如实映射 404/409）。
+   */
+  startMcpAuth(server: string): boolean {
+    return this.mcp.startAuth(server, this.registry)
   }
 
   /** GET /api/lsp（工单 16.9）：语言服务器只读状态（连接状态 + 诊断摘要；未配置空数组） */

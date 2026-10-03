@@ -10,7 +10,7 @@ import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test } from 'vitest'
 import { z } from 'zod'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -34,6 +34,8 @@ import {
   McpManager,
   mcpToolName,
 } from '../src/mcp/manager.js'
+import { isTokenExpiring, refreshTokens } from '../src/mcp/oauth.js'
+import { McpTokenStore } from '../src/mcp/token-store.js'
 import type { McpAuthGate } from '../src/mcp/manager.js'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { PermissionServiceImpl } from '../src/permission/service.js'
@@ -692,3 +694,150 @@ describe('CK-5 批 1：MCP 韧性三小件', () => {
     expect((r2.output as { code: string }).code).toBe('E_MCP_CALL')
   })
 })
+
+
+describe('CK-5 批 2 第三步：OAuth 令牌注入 / 静默刷新 / 授权发起', () => {
+  const dirs: string[] = []
+  function makeTokenStore(): McpTokenStore {
+    const dir = mkdtempSync(join(tmpdir(), 'spark-mcp-mgr-'))
+    dirs.push(dir)
+    return new McpTokenStore(join(dir, 'mcp-tokens.json'))
+  }
+  afterEach(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true })
+    dirs.length = 0
+  })
+
+  test('令牌注入：streamable-http 连接时 Bearer 头进 transport 工厂第二参', async () => {
+    const store = makeTokenStore()
+    store.set('api', {
+      clientId: 'cid',
+      accessToken: 'at-1',
+      expiresAt: Number.MAX_SAFE_INTEGER,
+      tokenEndpoint: 'https://idp.example/token',
+    })
+    const seen: Array<string | undefined> = []
+    const registry = new ToolRegistry()
+    const manager = new McpManager({
+      config: {
+        servers: {
+          api: { transport: 'streamable-http', url: 'https://mcp.example', oauth: { issuerBaseUrl: 'https://idp.example' } },
+        },
+      },
+      toolTimeoutMs: 5_000,
+      // 捕获第二参即收口（真实 transport 不建——抛错走 connectOne 失败闭合）
+      transportFactory: (_cfg, authHeader) => {
+        seen.push(authHeader)
+        throw new Error('probe-exit')
+      },
+      tokens: store,
+    })
+    await manager.connect(registry)
+    expect(seen).toEqual(['Bearer at-1'])
+  })
+
+  test('静默刷新：临期令牌连接前刷新并落仓；刷新失败沿用旧令牌不中断', async () => {
+    const store = makeTokenStore()
+    store.set('api', {
+      clientId: 'cid',
+      accessToken: 'stale',
+      refreshToken: 'rt-1',
+      expiresAt: 1_000, // 相对 now=10_000 已临期（余量 < 60s）
+      tokenEndpoint: 'https://idp.example/token',
+    })
+    const seen: Array<string | undefined> = []
+    const bodies: URLSearchParams[] = []
+    const registry = new ToolRegistry()
+    const manager = new McpManager({
+      config: {
+        servers: {
+          api: { transport: 'streamable-http', url: 'https://mcp.example', oauth: { issuerBaseUrl: 'https://idp.example' } },
+        },
+      },
+      toolTimeoutMs: 5_000,
+      transportFactory: (_cfg, authHeader) => {
+        seen.push(authHeader)
+        throw new Error('probe-exit')
+      },
+      tokens: store,
+      now: () => 10_000,
+      oauthFetch: (_url, init) => {
+        bodies.push(new URLSearchParams(init.body as string))
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ access_token: 'fresh-1', expires_in: 3600 }),
+        } as unknown as Response)
+      },
+      oauthOpenBrowser: () => Promise.resolve(),
+    })
+    await manager.connect(registry)
+    expect(bodies[0]?.get('grant_type')).toBe('refresh_token')
+    expect(seen).toEqual(['Bearer fresh-1'])
+    expect(store.get('api')?.accessToken).toBe('fresh-1')
+
+    // 刷新失败路径：下次连接沿用旧令牌（如实 warn，不中断连接语义）
+    store.set('api', {
+      clientId: 'cid',
+      accessToken: 'stale-2',
+      refreshToken: 'rt-2',
+      expiresAt: 1_000,
+      tokenEndpoint: 'https://idp.example/token',
+    })
+    const failManager = new McpManager({
+      config: {
+        servers: {
+          api: { transport: 'streamable-http', url: 'https://mcp.example', oauth: { issuerBaseUrl: 'https://idp.example' } },
+        },
+      },
+      toolTimeoutMs: 5_000,
+      transportFactory: (_cfg, authHeader) => {
+        seen.push(authHeader)
+        throw new Error('probe-exit')
+      },
+      tokens: store,
+      now: () => 10_000,
+      oauthFetch: () =>
+        Promise.resolve({
+          ok: false,
+          status: 400,
+          json: () => Promise.resolve({ error: 'invalid_grant' }),
+        } as unknown as Response),
+      oauthOpenBrowser: () => Promise.resolve(),
+    })
+    await failManager.connect(registry)
+    expect(seen[1]).toBe('Bearer stale-2')
+  })
+
+  test('startAuth：无 oauth 配置 / 运行中重复触发返回 false；有配置后台受理 true', async () => {
+    const registry = new ToolRegistry()
+    const manager = new McpManager({
+      config: {
+        servers: {
+          plain: { command: 'unused' },
+          api: { transport: 'streamable-http', url: 'https://mcp.example', oauth: { issuerBaseUrl: 'https://idp.example' } },
+        },
+      },
+      toolTimeoutMs: 5_000,
+      transportFactory: () => {
+        throw new Error('probe-exit')
+      },
+      tokens: makeTokenStore(),
+      // 元数据获取打桩：挂起不返回（流程停在授权等待——不真开浏览器/不真占端口）
+      oauthFetch: () => new Promise<Response>(() => {}),
+      oauthOpenBrowser: () => Promise.resolve(),
+    })
+    expect(manager.startAuth('unknown', registry)).toBe(false)
+    expect(manager.startAuth('plain', registry)).toBe(false)
+    expect(manager.startAuth('api', registry)).toBe(true)
+    // 运行中（元数据挂起未决）重复触发防抖
+    expect(manager.startAuth('api', registry)).toBe(false)
+    await manager.close()
+  })
+
+  test('判据烟测：isTokenExpiring / refreshTokens 独立导入可用（装配层引用面完整）', () => {
+    expect(isTokenExpiring(1_000, 5_000, 60_000)).toBe(true)
+    expect(typeof refreshTokens).toBe('function')
+  })
+})
+

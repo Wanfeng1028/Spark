@@ -18,6 +18,9 @@ import { z } from 'zod'
 import { asError, errText } from '../errs.js'
 import { sanitizeUnicodeDeep } from '../tools/unicode-sanitize.js'
 import { TOOLSEARCH_AUTO_THRESHOLD } from '../tools/builtin/tool-search.js'
+import { runAuthFlow } from './auth-flow.js'
+import { isTokenExpiring, refreshTokens, type FetchLike } from './oauth.js'
+import type { McpTokenStore, StoredTokenSet } from './token-store.js'
 import type { SparkLogger } from '../logger.js'
 import type { ToolDefinition, ToolOutput } from '../tools/definition.js'
 import type { ToolRegistry } from '../tools/registry.js'
@@ -51,14 +54,27 @@ export function mcpToolName(server: string, tool: string): string {
  * 配置文件即达服务端）；其余（缺省 'stdio'）→ StdioClientTransport 原语义。
  * schema（config.ts superRefine）已按 transport 分支校验必填；此处判空兜底抛错，
  * 由 connect() 的失败闭合（warn 跳过）承接，不带病运行。 */
-export function defaultTransport(name: string, cfg: McpServerConfig, proxyEnv?: () => Record<string, string> | undefined): Transport {
+export function defaultTransport(
+  name: string,
+  cfg: McpServerConfig,
+  proxyEnv?: () => Record<string, string> | undefined,
+  /** CK-5 批 2：OAuth Bearer 头（令牌仓有货才有）；与 cfg.headers 同键冲突时用户配置优先 */
+  authHeader?: string,
+): Transport {
   if (cfg.transport === 'streamable-http') {
     if (cfg.url === undefined) {
       throw new Error(`MCP server ${name} 配置缺 url（streamable-http transport 必填）`)
     }
+    const mergedHeaders =
+      authHeader !== undefined || cfg.headers !== undefined
+        ? {
+            ...(authHeader !== undefined ? { authorization: authHeader } : {}),
+            ...(cfg.headers ?? {}),
+          }
+        : undefined
     const opts: ConstructorParameters<typeof StreamableHTTPClientTransport>[1] = {
       requestInit: {
-        ...(cfg.headers !== undefined ? { headers: cfg.headers } : {}),
+        ...(mergedHeaders !== undefined ? { headers: mergedHeaders } : {}),
       },
     }
     // SDK 1.30 d.ts 在 exactOptionalPropertyTypes 下类与 Transport 接口可选成员失配——
@@ -221,10 +237,17 @@ export interface McpManagerDeps {
   logger?: SparkLogger
   /** spark.json toolTimeoutMs：callTool 请求级超时 */
   toolTimeoutMs: number
-  /** 测试注入 transport 工厂（缺省 stdio spawn） */
-  transportFactory?: (server: McpServerConfig) => Transport
+  /** 测试注入 transport 工厂（缺省 stdio spawn）；第二参 = OAuth Bearer 头（CK-5 批 2，
+   *  无令牌为 undefined——既有单参注入兼容） */
+  transportFactory?: (server: McpServerConfig, authHeader?: string) => Transport
   /** 全局出网代理 env（阶段十九 19.13）：getter 现读 spark.json network；undefined = 不注入 */
   proxyEnv?: () => Record<string, string> | undefined
+  /** CK-5 批 2：OAuth 令牌仓（缺省不接线 = 无令牌注入/静默刷新/授权发起语义） */
+  tokens?: McpTokenStore
+  /** CK-5 批 2：OAuth 元数据/token 请求的 fetch（缺省全局 fetch；测试注入） */
+  oauthFetch?: FetchLike
+  /** CK-5 批 2：OAuth 浏览器唤起（缺省平台 spawn；测试注入防真开浏览器） */
+  oauthOpenBrowser?: (url: string) => Promise<void>
 }
 
 export class McpManager {
@@ -233,6 +256,8 @@ export class McpManager {
   private readonly serverStatuses: { name: string; connected: boolean; tools: number; command: string }[] = []
   /** CK-5 ②：needs-auth 短路表（server → 截至 ms；15min 窗口） */
   private readonly authCachedUntil = new Map<string, number>()
+  /** CK-5 批 2：OAuth 授权流程进行中（防重复触发叠发浏览器） */
+  private readonly authRunning = new Set<string>()
   private closed = false
   /** CK-11：已注册 MCP 工具描述累计字节（自动 deferred 阈值判定） */
   private descriptionBytesTotal = 0
@@ -296,10 +321,11 @@ export class McpManager {
       reconnect: (server) => this.reconnectServer(server, registry),
     }
     try {
+      const authHeader = await this.authHeaderOf(name, cfg)
       const transport =
         this.deps.transportFactory !== undefined
-          ? this.deps.transportFactory(cfg)
-          : defaultTransport(name, cfg, this.deps.proxyEnv)
+          ? this.deps.transportFactory(cfg, authHeader)
+          : defaultTransport(name, cfg, this.deps.proxyEnv, authHeader)
       await withTimeout(client.connect(transport), cfg.connectTimeoutMs ?? CONNECT_TIMEOUT_MS, name)
       const listed = await client.listTools()
       for (const tool of listed.tools as McpToolInfo[]) {
@@ -350,6 +376,97 @@ export class McpManager {
   /** 各 server 连接状态（connect 前为空；失败 server 也列出 connected:false） */
   status(): readonly { name: string; connected: boolean; tools: number; command: string }[] {
     return this.serverStatuses
+  }
+
+  /** 到期前静默刷新余量（CK-5 批 2）：提前 60s 视为临期——避免边界上发出必死请求 */
+  private static readonly REFRESH_MARGIN_MS = 60_000
+
+  /**
+   * OAuth Bearer 头判定（CK-5 批 2）：令牌仓有货才注入；临期先静默刷新（尽力而为——
+   * 失败如实 warn 沿用旧令牌，401 走既有 needs-auth 闭环，不因刷新失败中断连接）。
+   * 仅 streamable-http + 配置了 oauth 的 server 消费（stdio 无 HTTP 头位）。
+   */
+  private async authHeaderOf(name: string, cfg: McpServerConfig): Promise<string | undefined> {
+    const store = this.deps.tokens
+    if (cfg.oauth === undefined || store === undefined) return undefined
+    const set = store.get(name)
+    if (set === undefined) return undefined
+    const now = this.deps.now ?? Date.now
+    if (isTokenExpiring(set.expiresAt, now(), McpManager.REFRESH_MARGIN_MS)) {
+      const refreshed = await this.refreshSilent(name, set)
+      if (refreshed !== undefined) return `Bearer ${refreshed.accessToken}`
+    }
+    return `Bearer ${set.accessToken}`
+  }
+
+  /** 静默刷新（CK-5 批 2）：refreshToken/tokenEndpoint 齐备才可刷；成功落仓并返回新组 */
+  private async refreshSilent(name: string, set: StoredTokenSet): Promise<StoredTokenSet | undefined> {
+    if (set.refreshToken === undefined || set.tokenEndpoint === undefined) return undefined
+    const fetchLike: FetchLike = this.deps.oauthFetch ?? ((url, init) => fetch(url, init))
+    try {
+      const next = await refreshTokens(
+        {
+          tokenEndpoint: set.tokenEndpoint,
+          refreshToken: set.refreshToken,
+          clientId: set.clientId,
+          ...(set.clientSecret !== undefined ? { clientSecret: set.clientSecret } : {}),
+        },
+        fetchLike,
+      )
+      const updated: StoredTokenSet = {
+        clientId: set.clientId,
+        ...(set.clientSecret !== undefined ? { clientSecret: set.clientSecret } : {}),
+        accessToken: next.accessToken,
+        // 响应不带新 refresh_token 时沿用旧值（RFC 6749 §6 回带是可选语义）
+        refreshToken: next.refreshToken ?? set.refreshToken,
+        ...(next.expiresAt !== undefined ? { expiresAt: next.expiresAt } : {}),
+        ...(next.scope !== undefined ? { scope: next.scope } : {}),
+        tokenEndpoint: set.tokenEndpoint,
+      }
+      this.deps.tokens?.set(name, updated)
+      this.deps.logger?.info('mcp.oauth.refreshed', { server: name })
+      return updated
+    } catch (err) {
+      this.deps.logger?.warn('mcp.oauth.refresh.error', { server: name, err })
+      return undefined
+    }
+  }
+
+  /**
+   * 发起 OAuth 授权（CK-5 批 2 第三步触发面）：后台运行 runAuthFlow——成功经令牌仓
+   * 落盘并重连该 server（令牌注入下一连接），失败如实 warn；结果经 status() 轮询观察
+   * （connected 翻转）。返回 false = 无 oauth 配置 / 流程已在跑（不叠发浏览器）。
+   */
+  startAuth(server: string, registry: ToolRegistry): boolean {
+    if (this.closed) return false
+    const cfg = this.deps.config.servers[server]
+    if (cfg?.oauth === undefined) return false
+    if (this.authRunning.has(server)) return false
+    this.authRunning.add(server)
+    const oauth = cfg.oauth
+    void runAuthFlow(
+      {
+        serverName: server,
+        issuerBaseUrl: oauth.issuerBaseUrl,
+        ...(oauth.clientId !== undefined ? { staticClientId: oauth.clientId } : {}),
+        ...(oauth.clientSecret !== undefined ? { staticClientSecret: oauth.clientSecret } : {}),
+        ...(oauth.scope !== undefined ? { scope: oauth.scope } : {}),
+      },
+      { fetchLike: this.deps.oauthFetch ?? ((url, init) => fetch(url, init)),
+        ...(this.deps.oauthOpenBrowser !== undefined ? { openBrowser: this.deps.oauthOpenBrowser } : {}) },
+    )
+      .then(async (tokens) => {
+        this.deps.tokens?.set(server, tokens)
+        this.deps.logger?.info('mcp.oauth.authorized', { server })
+        await this.reconnectServer(server, registry)
+      })
+      .catch((err: unknown) => {
+        this.deps.logger?.warn('mcp.oauth.flow.error', { server, err })
+      })
+      .finally(() => {
+        this.authRunning.delete(server)
+      })
+    return true
   }
 
   /** 优雅退出：关闭全部 client（stdio 即终止子进程）；幂等 */

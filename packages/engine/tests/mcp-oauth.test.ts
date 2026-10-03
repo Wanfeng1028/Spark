@@ -152,7 +152,7 @@ describe('exchangeToken / refreshTokens / registerDynamicClient', () => {
     const bad = stubFetch(401, { error: 'invalid_grant' })
     await expect(
       refreshTokens({ tokenEndpoint: 'https://idp.example/token', refreshToken: 'rt', clientId: 'cid' }, bad.fetch),
-    ).rejects.toThrow('(401)')
+    ).rejects.toThrow('（401）')
   })
 
   it('动态注册：POST JSON，201/200 都收；client_secret 可选带回', async () => {

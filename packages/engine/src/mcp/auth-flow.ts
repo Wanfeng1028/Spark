@@ -199,6 +199,8 @@ export async function runAuthFlow(config: AuthFlowConfig, deps: AuthFlowDeps): P
       ...(tokenSet.refreshToken !== undefined ? { refreshToken: tokenSet.refreshToken } : {}),
       ...(tokenSet.expiresAt !== undefined ? { expiresAt: tokenSet.expiresAt } : {}),
       ...(tokenSet.scope !== undefined ? { scope: tokenSet.scope } : {}),
+      // token 端点随仓落盘——manager 静默刷新免二次元数据发现
+      tokenEndpoint: metadata.token_endpoint,
     }
   } finally {
     loopback.close()

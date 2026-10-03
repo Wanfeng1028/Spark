@@ -577,6 +577,14 @@ export class HttpTransport implements Transport {
     return this.req<McpConfigInput>('/api/mcp/config')
   }
 
+  /** POST /api/mcp/:server/auth：发起 OAuth 授权（CK-5 批 2；后台流程立即返回） */
+  startMcpAuth(server: string): Promise<boolean> {
+    return this.req<{ started: boolean }>(`/api/mcp/${encodeURIComponent(server)}/auth`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }).then((r) => r.started)
+  }
+
   listSkills(): Promise<SkillDto[]> {
     return this.req<SkillDto[]>('/api/skills')
   }

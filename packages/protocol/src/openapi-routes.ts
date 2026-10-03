@@ -558,6 +558,13 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     tag: 'config',
   },
   {
+    method: 'post',
+    path: '/api/mcp/{server}/auth',
+    summary: '发起 MCP server OAuth 授权（CK-5 批 2）——后台流程立即返回 started；false 语义见 409',
+    tag: 'config',
+    paramSchemas: { server: { type: 'string', description: 'mcp.json 里的 server 名' } },
+  },
+  {
     method: 'put',
     path: '/api/mcp',
     summary: '整文件写 mcp.json（工单 12.6：坏配置不落盘 → 400；重启后重连）',

@@ -231,6 +231,13 @@ export interface Transport {
   /** GET /api/mcp/config：mcp.json 读回（RT3-07）——env 值一律 MCP_ENV_MASK 占位，
    * 供管理页以完整配置为底做整文件保存（不再从状态表重建而丢 args/env） */
   getMcpConfig(): Promise<McpConfigInput>
+  /**
+   * POST /api/mcp/:server/auth：发起 MCP server OAuth 授权（CK-5 批 2）——引擎侧
+   * 后台流程（浏览器唤起 + loopback 回调），成功落令牌仓并重连，本调用立即返回；
+   * 结果经 listMcpServers() 轮询观察（connected 翻转）。false = 未知 server /
+   * 未配置 oauth / 流程已在跑。
+   */
+  startMcpAuth(server: string): Promise<boolean>
   /** POST /api/sessions/:id/attachments：上传图片（工单 12.2a；≤10MB image/* 白名单） */
   uploadAttachment(
     sessionId: SessionId,

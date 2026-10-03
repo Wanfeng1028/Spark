@@ -83,6 +83,15 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
         args: z.array(z.string()).optional(),
         env: z.record(z.string().min(1), z.string()).optional(),
         connectTimeoutMs: z.number().int().positive().max(600_000).optional(),
+        oauth: z
+          .strictObject({
+            issuerBaseUrl: z.string().url(),
+            clientId: z.string().min(1).optional(),
+            // 读回通道掩码占位（同 env/headers 纪律）：PUT 带掩码时由合并层还原盘上真值
+            clientSecret: z.string().min(1).optional(),
+            scope: z.string().min(1).optional(),
+          })
+          .optional(),
       }),
     ).optional(),
   })
@@ -117,6 +126,19 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
                 ...(v.args !== undefined ? { args: v.args } : {}),
                 ...(v.env !== undefined ? { env: v.env } : {}),
                 ...(v.connectTimeoutMs !== undefined ? { connectTimeoutMs: v.connectTimeoutMs } : {}),
+                // CK-5 批 2：oauth 透传；clientSecret 掩码占位经 mergeMaskedMcpConfig 还原盘上真值
+                ...(v.oauth !== undefined
+                  ? {
+                      oauth: {
+                        issuerBaseUrl: v.oauth.issuerBaseUrl,
+                        ...(v.oauth.clientId !== undefined ? { clientId: v.oauth.clientId } : {}),
+                        ...(v.oauth.clientSecret !== undefined
+                          ? { clientSecret: v.oauth.clientSecret }
+                          : {}),
+                        ...(v.oauth.scope !== undefined ? { scope: v.oauth.scope } : {}),
+                      },
+                    }
+                  : {}),
               },
             ]),
           ),
@@ -137,6 +159,21 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   app.get('/api/mcp', () => {
     // 纯内存读：各 server 连接结果快照（失败也列出 connected:false）
     return engine.listMcpServers()
+  })
+
+  /** POST /api/mcp/:server/auth（CK-5 批 2 第三步触发面）：发起 OAuth 授权——引擎侧
+   *  后台流程（浏览器 + loopback），立即返回 started；结果经 GET /api/mcp 轮询观察 */
+  const McpAuthParams = z.strictObject({ server: z.string().min(1) })
+  app.post('/api/mcp/:server/auth', (req, reply) => {
+    const { server } = parseOr400(McpAuthParams, req.params)
+    const started = engine.startMcpAuth(server)
+    if (!started) {
+      return reply.code(409).send({
+        code: 'E_MCP_AUTH_UNAVAILABLE',
+        message: `无法发起 OAuth 授权：server ${server} 不存在、未配置 oauth 或流程已在跑`,
+      })
+    }
+    return reply.send({ started: true })
   })
 
   /** GET /api/mcp/config：mcp.json 读回（RT3-07）——env 值一律掩码占位，不明文出引擎 */

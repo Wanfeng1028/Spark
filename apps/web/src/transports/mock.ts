@@ -1208,6 +1208,15 @@ export class MockTransport implements Transport {
     ])
   }
 
+  /** POST /api/mcp/:server/auth（CK-5 批 2 mock 对等）：mock 无真实 OAuth 流程——
+   *  已知 mock server 名如实受理（面板触发路径可达），未知名拒绝（禁假状态） */
+  startMcpAuth(server: string): Promise<boolean> {
+    this.assertNotDisposed()
+    const known = ['filesystem', 'github']
+    if (!known.includes(server)) return Promise.resolve(false)
+    return Promise.resolve(true)
+  }
+
   listSkills(): Promise<SkillDto[]> {
     this.assertNotDisposed()
     return Promise.resolve([

@@ -2193,6 +2193,30 @@
         }
       }
     },
+    "/api/mcp/{server}/auth": {
+      "post": {
+        "tags": [
+          "config"
+        ],
+        "summary": "发起 MCP server OAuth 授权（CK-5 批 2）——后台流程立即返回 started；false 语义见 409",
+        "responses": {
+          "204": {
+            "description": "成功（无响应体）"
+          }
+        },
+        "parameters": [
+          {
+            "name": "server",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "mcp.json 里的 server 名"
+            }
+          }
+        ]
+      }
+    },
     "/api/skills": {
       "get": {
         "tags": [

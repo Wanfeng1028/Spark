@@ -19,6 +19,8 @@ const storedTokenSetSchema = z.strictObject({
   /** 绝对到期毫秒；server 未给 expires_in 时缺省（每次调用前 401 再重授权） */
   expiresAt: z.number().int().positive().optional(),
   scope: z.string().optional(),
+  /** token 端点（授权时从元数据取得落仓）——静默刷新免二次发现 */
+  tokenEndpoint: z.string().min(1).optional(),
 })
 
 const tokensFileSchema = z.strictObject({

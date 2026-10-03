@@ -26,6 +26,17 @@ export interface McpServerConfig {
   /** CK-11：该 server 工具延迟加载（不进初始广告面，模型经 tool_search 显现）；
    * 缺省 undefined = 按广告面字节阈值自动判定 */
   deferTools?: boolean | undefined
+  /** CK-5 批 2：OAuth（streamable-http server 的授权面）。issuerBaseUrl 必填；
+   * clientId 可省——server 支持 RFC 7591 动态注册时自动注册，两者皆无该 server 拒载 OAuth */
+  oauth?: McpOAuthConfig | undefined
+}
+
+/** OAuth 授权配置（CK-5 批 2）：静态 client 优先（client_id 可来自此处或动态注册） */
+interface McpOAuthConfig {
+  issuerBaseUrl: string
+  clientId?: string | undefined
+  clientSecret?: string | undefined
+  scope?: string | undefined
 }
 
 export interface McpConfig {
@@ -43,6 +54,14 @@ const serverSchema = z
     args: z.array(z.string()).optional(),
     env: z.record(z.string().min(1), z.string()).optional(),
     connectTimeoutMs: z.number().int().positive().max(600_000).optional(),
+    oauth: z
+      .strictObject({
+        issuerBaseUrl: z.string().url(),
+        clientId: z.string().min(1).optional(),
+        clientSecret: z.string().min(1).optional(),
+        scope: z.string().min(1).optional(),
+      })
+      .optional(),
   })
   .superRefine((s, ctx) => {
     // LA-23：url 限 http/https 协议且拒 userinfo（ftp:/ssh: 等非目标协议拒载；
@@ -146,6 +165,19 @@ export function maskMcpConfigForClient(config: McpConfig): McpConfigInput {
             ? { env: Object.fromEntries(Object.keys(s.env).map((k) => [k, MCP_ENV_MASK])) }
             : {}),
           ...(s.connectTimeoutMs !== undefined ? { connectTimeoutMs: s.connectTimeoutMs } : {}),
+          // CK-5 批 2：oauth 读回——clientSecret 掩码占位（明文不出引擎），其余字段原样
+          ...(s.oauth !== undefined
+            ? {
+                oauth: {
+                  issuerBaseUrl: s.oauth.issuerBaseUrl,
+                  ...(s.oauth.clientId !== undefined ? { clientId: s.oauth.clientId } : {}),
+                  ...(s.oauth.clientSecret !== undefined
+                    ? { clientSecret: MCP_ENV_MASK }
+                    : {}),
+                  ...(s.oauth.scope !== undefined ? { scope: s.oauth.scope } : {}),
+                },
+              }
+            : {}),
         },
       ]),
     ),
@@ -186,11 +218,57 @@ export function mergeMaskedMcpConfig(existing: McpConfig, incoming: McpConfigInp
       `mcp.json：${name} 的 env.${k} 是掩码占位但没有既有值可保留——新值请明文填写`)
     const headers = resolveMaskedMap(s.headers, existing.servers[name]?.headers, (k) =>
       `mcp.json：${name} 的 headers.${k} 是掩码占位但没有既有值可保留——新值请明文填写`)
+    // CK-5 批 2：oauth.clientSecret 单值掩码（同 env/headers 纪律——掩码占位还原盘上真值，
+    // 明文原样；无既有真值且 incoming 是掩码 → 保留 undefined（新 server 走动态注册无 secret）
+    const incomingOauth = s.oauth
+    const prevOauth = existing.servers[name]?.oauth
+    const clientSecret = resolveMaskedSecret(incomingOauth?.clientSecret, prevOauth?.clientSecret, () =>
+      `mcp.json：${name} 的 oauth.clientSecret 是掩码占位但没有既有值可保留——新值请明文填写`)
     servers[name] = {
       ...s,
       ...(env !== undefined ? { env } : {}),
       ...(headers !== undefined ? { headers } : {}),
+      ...(incomingOauth !== undefined || clientSecret !== undefined
+        ? {
+            oauth: {
+              ...(incomingOauth !== undefined
+                ? { issuerBaseUrl: incomingOauth.issuerBaseUrl }
+                : prevOauth !== undefined
+                  ? { issuerBaseUrl: prevOauth.issuerBaseUrl }
+                  : { issuerBaseUrl: '' }),
+              ...(incomingOauth?.clientId !== undefined
+                ? { clientId: incomingOauth.clientId }
+                : prevOauth?.clientId !== undefined
+                  ? { clientId: prevOauth.clientId }
+                  : {}),
+              ...(clientSecret !== undefined ? { clientSecret } : {}),
+              ...(incomingOauth?.scope !== undefined
+                ? { scope: incomingOauth.scope }
+                : prevOauth?.scope !== undefined
+                  ? { scope: prevOauth.scope }
+                  : {}),
+            },
+          }
+        : {}),
     }
   }
   return { servers }
+}
+
+/** 单值掩码解析（oauth.clientSecret 专用——resolveMaskedMap 的标量版）：
+ *  掩码占位 → 盘上真值（无真值抛错——掩码不是值，禁假状态）；明文 → 原样；
+ *  缺省（字段被删）→ undefined（整文件写语义：删字段 = 清值，不回填旧值） */
+function resolveMaskedSecret(
+  incoming: string | undefined,
+  prev: string | undefined,
+  describe: () => string,
+): string | undefined {
+  if (incoming === undefined) return undefined
+  if (incoming === MCP_ENV_MASK) {
+    if (prev === undefined) {
+      throw new ConfigError(describe())
+    }
+    return prev
+  }
+  return incoming
 }

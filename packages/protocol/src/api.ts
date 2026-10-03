@@ -1437,6 +1437,13 @@ export interface McpConfigInput {
       args?: string[]
       env?: Record<string, string>
       connectTimeoutMs?: number
+      /** CK-5 批 2：OAuth 授权配置（streamable-http server）；clientId 可省（动态注册） */
+      oauth?: {
+        issuerBaseUrl: string
+        clientId?: string
+        clientSecret?: string
+        scope?: string
+      }
     }
   >
 }

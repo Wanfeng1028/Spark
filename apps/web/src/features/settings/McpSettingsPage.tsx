@@ -7,10 +7,11 @@
  * 原样保留（不再从状态表重建而丢 args/env）；编辑项 env 掩码行由引擎合并盘上真值。
  */
 import { useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { KeyRound, Trash2 } from 'lucide-react'
 import { MCP_ENV_MASK, type McpServerDto, type McpTransportKind } from '@spark/protocol'
 import { Button } from '@/components/ui/button'
 import { useTransport } from '@/transports/context'
+import { errorMessageOf } from '@/lib/error-copy'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { cn } from '@/lib/utils'
@@ -219,6 +220,28 @@ export function McpSettingsPage() {
                 title={s.connected ? '已连接' : '连接失败'}
                 aria-label={s.connected ? '已连接' : '连接失败'}
               />
+              {/* CK-5 批 2：OAuth 授权触发——引擎侧后台流程（浏览器 + 回调），
+                  started 后由本页 listMcpServers 轮询观察 connected 翻转；未配置
+                  oauth / 流程已在跑 / 未知 server 时如实报错（禁假状态） */}
+              <button
+                type="button"
+                aria-label={`发起 OAuth 授权 ${s.name}`}
+                title="OAuth 授权（打开浏览器完成登录，引擎自动回连）"
+                disabled={busy}
+                onClick={() => {
+                  void transport
+                    .startMcpAuth(s.name)
+                    .then((started) => {
+                      if (!started) {
+                        setOpError(`无法发起授权：${s.name} 未配置 oauth、流程已在跑或不存在`)
+                      }
+                    })
+                    .catch((err: unknown) => setOpError(errorMessageOf(err)))
+                }}
+                className="rounded-full p-1 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+              >
+                <KeyRound className="size-3.5" />
+              </button>
               <button
                 type="button"
                 aria-label={`停用 MCP 服务器 ${s.name}`}
