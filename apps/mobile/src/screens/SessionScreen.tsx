@@ -60,6 +60,7 @@ import {
   ApprovalCard,
   AssistantBlock,
   DiagnosticsCard,
+  QuestionCard,
   ReasoningCard,
   ToolCard,
   TurnRow,
@@ -323,6 +324,14 @@ export function SessionScreen() {
     void controllerRef.current?.reply(requestId, reply)
   }, [])
 
+  // 结构化提问作答（CK-6 批 2）：QuestionCard 提交经 REST 回引擎挂起表——
+  // 错误由卡片内联呈现（catch 重抛语义在卡内收口，这里只透传 Promise）
+  const handleQuestionReply = useCallback(
+    (requestId: RequestId, answers: Array<{ selected: string[] }>): Promise<void> =>
+      getHttpTransport(serverUrl, token).replyQuestion(requestId, answers),
+    [serverUrl, token],
+  )
+
   // ---- 附件上传（19.27 接真）：picker 选图 → base64 取字节 → uploadAttachment → 待发清单 ----
   const pickAttachment = useCallback(async (): Promise<void> => {
     if (uploadingAttachment) return
@@ -578,28 +587,8 @@ export function SessionScreen() {
         // LSP 诊断折叠卡（W18）：折叠单行入口，点按展开逐条摘要
         return <DiagnosticsCard item={it} />
       case 'question':
-        // CK-6 批 1：只读呈现（点选作答随批 2 移动端交互批）
-        return (
-          <View style={styles.questionWrap}>
-            {it.questions.map((q, qi) => {
-              const a = it.status === 'resolved' ? it.answers?.[qi] : undefined
-              const picked = a !== undefined && a.selected.length > 0 ? ` → ${a.selected.join('、')}` : ''
-              return (
-                <Text key={qi} style={styles.questionText}>
-                  {qi + 1}. {q.question}
-                  {picked}
-                </Text>
-              )
-            })}
-            <Text style={styles.questionHint}>
-              {it.status === 'pending'
-                ? '请在 Web 工作台作答（超时未答将 fail-closed）'
-                : it.aborted === true
-                  ? '提问超时/中断——未获回答'
-                  : '提问已回答'}
-            </Text>
-          </View>
-        )
+        // CK-6 批 2：挂起可点选作答（replyQuestion 回挂起表）；resolved/aborted 卡内翻牌摘要
+        return <QuestionCard item={it} onReply={handleQuestionReply} />
     }
   }
 
@@ -835,22 +824,6 @@ export function SessionScreen() {
 }
 
 const styles = StyleSheet.create({
-  questionWrap: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderLeftWidth: 2,
-    borderColor: '#d4a017',
-    marginVertical: 4,
-  },
-  questionText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  questionHint: {
-    fontSize: 11,
-    color: '#8a8f98',
-    marginTop: 4,
-  },
   screen: {
     flex: 1,
   },

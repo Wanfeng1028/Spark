@@ -173,6 +173,14 @@ export class MiniRestClient {
     }).then(() => undefined)
   }
 
+  /** POST /api/questions/:requestId：结构化提问作答（CK-6 批 2，四端同一端点） */
+  replyQuestion(requestId: RequestId, answers: Array<{ selected: string[] }>): Promise<void> {
+    return this.req<{ ok: boolean }>(`/api/questions/${requestId}`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    }).then(() => undefined)
+  }
+
   /** POST /api/pair：短码兑长效 token（鉴权自举口，无需 token；9.1 / D24） */
   redeemPair(body: PairRedeemBody): Promise<PairTokenDto> {
     return this.req<PairTokenDto>('/api/pair', {

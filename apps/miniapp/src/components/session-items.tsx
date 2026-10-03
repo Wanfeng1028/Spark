@@ -20,6 +20,7 @@ import {
 } from '@spark/protocol'
 import { useAppStore } from '../store/app-store'
 import { useTheme } from '../store/theme-store'
+import { miniErrorMessageOf } from '../i18n'
 import { attachmentUrlOf } from '../session/attachments'
 import { AttachmentThumb, Card, Hairline } from './ui'
 import './session-items.css'
@@ -373,6 +374,129 @@ export function ApprovalCard({
               </Text>
             </View>
           </View>
+        )}
+      </View>
+    </View>
+  )
+}
+
+/** 结构化提问卡（CK-6 批 2，语义对齐 mobile QuestionCard）：挂起可点选作答——
+ *  单选直选/多选 toggle（web QuestionCard 同语义），全部问已答出提交钮；提交经
+ *  replyQuestion 回引擎挂起表，失败保留已选如实报错（19.27 附件同纪律），
+ *  成功后 resolved 事件翻牌。resolved/aborted 渲染答案摘要。warn 左边条 = 等待用户。 */
+export function QuestionCard({
+  item,
+  onReply,
+}: {
+  item: Extract<UiItem, { kind: 'question' }>
+  /** 提交（请求失败 reject——卡片保留已选与错误行；成功即由事件流收口） */
+  onReply: (answers: Array<{ selected: string[] }>) => Promise<void>
+}) {
+  const t = useTheme()
+  // 每问已选 label 集合（与 questions 等长对齐）；单选=置换、多选=toggle
+  const [picked, setPicked] = useState<string[][]>(() => item.questions.map(() => []))
+  const [submitting, setSubmitting] = useState(false)
+  const [opError, setOpError] = useState<string | null>(null)
+  const pending = item.status === 'pending' && item.aborted !== true
+  const complete = picked.every((arr) => arr.length > 0)
+
+  const toggle = (qi: number, label: string): void => {
+    if (!pending || submitting) return
+    setPicked((prev) =>
+      prev.map((arr, i) => {
+        if (i !== qi) return arr
+        const multi = item.questions[i]?.multiSelect === true
+        if (multi) return arr.includes(label) ? arr.filter((l) => l !== label) : [...arr, label]
+        return arr.includes(label) ? [] : [label]
+      }),
+    )
+  }
+
+  const submit = (): void => {
+    if (!pending || submitting || !complete) return
+    setSubmitting(true)
+    setOpError(null)
+    onReply(picked.map((arr) => ({ selected: arr }))).catch((err: unknown) => {
+      // 受理失败：保留已选（用户改后重试），错误行如实呈现（禁假状态）
+      setSubmitting(false)
+      setOpError(miniErrorMessageOf(err))
+    })
+  }
+
+  if (!pending) {
+    return (
+      <View className="si-approval-card" style={{ backgroundColor: t.card }}>
+        <View className="si-approval-body" style={{ paddingLeft: 0 }}>
+          <Text className="si-meta" style={{ color: t.mutedForeground }}>
+            {item.aborted === true ? '提问超时/中断——未获回答（fail-closed）' : '提问已回答'}
+          </Text>
+          {item.answers !== undefined &&
+            item.questions.map((q, qi) => {
+              const a = item.answers?.[qi]
+              if (a === undefined || a.selected.length === 0) return null
+              return (
+                <Text key={qi} className="si-approval-resource" style={{ color: t.foreground }}>
+                  {qi + 1}. {q.question} → {a.selected.join('、')}
+                  {a.note !== undefined && a.note !== '' ? `（备注：${a.note}）` : ''}
+                </Text>
+              )
+            })}
+        </View>
+      </View>
+    )
+  }
+
+  return (
+    <View className="si-approval-card" style={{ backgroundColor: t.card }}>
+      <View className="si-approval-bar" style={{ backgroundColor: t.sparkWarn }} />
+      <View className="si-approval-body">
+        <Text className="si-card-title" style={{ color: t.foreground }}>
+          需要你的选择
+        </Text>
+        {item.questions.map((q, qi) => {
+          const arr = picked[qi] ?? []
+          return (
+            <View key={qi} className="si-question-group">
+              <Text className="si-approval-resource" style={{ color: t.foreground }}>
+                {qi + 1}. {q.question}
+                {q.multiSelect === true ? '（可多选）' : ''}
+              </Text>
+              {q.options.map((o) => {
+                const on = arr.includes(o.label)
+                return (
+                  <View
+                    key={o.label}
+                    className="si-question-option"
+                    style={{
+                      borderColor: on ? t.foreground : t.border,
+                      backgroundColor: on ? t.muted : 'transparent',
+                    }}
+                    onClick={() => {
+                      if (!submitting) toggle(qi, o.label)
+                    }}
+                  >
+                    <Text className="si-question-option-text" style={{ color: t.foreground }}>
+                      {on ? '✓ ' : ''}
+                      {o.label}
+                      {o.description !== undefined && o.description !== ''
+                        ? ` —— ${o.description}`
+                        : ''}
+                    </Text>
+                  </View>
+                )
+              })}
+            </View>
+          )
+        })}
+        {opError !== null && <Text className="si-meta" style={{ color: t.sparkErr }}>{opError}</Text>}
+        <ApprovalButton
+          label={submitting ? '提交中…' : '提交回答'}
+          variant="primary"
+          disabled={submitting || !complete}
+          onPress={submit}
+        />
+        {!complete && (
+          <Text className="si-meta" style={{ color: t.mutedForeground }}>每问至少选择一项</Text>
         )}
       </View>
     </View>

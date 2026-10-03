@@ -152,3 +152,25 @@
 .si-approval-resolved {
   padding-top: 16rpx;
 }
+
+/* 提问作答卡（CK-6 批 2）：选项纵列点选，已选反白描边 */
+.si-question-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.si-question-option {
+  border-width: 2rpx;
+  border-style: solid;
+  border-radius: 24rpx;
+  padding: 16rpx 24rpx;
+  min-height: 80rpx;
+  display: flex;
+  align-items: center;
+}
+
+.si-question-option-text {
+  font-size: 28rpx;
+  line-height: 36rpx;
+}

@@ -49,6 +49,7 @@ import {
   ApprovalCard,
   AssistantBlock,
   DiagnosticsCard,
+  QuestionCard,
   ReasoningCard,
   ToolCard,
   TurnRow,
@@ -182,6 +183,19 @@ export default function SessionPage() {
   const handleReply = useCallback((requestId: RequestId, reply: PermissionReply): void => {
     void controllerRef.current?.reply(requestId, reply)
   }, [])
+
+  // 结构化提问作答（CK-6 批 2）：QuestionCard 提交经 REST 回引擎挂起表——
+  // 未配置服务器时如实拒绝（卡片内联呈现，不假装已提交）
+  const handleQuestionReply = useCallback(
+    (requestId: RequestId, answers: Array<{ selected: string[] }>): Promise<void> => {
+      const rest = getRestClient(serverUrl, token)
+      if (rest === null) {
+        return Promise.reject(new Error('未配置服务器：请先在设置页完成配对'))
+      }
+      return rest.replyQuestion(requestId, answers)
+    },
+    [serverUrl, token],
+  )
 
   const handlePickAttachment = useCallback((): void => {
     const rest = getRestClient(serverUrl, token)
@@ -519,29 +533,10 @@ export default function SessionPage() {
                     </View>
                   )
                 case 'question':
-                  // CK-6 批 1：只读呈现（点选作答随批 2 小程序交互批）
+                  // CK-6 批 2：挂起可点选作答（replyQuestion 回挂起表）；resolved/aborted 卡内翻牌摘要
                   return (
-                    <View key={row.key} className="sp-row-gap sp-question">
-                      {it.questions.map((q, qi) => {
-                        const a = it.status === 'resolved' ? it.answers?.[qi] : undefined
-                        const picked =
-                          a !== undefined && a.selected.length > 0
-                            ? ` → ${a.selected.join('、')}`
-                            : ''
-                        return (
-                          <Text key={qi} className="sp-question-text">
-                            {qi + 1}. {q.question}
-                            {picked}
-                          </Text>
-                        )
-                      })}
-                      <Text className="sp-question-hint">
-                        {it.status === 'pending'
-                          ? '请在 Web 工作台作答（超时未答将 fail-closed）'
-                          : it.aborted === true
-                            ? '提问超时/中断——未获回答'
-                            : '提问已回答'}
-                      </Text>
+                    <View key={row.key} className="sp-row-gap">
+                      <QuestionCard item={it} onReply={handleQuestionReply} />
                     </View>
                   )
               }

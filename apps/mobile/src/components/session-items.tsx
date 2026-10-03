@@ -29,6 +29,7 @@ import {
 } from '@spark/protocol'
 import { useAppStore } from '../store/app-store'
 import { useTheme } from '../theme/use-theme'
+import { mobileErrorMessageOf } from '../i18n'
 import { Card, Hairline } from './ui'
 import { mobileMetrics } from '../theme/tokens'
 
@@ -494,6 +495,132 @@ export function ApprovalCard({
   )
 }
 
+/** 结构化提问卡（CK-6 批 2）：挂起可点选作答——单选直选/多选 toggle（web QuestionCard
+ *  同语义），全部问已答出提交钮；提交经 replyQuestion 回引擎挂起表，失败保留已选如实
+ *  报错（19.27 附件同纪律：失败清单保留不无声丢失），成功后 resolved 事件翻牌。
+ *  resolved/aborted 渲染答案摘要。warn 左边条 = 「等待用户」语义位（审批卡同构）。 */
+export function QuestionCard({
+  item,
+  onReply,
+}: {
+  item: Extract<UiItem, { kind: 'question' }>
+  /** 提交（请求失败 reject——卡片保留已选与错误行；成功即由事件流收口） */
+  onReply: (answers: Array<{ selected: string[] }>) => Promise<void>
+}) {
+  const t = useTheme()
+  // 每问已选 label 集合（与 questions 等长对齐）；单选=置换、多选=toggle
+  const [picked, setPicked] = useState<string[][]>(() => item.questions.map(() => []))
+  const [submitting, setSubmitting] = useState(false)
+  const [opError, setOpError] = useState<string | null>(null)
+  const pending = item.status === 'pending' && item.aborted !== true
+  const complete = picked.every((arr) => arr.length > 0)
+
+  const toggle = (qi: number, label: string): void => {
+    if (!pending || submitting) return
+    setPicked((prev) =>
+      prev.map((arr, i) => {
+        if (i !== qi) return arr
+        const multi = item.questions[i]?.multiSelect === true
+        if (multi) return arr.includes(label) ? arr.filter((l) => l !== label) : [...arr, label]
+        return arr.includes(label) ? [] : [label]
+      }),
+    )
+  }
+
+  const submit = (): void => {
+    if (!pending || submitting || !complete) return
+    setSubmitting(true)
+    setOpError(null)
+    onReply(picked.map((arr) => ({ selected: arr }))).catch((err: unknown) => {
+      // 受理失败：保留已选（用户改后重试），错误行如实呈现（禁假状态）
+      setSubmitting(false)
+      setOpError(mobileErrorMessageOf(err))
+    })
+  }
+
+  if (!pending) {
+    return (
+      <View style={[styles.approvalCard, { backgroundColor: t.card }]}>
+        <View style={[styles.approvalBody, { paddingLeft: mobileMetrics.cardPadding }]}>
+          <Text style={[styles.meta, { color: t.mutedForeground }]}>
+            {item.aborted === true ? '提问超时/中断——未获回答（fail-closed）' : '提问已回答'}
+          </Text>
+          {item.answers !== undefined &&
+            item.questions.map((q, qi) => {
+              const a = item.answers?.[qi]
+              if (a === undefined || a.selected.length === 0) return null
+              return (
+                <Text key={qi} style={[styles.approvalResource, { color: t.foreground }]}>
+                  {qi + 1}. {q.question} → {a.selected.join('、')}
+                  {a.note !== undefined && a.note !== '' ? `（备注：${a.note}）` : ''}
+                </Text>
+              )
+            })}
+        </View>
+      </View>
+    )
+  }
+
+  return (
+    <View style={[styles.approvalCard, { backgroundColor: t.card }]}>
+      <View style={[styles.approvalBar, { backgroundColor: t.sparkWarn }]} />
+      <View style={styles.approvalBody}>
+        <Text style={[styles.cardTitle, { color: t.foreground }]}>需要你的选择</Text>
+        {item.questions.map((q, qi) => {
+          const arr = picked[qi] ?? []
+          return (
+            <View key={qi} style={styles.questionGroup}>
+              <Text style={[styles.approvalResource, { color: t.foreground }]}>
+                {qi + 1}. {q.question}
+                {q.multiSelect === true ? '（可多选）' : ''}
+              </Text>
+              {q.options.map((o) => {
+                const on = arr.includes(o.label)
+                return (
+                  <TouchableOpacity
+                    key={o.label}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${q.question}：${o.label}`}
+                    accessibilityState={{ selected: on }}
+                    disabled={submitting}
+                    onPress={() => toggle(qi, o.label)}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.questionOption,
+                      {
+                        borderColor: on ? t.foreground : t.border,
+                        backgroundColor: on ? t.muted : 'transparent',
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.questionOptionText, { color: t.foreground }]}>
+                      {on ? '✓ ' : ''}
+                      {o.label}
+                      {o.description !== undefined && o.description !== ''
+                        ? ` —— ${o.description}`
+                        : ''}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          )
+        })}
+        {opError !== null && <Text style={[styles.meta, { color: t.sparkErr }]}>{opError}</Text>}
+        <ApprovalButton
+          label={submitting ? '提交中…' : '提交回答'}
+          variant="primary"
+          disabled={submitting || !complete}
+          onPress={submit}
+        />
+        {!complete && (
+          <Text style={[styles.meta, { color: t.mutedForeground }]}>每问至少选择一项</Text>
+        )}
+      </View>
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
   userRow: {
     flexDirection: 'row',
@@ -611,6 +738,21 @@ const styles = StyleSheet.create({
   approvalButtonText: {
     fontSize: mobileMetrics.rowTitle,
     fontWeight: '600',
+  },
+  questionGroup: {
+    gap: 6,
+  },
+  questionOption: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  questionOptionText: {
+    fontSize: mobileMetrics.caption,
+    lineHeight: 18,
   },
   turnRow: {
     paddingVertical: 4,
