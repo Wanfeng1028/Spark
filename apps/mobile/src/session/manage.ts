@@ -42,7 +42,7 @@ export function contenderLineOf(
   c: ArenaStatusDto['contenders'][number],
 ): string {
   const parts = [c.model, c.status]
-  if (c.durationMs !== undefined) parts.push(`${Math.round(c.durationMs / 1000)}s`)
+  if (c.durationMs !== null) parts.push(`${Math.round(c.durationMs / 1000)}s`)
   return parts.join(' · ')
 }
 

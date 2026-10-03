@@ -20,9 +20,10 @@ import type {
   TrustStatusDto,
 } from '@spark/protocol'
 import { KNOWN_LSP_SERVERS } from '@spark/protocol'
-import { mobileErrorMessageOf, miniT } from '../i18n'
-import { useTheme } from '../store/theme-store'
-import type { Transport } from '@spark/protocol'
+import { mobileErrorMessageOf, mobileT } from '../i18n'
+import { useTheme } from '../theme/use-theme'
+import type { CheckpointId, EventId, Transport } from '@spark/protocol'
+import { ids } from '@spark/protocol'
 import { agentEnabledOf, contenderLineOf, treeRowsOf, updateDisabledAgents } from '../session/manage'
 import { Card, Hairline, SheetScreen } from './ui'
 
@@ -107,18 +108,19 @@ export function SessionTreeSheet({
   const [reload, setReload] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const t = useTheme()
   const { data, error, loaded } = useRemote<TreeNodeDto[]>(rest, (t) => t.getTree(sid), reload)
   const rows = data !== null ? treeRowsOf(data) : []
 
   const fork = useCallback(
-    (eventId: string) => {
+    (eventId: EventId) => {
       const transport = rest()
       if (transport === null || busy) return
       setBusy(true)
       void transport
         .fork(sid, eventId)
         .then((dto) => {
-          setNotice(miniT('manage.forked'))
+          setNotice(mobileT('manage.forked'))
           setReload((v) => v + 1)
           onOpenSession(dto.id, dto.title)
         })
@@ -129,12 +131,12 @@ export function SessionTreeSheet({
   )
 
   return (
-    <SheetScreen title={miniT('manage.sessionTree')} onClose={onClose}>
+    <SheetScreen title={mobileT('manage.sessionTree')} onClose={onClose}>
       <ScrollView contentContainerStyle={s.body}>
         <SheetBody loaded={loaded} error={error}>
           {notice !== null && <Text style={[s.notice, { color: t.mutedForeground }]}>{notice}</Text>}
           {rows.length === 0 ? (
-            <Text style={[s.notice, { color: t.mutedForeground }]}>{miniT('manage.empty')}</Text>
+            <Text style={[s.notice, { color: t.mutedForeground }]}>{mobileT('manage.empty')}</Text>
           ) : (
             <Card>
               {rows.map((r, i) => (
@@ -144,7 +146,7 @@ export function SessionTreeSheet({
                     <Text numberOfLines={1} style={[s.rowTitle, { color: t.foreground }]}>
                       {r.node.label}
                     </Text>
-                    <RowAction label={miniT('manage.fork')} onPress={() => fork(r.node.id)} />
+                    <RowAction label={mobileT('manage.fork')} onPress={() => fork(r.node.id)} />
                   </View>
                   {r.node.forks.map((f) => (
                     <TouchableOpacity
@@ -185,17 +187,18 @@ export function CheckpointsSheet({
   const [reload, setReload] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const t = useTheme()
   const { data, error, loaded } = useRemote<CheckpointDto[]>(rest, (t) => t.listCheckpoints(sid), reload)
 
   const rollback = useCallback(
-    (checkpointId: string) => {
+    (checkpointId: CheckpointId) => {
       const transport = rest()
       if (transport === null || busy) return
       setBusy(true)
       void transport
         .rollbackCheckpoint(sid, checkpointId)
         .then(() => {
-          setNotice(miniT('manage.rolledBack'))
+          setNotice(mobileT('manage.rolledBack'))
           setReload((v) => v + 1)
           onRolledBack()
         })
@@ -206,12 +209,12 @@ export function CheckpointsSheet({
   )
 
   return (
-    <SheetScreen title={miniT('manage.checkpoints')} onClose={onClose}>
+    <SheetScreen title={mobileT('manage.checkpoints')} onClose={onClose}>
       <ScrollView contentContainerStyle={s.body}>
         <SheetBody loaded={loaded} error={error}>
           {notice !== null && <Text style={[s.notice, { color: t.mutedForeground }]}>{notice}</Text>}
           {data === null || data.length === 0 ? (
-            <Text style={[s.notice, { color: t.mutedForeground }]}>{miniT('manage.empty')}</Text>
+            <Text style={[s.notice, { color: t.mutedForeground }]}>{mobileT('manage.empty')}</Text>
           ) : (
             <Card>
               {[...data].reverse().map((c, i) => (
@@ -224,7 +227,7 @@ export function CheckpointsSheet({
                         {c.files.length} 个文件快照
                       </Text>
                     </View>
-                    <RowAction label={miniT('manage.rollback')} onPress={() => rollback(c.checkpointId)} />
+                    <RowAction label={mobileT('manage.rollback')} onPress={() => rollback(c.checkpointId)} />
                   </ListRow>
                 </View>
               ))}
@@ -272,12 +275,12 @@ export function ArenaSheet({ sid, rest, onClose }: { sid: SessionId; rest: Rest;
   )
 
   return (
-    <SheetScreen title={miniT('manage.arena')} onClose={onClose}>
+    <SheetScreen title={mobileT('manage.arena')} onClose={onClose}>
       <ScrollView contentContainerStyle={s.body}>
         <SheetBody loaded={loaded} error={error}>
           {notice !== null && <Text style={[s.notice, { color: t.mutedForeground }]}>{notice}</Text>}
           {data === null ? (
-            <Text style={[s.notice, { color: t.mutedForeground }]}>{miniT('manage.empty')}</Text>
+            <Text style={[s.notice, { color: t.mutedForeground }]}>{mobileT('manage.empty')}</Text>
           ) : (
             <Card style={{ padding: 12 }}>
               <Text style={[s.rowSub, { color: t.mutedForeground }]}>
@@ -291,11 +294,11 @@ export function ArenaSheet({ sid, rest, onClose }: { sid: SessionId; rest: Rest;
                       {contenderLineOf(c)}
                     </Text>
                   </View>
-                  {data.status === 'completed' && data.applied === null && c.sessionId !== data.winner && (
+                  {data.status === 'done' && data.applied === null && c.sessionId !== data.winner && (
                     <RowAction
-                      label={miniT('manage.applyWinner')}
+                      label={mobileT('manage.applyWinner')}
                       onPress={() =>
-                        act((tr) => tr.applyArenaWinner(sid, c.sessionId), miniT('manage.applied'))
+                        act((tr) => tr.applyArenaWinner(ids.session(c.sessionId), mobileT('manage.applied')))
                       }
                     />
                   )}
@@ -312,9 +315,9 @@ export function ArenaSheet({ sid, rest, onClose }: { sid: SessionId; rest: Rest;
               {running && (
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
                   <RowAction
-                    label={miniT('manage.cancelArena')}
+                    label={mobileT('manage.cancelArena')}
                     danger
-                    onPress={() => act((tr) => tr.cancelArena(sid), miniT('manage.empty'))}
+                    onPress={() => act((tr) => tr.cancelArena(sid), mobileT('manage.empty'))}
                   />
                 </View>
               )}
@@ -332,6 +335,7 @@ export function ArenaSheet({ sid, rest, onClose }: { sid: SessionId; rest: Rest;
 export function TrustSheet({ rest, onClose }: { rest: Rest; onClose: () => void }) {
   const [reload, setReload] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
+  const t = useTheme()
   const { data, error, loaded } = useRemote<TrustStatusDto>(rest, (t) => t.getTrust(), reload)
   const toggle = (path: string, trusted: boolean): void => {
     const transport = rest()
@@ -342,12 +346,12 @@ export function TrustSheet({ rest, onClose }: { rest: Rest; onClose: () => void 
       .catch((err: unknown) => setNotice(mobileErrorMessageOf(err)))
   }
   return (
-    <SheetScreen title={miniT('manage.trustDirs')} onClose={onClose}>
+    <SheetScreen title={mobileT('manage.trustDirs')} onClose={onClose}>
       <ScrollView contentContainerStyle={s.body}>
         <SheetBody loaded={loaded} error={error}>
           {notice !== null && <Text style={[s.notice, { color: t.sparkErr }]}>{notice}</Text>}
           {data === null || data.folders.length === 0 ? (
-            <Text style={[s.notice, { color: t.mutedForeground }]}>{miniT('manage.empty')}</Text>
+            <Text style={[s.notice, { color: t.mutedForeground }]}>{mobileT('manage.empty')}</Text>
           ) : (
             <Card>
               {data.folders.map((f, i) => (
@@ -360,7 +364,7 @@ export function TrustSheet({ rest, onClose }: { rest: Rest; onClose: () => void 
                     <Switch
                       value={f.trust === 'trusted'}
                       onValueChange={(v) => toggle(f.path, v)}
-                      accessibilityLabel={`${miniT('manage.trustDirs')} ${f.path}`}
+                      accessibilityLabel={`${mobileT('manage.trustDirs')} ${f.path}`}
                     />
                   </ListRow>
                 </View>
@@ -376,6 +380,7 @@ export function TrustSheet({ rest, onClose }: { rest: Rest; onClose: () => void 
 export function ExtensionsSheet({ rest, onClose }: { rest: Rest; onClose: () => void }) {
   const [reload, setReload] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
+  const t = useTheme()
   const { data, error, loaded } = useRemote<ExtensionDto[]>(rest, (t) => t.listExtensions(), reload)
   const toggle = (id: string, enabled: boolean): void => {
     const transport = rest()
@@ -386,12 +391,12 @@ export function ExtensionsSheet({ rest, onClose }: { rest: Rest; onClose: () => 
       .catch((err: unknown) => setNotice(mobileErrorMessageOf(err)))
   }
   return (
-    <SheetScreen title={miniT('manage.extensions')} onClose={onClose}>
+    <SheetScreen title={mobileT('manage.extensions')} onClose={onClose}>
       <ScrollView contentContainerStyle={s.body}>
         <SheetBody loaded={loaded} error={error}>
           {notice !== null && <Text style={[s.notice, { color: t.sparkErr }]}>{notice}</Text>}
           {data === null || data.length === 0 ? (
-            <Text style={[s.notice, { color: t.mutedForeground }]}>{miniT('manage.empty')}</Text>
+            <Text style={[s.notice, { color: t.mutedForeground }]}>{mobileT('manage.empty')}</Text>
           ) : (
             <Card>
               {data.map((x, i) => (
@@ -420,6 +425,7 @@ export function LspSheet({ rest, onClose }: { rest: Rest; onClose: () => void })
   const [reload, setReload] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const t = useTheme()
   const { data, error, loaded } = useRemote<LspServerStatusDto[]>(rest, (t) => t.listLspServers(), reload)
 
   const install = (id: string): void => {
@@ -429,7 +435,7 @@ export function LspSheet({ rest, onClose }: { rest: Rest; onClose: () => void })
     void transport
       .installLspServer(id)
       .then(() => {
-        setNotice(miniT('manage.installed'))
+        setNotice(mobileT('manage.installed'))
         setReload((v) => v + 1)
       })
       .catch((err: unknown) => setNotice(mobileErrorMessageOf(err)))
@@ -437,7 +443,7 @@ export function LspSheet({ rest, onClose }: { rest: Rest; onClose: () => void })
   }
 
   return (
-    <SheetScreen title={miniT('manage.lspServers')} onClose={onClose}>
+    <SheetScreen title={mobileT('manage.lspServers')} onClose={onClose}>
       <ScrollView contentContainerStyle={s.body}>
         <SheetBody loaded={loaded} error={error}>
           {notice !== null && <Text style={[s.notice, { color: t.mutedForeground }]}>{notice}</Text>}
@@ -471,7 +477,7 @@ export function LspSheet({ rest, onClose }: { rest: Rest; onClose: () => void })
                   <Text style={[s.rowTitle, { color: t.foreground }]}>
                     {k.language}（{k.id}）
                   </Text>
-                  <RowAction label={miniT('manage.install')} onPress={() => install(k.id)} />
+                  <RowAction label={mobileT('manage.install')} onPress={() => install(k.id)} />
                 </ListRow>
               </View>
             ))}
@@ -485,6 +491,7 @@ export function LspSheet({ rest, onClose }: { rest: Rest; onClose: () => void })
 export function AgentsSheet({ rest, onClose }: { rest: Rest; onClose: () => void }) {
   const [reload, setReload] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
+  const t = useTheme()
   const { data, error, loaded } = useRemote<{ presets: AgentPresetDto[]; disabled: string[] }>(
     rest,
     async (t) => {
@@ -505,12 +512,12 @@ export function AgentsSheet({ rest, onClose }: { rest: Rest; onClose: () => void
   }
   const disabledNames = new Set(data?.disabled ?? [])
   return (
-    <SheetScreen title={miniT('manage.agentPresets')} onClose={onClose}>
+    <SheetScreen title={mobileT('manage.agentPresets')} onClose={onClose}>
       <ScrollView contentContainerStyle={s.body}>
         <SheetBody loaded={loaded} error={error}>
           {notice !== null && <Text style={[s.notice, { color: t.sparkErr }]}>{notice}</Text>}
           {data === null || data.presets.length === 0 ? (
-            <Text style={[s.notice, { color: t.mutedForeground }]}>{miniT('manage.empty')}</Text>
+            <Text style={[s.notice, { color: t.mutedForeground }]}>{mobileT('manage.empty')}</Text>
           ) : (
             <Card>
               {data.presets.map((p, i) => (
@@ -526,7 +533,7 @@ export function AgentsSheet({ rest, onClose }: { rest: Rest; onClose: () => void
                     <Switch
                       value={agentEnabledOf(p, disabledNames)}
                       onValueChange={(v) => toggle(p.name, v)}
-                      accessibilityLabel={`${miniT('manage.agentPresets')} ${p.name}`}
+                      accessibilityLabel={`${mobileT('manage.agentPresets')} ${p.name}`}
                     />
                   </ListRow>
                 </View>

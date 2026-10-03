@@ -20,7 +20,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { DrawerNavigationProp } from '@react-navigation/drawer'
 import { HttpTransport, baseUrlOf } from '@spark/protocol'
 // 错误文案经本端语言收口（工单 19.17）：读 store 当前语言，store 是同步全局态、单测可直接 setLanguage
-import { mobileErrorMessageOf, miniT } from '../i18n'
+import { mobileErrorMessageOf, mobileT } from '../i18n'
 import { useAppStore } from '../store/app-store'
 import { useConfigStore } from '../store/config-store'
 import { getHttpTransport, invalidateTransport } from '../transport/runtime'
@@ -59,10 +59,10 @@ export function SettingsScreen() {
   // 服务管理四行（19.28 批 1）：文案单源 = protocol i18n manage.*；组件内求值随语言走
   const manageRows = useMemo<ReadonlyArray<{ icon: FeatherIconName; label: string }>>(
     () => [
-      { icon: 'shield', label: miniT('manage.trustDirs') },
-      { icon: 'package', label: miniT('manage.extensions') },
-      { icon: 'code', label: miniT('manage.lspServers') },
-      { icon: 'users', label: miniT('manage.agentPresets') },
+      { icon: 'shield', label: mobileT('manage.trustDirs') },
+      { icon: 'package', label: mobileT('manage.extensions') },
+      { icon: 'code', label: mobileT('manage.lspServers') },
+      { icon: 'users', label: mobileT('manage.agentPresets') },
     ],
     // language 变化时重算（miniT 读 store 当下值）
     // eslint-disable-next-line react-hooks/exhaustive-deps

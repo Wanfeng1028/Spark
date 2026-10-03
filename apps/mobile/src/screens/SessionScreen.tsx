@@ -73,7 +73,7 @@ import { getHttpTransport, openSessionStream } from '../transport/runtime'
 import { buildSessionRows } from '../session/session-rows'
 import type { SessionRow } from '../session/session-rows'
 import { projectNameOf } from '../session/session-list'
-import { mobileErrorMessageOf, miniT } from '../i18n'
+import { mobileErrorMessageOf, mobileT } from '../i18n'
 import {
   createSessionActionsController,
   type SessionActions,
@@ -299,6 +299,10 @@ export function SessionScreen() {
     // reloadEpoch（19.28）：检查点回滚后 seq 回退，dispose 重建 + 全量重放是唯一正解
   }, [sid, serverUrl, token, showHint, reloadEpoch])
 
+  // ---- 附件状态（19.27 接真）：待发清单 + 上传中标记 ----
+  const [pendingAttachments, setPendingAttachments] = useState<AttachmentDto[]>([])
+  const [uploadingAttachment, setUploadingAttachment] = useState(false)
+
   // 发消息 / 中断 / 审批决策（防抖闸门 H3 在 controller 内）
   // 附件（19.27 接真）：send 受理成功才清待发清单——失败时清单保留，用户改后重发
   const handleSend = useCallback(
@@ -320,8 +324,6 @@ export function SessionScreen() {
   }, [])
 
   // ---- 附件上传（19.27 接真）：picker 选图 → base64 取字节 → uploadAttachment → 待发清单 ----
-  const [pendingAttachments, setPendingAttachments] = useState<AttachmentDto[]>([])
-  const [uploadingAttachment, setUploadingAttachment] = useState(false)
   const pickAttachment = useCallback(async (): Promise<void> => {
     if (uploadingAttachment) return
     const transport = getHttpTransport(serverUrl, token)
@@ -361,6 +363,7 @@ export function SessionScreen() {
     const name = asset.fileName ?? `image.${mime.split('/')[1] ?? 'png'}`
     setUploadingAttachment(true)
     try {
+      if (transport === null) return
       const dto = await transport.uploadAttachment(sid, { name, mime, bytes })
       setPendingAttachments((prev) => [...prev, dto])
     } catch (err: unknown) {
@@ -456,7 +459,7 @@ export function SessionScreen() {
       // 管理面板三入口（19.28 批 1）：会话树 / 检查点 / 多模型竞答——各开 Sheet
       {
         icon: 'git-branch',
-        label: miniT('manage.sessionTree'),
+        label: mobileT('manage.sessionTree'),
         onPress: () => {
           setMenuOpen(false)
           setTreeOpen(true)
@@ -464,7 +467,7 @@ export function SessionScreen() {
       },
       {
         icon: 'archive',
-        label: miniT('manage.checkpoints'),
+        label: mobileT('manage.checkpoints'),
         onPress: () => {
           setMenuOpen(false)
           setCheckpointsOpen(true)
@@ -472,7 +475,7 @@ export function SessionScreen() {
       },
       {
         icon: 'zap',
-        label: miniT('manage.arena'),
+        label: mobileT('manage.arena'),
         onPress: () => {
           setMenuOpen(false)
           setArenaOpen(true)

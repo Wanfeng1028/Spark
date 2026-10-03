@@ -21,7 +21,7 @@ function node(id: string, parentId: string | undefined, label = id): TreeNodeDto
     label,
     childIds: [],
     forks: [],
-  } as TreeNodeDto
+  } as unknown as TreeNodeDto
 }
 
 describe('treeRowsOf', () => {
