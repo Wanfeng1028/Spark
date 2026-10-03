@@ -255,7 +255,7 @@ describe('子代理全链路（ScriptedLlm 共享脚本序列）', () => {
 
     // steer expectedTurnId 接线：turn 运行中，错误目标 → E_TURN_MISMATCH（§5.4 工单 5.4）
     await expect(
-      parent.send('插话', 'steer', ids.turn('trnWrongtarget00000000000')),
+      parent.send('插话', 'steer', undefined, ids.turn('trnWrongtarget00000000000')),
     ).rejects.toThrow(/E_TURN_MISMATCH/)
 
     await parent.interrupt()
