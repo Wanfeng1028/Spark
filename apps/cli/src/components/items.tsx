@@ -73,10 +73,11 @@ export function ItemView({
 
   // LSP 诊断行（工单 16.9）：语言 + 文件 + 摘要（E/W 计数），逐条消息进展开态不计（只读快照）
   if (item.kind === 'question') {
-    // CK-6 批 1：CLI 只读呈现（作答面在 web；CLI 交互作答留批 2）
+    // CK-6 批 1 落卡；批 2 挂起态由 QuestionPrompt 专渲（MessagePane 已滤出消息流），
+    // 本行只承接 resolved/aborted 与无作答框的呈现路径（非交互态兜底）
     const head =
       item.status === 'pending'
-        ? '提问（请在 Web 工作台作答；超时未答将 fail-closed）'
+        ? '提问挂起（等待作答；超时未答将 fail-closed）'
         : item.aborted === true
           ? '提问已超时/中断——未获回答'
           : '提问已回答'

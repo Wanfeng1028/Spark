@@ -46,7 +46,15 @@ export function MessagePane({ slice, maxLiveRows, header, staticKey = 0 }: Messa
     slice === null
       ? []
       : flowRowsOf(slice.items).filter(
-          (r) => r.kind !== 'item' || r.item.kind !== 'approval' || r.item.status !== 'pending',
+          (r) =>
+            r.kind !== 'item' ||
+            // 挂起审批由 ApprovalPrompt 专渲（工单 10.9）；挂起提问由 QuestionPrompt
+            // 专渲（CK-6 批 2）——两者都不在消息流重复。挂起提问被审批让位时消息流
+            // 也看不到（罕见并发，引擎 fail-closed 超时兜底）。
+            (r.item.kind !== 'approval' || r.item.status !== 'pending') &&
+            (r.item.kind !== 'question' ||
+              r.item.status !== 'pending' ||
+              r.item.aborted === true),
         )
   let committedCount = 0
   while (committedCount < rows.length && rowSettled(rows[committedCount] as FlowRow)) {

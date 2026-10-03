@@ -11,6 +11,7 @@ import { flowRowsOf, type HttpTransport, type RequestId } from '@spark/protocol'
 import { cliErrorMessageOf } from '../i18n.js'
 import { useCliStore } from '../store.js'
 import { CTRL_C_WINDOW_MS } from './constants.js'
+import { questionApplyKey, type QuestionFormState, type QuestionItem } from '../components/QuestionPrompt.js'
 
 export interface UseCliKeysOptions {
   transport: HttpTransport
@@ -37,6 +38,10 @@ export interface UseCliKeysOptions {
   pendingApproval: { requestId: RequestId } | null
   rejecting: RequestId | null
   setRejecting: (id: RequestId | null) => void
+  /** 挂起提问作答（CK-6 批 2；审批挂起时让位审批键） */
+  pendingQuestion: QuestionItem | null
+  qForm: QuestionFormState | null
+  setQForm: (f: QuestionFormState | null) => void
   /** 发送失败原文引用（Ctrl+R 数据源——app 层 ref） */
   lastFailedRef: { current: string | null }
   /** 动作集（use-cli-actions） */
@@ -77,6 +82,9 @@ export function useCliKeys(opts: UseCliKeysOptions): void {
     pendingApproval,
     rejecting,
     setRejecting,
+    pendingQuestion,
+    qForm,
+    setQForm,
     actions,
     panel,
     draftPreview,
@@ -240,6 +248,25 @@ export function useCliKeys(opts: UseCliKeysOptions): void {
       const s = useCliStore.getState()
       s.setPanel(s.panel === 'settings' ? 'none' : 'settings')
       return
+    }
+    // 提问作答键（CK-6 批 2）：数字 1-4 选项直达（单选即推进/多选 toggle）+ Enter 推进。
+    // 审批挂起时让位审批键（审批先行——问答回答期间不应有待答审批，防御序仅此一处）。
+    // 只捕获数字与 Enter（Ink 特殊键 input 为空串，单码元判定会误挡 Enter——分开判）；
+    // Tab/↑↓/Ctrl+O 等全局键照常落穿，不在作答态没收。
+    if (pendingQuestion !== null && qForm !== null && pendingApproval === null) {
+      const digitInput = [...input].length === 1 && /^[1-4]$/.test(input) ? Number(input) : null
+      if (digitInput !== null || key.return) {
+        const result = questionApplyKey(pendingQuestion, qForm, { digit: digitInput, enter: key.return })
+        if (result.submit !== null) {
+          transport
+            .replyQuestion(pendingQuestion.requestId, result.submit)
+            .catch((err: unknown) => {
+              useCliStore.getState().setNotice(cliErrorMessageOf(err))
+            })
+        }
+        setQForm(result.state)
+        return
+      }
     }
     // 审批键（工单 10.9：1/2/3 数字键直达，y/a/n 别名；挂起且非反馈模式时接管）。
     // 键位分层（工单 10.19④）：只识别单码元输入——组字串（多字符块）作原子文本

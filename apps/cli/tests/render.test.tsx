@@ -10,6 +10,12 @@ import { displayWidth } from '../src/text-width.js'
 import type { SessionSlice, UiItem } from '@spark/protocol'
 import { MessagePane } from '../src/components/MessagePane.js'
 import { ApprovalPrompt } from '../src/components/ApprovalPrompt.js'
+import {
+  QuestionPrompt,
+  initialQuestionState,
+  questionApplyKey,
+  type QuestionItem,
+} from '../src/components/QuestionPrompt.js'
 import { InputBox, type InputBoxHandle } from '../src/components/InputBox.js'
 import { Footer } from '../src/components/Footer.js'
 import { LoadingIndicator } from '../src/components/LoadingIndicator.js'
@@ -295,6 +301,99 @@ describe('MessagePane', () => {
     const noSummary = render(<MessagePane slice={s2} />).lastFrame() ?? ''
     expect(noSummary).toContain('✓ 交付文件 1 个')
     expect(noSummary).not.toContain('：')
+  })
+
+  it('挂起提问不在消息流重复（CK-6 批 2——QuestionPrompt 专渲）；已答照常入流', () => {
+    const s = slice()
+    const q: QuestionItem = {
+      kind: 'question',
+      eventId: ids.event('evt_q1'),
+      requestId: ids.request('req_q1'),
+      questions: [
+        {
+          question: '用哪个方案？',
+          options: [
+            { label: 'A 方案', description: '改动小' },
+            { label: 'B 方案', description: '更稳' },
+          ],
+        },
+      ],
+      status: 'pending',
+    }
+    s.items = [q]
+    const pending = render(<MessagePane slice={s} />).lastFrame() ?? ''
+    expect(pending).not.toContain('用哪个方案')
+    q.status = 'resolved'
+    q.answers = [{ selected: ['A 方案'] }]
+    const resolved = render(<MessagePane slice={s} />).lastFrame() ?? ''
+    expect(resolved).toContain('用哪个方案')
+    expect(resolved).toContain('A 方案')
+  })
+})
+
+describe('QuestionPrompt（CK-6 批 2）', () => {
+  const qItem: QuestionItem = {
+    kind: 'question',
+    eventId: ids.event('evt_q9'),
+    requestId: ids.request('req_q9'),
+    questions: [
+      {
+        question: '先做哪个？',
+        options: [
+          { label: '写测试', description: '先行保障' },
+          { label: '写实现' },
+        ],
+      },
+      {
+        question: '提交方式？',
+        options: [
+          { label: '拆两个提交' },
+          { label: '合一个提交' },
+          { label: '带草稿', description: '标记 WIP' },
+        ],
+        multiSelect: true,
+      },
+    ],
+    status: 'pending',
+  }
+
+  it('纯逻辑：单选选中即推进，末问提交全部（每问 selected ≥1）', () => {
+    let st = initialQuestionState(qItem)
+    st = questionApplyKey(qItem, st, { digit: 1, enter: false }).state
+    expect(st.current).toBe(1)
+    expect(st.picked[0]).toEqual(['写测试'])
+    // 末问（多选）：toggle 两项后 Enter 提交
+    st = questionApplyKey(qItem, st, { digit: 2, enter: false }).state
+    st = questionApplyKey(qItem, st, { digit: 3, enter: false }).state
+    const done = questionApplyKey(qItem, st, { digit: null, enter: true })
+    expect(done.submit).toEqual([{ selected: ['写测试'] }, { selected: ['合一个提交', '带草稿'] }])
+  })
+
+  it('纯逻辑：未答 Enter 不推进不提交（空选对模型是假状态）；越界数字忽略；多选 toggle 可取消', () => {
+    const st0 = initialQuestionState(qItem)
+    expect(questionApplyKey(qItem, st0, { digit: null, enter: true }).submit).toBeNull()
+    expect(questionApplyKey(qItem, st0, { digit: null, enter: true }).state.current).toBe(0)
+    expect(questionApplyKey(qItem, st0, { digit: 9, enter: false }).state.picked[0]).toEqual([])
+    // 单选改选：第二次数字覆盖第一次（单选 = 置换不叠加）
+    const st1 = questionApplyKey(qItem, st0, { digit: 1, enter: false }).state
+    expect(st1.picked[0]).toEqual(['写测试'])
+    // 多选 toggle 两次回到未选
+    let st2 = initialQuestionState(qItem)
+    st2 = questionApplyKey(qItem, { ...st2, current: 1 }, { digit: 1, enter: false }).state
+    st2 = questionApplyKey(qItem, st2, { digit: 1, enter: false }).state
+    expect(st2.picked[1]).toEqual([])
+  })
+
+  it('渲染：挂起题干加粗当前问、已选 ✓ 提亮并显 description（聚焦预览）、灰字未选', () => {
+    const st = initialQuestionState(qItem)
+    const picked = questionApplyKey(qItem, st, { digit: 1, enter: false }).state
+    const frame = render(<QuestionPrompt item={qItem} state={picked} />).lastFrame() ?? ''
+    expect(frame).toContain('[提问]')
+    expect(frame).toContain('先做哪个？')
+    expect(frame).toContain('✓ 1. 写测试 —— 先行保障')
+    expect(frame).toContain('2. 写实现')
+    // 未选项不显 description（聚焦预览只跟已选/焦点项）
+    expect(frame).not.toContain('标记 WIP')
   })
 })
 

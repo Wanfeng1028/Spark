@@ -19,6 +19,12 @@ import { BootHeader } from './components/BootHeader.js'
 import { LoadingIndicator } from './components/LoadingIndicator.js'
 import { ApprovalPrompt } from './components/ApprovalPrompt.js'
 import type { ApprovalItem } from './components/ApprovalPrompt.js'
+import {
+  QuestionPrompt,
+  initialQuestionState,
+  type QuestionFormState,
+  type QuestionItem,
+} from './components/QuestionPrompt.js'
 import { SlashMenu, SLASH_PAGE_SIZE } from './components/SlashMenu.js'
 import { FsMenu, FS_PAGE_SIZE, parseAtToken } from './components/FsMenu.js'
 import { useCliKeys } from './hooks/use-cli-keys.js'
@@ -66,6 +72,27 @@ export function App({ baseUrl }: { baseUrl: string }) {
       ) ?? null),
     [slice],
   )
+
+  /**
+   * 挂起提问（CK-6 批 2；取第一条未中止的 pending——多问并发时引擎问板串行出题，
+   * 防御性取首条）。MessagePane 已把挂起提问滤出消息流，作答面在 QuestionPrompt。
+   */
+  const pendingQuestion = useMemo(
+    () =>
+      (slice?.items.find(
+        (it): it is QuestionItem =>
+          it.kind === 'question' && it.status === 'pending' && it.aborted !== true,
+      ) ?? null),
+    [slice],
+  )
+  /** 作答表单态：requestId 变化才重建（live 事件只更新 item 引用，不重置用户已选） */
+  const [qForm, setQForm] = useState<QuestionFormState | null>(null)
+  const qItemRef = useRef(pendingQuestion)
+  qItemRef.current = pendingQuestion
+  const qRequestId = pendingQuestion?.requestId ?? null
+  useEffect(() => {
+    setQForm(qRequestId !== null && qItemRef.current !== null ? initialQuestionState(qItemRef.current) : null)
+  }, [qRequestId])
 
   /** 拒绝反馈模式（3 之后展开——工单 8.3/10.9） */
   const [rejecting, setRejecting] = useState<RequestId | null>(null)
@@ -194,6 +221,9 @@ export function App({ baseUrl }: { baseUrl: string }) {
     pendingApproval,
     rejecting,
     setRejecting,
+    pendingQuestion,
+    qForm,
+    setQForm,
     actions: {
       replyApproval: actions.replyApproval,
       newSession: actions.newSession,
@@ -229,7 +259,7 @@ export function App({ baseUrl }: { baseUrl: string }) {
     return null
   }, [notice, slice, language])
 
-  const inputActive = pendingApproval === null || rejecting !== null
+  const inputActive = (pendingApproval === null && pendingQuestion === null) || rejecting !== null
   // 输入框只在主界面与 resume 过滤态激活（其余面板 ↑↓/Enter 归面板——键位分层）
   const inputBoxActive = inputActive && (panel === 'none' || panel === 'resume')
 
@@ -244,10 +274,15 @@ export function App({ baseUrl }: { baseUrl: string }) {
   const fsRows = fsOpen ? FS_PAGE_SIZE + 1 : 0
   const errorRows = errorInfo !== null ? 2 : 0
   const approvalRows = pendingApproval !== null ? 6 : 0
+  // 提问作答框行数估算（CK-6 批 2）：标题 1 + 每问（题干 1 + 选项数）+ 键位提示 1
+  const questionRows =
+    pendingQuestion !== null
+      ? pendingQuestion.questions.reduce((n, q) => n + 1 + q.options.length, 0) + 2
+      : 0
   const abnormalRows = connStatus !== 'open' ? 1 : 0
   const liveBudget = Math.max(
     1,
-    rows - 2 - 1 - abnormalRows - slashRows - fsRows - errorRows - approvalRows - 1,
+    rows - 2 - 1 - abnormalRows - slashRows - fsRows - errorRows - approvalRows - questionRows - 1,
   )
 
   // ---------- 渲染：启动错误屏优先 / 面板族 / boot 骨架 / 会话流 ----------
@@ -312,6 +347,10 @@ export function App({ baseUrl }: { baseUrl: string }) {
       {pendingApproval !== null && rejecting === null ? (
         <ApprovalPrompt item={pendingApproval} />
       ) : null}
+      {/* CK-6 批 2：作答框（审批挂起时让位——键位层同序；qForm 由 requestId 驱动重建） */}
+      {pendingQuestion !== null && pendingApproval === null && qForm !== null ? (
+        <QuestionPrompt item={pendingQuestion} state={qForm} />
+      ) : null}
       {rejecting !== null ? (
         <InputBox
           active
@@ -336,7 +375,9 @@ export function App({ baseUrl }: { baseUrl: string }) {
               ? '输入关键词过滤会话，↑↓ 选择，Space 预览，Enter 恢复'
               : pendingApproval !== null
                 ? '等待审批——1 允许一次 / 2 总是允许 / 3 拒绝'
-                : '输入您的消息或 @ 文件路径'
+                : pendingQuestion !== null
+                  ? '等待作答——数字键选择，Enter 推进/提交'
+                  : '输入您的消息或 @ 文件路径'
           }
           onSubmit={(text) => {
             // @ 补全面板开启：Enter = 选中路径回写，不发送（工单 10.53；同 resume 拦截模型）
