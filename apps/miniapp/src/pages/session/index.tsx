@@ -305,7 +305,7 @@ export default function SessionPage() {
               if (confirm !== true) return
               void runMenuAction(async (rest) => {
                 await rest.deleteSession(sid)
-                Taro.navigateBack()
+                void Taro.navigateBack()
               })
             })
             break

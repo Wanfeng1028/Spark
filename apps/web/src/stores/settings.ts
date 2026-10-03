@@ -155,7 +155,7 @@ function load(): PersistedSettings {
       wallpaper:
         typeof parsed.wallpaper === 'string' &&
         (parsed.wallpaper === 'none' || WALLPAPER_IDS.has(parsed.wallpaper))
-          ? (parsed.wallpaper as WallpaperId)
+          ? parsed.wallpaper
           : DEFAULTS.wallpaper,
     }
   } catch {

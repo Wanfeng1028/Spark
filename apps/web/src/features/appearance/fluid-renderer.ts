@@ -146,9 +146,10 @@ export function createFluid(
   let flowHeight = 0
   type FlowTarget = { fbo: WebGLFramebuffer; tex: WebGLTexture }
   const makeTarget = (): FlowTarget => {
+    // TS 5.9 lib.dom：createTexture/createFramebuffer 已是非空返回，无需断言
     const tex = gl.createTexture()
     const fbo = gl.createFramebuffer()
-    return { fbo: fbo as WebGLFramebuffer, tex: tex as WebGLTexture }
+    return { fbo, tex }
   }
   const pong: [FlowTarget, FlowTarget] = [makeTarget(), makeTarget()]
   let write: 0 | 1 = 0

@@ -69,7 +69,7 @@ describe('agentEnabledOf / updateDisabledAgents', () => {
   it('启停判定：名单命中或 preset 自身 disabled 都算停用', () => {
     expect(agentEnabledOf(preset, new Set())).toBe(true)
     expect(agentEnabledOf(preset, new Set(['planner']))).toBe(false)
-    expect(agentEnabledOf({ ...preset, disabled: true } as AgentPresetDto, new Set())).toBe(false)
+    expect(agentEnabledOf({ ...preset, disabled: true }, new Set())).toBe(false)
   })
 
   it('关 = 追加（幂等）；开 = 移除', () => {
