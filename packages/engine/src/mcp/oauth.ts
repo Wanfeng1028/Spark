@@ -20,14 +20,8 @@ export interface PkcePair {
 }
 
 /** 授权服务器元数据（RFC 8414 子集——本实现消费的字段；多余字段忽略） */
-export interface AuthorizationServerMetadata {
-  issuer: string
-  authorization_endpoint: string
-  token_endpoint: string
-  registration_endpoint?: string
-  scopes_supported?: string[]
-}
-
+/** 授权服务器元数据（RFC 8414 子集——本实现消费的字段；多余字段忽略）。
+ *  类型从 schema 推导（手写副本在 exactOptionalPropertyTypes 下与 .optional() 推断漂移——CI 判例）。 */
 export const authorizationServerMetadataSchema = z.strictObject({
   issuer: z.string().min(1),
   authorization_endpoint: z.string().min(1),
@@ -35,6 +29,8 @@ export const authorizationServerMetadataSchema = z.strictObject({
   registration_endpoint: z.string().min(1).optional(),
   scopes_supported: z.array(z.string()).optional(),
 })
+
+export type AuthorizationServerMetadata = z.infer<typeof authorizationServerMetadataSchema>
 
 export interface TokenSet {
   accessToken: string
