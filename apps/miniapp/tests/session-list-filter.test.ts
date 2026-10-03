@@ -52,7 +52,36 @@ describe('projectOf（分组键 = cwd 末段目录名）', () => {
   })
 })
 
-describe('buildSections（分组与排序）'
+describe('buildSections（分组与排序）', () => {
+  const now0 = Date.now()
+  const earlier0 = now0 - 3 * DAY
+
+  it('时间档：今天/更早两段，updatedAt 倒序', () => {
+    const list = [ses('old1', '/w/a', earlier0), ses('t1', '/w/a', now0 - 1000), ses('t2', '/w/b', now0)]
+    const sections = buildSections(list, 'all')
+    expect(sections.map((sec) => sec.title)).toEqual(['今天', '更早'])
+    expect(sections[0]?.items.map((i) => i.title)).toEqual(['t2', 't1'])
+  })
+
+  it('项目档：按首现顺序出组，组内仍倒序；空组不占位', () => {
+    const list = [
+      ses('a1', '/w/alpha', now0),
+      ses('b1', '/w/beta', now0 - 1000),
+      ses('a2', '/w/alpha', now0 - 2000),
+    ]
+    const sections = buildSections(list, 'project')
+    expect(sections.map((sec) => `${sec.key}:${sec.items.length}`)).toEqual([
+      'project:alpha:2',
+      'project:beta:1',
+    ])
+    expect(sections[0]?.items.map((i) => i.title)).toEqual(['a1', 'a2'])
+  })
+
+  it('归档档沿用时间分组（分组语义不随档位分叉）', () => {
+    const sections = buildSections([ses('g1', '/w/a', now0)], 'archived')
+    expect(sections.map((sec) => sec.key)).toEqual(['today'])
+  })
+})
 
 describe('buildSections——置顶段（19.29 收口批，19.41 接入）', () => {
   const pinnedOld = { ...ses('pinned-old', '/work/app', 100), pinned: true } as SessionDto
@@ -74,7 +103,10 @@ describe('buildSections——置顶段（19.29 收口批，19.41 接入）', () 
     expect(sections[0]?.key).toBe('pinned')
     expect(sections).toHaveLength(2)
   })
-}), () => {
+})
+
+
+describe('buildSections——时间与项目档（旧主组，19.29 收口批后保留）', () => {
   const now = Date.now()
   const earlier = now - 3 * DAY
 
