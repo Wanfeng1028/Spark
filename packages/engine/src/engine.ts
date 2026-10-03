@@ -288,8 +288,9 @@ export class Engine {
   private readonly registry: ToolRegistry
   /** MCP 外部工具管理（阶段五工单 5.3 / ADR D16）：与内置工具同一注册表同一管线 */
   private readonly mcp: McpManager
-  /** MCP OAuth 令牌仓（CK-5 批 2）：~/.spark/mcp-tokens.json，0o600 同 secrets 口径 */
-  private readonly mcpTokens = new McpTokenStore(sparkFile(this.root, 'mcpTokens'))
+  /** MCP OAuth 令牌仓（CK-5 批 2）：~/.spark/mcp-tokens.json，0o600 同 secrets 口径。
+   *  构造体内赋值——root 在构造体才定，字段初始化器会用前未初始化（TS2729 判例） */
+  private readonly mcpTokens: McpTokenStore
   /** MCP 连接任务（connect 内部逐 server 失败闭合；ready() 供 server 入口等待） */
   private readonly mcpReady: Promise<void>
   /** LSP 连接管理（工单 16.9）：惰性连接（首次查询才 spawn），经 ToolContext 注入 lsp 工具 */
@@ -694,6 +695,8 @@ export class Engine {
     // 信任门 + 家目录撞路径守卫 + 坏形状降级都收在 projectLayerFor 单点；
     // 不再预建 UserRuleStore 常驻字段（旧实现把 defaultCwd 的规则无条件下进所有会话）。
     this.secrets = new SecretStore(sparkFile(this.root, 'secrets'))
+    // CK-5 批 2：MCP OAuth 令牌仓（同 secrets 的 sparkFile 根级纪律；0o600 由仓内 atomicWrite 承担）
+    this.mcpTokens = new McpTokenStore(sparkFile(this.root, 'mcpTokens'))
 
     // 阶段十九 19.8 / ADR D51：语义检索——models.json 有 provider 声明 embeddings 才建。
     // 总开关 spark.json embedding.enabled 缺省 true（关 = 不嵌不检索，FTS 照常）。
