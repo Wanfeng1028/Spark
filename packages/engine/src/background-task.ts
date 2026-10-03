@@ -40,6 +40,8 @@ interface TaskEntry {
   taskId: TaskId
   sessionId: SessionId
   command: string
+  /** CK-1 批 2：任务族——bash 进程池 / agent 子代理后台化（TaskList 分族展示） */
+  kind: 'bash' | 'agent'
   startedAt: number
   pid: number | undefined
   done: boolean
@@ -71,10 +73,12 @@ export class BackgroundTaskManager {
   /**
    * 注册一个已在运行的后台任务（bash 工具 spawn 后调用）。emit task.started；
    * 事件落盘失败不撤销注册（进程已在跑，如实 log——completed 时仍会如实记录）。
+   * CK-1 批 2：kind 增 'agent'（task 子代理后台化；缺省 'bash' 逐字节兼容批 1）。
    */
   register(input: {
     sessionId: SessionId
     command: string
+    kind?: 'bash' | 'agent' | undefined
     pid: number | undefined
     read: () => { buffer: string; truncated: boolean }
     stop: () => void
@@ -84,6 +88,7 @@ export class BackgroundTaskManager {
       taskId,
       sessionId: input.sessionId,
       command: input.command,
+      kind: input.kind ?? 'bash',
       startedAt: (this.deps.now ?? Date.now)(),
       pid: input.pid,
       done: false,
@@ -94,7 +99,7 @@ export class BackgroundTaskManager {
     void this.deps.bus
       .emit(input.sessionId, 'task.started', {
         taskId,
-        kind: 'bash',
+        kind: input.kind ?? 'bash',
         command: input.command,
         ...(input.pid !== undefined ? { pid: input.pid } : {}),
       })
@@ -135,6 +140,7 @@ export class BackgroundTaskManager {
   /** 本会话任务快照（task_output 数据源；会话隔离——他会话任务不可见） */
   get(sessionId: SessionId, taskId: TaskId): {
     command: string
+    kind: 'bash' | 'agent'
     done: boolean
     settle: TaskSettleInfo | undefined
     buffer: string
@@ -147,6 +153,7 @@ export class BackgroundTaskManager {
     const { buffer, truncated } = entry.read()
     return {
       command: entry.command,
+      kind: entry.kind,
       done: entry.done,
       settle: entry.settle,
       buffer,
@@ -154,6 +161,29 @@ export class BackgroundTaskManager {
       totalChars: buffer.length,
       startedAt: entry.startedAt,
     }
+  }
+
+  /**
+   * 本会话任务清单（CK-1 批 2：task_list 工具数据源；会话隔离同 get）。
+   * 旧→新排列（startedAt 升序——注册序即时间序）；不含输出缓冲（清单只做导航）。
+   */
+  list(sessionId: SessionId): Array<{
+    taskId: TaskId
+    kind: 'bash' | 'agent'
+    command: string
+    done: boolean
+    startedAt: number
+  }> {
+    return [...this.tasks.values()]
+      .filter((t) => t.sessionId === sessionId)
+      .sort((a, b) => a.startedAt - b.startedAt)
+      .map((t) => ({
+        taskId: t.taskId,
+        kind: t.kind,
+        command: t.command,
+        done: t.done,
+        startedAt: t.startedAt,
+      }))
   }
 
   /** 发起停止（task_stop 工具用；树杀细节在 bash 侧 stop 钩子里）。未知 id 静默忽略——调用方先 get 过。 */

@@ -217,3 +217,60 @@ describe('后台任务平面（CK-1 批 1）', () => {
     expect(completed[0]?.data.aborted).toBe(true)
   })
 })
+
+
+describe('后台任务平面（CK-1 批 2：两族注册表 + task_list）', () => {
+  test('register kind=agent：task.started 事件带 kind=agent；list 分族可辨且会话隔离', async () => {
+    const f = await makeFixture()
+    const agentId = f.manager.register({
+      sessionId: SID,
+      command: 'task(调研 X)',
+      kind: 'agent',
+      pid: undefined,
+      read: () => ({ buffer: '', truncated: false }),
+      stop: () => {},
+    })
+    const bashId = f.manager.register({
+      sessionId: SID,
+      command: 'sleep 30',
+      pid: 4242,
+      read: () => ({ buffer: '', truncated: false }),
+      stop: () => {},
+    })
+    const started = f.sink.events.filter(
+      (e): e is SparkEventEnvelope<'task.started'> => e.type === 'task.started',
+    )
+    expect(started[0]?.data.kind).toBe('agent')
+    expect(started[1]?.data.kind).toBe('bash')
+    // 清单：会话隔离（SID2 不可见）+ 注册序（旧→新）
+    const list = f.manager.list(SID)
+    expect(list.map((t) => t.taskId)).toEqual([agentId, bashId])
+    expect(list[0]?.kind).toBe('agent')
+    expect(list[1]?.kind).toBe('bash')
+    expect(f.manager.list(SID2)).toEqual([])
+    // get 带 kind 出口（task_list 之外 task_output 消费面不变）
+    expect(f.manager.get(SID, agentId)?.kind).toBe('agent')
+    void bashId
+  })
+
+  test('task_list 工具：三元组工厂第三位，执行回 {tasks:[...]}（空会话=空数组）', async () => {
+    const f = await makeFixture()
+    const [, , taskList] = makeTaskTools(f.manager)
+    expect(taskList.name).toBe('task_list')
+    const r = await taskList.execute(f.ctx(SID), {})
+    expect(r.isError).toBe(false)
+    expect(r.output).toEqual({ tasks: [] })
+    f.manager.register({
+      sessionId: SID,
+      command: 'sleep 5',
+      pid: undefined,
+      read: () => ({ buffer: '', truncated: false }),
+      stop: () => {},
+    })
+    const r2 = await taskList.execute(f.ctx(SID), {})
+    const tasks = (r2.output as { tasks: Array<{ kind: string; command: string }> }).tasks
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]?.kind).toBe('bash')
+  })
+})
+

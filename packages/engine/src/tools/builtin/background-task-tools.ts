@@ -151,5 +151,22 @@ export function makeTaskTools(
     },
   }
 
-  return [taskOutput, taskStop]
+  // CK-1 批 2：任务清单（bash/agent 两族统一注册表的导航面；不含输出——读细节走 task_output）
+  const taskList: ToolDefinition<Record<string, never>> = {
+    name: 'task_list',
+    description:
+      '列出本会话全部后台任务（bash 进程与后台子代理）。' +
+      '返回 id/族/命令/状态（注册序）；任务输出与终态走 task_output。',
+    inputSchema: z.strictObject({}),
+    permission: {
+      action: 'task.read',
+      resourceOf: () => 'tasks',
+    },
+    parallelizable: true,
+    execute(ctx: ToolContext): Promise<ToolOutput> {
+      return Promise.resolve({ output: { tasks: manager.list(ctx.sessionId) }, isError: false })
+    },
+  }
+
+  return [taskOutput, taskStop, taskList]
 }
