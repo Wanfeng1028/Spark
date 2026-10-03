@@ -277,11 +277,13 @@ export default function SessionPage() {
             void runMenuAction((rest) => rest.pinSession(sid, !pinnedNow))
             break
           case 1:
+            // 微信基础库 2.17.1+ 运行时支持 editable 输入框——Taro 类型定义滞后，显式断言
             void Taro.showModal({
               title: '重命名会话',
               editable: true,
               placeholderText: '输入新标题',
-            }).then(({ confirm, content }) => {
+            } as Taro.showModal.Option).then((res) => {
+              const { confirm, content } = res as Taro.showModal.SuccessCallbackResult & { content?: string }
               const title = (content ?? '').trim()
               if (confirm !== true || title === '') return
               void runMenuAction(async (rest) => {

@@ -8,6 +8,7 @@
 import Taro from '@tarojs/taro'
 import { errorFromResponse } from '@spark/protocol'
 import type {
+  SendMessageOptions,
   AttachmentDto,
   PairRedeemBody,
   PairTokenDto,
@@ -114,14 +115,14 @@ export class MiniRestClient {
     return this.req<SessionDto>('/api/sessions', { method: 'POST', body: '{}' })
   }
 
-  sendMessage(sessionId: SessionId, text: string, attachments?: string[]): Promise<SubmitOutcome> {
-    // attachments 随消息进发送体（19.29 收口：19.27 已修通 wire——server SendMessageBody
-    // 增 attachments 数组、引擎 SessionHandle.send 第三参；与 HttpTransport.sendMessage 同口径）
+  // 与 Transport.sendMessage 对齐（opts 形状单源 @spark/protocol SendMessageOptions）
+  sendMessage(sessionId: SessionId, text: string, opts?: SendMessageOptions): Promise<SubmitOutcome> {
+    const attachments = opts?.attachments
     return this.req<SubmitOutcome>(`/api/sessions/${sessionId}/messages`, {
       method: 'POST',
       body: JSON.stringify({
         text,
-        delivery: 'now',
+        delivery: opts?.delivery ?? 'now',
         ...(attachments !== undefined && attachments.length > 0 ? { attachments } : {}),
       }),
     })
