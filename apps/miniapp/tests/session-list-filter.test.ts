@@ -84,9 +84,12 @@ describe('buildSections（分组与排序）', () => {
 })
 
 describe('buildSections——置顶段（19.29 收口批，19.41 接入）', () => {
-  const pinnedOld = { ...ses('pinned-old', '/work/app', 100), pinned: true } as SessionDto
-  const today1 = ses('today-1', '/work/app', 900)
-  const today2 = ses('today-2', '/work/app', 800)
+  // 时间戳用相对当前时刻——分档走 isToday（本地时区与真实今天全等），写死纪元值
+  // 永远落「更早」段（CI Linux 首裁确定性红，run 37117095474 取证）
+  const now0 = Date.now()
+  const pinnedOld = { ...ses('pinned-old', '/work/app', now0 - 3 * DAY), pinned: true } as SessionDto
+  const today1 = ses('today-1', '/work/app', now0 - 1000)
+  const today2 = ses('today-2', '/work/app', now0 - 2000)
 
   it('置顶会话从各段提出合成首个「置顶」组；其余段不再含置顶项', () => {
     const sections = buildSections([today1, pinnedOld, today2], 'all')
