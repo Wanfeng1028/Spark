@@ -181,7 +181,8 @@ export const EventSchemas = {
   // 是完成回注的合成 user.message（surface 纪律由那条消息承担），本两枚是审计/回放事实。
   'task.started': z.strictObject({
     taskId: TaskIdSchema,
-    kind: z.literal('bash'),
+    // CK-1 批 2：两族——bash 进程 / agent 子代理后台化（超集扩展，回放兼容）
+    kind: z.enum(['bash', 'agent']),
     command: z.string(),
     pid: z.number().int().positive().optional(),
   }),

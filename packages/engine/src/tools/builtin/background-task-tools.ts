@@ -37,7 +37,7 @@ type TaskStopInput = z.infer<typeof TaskStopInput>
 
 export function makeTaskTools(
   manager: BackgroundTaskManager,
-): [ToolDefinition<TaskOutputInput>, ToolDefinition<TaskStopInput>] {
+): [ToolDefinition<TaskOutputInput>, ToolDefinition<TaskStopInput>, ToolDefinition<Record<string, never>>] {
   const taskOutput: ToolDefinition<TaskOutputInput> = {
     name: 'task_output',
     description:
