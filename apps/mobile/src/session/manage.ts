@@ -17,32 +17,43 @@ export interface TreeRow {
  */
 export function treeRowsOf(nodes: readonly TreeNodeDto[]): TreeRow[] {
   const byParent = new Map<string, TreeNodeDto[]>()
-  const seenId = new Set<string>()
+  const ids = new Set<string>()
   for (const n of nodes) {
-    seenId.add(n.id)
+    ids.add(n.id)
     const key = n.parentId ?? ''
     const list = byParent.get(key)
     if (list === undefined) byParent.set(key, [n])
     else list.push(n)
   }
   const out: TreeRow[] = []
+  const emitted = new Set<string>()
   const visit = (parentKey: string, depth: number): void => {
     for (const n of byParent.get(parentKey) ?? []) {
+      if (emitted.has(n.id)) continue
+      emitted.add(n.id)
       out.push({ depth, node: n })
       // 子键不在本批节点集内（越界引用）就不再深入——防环防假子树
-      if (seenId.has(n.id) && depth < 64) visit(n.id, depth + 1)
+      if (ids.has(n.id) && depth < 64) visit(n.id, depth + 1)
     }
   }
   visit('', 0)
+  // 父缺失/环成员兜底（根链从空 key 出发够不到它们）：正序扫一遍，未发出的按根
+  // （depth 0）各出一次、不再下钻——环成员互为父子，下钻会把对方拽到 depth 1。
+  // 代价：环/孤儿的子树节点也平铺在 depth 0（各自仍只渲染一次，不丢不循环）。
+  for (const n of nodes) {
+    if (emitted.has(n.id)) continue
+    emitted.add(n.id)
+    out.push({ depth: 0, node: n })
+  }
   return out
 }
 
-/** arena 候选单行摘要：`模型名 · 状态 · 时长s`（无 usage 时省略 token 分量，不造 0） */
+/** arena 候选单行摘要：`模型名 · 状态 · 时长s`（无时长省略该段不造 0/NaN） */
 export function contenderLineOf(
   c: ArenaStatusDto['contenders'][number],
 ): string {
   const parts = [c.model, c.status]
-  if (c.durationMs !== null) parts.push(`${Math.round(c.durationMs / 1000)}s`)
+  if (typeof c.durationMs === 'number') parts.push(`${Math.round(c.durationMs / 1000)}s`)
   return parts.join(' · ')
 }
 
