@@ -237,6 +237,10 @@ describe('后台任务平面（CK-1 批 2：两族注册表 + task_list）', () 
       read: () => ({ buffer: '', truncated: false }),
       stop: () => {},
     })
+    // register 的事件 emit 排在会话 tail 之后异步落——同步断言是竞态（CI 首裁判例）
+    await vi.waitFor(() => {
+      expect(f.sink.events.filter((e) => e.type === 'task.started')).toHaveLength(2)
+    })
     const started = f.sink.events.filter(
       (e): e is SparkEventEnvelope<'task.started'> => e.type === 'task.started',
     )
