@@ -1,8 +1,9 @@
 /**
  * 管理面板纯判据单测（19.28 批 1）：树扁平化（挂链/环防护/兄弟序）、
  * arena 候选行、agents 启停判定与名单合成（未知名字保护——禁越权改写）。
+ * mobile 包 runner 是 jest（package.json test），describe/it/expect 走 jest 全局
+ * ——误从 vitest 导入会被 vitest 的 CJS 入口拒载（CI run 37117808427 取证）。
  */
-import { describe, expect, it } from 'vitest'
 import {
   agentEnabledOf,
   contenderLineOf,
