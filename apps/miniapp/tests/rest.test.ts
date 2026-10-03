@@ -105,7 +105,7 @@ describe('sendMessage（attachments 随消息进发送体——19.29 收口批�
   it('带附件：attachments 数组进 body（wire 已由 19.27 修通）', async () => {
     harness.state.statusCode = 200
     harness.state.responseBody = { result: 'started' }
-    await client().sendMessage(SID, '看图', ['a1.png'])
+    await client().sendMessage(SID, '看图', { attachments: ['a1.png'] })
     const body = harness.state.calls[0]?.data as string
     expect(JSON.parse(body)).toEqual({ text: '看图', delivery: 'now', attachments: ['a1.png'] })
   })
