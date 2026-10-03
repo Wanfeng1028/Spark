@@ -325,10 +325,15 @@ export function SessionScreen() {
   }, [])
 
   // 结构化提问作答（CK-6 批 2）：QuestionCard 提交经 REST 回引擎挂起表——
-  // 错误由卡片内联呈现（catch 重抛语义在卡内收口，这里只透传 Promise）
+  // 未配置服务器如实拒绝（卡内联呈现）；错误透传给卡片收口
   const handleQuestionReply = useCallback(
-    (requestId: RequestId, answers: Array<{ selected: string[] }>): Promise<void> =>
-      getHttpTransport(serverUrl, token).replyQuestion(requestId, answers),
+    (requestId: RequestId, answers: Array<{ selected: string[] }>): Promise<void> => {
+      const transport = getHttpTransport(serverUrl, token)
+      if (transport === null) {
+        return Promise.reject(new Error('未配置服务器：请先在设置页完成配对'))
+      }
+      return transport.replyQuestion(requestId, answers)
+    },
     [serverUrl, token],
   )
 
