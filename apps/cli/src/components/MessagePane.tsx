@@ -91,6 +91,16 @@ export function MessagePane({ slice, maxLiveRows, header, staticKey = 0 }: Messa
         <Text color="gray">↑ {clipped} 行已折叠（定稿后进上方滚动区）</Text>
       ) : null}
       {live.map((row) => renderRow(row))}
+      {/* 交付声明卡（CK-13 批 2）：slice 级「最后一次声明生效」投影，有声明才渲染（禁假状态）；
+          只读一行挂 live 区尾部（mobile BannerRow 同款语义），gray 两档纪律同折叠提示行 */}
+      {slice !== null && slice.deliverables !== null ? (
+        <Box marginLeft={2} marginRight={2} marginTop={1}>
+          <Text color="gray">
+            ✓ 交付文件 {slice.deliverables.files.length} 个
+            {slice.deliverables.summary !== undefined ? `：${slice.deliverables.summary}` : ''}
+          </Text>
+        </Box>
+      ) : null}
     </Box>
   )
 

@@ -281,6 +281,21 @@ describe('MessagePane', () => {
     const unbudget = render(<MessagePane slice={s} />).lastFrame() ?? ''
     expect(unbudget).toContain('流式片段 1')
   })
+
+  it('交付声明卡（CK-13 批 2）：有声明才渲染（禁假状态），计数与 summary 挂 live 区尾部', () => {
+    const s = slice()
+    const bare = render(<MessagePane slice={s} />).lastFrame() ?? ''
+    expect(bare).not.toContain('交付文件')
+    s.deliverables = { files: ['a.ts', 'b.ts'], summary: '重构完成' }
+    const declared = render(<MessagePane slice={s} />).lastFrame() ?? ''
+    expect(declared).toContain('✓ 交付文件 2 个：重构完成')
+    // 无 summary 只出计数（summary 是可选字段，不造默认句）
+    const s2 = slice()
+    s2.deliverables = { files: ['c.ts'] }
+    const noSummary = render(<MessagePane slice={s2} />).lastFrame() ?? ''
+    expect(noSummary).toContain('✓ 交付文件 1 个')
+    expect(noSummary).not.toContain('：')
+  })
 })
 
 describe('InputBox', () => {
