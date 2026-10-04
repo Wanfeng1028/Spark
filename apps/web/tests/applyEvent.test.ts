@@ -1315,7 +1315,7 @@ describe('task.started / task.progress / task.completed（CK-1 批 2 后台任�
     expect(slice.tasks[0]?.tail).toBe('已产出第一章与第二章')
 
     // 结清：done 翻转，tail 保留（终态文本仍可展示）
-    s = applyEvent(s, ev('task.completed', { taskId: ids.task('tsk_bg000000000000000'), exitCode: 0, aborted: false, timedOut: false, durationMs: 1200, outputChars: 9 }))
+    s = applyEvent(s, ev('task.completed', { taskId: ids.task('tsk_bg000000000000000'), exitCode: 0, aborted: false, timedOut: false, durationMs: 1200, outputChars: 9, notified: false }))
     slice = s.byId[SID]
     if (slice === undefined) throw new Error('slice 缺失')
     expect(slice.tasks[0]?.done).toBe(true)
