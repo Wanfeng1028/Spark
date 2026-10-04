@@ -441,6 +441,12 @@ export class Engine {
       hooks: {
         fire: (point, payload) => this.hooks.fire(point, payload),
       },
+      // CK-1 批 2：后台任务平面接线（task runInBackground 后台化 + 完成回注）——
+      // 懒箭头（backgroundTasks 赋值在本接线之后，同 hooks 懒解引口径）
+      background: {
+        register: (input) => this.backgroundTasks.register(input),
+        complete: (taskId, info) => this.backgroundTasks.complete(taskId, info),
+      },
     })
 
     // skills/插件（工单 5.5 / ADR D18）：声明式清单 → 事件词表扩展 + hooks 订阅；

@@ -9,6 +9,7 @@
  */
 import type { EventId, SessionId, TurnFinish } from '@spark/protocol'
 import type { EventBus } from './bus.js'
+import type { BackgroundTaskManager } from './background-task.js'
 import type { SessionEntry, SessionHandle } from './engine-types.js'
 import type { ToolContext, ToolOutput } from './tools/definition.js'
 import type { TaskInput } from './tools/builtin/task.js'
@@ -43,6 +44,10 @@ export interface SubagentDeps {
       },
     ): void
   }
+  /** CK-1 批 2：后台任务平面（缺省 undefined——runInBackground 如实报 E_TASK_NO_PLANE，
+   *  不静默降级前台假装后台）。注册 kind:'agent' 任务 + 完成结清（回注在 manager 内）。
+   *  Pick 收窄：调用方（engine 构造序晚于本接线）以懒箭头注入，不快照实例 */
+  background?: Pick<BackgroundTaskManager, 'register' | 'complete'>
 }
 
 export function makeSubagentRunner(deps: SubagentDeps): (input: TaskInput, ctx: ToolContext) => Promise<ToolOutput> {
@@ -75,44 +80,98 @@ export function makeSubagentRunner(deps: SubagentDeps): (input: TaskInput, ctx: 
         ...(input.preset !== undefined ? { preset: input.preset } : {}),
       },
     })
+    let lastText = ''
+    // holder 对象：闭包内赋值不触发控制流窄化（TS let 闭包窄化限制的绕法）
+    const done = { finish: 'stop' as TurnFinish }
+    const startedAtMs = Date.now()
+    // CK-2 批 2：subagent_stop 挂点改为显式路径触发——后台模式函数早退时子代理仍在跑，
+    // finally 时机错误（挂点须随 turn 收尾走）
+    const fireStop = (): void => {
+      deps.hooks?.fire('subagent_stop', {
+        sessionId: ctx.sessionId,
+        cwd: parent.meta.cwd,
+        sourceEventId: ctx.sourceEventId ?? null,
+        data: { childSessionId: child.id },
+      })
+    }
+    // 父 turn 中断 → 级联 interrupt 子会话（子 turn 收尾后本工具返回 E_ABORTED）。
+    // 声明在 try 外：catch 收尾路径也要摘除监听（作用域可达）
+    const onAbort = (): void => {
+      void child.interrupt()
+    }
+    ctx.signal.addEventListener('abort', onAbort, { once: true })
     try {
-      // 父 turn 中断 → 级联 interrupt 子会话（子 turn 收尾后本工具返回 E_ABORTED）
-      const onAbort = (): void => {
-        void child.interrupt()
-      }
-      ctx.signal.addEventListener('abort', onAbort, { once: true })
-      let lastText = ''
-      // holder 对象：闭包内赋值不触发控制流窄化（TS let 闭包窄化限制的绕法）
-      const done = { finish: 'stop' as TurnFinish }
-      try {
-        // 订阅先于提交：user.message/turn.* 事件不漏
-        await new Promise<void>((resolve) => {
-          const sub = deps.bus.subscribe(
-            (e) => {
-              // 父先中断、子 turn 后开始：turn.started 时补一次 interrupt
-              //（interrupt 在 turn 未开始时是 no-op——本行关闭该竞态）
-              if (e.type === 'turn.started' && ctx.signal.aborted) {
-                void child.interrupt()
-              }
-              if (e.type === 'assistant.message') {
-                const texts = (e.data as { content: Array<{ type: string; text?: string }> })
-                  .content.filter((c) => c.type === 'text' && typeof c.text === 'string')
-                  .map((c) => c.text as string)
-                if (texts.length > 0) lastText = texts.join('\n')
-              }
-              if (e.type === 'turn.completed') {
-                done.finish = (e.data as { finish: TurnFinish }).finish
-                sub.unsubscribe()
-                resolve()
-              }
-            },
-            { sessionId: child.id },
+      // 订阅先于提交：user.message/turn.* 事件不漏
+      const turnSettled = new Promise<void>((resolve) => {
+        const sub = deps.bus.subscribe(
+          (e) => {
+            // 父先中断、子 turn 后开始：turn.started 时补一次 interrupt
+            //（interrupt 在 turn 未开始时是 no-op——本行关闭该竞态）
+            if (e.type === 'turn.started' && ctx.signal.aborted) {
+              void child.interrupt()
+            }
+            if (e.type === 'assistant.message') {
+              const texts = (e.data as { content: Array<{ type: string; text?: string }> })
+                .content.filter((c) => c.type === 'text' && typeof c.text === 'string')
+                .map((c) => c.text as string)
+              if (texts.length > 0) lastText = texts.join('\n')
+            }
+            if (e.type === 'turn.completed') {
+              done.finish = (e.data as { finish: TurnFinish }).finish
+              sub.unsubscribe()
+              resolve()
+            }
+          },
+          { sessionId: child.id },
+        )
+        void child.send(input.prompt, 'now')
+      })
+
+      // CK-1 批 2：后台化——注册 kind:'agent' 任务后早退，turn 收尾在闭包内续跑
+      //（结清经 manager.complete：task.completed 事件 + 回注通道都在那条路径上）
+      if (input.runInBackground === true) {
+        const plane = deps.background
+        if (plane === undefined) {
+          throw new Error(
+            'E_TASK_NO_PLANE: 后台任务平面未接线——runInBackground 不可用（不静默转前台假装后台）',
           )
-          void child.send(input.prompt, 'now')
+        }
+        const taskId = plane.register({
+          sessionId: ctx.sessionId,
+          command: `task(${input.title ?? input.prompt.slice(0, 40)})`,
+          kind: 'agent',
+          pid: undefined,
+          // 部分输出实时可读（assistant.message 流经闭包 lastText；task_output 直接消费）
+          read: () => ({ buffer: lastText, truncated: false }),
+          stop: () => {
+            void deps.sessions.get(child.id)?.runtime.interrupt()
+          },
         })
-      } finally {
-        ctx.signal.removeEventListener('abort', onAbort)
+        void turnSettled.then(() => {
+          ctx.signal.removeEventListener('abort', onAbort)
+          fireStop()
+          // complete 内部已闭合 emit/notify 失败（log）；此处兜未处理拒绝
+          plane.complete(taskId, {
+            exitCode: done.finish === 'error' ? 1 : 0,
+            aborted: done.finish === 'aborted',
+            timedOut: false,
+            durationMs: Date.now() - startedAtMs,
+            outputChars: lastText.length,
+          }).catch(() => undefined)
+        })
+        return {
+          output: {
+            taskId,
+            backgrounded: true,
+            note: `后台任务 ${taskId} 已启动：完成后本会话将收到回注通知，进度与输出用 task_output 查询（taskId=${taskId}）`,
+          },
+          isError: false,
+        }
       }
+
+      await turnSettled
+      ctx.signal.removeEventListener('abort', onAbort)
+      fireStop()
       if (ctx.signal.aborted || done.finish === 'aborted') {
         return { output: { code: 'E_ABORTED' }, isError: true }
       }
@@ -122,17 +181,11 @@ export function makeSubagentRunner(deps: SubagentDeps): (input: TaskInput, ctx: 
       }
     } catch (err) {
       // 子会话创建成功后异常（send 拒绝等）：interrupt 收尾，不让子 turn 悬挂
+      ctx.signal.removeEventListener('abort', onAbort)
       const childHandle = deps.sessions.get(child.id)
       childHandle?.runtime.interrupt()
+      fireStop()
       throw err
-    } finally {
-      // CK-2 批 2：subagent_stop 挂点——正常/中断/异常三路全收（fire-and-forget）
-      deps.hooks?.fire('subagent_stop', {
-        sessionId: ctx.sessionId,
-        cwd: parent.meta.cwd,
-        sourceEventId: ctx.sourceEventId ?? null,
-        data: { childSessionId: child.id },
-      })
     }
   }
 }

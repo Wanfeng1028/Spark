@@ -440,3 +440,70 @@ describe('工单 7.8：并行子代理 + 树状运行监控', () => {
 
 /** SessionHandle 显式类型引用（避免 unused import lint 误报） */
 export type _Handle = SessionHandle
+
+
+describe('CK-1 批 2：task 后台化（runInBackground）', () => {
+  test('后台化：立即回 taskId；子 turn 后台收尾 → task.completed + 回注驱动父汇报', async () => {
+    const f = await makeEngine()
+    const parent = await f.engine.createSession({ title: '父会话' })
+    // 脚本消费序：step1 父派生（tool.completed 即回）；step2 由「父 post-tool 续跑」与
+    // 「子 turn」竞速消费（内容两栖）；step3 恒为回注驱动的父汇报（回注排当前 turn 后）
+    f.gateway.scriptStep({
+      content: [
+        {
+          type: 'toolCall',
+          callId: ids.call('cal_Taskbg00000000000000'),
+          name: 'task',
+          input: { prompt: '后台调研 Y', title: 'Y 后台调研', runInBackground: true },
+        },
+      ],
+    })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '后台运行中' }] })
+    f.gateway.scriptStep({ deltas: [{ kind: 'text', text: '父汇报：Y 是 2' }] })
+
+    await parent.send('开始')
+    // tool.completed 立即闭合（不等子 turn）——输出带 taskId 与 backgrounded 标记
+    await waitFor(
+      () => {
+        const done = toolCompleted(f, 'cal_Taskbg00000000000000')
+        return done !== undefined && JSON.stringify((done.data as { output: unknown }).output).includes('taskId')
+      },
+      '后台化回执',
+    )
+    const done = toolCompleted(f, 'cal_Taskbg00000000000000')!
+    const out = done.data as { output: { taskId: string; backgrounded: boolean } }
+    expect(out.output.backgrounded).toBe(true)
+    const taskId = out.output.taskId
+
+    // task.started 事件 kind=agent
+    const started = f.events.find((e) => e.type === 'task.started')
+    expect((started?.data as { kind: string }).kind).toBe('agent')
+
+    // 子 turn 后台收尾 → task.completed（正常完成非中止）
+    await waitFor(() => f.events.some((e) => e.type === 'task.completed'), 'task.completed')
+    const completedAt = f.events.findIndex((e) => e.type === 'task.completed')
+    const completed = f.events[completedAt]!
+    expect((completed.data as { taskId: string }).taskId).toBe(taskId)
+    expect((completed.data as { aborted: boolean }).aborted).toBe(false)
+
+    // 回注（合成 user.message 含 taskId，供模型 task_output 读输出）驱动父汇报
+    await waitFor(
+      () =>
+        f.events.some(
+          (e) =>
+            e.type === 'assistant.message' &&
+            e.sessionId === parent.id &&
+            JSON.stringify(e.data).includes('父汇报：Y 是 2'),
+        ),
+      '回注驱动父汇报',
+    )
+    const injected = f.events.find(
+      (e) =>
+        e.type === 'user.message' &&
+        e.sessionId === parent.id &&
+        JSON.stringify(e.data).includes(taskId),
+    )
+    expect(injected).toBeDefined()
+    expect(f.events.findIndex((e) => e === injected)).toBeGreaterThan(completedAt)
+  })
+})

@@ -13,6 +13,9 @@ const TaskInput = z.strictObject({
   /** 预设档名（工单 13.5）：`~/.spark/agents/<name>.json`——覆盖模型/工具面/system 附加段/标题；
    * 缺省（不传）行为与未引入预设档前逐字节一致 */
   preset: z.string().min(1).optional(),
+  /** CK-1 批 2：后台化——立即返回 taskId，子代理后台跑；完成经回注通道驱动主会话汇报
+   * （task.completed 事件 + 输入队列合成通知），输出经 task_output 读取 */
+  runInBackground: z.boolean().optional(),
 })
 
 export type TaskInput = z.infer<typeof TaskInput>
@@ -26,7 +29,9 @@ export function makeTaskTool(run: TaskRunner): ToolDefinition<TaskInput> {
     description:
       '派生子代理：在独立子会话中执行一个自包含任务并返回其最终答复。' +
       '适合并行调研/批量独立操作；子代理可用全部工具（含审批），单层不可嵌套。' +
-      '可选 preset 指定预设档（模型/工具集/系统提示词附加段）；未列出的档名不可用。',
+      '可选 preset 指定预设档（模型/工具集/系统提示词附加段）；未列出的档名不可用。' +
+      '长任务传 runInBackground=true 后台跑：立即返回 taskId，完成后本会话收到回注通知，' +
+      '输出走 task_output 读取。',
     // 工单 13.5：直接复用同一份 zod 定义——原本此处另写一份同形 schema，加字段会漏改
     inputSchema: TaskInput,
     permission: {
