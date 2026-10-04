@@ -31,12 +31,12 @@ export type TrustMode = 'claude' | 'gemini' | 'qwen'
 export type TrustDecision = 'trusted' | 'untrusted' | 'ask'
 
 /** 项目声明文件（`<cwd>/.spark/hooks.json`）——与用户级 SettingsHooks 同 schema */
-export const ProjectHooksFileSchema = z.strictObject({
+const ProjectHooksFileSchema = z.strictObject({
   version: z.literal(1),
   hooks: SettingsHooksSchema,
 })
 
-export type ProjectHooksFile = z.infer<typeof ProjectHooksFileSchema>
+type ProjectHooksFile = z.infer<typeof ProjectHooksFileSchema>
 
 /** 信任文件条目 */
 const trustEntrySchema = z.strictObject({
