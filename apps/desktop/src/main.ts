@@ -306,7 +306,7 @@ function revealTargetWindow(): void {
 const terminalManager = new TerminalPtyManager({
   spawnPty: (input) => {
     // node-pty 原生绑定按 ABI 装载——electron ABI 失配时 create 请求如实报错（不拖垮 main 启动）
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
     const nodePty: { spawn(file: string, args: string[], opts: Record<string, unknown>): IPty } = require('node-pty')
     // D59 S1：Windows 先行（shellProfileOf 非 win32 返回 null）——不猜 mac/linux
     const profile = shellProfileOf(process.platform, process.env)
@@ -318,7 +318,7 @@ const terminalManager = new TerminalPtyManager({
       cols: input.cols,
       rows: input.rows,
       cwd: homedir(),
-      env: process.env as Record<string, string>,
+      env: process.env,
     })
     // node-pty IPty → PtyHandle 适配：onExit 的 IEvent<{exitCode, signal?}> 解包为 exitCode
     const pty: PtyHandle = {
