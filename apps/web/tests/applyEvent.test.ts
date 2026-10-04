@@ -1285,3 +1285,55 @@ describe('CK-13：deliverables.presented', () => {
     expect(slice2.deliverables).toEqual({ files: ['a.md', 'b.md'] })
   })
 })
+
+
+describe('task.started / task.progress / task.completed（CK-1 批 2 后台任务投影）', () => {
+  it('生命周期三态：started 入列 → progress 尾随更新 → completed 标 done；未知 id 忽略', () => {
+    let s = seeded()
+    s = applyEvent(
+      s,
+      ev('task.started', { taskId: ids.task('tsk_bg000000000000000'), kind: 'agent', command: 'task(调研)' }),
+    )
+    let slice = s.byId[SID]
+    if (slice === undefined) throw new Error('slice 缺失')
+    expect(slice.tasks).toEqual([
+      { taskId: ids.task('tsk_bg000000000000000'), kind: 'agent', command: 'task(调研)', done: false, tail: '' },
+    ])
+
+    // live 尾随：全量最新文本替换（非增量）
+    s = applyEvent(s, ev('task.progress', { taskId: ids.task('tsk_bg000000000000000'), text: '已产出第一章' }))
+    s = applyEvent(s, ev('task.progress', { taskId: ids.task('tsk_bg000000000000000'), text: '已产出第一章与第二章' }))
+    slice = s.byId[SID]
+    if (slice === undefined) throw new Error('slice 缺失')
+    expect(slice.tasks[0]?.tail).toBe('已产出第一章与第二章')
+
+    // 未知 id 的 progress 忽略（竞态回放防线——started 未到/已重置）
+    s = applyEvent(s, ev('task.progress', { taskId: ids.task('tsk_ghost0000000000000'), text: '幻影' }))
+    slice = s.byId[SID]
+    if (slice === undefined) throw new Error('slice 缺失')
+    expect(slice.tasks).toHaveLength(1)
+    expect(slice.tasks[0]?.tail).toBe('已产出第一章与第二章')
+
+    // 结清：done 翻转，tail 保留（终态文本仍可展示）
+    s = applyEvent(s, ev('task.completed', { taskId: ids.task('tsk_bg000000000000000'), exitCode: 0, aborted: false, timedOut: false, durationMs: 1200, outputChars: 9 }))
+    slice = s.byId[SID]
+    if (slice === undefined) throw new Error('slice 缺失')
+    expect(slice.tasks[0]?.done).toBe(true)
+    expect(slice.tasks[0]?.tail).toBe('已产出第一章与第二章')
+  })
+
+  it('重复 started 以最后一条为准（重放容错不重复入列）；两族 kind 均入投影', () => {
+    let s = seeded()
+    const t1 = ids.task('tsk_a0000000000000000')
+    s = applyEvent(s, ev('task.started', { taskId: t1, kind: 'agent', command: 'task(A)' }))
+    s = applyEvent(s, ev('task.started', { taskId: t1, kind: 'agent', command: 'task(A 改)' }))
+    s = applyEvent(s, ev('task.started', { taskId: ids.task('tsk_b0000000000000000'), kind: 'bash', command: 'sleep 30', pid: 4242 }))
+    const slice = s.byId[SID]
+    if (slice === undefined) throw new Error('slice 缺失')
+    expect(slice.tasks.map((t) => [t.taskId, t.kind, t.command])).toEqual([
+      [t1, 'agent', 'task(A 改)'],
+      [ids.task('tsk_b0000000000000000'), 'bash', 'sleep 30'],
+    ])
+  })
+})
+

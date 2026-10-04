@@ -197,6 +197,9 @@ export function mergePrefixSlice(P: SessionSlice, E: SessionSlice): SessionSlice
     memoryInjected: E.memoryInjected,
     todos: E.todos ?? P.todos,
     deliverables: E.deliverables ?? P.deliverables,
+    // CK-1 批 2：E（durable 回放）权威清单，P 的 live 尾随补回（task.progress 不落盘，
+    // 回放侧 tail 恒空、live 侧有最新快照）
+    tasks: mergeTasks(P.tasks, E.tasks),
     mode: E.mode,
     goal: E.goal,
   }
@@ -441,3 +444,14 @@ export function createSessionPageController(opts: {
     timeOf: (id: EventId): number | undefined => times.get(id),
   }
 }
+
+/** 后台任务清单合并（CK-1 批 2）：以 E（durable 回放）为权威清单，P（live）的尾随文本
+ *  按 taskId 补回——task.progress 是 live-only 不落盘，回放重建的 tail 恒空 */
+function mergeTasks(
+  p: SessionSlice['tasks'],
+  e: SessionSlice['tasks'],
+): SessionSlice['tasks'] {
+  const tails = new Map(p.map((t) => [t.taskId, t.tail]))
+  return e.map((t) => ({ ...t, tail: tails.get(t.taskId) ?? t.tail }))
+}
+

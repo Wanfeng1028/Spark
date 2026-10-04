@@ -7,7 +7,7 @@
  * 工单 13.5：task 入参 `preset` 只透传——预设解析、模型覆盖、工具面收窄与
  * system 附加段均在 Engine.createSession（预设档所有权在引擎，本层不感知）。
  */
-import type { EventId, SessionId, TurnFinish } from '@spark/protocol'
+import type { EventId, SessionId, TaskId, TurnFinish } from '@spark/protocol'
 import type { EventBus } from './bus.js'
 import type { BackgroundTaskManager } from './background-task.js'
 import type { SessionEntry, SessionHandle } from './engine-types.js'
@@ -59,6 +59,14 @@ export function makeSubagentRunner(deps: SubagentDeps): (input: TaskInput, ctx: 
     if (parent === undefined) {
       throw new Error(`E_ENGINE_NO_SESSION: 父会话 ${ctx.sessionId} 未加载，拒绝派生子代理`)
     }
+    // CK-1 批 2：后台化守卫在 createSession 之前——不建注定失败的子会话
+    if (input.runInBackground === true && deps.background === undefined) {
+      throw new Error(
+        'E_TASK_NO_PLANE: 后台任务平面未接线——runInBackground 不可用（不静默转前台假装后台）',
+      )
+    }
+    /** 已注册的后台任务 id（订阅回调发 task.progress 用；前台模式恒 undefined） */
+    const taskIdRef: { taskId: TaskId | undefined } = { taskId: undefined }
     const child = await deps.createSession({
       // 标题：task 入参优先；缺省由 Engine.createSession 施加（预设档 title → '子代理'，工单 13.5）
       ...(input.title !== undefined ? { title: input.title } : {}),
@@ -115,6 +123,14 @@ export function makeSubagentRunner(deps: SubagentDeps): (input: TaskInput, ctx: 
                 .content.filter((c) => c.type === 'text' && typeof c.text === 'string')
                 .map((c) => c.text as string)
               if (texts.length > 0) lastText = texts.join('\n')
+              // CK-1 批 2：后台任务的输出尾随（live-only 不落盘）——四端任务卡数据源；
+              // 仅后台模式发（前台消费者正等最终文本，progress 冗余）
+              if (backgrounded && taskIdRef.taskId !== undefined) {
+                deps.bus.emitLive(ctx.sessionId, 'task.progress', {
+                  taskId: taskIdRef.taskId,
+                  text: lastText,
+                })
+              }
             }
             if (e.type === 'turn.completed') {
               done.finish = (e.data as { finish: TurnFinish }).finish
@@ -130,11 +146,10 @@ export function makeSubagentRunner(deps: SubagentDeps): (input: TaskInput, ctx: 
       // CK-1 批 2：后台化——注册 kind:'agent' 任务后早退，turn 收尾在闭包内续跑
       //（结清经 manager.complete：task.completed 事件 + 回注通道都在那条路径上）
       if (input.runInBackground === true) {
+        // 幂等守卫（顶部已挡，此处承 TS 收窄——跨语句属性收窄不保持）
         const plane = deps.background
         if (plane === undefined) {
-          throw new Error(
-            'E_TASK_NO_PLANE: 后台任务平面未接线——runInBackground 不可用（不静默转前台假装后台）',
-          )
+          throw new Error('E_TASK_NO_PLANE: 后台任务平面未接线')
         }
         const taskId = plane.register({
           sessionId: ctx.sessionId,
@@ -147,6 +162,7 @@ export function makeSubagentRunner(deps: SubagentDeps): (input: TaskInput, ctx: 
             void deps.sessions.get(child.id)?.runtime.interrupt()
           },
         })
+        taskIdRef.taskId = taskId
         void turnSettled.then(() => {
           ctx.signal.removeEventListener('abort', onAbort)
           fireStop()

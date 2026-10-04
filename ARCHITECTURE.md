@@ -71,6 +71,7 @@
 | v1.70 | 2026-10-02 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，阶段十九未开工工单批开工指令） | **新增 D58 个性化主题层（19.43 批 1；doc/02 v4.190 同批）**：web localStorage 偏好层 `wallpaper`（缺省 none，零协议面零新事件不动引擎）；豁免范围 = canvas 像素 + 局部不透明底板（AppShell 根 data-wallpaper 让位）；渲染两处有意偏离上游（插值保留 / reduced-motion 瞬时 + visibilitychange 暂停 RAF）；WebGL2 失败不渲染（禁假状态）；四端降级 web+desktop 同 bundle、CLI 不适用、mobile/miniapp 候选。事件词表不变 |
 | v1.71 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，阶段十九未开工工单批开工指令） | **D21 修订注记（19.29 收口批；doc/02 v4.192 同批）**：小程序分发中继三档评估判决"短期不接、接时 C→B"（判决表在 apps/miniapp/README.md），中继落地定跨包工单；语音听写同判为中继附带项。事件词表不变 |
 | v1.72 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，同 v4.190 圈定批） | **新增 D59 内置终端（19.32 批 1；doc/02 v4.195 同批）**：spawn 参数 main 进程单源（shellProfileOf Git Bash→cmd.exe）+ preload/IPC 白名单五通道设计 + pty 树杀随窗 + xterm 渲染 desktop 复用 + 安全清单六条（S1–S6，实现批交评审）；批 1 = 判据 + 测试 6 例 + 本 ADR，批 2 = 依赖与实现一体落地。事件词表不变 |
+| v1.73 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"go on"指令） | 事件模型行 34→35 种（CK-1 批 2 尾片：task.progress live-only——后台任务输出尾随，live-only 运行时对位 extend.ts 同改）。与 doc/02 v4.204、AGENTS v1.75、README v1.53 同批 |
 | v1.66 | 2026-09-25 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"已经完成的工单有问题的要修复"指令）；依据：doc/11 §4.1 P0 | **D48 补安全前提 + D40 收紧面扩容注记（doc/11 LA-01/02/03 收口；doc/02 v4.122 同批）**：项目层按会话 cwd 惰性建层 + 未信任整层停用 + 家目录撞路径不设层 + 固化/级联按会话项目层走；evaluate 层间 deny 优先；trust 收紧面 2→5 类。详见 D48 补记。本机零验证，CI 裁决 |
 
 ---
@@ -112,7 +113,7 @@
 
 | 抽象           | 设计                                                                                                                                                                           | 来源                                                           |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| **事件模型**   | 34 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分    | opencode durable/live + dsh surface                            |
+| **事件模型**   | 35 种可辨识联合 + merge-extensible 词表；信封 `{id,type,sessionId,seq,time,data}`；durable（落盘可回放计 seq）/ live（delta 仅内存）/ surface（进模型历史）三属性编译期区分    | opencode durable/live + dsh surface                            |
 | **会话**       | append-only JSONL 树（条目 `id/parentId`）；分叉=只移 leaf 指针；compaction 是树上的普通 entry（summary+keptFromEventId 锚点）；模型上下文=Projector 从 surface 事件投影           | pi session-manager + dsh projector                             |
 | **输入三通道** | `now`（空闲即开 turn）/ `steer`（进行中，下一 step 前注入）/ `queue`（turn 间依序）；提交三态 `started/steered/queued`；唤醒合并防空转                                         | Codex TurnInputMode + opencode pendingWake                     |
 | **工具管线**   | zod schema-first；before→permission→execute→after；serial 工具 barrier / parallel 工具并发（read 并行，bash/edit/write 独占）；输出 >32KB 溢写文件；中断补合成事件对           | Codex RwLock 门控 + dsh 三段 waterfall + opencode output-store |

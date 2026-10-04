@@ -200,6 +200,13 @@ export const EventSchemas = {
     /** 完成回注是否入队（false = 会话不在册/已卸载，如实记录不假装已通知） */
     notified: z.boolean(),
   }),
+  // CK-1 批 2：后台任务流式尾随（live-only 不落盘——重连后由 task.started 基线 +
+  // task_output 拉取重建；卡片渲染直接消费全量最新文本，非增量）
+  'task.progress': z.strictObject({
+    taskId: TaskIdSchema,
+    /** 当前全量最新输出（agent 族 = 子代理已产出文本；bash 族本期不发） */
+    text: z.string(),
+  }),
   'microcompact_boundary': z.strictObject({
     /** 保留边界：路径上该事件 id（含）之后的 toolResult 组保留原样 */
     keptFromEventId: EventIdSchema,
@@ -301,7 +308,11 @@ export const EventSchemas = {
 export type SparkEventType = keyof typeof EventSchemas
 export type SparkEventMap = { [K in SparkEventType]: z.infer<(typeof EventSchemas)[K]> }
 
-export type LiveOnlyEventType = 'assistant.delta' | 'reasoning.delta' | 'tool.progress'
+export type LiveOnlyEventType =
+  | 'assistant.delta'
+  | 'reasoning.delta'
+  | 'tool.progress'
+  | 'task.progress'
 export type SurfaceEventType = 'user.message' | 'assistant.message'
 export type DurableEventType = Exclude<SparkEventType, LiveOnlyEventType>
 

@@ -143,6 +143,9 @@ export interface SessionSlice {
   todos: Array<{ id: string; content: string; status: 'pending' | 'in_progress' | 'completed' }> | null
   /** 交付声明（CK-13）：deliverables.presented 投影（null = 未声明；重复声明以最后一次为准） */
   deliverables: { files: string[]; summary?: string } | null
+  /** 后台任务（CK-1 批 2）：task.started/completed（durable）+ task.progress 尾随（live）
+   *  投影——四端任务卡数据源；旧→新注册序 */
+  tasks: Array<{ taskId: string; kind: 'bash' | 'agent'; command: string; done: boolean; tail: string }>
   /**
    * 会话模式（工单 16.3）：plan = 只读规划态（四端指示与 composer 提示的数据源）。
    * 由 `session.mode.changed` 驱动——durable，所以冷启动回放就能重建，不依赖内存态。
@@ -194,6 +197,7 @@ export function emptySessionSlice(sid: SessionId): SessionSlice {
     memoryInjected: null,
     todos: null,
     deliverables: null,
+    tasks: [],
     mode: 'default',
     goal: null,
   }
@@ -938,10 +942,31 @@ function reduceEvent(s: ProjectionState, e: SparkEventEnvelope, idxBox: IndexBox
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 
-  if (ofType(e, 'task.started') || ofType(e, 'task.completed')) {
-    // CK-1：后台任务生命周期（durable 非 surface）——模型可见面是完成回注的合成
-    // user.message（那条消息自带入流转录），任务状态卡是批 2 四端展示的范围；
-    // 显式 no-op 保持 reducer 全覆盖纪律
+  if (ofType(e, 'task.started')) {
+    // CK-1 批 2：后台任务生命周期投影（durable——回放即重建，四端任务卡数据源）。
+    // 重放容错：同 taskId 重复 started（理论不可达）以最后一条为准，不重复入列
+    const rest = next.tasks.filter((t) => t.taskId !== e.data.taskId)
+    next.tasks = [
+      ...rest,
+      { taskId: e.data.taskId, kind: e.data.kind, command: e.data.command, done: false, tail: '' },
+    ]
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'task.completed')) {
+    // 结清：标 done（tail 保留——终态文本仍可展示；重放容错同上，未知 id 忽略）
+    next.tasks = next.tasks.map((t) =>
+      t.taskId === e.data.taskId ? { ...t, done: true } : t,
+    )
+    return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
+  }
+
+  if (ofType(e, 'task.progress')) {
+    // CK-1 批 2：live 尾随——更新运行中任务的输出快照（live 不落盘，重连后由
+    // task.started 基线 + task_output 拉取重建；未知 id 忽略——竞态回放防线）
+    next.tasks = next.tasks.map((t) =>
+      t.taskId === e.data.taskId ? { ...t, tail: e.data.text } : t,
+    )
     return { ...s, byId: { ...s.byId, [e.sessionId]: next } }
   }
 

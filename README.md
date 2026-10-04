@@ -58,7 +58,7 @@ spark up
 apps/web            React 19 SPA —— 只消费事件流（applyEvent reducer）
    │  HttpTransport：REST 命令 + GET /api/event（SSE 单端点，since=seq 断线续播）
    ▼
-packages/protocol   前后端唯一合同：34 种事件词表 · zod schema · Transport 接口
+packages/protocol   前后端唯一合同：35 种事件词表 · zod schema · Transport 接口
    ▼
 apps/server         Fastify 薄壳：REST + SSE + 静态托管（127.0.0.1，无鉴权）
    ▼
@@ -185,6 +185,7 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.50 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，"融入到我们的项目里面来吧！开始写工单"指令） | 当前状态行同步（工单 19.48 批 1）：阶段十九 47→48 工单、批次 A→L 改 A→M（M 批 = 中文长文去 AI 味规则层，判据取外部 MIT 项目 lieflat-less-ai-tone）；下一程行登记 19.47 三批全交付收官（原句"批 2/3 待做"已过时，据 doc/08 v2.07 校正）与 19.48 批 1 已交付（DESIGN §12.7.1 长文正文小节）、批 2 检查器词级 warn 档与长文句式级复查待做。与 AGENTS v1.71、doc/02 v4.164、doc/08 v2.12、doc/08-v2-roadmap-2 v1.1、DESIGN v2.50 同批。本批本机零验证，CI 裁决 |
 | v1.51 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续做工单"指令） | 当前状态行同步（工单 19.35 审查模式交付）：下一程行登记 19.35 已交付（web「审查」浮层——多文件差异双栏 + 审批批量放行/拒绝；checkpoint shadow git 只读聚合）。与 doc/02 v4.170、doc/08 v2.13、ARCHITECTURE v1.68（D56）、DESIGN v2.51（§13.L.9）同批 |
 | v1.52 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你去做新的工单"指令） | 架构图事件词表 28→34 种（CK-1 批 1：task.started/completed 后台任务平面）；CHANGELOG [Unreleased] 补后台任务第一批条目。与 doc/02 v4.171、AGENTS v1.72、ARCHITECTURE v1.69 同批 |
+| v1.53 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"go on"指令） | 架构图事件词表 34→35 种（CK-1 批 2 尾片：task.progress live 后台任务输出尾随）。与 doc/02 v4.204、AGENTS v1.75、ARCHITECTURE v1.73 同批 |
 | v1.49 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，对比 x.ai/grok 后拍板"可以修改设计规则。英文优先，官网做好中英文的切换和适配，以及官网的多端适配"指令） | 当前状态行同步（工单 19.47 批 1）：阶段十九 46→47 工单、批次 A→K 改 A→L（L 批 = 官网排印对齐与中英双语）；官网排印体系对齐 xAI——字体栈西文优先（Inter Variable 管拉丁）、display 字重降级 + 负字距阶梯、假 mono 眉题修真，规则侧 DESIGN v2.42 新增 §14 官网排印系统；批 2 中英双语与批 3 多端走查登记待做。与 AGENTS v1.67、doc/02 v4.144、doc/08 v2.03 同批。本批本机零验证，CI 裁决 |
 
 </details>

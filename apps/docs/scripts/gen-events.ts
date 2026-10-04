@@ -24,6 +24,7 @@ const LIVE_ONLY: Record<LiveOnlyEventType, true> = {
   'assistant.delta': true,
   'reasoning.delta': true,
   'tool.progress': true,
+  'task.progress': true,
 }
 const SURFACE: Record<SurfaceEventType, true> = {
   'user.message': true,

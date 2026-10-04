@@ -1284,6 +1284,42 @@ describe('契约：event \'task.completed\'', () => {
   })
 })
 
+describe('契约：event \'task.progress\'', () => {
+  const sample = {
+    "taskId": "tsk_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "text": "contract-sample"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(EventSchemas['task.progress'].parse(sample)).toEqual(sample)
+    expect(EventSchemas['task.progress'].parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(EventSchemas['task.progress'])).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 taskId → 解析失败', () => {
+    expect(() => EventSchemas['task.progress'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["taskId"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 text → 解析失败', () => {
+    expect(() => EventSchemas['task.progress'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["text"]; return m })())).toThrow()
+  })
+
+  it('字段 taskId 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.progress'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["taskId"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 text 类型错 → 解析失败', () => {
+    expect(() => EventSchemas['task.progress'].parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["text"] = 12345; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => EventSchemas['task.progress'].parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：event \'task.started\'', () => {
   const sample = {
     "taskId": "tsk_01ARZ3NDEKTSV4RRFFQ69G5FAV",

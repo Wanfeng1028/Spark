@@ -41,7 +41,13 @@ export function isExtendedLiveOnly(type: string): boolean {
 }
 
 /** 内置 live-only 词表（events.ts LiveOnlyEventType 的运行时对位） */
-const LIVE_ONLY_TYPES: ReadonlySet<string> = new Set(['assistant.delta', 'reasoning.delta', 'tool.progress'])
+// CK-1 批 2：task.progress 加入运行时对位（与 events.ts 的 LiveOnlyEventType 编译期联合同改）
+const LIVE_ONLY_TYPES: ReadonlySet<string> = new Set([
+  'assistant.delta',
+  'reasoning.delta',
+  'tool.progress',
+  'task.progress',
+])
 
 /**
  * 运行时 live-only 判定：内置 LiveOnly 词表 ?? 扩展注册表 liveOnly 标记。

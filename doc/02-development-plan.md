@@ -373,7 +373,7 @@ export type TurnFinish = 'stop' | 'length' | 'aborted' | 'permission-rejected' |
 export type PermissionReply = 'once' | 'always' | 'reject'
 ```
 
-## 4.3 事件词表（34 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
+## 4.3 事件词表（35 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
 
 > **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 34 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
 
@@ -479,7 +479,7 @@ export const EventSchemas = {
     text: z.string().min(1),
     attachments: z.array(z.string()).optional(),
   }),
-  // …34 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
+  // …35 种逐一定义；content/usage 等复用 primitives.ts 的共享 schema
 } satisfies { [T in SparkEventType]: z.ZodType<SparkEventMap[T]> }
 
 // schema.ts —— 信封 schema + jsonSchema 导出（工具参数与 DTO 用）
@@ -500,7 +500,11 @@ export const jsonSchemas = { envelope: zodToJsonSchema(EnvelopeSchema) /* + DTO 
 
 ```ts
 export type SurfaceEventType = 'user.message' | 'assistant.message'
-export type LiveOnlyEventType = 'assistant.delta' | 'reasoning.delta' | 'tool.progress'
+export type LiveOnlyEventType =
+  | 'assistant.delta'
+  | 'reasoning.delta'
+  | 'tool.progress'
+  | 'task.progress' // CK-1 批 2：后台任务输出尾随（不落盘）
 
 export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
   id: EventId; type: T; sessionId: SessionId
@@ -521,7 +525,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | turn.started / completed                          | ✅           | ❌                                                    |
 | user.message                                      | ✅           | ✅                                                    |
 | assistant.message / reasoning.ended               | ✅           | ✅（reasoning 按 provider 配置）                      |
-| assistant.delta / reasoning.delta / tool.progress | ❌ live-only | —                                                     |
+| assistant.delta / reasoning.delta / tool.progress / task.progress | ❌ live-only | —（task.progress 为后台任务输出尾随，CK-1 批 2） |
 | tool.started / completed                          | ✅           | ❌（结果经 assistant.message 的 toolResult 回填模型） |
 | permission.asked / resolved                       | ✅（审计）   | ❌ 永不进模型历史                                     |
 | compaction.* / checkpoint.created                 | ✅           | compaction 影响 projection                            |
@@ -531,6 +535,7 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | goal.set / updated / completed / paused           | ✅           | ❌（工单 16.7 / ADR D33：状态日志；目标内容经合成续跑 user.message 进模型历史） |
 | lsp.diagnostics                                   | ✅           | ❌（工单 16.9：诊断流日志；进模型历史的是 lsp 工具的 tool.completed 结果——模型可见必被记录双面成立） |
 | task.started / completed                          | ✅           | ❌（CK-1：后台任务生命周期审计；模型可见面是完成回注的合成 user.message——surface 纪律由那条消息承担） |
+| task.progress                                     | ❌ live-only | —（CK-1 批 2：任务卡输出尾随） |
 
 **磁盘行与 wire 同构**：落盘 JSONL 行 = 信封原样（含 parentId）——单一格式，序列化零转换，前端 UiItem 的 parentId 即来源于此。
 
@@ -1898,7 +1903,7 @@ interface SessionSlice {
 
 **去重规则（回放×直播重叠）**：apply 入口先判 `e.seq !== undefined && e.seq <= slice.lastSeq` → 跳过（全局直播先到、REST 回放后到时不重复应用；重放期间乱序到达的直播同理被吸附）；live 事件无 seq，无条件应用。resetSlice 将 lastSeq 归 0 后重放从空重建。
 
-**applyEvent 处理表（34 种全覆盖）**：
+**applyEvent 处理表（35 种全覆盖）**：
 
 | 事件                         | 状态变更                                                                            |
 | ---------------------------- | ----------------------------------------------------------------------------------- |
@@ -1924,7 +1929,8 @@ interface SessionSlice {
 | memory.injected              | slice.memoryInjected 记录命中数与查询词（工单 7.5；不进 items——模型可见面已在引擎事件流记录） |
 | goal.set / updated / completed / paused | slice.goal 投影（工单 16.7 / ADR D33：null = 无目标；text/iterations/usedTokens/status 随事件重建——durable 故冷启动回放即可恢复，web StatusBar 徽标为 /goal status 的可见面） |
 | lsp.diagnostics               | 会话流追加 `diagnostics` 项（工单 16.9：language/uri/diagnostics 随行；每次 publish 一行卡——诊断清零也是一次真实发布照常入流，转录式回放即重建时间线） |
-| task.started / completed     | no-op（CK-1：任务状态卡属批 2 四端展示；模型可见面是回注的合成 user.message，转录已随那条消息入流） |
+| task.started / completed     | 投影维护（CK-1 批 2：slice.tasks 入列/标 done——四端任务卡数据源；模型可见面是回注的合成 user.message，转录已随那条消息入流） |
+| task.progress                | live：更新 slice.tasks 尾随（按 taskId；未知 id 忽略——竞态回放防线；不落盘不回放） |
 
 ```ts
 // connection-store：{ status:'connecting'|'open'|'reconnecting'|'closed', lastSeq, retryCount }
@@ -2987,6 +2993,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.201 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"把远端的报错都解决就继续做接下来的工单"指令） | **CK-5 批 2 第三步交付（OAuth 装配收口）**：manager 三注入位（tokens/oauthFetch/oauthOpenBrowser）+ Bearer 头进 streamable-http requestInit（用户 headers 同键优先）+ 临期静默刷新（tokenEndpoint 随仓落盘免二次发现；失败沿用旧令牌如实 warn）+ startAuth 后台授权发起（防抖，成功落仓重连）+ engine.startMcpAuth + POST /api/mcp/:server/auth（false→409）+ Transport 三实现对等 + web MCP 面板「认证」动作 + config oauth 字段（clientSecret 单值掩码同 env 纪律，删字段=清值整文件语义）+ openapi 81 路径重生成 + mcp.test 4 例。**CK-2 批 2 部分交付**：③ pre_tool_use 改写输入（stdout {"input":{...}} 最小协议 + pipeline effectiveInput 替换——权限与 zod 全以改写值重走）+ UserHookCommandDef.timeoutDeny 超时=deny 档 + 子代理双挂点（engine 懒解引防构造序快照）+ runner 测试 3 例；④ hook-broker 竞速与 ⑤ 项目层信任门留卡。**沿途 CI 修复四起**：knip 四条去 export（33df283）、mcp-oauth.test 全角括号断言 + storage-paths 磁盘契约登记 mcpTokens（5b4a347 同批）、Transport 方法计数锚点 92→93（8fe3af3，startMcpAuth 第 93 方法——检查 5.5/检查 7 锚定抓到）。与 doc/08-v2-roadmap-2 v1.26 同批。本批本机零验证（例外：openapi 生成器重跑是工作产物），CI 裁决 |
 | v4.202 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"继续"指令） | **三卡 CI 绿验收收官（run 37130995113）**：CK-5 批 2 三步全收口（OAuth 判据/流程/装配；mcp-oauth 11 例 + mcp-auth-flow 6 例 + mcp.test 4 例首裁全过；真实 OAuth server 走查留用户）、CK-2 批 2 部分交付（hooks-matrix 3 例绿）、CK-1 批 2 第一片（background-task 2 例绿；两族注册表 + task_list + task.started kind 超集）。沿途七轮 CI 修复闭环（knip ×4 / 全角括号断言 / storage-paths 契约 / Transport 锚点 92→93 / TS2729+TS2565 字段次序 / gen:events 漏跑判例二次 / inprocess Promise 面 / task.started 两族化 + makeTaskTools 三元组 / register 事件断言竞态 vi.waitFor）。与 doc/08-v2-roadmap-2 v1.27 同批。本批本机零验证（例外：生成器重跑是工作产物），CI 裁决 |
 | v4.203 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"继续吧"指令） | **CK-1 批 2 第二片交付（④ agent 后台化执行体）**：task 增 runInBackground（后台注册 kind:'agent' 任务即回 taskId + task_output 指引）；subagent 拆启动/收尾两段——turn 收尾闭包续跑 → manager.complete 结清（task.completed + 输入队列回注驱动父会话汇报；部分输出经 lastText 闭包实时可读），subagent_stop 挂点改显式路径触发（后台早退下 finally 时机错误——挂点须随 turn 收尾走），E_TASK_NO_PLANE 未接线如实拒绝（不静默转前台假装后台），abort 级联与 TaskStop 树杀全路径保持；SubagentDeps.background 以 Pick 收窄 + engine 懒箭头注入（构造序晚于接线，同 hooks 懒解引口径）。e2e 1 例：后台化全链（立即回执/kind=agent/后台收尾/回注入队驱动父汇报），脚本消费序竞态免疫设计（step2 两栖内容/step3 恒回注汇报）。SendMessage 续聊无新增线（子会话本可经 POST /api/sessions/:id/messages 寻址，回注文本带 taskId 指引）。**留卡**：task.progress live 事件与四端任务卡（new-event-type 全流程，词表 34→35）。CI 绿 run 37169069928。与 doc/08-v2-roadmap-2 v1.28 同批。本批本机零验证，CI 裁决 |
+| v4.204 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"go on"指令） | **CK-1 批 2 尾片交付（task.progress live 事件 + slice.tasks 投影）**：事件词表 34 → **35 种**（task.progress live-only——后台任务输出尾随；durable 31 / live 4 / surface 2）：① protocol——events.ts schema（taskId + text 全量最新快照非增量，卡片直渲重连由 started 基线重建）+ LiveOnlyEventType 联合 + extend.ts 运行时对位（**gen-events 穷举表 Record<LiveOnlyEventType,true> 同改——漏改会把 live 归成 durable、词表页计数即错，编译期穷举兜底**）；② reducer——slice.tasks 投影三分支（started 入列/completed 标 done/progress 尾随按 taskId，未知 id 忽略竞态防线；批 1 的 no-op 升级为投影）+ session-page mergeTasks（E 清单权威 + P live 尾随补回）+ web applyEvent 2 例；③ engine emit 点 = subagent 订阅 assistant.message（后台模式发全量快照，前台不发——消费者在等最终文本 progress 冗余）；④ 文档六处锚点 34→35（§4.3 标题/§4.3 代码注释/§4.4 LiveOnly 行/§4.4 规则表两行/§6.4 处理表标题与两行）+ AGENTS §2.8 + ARCHITECTURE 事件模型行 + README 架构图行；三生成物重跑（契约 + 词表页 35 种 durable 31/live 4/surface 2）。**四端任务卡渲染留卡**（数据面就绪：slice.tasks 含 id/kind/command/done/tail——卡片是纯 UI 片按端形态另排）。与 doc/08-v2-roadmap-2 v1.29、AGENTS v1.75、README v1.53、ARCHITECTURE v1.73 同批。本批本机零验证（例外：生成器重跑是工作产物），CI 裁决 |
 | v4.165 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；依据：doc/11 §6.6 | **LA-55 收口**（CI 绿验收）：弹层环影 token 化——tokens.css `.popover-surface` 单点定义 + 八容器类引用（环宽/透明度改一处全局生效）；Composer 卡身另套参数不入弹层族 |
 | v4.161 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；依据：doc/11 §6.6 | **LA-52 收口**（6611e85 CI 绿验收）：审批回复改 async + 局部 pending/opError——失败卡内红字不再静默；pending 到 permission.resolved 回执止（真源事件流）；ApprovalCard 三键 pending 期禁用；测试两例 |
 | v4.162 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；依据：doc/11 §6.6 | **LA-57/58 收口**（CI 绿验收）：① openSessions 删除口——deleteSession 摘除 + forgetSession 公开口 + web onResync 只重放激活会话（断线 REST 请求数与翻会话数解耦）；② req() 缺省 30s 超时（AbortController 手工组合全端兼容，requestTimeoutMs 可配 0 关闭）——悬挂请求如实报错 |
