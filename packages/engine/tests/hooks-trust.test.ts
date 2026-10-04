@@ -33,13 +33,13 @@ function makeProject(cwd: string, hooks?: object): void {
 }
 
 const SAMPLE_HOOKS = SettingsHooksSchema.parse({
-  session_start: [{ command: 'echo trusted' }],
+  'session.start': [{ command: 'echo trusted' }],
 })
 
 describe('hooksFingerprint', () => {
   it('同内容同指纹；内容变更指纹变', () => {
-    const a = SettingsHooksSchema.parse({ session_start: [{ command: 'echo a' }] })
-    const b = SettingsHooksSchema.parse({ session_start: [{ command: 'echo b' }] })
+    const a = SettingsHooksSchema.parse({ 'session.start': [{ command: 'echo a' }] })
+    const b = SettingsHooksSchema.parse({ 'session.start': [{ command: 'echo b' }] })
     expect(hooksFingerprint(a)).toBe(hooksFingerprint(a))
     expect(hooksFingerprint(a)).not.toBe(hooksFingerprint(b))
   })
@@ -87,7 +87,7 @@ describe('resolveTrust 三档', () => {
   })
 
   it('未知路径（无条目无继承）→ ask（无 UI fail-closed）', () => {
-    expect(resolveTrust({ cwd: normalizeTrustPath('/other'), mode: 'claude', fingerprint: fp, store: makeWith() })).toBe('ask')
+    expect(resolveTrust({ cwd: normalizeTrustPath('/other'), mode: 'claude', fingerprint: fp, store: makeWith(undefined) })).toBe('ask')
   })
 })
 
@@ -96,11 +96,11 @@ describe('loadProjectHooks', () => {
     const cwd = normalizeTrustPath(mkdtempSync(join(tmpdir(), 'spark-proj-')))
     dirs.push(cwd)
     expect(loadProjectHooks(cwd)).toBeNull()
-    makeProject(cwd, { session_start: [{ command: 'echo hi' }] })
+    makeProject(cwd, { 'session.start': [{ command: 'echo hi' }] })
     const result = loadProjectHooks(cwd)
     expect(result).not.toBeNull()
-    expect(result?.hooks.session_start).toHaveLength(1)
-    expect(result?.fingerprint).toBe(hooksFingerprint(SettingsHooksSchema.parse({ session_start: [{ command: 'echo hi' }] })))
+    expect(result?.hooks['session.start']).toHaveLength(1)
+    expect(result?.fingerprint).toBe(hooksFingerprint(SettingsHooksSchema.parse({ 'session.start': [{ command: 'echo hi' }] })))
     // 坏 JSON
     writeFileSync(join(cwd, '.spark', 'hooks.json'), '{broken')
     expect(() => loadProjectHooks(cwd)).toThrow()

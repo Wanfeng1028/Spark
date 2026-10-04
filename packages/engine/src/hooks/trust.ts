@@ -18,15 +18,13 @@
  * 无 UI fail-closed：未决/不可判定 = ask（不加载项目 hooks——pi/Qwen 共同判）。
  * scope 不对称（Qwen 原则）：项目声明只能收窄安全面，不能放大——由消费侧保证。
  */
-import { basename, createHash, existsSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
-import { createHash as _createHash } from 'node:crypto'
+import { existsSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { ConfigError, parseOrThrow, readJsonFile } from '../config.js'
 import { atomicWriteJson } from '../fsutil.js'
 import { SettingsHooksSchema, type SettingsHooks } from '@spark/protocol'
-
-const createHash = _createHash
 
 export type TrustMode = 'claude' | 'gemini' | 'qwen'
 /** trusted = 加载项目 hooks；untrusted = 明确拒绝；ask = 未决（弹信任确认） */
