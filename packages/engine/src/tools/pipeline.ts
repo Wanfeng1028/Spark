@@ -336,6 +336,8 @@ export class ToolPipelineImpl implements ToolPipeline {
         callId: call.callId,
         turnId: turn.turnId,
         name: call.name,
+        // CK-2 批 2 ④：会话 cwd 随请求进权限服务（permission.request hook 的 spawn cwd）
+        cwd: this.deps.cwd,
         action: def.permission.action,
         resource: def.permission.resourceOf(effectiveInput, { cwd: this.deps.cwd }),
         ...(patterns !== undefined ? { patterns } : {}),

@@ -36,6 +36,7 @@ export type HookPoint =
   | 'post_compact'
   | 'subagent_start'
   | 'subagent_stop'
+  | 'permission.request'
 
 /** 外部命令触发（timeoutMs 缺省 DEFAULT_HOOK_TIMEOUT_MS） */
 export interface UserHookCommandDef {
@@ -53,6 +54,12 @@ export interface UserHookSkillDef {
 }
 
 export type UserHookDef = UserHookCommandDef | UserHookSkillDef
+
+/** 可中止竞速句柄（CK-2 批 2 ④）：done 裁决 + abort 败者清理 */
+export interface BlockingRace {
+  done: Promise<{ blocked: boolean; reason: string | undefined }>
+  abort: () => void
+}
 
 /** spark.json `hooks` 段形状（缺省 = 无任何挂点；值显式 undefined 同缺省） */
 export type UserHooksConfig = {
@@ -143,21 +150,60 @@ export class UserHookRunner {
         this.warn('userhook.blocking.skill_skipped', { point, skill: def.skill })
         continue
       }
-      const verdict = await this.runBlockingCommand(point, def, payload)
+      const verdict = await this.runBlockingCommand(point, def, payload).promise
       if (verdict.blocked) return verdict
       if (verdict.rewrittenInput !== undefined) return verdict
     }
     return { blocked: false, reason: undefined }
   }
 
+  /**
+   * 可中止竞速变体（CK-2 批 2 ④：permission.request 专用）——hook 链与用户确认窗
+   * 并发跑，先裁者胜：hook deny → 用户窗按 reject 结清；用户先裁 → abort() 杀掉
+   * 在跑的 hook 子进程（败者清理）。hook 链语义同 fireBlocking（顺序、exit 2 deny、
+   * 超时默认不拦截）；**hook 只能 deny 或弃权，不能代用户 allow**（旁路闸不扩权——
+   * 由消费方 permission service 只消费 blocked 分支保证）。
+   */
+  fireBlockingRace(point: HookPoint, payload: HookFirePayload): BlockingRace {
+    const kills: Array<() => void> = []
+    const done = (async (): Promise<{ blocked: boolean; reason: string | undefined }> => {
+      if (this.disposed) return { blocked: false, reason: undefined }
+      const defs = this.defs[point]
+      if (defs === undefined) return { blocked: false, reason: undefined }
+      for (const def of defs) {
+        // skill 触发器无裁决语义——竞速点同 blocking 跳过
+        if (!('command' in def)) {
+          this.warn('userhook.blocking.skill_skipped', { point, skill: def.skill })
+          continue
+        }
+        const { promise, kill } = this.runBlockingCommand(point, def, payload)
+        kills.push(kill)
+        const v = await promise
+        if (v.blocked) return { blocked: true, reason: v.reason }
+      }
+      return { blocked: false, reason: undefined }
+    })()
+    return {
+      done,
+      abort: () => {
+        for (const kill of kills.splice(0)) kill()
+      },
+    }
+  }
+
   private runBlockingCommand(
     point: HookPoint,
     def: UserHookCommandDef,
     payload: HookFirePayload,
-  ): Promise<{ blocked: boolean; reason: string | undefined; rewrittenInput?: unknown }> {
+  ): {
+    promise: Promise<{ blocked: boolean; reason: string | undefined; rewrittenInput?: unknown }>
+    /** 败者清理（CK-2 批 2 ④ 竞速）：杀掉本命令子进程——close 走 code=null 静默不拦截 */
+    kill: () => void
+  } {
     const timeoutMs = def.timeoutMs ?? this.deps.defaultTimeoutMs
     const fields = { point, command: def.command, sid: payload.sessionId }
-    return new Promise<{ blocked: boolean; reason: string | undefined; rewrittenInput?: unknown }>((resolve) => {
+    let killChild: () => void = () => {}
+    const promise = new Promise<{ blocked: boolean; reason: string | undefined; rewrittenInput?: unknown }>((resolve) => {
       let child
       try {
         child = spawn(def.command, {
@@ -172,6 +218,7 @@ export class UserHookRunner {
         resolve({ blocked: false, reason: undefined })
         return
       }
+      killChild = () => child.kill()
       this.inflight.add(child)
       let settled = false
       const done = (
@@ -258,6 +305,7 @@ export class UserHookRunner {
       child.stdin.on('error', () => {})
       child.stdin.end(JSON.stringify({ point, ...payload }))
     })
+    return { promise, kill: killChild }
   }
 
   private runCommand(

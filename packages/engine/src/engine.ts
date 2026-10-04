@@ -799,6 +799,10 @@ export class Engine {
       trust: {
         tightens: (action) => tightens(action, trustLevelOf(this.defaultCwd, this.trustDoc.folders)),
       },
+      // CK-2 批 2 ④：PermissionRequest hook 竞速接线（懒箭头——构造序防御同 hooks）
+      hooks: {
+        fireBlockingRace: (point, payload) => this.hooks.fireBlockingRace(point, payload),
+      },
       // 工单 7.3：permission.resolved 挂点（fire-and-forget；cwd 取会话工作目录）
       onResolved: (p) => {
         this.hooks.fire('permission.resolved', {

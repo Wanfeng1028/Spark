@@ -22,6 +22,7 @@ import type {
 import type { EventBus } from '../bus.js'
 import type { PermissionRule } from '../config.js'
 import { newIds } from '../ulid.js'
+import type { EventId } from '@spark/protocol'
 import type { PermissionCheck, PermissionService } from '../tools/permission-port.js'
 import { evaluateAll } from './rules.js'
 import type { RuleStore } from './store.js'
@@ -36,6 +37,8 @@ interface PendingEntry {
   resolve: (allowed: boolean) => void
   timer: ReturnType<typeof setTimeout>
   onAbort: () => void
+  /** CK-2 批 2 ④：PermissionRequest hook 竞速的败者清理（settle 时杀在跑 hook） */
+  raceAbort?: () => void
 }
 
 export interface PermissionServiceDeps {
@@ -70,6 +73,23 @@ export interface PermissionServiceDeps {
    * 逐条记入独立明细流（旁路记录，写失败不影响审批主链路）。
    */
   audit?: AuditSink
+  /**
+   * CK-2 批 2 ④：PermissionRequest hook 竞速（doc/12 #3）——hook 链与用户确认窗
+   * 并发，先裁者胜（hook deny → 按 reject 结清；用户先裁 → abort 杀 hook）。
+   * hook 只能 deny 或弃权，不能代用户 allow（旁路闸不扩权——本服务只消费 blocked）。
+   * 缺省不接线 = 无竞速语义（用户窗独裁）。
+   */
+  hooks?: {
+    fireBlockingRace(
+      point: 'permission.request',
+      payload: {
+        sessionId: SessionId
+        cwd: string
+        sourceEventId: EventId | null
+        data: Record<string, unknown>
+      },
+    ): { done: Promise<{ blocked: boolean; reason: string | undefined }>; abort: () => void }
+  }
   /**
    * 文件夹信任（工单 16.4 / ADR D37）：未信任 cwd 下，收紧面动作（trust.ts
    * TIGHTENED_ACTIONS）的规则层自动放行（allow）收紧为 ask——deny/ask 不变
@@ -192,6 +212,31 @@ export class PermissionServiceImpl implements PermissionService {
       }
       check.signal.addEventListener('abort', entry.onAbort, { once: true })
       this.pending.set(requestId, entry)
+      // CK-2 批 2 ④：hook 链与确认窗竞速（ask 判定才到达此处——allow/deny 已短路）。
+      // 先裁者胜：hook deny → 按 reject 结清（origin 'hook'，reason 随反馈）；用户先裁 →
+      // settle 内 raceAbort 杀在跑 hook。hook 链自身超时默认不拦截（同 blocking 纪律）。
+      if (this.deps.hooks !== undefined) {
+        const race = this.deps.hooks.fireBlockingRace('permission.request', {
+          sessionId: check.sessionId,
+          cwd: check.cwd ?? '',
+          sourceEventId: null,
+          data: {
+            requestId,
+            name: check.name,
+            action: check.action,
+            resource: check.resource,
+            input: check.input,
+          },
+        })
+        entry.raceAbort = race.abort
+        race.done
+          .then((verdict) => {
+            if (entry.settled) return // 用户已裁——胜者，本路径仅弃权
+            if (!verdict.blocked) return // hook 链全弃权——用户窗继续（hook 不代裁）
+            void this.settle(entry, false, 'reject', 'hook', verdict.reason).catch(() => {})
+          })
+          .catch(() => {})
+      }
     })
   }
 
@@ -381,13 +426,14 @@ export class PermissionServiceImpl implements PermissionService {
     entry: PendingEntry,
     allowed: boolean,
     reply: PermissionReply,
-    origin: 'reply' | 'reply-all' | 'timeout' | 'abort' | 'shutdown' | 'cascade' | 'mode-change',
+    origin: 'reply' | 'reply-all' | 'timeout' | 'abort' | 'shutdown' | 'cascade' | 'mode-change' | 'hook',
     feedback?: string,
   ): Promise<boolean> {
     if (entry.settled) return false
     entry.settled = true
     clearTimeout(entry.timer)
     entry.check.signal.removeEventListener('abort', entry.onAbort)
+    entry.raceAbort?.() // CK-2 批 2 ④：用户先裁——杀掉在跑的竞速 hook（败者清理）
     this.pending.delete(entry.requestId)
     let effective = false
     try {

@@ -25,6 +25,8 @@ export interface PermissionCheck {
   /** CK-17 批 2：工具声明的风险档（管线从 def.safety.riskLevel 透传）——
    *  high 时审批 reason 附加风险提示；未声明/低中档不加（防噪声）。 */
   riskLevel?: 'low' | 'medium' | 'high'
+  /** CK-2 批 2 ④：会话工作目录（permission.request hook 的 spawn cwd；管线传入） */
+  cwd?: string
   signal: AbortSignal
 }
 

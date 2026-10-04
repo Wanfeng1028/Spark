@@ -896,3 +896,106 @@ describe('riskLevel 审批 reason 附加（CK-17 批 2）', () => {
     await service.reply(pending.requestId, 'reject')
   })
 })
+
+
+describe('CK-2 批 2 ④：PermissionRequest hook 竞速（doc/12 #3）', () => {
+  /** 竞速桩：done 状态可配（deny / pass / pending），abort 计数可查 */
+  function makeRaceHook(mode: 'deny' | 'pass' | 'pending', reason = 'hook 禁止该操作'): {
+    hooks: NonNullable<PermissionServiceImpl['deps']['hooks']>
+    abortCount: () => number
+    settleRaceAsPass: () => void
+  } {
+    let aborts = 0
+    let resolveRace: (v: { blocked: boolean; reason: string }) => void = () => {}
+    const done =
+      mode === 'pending'
+        ? new Promise<{ blocked: boolean; reason: string }>((resolve) => {
+            resolveRace = resolve
+          })
+        : Promise.resolve({ blocked: mode === 'deny', reason })
+    return {
+      hooks: {
+        fireBlockingRace: () => ({
+          done,
+          abort: () => {
+            aborts += 1
+          },
+        }),
+      },
+      abortCount: () => aborts,
+      settleRaceAsPass: () => resolveRace({ blocked: false, reason: '' }),
+    }
+  }
+
+  function makeSvcWithRace(race: ReturnType<typeof makeRaceHook>, timeoutMs = 300_000): {
+    sink: MemSink
+    service: PermissionServiceImpl
+  } {
+    const sink = new MemSink()
+    const service = new PermissionServiceImpl({
+      bus: new EventBus({ sink }),
+      ruleStore: new MemRuleStore([]),
+      defaultProject: { rules: [], key: 'project-default' },
+      timeoutMs,
+      hooks: race.hooks,
+    })
+    return { sink, service }
+  }
+
+  test('hook deny 先裁：按 reject 结清（origin hook），reason 走反馈通道', async () => {
+    const race = makeRaceHook('deny', 'hook 禁止 rm -rf')
+    const { sink, service } = makeSvcWithRace(race)
+    const { check, controller } = makeCheck({ cwd: '/tmp/wk' })
+    const allowed = await service.assert(check)
+    expect(allowed).toBe(false)
+    controller.abort()
+    const resolved = sink.events.filter((e) => e.type === 'permission.resolved')
+    expect(resolved).toHaveLength(1)
+    expect((resolved[0]?.data as { reply: string }).reply).toBe('reject')
+    // hook 弃权路径不结清——本用例 hook 即 deny，abort 计数为 0（hook 是胜者无败者清理）
+    expect(race.abortCount()).toBe(0)
+  })
+
+  test('用户先裁：竞速 abort 被调（败者清理），用户 reply 正常生效', async () => {
+    const race = makeRaceHook('pending')
+    const { sink, service } = makeSvcWithRace(race)
+    const { check, controller } = makeCheck({ cwd: '/tmp/wk' })
+    const pending = service.assert(check)
+    // 用户先裁（hook 仍 pending）——reply 走 once（requestId 从 asked 事件取）
+    const asked = sink.events.find((e) => e.type === 'permission.asked')
+    const rid = (asked?.data as { requestId: string }).requestId
+    const replied = await service.reply(ids.request(rid), 'once')
+    expect(replied).toBe(true)
+    expect(race.abortCount()).toBe(1) // 败者清理：settle 内杀 hook
+    const allowed = await pending
+    expect(allowed).toBe(true)
+    controller.abort()
+    void sink
+  })
+
+  test('hook 弃权（pass）不结清：用户后续 reply 仍生效', async () => {
+    const race = makeRaceHook('pending')
+    const { sink, service } = makeSvcWithRace(race)
+    const { check, controller } = makeCheck({ cwd: '/tmp/wk' })
+    const pending = service.assert(check)
+    race.settleRaceAsPass() // hook 链全 pass——不结清，用户窗继续
+    const asked = sink.events.find((e) => e.type === 'permission.asked')
+    const rid = (asked?.data as { requestId: string }).requestId
+    const replied = await service.reply(ids.request(rid), 'once')
+    expect(replied).toBe(true)
+    const allowed = await pending
+    expect(allowed).toBe(true)
+    controller.abort()
+  })
+
+  test('未接线 hooks：用户窗独裁（既有行为不变；超时 fail-closed）', async () => {
+    const { sink, service } = makeService({ timeoutMs: 50 })
+    const { check, controller } = makeCheck({ cwd: '/tmp/wk' })
+    const allowed = await service.assert(check)
+    expect(allowed).toBe(false) // 50ms 超时 reject
+    const resolved = sink.events.filter((e) => e.type === 'permission.resolved')
+    expect(resolved).toHaveLength(1)
+    controller.abort()
+  })
+})
+
