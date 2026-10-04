@@ -13,7 +13,7 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join } from 'node:path'
 import type {
   BrowserSettings,
   AutomationCreate,
@@ -69,11 +69,11 @@ import type { CheckpointRecord } from './checkpoint.js'
 import { BackgroundTaskManager } from './background-task.js'
 import { QuestionBoard } from './question-board.js'
 import { gitBranchOf } from './git.js'
-import { loadConfig, loadProjectRules } from './config.js'
+import { loadConfig } from './config.js'
 import type { PermissionRule } from './config.js'
 import type { EngineConfig, ModelRef } from './config.js'
 import type { LlmGateway, ResolvedModel } from './llm-gateway.js'
-import { listModels, testProvider, PROVIDER_CATALOG } from './model-catalog.js'
+import { listModels, modelRefOf, resolvedModelOf, testProvider, PROVIDER_CATALOG } from './model-catalog.js'
 import { PiGateway } from './pi-gateway.js'
 import { FallbackGateway } from './fallback-gateway.js'
 import { CostTracker } from './cost-tracker.js'
@@ -107,6 +107,7 @@ import type { BashShellPool } from './tools/bash-pool.js'
 import { PermissionServiceImpl } from './permission/service.js'
 import type { ProjectLayer } from './permission/service.js'
 import { UserRuleStore } from './permission/store.js'
+import { ProjectLayerCache } from './permission/project-layer.js'
 import { SessionIndexMaintainer } from './session/index-maintainer.js'
 import { storageReport as storageReportOf, type StorageReport } from './storage/report.js'
 import {
@@ -165,12 +166,13 @@ import { makeComputerTools } from './tools/builtin/computer.js'
 import { createComputerExecutor, type ComputerExecutor } from './computer/executor.js'
 import { SandboxNetworkProxy } from './sandbox/proxy.js'
 import { resolveEmbeddingProvider, HttpEmbeddingClient, type EmbeddingProviderInfo } from './embedding/client.js'
+import { makeSemanticRecallPort } from './embedding/recall-port.js'
 import { DEFAULT_AFTER_DAYS, selectDueForAutoArchive } from './session/archive-policy.js'
 import { proxyFetchFor } from './proxy-fetch.js'
 import { sparkHome } from './home.js'
 import { VectorStore } from './vector/store.js'
 import { FeedbackStore } from './feedback/store.js'
-import { SemanticIndexer, mergeMemories, mergeEvents } from './vector/semantic.js'
+import { SemanticIndexer, mergeEvents } from './vector/semantic.js'
 
 import type {
   EngineDeps,
@@ -199,7 +201,6 @@ export type {
 } from './engine-types.js'
 import {
   attachmentsDir,
-  projectPermissionsFile,
   checkpointsRootOf,
   sparkDir,
   sparkFile,
@@ -231,10 +232,8 @@ export class Engine {
   private readonly permission: PermissionServiceImpl
   /** 用户级权限规则仓（~/.spark/permissions.json；always 固化与规则管理 UI 的持久层） */
   private readonly ruleStore: UserRuleStore
-  /** 项目级规则层缓存（LA-01/LA-03）：trustKey(cwd) → 层；信任门与家目录守卫在 projectLayerFor */
-  private readonly projectLayers = new Map<string, ProjectLayer>()
-  /** 未信任目录"有规则被停用"的告警去重（每个 cwd 只记一次） */
-  private readonly projectLayerWarned = new Set<string>()
+  /** 项目级规则层缓存（LA-01/LA-03）：信任门/家目录守卫/惰性建层收在 ProjectLayerCache 单点 */
+  private readonly projectLayers: ProjectLayerCache
   /** 密钥仓（阶段七工单 7.1 / H01）：~/.spark/secrets.json，取用优先级 store > env */
   private readonly secrets: SecretStore
   /** I/O 护栏（阶段七工单 7.2 / H02）：工具输出注入检测 + 敏感过滤 */
@@ -700,9 +699,8 @@ export class Engine {
       sparkFile(this.root, 'permissions'),
       this.config.permissions.rules,
     )
-    // 项目级规则层（19.9 / ADR D48；LA-01/LA-03 收口）：按会话 cwd 惰性建层，
-    // 信任门 + 家目录撞路径守卫 + 坏形状降级都收在 projectLayerFor 单点；
-    // 不再预建 UserRuleStore 常驻字段（旧实现把 defaultCwd 的规则无条件下进所有会话）。
+    // 项目级规则层（19.9 / ADR D48；LA-01/LA-03 收口）：按会话 cwd 惰性建层——
+    // 缓存与全部守卫见 ProjectLayerCache（构造在审计出口就绪后）。
     this.secrets = new SecretStore(sparkFile(this.root, 'secrets'))
 
     // 阶段十九 19.8 / ADR D51：语义检索——models.json 有 provider 声明 embeddings 才建。
@@ -776,6 +774,14 @@ export class Engine {
     this.ioGuard = new IoGuard({ secretValues: () => this.secrets.values() })
     // 工单 7.12：审计日志明细流——脱敏同纪律（密钥仓值动态注入）
     this.audit = new AuditLog(this.root, () => this.secrets.values())
+    // 项目级规则层缓存（LA-01/LA-03）：trusted.json 现取 + 审计出口注入；
+    // 惰性建层/信任门/家目录守卫/坏形状降级全在 ProjectLayerCache 内（门面只留委托）
+    this.projectLayers = new ProjectLayerCache({
+      root: this.root,
+      trustFolders: () => this.trustDoc.folders,
+      logger: this.logger,
+      audit: this.audit,
+    })
     // 工单 7.7：成本熔断计量（usage.json 跨进程延续）+ 路由状态（ResolvedModel 化）
     this.costTracker = new CostTracker(sparkFile(this.root, 'usage'), this.now)
     this.settings = new SettingsStore(this.root, this.logger, this.costTracker, {
@@ -1430,69 +1436,11 @@ export class Engine {
   }
 
   /**
-   * 会话 cwd 的项目层（LA-01/LA-03 收口）：信任门 + 家目录撞路径守卫 + 惰性建层
-   * （按 trustKey(cwd) 缓存；层内的 rules 数组与评估列表同源，project 固化就地追加）。
-   * - **未信任 = 整层不进评估**（LA-01）：项目 permissions.json 可随仓库传播，
-   *   用户首次打开未信任仓库即被第三方写好审批规则，不能成立；文件里确有规则时
-   *   warn + 审计各一条（每个 cwd 只记一次）。
-   * - **家目录撞路径不设层**（LA-03②）：defaultCwd = 家目录时 <cwd>/.spark/
-   *   permissions.json 与用户级文件同路径——两个内存数组重写同一文件互相丢规则，
-   *   且"本项目"此刻就是全局；project 作用域固化将如实报 E_PERMISSION_SCOPE。
-   * - 坏形状文件降级为空层跳过（warn），不阻塞审批主链路（用户级与会话层照常生效）。
+   * 会话 cwd 的项目层（LA-01/LA-03 收口：信任门 + 家目录撞路径守卫 + 惰性建层
+   * 的语义与实现都在 ProjectLayerCache——门面只留这层委托）。
    */
   private projectLayerFor(cwd: string): ProjectLayer | undefined {
-    const key = trustKey(cwd)
-    if (trustLevelOf(cwd, this.trustDoc.folders) !== 'trusted') {
-      if (!this.projectLayerWarned.has(key)) {
-        this.projectLayerWarned.add(key)
-        const count = this.readProjectRulesLenient(cwd).length
-        if (count > 0) {
-          this.logger.warn('permission.projectRules.untrusted', { cwd, count })
-          this.audit.record({
-            time: Date.now(),
-            kind: 'permission.rule',
-            actor: 'system',
-            result: 'ok',
-            source: 'project-untrusted-skipped',
-            resource: cwd,
-            note: `未信任目录：${count} 条项目规则整层停用`,
-          })
-        }
-      }
-      return undefined
-    }
-    const cached = this.projectLayers.get(key)
-    if (cached !== undefined) return cached
-    const projectFile = projectPermissionsFile(cwd)
-    if (resolve(projectFile) === resolve(sparkFile(this.root, 'permissions'))) {
-      this.logger.warn('permission.projectRules.homeCollision', { cwd })
-      return undefined
-    }
-    const rules = this.readProjectRulesLenient(cwd)
-    const layer: ProjectLayer = { rules, store: new UserRuleStore(projectFile, rules), key }
-    this.projectLayers.set(key, layer)
-    if (rules.length > 0) {
-      this.audit.record({
-        time: Date.now(),
-        kind: 'permission.rule',
-        actor: 'system',
-        result: 'ok',
-        source: 'project-loaded',
-        resource: cwd,
-        note: `读到 ${rules.length} 条项目规则`,
-      })
-    }
-    return layer
-  }
-
-  /** loadProjectRules 的降级读：坏形状如实 warn 后按空表处理（不阻塞会话审批链路） */
-  private readProjectRulesLenient(cwd: string): PermissionRule[] {
-    try {
-      return loadProjectRules(cwd)
-    } catch (err) {
-      this.logger.warn('permission.projectRules.invalid', { cwd, err: errText(err) })
-      return []
-    }
+    return this.projectLayers.for(cwd)
   }
 
   // ---- 文件夹信任（工单 16.4 / ADR D37：trusted.json 的线上入口） ----
@@ -1697,38 +1645,19 @@ export class Engine {
   }
 
   /**
-   * 语义检索端口（阶段十九 19.8 / ADR D51）：memory 工具与记忆注入共用一份装配。
-   * searchMemories = 语义优先 + 关键词兜底去重合流（嵌入失败 fail-soft 回关键词）；
-   * indexMemory = 新存记忆即时补嵌（fire-and-forget，失败只 warn 不抛——
-   * 保存已成功，向量是派生缓存）。
+   * 语义检索端口（阶段十九 19.8 / ADR D51）：装配在 embedding/recall-port.ts
+   * （语义优先 + 关键词兜底去重合流的纪律见该文件）——门面只留空值守卫与委托。
    */
   private semanticPort(): SemanticRecallPort {
     const sem = this.semantic
     if (sem === null) throw new Error('E_EMBEDDING_UNAVAILABLE: 语义检索未启用')
-    const m = this.memory
-    return {
-      searchMemories: async (query, k) => {
-        const keyword = m?.search(query, k) ?? []
-        try {
-          const semantic = await sem.searchMemories(query, k)
-          return mergeMemories(semantic, keyword, k)
-        } catch (err) {
-          this.logger.warn('semantic.search_memories.error', { err })
-          return keyword
-        }
-      },
-      indexMemory: (id, content) => {
-        void (async () => {
-          try {
-            const vec = await sem.embedOne(content)
-            if (vec === undefined) return
-            this.vectors?.upsert('memory', String(id), content, vec, { id }, this.now())
-          } catch (err) {
-            this.logger.warn('semantic.index_memory.error', { id, err })
-          }
-        })()
-      },
-    }
+    return makeSemanticRecallPort({
+      semantic: sem,
+      memory: this.memory,
+      vectors: this.vectors,
+      now: this.now,
+      logger: this.logger,
+    })
   }
 
   /**
@@ -3067,59 +2996,14 @@ export class Engine {
     if (this.shuttingDown) throw shutdownError()
   }
 
-  /** "provider/model" → ModelRef（缺省 defaultModel；provider 未配置 → E_CONFIG；contextWindow 优先取 models[] 条目） */
+  /** "provider/model" → ModelRef（缺省 defaultModel；provider 未配置 → E_CONFIG；contextWindow 优先取 models[] 条目；解析单点在 model-catalog.ts） */
   private resolveModelRef(model?: string): ModelRef {
-    if (model === undefined) return this.config.models.defaultModel
-    const slash = model.indexOf('/')
-    if (slash <= 0 || slash === model.length - 1) {
-      throw new Error(`E_CONFIG: model "${model}" 须为 provider/model 形式`)
-    }
-    const provider = model.slice(0, slash)
-    if (this.config.models.providers[provider] === undefined) {
-      throw new Error(`E_CONFIG: models.json 未配置 provider "${provider}"`)
-    }
-    const name = model.slice(slash + 1)
-    const listed = this.config.models.models.find((m) => m.provider === provider && m.model === name)
-    return {
-      provider,
-      model: name,
-      contextWindow: listed?.contextWindow ?? this.config.models.defaultModel.contextWindow,
-    }
+    return modelRefOf(this.config.models, model)
   }
 
-  /** ModelRef + providers 表 + 密钥仓/环境变量 → ResolvedModel（apiKey 只在此注入，store > env） */
+  /** ModelRef + providers 表 + 密钥仓/环境变量 → ResolvedModel（apiKey 只在该模块注入，store > env；解析单点在 model-catalog.ts） */
   private resolveModel(ref: ModelRef): ResolvedModel {
-    const provider = this.config.models.providers[ref.provider]
-    if (provider === undefined) {
-      throw new Error(`E_CONFIG: models.json 未配置 provider "${ref.provider}"`)
-    }
-    const { apiKey } = resolveApiKey(this.secrets, ref.provider, provider.apiKeyEnv)
-    // LA-29：计价四率任一声明即组 cost 对象（未声明 = undefined → toPiModel 落 0）
-    const hasCost =
-      ref.inputCostPerMtok !== undefined ||
-      ref.outputCostPerMtok !== undefined ||
-      ref.cacheReadCostPerMtok !== undefined ||
-      ref.cacheWriteCostPerMtok !== undefined
-    return {
-      provider: ref.provider,
-      model: ref.model,
-      contextWindow: ref.contextWindow,
-      ...(apiKey !== undefined ? { apiKey } : {}),
-      ...(provider.baseUrl !== undefined ? { baseUrl: provider.baseUrl } : {}),
-      ...(provider.proxy !== undefined ? { proxy: provider.proxy } : {}),
-      ...(hasCost
-        ? {
-            cost: {
-              input: ref.inputCostPerMtok ?? 0,
-              output: ref.outputCostPerMtok ?? 0,
-              cacheRead: ref.cacheReadCostPerMtok ?? 0,
-              cacheWrite: ref.cacheWriteCostPerMtok ?? 0,
-            },
-          }
-        : {}),
-      ...(ref.maxTokens !== undefined ? { maxTokens: ref.maxTokens } : {}),
-      ...(ref.imageInput !== undefined ? { imageInput: ref.imageInput } : {}),
-    }
+    return resolvedModelOf(this.config.models, this.secrets, ref)
   }
 
   // ---- 密钥管理（阶段七工单 7.1 / H01：~/.spark/secrets.json 的线上入口） ----
@@ -3157,5 +3041,3 @@ export class Engine {
 function shutdownError(): Error {
   return new Error('E_SHUTTING_DOWN: 引擎正在关闭，拒绝新请求')
 }
-
-

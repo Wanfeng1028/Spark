@@ -8,8 +8,10 @@
 import type { ModelProviderDto, ModelTestResultDto, ModelsDto } from '@spark/protocol'
 import { errText } from './errs.js'
 import { proxyFetchFor } from './proxy-fetch.js'
-import type { ModelsConfig } from './config.js'
-import type { SecretSource } from './secrets/store.js'
+import type { ModelRef, ModelsConfig } from './config.js'
+import type { SecretSource, SecretStore } from './secrets/store.js'
+import { resolveApiKey } from './secrets/store.js'
+import type { ResolvedModel } from './llm-gateway.js'
 
 /** 供应商 API 系别。**必须 export**：出现在同文件已导出的 CatalogEntry.api 字段类型位置（声明发射约束，同 Budget） */
 export type ProviderApiKind = 'openai-completions' | 'anthropic-messages'
@@ -171,5 +173,62 @@ export async function testProvider(
       isAbort ? '连接超时（8 秒无响应）' : '无法连接：网络不通或域名无法解析',
       msg,
     )
+  }
+}
+
+// ---- 模型解析（自 engine.ts 门面拆出——doc/13 §5.4 第一步：门面只留委托） ----
+
+/** "provider/model" → ModelRef（缺省 defaultModel；provider 未配置 → E_CONFIG；contextWindow 优先取 models[] 条目） */
+export function modelRefOf(models: ModelsConfig, model?: string): ModelRef {
+  if (model === undefined) return models.defaultModel
+  const slash = model.indexOf('/')
+  if (slash <= 0 || slash === model.length - 1) {
+    throw new Error(`E_CONFIG: model "${model}" 须为 provider/model 形式`)
+  }
+  const provider = model.slice(0, slash)
+  if (models.providers[provider] === undefined) {
+    throw new Error(`E_CONFIG: models.json 未配置 provider "${provider}"`)
+  }
+  const name = model.slice(slash + 1)
+  const listed = models.models.find((m) => m.provider === provider && m.model === name)
+  return {
+    provider,
+    model: name,
+    contextWindow: listed?.contextWindow ?? models.defaultModel.contextWindow,
+  }
+}
+
+/** ModelRef + providers 表 + 密钥仓/环境变量 → ResolvedModel（apiKey 只在此注入，store > env） */
+export function resolvedModelOf(models: ModelsConfig, secrets: SecretStore, ref: ModelRef): ResolvedModel {
+  const provider = models.providers[ref.provider]
+  if (provider === undefined) {
+    throw new Error(`E_CONFIG: models.json 未配置 provider "${ref.provider}"`)
+  }
+  const { apiKey } = resolveApiKey(secrets, ref.provider, provider.apiKeyEnv)
+  // LA-29：计价四率任一声明即组 cost 对象（未声明 = undefined → toPiModel 落 0）
+  const hasCost =
+    ref.inputCostPerMtok !== undefined ||
+    ref.outputCostPerMtok !== undefined ||
+    ref.cacheReadCostPerMtok !== undefined ||
+    ref.cacheWriteCostPerMtok !== undefined
+  return {
+    provider: ref.provider,
+    model: ref.model,
+    contextWindow: ref.contextWindow,
+    ...(apiKey !== undefined ? { apiKey } : {}),
+    ...(provider.baseUrl !== undefined ? { baseUrl: provider.baseUrl } : {}),
+    ...(provider.proxy !== undefined ? { proxy: provider.proxy } : {}),
+    ...(hasCost
+      ? {
+          cost: {
+            input: ref.inputCostPerMtok ?? 0,
+            output: ref.outputCostPerMtok ?? 0,
+            cacheRead: ref.cacheReadCostPerMtok ?? 0,
+            cacheWrite: ref.cacheWriteCostPerMtok ?? 0,
+          },
+        }
+      : {}),
+    ...(ref.maxTokens !== undefined ? { maxTokens: ref.maxTokens } : {}),
+    ...(ref.imageInput !== undefined ? { imageInput: ref.imageInput } : {}),
   }
 }
