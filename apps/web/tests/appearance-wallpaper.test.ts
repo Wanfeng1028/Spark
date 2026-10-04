@@ -54,7 +54,8 @@ describe('色值与 uniform 映射', () => {
   it('uniformValuesOf：23 个静态键齐、coarse 归零笔刷、offset 除 100、五色逐通道', () => {
     const wp = wallpaperOf('fluid-deep-ocean')
     expect(wp).not.toBeNull()
-    const u = uniformValuesOf(wp!, false)
+    if (wp?.kind !== 'fluid') throw new Error('深海流光应为流体主题（id 拼写回归）')
+    const u = uniformValuesOf(wp, false)
     expect(Object.keys(u).sort()).toEqual(
       [
         'u_bloomRange', 'u_bloomStrength', 'u_bloomThreshold', 'u_brushRadius',
@@ -69,12 +70,13 @@ describe('色值与 uniform 映射', () => {
     expect(u.u_offset).toEqual([-1.24, -0.48])
     expect(u.u_brushStrength).toBe(1.8)
     expect(u.u_glowColor2).toEqual([0x53 / 255, 0x8d / 255, 0xca / 255])
-    const uCoarse = uniformValuesOf(wp!, true)
+    const uCoarse = uniformValuesOf(wp, true)
     expect(uCoarse.u_brushStrength).toBe(0)
   })
 
   it('8 项未消费参数不进 uniform 表（无据设计防线）', () => {
-    const wp = wallpaperOf('fluid-aurora')!
+    const wp = wallpaperOf('fluid-aurora')
+    if (wp?.kind !== 'fluid') throw new Error('极光翡翠应为流体主题（id 拼写回归）')
     const u = uniformValuesOf(wp, false)
     for (const unused of ['noiseBoost', 'distortion', 'swirl', 'swirlIterations', 'rotation', 'proportion', 'softness', 'shapeScale']) {
       expect(Object.keys(u)).not.toContain(unused)
