@@ -178,6 +178,11 @@ export class UserHookRunner {
         }
         const { promise, kill } = this.runBlockingCommand(point, def, payload)
         kills.push(kill)
+        // 已结算的 hook 出列——abort 只杀在跑的（胜者路径上败者清理是真 no-op）
+        void promise.finally(() => {
+          const i = kills.indexOf(kill)
+          if (i >= 0) kills.splice(i, 1)
+        })
         const v = await promise
         if (v.blocked) return { blocked: true, reason: v.reason }
       }

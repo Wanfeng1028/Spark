@@ -961,9 +961,12 @@ describe('CK-2 批 2 ④：PermissionRequest hook 竞速（doc/12 #3）', () => 
     const { sink, service } = makeSvcWithRace(race)
     const { check, controller } = makeCheck({ cwd: '/tmp/wk' })
     const pending = service.assert(check)
-    // 用户先裁（hook 仍 pending）——reply 走 once（requestId 从 asked 事件取）
-    const asked = sink.events.find((e) => e.type === 'permission.asked')
-    const rid = (asked?.data as { requestId: string }).requestId
+    // 用户先裁（hook 仍 pending）——reply 走 once（asked emit 异步落盘，waitFor 等待）
+    await vi.waitFor(() => {
+      expect(sink.events.some((e) => e.type === 'permission.asked')).toBe(true)
+    })
+    const asked = sink.events.find((e) => e.type === 'permission.asked')!
+    const rid = (asked.data as { requestId: string }).requestId
     const replied = await service.reply(ids.request(rid), 'once')
     expect(replied).toBe(true)
     expect(race.abortCount()).toBe(1) // 败者清理：settle 内杀 hook
@@ -979,8 +982,11 @@ describe('CK-2 批 2 ④：PermissionRequest hook 竞速（doc/12 #3）', () => 
     const { check, controller } = makeCheck({ cwd: '/tmp/wk' })
     const pending = service.assert(check)
     race.settleRaceAsPass() // hook 链全 pass——不结清，用户窗继续
-    const asked = sink.events.find((e) => e.type === 'permission.asked')
-    const rid = (asked?.data as { requestId: string }).requestId
+    await vi.waitFor(() => {
+      expect(sink.events.some((e) => e.type === 'permission.asked')).toBe(true)
+    })
+    const asked = sink.events.find((e) => e.type === 'permission.asked')!
+    const rid = (asked.data as { requestId: string }).requestId
     const replied = await service.reply(ids.request(rid), 'once')
     expect(replied).toBe(true)
     const allowed = await pending
