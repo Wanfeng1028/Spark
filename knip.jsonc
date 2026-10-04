@@ -9,6 +9,11 @@
   //   其引用的 components/store/theme/transport 也随之可达，首份报告里那 15 个 miniapp 文件即消失）
   // - CLI 预览脚本：人工 `tsx apps/cli/scripts/preview-*.mts` 运行，不被任何模块 import
   "workspaces": {
+    // 19.32 批 2（D59）：Electron 按 webPreferences.preload 的字符串路径装载 preload
+    // 脚本——静态 import 图看不到，必须声明为入口（否则整文件判 unused）
+    "apps/desktop": {
+      "entry": ["src/main.ts", "src/preload-terminal.ts"]
+    },
     "apps/miniapp": {
       "entry": [
         "src/app.tsx",
@@ -97,7 +102,10 @@
     // 19.8 类型 cruft：EmbeddingDecl 的形状实际由 resolveEmbeddingProvider 内部结构承载
     "packages/engine/src/embedding/client.ts": ["types"],
     // 19.8 类型 cruft：语义降级原因在调用侧按 E_EMBEDDING_* 错误码分流，此枚举无消费者
-    "packages/engine/src/vector/semantic.ts": ["types"]
+    "packages/engine/src/vector/semantic.ts": ["types"],
+    // CK-1/19.32 批 2（D59）：终端五通道 zod schema 与常量是 S2 边界校验器本体——
+    // manager 内部消费、经 ipcMain handler 对外生效，导出仅为测试/评审可见性，非死代码
+    "apps/desktop/src/terminal-pty.ts": ["types"]
   },
 
   // bash 工具文案里出现的 Windows 内建命令名，不是本仓需要安装的可执行文件

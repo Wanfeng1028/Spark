@@ -4,7 +4,7 @@
  * 不渲染（如实无此功能，不显假开关——D59 ④）。
  */
 
-export interface TerminalCreateResult {
+interface TerminalCreateResult {
   slot: number
   shell: string
 }

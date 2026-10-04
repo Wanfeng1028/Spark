@@ -21,31 +21,31 @@ export interface PtyHandle {
   onExit(handler: (exitCode: number) => void): void
 }
 
-export type PtySpawn = (input: { cols: number; rows: number }) => { pty: PtyHandle; shell: string }
+type PtySpawn = (input: { cols: number; rows: number }) => { pty: PtyHandle; shell: string }
 
 /** 通道入参 schema（S2：封闭枚举 + zod；上限防滥用） */
-export const CreateInput = z.strictObject({
+const CreateInput = z.strictObject({
   cols: z.number().int().positive().max(500),
   rows: z.number().int().positive().max(200),
 })
-export const InputData = z.strictObject({
+const InputData = z.strictObject({
   slot: z.number().int().nonnegative(),
   data: z.string().max(8192),
 })
-export const ResizeData = z.strictObject({
+const ResizeData = z.strictObject({
   slot: z.number().int().nonnegative(),
   cols: z.number().int().positive().max(500),
   rows: z.number().int().positive().max(200),
 })
-export const SlotInput = z.strictObject({ slot: z.number().int().nonnegative() })
+const SlotInput = z.strictObject({ slot: z.number().int().nonnegative() })
 
 /** 推送通道名（S2 封闭枚举；唯一 main→renderer 通道） */
-export const DATA_CHANNEL = 'terminal.data'
+const DATA_CHANNEL = 'terminal.data'
 /** shell 退出时的带内标记（不新增第六通道——真实终端同款 in-band 提示） */
-export const EXIT_MARKER = '\r\n\x1b[2m[进程已退出]\x1b[0m\r\n'
+const EXIT_MARKER = '\r\n\x1b[2m[进程已退出]\x1b[0m\r\n'
 
 /** 窗口侧推送窄接口（S3：数据只推回创建窗口；不暴露 BrowserWindow 本体） */
-export interface TerminalWindowPush {
+interface TerminalWindowPush {
   push: (channel: 'terminal.data', payload: { slot: number; data: string }) => void
 }
 
