@@ -7,16 +7,25 @@
  */
 import { describe, expect, it } from 'vitest'
 import { createFluid, frameGate, hexToRgb, paletteOf, stepPalette, uniformValuesOf } from '../src/features/appearance/fluid-renderer'
-import { WALLPAPERS, wallpaperOf, WALLPAPER_IDS } from '../src/features/appearance/wallpapers'
+import { STATIC_WALLPAPERS, WALLPAPERS, wallpaperOf, WALLPAPER_IDS } from '../src/features/appearance/wallpapers'
 import { FLUID_PARAMS } from '../src/features/appearance/fluid-shader'
 
 describe('壁纸注册表（19.43）', () => {
-  it('四套流体主题，id 唯一且白名单与注册表一致', () => {
+  it('四套流体 + 五套静帧，id 全局唯一且白名单与两表并集一致', () => {
     expect(WALLPAPERS).toHaveLength(4)
-    const ids = WALLPAPERS.map((w) => w.id)
-    expect(new Set(ids).size).toBe(4)
-    expect([...WALLPAPER_IDS]).toHaveLength(4)
+    expect(STATIC_WALLPAPERS).toHaveLength(5)
+    const ids = [...WALLPAPERS, ...STATIC_WALLPAPERS].map((w) => w.id)
+    expect(new Set(ids).size).toBe(9)
+    expect([...WALLPAPER_IDS]).toHaveLength(9)
     for (const id of ids) expect(WALLPAPER_IDS.has(id)).toBe(true)
+  })
+
+  it('静帧注册表形状：src 指向打包 wallpapers、accent 有深色回落（对比度闸）', () => {
+    for (const w of STATIC_WALLPAPERS) {
+      expect(w.src).toMatch(/^\/wallpapers\/[a-z-]+\.jpg$/)
+      expect(w.accentFallback).toMatch(/^#/)
+      expect(w.accent).not.toBe(w.accentFallback)
+    }
   })
 
   it('色表形状与调色板结构规律：colors[5] / glowColors[3] / accent===glowColors[1]', () => {
