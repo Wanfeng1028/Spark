@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { useNavigate } from 'react-router'
-import { Activity, FileDiff, FolderGit2, GitBranch, History, MessagesSquare, PackageCheck, X } from 'lucide-react'
+import { Activity, FileDiff, FolderGit2, GitBranch, History, MessagesSquare, PackageCheck, TerminalSquare, X } from 'lucide-react'
 import { ids } from '@spark/protocol'
 import type { PermissionPreset, ReasoningEffort, SessionId } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
@@ -34,6 +34,8 @@ import { CheckpointDialog } from '@/features/chat/CheckpointDialog'
 import { ReviewDialog } from '@/features/chat/ReviewDialog'
 import { DeliverablesDialog } from '@/features/chat/DeliverablesDialog'
 import { TasksDialog } from '@/features/chat/TasksDialog'
+import { TerminalPanel } from '@/features/terminal/TerminalPanel'
+import { terminalBridge } from '@/features/terminal/bridge'
 import { useSessionDeliverables, useSessionTasks } from '@/stores/session'
 import { projectOf } from '@/components/layout/Sidebar'
 import { hasCachedProjection, useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
@@ -115,6 +117,9 @@ export function SessionSurface({
   // 后台任务（CK-1 批 2 尾片）：slice.tasks 投影（有任务才显示入口——禁假状态）
   const tasks = useSessionTasks(sid)
   const [tasksOpen, setTasksOpen] = useState(false)
+  // 集成终端抽屉（19.32 批 2）：仅 desktop 态可用（桥探测在渲染期做——桥的存在性
+  // 整个页面生命周期恒定，不随交互变化）
+  const [terminalOpen, setTerminalOpen] = useState(false)
   const pendingApprovals = useMemo(
     () =>
       items.filter(
@@ -352,6 +357,22 @@ export function SessionSurface({
               <Activity className="size-4" />
             </button>
           )}
+          {/* 集成终端开关（19.32 批 2 / D59）：仅 desktop 态渲染（桥存在）；浏览器态无桥
+              不显假开关——D59 ④ 如实缺省 */}
+          {terminalBridge() !== null && (
+            <button
+              type="button"
+              aria-label="集成终端"
+              title={terminalOpen ? '收起集成终端' : '打开集成终端'}
+              onClick={() => setTerminalOpen((v) => !v)}
+              className={cn(
+                'flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                terminalOpen && 'bg-accent text-foreground',
+              )}
+            >
+              <TerminalSquare className="size-4" />
+            </button>
+          )}
           {/* 审查入口（工单 19.35）：diff 聚合 + 批量放行（浮层内） */}
           <button
             type="button"
@@ -497,6 +518,16 @@ export function SessionSurface({
           </div>
         </div>
       </div>
+
+      {/* 集成终端抽屉（19.32 批 2 / D59）：仅 desktop 态渲染（桥存在）；高度固定
+          260px，收起/展开由顶栏按钮控制。浏览器态无桥 → 不渲染（如实无此功能） */}
+      {terminalOpen && terminalBridge() !== null && (
+        <div className={cn('shrink-0 px-6 pb-1', isPage && 'mx-auto w-full max-w-[960px]')}>
+          <div className="h-[240px] overflow-hidden rounded-xl border border-border bg-black">
+            <TerminalPanel />
+          </div>
+        </div>
+      )}
 
       {/* §13.L L.6：DSH 输入卡浮在底色上——无顶部分隔线，顶部留白收小让卡贴近滚动区 */}
       <div className={cn('shrink-0', isPage ? 'px-6 pb-3 pt-2' : 'px-3 pb-2 pt-1')}>

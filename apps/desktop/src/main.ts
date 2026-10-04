@@ -27,13 +27,17 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { createServer } from 'node:net'
+import { TerminalPtyManager } from './terminal-pty.js'
+import { shellProfileOf } from './terminal-shell.js'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import {
   app,
   BrowserWindow,
+  ipcMain,
   Menu,
   nativeImage,
+  webContents,
   net,
   Notification,
   powerSaveBlocker,
@@ -295,6 +299,40 @@ function revealTargetWindow(): void {
  * 一边跑长任务一边翻旧记录），没给就落 web 根。窗口与会话的绑定不另存状态，从 URL 派生
  * （见 multi-window.ts 头注）。安全缺省与导航白名单沿用 WO-025 口径。
  */
+// 集成终端（19.32 批 2 / D59）：pty 管理器 + 五通道 IPC 注册（S1–S6 安全口径见模块头）。
+// spawn 参数在 main 的缺省工厂内产生（shellProfileOf），IPC 面没有 shell 路径字段（S1）。
+const terminalManager = new TerminalPtyManager({
+  spawnPty: (input) => {
+    // node-pty 原生绑定按 ABI 装载——electron ABI 失配时 create 请求如实报错（不拖垮 main 启动）
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const nodePty = require('node-pty') as typeof import('node-pty')
+    // D59 S1：Windows 先行（shellProfileOf 非 win32 返回 null）——不猜 mac/linux
+    const profile = shellProfileOf(process.platform, process.env)
+    if (profile === null) {
+      throw new Error('E_TERMINAL_UNSUPPORTED: 当前平台无集成终端 Shell 判据（Windows 先行）')
+    }
+    const pty = nodePty.spawn(profile.file, [...profile.args], {
+      name: 'xterm-256color',
+      cols: input.cols,
+      rows: input.rows,
+      cwd: homedir(),
+      env: process.env as Record<string, string>,
+    })
+    return { pty, shell: profile.label }
+  },
+  resolveWindow: (webContentsId) => {
+    const wc = webContents.getAllWebContents().find((w) => w.id === webContentsId)
+    if (wc === undefined) return undefined
+    return { push: (channel, payload) => wc.send(channel, payload) }
+  },
+})
+
+// 五通道注册（S2 封闭枚举；zod 校验在 manager 内）
+ipcMain.handle('terminal.create', (event, raw) => terminalManager.create(event.sender.id, raw))
+ipcMain.on('terminal.input', (event, raw) => terminalManager.input(raw))
+ipcMain.handle('terminal.resize', (event, raw) => terminalManager.resize(raw))
+ipcMain.on('terminal.exit', (event, raw) => terminalManager.exit(raw))
+
 async function openWindow(sessionId: string | null): Promise<void> {
   const win = new BrowserWindow({
     width: 1440,
@@ -303,7 +341,13 @@ async function openWindow(sessionId: string | null): Promise<void> {
     minHeight: 640,
     title: 'Spark',
     // WO-025：显式声明安全缺省（同 fatalWin）
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      // D59/19.32 批 2：终端五通道最小桥（preload 内 contextBridge 封装，S2/S6）
+      preload: join(__dirname, 'preload-terminal.js'),
+    },
   })
   // 关窗行为（19.30）：hideOnClose 且托盘可用 → 隐藏（sidecar 与通知继续跑）；否则维持
   // 既有语义销毁窗口。多窗口下每个窗口一律同一口径——不给"次窗口另有一套"的例外，
@@ -321,6 +365,12 @@ async function openWindow(sessionId: string | null): Promise<void> {
   win.on('closed', () => {
     if (lastFocused === win) lastFocused = null
     refreshMenus()
+  })
+  // CK-1/19.32 批 2（S4）：窗口关闭随窗树杀——该窗创建的终端槽位全清（多窗口不串台）。
+  // wcId 在创建时捕获：closed 之后 webContents 已销毁，再取 .id 会抛
+  const terminalWcId = win.webContents.id
+  win.on('closed', () => {
+    terminalManager.killForContents(terminalWcId)
   })
   // WO-025：只允许本机 sidecar 页面——外部导航一律交给系统浏览器（§7.4）。
   // 19.33 尾巴③：web 的「在新窗口打开此会话」走 window.open，本机页面由壳自己开一个
@@ -563,6 +613,8 @@ app.on('browser-window-focus', (_e, win) => {
 // 会 preventDefault 把退出卡住）——Electron 顺序 before-quit → close → will-quit
 app.on('before-quit', () => {
   quitting = true
+  // CK-1/19.32 批 2（S4）：退出树杀随应用——pty 不留僵尸 bash
+  terminalManager.killAll()
 })
 
 // 优雅退出：SIGTERM sidecar，5s 未退则 SIGKILL；sidecar 退出后再放行 app 退出

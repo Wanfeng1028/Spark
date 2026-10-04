@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input'
 import { useTransport } from '@/transports/context'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
 import { useAsyncOp } from '@/hooks/useAsyncOp'
+import { terminalBridge, terminalFontSize, setTerminalFontSize } from '@/features/terminal/bridge'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { requestNotifyPermission, useNotifyPrefs } from '@/hooks/useNotifyPrefs'
@@ -645,8 +646,35 @@ export function GeneralSettingsPage() {
             前往引导设置
           </Button>
         </SettingRow>
-        <SettingRow title="集成终端 Shell" description="Git Bash 优先，回退 cmd.exe" placeholderBadge="desktop 特化" />
-        <SettingRow title="终端字体" description="留空自动探测" placeholderBadge="desktop 特化" />
+        {/* CK-1/19.32 批 2：两行摘徽标接真——Shell 行如实展示检测口径（spawn 参数在
+            main 进程产生，renderer 不选 shell——D59 S1）；字体行走终端面板的端侧偏好
+            （localStorage，与 19.13 通知偏好同层），仅 desktop 态可改 */}
+        <SettingRow
+          title="集成终端 Shell"
+          description="Windows 自动检测：Git Bash 优先，回退 cmd.exe（路径在主进程产生，不进渲染进程）"
+        />
+        <SettingRow
+          title="终端字体"
+          description={
+            terminalBridge() === null
+              ? '仅桌面应用可用（内置终端随桌面壳提供）'
+              : `当前 ${terminalFontSize()}px，点击切换 13/14/16`
+          }
+        >
+          {terminalBridge() !== null && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const sizes = [13, 14, 16]
+                const cur = terminalFontSize()
+                setTerminalFontSize(sizes[(sizes.indexOf(cur) + 1) % sizes.length] ?? 13)
+              }}
+            >
+              切换字号
+            </Button>
+          )}
+        </SettingRow>
         {/* 阶段十九 19.30 两行摘徽标：桌面壳已落地，但配置面是壳读的 desktop.json——
             服务端与 web 都没有读写的口子，故只给入口与生效时机，不设假开关（真值回显需新端点，挂尾） */}
         <SettingRow
