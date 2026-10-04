@@ -22,7 +22,6 @@ import type {
 import type { EventBus } from '../bus.js'
 import type { PermissionRule } from '../config.js'
 import { newIds } from '../ulid.js'
-import type { EventId } from '@spark/protocol'
 import type { PermissionCheck, PermissionService } from '../tools/permission-port.js'
 import { evaluateAll } from './rules.js'
 import type { RuleStore } from './store.js'
