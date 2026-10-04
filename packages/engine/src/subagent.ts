@@ -60,7 +60,8 @@ export function makeSubagentRunner(deps: SubagentDeps): (input: TaskInput, ctx: 
       throw new Error(`E_ENGINE_NO_SESSION: 父会话 ${ctx.sessionId} 未加载，拒绝派生子代理`)
     }
     // CK-1 批 2：后台化守卫在 createSession 之前——不建注定失败的子会话
-    if (input.runInBackground === true && deps.background === undefined) {
+    const backgrounded = input.runInBackground === true
+    if (backgrounded && deps.background === undefined) {
       throw new Error(
         'E_TASK_NO_PLANE: 后台任务平面未接线——runInBackground 不可用（不静默转前台假装后台）',
       )
