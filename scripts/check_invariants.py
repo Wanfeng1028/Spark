@@ -125,9 +125,10 @@ def check_engine_exports(root: Path) -> bool:
 
 # ---------------------------------------------------------------- 4. engine.ts 行数口径
 
-# AGENTS §1.1 记录值（LA-41 实测口径）。允许 ±10% 漂移——超窗说明"巨石又长了一截"，
-# 该回 AGENTS 更新记录值（不阻止开发，防记录失真）。
-RECORDED_ENGINE_LINES = 2871
+# AGENTS §1.1 记录值（LA-41 实测口径；**本常量即记录值，AGENTS §1.1 与此处同改**——
+# 脚本不读 AGENTS，报错文案指 AGENTS 是历史误导）。允许 ±10% 漂移——超窗说明
+# "巨石又长了一截"，该回本处与 AGENTS §1.1 同步更新记录值（不阻止开发，防记录失真）。
+RECORDED_ENGINE_LINES = 3161
 
 
 def check_engine_lines(root: Path) -> bool:
@@ -135,8 +136,8 @@ def check_engine_lines(root: Path) -> bool:
     drift = abs(actual - RECORDED_ENGINE_LINES) / RECORDED_ENGINE_LINES
     if drift > 0.10:
         fail(
-            f"engine.ts 实测 {actual} 行与 AGENTS 记录 {RECORDED_ENGINE_LINES} 行偏差 {drift:.0%}"
-            f" 超 10%——请回 AGENTS §1.1 更新记录值（LA-63 口径对账）"
+            f"engine.ts 实测 {actual} 行与记录值 {RECORDED_ENGINE_LINES} 行偏差 {drift:.0%}"
+            f" 超 10%——请回 scripts/check_invariants.py RECORDED_ENGINE_LINES 与 AGENTS §1.1 同步更新（LA-63 口径对账）"
         )
         return False
     ok(f"engine.ts {actual} 行（记录 {RECORDED_ENGINE_LINES}，对账通过）")
