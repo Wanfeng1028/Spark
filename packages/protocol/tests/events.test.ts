@@ -133,6 +133,8 @@ const samples: { [K in SparkEventType]: SparkEventMap[K] } = {
     outputChars: 4096,
     notified: true,
   },
+  // CK-1 批 2 尾片：live-only 尾随（全量最新快照非增量）
+  'task.progress': { taskId: tsk, text: '已产出第一章' },
   // ZC-1 微压缩边界：durable 非 surface；keptFromEventId 由引擎在触发时落
   'microcompact_boundary': {
     keptFromEventId: evt(40),
