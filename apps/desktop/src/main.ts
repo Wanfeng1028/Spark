@@ -27,7 +27,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { createServer } from 'node:net'
-import { TerminalPtyManager } from './terminal-pty.js'
+import { TerminalPtyManager, type PtyHandle } from './terminal-pty.js'
 import { shellProfileOf } from './terminal-shell.js'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -311,13 +311,21 @@ const terminalManager = new TerminalPtyManager({
     if (profile === null) {
       throw new Error('E_TERMINAL_UNSUPPORTED: 当前平台无集成终端 Shell 判据（Windows 先行）')
     }
-    const pty = nodePty.spawn(profile.file, [...profile.args], {
+    const raw_pty = nodePty.spawn(profile.file, [...profile.args], {
       name: 'xterm-256color',
       cols: input.cols,
       rows: input.rows,
       cwd: homedir(),
       env: process.env as Record<string, string>,
     })
+    // node-pty IPty → PtyHandle 适配：onExit 的 IEvent<{exitCode, signal?}> 解包为 exitCode
+    const pty: PtyHandle = {
+      write: (data) => raw_pty.write(data),
+      resize: (cols, rows) => raw_pty.resize(cols, rows),
+      kill: () => raw_pty.kill(),
+      onData: (handler) => raw_pty.onData(handler),
+      onExit: (handler) => raw_pty.onExit((e) => handler(e.exitCode)),
+    }
     return { pty, shell: profile.label }
   },
   resolveWindow: (webContentsId) => {
