@@ -36,7 +36,6 @@ const ProjectHooksFileSchema = z.strictObject({
   hooks: SettingsHooksSchema,
 })
 
-type ProjectHooksFile = z.infer<typeof ProjectHooksFileSchema>
 
 /** 信任文件条目 */
 const trustEntrySchema = z.strictObject({
