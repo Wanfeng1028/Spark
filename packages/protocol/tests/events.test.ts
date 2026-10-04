@@ -179,8 +179,8 @@ function envelopeOf<K extends SparkEventType>(
 }
 
 describe('事件词表', () => {
-  it('词表共 34 种（durable 31 + live 3）', () => {
-    expect(Object.keys(EventSchemas)).toHaveLength(34)
+  it('词表共 35 种（durable 31 + live 4）', () => {
+    expect(Object.keys(EventSchemas)).toHaveLength(35)
   })
 
   it('CallId 透传上游 id（工单 10.39：OpenAI call_xxx / Anthropic toolu_xxx 过闸，不重写）', () => {
