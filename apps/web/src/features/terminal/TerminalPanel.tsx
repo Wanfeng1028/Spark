@@ -25,26 +25,23 @@ export function TerminalPanel(): React.JSX.Element | null {
     let slot: number | undefined
     let unsubscribe: (() => void) | undefined
     let observer: ResizeObserver | undefined
-    let term: Terminal | undefined
+    const term = new Terminal({
+      fontFamily: 'IBM Plex Mono, Consolas, monospace',
+      fontSize: terminalFontSize(),
+    })
+    const fit = new FitAddon()
+    term.loadAddon(fit)
+    term.open(host)
 
     const cleanup = (): void => {
       observer?.disconnect()
       unsubscribe?.()
       if (slot !== undefined) bridge.exit({ slot })
-      term?.dispose()
+      term.dispose()
     }
 
-    const term0 = new Terminal({
-      fontFamily: 'IBM Plex Mono, Consolas, monospace',
-      fontSize: terminalFontSize(),
-    })
-    const fit = new FitAddon()
-    term0.loadAddon(fit)
-    term0.open(host)
-    term = term0
-
     bridge
-      .create({ cols: term0.cols, rows: term0.rows })
+      .create({ cols: term.cols, rows: term.rows })
       .then((created) => {
         if (disposed) {
           bridge.exit({ slot: created.slot })
@@ -52,15 +49,15 @@ export function TerminalPanel(): React.JSX.Element | null {
         }
         slot = created.slot
         unsubscribe = bridge.onData((data) => {
-          if (data.slot === slot) term0.write(data.data)
+          if (data.slot === slot) term.write(data.data)
         })
-        term0.onData((data) => {
+        term.onData((data) => {
           if (slot !== undefined) bridge.input({ slot, data })
         })
         const resize = (): void => {
           if (slot === undefined) return
           fit.fit()
-          void bridge.resize({ slot, cols: term0.cols, rows: term0.rows })
+          void bridge.resize({ slot, cols: term.cols, rows: term.rows })
         }
         resize()
         observer = new ResizeObserver(() => resize())

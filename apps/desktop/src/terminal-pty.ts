@@ -69,7 +69,7 @@ export class TerminalPtyManager {
   constructor(private readonly deps: TerminalPtyManagerDeps) {}
 
   /** terminal.create：spawn 并分配槽位；返回 shell 标签（S1——路径不出 main） */
-  create(webContentsId: number, input: { cols: number; rows: number }): { slot: number; shell: string } {
+  create(webContentsId: number, input: unknown): { slot: number; shell: string } {
     const parsed = CreateInput.parse(input)
     const win = this.deps.resolveWindow(webContentsId)
     if (win === undefined) {
@@ -92,19 +92,19 @@ export class TerminalPtyManager {
   }
 
   /** terminal.input：键入写进 pty（未知槽位静默忽略——槽位已随 exit 删除） */
-  input(input: { slot: number; data: string }): void {
+  input(input: unknown): void {
     const parsed = InputData.parse(input)
     this.slots.get(parsed.slot)?.pty.write(parsed.data)
   }
 
   /** terminal.resize：未知槽位静默忽略 */
-  resize(input: { slot: number; cols: number; rows: number }): void {
+  resize(input: unknown): void {
     const parsed = ResizeData.parse(input)
     this.slots.get(parsed.slot)?.pty.resize(parsed.cols, parsed.rows)
   }
 
   /** terminal.exit：renderer 发起的关闭（kill 细节在 pty 实现与平台口径内） */
-  exit(input: { slot: number }): void {
+  exit(input: unknown): void {
     const parsed = SlotInput.parse(input)
     const entry = this.slots.get(parsed.slot)
     if (entry === undefined) return

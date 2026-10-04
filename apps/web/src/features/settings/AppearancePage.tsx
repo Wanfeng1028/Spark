@@ -10,8 +10,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSettingsStore, CODE_THEMES, UI_FONT_SIZES, CODE_FONT_SIZES } from '@/stores/settings'
 import type { CodeTheme, Theme } from '@/stores/settings'
-import { WALLPAPERS } from '@/features/appearance/wallpapers'
-import type { FluidWallpaper } from '@/features/appearance/wallpapers'
+import { STATIC_WALLPAPERS, WALLPAPERS } from '@/features/appearance/wallpapers'
+import type { FluidWallpaper, StaticWallpaper } from '@/features/appearance/wallpapers'
 import { createFluid } from '@/features/appearance/fluid-renderer'
 import { Select } from '@/components/ui/select'
 import type { SelectOption } from '@/components/ui/select'
@@ -136,6 +136,16 @@ export function AppearancePage() {
                 onSelect={() => setWallpaper(wp.id)}
               />
             ))}
+            {STATIC_WALLPAPERS.map((wp) => (
+              <WallpaperTile
+                key={wp.id}
+                wallpaper={wp}
+                label={t(`wallpaper.${wp.i18nKey}`)}
+                kind={t('wallpaper.kindStatic')}
+                active={wallpaper === wp.id}
+                onSelect={() => setWallpaper(wp.id)}
+              />
+            ))}
           </div>
         </SettingRow>
       </SettingGroupCard>
@@ -242,7 +252,7 @@ function WallpaperTile({
   onSelect,
 }: {
   /** 无 wallpaper = 「关闭」格：无缩略图，纯中性文本格 */
-  wallpaper?: FluidWallpaper
+  wallpaper?: FluidWallpaper | StaticWallpaper
   label: string
   kind?: string
   active: boolean
@@ -253,7 +263,7 @@ function WallpaperTile({
   const { t } = useI18n()
 
   useEffect(() => {
-    if (wallpaper === undefined) return
+    if (wallpaper === undefined || wallpaper.kind === 'static') return
     const canvas = canvasRef.current
     if (canvas === null) return
     const renderer = createFluid(canvas, { snapshot: true })
@@ -277,7 +287,14 @@ function WallpaperTile({
         active ? 'border-foreground' : 'border-border hover:border-muted-foreground/60',
       )}
     >
-      {wallpaper === undefined || failed ? (
+      {wallpaper !== undefined && wallpaper.kind === 'static' ? (
+        <img
+          aria-hidden
+          src={wallpaper.src}
+          alt=""
+          className="h-14 w-full rounded-md object-cover"
+        />
+      ) : wallpaper === undefined || failed ? (
         <span
           aria-hidden
           className="flex h-14 w-full items-center justify-center rounded-md bg-muted px-1 text-center text-[10px] leading-4 text-muted-foreground"

@@ -27,7 +27,9 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { createServer } from 'node:net'
-import { TerminalPtyManager, type PtyHandle } from './terminal-pty.js'
+import { TerminalPtyManager } from './terminal-pty.js'
+import type { PtyHandle } from './terminal-pty.js'
+import type { IPty } from 'node-pty'
 import { shellProfileOf } from './terminal-shell.js'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -304,8 +306,8 @@ function revealTargetWindow(): void {
 const terminalManager = new TerminalPtyManager({
   spawnPty: (input) => {
     // node-pty 原生绑定按 ABI 装载——electron ABI 失配时 create 请求如实报错（不拖垮 main 启动）
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const nodePty = require('node-pty') as typeof import('node-pty')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    const nodePty: { spawn(file: string, args: string[], opts: Record<string, unknown>): IPty } = require('node-pty')
     // D59 S1：Windows 先行（shellProfileOf 非 win32 返回 null）——不猜 mac/linux
     const profile = shellProfileOf(process.platform, process.env)
     if (profile === null) {
@@ -336,10 +338,10 @@ const terminalManager = new TerminalPtyManager({
 })
 
 // 五通道注册（S2 封闭枚举；zod 校验在 manager 内）
-ipcMain.handle('terminal.create', (event, raw) => terminalManager.create(event.sender.id, raw))
-ipcMain.on('terminal.input', (event, raw) => terminalManager.input(raw))
-ipcMain.handle('terminal.resize', (event, raw) => terminalManager.resize(raw))
-ipcMain.on('terminal.exit', (event, raw) => terminalManager.exit(raw))
+ipcMain.handle('terminal.create', (event, raw: unknown) => terminalManager.create(event.sender.id, raw))
+ipcMain.on('terminal.input', (event, raw: unknown) => terminalManager.input(raw))
+ipcMain.handle('terminal.resize', (event, raw: unknown) => terminalManager.resize(raw))
+ipcMain.on('terminal.exit', (event, raw: unknown) => terminalManager.exit(raw))
 
 async function openWindow(sessionId: string | null): Promise<void> {
   const win = new BrowserWindow({

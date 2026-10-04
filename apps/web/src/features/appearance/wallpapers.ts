@@ -9,6 +9,19 @@
  */
 
 /** 流体主题（colors[5] / glowColors[3] / accent；i18nKey 指 protocol i18n.ts 的 wallpaper 命名空间） */
+/** 静帧主题（CK-1/19.43 批 2）：gallery jpg 为底 + crossfade；accent 走对比度闸回落 */
+export interface StaticWallpaper {
+  kind: 'static'
+  id: StaticWallpaperId
+  i18nKey: string
+  /** 打包静帧（/wallpapers/*.jpg，apps/web/public） */
+  src: string
+  /** 点睛色（浅冷灰蓝系；亮色下经 §12.9 边界① 对比度闸回落） */
+  accent: string
+  /** 深色端回落 accent（对比度闸不达 AA 时用） */
+  accentFallback: string
+}
+
 export interface FluidWallpaper {
   kind: 'fluid'
   id: FluidWallpaperId
@@ -19,6 +32,14 @@ export interface FluidWallpaper {
 }
 
 type FluidWallpaperId = 'fluid-deep-ocean' | 'fluid-aurora' | 'fluid-amethyst' | 'fluid-ember'
+
+// 上游五套视频主题的静帧继承（gallery nature 系五张；accent 沿上游浅冷灰蓝系）
+type StaticWallpaperId =
+  | 'static-misty-forest'
+  | 'static-ocean-drift'
+  | 'static-snow-peaks'
+  | 'static-cinematic-snow'
+  | 'static-ski-view'
 
 export const WALLPAPERS = [
   {
@@ -55,14 +76,59 @@ export const WALLPAPERS = [
   },
 ] as const satisfies readonly FluidWallpaper[]
 
+/** 五套静帧主题（CK-1/19.43 批 2）：素材 = 上游 gallery nature 系（/wallpapers/*.jpg 打包）；
+ *  accent 沿上游浅冷灰蓝（亮色对比度闸在 WallpaperLayer 消费侧回落） */
+export const STATIC_WALLPAPERS = [
+  {
+    kind: 'static',
+    id: 'static-misty-forest',
+    i18nKey: 'natureMistyForest',
+    src: '/wallpapers/nature-misty-forest.jpg',
+    accent: '#9fbfd4',
+    accentFallback: '#204a7e',
+  },
+  {
+    kind: 'static',
+    id: 'static-ocean-drift',
+    i18nKey: 'natureOceanDrift',
+    src: '/wallpapers/nature-ocean-drift.jpg',
+    accent: '#a9c6dc',
+    accentFallback: '#1a3870',
+  },
+  {
+    kind: 'static',
+    id: 'static-snow-peaks',
+    i18nKey: 'natureSnowPeaks',
+    src: '/wallpapers/nature-snow-peaks.jpg',
+    accent: '#b9d2e4',
+    accentFallback: '#2d448b',
+  },
+  {
+    kind: 'static',
+    id: 'static-cinematic-snow',
+    i18nKey: 'natureCinematicSnow',
+    src: '/wallpapers/nature-cinematic-snow.jpg',
+    accent: '#c2d8ea',
+    accentFallback: '#204a7e',
+  },
+  {
+    kind: 'static',
+    id: 'static-ski-view',
+    i18nKey: 'natureSkiView',
+    src: '/wallpapers/nature-ski-view.jpg',
+    accent: '#acc9de',
+    accentFallback: '#1a3870',
+  },
+] as const satisfies readonly StaticWallpaper[]
+
 /** 设置项取值：'none'（缺省关闭）+ 各主题 id（静帧主题批 2 追加进联合） */
-export type WallpaperId = 'none' | FluidWallpaperId
+export type WallpaperId = 'none' | FluidWallpaperId | StaticWallpaperId
 
 /** id 白名单（settings-store 坏数据收窄用；'none' 单独判） */
-export const WALLPAPER_IDS: ReadonlySet<string> = new Set(WALLPAPERS.map((w) => w.id))
+export const WALLPAPER_IDS: ReadonlySet<string> = new Set([...WALLPAPERS, ...STATIC_WALLPAPERS].map((w) => w.id))
 
 /** 按 id 取主题；未知 id（含 'none'）返回 null——调用方按无壁纸处理，禁假状态 */
-export function wallpaperOf(id: string): FluidWallpaper | null {
-  const found = WALLPAPERS.find((w) => w.id === id)
+export function wallpaperOf(id: string): FluidWallpaper | StaticWallpaper | null {
+  const found = [...WALLPAPERS, ...STATIC_WALLPAPERS].find((w) => w.id === id)
   return found ?? null
 }
