@@ -12,7 +12,7 @@
  * license：根 LICENSE（MIT）。
  */
 export const FACTS = {
-  eventTypes: 34,
+  eventTypes: 35,
   builtinCommands: 28,
   endpoints: 4,
   license: "MIT",
