@@ -22,7 +22,7 @@ import { existsSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { ConfigError, parseOrThrow, readJsonFile } from '../config.js'
+import { parseOrThrow, readJsonFile } from '../config.js'
 import { atomicWriteJson } from '../fsutil.js'
 import { SettingsHooksSchema, type SettingsHooks } from '@spark/protocol'
 
