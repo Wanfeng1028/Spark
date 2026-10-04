@@ -230,11 +230,16 @@ export class PermissionServiceImpl implements PermissionService {
         entry.raceAbort = race.abort
         race.done
           .then((verdict) => {
+            // done 结算 = 整条 hook 链已完结（deny 命中或全弃权）——无在跑 hook，
+            // 败者清理通道关闭（settle 的 raceAbort 只对在跑 hook 有意义）
+            entry.raceAbort = undefined
             if (entry.settled) return // 用户已裁——胜者，本路径仅弃权
             if (!verdict.blocked) return // hook 链全弃权——用户窗继续（hook 不代裁）
             void this.settle(entry, false, 'reject', 'hook', verdict.reason).catch(() => {})
           })
-          .catch(() => {})
+          .catch(() => {
+            entry.raceAbort = undefined // 竞速异常即完结，同上关闭清理通道
+          })
       }
     })
   }
