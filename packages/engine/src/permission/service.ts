@@ -36,8 +36,9 @@ interface PendingEntry {
   resolve: (allowed: boolean) => void
   timer: ReturnType<typeof setTimeout>
   onAbort: () => void
-  /** CK-2 批 2 ④：PermissionRequest hook 竞速的败者清理（settle 时杀在跑 hook） */
-  raceAbort?: () => void
+  /** CK-2 批 2 ④：PermissionRequest hook 竞速的败者清理（settle 时杀在跑 hook；
+   *  done 结算即置空——显式 undefined 赋值需类型放行，exactOptional 判例同款） */
+  raceAbort?: (() => void) | undefined
 }
 
 export interface PermissionServiceDeps {
