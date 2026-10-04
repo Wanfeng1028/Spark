@@ -397,6 +397,15 @@ export default function SessionPage() {
           </Text>
         </View>
       )}
+      {/* CK-1 批 2 尾片：后台任务只读条（slice.tasks 投影；无任务不渲染——禁假状态） */}
+      {slice.tasks.length > 0 && (
+        <View className="sp-bar" style={{ backgroundColor: t.card }}>
+          <Text className="sp-meta" style={{ color: t.mutedForeground }}>
+            后台任务 {slice.tasks.filter((task) => !task.done).length}/{slice.tasks.length} 运行中
+            ——输出走 task_output 查询
+          </Text>
+        </View>
+      )}
       {/* 本轮以 error 结束（工单 19.29 补 topBanner 渲染）：数据源 = turn.completed
           finish='error' 投影出的 slice.topBanner（durable，回放即可重建）。
           重试 = 重发最后一条 user 文本（与 web SessionSurface.retryLastMessage 同语义：

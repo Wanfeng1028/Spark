@@ -50,6 +50,18 @@ export const useActiveTurn = (sid: SessionId): ActiveTurn | null =>
 export const useSessionDeliverables = (sid: SessionId) =>
   useSessionStore((s) => s.byId[sid]?.deliverables ?? null)
 
+/** 后台任务（CK-1 批 2 尾片）：slice.tasks 投影（四端任务卡数据源；空数组常量防
+ *  zustand 不稳定快照——byId 缺项时每次返回新引用会触发重渲染循环） */
+const EMPTY_TASKS: Array<{
+  taskId: string
+  kind: 'bash' | 'agent'
+  command: string
+  done: boolean
+  tail: string
+}> = []
+export const useSessionTasks = (sid: SessionId) =>
+  useSessionStore((s) => s.byId[sid]?.tasks ?? EMPTY_TASKS)
+
 /**
  * 缓存会话判定（工单 10.16，纯函数可单测）：lastSeq>0 = store 已有该会话的持久投影。
  * 命中即立即渲染缓存、后台照常全量回放（replaySessionEvents 取回后同步覆写对齐

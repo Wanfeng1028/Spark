@@ -33,7 +33,7 @@ import { TraceDialog } from '@/features/chat/TraceDialog'
 import { CheckpointDialog } from '@/features/chat/CheckpointDialog'
 import { ReviewDialog } from '@/features/chat/ReviewDialog'
 import { DeliverablesDialog } from '@/features/chat/DeliverablesDialog'
-import { useSessionDeliverables } from '@/stores/session'
+import { useSessionDeliverables, useSessionTasks } from '@/stores/session'
 import { projectOf } from '@/components/layout/Sidebar'
 import { hasCachedProjection, useActiveTurn, useSessionItems, useSessionStore } from '@/stores/session'
 import type { UiItem } from '@/stores/session'
@@ -111,6 +111,9 @@ export function SessionSurface({
   // 交付声明（CK-13 批 2）：present 工具的 durable 投影；无声明不渲染入口（禁假状态）
   const deliverables = useSessionDeliverables(sid)
   const [deliverablesOpen, setDeliverablesOpen] = useState(false)
+  // 后台任务（CK-1 批 2 尾片）：slice.tasks 投影（有任务才显示入口——禁假状态）
+  const tasks = useSessionTasks(sid)
+  const [tasksOpen, setTasksOpen] = useState(false)
   const pendingApprovals = useMemo(
     () =>
       items.filter(
@@ -336,6 +339,18 @@ export function SessionSurface({
               <PackageCheck className="size-4" />
             </button>
           )}
+          {/* 后台任务入口（CK-1 批 2 尾片）：有任务才显示（禁假状态） */}
+          {tasks.length > 0 && (
+            <button
+              type="button"
+              aria-label="后台任务"
+              title={`后台任务 ${tasks.length} 个（运行中 ${tasks.filter((t) => !t.done).length}）`}
+              onClick={() => setTasksOpen(true)}
+              className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              <Activity className="size-4" />
+            </button>
+          )}
           {/* 审查入口（工单 19.35）：diff 聚合 + 批量放行（浮层内） */}
           <button
             type="button"
@@ -473,6 +488,9 @@ export function SessionSurface({
                 files={deliverables.files}
                 {...(deliverables.summary !== undefined ? { summary: deliverables.summary } : {})}
               />
+            )}
+            {tasks.length > 0 && (
+              <TasksDialog open={tasksOpen} onOpenChange={setTasksOpen} tasks={tasks} />
             )}
             <ErrorToast sid={sid} replaying={replaying} />
           </div>

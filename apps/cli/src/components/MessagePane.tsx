@@ -109,6 +109,16 @@ export function MessagePane({ slice, maxLiveRows, header, staticKey = 0 }: Messa
           </Text>
         </Box>
       ) : null}
+      {/* 后台任务行（CK-1 批 2 尾片）：slice.tasks 投影（有任务才渲染——禁假状态）；
+          运行中任务的输出尾随由 task.progress live 更新（详细读取走 task_output） */}
+      {slice !== null && slice.tasks.length > 0 ? (
+        <Box marginLeft={2} marginRight={2}>
+          <Text color="gray">
+            ⚙ 后台任务 {slice.tasks.filter((t) => !t.done).length}/{slice.tasks.length}{' '}
+            运行中——输出走 task_output 查询
+          </Text>
+        </Box>
+      ) : null}
     </Box>
   )
 
@@ -145,3 +155,4 @@ function useExpandedReasoning(): ReadonlySet<string> {
 function useExpandedGroups(): ReadonlySet<string> {
   return useCliStore((s) => s.expandedGroups)
 }
+
