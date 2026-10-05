@@ -11,8 +11,9 @@
  */
 import { create } from 'zustand'
 import type { Delivery } from '@spark/protocol'
-import { WALLPAPER_IDS } from '@/features/appearance/wallpapers'
+import { WALLPAPER_IDS, wallpaperOf } from '@/features/appearance/wallpapers'
 import type { WallpaperId } from '@/features/appearance/wallpapers'
+import { resolveThemeAccent } from '@/features/appearance/accent-gate'
 
 export type Theme = 'light' | 'dark' | 'system'
 
@@ -172,11 +173,40 @@ function persist(s: PersistedSettings): void {
   }
 }
 
+function isDarkTheme(t: Theme): boolean {
+  return t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+}
+
 function applyTheme(t: Theme): void {
-  const dark =
-    t === 'dark' ||
-    (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-  document.documentElement.classList.toggle('dark', dark)
+  document.documentElement.classList.toggle('dark', isDarkTheme(t))
+}
+
+/**
+ * 主题 accent 注入（19.43 批 2 尾片；DESIGN §12.9 边界① 唯一放行面 + 对比度闸）：
+ * 壁纸激活时把过闸点睛色写进 --spark-accent / --send-accent(-hover) 内联变量——
+ * 优先级高于 tokens.css 的类值；'none' 或闸不达（解析 null）时**移除**内联变量，
+ * 回落与未装该功能逐像素一致（禁"关闭还留着上次注入"的残留态）。
+ */
+function applyWallpaperAccent(wallpaper: WallpaperId, theme: Theme): void {
+  const root = document.documentElement
+  const clear = (): void => {
+    root.style.removeProperty('--spark-accent')
+    root.style.removeProperty('--send-accent')
+    root.style.removeProperty('--send-accent-hover')
+  }
+  const w = wallpaperOf(wallpaper)
+  if (w === null) {
+    clear()
+    return
+  }
+  const resolved = resolveThemeAccent(w, isDarkTheme(theme))
+  if (resolved === null) {
+    clear()
+    return
+  }
+  root.style.setProperty('--spark-accent', resolved.accent)
+  root.style.setProperty('--send-accent', resolved.accent)
+  root.style.setProperty('--send-accent-hover', resolved.hover)
 }
 
 /** 外观区副作用：界面/代码字号与换行走 CSS 变量 + html class，全局即时生效 */
@@ -190,13 +220,17 @@ function applyAppearance(s: Pick<PersistedSettings, 'uiFontSize' | 'codeFontSize
 const initial = load()
 applyTheme(initial.theme)
 applyAppearance(initial)
+applyWallpaperAccent(initial.wallpaper, initial.theme)
 
-// system 档实时跟随系统（手动档不受影响）
+// system 档实时跟随系统（手动档不受影响）；主题明暗翻转同时影响 accent 闸的对比面
 window
   .matchMedia('(prefers-color-scheme: dark)')
   .addEventListener('change', () => {
-    const { theme } = useSettingsStore.getState()
-    if (theme === 'system') applyTheme('system')
+    const { theme, wallpaper } = useSettingsStore.getState()
+    if (theme === 'system') {
+      applyTheme('system')
+      applyWallpaperAccent(wallpaper, theme)
+    }
   })
 
 export const useSettingsStore = create<SettingsState>()((set, get) => {
@@ -211,6 +245,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
     ...initial,
     setTheme: (theme) => {
       applyTheme(theme)
+      applyWallpaperAccent(get().wallpaper, theme)
       save({ theme })
     },
     toggleTheme: () => {
@@ -237,6 +272,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
     },
     setShowReasoning: (showReasoning) => save({ showReasoning }),
     setShowToolGroups: (showToolGroups) => save({ showToolGroups }),
-    setWallpaper: (wallpaper) => save({ wallpaper }),
+    setWallpaper: (wallpaper) => {
+      save({ wallpaper })
+      applyWallpaperAccent(wallpaper, get().theme)
+    },
   }
 })
