@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { resolveInRoot } from '../definition.js'
+import { assertNotSensitive } from '../sensitive-path.js'
 
 /** 缺省命中上限；上限封顶 200（防一次巨响应挤占上下文） */
 const DEFAULT_MAX_RESULTS = 50
@@ -68,6 +69,8 @@ export const grepTool: ToolDefinition<GrepInput> = {
   safety: { readOnly: true, concurrentSafe: true, sideEffectScope: 'none', riskLevel: 'low' },
 
   async execute(ctx: ToolContext, input: GrepInput): Promise<ToolOutput> {
+    // 敏感文件硬防线（doc/14 #3.6 / AGENTS §2.0）：越界闸之前先泄密闸
+    assertNotSensitive(input.path)
     let regex: RegExp
     try {
       regex = new RegExp(input.pattern)

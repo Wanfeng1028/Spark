@@ -198,6 +198,7 @@ export type UiDictionary = {
     E_MOCK_UNKNOWN_SESSION: string
     E_MOCK_DISPOSED: string
     E_HTTP_DISPOSED: string
+    E_SENSITIVE: string
   }
 }
 
@@ -345,6 +346,7 @@ const ZH: UiDictionary = {
     E_MOCK_UNKNOWN_SESSION: '会话不存在或已被清理',
     E_MOCK_DISPOSED: '演示通道已关闭，请刷新页面',
     E_HTTP_DISPOSED: '连接已释放，请重启应用',
+    E_SENSITIVE: '安全防线：该文件是敏感凭据（密钥/证书类），工具一律不读写——需要时你手动操作',
   },
 }
 
@@ -493,6 +495,7 @@ const EN: UiDictionary = {
     E_MOCK_UNKNOWN_SESSION: 'Session does not exist or was cleaned up',
     E_MOCK_DISPOSED: 'The demo transport is closed — refresh the page',
     E_HTTP_DISPOSED: 'The connection was released — restart the app',
+    E_SENSITIVE: 'Security guard: this file holds sensitive credentials (keys/certs) and is never read or written by tools — handle it manually if needed',
   },
 }
 

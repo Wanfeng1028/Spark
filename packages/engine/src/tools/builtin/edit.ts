@@ -16,6 +16,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { resolveInRoot } from '../definition.js'
+import { assertNotSensitive } from '../sensitive-path.js'
 import { atomicWriteFile } from '../../fsutil.js'
 import { isFresh, latestRead, recordWritten } from '../read-state.js'
 
@@ -199,6 +200,8 @@ export const editTool: ToolDefinition<EditInput> = {
   safety: { sideEffectScope: 'workspace', riskLevel: 'medium' },
 
   async execute(ctx: ToolContext, input: EditInput): Promise<ToolOutput> {
+    // 敏感文件硬防线（doc/14 #3.6 / AGENTS §2.0）：越界闸之前先泄密闸
+    assertNotSensitive(input.path)
     const abs = resolveInRoot(ctx.cwd, input.path)
     const before = await readFile(abs, 'utf8').catch(() => {
       throw new Error(`E_NOT_FOUND: 文件不存在 ${input.path}`)

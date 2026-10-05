@@ -70,6 +70,9 @@ export function Composer({
   const t = useTheme()
   const [text, setText] = useState('')
   const [lines, setLines] = useState(1)
+  // 语音听写占位（19.28 批 0，晚风拍板"先做一个占位"）：按钮唯一行为是展开/收起
+  // 诚实提示条——不摆"点了没反应"的假录音钮；真功能上线后此钮换录音手势
+  const [voiceHintOpen, setVoiceHintOpen] = useState(false)
 
   const onContentSizeChange = (
     e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
@@ -129,7 +132,28 @@ export function Composer({
           </TouchableOpacity>
         </View>
       )}
+      {/* 语音占位提示条（19.28 批 0）：点话筒展开/收起——安全提示随行（语音将上传转写服务商） */}
+      {voiceHintOpen && (
+        <View style={styles.deliveryRow}>
+          <View style={[styles.deliveryChip, { borderColor: t.border }]}>
+            <Feather name="mic-off" size={14} color={t.mutedForeground} />
+            <Text style={[styles.deliveryText, { color: t.mutedForeground }]}>
+              语音听写筹备中——上线后此处按住说话；语音将上传转写服务商
+            </Text>
+          </View>
+        </View>
+      )}
       <View style={[styles.capsule, { backgroundColor: t.card }]}>
+        {/* 语音占位钮（19.28 批 0）：真功能上线前唯一行为 = 展开提示条 */}
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="语音听写（筹备中）"
+          onPress={() => setVoiceHintOpen((v) => !v)}
+          activeOpacity={0.7}
+          style={styles.attachButton}
+        >
+          <Feather name="mic" size={20} color={t.mutedForeground} />
+        </TouchableOpacity>
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="附加图片"

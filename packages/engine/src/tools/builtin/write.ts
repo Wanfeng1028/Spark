@@ -11,6 +11,7 @@ import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { atomicWriteFile } from '../../fsutil.js'
 import { isFresh, latestRead, recordWritten } from '../read-state.js'
 import { resolveInRoot } from '../definition.js'
+import { assertNotSensitive } from '../sensitive-path.js'
 
 const WriteInput = z.strictObject({
   path: z.string().min(1),
@@ -35,6 +36,8 @@ export const writeTool: ToolDefinition<WriteInput> = {
   parallelizable: false,
 
   async execute(ctx: ToolContext, input: WriteInput): Promise<ToolOutput> {
+    // 敏感文件硬防线（doc/14 #3.6 / AGENTS §2.0）：越界闸之前先泄密闸
+    assertNotSensitive(input.path)
     const abs = resolveInRoot(ctx.cwd, input.path)
     // ZC-5 read-state 守卫：覆盖已存在文件必须先 read 且读后未被外部改动（stat 通道，不读旧内容）
     const existing = await stat(abs).catch(() => null)

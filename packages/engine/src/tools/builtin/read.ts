@@ -7,6 +7,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { resolveInRoot } from '../definition.js'
+import { assertNotSensitive } from '../sensitive-path.js'
 import { recordRead } from '../read-state.js'
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024
@@ -36,6 +37,8 @@ export const readTool: ToolDefinition<ReadInput> = {
   safety: { readOnly: true, concurrentSafe: true, sideEffectScope: 'none', riskLevel: 'low' },
 
   async execute(ctx: ToolContext, input: ReadInput): Promise<ToolOutput> {
+    // 敏感文件硬防线（doc/14 #3.6 / AGENTS §2.0）：越界闸之前先泄密闸
+    assertNotSensitive(input.path)
     const abs = resolveInRoot(ctx.cwd, input.path)
     const info = await stat(abs).catch(() => {
       throw new Error(`E_NOT_FOUND: 文件不存在 ${input.path}`)
