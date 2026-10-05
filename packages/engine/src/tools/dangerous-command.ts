@@ -75,11 +75,7 @@ interface Descent {
  * 单条命令 AST 的穿透解析（同型处理：sudo/doas 剥离、env 变量剥离、
  * command/exec/nohup/nice 包装剥离、sh -c 递归）。cmdNode 是 command 节点。
  */
-function descendCommand(
-  // biome-ignore lint: tree-sitter 节点类型是动态的（SyntaxNode），无静态类型可引
-  cmdNode: { childCount: number; child(i: number): { type: string; text: string; childCount: number; child(i: number): unknown } | null },
-  depth: number,
-): Descent {
+function descendCommand(cmdNode: Parser.SyntaxNode, depth: number): Descent {
   if (depth > MAX_NESTING_DEPTH) {
     return { words: [], depthExceeded: true }
   }
@@ -121,8 +117,7 @@ function descendCommand(
 
 /** 从源码提取全部 command 节点的词序列（含 sh -c 嵌套递归，深度上限） */
 function extractBareCommands(
-  // biome-ignore lint: 同上，动态节点
-  node: { type: string; text: string; childCount: number; child(i: number): { type: string; text: string; childCount: number; child(i: number): unknown } | null },
+  node: Parser.SyntaxNode,
   depth: number,
   out: { words: string[]; depthExceeded: boolean }[],
 ): void {
@@ -153,7 +148,7 @@ function extractBareCommands(
   }
   for (let i = 0; i < node.childCount; i++) {
     const c = node.child(i)
-    if (c !== null) extractBareCommands(c as never, depth + 1, out)
+    if (c !== null) extractBareCommands(c, depth + 1, out)
   }
 }
 
@@ -198,7 +193,7 @@ export function judgeBashCommand(source: string): DangerVerdict {
   if (root === undefined) return { kind: 'unanalyzable', reason: '空语法树' }
 
   const bare: { words: string[]; depthExceeded: boolean }[] = []
-  extractBareCommands(root as never, 0, bare)
+  extractBareCommands(root, 0, bare)
   if (bare.some((b) => b.depthExceeded)) {
     return { kind: 'unanalyzable', reason: `sh -c 嵌套超深度上限 ${MAX_NESTING_DEPTH}` }
   }
