@@ -9,6 +9,7 @@
 | 版本 | 日期 | 作者 | 变更内容 |
 | ---- | ---- | ---- | ---- |
 | v1.0 | 2026-10-05 | AI 编写：Kimi Code；发起与指令：晚风（Wanfeng1028，「先看看我的项目里面有的代码逻辑和规范的问题吧」→「要的，写成文档吧」） | 初稿：22 条分级发现（引擎铁律 2 / 事件协议 1+3 / 四端共享核 5 / AI 生成味 3 / 事实漂移 3 / 测试与 CI 5），附已核查无发现清单与四条诚实边界 |
+| v1.1 | 2026-10-05 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令全程） | **整改登记（不改正文判定，历史行以本行为准）**：已修 = A-1（5112df3 resolveInRoot 硬边界）/ A-2 + C-2（93babc8）/ C-1 + D-3（0f09924）/ C-3 + B-5（de150e7）/ D-1（6383d6b）/ **B-1~B-4（本批：protocol 新增 session-rows.ts 单源 buildSessionRows/lastUserTextOf——miniapp 收薄转发 shim、mobile 留 RN Composer 高度数学、web/CLI 四处 lastUserTextOf 全部改导；ui-copy 增 OUTCOME_TEXT 与 PERMISSION_TIER_DEFS——mobile 档位表因此补齐 description/warn）**。已消解 = E-1（词表 CK-1 批 2 补 task.progress 后代码/文档同为 35——计数漂移的对岸消失）；G-5 已核（6edecee 前清零）。待做 = D-2 / E-2~E-3 / G-1~G-4（G-3 miniapp/mobile CI 编译面最大件）。§4.6 "93 个方法"为审计时点快照（现 95，CK-2 ⑤ 两法入面——检查 5.5 因反引号未锚定此行，属检查器覆盖面窄项，见 G 系待议） |
 
 ---
 

@@ -38,6 +38,8 @@ import {
   emptySessionSlice,
   formatTimestamp,
   ids,
+  lastUserTextOf,
+  PERMISSION_TIER_DEFS,
   type AttachmentDto,
   type PermissionReply,
   type SessionPageController,
@@ -100,17 +102,20 @@ const PAGE_SIZE = 50
  */
 const CLOSED_TEXT = '连接已停止：鉴权失败，请到设置页重新配对'
 
-/** 权限四档（§13.E；表与 web composer-menus 同源，下沉 protocol ui-copy 待四端对账） */
+/** 权限四档（§13.E；数据表 = protocol ui-copy PERMISSION_TIER_DEFS 单源派生——审计 B-4
+ *  下沉，mobile 因此补齐 description/warn 位；Feather 图标映射随端） */
+const TIER_ICONS: Record<PermissionPreset, FeatherIconName> = {
+  'confirm-each': 'shield',
+  'auto-edit': 'edit',
+  plan: 'list',
+  'full-access': 'alert-triangle',
+}
+
 const PERMISSION_TIERS: ReadonlyArray<{
   id: PermissionPreset
   label: string
   icon: FeatherIconName
-}> = [
-  { id: 'confirm-each', label: '逐项确认', icon: 'shield' },
-  { id: 'auto-edit', label: '自动编辑', icon: 'edit' },
-  { id: 'plan', label: '计划模式', icon: 'list' },
-  { id: 'full-access', label: '完全访问', icon: 'alert-triangle' },
-]
+}> = PERMISSION_TIER_DEFS.map((d) => ({ id: d.id, label: d.label, icon: TIER_ICONS[d.id] }))
 
 /** 居中时间戳分隔（13 meta，J.2.3） */
 function TimestampDivider({ time }: { time: number }) {
@@ -407,14 +412,9 @@ export function SessionScreen() {
   /** 标题取投影（session.title 是 durable 事件，改名后回放即重建——导航参数只是首帧兜底） */
   const headerTitle = slice.meta.title !== '' ? slice.meta.title : route.params.title
 
-  /** topBanner 的重试：重发投影里最后一条 user 消息（不猜内容——无用户消息即不给入口） */
-  const lastUserText = useMemo(() => {
-    for (let i = slice.items.length - 1; i >= 0; i -= 1) {
-      const it = slice.items[i]
-      if (it !== undefined && it.kind === 'user') return it.text
-    }
-    return null
-  }, [slice])
+  /** topBanner 的重试：重发投影里最后一条 user 消息（不猜内容——无用户消息即不给入口）。
+   *  取词 = protocol lastUserTextOf 单源（审计 B-2 下沉——原内联 useMemo 与三端同型） */
+  const lastUserText = useMemo(() => lastUserTextOf(slice.items), [slice])
 
   // ---- 会话菜单与弹层 ----
   const [menuOpen, setMenuOpen] = useState(false)

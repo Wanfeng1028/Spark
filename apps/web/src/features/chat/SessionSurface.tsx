@@ -15,7 +15,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { useNavigate } from 'react-router'
 import { Activity, FileDiff, FolderGit2, GitBranch, History, MessagesSquare, PackageCheck, TerminalSquare, X } from 'lucide-react'
-import { ids } from '@spark/protocol'
+import { ids, lastUserTextOf } from '@spark/protocol'
 import type { PermissionPreset, ReasoningEffort, SessionId } from '@spark/protocol'
 import { useTransport, replaySessionEvents } from '@/transports/context'
 import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
@@ -253,10 +253,10 @@ export function SessionSurface({
     void navigate(`/session/${dto.id}`, { replace: true })
   }
 
-  /** error finish 重试：重发最后一条 user.message（§6.2.2 状态矩阵） */
+  /** error finish 重试：重发最后一条 user.message（§6.2.2 状态矩阵；取词 = protocol 单源，审计 B-2） */
   async function retryLastMessage() {
-    const text = [...items].reverse().find((i) => i.kind === 'user')
-    if (text !== undefined && text.kind === 'user') await transport.sendMessage(sid, text.text)
+    const text = lastUserTextOf(items)
+    if (text !== null) await transport.sendMessage(sid, text)
   }
 
   /** 内容列：主区 768px 居中（§13.A），抽屉实例占满抽屉宽（Composer 自带 max-[479px] 兜底） */

@@ -34,6 +34,8 @@ import type {
   SessionId,
   SubmitOutcome,
 } from '@spark/protocol'
+// 三态提交结果人话 = protocol ui-copy 单源（审计 B-3 下沉——原与 mobile submit-channel 双份）
+import { OUTCOME_TEXT } from '@spark/protocol'
 import { useTransport } from '@/transports/context'
 import { useDismissOnOutsideClick } from '@/hooks/useDismissOnOutsideClick'
 import { AttachmentChips } from './AttachmentChips'
@@ -115,12 +117,6 @@ export interface ComposerHandle {
 
 /** §13.L L.1（WO-054）：14 行上限（约 336px）后内部滚动 */
 const MAX_HEIGHT = 336
-
-const OUTCOME_TEXT: Record<SubmitOutcome['result'], string> = {
-  started: '已开始本轮',
-  steered: '已插话注入当前轮',
-  queued: '已排队（下一轮执行）',
-}
 
 /** 分段选中值（运行中可切 steer/queue；空闲恒 now——见 composer-menus.segmentDisplay） */
 type SegmentValue = Delivery

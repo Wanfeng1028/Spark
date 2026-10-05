@@ -7,7 +7,7 @@
  */
 import { useInput } from 'ink'
 import type { SessionId } from '@spark/protocol'
-import { flowRowsOf, type HttpTransport, type RequestId } from '@spark/protocol'
+import { flowRowsOf, lastUserTextOf, type HttpTransport, type RequestId } from '@spark/protocol'
 import { cliErrorMessageOf } from '../i18n.js'
 import { useCliStore } from '../store.js'
 import { CTRL_C_WINDOW_MS } from './constants.js'
@@ -120,16 +120,7 @@ export function useCliKeys(opts: UseCliKeysOptions): void {
       const sid: SessionId | null = s.activeSessionId
       if (sid === null) return
       if ((s.byId[sid]?.activeTurn ?? null) !== null) return
-      const text =
-        lastFailedRef.current ??
-        (() => {
-          const items2 = s.byId[sid]?.items ?? []
-          for (let i = items2.length - 1; i >= 0; i--) {
-            const it = items2[i]
-            if (it !== undefined && it.kind === 'user') return it.text
-          }
-          return null
-        })()
+      const text = lastFailedRef.current ?? lastUserTextOf(s.byId[sid]?.items ?? [])
       if (text === null || text === '') return
       s.setNotice(null)
       transport

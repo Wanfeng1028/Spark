@@ -1,70 +1,22 @@
 /**
- * 会话页纯函数集（工单 9.3——可测逻辑自屏幕组件抽出，Jest 单测把关）：
- * 分页历史合并（前置+去重，不重排） / 重复帧判定 / 时间戳分隔判定与格式化 /
- * 消息行构建 / Composer 自增高度。
+ * 会话页纯函数集（工单 9.3）——共享部分已收敛为 protocol 单源的端侧转发（审计
+ * doc/13 §4.1 B-1 下沉：buildSessionRows/时间戳判定与 miniapp 曾逐字双份，落点
+ * packages/protocol/src/session-rows.ts；新代码请直接从 @spark/protocol 导入）。
+ * Composer 自增高度是 RN TextInput 平台数学，留本文件（miniapp 走原生 autoHeight）。
  * 屏幕层只做渲染与接线，不含业务计算（AGENTS §2.7 纯逻辑可测化同律）。
  */
-import type { EventId, UiItem } from '@spark/protocol'
-
-/** 时间戳分隔阈值：相邻消息间隔 >30 分钟（DESIGN §13.J.2.3） */
-export const TIMESTAMP_GAP_MS = 30 * 60 * 1000
+export {
+  TIMESTAMP_GAP_MS,
+  buildSessionRows,
+  lastUserTextOf,
+  shouldInsertTimestamp,
+} from '@spark/protocol'
+export type { SessionRow } from '@spark/protocol'
 
 /** Composer 规格（J.2.1）：高 52 起、行高 20、6 行上限（同 web Composer 纪律） */
 export const COMPOSER_BASE_HEIGHT = 52
 export const COMPOSER_LINE_HEIGHT = 20
 const COMPOSER_MAX_LINES = 6
-
-/** 渲染行：消息/卡片项 或 居中时间戳分隔（key 供 FlatList） */
-export type SessionRow =
-  | { kind: 'timestamp'; key: string; time: number }
-  | { kind: 'item'; key: string; item: UiItem }
-
-/**
- * 分页合并：较旧一页前置并入既有窗口 + 按 id 去重——**不得排序**（评审 H1）。
- * 到达序即正确重放序：既有窗口可能混有 live 事件（无 seq），纯 seq 排序会把
- * 定稿事件（reasoning.ended/assistant.message）重排到自身 delta 之前，经顺序敏感的
- * applyEvent 重放会损坏投影（重复 delta / streaming 永久置位）。
- * `before=最早seq` 语义保证较旧页整体早于既有窗口且页内升序——直接前置即得正确重放序。
- * 幂等：同页重复合并不产生重复事件（弱网重试安全）。
- */
-/** 时间戳分隔判定：相邻消息间隔 >30 分钟插分隔（时间缺失不插——不拿缺数据冒充） */
-export function shouldInsertTimestamp(
-  prevTime: number | undefined,
-  curTime: number | undefined,
-): boolean {
-  if (prevTime === undefined || curTime === undefined) return false
-  return curTime - prevTime > TIMESTAMP_GAP_MS
-}
-
-/** 行 key：tool/approval 以 callId/requestId 稳定化（同事件可派生多个工具行） */
-function rowKeyOf(item: UiItem): string {
-  if (item.kind === 'tool') return `tool-${item.callId}`
-  if (item.kind === 'approval') return `approval-${item.requestId}`
-  return item.eventId
-}
-
-/**
- * UiItem 序列 → 渲染行（含时间戳分隔）。
- * timeOf = eventId → 事件时间侧表（屏幕层自信封流填充——UiItem 无 time 字段）。
- * 间隔口径只算消息（user/assistant）：工具卡/思考块/审批卡不参与间隔判定。
- */
-export function buildSessionRows(
-  items: readonly UiItem[],
-  timeOf: (eventId: EventId) => number | undefined,
-): SessionRow[] {
-  const rows: SessionRow[] = []
-  let lastMessageTime: number | undefined
-  for (const item of items) {
-    const time = timeOf(item.eventId)
-    const isMessage = item.kind === 'user' || item.kind === 'assistant'
-    if (isMessage && time !== undefined && shouldInsertTimestamp(lastMessageTime, time)) {
-      rows.push({ kind: 'timestamp', key: `ts-${item.eventId}`, time })
-    }
-    rows.push({ kind: 'item', key: rowKeyOf(item), item })
-    if (isMessage && time !== undefined) lastMessageTime = time
-  }
-  return rows
-}
 
 /**
  * Composer 自增高度：单行 52 起、每多一行 +20、封顶 6 行（超出滚动输入）。

@@ -11,7 +11,7 @@
  *   技能行用 $ 前缀与 / 命令区分（实测 ZCode 同款）。
  */
 import { FileEdit, ListTodo, ShieldAlert, ShieldCheck, type LucideIcon } from 'lucide-react'
-import { BUILTIN_COMMANDS } from '@spark/protocol'
+import { BUILTIN_COMMANDS, PERMISSION_TIER_DEFS } from '@spark/protocol'
 import type { CommandDto, Delivery, PermissionPreset } from '@spark/protocol'
 import { CLIENT_ACTIONS } from './client-commands'
 
@@ -113,39 +113,21 @@ export interface PermissionTier {
   warn: boolean
 }
 
-/** 缺省档（表首；tierOf 未知值回落） */
-const CONFIRM_EACH: PermissionTier = {
-  id: 'confirm-each',
-  label: '逐项确认',
-  description: '改文件前先问我',
-  icon: ShieldCheck,
-  warn: false,
+/** 图标映射随端（lucide 组件不进协议——数据表 = ui-copy PERMISSION_TIER_DEFS 单源，审计 B-4） */
+const TIER_ICONS: Record<PermissionPreset, LucideIcon> = {
+  'confirm-each': ShieldCheck,
+  'auto-edit': FileEdit,
+  plan: ListTodo,
+  'full-access': ShieldAlert,
 }
 
-export const PERMISSION_TIERS: readonly PermissionTier[] = [
-  CONFIRM_EACH,
-  {
-    id: 'auto-edit',
-    label: '自动编辑',
-    description: '自动编辑文件，其余照旧审批',
-    icon: FileEdit,
-    warn: false,
-  },
-  {
-    id: 'plan',
-    label: '计划模式',
-    description: '先编制并确认计划，再执行',
-    icon: ListTodo,
-    warn: false,
-  },
-  {
-    id: 'full-access',
-    label: '完全访问',
-    description: '减少确认次数',
-    icon: ShieldAlert,
-    warn: true,
-  },
-]
+export const PERMISSION_TIERS: readonly PermissionTier[] = PERMISSION_TIER_DEFS.map((d) => ({
+  ...d,
+  icon: TIER_ICONS[d.id],
+}))
+
+/** 缺省档（表首；tierOf 未知值回落） */
+const CONFIRM_EACH: PermissionTier = { ...PERMISSION_TIER_DEFS[0]!, icon: ShieldCheck }
 
 export function tierOf(preset: PermissionPreset): PermissionTier {
   return PERMISSION_TIERS.find((t) => t.id === preset) ?? CONFIRM_EACH

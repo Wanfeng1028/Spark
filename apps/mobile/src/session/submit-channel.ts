@@ -21,6 +21,10 @@ import type {
   TurnId,
 } from '@spark/protocol'
 
+/** 三态人话 = protocol ui-copy 单源（审计 B-3 下沉——原本地表与 web Composer 双份）；
+ *  re-export 供既有测试/页面导入路径不动 */
+export { OUTCOME_TEXT } from '@spark/protocol'
+
 /** session-page controller 的 REST 子集（与 protocol SessionPageRest 的返回形状同源） */
 export type SessionPageRestSlice = Pick<
   Transport,
@@ -63,13 +67,6 @@ export function createSubmitRest(
         })
     },
   }
-}
-
-/** 三态人话（与 web Composer 的 OUTCOME_TEXT 同表——文案下沉 protocol ui-copy 待对账，见 19.27 报告） */
-export const OUTCOME_TEXT: Record<SubmitOutcome['result'], string> = {
-  started: '已开始本轮',
-  steered: '已插话注入当前轮',
-  queued: '已排队（下一轮执行）',
 }
 
 /**

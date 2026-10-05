@@ -141,3 +141,34 @@ export function dotColor(
 ): string {
   return t[dotTokenOf(status, archived)]
 }
+
+/**
+ * 提交结果三态人话（审计 doc/13 §4.3 B-3 下沉：web Composer 与 mobile submit-channel
+ * 逐字双份，mobile 侧注释自登记「下沉 protocol ui-copy 待对账」未闭环）。
+ * 键面 = SubmitOutcome['result']（transport.ts 类型，type-only 导入无运行时环）。
+ */
+export const OUTCOME_TEXT: Record<'started' | 'steered' | 'queued', string> = {
+  started: '已开始本轮',
+  steered: '已插话注入当前轮',
+  queued: '已排队（下一轮执行）',
+}
+
+/** 权限档位数据表（审计 doc/13 §4.4 B-4 下沉；DESIGN §13.E 四档 / ADR D7）。
+ * 图标映射刻意不入协议（web lucide 组件 / mobile Feather 名 / CLI 文本记号随端），
+ * 各端从本表派生自己的展示行——mobile 因此补齐 description/warn 两字段
+ * （原 mobile 表缺位 = 风险提示用户可见功能差异）。表内 id 联合与 PermissionPreset
+ * 同域——消费方以 PermissionPreset 建图标映射，DEF 不另导出（无外部类型消费）。 */
+interface PermissionTierDef {
+  id: 'confirm-each' | 'auto-edit' | 'plan' | 'full-access'
+  label: string
+  description: string
+  /** 完全访问档的琥珀警示位（实测 ZCode——端侧渲染时转 warn 色） */
+  warn: boolean
+}
+
+export const PERMISSION_TIER_DEFS: readonly PermissionTierDef[] = [
+  { id: 'confirm-each', label: '逐项确认', description: '改文件前先问我', warn: false },
+  { id: 'auto-edit', label: '自动编辑', description: '自动编辑文件，其余照旧审批', warn: false },
+  { id: 'plan', label: '计划模式', description: '先编制并确认计划，再执行', warn: false },
+  { id: 'full-access', label: '完全访问', description: '减少确认次数', warn: true },
+]

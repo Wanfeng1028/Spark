@@ -251,16 +251,16 @@ function ArchivePolicySection() {
  * 写入走 POST /api/hooks/project-trust（applied=false 只在声明消失后可能出现，如实提示）。
  */
 function ProjectHooksTrustSection() {
-  const transport = useTransport()
+  const { transport } = useTransport()
   const { data, refresh } = useTransportQuery((t) => t.getProjectTrust())
   const { run, busy, opError } = useAsyncOp()
   const setTrust = (trust: 'trusted' | 'untrusted') => {
     void run(async () => {
       await transport.setProjectTrust(trust)
-      refresh()
+      await refresh()
     })
   }
-  if (data === undefined) return null
+  if (data === null) return null
   const decisionText =
     data.decision === 'trusted'
       ? '已信任：钩子声明随引擎启动装载'
