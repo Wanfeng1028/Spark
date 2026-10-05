@@ -497,6 +497,17 @@ describe('CK-1 批 2：task 后台化（runInBackground）', () => {
         ),
       '回注驱动父汇报',
     )
+    // 回注 user.message 经 runtime.submit('queue') 异步入队——同步 find 是竞态
+    await waitFor(
+      () =>
+        f.events.some(
+          (e) =>
+            e.type === 'user.message' &&
+            e.sessionId === parent.id &&
+            JSON.stringify(e.data).includes(taskId),
+        ),
+      '回注 user.message 入队',
+    )
     const injected = f.events.find(
       (e) =>
         e.type === 'user.message' &&
