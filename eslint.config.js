@@ -130,3 +130,16 @@ export default tseslint.config(
     },
   },
 )
+
+
+  {
+    // D-1（doc/13-code-spec-audit P1）：engine src 禁裸 console——统一走 logger
+    // （log.ts 注入 redactError 脱敏通道；console.warn 直打绕过脱敏，D-3 判例）。
+    // tests 不限（vitest 報告本身走 console）；scripts 不限（构建脚本无 logger）。
+    files: ['packages/engine/src/**/*.ts'],
+    ignores: ['packages/engine/src/**/*.test.ts', 'packages/engine/tests/**'],
+    rules: {
+      'no-console': 'error',
+    },
+  },
+
