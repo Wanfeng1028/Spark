@@ -13,7 +13,7 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import type {
   BrowserSettings,
   AutomationCreate,
@@ -1862,7 +1862,9 @@ export class Engine {
     this.assertNotShutdown()
     const slot = update.slot
     const rel = update.path ?? join('prompts', `${slot}.md`)
-    const abs = isAbsolute(rel) ? rel : join(this.root, rel)
+    // A-1（P0，doc/13-code-spec-audit）：resolveInRoot 硬边界——原 isAbsolute 直通
+    // 允许绝对路径写盘与 ../ 穿越 basePath，恶意 update.path 可写 ~/.spark 以外
+    const abs = resolveInRoot(this.root, rel)
     // 占位符校验（非白名单 {{...}} → E_CONFIG；与装载期同一函数，防注入面扩大）
     assertPlaceholders(update.content, `prompts.${slot}`)
     if (update.content === '') {
