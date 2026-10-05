@@ -112,7 +112,7 @@ describe('迭代摘要 + 用户消息保全（doc/16 §4）', () => {
         },
       },
       projector: { modelContext: () => ({ messages: [], tokens: 0 }) },
-      tree: { pathToRoot: () => [USER()] },
+      tree: { pathToRoot: () => [USER()] } as never,
       model: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       keepTokens: 1000,
     })
@@ -151,7 +151,7 @@ describe('迭代摘要 + 用户消息保全（doc/16 §4）', () => {
           },
           USER(),
         ],
-      },
+      } as never,
       model: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
       keepTokens: 1000,
     })
