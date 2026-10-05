@@ -12,7 +12,8 @@
  * 界面语言一行明示阶段十九 19.17 已立项；终端/更新仍为 desktop 特化占位；托盘与保持运行
  * 已由桌面壳落地（阶段十九 19.30，配置面在 ~/.spark/desktop.json 由壳读，服务端与 web
  * 都无从读写——故这两行只给入口与生效时机，不做点了没反应的假开关）。
- * 「显示待办」不设开关：引擎无 Todo 工具，不留无效开关（工单 10.20 拍板）。
+ * 「显示待办」开关已恢复（19.41 / V2-38 翻案）：CK-4 起引擎有 todo_write/todo_read，
+ * 会话页顶部有 todo 投影条可被此开关关闭——不再是无效开关（原"引擎无 Todo 工具"判词随之失效）。
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -276,7 +277,7 @@ function ProjectHooksTrustSection() {
         hooks: { ...(settingsData?.hooks ?? {}), projectTrust: { mode } },
       })
       await refresh()
-      refreshSettings()
+      await refreshSettings()
     })
   }
   if (data === null) return null
@@ -602,6 +603,8 @@ export function GeneralSettingsPage() {
   const setShowReasoning = useSettingsStore((s) => s.setShowReasoning)
   const showToolGroups = useSettingsStore((s) => s.showToolGroups)
   const setShowToolGroups = useSettingsStore((s) => s.setShowToolGroups)
+  const showTodo = useSettingsStore((s) => s.showTodo)
+  const setShowTodo = useSettingsStore((s) => s.setShowTodo)
   const deliveryOptions = useMemo(() => DELIVERY_OPTIONS, [])
   // 自定义证书只读回显 + 数据目录（阶段十九 19.13 / 19.16）
   const { data: settingsInfo } = useTransportQuery((t) => t.getSettings())
@@ -654,6 +657,12 @@ export function GeneralSettingsPage() {
             checked={showToolGroups}
             onChange={setShowToolGroups}
           />
+        </SettingRow>
+        <SettingRow
+          title="显示会话待办清单"
+          description="模型用 todo_write 维护的任务清单在会话页顶部常显（19.41 / V2-38 翻案恢复；即存即生效）"
+        >
+          <Switch aria-label="显示会话待办清单" checked={showTodo} onChange={setShowTodo} />
         </SettingRow>
         <SettingRow
           title="完整保留模型 I/O"

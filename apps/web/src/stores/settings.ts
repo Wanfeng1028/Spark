@@ -67,6 +67,8 @@ export interface SettingsState {
   showReasoning: boolean
   /** 连续同类工具聚合为分组卡（默认开——工单 10.20 A③） */
   showToolGroups: boolean
+  /** 显示会话待办清单（默认开；关 = 不渲染 todo 投影条——19.41 / V2-38 翻案恢复） */
+  showTodo: boolean
   /** 主题壁纸（19.43 批 1；缺省 'none' 关闭，关闭态与未装逐像素一致——DESIGN §12.9） */
   wallpaper: WallpaperId
   setTheme: (t: Theme) => void
@@ -81,6 +83,7 @@ export interface SettingsState {
   setCodeFontSize: (n: (typeof CODE_FONT_SIZES)[number]) => void
   setShowReasoning: (b: boolean) => void
   setShowToolGroups: (b: boolean) => void
+  setShowTodo: (b: boolean) => void
   setWallpaper: (w: WallpaperId) => void
 }
 
@@ -98,6 +101,7 @@ interface PersistedSettings {
   codeFontSize: (typeof CODE_FONT_SIZES)[number]
   showReasoning: boolean
   showToolGroups: boolean
+  showTodo: boolean
   wallpaper: WallpaperId
 }
 
@@ -113,6 +117,7 @@ const DEFAULTS: PersistedSettings = {
   codeFontSize: 12,
   showReasoning: true,
   showToolGroups: true,
+  showTodo: true,
   wallpaper: 'none',
 }
 
@@ -153,6 +158,7 @@ function load(): PersistedSettings {
         typeof parsed.showReasoning === 'boolean' ? parsed.showReasoning : DEFAULTS.showReasoning,
       showToolGroups:
         typeof parsed.showToolGroups === 'boolean' ? parsed.showToolGroups : DEFAULTS.showToolGroups,
+      showTodo: typeof parsed.showTodo === 'boolean' ? parsed.showTodo : DEFAULTS.showTodo,
       wallpaper:
         typeof parsed.wallpaper === 'string' &&
         (parsed.wallpaper === 'none' || WALLPAPER_IDS.has(parsed.wallpaper))
@@ -272,6 +278,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
     },
     setShowReasoning: (showReasoning) => save({ showReasoning }),
     setShowToolGroups: (showToolGroups) => save({ showToolGroups }),
+    setShowTodo: (showTodo) => save({ showTodo }),
     setWallpaper: (wallpaper) => {
       save({ wallpaper })
       applyWallpaperAccent(wallpaper, get().theme)

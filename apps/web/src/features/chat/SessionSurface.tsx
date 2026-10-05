@@ -22,6 +22,7 @@ import { MOCK_SCENARIOS, MockTransport } from '@/transports/mock'
 import type { MockScenario } from '@/transports/mock'
 import { ChatView } from '@/features/chat/ChatView'
 import { ArenaCard } from '@/features/chat/ArenaCard'
+import { TodoBar } from '@/features/chat/TodoBar'
 import { Composer } from '@/features/chat/Composer'
 import { clientActionOf } from '@/features/chat/client-commands'
 import { TurnStatusBar } from '@/features/chat/TurnStatusBar'
@@ -442,6 +443,12 @@ export function SessionSurface({
           ))}
         </div>
       )}
+
+      {/* 待办常显条（19.41 / V2-38 翻案恢复）：挂在 flex 列上（auto 行），不进 h-full 滚动区；
+          本会话用过清单且开关开启才渲染（组件内三重判空） */}
+      <div className={cn('shrink-0', isPage ? 'px-6' : 'px-3')}>
+        <TodoBar sessionId={sid} />
+      </div>
 
       <div className={cn('min-h-0 flex-1', isPage ? 'px-6 py-3' : 'px-3 py-2')}>
         <div className={colClass}>
