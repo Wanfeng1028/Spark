@@ -209,7 +209,8 @@ export class BackgroundTaskManager {
     const text = `${head}。请用 task_output 工具读取该任务输出（taskId=${entry.taskId}），汇总后向用户简报。`
     try {
       return this.deps.notify(entry.sessionId, text)
-    } catch {
+    } catch (err) {
+      this.deps.logger.error('task.notify.error', { taskId: entry.taskId, err })
       return false
     }
   }

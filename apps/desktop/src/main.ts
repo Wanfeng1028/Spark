@@ -32,7 +32,7 @@ import type { PtyHandle } from './terminal-pty.js'
 import type { IPty } from 'node-pty'
 import { shellProfileOf } from './terminal-shell.js'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import {
   app,
   BrowserWindow,
@@ -184,7 +184,7 @@ function showFatalWindow(reason: string): void {
   const html = renderFatalHtml({
     title: 'Spark 启动失败',
     reason,
-    sparkDir: join(homedir(), '.spark'),
+    sparkDir: (process.env.SPARK_HOME ? resolve(process.env.SPARK_HOME) : join(homedir(), '.spark')),
     logHint: join(homedir(), '.spark', 'logs'),
   })
   void fatalWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`).catch((err: unknown) => {
@@ -515,7 +515,7 @@ function applyDesktopBehavior(cfg: DesktopConfig): void {
 async function main(): Promise<void> {
   // RT3-01（WO-083）：首启检测先行——models.json 缺失时引导配置而不是拉起必失败的
   // sidecar；文件出现后自动续启。用户关窗引导 = 返回 false，随 window-all-closed 退出
-  const sparkDir = join(homedir(), '.spark')
+  const sparkDir = (process.env.SPARK_HOME ? resolve(process.env.SPARK_HOME) : join(homedir(), '.spark'))
   if (!(await waitForFirstRunConfig(sparkDir, join(sparkDir, 'models.json')))) return
   // 工单 19.31：桌面设置在拉起 sidecar 前装载——NODE_EXTRA_CA_CERTS 只在进程启动时生效，
   // 装载晚于 spawn 就等于这一版配置整个启动周期不生效（坏配置回缺省并 warn，不静默）
