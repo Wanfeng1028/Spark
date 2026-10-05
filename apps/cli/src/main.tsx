@@ -10,6 +10,7 @@ import { App } from './app.js'
 import { startUp } from './up.js'
 import { PRINT_USAGE, parsePrintArgs, runPrint } from './print.js'
 import { runMcpServer } from './mcp-server.js'
+import { runAcpServer } from './acp-server.js'
 import { runMigrate } from './migrate.js'
 import { versionOf } from './components/BootHeader.js'
 
@@ -22,6 +23,9 @@ const USAGE = `Spark CLI（Ink TUI）
   spark migrate <dir>    数据目录整体搬迁（SPARK_HOME 或 ~/.spark → dir；源改名备份不删）
   spark mcp             以 stdio MCP server 运行（进程内引擎；三工具 spark_run /
                         spark_sessions/spark_events，工单 15.1 / ADR D39）
+  spark acp             以 stdio ACP server 运行（编辑器标准协议接入，CK-16 /
+                        doc/15 方案一：Zed/VS Code/JetBrains 等 ACP 客户端直连；
+                        fs/* 反向请求不支持——文件面自带边界）
   spark [--api <url>]   --api 与 up 可组合：spark up --api <url> 自定义基址
 
 参数：
@@ -74,6 +78,9 @@ if (argv.includes('-v') || argv.includes('--version')) {
 if (argv[0] === 'mcp') {
   // MCP server 模式（工单 15.1 / D39）：stdio 独占 stdout，引擎装配与生命周期在 mcp-server.ts
   await runMcpServer()
+} else if (argv[0] === 'acp') {
+  // ACP server 模式（CK-16 / doc/15 方案一）：stdio JSON-RPC，引擎装配在 acp-server.ts
+  await runAcpServer()
 } else if (argv[0] === 'migrate') {
   // 数据目录搬迁（阶段十九 19.16）：终端两段式确认 + 字节校验 + 源改名备份（不删）
   process.exit(await runMigrate(argv[1]))
