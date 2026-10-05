@@ -42,7 +42,9 @@ await build({
   // protocol 一并入包：dev 下 workspace 指向 src/*.ts（Node ESM 直跑无法解析 .js 后缀的
   // TS 相对导入），外置会让 dist/main.js 无法用 node 直启——bundle 后产物自包含
   // playwright-core 必须外置（见文件头注释：TUI 自 12.3 起经 Engine 拉进同一条依赖链）
-  external: ['playwright-core'],
+  // tree-sitter / tree-sitter-bash 同理必须外置：原生 .node 模块无 esbuild loader
+  // （CI run 37348373797 desktop 同病取证）；加载失败降级 unanalyzable，安全语义不降级
+  external: ['playwright-core', 'tree-sitter', 'tree-sitter-bash'],
 })
 
 await build({
@@ -52,5 +54,5 @@ await build({
   format: 'esm',
   outfile: 'dist/server/index.mjs',
   banner: { js: serverBanner },
-  external: ['playwright-core'],
+  external: ['playwright-core', 'tree-sitter', 'tree-sitter-bash'],
 })
