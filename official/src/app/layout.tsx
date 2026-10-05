@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -58,6 +59,12 @@ export default function RootLayout({
           </main>
           <Footer />
         </ThemeProvider>
+        {/* Knock 在线客服小部件（trtc.io/knocket-sdk）：identifier 是公开的嵌入标识非密钥；
+            afterInteractive 等价原生 async，不阻塞首屏；根布局一处生效，中英文全站（含 en/） */}
+        <Script
+          src="https://trtc.io/knocket-sdk/sdk.js?identifier=6e73b11adc4255b31d&v=1791219164366"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
