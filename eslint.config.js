@@ -129,9 +129,6 @@ export default tseslint.config(
       'react-hooks/exhaustive-deps': 'warn',
     },
   },
-)
-
-
   {
     // D-1（doc/13-code-spec-audit P1）：engine src 禁裸 console——统一走 logger
     // （log.ts 注入 redactError 脱敏通道；console.warn 直打绕过脱敏，D-3 判例）。
@@ -142,4 +139,5 @@ export default tseslint.config(
       'no-console': 'error',
     },
   },
+)
 
