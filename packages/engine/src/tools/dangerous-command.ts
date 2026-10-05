@@ -15,6 +15,7 @@
  * 本应 allow 的判定降级为 ask；deny/ask 不变——hook 只能收紧不能放大，CK-2 ④ 同律）。
  */
 import { basename } from 'node:path'
+import type Parser from 'tree-sitter'
 
 /** 判定结论 */
 export type DangerVerdict =
@@ -170,12 +171,12 @@ export function judgeBashCommand(source: string): DangerVerdict {
   }
   // tree-sitter d.ts 是 `declare module + export = Parser`——类型面用
   // import default 形态（Parser 类即模块本身；命名空间内取 Parser 是 TS2694/TS2339 判例）
-  let parser: import('tree-sitter') | undefined
+  let parser: Parser | undefined
   let Bash: unknown
   try {
     // 动态 require：原生模块降级面（加载失败 = 全部不可分析，安全语义不降级）
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const ts = require('tree-sitter') as typeof import('tree-sitter')
+    const ts = require('tree-sitter') as typeof Parser
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     Bash = require('tree-sitter-bash')
     parser = new ts()
@@ -183,14 +184,14 @@ export function judgeBashCommand(source: string): DangerVerdict {
   } catch {
     return { kind: 'unanalyzable', reason: 'tree-sitter 运行时不可用——降级为不可分析' }
   }
-  let root: { type: string; text: string; childCount: number; child(i: number): never } | undefined
+  let root: Parser.SyntaxNode | undefined
   try {
     const timeout = setTimeout(() => {
       throw new Error('E_DANGEROUS_PARSE_TIMEOUT')
     }, PARSE_TIMEOUT_MS)
     const tree = parser.parse(source)
     clearTimeout(timeout)
-    root = tree.rootNode as never
+    root = tree.rootNode
   } catch {
     return { kind: 'unanalyzable', reason: '解析超时/失败——不可分析' }
   }

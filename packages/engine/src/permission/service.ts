@@ -161,7 +161,16 @@ export class PermissionServiceImpl implements PermissionService {
     // deny/ask 不变（本闸不扩权）；AST 不可用降级 unanalyzable = 全部 bash 走 ask（fail-closed）。
     const dangerVerdict =
       check.action === 'bash' || check.resource.startsWith('cmd:')
-        ? judgeBashCommand(check.resource.startsWith('cmd:') ? check.resource.slice(4) : (typeof check.input === 'object' && check.input !== null && 'command' in check.input && typeof (check.input as { command: unknown }).command === 'string' ? (check.input as { command: string }).command : check.resource))
+        ? judgeBashCommand(
+            check.resource.startsWith('cmd:')
+              ? check.resource.slice(4)
+              : typeof check.input === 'object' &&
+                  check.input !== null &&
+                  'command' in check.input &&
+                  typeof check.input.command === 'string'
+                ? check.input.command
+                : check.resource,
+          )
         : undefined
     const dangerForcesAsk =
       dangerVerdict !== undefined && dangerVerdict.kind !== 'safe' && effect === 'allow'

@@ -62,7 +62,8 @@ class SparkAcpAgent<T extends Transport = Transport> {
     private readonly log: { info(msg: string, fields?: Record<string, unknown>): void },
   ) {}
 
-  async initialize(_params: acp.InitializeRequest): Promise<acp.InitializeResponse> {
+  // 无 await 的握手方法不标 async（require-await）——返回字面量，SDK 自动包 Promise
+  initialize(_params: acp.InitializeRequest): acp.InitializeResponse {
     return {
       protocolVersion: acp.PROTOCOL_VERSION,
       agentCapabilities: {
@@ -74,7 +75,7 @@ class SparkAcpAgent<T extends Transport = Transport> {
     }
   }
 
-  async authenticate(_params: acp.AuthenticateRequest): Promise<acp.AuthenticateResponse | void> {
+  authenticate(_params: acp.AuthenticateRequest): acp.AuthenticateResponse {
     // 本地引擎无 agent 侧鉴权（配对鉴权是远端通道的事）——空响应
     return {}
   }

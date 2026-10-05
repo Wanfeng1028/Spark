@@ -27,7 +27,7 @@ function ev(type: SparkEventEnvelope['type'], data: Record<string, unknown>): Sp
     parentId: null,
     type,
     data,
-  } as unknown as SparkEventEnvelope
+  }
 }
 
 const USER = (): SparkEventEnvelope => ev('user.message', { text: 'hi' })
