@@ -29,10 +29,17 @@ function isOfType<K extends SparkEventType>(
  * 工单 13.3：作为**缺省模板**——spark.json `prompts.compaction` 可指向模板文件覆盖，
  * 覆盖值经 CompactorDeps.prompt 以已渲染文本传入（未配置时逐字节等于本常量）。
  * 工单 13.4 / ADR D29 第一层：尾部追加 kept-files 结构化要求（自定义模板不含该要求时
- * = 无清单，压缩照常——解析是 fail-soft 的）。 */
+ * = 无清单，压缩照常——解析是 fail-soft 的）。
+ * CK-12② 方案 A（doc/16 §4，思想吸收 opencode 迭代摘要 + Claude Code 用户消息保全，
+ * 提示词按本仓语气重写）：旧摘要经 {{previous}} 槽位拼入（装配层渲染）；用户消息
+ * 原意全保留——拍板与意图不因压缩失真。 */
 export const COMPACTION_PROMPT =
   'Summarize the conversation so far so work can continue with this summary alone. ' +
   'Keep: goals, key decisions, current task state, open TODOs, important file paths. ' +
+  'If a previous summary is provided below, UPDATE it rather than rewriting from scratch: ' +
+  'add new progress and decisions; if a blocker it mentions has been resolved, reflect that. ' +
+  'List ALL of the user requests verbatim in meaning (the user may have changed intent over ' +
+  'time — the latest instruction wins). ' +
   'Reply with the summary only. ' +
   'Then append exactly one final line listing the files whose current content matters for ' +
   'continuing, in this exact form: <!-- kept-files: ["src/a.ts","doc/b.md"] --> ' +
@@ -142,6 +149,56 @@ function isSurface(e: SparkEventEnvelope): boolean {
   return isOfType(e, 'user.message') || isOfType(e, 'assistant.message')
 }
 
+/**
+ * 安全切分点判定（CK-12② 方案 A 第一件；doc/16 §4 设计——四规则吸收自 Kimi Code
+ * canSplitAfter（doc/14 #3.5）+ Gemini findCompressSplitPoint 的"只在真 user 边界切"
+ * 形态，按 SparkEventEnvelope 流重写）。
+ *
+ * 参数 i 是**候选切点**（该事件之后的边界，即 path[0..i] 进摘要、path[i+1..] 保留）。
+ * 规则（违反任一 = 此处不可切）：
+ * ① path[i] 是 user.message → 不切（user 后的 assistant 回答被拦腰斩断，摘要看不到
+ *    "该请求得到了什么回复"，迭代摘要会凭空臆造回复内容）；
+ * ② path[i] 是 assistant.message 且 content 带 toolCall → 不切（工具调用与结果被分离，
+ *    摘要侧只见调用不见结果，保留侧只见结果不见调用）；
+ * ③ path[i] 是 tool.started → 不切（与后续 tool.completed 分离）；
+ * ④ 未闭合 tool 交换中（path 里 i 之后存在 tool.started 无配对 completed）→ 不切。
+ * 返回 true = 此处可切。fail-closed：不可判定一律 false（宁多保留不少摘要）。
+ */
+export function canSplitAfter(path: readonly SparkEventEnvelope[], i: number): boolean {
+  const cur = path[i]
+  if (cur === undefined) return false
+  // 规则①
+  if (isOfType(cur, 'user.message')) return false
+  // 规则③
+  if (isOfType(cur, 'tool.started')) return false
+  if (isOfType(cur, 'assistant.message')) {
+    // 规则②：content 带 toolCall 块则不切
+    const hasCall = cur.data.content.some((c) => c.type === 'toolCall')
+    if (hasCall) return false
+  }
+  // 规则④：i 之后（保留侧）存在未闭合的 tool 交换（started 无 completed）→ 不切。
+  // 未闭合交换若整体留在保留侧无害——只禁"摘要侧尾巴与保留侧开头撕裂交换"。
+  const openCall = new Map<string, 'open'>()
+  for (let j = i + 1; j < path.length; j++) {
+    const e = path[j]
+    if (e === undefined) continue
+    if (isOfType(e, 'tool.started')) openCall.set(e.data.callId, 'open')
+    else if (isOfType(e, 'tool.completed')) openCall.delete(e.data.callId)
+  }
+  // started 在摘要侧（i 及之前）且 completed 在保留侧 = 交换被撕裂
+  const preCall = new Map<string, boolean>()
+  for (let j = 0; j <= i; j++) {
+    const e = path[j]
+    if (e === undefined) continue
+    if (isOfType(e, 'tool.started')) preCall.set(e.data.callId, true)
+    else if (isOfType(e, 'tool.completed')) preCall.delete(e.data.callId)
+  }
+  for (const callId of openCall.keys()) {
+    if (preCall.has(callId)) return false
+  }
+  return true
+}
+
 export class CompactorImpl implements Compactor {
   constructor(private readonly deps: CompactorDeps) {}
 
@@ -150,10 +207,18 @@ export class CompactorImpl implements Compactor {
     const sid = this.deps.sessionId
     await this.deps.bus.emit(sid, 'compaction.started', {})
     const ctx = this.deps.projector.modelContext()
+    // CK-12② 方案 A：迭代摘要——上次 compaction.completed 的 summary 作为
+    // previous 段拼进本次 prompt（零新事件：durable 流里就有）。GENERIC 转义
+    // 不需要：摘要进 prompt 只作参考文本，不回注结构面。
+    const previous = this.previousSummary()
+    const previousBlock =
+      previous !== undefined
+        ? `\n\n--- Previous summary (update it, don't restart from scratch) ---\n${previous}\n--- End of previous summary ---`
+        : ''
     try {
       const raw = await this.deps.gateway.generateOnce({
         model: this.deps.model,
-        prompt: `${this.deps.prompt?.() ?? COMPACTION_PROMPT}\n\n${serializeTranscript(ctx.messages)}`,
+        prompt: `${this.deps.prompt?.() ?? COMPACTION_PROMPT}${previousBlock}\n\n${serializeTranscript(ctx.messages)}`,
         maxTokens: 2000,
         // LA-39：摘要用量计入预算（成本熔断口径：全部辅助通道调用都记账）
         onUsage: (u) => {
@@ -245,10 +310,25 @@ export class CompactorImpl implements Compactor {
     return Object.keys(out).length > 0 ? out : undefined
   }
 
+  /** 上一次压缩的摘要（迭代摘要输入；找不到 compaction.completed = undefined） */
+  private previousSummary(): string | undefined {
+    const path = this.deps.tree.pathToRoot()
+    for (let i = path.length - 1; i >= 0; i--) {
+      const e = path[i]
+      if (e !== undefined && isOfType(e, 'compaction.completed')) {
+        return e.data.summary
+      }
+    }
+    return undefined
+  }
+
   /**
    * keptFromEventId = 当前上下文尾部（token 预算内）最老 surface 事件的 id。
    * 最新一条无条件保留（不得把当前上下文全部摘要掉）；边界不越过旧锚点
    * （越过会复活已被上一轮摘要的事件）。
+   * CK-12② 方案 A：预算边界落定后**向前回退到最近安全切分点**（canSplitAfter）——
+   * 预算语义让位给完整性语义（撕裂的 tool 交换进摘要比多保留几条更有害）；
+   * 回退到 start（全保留）也合法——本次压缩等价空摘，禁假状态。
    */
   private computeKeptFromEventId(): EventId {
     const path = this.deps.tree.pathToRoot()
@@ -275,6 +355,11 @@ export class CompactorImpl implements Compactor {
       acc += t
       keptAny = true
       boundary = i
+    }
+    // 安全切分点回退：boundary 起向前找首个 canSplitAfter 通过的位置；
+    // 边界含义 = path[0..boundary] 进摘要、[boundary+1..] 保留（canSplitAfter 的 i 语义一致）
+    while (boundary > start && !canSplitAfter(path, boundary)) {
+      boundary -= 1
     }
     const anchor = path[boundary]
     if (anchor === undefined) {
