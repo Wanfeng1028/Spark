@@ -5,14 +5,11 @@
  * 上下文水位 · 提交模式；turn 进行中追加 step/工具/等待审批。
  */
 import { Box, Text } from 'ink'
-import { CONTEXT_WARN_RATIO, contextRatio, contextWindowOf } from '@spark/protocol'
+import { fmtTokens, CONTEXT_WARN_RATIO, contextRatio, contextWindowOf } from '@spark/protocol'
 import type { SessionSlice } from '@spark/protocol'
 import { useCliStore } from '../store.js'
 
 /** token 累计紧凑展示（与 web fmtTokens 同：k=千位截断） */
-function fmtTokens(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
-}
 
 function ConnectionMark({ status }: { status: 'connecting' | 'open' | 'reconnecting' | 'closed' }) {
   if (status === 'open') return <Text color="green">已连接</Text>

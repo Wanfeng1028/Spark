@@ -120,9 +120,6 @@ export const EventSchemas = {
      * **只影响投影，JSONL 原文不动**（append-only）；蒸馏失败的条目不入表 = 降级为原文 */
     distilled: z.record(z.string().min(1), z.string().min(1)).optional(),
   }),
-  // ZC-1 微压缩边界（水位 0.9×压缩阈值触发）：durable 非 surface——模型可见面
-  // 经投影清理生效（keptFromEventId 之前的 toolResult 清占位），本事件只记录
-  // 边界事实供回放重建同一清理；append-only，JSONL 原文不动。
   // 会话任务清单（CK-4）：整表快照（dsh/opencode 同思路——不增量，回放即重建）。
   // durable 非 surface——模型可见面是 todo_write 的 toolResult（清单内容随工具结果记录）。
   'todo.updated': z.strictObject({
@@ -207,6 +204,9 @@ export const EventSchemas = {
     /** 当前全量最新输出（agent 族 = 子代理已产出文本；bash 族本期不发） */
     text: z.string(),
   }),
+  // ZC-1 微压缩边界（水位 0.9×压缩阈值触发）：durable 非 surface——模型可见面
+  // 经投影清理生效（keptFromEventId 之前的 toolResult 清占位），本事件只记录
+  // 边界事实供回放重建同一清理；append-only，JSONL 原文不动。
   'microcompact_boundary': z.strictObject({
     /** 保留边界：路径上该事件 id（含）之后的 toolResult 组保留原样 */
     keptFromEventId: EventIdSchema,
