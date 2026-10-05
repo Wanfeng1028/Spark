@@ -44,6 +44,8 @@ describe('resolveThemeAccent：亮色回落闸', () => {
     for (const w of [...WALLPAPERS, ...STATIC_WALLPAPERS]) {
       const light = resolveThemeAccent(w, false)
       const dark = resolveThemeAccent(w, true)
+      expect(light, w.id).not.toBeNull()
+      expect(dark, w.id).not.toBeNull()
       expect(contrastRatio(light?.accent ?? '', WHITE), w.id).toBeGreaterThanOrEqual(4.5)
       expect(contrastRatio(dark?.accent ?? '', DARK), w.id).toBeGreaterThanOrEqual(4.5)
     }
