@@ -29,6 +29,7 @@ import * as acp from '@agentclientprotocol/sdk'
 import { Engine, Logger, loadConfig, type EngineConfig } from '@spark/engine'
 import { createInProcessClient } from '@spark/sdk/inprocess'
 import type { SparkClient } from '@spark/sdk'
+import type { Transport } from '@spark/protocol'
 import type { SessionId, SparkEventEnvelope, SparkEventType } from '@spark/protocol'
 
 /** 信封类型守卫（compaction.ts 同款）：switch(e.type) 不传播 data 联合，必须 if 收窄 */
@@ -51,13 +52,13 @@ interface AcpSession {
   turnStop?: ((s: 'end_turn' | 'cancelled') => void) | undefined
 }
 
-class SparkAcpAgent {
+class SparkAcpAgent<T extends Transport = Transport> {
   private readonly sessions = new Map<string, AcpSession>()
   /** ACP sessionId（字符串）→ Spark SessionId（品牌 id）映射 */
   private readonly sidMap = new Map<string, SessionId>()
 
   constructor(
-    private readonly client: SparkClient,
+    private readonly client: SparkClient<T>,
     private readonly log: { info(msg: string, fields?: Record<string, unknown>): void },
   ) {}
 
@@ -247,7 +248,8 @@ export async function runAcpServer(): Promise<void> {
     spark: { ...config.spark, engine: { ...config.spark.engine, permissionTimeoutMs: clamped } },
   }
   const root = join(homedir(), '.spark')
-  const engine = new Engine({ config: engineConfig, logger: new Logger({ root, stdout: false }) })
+  const logger = new Logger({ root, stdout: false })
+  const engine = new Engine({ config: engineConfig, logger })
   const client = createInProcessClient(engine)
   let closed = false
   const shutdown = (): void => {
@@ -263,14 +265,14 @@ export async function runAcpServer(): Promise<void> {
   process.on('SIGTERM', shutdown)
   await engine.ready()
   const agent = new SparkAcpAgent(client, {
-    info: (msg, fields) => engine.logger.info(msg, fields),
+    info: (msg, fields) => logger.info(msg, fields),
   })
   const input = Writable.toWeb(process.stdout)
   const output = Readable.toWeb(process.stdin)
   const stream = acp.ndJsonStream(input as never, output as never)
   // AgentContext 装入（request 反向通道——requestPermission/notify 消费）
   const connected = acp
-    .agent({ name: 'spark', version: '1.0.0' })
+    .agent({ name: 'spark' })
     .onRequest('initialize', (ctx) => agent.initialize(ctx.params))
     .onRequest('session/new', (ctx) => agent.newSession(ctx.params))
     .onRequest('authenticate', (ctx) => agent.authenticate(ctx.params))
