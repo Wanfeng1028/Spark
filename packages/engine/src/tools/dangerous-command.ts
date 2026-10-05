@@ -168,9 +168,9 @@ export function judgeBashCommand(source: string): DangerVerdict {
       return { kind: 'unanalyzable', reason: `含 shell 元字符 ${ch}——展开结果不可静态判定` }
     }
   }
-  // tree-sitter d.ts 是 `export = Parser`（default class）——类型面取 typeof 模块
-  // 的实例构造器；Parser 命名空间内没有再导出 Parser（TS2694 判例）。
-  let parser: InstanceType<(typeof import('tree-sitter'))['Parser']> | undefined
+  // tree-sitter d.ts 是 `declare module + export = Parser`——类型面用
+  // import default 形态（Parser 类即模块本身；命名空间内取 Parser 是 TS2694/TS2339 判例）
+  let parser: import('tree-sitter') | undefined
   let Bash: unknown
   try {
     // 动态 require：原生模块降级面（加载失败 = 全部不可分析，安全语义不降级）
