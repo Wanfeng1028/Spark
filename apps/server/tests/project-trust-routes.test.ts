@@ -7,12 +7,24 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
+import type { ServerFixture } from './helpers.js'
 import { makeServer } from './helpers.js'
 
 const HOOKS_DECL = JSON.stringify({
   version: 1,
   hooks: { 'session.start': [{ command: 'echo hi' }] },
 })
+
+/** updateSettings 写盘后 loadConfig 全量重载——磁盘须有 models.json（同 settings.test 口径） */
+function seedModelsJson(fixture: ServerFixture): void {
+  writeFileSync(
+    join(fixture.root, 'models.json'),
+    JSON.stringify({
+      providers: { fake: { apiKeyEnv: null } },
+      defaultModel: { provider: 'fake', model: 'fake-chat', contextWindow: 100_000 },
+    }),
+  )
+}
 
 describe('GET/POST /api/hooks/project-trust（CK-2 批 2 ⑤）', () => {
   test('无声明：hasHooks=false 恒 untrusted，POST applied=false 不是错误', async () => {
@@ -71,6 +83,7 @@ describe('GET/POST /api/hooks/project-trust（CK-2 批 2 ⑤）', () => {
 
   test('策略档切换：PUT settings hooks.projectTrust.mode 后 GET 即回新档（settings rebuild 热生效）', async () => {
     const server = await makeServer()
+    seedModelsJson(server)
     const put = await server.app.inject({
       method: 'PUT',
       url: '/api/settings',

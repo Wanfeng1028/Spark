@@ -190,15 +190,17 @@ function applyTheme(t: Theme): void {
 /**
  * 主题 accent 注入（19.43 批 2 尾片；DESIGN §12.9 边界① 唯一放行面 + 对比度闸）：
  * 壁纸激活时把过闸点睛色写进 --spark-accent / --send-accent(-hover) 内联变量——
- * 优先级高于 tokens.css 的类值；'none' 或闸不达（解析 null）时**移除**内联变量，
- * 回落与未装该功能逐像素一致（禁"关闭还留着上次注入"的残留态）。
+ * 优先级高于 tokens.css 的类值；'none' 或闸不达（解析 null）时**清空**内联变量
+ * （setProperty 空值 = CSSOM 删除语义），回落与未装该功能逐像素一致
+ * （禁"关闭还留着上次注入"的残留态）。
  */
+const ACCENT_VARS = ['--spark-accent', '--send-accent', '--send-accent-hover'] as const
+
 function applyWallpaperAccent(wallpaper: WallpaperId, theme: Theme): void {
   const root = document.documentElement
   const clear = (): void => {
-    root.style.removeProperty('--spark-accent')
-    root.style.removeProperty('--send-accent')
-    root.style.removeProperty('--send-accent-hover')
+    // setProperty(k, '') 即移除该声明（CSSOM 标准语义）——不依赖 removeProperty
+    for (const k of ACCENT_VARS) root.style.setProperty(k, '')
   }
   const w = wallpaperOf(wallpaper)
   if (w === null) {
