@@ -367,7 +367,9 @@ def check_transport_count(root: Path, report: Report) -> None:
         report.errors.append("Transport 接口解析失败——检查 packages/protocol/src/transport.ts 是否被重命名")
         return
     # 命中「Transport 两位数 方法」类表述的行；数字 ≠ 实数即 error。
-    pattern = re.compile(r"Transport\s*(\d+)\s*方法|Transport\s*接口的?\s*(\d+)\s*个?方法")
+    # 反引号容忍（doc/13 G 系待议收口）：`Transport` 接口的 N 个方法 这类带代码标记的
+    # 表述同样锚定——此前反引号打断匹配导致 doc/13 的一处漂移数字逃过检查。
+    pattern = re.compile(r"Transport`?\s*(?:接口`?\s*的?\s*)?(\d+)\s*个?方法")
     for md in sorted((root / "doc").glob("*.md")):
         for lineno, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1):
             for hit in pattern.finditer(line):

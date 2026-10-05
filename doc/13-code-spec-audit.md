@@ -231,7 +231,7 @@ try {
 
 ### 已核查无发现（四端共享核）
 
-- **MockTransport 对等完整**：把 `Transport` 接口的 93 个方法与 `apps/web/src/transports/mock.ts`、`packages/protocol/src/transport-node.ts`、`packages/sdk/src/inprocess.ts` 三方逐名比对，**无任何缺失**。这是 §1.1 里最容易漂的一条，实测干净。
+- **MockTransport 对等完整**：把 `Transport` 接口的 95 个方法（v1.0 审计时 93，CK-2 ⑤ 信任面两法后 95）与 `apps/web/src/transports/mock.ts`、`packages/protocol/src/transport-node.ts`、`packages/sdk/src/inprocess.ts` 三方逐名比对，**无任何缺失**。这是 §1.1 里最容易漂的一条，实测干净。
 - reducer 用例覆盖：`apps/web/tests/applyEvent.test.ts` 1339 行，每种事件都有独立 describe/it。
 
 ---

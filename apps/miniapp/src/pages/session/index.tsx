@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import type { BaseEventOrig, ScrollViewProps } from '@tarojs/components'
-import type { AttachmentDto, RequestId, SessionDto } from '@spark/protocol'
+import type { AttachmentDto, RequestId, SessionDto, SessionSlice } from '@spark/protocol'
 import {
   connectionText,
   createSessionPageController,
@@ -68,6 +68,16 @@ const CLOSED_TEXT = '连接已停止：鉴权失败，请到设置页重新配�
 
 /** 贴底判定阈值（px）：距底 40 以内视作贴底 */
 const BOTTOM_THRESHOLD = 40
+
+/** 待办条文案（CK-4 ④）：未完成计数 + 进行中项优先展示；全完成返回空串（不渲染） */
+function todoBarText(todos: NonNullable<SessionSlice['todos']>): string {
+  const open = todos.filter((t) => t.status !== 'completed')
+  if (open.length === 0) return ''
+  const current = todos.find((t) => t.status === 'in_progress') ?? open[0]
+  return `待办 ${open.length}/${todos.length}${
+    current !== undefined ? `——进行中：${current.content}` : ''
+  }`
+}
 
 export default function SessionPage() {
   const t = useTheme()
@@ -403,6 +413,15 @@ export default function SessionPage() {
           <Text className="sp-meta" style={{ color: t.mutedForeground }}>
             后台任务 {slice.tasks.filter((task) => !task.done).length}/{slice.tasks.length} 运行中
             ——输出走 task_output 查询
+          </Text>
+        </View>
+      )}
+      {/* CK-4 ④ 四端待办面板收尾：slice.todos 只读条（null/全完成不渲染——禁假状态）；
+          进行中的排最前，模型经 todo_write 维护，端侧只读 */}
+      {slice.todos !== null && todoBarText(slice.todos) !== '' && (
+        <View className="sp-bar" style={{ backgroundColor: t.card }}>
+          <Text className="sp-meta" style={{ color: t.mutedForeground }}>
+            {todoBarText(slice.todos)}
           </Text>
         </View>
       )}

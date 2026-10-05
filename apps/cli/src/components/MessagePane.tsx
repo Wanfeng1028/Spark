@@ -119,6 +119,20 @@ export function MessagePane({ slice, maxLiveRows, header, staticKey = 0 }: Messa
           </Text>
         </Box>
       ) : null}
+      {/* 会话待办行（CK-4 ④ 四端面板收尾）：slice.todos 投影（null=本会话未用过清单、
+          全部完成两种情况都不渲染——禁假状态）；只列未完成项，进行中的优先展示 */}
+      {slice !== null &&
+      slice.todos !== null &&
+      slice.todos.some((t) => t.status !== 'completed') ? (
+        <Box marginLeft={2} marginRight={2}>
+          <Text color="gray">
+            ☑ 待办 {slice.todos.filter((t) => t.status !== 'completed').length}/
+            {slice.todos.length} ——{' '}
+            {(slice.todos.find((t) => t.status === 'in_progress') ??
+              slice.todos.find((t) => t.status !== 'completed'))?.content ?? ''}
+          </Text>
+        </Box>
+      ) : null}
     </Box>
   )
 

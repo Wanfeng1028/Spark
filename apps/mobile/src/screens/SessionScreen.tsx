@@ -31,7 +31,7 @@ import { useNavigation, useRoute } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import type { RouteProp } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import type { Delivery, FeedbackVote, PermissionPreset, RequestId } from '@spark/protocol'
+import type { Delivery, FeedbackVote, PermissionPreset, RequestId, SessionSlice } from '@spark/protocol'
 import {
   connectionText,
   createSessionPageController,
@@ -101,6 +101,16 @@ const PAGE_SIZE = 50
  * 19.17 起随界面语言取词）；closed 不入共享表的理由见 ui-copy.ts 头注释边界说明 1。
  */
 const CLOSED_TEXT = '连接已停止：鉴权失败，请到设置页重新配对'
+
+/** 待办条文案（CK-4 ④）：未完成计数 + 进行中项优先展示；全完成返回空串（不渲染） */
+function todoBarText(todos: NonNullable<SessionSlice['todos']>): string {
+  const open = todos.filter((t) => t.status !== 'completed')
+  if (open.length === 0) return ''
+  const current = todos.find((t) => t.status === 'in_progress') ?? open[0]
+  return `待办 ${open.length}/${todos.length}${
+    current !== undefined ? `——进行中：${current.content}` : ''
+  }`
+}
 
 /** 权限四档（§13.E；数据表 = protocol ui-copy PERMISSION_TIER_DEFS 单源派生——审计 B-4
  *  下沉，mobile 因此补齐 description/warn 位；Feather 图标映射随端） */
@@ -645,6 +655,11 @@ export function SessionScreen() {
           text={`后台任务 ${slice.tasks.filter((task) => !task.done).length}/${slice.tasks.length} 运行中——输出走 task_output 查询`}
           color={t.sparkAccent}
         />
+      )}
+      {/* CK-4 ④ 四端待办面板收尾：slice.todos 只读条（null/全完成不渲染——禁假状态）；
+          进行中的排最前，模型经 todo_write 维护，端侧只读 */}
+      {slice.todos !== null && todoBarText(slice.todos) !== '' && (
+        <BannerRow text={todoBarText(slice.todos)} color={t.sparkAccent} />
       )}
       {/* 计划模式细条（工单 16.3 → 19.27 升真控件）：数据源 = durable 事件投影的 slice.mode；
           点按开权限档位菜单（§13.E 四档 + /plan exit），不再是只有解释没有出口的横幅。
