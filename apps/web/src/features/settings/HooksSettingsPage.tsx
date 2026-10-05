@@ -13,7 +13,12 @@ import { Button } from '@/components/ui/button'
 import { SettingGroupCard, SettingRow } from './SettingRow'
 import { Textarea } from '@/components/ui/textarea'
 
-const HOOK_POINTS: { key: keyof SettingsHooks; label: string }[] = [
+/** web 展示的四个挂点（键写死为字面联合——hooks 段的 projectTrust 配置键不入迭代，
+ *  加新挂点时这里显式补；CK-2 ⑤ projectTrust.mode 入段后 keyof 直取会把配置键混进联合） */
+const HOOK_POINTS: {
+  key: 'turn.before' | 'turn.after' | 'permission.resolved' | 'tool.completed'
+  label: string
+}[] = [
   { key: 'turn.before', label: '回合开始前' },
   { key: 'turn.after', label: '回合结束后' },
   { key: 'permission.resolved', label: '审批裁决后' },

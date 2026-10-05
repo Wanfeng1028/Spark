@@ -522,7 +522,8 @@ export const SettingsHooksSchema = z.strictObject({
    * qwen=gemini 加固（旧版无指纹的 trusted 条目强制重审）。消费面 = 引擎构造期扫描与
    * settings rebuild（PUT /api/settings 即重扫重挂——经 API 改档**热生效**；手工改
    * spark.json 需重启，与既有 hooks 段同口径）。仅作用于 `<cwd>/.spark/hooks.json`
-   * 项目声明的装载判定，用户级 hooks 不经此门。
+   * 项目声明的装载判定，用户级 hooks 不经此门；**项目声明自身的 projectTrust 键无效**
+   * （scope 不对称——克隆仓库不得自选信任档，Qwen 判例）。
    */
   'projectTrust': z
     .strictObject({
