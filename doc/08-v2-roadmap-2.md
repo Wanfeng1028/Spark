@@ -38,6 +38,7 @@
 | v1.30 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"go on"指令持续） | **CK-1 批 2 数据面三片 CI 绿验收收官**（run 37173002829：词表 35 种全链 test/eval/build 通过）。沿途六轮 CI 修复闭环：穷举样例表补 task.progress（编译期防线按设计接住）、backgrounded 变量补定义、doc/03 副锚点与 official eventTypes 事实常量 34→35、applyEvent 夹具补 notified、events.test 计数断言 34→35（第五处计数漏改——掩盖链三轮 typecheck bail 后 test 首裁暴露）。四端任务卡渲染留卡（纯 UI 片）。与 doc/02 v4.204 同批。本批本机零验证，CI 裁决 |
 | v1.31 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"继续"指令） | **CK-1 批 2 四端任务卡渲染交付，批 2 全卡收口**（web TasksDialog + 顶栏入口 / CLI 灰行 / mobile+miniapp 只读条；slice.tasks 数据面批 2 已就绪，本片纯渲染）——卡内勾选见 §2 CK-1（CI 绿 run 37175161712）。沿途修复：幂等补丁漏带 import、TaskRow 去 export、CLI 行转义层级收敛。本批本机零验证，CI 裁决 |
 | v1.32 | 2026-10-04 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"继续"指令） | **CK-2 批 2 ④ 交付（PermissionRequest hook 与审批竞速；doc/12 #3 落地）**——卡内勾选见 §2 CK-2（CI 绿 run 37205319569，permission.test 竞速 4 例 + 全量回归）。**可抄挖掘批（CK-1~17）可执行工单至此全部清零**：余 CK-2 ⑤ 项目层信任门待 ZC-Q3 拍板。沿途修复四轮：abortCount 语义错位（done 结算置空 raceAbort）、TS2412 raceAbort | undefined、inprocess Promise.resolve、AGENTS 行数记录 3161 对账（不变量闸拦截）。与 doc/02 v4.205 同批。本批本机零验证，CI 裁决 |
+| v1.33 | 2026-10-05 | AI 编写：ZCode CLI · Deepseek-v4-flash（f89eae62-6ed9-421f-95e7-26fcb2b07cb0/Deepseek-v4-flash）；发起与拍板：晚风（Wanfeng1028，"把 kimicode 加入相关文档与参考体系，另开一个新工单去分析它开源代码的可借鉴与可复用部分，交给我裁决"指令） | **参考体系第 13 项 Kimi Code 入册 + CK-18 工单卡建档**（本批按用户指示只立档不调研，"先写文档"）：CK-18 交付物 = doc/14-kimi-code-analysis.md（可借鉴 + 可复用代码逐条清单），结论只能由晚风逐条裁决、不自动采纳；同批回填 AGENTS v1.80（§5 句尾 + §8.1 表）、doc/01 v2.2（§10 #13 行）、doc/02 v4.206（§9 参考体系 12→13，速查表 31 条锚点不动）、README.md v1.54（索引行 11→13 个）。本批纯文档零代码，CI 裁决 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -68,6 +69,7 @@
 | CK-15 | @-mention 文件/目录上下文注入 | Gemini CLI | P2 | S |
 | CK-16 | ACP 服务端（编辑器标准协议接入） | MiniMax（协议重写） | P3 | M |
 | CK-17 | 工具声明式安全六维（一处声明处处消费） | doc/12 §12 #6（ZCode） | P2 | M |
+| CK-18 | Kimi Code 开源代码分析（可借鉴 + 可复用清单，交晚风逐条裁决） | Kimi Code（2026-10-05 入参考体系） | P2 | M |
 
 ## 2. 工单卡
 
@@ -212,6 +214,16 @@
 **Spark 缺口**：ToolDefinition 只有 parallelizable 布尔 + permission.action；风险分级/破坏性/并发安全靠约定俗成，无结构化消费方。
 
 **内容**：ToolDefinition 增六维声明位；① 调度：并行分组按 concurrentSafe/destructive 判定（替代现布尔，迁移兼容）；② 权限：riskLevel 进审批 reason 与审计；③ 超时：defaultMs/maxMs/allowCallOverride 统一进 timeout 档。**验收**：声明位编译期封闭断言 + 调度/权限消费单测 + 既有工具逐个补声明的迁移清单。**依赖**：无；是后续任何工具面工单的地基。**成本**：M。**✅ 批 1 已交付（2026-10-01，doc/02 v4.186）**——① `ToolSafety` 接口（readOnly/destructive/concurrentSafe/sideEffectScope/riskLevel 五维；**timeout 三元组不落声明位**——spark.json toolTimeoutMs 与 bash timeoutMs 已承担，留后续）；② 调度消费：group() 里 concurrentSafe === false 降级串行（**迁移兼容**：未声明 safety 的工具按 parallelizable 原语义逐字节不变）；③ 迁移补声明——read/grep（readOnly/concurrentSafe/none/low）、bash（external/high，destructive 不可断言不声明）、edit（workspace/medium）、computer.×8（destructive/concurrentSafe false/external/high）、todo_read/task_output（readOnly 并发安全）等；④ **批 2 已交付（2026-10-01，doc/02 v4.187）**——riskLevel 消费：PermissionCheck 增 riskLevel 透传（管线从 def.safety 读）→ permission.asked 的 reason 尾部附加（**仅 high**：`〔风险档：高〕`，medium/low 防噪声不加）。sideEffectScope 消费留后续（审计 schema 变更需对账）。单测 2 例。
+
+### CK-18 Kimi Code 开源分析：可借鉴 + 可复用清单（P2，待调研）
+
+**出处**：晚风指令（2026-10-05，"把 kimicode 加入相关文档与参考体系，另开一个新工单去分析它开源代码，总结它的一些可借鉴的部分和能复用的代码，交给我来决定"）。本卡随参考体系第 13 项入册（AGENTS §5 句尾 + doc/01 §10 #13 行）；**调研不在此批进行**（用户指示"先写文档，暂未开始调研"），本卡只立档标进度。
+
+**调研内容**：分析 Kimi Code（月之暗面，用户近期常用）开源仓库，产出**可借鉴清单**（机制/思想，写清楚做什么、Spark 现有差距、怎么落）与**可复用代码清单**（文件级引用 + 许可证核验，遵守 AGENTS §6.2 保留版权声明）；每条附"采纳 / 不采纳"候选结论。**可借鉴与可复用的每条清单交给用户裁决**——是否采纳不得由代理自行决定（用户原话："交给我来决定"）。
+
+**调查方式**：gh api/raw 在线直读，禁止整仓下载（§2.12/§2.3a）；许可证先核仓库 LICENSE（MIT/Apache-2.0 边界），再读与可抄面相关的源码文件。
+
+**交付物**：doc/14-kimi-code-analysis.md（逐条清单报告：可借鉴 N 条 / 可复用 M 条，每条附源码路径与估价）。**验收**：清单落盘 + 交晚风逐条裁决；需用的条目拍板后另立工单实施（本卡不改代码）。**依赖**：无。**成本**：M。**⏳ 进度**：未开工（仅建档）。
 
 ## 3. 阶段十九追加批 M：19.48 中文长文去 AI 味规则层与硬检查扩展（2026-09-30 立项）
 

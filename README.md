@@ -85,7 +85,7 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 | [AGENTS.md](./AGENTS.md)                                     | AI 代理工作规范——任何 AI 助手进入本仓库先读；硬性约定 + 规则放置规范                            |
 | [ARCHITECTURE.md](./ARCHITECTURE.md)                         | 架构总览 · 关键决策记录（ADR）· 代码"AI 生成味"黑名单（§9，后端/通用）                          |
 | [DESIGN.md](./DESIGN.md)                                     | 视觉与交互规则——桌面应用感（对标 Codex/ZCode）· token/密度 · "AI 生成风"黑名单（§12）· 组件 DoD |
-| [doc/01-research-report.md](./doc/01-research-report.md)     | 调研档案：11 个参考项目源码级调研 + 前后端生态选型                                              |
+| [doc/01-research-report.md](./doc/01-research-report.md)     | 调研档案：13 个参考项目源码级调研 + 前后端生态选型                                              |
 | [doc/02-development-plan.md](./doc/02-development-plan.md)   | 完整开发方案：协议 / 引擎 / 前端 / 服务端实现级规格 + 阶段路线图与工单表                        |
 | [doc/03-frontend-approach.md](./doc/03-frontend-approach.md) | 前端专题：参考实现分析 · 我方前端思路 · 与传统 Web 开发的差异                                   |
 | [doc/05-completion-audit.md](./doc/05-completion-audit.md)   | 完成度审计（阶段三后）：源码级核查实测结果 · 缺口清单 G1–G7 · 动工顺序                          |
@@ -186,6 +186,7 @@ pnpm eval                   # eval 回归（确定性场景集；--real 可选�
 | v1.51 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续做工单"指令） | 当前状态行同步（工单 19.35 审查模式交付）：下一程行登记 19.35 已交付（web「审查」浮层——多文件差异双栏 + 审批批量放行/拒绝；checkpoint shadow git 只读聚合）。与 doc/02 v4.170、doc/08 v2.13、ARCHITECTURE v1.68（D56）、DESIGN v2.51（§13.L.9）同批 |
 | v1.52 | 2026-10-01 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"你去做新的工单"指令） | 架构图事件词表 28→34 种（CK-1 批 1：task.started/completed 后台任务平面）；CHANGELOG [Unreleased] 补后台任务第一批条目。与 doc/02 v4.171、AGENTS v1.72、ARCHITECTURE v1.69 同批 |
 | v1.53 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"go on"指令） | 架构图事件词表 34→35 种（CK-1 批 2 尾片：task.progress live 后台任务输出尾随）。与 doc/02 v4.204、AGENTS v1.75、ARCHITECTURE v1.73 同批 |
+| v1.54 | 2026-10-05 | AI 编写：ZCode CLI · Deepseek-v4-flash（`f89eae62-6ed9-421f-95e7-26fcb2b07cb0/Deepseek-v4-flash`）；发起：晚风（Wanfeng1028，"把kimicode加入相关文档与参考体系，另开新工单分析其开源代码，交给用户裁决"；"先写文档，暂不调研"） | 参考项目计数 11 → 13 个（第 12 项 ZCode + 第 13 项 Kimi Code 2026-10-05 入册）；Kimi 本批只立档不调研，CK-18 工单在 doc/08-v2-roadmap-2 §2，交付物 doc/14-kimi-code-analysis.md 待调研。与 AGENTS v1.80、doc/01 v2.2、doc/02 v4.206 同批。本批纯文档零代码，本机零验证 |
 | v1.49 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起与拍板：晚风（Wanfeng1028，对比 x.ai/grok 后拍板"可以修改设计规则。英文优先，官网做好中英文的切换和适配，以及官网的多端适配"指令） | 当前状态行同步（工单 19.47 批 1）：阶段十九 46→47 工单、批次 A→K 改 A→L（L 批 = 官网排印对齐与中英双语）；官网排印体系对齐 xAI——字体栈西文优先（Inter Variable 管拉丁）、display 字重降级 + 负字距阶梯、假 mono 眉题修真，规则侧 DESIGN v2.42 新增 §14 官网排印系统；批 2 中英双语与批 3 多端走查登记待做。与 AGENTS v1.67、doc/02 v4.144、doc/08 v2.03 同批。本批本机零验证，CI 裁决 |
 
 </details>

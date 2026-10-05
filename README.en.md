@@ -86,7 +86,7 @@ packages/engine     InputQueue(now/steer/queue) → RunLoop → ToolPipeline
 | [AGENTS.md](./AGENTS.md)                                     | AI coding-agent rules — read this first when an AI assistant enters the repo                    |
 | [ARCHITECTURE.md](./ARCHITECTURE.md)                         | Architecture overview · ADRs · backend "AI-flavored code" blacklist (§9)                        |
 | [DESIGN.md](./DESIGN.md)                                     | Visual & interaction rules — desktop feel · tokens/density · "AI-generated look" blacklist (§12) · component DoD |
-| [doc/01-research-report.md](./doc/01-research-report.md)     | Research archive: source-level studies of 10 reference projects + ecosystem choices             |
+| [doc/01-research-report.md](./doc/01-research-report.md)     | Research archive: source-level studies of 13 reference projects + ecosystem choices             |
 | [doc/02-development-plan.md](./doc/02-development-plan.md)   | Full development plan: protocol / engine / frontend / server specs + stage roadmap & work orders |
 | [doc/05-completion-audit.md](./doc/05-completion-audit.md)   | Completion audit: source-level verification · gap list G1–G7                                    |
 | [doc/06-testing-plan.md](./doc/06-testing-plan.md)           | Test plan: five-layer pyramid · CI pipeline · performance baselines · walkthrough templates     |
