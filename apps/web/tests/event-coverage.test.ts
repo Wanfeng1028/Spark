@@ -72,7 +72,11 @@ function fresh(): ProjectionState {
 }
 
 /** 构造信封：live-only 不带 seq（§4.4 live 三类不落盘，与引擎 emit 口径一致） */
-function envelope(type: SparkEventType, data: unknown, seq?: number): SparkEventEnvelope<SparkEventType> {
+function envelope(
+  type: SparkEventType,
+  data: SparkEventEnvelope<SparkEventType>['data'],
+  seq?: number,
+): SparkEventEnvelope<SparkEventType> {
   const e: SparkEventEnvelope<SparkEventType> = {
     id: ids.event(`evt_cov${String(seq ?? 0).padStart(4, '0')}`),
     sessionId: SID,
