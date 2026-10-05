@@ -43,6 +43,7 @@
 | v1.34 | 2026-10-05 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"继续"指令全程） | **CK-2 ⑤ trust 提示面第一片交付**——引擎门面 `projectTrustStatus()`/`setProjectTrust()` + REST GET/POST `/api/hooks/project-trust` + `ProjectTrustStatusDto` 协议面 + Transport 三通道对等（HttpTransport/web mock/SDK 两入口）+ openapi 重跑（82 路径/66 组件）+ web 设置页「项目钩子信任」行（三态动作；信任重启生效如实标注）+ server 路由测试 3 例。卡内勾选见 §2 CK-2。**留卡**：QuestionBoard 会话内信任提问对接、qwen 档运行中 pull 不自动 arm、`hooks.projectTrust.mode` gemini/qwen 切换接线。本批本机零验证（例外：openapi 生成器重跑是工作产物），CI 裁决 |
 | v1.35 | 2026-10-05 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"继续"指令全程） | **CK-2 全卡收口**：hooks.projectTrust.mode 三档接线（schema+引擎三处消费+设置页选择器；经 settings rebuild 热生效）+"qwen 运行中 pull 不自动 arm"判已由设计满足（运行中从不静默 arm）+ 契约生成物重跑（154/1512——ce13d83 漏跑 gen:contract 判例续记）。卡内勾选见 §2 CK-2。与 doc/02 v4.212 同批。本批本机零验证（例外：契约生成器重跑是工作产物），CI 裁决 |
 | v2.16 | 2026-10-05 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，"继续"指令） | **§5D 19.41 收口（V2-38 显示待办翻案落地）**：showTodo 设置字段 + web TodoBar 常显条（slice.todos 只读投影；null/全完成/开关关不渲染）+ GeneralPage 头注判词更新；顺带 19.42 核对登记（A 方案实现与守卫单测已入仓、行文滞后）。与 doc/02 v4.214 同批。本批本机零验证，CI 裁决 |
+| v1.36 | 2026-10-05 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，CK-18 "分析它开源代码的可借鉴与可复用部分，交给我来决定"指令）；调研由后台子代理执行（gh api 在线直读 35 文件，§2.12/§2.3a 合规） | **CK-18 调研交付**：doc/14-kimi-code-analysis.md 落盘（295 行；可借鉴 12 / 可复用 9 / 不可取 9 / 对照 20 行 / 裁决汇总表），全部条目**待晚风逐条裁决**、不自动采纳。卡内勾选见 §CK-18。本批纯文档零代码，本机零验证，CI 裁决 |
 | v1.0 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与决策：晚风（Wanfeng1028，"能抄的全部写进工单"指令） | 初稿：可抄挖掘批 **CK-1~17** 立项。来源 = 四路子代理在线调研（全程 gh api/raw 直读，§2.12 禁克隆合规）：claude-code-analysis（AGENTS §6.1 v1.69 翻案后纳入）、MiniMax-AI/minimax-code、pi（earendil-works/pi）、deepseek-ai/deepseek-harness、opencode（anomalyco/opencode，已从 sst 迁移）、google-gemini/gemini-cli、openai/codex、xai-org/grok-build、openclaw/openclaw、qwenlm/qwen-code。doc/12 §12 遗漏未入池两条一并收录：hook-broker 竞速（并入 CK-2）、工具声明式安全六维（CK-17）。评估后不入池六项判决见附录。与 AGENTS v1.70、doc/02 v4.156、doc/08 v2.08 同批。本批纯规划零代码，本机零验证，CI 裁决 |
 
 ## 0. 批次说明
@@ -227,7 +228,7 @@
 
 **调查方式**：gh api/raw 在线直读，禁止整仓下载（§2.12/§2.3a）；许可证先核仓库 LICENSE（MIT/Apache-2.0 边界），再读与可抄面相关的源码文件。
 
-**交付物**：doc/14-kimi-code-analysis.md（逐条清单报告：可借鉴 N 条 / 可复用 M 条，每条附源码路径与估价）。**验收**：清单落盘 + 交晚风逐条裁决；需用的条目拍板后另立工单实施（本卡不改代码）。**依赖**：无。**成本**：M。**⏳ 进度**：未开工（仅建档）。
+**交付物**：doc/14-kimi-code-analysis.md（逐条清单报告：可借鉴 N 条 / 可复用 M 条，每条附源码路径与估价）。**验收**：清单落盘 + 交晚风逐条裁决；需用的条目拍板后另立工单实施（本卡不改代码）。**依赖**：无。**成本**：M。**✅ 调研交付（2026-10-05，d77c299）**——doc/14 落盘（295 行）：全树 4436 文件列目录 + **精读 35 个关键文件**（全部 gh api raw 直读，未克隆未下载），可信度 A/B/C 三级标注；产出**可借鉴 12 条**（设计思想级）/**可复用 9 条**（代码级带 S/M/L 估价）/不可取 9 条/与 Spark 机制对照 20 行/裁决建议汇总表。**头部三条**：① `dangerous-command-ask.ts`（tree-sitter-bash 语法树级危险命令判定，穿透 sudo/sh -c/eval，不可分析降级 ask）；② `path-access.ts` 敏感文件硬防线（.env/SSH key 及 .bak/.old/.pem 变体——Spark 缺此层）；③ `fullCompaction/strategy.ts` 压缩安全切分点算法（零依赖纯算法）。**差异化确认**：Spark ZC-5 的 read-before-write（E_NOT_READ/E_STALE）是 kimi 没有的；kimi 路径守卫默认档比 resolveInRoot 宽松（已标"不可反向松动"）。**全部条目待晚风逐条裁决——拍板后另立工单实施，本卡不改代码**。
 
 ## 3. 阶段十九追加批 M：19.48 中文长文去 AI 味规则层与硬检查扩展（2026-09-30 立项）
 
