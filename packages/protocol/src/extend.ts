@@ -3,6 +3,10 @@
  * 插件经 registerEventType 注册新事件类型（zod schema），EventBus/parseEnvelope/
  * SessionStore 读端统一走 eventSchemaOf——扩展事件与内置 35 种同一校验路径。
  * 编译期扩展走 declaration merging（SparkEventMap）；本注册表是 JS 插件的运行时对位。
+ *
+ * 测试责任边界（审计 doc/13 G-4 显式登记）：扩展事件**不进**静态词表，因此不在
+ * §2.8「逐一单测」/ 契约生成物 / web event-coverage 守卫的覆盖面内——其 schema
+ * 与 reducer 行为的单测责任归扩展作者；本仓对扩展事件只保证校验与持久化路径同一。
  */
 import type { z } from 'zod'
 import { EventSchemas } from './events.js'

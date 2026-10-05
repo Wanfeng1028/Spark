@@ -8,7 +8,6 @@
 export {
   TIMESTAMP_GAP_MS,
   buildSessionRows,
-  lastUserTextOf,
   shouldInsertTimestamp,
 } from '@spark/protocol'
 export type { SessionRow } from '@spark/protocol'

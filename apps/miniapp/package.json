@@ -11,6 +11,7 @@
     "framework": "React"
   },
   "scripts": {
+    "build": "taro build --type weapp",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "dev": "taro build --type weapp --watch",

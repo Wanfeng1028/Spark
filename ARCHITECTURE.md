@@ -72,6 +72,7 @@
 | v1.71 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，阶段十九未开工工单批开工指令） | **D21 修订注记（19.29 收口批；doc/02 v4.192 同批）**：小程序分发中继三档评估判决"短期不接、接时 C→B"（判决表在 apps/miniapp/README.md），中继落地定跨包工单；语音听写同判为中继附带项。事件词表不变 |
 | v1.72 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与指令：晚风（Wanfeng1028，同 v4.190 圈定批） | **新增 D59 内置终端（19.32 批 1；doc/02 v4.195 同批）**：spawn 参数 main 进程单源（shellProfileOf Git Bash→cmd.exe）+ preload/IPC 白名单五通道设计 + pty 树杀随窗 + xterm 渲染 desktop 复用 + 安全清单六条（S1–S6，实现批交评审）；批 1 = 判据 + 测试 6 例 + 本 ADR，批 2 = 依赖与实现一体落地。事件词表不变 |
 | v1.73 | 2026-10-03 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"go on"指令） | 事件模型行 34→35 种（CK-1 批 2 尾片：task.progress live-only——后台任务输出尾随，live-only 运行时对位 extend.ts 同改）。与 doc/02 v4.204、AGENTS v1.75、README v1.53 同批 |
+| v1.74 | 2026-10-05 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"继续"指令全程） | **§硬闸表 no-console 行措辞精确化（审计 D-2 落地）**：engine 半边已由 eslint 块（packages/engine/src，tests/scripts 豁免）把守，本批补 server 半边（apps/server/src，豁免入口 index.ts 的启动终态打印——logger 未就绪的 process.exit(1) 前人话）；"白名单：CLI 入口"措辞作废——实测 apps/cli/src 零 console（一律 process.stdout.write），无需豁免。与 doc/13-code-spec-audit v1.1、doc/02 v4.209 同批 |
 | v1.66 | 2026-09-25 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"已经完成的工单有问题的要修复"指令）；依据：doc/11 §4.1 P0 | **D48 补安全前提 + D40 收紧面扩容注记（doc/11 LA-01/02/03 收口；doc/02 v4.122 同批）**：项目层按会话 cwd 惰性建层 + 未信任整层停用 + 家目录撞路径不设层 + 固化/级联按会话项目层走；evaluate 层间 deny 优先；trust 收紧面 2→5 类。详见 D48 补记。本机零验证，CI 裁决 |
 
 ---
@@ -641,7 +642,7 @@ pi 包 0.x（隔离单点+锁版本）；AI Elements 面向 Next.js（copy-in �
 | floating promise                          | `@typescript-eslint/no-floating-promises`             |
 | 未引用导出/依赖                           | **knip ✅ 已接入且导出面已清零（工单 14.1 二/三批）**：根 `knip.jsonc`（每处 entry/ignore 原地写理由）+ `pnpm knip` + ci.yml 在 lint 后独立一步；`include` 已含 **exports/types**（第三批起）且零发现——新增导出要么被消费要么在裁决表里留理由。裁决与处置全表见 doc/02 §4.6.3                                      |
 | `TODO(ai)`、被注释的代码块                | grep 评审项                                           |
-| 裸 `console.*`（engine/server 内）        | ESLint `no-console`（白名单：CLI 入口）               |
+| 裸 `console.*`（engine/server 内）        | ESLint `no-console`（D-2 落地：白名单 = server 入口 index.ts 启动终态打印；CLI 无 console，一律 process.stdout.write） |
 | 注释密度异常（函数体注释行占比过高）      | 评审项                                                |
 
 **调研来源**：

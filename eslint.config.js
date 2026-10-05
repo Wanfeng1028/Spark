@@ -139,5 +139,15 @@ export default tseslint.config(
       'no-console': 'error',
     },
   },
+  {
+    // D-2（doc/13-code-spec-audit P2）：ARCHITECTURE 硬闸口径"裸 console（engine/server 内）"
+    // 的 server 半边落地——白名单只有入口 index.ts 的启动终态打印（logger 未就绪的
+    // process.exit(1) 前人话）。CLI 无 console（一律 process.stdout.write），无需豁免。
+    files: ['apps/server/src/**/*.ts'],
+    ignores: ['apps/server/src/index.ts'],
+    rules: {
+      'no-console': 'error',
+    },
+  },
 )
 
