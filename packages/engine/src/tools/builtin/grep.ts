@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition, ToolOutput } from '../definition.js'
 import { resolveInRoot } from '../definition.js'
-import { assertNotSensitive } from '../sensitive-path.js'
+import { assertNotSensitive, isSensitiveFile } from '../sensitive-path.js'
 
 /** 缺省命中上限；上限封顶 200（防一次巨响应挤占上下文） */
 const DEFAULT_MAX_RESULTS = 50
@@ -69,8 +69,10 @@ export const grepTool: ToolDefinition<GrepInput> = {
   safety: { readOnly: true, concurrentSafe: true, sideEffectScope: 'none', riskLevel: 'low' },
 
   async execute(ctx: ToolContext, input: GrepInput): Promise<ToolOutput> {
-    // 敏感文件硬防线（doc/14 #3.6 / AGENTS §2.0）：越界闸之前先泄密闸
-    assertNotSensitive(input.path)
+    // 敏感文件硬防线（doc/14 #3.6 / AGENTS §2.0）：越界闸之前先泄密闸；
+    // path 可选（缺省 '.'=整目录）——显式给定时判目标本身；目录扫描的单文件
+    // 敏感跳过在 scanFile 内做（与 E_PATH_OUTSIDE 同口径：目录级先过、逐文件再查）
+    if (input.path !== undefined) assertNotSensitive(input.path)
     let regex: RegExp
     try {
       regex = new RegExp(input.pattern)
@@ -90,6 +92,8 @@ export const grepTool: ToolDefinition<GrepInput> = {
 
     const scanFile = async (absFile: string, relFile: string): Promise<void> => {
       if (truncated) return
+      // 敏感文件跳过（目录扫描路径：目标显式给定时已在 execute 首行判过）
+      if (isSensitiveFile(relFile)) return
       const info = await stat(absFile)
       if (!info.isFile() || info.size > MAX_FILE_BYTES) return
       const raw = await readFile(absFile, 'utf8')
