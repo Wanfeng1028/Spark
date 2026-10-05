@@ -618,6 +618,21 @@ export const OPENAPI_ROUTES: readonly OpenApiRouteMeta[] = [
     response: arr(ref('LspServerStatusDto')),
   },
   {
+    method: 'get',
+    path: '/api/hooks/project-trust',
+    summary: '项目层 hooks 信任状态（CK-2 批 2 ⑤；无 .spark/hooks.json 声明 hasHooks=false）',
+    tag: 'config',
+    response: ref('ProjectTrustStatusDto'),
+  },
+  {
+    method: 'post',
+    path: '/api/hooks/project-trust',
+    summary: '设置项目信任判定（CK-2 批 2 ⑤；无声明 applied=false——无可信任对象不是错误）',
+    tag: 'config',
+    body: obj({ trust: { type: 'string', enum: ['trusted', 'untrusted'] } }, ['trust']),
+    response: obj({ applied: { type: 'boolean' } }),
+  },
+  {
     method: 'post',
     path: '/api/lsp/install',
     summary: '安装内置清单语言服务器并写入 lsp.json（阶段十九 19.5 / ADR D47；未知 id 404，npm 失败 502）',

@@ -71,6 +71,8 @@ export async function makeServer(
     pairing?: { authRequired: boolean }
     /** LSP 安装器注入（阶段十九 19.5：路由测试注入假体免真实 npm） */
     lspInstaller?: LspInstaller
+    /** 引擎 cwd 注入（CK-2 批 2 ⑤：项目钩子信任探测目录；缺省 process.cwd()） */
+    cwd?: string
   },
 ): Promise<ServerFixture> {
   const root = await mkdtemp(join(tmpdir(), 'spark-server-'))
@@ -79,6 +81,7 @@ export async function makeServer(
   if (opts?.checkpoints === true) config.spark.engine.checkpoints = true // 工单 4.6 专项集成用例
   const engine = new Engine({
     root,
+    ...(opts?.cwd !== undefined ? { cwd: opts.cwd } : {}),
     gateway,
     config,
     ...(opts?.lspInstaller !== undefined ? { lspInstaller: opts.lspInstaller } : {}),

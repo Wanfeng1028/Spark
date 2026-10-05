@@ -6,7 +6,7 @@
  */
 import type { SparkEventEnvelope, SparkEventMap } from './events.js'
 import type { Delivery, PermissionReply, PermissionScope, ReasoningEffort } from './primitives.js'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, ReplyAllResultDto, ReviewDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, LinkPreviewDto, SkillDto, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CommandDto, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionRuleDto, ProjectTrustStatusDto, PromptsDto, PromptsUpdate, RebuildResultDto, RebuildVectorsResultDto, ReplyAllResultDto, ReviewDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SettingsDto, SettingsUpdate, LinkPreviewDto, SkillDto, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, TraceDto, TranscribeRequest, TranscribeResultDto, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from './api.js'
 import type { CheckpointId, EventId, RequestId, SessionId, TurnId } from './ids.js'
 
 export interface SendMessageOptions {
@@ -238,6 +238,10 @@ export interface Transport {
    * 未配置 oauth / 流程已在跑。
    */
   startMcpAuth(server: string): Promise<boolean>
+  /** GET /api/hooks/project-trust：项目层 hooks 信任状态（CK-2 批 2 ⑤；无声明 hasHooks=false） */
+  getProjectTrust(): Promise<ProjectTrustStatusDto>
+  /** POST /api/hooks/project-trust：设置项目信任判定（无 .spark/hooks.json 声明时 applied=false——无可信任对象，不是错误） */
+  setProjectTrust(trust: 'trusted' | 'untrusted'): Promise<{ applied: boolean }>
   /** POST /api/sessions/:id/attachments：上传图片（工单 12.2a；≤10MB image/* 白名单） */
   uploadAttachment(
     sessionId: SessionId,

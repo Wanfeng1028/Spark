@@ -29,7 +29,7 @@ import {
 } from '@spark/engine'
 import type { Engine, SessionHandle } from '@spark/engine'
 import { ids } from '@spark/protocol'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, CommandDto, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PermissionScope, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, ReplyAllResultDto, RequestId, ReviewDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SendMessageOptions, SessionDto, SessionEventsQuery, SessionId, SettingsDto, SettingsUpdate, LinkPreviewDto, SkillDto, SparkEventEnvelope, SparkEventMap, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, SubmitOutcome, TraceDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, CommandDto, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PermissionScope, ProjectTrustStatusDto, PromptsDto, PromptsUpdate, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, ReplyAllResultDto, RequestId, ReviewDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SendMessageOptions, SessionDto, SessionEventsQuery, SessionId, SettingsDto, SettingsUpdate, LinkPreviewDto, SkillDto, SparkEventEnvelope, SparkEventMap, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, SubmitOutcome, TraceDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
 import { assembleClient } from './client.js'
 import type { SparkClient } from './client.js'
 
@@ -336,6 +336,18 @@ export class InProcessTransport implements Transport {
     this.assertNotDisposed()
     // 引擎侧是同步 boolean（后台流程引擎内自转），通道面统一 Promise
     return Promise.resolve(this.engine.startMcpAuth(server))
+  }
+
+  /** 项目层 hooks 信任状态（CK-2 批 2 ⑤）：进程内直映射 */
+  getProjectTrust(): Promise<ProjectTrustStatusDto> {
+    this.assertNotDisposed()
+    return Promise.resolve(this.engine.projectTrustStatus())
+  }
+
+  /** 设置项目信任判定（CK-2 批 2 ⑤）：进程内直映射（无声明 applied=false） */
+  setProjectTrust(trust: 'trusted' | 'untrusted'): Promise<{ applied: boolean }> {
+    this.assertNotDisposed()
+    return Promise.resolve({ applied: this.engine.setProjectTrust(trust) })
   }
 
   // ---------- 模型与路由 ----------

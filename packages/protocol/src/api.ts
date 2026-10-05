@@ -1468,6 +1468,24 @@ export const LspServerStatusDtoSchema = z.strictObject({
 })
 export type LspServerStatusDto = z.infer<typeof LspServerStatusDtoSchema>
 
+/**
+ * 项目层 hooks 信任状态（GET/POST /api/hooks/project-trust，CK-2 批 2 ⑤）：
+ * `.spark/hooks.json` 项目钩子声明装不装，由 ~/.spark/project-trust.json 的
+ * 路径级判定决定（pi project-trust / Claude Code /trust 同思路）。无声明时
+ * hasHooks=false（decision 恒 untrusted——没有东西可信任，UI 据此隐藏操作）。
+ */
+export const ProjectTrustStatusDtoSchema = z.strictObject({
+  /** 判定对象目录（引擎缺省 cwd） */
+  cwd: z.string().min(1),
+  /** 是否存在 .spark/hooks.json 项目钩子声明 */
+  hasHooks: z.boolean(),
+  /** 信任判定：trusted 放行装载 / untrusted 拒载 / ask 待用户裁决 */
+  decision: z.enum(['trusted', 'untrusted', 'ask']),
+  /** 判定策略档（当前固定 claude——路径级布尔；gemini/qwen 指纹档接线留后续） */
+  mode: z.enum(['claude', 'gemini', 'qwen']),
+})
+export type ProjectTrustStatusDto = z.infer<typeof ProjectTrustStatusDtoSchema>
+
 /** 递归文件树（工单 12.5）：path = 请求的根目录（相对 cwd，根为空串）；entries 平铺
  * （含目录项，客户端按 path 建层级）；truncated = 条目达上限截断。深度 ≤4、条目 ≤500。 */
 export const FsTreeDtoSchema = z.strictObject({

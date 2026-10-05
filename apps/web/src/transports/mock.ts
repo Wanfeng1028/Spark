@@ -10,7 +10,7 @@
  */
 import { MCP_ENV_MASK, SANDBOX_NETWORK_DEFAULTS, SETTINGS_RESTART_REQUIRED, TRANSCRIBE_ALLOWED_MIME, TRANSCRIBE_MAX_AUDIO_BYTES, base64ByteLength, findKnownLspServer, ids, parseEnvelope } from '@spark/protocol'
 import { MOCK_COMMANDS, MOCK_MODELS, auditSeed, mockRandom } from './mock-data'
-import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, Delivery, SendMessageOptions, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, PromptsDto, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, ReplyAllResultDto, RequestId, ReviewDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, LinkPreviewDto, SparkEventEnvelope, SparkEventMap, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
+import type { AgentPresetDto, ArenaHistoryDto, ArenaStatusDto, AttachmentDto, AuditEntryDto, AuditQuery, AutomationCreate, AutomationRunDto, AutomationTriggerDto, BrowserCleanupResultDto, CheckpointDto, CheckpointId, Delivery, SendMessageOptions, CommandDto, ContentItem, EventId, ExtensionDto, FeedbackEntryDto, FeedbackInput, FeedbackQuery, FeedbackVote, FsEntryDto, FsListDto, FsTreeDto, IndexStatsDto, LspInstallResultDto, LspServerStatusDto, LogsDto, LogsQuery, McpConfigInput, McpServerDto, MemoryDto, ModelTestResultDto, ModelsDto, PairCodeDto, PairRedeemBody, PairStatusDto, PairTokenDto, PermissionPreset, PermissionReply, PermissionRuleDto, ProjectTrustStatusDto, PromptsDto, ReasoningEffort, RebuildResultDto, RebuildVectorsResultDto, ReplyAllResultDto, RequestId, ReviewDto, RoutingDto, RoutingUpdate, SandboxNetworkStatusDto, SearchHitDto, SecretStatusDto, SessionDto, SessionEventsQuery, SessionId, SessionMode, SessionStatus, SettingsDto, SettingsUpdate, SkillDto, LinkPreviewDto, SparkEventEnvelope, SparkEventMap, StorageCleanupDto, StorageExportDto, StorageImportDto, StorageReportDto, SparkEventType, SubmitOutcome, TraceDto, TraceTurnDto, TranscribeRequest, TranscribeResultDto, Transport, TreeNodeDto, TrustStatusDto, TurnId, UsageBucketDto, UsageSummaryDto, VacuumResultDto } from '@spark/protocol'
 import rawNormal from '../../../../examples/mock-sessions/normal.jsonl?raw'
 import rawLongOutput from '../../../../examples/mock-sessions/long-output.jsonl?raw'
 import rawReject from '../../../../examples/mock-sessions/reject.jsonl?raw'
@@ -1215,6 +1215,19 @@ export class MockTransport implements Transport {
     const known = ['filesystem', 'github']
     if (!known.includes(server)) return Promise.resolve(false)
     return Promise.resolve(true)
+  }
+
+  /** GET /api/hooks/project-trust（CK-2 批 2 ⑤ mock 对等）：mock 场景无项目钩子声明，
+   *  如实 hasHooks=false（设置页按"无声明"渲染，不造 ask 假状态） */
+  getProjectTrust(): Promise<ProjectTrustStatusDto> {
+    this.assertNotDisposed()
+    return Promise.resolve({ cwd: 'mock-cwd', hasHooks: false, decision: 'untrusted', mode: 'claude' })
+  }
+
+  /** POST /api/hooks/project-trust mock 对等：无声明 → applied=false（与真引擎语义一致） */
+  setProjectTrust(): Promise<{ applied: boolean }> {
+    this.assertNotDisposed()
+    return Promise.resolve({ applied: false })
   }
 
   listSkills(): Promise<SkillDto[]> {

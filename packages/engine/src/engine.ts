@@ -151,7 +151,7 @@ import { memorySaveTool, memorySearchTool } from './tools/builtin/memory.js'
 import { AutomationManager } from './automation/manager.js'
 import { AutomationRegistry } from './automation/registry.js'
 import { DEFAULT_HOOK_TIMEOUT_MS, UserHookRunner } from './hooks/runner.js'
-import { ProjectTrustStore, loadProjectHooks, resolveTrust } from './hooks/trust.js'
+import { ProjectTrustStore, loadProjectHooks, resolveTrust, type TrustMode } from './hooks/trust.js'
 import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
 import { AuditLog, type AuditEntry, type AuditQuery } from './audit/log.js'
@@ -2253,6 +2253,40 @@ export class Engine {
   /** GET /api/mcp：MCP 服务器只读状态（连接失败也列出 connected:false） */
   listMcpServers(): McpServerDto[] {
     return this.mcp.status().map((s) => ({ ...s }))
+  }
+
+  /** GET /api/hooks/project-trust：项目层 hooks 信任状态（CK-2 批 2 ⑤） */
+  projectTrustStatus(): {
+    cwd: string
+    hasHooks: boolean
+    decision: 'trusted' | 'untrusted' | 'ask'
+    mode: TrustMode
+  } {
+    const cwd = this.defaultCwd
+    const projectHooks = loadProjectHooks(cwd)
+    const trustStore = new ProjectTrustStore(sparkFile(this.root, 'projectTrust'))
+    const mode: TrustMode = 'claude' // settings 档接线留后续（多模式切换）
+    const decision =
+      projectHooks === null
+        ? 'untrusted' // 无声明 = 无需信任（如实报 untrusted 而非 ask——没有东西可信任）
+        : resolveTrust({ cwd, mode, fingerprint: projectHooks.fingerprint, store: trustStore })
+    return {
+      cwd,
+      hasHooks: projectHooks !== null,
+      decision,
+      mode,
+    }
+  }
+
+  /** POST /api/hooks/project-trust：设置项目信任（CK-2 批 2 ⑤） */
+  setProjectTrust(trust: 'trusted' | 'untrusted'): boolean {
+    const projectHooks = loadProjectHooks(this.defaultCwd)
+    if (projectHooks === null) return false
+    const trustStore = new ProjectTrustStore(sparkFile(this.root, 'projectTrust'))
+    const fingerprint = projectHooks.fingerprint
+    trustStore.set(this.defaultCwd, { trust, fingerprint })
+    this.logger.info('hooks.project.trust', { cwd: this.defaultCwd, trust })
+    return true
   }
 
   /**

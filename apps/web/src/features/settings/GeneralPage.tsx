@@ -244,8 +244,55 @@ function ArchivePolicySection() {
 /** 任务通知与提示音（阶段十九 19.13）：web 本地偏好（localStorage）+ Notification API 降级面。
  *  desktop 端的通知开关在 desktop.json（工单 19.30：notifications 段的
  *  turnCompleted/approvalWaiting/sound/events/debounceMs），web 不跨管。 */
-function NotificationSection() {
-  const prefs = useNotifyPrefs()
+/**
+ * 项目层 hooks 信任（CK-2 批 2 ⑤）：`.spark/hooks.json` 声明的装不装由
+ * ~/.spark/project-trust.json 的路径级判定决定（引擎侧三档 trusted/untrusted/ask）。
+ * 无声明 = 无可信任对象，只读一行事实（不设假开关）；有声明按判定给动作，
+ * 写入走 POST /api/hooks/project-trust（applied=false 只在声明消失后可能出现，如实提示）。
+ */
+function ProjectHooksTrustSection() {
+  const transport = useTransport()
+  const { data, refresh } = useTransportQuery((t) => t.getProjectTrust())
+  const { run, busy, opError } = useAsyncOp()
+  const setTrust = (trust: 'trusted' | 'untrusted') => {
+    void run(async () => {
+      await transport.setProjectTrust(trust)
+      refresh()
+    })
+  }
+  if (data === undefined) return null
+  const decisionText =
+    data.decision === 'trusted'
+      ? '已信任：钩子声明随引擎启动装载'
+      : data.decision === 'ask'
+        ? '待裁决：信任后钩子声明才会装载（重启引擎生效）'
+        : data.hasHooks
+          ? '不信任：钩子声明不装载'
+          : '当前目录没有 .spark/hooks.json 项目钩子声明'
+  return (
+    <SettingGroupCard>
+      <SettingRow title="项目钩子信任" description={decisionText}>
+        {data.hasHooks && (
+          <div className="flex shrink-0 gap-2">
+            {data.decision !== 'trusted' && (
+              <Button variant="outline" size="sm" disabled={busy} onClick={() => setTrust('trusted')}>
+                信任此项目
+              </Button>
+            )}
+            {data.decision !== 'untrusted' && (
+              <Button variant="outline" size="sm" disabled={busy} onClick={() => setTrust('untrusted')}>
+                {data.decision === 'ask' ? '不信任' : '撤销信任'}
+              </Button>
+            )}
+          </div>
+        )}
+      </SettingRow>
+      {opError !== null && <p className="px-4 pb-3 text-sm text-destructive">{opError}</p>}
+    </SettingGroupCard>
+  )
+}
+
+function NotificationSection() {  const prefs = useNotifyPrefs()
   const unsupported = typeof Notification === 'undefined'
   return (
     <SettingGroupCard>
@@ -634,6 +681,9 @@ export function GeneralSettingsPage() {
 
       {/* 任务通知与提示音（阶段十九 19.13）：web 本地偏好 + Notification API 降级面 */}
       <NotificationSection />
+
+      {/* 项目层 hooks 信任（CK-2 批 2 ⑤）：.spark/hooks.json 声明的信任裁决面 */}
+      <ProjectHooksTrustSection />
 
       <SettingGroupCard>
         <SettingRow

@@ -73,6 +73,7 @@ const COMPONENTS: Record<string, z.ZodType> = {
   TranscribeRequest: api.TranscribeRequestSchema,
   TranscribeResultDto: api.TranscribeResultDtoSchema,
   LspServerStatusDto: api.LspServerStatusDtoSchema,
+  ProjectTrustStatusDto: api.ProjectTrustStatusDtoSchema,
   BrowserCleanupResultDto: api.BrowserCleanupResultDtoSchema,
   BrowserSettings: api.BrowserSettingsSchema,
   LspInstallResultDto: api.LspInstallResultDtoSchema,

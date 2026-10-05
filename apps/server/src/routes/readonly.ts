@@ -185,6 +185,15 @@ export const registerReadonlyRoutes: FastifyPluginCallback<RoutesOptions> = (app
   // 浏览器截图产物清理（阶段十九 19.12 / ADR D49）：清 shotsDir 全部 shot-*.png
   app.post('/api/browser/cleanup', () => engine.cleanupBrowserArtifacts())
 
+  // 项目层 hooks 信任状态（CK-2 批 2 ⑤）：GET 查询 / POST 设置。
+  // 无 .spark/hooks.json 声明时 POST applied=false——无可信任对象，不是错误（禁假 404）。
+  const ProjectTrustBody = z.strictObject({ trust: z.enum(['trusted', 'untrusted']) })
+  app.get('/api/hooks/project-trust', () => engine.projectTrustStatus())
+  app.post('/api/hooks/project-trust', (req) => {
+    const { trust } = parseOr400(ProjectTrustBody, req.body)
+    return { applied: engine.setProjectTrust(trust) }
+  })
+
   // LSP server 安装（阶段十九 19.5 / ADR D47）：内置清单 id → npm 全局装（已装幂等跳过）+ 写 lsp.json
   const LspInstallBody = z.strictObject({ id: z.string().min(1), confirm: z.boolean().optional() })
   app.post('/api/lsp/install', async (req, reply) => {

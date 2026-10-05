@@ -2306,6 +2306,71 @@
         }
       }
     },
+    "/api/hooks/project-trust": {
+      "get": {
+        "tags": [
+          "config"
+        ],
+        "summary": "项目层 hooks 信任状态（CK-2 批 2 ⑤；无 .spark/hooks.json 声明 hasHooks=false）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectTrustStatusDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "config"
+        ],
+        "summary": "设置项目信任判定（CK-2 批 2 ⑤；无声明 applied=false——无可信任对象不是错误）",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "applied": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "trust": {
+                    "type": "string",
+                    "enum": [
+                      "trusted",
+                      "untrusted"
+                    ]
+                  }
+                },
+                "required": [
+                  "trust"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/lsp/install": {
       "post": {
         "tags": [
@@ -5046,6 +5111,42 @@
           "action",
           "resource",
           "effect"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectTrustStatusDto": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "cwd": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hasHooks": {
+            "type": "boolean"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "trusted",
+              "untrusted",
+              "ask"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "claude",
+              "gemini",
+              "qwen"
+            ]
+          }
+        },
+        "required": [
+          "cwd",
+          "hasHooks",
+          "decision",
+          "mode"
         ],
         "additionalProperties": false
       },
