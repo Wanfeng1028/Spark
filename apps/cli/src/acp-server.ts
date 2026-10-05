@@ -29,7 +29,15 @@ import * as acp from '@agentclientprotocol/sdk'
 import { Engine, Logger, loadConfig, type EngineConfig } from '@spark/engine'
 import { createInProcessClient } from '@spark/sdk/inprocess'
 import type { SparkClient } from '@spark/sdk'
-import type { SessionId, SparkEventEnvelope } from '@spark/protocol'
+import type { SessionId, SparkEventEnvelope, SparkEventType } from '@spark/protocol'
+
+/** 信封类型守卫（compaction.ts 同款）：switch(e.type) 不传播 data 联合，必须 if 收窄 */
+function isOfType<K extends SparkEventType>(
+  e: SparkEventEnvelope,
+  type: K,
+): e is SparkEventEnvelope<K> {
+  return e.type === type
+}
 
 /** MCP 模式审批收敛同款（D39）：stdio 语境没有交互式 5min 的必要 */
 const ACP_PERMISSION_TIMEOUT_MS = 300_000
@@ -136,51 +144,52 @@ class SparkAcpAgent {
     if (session === undefined) return
     const notifyUpdate = (update: Record<string, unknown>): Promise<void> =>
       this.notify(acpId, update)
-    switch (e.type) {
-      case 'assistant.delta':
-        await notifyUpdate({
-          sessionUpdate: 'agent_message_chunk',
-          content: { type: 'text', text: e.data.text },
-        })
-        break
-      case 'assistant.message':
-        // 定稿正文已在 delta 流过——定稿只补 usage，不重发正文（禁重复）
-        break
-      case 'tool.started':
-        await notifyUpdate({
-          sessionUpdate: 'tool_call',
-          toolCallId: e.data.callId,
-          title: e.data.name,
-          kind: 'execute',
-          status: 'in_progress',
-          rawInput: e.data.input,
-        })
-        break
-      case 'tool.completed':
-        await notifyUpdate({
-          sessionUpdate: 'tool_call_update',
-          toolCallId: e.data.callId,
-          status: e.data.isError ? 'failed' : 'completed',
-          rawOutput: e.data.output,
-        })
-        break
-      case 'permission.asked':
-        await this.requestPermission(acpId, e)
-        break
-      case 'turn.completed': {
-        const finish = e.data.finish
-        session.turnStop?.(finish === 'aborted' ? 'cancelled' : 'end_turn')
-        break
-      }
-      default:
-        break
+    if (isOfType(e, 'assistant.delta')) {
+      await notifyUpdate({
+        sessionUpdate: 'agent_message_chunk',
+        content: { type: 'text', text: e.data.text },
+      })
+      return
+    }
+    if (isOfType(e, 'assistant.message')) {
+      // 定稿正文已在 delta 流过——定稿只补 usage，不重发正文（禁重复）
+      return
+    }
+    if (isOfType(e, 'tool.started')) {
+      await notifyUpdate({
+        sessionUpdate: 'tool_call',
+        toolCallId: e.data.callId,
+        title: e.data.name,
+        kind: 'execute',
+        status: 'in_progress',
+        rawInput: e.data.input,
+      })
+      return
+    }
+    if (isOfType(e, 'tool.completed')) {
+      await notifyUpdate({
+        sessionUpdate: 'tool_call_update',
+        toolCallId: e.data.callId,
+        status: e.data.isError ? 'failed' : 'completed',
+        rawOutput: e.data.output,
+      })
+      return
+    }
+    if (isOfType(e, 'permission.asked')) {
+      await this.requestPermission(acpId, e)
+      return
+    }
+    if (isOfType(e, 'turn.completed')) {
+      const finish = e.data.finish
+      session.turnStop?.(finish === 'aborted' ? 'cancelled' : 'end_turn')
+      return
     }
   }
 
   /** 审批挂起 → session/request_permission（outcome once/always 直映 PermissionReply） */
   private async requestPermission(
     acpId: string,
-    e: SparkEventEnvelope & { type: 'permission.asked' },
+    e: SparkEventEnvelope<'permission.asked'>,
   ): Promise<void> {
     const sid = this.sidMap.get(acpId)
     if (sid === undefined) return

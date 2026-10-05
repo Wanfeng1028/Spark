@@ -24,6 +24,7 @@ import type { PermissionRule } from '../config.js'
 import { newIds } from '../ulid.js'
 import type { PermissionCheck, PermissionService } from '../tools/permission-port.js'
 import { evaluateAll } from './rules.js'
+import { judgeBashCommand } from '../tools/dangerous-command.js'
 import type { RuleStore } from './store.js'
 import type { Metrics } from '../observability/metrics.js'
 import type { AuditSink } from '../audit/log.js'
@@ -155,8 +156,17 @@ export class PermissionServiceImpl implements PermissionService {
       check.alwaysAsk === true &&
       effect === 'allow' &&
       !(winningLayer === 'user' || winningLayer === 'session')
+    // 危险命令闸（doc/14 #3.1 / AGENTS §2.0 安全第一；CK-2 ④ 同律——只收紧不放大）：
+    // bash 类命令即使规则层 allow，语法树判定 dangerous/unanalyzable 一律降级 ask。
+    // deny/ask 不变（本闸不扩权）；AST 不可用降级 unanalyzable = 全部 bash 走 ask（fail-closed）。
+    const dangerVerdict =
+      check.action === 'bash' || check.resource.startsWith('cmd:')
+        ? judgeBashCommand(check.resource.startsWith('cmd:') ? check.resource.slice(4) : (typeof check.input === 'object' && check.input !== null && 'command' in check.input && typeof (check.input as { command: unknown }).command === 'string' ? (check.input as { command: string }).command : check.resource))
+        : undefined
+    const dangerForcesAsk =
+      dangerVerdict !== undefined && dangerVerdict.kind !== 'safe' && effect === 'allow'
     const finalEffect =
-      effect === 'allow' && (tightened || alwaysAskForcesAsk) ? ('ask' as const) : effect
+      effect === 'allow' && (tightened || alwaysAskForcesAsk || dangerForcesAsk) ? ('ask' as const) : effect
     if (finalEffect === 'allow' || finalEffect === 'deny') {
       // 规则层快路径：归因 = 命中且与终判同效的最高优先层（findLast 语义倒查）
       this.recordDecision(check, finalEffect === 'allow', 'system', `rule:${this.ruleSourceOf(check, finalEffect)}`)
@@ -177,7 +187,9 @@ export class PermissionServiceImpl implements PermissionService {
       reason:
         (tightened
           ? `工具 ${check.name} 请求 ${check.action}：${check.resource}（未信任目录：原放行已被收紧为逐次确认）`
-          : `工具 ${check.name} 请求 ${check.action}：${check.resource}`) +
+          : dangerForcesAsk
+            ? `工具 ${check.name} 请求 ${check.action}：${check.resource}（危险命令闸：${dangerVerdict?.reason}）`
+            : `工具 ${check.name} 请求 ${check.action}：${check.resource}`) +
         (check.riskLevel === 'high' ? '〔风险档：高〕' : ''),
       detail: check.input,
     })
