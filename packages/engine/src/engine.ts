@@ -151,6 +151,7 @@ import { memorySaveTool, memorySearchTool } from './tools/builtin/memory.js'
 import { AutomationManager } from './automation/manager.js'
 import { AutomationRegistry } from './automation/registry.js'
 import { DEFAULT_HOOK_TIMEOUT_MS, UserHookRunner } from './hooks/runner.js'
+import { ProjectTrustStore, loadProjectHooks, resolveTrust } from './hooks/trust.js'
 import { SecretStore, resolveApiKey } from './secrets/store.js'
 import type { SecretSource } from './secrets/store.js'
 import { AuditLog, type AuditEntry, type AuditQuery } from './audit/log.js'
@@ -484,8 +485,33 @@ export class Engine {
       this.loadedSkills = skills
     })
 
-    // 工单 7.3 / H03：用户侧 hooks（缺省空配置零开销；失败一律 warn 闭合不阻断主流程）
-    this.hooks = new UserHookRunner(this.config.spark.hooks ?? {}, {
+    // CK-2 批 2 ⑤：项目层 hooks 信任扫描（默认 cwd；`.spark/hooks.json` 存在且 trusted
+    // 则合并进 hooks 配置——重启生效同 settings 口径；untrusted/ask 不加载 + warn 留痕）
+    const projectHooks = loadProjectHooks(this.defaultCwd)
+    let effectiveHooks = this.config.spark.hooks ?? {}
+    if (projectHooks !== null) {
+      const trustStore = new ProjectTrustStore(sparkFile(this.root, 'projectTrust'))
+      const decision = resolveTrust({
+        cwd: this.defaultCwd,
+        mode: 'claude',
+        fingerprint: projectHooks.fingerprint,
+        store: trustStore,
+      })
+      if (decision === 'trusted') {
+        effectiveHooks = { ...effectiveHooks, ...projectHooks.hooks }
+        this.logger.info('hooks.project.loaded', { cwd: this.defaultCwd })
+      } else {
+        this.logger.warn('hooks.project.skipped', {
+          cwd: this.defaultCwd,
+          decision,
+          hint: '项目 hooks 未信任——在设置页确认信任后重启生效',
+        })
+      }
+    }
+
+    // 工单 7.3 / H03：用户侧 hooks + 项目侧 trusted hooks 合并（缺省空配置零开销；
+    // 失败一律 warn 闭合不阻断主流程）
+    this.hooks = new UserHookRunner(effectiveHooks, {
       bus: this.bus,
       logger: this.logger,
       skills: () => this.loadedSkills,
@@ -1945,7 +1971,22 @@ export class Engine {
     void this.reconcileSandboxNetwork()
     // 旧 runner 先收口（工单 10.24）：在途子进程 kill + disposed 置位，防迟到回调写日志
     this.hooks.dispose()
-    this.hooks = new UserHookRunner(this.config.spark.hooks ?? {}, {
+    // CK-2 批 2 ⑤：项目 hooks 信任重扫（settings rebuild 同口径）
+    const rebuildProjectHooks = loadProjectHooks(this.defaultCwd)
+    let rebuildEffective = this.config.spark.hooks ?? {}
+    if (rebuildProjectHooks !== null) {
+      const trustStore = new ProjectTrustStore(sparkFile(this.root, 'projectTrust'))
+      const decision = resolveTrust({
+        cwd: this.defaultCwd,
+        mode: 'claude',
+        fingerprint: rebuildProjectHooks.fingerprint,
+        store: trustStore,
+      })
+      if (decision === 'trusted') {
+        rebuildEffective = { ...rebuildEffective, ...rebuildProjectHooks.hooks }
+      }
+    }
+    this.hooks = new UserHookRunner(rebuildEffective, {
       bus: this.bus,
       logger: this.logger,
       skills: () => this.loadedSkills,
