@@ -1,6 +1,6 @@
 /**
  * 事件词表（doc/02 §4.3）：schema registry 是唯一来源——SparkEventMap 由 infer 派生。
- * 词表当前 27 种（21 + session.mode.changed 16.3 + goal.* 四枚 16.7 + lsp.diagnostics 16.9）；扩展走 declaration merging（dsh 手法，阶段五插件用）。
+ * 词表当前 35 种（21 + session.mode.changed 16.3 + goal.* 四枚 16.7 + lsp.diagnostics 16.9）；扩展走 declaration merging（dsh 手法，阶段五插件用）。
  * 工单 13.4（ADR D29）在 compaction.completed 上扩两个**可选字段**（keptFiles/distilled）——双层压缩的载体，词表不增。
  */
 import { z } from 'zod'

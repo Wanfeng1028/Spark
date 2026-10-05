@@ -317,11 +317,11 @@ export class EventBus {
       const awaited = await r
       if (awaited === false) sub.paused = true
     } catch (err) {
-      // 订阅者隔离：异常不影响其他订阅者与其他事件
+      // 订阅者隔离：异常不影响其他订阅者与其他事件。
+      // D-3（doc/13-code-spec-audit P1）：缺省不裸 console.warn（err 可能含敏感数据
+      // 绕脱敏通道）——需要可见性时注入 onSubscriberError 回调（引擎侧已注入 logger）。
       if (this.opts.onSubscriberError !== undefined) {
         this.opts.onSubscriberError(err, e)
-      } else {
-        console.warn('E_BUS_SUBSCRIBER_ERROR:', err)
       }
     }
   }
