@@ -249,15 +249,34 @@ function ArchivePolicySection() {
  * ~/.spark/project-trust.json 的路径级判定决定（引擎侧三档 trusted/untrusted/ask）。
  * 无声明 = 无可信任对象，只读一行事实（不设假开关）；有声明按判定给动作，
  * 写入走 POST /api/hooks/project-trust（applied=false 只在声明消失后可能出现，如实提示）。
+ * 策略档 = spark.json hooks.projectTrust.mode（claude/gemini/qwen 三档；经 PUT settings
+ * 走 settings rebuild 热生效，手工改文件则重启生效）。
  */
+const TRUST_MODE_OPTIONS = [
+  { value: 'claude', label: 'Claude 档（路径级布尔）' },
+  { value: 'gemini', label: 'Gemini 档（指纹重审）' },
+  { value: 'qwen', label: 'Qwen 档（加固：无指纹强制重审）' },
+] as const
+
 function ProjectHooksTrustSection() {
   const { transport } = useTransport()
   const { data, refresh } = useTransportQuery((t) => t.getProjectTrust())
+  const { data: settingsData, refresh: refreshSettings } = useTransportQuery((t) => t.getSettings())
   const { run, busy, opError } = useAsyncOp()
   const setTrust = (trust: 'trusted' | 'untrusted') => {
     void run(async () => {
       await transport.setProjectTrust(trust)
       await refresh()
+    })
+  }
+  const setMode = (mode: 'claude' | 'gemini' | 'qwen') => {
+    void run(async () => {
+      // hooks 段 PUT 是整体替换语义——以现有段为底只换 projectTrust.mode，不吞别的键
+      await transport.updateSettings({
+        hooks: { ...(settingsData?.hooks ?? {}), projectTrust: { mode } },
+      })
+      await refresh()
+      refreshSettings()
     })
   }
   if (data === null) return null
@@ -286,6 +305,20 @@ function ProjectHooksTrustSection() {
             )}
           </div>
         )}
+      </SettingRow>
+      <SettingRow
+        title="信任策略档"
+        description="Claude=信任后全量装载；Gemini=声明内容变更即重审；Qwen=加固（无指纹的历史信任条目强制重审）。经设置接口改档即重扫生效，手工改 spark.json 需重启"
+      >
+        <div className="flex shrink-0 items-center gap-2">
+          <Select
+            aria-label="信任策略档"
+            value={data.mode}
+            options={[...TRUST_MODE_OPTIONS]}
+            onChange={setMode}
+            className="w-64"
+          />
+        </div>
       </SettingRow>
       {opError !== null && <p className="px-4 pb-3 text-sm text-destructive">{opError}</p>}
     </SettingGroupCard>

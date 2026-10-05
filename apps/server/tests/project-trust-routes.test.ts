@@ -68,4 +68,16 @@ describe('GET/POST /api/hooks/project-trust（CK-2 批 2 ⑤）', () => {
     })
     expect(res.statusCode).toBe(400)
   })
+
+  test('策略档切换：PUT settings hooks.projectTrust.mode 后 GET 即回新档（settings rebuild 热生效）', async () => {
+    const server = await makeServer()
+    const put = await server.app.inject({
+      method: 'PUT',
+      url: '/api/settings',
+      payload: { hooks: { projectTrust: { mode: 'gemini' } } },
+    })
+    expect(put.statusCode).toBe(200)
+    const res = await server.app.inject({ method: 'GET', url: '/api/hooks/project-trust' })
+    expect(res.json<{ mode: string }>().mode).toBe('gemini')
+  })
 })

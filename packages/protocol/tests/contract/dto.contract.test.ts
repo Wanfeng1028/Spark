@@ -3319,6 +3319,60 @@ describe('契约：api.PermissionRuleDtoSchema', () => {
   })
 })
 
+describe('契约：api.ProjectTrustStatusDtoSchema', () => {
+  const sample = {
+    "cwd": "contract-sample",
+    "hasHooks": false,
+    "decision": "trusted",
+    "mode": "claude"
+  }
+
+  it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
+    expect(api.ProjectTrustStatusDtoSchema.parse(sample)).toEqual(sample)
+    expect(api.ProjectTrustStatusDtoSchema.parse(JSON.parse(JSON.stringify(sample)))).toEqual(sample)
+  })
+
+  it('JSON Schema 可导出（zod → JSON Schema 是 SDK/OpenAPI 的公共出口）', () => {
+    expect(z.toJSONSchema(api.ProjectTrustStatusDtoSchema)).toBeTypeOf('object')
+  })
+
+  it('缺必填字段 cwd → 解析失败', () => {
+    expect(() => api.ProjectTrustStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["cwd"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 hasHooks → 解析失败', () => {
+    expect(() => api.ProjectTrustStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["hasHooks"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 decision → 解析失败', () => {
+    expect(() => api.ProjectTrustStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["decision"]; return m })())).toThrow()
+  })
+
+  it('缺必填字段 mode → 解析失败', () => {
+    expect(() => api.ProjectTrustStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; delete m["mode"]; return m })())).toThrow()
+  })
+
+  it('字段 cwd 类型错 → 解析失败', () => {
+    expect(() => api.ProjectTrustStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["cwd"] = 12345; return m })())).toThrow()
+  })
+
+  it('字段 hasHooks 类型错 → 解析失败', () => {
+    expect(() => api.ProjectTrustStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["hasHooks"] = "not-a-boolean"; return m })())).toThrow()
+  })
+
+  it('字段 decision 类型错 → 解析失败', () => {
+    expect(() => api.ProjectTrustStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["decision"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('字段 mode 类型错 → 解析失败', () => {
+    expect(() => api.ProjectTrustStatusDtoSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["mode"] = "__contract_bogus_enum__"; return m })())).toThrow()
+  })
+
+  it('未知键 → strictObject 拒收', () => {
+    expect(() => api.ProjectTrustStatusDtoSchema.parse({ ...(sample as Record<string, unknown>), __contract_probe__: 1 })).toThrow()
+  })
+})
+
 describe('契约：api.PromptsDtoSchema', () => {
   const sample = {
     "slots": [
@@ -4493,7 +4547,10 @@ describe('契约：api.SettingsDtoSchema', () => {
           "command": "contract-sample",
           "timeoutMs": 1
         }
-      ]
+      ],
+      "projectTrust": {
+        "mode": "claude"
+      }
     },
     "agents": {
       "disabledAgents": [
@@ -4747,7 +4804,10 @@ describe('契约：api.SettingsHooksSchema', () => {
         "command": "contract-sample",
         "timeoutMs": 1
       }
-    ]
+    ],
+    "projectTrust": {
+      "mode": "claude"
+    }
   }
 
   it('合法样例：zod 解析幂等 + JSON 往返一致', () => {
@@ -4809,6 +4869,10 @@ describe('契约：api.SettingsHooksSchema', () => {
 
   it('字段 post_compact 类型错 → 解析失败', () => {
     expect(() => api.SettingsHooksSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["post_compact"] = "not-an-array"; return m })())).toThrow()
+  })
+
+  it('字段 projectTrust 类型错 → 解析失败', () => {
+    expect(() => api.SettingsHooksSchema.parse((() => { const m = structuredClone(sample) as Record<string, unknown>; m["projectTrust"] = []; return m })())).toThrow()
   })
 
   it('未知键 → strictObject 拒收', () => {
@@ -4947,7 +5011,10 @@ describe('契约：api.SettingsUpdateSchema', () => {
           "command": "contract-sample",
           "timeoutMs": 1
         }
-      ]
+      ],
+      "projectTrust": {
+        "mode": "claude"
+      }
     },
     "agents": {
       "disabledAgents": [

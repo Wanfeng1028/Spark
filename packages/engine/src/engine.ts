@@ -486,14 +486,15 @@ export class Engine {
     })
 
     // CK-2 批 2 ⑤：项目层 hooks 信任扫描（默认 cwd；`.spark/hooks.json` 存在且 trusted
-    // 则合并进 hooks 配置——重启生效同 settings 口径；untrusted/ask 不加载 + warn 留痕）
+    // 则合并进 hooks 配置——settings rebuild 时同口径重扫，故 mode 经 API 改档热生效；
+    // untrusted/ask 不加载 + warn 留痕）
     const projectHooks = loadProjectHooks(this.defaultCwd)
     let effectiveHooks = this.config.spark.hooks ?? {}
     if (projectHooks !== null) {
       const trustStore = new ProjectTrustStore(sparkFile(this.root, 'projectTrust'))
       const decision = resolveTrust({
         cwd: this.defaultCwd,
-        mode: 'claude',
+        mode: this.projectTrustMode(),
         fingerprint: projectHooks.fingerprint,
         store: trustStore,
       })
@@ -1980,7 +1981,7 @@ export class Engine {
       const trustStore = new ProjectTrustStore(sparkFile(this.root, 'projectTrust'))
       const decision = resolveTrust({
         cwd: this.defaultCwd,
-        mode: 'claude',
+        mode: this.projectTrustMode(),
         fingerprint: rebuildProjectHooks.fingerprint,
         store: trustStore,
       })
@@ -2255,6 +2256,15 @@ export class Engine {
     return this.mcp.status().map((s) => ({ ...s }))
   }
 
+  /**
+   * 项目层 hooks 信任策略档（CK-2 批 2 ⑤）：spark.json `hooks.projectTrust.mode`，
+   * 缺省 'claude'。settings rebuild 会以新档重扫重挂——经 PUT /api/settings 改档热生效；
+   * 手工改 spark.json 需重启（与 hooks 段既有口径一致）。
+   */
+  private projectTrustMode(): TrustMode {
+    return this.config.spark.hooks?.projectTrust?.mode ?? 'claude'
+  }
+
   /** GET /api/hooks/project-trust：项目层 hooks 信任状态（CK-2 批 2 ⑤） */
   projectTrustStatus(): {
     cwd: string
@@ -2265,7 +2275,7 @@ export class Engine {
     const cwd = this.defaultCwd
     const projectHooks = loadProjectHooks(cwd)
     const trustStore = new ProjectTrustStore(sparkFile(this.root, 'projectTrust'))
-    const mode: TrustMode = 'claude' // settings 档接线留后续（多模式切换）
+    const mode = this.projectTrustMode()
     const decision =
       projectHooks === null
         ? 'untrusted' // 无声明 = 无需信任（如实报 untrusted 而非 ask——没有东西可信任）
