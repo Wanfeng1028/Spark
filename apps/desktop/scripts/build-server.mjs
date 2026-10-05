@@ -19,5 +19,13 @@ await build({
   banner: {
     js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
   },
-  external: ['playwright-core'],
+  external: [
+    'playwright-core',
+    // tree-sitter / tree-sitter-bash 是原生 .node 模块（危险命令闸 judgeBashCommand 动态
+    // require，加载失败降级 unanalyzable = 安全语义不降级）——esbuild 无 .node loader，
+    // 静态解析进 bundle 即 12 连红（CI run 37348373797）；外置走运行时依赖解析，
+    // 与 playwright-core 同判例（两者均已列入本包依赖树）
+    'tree-sitter',
+    'tree-sitter-bash',
+  ],
 })
