@@ -26,6 +26,12 @@ export default tseslint.config(
       '_scratch/**',
       // 测试夹具：由测试用例 spawn 的独立 Node 脚本（非 TS 项目成员）
       'packages/engine/tests/fixtures/*.mjs',
+      // 19.32 批 2（D59）错位副本：packages/engine/apps/desktop/src/terminal-pty.ts 是
+      // apps/desktop/src/terminal-pty.ts（main.ts 实际消费、typecheck/knip 全绿的正主）的
+      // 旧稿——不属任何 tsconfig 项目，projectService 解析即红（CI 37271892443）。
+      // AGENTS §2.10 AI 无权删除，冻结待人类五层级确认处置（去留/合并由晚风拍板）；
+      // 门禁豁免只是不让红灯常亮，不等于判决保留
+      'packages/engine/apps/**',
     ],
   },
   js.configs.recommended,

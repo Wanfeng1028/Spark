@@ -54,6 +54,11 @@
   // 登记去向见 doc/02 阶段十 10.30 行（本批新增四处候选：cli Sidebar、web Titlebar、
   // web UsageBar、cli spike-ime-stdin）。此处 ignore 只是"不让门禁长期红灯"，不等于判决保留。
   "ignore": [
+    // 19.32 批 2（D59）错位副本（随 1ba8149 误入库）：packages/engine/apps/desktop/src/
+    // terminal-pty.ts 是 apps/desktop/src/terminal-pty.ts（main.ts 实际消费的正主）的旧稿
+    // ——零引用、无 tsconfig 覆盖，eslint 已同批豁免（CI 37271892443 lint 红根因）。
+    // AGENTS §2.10 AI 无权删除，冻结待人类五层级确认；豁免不等于判决保留
+    "packages/engine/apps/**",
     "apps/cli/src/components/StatusBar.tsx",
     "apps/cli/src/components/Sidebar.tsx",
     "apps/web/src/components/layout/Titlebar.tsx",
