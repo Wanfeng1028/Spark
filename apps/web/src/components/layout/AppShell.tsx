@@ -15,6 +15,7 @@ import { WallpaperLayer } from '@/features/appearance/WallpaperLayer'
 import { useNarrowViewport } from '@/hooks/useNarrowViewport'
 import { useEffectiveKeymap, strokeOf } from '@/hooks/useEffectiveKeymap'
 import { useTransportQuery } from '@/hooks/useTransportQuery'
+import { useAsyncOp } from '@/hooks/useAsyncOp'
 import { useTransport } from '@/transports/context'
 import { useI18n } from '@/i18n/context'
 import { cn } from '@/lib/utils'
@@ -138,7 +139,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div data-wallpaper={wallpaper} className="grid h-full grid-rows-[auto_1fr_24px] bg-background text-foreground">
       {/* 壁纸背景层（19.43）：fixed -z-10 垫底，'none' 时为 null——放在根 div 首位 */}
       <WallpaperLayer />
-      {status !== 'open' && <ReconnectBanner status={status} />}
+      {/* 顶栏横幅域：信任提示条（CK-2 ⑤）与断线条同占 row-start-1——外层容器纵向堆叠，
+          避免 auto-placement 把两条横幅拆进隐式列 */}
+      <div className="row-start-1">
+        {/* 项目钩子信任提示条（CK-2 批 2 ⑤）：仅 ask（待裁决）态出现——trusted/untrusted
+            已有结论的不再打扰；裁决动作与设置页「项目钩子信任」行同一通道 */}
+        <ProjectTrustBanner />
+        {status !== 'open' && <ReconnectBanner status={status} />}
+      </div>
       <div
         className={cn(
           'row-start-2 grid min-h-0',
@@ -175,6 +183,50 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 /** closed 态文案留本地（同 StatusBar CLOSED_TEXT）：三态已下沉 protocol，closed 触发源语义分叉，见 ui-copy.ts 头注释边界说明 1 */
 const BANNER_CLOSED_TEXT = '连接已断开'
+
+/**
+ * 项目钩子信任提示条（CK-2 批 2 ⑤）：引擎在 ask（待裁决）态挂起项目 hooks 装载时，
+ * 在顶栏给一条可裁决的横幅——与设置页「项目钩子信任」行同一 Transport 通道。
+ * 数据未到/无声明/已有结论（trusted/untrusted）一律不渲染，不造打扰。
+ */
+function ProjectTrustBanner() {
+  const { transport } = useTransport()
+  const { data, refresh } = useTransportQuery((t) => t.getProjectTrust())
+  const { run, busy } = useAsyncOp()
+  if (data === null || !data.hasHooks || data.decision !== 'ask') return null
+  const setTrust = (trust: 'trusted' | 'untrusted') => {
+    void run(async () => {
+      await transport.setProjectTrust(trust)
+      await refresh()
+    })
+  }
+  return (
+    <div
+      role="status"
+      className="flex h-6 items-center justify-center gap-3 border-b border-border bg-muted px-3 text-xs text-muted-foreground"
+    >
+      <span>检测到项目钩子声明（.spark/hooks.json）——信任后才会随引擎启动装载</span>
+      <span className="flex shrink-0 gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setTrust('trusted')}
+          className="underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+        >
+          信任
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setTrust('untrusted')}
+          className="underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+        >
+          不信任
+        </button>
+      </span>
+    </div>
+  )
+}
 
 function ReconnectBanner({ status }: { status: 'connecting' | 'reconnecting' | 'closed' }) {
   const { lang } = useI18n()
