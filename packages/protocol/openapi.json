@@ -6452,6 +6452,23 @@
                     }
                   ]
                 }
+              },
+              "projectTrust": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "claude",
+                      "gemini",
+                      "qwen"
+                    ]
+                  }
+                },
+                "required": [
+                  "mode"
+                ],
+                "additionalProperties": false
               }
             },
             "additionalProperties": false
@@ -7367,6 +7384,23 @@
                         }
                       ]
                     }
+                  },
+                  "projectTrust": {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "enum": [
+                          "claude",
+                          "gemini",
+                          "qwen"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "mode"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "additionalProperties": false
