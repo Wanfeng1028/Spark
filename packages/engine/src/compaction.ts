@@ -154,47 +154,46 @@ function isSurface(e: SparkEventEnvelope): boolean {
  * canSplitAfter（doc/14 #3.5）+ Gemini findCompressSplitPoint 的"只在真 user 边界切"
  * 形态，按 SparkEventEnvelope 流重写）。
  *
- * 参数 i 是**候选切点**（该事件之后的边界，即 path[0..i] 进摘要、path[i+1..] 保留）。
- * 规则（违反任一 = 此处不可切）：
- * ① path[i] 是 user.message → 不切（user 后的 assistant 回答被拦腰斩断，摘要看不到
- *    "该请求得到了什么回复"，迭代摘要会凭空臆造回复内容）；
- * ② path[i] 是 assistant.message 且 content 带 toolCall → 不切（工具调用与结果被分离，
- *    摘要侧只见调用不见结果，保留侧只见结果不见调用）；
- * ③ path[i] 是 tool.started → 不切（与后续 tool.completed 分离）；
- * ④ 未闭合 tool 交换中（path 里 i 之后存在 tool.started 无配对 completed）→ 不切。
+ * 参数 i 是**保留侧首条事件（含）**——即 keptFromEventId 的锚点语义：path[0..i-1] 进
+ * 摘要、path[i..] 保留（与 projector.projectSurface 的「锚点（含）之后全部保留」对齐，
+ * 也与 computeKeptFromEventId 的预算边界直接同位）。
+ * 规则（保留侧开头违反任一 = 此处不可切，回退）：
+ * ① path[i] 是 user.message 且 path[i-1] 是 assistant → 不切（这条 user 的"上文回答"
+ *    被摘要吞掉——模型看到无来由的新指令；摘要应覆盖到回合边界）；
+ * ② path[i] 是 tool.completed → 不切（结果在保留侧、发起它的 assistant toolCall 被
+ *    摘要吞掉——模型看到无主的结果）；
+ * ③ path[i] 是 tool.started → 不切（started 应与 completed 同侧）；
+ * ④ 交换撕裂：某 callId 的 started 在摘要侧（<i）而 completed 在保留侧（≥i）→ 不切。
  * 返回 true = 此处可切。fail-closed：不可判定一律 false（宁多保留不少摘要）。
  */
 export function canSplitAfter(path: readonly SparkEventEnvelope[], i: number): boolean {
   const cur = path[i]
   if (cur === undefined) return false
-  // 规则①
-  if (isOfType(cur, 'user.message')) return false
-  // 规则③
+  const prev = i > 0 ? path[i - 1] : undefined
+  // 规则①：user 落在回合中间（前一条是 assistant）——上一回合的回答被摘要吞掉。
+  // 会话开头的 user（无 prev 或 prev 也是 user）可切。
+  if (isOfType(cur, 'user.message') && isOfType(prev ?? ({} as SparkEventEnvelope), 'assistant.message')) {
+    return false
+  }
+  // 规则③：started 应与 completed 同侧
   if (isOfType(cur, 'tool.started')) return false
-  if (isOfType(cur, 'assistant.message')) {
-    // 规则②：content 带 toolCall 块则不切
-    const hasCall = cur.data.content.some((c) => c.type === 'toolCall')
+  // 规则②：completed 的发起调用被摘要吞掉
+  if (isOfType(cur, 'tool.completed') && prev !== undefined && isOfType(prev, 'assistant.message')) {
+    const hasCall = prev.data.content.some((c) => c.type === 'toolCall')
     if (hasCall) return false
   }
-  // 规则④：i 之后（保留侧）存在未闭合的 tool 交换（started 无 completed）→ 不切。
-  // 未闭合交换若整体留在保留侧无害——只禁"摘要侧尾巴与保留侧开头撕裂交换"。
-  const openCall = new Map<string, 'open'>()
-  for (let j = i + 1; j < path.length; j++) {
+  // 规则④：交换撕裂——某 callId started 在摘要侧（<i）而 completed 在保留侧（≥i）
+  const preOpen = new Map<string, boolean>()
+  for (let j = 0; j < i; j++) {
     const e = path[j]
     if (e === undefined) continue
-    if (isOfType(e, 'tool.started')) openCall.set(e.data.callId, 'open')
-    else if (isOfType(e, 'tool.completed')) openCall.delete(e.data.callId)
+    if (isOfType(e, 'tool.started')) preOpen.set(e.data.callId, true)
+    else if (isOfType(e, 'tool.completed')) preOpen.delete(e.data.callId)
   }
-  // started 在摘要侧（i 及之前）且 completed 在保留侧 = 交换被撕裂
-  const preCall = new Map<string, boolean>()
-  for (let j = 0; j <= i; j++) {
+  for (let j = i; j < path.length; j++) {
     const e = path[j]
     if (e === undefined) continue
-    if (isOfType(e, 'tool.started')) preCall.set(e.data.callId, true)
-    else if (isOfType(e, 'tool.completed')) preCall.delete(e.data.callId)
-  }
-  for (const callId of openCall.keys()) {
-    if (preCall.has(callId)) return false
+    if (isOfType(e, 'tool.completed') && preOpen.has(e.data.callId)) return false
   }
   return true
 }
@@ -356,8 +355,9 @@ export class CompactorImpl implements Compactor {
       keptAny = true
       boundary = i
     }
-    // 安全切分点回退：boundary 起向前找首个 canSplitAfter 通过的位置；
-    // 边界含义 = path[0..boundary] 进摘要、[boundary+1..] 保留（canSplitAfter 的 i 语义一致）
+    // 安全切分点回退：预算边界即保留侧首条（boundary），canSplitAfter 以
+    // 「保留侧开头形态」判定（语义与 projector 锚点「含该事件之后保留」对齐）；
+    // 预算语义让位给完整性语义；回退到 start（全保留）也合法——本次压缩等价空摘，禁假状态。
     while (boundary > start && !canSplitAfter(path, boundary)) {
       boundary -= 1
     }

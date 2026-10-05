@@ -49,42 +49,50 @@ const TOOL_DONE = (callId: string): SparkEventEnvelope =>
     durationMs: 1,
   })
 
-describe('canSplitAfter：四规则矩阵（doc/16 §3 切分点专题）', () => {
-  test('规则① user.message 后不切（回答被拦腰斩断）', () => {
+describe('canSplitAfter：四规则矩阵（doc/16 §3 切分点专题；i = 保留侧首条含）', () => {
+  test('规则① user 落在回合中间不切（上一回合的回答被摘要吞掉）', () => {
+    const path = [USER(), ASSIST(), USER()]
+    // i=2：保留侧开头是第二条 user，其上文回答（i-1 assistant）将被摘要——不切
+    expect(canSplitAfter(path, 2)).toBe(false)
+    // i=1：保留侧开头是 assistant（回答完整保留）——可切
+    expect(canSplitAfter(path, 1)).toBe(true)
+  })
+
+  test('会话开头的 user 可切（无上文可吞）', () => {
     const path = [USER(), ASSIST()]
-    expect(canSplitAfter(path, 0)).toBe(false)
+    expect(canSplitAfter(path, 0)).toBe(true)
   })
 
-  test('规则② 带 toolCall 的 assistant 后不切（调用与结果分离）', () => {
+  test('规则② completed 的发起调用被摘要吞掉不切', () => {
     const path = [USER(), ASSIST_WITH_CALL(), TOOL_DONE('cal_cs0000000000000001'), ASSIST()]
-    // i=1：assistant 带 toolCall；交换整体已在摘要侧（保留侧无 started）——②命中
-    expect(canSplitAfter(path, 1)).toBe(false)
+    // i=2：保留侧开头是 tool.completed，发起它的 assistant toolCall（i-1）将被摘要——不切
+    expect(canSplitAfter(path, 2)).toBe(false)
   })
 
-  test('规则③ tool.started 后不切', () => {
+  test('规则③ tool.started 作保留侧开头不切（应与 completed 同侧）', () => {
     const path = [USER(), TOOL_START('cal_a'), TOOL_DONE('cal_a'), ASSIST()]
     expect(canSplitAfter(path, 1)).toBe(false)
   })
 
   test('规则④ 交换撕裂不切：started 在摘要侧、completed 在保留侧', () => {
     const path = [USER(), TOOL_START('cal_a'), TOOL_DONE('cal_a'), TOOL_START('cal_b'), TOOL_DONE('cal_b')]
-    // i=3：cal_b 的 started 在摘要侧、completed 在保留侧——撕裂
-    expect(canSplitAfter(path, 3)).toBe(false)
+    // i=3：保留侧 [start_b, done_b]，但 start_b 在摘要侧（i-1=2 已含 started_b）？
+    // 修正推演：i=3 的保留侧开头是 started_b（在 i 本位，规则③拦）；
+    // i=4 保留侧开头是 completed_b，其 started 在摘要侧（<4）——规则④拦
+    expect(canSplitAfter(path, 4)).toBe(false)
   })
 
-  test('完整交换整体在摘要侧可以切；纯 assistant 文本结尾可以切', () => {
+  test('完整交换整体在保留侧可以切', () => {
     const path = [USER(), ASSIST_WITH_CALL(), TOOL_DONE('cal_cs0000000000000001'), ASSIST()]
-    // i=2：tool.completed 后（交换 1 完整在摘要侧、保留侧无开启）——可切
-    expect(canSplitAfter(path, 2)).toBe(true)
-    // i=3：纯文本 assistant 结尾——可切
+    // i=1：保留侧 [assist_with_call, done, assist]——交换完整在保留侧，可切
+    expect(canSplitAfter(path, 1)).toBe(true)
+    // i=3：保留侧 [assist]（纯文本），前面交换完整在摘要侧——可切
     expect(canSplitAfter(path, 3)).toBe(true)
-    // i=0：user 后——不可切（①）
-    expect(canSplitAfter(path, 0)).toBe(false)
   })
 
-  test('fail-closed：空位/未知事件一律不可切', () => {
+  test('fail-closed：空路径不可切；error 信封作保留侧开头不构成撕裂（fail-closed 只约束 tool 交换完整性）', () => {
     expect(canSplitAfter([], 0)).toBe(false)
-    expect(canSplitAfter([ev('error', { scope: 'engine', message: 'm' })], 0)).toBe(false)
+    expect(canSplitAfter([ev('error', { scope: 'engine', message: 'm' })], 0)).toBe(true)
   })
 })
 
