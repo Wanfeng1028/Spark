@@ -45,7 +45,7 @@ from pathlib import Path
 # ---------------------------------------------------------------- 常量
 
 MD_GLOB = "**/*.md"
-SKIP_DIRS = {".git", "node_modules", "dist", ".pnpm-store", ".zcode", "official"}
+SKIP_DIRS = {".git", "node_modules", "dist", ".pnpm-store", ".zcode", "official", "_scratch"}
 
 
 def _is_skipped(path: Path) -> bool:
@@ -190,6 +190,12 @@ def check_facts(files: list[Path], root: Path, report: Report) -> None:
     for path in files:
         by_rel[path.relative_to(root).as_posix()] = path.read_text(encoding="utf-8")
 
+    # 代码锚（doc/17 F-02）：事件词表计数规则的事实源是**代码实数**（events.ts
+    # EventSchemas 顶层键数）——此前检查 1.5 是纯文档互查，全族同错互恰不报
+    # （34 vs 实数 35 存活多轮即此盲区）。凡规则名以"事件词表计数"开头，文档值
+    # 必须等于代码实数，否则 error（不止族内一致）。
+    code_event_count = real_event_type_count(root)
+
     for rule_name, patterns in FACT_RULES.items():
         values: dict[str, tuple[str, int]] = {}
         for rel, pattern in patterns.items():
@@ -203,6 +209,16 @@ def check_facts(files: list[Path], root: Path, report: Report) -> None:
         if len(distinct) > 1:
             detail = "、".join(f"{rel}:{line}={val}" for rel, (val, line) in sorted(values.items()))
             report.error(f"[{rule_name}] 计数不一致 → {detail}")
+        if rule_name.startswith("事件词表计数"):
+            if code_event_count is None:
+                report.error(f"[{rule_name}] 代码事实源解析失败（events.ts EventSchemas）")
+            else:
+                drift = sorted(rel for rel, (val, _l) in values.items() if val != str(code_event_count))
+                if drift:
+                    report.error(
+                        f"[{rule_name}] 文档计数 ≠ 代码实数 {code_event_count} → {', '.join(drift)}"
+                        f"（事实源 packages/protocol/src/events.ts；doc/17 F-02 代码锚）"
+                    )
         missing = sorted(set(patterns) - set(values))
         if missing:
             report.warn(f"[{rule_name}] 锚点未命中（文件缺失或措辞变更）：{', '.join(missing)}")

@@ -149,13 +149,20 @@ def check_engine_lines(root: Path) -> bool:
 def route_paths(root: Path) -> set[str]:
     paths: set[str] = set()
     routes_dir = root / "apps" / "server" / "src" / "routes"
+    # 配对鉴权与 SSE 挂在 routes/ 之外（pairing-routes.ts / sse.ts）——doc/17 F-12：
+    # 扫描面缺它们 = 这两域端点绕过 openapi 同步闸（补入）
+    scan_files = list(routes_dir.rglob("*.ts"))
+    for extra in ("pairing-routes.ts", "sse.ts"):
+        extra_path = root / "apps" / "server" / "src" / extra
+        if extra_path.is_file():
+            scan_files.append(extra_path)
     pattern = re.compile(r"app\.(?:get|put|post|delete)\(\s*'([^']+)'")
     # 通配段别名：源码 '*' ↔ openapi 命名参数
     wildcard_aliases = {
         "/api/attachments/*": "/api/attachments/{file}",
         "/api/artifacts/*": "/api/artifacts/{file}",
     }
-    for p in routes_dir.rglob("*.ts"):
+    for p in scan_files:
         for m in pattern.finditer(read(p)):
             path = m.group(1)
             path = wildcard_aliases.get(path, path)

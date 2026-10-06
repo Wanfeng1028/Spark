@@ -128,6 +128,8 @@ updatePrompt(update: PromptsUpdate): PromptsDto {
 
 ### E-1（P0）词表实测 34，文档与官网写 35
 
+> **时点澄清（doc/17 F-09）**：本条审计于词表 34 时点做出，措辞准确；其后 CK-1 批 2 补 `task.progress` 使**实数升到 35**——"对岸消失"的消解恰因代码侧又长了一条，审计发现的"文档侧 9 处 35 需逐一核"并未因此作废（其中两处 doc/02 §8.6 测试矩阵行确属漏改，2026-10-06 doc/17 F-01 补齐）。
+
 实测（`packages/protocol/src/events.ts` 第 26–320 行的 schema map 键）：
 
 ```

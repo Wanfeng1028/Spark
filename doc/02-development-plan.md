@@ -375,7 +375,7 @@ export type PermissionReply = 'once' | 'always' | 'reject'
 
 ## 4.3 事件词表（35 种，merge-extensible——dsh 手法，插件 declaration merging 扩展）
 
-> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 34 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
+> **扩展落地（阶段五工单 5.5，ADR D18）**：编译期扩展走 SparkEventMap declaration merging；运行时扩展 = protocol `extend.ts` 注册表（`registerEventType`/`eventSchemaOf`）——skills 插件清单的 `plugin.*` 事件（JSON Schema → zod）注册后与内置 35 种**同一校验路径**（EventBus/parseEnvelope/SessionStore 统一查表）；扩展事件信封带 `ignorable: true`（durable 占行号，插件卸载后旧会话可加载；未装插件的前端跳过未知 ignorable 帧不断流）。
 
 ```ts
 export interface SparkEventMap {
@@ -567,6 +567,29 @@ export interface SparkEventEnvelope<T extends SparkEventType = SparkEventType> {
 | GET  | /api/models                 | —                                                    | `ModelsDto`（工单 6.5 轻后端例外：纯读配置合成——供应商清单/模型/defaultModel；**apiKey 掩码，值永不上线**） |
 | POST | /api/models/:providerId/test | —                                                   | `{ ok, message }`（工单 6.5：连通/鉴权问题走 200 + 人话文案，不当传输失败；工单 12.9 走同一出网代理） |
 | POST | /api/transcribe             | TranscribeRequest（provider? + audio{mime,dataBase64}） | `TranscribeResultDto { text, provider, model }`（工单 16.6：引擎侧 OpenAI 兼容转写 + SSRF 防护；配置缺失 400 / 内网拒绝 403 / 上游失败 502） |
+| GET  | /api/healthz                | —                                                    | `{ ok: true, version }`（存活探针；桌面壳 sidecar 就绪判定数据源） |
+| GET  | /api/prompts                | —                                                    | 提示词三槽位只读快照（阶段十九 19.18 / V2-16） |
+| PUT  | /api/prompts                | `PromptsUpdate`（base/compaction/title 可空覆盖）      | 更新后生效提示词快照（覆盖文件写入 spark.json prompts 段；null = 删该键回内置模板） |
+| GET  | /api/logs                   | `LogsQuery`（level/sessionId/limit）                  | `LogsDto`（引擎日志尾部视图；固定脱敏同文件日志） |
+| GET  | /api/arena/history          | `?sessionId=`                                        | 竞答历史（工单 16.8 / D42：胜者/两方终答/耗时） |
+| POST | /api/questions/:requestId   | `{ answers: [{ selected, note? }] }`                 | 结构化提问应答（CK-6：写入 QuestionBoard 结清挂起；aborted 占位同语义；未知 id 404） |
+| GET  | /api/attachments/*          | 路径参数（attachmentId）                              | 附件字节流（工单 12.2a：上传图片的读回通道，mime 白名单同上传） |
+| GET  | /api/storage/report         | —                                                    | `StorageReportDto`（阶段十九 19.37 第二批：~/.spark 按目录发现分桶；根不存在如实 exists:false） |
+| POST | /api/storage/cleanup        | `{ bucket }`                                         | `StorageCleanupDto`（19.37 第三批：白名单桶移入 trash，§2.10 只移不删；trash 桶为永久清空；白名单外 E_STORAGE_UNCLEANABLE） |
+| GET  | /api/storage/export         | `?buckets=`                                          | `StorageExportDto`（选中桶打包导出） |
+| POST | /api/storage/import         | 导出包体                                             | `StorageImportDto`（导入回灌；冲突跳过计数） |
+| POST | /api/link-preview           | `{ url }`                                            | 链接预览摘要（工单 13.6；SSRF 防护同 transcribe） |
+| POST | /api/browser/cleanup        | —                                                    | `{ removed }`（阶段十九 19.12 / ADR D49：清 shotsDir 全部 shot-*.png，白名单外不误删） |
+| POST | /api/mcp/:server/auth       | —                                                    | `{ started }`（CK-5 批 2 OAuth：后台授权流程立即返回，结果经 /api/mcp 轮询观察） |
+| GET  | /api/feedback               | `FeedbackQuery`（sessionId?/vote?）                   | `FeedbackEntryDto[]`（阶段十九 19.19 / V2-25：反馈列表，新→旧） |
+| POST | /api/feedback               | `FeedbackInput`                                      | `FeedbackEntryDto`（同 session+event+vote 幂等） |
+| DELETE | /api/feedback             | `FeedbackQuery`                                      | `{ ok }`（撤回一条；不存在 = 幂等 false） |
+| GET  | /api/hooks/project-trust    | —                                                    | `ProjectTrustStatusDto`（CK-2 批 2 ⑤：项目层 hooks 信任状态——声明有无 + 判定 + 策略档） |
+| PUT  | /api/sessions/:id/pin       | `{ pinned }`                                         | `SessionDto`（阶段十九 19.41 / V2-23：置顶/取消，列表排序第一键） |
+| PUT  | /api/sessions/:id/title     | `{ title }`                                          | `SessionDto`（阶段十九 19.20：会话改名；emit session.title，索引/列表同步） |
+| GET  | /api/sessions/:id/arena     | —                                                    | 竞答状态快照（16.8 / D42：两模型会话对/轮次/胜者） |
+| POST | /api/sessions/:id/arena/winner | `{ winner }`                                     | 胜者应用（整体一次 fs.write 审批；删除类跳过——§2.10） |
+| POST | /api/sessions/:id/arena/cancel | —                                                | `{ ok }`（取消进行中的竞答对） |
 | PUT  | /api/sessions/:id/model     | `{ model }`                                          | `{ model }`（工单 6.5 会话级模型；provider 未配置 → 400 `E_CONFIG`） |
 | PUT  | /api/sessions/:id/effort    | `{ effort }`                                         | `{ effort }`（工单 10.6 推理档位：会话级内存态，下一 turn 生效，重启回 models.json 缺省） |
 | GET  | /api/routing                | —                                                    | `RoutingDto`（阶段七工单 7.7：fallback 链/任务路由档/成本上限/usage 累计） |
@@ -3015,6 +3038,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | v4.221 | 2026-10-05 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与三项授权：晚风（Wanfeng1028，"1.授权 2.开工，告诉我参考了哪些项目的什么思想和代码 3.授权"——① acp/tree-sitter 新依赖授权 ② doc/16 方案 A 开工 ③ 同①） | **压缩方案 A 实施（CK-12②/doc/16 §4；参考来源在 v4.221 提交说明逐条列明：Kimi 四规则思想重写 / Gemini findCompressSplitPoint 骨架 / opencode 迭代摘要思想 / Claude 用户消息保全思想）**：① `canSplitAfter` 导出纯函数（四规则：user 后不切/带 toolCall 的 assistant 后不切/tool.started 后不切/交换撕裂不切——fail-closed 未知事件一律 false）+ computeKeptFromEventId 预算落定后**向前回退到最近安全切点**（完整性语义压过预算语义，回退到 start=全保留也合法）；② 迭代摘要：previousSummary() 从 durable 流取上次 compaction.completed 的 summary 拼进 prompt previous 段（零新事件）+ COMPACTION_PROMPT 增 UPDATE-it 与 verbatim-in-meaning 两句（用户消息原意保全）；③ compaction-split.test：四规则矩阵 6 例 + 迭代摘要 2 例 + 常量断言。**零协议面零新依赖**（tree-sitter 属 #3.1 危险命令件，另行）。本批本机零验证，CI 裁决 |
 | v4.222 | 2026-10-05 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与授权：晚风（Wanfeng1028，"1.授权"= acp/tree-sitter 新依赖；"3.授权"同） | **`spark acp` 适配器交付（CK-16 实施批 / doc/15 §4 方案一）**：新 `apps/cli/src/acp-server.ts`——stdio JSON-RPC（ndJsonStream，无网络监听面）+ 进程内引擎（createInProcessClient，mcp-server 同款装配：审批规则照常生效、超时收敛 300s）；方法面映射 session/new→sessions.create（cwd 透传）、session/prompt→send+事件流翻译（assistant.delta→agent_message_chunk、tool.started/completed→tool_call(_update) callId 直通、permission.asked→session/request_permission 三选项 outcome once/always 直映 PermissionReply——**弹窗 UI 归编辑器、审批门语义不变**）、session/cancel→interrupt；**fs/* 反向请求不支持**（agentCapabilities 显式声明——文件面自带 resolveInRoot+#3.6 边界，doc/15 §4 前提④晚风已拍板拒绝降级）；main.tsx 挂 acp 子命令 + USAGE。**新依赖声明**：apps/cli +`@agentclientprotocol/sdk ^1.7.0`（Apache-2.0）、packages/engine +`tree-sitter ^0.25.0`+`tree-sitter-bash ^0.25.0`（#3.1 危险命令件用）——**锁文件待 pnpm install 重算（晚风已授权），CI --frozen-lockfile 红在 install 步属预期中间态**。本批本机零验证，CI 裁决（install 步除外） |
 | v4.223 | 2026-10-06 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起与授权：晚风（Wanfeng1028，三项授权；锁文件已由晚风本机 pnpm install 重算） | **doc/14 #3.1 语法树级危险命令判定落地（安全三件套收官）**：新 `packages/engine/src/tools/dangerous-command.ts`（judgeBashCommand 三态 safe/dangerous/unanalyzable——tree-sitter AST 解析 + 穿透链 sudo/doas/env/command/exec/nohup/nice/busybox 剥离 + sh -c 嵌套深度 4 + 危险内核 shutdown/mkfs 族/dd 设备语义（of=/dev/* 危险、缺 of= 不可判定）+ rm -rf 关键路径 + chmod/chown 系统路径前缀命中；元字符快筛**只收值展开类** $/`/*/?/[]/~/{}——结构类 &&/|/;/></括号由 AST 正常解析不误伤合法复合命令；原生模块加载失败整体降级 unanalyzable fail-closed）+ **审批接线**（service assert：规则层 allow 后 dangerVerdict≠safe 降级 ask——与 trust 收紧同构，deny/ask 不变只收紧不放大；reason 带 `危险命令闸：` 归因）+ dangerous-command.test 7 组（skipIf 原生件缺失条件化；本地 esbuild 转译跑矩阵 16 例为排查手段）。**同批修 acp-server 信封收窄**（CI run 37337057082 TS2339×8：switch(e.type) 不传播联合——改 if+isOfType 链，permission 参数改 SparkEventEnvelope<'permission.asked'>）+ compaction-split 测试桩 as never（TS2740）。本批本机零验证（例外：esbuild 转译跑判定矩阵为排查手段），CI 裁决 |
+| v4.224 | 2026-10-06 | AI 编写：ZCode CLI·GLM-5.3-Flash（`account:zai-start-plan/GLM-5.3-Flash`）；发起：晚风（Wanfeng1028，"那你修复吧"——对 doc/17 全仓对账 8 项发现的修复授权） | **doc/17 发现全项修复**：① **F-01 事件计数六处 34→35**（apps/docs index×2/faq、CONTRIBUTING、doc/02 扩展锚 + §8.6 两行——代码锚上线后**当场再抓到审计漏数的两处**，检查器即修即用）；② **F-02 检查器接代码锚**（check_facts 对"事件词表计数"族增 events.ts EventSchemas 实数比对，纯文档互查盲区关死）；③ **F-03 §4.5 表补 22 行端点**（healthz/prompts/logs/storage×4/feedback×3/arena×3/questions/pin/title/link-preview/browser cleanup/mcp auth/attachments/hooks project-trust——method+path 双键对账复验缺口 0）；④ F-04 README.en 27→35；⑤ F-05 ADR D19 补 Ink ^7.1.1 修订注（工单 10.56 补记）；⑥ F-07 CK-16 卡补交付勾选；⑦ F-09 doc/13 E-1 补时点澄清；⑧ F-11 CHANGELOG 双 [1.0.0] 消歧（09-02 段改 [0.9.0]）；⑨ F-12 check_invariants 扫描面补 pairing-routes/sse（82 条路由全部在 openapi 验证通过）。F-06 改判：engine 的 D37/D38 注释与 ARCHITECTURE 429 行占位注记一致，非虚引（审计误报）。检查器 SKIP_DIRS += _scratch（调研参考件断链不入闸）。本机验证：check_doc_links **0 error** + check_invariants 5/5 + §4.5 缺口复验 0（三闸均为修复对象本身，非代跑 CI）。CI 裁决 |
 | v4.165 | 2026-09-30 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；依据：doc/11 §6.6 | **LA-55 收口**（CI 绿验收）：弹层环影 token 化——tokens.css `.popover-surface` 单点定义 + 八容器类引用（环宽/透明度改一处全局生效）；Composer 卡身另套参数不入弹层族 |
 | v4.161 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；依据：doc/11 §6.6 | **LA-52 收口**（6611e85 CI 绿验收）：审批回复改 async + 局部 pending/opError——失败卡内红字不再静默；pending 到 permission.resolved 回执止（真源事件流）；ApprovalCard 三键 pending 期禁用；测试两例 |
 | v4.162 | 2026-09-27 | AI 编写：ZCode CLI·GLM-5.3-Flash（`builtin:bigmodel-start-plan/GLM-5.3-Flash`）；依据：doc/11 §6.6 | **LA-57/58 收口**（CI 绿验收）：① openSessions 删除口——deleteSession 摘除 + forgetSession 公开口 + web onResync 只重放激活会话（断线 REST 请求数与翻会话数解耦）；② req() 缺省 30s 超时（AbortController 手工组合全端兼容，requestTimeoutMs 可配 0 关闭）——悬挂请求如实报错 |
@@ -3230,7 +3254,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 
 | 模块               | 用例要点                                                                                                                                                         |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| protocol           | 34 种事件样例逐一过 zod schema（round-trip）；信封 surface 标记的编译期断言；DTO/配置 schema                                                                     |
+| protocol           | 35 种事件样例逐一过 zod schema（round-trip）；信封 surface 标记的编译期断言；DTO/配置 schema                                                                     |
 | engine/config      | 三配置文件 zod：合法 / 缺字段 / 越界值 → 启动失败（E_CONFIG）                                                                                                    |
 | engine/bus         | durable seq 单调且**落盘后**才广播；live 不计数；订阅者异常隔离；背压 pause/resume                                                                               |
 | engine/input-queue | now/steer/queue × idle/running 全矩阵的三态返回；唤醒合并不空转                                                                                                  |
@@ -3239,7 +3263,7 @@ LoadingIndicator.tsx、SlashMenu.tsx、ResumePanel.tsx、apps/cli/src/app.tsx（
 | engine/permission  | evaluate 优先级（临时>项目>用户>默认 ask）；always 写入 + 同批放行；超时/中断 fail-closed；reject feedback 注入 user.message                                     |
 | engine/session     | 单写者 append/flush；坏行（尾行丢弃/非尾拒绝加载）；resume 补 turn.completed{aborted}；Projector 投影（无/有 compaction 分支 × reasoning 配置）；mungeDir 确定性 |
 | server             | 路由 zod 400/404/409/503 映射；SSE 回放+直播边界、心跳、全局订阅；SPA fallback 排除 /api                                                                         |
-| web                | **applyEvent 34 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
+| web                | **applyEvent 35 种逐一断言**（AGENTS 硬性约定 §2.8）；connection-store 断线状态机；Composer 三态渲染；选择器浅比较（流式仅命中项重渲染）                         |
 | 集成               | MockTransport 四场景全跑（§4.7 表）；阶段三：ScriptedLlm 全闭环 + 崩溃恢复（kill -9 后 resume 无悬挂事件）                                                       |
 
 ## 8.7 v2 候选池（未排期，部分已随阶段十二~十八落地；**2026-09-19 晚风拍板：余项凡属占位或判决登记限制的全部推翻立项进阶段十九**——落点映射见阶段十九表与 doc/08 §5D，行内"已立项/后置"状态不再逐行改写，以阶段表勾选为准；缺口编号对应 doc/07 §2.7）

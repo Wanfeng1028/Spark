@@ -211,7 +211,7 @@
 
 **Spark 缺口**：对外只有 REST/SSE + MCP server + SDK 三入口，无编辑器标准协议；后置池"IDE 集成"观察项（触发条件：编辑器用户群出现）。
 
-**内容**：按 ACP 协议规范**重写**（不拷 MiniMax 的 Pi 派生目录——保留原声明）stdio agent 面。**验收**：协议一致性测试 + Zed 实接走查留用户。**依赖**：触发条件驱动。**成本**：M。
+**内容**：按 ACP 协议规范**重写**（不拷 MiniMax 的 Pi 派生目录——保留原声明）stdio agent 面。**验收**：协议一致性测试 + Zed 实接走查留用户。**依赖**：触发条件驱动。**成本**：M。**✅ 交付（2026-10-06，doc/15 调研 + 48b0494/a52d77f 实施；doc/02 v4.222）**——`spark acp` 子命令（stdio JSON-RPC，无网络面；`@agentclientprotocol/sdk` 官方 SDK 1.7.0）：session/new→create（cwd 透传）/prompt→send+事件流翻译（delta→agent_message_chunk、tool_call 直通、permission.asked→request_permission 三选项 outcome 直映）/cancel→interrupt；**fs/* 反向请求不支持**（文件面自带 resolveInRoot+#3.6 边界，晚风拍板拒绝降级）。Zed 实接走查留用户。
 
 ### CK-17 工具声明式安全六维：一处声明处处消费（P2）
 
